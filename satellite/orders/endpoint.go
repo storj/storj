@@ -205,10 +205,19 @@ type Endpoint struct {
 	nodeAPIVersionDB           nodeapiversion.DB
 	settlementBatchSize        int
 	windowEndpointRolloutPhase WindowEndpointRolloutPhase
+	ordersSemaphore            chan struct{}
 }
 
 // NewEndpoint new orders receiving endpoint.
-func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB, settlementBatchSize int, windowEndpointRolloutPhase WindowEndpointRolloutPhase) *Endpoint {
+//
+// ordersSemaphoreSize controls the number of concurrent clients allowed to submit orders at once.
+// A value of zero means unlimited.
+func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB, settlementBatchSize int, windowEndpointRolloutPhase WindowEndpointRolloutPhase, ordersSemaphoreSize int) *Endpoint {
+	var ordersSemaphore chan struct{}
+	if ordersSemaphoreSize > 0 {
+		ordersSemaphore = make(chan struct{}, ordersSemaphoreSize)
+	}
+
 	return &Endpoint{
 		log:                        log,
 		satelliteSignee:            satelliteSignee,
@@ -216,6 +225,7 @@ func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPI
 		nodeAPIVersionDB:           nodeAPIVersionDB,
 		settlementBatchSize:        settlementBatchSize,
 		windowEndpointRolloutPhase: windowEndpointRolloutPhase,
+		ordersSemaphore:            ordersSemaphore,
 	}
 }
 
@@ -237,10 +247,30 @@ func monitoredSettlementStreamSend(ctx context.Context, stream pb.DRPCOrders_Set
 	return stream.Send(resp)
 }
 
+// enterOrdersSemaphore acquires a slot with the ordersSemaphore if one exists and returns
+// a function to exit it. If the context expires, it returns an error.
+func (endpoint *Endpoint) enterOrdersSemaphore(ctx context.Context) (func(), error) {
+	if endpoint.ordersSemaphore == nil {
+		return func() {}, nil
+	}
+	select {
+	case endpoint.ordersSemaphore <- struct{}{}:
+		return func() { <-endpoint.ordersSemaphore }, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
 // Settlement receives orders and handles them in batches.
 func (endpoint *Endpoint) Settlement(stream pb.DRPCOrders_SettlementStream) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
+
+	exit, err := endpoint.enterOrdersSemaphore(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer exit()
 
 	switch endpoint.windowEndpointRolloutPhase {
 	case WindowEndpointRolloutPhase1:
@@ -411,6 +441,12 @@ func (endpoint *Endpoint) SettlementWithWindow(stream pb.DRPCOrders_SettlementWi
 func (endpoint *Endpoint) SettlementWithWindowMigration(stream pb.DRPCOrders_SettlementWithWindowStream) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
+
+	exit, err := endpoint.enterOrdersSemaphore(ctx)
+	if err != nil {
+		return err
+	}
+	defer exit()
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {

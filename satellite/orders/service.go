@@ -36,6 +36,7 @@ type Config struct {
 	ReportedRollupsReadBatchSize int                        `help:"how many records to read in a single transaction when calculating billable bandwidth" default:"1000"`
 	NodeStatusLogging            bool                       `hidden:"true" help:"deprecated, log the offline/disqualification status of nodes" default:"false"`
 	WindowEndpointRolloutPhase   WindowEndpointRolloutPhase `help:"rollout phase for the windowed endpoint" default:"phase1"`
+	OrdersSemaphoreSize          int                        `help:"how many concurrent orders to process at once. zero is unlimited" default:"2"`
 }
 
 // BucketsDB returns information about buckets.
