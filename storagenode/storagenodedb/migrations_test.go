@@ -47,6 +47,11 @@ func insertNewData(ctx context.Context, mdbs *testdata.MultiDBState, rawDBs map[
 func getSchemas(ctx context.Context, rawDBs map[string]storagenodedb.DBContainer) (map[string]*dbschema.Schema, error) {
 	schemas := make(map[string]*dbschema.Schema)
 	for dbName, rawDB := range rawDBs {
+		db := rawDB.GetDB()
+		if db == nil {
+			continue
+		}
+
 		schema, err := sqliteutil.QuerySchema(ctx, rawDB.GetDB())
 		if err != nil {
 			return nil, err
@@ -65,6 +70,11 @@ func getSchemas(ctx context.Context, rawDBs map[string]storagenodedb.DBContainer
 func getData(ctx context.Context, rawDBs map[string]storagenodedb.DBContainer, schemas map[string]*dbschema.Schema) (map[string]*dbschema.Data, error) {
 	data := make(map[string]*dbschema.Data)
 	for dbName, rawDB := range rawDBs {
+		db := rawDB.GetDB()
+		if db == nil {
+			continue
+		}
+
 		datum, err := sqliteutil.QueryData(ctx, rawDB.GetDB(), schemas[dbName])
 		if err != nil {
 			return nil, err
