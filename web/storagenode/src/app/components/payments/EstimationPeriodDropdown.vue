@@ -2,7 +2,12 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="period-container" :class="{ disabled: isCalendarDisabled }" @click.stop="openPeriodDropdown">
+    <button
+        name="Show Period Date Picker"
+        class="period-container"
+        :class="{ disabled: false }"
+        @click.stop="openPeriodDropdown"
+    >
         <p class="period-container__label long-text">Custom Date Range</p>
         <p class="period-container__label short-text">Custom Range</p>
         <BlackArrowHide v-if="isCalendarShown" />
@@ -12,7 +17,7 @@
             v-click-outside="closePeriodDropdown"
             v-if="isCalendarShown"
         />
-    </div>
+    </button>
 </template>
 
 <script lang="ts">

@@ -26,7 +26,7 @@ Vue.directive('click-outside', {
 
 const store = new Vuex.Store({ modules: { appStateModule, node: nodeModule }});
 
-describe('DiskStatChart', (): void => {
+describe('EstimationPeriodDropdown', (): void => {
     it('renders correctly', (): void => {
         const wrapper = shallowMount(EstimationPeriodDropdown, {
             store,
