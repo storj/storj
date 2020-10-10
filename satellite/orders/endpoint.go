@@ -247,17 +247,19 @@ func monitoredSettlementStreamSend(ctx context.Context, stream pb.DRPCOrders_Set
 	return stream.Send(resp)
 }
 
-// enterOrdersSemaphore acquires a slot with the ordersSemaphore if one exists and returns
+// withOrdersSemaphore acquires a slot with the ordersSemaphore if one exists and returns
 // a function to exit it. If the context expires, it returns an error.
-func (endpoint *Endpoint) enterOrdersSemaphore(ctx context.Context) (func(), error) {
+func (endpoint *Endpoint) withOrdersSemaphore(ctx context.Context, cb func(ctx context.Context) error) error {
 	if endpoint.ordersSemaphore == nil {
-		return func() {}, nil
+		return cb(ctx)
 	}
 	select {
 	case endpoint.ordersSemaphore <- struct{}{}:
-		return func() { <-endpoint.ordersSemaphore }, nil
+		err := cb(ctx)
+		<-endpoint.ordersSemaphore
+		return err
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return ctx.Err()
 	}
 }
 
@@ -265,12 +267,6 @@ func (endpoint *Endpoint) enterOrdersSemaphore(ctx context.Context) (func(), err
 func (endpoint *Endpoint) Settlement(stream pb.DRPCOrders_SettlementStream) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
-
-	exit, err := endpoint.enterOrdersSemaphore(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	defer exit()
 
 	switch endpoint.windowEndpointRolloutPhase {
 	case WindowEndpointRolloutPhase1:
@@ -395,7 +391,11 @@ func (endpoint *Endpoint) Settlement(stream pb.DRPCOrders_SettlementStream) (err
 func (endpoint *Endpoint) processOrders(ctx context.Context, stream pb.DRPCOrders_SettlementStream, requests []*ProcessOrderRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	responses, err := endpoint.DB.ProcessOrders(ctx, requests)
+	var responses []*ProcessOrderResponse
+	err = endpoint.withOrdersSemaphore(ctx, func(ctx context.Context) error {
+		responses, err = endpoint.DB.ProcessOrders(ctx, requests)
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -442,19 +442,16 @@ func (endpoint *Endpoint) SettlementWithWindowMigration(stream pb.DRPCOrders_Set
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
 
-	exit, err := endpoint.enterOrdersSemaphore(ctx)
-	if err != nil {
-		return err
-	}
-	defer exit()
-
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
 		endpoint.log.Debug("err peer identity from context", zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
 
-	err = endpoint.nodeAPIVersionDB.UpdateVersionAtLeast(ctx, peer.ID, nodeapiversion.HasWindowedOrders)
+	// update the node api version inside of the semaphore
+	err = endpoint.withOrdersSemaphore(ctx, func(ctx context.Context) error {
+		return endpoint.nodeAPIVersionDB.UpdateVersionAtLeast(ctx, peer.ID, nodeapiversion.HasWindowedOrders)
+	})
 	if err != nil {
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
@@ -512,8 +509,11 @@ func (endpoint *Endpoint) SettlementWithWindowMigration(stream pb.DRPCOrders_Set
 			})
 		}
 
-		// process all of the orders in the old way
-		_, err = endpoint.DB.ProcessOrders(ctx, requests)
+		// process all of the orders in the old way inside of the semaphore
+		err := endpoint.withOrdersSemaphore(ctx, func(ctx context.Context) error {
+			_, err = endpoint.DB.ProcessOrders(ctx, requests)
+			return err
+		})
 		if err != nil {
 			return rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
@@ -529,11 +529,19 @@ func (endpoint *Endpoint) SettlementWithWindowMigration(stream pb.DRPCOrders_Set
 	// insert zero rows for every action involved in the set of orders. this prevents
 	// many problems (double spends and underspends) by ensuring that any window is
 	// either handled entirely by the queue or entirely with the phase 3 windowed endpoint.
+	// enter the semaphore for the duration of the updates.
+
 	windowTime := time.Unix(0, window)
-	for action := range actions {
-		if err := endpoint.DB.UpdateStoragenodeBandwidthSettle(ctx, peer.ID, action, 0, windowTime); err != nil {
-			return rpcstatus.Wrap(rpcstatus.Internal, err)
+	err = endpoint.withOrdersSemaphore(ctx, func(ctx context.Context) error {
+		for action := range actions {
+			if err := endpoint.DB.UpdateStoragenodeBandwidthSettle(ctx, peer.ID, action, 0, windowTime); err != nil {
+				return err
+			}
 		}
+		return nil
+	})
+	if err != nil {
+		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 
 	log.Debug("orders processed",
