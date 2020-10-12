@@ -197,32 +197,65 @@ export class Satellites {
     ) {}
 }
 
+// TODO: move and create domain types.
 /**
  * Holds information about audit and suspension scores by satellite.
  */
 export class SatelliteScores {
-    public auditScore: string;
-    public suspensionScore: string;
+    public auditScore: Score;
+    public suspensionScore: Score;
+    public onlineScore: Score;
+    public iconClassName: string = '';
+
+    private readonly WARNING_CLASSNAME: string = 'warning';
+    private readonly DISQUALIFICATION_CLASSNAME: string = 'disqualification';
+
+    public constructor(
+        public satelliteName: string = 'satellite-name',
+        auditScore: number = 0,
+        unknownScore: number = 0,
+        onlineScore: number = 0,
+    ) {
+        this.auditScore = new Score(auditScore);
+        this.suspensionScore = new Score(unknownScore);
+        this.onlineScore = new Score(onlineScore);
+        const scores = [this.auditScore, this.onlineScore, this.suspensionScore];
+
+        if (scores.some(score => score.statusClassName === this.DISQUALIFICATION_CLASSNAME)) {
+            this.iconClassName = this.DISQUALIFICATION_CLASSNAME;
+
+            return;
+        }
+
+        if (scores.some(score => score.statusClassName === this.WARNING_CLASSNAME)) {
+            this.iconClassName = this.WARNING_CLASSNAME;
+        }
+    }
+}
+
+/**
+ * Score in percents and className for view.
+ */
+export class Score {
+    public label: string;
     public statusClassName: string;
+
     private readonly WARNING_MINIMUM_SCORE: number = 0.95;
     private readonly WARNING_CLASSNAME: string = 'warning';
     private readonly DISQUALIFICATION_MINIMUM_SCORE: number = 0.6;
     private readonly DISQUALIFICATION_CLASSNAME: string = 'disqualification';
 
     public constructor(
-        public satelliteName: string = 'satellite-name',
         score: number = 0,
-        unknownScore: number = 0,
     ) {
-        this.auditScore = `${score * 100} %`;
-        this.suspensionScore = `${unknownScore * 100} %`;
+        this.label = `${parseFloat((score * 100).toFixed(2))} %`;
 
         switch (true) {
-            case (score < this.DISQUALIFICATION_MINIMUM_SCORE || unknownScore < this.DISQUALIFICATION_MINIMUM_SCORE):
+            case (score < this.DISQUALIFICATION_MINIMUM_SCORE):
                 this.statusClassName = this.DISQUALIFICATION_CLASSNAME;
 
                 break;
-            case (score < this.WARNING_MINIMUM_SCORE || unknownScore < this.WARNING_MINIMUM_SCORE):
+            case (score < this.WARNING_MINIMUM_SCORE):
                 this.statusClassName = this.WARNING_CLASSNAME;
 
                 break;

@@ -28,9 +28,9 @@ describe('AllSatellitesAuditsArea', (): void => {
 
         const satellites = new Satellites();
         satellites.satellitesScores = [
-            new SatelliteScores('name1', 1, 1),
-            new SatelliteScores('name2', 0.5, 1),
-            new SatelliteScores('name3', 0.7, 1),
+            new SatelliteScores('name1', 1, 1, 0.5),
+            new SatelliteScores('name2', 0.5, 1, 0.7),
+            new SatelliteScores('name3', 0.7, 1, 1),
         ];
 
         jest.spyOn(nodeApi, 'satellites').mockReturnValue(Promise.resolve(satellites));

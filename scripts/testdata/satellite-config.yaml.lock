@@ -463,6 +463,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # include encrypted metadata in the order limit
 # orders.include-encrypted-metadata: false
 
+# how many concurrent orders to process at once. zero is unlimited
+# orders.orders-semaphore-size: 2
+
 # how many records to read in a single transaction when calculating billable bandwidth
 # orders.reported-rollups-read-batch-size: 1000
 

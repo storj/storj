@@ -6,17 +6,21 @@
         <div class="audits-area__content">
             <div class="audits-area__content__item" v-for="item in auditItems" :key="item.satelliteName">
                 <div class="audits-area__content__item__header">
-                    <p class="audits-area__content__item__header__satellite-name">{{item.satelliteName}}</p>
-                    <DisqualifyIcon v-if="item.statusClassName" :class="[ item.statusClassName ]" />
+                    <p class="audits-area__content__item__header__satellite-name">{{ item.satelliteName }}</p>
+                    <DisqualifyIcon v-if="item.iconClassName" :class="[ item.iconClassName ]" />
                 </div>
                 <div class="audits-area__content__item__divider"></div>
                 <div class="audits-area__content__item__info">
                     <p class="audits-area__content__item__info__label">Suspension</p>
-                    <p class="audits-area__content__item__info__value" :class="[ item.statusClassName ]">{{item.suspensionScore}}</p>
+                    <p class="audits-area__content__item__info__value" :class="[ item.suspensionScore.statusClassName ]">{{ item.suspensionScore.label }}</p>
                 </div>
                 <div class="audits-area__content__item__info">
                     <p class="audits-area__content__item__info__label">Audit</p>
-                    <p class="audits-area__content__item__info__value" :class="[ item.statusClassName ]">{{item.auditScore}}</p>
+                    <p class="audits-area__content__item__info__value" :class="[ item.auditScore.statusClassName ]">{{ item.auditScore.label }}</p>
+                </div>
+                <div class="audits-area__content__item__info">
+                    <p class="audits-area__content__item__info__label">Online</p>
+                    <p class="audits-area__content__item__info__value" :class="[ item.onlineScore.statusClassName ]">{{ item.onlineScore.label }}</p>
                 </div>
             </div>
         </div>
