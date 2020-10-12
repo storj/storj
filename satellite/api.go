@@ -333,6 +333,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.NodeAPIVersion(),
 			config.Orders.SettlementBatchSize,
 			config.Orders.WindowEndpointRolloutPhase,
+			config.Orders.OrdersSemaphoreSize,
 		)
 		var err error
 		peer.Orders.Service, err = orders.NewService(
