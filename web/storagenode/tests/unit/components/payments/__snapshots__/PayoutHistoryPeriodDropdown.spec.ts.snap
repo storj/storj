@@ -1,7 +1,7 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`PayoutHistoryPeriodDropdown renders correctly with actual values 1`] = `
-<div class="period-container disabled">
+<div class="period-container">
   <p class="period-container__label long-text">May, 2020</p>
   <blackarrowexpand-stub></blackarrowexpand-stub>
   <!---->

@@ -130,7 +130,12 @@ export class ApiKeysApiGql extends BaseGql implements ApiKeysApi {
 
         const apiKeysPage: ApiKeysPage = new ApiKeysPage();
 
-        apiKeysPage.apiKeys = page.apiKeys.map(key => new ApiKey(key.id, key.name, key.createdAt, ''));
+        apiKeysPage.apiKeys = page.apiKeys.map(key => new ApiKey(
+            key.id,
+            key.name,
+            new Date(key.createdAt),
+            '',
+        ));
 
         apiKeysPage.search = page.search;
         apiKeysPage.limit = page.limit;

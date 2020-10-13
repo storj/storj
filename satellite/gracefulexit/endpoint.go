@@ -285,7 +285,7 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 						return rpcstatus.Error(rpcstatus.Internal, err.Error())
 					}
 
-					mon.Meter("graceful_exit_fail_validation").Mark(1) //locked
+					mon.Meter("graceful_exit_fail_validation").Mark(1) //mon:locked
 
 					exitStatusRequest := &overlay.ExitStatusRequest{
 						NodeID:         nodeID,
@@ -510,7 +510,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream pb.DRPCSat
 		return Error.Wrap(err)
 	}
 
-	mon.Meter("graceful_exit_transfer_piece_success").Mark(1) //locked
+	mon.Meter("graceful_exit_transfer_piece_success").Mark(1) //mon:locked
 	return nil
 }
 
@@ -522,7 +522,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 		zap.Stringer("nodeID", nodeID),
 		zap.Stringer("transfer error", message.Failed.GetError()),
 	)
-	mon.Meter("graceful_exit_transfer_piece_fail").Mark(1) //locked
+	mon.Meter("graceful_exit_transfer_piece_fail").Mark(1) //mon:locked
 
 	pieceID := message.Failed.OriginalPieceId
 	transfer, ok := pending.Get(pieceID)
@@ -798,10 +798,10 @@ func (endpoint *Endpoint) checkExitStatus(ctx context.Context, nodeID storj.Node
 
 		// graceful exit initiation metrics
 		age := time.Now().UTC().Sub(node.CreatedAt.UTC())
-		mon.FloatVal("graceful_exit_init_node_age_seconds").Observe(age.Seconds())                           //locked
-		mon.IntVal("graceful_exit_init_node_audit_success_count").Observe(node.Reputation.AuditSuccessCount) //locked
-		mon.IntVal("graceful_exit_init_node_audit_total_count").Observe(node.Reputation.AuditCount)          //locked
-		mon.IntVal("graceful_exit_init_node_piece_count").Observe(node.PieceCount)                           //locked
+		mon.FloatVal("graceful_exit_init_node_age_seconds").Observe(age.Seconds())                           //mon:locked
+		mon.IntVal("graceful_exit_init_node_audit_success_count").Observe(node.Reputation.AuditSuccessCount) //mon:locked
+		mon.IntVal("graceful_exit_init_node_audit_total_count").Observe(node.Reputation.AuditCount)          //mon:locked
+		mon.IntVal("graceful_exit_init_node_piece_count").Observe(node.PieceCount)                           //mon:locked
 
 		return &pb.SatelliteMessage{Message: &pb.SatelliteMessage_NotReady{NotReady: &pb.NotReady{}}}, nil
 	}
@@ -820,13 +820,13 @@ func (endpoint *Endpoint) generateExitStatusRequest(ctx context.Context, nodeID 
 		return nil, exitFailedReason, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	mon.IntVal("graceful_exit_final_pieces_failed").Observe(progress.PiecesFailed)         //locked
-	mon.IntVal("graceful_exit_final_pieces_succeess").Observe(progress.PiecesTransferred)  //locked
-	mon.IntVal("graceful_exit_final_bytes_transferred").Observe(progress.BytesTransferred) //locked
+	mon.IntVal("graceful_exit_final_pieces_failed").Observe(progress.PiecesFailed)         //mon:locked
+	mon.IntVal("graceful_exit_final_pieces_succeess").Observe(progress.PiecesTransferred)  //mon:locked
+	mon.IntVal("graceful_exit_final_bytes_transferred").Observe(progress.BytesTransferred) //mon:locked
 	processed := progress.PiecesFailed + progress.PiecesTransferred
 
 	if processed > 0 {
-		mon.IntVal("graceful_exit_successful_pieces_transfer_ratio").Observe(progress.PiecesTransferred / processed) //locked
+		mon.IntVal("graceful_exit_successful_pieces_transfer_ratio").Observe(progress.PiecesTransferred / processed) //mon:locked
 	}
 
 	exitStatusRequest := &overlay.ExitStatusRequest{
@@ -842,9 +842,9 @@ func (endpoint *Endpoint) generateExitStatusRequest(ctx context.Context, nodeID 
 	}
 
 	if exitStatusRequest.ExitSuccess {
-		mon.Meter("graceful_exit_success").Mark(1) //locked
+		mon.Meter("graceful_exit_success").Mark(1) //mon:locked
 	} else {
-		mon.Meter("graceful_exit_fail_max_failures_percentage").Mark(1) //locked
+		mon.Meter("graceful_exit_fail_max_failures_percentage").Mark(1) //mon:locked
 	}
 
 	return exitStatusRequest, exitFailedReason, nil

@@ -144,11 +144,17 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 		} `json:"rate"`
 		Buckets int `json:"maxBuckets"`
 	}
-	output.Usage.Amount = usagelimit
-	output.Usage.Bytes = usagelimit.Int64()
-	output.Bandwidth.Amount = bandwidthlimit
-	output.Bandwidth.Bytes = bandwidthlimit.Int64()
-	output.Buckets = project.MaxBuckets
+	if usagelimit != nil {
+		output.Usage.Amount = memory.Size(*usagelimit)
+		output.Usage.Bytes = *usagelimit
+	}
+	if bandwidthlimit != nil {
+		output.Bandwidth.Amount = memory.Size(*bandwidthlimit)
+		output.Bandwidth.Bytes = *bandwidthlimit
+	}
+	if project.MaxBuckets != nil {
+		output.Buckets = *project.MaxBuckets
+	}
 	if project.RateLimit != nil {
 		output.Rate.RPS = *project.RateLimit
 	}
@@ -485,7 +491,7 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 	}
 
 	if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.ObjectCount > 0 {
-		//time passed into the check function need to be the UTC midnight dates of the first and last day of the month
+		// time passed into the check function need to be the UTC midnight dates of the first and last day of the month
 		err := server.db.StripeCoinPayments().ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour*24))
 		switch err {
 		case stripecoinpayments.ErrProjectRecordExists:

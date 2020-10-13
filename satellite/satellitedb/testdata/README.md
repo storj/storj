@@ -16,7 +16,8 @@ For a given step, what happens is
 
 1. The `-- OLD DATA --` section is just run on the database being migrated
 2. The main section and `-- NEW DATA --` sections are run on the snapshot
-3. The `-- NEW DATA --` section is run on the database
+3. The migration is run against the main database
+4. The `-- NEW DATA --` section is run on the database
 
 Then, the snapshot and current database state are compared for schema and data differences.
 
@@ -90,6 +91,8 @@ Depending on what your migration is doing, you should then do one of these:
     	},
     },
     ```
+
+4. Removing a DEFAULT value for a column can be tricky. Old values inserted in the snapshot files may not specify every column and relying on those defaults. In the migration that removes the DEFAULT value, you must also change any INSERT statements to include any unspecified columns, setting them to the dropped DEFAULT. This is because the main database will have inserted them while they had the DEFAULT, but the new snapshot will not be inserting while the columns have the DEFAULT.
 
 ## FAQ
 

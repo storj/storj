@@ -21,7 +21,6 @@ import (
 )
 
 func TestProjectsRepository(t *testing.T) {
-	//testing constants
 	const (
 		// for user
 		shortName    = "lastName"
@@ -195,7 +194,7 @@ func TestProjectsList(t *testing.T) {
 
 		projectsDB := db.Console().Projects()
 
-		//create projects
+		// Create projects
 		var projects []console.Project
 		for i := 0; i < length; i++ {
 			proj, err := projectsDB.Insert(ctx,
@@ -243,12 +242,12 @@ func TestGetMaxBuckets(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		maxCount := 100
 		consoleDB := db.Console()
-		project, err := consoleDB.Projects().Insert(ctx, &console.Project{Name: "testproject1", MaxBuckets: maxCount})
+		project, err := consoleDB.Projects().Insert(ctx, &console.Project{Name: "testproject1", MaxBuckets: &maxCount})
 		require.NoError(t, err)
 		projectsDB := db.Console().Projects()
 		max, err := projectsDB.GetMaxBuckets(ctx, project.ID)
 		require.NoError(t, err)
-		require.Equal(t, maxCount, max)
+		require.Equal(t, maxCount, *max)
 	})
 }
 

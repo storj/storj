@@ -30,6 +30,7 @@ var postgres = flag.String("postgres-test-db", getenv("STORJ_TEST_POSTGRES", "ST
 
 // cockroach is the test database connection string for CockroachDB.
 var cockroach = flag.String("cockroach-test-db", getenv("STORJ_TEST_COCKROACH", "STORJ_COCKROACH_TEST"), "CockroachDB test database connection string (semicolon delimited for multiple), \"omit\" is used to omit the tests from output")
+var cockroachAlt = flag.String("cockroach-test-alt-db", getenv("STORJ_TEST_COCKROACH_ALT"), "CockroachDB test database connection alternate string (semicolon delimited for multiple), \"omit\" is used to omit the tests from output")
 
 // DefaultPostgres is expected to work under the storj-test docker-compose instance.
 const DefaultPostgres = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
@@ -90,6 +91,20 @@ func PickCockroach(t TB) string {
 		t.Skip("Cockroach flag missing, example: -cockroach-test-db=" + DefaultCockroach)
 	}
 	return pickRandom(*cockroach)
+}
+
+// PickCockroachAlt picks an alternate cockroach database from flag.
+//
+// This is used for high-load tests to ensure that other tests do not timeout.
+func PickCockroachAlt(t TB) string {
+	if *cockroachAlt == "" {
+		return PickCockroach(t)
+	}
+	if strings.EqualFold(*cockroachAlt, "omit") {
+		t.Skip("Cockroach alt flag omitted.")
+	}
+
+	return pickRandom(*cockroachAlt)
 }
 
 func pickRandom(dbstr string) string {

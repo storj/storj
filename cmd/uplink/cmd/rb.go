@@ -61,7 +61,7 @@ func deleteBucket(cmd *cobra.Command, args []string) (err error) {
 	}()
 
 	if *rbForceFlag {
-		//TODO: Do we need to have retry here?
+		// TODO: Do we need to have retry here?
 		if _, err := project.DeleteBucketWithObjects(ctx, dst.Bucket()); err != nil {
 			return convertError(err, dst)
 		}

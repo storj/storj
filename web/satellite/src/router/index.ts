@@ -13,6 +13,7 @@ import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
 import CreateProject from '@/components/project/CreateProject.vue';
+import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
@@ -40,6 +41,7 @@ export abstract class RouteConfig {
     public static ApiKeys = new NavigationLink('/api-keys', 'API Keys');
     public static OnboardingTour = new NavigationLink('/onboarding-tour', 'Onboarding Tour');
     public static CreateProject = new NavigationLink('/create-project', 'Create Project');
+    public static EditProjectDetails = new NavigationLink('/edit-project-details', 'Edit Project Details');
 
     // child paths
     public static Settings = new NavigationLink('settings', 'Settings');
@@ -157,6 +159,11 @@ export const router = new Router({
                     path: RouteConfig.CreateProject.path,
                     name: RouteConfig.CreateProject.name,
                     component: CreateProject,
+                },
+                {
+                    path: RouteConfig.EditProjectDetails.path,
+                    name: RouteConfig.EditProjectDetails.name,
+                    component: EditProjectDetails,
                 },
             ],
         },

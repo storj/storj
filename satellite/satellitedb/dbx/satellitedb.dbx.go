@@ -497,10 +497,10 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	usage_limit bigint NOT NULL DEFAULT 0,
-	bandwidth_limit bigint NOT NULL DEFAULT 0,
+	usage_limit bigint DEFAULT 50000000000,
+	bandwidth_limit bigint DEFAULT 50000000000,
 	rate_limit integer,
-	max_buckets integer NOT NULL DEFAULT 0,
+	max_buckets integer DEFAULT 100,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -1008,10 +1008,10 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	usage_limit bigint NOT NULL DEFAULT 0,
-	bandwidth_limit bigint NOT NULL DEFAULT 0,
+	usage_limit bigint DEFAULT 50000000000,
+	bandwidth_limit bigint DEFAULT 50000000000,
 	rate_limit integer,
-	max_buckets integer NOT NULL DEFAULT 0,
+	max_buckets integer DEFAULT 100,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -5078,10 +5078,10 @@ type Project struct {
 	Id             []byte
 	Name           string
 	Description    string
-	UsageLimit     int64
-	BandwidthLimit int64
+	UsageLimit     *int64
+	BandwidthLimit *int64
 	RateLimit      *int
-	MaxBuckets     int
+	MaxBuckets     *int
 	PartnerId      []byte
 	OwnerId        []byte
 	CreatedAt      time.Time
@@ -5166,12 +5166,25 @@ func (Project_Description_Field) _Column() string { return "description" }
 type Project_UsageLimit_Field struct {
 	_set   bool
 	_null  bool
-	_value int64
+	_value *int64
 }
 
 func Project_UsageLimit(v int64) Project_UsageLimit_Field {
-	return Project_UsageLimit_Field{_set: true, _value: v}
+	return Project_UsageLimit_Field{_set: true, _value: &v}
 }
+
+func Project_UsageLimit_Raw(v *int64) Project_UsageLimit_Field {
+	if v == nil {
+		return Project_UsageLimit_Null()
+	}
+	return Project_UsageLimit(*v)
+}
+
+func Project_UsageLimit_Null() Project_UsageLimit_Field {
+	return Project_UsageLimit_Field{_set: true, _null: true}
+}
+
+func (f Project_UsageLimit_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f Project_UsageLimit_Field) value() interface{} {
 	if !f._set || f._null {
@@ -5185,12 +5198,25 @@ func (Project_UsageLimit_Field) _Column() string { return "usage_limit" }
 type Project_BandwidthLimit_Field struct {
 	_set   bool
 	_null  bool
-	_value int64
+	_value *int64
 }
 
 func Project_BandwidthLimit(v int64) Project_BandwidthLimit_Field {
-	return Project_BandwidthLimit_Field{_set: true, _value: v}
+	return Project_BandwidthLimit_Field{_set: true, _value: &v}
 }
+
+func Project_BandwidthLimit_Raw(v *int64) Project_BandwidthLimit_Field {
+	if v == nil {
+		return Project_BandwidthLimit_Null()
+	}
+	return Project_BandwidthLimit(*v)
+}
+
+func Project_BandwidthLimit_Null() Project_BandwidthLimit_Field {
+	return Project_BandwidthLimit_Field{_set: true, _null: true}
+}
+
+func (f Project_BandwidthLimit_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f Project_BandwidthLimit_Field) value() interface{} {
 	if !f._set || f._null {
@@ -5236,12 +5262,25 @@ func (Project_RateLimit_Field) _Column() string { return "rate_limit" }
 type Project_MaxBuckets_Field struct {
 	_set   bool
 	_null  bool
-	_value int
+	_value *int
 }
 
 func Project_MaxBuckets(v int) Project_MaxBuckets_Field {
-	return Project_MaxBuckets_Field{_set: true, _value: v}
+	return Project_MaxBuckets_Field{_set: true, _value: &v}
 }
+
+func Project_MaxBuckets_Raw(v *int) Project_MaxBuckets_Field {
+	if v == nil {
+		return Project_MaxBuckets_Null()
+	}
+	return Project_MaxBuckets(*v)
+}
+
+func Project_MaxBuckets_Null() Project_MaxBuckets_Field {
+	return Project_MaxBuckets_Field{_set: true, _null: true}
+}
+
+func (f Project_MaxBuckets_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f Project_MaxBuckets_Field) value() interface{} {
 	if !f._set || f._null {
@@ -8673,7 +8712,12 @@ func (h *__sqlbundle_Hole) Render() string {
 //
 
 type BandwidthLimit_Row struct {
+	BandwidthLimit *int64
+}
+
+type BandwidthLimit_UsageLimit_Row struct {
 	BandwidthLimit int64
+	UsageLimit     int64
 }
 
 type BucketId_Row struct {
@@ -8706,7 +8750,7 @@ type LeafSerialNumber_Row struct {
 }
 
 type MaxBuckets_Row struct {
-	MaxBuckets int
+	MaxBuckets *int
 }
 
 type Paged_PendingSerialQueue_Continuation struct {
@@ -8721,7 +8765,7 @@ type ProjectLimit_Row struct {
 }
 
 type UsageLimit_Row struct {
-	UsageLimit int64
+	UsageLimit *int64
 }
 
 type Value_Row struct {
@@ -10806,6 +10850,28 @@ func (obj *pgxImpl) Get_Project_MaxBuckets_By_Id(ctx context.Context,
 	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.MaxBuckets)
 	if err != nil {
 		return (*MaxBuckets_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
+func (obj *pgxImpl) Get_Project_BandwidthLimit_Project_UsageLimit_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *BandwidthLimit_UsageLimit_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.bandwidth_limit, projects.usage_limit FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &BandwidthLimit_UsageLimit_Row{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.BandwidthLimit, &row.UsageLimit)
+	if err != nil {
+		return (*BandwidthLimit_UsageLimit_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
 
@@ -17078,6 +17144,28 @@ func (obj *pgxcockroachImpl) Get_Project_MaxBuckets_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) Get_Project_BandwidthLimit_Project_UsageLimit_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *BandwidthLimit_UsageLimit_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT projects.bandwidth_limit, projects.usage_limit FROM projects WHERE projects.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, project_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &BandwidthLimit_UsageLimit_Row{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.BandwidthLimit, &row.UsageLimit)
+	if err != nil {
+		return (*BandwidthLimit_UsageLimit_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxcockroachImpl) All_Project(ctx context.Context) (
 	rows []*Project, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -22546,6 +22634,16 @@ func (rx *Rx) Get_Project_BandwidthLimit_By_Id(ctx context.Context,
 	return tx.Get_Project_BandwidthLimit_By_Id(ctx, project_id)
 }
 
+func (rx *Rx) Get_Project_BandwidthLimit_Project_UsageLimit_By_Id(ctx context.Context,
+	project_id Project_Id_Field) (
+	row *BandwidthLimit_UsageLimit_Row, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Project_BandwidthLimit_Project_UsageLimit_By_Id(ctx, project_id)
+}
+
 func (rx *Rx) Get_Project_By_Id(ctx context.Context,
 	project_id Project_Id_Field) (
 	project *Project, err error) {
@@ -23710,6 +23808,10 @@ type Methods interface {
 	Get_Project_BandwidthLimit_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
 		row *BandwidthLimit_Row, err error)
+
+	Get_Project_BandwidthLimit_Project_UsageLimit_By_Id(ctx context.Context,
+		project_id Project_Id_Field) (
+		row *BandwidthLimit_UsageLimit_Row, err error)
 
 	Get_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (

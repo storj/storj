@@ -7,11 +7,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/zeebo/errs"
 
 	"storj.io/common/pb"
 	"storj.io/storj/private/dbutil"
+	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/storage"
 )
 
@@ -107,12 +109,18 @@ func (r *repairQueue) Delete(ctx context.Context, seg *pb.InjuredSegment) (err e
 	return Error.Wrap(err)
 }
 
+func (r *repairQueue) Clean(ctx context.Context, before time.Time) (deleted int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	n, err := r.db.Delete_Injuredsegment_By_UpdatedAt_Less(ctx, dbx.Injuredsegment_UpdatedAt(before))
+	return n, Error.Wrap(err)
+}
+
 func (r *repairQueue) SelectN(ctx context.Context, limit int) (segs []pb.InjuredSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if limit <= 0 || limit > RepairQueueSelectLimit {
 		limit = RepairQueueSelectLimit
 	}
-	//todo: strictly enforce order-by or change tests
+	// TODO: strictly enforce order-by or change tests
 	rows, err := r.db.QueryContext(ctx, r.db.Rebind(`SELECT data FROM injuredsegments LIMIT ?`), limit)
 	if err != nil {
 		return nil, Error.Wrap(err)

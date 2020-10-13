@@ -17,7 +17,7 @@ import (
 
 func testCRUD(t *testing.T, ctx *testcontext.Context, store storage.KeyValueStore) {
 	items := storage.Items{
-		// newItem("0", "", false), //TODO: broken
+		// newItem("0", "", false), // TODO: broken
 		newItem("\x00", "\x00", false),
 		newItem("a/b", "\x01\x00", false),
 		newItem("a\\b", "\xFF", false),

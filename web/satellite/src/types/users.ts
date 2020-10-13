@@ -25,26 +25,18 @@ export interface UsersApi {
  * User class holds info for User entity.
  */
 export class User {
-    public id: string;
-    public fullName: string;
-    public shortName: string;
-    public email: string;
-    public partner: string;
-    public partnerId: string;
-    public password: string;
-
-    public constructor(id: string = '', fullName: string = '', shortName: string = '', email: string = '', partner: string = '', partnerId: string = '', password: string = '') {
-        this.id = id;
-        this.fullName = fullName;
-        this.shortName = shortName;
-        this.email = email;
-        this.partner = partner;
-        this.partnerId = partnerId;
-        this.password = password;
-    }
+    public constructor(
+        public id: string = '',
+        public fullName: string = '',
+        public shortName: string = '',
+        public email: string = '',
+        public partner: string = '',
+        public partnerId: string = '',
+        public password: string = '',
+    ) {}
 
     public getFullName(): string {
-        return this.shortName === '' ? this.fullName : this.shortName;
+        return !this.shortName ? this.fullName : this.shortName;
     }
 }
 
@@ -52,13 +44,10 @@ export class User {
  * User class holds info for updating User.
  */
 export class UpdatedUser {
-    public fullName: string;
-    public shortName: string;
-
-    public constructor(fullName: string, shortName: string) {
-        this.fullName = fullName;
-        this.shortName = shortName;
-    }
+    public constructor(
+        public fullName: string = '',
+        public shortName: string = '',
+    ) {}
 
     public setFullName(value: string) {
         this.fullName = value.trim();

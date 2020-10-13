@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-//testing constants.
 const (
 	lastName    = "lastName"
 	email       = "email@mail.test"

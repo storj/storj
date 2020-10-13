@@ -10,12 +10,12 @@
             <div class="avatar">
                 <AvatarIcon class="avatar__image"/>
             </div>
-            <div :title="itemData.name">
-                <p class="name">{{ itemData.formattedName() }}</p>
+            <div class="name-container" :title="itemData.name">
+                <p class="name">{{ itemData.name }}</p>
             </div>
         </div>
         <div class="apikey-item-container__common-info date-item-container">
-            <p class="date">{{ itemData.getDate() }}</p>
+            <p class="date">{{ itemData.localDate() }}</p>
         </div>
     </div>
 </template>
@@ -35,7 +35,7 @@ import { ApiKey } from '@/types/apiKeys';
     },
 })
 export default class ApiKeysItem extends Vue {
-    @Prop({default: () => new ApiKey('', '', '', '')})
+    @Prop({default: () => new ApiKey('', '', new Date(), '')})
     private readonly itemData: ApiKey;
 }
 </script>
@@ -59,40 +59,48 @@ export default class ApiKeysItem extends Vue {
             align-items: center;
             justify-content: flex-start;
             width: 60%;
-
-            .checkbox-container {
-                margin-left: 28px;
-                max-height: 23px;
-                border-radius: 4px;
-            }
-
-            .avatar {
-                min-width: 40px;
-                max-width: 40px;
-                min-height: 40px;
-                max-height: 40px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                margin-left: 25px;
-            }
-
-            .name {
-                font-family: 'font_bold', sans-serif;
-                font-size: 16px;
-                line-height: 21px;
-                color: #354049;
-                margin-left: 17px;
-            }
         }
+    }
 
-        .date {
-            font-family: 'font_regular', sans-serif;
-            font-size: 16px;
-            line-height: 21px;
-            color: #354049;
-            margin: 0;
-        }
+    .checkbox-container {
+        margin-left: 28px;
+        max-height: 23px;
+        border-radius: 4px;
+    }
+
+    .avatar {
+        min-width: 40px;
+        max-width: 40px;
+        min-height: 40px;
+        max-height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 25px;
+    }
+
+    .name-container {
+        max-width: calc(100% - 131px);
+        margin-right: 15px;
+    }
+
+    .name {
+        font-family: 'font_bold', sans-serif;
+        font-size: 16px;
+        line-height: 21px;
+        color: #354049;
+        margin-left: 17px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .date {
+        font-family: 'font_regular', sans-serif;
+        font-size: 16px;
+        line-height: 21px;
+        color: #354049;
+        margin: 0;
     }
 
     .apikey-item-container.selected {

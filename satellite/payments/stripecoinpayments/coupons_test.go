@@ -259,11 +259,12 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 
 			proj1Usage, err := usageRepo.GetProjectStorageLimit(ctx, proj1.ID)
 			require.NoError(t, err)
-			require.Equal(t, memory.TB, proj1Usage)
+			require.Equal(t, memory.TB.Int64(), *proj1Usage)
 
 			proj2Usage, err := usageRepo.GetProjectStorageLimit(ctx, proj2.ID)
 			require.NoError(t, err)
-			require.Equal(t, 0, int(proj2Usage))
+			// require.Nil(t, proj2Usage)
+			require.Equal(t, memory.GB.Int64()*50, *proj2Usage)
 
 			user2Coupons, err := couponsRepo.ListByUserID(ctx, user2.ID)
 			require.NoError(t, err)
@@ -271,7 +272,7 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 
 			proj3Usage, err := usageRepo.GetProjectStorageLimit(ctx, proj3.ID)
 			require.NoError(t, err)
-			require.Equal(t, memory.TB, proj3Usage)
+			require.Equal(t, memory.TB.Int64(), *proj3Usage)
 
 			user3Coupons, err := couponsRepo.ListByUserID(ctx, user3.ID)
 			require.NoError(t, err)
@@ -305,11 +306,12 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 
 			proj1Usage, err := usageRepo.GetProjectStorageLimit(ctx, proj1.ID)
 			require.NoError(t, err)
-			require.Equal(t, memory.TB, proj1Usage)
+			require.Equal(t, memory.TB.Int64(), *proj1Usage)
 
 			proj2Usage, err := usageRepo.GetProjectStorageLimit(ctx, proj2.ID)
 			require.NoError(t, err)
-			require.Equal(t, 0, int(proj2Usage))
+			// require.Nil(t, proj2Usage)
+			require.Equal(t, memory.GB.Int64()*50, *proj2Usage)
 
 			user2Coupons, err := couponsRepo.ListByUserID(ctx, user2.ID)
 			require.NoError(t, err)
@@ -317,7 +319,7 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 
 			proj3Usage, err := usageRepo.GetProjectStorageLimit(ctx, proj3.ID)
 			require.NoError(t, err)
-			require.Equal(t, memory.TB, proj3Usage)
+			require.Equal(t, memory.TB.Int64(), *proj3Usage)
 
 			user3Coupons, err := couponsRepo.ListByUserID(ctx, user3.ID)
 			require.NoError(t, err)
@@ -338,7 +340,7 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 
 			proj5Usage, err := usageRepo.GetProjectStorageLimit(ctx, proj5.ID)
 			require.NoError(t, err)
-			require.Equal(t, memory.TB, proj5Usage)
+			require.Equal(t, memory.TB.Int64(), *proj5Usage)
 		})
 	})
 }

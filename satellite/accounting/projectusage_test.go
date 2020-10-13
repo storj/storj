@@ -76,8 +76,13 @@ func TestProjectUsageStorage(t *testing.T) {
 
 		data := testrand.Bytes(1 * memory.MB)
 
+		// set limit manually to 1MB until column values can be nullable
+		accountingDB := planet.Satellites[0].DB.ProjectAccounting()
+		err := accountingDB.UpdateProjectUsageLimit(ctx, planet.Uplinks[0].Projects[0].ID, 1*memory.MB)
+		require.NoError(t, err)
+
 		// successful upload
-		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/0", data)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/0", data)
 		atomic.StoreUint32(&uploaded, 1)
 		require.NoError(t, err)
 		planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
@@ -323,7 +328,6 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 		project := projects[0]
 		// set custom usage limit for project
 		expectedLimit := memory.Size(memory.GiB.Int64() * 10)
-
 		err = acctDB.UpdateProjectUsageLimit(ctx, project.ID, expectedLimit)
 		require.NoError(t, err)
 

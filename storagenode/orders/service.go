@@ -20,6 +20,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/storj/storagenode/orders/ordersfile"
 	"storj.io/storj/storagenode/trust"
 )
 
@@ -31,12 +32,6 @@ var (
 
 	mon = monkit.Package()
 )
-
-// Info contains full information about an order.
-type Info struct {
-	Limit *pb.OrderLimit
-	Order *pb.Order
-}
 
 // ArchivedInfo contains full information about an archived order.
 type ArchivedInfo struct {
@@ -69,11 +64,11 @@ type ArchiveRequest struct {
 // architecture: Database
 type DB interface {
 	// Enqueue inserts order to the list of orders needing to be sent to the satellite.
-	Enqueue(ctx context.Context, info *Info) error
+	Enqueue(ctx context.Context, info *ordersfile.Info) error
 	// ListUnsent returns orders that haven't been sent yet.
-	ListUnsent(ctx context.Context, limit int) ([]*Info, error)
+	ListUnsent(ctx context.Context, limit int) ([]*ordersfile.Info, error)
 	// ListUnsentBySatellite returns orders that haven't been sent yet grouped by satellite.
-	ListUnsentBySatellite(ctx context.Context) (map[storj.NodeID][]*Info, error)
+	ListUnsentBySatellite(ctx context.Context) (map[storj.NodeID][]*ordersfile.Info, error)
 
 	// Archive marks order as being handled.
 	Archive(ctx context.Context, archivedAt time.Time, requests ...ArchiveRequest) error
@@ -86,7 +81,7 @@ type DB interface {
 // Config defines configuration for sending orders.
 type Config struct {
 	MaxSleep          time.Duration `help:"maximum duration to wait before trying to send orders" releaseDefault:"30s" devDefault:"1s"`
-	SenderInterval    time.Duration `help:"duration between sending" releaseDefault:"5m0s" devDefault:"30s"`
+	SenderInterval    time.Duration `help:"duration between sending" releaseDefault:"1h0m0s" devDefault:"30s"`
 	SenderTimeout     time.Duration `help:"timeout for sending" default:"1h0m0s"`
 	SenderDialTimeout time.Duration `help:"timeout for dialing satellite during sending orders" default:"1m0s"`
 	CleanupInterval   time.Duration `help:"duration between archive cleanups" default:"5m0s"`
@@ -241,7 +236,7 @@ func (service *Service) sendOrdersFromDB(ctx context.Context) (hasOrders bool) {
 }
 
 // Settle uploads orders to the satellite.
-func (service *Service) Settle(ctx context.Context, satelliteID storj.NodeID, orders []*Info, requests chan ArchiveRequest) {
+func (service *Service) Settle(ctx context.Context, satelliteID storj.NodeID, orders []*ordersfile.Info, requests chan ArchiveRequest) {
 	log := service.log.Named(satelliteID.String())
 	err := service.settle(ctx, log, satelliteID, orders, requests)
 	if err != nil {
@@ -291,7 +286,7 @@ func (service *Service) handleBatches(ctx context.Context, requests chan Archive
 	return nil
 }
 
-func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID storj.NodeID, orders []*Info, requests chan ArchiveRequest) (err error) {
+func (service *Service) settle(ctx context.Context, log *zap.Logger, satelliteID storj.NodeID, orders []*ordersfile.Info, requests chan ArchiveRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	log.Info("sending", zap.Int("count", len(orders)))
@@ -429,7 +424,7 @@ func (service *Service) sendOrdersFromFileStore(ctx context.Context, now time.Ti
 					return nil
 				}
 
-				err = service.ordersStore.Archive(satelliteID, unsentInfo.CreatedAtHour, time.Now().UTC(), status)
+				err = service.ordersStore.Archive(satelliteID, unsentInfo, time.Now().UTC(), status)
 				if err != nil {
 					log.Error("failed to archive orders", zap.Error(err))
 					return nil
@@ -448,7 +443,7 @@ func (service *Service) sendOrdersFromFileStore(ctx context.Context, now time.Ti
 	}
 }
 
-func (service *Service) settleWindow(ctx context.Context, log *zap.Logger, satelliteID storj.NodeID, orders []*Info) (status pb.SettlementWithWindowResponse_Status, err error) {
+func (service *Service) settleWindow(ctx context.Context, log *zap.Logger, satelliteID storj.NodeID, orders []*ordersfile.Info) (status pb.SettlementWithWindowResponse_Status, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	log.Info("sending", zap.Int("count", len(orders)))

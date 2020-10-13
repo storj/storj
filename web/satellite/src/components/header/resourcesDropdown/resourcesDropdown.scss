@@ -6,7 +6,7 @@
     top: 50px;
     left: 0;
     padding: 6px 0;
-    background-color: #fff;
+    background-color: #f5f6fa;
     z-index: 1120;
     font-family: 'font_regular', sans-serif;
     min-width: 255px;
@@ -28,16 +28,16 @@
             margin-left: 13px;
             font-size: 14px;
             line-height: 20px;
-            color: #354049;
+            color: #1b2533;
         }
 
         &:hover {
-            background-color: #f2f2f6;
+            font-family: 'font_bold', sans-serif;
 
             .docs-svg-path,
             .community-svg-path,
             .support-svg-path {
-                fill: #2683ff !important;
+                fill: #2d75d2 !important;
             }
         }
     }

@@ -53,12 +53,12 @@ func (service *CacheService) Run(ctx context.Context) (err error) {
 	// recalculate the cache once
 	piecesTotal, piecesContentSize, totalsBySatellite, err := service.store.SpaceUsedTotalAndBySatellite(ctx)
 	if err != nil {
-		service.log.Error("error getting current space used calculation: ", zap.Error(err))
+		service.log.Error("error getting current used space: ", zap.Error(err))
 		return err
 	}
 	trashTotal, err := service.usageCache.Blobs.SpaceUsedForTrash(ctx)
 	if err != nil {
-		service.log.Error("error getting current space for trash: ", zap.Error(err))
+		service.log.Error("error getting current used space for trash: ", zap.Error(err))
 		return err
 	}
 	service.usageCache.Recalculate(
@@ -199,8 +199,7 @@ func (blobs *BlobsUsageCache) SpaceUsedBySatellite(ctx context.Context, satellit
 	return values.Total, values.ContentSize, nil
 }
 
-// SpaceUsedForPieces returns the current total used space for
-//// all pieces.
+// SpaceUsedForPieces returns the current total used space for all pieces.
 func (blobs *BlobsUsageCache) SpaceUsedForPieces(ctx context.Context) (int64, int64, error) {
 	blobs.mu.Lock()
 	defer blobs.mu.Unlock()
@@ -231,7 +230,7 @@ func (blobs *BlobsUsageCache) Delete(ctx context.Context, blobRef storage.BlobRe
 		return err
 	}
 	blobs.Update(ctx, satelliteID, -pieceTotal, -pieceContentSize, 0)
-	blobs.log.Debug("deleted piece", zap.String("satelliteID", satelliteID.String()), zap.Int64("space was freed", pieceContentSize))
+	blobs.log.Debug("deleted piece", zap.String("Satellite ID", satelliteID.String()), zap.Int64("disk space freed in bytes", pieceContentSize))
 	return nil
 }
 

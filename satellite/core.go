@@ -117,7 +117,6 @@ type Core struct {
 	Accounting struct {
 		Tally                 *tally.Service
 		Rollup                *rollup.Service
-		ProjectUsage          *accounting.Service
 		ReportedRollupChore   *reportedrollup.Chore
 		ProjectBWCleanupChore *projectbwcleanup.Chore
 	}
@@ -243,16 +242,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup live accounting
 		peer.LiveAccounting.Cache = liveAccounting
-	}
-
-	{ // setup accounting project usage
-		peer.Accounting.ProjectUsage = accounting.NewService(
-			peer.DB.ProjectAccounting(),
-			peer.LiveAccounting.Cache,
-			config.Metainfo.ProjectLimits.DefaultMaxUsage,
-			config.Metainfo.ProjectLimits.DefaultMaxBandwidth,
-			config.LiveAccounting.BandwidthCacheTTL,
-		)
 	}
 
 	{ // setup orders
@@ -460,7 +449,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		var stripeClient stripecoinpayments.StripeClient
 		switch pc.Provider {
 		default:
-			stripeClient = stripecoinpayments.NewStripeMock(peer.ID())
+			stripeClient = stripecoinpayments.NewStripeMock(
+				peer.ID(),
+				peer.DB.StripeCoinPayments().Customers(),
+				peer.DB.Console().Users(),
+			)
 		case "stripecoinpayments":
 			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
 		}

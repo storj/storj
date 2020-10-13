@@ -55,6 +55,10 @@
     --node-id-copy-icon-color: #354049;
     --critical-color: #da2f2f;
     --warning-color: #ffc52f;
+    --error-page-background-color: #f2f2f3;
+    --error-page-text-color: #000;
+    --error-page-button-background: #133e9c;
+    --error-page-image-path: url('../../static/images/errors/404.png');
     --tooltip-background-path: url('../../static/images/tooltipBack.png');
     --tooltip-arrow-path: url('../../static/images/tooltipArrow.png');
     --info-image-arrow-middle-path: url('../../static/images/Message.png');
@@ -116,6 +120,10 @@
     --node-id-copy-icon-color: #818493;
     --critical-color: #c33;
     --warning-color: #ffc52f;
+    --error-page-background-color: #1f2026;
+    --error-page-text-color: #fff;
+    --error-page-button-background: #565b6b;
+    --error-page-image-path: url('../../static/images/errors/404Dark.png');
     --tooltip-background-path: url('../../static/images/tooltipBackDark.png');
     --tooltip-arrow-path: url('../../static/images/tooltipArrowDark.png');
     --info-image-arrow-middle-path: url('../../static/images/MessageDark.png');

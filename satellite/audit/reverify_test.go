@@ -464,7 +464,10 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		dialer := rpc.NewDefaultDialer(tlsOptions)
 		dialer.DialTimeout = 20 * time.Millisecond
 		dialer.DialLatency = 200 * time.Second
-		dialer.TransferRate = 1 * memory.KB
+
+		connector := rpc.NewDefaultTCPConnector(nil)
+		connector.TransferRate = 1 * memory.KB
+		dialer.Connector = connector
 
 		// This config value will create a very short timeframe allowed for receiving
 		// data from storage nodes. This will cause context to cancel and start

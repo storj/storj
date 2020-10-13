@@ -28,5 +28,4 @@ COPY --from=ca-cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifi
 COPY release/${TAG}/satellite_linux_${GOARCH:-amd64} /app/satellite
 COPY release/${TAG}/inspector_linux_${GOARCH:-amd64} /app/inspector
 COPY cmd/satellite/entrypoint /entrypoint
-RUN apk add --no-cache curl
 ENTRYPOINT ["/entrypoint"]

@@ -202,7 +202,7 @@ func (table *Table) Count() int {
 // deleteRandomSerial deletes a random item.
 // It expects the mutex to be locked before being called.
 func (table *Table) deleteRandomSerial() error {
-	mon.Meter("delete_random_serial").Mark(1) //locked
+	mon.Meter("delete_random_serial").Mark(1) //mon:locked
 	for _, satMap := range table.serials {
 		for expirationHour, serialList := range satMap {
 			if len(serialList.partialSerials) > 0 {

@@ -11,7 +11,7 @@ import (
 	"net/mail"
 	"net/smtp"
 
-	monkit "github.com/spacemonkeygo/monkit/v3"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -116,6 +116,10 @@ type API struct {
 
 	LiveAccounting struct {
 		Cache accounting.Cache
+	}
+
+	ProjectLimits struct {
+		Cache *accounting.ProjectLimitCache
 	}
 
 	Mail struct {
@@ -293,12 +297,19 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.LiveAccounting.Cache = liveAccounting
 	}
 
+	{ // setup project limits
+		peer.ProjectLimits.Cache = accounting.NewProjectLimitCache(peer.DB.ProjectAccounting(),
+			config.Metainfo.ProjectLimits.DefaultMaxUsage,
+			config.Metainfo.ProjectLimits.DefaultMaxBandwidth,
+			config.ProjectLimit,
+		)
+	}
+
 	{ // setup accounting project usage
 		peer.Accounting.ProjectUsage = accounting.NewService(
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
-			config.Metainfo.ProjectLimits.DefaultMaxUsage,
-			config.Metainfo.ProjectLimits.DefaultMaxBandwidth,
+			peer.ProjectLimits.Cache,
 			config.LiveAccounting.BandwidthCacheTTL,
 		)
 	}
@@ -322,6 +333,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.NodeAPIVersion(),
 			config.Orders.SettlementBatchSize,
 			config.Orders.WindowEndpointRolloutPhase,
+			config.Orders.OrdersSemaphoreSize,
 		)
 		var err error
 		peer.Orders.Service, err = orders.NewService(
@@ -525,7 +537,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		var stripeClient stripecoinpayments.StripeClient
 		switch pc.Provider {
 		default:
-			stripeClient = stripecoinpayments.NewStripeMock(peer.ID())
+			stripeClient = stripecoinpayments.NewStripeMock(
+				peer.ID(),
+				peer.DB.StripeCoinPayments().Customers(),
+				peer.DB.Console().Users(),
+			)
 		case "stripecoinpayments":
 			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
 		}
@@ -590,6 +606,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Console(),
 			peer.DB.ProjectAccounting(),
 			peer.Accounting.ProjectUsage,
+			peer.DB.Buckets(),
 			peer.DB.Rewards(),
 			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,

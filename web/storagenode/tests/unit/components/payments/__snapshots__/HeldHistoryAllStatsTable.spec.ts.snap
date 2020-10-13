@@ -20,10 +20,10 @@ exports[`HeldHistoryAllStatsTable renders correctly with actual values 1`] = `
     <div class="held-history-table-container--large__info-area">
       <div class="justify-start column-1">
         <p class="held-history-table-container--large__info-area__text">name1</p>
-        <p class="held-history-table-container--large__info-area__months">9 month</p>
+        <p class="held-history-table-container--large__info-area__months">8 month</p>
       </div>
       <div class="column justify-end column-2">
-        <p class="held-history-table-container--large__info-area__text">2020-01-30</p>
+        <p class="held-history-table-container--large__info-area__text">2019-07-30</p>
       </div>
       <div class="column justify-end column-3">
         <p class="held-history-table-container--large__info-area__text">$0.00</p>
@@ -35,10 +35,10 @@ exports[`HeldHistoryAllStatsTable renders correctly with actual values 1`] = `
     <div class="held-history-table-container--large__info-area">
       <div class="justify-start column-1">
         <p class="held-history-table-container--large__info-area__text">name2</p>
-        <p class="held-history-table-container--large__info-area__months">9 month</p>
+        <p class="held-history-table-container--large__info-area__months">8 month</p>
       </div>
       <div class="column justify-end column-2">
-        <p class="held-history-table-container--large__info-area__text">2020-01-30</p>
+        <p class="held-history-table-container--large__info-area__text">2019-07-30</p>
       </div>
       <div class="column justify-end column-3">
         <p class="held-history-table-container--large__info-area__text">$0.00</p>
@@ -50,10 +50,10 @@ exports[`HeldHistoryAllStatsTable renders correctly with actual values 1`] = `
     <div class="held-history-table-container--large__info-area">
       <div class="justify-start column-1">
         <p class="held-history-table-container--large__info-area__text">name3</p>
-        <p class="held-history-table-container--large__info-area__months">9 month</p>
+        <p class="held-history-table-container--large__info-area__months">8 month</p>
       </div>
       <div class="column justify-end column-2">
-        <p class="held-history-table-container--large__info-area__text">2020-01-30</p>
+        <p class="held-history-table-container--large__info-area__text">2019-07-30</p>
       </div>
       <div class="column justify-end column-3">
         <p class="held-history-table-container--large__info-area__text">$7.85</p>

@@ -104,7 +104,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				assert.Equal(t, clientIdent.CA.RawTBSCertificate, signedChain[0].RawTBSCertificate)
 				assert.Equal(t, signer.Cert.Raw, signedChainBytes[1])
 				// TODO: test scenario with rest chain
-				//assert.Equal(t, signingCA.RawRestChain(), signedChainBytes[1:])
+				// assert.Equal(t, signingCA.RawRestChain(), signedChainBytes[1:])
 
 				err = signedChain[0].CheckSignatureFrom(signer.Cert)
 				require.NoError(t, err)
@@ -187,7 +187,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 			assert.Equal(t, ident.CA.RawTBSCertificate, signedChain[0].RawTBSCertificate)
 			assert.Equal(t, ca.Cert.Raw, signedChain[1].Raw)
 			// TODO: test scenario with rest chain
-			//assert.Equal(t, signingCA.RawRestChain(), res.Chain[1:])
+			// assert.Equal(t, signingCA.RawRestChain(), res.Chain[1:])
 
 			err = signedChain[0].CheckSignatureFrom(ca.Cert)
 			require.NoError(t, err)

@@ -28,6 +28,7 @@ var createLock = flag.Bool("generate-config-lock", false, "")
 func TestConfigLock(t *testing.T) {
 	ctx := testcontext.NewWithTimeout(t, 5*time.Minute)
 	defer ctx.Cleanup()
+
 	// run the satellite executable to create a config file
 	tempDir := ctx.Dir("", "satellite-cfg-lock-")
 	satelliteExe := ctx.Compile("storj.io/storj/cmd/satellite")
@@ -35,8 +36,10 @@ func TestConfigLock(t *testing.T) {
 	out, err := satelliteCmd.CombinedOutput()
 	assert.NoErrorf(t, err, "Error running satellite", string(out))
 	cleanedupConfig := filepath.Join(tempDir, "config-normalized.yaml")
+
 	// normalize certain OS-specific paths that occurn in the config
 	normalizeConfig(t, filepath.Join(tempDir, "config.yaml"), cleanedupConfig, tempDir)
+
 	// either compare or save the lock file
 	lockPath := filepath.Join("..", "scripts", "testdata", "satellite-config.yaml.lock")
 	if *createLock { // update satellite-config.yaml.lock
@@ -45,7 +48,7 @@ func TestConfigLock(t *testing.T) {
 		assert.NoErrorf(t, err, "Error reading file for move")
 		err = ioutil.WriteFile(lockPath, input, 0644)
 		assert.NoErrorf(t, err, "Error writing file for move")
-	} else { //compare to satellite-config.yaml.lock
+	} else { // compare to satellite-config.yaml.lock
 		configs1 := readLines(t, lockPath)
 		configs2 := readLines(t, cleanedupConfig)
 		if diff := cmp.Diff(configs1, configs2); diff != "" {
@@ -69,20 +72,23 @@ func normalizeConfig(t *testing.T, configIn, configOut, tempDir string) {
 	in, err := os.Open(configIn)
 	assert.NoErrorf(t, err, "Error opening %s", in)
 	defer func() { assert.NoErrorf(t, in.Close(), "Error closing %s", in) }()
+
 	out, err := os.Create(configOut)
 	assert.NoErrorf(t, err, "Error opening %s", out)
 	defer func() { assert.NoErrorf(t, out.Close(), "Error closing %s", out) }()
+
 	scanner := bufio.NewScanner(in)
 	writer := bufio.NewWriter(out)
 	defer func() { assert.NoErrorf(t, writer.Flush(), "Error flushing %s", out) }()
+
 	appDir := fpath.ApplicationDir()
 	for scanner.Scan() {
 		line := scanner.Text()
-		//fix metrics.app and tracing.app
+		// fix metrics.app and tracing.app
 		line = strings.Replace(line, ".exe", "", 1)
-		//fix server.revocation-dburl
+		// fix server.revocation-dburl
 		line = strings.Replace(line, tempDir, "testdata", 1)
-		//fix identity.cert-path and identity.key-path
+		// fix identity.cert-path and identity.key-path
 		if strings.Contains(line, appDir) {
 			line = strings.Replace(line, appDir, "/root/.local/share", 1)
 			line = strings.ToLower(strings.ReplaceAll(line, "\\", "/"))

@@ -90,7 +90,7 @@ func (service *Service) pingSatellite(ctx context.Context, satellite storj.NodeI
 	attempts := 0
 	for {
 
-		mon.Meter("satellite_contact_request").Mark(1) //locked
+		mon.Meter("satellite_contact_request").Mark(1) //mon:locked
 
 		err := service.pingSatelliteOnce(ctx, satellite)
 		attempts++

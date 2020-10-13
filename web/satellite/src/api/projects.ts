@@ -3,7 +3,7 @@
 
 import { BaseGql } from '@/api/baseGql';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { CreateProjectFields, Project, ProjectLimits, ProjectsApi } from '@/types/projects';
+import { Project, ProjectFields, ProjectLimits, ProjectsApi } from '@/types/projects';
 import { HttpClient } from '@/utils/httpClient';
 
 export class ProjectsApiGql extends BaseGql implements ProjectsApi {
@@ -13,10 +13,10 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
     /**
      * Creates project.
      *
-     * @param createProjectFields - contains project information
+     * @param projectFields - contains project information
      * @throws Error
      */
-    public async create(createProjectFields: CreateProjectFields): Promise<Project> {
+    public async create(projectFields: ProjectFields): Promise<Project> {
         const query =
             `mutation($name: String!, $description: String!) {
                 createProject(
@@ -28,13 +28,13 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
             }`;
 
         const variables = {
-            name: createProjectFields.name,
-            description: createProjectFields.description,
+            name: projectFields.name,
+            description: projectFields.description,
         };
 
         const response = await this.mutate(query, variables);
 
-        return new Project(response.data.createProject.id, variables.name, variables.description, '', createProjectFields.ownerId);
+        return new Project(response.data.createProject.id, variables.name, variables.description, '', projectFields.ownerId);
     }
 
     /**

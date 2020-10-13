@@ -5,6 +5,7 @@ package stripecoinpayments
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/stripe/stripe-go"
@@ -127,6 +128,51 @@ func (accounts *accounts) ProjectCharges(ctx context.Context, userID uuid.UUID, 
 	return charges, nil
 }
 
+// CheckProjectInvoicingStatus returns true if for the given project there are outstanding project records and/or usage
+// which have not been applied/invoiced yet (meaning sent over to stripe).
+func (accounts *accounts) CheckProjectInvoicingStatus(ctx context.Context, projectID uuid.UUID) (unpaidUsage bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// we do not want to delete projects that have usage for the current month.
+	year, month, _ := accounts.service.nowFn().UTC().Date()
+	firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+
+	currentUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth, accounts.service.nowFn())
+	if err != nil {
+		return false, err
+	}
+	if currentUsage.Storage > 0 || currentUsage.Egress > 0 || currentUsage.ObjectCount > 0 {
+		return true, errors.New("usage for current month exists")
+	}
+
+	// if usage of last month exist, make sure to look for billing records
+	lastMonthUsage, err := accounts.service.usageDB.GetProjectTotal(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1))
+	if err != nil {
+		return false, err
+	}
+
+	if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.ObjectCount > 0 {
+		// time passed into the check function need to be the UTC midnight dates of the first and last day of the month
+		err = accounts.service.db.ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour*24))
+		switch err {
+		case ErrProjectRecordExists:
+			record, err := accounts.service.db.ProjectRecords().Get(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour*24))
+			if err != nil {
+				return true, err
+			}
+			// state = 0 means unapplied and not invoiced yet.
+			if record.State == 0 {
+				return true, errors.New("unapplied project invoice record exist")
+			}
+		case nil:
+			return true, errors.New("usage for last month exist, but is not billed yet")
+		default:
+			return true, err
+		}
+	}
+	return false, nil
+}
+
 // Charges returns list of all credit card charges related to account.
 func (accounts *accounts) Charges(ctx context.Context, userID uuid.UUID) (_ []payments.Charge, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
@@ -190,7 +236,7 @@ func (accounts *accounts) PaywallEnabled(userID uuid.UUID) bool {
 	return BytesAreWithinProportion(userID, accounts.service.PaywallProportion)
 }
 
-//BytesAreWithinProportion returns true if first byte is less than the normalized proportion [0..1].
+// BytesAreWithinProportion returns true if first byte is less than the normalized proportion [0..1].
 func BytesAreWithinProportion(uuidBytes [16]byte, proportion float64) bool {
 	return int(uuidBytes[0]) < int(proportion*256)
 }

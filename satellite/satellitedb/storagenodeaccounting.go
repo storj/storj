@@ -37,7 +37,7 @@ func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally ti
 		totals = append(totals, total)
 		totalSum += total
 	}
-	mon.IntVal("nodetallies.totalsum").Observe(int64(totalSum)) //locked
+	mon.IntVal("nodetallies.totalsum").Observe(int64(totalSum)) //mon:locked
 
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		_, err = tx.Tx.ExecContext(ctx, db.db.Rebind(`

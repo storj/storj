@@ -1,0 +1,25 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ProjectSummary.vue renders correctly 1`] = `
+<section class="project-summary">
+  <h1 class="project-summary__title">Details</h1>
+  <div class="project-summary__items">
+    <div class="summary-item right-indent" style="background-color: rgb(245, 246, 250);">
+      <h1 class="summary-item__title" style="color: rgb(27, 37, 51);">Users</h1>
+      <p class="summary-item__value" style="color: rgb(0, 0, 0);">0</p>
+    </div>
+    <div class="summary-item right-indent" style="background-color: rgb(245, 246, 250);">
+      <h1 class="summary-item__title" style="color: rgb(27, 37, 51);">API Keys</h1>
+      <p class="summary-item__value" style="color: rgb(0, 0, 0);">0</p>
+    </div>
+    <div class="summary-item right-indent" style="background-color: rgb(177, 193, 217);">
+      <h1 class="summary-item__title" style="color: rgb(27, 37, 51);">Buckets</h1>
+      <p class="summary-item__value" style="color: rgb(0, 0, 0);">0</p>
+    </div>
+    <div class="summary-item" style="background-color: rgb(0, 104, 220);">
+      <h1 class="summary-item__title" style="color: rgb(255, 255, 255);">Estimated Charges</h1>
+      <p class="summary-item__value" style="color: rgb(255, 255, 255);">$0.00</p>
+    </div>
+  </div>
+</section>
+`;

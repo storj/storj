@@ -132,7 +132,7 @@ func loadSchemaFromSQL(ctx context.Context, connstr, script string) (_ *dbschema
 }
 
 func TestMigratePostgres(t *testing.T)  { migrateTest(t, pgtest.PickPostgres(t)) }
-func TestMigrateCockroach(t *testing.T) { migrateTest(t, pgtest.PickCockroach(t)) }
+func TestMigrateCockroach(t *testing.T) { migrateTest(t, pgtest.PickCockroachAlt(t)) }
 
 // satelliteDB provides access to certain methods on a *satellitedb.satelliteDB
 // instance, since that type is not exported.

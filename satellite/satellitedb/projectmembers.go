@@ -38,7 +38,7 @@ func (pm *projectMembers) GetByMemberID(ctx context.Context, memberID uuid.UUID)
 func (pm *projectMembers) GetPagedByProjectID(ctx context.Context, projectID uuid.UUID, cursor console.ProjectMembersCursor) (_ *console.ProjectMembersPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	search := "%" + strings.Replace(cursor.Search, " ", "%", -1) + "%"
+	search := "%" + strings.ReplaceAll(cursor.Search, " ", "%") + "%"
 
 	if cursor.Limit > 50 {
 		cursor.Limit = 50

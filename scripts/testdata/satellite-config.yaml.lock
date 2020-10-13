@@ -77,7 +77,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.contact-info-url: https://forum.storj.io
 
 # default project limits for users
-# console.default-project-limit: 1
+# console.default-project-limit: 10
 
 # external endpoint of the satellite if hosted
 # console.external-address: ""
@@ -268,8 +268,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # if true, set logging to development mode
 # log.development: false
 
-# configures log encoding. can either be 'console' or 'json'
-# log.encoding: console
+# configures log encoding. can either be 'console', 'json', or 'pretty'.
+# log.encoding: ""
 
 # the minimum log level to log
 # log.level: info
@@ -463,6 +463,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # include encrypted metadata in the order limit
 # orders.include-encrypted-metadata: false
 
+# how many concurrent orders to process at once. zero is unlimited
+# orders.orders-semaphore-size: 2
+
 # how many records to read in a single transaction when calculating billable bandwidth
 # orders.reported-rollups-read-batch-size: 1000
 
@@ -606,6 +609,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # number of months of project bandwidth rollups to retain, not including the current month
 # project-bw-cleanup.retain-months: 2
+
+# number of projects to cache.
+# project-limit.cache-capacity: 10000
+
+# how long to cache the project limits.
+# project-limit.cache-expiration: 10m0s
 
 # the URL for referral manager
 # referrals.referral-manager-url: ""

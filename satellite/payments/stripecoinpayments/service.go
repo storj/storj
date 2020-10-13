@@ -74,7 +74,7 @@ type Service struct {
 	// Minimum CoinPayment to create a coupon
 	MinCoinPayment int64
 
-	//Stripe Extended Features
+	// Stripe Extended Features
 	AutoAdvance bool
 
 	mu       sync.Mutex
@@ -204,7 +204,7 @@ func (service *Service) updateTransactions(ctx context.Context, ids TransactionA
 		// moment of CoinPayments receives funds, not when STORJ does
 		// this was a business decision to not wait until StatusCompleted
 		if info.Status >= coinpayments.StatusReceived {
-			//monkit currently does not have a DurationVal
+			// monkit currently does not have a DurationVal
 			mon.IntVal("coinpayment_duration").Observe(int64(time.Since(creationTimes[id])))
 			applies = append(applies, id)
 		}

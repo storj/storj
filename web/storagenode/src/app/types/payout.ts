@@ -4,7 +4,8 @@
 import {
     EstimatedPayout,
     PayoutPeriod,
-    SatelliteHeldHistory, SatellitePayoutForPeriod,
+    SatelliteHeldHistory,
+    SatellitePayoutForPeriod,
     TotalHeldAndPaid,
     TotalPaystubForPeriod,
 } from '@/storagenode/payouts/payouts';
@@ -34,6 +35,7 @@ export class PayoutState {
         public payoutHistory: SatellitePayoutForPeriod[] = [],
         public payoutHistoryPeriod: string = '',
         public estimation: EstimatedPayout = new EstimatedPayout(),
+        public payoutHistoryAvailablePeriods: PayoutPeriod[] = [],
     ) {}
 }
 

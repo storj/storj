@@ -5,9 +5,9 @@
     <div class="settings-dropdown">
         <div class="settings-dropdown__choice" @click.prevent.stop="onAccountSettingsClick">
             <div class="settings-dropdown__choice__mark-container">
-                <SelectionIcon
-                    v-if="isAccountSettingsPage"
+                <SettingsIcon
                     class="settings-dropdown__choice__mark-container__image"
+                    :class="{ 'image-active': isAccountSettingsPage }"
                 />
             </div>
             <p class="settings-dropdown__choice__label" :class="{ active: isAccountSettingsPage }">
@@ -16,9 +16,9 @@
         </div>
         <div class="settings-dropdown__choice" @click.prevent.stop="onBillingClick">
             <div class="settings-dropdown__choice__mark-container">
-                <SelectionIcon
-                    v-if="isBillingPage"
+                <BillingIcon
                     class="settings-dropdown__choice__mark-container__image"
+                    :class="{ 'image-active': isBillingPage }"
                 />
             </div>
             <p class="settings-dropdown__choice__label" :class="{ active: isBillingPage }">
@@ -31,13 +31,15 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import SelectionIcon from '@/../static/images/header/selection.svg';
+import BillingIcon from '@/../static/images/header/billing.svg';
+import SettingsIcon from '@/../static/images/header/settings.svg';
 
 import { RouteConfig } from '@/router';
 
 @Component({
     components: {
-        SelectionIcon,
+        BillingIcon,
+        SettingsIcon,
     },
 })
 export default class SettingsDropdown extends Vue {
@@ -81,6 +83,14 @@ export default class SettingsDropdown extends Vue {
 </script>
 
 <style scoped lang="scss">
+    .image-active {
+
+        .settings-svg-path,
+        .billing-svg-path {
+            fill: #0068dc;
+        }
+    }
+
     .settings-dropdown {
         position: absolute;
         left: 0;
@@ -88,7 +98,7 @@ export default class SettingsDropdown extends Vue {
         z-index: 1120;
         box-shadow: 0 20px 34px rgba(10, 27, 44, 0.28);
         border-radius: 6px;
-        background-color: #fff;
+        background-color: #f5f6fa;
         padding: 6px 0;
 
         &__choice {
@@ -96,23 +106,24 @@ export default class SettingsDropdown extends Vue {
             align-items: center;
             justify-content: flex-start;
             padding: 0 25px;
-            min-width: 255px;
-            background-color: #fff;
+            min-width: 205px;
+            background-color: #f5f6fa;
             border-radius: 6px;
             font-family: 'font_regular', sans-serif;
 
             &__label {
-                margin: 12px 0;
+                margin: 8px 0 14px 10px;
                 font-size: 14px;
                 line-height: 20px;
-                color: #7e8b9c;
+                color: #1b2533;
             }
 
             &:hover {
-                background-color: #f2f2f6;
+                font-family: 'font_bold', sans-serif;
 
-                .settings-dropdown__choice__label {
-                    color: #354049;
+                .settings-svg-path,
+                .billing-svg-path {
+                    fill: #0068dc;
                 }
             }
 

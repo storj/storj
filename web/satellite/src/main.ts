@@ -31,7 +31,7 @@ let clickOutsideEvent: EventListener;
 Vue.directive('click-outside', {
     bind: function (el: HTMLElement, binding: DirectiveBinding, vnode: VNode) {
         clickOutsideEvent = function(event: Event): void {
-            if (el === event.target) {
+            if (el === event.target || el.contains((event.target as Node))) {
                 return;
             }
 

@@ -538,10 +538,10 @@ INSERT INTO "pending_serial_queue" ("storage_node_id", "bucket_id", "serial_numb
 
 INSERT INTO "consumed_serials" ("storage_node_id", "serial_number", "expires_at") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', E'1234567012345678'::bytea, '2020-01-12 08:00:00.000000+00');
 
-INSERT INTO "injuredsegments" ("path", "data", "num_healthy_pieces", "updated_at") VALUES ('0', '\x0a0130120100', 52, 'epoch');
-INSERT INTO "injuredsegments" ("path", "data", "num_healthy_pieces", "updated_at") VALUES ('here''s/a/great/path', '\x0a136865726527732f612f67726561742f70617468120a0102030405060708090a', 30, 'epoch');
-INSERT INTO "injuredsegments" ("path", "data", "num_healthy_pieces", "updated_at") VALUES ('yet/another/cool/path', '\x0a157965742f616e6f746865722f636f6f6c2f70617468120a0102030405060708090a', 51, 'epoch');
-INSERT INTO "injuredsegments" ("path", "data", "num_healthy_pieces", "updated_at") VALUES ('/this/is/a/new/path', '\x0a23736f2f6d616e792f69636f6e69632f70617468732f746f2f63686f6f73652f66726f6d120a0102030405060708090a', 40, 'epoch');
+INSERT INTO "injuredsegments" ("path", "data", "num_healthy_pieces", "updated_at") VALUES ('0', '\x0a0130120100', 52, '2020-09-01 00:00:00.000000+00');
+INSERT INTO "injuredsegments" ("path", "data", "num_healthy_pieces", "updated_at") VALUES ('here''s/a/great/path', '\x0a136865726527732f612f67726561742f70617468120a0102030405060708090a', 30, '2020-09-01 00:00:00.000000+00');
+INSERT INTO "injuredsegments" ("path", "data", "num_healthy_pieces", "updated_at") VALUES ('yet/another/cool/path', '\x0a157965742f616e6f746865722f636f6f6c2f70617468120a0102030405060708090a', 51, '2020-09-01 00:00:00.000000+00');
+INSERT INTO "injuredsegments" ("path", "data", "num_healthy_pieces", "updated_at") VALUES ('/this/is/a/new/path', '\x0a23736f2f6d616e792f69636f6e69632f70617468732f746f2f63686f6f73652f66726f6d120a0102030405060708090a', 40, '2020-09-01 00:00:00.000000+00');
 
 INSERT INTO "project_bandwidth_rollups"("project_id", "interval_month", egress_allocated) VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\347'::bytea, '2020-04-01', 10000);
 
@@ -560,4 +560,4 @@ INSERT INTO "projects"("id", "name", "description", "usage_limit", "bandwidth_li
 
 -- NEW DATA --
 
-UPDATE "injuredsegments" SET updated_at = 'epoch'
+UPDATE "injuredsegments" SET updated_at = '2020-09-01 00:00:00.000000+00';

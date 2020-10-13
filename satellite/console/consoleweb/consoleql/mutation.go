@@ -86,22 +86,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					inputID := p.Args[FieldID].(string)
-					projectID, err := uuid.FromString(inputID)
-					if err != nil {
-						return nil, err
-					}
-
-					project, err := service.GetProject(p.Context, projectID)
-					if err != nil {
-						return nil, err
-					}
-
-					if err = service.DeleteProject(p.Context, project.ID); err != nil {
-						return nil, err
-					}
-
-					return project, nil
+					return nil, console.ErrUnauthorized.New("not implemented")
 				},
 			},
 			// updates project name and description.

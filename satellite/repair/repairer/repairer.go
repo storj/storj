@@ -191,13 +191,13 @@ func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err
 
 	repairedTime := time.Now().UTC()
 	timeForRepair := repairedTime.Sub(workerStartTime)
-	mon.FloatVal("time_for_repair").Observe(timeForRepair.Seconds()) //locked
+	mon.FloatVal("time_for_repair").Observe(timeForRepair.Seconds()) //mon:locked
 
 	insertedTime := seg.GetInsertedTime()
 	// do not send metrics if segment was added before the InsertedTime field was added
 	if !insertedTime.IsZero() {
 		timeSinceQueued := workerStartTime.Sub(insertedTime)
-		mon.FloatVal("time_since_checker_queue").Observe(timeSinceQueued.Seconds()) //locked
+		mon.FloatVal("time_since_checker_queue").Observe(timeSinceQueued.Seconds()) //mon:locked
 	}
 
 	return nil

@@ -159,7 +159,9 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 	for _, rep := range stats {
 		url, err := s.trust.GetNodeURL(ctx, rep.SatelliteID)
 		if err != nil {
-			return nil, SNOServiceErr.Wrap(err)
+			s.log.Warn("unable to get Satellite URL", zap.String("Satellite ID", rep.SatelliteID.String()),
+				zap.Error(SNOServiceErr.Wrap(err)))
+			continue
 		}
 
 		data.Satellites = append(data.Satellites,
@@ -187,25 +189,10 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	// temporary solution - in case we receive negative amount of free space we recalculate dir disk available space and recalculates used space.
-	// TODO: find real reason of negative space, garbage collector calculates trash correctly.
-	if s.allocatedDiskSpace.Int64()-pieceTotal-trash < 0 {
-		status, err := s.pieceStore.StorageStatus(ctx)
-		if err != nil {
-			return nil, SNOServiceErr.Wrap(err)
-		}
-
-		data.DiskSpace = DiskSpaceInfo{
-			Used:      s.allocatedDiskSpace.Int64() - status.DiskFree - trash,
-			Available: s.allocatedDiskSpace.Int64(),
-			Trash:     trash,
-		}
-	} else {
-		data.DiskSpace = DiskSpaceInfo{
-			Used:      pieceTotal,
-			Available: s.allocatedDiskSpace.Int64(),
-			Trash:     trash,
-		}
+	data.DiskSpace = DiskSpaceInfo{
+		Used:      pieceTotal,
+		Available: s.allocatedDiskSpace.Int64(),
+		Trash:     trash,
 	}
 
 	data.Bandwidth = BandwidthInfo{
@@ -376,7 +363,9 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 
 		url, err := s.trust.GetNodeURL(ctx, satellitesIDs[i])
 		if err != nil {
-			return nil, SNOServiceErr.Wrap(err)
+			s.log.Warn("unable to get Satellite URL", zap.String("Satellite ID", satellitesIDs[i].String()),
+				zap.Error(SNOServiceErr.Wrap(err)))
+			continue
 		}
 
 		audits = append(audits, Audits{

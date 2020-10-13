@@ -11,7 +11,7 @@ import (
 	"sort"
 	"time"
 
-	monkit "github.com/spacemonkeygo/monkit/v3"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -205,10 +205,19 @@ type Endpoint struct {
 	nodeAPIVersionDB           nodeapiversion.DB
 	settlementBatchSize        int
 	windowEndpointRolloutPhase WindowEndpointRolloutPhase
+	ordersSemaphore            chan struct{}
 }
 
 // NewEndpoint new orders receiving endpoint.
-func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB, settlementBatchSize int, windowEndpointRolloutPhase WindowEndpointRolloutPhase) *Endpoint {
+//
+// ordersSemaphoreSize controls the number of concurrent clients allowed to submit orders at once.
+// A value of zero means unlimited.
+func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB, settlementBatchSize int, windowEndpointRolloutPhase WindowEndpointRolloutPhase, ordersSemaphoreSize int) *Endpoint {
+	var ordersSemaphore chan struct{}
+	if ordersSemaphoreSize > 0 {
+		ordersSemaphore = make(chan struct{}, ordersSemaphoreSize)
+	}
+
 	return &Endpoint{
 		log:                        log,
 		satelliteSignee:            satelliteSignee,
@@ -216,6 +225,7 @@ func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPI
 		nodeAPIVersionDB:           nodeAPIVersionDB,
 		settlementBatchSize:        settlementBatchSize,
 		windowEndpointRolloutPhase: windowEndpointRolloutPhase,
+		ordersSemaphore:            ordersSemaphore,
 	}
 }
 
@@ -235,6 +245,22 @@ func monitoredSettlementStreamSend(ctx context.Context, stream pb.DRPCOrders_Set
 		mon.Event("settlement_response_unknown")
 	}
 	return stream.Send(resp)
+}
+
+// withOrdersSemaphore acquires a slot with the ordersSemaphore if one exists and returns
+// a function to exit it. If the context expires, it returns an error.
+func (endpoint *Endpoint) withOrdersSemaphore(ctx context.Context, cb func(ctx context.Context) error) error {
+	if endpoint.ordersSemaphore == nil {
+		return cb(ctx)
+	}
+	select {
+	case endpoint.ordersSemaphore <- struct{}{}:
+		err := cb(ctx)
+		<-endpoint.ordersSemaphore
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // Settlement receives orders and handles them in batches.
@@ -365,7 +391,11 @@ func (endpoint *Endpoint) Settlement(stream pb.DRPCOrders_SettlementStream) (err
 func (endpoint *Endpoint) processOrders(ctx context.Context, stream pb.DRPCOrders_SettlementStream, requests []*ProcessOrderRequest) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	responses, err := endpoint.DB.ProcessOrders(ctx, requests)
+	var responses []*ProcessOrderResponse
+	err = endpoint.withOrdersSemaphore(ctx, func(ctx context.Context) error {
+		responses, err = endpoint.DB.ProcessOrders(ctx, requests)
+		return err
+	})
 	if err != nil {
 		return err
 	}
@@ -418,7 +448,10 @@ func (endpoint *Endpoint) SettlementWithWindowMigration(stream pb.DRPCOrders_Set
 		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
 
-	err = endpoint.nodeAPIVersionDB.UpdateVersionAtLeast(ctx, peer.ID, nodeapiversion.HasWindowedOrders)
+	// update the node api version inside of the semaphore
+	err = endpoint.withOrdersSemaphore(ctx, func(ctx context.Context) error {
+		return endpoint.nodeAPIVersionDB.UpdateVersionAtLeast(ctx, peer.ID, nodeapiversion.HasWindowedOrders)
+	})
 	if err != nil {
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
@@ -476,8 +509,11 @@ func (endpoint *Endpoint) SettlementWithWindowMigration(stream pb.DRPCOrders_Set
 			})
 		}
 
-		// process all of the orders in the old way
-		_, err = endpoint.DB.ProcessOrders(ctx, requests)
+		// process all of the orders in the old way inside of the semaphore
+		err := endpoint.withOrdersSemaphore(ctx, func(ctx context.Context) error {
+			_, err = endpoint.DB.ProcessOrders(ctx, requests)
+			return err
+		})
 		if err != nil {
 			return rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
@@ -493,11 +529,19 @@ func (endpoint *Endpoint) SettlementWithWindowMigration(stream pb.DRPCOrders_Set
 	// insert zero rows for every action involved in the set of orders. this prevents
 	// many problems (double spends and underspends) by ensuring that any window is
 	// either handled entirely by the queue or entirely with the phase 3 windowed endpoint.
+	// enter the semaphore for the duration of the updates.
+
 	windowTime := time.Unix(0, window)
-	for action := range actions {
-		if err := endpoint.DB.UpdateStoragenodeBandwidthSettle(ctx, peer.ID, action, 0, windowTime); err != nil {
-			return rpcstatus.Wrap(rpcstatus.Internal, err)
+	err = endpoint.withOrdersSemaphore(ctx, func(ctx context.Context) error {
+		for action := range actions {
+			if err := endpoint.DB.UpdateStoragenodeBandwidthSettle(ctx, peer.ID, action, 0, windowTime); err != nil {
+				return err
+			}
 		}
+		return nil
+	})
+	if err != nil {
+		return rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 
 	log.Debug("orders processed",

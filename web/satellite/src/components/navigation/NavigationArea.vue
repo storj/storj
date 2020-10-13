@@ -2,7 +2,8 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="navigation-area" v-if="!isOnboardingTour">
+    <div class="navigation-area" v-if="!isNavigationHidden">
+        <EditProjectDropdown/>
         <router-link
             :aria-label="navItem.name"
             class="navigation-area__item-container"
@@ -21,6 +22,8 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import EditProjectDropdown from '@/components/navigation/EditProjectDropdown.vue';
+
 import ApiKeysIcon from '@/../static/images/navigation/apiKeys.svg';
 import DashboardIcon from '@/../static/images/navigation/dashboard.svg';
 import TeamIcon from '@/../static/images/navigation/team.svg';
@@ -33,6 +36,7 @@ import { NavigationLink } from '@/types/navigation';
         DashboardIcon,
         ApiKeysIcon,
         TeamIcon,
+        EditProjectDropdown,
     },
 })
 export default class NavigationArea extends Vue {
@@ -46,9 +50,23 @@ export default class NavigationArea extends Vue {
     ];
 
     /**
+     * Indicates if navigation side bar is hidden.
+     */
+    public get isNavigationHidden(): boolean {
+        return this.isOnboardingTour || this.isCreateProjectPage;
+    }
+
+    /**
+     * Indicates if current route is create project page.
+     */
+    private get isCreateProjectPage(): boolean {
+        return this.$route.name === RouteConfig.CreateProject.name;
+    }
+
+    /**
      * Indicates if current route is onboarding tour.
      */
-    public get isOnboardingTour(): boolean {
+    private get isOnboardingTour(): boolean {
         return this.$route.name === RouteConfig.OnboardingTour.name;
     }
 }
@@ -60,9 +78,10 @@ export default class NavigationArea extends Vue {
     }
 
     .navigation-area {
-        padding: 25px 30px;
-        min-width: 160px;
-        background: rgba(118, 131, 148, 0.3);
+        padding: 25px;
+        min-width: 170px;
+        max-width: 170px;
+        background: #e6e9ef;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -86,7 +105,7 @@ export default class NavigationArea extends Vue {
                 &__title {
                     font-size: 16px;
                     line-height: 23px;
-                    color: #354049;
+                    color: #1b2533;
                     margin: 0 0 0 15px;
                 }
             }
@@ -94,11 +113,16 @@ export default class NavigationArea extends Vue {
             &.router-link-active,
             &:hover {
                 font-family: 'font_bold', sans-serif;
-                background: rgba(245, 246, 250, 0.7);
+                background: #0068dc;
                 border-radius: 6px;
 
+                .navigation-area__item-container__link__title {
+                    color: #fff;
+                }
+
                 .svg .navigation-svg-path:not(.white) {
-                    fill: #2683ff !important;
+                    fill: #fff !important;
+                    opacity: 1;
                 }
             }
         }

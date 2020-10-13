@@ -45,6 +45,7 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
+import { LocalData } from '@/utils/localData';
 
 @Component({
     components: {
@@ -60,6 +61,7 @@ export default class ProjectDropdown extends Vue {
      */
     public async onProjectSelected(projectID: string): Promise<void> {
         await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
+        LocalData.setSelectedProjectId(projectID);
         await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
         this.closeDropdown();
 
@@ -151,19 +153,23 @@ export default class ProjectDropdown extends Vue {
                     margin: 12px 0;
                     font-size: 14px;
                     line-height: 20px;
-                    color: #7e8b9c;
+                    color: #1b2533;
                     word-break: break-all;
                 }
 
                 &__selected {
                     font-family: 'font_bold', sans-serif;
-                    color: #494949;
+                }
+
+                &__unselected {
+                    padding-left: 22px;
                 }
 
                 &:hover {
-                    background-color: #f2f2f6;
+                    background-color: #f5f6fa;
 
                     .project-dropdown__wrap__choice__unselected {
+                        font-family: 'font_bold', sans-serif;
                         color: #354049;
                     }
                 }
@@ -196,7 +202,7 @@ export default class ProjectDropdown extends Vue {
 
                 &__text,
                 &__arrow {
-                    color: #2683ff;
+                    color: #0068dc;
                     font-size: 14px;
                 }
             }

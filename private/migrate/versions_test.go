@@ -59,7 +59,7 @@ func TestBasicMigration(t *testing.T) {
 }
 
 func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB tagsql.DB) {
-	dbName := strings.ToLower(`versions_` + strings.Replace(t.Name(), "/", "_", -1))
+	dbName := strings.ToLower(`versions_` + strings.ReplaceAll(t.Name(), "/", "_"))
 	defer func() { assert.NoError(t, dropTables(ctx, db, dbName, "users")) }()
 
 	/* #nosec G306 */ // This is a test besides the file contains just test data.

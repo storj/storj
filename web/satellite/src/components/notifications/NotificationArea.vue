@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div id="notificationArea" class="notification-container" v-if="doNotificationsExist">
+    <div class="notification-container" v-if="doNotificationsExist">
         <NotificationItem
             v-for="notification in notifications"
             :notification="notification"

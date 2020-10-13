@@ -28,6 +28,8 @@ export default class VButton extends Vue {
     @Prop({default: false})
     private readonly isWhite: boolean;
     @Prop({default: false})
+    private readonly isTransparent: boolean;
+    @Prop({default: false})
     private readonly isDeletion: boolean;
     @Prop({default: false})
     private readonly isBlueWhite: boolean;
@@ -45,6 +47,8 @@ export default class VButton extends Vue {
 
         if (this.isWhite) return 'container white';
 
+        if (this.isTransparent) return 'container transparent';
+
         if (this.isDeletion) return 'container red';
 
         if (this.isBlueWhite) return 'container blue-white';
@@ -55,9 +59,18 @@ export default class VButton extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .white,
+    .transparent,
     .red {
         background-color: transparent !important;
+        border: 1px solid #afb7c1 !important;
+
+        .label {
+            color: #354049 !important;
+        }
+    }
+
+    .white {
+        background-color: #fff !important;
         border: 1px solid #afb7c1 !important;
 
         .label {
@@ -102,8 +115,9 @@ export default class VButton extends Vue {
         &:hover {
             background-color: #0059d0;
 
-            &.white,
-            &.blue-white {
+            &.transparent,
+            &.blue-white,
+            &.white {
                 box-shadow: none !important;
                 background-color: #2683ff !important;
                 border: 1px solid #2683ff !important;

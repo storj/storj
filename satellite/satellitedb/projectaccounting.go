@@ -60,8 +60,8 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 			$1,
 			unnest($2::bytea[]), unnest($3::bytea[]),
 			unnest($4::int8[]), unnest($5::int8[]),
-			unnest($6::int[]), unnest($7::int[]),
-			unnest($8::int[]), unnest($9::int8[])`),
+			unnest($6::int8[]), unnest($7::int8[]),
+			unnest($8::int8[]), unnest($9::int8[])`),
 		intervalStart,
 		pgutil.ByteaArray(bucketNames), pgutil.ByteaArray(projectIDs),
 		pgutil.Int8Array(inlineBytes), pgutil.Int8Array(remoteBytes),
@@ -210,31 +210,31 @@ func (db *ProjectAccounting) UpdateProjectBandwidthLimit(ctx context.Context, pr
 }
 
 // GetProjectStorageLimit returns project storage usage limit.
-func (db *ProjectAccounting) GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
+func (db *ProjectAccounting) GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (_ *int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	row, err := db.db.Get_Project_UsageLimit_By_Id(ctx,
 		dbx.Project_Id(projectID[:]),
 	)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	return memory.Size(row.UsageLimit), nil
+	return row.UsageLimit, nil
 }
 
 // GetProjectBandwidthLimit returns project bandwidth usage limit.
-func (db *ProjectAccounting) GetProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
+func (db *ProjectAccounting) GetProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID) (_ *int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	row, err := db.db.Get_Project_BandwidthLimit_By_Id(ctx,
 		dbx.Project_Id(projectID[:]),
 	)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	return memory.Size(row.BandwidthLimit), nil
+	return row.BandwidthLimit, nil
 }
 
 // GetProjectTotal retrieves project usage for a given period.
@@ -655,4 +655,21 @@ func (db *ProjectAccounting) getBuckets(ctx context.Context, projectID uuid.UUID
 // timeTruncateDown truncates down to the hour before to be in sync with orders endpoint.
 func timeTruncateDown(t time.Time) time.Time {
 	return time.Date(t.Year(), t.Month(), t.Day(), t.Hour(), 0, 0, 0, t.Location())
+}
+
+// GetProjectLimits returns current project limit for both storage and bandwidth.
+func (db *ProjectAccounting) GetProjectLimits(ctx context.Context, projectID uuid.UUID) (_ accounting.ProjectLimits, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	row, err := db.db.Get_Project_BandwidthLimit_Project_UsageLimit_By_Id(ctx,
+		dbx.Project_Id(projectID[:]),
+	)
+	if err != nil {
+		return accounting.ProjectLimits{}, err
+	}
+
+	return accounting.ProjectLimits{
+		Usage:     &row.UsageLimit,
+		Bandwidth: &row.BandwidthLimit,
+	}, nil
 }

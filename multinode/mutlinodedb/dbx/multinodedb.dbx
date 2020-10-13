@@ -1,0 +1,17 @@
+// dbx.v1 golang multinodedb.dbx .
+
+model node (
+    key id
+
+    field id               blob
+    field name             text      ( updatable )
+    field api_secret       blob
+    field logo             blob      ( updatable )
+)
+
+create node ( )
+
+read one (
+    select node
+    where node.id = ?
+)

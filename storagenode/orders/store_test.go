@@ -17,6 +17,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/orders/ordersfile"
 )
 
 func TestOrdersStore_Enqueue_GracePeriodFailure(t *testing.T) {
@@ -31,7 +32,7 @@ func TestOrdersStore_Enqueue_GracePeriodFailure(t *testing.T) {
 
 	// adding order before grace period should result in an error
 	newSN := testrand.SerialNumber()
-	newInfo := &orders.Info{
+	newInfo := &ordersfile.Info{
 		Limit: &pb.OrderLimit{
 			SerialNumber:    newSN,
 			SatelliteId:     testrand.NodeID(),
@@ -129,7 +130,7 @@ func TestOrdersStore_ListUnsentBySatellite(t *testing.T) {
 				archivedAt = archiveTime2
 				status = status2
 			}
-			err = ordersStore.Archive(satelliteID, unsentSatList.CreatedAtHour, archivedAt, status)
+			err = ordersStore.Archive(satelliteID, unsentSatList, archivedAt, status)
 			require.NoError(t, err)
 		}
 	}
@@ -194,7 +195,7 @@ func TestOrdersStore_ListUnsentBySatellite_Ongoing(t *testing.T) {
 
 	// store an order that can be listed
 	sn := testrand.SerialNumber()
-	require.NoError(t, ordersStore.Enqueue(&orders.Info{
+	require.NoError(t, ordersStore.Enqueue(&ordersfile.Info{
 		Limit: &pb.OrderLimit{
 			SerialNumber:  sn,
 			SatelliteId:   satellite,
@@ -223,7 +224,7 @@ func TestOrdersStore_ListUnsentBySatellite_Ongoing(t *testing.T) {
 
 	// commit the order
 	sn = testrand.SerialNumber()
-	require.NoError(t, commit(&orders.Info{
+	require.NoError(t, commit(&ordersfile.Info{
 		Limit: &pb.OrderLimit{
 			SerialNumber:  sn,
 			SatelliteId:   satellite,
@@ -260,7 +261,7 @@ func TestOrdersStore_CorruptUnsent(t *testing.T) {
 	require.Len(t, unsent, 0)
 
 	sn := testrand.SerialNumber()
-	info := &orders.Info{
+	info := &ordersfile.Info{
 		Limit: &pb.OrderLimit{
 			SerialNumber:  sn,
 			SatelliteId:   satellite,
@@ -300,7 +301,7 @@ func TestOrdersStore_CorruptUnsent(t *testing.T) {
 	require.Len(t, unsent[satellite].InfoList, 1)
 }
 
-func verifyInfosEqual(t *testing.T, a, b *orders.Info) {
+func verifyInfosEqual(t *testing.T, a, b *ordersfile.Info) {
 	t.Helper()
 
 	require.NotNil(t, a)
@@ -333,13 +334,13 @@ func verifyArchivedInfosEqual(t *testing.T, a, b *orders.ArchivedInfo) {
 	require.Equal(t, a.ArchivedAt.UTC(), b.ArchivedAt.UTC())
 }
 
-func storeNewOrders(ordersStore *orders.FileStore, numSatellites, numOrdersPerSatPerTime int, createdAtTimes []time.Time) (map[storj.SerialNumber]*orders.Info, error) {
+func storeNewOrders(ordersStore *orders.FileStore, numSatellites, numOrdersPerSatPerTime int, createdAtTimes []time.Time) (map[storj.SerialNumber]*ordersfile.Info, error) {
 	actions := []pb.PieceAction{
 		pb.PieceAction_GET,
 		pb.PieceAction_PUT_REPAIR,
 		pb.PieceAction_GET_AUDIT,
 	}
-	originalInfos := make(map[storj.SerialNumber]*orders.Info)
+	originalInfos := make(map[storj.SerialNumber]*ordersfile.Info)
 	for i := 0; i < numSatellites; i++ {
 		satellite := testrand.NodeID()
 
@@ -350,7 +351,7 @@ func storeNewOrders(ordersStore *orders.FileStore, numSatellites, numOrdersPerSa
 				sn := testrand.SerialNumber()
 				action := actions[j%len(actions)]
 
-				newInfo := &orders.Info{
+				newInfo := &ordersfile.Info{
 					Limit: &pb.OrderLimit{
 						SerialNumber:    sn,
 						SatelliteId:     satellite,

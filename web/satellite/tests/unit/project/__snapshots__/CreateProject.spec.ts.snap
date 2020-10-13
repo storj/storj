@@ -31,7 +31,7 @@ exports[`CreateProject.vue renders correctly 1`] = `
       <!---->
     </div>
     <div class="create-project-area__container__button-container">
-      <div class="container white" style="width: 210px; height: 48px;"><span class="label">Cancel</span></div>
+      <div class="container transparent" style="width: 210px; height: 48px;"><span class="label">Cancel</span></div>
       <div class="container disabled" style="width: 210px; height: 48px;"><span class="label">Create Project +</span></div>
     </div>
     <!---->

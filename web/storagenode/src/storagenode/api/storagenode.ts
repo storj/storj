@@ -120,6 +120,7 @@ export class SNOApi {
                 scoreInfo.satelliteName,
                 scoreInfo.auditScore,
                 scoreInfo.suspensionScore,
+                scoreInfo.onlineScore,
             );
         });
 

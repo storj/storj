@@ -135,7 +135,7 @@ func openLog(logPath string) error {
 		logPath = "winfile:///" + logPath
 	}
 
-	logger, err := process.NewLoggerWithOutputPaths(logPath)
+	logger, err := process.NewLoggerWithOutputPaths("storagenode-updater", logPath)
 	if err != nil {
 		return err
 	}

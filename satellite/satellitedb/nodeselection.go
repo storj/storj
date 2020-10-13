@@ -212,7 +212,7 @@ func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria,
 		if len(excludedNetworks) > 0 {
 			conds.add(
 				`not (last_net = any(?::text[]))`,
-				pgutil.StringArray(excludedNetworks),
+				pgutil.TextArray(excludedNetworks),
 			)
 		}
 		conds.add(`last_net <> ''`)

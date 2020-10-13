@@ -90,16 +90,6 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummary
 
 	totalUsedBandwidth := usage.Total()
 	availableSpace := inspector.pieceStoreConfig.AllocatedDiskSpace.Int64() - piecesContentSize
-	// temporary solution: in case we receive negative amount of free space we recalculate dir disk available space.
-	// TODO: find real reason of negative space, garbage collector calculates trash correctly.
-	if availableSpace < 0 {
-		status, err := inspector.pieceStore.StorageStatus(ctx)
-		if err != nil {
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
-
-		availableSpace = status.DiskFree
-	}
 
 	return &pb.StatSummaryResponse{
 		UsedSpace:      piecesContentSize,

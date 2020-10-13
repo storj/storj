@@ -31,9 +31,9 @@ const store = new Vuex.Store({modules: { projectsModule, projectMembersModule, a
 describe('ProjectMembersArea.vue', () => {
     const project = new Project('id', 'projectName', 'projectDescription', 'test', 'testOwnerId', true);
     projectsApi.setMockProjects([project]);
-
-    const projectMember1 = new ProjectMember('testFullName1', 'testShortName1', 'test1@example.com', 'now1', '1');
-    const projectMember2 = new ProjectMember('testFullName2', 'testShortName2', 'test2@example.com', 'now2', '2');
+    const date = new Date(0);
+    const projectMember1 = new ProjectMember('testFullName1', 'testShortName1', 'test1@example.com', date, '1');
+    const projectMember2 = new ProjectMember('testFullName2', 'testShortName2', 'test2@example.com', date, '2');
 
     const testProjectMembersPage = new ProjectMembersPage();
     testProjectMembersPage.projectMembers = [projectMember1];
@@ -99,7 +99,8 @@ describe('ProjectMembersArea.vue', () => {
     });
 
     it('clear selection works correctly', () => {
-        const projectMember3 = new ProjectMember('testFullName1', 'testShortName1', 'test1@example.com', 'now1', '1');
+        const date = new Date(0);
+        const projectMember3 = new ProjectMember('testFullName1', 'testShortName1', 'test1@example.com', date, '1');
         projectMember3.isSelected = true;
         const testProjectMembersPage = new ProjectMembersPage();
         testProjectMembersPage.projectMembers = [projectMember3];

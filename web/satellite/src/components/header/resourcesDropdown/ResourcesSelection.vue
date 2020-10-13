@@ -28,6 +28,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
 import { RouteConfig } from '@/router';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 import ResourcesDropdown from './ResourcesDropdown.vue';
 
@@ -38,8 +39,6 @@ import ResourcesDropdown from './ResourcesDropdown.vue';
     },
 })
 export default class ResourcesSelection extends Vue {
-    public isDropdownShown: boolean = false;
-
     /**
      * Indicates if current route is onboarding tour.
      */
@@ -48,26 +47,44 @@ export default class ResourcesSelection extends Vue {
     }
 
     /**
+     * Indicates if resources dropdown shown.
+     */
+    public get isDropdownShown(): boolean {
+        return this.$store.state.appStateModule.appState.isResourcesDropdownShown;
+    }
+
+    /**
      * Toggles resources dropdown visibility.
      */
     public toggleDropdown(): void {
-        this.isDropdownShown = !this.isDropdownShown;
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_RESOURCES_DROPDOWN);
     }
 
     /**
      * Closes resources dropdown.
      */
     public closeDropdown(): void {
-        this.isDropdownShown = false;
+        if (!this.isDropdownShown) return;
+
+        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
     }
 }
 </script>
 
 <style scoped lang="scss">
+    .expanded {
+
+        .black-arrow-expand-path {
+            fill: #fff !important;
+        }
+    }
+
     .resources-selection {
         background-color: #fff;
         cursor: pointer;
         margin-right: 20px;
+        border-radius: 6px;
+        min-width: 140px;
 
         &__toggle-container {
             position: relative;
@@ -93,6 +110,19 @@ export default class ResourcesSelection extends Vue {
                 margin-left: 15px;
             }
         }
+
+        &:hover {
+            background-color: #f5f6fa;
+
+            .resources-selection__toggle-container__name {
+                font-family: 'font_bold', sans-serif;
+                color: #0068dc;
+            }
+
+            .black-arrow-expand-path {
+                fill: #0068dc;
+            }
+        }
     }
 
     .disabled {
@@ -101,19 +131,12 @@ export default class ResourcesSelection extends Vue {
         cursor: default;
     }
 
-    .expanded {
-
-        .black-arrow-expand-path {
-            fill: #fff;
-        }
-    }
-
     .active {
-        background: #2582ff;
-        border-radius: 6px;
+        background: #2582ff !important;
     }
 
     .white {
-        color: #fff;
+        font-family: 'font_bold', sans-serif;
+        color: #fff !important;
     }
 </style>

@@ -24,7 +24,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/orders/ordersfile"
 	"storj.io/storj/storagenode/storagenodedb"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
@@ -92,7 +92,7 @@ func testConcurrency(t *testing.T, ctx *testcontext.Context, db *storagenodedb.D
 			t.Fatal(err)
 		}
 
-		ordersMap := make(map[string]orders.Info)
+		ordersMap := make(map[string]ordersfile.Info)
 		err = createOrders(t, ctx, ordersMap, 1000)
 		require.NoError(t, err)
 
@@ -104,7 +104,7 @@ func testConcurrency(t *testing.T, ctx *testcontext.Context, db *storagenodedb.D
 	})
 }
 
-func insertOrders(t *testing.T, ctx *testcontext.Context, db *storagenodedb.DB, ordersMap map[string]orders.Info) (err error) {
+func insertOrders(t *testing.T, ctx *testcontext.Context, db *storagenodedb.DB, ordersMap map[string]ordersfile.Info) (err error) {
 	var wg sync.WaitGroup
 	for _, order := range ordersMap {
 		wg.Add(1)
@@ -116,19 +116,18 @@ func insertOrders(t *testing.T, ctx *testcontext.Context, db *storagenodedb.DB, 
 	return nil
 }
 
-func insertOrder(t *testing.T, ctx *testcontext.Context, db *storagenodedb.DB, wg *sync.WaitGroup, order *orders.Info) {
+func insertOrder(t *testing.T, ctx *testcontext.Context, db *storagenodedb.DB, wg *sync.WaitGroup, order *ordersfile.Info) {
 	defer wg.Done()
 	err := db.Orders().Enqueue(ctx, order)
 	require.NoError(t, err)
 }
 
-func verifyOrders(t *testing.T, ctx *testcontext.Context, db *storagenodedb.DB, orders map[string]orders.Info) (err error) {
+func verifyOrders(t *testing.T, ctx *testcontext.Context, db *storagenodedb.DB, orders map[string]ordersfile.Info) (err error) {
 	dbOrders, _ := db.Orders().ListUnsent(ctx, 10000)
 	found := 0
 	for _, order := range orders {
 		for _, dbOrder := range dbOrders {
 			if order.Order.SerialNumber == dbOrder.Order.SerialNumber {
-				//fmt.Printf("Found %v\n", order.Order.SerialNumber)
 				found++
 			}
 		}
@@ -137,7 +136,7 @@ func verifyOrders(t *testing.T, ctx *testcontext.Context, db *storagenodedb.DB, 
 	return nil
 }
 
-func createOrders(t *testing.T, ctx *testcontext.Context, orders map[string]orders.Info, count int) (err error) {
+func createOrders(t *testing.T, ctx *testcontext.Context, orders map[string]ordersfile.Info, count int) (err error) {
 	for i := 0; i < count; i++ {
 		key, err := uuid.New()
 		if err != nil {
@@ -149,7 +148,7 @@ func createOrders(t *testing.T, ctx *testcontext.Context, orders map[string]orde
 	return nil
 }
 
-func createOrder(t *testing.T, ctx *testcontext.Context) (info *orders.Info) {
+func createOrder(t *testing.T, ctx *testcontext.Context) (info *ordersfile.Info) {
 	storageNodeIdentity := testidentity.MustPregeneratedSignedIdentity(0, storj.LatestIDVersion())
 	satelliteIdentity := testidentity.MustPregeneratedSignedIdentity(1, storj.LatestIDVersion())
 
@@ -179,7 +178,7 @@ func createOrder(t *testing.T, ctx *testcontext.Context) (info *orders.Info) {
 	})
 	require.NoError(t, err)
 
-	return &orders.Info{
+	return &ordersfile.Info{
 		Limit: limit,
 		Order: order,
 	}

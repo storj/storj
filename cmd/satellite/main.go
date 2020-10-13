@@ -22,6 +22,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
+	_ "storj.io/private/process/googleprofiler" // This attaches google cloud profiler.
 	"storj.io/private/version"
 	"storj.io/storj/cmd/satellite/reports"
 	"storj.io/storj/pkg/cache"
@@ -218,6 +219,22 @@ var (
 		Long:  "Ensures that we have a stripe customer for every satellite user.",
 		RunE:  cmdStripeCustomer,
 	}
+	metainfoCmd = &cobra.Command{
+		Use:   "metainfo",
+		Short: "Metainfo commands",
+	}
+	fixOldStyleObjectsCmd = &cobra.Command{
+		Use:   "fix-old-style-objects",
+		Short: "Fixes old-style objects",
+		Long:  "Fixes the old-style objects by adding the number of segments to the metadata.",
+		RunE:  cmdFixOldStyleObjects,
+	}
+	verifyPieceHashesCmd = &cobra.Command{
+		Use:   "verify-piece-hashes",
+		Short: "Verifies piece hashes for unverified segments",
+		Long:  "Verifies piece hashes for all segments with PieceHashesVerifeid = false in their pointer.",
+		RunE:  cmdVerifyPieceHashes,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -253,6 +270,10 @@ var (
 	}
 	verifyGracefulExitReceiptCfg struct {
 	}
+	dryRunCfg struct {
+		Satellite
+		DryRun bool `help:"only prints logs for the changes to be made without apply them" default:"true"`
+	}
 	confDir     string
 	identityDir string
 )
@@ -274,6 +295,7 @@ func init() {
 	rootCmd.AddCommand(reportsCmd)
 	rootCmd.AddCommand(compensationCmd)
 	rootCmd.AddCommand(billingCmd)
+	rootCmd.AddCommand(metainfoCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(gracefulExitCmd)
@@ -287,6 +309,8 @@ func init() {
 	billingCmd.AddCommand(createCustomerInvoicesCmd)
 	billingCmd.AddCommand(finalizeCustomerInvoicesCmd)
 	billingCmd.AddCommand(stripeCustomerCmd)
+	metainfoCmd.AddCommand(fixOldStyleObjectsCmd)
+	metainfoCmd.AddCommand(verifyPieceHashesCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -308,6 +332,8 @@ func init() {
 	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(finalizeCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(fixOldStyleObjectsCmd, &dryRunCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(verifyPieceHashesCmd, &dryRunCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -320,7 +346,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
-		log.Fatal("Failed to load identity.", zap.Error(err))
+		log.Error("Failed to load identity.", zap.Error(err))
+		return errs.New("Failed to load identity: %+v", err)
 	}
 
 	db, err := satellitedb.New(log.Named("db"), runCfg.Database, satellitedb.Options{
@@ -384,7 +411,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	err = db.CheckVersion(ctx)
 	if err != nil {
-		log.Fatal("Failed satellite database version check.", zap.Error(err))
+		log.Error("Failed satellite database version check.", zap.Error(err))
 		return errs.New("Error checking version for satellitedb: %+v", err)
 	}
 
@@ -691,6 +718,18 @@ func cmdStripeCustomer(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
 	return generateStripeCustomers(ctx)
+}
+
+func cmdFixOldStyleObjects(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	return fixOldStyleObjects(ctx)
+}
+
+func cmdVerifyPieceHashes(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	return verifyPieceHashes(ctx)
 }
 
 func main() {

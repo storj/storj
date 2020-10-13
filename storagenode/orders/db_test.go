@@ -18,6 +18,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/orders/ordersfile"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
@@ -46,7 +47,7 @@ func TestDB(t *testing.T) {
 		piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
 		require.NoError(t, err)
 
-		infos := make([]*orders.Info, 2)
+		infos := make([]*ordersfile.Info, 2)
 		for i := 0; i < len(infos); i++ {
 
 			serialNumber := testrand.SerialNumber()
@@ -70,7 +71,7 @@ func TestDB(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			infos[i] = &orders.Info{
+			infos[i] = &ordersfile.Info{
 				Limit: limit,
 				Order: order,
 			}
@@ -86,7 +87,7 @@ func TestDB(t *testing.T) {
 
 		unsent, err := ordersdb.ListUnsent(ctx, 100)
 		require.NoError(t, err)
-		require.Empty(t, cmp.Diff([]*orders.Info{infos[0]}, unsent, cmp.Comparer(pb.Equal)))
+		require.Empty(t, cmp.Diff([]*ordersfile.Info{infos[0]}, unsent, cmp.Comparer(pb.Equal)))
 
 		// Another add
 		err = ordersdb.Enqueue(ctx, infos[1])
@@ -95,14 +96,14 @@ func TestDB(t *testing.T) {
 		unsent, err = ordersdb.ListUnsent(ctx, 100)
 		require.NoError(t, err)
 		require.Empty(t,
-			cmp.Diff([]*orders.Info{infos[0], infos[1]}, unsent, cmp.Comparer(pb.Equal)),
+			cmp.Diff([]*ordersfile.Info{infos[0], infos[1]}, unsent, cmp.Comparer(pb.Equal)),
 		)
 
 		// list by group
 		unsentGrouped, err := ordersdb.ListUnsentBySatellite(ctx)
 		require.NoError(t, err)
 
-		expectedGrouped := map[storj.NodeID][]*orders.Info{
+		expectedGrouped := map[storj.NodeID][]*ordersfile.Info{
 			satellite0.ID: {
 				{Limit: infos[0].Limit, Order: infos[0].Order},
 				{Limit: infos[1].Limit, Order: infos[1].Order},
@@ -196,7 +197,7 @@ func TestDB_Trivial(t *testing.T) {
 		before := now.Add(-time.Second)
 
 		{ // Ensure Enqueue works at all
-			err := db.Orders().Enqueue(ctx, &orders.Info{
+			err := db.Orders().Enqueue(ctx, &ordersfile.Info{
 				Order: &pb.Order{},
 				Limit: &pb.OrderLimit{
 					SatelliteId:     satelliteID,

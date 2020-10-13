@@ -104,5 +104,5 @@ type User struct {
 
 	CreatedAt time.Time `json:"createdAt"`
 
-	ProjectLimit int `json:"project_limit"`
+	ProjectLimit int `json:"projectLimit"`
 }

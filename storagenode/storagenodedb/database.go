@@ -277,7 +277,7 @@ func (db *DB) createDatabases() error {
 	}
 
 	for _, dbName := range dbs {
-		err := db.createDatabase(dbName)
+		err := db.openDatabase(dbName)
 		if err != nil {
 			return errs.Combine(err, db.closeDatabases())
 		}
@@ -321,19 +321,6 @@ func (db *DB) openDatabases() error {
 
 func (db *DB) rawDatabaseFromName(dbName string) tagsql.DB {
 	return db.SQLDBs[dbName].GetDB()
-}
-
-// createDatabase creates new database at the specified path, returns err if db exists.
-func (db *DB) createDatabase(dbName string) error {
-	path := db.filepathFromDBName(dbName)
-
-	if _, err := os.Stat(path); err == nil {
-		return ErrDatabase.New("database %s already exists", dbName)
-	} else if !os.IsNotExist(err) {
-		return ErrDatabase.Wrap(err)
-	}
-
-	return db.openDatabase(dbName)
 }
 
 // openExistingDatabase opens existing database at the specified path.
@@ -625,6 +612,11 @@ func (db *DB) migrateToDB(ctx context.Context, dbName string, tablesToKeep ...st
 	}
 
 	return nil
+}
+
+// CheckVersion that the version of the migration matches the state of the database.
+func (db *DB) CheckVersion(ctx context.Context) error {
+	return db.Migration(ctx).ValidateVersions(ctx, db.log)
 }
 
 // Migration returns table migrations.

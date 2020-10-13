@@ -64,6 +64,7 @@ describe('mutations', (): void => {
 
         expect(state.payoutModule.totalHeldAndPaid.held).toBe(50);
         expect(state.payoutModule.totalHeldAndPaid.paid).toBe(100);
+        expect(state.payoutModule.totalHeldAndPaid.disposed).toBe(10);
         expect(state.payoutModule.currentMonthEarnings).toBe(22);
     });
 
@@ -148,6 +149,16 @@ describe('mutations', (): void => {
         expect(state.payoutModule.payoutPeriods.length).toBe(2);
         expect(state.payoutModule.payoutPeriods[0]).toBe(firstExpectedPeriod);
         expect(state.payoutModule.payoutPeriods[1]).toBe(secondExpectedPeriod);
+    });
+
+    it('sets available payout history periods', (): void => {
+        const firstExpectedPeriod = '2020-08';
+        const incomingDataSet = [firstExpectedPeriod];
+
+        store.commit(PAYOUT_MUTATIONS.SET_PAYOUT_HISTORY_AVAILABLE_PERIODS, incomingDataSet);
+
+        expect(state.payoutModule.payoutHistoryAvailablePeriods.length).toBe(1);
+        expect(state.payoutModule.payoutHistoryAvailablePeriods[0]).toBe(firstExpectedPeriod);
     });
 
     it('sets payout history period', (): void => {
@@ -246,6 +257,7 @@ describe('actions', () => {
     it('success get total', async (): Promise<void> => {
         const paystub = new Paystub();
         paystub.held = 100000;
+        paystub.disposed = 50000;
         paystub.paid = 200000;
 
         jest.spyOn(payoutApi, 'getPaystubsForPeriod').mockReturnValue(
@@ -254,8 +266,9 @@ describe('actions', () => {
 
         await store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
 
-        expect(state.payoutModule.totalHeldAndPaid.held).toBe(10);
+        expect(state.payoutModule.totalHeldAndPaid.held).toBe(5);
         expect(state.payoutModule.totalHeldAndPaid.paid).toBe(20);
+        expect(state.payoutModule.totalHeldAndPaid.disposed).toBe(5);
         expect(state.payoutModule.currentMonthEarnings).toBe(0);
     });
 
@@ -266,7 +279,7 @@ describe('actions', () => {
             await store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
             expect(true).toBe(false);
         } catch (error) {
-            expect(state.payoutModule.totalHeldAndPaid.held).toBe(10);
+            expect(state.payoutModule.totalHeldAndPaid.held).toBe(5);
             expect(state.payoutModule.totalHeldAndPaid.paid).toBe(20);
             expect(state.payoutModule.currentMonthEarnings).toBe(0);
         }
@@ -283,11 +296,17 @@ describe('actions', () => {
             ]),
         );
 
-        await store.dispatch(PAYOUT_ACTIONS.GET_PERIODS);
+        await store.dispatch(PAYOUT_ACTIONS.GET_PERIODS, 'id');
 
         expect(state.payoutModule.payoutPeriods.length).toBe(2);
         expect(state.payoutModule.payoutPeriods[0].period).toBe(firstExpectedPeriod);
         expect(state.payoutModule.payoutPeriods[1].period).toBe(secondExpectedPeriod);
+        expect(state.payoutModule.payoutHistoryAvailablePeriods.length).toBe(1);
+
+        await store.dispatch(PAYOUT_ACTIONS.GET_PERIODS);
+
+        expect(state.payoutModule.payoutHistoryAvailablePeriods.length).toBe(2);
+        expect(state.payoutModule.payoutHistoryAvailablePeriods[0].period).toBe(firstExpectedPeriod);
     });
 
     it('get available periods throws an error when api call fails', async () => {

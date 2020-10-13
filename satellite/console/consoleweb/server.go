@@ -24,16 +24,16 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/gqlerrors"
-	monkit "github.com/spacemonkeygo/monkit/v3"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
 	"storj.io/common/uuid"
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
@@ -294,8 +294,13 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.GeneralRequestURL = server.config.GeneralRequestURL
 	data.ProjectLimitsIncreaseRequestURL = server.config.ProjectLimitsIncreaseRequestURL
 
-	if server.templates.index == nil || server.templates.index.Execute(w, data) != nil {
-		server.log.Error("index template could not be executed")
+	if server.templates.index == nil {
+		server.log.Error("index template is not set")
+		return
+	}
+
+	if err := server.templates.index.Execute(w, data); err != nil {
+		server.log.Error("index template could not be executed", zap.Error(err))
 		return
 	}
 }
@@ -314,7 +319,7 @@ func (server *Server) withAuth(handler http.Handler) http.Handler {
 				return console.WithAuthFailure(ctx, err)
 			}
 
-			ctx = auth.WithAPIKey(ctx, []byte(token))
+			ctx = consoleauth.WithAPIKey(ctx, []byte(token))
 
 			auth, err := server.service.Authorize(ctx)
 			if err != nil {
@@ -349,7 +354,7 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	auth, err := server.service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
+	auth, err := server.service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
 	if err != nil {
 		server.serveError(w, http.StatusUnauthorized)
 		return

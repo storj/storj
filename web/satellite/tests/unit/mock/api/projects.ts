@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { CreateProjectFields, Project, ProjectLimits, ProjectsApi } from '@/types/projects';
+import { Project, ProjectFields, ProjectLimits, ProjectsApi } from '@/types/projects';
 
 /**
  * Mock for ProjectsApi
@@ -18,7 +18,7 @@ export class ProjectsApiMock implements ProjectsApi {
         this.mockLimits = mockLimits;
     }
 
-    create(createProjectFields: CreateProjectFields): Promise<Project> {
+    create(createProjectFields: ProjectFields): Promise<Project> {
         throw new Error('not implemented');
     }
 

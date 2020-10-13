@@ -5,7 +5,7 @@ import Vuex from 'vuex';
 
 import { ProjectsApiGql } from '@/api/projects';
 import { makeProjectsModule, PROJECTS_ACTIONS, PROJECTS_MUTATIONS } from '@/store/modules/projects';
-import { Project, ProjectLimits, UpdateProjectFields } from '@/types/projects';
+import { Project, ProjectFields, ProjectLimits } from '@/types/projects';
 import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
@@ -237,7 +237,7 @@ describe('actions', () => {
 
         state.projects = projects;
         const newName = 'newName';
-        const fieldsToUpdate = new UpdateProjectFields(newName, state.projects[0].description);
+        const fieldsToUpdate = new ProjectFields(newName, state.projects[0].description);
 
         await store.dispatch(UPDATE_NAME, fieldsToUpdate);
 
@@ -251,7 +251,7 @@ describe('actions', () => {
 
         state.projects = projects;
         const newDescription = 'newDescription1';
-        const fieldsToUpdate = new UpdateProjectFields(state.projects[0].name, newDescription);
+        const fieldsToUpdate = new ProjectFields(state.projects[0].name, newDescription);
 
         await store.dispatch(UPDATE_DESCRIPTION, fieldsToUpdate);
 
@@ -263,7 +263,7 @@ describe('actions', () => {
 
         state.projects = projects;
         const newDescription = 'newDescription2';
-        const fieldsToUpdate = new UpdateProjectFields(state.projects[0].name, newDescription);
+        const fieldsToUpdate = new ProjectFields(state.projects[0].name, newDescription);
 
         try {
             await store.dispatch(UPDATE_DESCRIPTION, fieldsToUpdate);

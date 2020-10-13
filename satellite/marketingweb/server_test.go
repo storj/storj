@@ -80,7 +80,7 @@ func TestCreateAndStopOffers(t *testing.T) {
 					return err
 				}
 				require.Equal(t, http.StatusOK, req.StatusCode)
-				//reading out the rest of the connection
+				// reading out the rest of the connection
 				_, err = io.Copy(ioutil.Discard, req.Body)
 				if err != nil {
 					return err

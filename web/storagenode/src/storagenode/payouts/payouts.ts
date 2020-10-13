@@ -172,6 +172,7 @@ export class TotalPaystubForPeriod {
 export class TotalHeldAndPaid {
     public held: number = 0;
     public paid: number = 0;
+    public disposed: number = 0;
     // TODO: remove
     public currentMonthEarnings: number = 0;
 
@@ -179,8 +180,9 @@ export class TotalHeldAndPaid {
         paystubs: Paystub[] = [],
     ) {
         paystubs.forEach(paystub => {
-            this.held += this.convertToCents(paystub.held - paystub.disposed);
             this.paid += this.convertToCents(paystub.paid);
+            this.disposed += this.convertToCents(paystub.disposed);
+            this.held += this.convertToCents(paystub.held - paystub.disposed);
         });
     }
 
@@ -207,15 +209,19 @@ export class SatelliteHeldHistory {
         public totalDisposed: number = 0,
         public joinedAt: Date = new Date(),
     ) {
-        this.totalHeld = this.totalHeld / PRICE_DIVIDER;
-        this.totalDisposed = this.totalDisposed / PRICE_DIVIDER;
-        this.holdForFirstPeriod = this.holdForFirstPeriod / PRICE_DIVIDER;
-        this.holdForSecondPeriod = this.holdForSecondPeriod / PRICE_DIVIDER;
-        this.holdForThirdPeriod = this.holdForThirdPeriod / PRICE_DIVIDER;
+        this.totalHeld = this.convertToCents(this.totalHeld - this.totalDisposed);
+        this.totalDisposed = this.convertToCents(this.totalDisposed);
+        this.holdForFirstPeriod = this.convertToCents(this.holdForFirstPeriod);
+        this.holdForSecondPeriod = this.convertToCents(this.holdForSecondPeriod);
+        this.holdForThirdPeriod = this.convertToCents(this.holdForThirdPeriod);
     }
 
     public get monthsWithNode(): number {
         return getMonthsBeforeNow(this.joinedAt);
+    }
+
+    private convertToCents(value: number): number {
+        return value / PRICE_DIVIDER;
     }
 }
 
@@ -266,11 +272,23 @@ export class SatellitePayoutForPeriod {
         public isExitComplete: boolean = false,
         public heldPercent: number = 0,
     ) {
-        this.earned = this.earned / PRICE_DIVIDER;
-        this.surge = this.surge / PRICE_DIVIDER;
-        this.held = this.held / PRICE_DIVIDER;
-        this.afterHeld = this.afterHeld / PRICE_DIVIDER;
-        this.disposed = this.disposed / PRICE_DIVIDER;
-        this.paid = this.paid / PRICE_DIVIDER;
+        this.earned = this.convertToCents(this.earned);
+        this.surge = this.convertToCents(this.surge);
+        this.held = this.convertToCents(this.held);
+        this.afterHeld = this.convertToCents(this.afterHeld);
+        this.disposed = this.convertToCents(this.disposed);
+        this.paid = this.convertToCents(this.paid);
+
+        this.convertReceiptToEtherscanLink();
+    }
+
+    private convertReceiptToEtherscanLink() {
+        if (this.receipt) {
+            this.receipt = `https://etherscan.io/tx/${this.receipt.slice(4)}`;
+        }
+    }
+
+    private convertToCents(value: number): number {
+        return value / PRICE_DIVIDER;
     }
 }

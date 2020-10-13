@@ -296,14 +296,15 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	if err != nil {
 		return nil, err
 	}
-	if maxBuckets == 0 {
-		maxBuckets = endpoint.config.ProjectLimits.MaxBuckets
+	if maxBuckets == nil {
+		defaultMaxBuckets := endpoint.config.ProjectLimits.MaxBuckets
+		maxBuckets = &defaultMaxBuckets
 	}
 	bucketCount, err := endpoint.metainfo.CountBuckets(ctx, keyInfo.ProjectID)
 	if err != nil {
 		return nil, err
 	}
-	if bucketCount >= maxBuckets {
+	if bucketCount >= *maxBuckets {
 		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, fmt.Sprintf("number of allocated buckets (%d) exceeded", endpoint.config.ProjectLimits.MaxBuckets))
 	}
 
@@ -1360,7 +1361,7 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 	// ToDo: Replace with hash & signature validation
 	// Ensure neither uplink or storage nodes are cheating on us
 	if pointer.Type == pb.Pointer_REMOTE {
-		//We cannot have more redundancy than total/min
+		// We cannot have more redundancy than total/min
 		if float64(totalStored) > (float64(pointer.SegmentSize)/float64(pointer.Remote.Redundancy.MinReq))*float64(pointer.Remote.Redundancy.Total) {
 			endpoint.log.Debug("data size mismatch",
 				zap.Int64("segment", pointer.SegmentSize),
