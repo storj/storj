@@ -145,7 +145,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	limiter.Wait()
 
 	if successfulPieces < es.RequiredCount() {
-		mon.Meter("download_failed_not_enough_pieces_repair").Mark(1) //locked
+		mon.Meter("download_failed_not_enough_pieces_repair").Mark(1) //mon:locked
 		return nil, failedPieces, &irreparableError{
 			path:            path,
 			piecesAvailable: int32(successfulPieces),
@@ -398,10 +398,10 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 		zap.Int32("Success Count", atomic.LoadInt32(&successfulCount)),
 	)
 
-	mon.IntVal("repair_segment_pieces_total").Observe(int64(pieceCount))           //locked
-	mon.IntVal("repair_segment_pieces_successful").Observe(int64(successfulCount)) //locked
-	mon.IntVal("repair_segment_pieces_failed").Observe(int64(failureCount))        //locked
-	mon.IntVal("repair_segment_pieces_canceled").Observe(int64(cancellationCount)) //locked
+	mon.IntVal("repair_segment_pieces_total").Observe(int64(pieceCount))           //mon:locked
+	mon.IntVal("repair_segment_pieces_successful").Observe(int64(successfulCount)) //mon:locked
+	mon.IntVal("repair_segment_pieces_failed").Observe(int64(failureCount))        //mon:locked
+	mon.IntVal("repair_segment_pieces_canceled").Observe(int64(cancellationCount)) //mon:locked
 
 	return successfulNodes, successfulHashes, nil
 }

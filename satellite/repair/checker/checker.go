@@ -138,24 +138,24 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 		return Error.Wrap(err)
 	}
 
-	mon.IntVal("remote_files_checked").Observe(observer.monStats.objectsChecked)                               //locked
-	mon.IntVal("remote_segments_checked").Observe(observer.monStats.remoteSegmentsChecked)                     //locked
-	mon.IntVal("remote_segments_failed_to_check").Observe(observer.monStats.remoteSegmentsFailedToCheck)       //locked
-	mon.IntVal("remote_segments_needing_repair").Observe(observer.monStats.remoteSegmentsNeedingRepair)        //locked
-	mon.IntVal("new_remote_segments_needing_repair").Observe(observer.monStats.newRemoteSegmentsNeedingRepair) //locked
-	mon.IntVal("remote_segments_lost").Observe(observer.monStats.remoteSegmentsLost)                           //locked
-	mon.IntVal("remote_files_lost").Observe(int64(len(observer.monStats.remoteSegmentInfo)))                   //locked
-	mon.IntVal("remote_segments_over_threshold_1").Observe(observer.monStats.remoteSegmentsOverThreshold[0])   //locked
-	mon.IntVal("remote_segments_over_threshold_2").Observe(observer.monStats.remoteSegmentsOverThreshold[1])   //locked
-	mon.IntVal("remote_segments_over_threshold_3").Observe(observer.monStats.remoteSegmentsOverThreshold[2])   //locked
-	mon.IntVal("remote_segments_over_threshold_4").Observe(observer.monStats.remoteSegmentsOverThreshold[3])   //locked
-	mon.IntVal("remote_segments_over_threshold_5").Observe(observer.monStats.remoteSegmentsOverThreshold[4])   //locked
-	mon.IntVal("healthy_segments_removed_from_queue").Observe(healthyDeleted)                                  //locked
+	mon.IntVal("remote_files_checked").Observe(observer.monStats.objectsChecked)                               //mon:locked
+	mon.IntVal("remote_segments_checked").Observe(observer.monStats.remoteSegmentsChecked)                     //mon:locked
+	mon.IntVal("remote_segments_failed_to_check").Observe(observer.monStats.remoteSegmentsFailedToCheck)       //mon:locked
+	mon.IntVal("remote_segments_needing_repair").Observe(observer.monStats.remoteSegmentsNeedingRepair)        //mon:locked
+	mon.IntVal("new_remote_segments_needing_repair").Observe(observer.monStats.newRemoteSegmentsNeedingRepair) //mon:locked
+	mon.IntVal("remote_segments_lost").Observe(observer.monStats.remoteSegmentsLost)                           //mon:locked
+	mon.IntVal("remote_files_lost").Observe(int64(len(observer.monStats.remoteSegmentInfo)))                   //mon:locked
+	mon.IntVal("remote_segments_over_threshold_1").Observe(observer.monStats.remoteSegmentsOverThreshold[0])   //mon:locked
+	mon.IntVal("remote_segments_over_threshold_2").Observe(observer.monStats.remoteSegmentsOverThreshold[1])   //mon:locked
+	mon.IntVal("remote_segments_over_threshold_3").Observe(observer.monStats.remoteSegmentsOverThreshold[2])   //mon:locked
+	mon.IntVal("remote_segments_over_threshold_4").Observe(observer.monStats.remoteSegmentsOverThreshold[3])   //mon:locked
+	mon.IntVal("remote_segments_over_threshold_5").Observe(observer.monStats.remoteSegmentsOverThreshold[4])   //mon:locked
+	mon.IntVal("healthy_segments_removed_from_queue").Observe(healthyDeleted)                                  //mon:locked
 
 	allUnhealthy := observer.monStats.remoteSegmentsNeedingRepair + observer.monStats.remoteSegmentsFailedToCheck
 	allChecked := observer.monStats.remoteSegmentsChecked
 	allHealthy := allChecked - allUnhealthy
-	mon.FloatVal("remote_segments_healthy_percentage").Observe(100 * float64(allHealthy) / float64(allChecked)) //locked
+	mon.FloatVal("remote_segments_healthy_percentage").Observe(100 * float64(allHealthy) / float64(allChecked)) //mon:locked
 
 	return nil
 }
@@ -281,11 +281,11 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, location metabase
 	}
 
 	numHealthy := int32(len(pieces) - len(missingPieces))
-	mon.IntVal("checker_segment_total_count").Observe(int64(len(pieces)))  //locked
-	mon.IntVal("checker_segment_healthy_count").Observe(int64(numHealthy)) //locked
+	mon.IntVal("checker_segment_total_count").Observe(int64(len(pieces)))  //mon:locked
+	mon.IntVal("checker_segment_healthy_count").Observe(int64(numHealthy)) //mon:locked
 
 	segmentAge := time.Since(pointer.CreationDate)
-	mon.IntVal("checker_segment_age").Observe(int64(segmentAge.Seconds())) //locked
+	mon.IntVal("checker_segment_age").Observe(int64(segmentAge.Seconds())) //mon:locked
 
 	redundancy := pointer.Remote.Redundancy
 
@@ -332,7 +332,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, location metabase
 		} else {
 			segmentAge = time.Since(pointer.CreationDate)
 		}
-		mon.IntVal("checker_segment_time_until_irreparable").Observe(int64(segmentAge.Seconds())) //locked
+		mon.IntVal("checker_segment_time_until_irreparable").Observe(int64(segmentAge.Seconds())) //mon:locked
 
 		obs.monStats.remoteSegmentsLost++
 		// make an entry into the irreparable table

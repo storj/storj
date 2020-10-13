@@ -174,15 +174,15 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 			monAccounting.IntVal("bucket.remote_bytes").Observe(bucket.RemoteBytes)
 			total.Combine(bucket)
 		}
-		monAccounting.IntVal("total.objects").Observe(total.ObjectCount) //locked
+		monAccounting.IntVal("total.objects").Observe(total.ObjectCount) //mon:locked
 
-		monAccounting.IntVal("total.segments").Observe(total.Segments())            //locked
-		monAccounting.IntVal("total.inline_segments").Observe(total.InlineSegments) //locked
-		monAccounting.IntVal("total.remote_segments").Observe(total.RemoteSegments) //locked
+		monAccounting.IntVal("total.segments").Observe(total.Segments())            //mon:locked
+		monAccounting.IntVal("total.inline_segments").Observe(total.InlineSegments) //mon:locked
+		monAccounting.IntVal("total.remote_segments").Observe(total.RemoteSegments) //mon:locked
 
-		monAccounting.IntVal("total.bytes").Observe(total.Bytes())            //locked
-		monAccounting.IntVal("total.inline_bytes").Observe(total.InlineBytes) //locked
-		monAccounting.IntVal("total.remote_bytes").Observe(total.RemoteBytes) //locked
+		monAccounting.IntVal("total.bytes").Observe(total.Bytes())            //mon:locked
+		monAccounting.IntVal("total.inline_bytes").Observe(total.InlineBytes) //mon:locked
+		monAccounting.IntVal("total.remote_bytes").Observe(total.RemoteBytes) //mon:locked
 	}
 
 	// return errors if something went wrong.

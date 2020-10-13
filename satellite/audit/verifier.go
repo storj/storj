@@ -235,7 +235,7 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 			zap.Error(share.Error))
 	}
 
-	mon.IntVal("verify_shares_downloaded_successfully").Observe(int64(len(sharesToAudit))) //locked
+	mon.IntVal("verify_shares_downloaded_successfully").Observe(int64(len(sharesToAudit))) //mon:locked
 
 	required := int(pointer.Remote.Redundancy.GetMinReq())
 	total := int(pointer.Remote.Redundancy.GetTotal())
@@ -287,27 +287,27 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		unknownPercentage = float64(numUnknown) / float64(totalAudited)
 	}
 
-	mon.Meter("audit_success_nodes_global").Mark(numSuccessful)        //locked
-	mon.Meter("audit_fail_nodes_global").Mark(numFailed)               //locked
-	mon.Meter("audit_offline_nodes_global").Mark(numOffline)           //locked
-	mon.Meter("audit_contained_nodes_global").Mark(numContained)       //locked
-	mon.Meter("audit_unknown_nodes_global").Mark(numUnknown)           //locked
-	mon.Meter("audit_total_nodes_global").Mark(totalAudited)           //locked
-	mon.Meter("audit_total_pointer_nodes_global").Mark(totalInPointer) //locked
+	mon.Meter("audit_success_nodes_global").Mark(numSuccessful)        //mon:locked
+	mon.Meter("audit_fail_nodes_global").Mark(numFailed)               //mon:locked
+	mon.Meter("audit_offline_nodes_global").Mark(numOffline)           //mon:locked
+	mon.Meter("audit_contained_nodes_global").Mark(numContained)       //mon:locked
+	mon.Meter("audit_unknown_nodes_global").Mark(numUnknown)           //mon:locked
+	mon.Meter("audit_total_nodes_global").Mark(totalAudited)           //mon:locked
+	mon.Meter("audit_total_pointer_nodes_global").Mark(totalInPointer) //mon:locked
 
-	mon.IntVal("audit_success_nodes").Observe(int64(numSuccessful))           //locked
-	mon.IntVal("audit_fail_nodes").Observe(int64(numFailed))                  //locked
-	mon.IntVal("audit_offline_nodes").Observe(int64(numOffline))              //locked
-	mon.IntVal("audit_contained_nodes").Observe(int64(numContained))          //locked
-	mon.IntVal("audit_unknown_nodes").Observe(int64(numUnknown))              //locked
-	mon.IntVal("audit_total_nodes").Observe(int64(totalAudited))              //locked
-	mon.IntVal("audit_total_pointer_nodes").Observe(int64(totalInPointer))    //locked
-	mon.FloatVal("audited_percentage").Observe(auditedPercentage)             //locked
-	mon.FloatVal("audit_offline_percentage").Observe(offlinePercentage)       //locked
-	mon.FloatVal("audit_successful_percentage").Observe(successfulPercentage) //locked
-	mon.FloatVal("audit_failed_percentage").Observe(failedPercentage)         //locked
-	mon.FloatVal("audit_contained_percentage").Observe(containedPercentage)   //locked
-	mon.FloatVal("audit_unknown_percentage").Observe(unknownPercentage)       //locked
+	mon.IntVal("audit_success_nodes").Observe(int64(numSuccessful))           //mon:locked
+	mon.IntVal("audit_fail_nodes").Observe(int64(numFailed))                  //mon:locked
+	mon.IntVal("audit_offline_nodes").Observe(int64(numOffline))              //mon:locked
+	mon.IntVal("audit_contained_nodes").Observe(int64(numContained))          //mon:locked
+	mon.IntVal("audit_unknown_nodes").Observe(int64(numUnknown))              //mon:locked
+	mon.IntVal("audit_total_nodes").Observe(int64(totalAudited))              //mon:locked
+	mon.IntVal("audit_total_pointer_nodes").Observe(int64(totalInPointer))    //mon:locked
+	mon.FloatVal("audited_percentage").Observe(auditedPercentage)             //mon:locked
+	mon.FloatVal("audit_offline_percentage").Observe(offlinePercentage)       //mon:locked
+	mon.FloatVal("audit_successful_percentage").Observe(successfulPercentage) //mon:locked
+	mon.FloatVal("audit_failed_percentage").Observe(failedPercentage)         //mon:locked
+	mon.FloatVal("audit_contained_percentage").Observe(containedPercentage)   //mon:locked
+	mon.FloatVal("audit_unknown_percentage").Observe(unknownPercentage)       //mon:locked
 
 	pendingAudits, err := createPendingAudits(ctx, containedNodes, correctedShares, pointer, randomIndex, path)
 	if err != nil {
@@ -638,20 +638,20 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		}
 	}
 
-	mon.Meter("reverify_successes_global").Mark(len(report.Successes))     //locked
-	mon.Meter("reverify_offlines_global").Mark(len(report.Offlines))       //locked
-	mon.Meter("reverify_fails_global").Mark(len(report.Fails))             //locked
-	mon.Meter("reverify_contained_global").Mark(len(report.PendingAudits)) //locked
-	mon.Meter("reverify_unknown_global").Mark(len(report.Unknown))         //locked
+	mon.Meter("reverify_successes_global").Mark(len(report.Successes))     //mon:locked
+	mon.Meter("reverify_offlines_global").Mark(len(report.Offlines))       //mon:locked
+	mon.Meter("reverify_fails_global").Mark(len(report.Fails))             //mon:locked
+	mon.Meter("reverify_contained_global").Mark(len(report.PendingAudits)) //mon:locked
+	mon.Meter("reverify_unknown_global").Mark(len(report.Unknown))         //mon:locked
 
-	mon.IntVal("reverify_successes").Observe(int64(len(report.Successes)))     //locked
-	mon.IntVal("reverify_offlines").Observe(int64(len(report.Offlines)))       //locked
-	mon.IntVal("reverify_fails").Observe(int64(len(report.Fails)))             //locked
-	mon.IntVal("reverify_contained").Observe(int64(len(report.PendingAudits))) //locked
-	mon.IntVal("reverify_unknown").Observe(int64(len(report.Unknown)))         //locked
+	mon.IntVal("reverify_successes").Observe(int64(len(report.Successes)))     //mon:locked
+	mon.IntVal("reverify_offlines").Observe(int64(len(report.Offlines)))       //mon:locked
+	mon.IntVal("reverify_fails").Observe(int64(len(report.Fails)))             //mon:locked
+	mon.IntVal("reverify_contained").Observe(int64(len(report.PendingAudits))) //mon:locked
+	mon.IntVal("reverify_unknown").Observe(int64(len(report.Unknown)))         //mon:locked
 
-	mon.IntVal("reverify_contained_in_segment").Observe(containedInSegment) //locked
-	mon.IntVal("reverify_total_in_segment").Observe(int64(len(pieces)))     //locked
+	mon.IntVal("reverify_contained_in_segment").Observe(containedInSegment) //mon:locked
+	mon.IntVal("reverify_total_in_segment").Observe(int64(len(pieces)))     //mon:locked
 
 	return report, err
 }
