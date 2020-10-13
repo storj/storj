@@ -1,8 +1,12 @@
-Hello!
+# Storagenode Graceful Exit Code Refactor Blueprint
 
-This article is all about our vision how to make graceful exit code a bit readable and testable.
+## Abstract
 
-So, main logic is placed in Worker (storj/storagenode/gracefulexit/worker.go)
+This article is all about our vision how to make graceful exit code on the storagenode side a bit readable and testable.
+
+## Background
+
+Currently, all main graceful exit logic is placed in Worker (storj/storagenode/gracefulexit/worker.go)
 
 This module has giant list of dependencies, goroutines, large methods, lack of comments and tests.
 
@@ -14,10 +18,12 @@ All this factors won't allow us to be sure that it works fine even if there won'
 
 We all understand that small pieces of code are much more readable and its easier to test it and to find potential bug just by reading it.
 
+## Design
+
 So, our vision is next:
 
 1. **Internode Transfer Controller** - the TransferController implements TransferPiece (do all order and piece validations, then transfer a piece from local node to a remote node). To be shared by Planned Downtime code.
-1. **Graceful Exit Controller** - the GE controller acts as the gateway to the ``satellites`` db (querying it and updating it as necessary).
+1. **Graceful Exit Controller** - the GE controller acts as the gateway to the ``satellites`` db (querying it and updating it as necessary). The ``satellites`` db tracks the storagenode's relationship with various satellites. (Not to be confused with the ``satelliteDB``, which lives on the satellite.)
 1. **Worker** - Responsible for communication with the satellite: receiving instructions about pieces to transfer or delete, carrying out those actions (while managing the number of goroutines used) and sending responses. Worker uses the Graceful Exit Controller in order to update the database and the Internode Transfer Controller for actually sending pieces. This worker should have dependencies interfaces, to be able to mock them in future.
 
 Both of these controller types should be used by way of interface types, to be able to mock them as necessary.
@@ -106,3 +112,11 @@ type Worker struct {
 
 An example of this refactoring you can find in this pull request:
 https://review.dev.storj.io/c/storj/storj/+/2499
+
+## Rationale
+
+## Implementation
+
+## Wrapup
+
+## Open issues
