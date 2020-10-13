@@ -738,7 +738,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	}
 
 	if err := peer.Preflight.LocalTime.Check(ctx); err != nil {
-		peer.Log.Fatal("Failed preflight check.", zap.Error(err))
+		peer.Log.Error("Failed preflight check.", zap.Error(err))
 		return err
 	}
 

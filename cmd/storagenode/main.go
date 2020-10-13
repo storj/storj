@@ -140,7 +140,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
-		log.Fatal("Failed to load identity.", zap.Error(err))
+		log.Error("Failed to load identity.", zap.Error(err))
+		return errs.New("Failed to load identity: %+v", err)
 	}
 
 	if err := runCfg.Verify(log); err != nil {

@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"context"
 	"encoding/hex"
-	"log"
 	"os"
 
 	"github.com/zeebo/errs"
@@ -59,14 +58,15 @@ func runMetainfoCmd(ctx context.Context, cmdFunc func(*metainfo.Service) error) 
 }
 
 func runVerifierCmd(ctx context.Context, cmdFunc func(*audit.Verifier) error) error {
-	logger := zap.L()
+	log := zap.L()
 
 	identity, err := dryRunCfg.Identity.Load()
 	if err != nil {
-		log.Fatal("Failed to load identity.", zap.Error(err))
+		log.Error("Failed to load identity.", zap.Error(err))
+		return errs.New("Failed to load identity: %+v", err)
 	}
 
-	db, err := satellitedb.New(logger.Named("db"), dryRunCfg.Database, satellitedb.Options{})
+	db, err := satellitedb.New(log.Named("db"), dryRunCfg.Database, satellitedb.Options{})
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
 	}
@@ -79,7 +79,7 @@ func runVerifierCmd(ctx context.Context, cmdFunc func(*audit.Verifier) error) er
 		return errs.New("Error checking version for satellitedb: %+v", err)
 	}
 
-	pointerDB, err := metainfo.NewStore(logger.Named("pointerdb"), dryRunCfg.Metainfo.DatabaseURL)
+	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), dryRunCfg.Metainfo.DatabaseURL)
 	if err != nil {
 		return errs.New("Error creating metainfo database connection: %+v", err)
 	}
@@ -103,19 +103,19 @@ func runVerifierCmd(ctx context.Context, cmdFunc func(*audit.Verifier) error) er
 	dialer := rpc.NewDefaultDialer(tlsOptions)
 
 	metainfoService := metainfo.NewService(
-		logger.Named("metainfo:service"),
+		log.Named("metainfo:service"),
 		pointerDB,
 		db.Buckets(),
 	)
 
 	overlayService := overlay.NewService(
-		logger.Named("overlay"),
+		log.Named("overlay"),
 		db.OverlayCache(),
 		runCfg.Overlay,
 	)
 
 	ordersService, err := orders.NewService(
-		logger.Named("orders:service"),
+		log.Named("orders:service"),
 		signing.SignerFromFullIdentity(identity),
 		overlayService,
 		db.Orders(),
@@ -131,7 +131,7 @@ func runVerifierCmd(ctx context.Context, cmdFunc func(*audit.Verifier) error) er
 	}
 
 	verifier := audit.NewVerifier(
-		logger.Named("audit:verifier"),
+		log.Named("audit:verifier"),
 		metainfoService,
 		dialer,
 		overlayService,
