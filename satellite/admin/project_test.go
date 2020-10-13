@@ -538,7 +538,7 @@ func TestDeleteProjectWithUsagePreviousMonth(t *testing.T) {
 		err = planet.Satellites[0].DB.Console().APIKeys().Delete(ctx, apiKeys.APIKeys[0].ID)
 		require.NoError(t, err)
 
-		//ToDo: Improve updating of DB entries
+		// TODO: Improve updating of DB entries
 		now := time.Now().UTC()
 		// set fixed day to avoid failures at the end of the month
 		accTime := time.Date(now.Year(), now.Month()-1, 15, now.Hour(), now.Minute(), now.Second(), now.Nanosecond(), time.UTC)

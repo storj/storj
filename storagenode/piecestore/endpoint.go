@@ -122,7 +122,7 @@ var monLiveRequests = mon.TaskNamed("live-request")
 
 // Delete handles deleting a piece on piece store requested by uplink.
 //
-// DEPRECATED in favor of DeletePieces.
+// Deprecated: use DeletePieces instead.
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)

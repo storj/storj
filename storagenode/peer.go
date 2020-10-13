@@ -456,7 +456,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Contact.Service,
 			peer.DB.Bandwidth(),
 			config.Storage.AllocatedDiskSpace.Int64(),
-			//TODO use config.Storage.Monitor.Interval, but for some reason is not set
+			// TODO: use config.Storage.Monitor.Interval, but for some reason is not set
 			config.Storage.KBucketRefreshInterval,
 			peer.Contact.Chore.Trigger,
 			config.Storage2.Monitor,

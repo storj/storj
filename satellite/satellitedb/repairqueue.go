@@ -120,7 +120,7 @@ func (r *repairQueue) SelectN(ctx context.Context, limit int) (segs []pb.Injured
 	if limit <= 0 || limit > RepairQueueSelectLimit {
 		limit = RepairQueueSelectLimit
 	}
-	//todo: strictly enforce order-by or change tests
+	// TODO: strictly enforce order-by or change tests
 	rows, err := r.db.QueryContext(ctx, r.db.Rebind(`SELECT data FROM injuredsegments LIMIT ?`), limit)
 	if err != nil {
 		return nil, Error.Wrap(err)

@@ -16,7 +16,7 @@ var mon = monkit.Package()
 // Delimiter separates nested paths in storage.
 const Delimiter = '/'
 
-//ErrKeyNotFound used when something doesn't exist.
+// ErrKeyNotFound used when something doesn't exist.
 var ErrKeyNotFound = errs.Class("key not found")
 
 // ErrEmptyKey is returned when an empty key is used in Put or in CompareAndSwap.

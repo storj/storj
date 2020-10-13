@@ -31,7 +31,7 @@ func TestStoragenodeContactEndpoint(t *testing.T) {
 
 		firstPing := pingStats.WhenLastPinged()
 
-		time.Sleep(time.Second) //HACKFIX: windows has large time granularity
+		time.Sleep(time.Second) // HACKFIX: windows has large time granularity
 
 		resp, err = pb.NewDRPCContactClient(conn).PingNode(ctx, &pb.ContactPingRequest{})
 		require.NotNil(t, resp)

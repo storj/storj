@@ -12,7 +12,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 )
 
-//TODO: change to JWT or Macaroon based auth
+// TODO: change to JWT or Macaroon based auth
 
 // Signer creates signature for provided data.
 type Signer interface {

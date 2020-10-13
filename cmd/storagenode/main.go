@@ -265,7 +265,7 @@ func cmdConfig(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	//run setup if we can't access the config file
+	// run setup if we can't access the config file
 	conf := filepath.Join(setupDir, "config.yaml")
 	if _, err := os.Stat(conf); err != nil {
 		return cmdSetup(cmd, args)

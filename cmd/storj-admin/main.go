@@ -31,7 +31,6 @@ var (
 	runCmd = &cobra.Command{
 		Use:   "run",
 		Short: "Run the storj-admin",
-		//RunE:  cmdRun,
 	}
 	confDir string
 

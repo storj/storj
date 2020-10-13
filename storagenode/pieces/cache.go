@@ -199,8 +199,7 @@ func (blobs *BlobsUsageCache) SpaceUsedBySatellite(ctx context.Context, satellit
 	return values.Total, values.ContentSize, nil
 }
 
-// SpaceUsedForPieces returns the current total used space for
-//// all pieces.
+// SpaceUsedForPieces returns the current total used space for all pieces.
 func (blobs *BlobsUsageCache) SpaceUsedForPieces(ctx context.Context) (int64, int64, error) {
 	blobs.mu.Lock()
 	defer blobs.mu.Unlock()

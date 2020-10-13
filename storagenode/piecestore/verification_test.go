@@ -259,8 +259,8 @@ func TestOrderLimitGetValidation(t *testing.T) {
 			closeErr := downloader.Close()
 			err = errs.Combine(readErr, closeErr)
 			if tt.err != "" {
-				assert.Equal(t, 0, len(buffer)) //errors 10240
-				require.Error(t, err)           //nil
+				assert.Equal(t, 0, len(buffer))
+				require.Error(t, err)
 				require.Contains(t, err.Error(), tt.err)
 			} else {
 				require.NoError(t, err)

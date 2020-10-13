@@ -21,7 +21,6 @@ import (
 )
 
 func TestProjectsRepository(t *testing.T) {
-	//testing constants
 	const (
 		// for user
 		shortName    = "lastName"
@@ -195,7 +194,7 @@ func TestProjectsList(t *testing.T) {
 
 		projectsDB := db.Console().Projects()
 
-		//create projects
+		// Create projects
 		var projects []console.Project
 		for i := 0; i < length; i++ {
 			proj, err := projectsDB.Insert(ctx,

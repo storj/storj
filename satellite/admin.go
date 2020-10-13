@@ -144,7 +144,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Payments.Stripe = stripeClient
 		peer.Payments.Accounts = peer.Payments.Service.Accounts()
 	}
-	{ //setup admin endpoint
+	{ // setup admin endpoint
 		var err error
 		peer.Admin.Listener, err = net.Listen("tcp", config.Admin.Address)
 		if err != nil {

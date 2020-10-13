@@ -123,7 +123,7 @@ func (msg *Message) Bytes() (data []byte, err error) {
 }
 
 func tocrlf(data []byte) []byte {
-	lf := bytes.Replace(data, []byte("\r\n"), []byte("\n"), -1)
-	crlf := bytes.Replace(lf, []byte("\n"), []byte("\r\n"), -1)
+	lf := bytes.ReplaceAll(data, []byte("\r\n"), []byte("\n"))
+	crlf := bytes.ReplaceAll(lf, []byte("\n"), []byte("\r\n"))
 	return crlf
 }

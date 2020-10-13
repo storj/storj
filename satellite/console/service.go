@@ -227,7 +227,7 @@ func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditC
 		return nil
 	}
 
-	//ToDo: check if this is the right place
+	// TODO: check if this is the right place
 	err = paymentService.AddPromotionalCoupon(ctx, auth.User.ID)
 	if err != nil {
 		paymentService.service.log.Warn(fmt.Sprintf("could not add promotional coupon for user %s", auth.User.ID.String()), zap.Error(err))
@@ -534,7 +534,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		offerType = rewards.Referral
 	}
 
-	//TODO: Create a current offer cache to replace database call
+	// TODO: Create a current offer cache to replace database call
 	offers, err := s.rewards.GetActiveOffersByType(ctx, offerType)
 	if err != nil && !rewards.ErrOfferNotExist.Has(err) {
 		s.log.Error("internal error", zap.Error(err))
@@ -641,7 +641,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, email string) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	//TODO: activation token should differ from auth token
+	// TODO: activation token should differ from auth token
 	claims := &consoleauth.Claims{
 		ID:         id,
 		Email:      email,
@@ -719,7 +719,7 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return nil
 	}
 
-	//ToDo: check if this is the right place
+	// TODO: check if this is the right place
 	err = s.accounts.Coupons().AddPromotionalCoupon(ctx, user.ID)
 	if err != nil {
 		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", user.ID.String()), zap.Error(Error.Wrap(err)))

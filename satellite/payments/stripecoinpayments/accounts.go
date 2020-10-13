@@ -152,7 +152,7 @@ func (accounts *accounts) CheckProjectInvoicingStatus(ctx context.Context, proje
 	}
 
 	if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.ObjectCount > 0 {
-		//time passed into the check function need to be the UTC midnight dates of the first and last day of the month
+		// time passed into the check function need to be the UTC midnight dates of the first and last day of the month
 		err = accounts.service.db.ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour*24))
 		switch err {
 		case ErrProjectRecordExists:
@@ -236,7 +236,7 @@ func (accounts *accounts) PaywallEnabled(userID uuid.UUID) bool {
 	return BytesAreWithinProportion(userID, accounts.service.PaywallProportion)
 }
 
-//BytesAreWithinProportion returns true if first byte is less than the normalized proportion [0..1].
+// BytesAreWithinProportion returns true if first byte is less than the normalized proportion [0..1].
 func BytesAreWithinProportion(uuidBytes [16]byte, proportion float64) bool {
 	return int(uuidBytes[0]) < int(proportion*256)
 }

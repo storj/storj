@@ -61,7 +61,7 @@ type SegmentRepairer struct {
 	// repaired pieces
 	multiplierOptimalThreshold float64
 
-	//repairOverride is the value handed over from the checker to override the Repair Threshold
+	// repairOverride is the value handed over from the checker to override the Repair Threshold
 	repairOverride int
 }
 
