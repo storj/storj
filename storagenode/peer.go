@@ -619,6 +619,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Contact.PingStats,
 			peer.Contact.Service,
 			peer.Estimation.Service,
+			peer.Storage2.BlobsCache,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
