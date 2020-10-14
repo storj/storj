@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package mutlinodedb
+package multinodedb
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/storj/multinode/console"
-	"storj.io/storj/multinode/mutlinodedb/dbx"
+	"storj.io/storj/multinode/multinodedb/dbx"
 )
 
 // NodesDBError indicates about internal NodesDB error.
@@ -25,7 +25,6 @@ var _ console.Nodes = (*nodes)(nil)
 // architecture: Database
 type nodes struct {
 	methods dbx.Methods
-	db      *multinodeDB
 }
 
 // Add creates new node in NodesDB.

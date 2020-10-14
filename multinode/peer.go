@@ -27,9 +27,13 @@ var (
 type DB interface {
 	// Nodes returns nodes database.
 	Nodes() console.Nodes
+	// Members returns members database.
+	Members() console.Members
 
 	// Close closes the database.
 	Close() error
+	// CreateSchema creates schema.
+	CreateSchema(ctx context.Context) error
 }
 
 // Config is all the configuration parameters for a Multinode Dashboard.
