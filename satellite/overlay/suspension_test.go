@@ -325,7 +325,7 @@ func TestAuditSuspendBatchUpdateStats(t *testing.T) {
 // TestOfflineSuspend tests that a node enters offline suspension and "under review" when online score passes below threshold.
 // The node should be able to enter and exit suspension while remaining under review.
 // The node should be reinstated if it has a good online score after the review period.
-// (TODO) The node should be disqualified if it has a bad online score after the review period.
+// The node should be disqualified if it has a bad online score after the review period.
 func TestOfflineSuspend(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
@@ -349,6 +349,7 @@ func TestOfflineSuspend(t *testing.T) {
 				TrackingPeriod:   2 * time.Hour,
 				GracePeriod:      time.Hour,
 				OfflineThreshold: 0.6,
+				OfflineDQEnabled: true,
 			},
 
 			AuditLambda:               0.95,
@@ -456,15 +457,8 @@ func TestOfflineSuspend(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, node.OfflineSuspended)
 		require.NotNil(t, node.OfflineUnderReview)
-		require.Nil(t, node.Disqualified)
+		require.NotNil(t, node.Disqualified)
 		require.EqualValues(t, 0.5, node.Reputation.OnlineScore)
-		// TODO uncomment and remove above 4 lines when dq is enabled
-		/*
-			require.NotNil(t, node.OfflineSuspended)
-			require.NotNil(t, node.OfflineUnderReview)
-			require.NotNil(t, node.Disqualified)
-			require.EqualValues(t, 0.5, node.Reputation.OnlineScore)
-		*/
 	})
 }
 
