@@ -16,6 +16,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/private/testplanet"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/orders/ordersfile"
 )
@@ -82,7 +83,7 @@ func TestOrdersStore_ListUnsentBySatellite(t *testing.T) {
 	status2 := pb.SettlementWithWindowResponse_REJECTED
 	for i := 0; i < 3; i++ {
 		// This should return all the orders created more than 1 hour before "now".
-		unsentMap, err := ordersStore.ListUnsentBySatellite(now.Add(12 * time.Hour))
+		unsentMap, err := ordersStore.ListUnsentBySatellite(ctx, now.Add(12*time.Hour))
 		require.NoError(t, err)
 
 		// on last iteration, expect nothing returned
@@ -189,7 +190,7 @@ func TestOrdersStore_ListUnsentBySatellite_Ongoing(t *testing.T) {
 	require.NoError(t, err)
 
 	// empty store means no orders can be listed
-	unsent, err := ordersStore.ListUnsentBySatellite(tomorrow)
+	unsent, err := ordersStore.ListUnsentBySatellite(ctx, tomorrow)
 	require.NoError(t, err)
 	require.Len(t, unsent, 0)
 
@@ -209,7 +210,7 @@ func TestOrdersStore_ListUnsentBySatellite_Ongoing(t *testing.T) {
 	}))
 
 	// check that we can list it tomorrow
-	unsent, err = ordersStore.ListUnsentBySatellite(tomorrow)
+	unsent, err = ordersStore.ListUnsentBySatellite(ctx, tomorrow)
 	require.NoError(t, err)
 	require.Len(t, unsent, 1)
 
@@ -218,7 +219,7 @@ func TestOrdersStore_ListUnsentBySatellite_Ongoing(t *testing.T) {
 	require.NoError(t, err)
 
 	// we should no longer be able to list that window
-	unsent, err = ordersStore.ListUnsentBySatellite(tomorrow)
+	unsent, err = ordersStore.ListUnsentBySatellite(ctx, tomorrow)
 	require.NoError(t, err)
 	require.Len(t, unsent, 0)
 
@@ -238,9 +239,58 @@ func TestOrdersStore_ListUnsentBySatellite_Ongoing(t *testing.T) {
 	}))
 
 	// check that we can list it tomorrow
-	unsent, err = ordersStore.ListUnsentBySatellite(tomorrow)
+	unsent, err = ordersStore.ListUnsentBySatellite(ctx, tomorrow)
 	require.NoError(t, err)
 	require.Len(t, unsent, 1)
+}
+
+func TestOrdersDB_ListUnsentBySatellite_Expired(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellitePeer := planet.Satellites[0]
+		storagenodePeer := planet.StorageNodes[0]
+		storageNodeOrdersDB := storagenodePeer.DB.Orders()
+		now := time.Now().UTC()
+		testSerialNumber := testrand.SerialNumber()
+		// Setup: add one order that is not expired
+		require.NoError(t, storageNodeOrdersDB.Enqueue(ctx, &ordersfile.Info{
+			Limit: &pb.OrderLimit{
+				SerialNumber:    testSerialNumber,
+				SatelliteId:     satellitePeer.ID(),
+				Action:          pb.PieceAction_GET,
+				OrderCreation:   now,
+				OrderExpiration: now.Add(5 * time.Hour),
+			},
+			Order: &pb.Order{
+				SerialNumber: testSerialNumber,
+				Amount:       100,
+			},
+		}))
+		testSerialNumber2 := testrand.SerialNumber()
+		// Setup: add one order that IS expired
+		require.NoError(t, storageNodeOrdersDB.Enqueue(ctx, &ordersfile.Info{
+			Limit: &pb.OrderLimit{
+				SerialNumber:    testSerialNumber2,
+				SatelliteId:     satellitePeer.ID(),
+				Action:          pb.PieceAction_GET,
+				OrderExpiration: now.Add(-5 * time.Hour),
+			},
+			Order: &pb.Order{
+				SerialNumber: testSerialNumber2,
+				Amount:       20,
+			},
+		}))
+
+		// Confirm that when you list unsent orders that expired orders are not returned
+		unsentOrdersBySA, err := storageNodeOrdersDB.ListUnsentBySatellite(ctx)
+		require.NoError(t, err)
+		require.Equal(t, len(unsentOrdersBySA), 1)
+		// there should only be 1 unsent order, since the other order is expired
+		require.Equal(t, len(unsentOrdersBySA[satellitePeer.ID()]), 1)
+		// the unsent order should be the unexpired order
+		require.Equal(t, unsentOrdersBySA[satellitePeer.ID()][0].Limit.SerialNumber, testSerialNumber)
+	})
 }
 
 func TestOrdersStore_CorruptUnsentV0(t *testing.T) {
@@ -256,7 +306,7 @@ func TestOrdersStore_CorruptUnsentV0(t *testing.T) {
 	require.NoError(t, err)
 
 	// empty store means no orders can be listed
-	unsent, err := ordersStore.ListUnsentBySatellite(tomorrow)
+	unsent, err := ordersStore.ListUnsentBySatellite(ctx, tomorrow)
 	require.NoError(t, err)
 	require.Len(t, unsent, 0)
 
@@ -284,7 +334,7 @@ func TestOrdersStore_CorruptUnsentV0(t *testing.T) {
 	require.NoError(t, of.Close())
 
 	// check that we can see both orders tomorrow
-	unsent, err = ordersStore.ListUnsentBySatellite(tomorrow)
+	unsent, err = ordersStore.ListUnsentBySatellite(ctx, tomorrow)
 	require.NoError(t, err)
 	require.Len(t, unsent, 1)
 	require.Len(t, unsent[satellite].InfoList, 2)
@@ -307,7 +357,7 @@ func TestOrdersStore_CorruptUnsentV0(t *testing.T) {
 	require.NoError(t, of.Close())
 
 	// only the second order should be corrupted, so we should still see one order
-	unsent, err = ordersStore.ListUnsentBySatellite(tomorrow)
+	unsent, err = ordersStore.ListUnsentBySatellite(ctx, tomorrow)
 	require.NoError(t, err)
 	require.Len(t, unsent, 1)
 	require.Len(t, unsent[satellite].InfoList, 1)
@@ -326,7 +376,7 @@ func TestOrdersStore_CorruptUnsentV1(t *testing.T) {
 	require.NoError(t, err)
 
 	// empty store means no orders can be listed
-	unsent, err := ordersStore.ListUnsentBySatellite(tomorrow)
+	unsent, err := ordersStore.ListUnsentBySatellite(ctx, tomorrow)
 	require.NoError(t, err)
 	require.Len(t, unsent, 0)
 
@@ -352,7 +402,7 @@ func TestOrdersStore_CorruptUnsentV1(t *testing.T) {
 	require.NoError(t, ordersStore.Enqueue(info))
 
 	// check that we can see both orders tomorrow
-	unsent, err = ordersStore.ListUnsentBySatellite(tomorrow)
+	unsent, err = ordersStore.ListUnsentBySatellite(ctx, tomorrow)
 	require.NoError(t, err)
 	require.Len(t, unsent, 1)
 	require.Len(t, unsent[satellite].InfoList, 2)
@@ -369,7 +419,7 @@ func TestOrdersStore_CorruptUnsentV1(t *testing.T) {
 	require.NoError(t, err)
 
 	// only the second order should be corrupted, so we should still see one order (sn1)
-	unsent, err = ordersStore.ListUnsentBySatellite(tomorrow)
+	unsent, err = ordersStore.ListUnsentBySatellite(ctx, tomorrow)
 	require.NoError(t, err)
 	require.Len(t, unsent, 1)
 	require.Len(t, unsent[satellite].InfoList, 1)
@@ -381,7 +431,7 @@ func TestOrdersStore_CorruptUnsentV1(t *testing.T) {
 	require.NoError(t, ordersStore.Enqueue(info))
 
 	// only the second order should be corrupted, so we should still see first and last orders (sn1, sn3)
-	unsent, err = ordersStore.ListUnsentBySatellite(tomorrow)
+	unsent, err = ordersStore.ListUnsentBySatellite(ctx, tomorrow)
 	require.NoError(t, err)
 	require.Len(t, unsent, 1)
 	require.Len(t, unsent[satellite].InfoList, 2)
@@ -403,7 +453,7 @@ func TestOrdersStore_V0ToV1(t *testing.T) {
 	require.NoError(t, err)
 
 	// empty store means no orders can be listed
-	unsent, err := ordersStore.ListUnsentBySatellite(tomorrow)
+	unsent, err := ordersStore.ListUnsentBySatellite(ctx, tomorrow)
 	require.NoError(t, err)
 	require.Len(t, unsent, 0)
 
@@ -436,7 +486,7 @@ func TestOrdersStore_V0ToV1(t *testing.T) {
 	require.NoError(t, of.Close())
 
 	// check that we can see both orders tomorrow
-	unsent, err = ordersStore.ListUnsentBySatellite(tomorrow)
+	unsent, err = ordersStore.ListUnsentBySatellite(ctx, tomorrow)
 	require.NoError(t, err)
 	require.Len(t, unsent, 1)
 	require.Len(t, unsent[satellite].InfoList, 2)
@@ -447,7 +497,7 @@ func TestOrdersStore_V0ToV1(t *testing.T) {
 	// new file should be created with version V1
 	require.NoError(t, ordersStore.Enqueue(info))
 
-	unsent, err = ordersStore.ListUnsentBySatellite(tomorrow)
+	unsent, err = ordersStore.ListUnsentBySatellite(ctx, tomorrow)
 	require.NoError(t, err)
 	require.Len(t, unsent, 1)
 	require.Len(t, unsent[satellite].InfoList, 1)

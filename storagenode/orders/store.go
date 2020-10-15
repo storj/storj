@@ -4,6 +4,7 @@
 package orders
 
 import (
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -180,7 +181,8 @@ type UnsentInfo struct {
 // It only reads files where the order limit grace period has passed, meaning no new orders will be appended.
 // There is a separate window for each created at hour, so if a satellite has 2 windows, `ListUnsentBySatellite`
 // needs to be called twice, with calls to `Archive` in between each call, to see all unsent orders.
-func (store *FileStore) ListUnsentBySatellite(now time.Time) (infoMap map[storj.NodeID]UnsentInfo, err error) {
+func (store *FileStore) ListUnsentBySatellite(ctx context.Context, now time.Time) (infoMap map[storj.NodeID]UnsentInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
 	// shouldn't be necessary, but acquire archiveMu to ensure we do not attempt to archive files during list
 	store.archiveMu.Lock()
 	defer store.archiveMu.Unlock()

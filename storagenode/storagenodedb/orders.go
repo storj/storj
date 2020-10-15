@@ -112,8 +112,8 @@ func (db *ordersDB) ListUnsent(ctx context.Context, limit int) (_ []*ordersfile.
 	return infos, ErrOrders.Wrap(rows.Err())
 }
 
-// ListUnsentBySatellite returns orders that haven't been sent yet grouped by
-// satellite. Does not return uplink identity.
+// ListUnsentBySatellite returns orders that haven't been sent yet and are not expired.
+// The orders are ordered by the Satellite ID.
 //
 // If there is some unmarshal error while reading an order, the method proceed
 // with the following ones and the function will return the ones which have
@@ -128,7 +128,8 @@ func (db *ordersDB) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 	rows, err := db.QueryContext(ctx, `
 		SELECT order_limit_serialized, order_serialized
 		FROM unsent_order
-	`)
+		WHERE order_limit_expiration >= $1
+	`, time.Now().UTC())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil

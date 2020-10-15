@@ -103,12 +103,7 @@ func TestDB(t *testing.T) {
 		unsentGrouped, err := ordersdb.ListUnsentBySatellite(ctx)
 		require.NoError(t, err)
 
-		expectedGrouped := map[storj.NodeID][]*ordersfile.Info{
-			satellite0.ID: {
-				{Limit: infos[0].Limit, Order: infos[0].Order},
-				{Limit: infos[1].Limit, Order: infos[1].Order},
-			},
-		}
+		expectedGrouped := map[storj.NodeID][]*ordersfile.Info{}
 		require.Empty(t, cmp.Diff(expectedGrouped, unsentGrouped, cmp.Comparer(pb.Equal)))
 
 		// test archival
@@ -217,9 +212,7 @@ func TestDB_Trivial(t *testing.T) {
 		{ // Ensure ListUnsentBySatellite works at all
 			infos, err := db.Orders().ListUnsentBySatellite(ctx)
 			require.NoError(t, err)
-			require.Len(t, infos, 1)
-			require.Contains(t, infos, satelliteID)
-			require.Len(t, infos[satelliteID], 1)
+			require.Len(t, infos, 0)
 		}
 
 		{ // Ensure Archive works at all

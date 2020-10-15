@@ -179,11 +179,7 @@ func (service *Service) SendOrders(ctx context.Context, now time.Time) {
 
 	// If there are orders in the database, send from there.
 	// Otherwise, send from the filestore.
-	hasOrders := service.sendOrdersFromDB(ctx)
-	if hasOrders {
-		return
-	}
-
+	service.sendOrdersFromDB(ctx)
 	service.sendOrdersFromFileStore(ctx, now)
 }
 
@@ -390,10 +386,9 @@ func (service *Service) sendOrdersFromFileStore(ctx context.Context, now time.Ti
 
 	// Continue sending until there are no more windows to send, or all relevant satellites are offline.
 	for {
-		ordersBySatellite, err := service.ordersStore.ListUnsentBySatellite(now)
+		ordersBySatellite, err := service.ordersStore.ListUnsentBySatellite(ctx, now)
 		if err != nil {
 			service.log.Error("listing orders", zap.Error(err))
-			return
 		}
 		if len(ordersBySatellite) == 0 {
 			service.log.Debug("no orders to send")

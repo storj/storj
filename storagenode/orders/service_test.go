@@ -97,7 +97,7 @@ func TestOrderFileStoreSettle(t *testing.T) {
 		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		toSend, err := node.OrdersStore.ListUnsentBySatellite(tomorrow)
+		toSend, err := node.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 		require.NoError(t, err)
 		require.Len(t, toSend, 1)
 		ordersForSat := toSend[satellite.ID()]
@@ -106,7 +106,7 @@ func TestOrderFileStoreSettle(t *testing.T) {
 		// trigger order send
 		service.SendOrders(ctx, tomorrow)
 
-		toSend, err = node.OrdersStore.ListUnsentBySatellite(tomorrow)
+		toSend, err = node.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 		require.NoError(t, err)
 		require.Len(t, toSend, 0)
 
@@ -117,7 +117,7 @@ func TestOrderFileStoreSettle(t *testing.T) {
 }
 
 // TODO remove when db is removed.
-// TestOrderFileStoreAndDBSettle ensures that if orders exist in both DB and filestore, that the DB orders are settled first.
+// TestOrderFileStoreAndDBSettle ensures that if orders exist in both DB and filestore, that the DB orders and filestore are both settled.
 func TestOrderFileStoreAndDBSettle(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
@@ -169,7 +169,7 @@ func TestOrderFileStoreAndDBSettle(t *testing.T) {
 		err = uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		toSendFileStore, err := node.OrdersStore.ListUnsentBySatellite(tomorrow)
+		toSendFileStore, err := node.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 		require.NoError(t, err)
 		require.Len(t, toSendFileStore, 1)
 		ordersForSat := toSendFileStore[satellite.ID()]
@@ -178,7 +178,7 @@ func TestOrderFileStoreAndDBSettle(t *testing.T) {
 		// trigger order send
 		service.SendOrders(ctx, tomorrow)
 
-		// DB orders should be archived, but filestore orders should still be unsent.
+		// DB and filestore orders should both be archived.
 		toSendDB, err = node.DB.Orders().ListUnsent(ctx, 10)
 		require.NoError(t, err)
 		require.Len(t, toSendDB, 0)
@@ -187,23 +187,12 @@ func TestOrderFileStoreAndDBSettle(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, archived, 1)
 
-		toSendFileStore, err = node.OrdersStore.ListUnsentBySatellite(tomorrow)
-		require.NoError(t, err)
-		require.Len(t, toSendFileStore, 1)
-		ordersForSat = toSendFileStore[satellite.ID()]
-		require.Len(t, ordersForSat.InfoList, 1)
-
-		// trigger order send again
-		service.SendOrders(ctx, tomorrow)
-
-		// now FileStore orders should be archived too.
-		toSendFileStore, err = node.OrdersStore.ListUnsentBySatellite(tomorrow)
+		toSendFileStore, err = node.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 		require.NoError(t, err)
 		require.Len(t, toSendFileStore, 0)
-
-		archived, err = node.OrdersStore.ListArchived()
+		filestoreArchived, err := node.OrdersStore.ListArchived()
 		require.NoError(t, err)
-		require.Len(t, archived, 1)
+		require.Len(t, filestoreArchived, 1)
 	})
 }
 

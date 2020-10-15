@@ -52,7 +52,7 @@ func TestSendingReceivingOrders(t *testing.T) {
 		sumBeforeSend := 0
 		for _, storageNode := range planet.StorageNodes {
 			// change settle buffer so orders can be sent
-			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(tomorrow)
+			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 			require.NoError(t, err)
 			for _, satUnsent := range unsentMap {
 				sumBeforeSend += len(satUnsent.InfoList)
@@ -66,7 +66,7 @@ func TestSendingReceivingOrders(t *testing.T) {
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Orders.SendOrders(ctx, tomorrow)
 
-			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(tomorrow)
+			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 			require.NoError(t, err)
 			for _, satUnsent := range unsentMap {
 				sumUnsent += len(satUnsent.InfoList)
@@ -105,7 +105,7 @@ func TestUnableToSendOrders(t *testing.T) {
 
 		sumBeforeSend := 0
 		for _, storageNode := range planet.StorageNodes {
-			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(tomorrow)
+			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 			require.NoError(t, err)
 			for _, satUnsent := range unsentMap {
 				sumBeforeSend += len(satUnsent.InfoList)
@@ -121,7 +121,7 @@ func TestUnableToSendOrders(t *testing.T) {
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Orders.SendOrders(ctx, tomorrow)
 
-			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(tomorrow)
+			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 			require.NoError(t, err)
 			for _, satUnsent := range unsentMap {
 				sumUnsent += len(satUnsent.InfoList)
@@ -171,7 +171,7 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 		var expectedBucketBandwidth int64
 		expectedStorageBandwidth := make(map[storj.NodeID]int64)
 		for _, storageNode := range planet.StorageNodes {
-			infos, err := storageNode.OrdersStore.ListUnsentBySatellite(tomorrow)
+			infos, err := storageNode.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 			require.NoError(t, err)
 			for _, unsentInfo := range infos {
 				for _, orderInfo := range unsentInfo.InfoList {
