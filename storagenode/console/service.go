@@ -40,6 +40,7 @@ var (
 type Service struct {
 	log            *zap.Logger
 	trust          *trust.Pool
+	usageCache     *pieces.BlobsUsageCache
 	bandwidthDB    bandwidth.DB
 	reputationDB   reputation.DB
 	storageUsageDB storageusage.DB
@@ -62,9 +63,14 @@ type Service struct {
 // NewService returns new instance of Service.
 func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Store, version *checker.Service,
 	allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info, trust *trust.Pool,
-	reputationDB reputation.DB, storageUsageDB storageusage.DB, pricingDB pricing.DB, satelliteDB satellites.DB, pingStats *contact.PingStats, contact *contact.Service, estimation *estimatedpayout.Service) (*Service, error) {
+	reputationDB reputation.DB, storageUsageDB storageusage.DB, pricingDB pricing.DB, satelliteDB satellites.DB,
+	pingStats *contact.PingStats, contact *contact.Service, estimation *estimatedpayout.Service, usageCache *pieces.BlobsUsageCache) (*Service, error) {
 	if log == nil {
 		return nil, errs.New("log can't be nil")
+	}
+
+	if usageCache == nil {
+		return nil, errs.New("usage cache can't be nil")
 	}
 
 	if bandwidth == nil {
@@ -94,6 +100,7 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 	return &Service{
 		log:                log,
 		trust:              trust,
+		usageCache:         usageCache,
 		bandwidthDB:        bandwidth,
 		reputationDB:       reputationDB,
 		storageUsageDB:     storageUsageDB,
@@ -113,10 +120,11 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 
 // SatelliteInfo encapsulates satellite ID and disqualification.
 type SatelliteInfo struct {
-	ID           storj.NodeID `json:"id"`
-	URL          string       `json:"url"`
-	Disqualified *time.Time   `json:"disqualified"`
-	Suspended    *time.Time   `json:"suspended"`
+	ID                 storj.NodeID `json:"id"`
+	URL                string       `json:"url"`
+	Disqualified       *time.Time   `json:"disqualified"`
+	Suspended          *time.Time   `json:"suspended"`
+	CurrentStorageUsed int64        `json:"currentStorageUsed"`
 }
 
 // Dashboard encapsulates dashboard stale data.
@@ -163,13 +171,20 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 				zap.Error(SNOServiceErr.Wrap(err)))
 			continue
 		}
+		_, currentStorageUsed, err := s.usageCache.SpaceUsedBySatellite(ctx, rep.SatelliteID)
+		if err != nil {
+			s.log.Warn("unable to get Satellite Current Storage Used", zap.String("Satellite ID", rep.SatelliteID.String()),
+				zap.Error(SNOServiceErr.Wrap(err)))
+			continue
+		}
 
 		data.Satellites = append(data.Satellites,
 			SatelliteInfo{
-				ID:           rep.SatelliteID,
-				Disqualified: rep.DisqualifiedAt,
-				Suspended:    rep.SuspendedAt,
-				URL:          url.Address,
+				ID:                 rep.SatelliteID,
+				Disqualified:       rep.DisqualifiedAt,
+				Suspended:          rep.SuspendedAt,
+				URL:                url.Address,
+				CurrentStorageUsed: currentStorageUsed,
 			},
 		)
 	}
@@ -212,18 +227,19 @@ type PriceModel struct {
 
 // Satellite encapsulates satellite related data.
 type Satellite struct {
-	ID               storj.NodeID            `json:"id"`
-	StorageDaily     []storageusage.Stamp    `json:"storageDaily"`
-	BandwidthDaily   []bandwidth.UsageRollup `json:"bandwidthDaily"`
-	StorageSummary   float64                 `json:"storageSummary"`
-	BandwidthSummary int64                   `json:"bandwidthSummary"`
-	EgressSummary    int64                   `json:"egressSummary"`
-	IngressSummary   int64                   `json:"ingressSummary"`
-	Audit            reputation.Metric       `json:"audit"`
-	Uptime           reputation.Metric       `json:"uptime"`
-	OnlineScore      float64                 `json:"onlineScore"`
-	PriceModel       PriceModel              `json:"priceModel"`
-	NodeJoinedAt     time.Time               `json:"nodeJoinedAt"`
+	ID                 storj.NodeID            `json:"id"`
+	StorageDaily       []storageusage.Stamp    `json:"storageDaily"`
+	BandwidthDaily     []bandwidth.UsageRollup `json:"bandwidthDaily"`
+	StorageSummary     float64                 `json:"storageSummary"`
+	BandwidthSummary   int64                   `json:"bandwidthSummary"`
+	EgressSummary      int64                   `json:"egressSummary"`
+	IngressSummary     int64                   `json:"ingressSummary"`
+	CurrentStorageUsed int64                   `json:"currentStorageUsed"`
+	Audit              reputation.Metric       `json:"audit"`
+	Uptime             reputation.Metric       `json:"uptime"`
+	OnlineScore        float64                 `json:"onlineScore"`
+	PriceModel         PriceModel              `json:"priceModel"`
+	NodeJoinedAt       time.Time               `json:"nodeJoinedAt"`
 }
 
 // GetSatelliteData returns satellite related data.
@@ -261,6 +277,11 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
+	_, currentStorageUsed, err := s.usageCache.SpaceUsedBySatellite(ctx, satelliteID)
+	if err != nil {
+		return nil, SNOServiceErr.Wrap(err)
+	}
+
 	rep, err := s.reputationDB.Get(ctx, satelliteID)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
@@ -279,18 +300,19 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 	}
 
 	return &Satellite{
-		ID:               satelliteID,
-		StorageDaily:     storageDaily,
-		BandwidthDaily:   bandwidthDaily,
-		StorageSummary:   storageSummary,
-		BandwidthSummary: bandwidthSummary.Total(),
-		EgressSummary:    egressSummary.Total(),
-		IngressSummary:   ingressSummary.Total(),
-		Audit:            rep.Audit,
-		Uptime:           rep.Uptime,
-		OnlineScore:      rep.OnlineScore,
-		PriceModel:       satellitePricing,
-		NodeJoinedAt:     rep.JoinedAt,
+		ID:                 satelliteID,
+		StorageDaily:       storageDaily,
+		BandwidthDaily:     bandwidthDaily,
+		StorageSummary:     storageSummary,
+		BandwidthSummary:   bandwidthSummary.Total(),
+		CurrentStorageUsed: currentStorageUsed,
+		EgressSummary:      egressSummary.Total(),
+		IngressSummary:     ingressSummary.Total(),
+		Audit:              rep.Audit,
+		Uptime:             rep.Uptime,
+		OnlineScore:        rep.OnlineScore,
+		PriceModel:         satellitePricing,
+		NodeJoinedAt:       rep.JoinedAt,
 	}, nil
 }
 

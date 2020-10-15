@@ -208,11 +208,12 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	var user struct {
-		ID        uuid.UUID `json:"id"`
-		FullName  string    `json:"fullName"`
-		ShortName string    `json:"shortName"`
-		Email     string    `json:"email"`
-		PartnerID uuid.UUID `json:"partnerId"`
+		ID           uuid.UUID `json:"id"`
+		FullName     string    `json:"fullName"`
+		ShortName    string    `json:"shortName"`
+		Email        string    `json:"email"`
+		PartnerID    uuid.UUID `json:"partnerId"`
+		ProjectLimit int       `json:"projectLimit"`
 	}
 
 	auth, err := console.GetAuth(ctx)
@@ -226,6 +227,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.Email = auth.User.Email
 	user.ID = auth.User.ID
 	user.PartnerID = auth.User.PartnerID
+	user.ProjectLimit = auth.User.ProjectLimit
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(&user)

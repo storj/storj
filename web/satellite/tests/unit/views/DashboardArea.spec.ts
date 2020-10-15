@@ -38,7 +38,7 @@ localVue.use(notificationPlugin);
 const usersApi = new UsersApiMock();
 const projectsApi = new ProjectsApiMock();
 
-usersApi.setMockUser(new User('1', '2', '3', '4', '5'));
+usersApi.setMockUser(new User('1', '2', '3', '4', '5', '6', '7', 1));
 projectsApi.setMockProjects([]);
 
 const usersModule = makeUsersModule(usersApi);

@@ -320,7 +320,7 @@ func TestCleanArchiveFileStore(t *testing.T) {
 		require.NoError(t, err)
 
 		// archive one order yesterday, one today
-		unsentInfo := orders.UnsentInfo{}
+		unsentInfo := orders.UnsentInfo{Version: ordersfile.V1}
 		unsentInfo.CreatedAtHour = createdAt0.Truncate(time.Hour)
 		err = node.OrdersStore.Archive(satellite, unsentInfo, yesterday, pb.SettlementWithWindowResponse_ACCEPTED)
 		require.NoError(t, err)

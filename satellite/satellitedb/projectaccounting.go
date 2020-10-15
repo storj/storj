@@ -669,7 +669,7 @@ func (db *ProjectAccounting) GetProjectLimits(ctx context.Context, projectID uui
 	}
 
 	return accounting.ProjectLimits{
-		Usage:     &row.UsageLimit,
-		Bandwidth: &row.BandwidthLimit,
+		Usage:     row.UsageLimit,
+		Bandwidth: row.BandwidthLimit,
 	}, nil
 }

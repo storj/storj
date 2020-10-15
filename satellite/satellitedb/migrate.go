@@ -160,7 +160,7 @@ func flattenMigration(m *migrate.Migration) (*migrate.Migration, error) {
 		}
 
 		steps = append(steps, &migrate.Step{
-			DB:          db,
+			DB:          &db,
 			Description: "Setup",
 			Version:     version,
 			Action:      migrate.SQL{strings.Join(statements, ";\n")},
@@ -171,8 +171,8 @@ func flattenMigration(m *migrate.Migration) (*migrate.Migration, error) {
 
 	for _, step := range m.Steps {
 		if db == nil {
-			db = step.DB
-		} else if db != step.DB {
+			db = *step.DB
+		} else if db != *step.DB {
 			return nil, errs.New("multiple databases not supported")
 		}
 
@@ -203,7 +203,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 		Table: "versions",
 		Steps: []*migrate.Step{
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "Initial setup",
 				Version:     103,
 				Action: migrate.SQL{
@@ -723,7 +723,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "Add missing bucket_bandwidth_rollups_action_interval_project_id_index index",
 				Version:     104,
 				Action: migrate.SQL{
@@ -731,7 +731,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "Remove all nodes from suspension mode.",
 				Version:     105,
 				Action: migrate.SQL{
@@ -739,7 +739,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "Add project_bandwidth_rollup table and populate with current months data",
 				Version:     106,
 				Action: migrate.SQL{
@@ -756,7 +756,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "add separate bandwidth column",
 				Version:     107,
 				Action: migrate.SQL{
@@ -764,7 +764,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "backfill bandwidth column with previous limits",
 				Version:     108,
 				SeparateTx:  true,
@@ -773,7 +773,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "add period column to the credits_spendings table (step 1)",
 				Version:     109,
 				SeparateTx:  true,
@@ -782,7 +782,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "add period column to the credits_spendings table (step 2)",
 				Version:     110,
 				SeparateTx:  true,
@@ -791,7 +791,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "add period column to the credits_spendings table (step 3)",
 				Version:     111,
 				SeparateTx:  true,
@@ -800,7 +800,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "fix incorrect calculations on backported paystub data",
 				Version:     112,
 				Action: migrate.SQL{`
@@ -823,7 +823,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				`},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "drop project_id column from coupon table",
 				Version:     113,
 				Action: migrate.SQL{
@@ -831,7 +831,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "add new columns for suspension to node tables",
 				Version:     114,
 				Action: migrate.SQL{
@@ -841,7 +841,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "add revocations database",
 				Version:     115,
 				Action: migrate.SQL{`
@@ -853,7 +853,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				`},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "add audit histories database",
 				Version:     116,
 				Action: migrate.SQL{
@@ -865,7 +865,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "add node_api_versions table",
 				Version:     117,
 				Action: migrate.SQL{`
@@ -879,7 +879,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				`},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "add max_buckets field to projects and an implicit index on bucket_metainfos project_id,name",
 				SeparateTx:  true,
 				Version:     118,
@@ -889,7 +889,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "add project_limit field to users table",
 				Version:     119,
 				Action: migrate.SQL{
@@ -897,7 +897,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "back fill user project limits from existing registration tokens",
 				Version:     120,
 				SeparateTx:  true,
@@ -906,7 +906,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "drop tables related to credits (old deposit bonuses)",
 				Version:     121,
 				Action: migrate.SQL{
@@ -915,7 +915,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "drop project_invoice_stamps table",
 				Version:     122,
 				Action: migrate.SQL{
@@ -923,7 +923,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "drop project_invoice_stamps table",
 				Version:     123,
 				Action: migrate.SQL{
@@ -931,7 +931,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "add column and index updated_at to injuredsegments",
 				Version:     124,
 				Action: migrate.SQL{
@@ -940,7 +940,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "make limit columns nullable",
 				Version:     125,
 				SeparateTx:  true,
@@ -954,7 +954,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "set 0 limits back to default",
 				Version:     126,
 				Action: migrate.SQL{
@@ -964,11 +964,33 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.DB,
+				DB:          &db.migrationDB,
 				Description: "enable multiple projects for existing users",
 				Version:     127,
 				Action: migrate.SQL{
 					`UPDATE users SET project_limit=0 WHERE project_limit <= 10 and project_limit > 0;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop default values for project limits",
+				Version:     128,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ALTER COLUMN max_buckets DROP DEFAULT;`,
+					`ALTER TABLE projects ALTER COLUMN usage_limit DROP DEFAULT;`,
+					`ALTER TABLE projects ALTER COLUMN bandwidth_limit DROP DEFAULT;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "reset everyone with default rate limits to NULL",
+				Version:     129,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`UPDATE projects SET max_buckets = NULL WHERE max_buckets <= 100;`,
+					`UPDATE projects SET usage_limit = NULL WHERE usage_limit <= 50000000000;`,
+					`UPDATE projects SET bandwidth_limit = NULL WHERE bandwidth_limit <= 50000000000;`,
 				},
 			},
 		},
