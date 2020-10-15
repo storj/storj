@@ -72,7 +72,7 @@ func (endpoint *Endpoint) Batch(ctx context.Context, req *pb.BatchRequest) (resp
 				},
 			})
 
-		//OBJECT
+		// OBJECT
 		case *pb.BatchRequestItem_ObjectBegin:
 			singleRequest.ObjectBegin.Header = req.Header
 			response, err := endpoint.BeginObject(ctx, singleRequest.ObjectBegin)

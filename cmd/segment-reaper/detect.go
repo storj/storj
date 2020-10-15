@@ -103,7 +103,7 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 	log.Info("number of remote segments", zap.Int("segments", observer.remoteSegments))
 	log.Info("number of zombie segments", zap.Int("segments", observer.zombieSegments))
 
-	mon.IntVal("zombie_segments").Observe(int64(observer.zombieSegments)) //locked
+	mon.IntVal("zombie_segments").Observe(int64(observer.zombieSegments)) //mon:locked
 
 	return process.Report(ctx)
 }

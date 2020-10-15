@@ -187,7 +187,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabas
 		}
 	}
 	if len(signer.AddressedLimits) < redundancy.RequiredCount() {
-		mon.Meter("download_failed_not_enough_pieces_uplink").Mark(1) //locked
+		mon.Meter("download_failed_not_enough_pieces_uplink").Mark(1) //mon:locked
 		return nil, storj.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.New("not enough orderlimits: got %d, required %d", len(signer.AddressedLimits), redundancy.RequiredCount())
 	}
 

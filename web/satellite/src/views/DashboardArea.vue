@@ -26,11 +26,11 @@
                         <VInfoBar
                             v-if="isProjectLimitInfoBarShown"
                             is-blue="true"
-                            :first-value="`You have used ${userProjectsCount}`"
+                            :first-value="`You have used ${projectsCount}`"
                             first-description="of your"
-                            :second-value="defaultProjectLimit"
+                            :second-value="projectLimit"
                             second-description="available projects."
-                            :link="generalRequestURL"
+                            :link="projectLimitsIncreaseRequestURL"
                             link-label="Request Project Limit Increase"
                         />
                     </div>
@@ -232,28 +232,31 @@ export default class DashboardArea extends Vue {
     public get isBillingInfoBarShown(): boolean {
         const isBillingPage = this.$route.name === RouteConfig.Billing.name;
 
-        return isBillingPage && this.userProjectsCount > 0;
+        return isBillingPage && this.projectsCount > 0;
     }
 
     /**
      * Indicates if project limit info bar is shown.
      */
     public get isProjectLimitInfoBarShown(): boolean {
-        return this.userProjectsCount === this.defaultProjectLimit && this.$route.name === RouteConfig.ProjectDashboard.name;
+        return this.$route.name === RouteConfig.ProjectDashboard.name;
     }
 
     /**
      * Returns user's projects count.
      */
-    public get userProjectsCount(): number {
-        return this.$store.getters.userProjectsCount;
+    public get projectsCount(): number {
+        return this.$store.getters.projectsCount;
     }
 
     /**
-     * Returns default project limit from config.
+     * Returns project limit from store.
      */
-    public get defaultProjectLimit(): number {
-        return parseInt(MetaUtils.getMetaContent('default-project-limit'));
+    public get projectLimit(): number {
+        const projectLimit: number = this.$store.getters.user.projectLimit;
+        if (projectLimit < this.projectsCount) return this.projectsCount;
+
+        return projectLimit;
     }
 
     /**
@@ -261,13 +264,6 @@ export default class DashboardArea extends Vue {
      */
     public get projectLimitsIncreaseRequestURL(): string {
         return MetaUtils.getMetaContent('project-limits-increase-request-url');
-    }
-
-    /**
-     * Returns general request url from config.
-     */
-    public get generalRequestURL(): string {
-        return MetaUtils.getMetaContent('general-request-url');
     }
 
     /**

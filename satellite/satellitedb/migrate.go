@@ -971,6 +971,28 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`UPDATE users SET project_limit=0 WHERE project_limit <= 10 and project_limit > 0;`,
 				},
 			},
+			{
+				DB:          db.DB,
+				Description: "drop default values for project limits",
+				Version:     128,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ALTER COLUMN max_buckets DROP DEFAULT;`,
+					`ALTER TABLE projects ALTER COLUMN usage_limit DROP DEFAULT;`,
+					`ALTER TABLE projects ALTER COLUMN bandwidth_limit DROP DEFAULT;`,
+				},
+			},
+			{
+				DB:          db.DB,
+				Description: "reset everyone with default rate limits to NULL",
+				Version:     129,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`UPDATE projects SET max_buckets = NULL WHERE max_buckets <= 100;`,
+					`UPDATE projects SET usage_limit = NULL WHERE usage_limit <= 50000000000;`,
+					`UPDATE projects SET bandwidth_limit = NULL WHERE bandwidth_limit <= 50000000000;`,
+				},
+			},
 		},
 	}
 }

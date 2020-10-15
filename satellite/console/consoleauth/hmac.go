@@ -8,7 +8,7 @@ import (
 	"crypto/sha256"
 )
 
-//TODO: change to JWT or Macaroon based auth
+// TODO: change to JWT or Macaroon based auth
 
 // Hmac is hmac256 based Signer.
 type Hmac struct {

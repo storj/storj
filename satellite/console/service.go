@@ -12,7 +12,8 @@ import (
 	"sort"
 	"time"
 
-	monkit "github.com/spacemonkeygo/monkit/v3"
+	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/stripe/stripe-go"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
@@ -66,6 +67,9 @@ var (
 	// ErrProjLimit is error type of project limit.
 	ErrProjLimit = errs.Class("project limit error")
 
+	// ErrUsage is error type of project usage.
+	ErrUsage = errs.Class("project usage error")
+
 	// ErrEmailUsed is error type that occurs on repeating auth attempts with email.
 	ErrEmailUsed = errs.Class("email used")
 )
@@ -80,6 +84,7 @@ type Service struct {
 	store             DB
 	projectAccounting accounting.ProjectAccounting
 	projectUsage      *accounting.Service
+	buckets           Buckets
 	rewards           rewards.DB
 	partners          *rewards.PartnersService
 	accounts          payments.Accounts
@@ -102,7 +107,7 @@ type PaymentsService struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, rewards rewards.DB, partners *rewards.PartnersService, accounts payments.Accounts, config Config, minCoinPayment int64) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, rewards rewards.DB, partners *rewards.PartnersService, accounts payments.Accounts, config Config, minCoinPayment int64) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -123,6 +128,7 @@ func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting acco
 		store:             store,
 		projectAccounting: projectAccounting,
 		projectUsage:      projectUsage,
+		buckets:           buckets,
 		rewards:           rewards,
 		partners:          partners,
 		accounts:          accounts,
@@ -221,7 +227,7 @@ func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditC
 		return nil
 	}
 
-	//ToDo: check if this is the right place
+	// TODO: check if this is the right place
 	err = paymentService.AddPromotionalCoupon(ctx, auth.User.ID)
 	if err != nil {
 		paymentService.service.log.Warn(fmt.Sprintf("could not add promotional coupon for user %s", auth.User.ID.String()), zap.Error(err))
@@ -422,6 +428,50 @@ func (paymentService PaymentsService) TokenDeposit(ctx context.Context, amount i
 	return tx, Error.Wrap(err)
 }
 
+// checkOutstandingInvoice returns if the payment account has any unpaid/outstanding invoices or/and invoice items.
+func (paymentService PaymentsService) checkOutstandingInvoice(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "get outstanding invoices")
+	if err != nil {
+		return err
+	}
+
+	invoices, err := paymentService.service.accounts.Invoices().List(ctx, auth.User.ID)
+	if err != nil {
+		return err
+	}
+	if len(invoices) > 0 {
+		for _, invoice := range invoices {
+			if invoice.Status != string(stripe.InvoiceStatusPaid) {
+				return ErrUsage.New("user has unpaid/pending invoices")
+			}
+		}
+	}
+
+	hasItems, err := paymentService.service.accounts.Invoices().CheckPendingItems(ctx, auth.User.ID)
+	if err != nil {
+		return err
+	}
+	if hasItems {
+		return ErrUsage.New("user has pending invoice items")
+	}
+	return nil
+}
+
+// checkProjectInvoicingStatus returns if for the given project there are outstanding project records and/or usage
+// which have not been applied/invoiced yet (meaning sent over to stripe).
+func (paymentService PaymentsService) checkProjectInvoicingStatus(ctx context.Context, projectID uuid.UUID) (unpaidUsage bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = paymentService.service.getAuthAndAuditLog(ctx, "project charges")
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+
+	return paymentService.service.accounts.CheckProjectInvoicingStatus(ctx, projectID)
+}
+
 // PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have
 // a project, payment method and do not have a promotional coupon yet.
 // And updates project limits to selected size.
@@ -484,7 +534,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		offerType = rewards.Referral
 	}
 
-	//TODO: Create a current offer cache to replace database call
+	// TODO: Create a current offer cache to replace database call
 	offers, err := s.rewards.GetActiveOffersByType(ctx, offerType)
 	if err != nil && !rewards.ErrOfferNotExist.Has(err) {
 		s.log.Error("internal error", zap.Error(err))
@@ -591,7 +641,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, email string) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	//TODO: activation token should differ from auth token
+	// TODO: activation token should differ from auth token
 	claims := &consoleauth.Claims{
 		ID:         id,
 		Email:      email,
@@ -669,7 +719,7 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return nil
 	}
 
-	//ToDo: check if this is the right place
+	// TODO: check if this is the right place
 	err = s.accounts.Coupons().AddPromotionalCoupon(ctx, user.ID)
 	if err != nil {
 		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", user.ID.String()), zap.Error(Error.Wrap(err)))
@@ -861,6 +911,11 @@ func (s *Service) DeleteAccount(ctx context.Context, password string) (err error
 		return ErrUnauthorized.New(credentialsErrMsg)
 	}
 
+	err = s.Payments().checkOutstandingInvoice(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	err = s.store.Users().Delete(ctx, auth.User.ID)
 	if err != nil {
 		return Error.Wrap(err)
@@ -1020,6 +1075,11 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID) (err e
 	}
 
 	_, err = s.isProjectOwner(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = s.checkProjectCanBeDeleted(ctx, projectID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -1452,6 +1512,34 @@ func (s *Service) Authorize(ctx context.Context) (a Authorization, err error) {
 		User:   *user,
 		Claims: *claims,
 	}, nil
+}
+
+// checkProjectCanBeDeleted ensures that all data, api-keys and buckets are deleted and usage has been accounted.
+// no error means the project status is clean.
+func (s *Service) checkProjectCanBeDeleted(ctx context.Context, project uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	buckets, err := s.buckets.CountBuckets(ctx, project)
+	if err != nil {
+		return err
+	}
+	if buckets > 0 {
+		return ErrUsage.New("some buckets still exist")
+	}
+
+	keys, err := s.store.APIKeys().GetPagedByProjectID(ctx, project, APIKeyCursor{Limit: 1, Page: 1})
+	if err != nil {
+		return err
+	}
+	if keys.TotalCount > 0 {
+		return ErrUsage.New("some api-keys still exist")
+	}
+
+	outstanding, err := s.Payments().checkProjectInvoicingStatus(ctx, project)
+	if outstanding {
+		return ErrUsage.New("there is outstanding usage that is not charged yet")
+	}
+	return ErrUsage.Wrap(err)
 }
 
 // checkProjectLimit is used to check if user is able to create a new project.

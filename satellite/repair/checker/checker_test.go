@@ -154,7 +154,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		_, err = repairQueue.Select(ctx)
 		require.True(t, storage.ErrEmptyQueue.Has(err))
 
-		//check if the expected segments were added to the irreparable DB
+		// check if the expected segments were added to the irreparable DB
 		irreparable := planet.Satellites[0].DB.Irreparable()
 		remoteSegmentInfo, err := irreparable.Get(ctx, pointerKey)
 		require.NoError(t, err)

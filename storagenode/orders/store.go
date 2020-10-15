@@ -109,7 +109,7 @@ func (store *FileStore) BeginEnqueue(satelliteID storj.NodeID, createdAt time.Ti
 		}
 
 		// write out the data
-		of, err := ordersfile.OpenWritableUnsent(store.log, store.unsentDir, info.Limit.SatelliteId, info.Limit.OrderCreation)
+		of, err := ordersfile.OpenWritableUnsent(store.unsentDir, info.Limit.SatelliteId, info.Limit.OrderCreation)
 		if err != nil {
 			return OrderError.Wrap(err)
 		}
@@ -172,6 +172,7 @@ func (store *FileStore) Enqueue(info *ordersfile.Info) (err error) {
 // UnsentInfo is a struct containing a window of orders for a satellite and order creation hour.
 type UnsentInfo struct {
 	CreatedAtHour time.Time
+	Version       ordersfile.Version
 	InfoList      []*ordersfile.Info
 }
 
@@ -219,9 +220,10 @@ func (store *FileStore) ListUnsentBySatellite(now time.Time) (infoMap map[storj.
 
 		newUnsentInfo := UnsentInfo{
 			CreatedAtHour: fileInfo.CreatedAtHour,
+			Version:       fileInfo.Version,
 		}
 
-		of, err := ordersfile.OpenReadable(store.log, path)
+		of, err := ordersfile.OpenReadable(path, fileInfo.Version)
 		if err != nil {
 			return OrderError.Wrap(err)
 		}
@@ -236,6 +238,12 @@ func (store *FileStore) ListUnsentBySatellite(now time.Time) (infoMap map[storj.
 			if err != nil {
 				if errs.Is(err, io.EOF) {
 					break
+				}
+				// if last entry read is corrupt, attempt to read again
+				if ordersfile.ErrEntryCorrupt.Has(err) {
+					store.log.Warn("Corrupted order detected in orders file", zap.Error(err))
+					mon.Meter("orders_unsent_file_corrupted").Mark64(1)
+					continue
 				}
 				return err
 			}
@@ -267,6 +275,7 @@ func (store *FileStore) Archive(satelliteID storj.NodeID, unsentInfo UnsentInfo,
 		unsentInfo.CreatedAtHour,
 		archivedAt,
 		status,
+		unsentInfo.Version,
 	))
 }
 
@@ -290,7 +299,7 @@ func (store *FileStore) ListArchived() ([]*ArchivedInfo, error) {
 		if err != nil {
 			return OrderError.Wrap(err)
 		}
-		of, err := ordersfile.OpenReadable(store.log, path)
+		of, err := ordersfile.OpenReadable(path, fileInfo.Version)
 		if err != nil {
 			return OrderError.Wrap(err)
 		}
@@ -311,6 +320,12 @@ func (store *FileStore) ListArchived() ([]*ArchivedInfo, error) {
 			if err != nil {
 				if errs.Is(err, io.EOF) {
 					break
+				}
+				// if last entry read is corrupt, attempt to read again
+				if ordersfile.ErrEntryCorrupt.Has(err) {
+					store.log.Warn("Corrupted order detected in orders file", zap.Error(err))
+					mon.Meter("orders_archive_file_corrupted").Mark64(1)
+					continue
 				}
 				return err
 			}

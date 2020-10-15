@@ -13,7 +13,7 @@ import (
 )
 
 func TestListInfos(t *testing.T) {
-	//This test is deliberately skipped as it requires credentials to coinpayments.net
+	// This test is deliberately skipped as it requires credentials to coinpayments.net
 	t.SkipNow()
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -23,12 +23,12 @@ func TestListInfos(t *testing.T) {
 		PrivateKey: "ask-littleskunk-on-keybase",
 	}).Transactions()
 
-	//verify that bad ids fail
+	// verify that bad ids fail
 	infos, err := payments.ListInfos(ctx, TransactionIDList{"an_unlikely_id"})
 	assert.Error(t, err)
 	assert.Len(t, infos, 0)
 
-	//verify that ListInfos can handle more than 25 good ids
+	// verify that ListInfos can handle more than 25 good ids
 	ids := TransactionIDList{}
 	for x := 0; x < 27; x++ {
 		tx, err := payments.Create(ctx,

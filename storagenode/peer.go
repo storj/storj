@@ -456,7 +456,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Contact.Service,
 			peer.DB.Bandwidth(),
 			config.Storage.AllocatedDiskSpace.Int64(),
-			//TODO use config.Storage.Monitor.Interval, but for some reason is not set
+			// TODO: use config.Storage.Monitor.Interval, but for some reason is not set
 			config.Storage.KBucketRefreshInterval,
 			peer.Contact.Chore.Trigger,
 			config.Storage2.Monitor,
@@ -619,6 +619,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Contact.PingStats,
 			peer.Contact.Service,
 			peer.Estimation.Service,
+			peer.Storage2.BlobsCache,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -738,7 +739,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	}
 
 	if err := peer.Preflight.LocalTime.Check(ctx); err != nil {
-		peer.Log.Fatal("Failed preflight check.", zap.Error(err))
+		peer.Log.Error("Failed preflight check.", zap.Error(err))
 		return err
 	}
 

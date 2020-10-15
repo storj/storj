@@ -1248,11 +1248,11 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 		)
 
 	}
-	mon.FloatVal("audit_reputation_alpha").Observe(auditAlpha)                //locked
-	mon.FloatVal("audit_reputation_beta").Observe(auditBeta)                  //locked
-	mon.FloatVal("unknown_audit_reputation_alpha").Observe(unknownAuditAlpha) //locked
-	mon.FloatVal("unknown_audit_reputation_beta").Observe(unknownAuditBeta)   //locked
-	mon.FloatVal("audit_online_score").Observe(auditOnlineScore)              //locked
+	mon.FloatVal("audit_reputation_alpha").Observe(auditAlpha)                //mon:locked
+	mon.FloatVal("audit_reputation_beta").Observe(auditBeta)                  //mon:locked
+	mon.FloatVal("unknown_audit_reputation_alpha").Observe(unknownAuditAlpha) //mon:locked
+	mon.FloatVal("unknown_audit_reputation_beta").Observe(unknownAuditBeta)   //mon:locked
+	mon.FloatVal("audit_online_score").Observe(auditOnlineScore)              //mon:locked
 
 	totalUptimeCount := dbNode.TotalUptimeCount
 	if updateReq.IsUp {

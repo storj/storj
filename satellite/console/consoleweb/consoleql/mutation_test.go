@@ -79,7 +79,11 @@ func TestGrapqhlMutation(t *testing.T) {
 
 		paymentsService, err := stripecoinpayments.NewService(
 			log.Named("payments.stripe:service"),
-			stripecoinpayments.NewStripeMock(testrand.NodeID()),
+			stripecoinpayments.NewStripeMock(
+				testrand.NodeID(),
+				db.StripeCoinPayments().Customers(),
+				db.Console().Users(),
+			),
 			pc.StripeCoinPayments,
 			db.StripeCoinPayments(),
 			db.Console().Projects(),
@@ -101,6 +105,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			db.Console(),
 			db.ProjectAccounting(),
 			projectUsage,
+			db.Buckets(),
 			db.Rewards(),
 			partnersService,
 			paymentsService.Accounts(),

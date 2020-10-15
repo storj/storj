@@ -128,7 +128,6 @@ func verifyOrders(t *testing.T, ctx *testcontext.Context, db *storagenodedb.DB, 
 	for _, order := range orders {
 		for _, dbOrder := range dbOrders {
 			if order.Order.SerialNumber == dbOrder.Order.SerialNumber {
-				//fmt.Printf("Found %v\n", order.Order.SerialNumber)
 				found++
 			}
 		}

@@ -61,7 +61,7 @@ type SegmentRepairer struct {
 	// repaired pieces
 	multiplierOptimalThreshold float64
 
-	//repairOverride is the value handed over from the checker to override the Repair Threshold
+	// repairOverride is the value handed over from the checker to override the Repair Threshold
 	repairOverride int
 }
 
@@ -104,8 +104,8 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	pointer, err := repairer.metainfo.Get(ctx, metabase.SegmentKey(path))
 	if err != nil {
 		if storj.ErrObjectNotFound.Has(err) {
-			mon.Meter("repair_unnecessary").Mark(1)            //locked
-			mon.Meter("segment_deleted_before_repair").Mark(1) //locked
+			mon.Meter("repair_unnecessary").Mark(1)            //mon:locked
+			mon.Meter("segment_deleted_before_repair").Mark(1) //mon:locked
 			repairer.log.Debug("segment was deleted")
 			return true, nil
 		}
@@ -117,12 +117,12 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	}
 
 	if !pointer.ExpirationDate.IsZero() && pointer.ExpirationDate.Before(time.Now().UTC()) {
-		mon.Meter("repair_expired").Mark(1) //locked
+		mon.Meter("repair_expired").Mark(1) //mon:locked
 		return true, nil
 	}
 
-	mon.Meter("repair_attempts").Mark(1)                                //locked
-	mon.IntVal("repair_segment_size").Observe(pointer.GetSegmentSize()) //locked
+	mon.Meter("repair_attempts").Mark(1)                                //mon:locked
+	mon.IntVal("repair_segment_size").Observe(pointer.GetSegmentSize()) //mon:locked
 
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
 	if err != nil {
@@ -141,7 +141,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	numHealthy := len(pieces) - len(missingPieces)
 	// irreparable piece
 	if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
-		mon.Meter("repair_nodes_unavailable").Mark(1) //locked
+		mon.Meter("repair_nodes_unavailable").Mark(1) //mon:locked
 		return true, &irreparableError{
 			path:            path,
 			piecesAvailable: int32(numHealthy),
@@ -157,7 +157,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 
 	// repair not needed
 	if int32(numHealthy) > repairThreshold {
-		mon.Meter("repair_unnecessary").Mark(1) //locked
+		mon.Meter("repair_unnecessary").Mark(1) //mon:locked
 		repairer.log.Debug("segment above repair threshold", zap.Int("numHealthy", numHealthy), zap.Int32("repairThreshold", repairThreshold))
 		return true, nil
 	}
@@ -166,7 +166,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	if pointer.Remote.Redundancy.Total != 0 {
 		healthyRatioBeforeRepair = float64(numHealthy) / float64(pointer.Remote.Redundancy.Total)
 	}
-	mon.FloatVal("healthy_ratio_before_repair").Observe(healthyRatioBeforeRepair) //locked
+	mon.FloatVal("healthy_ratio_before_repair").Observe(healthyRatioBeforeRepair) //mon:locked
 
 	lostPiecesSet := sliceToSet(missingPieces)
 
@@ -249,7 +249,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		// gave us irreparableError, then we failed to download enough pieces and must try
 		// to wait for nodes to come back online.
 		if irreparableErr, ok := err.(*irreparableError); ok {
-			mon.Meter("repair_too_many_nodes_failed").Mark(1) //locked
+			mon.Meter("repair_too_many_nodes_failed").Mark(1) //mon:locked
 			irreparableErr.segmentInfo = pointer
 			return true, irreparableErr
 		}
@@ -288,18 +288,18 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		// put at least one piece, else ec.Repair() would have returned an error. So the
 		// repair "succeeded" in that the segment is now healthier than it was, but it is
 		// not as healthy as we want it to be.
-		mon.Meter("repair_failed").Mark(1) //locked
+		mon.Meter("repair_failed").Mark(1) //mon:locked
 	case healthyAfterRepair < pointer.Remote.Redundancy.SuccessThreshold:
-		mon.Meter("repair_partial").Mark(1) //locked
+		mon.Meter("repair_partial").Mark(1) //mon:locked
 	default:
-		mon.Meter("repair_success").Mark(1) //locked
+		mon.Meter("repair_success").Mark(1) //mon:locked
 	}
 
 	healthyRatioAfterRepair := 0.0
 	if pointer.Remote.Redundancy.Total != 0 {
 		healthyRatioAfterRepair = float64(healthyAfterRepair) / float64(pointer.Remote.Redundancy.Total)
 	}
-	mon.FloatVal("healthy_ratio_after_repair").Observe(healthyRatioAfterRepair) //locked
+	mon.FloatVal("healthy_ratio_after_repair").Observe(healthyRatioAfterRepair) //mon:locked
 
 	var toRemove []*pb.RemotePiece
 	if healthyAfterRepair >= pointer.Remote.Redundancy.SuccessThreshold {
@@ -335,8 +335,8 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		return false, metainfoPutError.Wrap(err)
 	}
 
-	mon.IntVal("segment_time_until_repair").Observe(int64(segmentAge.Seconds())) //locked
-	mon.IntVal("segment_repair_count").Observe(int64(pointer.RepairCount))       //locked
+	mon.IntVal("segment_time_until_repair").Observe(int64(segmentAge.Seconds())) //mon:locked
+	mon.IntVal("segment_repair_count").Observe(int64(pointer.RepairCount))       //mon:locked
 
 	return true, nil
 }

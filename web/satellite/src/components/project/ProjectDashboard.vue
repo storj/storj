@@ -41,8 +41,8 @@ export default class ProjectDashboard extends Vue {
             return;
         }
 
-        const defaultProjectLimit: number = parseInt(MetaUtils.getMetaContent('default-project-limit'));
-        if (defaultProjectLimit && this.$store.getters.userProjectsCount < defaultProjectLimit) {
+        const projectLimit: number = this.$store.getters.user.projectLimit;
+        if (projectLimit && this.$store.getters.projectsCount < projectLimit) {
             this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
         }
 

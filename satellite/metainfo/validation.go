@@ -231,7 +231,7 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (e
 			zap.Stringer("projectID", projectID),
 			zap.Float64("limit", float64(limiter.(*rate.Limiter).Limit())))
 
-		mon.Event("metainfo_rate_limit_exceeded") //locked
+		mon.Event("metainfo_rate_limit_exceeded") //mon:locked
 
 		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Too Many Requests")
 	}

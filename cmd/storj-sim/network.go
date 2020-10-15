@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net"
 	"net/url"
 	"os"
@@ -38,10 +39,6 @@ const (
 	maxStoragenodeCount = 200
 
 	folderPermissions = 0744
-)
-
-var (
-	defaultAccess = "17jgVrPRktsquJQFzpT533WHmZnF6QDkuv8w3Ry5XPzAkh3vj7D1dbJ5MatQRiyRE2ZEiA1Y6fYnhoWqr2n7VgycdXSUPz1QzhthBsHqGXCrRcjSp8RbbVE1VJqDej9nLgB5YDPh3Q5JrVjQeMe9saHAL5rE5tUYJAeynVdre8HeTJMXcwau5"
 )
 
 const (
@@ -437,6 +434,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 	// Create gateways for each satellite
 	for i, satellite := range satellites {
+		i := i
 		satellite := satellite
 		process := processes.New(Info{
 			Name:       fmt.Sprintf("gateway/%d", i),
@@ -448,11 +446,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		// gateway must wait for the corresponding satellite to start up
 		process.WaitForStart(satellite)
 
-		accessData := defaultAccess
-
 		process.Arguments = withCommon(process.Directory, Arguments{
 			"setup": {
-				"--access", accessData,
 				"--server.address", process.Address,
 				"--debug.addr", net.JoinHostPort(host, port(gatewayPeer, i, debugHTTP)),
 			},
@@ -466,62 +461,42 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				return err
 			}
 
-			vip := viper.New()
-			vip.AddConfigPath(process.Directory)
-			if err := vip.ReadInConfig(); err != nil {
+			var consoleAddress string
+			err = readConfigString(&consoleAddress, satellite.Directory, "console.address")
+			if err != nil {
 				return err
 			}
 
-			// TODO: maybe all the config flags should be exposed for all processes?
-
-			// check if gateway config has an api key, if it's not
-			// create example project with key and add it to the config
-			// so that gateway can have access to the satellite
-			if runAccessData := vip.GetString("access"); !flags.OnlyEnv && runAccessData == accessData {
-				var consoleAddress string
-				err := readConfigString(&consoleAddress, satellite.Directory, "console.address")
-				if err != nil {
-					return err
+			// try with 100ms delays until we hit 3s
+			apiKey, start := "", time.Now()
+			for apiKey == "" {
+				apiKey, err = newConsoleEndpoints(consoleAddress).createOrGetAPIKey()
+				if err != nil && time.Since(start) > 3*time.Second {
+					log.Printf("Failed retrieving GATEWAY_%d_ACCESS: %s\n", i, err.Error())
+					return nil
 				}
-
-				// try with 100ms delays until we hit 3s
-				apiKey, start := "", time.Now()
-				for apiKey == "" {
-					apiKey, err = newConsoleEndpoints(consoleAddress).createOrGetAPIKey()
-					if err != nil && time.Since(start) > 3*time.Second {
-						return err
-					}
-					time.Sleep(100 * time.Millisecond)
-				}
-
-				satNodeID, err := identity.NodeIDFromCertPath(filepath.Join(satellite.Directory, "identity.cert"))
-				if err != nil {
-					return err
-				}
-				nodeURL := storj.NodeURL{
-					ID:      satNodeID,
-					Address: satellite.Address,
-				}
-
-				access, err := uplink.RequestAccessWithPassphrase(context.Background(), nodeURL.String(), apiKey, "")
-				if err != nil {
-					return err
-				}
-
-				accessData, err := access.Serialize()
-				if err != nil {
-					return err
-				}
-				vip.Set("access", accessData)
-
-				if err := vip.WriteConfig(); err != nil {
-					return err
-				}
+				time.Sleep(100 * time.Millisecond)
 			}
 
-			if runAccessData := vip.GetString("access"); runAccessData != accessData {
-				process.AddExtra("ACCESS", runAccessData)
+			satNodeID, err := identity.NodeIDFromCertPath(filepath.Join(satellite.Directory, "identity.cert"))
+			if err != nil {
+				return err
 			}
+			nodeURL := storj.NodeURL{
+				ID:      satNodeID,
+				Address: satellite.Address,
+			}
+
+			access, err := uplink.RequestAccessWithPassphrase(context.Background(), nodeURL.String(), apiKey, "")
+			if err != nil {
+				return err
+			}
+
+			accessData, err := access.Serialize()
+			if err != nil {
+				return err
+			}
+			process.AddExtra("ACCESS", accessData)
 
 			return nil
 		}

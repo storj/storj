@@ -9,15 +9,35 @@ import (
 	"io"
 	"os"
 
-	"go.uber.org/zap"
-
 	"storj.io/common/pb"
 )
 
 // fileV0 is a version 0 orders file.
 type fileV0 struct {
-	log *zap.Logger
-	f   *os.File
+	f *os.File
+}
+
+// OpenWritableV0 opens for writing the unsent or archived orders file at a given path.
+func OpenWritableV0(path string) (Writable, error) {
+	// create file if not exists or append
+	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return &fileV0{
+		f: f,
+	}, nil
+}
+
+// OpenReadableV0 opens for reading the unsent or archived orders file at a given path.
+func OpenReadableV0(path string) (Readable, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return &fileV0{
+		f: f,
+	}, nil
 }
 
 // Append writes limit and order to the file as
@@ -55,12 +75,8 @@ func (of *fileV0) Append(info *Info) error {
 // ReadOne reads one entry from the file.
 func (of *fileV0) ReadOne() (info *Info, err error) {
 	defer func() {
-		// if error is unexpected EOF, file is corrupted.
-		// V0 files do not handle corruption, so just return EOF so caller thinks we have reached the end of the file.
 		if errors.Is(err, io.ErrUnexpectedEOF) {
-			of.log.Warn("Unexpected EOF while reading archived order file", zap.Error(err))
-			mon.Meter("orders_archive_file_corrupted").Mark64(1)
-			err = io.EOF
+			err = ErrEntryCorrupt.Wrap(err)
 		}
 	}()
 

@@ -39,7 +39,8 @@ type Config struct {
 }
 
 // OldVersionConfig provides a list of allowed Versions per process.
-// NB: this will be deprecated in favor of `ProcessesConfig`.
+//
+// NB: use `ProcessesConfig` for newer code instead.
 type OldVersionConfig struct {
 	Satellite   string `user:"true" help:"Allowed Satellite Versions" default:"v0.0.1"`
 	Storagenode string `user:"true" help:"Allowed Storagenode Versions" default:"v0.0.1"`
@@ -179,7 +180,8 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 
 	peer.response, err = json.Marshal(peer.Versions)
 	if err != nil {
-		peer.Log.Fatal("Error marshalling version info.", zap.Error(err))
+		peer.Log.Error("Error marshalling version info.", zap.Error(err))
+		return nil, RolloutErr.Wrap(err)
 	}
 
 	peer.Log.Debug("Setting version info.", zap.ByteString("Value", peer.response))

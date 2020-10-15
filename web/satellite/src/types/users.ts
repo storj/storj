@@ -33,6 +33,7 @@ export class User {
         public partner: string = '',
         public partnerId: string = '',
         public password: string = '',
+        public projectLimit: number = 0,
     ) {}
 
     public getFullName(): string {

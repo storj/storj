@@ -93,7 +93,7 @@ func TestIrreparable(t *testing.T) {
 			require.Empty(t, cmp.Diff(segments[0], dbxInfo, cmp.Comparer(pb.Equal)))
 		}
 
-		{ //Delete existing entry
+		{ // Delete existing entry
 			err := irrdb.Delete(ctx, segments[0].Path)
 			require.NoError(t, err)
 

@@ -48,7 +48,7 @@ func TestConfigLock(t *testing.T) {
 		assert.NoErrorf(t, err, "Error reading file for move")
 		err = ioutil.WriteFile(lockPath, input, 0644)
 		assert.NoErrorf(t, err, "Error writing file for move")
-	} else { //compare to satellite-config.yaml.lock
+	} else { // compare to satellite-config.yaml.lock
 		configs1 := readLines(t, lockPath)
 		configs2 := readLines(t, cleanedupConfig)
 		if diff := cmp.Diff(configs1, configs2); diff != "" {
@@ -84,11 +84,11 @@ func normalizeConfig(t *testing.T, configIn, configOut, tempDir string) {
 	appDir := fpath.ApplicationDir()
 	for scanner.Scan() {
 		line := scanner.Text()
-		//fix metrics.app and tracing.app
+		// fix metrics.app and tracing.app
 		line = strings.Replace(line, ".exe", "", 1)
-		//fix server.revocation-dburl
+		// fix server.revocation-dburl
 		line = strings.Replace(line, tempDir, "testdata", 1)
-		//fix identity.cert-path and identity.key-path
+		// fix identity.cert-path and identity.key-path
 		if strings.Contains(line, appDir) {
 			line = strings.Replace(line, appDir, "/root/.local/share", 1)
 			line = strings.ToLower(strings.ReplaceAll(line, "\\", "/"))
