@@ -328,11 +328,11 @@ func (endpoint *Endpoint) Settlement(stream pb.DRPCOrders_SettlementStream) (err
 		orderLimit := request.Limit
 		order := request.Order
 
-		if orderLimit.StorageNodeId != peer.ID {
-			return rpcstatus.Error(rpcstatus.Unauthenticated, "only specified storage node can settle order")
-		}
-
 		rejectErr := func() error {
+			if orderLimit.StorageNodeId != peer.ID {
+				return rpcstatus.Error(rpcstatus.Unauthenticated, "only specified storage node can settle order")
+			}
+
 			// check expiration first before the signatures so that we can throw out the large
 			// amount of expired orders being sent to us before doing expensive signature
 			// verification.
