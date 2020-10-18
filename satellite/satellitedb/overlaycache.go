@@ -1278,6 +1278,7 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	auditRep := auditAlpha / (auditAlpha + auditBeta)
 	if auditRep <= updateReq.AuditDQ {
 		cache.db.log.Info("Disqualified", zap.String("DQ type", "audit failure"), zap.String("Node ID", updateReq.NodeID.String()))
+		mon.Meter("bad_audit_dqs").Mark(1) //mon:locked
 		updateFields.Disqualified = timeField{set: true, value: now}
 	}
 
@@ -1302,6 +1303,7 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 				time.Since(*dbNode.UnknownAuditSuspended) > updateReq.SuspensionGracePeriod &&
 				updateReq.SuspensionDQEnabled {
 				cache.db.log.Info("Disqualified", zap.String("DQ type", "suspension grace period expired for unknown audits"), zap.String("Node ID", updateReq.NodeID.String()))
+				mon.Meter("unknown_suspension_dqs").Mark(1) //mon:locked
 				updateFields.Disqualified = timeField{set: true, value: now}
 				updateFields.UnknownAuditSuspended = timeField{set: true, isNil: true}
 			}
@@ -1351,16 +1353,14 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 		trackingPeriodPassed := now.After(trackingPeriodEnd)
 
 		// after tracking period has elapsed, if score is good, clear under review
-		// otherwise, disqualify node
-		// TODO until disqualification is enabled, nodes will remain under review if their score is passed after the grace+tracking period
+		// otherwise, disqualify node (if OfflineDQEnabled feature flag is true)
 		if trackingPeriodPassed {
 			if penalizeOfflineNode {
-				// TODO enable disqualification
-				/*
+				if updateReq.AuditHistory.OfflineDQEnabled {
 					cache.db.log.Info("Disqualified", zap.String("DQ type", "node offline"), zap.String("Node ID", updateReq.NodeID.String()))
+					mon.Meter("offline_dqs").Mark(1) //mon:locked
 					updateFields.Disqualified = timeField{set: true, value: now}
-					// TODO metric
-				*/
+				}
 			} else {
 				updateFields.OfflineUnderReview = timeField{set: true, isNil: true}
 				updateFields.OfflineSuspended = timeField{set: true, isNil: true}

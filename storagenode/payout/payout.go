@@ -95,19 +95,19 @@ type SatelliteHeldHistory struct {
 
 // SatellitePayoutForPeriod contains payout information for specific period for specific satellite.
 type SatellitePayoutForPeriod struct {
-	SatelliteID    string `json:"satelliteID"`
-	SatelliteURL   string `json:"satelliteURL"`
-	Age            int64  `json:"age"`
-	Earned         int64  `json:"earned"`
-	Surge          int64  `json:"surge"`
-	SurgePercent   int64  `json:"surgePercent"`
-	Held           int64  `json:"held"`
-	HeldPercent    int64  `json:"heldPercent"`
-	AfterHeld      int64  `json:"afterHeld"`
-	Disposed       int64  `json:"disposed"`
-	Paid           int64  `json:"paid"`
-	Receipt        string `json:"receipt"`
-	IsExitComplete bool   `json:"isExitComplete"`
+	SatelliteID    string  `json:"satelliteID"`
+	SatelliteURL   string  `json:"satelliteURL"`
+	Age            int64   `json:"age"`
+	Earned         int64   `json:"earned"`
+	Surge          int64   `json:"surge"`
+	SurgePercent   int64   `json:"surgePercent"`
+	Held           int64   `json:"held"`
+	HeldPercent    float64 `json:"heldPercent"`
+	AfterHeld      int64   `json:"afterHeld"`
+	Disposed       int64   `json:"disposed"`
+	Paid           int64   `json:"paid"`
+	Receipt        string  `json:"receipt"`
+	IsExitComplete bool    `json:"isExitComplete"`
 }
 
 // Period is a string that represents paystub period type in format yyyy-mm.

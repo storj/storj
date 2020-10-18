@@ -68,7 +68,7 @@
                     <p class="estimation-table-container__info-area__text">{{ item.payout | centsToDollars }}</p>
                 </div>
             </div>
-            <div class="estimation-table-container__info-area" v-if="isCurrentPeriod || isLastPeriodWithoutPaystub">
+            <div class="estimation-table-container__info-area">
                 <div class="column justify-start column-1">
                     <p class="estimation-table-container__info-area__text">Gross Total</p>
                 </div>
@@ -80,11 +80,15 @@
                     <p class="estimation-table-container__info-area__text">{{ grossTotal | centsToDollars }}</p>
                 </div>
             </div>
+            <div class="estimation-table-container__total-area" v-if="isHistoricalPeriod && totalPaystubForPeriod.surgePercent">
+                <p class="estimation-table-container__total-area__text">Total + Surge {{ surgePercent }}</p>
+                <p class="estimation-table-container__total-area__text">{{ totalPaystubForPeriod.paid | centsToDollars }}</p>
+            </div>
             <div class="estimation-table-container__held-area">
                 <p class="estimation-table-container__held-area__text">Held Back</p>
                 <p class="estimation-table-container__held-area__text">-{{ held | centsToDollars }}</p>
             </div>
-            <div class="estimation-table-container__held-area" v-if="!isCurrentPeriod && disposed > 0">
+            <div class="estimation-table-container__held-area" v-if="isHistoricalPeriod && disposed > 0">
                 <p class="estimation-table-container__held-area__text">Held returned</p>
                 <p class="estimation-table-container__held-area__text">{{ disposed | centsToDollars }}</p>
             </div>
@@ -103,10 +107,6 @@
                 <div class="column justify-end column-6">
                     <p class="estimation-table-container__net-total-area__text">{{ totalPayout | centsToDollars }}</p>
                 </div>
-            </div>
-            <div class="estimation-table-container__total-area" v-if="!isCurrentPeriod && !isLastPeriodWithoutPaystub && totalPaystubForPeriod.surgePercent">
-                <p class="estimation-table-container__total-area__text">Total + Surge {{ surgePercent }}</p>
-                <p class="estimation-table-container__total-area__text">{{ totalPaystubForPeriod.paid | centsToDollars }}</p>
             </div>
         </div>
         <div class="no-data-container" v-else>
@@ -239,11 +239,11 @@ export default class EstimationArea extends Vue {
      * Returns calculated or stored held amount.
      */
     public get held(): number {
-        if (!this.isCurrentPeriod && !this.isLastPeriodWithoutPaystub) {
+        if (this.isHistoricalPeriod) {
             return this.totalPaystubForPeriod.held;
         }
 
-        return this.estimatedHeld();
+        return this.estimatedHeld;
     }
 
     /**
@@ -254,20 +254,31 @@ export default class EstimationArea extends Vue {
     }
 
     /**
+     * Indicates if historical period with paystub selected.
+     */
+    public get isHistoricalPeriod(): boolean {
+        return !this.isCurrentPeriod && !this.isLastPeriodWithoutPaystub;
+    }
+
+    /**
      * Returns calculated or stored total payout by selected period.
      */
     public get totalPayout(): number {
-        if (!this.isCurrentPeriod && !this.isLastPeriodWithoutPaystub) {
+        if (this.isHistoricalPeriod) {
             return this.totalPaystubForPeriod.paid;
         }
 
-        return this.grossTotal;
+        return this.grossTotal - this.estimatedHeld;
     }
 
     /**
      * Returns calculated gross payout by selected period.
      */
     public get grossTotal(): number {
+        if (this.isHistoricalPeriod) {
+            return this.totalPaystubForPeriod.paidWithoutSurge;
+        }
+
         return this.isLastPeriodWithoutPaystub ? this.estimation.previousMonth.payout + this.held : this.estimation.currentMonth.payout + this.held;
     }
 
@@ -275,24 +286,26 @@ export default class EstimationArea extends Vue {
      * Returns calculated or stored total used disk space by selected period.
      */
     public get totalDiskSpace(): string {
-        if (this.isCurrentPeriod || this.isLastPeriodWithoutPaystub) {
-            return formatBytes(this.currentDiskSpace);
+        if (this.isHistoricalPeriod) {
+            return formatBytes(this.totalPaystubForPeriod.usageAtRest);
         }
 
-        return formatBytes(this.totalPaystubForPeriod.usageAtRest);
+        return formatBytes(this.currentDiskSpace);
     }
 
     /**
      * Returns calculated or stored total used bandwidth by selected period.
      */
     public get totalBandwidth(): string {
-        if (this.isCurrentPeriod || this.isLastPeriodWithoutPaystub) {
-            return formatBytes((this.currentBandwidthAuditAndRepair + this.currentBandwidthDownload));
+        if (this.isHistoricalPeriod) {
+            return formatBytes(
+                this.totalPaystubForPeriod.usageGet +
+                this.totalPaystubForPeriod.usageGetRepair +
+                this.totalPaystubForPeriod.usageGetAudit,
+            );
         }
 
-        const bandwidthSum = this.totalPaystubForPeriod.usageGet + this.totalPaystubForPeriod.usageGetRepair + this.totalPaystubForPeriod.usageGetAudit;
-
-        return formatBytes(bandwidthSum);
+        return formatBytes((this.currentBandwidthAuditAndRepair + this.currentBandwidthDownload));
     }
 
     /**
@@ -320,7 +333,7 @@ export default class EstimationArea extends Vue {
      * Builds estimated payout table depends on selected period.
      */
     public get tableData(): EstimationTableRow[] {
-        if (!this.isCurrentPeriod && !this.isLastPeriodWithoutPaystub) {
+        if (this.isHistoricalPeriod) {
             return [
                 new EstimationTableRow('Download', 'Egress', `$${BANDWIDTH_DOWNLOAD_PRICE_PER_TB / 100} / TB`, '--', formatBytes(this.totalPaystubForPeriod.usageGet), this.totalPaystubForPeriod.compGet),
                 new EstimationTableRow('Repair & Audit', 'Egress', `$${BANDWIDTH_REPAIR_PRICE_PER_TB / 100} / TB`, '--', formatBytes(this.totalPaystubForPeriod.usageGetRepair + this.totalPaystubForPeriod.usageGetAudit), this.totalPaystubForPeriod.compGetRepair + this.totalPaystubForPeriod.compGetAudit),
@@ -376,7 +389,7 @@ export default class EstimationArea extends Vue {
     /**
      * Returns last or current month held amount based on current day of month.
      */
-    private estimatedHeld(): number {
+    private get estimatedHeld(): number {
         return this.isLastPeriodWithoutPaystub ?
             this.estimation.previousMonth.held :
             this.estimation.currentMonth.held;
@@ -562,10 +575,18 @@ export default class EstimationArea extends Vue {
             }
         }
 
+        &__net-total-area {
+            background-color: var(--estimation-table-total-container-color);
+        }
+
         &__total-area {
             align-items: center;
             justify-content: space-between;
-            background-color: var(--estimation-table-total-container-color);
+            border-bottom: 1px solid #a9b5c1;
+
+            &__text {
+                font-family: 'font_regular', sans-serif;
+            }
         }
     }
 

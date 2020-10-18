@@ -69,7 +69,7 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB
 		Table: dbName,
 		Steps: []*migrate.Step{
 			{
-				DB:          testDB,
+				DB:          &testDB,
 				Description: "Initialize Table",
 				Version:     1,
 				Action: migrate.SQL{
@@ -78,7 +78,7 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB
 				},
 			},
 			{
-				DB:          testDB,
+				DB:          &testDB,
 				Description: "Move files",
 				Version:     2,
 				Action: migrate.Func(func(_ context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
@@ -103,7 +103,7 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB
 		Table: dbName,
 		Steps: []*migrate.Step{
 			{
-				DB:      testDB,
+				DB:      &testDB,
 				Version: 3,
 			},
 		},
@@ -166,7 +166,7 @@ func multipleMigration(t *testing.T, db tagsql.DB, testDB tagsql.DB) {
 		Table: dbName,
 		Steps: []*migrate.Step{
 			{
-				DB:          testDB,
+				DB:          &testDB,
 				Description: "Step 1",
 				Version:     1,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
@@ -175,7 +175,7 @@ func multipleMigration(t *testing.T, db tagsql.DB, testDB tagsql.DB) {
 				}),
 			},
 			{
-				DB:          testDB,
+				DB:          &testDB,
 				Description: "Step 2",
 				Version:     2,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
@@ -191,7 +191,7 @@ func multipleMigration(t *testing.T, db tagsql.DB, testDB tagsql.DB) {
 	assert.Equal(t, 2, steps)
 
 	m.Steps = append(m.Steps, &migrate.Step{
-		DB:          testDB,
+		DB:          &testDB,
 		Description: "Step 3",
 		Version:     3,
 		Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
@@ -241,7 +241,7 @@ func failedMigration(t *testing.T, db tagsql.DB, testDB tagsql.DB) {
 		Table: dbName,
 		Steps: []*migrate.Step{
 			{
-				DB:          testDB,
+				DB:          &testDB,
 				Description: "Step 1",
 				Version:     1,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
