@@ -31,6 +31,7 @@ require (
 	github.com/stretchr/testify v1.6.1
 	github.com/stripe/stripe-go v70.15.0+incompatible
 	github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3
+	github.com/zeebo/assert v1.1.0
 	github.com/zeebo/errs v1.2.2
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/zap v1.16.0
