@@ -101,10 +101,6 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		return Report{}, err
 	}
 	if pointer.ExpirationDate != (time.Time{}) && pointer.ExpirationDate.Before(time.Now()) {
-		errDelete := verifier.metainfo.Delete(ctx, metabase.SegmentKey(path), pointerBytes)
-		if errDelete != nil {
-			return Report{}, Error.Wrap(errDelete)
-		}
 		verifier.log.Debug("segment expired before Verify")
 		return Report{}, nil
 	}
@@ -388,7 +384,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		err          error
 	}
 
-	pointerBytes, pointer, err := verifier.metainfo.GetWithBytes(ctx, metabase.SegmentKey(path))
+	pointer, err := verifier.metainfo.Get(ctx, metabase.SegmentKey(path))
 	if err != nil {
 		if storj.ErrObjectNotFound.Has(err) {
 			verifier.log.Debug("segment deleted before Reverify")
@@ -397,10 +393,6 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		return Report{}, err
 	}
 	if pointer.ExpirationDate != (time.Time{}) && pointer.ExpirationDate.Before(time.Now()) {
-		errDelete := verifier.metainfo.Delete(ctx, metabase.SegmentKey(path), pointerBytes)
-		if errDelete != nil {
-			return Report{}, Error.Wrap(errDelete)
-		}
 		verifier.log.Debug("Segment expired before Reverify")
 		return Report{}, nil
 	}
@@ -472,10 +464,6 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				return
 			}
 			if pendingPointer.ExpirationDate != (time.Time{}) && pendingPointer.ExpirationDate.Before(time.Now().UTC()) {
-				errDelete := verifier.metainfo.Delete(ctx, metabase.SegmentKey(pending.Path), pendingPointerBytes)
-				if errDelete != nil {
-					verifier.log.Debug("Reverify: error deleting expired segment", zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
-				}
 				verifier.log.Debug("Reverify: segment already expired", zap.Stringer("Node ID", pending.NodeID))
 				ch <- result{nodeID: pending.NodeID, status: skipped}
 				return

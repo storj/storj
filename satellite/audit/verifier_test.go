@@ -420,11 +420,6 @@ func TestVerifierExpired(t *testing.T) {
 		report, err := audits.Verifier.Verify(ctx, path, nil)
 		require.NoError(t, err)
 
-		// Verify should delete the expired segment
-		pointer, err = satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
-		require.Error(t, err)
-		require.Nil(t, pointer)
-
 		assert.Len(t, report.Successes, 0)
 		assert.Len(t, report.Fails, 0)
 		assert.Len(t, report.Offlines, 0)

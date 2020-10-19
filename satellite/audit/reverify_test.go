@@ -942,11 +942,6 @@ func TestReverifyExpired1(t *testing.T) {
 		report, err := audits.Verifier.Reverify(ctx, path)
 		require.NoError(t, err)
 
-		// Reverify should delete the expired segment
-		pointer, err = satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
-		require.Error(t, err)
-		require.Nil(t, pointer)
-
 		assert.Len(t, report.Successes, 0)
 		assert.Len(t, report.Fails, 0)
 		assert.Len(t, report.Offlines, 0)
@@ -1063,11 +1058,6 @@ func TestReverifyExpired2(t *testing.T) {
 		require.Len(t, report.Offlines, 0)
 		require.Len(t, report.PendingAudits, 0)
 		require.Len(t, report.Fails, 0)
-
-		// Reverify should delete the expired segment
-		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path1))
-		require.Error(t, err)
-		require.Nil(t, pointer)
 
 		// Reverify should remove the node from containment mode
 		_, err = containment.Get(ctx, pending.NodeID)
