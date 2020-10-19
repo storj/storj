@@ -1,10 +1,10 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`DiskStatChart renders correctly 1`] = `
-<div class="period-container disabled">
+exports[`EstimationPeriodDropdown renders correctly 1`] = `
+<button name="Show Period Date Picker" class="period-container">
   <p class="period-container__label long-text">Custom Date Range</p>
   <p class="period-container__label short-text">Custom Range</p>
   <blackarrowexpand-stub></blackarrowexpand-stub>
   <!---->
-</div>
+</button>
 `;

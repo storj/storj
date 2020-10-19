@@ -107,6 +107,10 @@ export default class App extends Vue {
         overflow-y: hidden;
     }
 
+    button {
+        all: unset;
+    }
+
     .container {
         background-color: var(--app-background-color);
         display: flex;

@@ -5,45 +5,46 @@
     <div class="header">
         <div class="header__content-holder">
             <div class="header__content-holder__logo-area">
-                <StorjIcon
-                    class="header__content-holder__logo"
-                    alt="storj logo"
-                    @click="onHeaderLogoClick"
-                />
+                <button name="Logo Button" @click.prevent="onHeaderLogoClick">
+                    <StorjIcon
+                        class="header__content-holder__logo"
+                        alt="storj logo"
+                    />
+                </button>
                 <StorjIconWithoutText
                     alt="storj logo"
                     class="header__content-holder__logo--small"
                 />
-                <div class="header__content-holder__logo-area__refresh-button" @click="onRefresh">
+                <button name="Refresh" class="header__content-holder__logo-area__refresh-button" @click.prevent="onRefresh">
                     <RefreshIcon alt="refresh image"/>
-                </div>
+                </button>
             </div>
             <div class="header__content-holder__right-area">
-                <div class="header__content-holder__right-area__node-id-container" v-clipboard="this.nodeId">
+                <div role="button" tabindex="0" class="header__content-holder__right-area__node-id-container" v-clipboard="this.nodeId">
                     <b class="header__content-holder__right-area__node-id-container__title">Node ID:</b>
                     <p class="header__content-holder__right-area__node-id-container__id">{{ this.nodeId }}</p>
                     <CopyIcon />
                 </div>
-                <div class="options-button" @click="openOptionsDropdown">
-                    <SettingsIcon  />
-                </div>
+                <button name="Settings" aria-pressed="false" class="options-button" @click.prevent.stop="openOptionsDropdown">
+                    <SettingsIcon />
+                </button>
                 <OptionsDropdown
                     class="options-dropdown"
                     v-show="isOptionsShown"
                     @closeDropdown="closeOptionsDropdown"
                 />
-                <div class="header__content-holder__right-area__bell-area" @click.stop="toggleNotificationsPopup">
+                <button name="Notifications" aria-pressed="false" class="header__content-holder__right-area__bell-area" @click.stop.prevent="toggleNotificationsPopup">
                     <BellIcon />
                     <span
                         class="header__content-holder__right-area__bell-area__new-circle"
                         v-if="hasNewNotifications"
                     />
-                </div>
+                </button>
             </div>
             <NotificationsPopup
                 v-if="isNotificationPopupShown"
                 class="header__content-holder__right-area__bell-area__popup"
-                v-click-outside="closeNotificationPopup"
+                v-click-outside.stop="closeNotificationPopup"
             />
         </div>
     </div>

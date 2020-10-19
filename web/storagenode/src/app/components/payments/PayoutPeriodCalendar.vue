@@ -5,30 +5,31 @@
     <div class="payout-period-calendar">
         <div class="payout-period-calendar__header">
             <div class="payout-period-calendar__header__year-selection">
-                <div class="payout-period-calendar__header__year-selection__prev" @click="decrementYear">
+                <button name="Decrement year" class="payout-period-calendar__header__year-selection__prev" @click.prevent="decrementYear">
                     <GrayArrowLeftIcon />
-                </div>
+                </button>
                 <p class="payout-period-calendar__header__year-selection__year">{{ displayedYear }}</p>
-                <div class="payout-period-calendar__header__year-selection__next" @click="incrementYear">
+                <button name="Increment year" class="payout-period-calendar__header__year-selection__next" @click.prevent="incrementYear">
                     <GrayArrowLeftIcon />
-                </div>
+                </button>
             </div>
-            <p class="payout-period-calendar__header__all-time" @click="selectAllTime">All time</p>
+            <button name="Select All Time" class="payout-period-calendar__header__all-time" @click.prevent="selectAllTime">All time</button>
         </div>
         <div class="payout-period-calendar__months-area">
-            <div
+            <button
+                :name="`Select year ${item.year} month ${item.name}`"
                 class="month-item"
                 :class="{ selected: item.selected, disabled: !item.active }"
                 v-for="item in currentDisplayedMonths"
                 :key="item.name"
-                @click="checkMonth(item)"
+                @click.prevent="checkMonth(item)"
             >
                 <p class="month-item__label">{{ item.name }}</p>
-            </div>
+            </button>
         </div>
         <div class="payout-period-calendar__footer-area">
             <p class="payout-period-calendar__footer-area__period">{{ period }}</p>
-            <p class="payout-period-calendar__footer-area__ok-button" @click="submit">OK</p>
+            <button name="Submit" class="payout-period-calendar__footer-area__ok-button" @click.prevent="submit">OK</button>
         </div>
     </div>
 </template>

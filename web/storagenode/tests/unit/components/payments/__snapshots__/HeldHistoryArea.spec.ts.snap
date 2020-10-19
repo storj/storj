@@ -4,18 +4,15 @@ exports[`HeldHistoryArea changes state correctly 1`] = `
 <section class="held-history-container">
   <div class="held-history-container__header">
     <p class="held-history-container__header__title">Held Amount History</p>
-    <div class="held-history-container__header__selection-area">
-      <div class="held-history-container__header__selection-area__item">
+    <div class="held-history-container__header__selection-area"><button name="Select All Stats" class="held-history-container__header__selection-area__item">
         <p class="held-history-container__header__selection-area__item__label">
           All Stats
         </p>
-      </div>
-      <div class="held-history-container__header__selection-area__item active">
+      </button> <button name="Select Monthly Breakdown" class="held-history-container__header__selection-area__item active">
         <p class="held-history-container__header__selection-area__item__label">
           Monthly Breakdown
         </p>
-      </div>
-    </div>
+      </button></div>
   </div>
   <div class="held-history-container__divider"></div>
   <heldhistorymonthlybreakdowntable-stub></heldhistorymonthlybreakdowntable-stub>
@@ -26,18 +23,15 @@ exports[`HeldHistoryArea changes state correctly 2`] = `
 <section class="held-history-container">
   <div class="held-history-container__header">
     <p class="held-history-container__header__title">Held Amount History</p>
-    <div class="held-history-container__header__selection-area">
-      <div class="held-history-container__header__selection-area__item active">
+    <div class="held-history-container__header__selection-area"><button name="Select All Stats" class="held-history-container__header__selection-area__item active">
         <p class="held-history-container__header__selection-area__item__label">
           All Stats
         </p>
-      </div>
-      <div class="held-history-container__header__selection-area__item">
+      </button> <button name="Select Monthly Breakdown" class="held-history-container__header__selection-area__item">
         <p class="held-history-container__header__selection-area__item__label">
           Monthly Breakdown
         </p>
-      </div>
-    </div>
+      </button></div>
   </div>
   <div class="held-history-container__divider"></div>
   <heldhistoryallstatstable-stub></heldhistoryallstatstable-stub>
@@ -48,18 +42,15 @@ exports[`HeldHistoryArea renders correctly 1`] = `
 <section class="held-history-container">
   <div class="held-history-container__header">
     <p class="held-history-container__header__title">Held Amount History</p>
-    <div class="held-history-container__header__selection-area">
-      <div class="held-history-container__header__selection-area__item active">
+    <div class="held-history-container__header__selection-area"><button name="Select All Stats" class="held-history-container__header__selection-area__item active">
         <p class="held-history-container__header__selection-area__item__label">
           All Stats
         </p>
-      </div>
-      <div class="held-history-container__header__selection-area__item">
+      </button> <button name="Select Monthly Breakdown" class="held-history-container__header__selection-area__item">
         <p class="held-history-container__header__selection-area__item__label">
           Monthly Breakdown
         </p>
-      </div>
-    </div>
+      </button></div>
   </div>
   <div class="held-history-container__divider"></div>
   <heldhistoryallstatstable-stub></heldhistoryallstatstable-stub>
