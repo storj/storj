@@ -12,6 +12,13 @@ In the event of a DB restoration from backup, it may be possible for the satelli
 
 The solution to this problem is twofold, as there are two ways in which pieces are deleted: delete pieces requests and garbage collection.
 
+### Garbage collection
+
+Garbage collection works by observing the metainfo loop. This collects all the piece IDs which a node should have according to the pointer DB at that time. The satellite then sends these piece IDs to the storage node, indicating that it should keep these pieces and all pieces which were created after the creation of the bloom filter and delete the rest.
+
+Instead of proving the pieces were deleted, we will remove the possibility of these pieces being restored.
+To acheive this we will simply run garbage collection from a DB snapshot at a point in time beyond which we will never restore. That is, we must decide what is the furthest possible point the past we may restore to and only run garbage collection on a snapshot at or before this point. If this is guaranteed, no pieces deleted by garbage collection should ever be reverted by a DB restoration.
+
 ### Delete pieces requests
 
 Delete pieces requests are issued when a user deletes an object. The metainfo service deletes the object's pointers and then sends delete pieces requests to each of the reliable nodes which held pieces. The rest of the nodes' pieces will be eventually deleted by garbage collection. 
@@ -29,19 +36,20 @@ The storage nodes will serialize and save these signed messages into a file stor
 
 #### File store
 
-// TODO: I need to rework this. I'm pushing these changes just because. I actually don't think this 24 hour file thing will do anything for us. If we change GC so that those pieces will never be reverted, we'll know when to delete these messages when the GC retain request does not contain any of its pieces.
+// TODO: directory names
+Within the storage node's 'storage' directory, we will add a new directory called 'deleted-pieces-proof'. Within this directory we will create a subdirectory for each satellite, and within each of these we will add two more directories: 'pieces' and 'signed-requests'.
 
-This file store will essentially consist of two directories: one for piece IDs and one for signed delete messages. Piece IDs will be sorted into buckets by prefix and signed delete messages are sorted into files by 24 hours. 
+##### Creating Proofs
 
-When a delete request comes in, we will append the length of the request and the request itself to today's file in the corresponding satellite directory and return the offset at which the data was written.
+The DeletePieces method on the piecestore endpoint is where the the delete pieces requests are sent. From here, the piece IDs within the message are enqueued for the piece deleter job to delete. Before the pieces are enqueued, we will write the serialized message into a file in the 'signed-requests' directory of the respective satellite, skipping the first byte which we will reserve. Then we pass this filepath along with the piece IDs into the Enqueue method. As pieces in the queue are deleted, we create a new path for them in the 'pieces' directory. At this path, we write a text file containing the name of the signed delete request file which contains this piece. Then, we open the signed delete request file and increment the first byte.
 
-Then, for each deleted piece we will append the piece ID and the filename and offset of the signed delete request to the corresponding file based on its prefix. The filename and offset will need to be a fixed number of bytes.
+##### Deleting Proofs
 
-When we need to pull up the signed message as proof, we can search for the requested piece ID based on its prefix. If a file corresponding to the piece ID prefix exists, we scan the file to locate the piece ID. If the piece ID is found, we read the filename and offset pointing to the signed delete message. If the piece ID is not found in the file, or no prefix file exists, then there is no signed delete message to retrieve.
+We can use garbage collection to determine when to remove the deleted piece IDs and their signed proofs. Due to the aforementioned changes to how we run garbage collection, we can be sure that any piece which does not exist in the filter will not be reverted. Thus, once the filters no longer contain the deleted pieces, the piece ID paths can be removed. To do this, we will have the 'Retain' code path walk and clean up the deleted pieces directory just as it does the 'blobs' directory. As these piece ID paths are deleted, we will read the signed delete message files that they point to and decrement the first byte. Once this value reaches zero, none of the deleted pieces in the message can be reverted by a DB restoration; the proof is no longer necessary, and the file can be deleted.
 
 #### Submitting proof to the satellite
 
-To avoid failing the audit, we want the node to be able to provide proof of the delete request to the satellite right away. To do this we will add the signed DeletePiecesRequest to the PieceDownloadResponse protobuf.
+To avoid failing the audit, we want the node to be able to provide proof of the delete request to the satellite right away. To do this we will add the signed DeletePiecesRequest to the PieceDownloadResponse protobuf. If a piece cannot be found during a download, we will search for it in 'storage/deleted-pieces-proofs/satelliteID/pieces'. If it is found, we read the file at this location to get the filename of the signed delete request in 'storage/deleted-pieces-proofs/satelliteID/signed-requests' which contains this piece ID. We read this file, skipping the first byte to get the signed request, pass the data into the PieceDownloadResponse and send it to the satellite.
 
 ```
 message PieceDownloadResponse {
@@ -58,14 +66,7 @@ message PieceDownloadResponse {
 }
 ```
 
-When the satellite receives a PieceDownloadResponse and DeletePiecesRequest is not nil, it will verify the signature and check for the corresponding piece ID. If these checks pass, the audit will not count as a failure. Further, upon receipt of the first verified DeletePiecesRequest, this means that the entire object to which this segment belongs should not exist and we should delete it.
-
-### Garbage collection
-
-Garbage collection works by observing the metainfo loop. This collects all the piece IDs which a node should have according to the pointer DB at that time. The satellite then sends these piece IDs to the storage node, indicating that it should keep these pieces and all pieces which were created after the creation of the bloom filter and delete the rest.
-
-Instead of proving the pieces were deleted, we will remove the possibility of these pieces being restored.
-To acheive this we will simply run garbage collection from a DB snapshot at a point in time beyond which we will never restore. That is, we must decide what is the furthest possible point the past we may restore to and only run garbage collection on a snapshot at or before this point. If this is guaranteed, no pieces deleted by garbage collection should ever be reverted by a DB restoration.
+When the satellite receives a PieceDownloadResponse and DeletePiecesRequest is not nil, it will verify the signature and check for the corresponding piece ID. If these checks pass, the audit will not count as a failure. Further, upon receipt of the first verified DeletePiecesRequest, this means that the entire object to which this segment belongs should not exist, and we should cancel any remaining downloads and delete the object.
 
 ## Rationale
 
@@ -79,13 +80,13 @@ To acheive this we will simply run garbage collection from a DB snapshot at a po
 
     A signed bloom filter does not give us enough information. All it tells us is that at some point in time, the satellite did not expect the node to have a particular piece. Whether the bloom filter was issued before or after the piece was deleted, or that the node was removed from the piece, may not be easy to determine. If nodes were to present their most recently acquired bloom filters, this would clearly indicate that the node should not have said piece. However, given that the entire problem is precipitated by a satellite having amnesia, there would be no way to verify that a given bloom filter is the most recently issued. Further, the forgetful satellite may even issue a bloom filter which contains the false piece before the node is audited for it. We may be able to give nodes the benefit of the doubt by allowing them to present a bloom filter issued within the last X days which does not contain the requested piece ID. However, again, there may be a large lag between the time of the database restoration and the time the node is actually audited for the piece. We would need to allow the node to present very old bloom filters, which may allow widespread cheating.
 
+- Why the indirection from piece ID to signed delete requests?
+
+    It is possible for us to store the signed delete request directly at the piece ID path. However, due to the fact that each request may contain multiple piece IDs, we would be replicating the data at each piece ID path. If each individual piece for deletion had its own signature we would be able to directly store the data without a problem.
+
 - Satellite signs a delete request for each piece ID
 
-   Currently the satellite signs a batch of piece IDs for deletion. If instead the satellite signs each individual piece ID, this would make storing and retrieving proof of deletion much easier. We could just store each piece ID and signed proof in a single DB row. However, the extra overhead of signing each piece may be prohibitive.
-
-- Storing the signed delete request in place of the piece data
-
-    I like this idea. However, we would need to figure out that this is actually a deleted piece and the data should be sent in the appropriate response field in order for the satellite to process it as such. In this case I think we would need to check every single download request to see if it is a deleted piece, which seems too inefficient. Perhaps if we stored these in a separate directory than blobs it would work. That way, when we fail to find the piece in blobs, we could double check this deleted piece proofs directory. If it exists, we send the data in the response field for signed delete requests. However, as one delete request contains multiple piece IDs, storing the message with each individual piece would result in a lot of replicated data. If each individual piece for deletion were signed this would not be a problem, but as mentioned above, I am unsure if spending the resources to sign each piece would be prohibitive.
+   Currently the satellite signs a batch of piece IDs for deletion. If instead the satellite signs each individual piece ID, this would make storing and retrieving proof of deletion much easier, as mentioned above. However, the extra overhead of signing each piece may be prohibitive.
 
 ## Implementation
 
@@ -114,4 +115,5 @@ To acheive this we will simply run garbage collection from a DB snapshot at a po
 - The design laid out in this document addresses the issue of falsely punishing nodes due to a DB restoration. It does not however, solve all data loss problems that could arise from a DB restoration. For example, how will we handle forgotten uploads?
 
 - The solution to forgotten garbage collection deletes is going to increase the TTL of trash that nodes hold. They will probably not like that. The extent to which the TTL of garbage is increased depends on how far back in time we may want to restore.
+
 
