@@ -11,22 +11,19 @@ import (
 
 	"storj.io/common/rpc"
 	"storj.io/common/sync2"
-	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/satellites"
-	"storj.io/storj/storagenode/trust"
+	"storj.io/storj/storagenode/piecetransfer"
 )
 
 // Chore checks for satellites that the node is exiting and creates a worker per satellite to complete the process.
 //
 // architecture: Chore
 type Chore struct {
-	log         *zap.Logger
-	store       *pieces.Store
-	satelliteDB satellites.DB
-	trust       *trust.Pool
-	dialer      rpc.Dialer
-
+	log    *zap.Logger
+	dialer rpc.Dialer
 	config Config
+
+	service         Service
+	transferService piecetransfer.Service
 
 	exitingMap sync.Map
 	Loop       *sync2.Cycle
@@ -34,16 +31,15 @@ type Chore struct {
 }
 
 // NewChore instantiates Chore.
-func NewChore(log *zap.Logger, config Config, store *pieces.Store, trust *trust.Pool, dialer rpc.Dialer, satelliteDB satellites.DB) *Chore {
+func NewChore(log *zap.Logger, service Service, transferService piecetransfer.Service, dialer rpc.Dialer, config Config) *Chore {
 	return &Chore{
-		log:         log,
-		store:       store,
-		satelliteDB: satelliteDB,
-		trust:       trust,
-		dialer:      dialer,
-		config:      config,
-		Loop:        sync2.NewCycle(config.ChoreInterval),
-		limiter:     sync2.NewLimiter(config.NumWorkers),
+		log:             log,
+		dialer:          dialer,
+		service:         service,
+		transferService: transferService,
+		config:          config,
+		Loop:            sync2.NewCycle(config.ChoreInterval),
+		limiter:         sync2.NewLimiter(config.NumWorkers),
 	}
 }
 
@@ -54,40 +50,35 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	err = chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		defer mon.Task()(&ctx)(&err)
 
-		satellites, err := chore.satelliteDB.ListGracefulExits(ctx)
+		geSatellites, err := chore.service.ListPendingExits(ctx)
 		if err != nil {
 			chore.log.Error("error retrieving satellites.", zap.Error(err))
 			return nil
 		}
 
-		if len(satellites) == 0 {
+		if len(geSatellites) == 0 {
 			return nil
 		}
-		chore.log.Debug("exiting", zap.Int("satellites", len(satellites)))
+		chore.log.Debug("exiting", zap.Int("satellites", len(geSatellites)))
 
-		for _, satellite := range satellites {
+		for _, satellite := range geSatellites {
 			mon.Meter("satellite_gracefulexit_request").Mark(1) //mon:locked
+			satellite := satellite
 			if satellite.FinishedAt != nil {
 				continue
 			}
 
-			nodeurl, err := chore.trust.GetNodeURL(ctx, satellite.SatelliteID)
-			if err != nil {
-				chore.log.Error("failed to get satellite address.", zap.Error(err))
-				continue
-			}
-
-			worker := NewWorker(chore.log, chore.store, chore.trust, chore.satelliteDB, chore.dialer, nodeurl, chore.config)
-			if _, ok := chore.exitingMap.LoadOrStore(nodeurl.ID, worker); ok {
+			worker := NewWorker(chore.log, chore.service, chore.transferService, chore.dialer, satellite.NodeURL, chore.config)
+			if _, ok := chore.exitingMap.LoadOrStore(satellite.SatelliteID, worker); ok {
 				// already running a worker for this satellite
-				chore.log.Debug("skipping for satellite, worker already exists.", zap.Stringer("Satellite ID", nodeurl.ID))
+				chore.log.Debug("skipping for satellite, worker already exists.", zap.Stringer("Satellite ID", satellite.SatelliteID))
 				continue
 			}
 
 			chore.limiter.Go(ctx, func() {
 				err := worker.Run(ctx, func() {
-					chore.log.Debug("finished for satellite.", zap.Stringer("Satellite ID", nodeurl.ID))
-					chore.exitingMap.Delete(nodeurl.ID)
+					chore.log.Debug("finished for satellite.", zap.Stringer("Satellite ID", satellite.SatelliteID))
+					chore.exitingMap.Delete(satellite.SatelliteID)
 				})
 
 				if err != nil {

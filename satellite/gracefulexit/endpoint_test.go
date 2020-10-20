@@ -34,7 +34,6 @@ import (
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/gracefulexit"
-	"storj.io/storj/storagenode/pieces"
 )
 
 const numObjects = 6
@@ -254,6 +253,15 @@ func TestRecvTimeout(t *testing.T) {
 				config.Metainfo.RS.SuccessThreshold = successThreshold
 				config.Metainfo.RS.TotalThreshold = successThreshold
 			},
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.GracefulExit = gracefulexit.Config{
+					ChoreInterval:          2 * time.Minute,
+					NumWorkers:             2,
+					NumConcurrentTransfers: 2,
+					MinBytesPerSecond:      128,
+					MinDownloadTimeout:     2 * time.Minute,
+				}
+			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
@@ -293,17 +301,9 @@ func TestRecvTimeout(t *testing.T) {
 		// make uploads on storage node slower than the timeout for transferring bytes to another node
 		delay := 200 * time.Millisecond
 		storageNodeDB.SetLatency(delay)
-		store := pieces.NewStore(zaptest.NewLogger(t), storageNodeDB.Pieces(), nil, nil, storageNodeDB.PieceSpaceUsedDB(), pieces.DefaultConfig)
 
 		// run the SN chore again to start processing transfers.
-		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), store, exitingNode.Storage2.Trust, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.NodeURL(),
-			gracefulexit.Config{
-				ChoreInterval:          0,
-				NumWorkers:             2,
-				NumConcurrentTransfers: 2,
-				MinBytesPerSecond:      128,
-				MinDownloadTimeout:     2 * time.Minute,
-			})
+		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.GracefulExit.Service, exitingNode.PieceTransfer.Service, exitingNode.Dialer, satellite.NodeURL(), exitingNode.Config.GracefulExit)
 		defer ctx.Check(worker.Close)
 
 		err = worker.Run(ctx, func() {})
@@ -1486,11 +1486,11 @@ func testTransfers(t *testing.T, objects int, verifier func(t *testing.T, ctx *t
 		require.NoError(t, err)
 		defer ctx.Check(c.CloseSend)
 
-		verifier(t, ctx, nodeFullIDs, satellite, c, exitingNode, len(incompleteTransfers))
+		verifier(t, ctx, nodeFullIDs, satellite, c, exitingNode.Peer, len(incompleteTransfers))
 	})
 }
 
-func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int) (*storagenode.Peer, error) {
+func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int) (*testplanet.StorageNode, error) {
 	satellite := planet.Satellites[0]
 	keys, err := satellite.Metainfo.Database.List(ctx, nil, objects)
 	if err != nil {
@@ -1527,6 +1527,5 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 		}
 	}
 
-	node := planet.FindNode(exitingNodeID)
-	return node.Peer, nil
+	return planet.FindNode(exitingNodeID), nil
 }
