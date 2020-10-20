@@ -473,7 +473,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # orders.settlement-batch-size: 250
 
 # rollout phase for the windowed endpoint
-# orders.window-endpoint-rollout-phase: phase2
+# orders.window-endpoint-rollout-phase: phase3
 
 # The length of time to give suspended SNOs to diagnose and fix issues causing downtime. Afterwards, they will have one tracking period to reach the minimum online score before disqualification
 # overlay.audit-history.grace-period: 168h0m0s

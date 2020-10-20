@@ -184,6 +184,7 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Orders.SendOrders(ctx, tomorrow)
 		}
+		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
 
 		reportedRollupChore := planet.Satellites[0].Core.Accounting.ReportedRollupChore
 		require.NoError(t, reportedRollupChore.RunOnce(ctx, now))

@@ -281,7 +281,7 @@ func TestBilling_AuditRepairTraffic(t *testing.T) {
 	})
 }
 
-func TestBilling_DownloadAndNoUploadTraffic(t *testing.T) {
+func TestBilling_UploadNoEgress(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -320,15 +320,50 @@ func TestBilling_DownloadAndNoUploadTraffic(t *testing.T) {
 
 		usage = getProjectTotal(ctx, t, planet, 0, projectID, since)
 		require.Zero(t, usage.Egress, "billed usage")
+	})
+}
+
+func TestBilling_DownloadTraffic(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		const (
+			bucketName = "a-bucket"
+			objectKey  = "object-filename"
+		)
+
+		satelliteSys := planet.Satellites[0]
+		// Make sure that we don't have interference with billed repair traffic
+		// in case of a bug. There is a specific test to verify that the repair
+		// traffic isn't billed.
+		satelliteSys.Audit.Chore.Loop.Stop()
+		satelliteSys.Repair.Repairer.Loop.Stop()
+		// stop any async flushes because we want to be sure when some values are
+		// written to avoid races
+		satelliteSys.Orders.Chore.Loop.Pause()
+
+		var (
+			uplnk     = planet.Uplinks[0]
+			projectID = uplnk.Projects[0].ID
+		)
+
+		{
+			data := testrand.Bytes(10 * memory.KiB)
+			err := uplnk.Upload(ctx, satelliteSys, bucketName, objectKey, data)
+			require.NoError(t, err)
+		}
 
 		_, err := uplnk.Download(ctx, satelliteSys, bucketName, objectKey)
 		require.NoError(t, err)
 
-		usage = getProjectTotal(ctx, t, planet, 0, projectID, since)
+		since := time.Now().Add(-10 * time.Hour)
+		usage := getProjectTotal(ctx, t, planet, 0, projectID, since)
 		require.NotZero(t, usage.Egress, "billed usage")
 	})
 }
-
 func TestBilling_ExpiredFiles(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
