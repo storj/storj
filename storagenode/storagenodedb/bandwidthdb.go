@@ -40,7 +40,7 @@ func (db *bandwidthDB) Add(ctx context.Context, satelliteID storj.NodeID, action
 	_, err = db.ExecContext(ctx, `
 		INSERT INTO
 			bandwidth_usage(satellite_id, action, amount, created_at)
-		VALUES(?, ?, ?, ?)`, satelliteID, action, amount, created.UTC())
+		VALUES(?, ?, ?, datetime(?))`, satelliteID, action, amount, created.UTC())
 	if err == nil {
 		db.usedMu.Lock()
 		defer db.usedMu.Unlock()
