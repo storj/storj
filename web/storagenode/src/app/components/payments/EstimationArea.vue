@@ -8,7 +8,8 @@
                 <span class="estimation-container__header__period">{{ currentPeriod }}</span>
             </p>
             <div class="estimation-container__header__selection-area">
-                <div
+                <button
+                    name="Select Current Period"
                     class="estimation-container__header__selection-area__item"
                     :class="{ active: isCurrentPeriod }"
                     @click.stop="selectCurrentPeriod"
@@ -19,7 +20,7 @@
                     <p class="estimation-container__header__selection-area__item__label short-text">
                         Current Per.
                     </p>
-                </div>
+                </button>
                 <EstimationPeriodDropdown
                     class="estimation-container__header__selection-area__item"
                     :class="{ active: !isCurrentPeriod }"

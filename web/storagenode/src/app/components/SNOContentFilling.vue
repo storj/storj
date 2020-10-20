@@ -78,20 +78,22 @@
                 <div class="chart-container__title-area">
                     <p class="chart-container__title-area__title">Bandwidth Used This Month</p>
                     <div class="chart-container__title-area__buttons-area">
-                        <div
+                        <button
+                            name="Show Egress Chart"
                             class="chart-container__title-area__chart-choice-item"
                             :class="{ 'egress-chart-shown': isEgressChartShown }"
                             @click.stop="toggleEgressChartShowing"
                         >
                             Egress
-                        </div>
-                        <div
+                        </button>
+                        <button
+                            name="Show Ingress Chart"
                             class="chart-container__title-area__chart-choice-item"
                             :class="{ 'ingress-chart-shown': isIngressChartShown }"
                             @click.stop="toggleIngressChartShowing"
                         >
                             Ingress
-                        </div>
+                        </button>
                     </div>
                 </div>
                 <p class="chart-container__amount" v-if="isBandwidthChartShown"><b>{{ bandwidthSummary }}</b></p>

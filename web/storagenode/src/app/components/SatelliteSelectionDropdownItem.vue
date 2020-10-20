@@ -2,7 +2,8 @@
 // See LICENSE for copying information.
 
 <template>
-    <div
+    <button
+        :name="`Choose ${satellite.url} satellite`"
         class="satellite-choice"
         @click.stop="onSatelliteClick"
     >
@@ -28,32 +29,35 @@
             {{ isNameShown ? satellite.url : satellite.id }}
         </p>
         <div class="satellite-choice__right-area">
-            <div
+            <button
+                name="Show Satellite ID"
                 class="satellite-choice__right-area__button"
                 @click.stop.prevent="toggleSatelliteView"
                 v-if="isNameShown"
             >
                 <EyeIcon />
                 <p class="satellite-choice__right-area__button__text">ID</p>
-            </div>
-            <div class="row" v-else>
-                <div
+            </button>
+            <div class="row" v-else >
+                <button
+                    name="Copy Satellite ID"
                     class="satellite-choice__right-area__button copy-button"
                     @click.stop="() => {}"
                     v-clipboard:copy="satellite.id"
                 >
                     <CopyIcon />
-                </div>
-                <div
+                </button>
+                <button
+                    name="Show Satellite Name"
                     class="satellite-choice__right-area__button"
                     @click.stop.prevent="toggleSatelliteView"
                 >
                     <EyeIcon />
                     <p class="satellite-choice__right-area__button__text">Name</p>
-                </div>
+                </button>
             </div>
         </div>
-    </div>
+    </button>
 </template>
 
 <script lang="ts">
