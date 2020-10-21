@@ -276,6 +276,8 @@ type Peer struct {
 	}
 
 	Bandwidth *bandwidth.Service
+
+	Reputation *reputation.Service
 }
 
 // New creates a new Storage Node.
@@ -566,6 +568,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		)
 	}
 
+	{ // setup reputation service.
+		peer.Reputation = reputation.NewService(
+			peer.Log.Named("reputation:service"),
+			peer.DB.Reputation(),
+			peer.Identity.ID,
+			peer.Notifications.Service,
+		)
+	}
+
 	{ // setup node stats service
 		peer.NodeStats.Service = nodestats.NewService(
 			peer.Log.Named("nodestats:service"),
@@ -585,7 +596,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			},
 			peer.NodeStats.Service,
 			peer.Payout.Endpoint,
-			peer.Payout.Service,
+			peer.Reputation,
 			peer.Storage2.Trust,
 		)
 		peer.Services.Add(lifecycle.Item{
