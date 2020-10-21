@@ -45,7 +45,7 @@ func (*discardSender) FromAddress() post.Address {
 	return post.Address{}
 }
 
-func TestGrapqhlMutation(t *testing.T) {
+func TestGraphqlMutation(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		log := zaptest.NewLogger(t)
 
