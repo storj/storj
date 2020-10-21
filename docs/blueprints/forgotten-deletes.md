@@ -88,6 +88,11 @@ When the satellite receives a PieceDownloadResponse and DeletePiecesRequest is n
 
    Currently the satellite signs a batch of piece IDs for deletion. If instead the satellite signs each individual piece ID, this would make storing and retrieving proof of deletion much easier, as mentioned above. However, the extra overhead of signing each piece may be prohibitive.
 
+- Store pointer to signed proof at piece location in 'blobs' directory
+
+    It may be possible for us to store the pointer to the signed proof at the piece location in the blobs directory rather than a separate 'deleted-pieces' directory. In this case we would need to implement some way of distinguishing deleted pieces from regular pieces, such as a special file extension. The issue I'm seeing is that a fundamental component of the 'pieces' system is the storage.FormatVersion. All pieces have a specific format version which tells us how to interpret the data. Format versions start at 0 and increment as new versions are added. Should deleted pieces then constitute a new format version? It doesn't look like we should do that. When creating a new piece, it is always created using the highest defined version. We don't want to store newly uploaded pieces with the version for deleted pieces! 
+    Simply leaving the value blank doesn't really solve the problem either, as 0 is a specific version already. So we would need to pass along another value in the code, perhaps a boolean indicating that this is deleted piece data, in addition to the format version in order to process deleted piece data correctly, but I have a feeling this approach will result in clutter. Here's a hacky idea: what if we did define a new format version for deleted piece data, but set it to -1? This would circumvent some of the problems with format versions. Though, I'm not sure if this approach holds any substantial benefits over using a separate directory.
+
 ## Implementation
 
 1. Add new field, satellite_signature, to DeletePiecesRequest protobuf
@@ -116,4 +121,4 @@ When the satellite receives a PieceDownloadResponse and DeletePiecesRequest is n
 
 - The solution to forgotten garbage collection deletes is going to increase the TTL of trash that nodes hold. They will probably not like that. The extent to which the TTL of garbage is increased depends on how far back in time we may want to restore.
 
-
+- If we guarantee that we will run garbage collection at a point we will never revert beyond, does this mean that we may not be able to restore trash on the storage nodes? For example, imagine a bug in the zombie segment reaper which deletes valid segments, and maybe we only find out after garbage collection has run. The nodes may still have those pieces in the trash and could restore them, but we're not supposed to revert the database at this point.
