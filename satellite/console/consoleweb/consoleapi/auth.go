@@ -240,11 +240,11 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 // DeleteAccount authorizes user and deletes account by password.
 func (a *Auth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	var err error
+	err := ErrAuthAPI.New("not implemented")
 	defer mon.Task()(&ctx)(&err)
 
 	// We do not want to allow account deletion via API currently.
-	a.serveJSONError(w, ErrAuthAPI.New("not implemented"))
+	a.serveJSONError(w, err)
 }
 
 // ChangePassword auth user, changes users password for a new one.
