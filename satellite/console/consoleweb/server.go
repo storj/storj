@@ -157,7 +157,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	router.HandleFunc("/populate-promotional-coupons", server.populatePromotionalCoupons).Methods(http.MethodPost)
 	router.HandleFunc("/robots.txt", server.seoHandler)
 
-	router.Handle("/api/v0/graphql", server.withAuth(http.HandlerFunc(server.grapqlHandler)))
+	router.Handle("/api/v0/graphql", server.withAuth(http.HandlerFunc(server.graphqlHandler)))
 
 	router.Handle(
 		"/api/v0/projects/{id}/usage-limits",
@@ -634,8 +634,8 @@ func (server *Server) projectUsageLimitsHandler(w http.ResponseWriter, r *http.R
 	}
 }
 
-// grapqlHandler is graphql endpoint http handler function.
-func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
+// graphqlHandler is graphql endpoint http handler function.
+func (server *Server) graphqlHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
 
