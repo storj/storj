@@ -24,7 +24,7 @@ type repairQueue struct {
 	db *satelliteDB
 }
 
-func (r *repairQueue) Insert(ctx context.Context, seg *internalpb.InjuredSegment, numHealthy int) (alreadyInserted bool, err error) {
+func (r *repairQueue) Insert(ctx context.Context, seg *internalpb.InjuredSegment, segmentHealth float64) (alreadyInserted bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	// insert if not exists, or update healthy count if does exist
 	var query string
@@ -37,29 +37,29 @@ func (r *repairQueue) Insert(ctx context.Context, seg *internalpb.InjuredSegment
 		query = `
 			INSERT INTO injuredsegments
 			(
-				path, data, num_healthy_pieces
+				path, data, segment_health
 			)
 			VALUES (
 				$1, $2, $3
 			)
 			ON CONFLICT (path)
 			DO UPDATE
-			SET num_healthy_pieces=$3, updated_at=current_timestamp
+			SET segment_health=$3, updated_at=current_timestamp
 			RETURNING (xmax != 0) AS alreadyInserted
 		`
 	case dbutil.Cockroach:
 		query = `
 			WITH updater AS (
-				UPDATE injuredsegments SET num_healthy_pieces = $3, updated_at = current_timestamp WHERE path = $1
+				UPDATE injuredsegments SET segment_health = $3, updated_at = current_timestamp WHERE path = $1
 				RETURNING *
 			)
-			INSERT INTO injuredsegments (path, data, num_healthy_pieces)
+			INSERT INTO injuredsegments (path, data, segment_health)
 			SELECT $1, $2, $3
 			WHERE NOT EXISTS (SELECT * FROM updater)
 			RETURNING false
 		`
 	}
-	rows, err := r.db.QueryContext(ctx, query, seg.Path, seg, numHealthy)
+	rows, err := r.db.QueryContext(ctx, query, seg.Path, seg, segmentHealth)
 	if err != nil {
 		return false, err
 	}
@@ -85,14 +85,14 @@ func (r *repairQueue) Select(ctx context.Context) (seg *internalpb.InjuredSegmen
 				UPDATE injuredsegments SET attempted = now() WHERE path = (
 					SELECT path FROM injuredsegments
 					WHERE attempted IS NULL OR attempted < now() - interval '6 hours'
-					ORDER BY num_healthy_pieces ASC, attempted LIMIT 1
+					ORDER BY segment_health ASC, attempted LIMIT 1
 				) RETURNING data`).Scan(&seg)
 	case dbutil.Postgres:
 		err = r.db.QueryRowContext(ctx, `
 				UPDATE injuredsegments SET attempted = now() WHERE path = (
 					SELECT path FROM injuredsegments
 					WHERE attempted IS NULL OR attempted < now() - interval '6 hours'
-					ORDER BY num_healthy_pieces ASC, attempted NULLS FIRST FOR UPDATE SKIP LOCKED LIMIT 1
+					ORDER BY segment_health ASC, attempted NULLS FIRST FOR UPDATE SKIP LOCKED LIMIT 1
 				) RETURNING data`).Scan(&seg)
 	default:
 		return seg, errs.New("invalid dbType: %v", r.db.implementation)
