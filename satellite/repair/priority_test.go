@@ -57,6 +57,9 @@ func TestSegmentHealth(t *testing.T) {
 	assert.Greater(t,
 		SegmentHealth(11, 10, failureRate),
 		SegmentHealth(12, 11, failureRate))
+	assert.Greater(t,
+		SegmentHealth(13, 10, failureRate),
+		SegmentHealth(12, 10, failureRate))
 }
 
 func TestSegmentHealthForDecayedSegment(t *testing.T) {

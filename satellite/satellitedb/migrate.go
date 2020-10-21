@@ -1019,6 +1019,17 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB: &db.migrationDB,
+
+				Description: "add injuredsegments.segment_health",
+				Version:     132,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`ALTER TABLE injuredsegments ADD COLUMN segment_health double precision NOT NULL DEFAULT 1;`,
+					`CREATE INDEX injuredsegments_segment_health_index ON injuredsegments ( segment_health );`,
+				},
+			},
 		},
 	}
 }
