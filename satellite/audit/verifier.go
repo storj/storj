@@ -28,7 +28,6 @@ import (
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/storage"
 	"storj.io/uplink/private/eestream"
 	"storj.io/uplink/private/piecestore"
 )
@@ -67,10 +66,6 @@ type Verifier struct {
 	minDownloadTimeout time.Duration
 
 	OnTestingCheckSegmentAlteredHook func()
-
-	// Temporary fields for the verify-piece-hashes command
-	OnTestingVerifyMockFunc func() (Report, error)
-	UsedToVerifyPieceHashes bool
 }
 
 // NewVerifier creates a Verifier.
@@ -106,9 +101,6 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 	}
 
 	defer func() {
-		if verifier.UsedToVerifyPieceHashes {
-			return
-		}
 		// if piece hashes have not been verified for this segment, do not mark nodes as failing audit
 		if !pointer.PieceHashesVerified {
 			report.PendingAudits = nil
@@ -905,111 +897,4 @@ func GetRandomStripe(ctx context.Context, pointer *pb.Pointer) (index int64, err
 	randomStripeIndex := rnd.Int63n(numStripes)
 
 	return randomStripeIndex, nil
-}
-
-// VerifyPieceHashes verifies the piece hashes for segments with piece_hashes_verified = false.
-func (verifier *Verifier) VerifyPieceHashes(ctx context.Context, path storj.Path, dryRun bool) (changed bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	verifier.log.Info("Verifying piece hashes.", zap.String("Path", path))
-
-	maxAttempts := 3
-	for attempts := 0; attempts < maxAttempts; attempts++ {
-		attempts++
-
-		_, pointer, err := verifier.metainfo.GetWithBytes(ctx, metabase.SegmentKey(path))
-		if err != nil {
-			if storj.ErrObjectNotFound.Has(err) {
-				verifier.log.Info("Segment not found.")
-				return false, nil
-			}
-			return false, Error.Wrap(err)
-		}
-
-		if pointer.PieceHashesVerified {
-			verifier.log.Info("Piece hashes already verified.")
-			return false, nil
-		}
-
-		if pointer.Type != pb.Pointer_REMOTE {
-			verifier.log.Info("Not a remote segment.")
-			return false, nil
-		}
-
-		var report Report
-		if verifier.OnTestingVerifyMockFunc != nil {
-			report, err = verifier.OnTestingVerifyMockFunc()
-		} else {
-			report, err = verifier.Verify(ctx, path, nil)
-		}
-		if err != nil {
-			return false, err
-		}
-
-		verifier.log.Info("Audit report received.",
-			zap.Int("Success", report.Successes.Len()),
-			zap.Int("Fails", report.Fails.Len()),
-			zap.Int("Offlines", report.Offlines.Len()),
-			zap.Int("Pending Audits", len(report.PendingAudits)),
-			zap.Int("Unknown", report.Unknown.Len()),
-		)
-
-		if report.Successes.Len() == 0 {
-			// skip it - this could happen if there was deleted or expired
-			verifier.log.Info("Empty success list. Skipping the segment.")
-			return false, nil
-		}
-
-		if report.Successes.Len() < int(pointer.Remote.Redundancy.MinReq) {
-			verifier.log.Warn("Segment would be irreparable. Not fixing it.",
-				zap.Int("Successful Nodes", report.Successes.Len()),
-				zap.Int32("Minimum Required", pointer.Remote.Redundancy.MinReq))
-			return false, nil
-		}
-
-		if report.Successes.Len() < int(pointer.Remote.Redundancy.RepairThreshold) {
-			verifier.log.Warn("Segment would require repair. Not fixing it.",
-				zap.Int("Successful Nodes", report.Successes.Len()),
-				zap.Int32("Repair Threshold", pointer.Remote.Redundancy.RepairThreshold))
-			return false, nil
-		}
-
-		toRemoveCount := report.Fails.Len() + report.Offlines.Len() + len(report.PendingAudits) + report.Unknown.Len()
-
-		toRemove := make([]*pb.RemotePiece, 0, toRemoveCount)
-		for _, piece := range pointer.Remote.RemotePieces {
-			if !report.Successes.Contains(piece.NodeId) {
-				toRemove = append(toRemove, piece)
-			}
-		}
-
-		// sanity check
-		if len(toRemove) != toRemoveCount {
-			return false, Error.New("Pieces to remove (%d) do not match unsuccessful nodes (%d)", len(toRemove), toRemoveCount)
-		}
-
-		verifier.log.Info("Removing unsuccessful pieces from pointer.", zap.Int("Pieces To Remove", toRemoveCount))
-
-		if dryRun {
-			verifier.log.Info("Dry run, skipping the actual fix.", zap.Int("Successful Nodes", report.Successes.Len()))
-			return true, nil
-		}
-
-		_, err = verifier.metainfo.UpdatePiecesCheckDuplicatesVerifyHashes(ctx, metabase.SegmentKey(path), pointer, nil, toRemove, false, true)
-		if err != nil {
-			if storage.ErrValueChanged.Has(err) {
-				verifier.log.Info("Race detected while modifying segment pointer. Retrying...")
-				continue
-			}
-			if storage.ErrKeyNotFound.Has(err) {
-				verifier.log.Info("Object not found.")
-				return false, nil
-			}
-			return false, Error.Wrap(err)
-		}
-
-		return true, nil
-	}
-
-	return false, Error.New("Failed to modify segment pointer in %d attempts.", maxAttempts)
 }

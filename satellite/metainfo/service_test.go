@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
@@ -246,95 +245,4 @@ func parseSegmentPath(segmentPath []byte) (segmentIndex int64, err error) {
 		}
 	}
 	return segmentIndex, nil
-}
-
-func TestFixOldStyleObject(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.MaxSegmentSize(100 * memory.B),
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-		uplink := planet.Uplinks[0]
-		path := "test/path"
-
-		for i, tt := range []struct {
-			objectSize       memory.Size
-			dryRun           bool
-			expectedSegments int64
-		}{
-			{objectSize: 50 * memory.B, dryRun: true, expectedSegments: 0},
-			{objectSize: 50 * memory.B, dryRun: false, expectedSegments: 1},
-			{objectSize: 110 * memory.B, dryRun: true, expectedSegments: 0},
-			{objectSize: 110 * memory.B, dryRun: false, expectedSegments: 2},
-			{objectSize: 270 * memory.B, dryRun: true, expectedSegments: 0},
-			{objectSize: 270 * memory.B, dryRun: false, expectedSegments: 3},
-			{objectSize: 330 * memory.B, dryRun: true, expectedSegments: 0},
-			{objectSize: 330 * memory.B, dryRun: false, expectedSegments: 4},
-		} {
-			errTag := fmt.Sprintf("%d. %+v", i, tt)
-
-			err := uplink.Upload(ctx, satellite, "test1", path, testrand.Bytes(tt.objectSize))
-			require.NoError(t, err, errTag)
-
-			keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)
-			require.NoError(t, err, errTag)
-			require.Equal(t, 1, len(keys))
-
-			key := metabase.SegmentKey(keys[0])
-			location, err := metabase.ParseSegmentKey(key)
-			require.NoError(t, err, errTag)
-
-			// fixing non-last segment should return error
-			location.Index = 1
-			_, err = satellite.Metainfo.Service.FixOldStyleObject(ctx, location.Encode(), tt.dryRun)
-			require.Error(t, err, errTag)
-
-			// fixing new-style object should return no error and changed = false
-			changed, err := satellite.Metainfo.Service.FixOldStyleObject(ctx, key, tt.dryRun)
-			require.NoError(t, err, errTag)
-			require.False(t, changed)
-
-			pointer, err := satellite.Metainfo.Service.Get(ctx, key)
-			require.NoError(t, err, errTag)
-
-			// assert the number of segments is a positive number before setting it to 0
-			streamMeta := &pb.StreamMeta{}
-			err = pb.Unmarshal(pointer.Metadata, streamMeta)
-			require.NoError(t, err, errTag)
-			require.Greater(t, streamMeta.NumberOfSegments, int64(0))
-
-			// set the number of segment to 0 turning the object to old-style
-			streamMeta.NumberOfSegments = 0
-
-			pointer.Metadata, err = pb.Marshal(streamMeta)
-			require.NoError(t, err, errTag)
-
-			err = satellite.Metainfo.Service.UnsynchronizedPut(ctx, key, pointer)
-			require.NoError(t, err, errTag)
-
-			// fixing old-style object should return no error and changed = true
-			changed, err = satellite.Metainfo.Service.FixOldStyleObject(ctx, key, tt.dryRun)
-			require.NoError(t, err, errTag)
-			require.True(t, changed)
-
-			pointer, err = satellite.Metainfo.Service.Get(ctx, key)
-			require.NoError(t, err, errTag)
-
-			// assert that the number of segments is set correctly for the fixed object
-			streamMeta = &pb.StreamMeta{}
-			err = pb.Unmarshal(pointer.Metadata, streamMeta)
-			require.NoError(t, err, errTag)
-			require.EqualValues(t, tt.expectedSegments, streamMeta.NumberOfSegments)
-
-			// fixing non-existing object should return no error and changed = false
-			err = satellite.Metainfo.Service.UnsynchronizedDelete(ctx, key)
-			require.NoError(t, err, errTag)
-
-			changed, err = satellite.Metainfo.Service.FixOldStyleObject(ctx, key, tt.dryRun)
-			require.NoError(t, err, errTag)
-			assert.False(t, changed, errTag)
-		}
-	})
 }
