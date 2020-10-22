@@ -83,7 +83,7 @@
             </div>
             <div class="estimation-table-container__total-area" v-if="isHistoricalPeriod && totalPaystubForPeriod.surgePercent">
                 <p class="estimation-table-container__total-area__text">Total + Surge {{ surgePercent }}</p>
-                <p class="estimation-table-container__total-area__text">{{ totalPaystubForPeriod.paid | centsToDollars }}</p>
+                <p class="estimation-table-container__total-area__text">{{ totalPaystubForPeriod.grossWithSurge | centsToDollars }}</p>
             </div>
             <div class="estimation-table-container__held-area">
                 <p class="estimation-table-container__held-area__text">Held Back</p>
