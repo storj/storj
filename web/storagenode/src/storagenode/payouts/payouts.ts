@@ -135,6 +135,7 @@ export class TotalPaystubForPeriod {
     public disposed: number = 0;
     public paid: number = 0;
     public paidWithoutSurge: number = 0;
+    public grossWithSurge: number = 0;
 
     public constructor(
         paystubs: Paystub[] = [],
@@ -157,7 +158,8 @@ export class TotalPaystubForPeriod {
             this.disposed += this.convertToCents(paystub.disposed);
             this.paid += this.convertToCents(paystub.paid);
             this.surgePercent = paystub.surgePercent;
-            this.paidWithoutSurge += this.convertToCents(paystub.paid + paystub.held) / paystub.surgeMultiplier;
+            this.paidWithoutSurge += this.convertToCents(paystub.paid + paystub.held - paystub.disposed) / paystub.surgeMultiplier;
+            this.grossWithSurge += this.convertToCents(paystub.paid + paystub.held - paystub.disposed);
         });
     }
 
