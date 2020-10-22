@@ -247,10 +247,10 @@ func TestAuditSuspendDQDisabled(t *testing.T) {
 		require.Nil(t, n.UnknownAuditSuspended)
 		require.NotNil(t, n.Disqualified)
 
-		// offline node should still be suspended but not disqualified
+		// offline node should not be suspended or disqualified
 		n, err = oc.Get(ctx, offlineNodeID)
 		require.NoError(t, err)
-		require.NotNil(t, n.UnknownAuditSuspended)
+		require.Nil(t, n.UnknownAuditSuspended)
 		require.Nil(t, n.Disqualified)
 
 		// unknown node should still be suspended but not disqualified
@@ -342,7 +342,7 @@ func TestOfflineSuspend(t *testing.T) {
 
 		updateReq := &overlay.UpdateRequest{
 			NodeID:       nodeID,
-			AuditOutcome: overlay.AuditSuccess,
+			AuditOutcome: overlay.AuditOffline,
 			IsUp:         false,
 			AuditHistory: overlay.AuditHistoryConfig{
 				WindowSize:       time.Hour,

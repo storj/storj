@@ -1246,8 +1246,11 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 			updateReq.AuditWeight,
 			totalAuditCount,
 		)
-
+	case overlay.AuditOffline:
+		// for audit offline, only update total audit count
+		updatedTotalAuditCount = totalAuditCount + 1
 	}
+
 	mon.FloatVal("audit_reputation_alpha").Observe(auditAlpha)                //mon:locked
 	mon.FloatVal("audit_reputation_beta").Observe(auditBeta)                  //mon:locked
 	mon.FloatVal("unknown_audit_reputation_alpha").Observe(unknownAuditAlpha) //mon:locked

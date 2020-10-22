@@ -13,9 +13,6 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
-// We do not report offline nodes to the overlay at this time; see V3-3025.
-const reportOfflineDuringAudit = false
-
 // Reporter records audit reports in overlay and implements the reporter interface
 //
 // architecture: Service
@@ -94,8 +91,7 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req Report, path sto
 				errlist.Add(err)
 			}
 		}
-		// We do not report offline nodes to the overlay at this time; see V3-3025.
-		if len(offlines) > 0 && reportOfflineDuringAudit {
+		if len(offlines) > 0 {
 			offlines, err = reporter.recordOfflineStatus(ctx, offlines)
 			if err != nil {
 				errlist.Add(err)
@@ -165,22 +161,23 @@ func (reporter *Reporter) recordAuditUnknownStatus(ctx context.Context, unknownA
 	return nil, nil
 }
 
-// recordOfflineStatus updates nodeIDs in overlay with isup=false. When there
-// is any error the function return the list of nodes which haven't been
-// recorded.
+// recordOfflineStatus updates nodeIDs in overlay with isup=false, auditoutcome=offline.
 func (reporter *Reporter) recordOfflineStatus(ctx context.Context, offlineNodeIDs storj.NodeIDList) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
-	var errlist errs.Group
-	for _, nodeID := range offlineNodeIDs {
-		_, err := reporter.overlay.UpdateUptime(ctx, nodeID, false)
-		if err != nil {
-			failed = append(failed, nodeID)
-			errlist.Add(err)
+
+	updateRequests := make([]*overlay.UpdateRequest, len(offlineNodeIDs))
+	for i, nodeID := range offlineNodeIDs {
+		updateRequests[i] = &overlay.UpdateRequest{
+			NodeID:       nodeID,
+			IsUp:         false,
+			AuditOutcome: overlay.AuditOffline,
 		}
 	}
-	if len(failed) > 0 {
+
+	failed, err = reporter.overlay.BatchUpdateStats(ctx, updateRequests)
+	if err != nil || len(failed) > 0 {
 		reporter.log.Debug("failed to record Offline Nodes ", zap.Strings("NodeIDs", failed.Strings()))
-		return failed, errs.Combine(Error.New("failed to record some audit offline statuses in overlay"), errlist.Err())
+		return failed, errs.Combine(Error.New("failed to record some audit offline statuses in overlay"), err)
 	}
 
 	return nil, nil

@@ -155,6 +155,8 @@ const (
 	AuditFailure
 	// AuditUnknown represents an audit that resulted in an unknown error from the node.
 	AuditUnknown
+	// AuditOffline represents an audit where a node was offline.
+	AuditOffline
 )
 
 // UpdateRequest is used to update a node status.
