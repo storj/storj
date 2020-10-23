@@ -169,7 +169,6 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		updateReq := &overlay.UpdateRequest{
 			NodeID:       nodeID,
 			AuditOutcome: overlay.AuditSuccess,
-			IsUp:         true,
 			AuditLambda:  0.123, AuditWeight: 0.456,
 			AuditDQ:      0, // don't disqualify for any reason
 			AuditHistory: testAuditHistoryConfig(),
@@ -186,7 +185,6 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 		auditBeta = expectedAuditBeta
 
 		updateReq.AuditOutcome = overlay.AuditFailure
-		updateReq.IsUp = false
 		stats, err = cache.UpdateStats(ctx, updateReq, time.Now())
 		require.NoError(t, err)
 

@@ -128,7 +128,6 @@ func (reporter *Reporter) recordAuditFailStatus(ctx context.Context, failedAudit
 	for i, nodeID := range failedAuditNodeIDs {
 		updateRequests[i] = &overlay.UpdateRequest{
 			NodeID:       nodeID,
-			IsUp:         true,
 			AuditOutcome: overlay.AuditFailure,
 		}
 	}
@@ -148,7 +147,6 @@ func (reporter *Reporter) recordAuditUnknownStatus(ctx context.Context, unknownA
 	for i, nodeID := range unknownAuditNodeIDs {
 		updateRequests[i] = &overlay.UpdateRequest{
 			NodeID:       nodeID,
-			IsUp:         true,
 			AuditOutcome: overlay.AuditUnknown,
 		}
 	}
@@ -169,7 +167,6 @@ func (reporter *Reporter) recordOfflineStatus(ctx context.Context, offlineNodeID
 	for i, nodeID := range offlineNodeIDs {
 		updateRequests[i] = &overlay.UpdateRequest{
 			NodeID:       nodeID,
-			IsUp:         false,
 			AuditOutcome: overlay.AuditOffline,
 		}
 	}
@@ -191,7 +188,6 @@ func (reporter *Reporter) recordAuditSuccessStatus(ctx context.Context, successN
 	for i, nodeID := range successNodeIDs {
 		updateRequests[i] = &overlay.UpdateRequest{
 			NodeID:       nodeID,
-			IsUp:         true,
 			AuditOutcome: overlay.AuditSuccess,
 		}
 	}
@@ -221,7 +217,6 @@ func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits
 			// record failure -- max reverify count reached
 			updateRequests = append(updateRequests, &overlay.UpdateRequest{
 				NodeID:       pendingAudit.NodeID,
-				IsUp:         true,
 				AuditOutcome: overlay.AuditFailure,
 			})
 		}
