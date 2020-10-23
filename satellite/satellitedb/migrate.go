@@ -993,6 +993,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`UPDATE projects SET bandwidth_limit = NULL WHERE bandwidth_limit <= 50000000000;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add index for the gracefule exit transfer queue",
+				Version:     130,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at );`,
+				},
+			},
 		},
 	}
 }

@@ -1032,6 +1032,11 @@ model graceful_exit_transfer_queue (
 	field failed_count           int       ( updatable, nullable )
 	field finished_at            timestamp ( updatable, nullable )
 	field order_limit_send_count int       ( updatable, default 0 )
+
+	index (
+		name graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index
+		fields node_id durability_ratio queued_at finished_at last_failed_at
+	)
 )
 
 create graceful_exit_transfer_queue ( noreturn )
