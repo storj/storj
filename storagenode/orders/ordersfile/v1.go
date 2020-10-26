@@ -176,11 +176,6 @@ func (of *fileV1) ReadOne() (info *Info, err error) {
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	limit := &pb.OrderLimit{}
-	err = pb.Unmarshal(limitSerialized, limit)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
 
 	orderSizeBytes := [2]byte{}
 	_, err = io.ReadFull(of.br, orderSizeBytes[:])
@@ -190,11 +185,6 @@ func (of *fileV1) ReadOne() (info *Info, err error) {
 	orderSize := binary.LittleEndian.Uint16(orderSizeBytes[:])
 	orderSerialized := make([]byte, orderSize)
 	_, err = io.ReadFull(of.br, orderSerialized)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	order := &pb.Order{}
-	err = pb.Unmarshal(orderSerialized, order)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -226,6 +216,16 @@ func (of *fileV1) ReadOne() (info *Info, err error) {
 		return nil, Error.New("footer bytes do not match")
 	}
 
+	limit := &pb.OrderLimit{}
+	err = pb.Unmarshal(limitSerialized, limit)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	order := &pb.Order{}
+	err = pb.Unmarshal(orderSerialized, order)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 	return &Info{
 		Limit: limit,
 		Order: order,
