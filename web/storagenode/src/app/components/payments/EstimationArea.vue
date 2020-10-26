@@ -110,7 +110,16 @@
                 </div>
             </div>
         </div>
-        <div class="no-data-container" v-else>
+        <div class="estimation-container__payout-area" v-if="isCurrentPeriod && !isFirstDayOfCurrentMonth">
+            <div class="estimation-container__payout-area__left-area">
+                <p class="title-text">Estimated Payout</p>
+                <p class="additional-text">At the end of the month if the load keeps the same for the rest of the month.</p>
+            </div>
+            <div class="estimation-container__payout-area__right-area">
+                <p class="title-text">{{ currentMonthEstimatedPayout | centsToDollars }}</p>
+            </div>
+        </div>
+        <div class="no-data-container" v-if="isPayoutNoDataState">
             <img class="no-data-container__image" src="@/../static/images/payments/NoData.png">
             <p class="no-data-container__title">No data to display</p>
             <p class="no-data-container__additional-text">Please note, historical data about payouts does not update immediately, it may take some time.</p>
@@ -373,6 +382,23 @@ export default class EstimationArea extends Vue {
     }
 
     /**
+     * Indicates if today is first day of month.
+     */
+    public get isFirstDayOfCurrentMonth(): boolean {
+        return this.now.getUTCDate() === 1;
+    }
+
+    /**
+     * Returns estimated payout on the end on current month.
+     */
+    public get currentMonthEstimatedPayout(): number {
+        const currentMonthDaysCount = new Date(this.now.getUTCFullYear(), this.now.getUTCMonth(), 0).getDate();
+        const currentDate = this.now.getUTCDate();
+
+        return (this.estimation.currentMonth.payout / (currentDate - 1)) * currentMonthDaysCount;
+    }
+
+    /**
      * Selects current month as selected payout period.
      */
     public async selectCurrentPeriod(): Promise<void> {
@@ -481,6 +507,11 @@ export default class EstimationArea extends Vue {
                 flex-direction: column;
                 align-items: flex-end;
             }
+        }
+
+        &__payout-area {
+            height: auto;
+            margin-top: 29px;
         }
 
         &__total-held {
