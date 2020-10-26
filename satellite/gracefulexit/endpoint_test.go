@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 	"strconv"
-	"sync"
 	"testing"
 	"time"
 
@@ -24,6 +23,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testblobs"
@@ -172,8 +172,10 @@ func TestConcurrentConnections(t *testing.T) {
 
 		var group errgroup.Group
 		concurrentCalls := 4
-		var wg sync.WaitGroup
-		wg.Add(1)
+
+		var mainStarted sync2.Fence
+		defer mainStarted.Release()
+
 		for i := 0; i < concurrentCalls; i++ {
 			group.Go(func() (err error) {
 				// connect to satellite so we initiate the exit.
@@ -185,8 +187,9 @@ func TestConcurrentConnections(t *testing.T) {
 
 				client := pb.NewDRPCSatelliteGracefulExitClient(conn)
 
-				// wait for "main" call to begin
-				wg.Wait()
+				if !mainStarted.Wait(ctx) {
+					return ctx.Err()
+				}
 
 				c, err := client.Process(ctx)
 				require.NoError(t, err)
@@ -226,7 +229,7 @@ func TestConcurrentConnections(t *testing.T) {
 		require.NoError(t, err)
 
 		// start receiving from concurrent connections
-		wg.Done()
+		mainStarted.Release()
 
 		err = group.Wait()
 		require.NoError(t, err)
