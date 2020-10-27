@@ -177,15 +177,14 @@ func TestWorkerFailure_IneligibleNodeAge(t *testing.T) {
 		StorageNodeCount: 5,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
-				// Set the required node age to 1 month.
-				config.GracefulExit.NodeMinAgeInMonths = 1
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// Set the required node age to 1 month.
+					config.GracefulExit.NodeMinAgeInMonths = 1
+				},
+				testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+			),
 
-				config.Metainfo.RS.MinThreshold = 2
-				config.Metainfo.RS.RepairThreshold = 3
-				config.Metainfo.RS.SuccessThreshold = successThreshold
-				config.Metainfo.RS.TotalThreshold = successThreshold
-			},
 			StorageNode: func(index int, config *storagenode.Config) {
 				config.GracefulExit.NumWorkers = 2
 				config.GracefulExit.NumConcurrentTransfers = 2

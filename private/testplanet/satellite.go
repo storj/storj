@@ -454,16 +454,11 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			MaxCommitInterval:    1 * time.Hour,
 			Overlay:              true,
 			RS: metainfo.RSConfig{
-				MaxBufferMem:     memory.Size(256),
 				ErasureShareSize: memory.Size(256),
-				MinThreshold:     atLeastOne(planet.config.StorageNodeCount * 1 / 5),
-				RepairThreshold:  atLeastOne(planet.config.StorageNodeCount * 2 / 5),
-				SuccessThreshold: atLeastOne(planet.config.StorageNodeCount * 3 / 5),
-				TotalThreshold:   atLeastOne(planet.config.StorageNodeCount * 4 / 5),
-
-				MinTotalThreshold: (planet.config.StorageNodeCount * 4 / 5),
-				MaxTotalThreshold: (planet.config.StorageNodeCount * 4 / 5),
-				Validate:          false,
+				Min:              atLeastOne(planet.config.StorageNodeCount * 1 / 5),
+				Repair:           atLeastOne(planet.config.StorageNodeCount * 2 / 5),
+				Success:          atLeastOne(planet.config.StorageNodeCount * 3 / 5),
+				Total:            atLeastOne(planet.config.StorageNodeCount * 4 / 5),
 			},
 			Loop: metainfo.LoopConfig{
 				CoalesceDuration: 1 * time.Second,
