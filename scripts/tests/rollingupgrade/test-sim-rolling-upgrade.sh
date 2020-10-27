@@ -117,7 +117,7 @@ install_sim(){
         rm -rf .build/gateway-tmp
         mkdir -p .build/gateway-tmp
         pushd .build/gateway-tmp
-            go mod init gatewaybuild && go mod edit -replace github.com/minio/minio=github.com/storj/minio@storj && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@master
+            go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@latest
         popd
     fi
 }
