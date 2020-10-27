@@ -9,8 +9,6 @@ import (
 	"strings"
 	"testing"
 
-	"go.uber.org/zap/zaptest"
-
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/dbutil/pgtest"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -54,7 +52,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 			}
 
 			pprof.Do(ctx, pprof.Labels("planet", planetConfig.Name), func(namedctx context.Context) {
-				planet, err := NewCustom(namedctx, zaptest.NewLogger(t), planetConfig, satelliteDB)
+				planet, err := NewCustom(namedctx, newLogger(t), planetConfig, satelliteDB)
 				if err != nil {
 					t.Fatalf("%+v", err)
 				}
