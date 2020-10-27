@@ -30,18 +30,6 @@ var (
 	mon   = monkit.Package()
 )
 
-// Config contains configurable values for checker.
-type Config struct {
-	Interval            time.Duration `help:"how frequently checker should check for bad segments" releaseDefault:"30s" devDefault:"0h0m10s"`
-	IrreparableInterval time.Duration `help:"how frequently irrepairable checker should check for lost pieces" releaseDefault:"30m" devDefault:"0h0m5s"`
-
-	ReliabilityCacheStaleness time.Duration `help:"how stale reliable node cache can be" releaseDefault:"5m" devDefault:"5m"`
-	RepairOverride            int           `help:"override value for repair threshold" releaseDefault:"52" devDefault:"0"`
-	// Node failure rate is an estimation based on a 6 hour checker run interval (4 checker iterations per day), a network of about 9200 nodes, and about 2 nodes churning per day.
-	// This results in `2/9200/4 = 0.00005435` being the probability of any single node going down in the interval of one checker iteration.
-	NodeFailureRate float64 `help:"the probability of a single node going down within the next checker iteration" default:"0.00005435"`
-}
-
 // durabilityStats remote segment information.
 type durabilityStats struct {
 	objectsChecked                 int64
@@ -65,7 +53,7 @@ type Checker struct {
 	metainfo        *metainfo.Service
 	metaLoop        *metainfo.Loop
 	nodestate       *ReliabilityCache
-	repairOverride  int32
+	repairOverrides RepairOverridesMap
 	nodeFailureRate float64
 	Loop            *sync2.Cycle
 	IrreparableLoop *sync2.Cycle
@@ -81,7 +69,7 @@ func NewChecker(logger *zap.Logger, repairQueue queue.RepairQueue, irrdb irrepar
 		metainfo:        metainfo,
 		metaLoop:        metaLoop,
 		nodestate:       NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
-		repairOverride:  int32(config.RepairOverride),
+		repairOverrides: config.RepairOverrides.GetMap(),
 		nodeFailureRate: config.NodeFailureRate,
 
 		Loop:            sync2.NewCycle(config.Interval),
@@ -128,7 +116,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 		irrdb:           checker.irrdb,
 		nodestate:       checker.nodestate,
 		monStats:        durabilityStats{},
-		overrideRepair:  checker.repairOverride,
+		repairOverrides: checker.repairOverrides,
 		nodeFailureRate: checker.nodeFailureRate,
 		log:             checker.logger,
 	}
@@ -201,8 +189,9 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	redundancy := pointer.Remote.Redundancy
 
 	repairThreshold := redundancy.RepairThreshold
-	if checker.repairOverride != 0 {
-		repairThreshold = checker.repairOverride
+	overrideValue := checker.repairOverrides.GetOverrideValuePB(redundancy)
+	if overrideValue != 0 {
+		repairThreshold = overrideValue
 	}
 
 	// we repair when the number of healthy pieces is less than or equal to the repair threshold and is greater or equal to
@@ -262,7 +251,7 @@ type checkerObserver struct {
 	irrdb           irreparable.DB
 	nodestate       *ReliabilityCache
 	monStats        durabilityStats
-	overrideRepair  int32
+	repairOverrides RepairOverridesMap
 	nodeFailureRate float64
 	log             *zap.Logger
 }
@@ -308,12 +297,14 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metainfo
 	segmentAge := time.Since(segment.CreationDate)
 	mon.IntVal("checker_segment_age").Observe(int64(segmentAge.Seconds())) //mon:locked
 
-	required := int(segment.Redundancy.RequiredShares)
-	repairThreshold := int(segment.Redundancy.RepairShares)
-	if obs.overrideRepair != 0 {
-		repairThreshold = int(obs.overrideRepair)
+	redundancy := segment.Redundancy
+	required := int(redundancy.RequiredShares)
+	repairThreshold := int(redundancy.RepairShares)
+	overrideValue := obs.repairOverrides.GetOverrideValue(redundancy)
+	if overrideValue != 0 {
+		repairThreshold = int(overrideValue)
 	}
-	successThreshold := int(segment.Redundancy.OptimalShares)
+	successThreshold := int(redundancy.OptimalShares)
 	segmentHealth := repair.SegmentHealth(numHealthy, required, obs.nodeFailureRate)
 	mon.FloatVal("checker_segment_health").Observe(segmentHealth) //mon:locked
 

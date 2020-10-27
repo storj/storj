@@ -37,8 +37,8 @@
 # how stale reliable node cache can be
 # checker.reliability-cache-staleness: 5m0s
 
-# override value for repair threshold
-# checker.repair-override: 52
+# comma-separated override values for repair threshold in the format k/o/n-override (min/optimal/total-override)
+# checker.repair-overrides: 29/80/110-52,29/80/95-52
 
 # percent of held amount disposed to node after leaving withheld
 compensation.dispose-percent: 50
