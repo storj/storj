@@ -65,6 +65,7 @@ func (worker *Worker) Run(ctx context.Context, done func()) (err error) {
 	if err != nil {
 		return errs.Wrap(err)
 	}
+	defer func() { _ = c.CloseSend() }()
 
 	for {
 		response, err := c.Recv()
