@@ -30,6 +30,7 @@ import (
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/orders/ordersfile"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore/usedserials"
 	"storj.io/storj/storagenode/retain"
@@ -121,7 +122,7 @@ var monLiveRequests = mon.TaskNamed("live-request")
 
 // Delete handles deleting a piece on piece store requested by uplink.
 //
-// DEPRECATED in favor of DeletePieces.
+// Deprecated: use DeletePieces instead.
 func (endpoint *Endpoint) Delete(ctx context.Context, delete *pb.PieceDeleteRequest) (_ *pb.PieceDeleteResponse, err error) {
 	defer monLiveRequests(&ctx)(&err)
 	defer mon.Task()(&ctx)(&err)
@@ -501,7 +502,7 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	pieceReader, err = endpoint.store.Reader(ctx, limit.SatelliteId, limit.PieceId)
 	if err != nil {
 		if os.IsNotExist(err) {
-			endpoint.monitor.VerifyDirLoop.TriggerWait()
+			endpoint.monitor.VerifyDirReadableLoop.TriggerWait()
 			return rpcstatus.Wrap(rpcstatus.NotFound, err)
 		}
 		return rpcstatus.Wrap(rpcstatus.Internal, err)
@@ -674,7 +675,7 @@ func (endpoint *Endpoint) beginSaveOrder(limit *pb.OrderLimit) (_commit func(ctx
 			return
 		}
 
-		err = commit(&orders.Info{Limit: limit, Order: order})
+		err = commit(&ordersfile.Info{Limit: limit, Order: order})
 		if err != nil {
 			endpoint.log.Error("failed to add order", zap.Error(err))
 		} else {

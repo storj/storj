@@ -62,13 +62,13 @@ import { Component, Vue } from 'vue-property-decorator';
 import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
+import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { CreateProjectModel, Project } from '@/types/projects';
+import { ProjectFields } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
-import { Validator } from '@/utils/validation';
 
 @Component({
     components: {
@@ -107,9 +107,19 @@ export default class CreateProjectStep extends Vue {
         }
 
         this.isLoading = true;
+        this.projectName = this.projectName.trim();
 
-        if (!this.isProjectNameValid()) {
+        const project = new ProjectFields(
+            this.projectName,
+            this.description,
+            this.$store.getters.user.id,
+        );
+
+        try {
+            project.checkName();
+        } catch (error) {
             this.isLoading = false;
+            this.nameError = error.message;
 
             return;
         }
@@ -117,12 +127,11 @@ export default class CreateProjectStep extends Vue {
         let createdProjectId: string = '';
 
         try {
-            const project = await this.createProject();
-            createdProjectId = project.id;
+            const createdProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
+            createdProjectId = createdProject.id;
             this.$segment.track(SegmentEvent.PROJECT_CREATED, {
                 project_id: createdProjectId,
             });
-            await this.$notify.success('Project created successfully!');
         } catch (error) {
             this.isLoading = false;
             await this.$notify.error(error.message);
@@ -133,41 +142,20 @@ export default class CreateProjectStep extends Vue {
         await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, createdProjectId);
 
         try {
-            await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
-            await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
-        } catch (error) {
-            await this.$notify.error(`Unable to get project members. ${error.message}`);
-        }
-
-        try {
-            await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
-        } catch (error) {
-            await this.$notify.error(error.message);
-        }
-
-        try {
+            await this.fetchProjectMembers();
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY);
-        } catch (error) {
-            await this.$notify.error(`Unable to get billing history. ${error.message}`);
-        }
-
-        try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
-        } catch (error) {
-            await this.$notify.error(`Unable to get account balance. ${error.message}`);
-        }
-
-        try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-        } catch (error) {
-            await this.$notify.error(`Unable to get project usage and charges for current rollup. ${error.message}`);
-        }
-
-        try {
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, createdProjectId);
         } catch (error) {
-            await this.$notify.error(`Unable to get project limits. ${error.message}`);
+            await this.$notify.error(`Unable to create project. ${error.message}`);
         }
+
+        this.clearApiKeys();
+
+        this.clearBucketUsage();
+
+        await this.$notify.success('Project created successfully!');
 
         this.isLoading = false;
 
@@ -175,43 +163,26 @@ export default class CreateProjectStep extends Vue {
     }
 
     /**
-     * Validates input value to satisfy project name rules.
+     * Clears project members store and fetches new.
      */
-    private isProjectNameValid(): boolean {
-        this.projectName = this.projectName.trim();
-
-        if (!this.projectName) {
-            this.nameError = 'Project name can\'t be empty!';
-
-            return false;
-        }
-
-        if (!Validator.anyCharactersButSlash(this.projectName)) {
-            this.nameError = 'Project name can\'t have forward slash';
-
-            return false;
-        }
-
-        if (this.projectName.length > 20) {
-            this.nameError = 'Name should be less than 21 character!';
-
-            return false;
-        }
-
-        return true;
+    private async fetchProjectMembers(): Promise<void> {
+        await this.$store.dispatch(PM_ACTIONS.CLEAR);
+        const fistPage = 1;
+        await this.$store.dispatch(PM_ACTIONS.FETCH, fistPage);
     }
 
     /**
-     * Makes create project request.
+     * Clears api keys store.
      */
-    private async createProject(): Promise<Project> {
-        const project: CreateProjectModel = {
-            name: this.projectName,
-            description: this.description,
-            ownerId: this.$store.getters.user.id,
-        };
+    private clearApiKeys(): void {
+        this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
+    }
 
-        return await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
+    /**
+     * Clears bucket usage store.
+     */
+    private clearBucketUsage(): void {
+        this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
     }
 }
 </script>

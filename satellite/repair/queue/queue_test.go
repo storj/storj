@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -158,5 +159,79 @@ func TestParallel(t *testing.T) {
 		for i := 0; i < N; i++ {
 			require.Equal(t, items[i].LostPieces[0], int32(i))
 		}
+	})
+}
+
+func TestClean(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		q := db.RepairQueue()
+
+		seg1 := &pb.InjuredSegment{
+			Path:       []byte("seg1"),
+			LostPieces: []int32{int32(1), int32(3)},
+		}
+		seg2 := &pb.InjuredSegment{
+			Path:       []byte("seg2"),
+			LostPieces: []int32{int32(1), int32(3)},
+		}
+		seg3 := &pb.InjuredSegment{
+			Path:       []byte("seg3"),
+			LostPieces: []int32{int32(1), int32(3)},
+		}
+
+		timeBeforeInsert1 := time.Now()
+
+		numHealthy := 10
+		_, err := q.Insert(ctx, seg1, numHealthy)
+		require.NoError(t, err)
+
+		_, err = q.Insert(ctx, seg2, numHealthy)
+		require.NoError(t, err)
+
+		_, err = q.Insert(ctx, seg3, numHealthy)
+		require.NoError(t, err)
+
+		count, err := q.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 3, count)
+
+		d, err := q.Clean(ctx, timeBeforeInsert1)
+		require.NoError(t, err)
+		require.Equal(t, int64(0), d)
+
+		count, err = q.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 3, count)
+
+		timeBeforeInsert2 := time.Now()
+
+		// seg1 "becomes healthy", so do not update it
+		// seg2 stays at the same health
+		_, err = q.Insert(ctx, seg2, numHealthy)
+		require.NoError(t, err)
+
+		// seg3 has a lower health
+		_, err = q.Insert(ctx, seg3, numHealthy-1)
+		require.NoError(t, err)
+
+		count, err = q.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 3, count)
+
+		d, err = q.Clean(ctx, timeBeforeInsert2)
+		require.NoError(t, err)
+		require.Equal(t, int64(1), d)
+
+		count, err = q.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 2, count)
+
+		d, err = q.Clean(ctx, time.Now())
+		require.NoError(t, err)
+		require.Equal(t, int64(2), d)
+
+		count, err = q.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 0, count)
 	})
 }

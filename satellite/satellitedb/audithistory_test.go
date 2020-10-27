@@ -32,34 +32,43 @@ func TestAuditHistoryBasic(t *testing.T) {
 		startingWindow := time.Now().Truncate(time.Hour)
 		windowsInTrackingPeriod := int(auditHistoryConfig.TrackingPeriod.Seconds() / auditHistoryConfig.WindowSize.Seconds())
 		currentWindow := startingWindow
-		// we need windowsInTrackingPeriod+1 windows before we will see scores besides "1"
-		// add enough windows to fill the tracking period, each with 1 online and 1 offline audit
-		for i := 0; i < windowsInTrackingPeriod; i++ {
-			score, err := cache.UpdateAuditHistory(ctx, node.ID(), currentWindow.Add(2*time.Minute), false, auditHistoryConfig)
-			require.NoError(t, err)
-			require.EqualValues(t, 1, score)
 
-			score, err = cache.UpdateAuditHistory(ctx, node.ID(), currentWindow.Add(20*time.Minute), true, auditHistoryConfig)
-			require.NoError(t, err)
-			require.EqualValues(t, 1, score)
+		// online score should be 1 until the first window is finished
+		history, err := cache.UpdateAuditHistory(ctx, node.ID(), currentWindow.Add(2*time.Minute), false, auditHistoryConfig)
+		require.NoError(t, err)
+		require.EqualValues(t, 1, history.GetScore())
 
-			// move to next window
-			currentWindow = currentWindow.Add(time.Hour)
-		}
+		history, err = cache.UpdateAuditHistory(ctx, node.ID(), currentWindow.Add(20*time.Minute), true, auditHistoryConfig)
+		require.NoError(t, err)
+		require.EqualValues(t, 1, history.GetScore())
+
+		// move to next window
+		currentWindow = currentWindow.Add(time.Hour)
+
+		// online score should be now be 0.5 since the first window is complete with one online audit and one offline audit
+		history, err = cache.UpdateAuditHistory(ctx, node.ID(), currentWindow.Add(2*time.Minute), false, auditHistoryConfig)
+		require.NoError(t, err)
+		require.EqualValues(t, 0.5, history.GetScore())
+
+		history, err = cache.UpdateAuditHistory(ctx, node.ID(), currentWindow.Add(20*time.Minute), true, auditHistoryConfig)
+		require.NoError(t, err)
+		require.EqualValues(t, 0.5, history.GetScore())
+
+		// move to next window
+		currentWindow = currentWindow.Add(time.Hour)
 
 		// try to add an audit for an old window, expect error
-		_, err := cache.UpdateAuditHistory(ctx, node.ID(), startingWindow, true, auditHistoryConfig)
+		_, err = cache.UpdateAuditHistory(ctx, node.ID(), startingWindow, true, auditHistoryConfig)
 		require.Error(t, err)
 
-		// Add online audit for next window. Score should now be 0.5, since we have a tracking period full
-		// of completed windows, each with 50% online audits.
-		score, err := cache.UpdateAuditHistory(ctx, node.ID(), currentWindow, true, auditHistoryConfig)
-		require.NoError(t, err)
-		require.EqualValues(t, 0.5, score)
 		// add another online audit for the latest window; score should still be 0.5
-		score, err = cache.UpdateAuditHistory(ctx, node.ID(), currentWindow.Add(45*time.Minute), true, auditHistoryConfig)
+		history, err = cache.UpdateAuditHistory(ctx, node.ID(), currentWindow, true, auditHistoryConfig)
 		require.NoError(t, err)
-		require.EqualValues(t, 0.5, score)
+		require.EqualValues(t, 0.5, history.GetScore())
+		// add another online audit for the latest window; score should still be 0.5
+		history, err = cache.UpdateAuditHistory(ctx, node.ID(), currentWindow.Add(45*time.Minute), true, auditHistoryConfig)
+		require.NoError(t, err)
+		require.EqualValues(t, 0.5, history.GetScore())
 
 		currentWindow = currentWindow.Add(time.Hour)
 		// in the current state, there are windowsInTrackingPeriod windows with a score of 0.5
@@ -67,8 +76,8 @@ func TestAuditHistoryBasic(t *testing.T) {
 		// window gets included in the tracking period, and the earliest 0.5 window gets dropped.
 		expectedScore := (0.5*float64(windowsInTrackingPeriod-1) + 1) / float64(windowsInTrackingPeriod)
 		// add online audit for next window; score should now be expectedScore
-		score, err = cache.UpdateAuditHistory(ctx, node.ID(), currentWindow.Add(time.Minute), true, auditHistoryConfig)
+		history, err = cache.UpdateAuditHistory(ctx, node.ID(), currentWindow.Add(time.Minute), true, auditHistoryConfig)
 		require.NoError(t, err)
-		require.EqualValues(t, expectedScore, score)
+		require.EqualValues(t, expectedScore, history.GetScore())
 	})
 }

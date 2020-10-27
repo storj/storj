@@ -81,7 +81,14 @@
                     <div class="payout-history-item__expanded-area__right-area__divider"></div>
                     <div class="payout-history-item__expanded-area__right-area__footer">
                         <div class="payout-history-item__expanded-area__right-area__footer__transaction" v-if="historyItem.receipt">
-                            <a :href="historyItem.receipt" target="_blank" rel="noreferrer noopener">Transaction</a>
+                            <a
+                                class="payout-history-item__expanded-area__right-area__footer__transaction__link"
+                                :href="historyItem.receipt"
+                                target="_blank"
+                                rel="noreferrer noopener"
+                            >
+                                Transaction
+                            </a>
                             <ShareIcon class="payout-history-item__expanded-area__right-area__footer__transaction__icon" />
                         </div>
                         <p class="payout-history-item__expanded-area__right-area__footer__total">{{ historyItem.paid | centsToDollars }}</p>
@@ -100,7 +107,7 @@ import DisqualifyIcon from '@/../static/images/largeDisqualify.svg';
 import OKIcon from '@/../static/images/payments/OKIcon.svg';
 import ShareIcon from '@/../static/images/payments/Share.svg';
 
-import { PayoutHistoryItem } from '@/app/types/payout';
+import { SatellitePayoutForPeriod } from '@/storagenode/payouts/payouts';
 
 @Component ({
     components: {
@@ -111,8 +118,8 @@ import { PayoutHistoryItem } from '@/app/types/payout';
     },
 })
 export default class PayoutHistoryTableItem extends Vue {
-    @Prop({default: () => new PayoutHistoryItem()})
-    public readonly historyItem: PayoutHistoryItem;
+    @Prop({default: () => new SatellitePayoutForPeriod()})
+    public readonly historyItem: SatellitePayoutForPeriod;
 
     /**
      * Indicates if payout info should be rendered.
@@ -291,18 +298,18 @@ export default class PayoutHistoryTableItem extends Vue {
                         display: flex;
                         align-items: center;
                         justify-content: flex-end;
-                        color: var(--link-color);
+                        color: var(--navigation-link-color);
                         cursor: pointer;
 
                         a:visited {
-                            color: var(--link-color);
+                            color: var(--navigation-link-color);
                         }
 
                         &__icon {
                             margin-left: 7px;
 
                             path {
-                                stroke: var(--link-color);
+                                stroke: var(--navigation-link-color);
                             }
                         }
                     }

@@ -4,6 +4,7 @@
 package checker_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"testing"
@@ -16,6 +17,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 )
 
@@ -104,8 +106,6 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 			expectedLostPieces[int32(i)] = true
 		}
 
-		projectID := testrand.UUID()
-		pointerPath := storj.JoinPaths(projectID.String(), "l", "bucket", "piece")
 		pieceID := testrand.PieceID()
 
 		// when number of healthy piece is less than minimum required number of piece in redundancy,
@@ -126,13 +126,24 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 			},
 		}
 
+		projectID := testrand.UUID()
+		pointerLocation := metabase.SegmentLocation{
+			ProjectID:  projectID,
+			BucketName: "bucket",
+			Index:      metabase.LastSegmentIndex,
+			ObjectKey:  "piece",
+		}
+
+		pointerKey := pointerLocation.Encode()
+		pointerLocation.ObjectKey += "-expired"
+		pointerExpiredKey := pointerLocation.Encode()
 		// put test pointer to db
 		metainfo := planet.Satellites[0].Metainfo.Service
-		err := metainfo.Put(ctx, pointerPath, pointer)
+		err := metainfo.Put(ctx, pointerKey, pointer)
 		require.NoError(t, err)
 		// modify pointer to make it expired and put to db
 		pointer.ExpirationDate = time.Now().Add(-time.Hour)
-		err = metainfo.Put(ctx, pointerPath+"-expired", pointer)
+		err = metainfo.Put(ctx, pointerExpiredKey, pointer)
 		require.NoError(t, err)
 
 		err = checker.IdentifyInjuredSegments(ctx)
@@ -143,12 +154,12 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		_, err = repairQueue.Select(ctx)
 		require.True(t, storage.ErrEmptyQueue.Has(err))
 
-		//check if the expected segments were added to the irreparable DB
+		// check if the expected segments were added to the irreparable DB
 		irreparable := planet.Satellites[0].DB.Irreparable()
-		remoteSegmentInfo, err := irreparable.Get(ctx, []byte(pointerPath))
+		remoteSegmentInfo, err := irreparable.Get(ctx, pointerKey)
 		require.NoError(t, err)
 		// check that the expired segment was not added to the irreparable DB
-		_, err = irreparable.Get(ctx, []byte(pointerPath+"-expired"))
+		_, err = irreparable.Get(ctx, pointerExpiredKey)
 		require.Error(t, err)
 
 		require.Equal(t, len(expectedLostPieces), int(remoteSegmentInfo.LostPieces))
@@ -160,7 +171,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
 
-		remoteSegmentInfo, err = irreparable.Get(ctx, []byte(pointerPath))
+		remoteSegmentInfo, err = irreparable.Get(ctx, pointerKey)
 		require.NoError(t, err)
 
 		require.Equal(t, len(expectedLostPieces), int(remoteSegmentInfo.LostPieces))
@@ -185,16 +196,91 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 			},
 		}
 		// update test pointer in db
-		err = metainfo.UnsynchronizedDelete(ctx, pointerPath)
+		err = metainfo.UnsynchronizedDelete(ctx, pointerKey)
 		require.NoError(t, err)
-		err = metainfo.Put(ctx, pointerPath, pointer)
+		err = metainfo.Put(ctx, pointerKey, pointer)
 		require.NoError(t, err)
 
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
 
-		_, err = irreparable.Get(ctx, []byte(pointerPath))
+		_, err = irreparable.Get(ctx, pointerKey)
 		require.Error(t, err)
+	})
+}
+
+func TestCleanRepairQueue(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		checker := planet.Satellites[0].Repair.Checker
+		repairQueue := planet.Satellites[0].DB.RepairQueue()
+
+		checker.Loop.Pause()
+		planet.Satellites[0].Repair.Repairer.Loop.Pause()
+
+		rs := &pb.RedundancyScheme{
+			MinReq:           int32(2),
+			RepairThreshold:  int32(3),
+			SuccessThreshold: int32(4),
+			Total:            int32(4),
+			ErasureShareSize: int32(256),
+		}
+
+		projectID := testrand.UUID()
+		pointerPathPrefix := storj.JoinPaths(projectID.String(), "l", "bucket") + "/"
+
+		healthyCount := 5
+		for i := 0; i < healthyCount; i++ {
+			insertPointer(ctx, t, planet, rs, pointerPathPrefix+fmt.Sprintf("healthy-%d", i), false, time.Time{})
+		}
+		unhealthyCount := 5
+		for i := 0; i < unhealthyCount; i++ {
+			insertPointer(ctx, t, planet, rs, pointerPathPrefix+fmt.Sprintf("unhealthy-%d", i), true, time.Time{})
+		}
+
+		// suspend enough nodes to make healthy pointers unhealthy
+		for i := rs.MinReq; i < rs.SuccessThreshold; i++ {
+			require.NoError(t, planet.Satellites[0].Overlay.DB.SuspendNodeUnknownAudit(ctx, planet.StorageNodes[i].ID(), time.Now()))
+		}
+
+		require.NoError(t, planet.Satellites[0].Repair.Checker.RefreshReliabilityCache(ctx))
+
+		// check that repair queue is empty to avoid false positive
+		count, err := repairQueue.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 0, count)
+
+		checker.Loop.TriggerWait()
+
+		// check that the pointers were put into the repair queue
+		// and not cleaned up at the end of the checker iteration
+		count, err = repairQueue.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, healthyCount+unhealthyCount, count)
+
+		// unsuspend nodes to make the previously healthy pointers healthy again
+		for i := rs.MinReq; i < rs.SuccessThreshold; i++ {
+			require.NoError(t, planet.Satellites[0].Overlay.DB.UnsuspendNodeUnknownAudit(ctx, planet.StorageNodes[i].ID()))
+		}
+
+		require.NoError(t, planet.Satellites[0].Repair.Checker.RefreshReliabilityCache(ctx))
+
+		// The checker will not insert/update the now healthy segments causing
+		// them to be removed from the queue at the end of the checker iteration
+		checker.Loop.TriggerWait()
+
+		// only unhealthy segments should remain
+		count, err = repairQueue.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, unhealthyCount, count)
+
+		segs, err := repairQueue.SelectN(ctx, count)
+		require.NoError(t, err)
+
+		for _, s := range segs {
+			require.True(t, bytes.Contains(s.GetPath(), []byte("unhealthy")))
+		}
 	})
 }
 
@@ -237,6 +323,6 @@ func insertPointer(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 
 	// put test pointer to db
 	pointerdb := planet.Satellites[0].Metainfo.Service
-	err := pointerdb.Put(ctx, pointerPath, pointer)
+	err := pointerdb.Put(ctx, metabase.SegmentKey(pointerPath), pointer)
 	require.NoError(t, err)
 }

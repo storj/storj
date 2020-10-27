@@ -6,7 +6,6 @@ package audit
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -16,19 +15,23 @@ import (
 	"storj.io/common/testcontext"
 )
 
-func TestQueue(t *testing.T) {
+func TestQueues(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	q := &Queue{}
+	queues := NewQueues()
+	q := queues.Fetch()
 
 	_, err := q.Next()
 	require.True(t, ErrEmptyQueue.Has(err), "required ErrEmptyQueue error")
 
 	testQueue1 := []storj.Path{"a", "b", "c"}
-	err = q.WaitForSwap(ctx, testQueue1)
+	err = queues.Push(testQueue1)
+	require.NoError(t, err)
+	err = queues.WaitForSwap(ctx)
 	require.NoError(t, err)
 
+	q = queues.Fetch()
 	for _, expected := range testQueue1 {
 		actual, err := q.Next()
 		require.NoError(t, err)
@@ -38,41 +41,36 @@ func TestQueue(t *testing.T) {
 	require.Zero(t, q.Size())
 }
 
-func TestQueueWaitForSwap(t *testing.T) {
+func TestQueuesPush(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	q := &Queue{}
-	// when queue is empty, WaitForSwap should return immediately
+	queues := NewQueues()
+	// when next queue is empty, WaitForSwap should return immediately
 	testQueue1 := []storj.Path{"a", "b", "c"}
-	err := q.WaitForSwap(ctx, testQueue1)
+	err := queues.Push(testQueue1)
+	require.NoError(t, err)
+	err = queues.WaitForSwap(ctx)
 	require.NoError(t, err)
 
+	// second call to WaitForSwap should block until Fetch is called the first time
 	testQueue2 := []storj.Path{"d", "e"}
+	err = queues.Push(testQueue2)
+	require.NoError(t, err)
 	var group errgroup.Group
 	group.Go(func() error {
-		return q.WaitForSwap(ctx, testQueue2)
+		return queues.WaitForSwap(ctx)
 	})
 
-	// wait for WaitForSwap to set onEmpty callback so we can test that consuming the queue frees it.
-	ticker := time.NewTicker(100 * time.Millisecond)
-	for range ticker.C {
-		q.mu.Lock()
-		if q.onEmpty != nil {
-			q.mu.Unlock()
-			break
-		}
-		q.mu.Unlock()
-	}
-	ticker.Stop()
-
+	q := queues.Fetch()
 	for _, expected := range testQueue1 {
 		actual, err := q.Next()
 		require.NoError(t, err)
 		require.EqualValues(t, expected, actual)
 	}
 
-	// next call to Next() should swap queues and free WaitForSwap
+	// second call to Fetch should return testQueue2
+	q = queues.Fetch()
 	item, err := q.Next()
 	require.NoError(t, err)
 	require.EqualValues(t, testQueue2[0], item)
@@ -82,36 +80,32 @@ func TestQueueWaitForSwap(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestQueueWaitForSwapCancel(t *testing.T) {
+func TestQueuesPushCancel(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	q := &Queue{}
+	queues := NewQueues()
 	// when queue is empty, WaitForSwap should return immediately
 	testQueue1 := []storj.Path{"a", "b", "c"}
-	err := q.WaitForSwap(ctx, testQueue1)
+	err := queues.Push(testQueue1)
+	require.NoError(t, err)
+	err = queues.WaitForSwap(ctx)
 	require.NoError(t, err)
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
 	testQueue2 := []storj.Path{"d", "e"}
+	err = queues.Push(testQueue2)
+	require.NoError(t, err)
 	var group errgroup.Group
 	group.Go(func() error {
-		err = q.WaitForSwap(ctxWithCancel, testQueue2)
+		err = queues.WaitForSwap(ctxWithCancel)
 		require.True(t, errs2.IsCanceled(err))
 		return nil
 	})
 
-	// wait for WaitForSwap to set onEmpty callback so we can test that canceling the context frees it.
-	ticker := time.NewTicker(100 * time.Millisecond)
-	for range ticker.C {
-		q.mu.Lock()
-		if q.onEmpty != nil {
-			q.mu.Unlock()
-			break
-		}
-		q.mu.Unlock()
-	}
-	ticker.Stop()
+	// make sure a concurrent call to Push fails
+	err = queues.Push(testQueue2)
+	require.True(t, ErrPendingQueueInProgress.Has(err))
 
 	cancel()
 

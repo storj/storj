@@ -6,28 +6,30 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import NewProjectArea from '@/components/header/NewProjectArea.vue';
+import ProjectSelection from '@/components/header/projectsDropdown/ProjectSelection.vue';
+import ResourcesSelection from '@/components/header/resourcesDropdown/ResourcesSelection.vue';
+import SettingsSelection from '@/components/header/settingsDropdown/SettingsSelection.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
-import ProjectCreationSuccessPopup from '@/components/project/ProjectCreationSuccessPopup.vue';
 
 import LogoIcon from '@/../static/images/header/logo.svg';
 import NavigationCloseIcon from '@/../static/images/header/navigationClose.svg';
 import NavigationMenuIcon from '@/../static/images/header/navigationMenu.svg';
 
-import AccountButton from './AccountButton.vue';
+import AccountButton from './accountDropdown/AccountButton.vue';
 
 @Component({
     components: {
-        ProjectCreationSuccessPopup,
-        NewProjectArea,
         AccountButton,
         NavigationArea,
         NavigationMenuIcon,
         NavigationCloseIcon,
         LogoIcon,
+        ProjectSelection,
+        ResourcesSelection,
+        SettingsSelection,
     },
 })
-export default class DashboardHeader extends Vue {
+export default class HeaderArea extends Vue {
     /**
      * Indicates if navigation toggling button is visible depending on screen width.
      */

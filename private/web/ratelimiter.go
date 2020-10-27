@@ -7,33 +7,34 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
 	"golang.org/x/time/rate"
 )
 
-//IPRateLimiterConfig configures an IPRateLimiter.
+// IPRateLimiterConfig configures an IPRateLimiter.
 type IPRateLimiterConfig struct {
 	Duration  time.Duration `help:"the rate at which request are allowed" default:"5m"`
 	Burst     int           `help:"number of events before the limit kicks in" default:"5"`
 	NumLimits int           `help:"number of IPs whose rate limits we store" default:"1000"`
 }
 
-//IPRateLimiter imposes a rate limit per HTTP user IP.
+// IPRateLimiter imposes a rate limit per HTTP user IP.
 type IPRateLimiter struct {
 	config   IPRateLimiterConfig
 	mu       sync.Mutex
 	ipLimits map[string]*userLimit
 }
 
-//userLimit is the per-IP limiter.
+// userLimit is the per-IP limiter.
 type userLimit struct {
 	limiter  *rate.Limiter
 	lastSeen time.Time
 }
 
-//NewIPRateLimiter constructs an IPRateLimiter.
+// NewIPRateLimiter constructs an IPRateLimiter.
 func NewIPRateLimiter(config IPRateLimiterConfig) *IPRateLimiter {
 	return &IPRateLimiter{
 		config:   config,
@@ -66,10 +67,10 @@ func (rl *IPRateLimiter) cleanupLimiters() {
 	}
 }
 
-//Limit applies a per IP rate limiting as an HTTP Handler.
+// Limit applies a per IP rate limiting as an HTTP Handler.
 func (rl *IPRateLimiter) Limit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip, _, err := net.SplitHostPort(r.RemoteAddr)
+		ip, err := getRequestIP(r)
 		if err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
@@ -83,7 +84,27 @@ func (rl *IPRateLimiter) Limit(next http.Handler) http.Handler {
 	})
 }
 
-//getUserLimit returns a rate limiter for an IP.
+// getRequestIP gets the original IP address of the request by handling the request headers.
+func getRequestIP(r *http.Request) (ip string, err error) {
+	realIP := r.Header.Get("X-REAL-IP")
+	if realIP != "" {
+		return realIP, nil
+	}
+
+	forwardedIPs := r.Header.Get("X-FORWARDED-FOR")
+	if forwardedIPs != "" {
+		ips := strings.Split(forwardedIPs, ", ")
+		if len(ips) > 0 {
+			return ips[0], nil
+		}
+	}
+
+	ip, _, err = net.SplitHostPort(r.RemoteAddr)
+
+	return ip, err
+}
+
+// getUserLimit returns a rate limiter for an IP.
 func (rl *IPRateLimiter) getUserLimit(ip string) *rate.Limiter {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
@@ -107,7 +128,7 @@ func (rl *IPRateLimiter) getUserLimit(ip string) *rate.Limiter {
 					oldestKey = ip
 				}
 			}
-			//only delete the oldest non-expired if there's still an issue
+			// only delete the oldest non-expired if there's still an issue
 			if oldestKey != "" && len(rl.ipLimits) >= rl.config.NumLimits {
 				delete(rl.ipLimits, oldestKey)
 			}
@@ -120,12 +141,12 @@ func (rl *IPRateLimiter) getUserLimit(ip string) *rate.Limiter {
 	return v.limiter
 }
 
-//Burst returns the number of events that happen before the rate limit.
+// Burst returns the number of events that happen before the rate limit.
 func (rl *IPRateLimiter) Burst() int {
 	return rl.config.Burst
 }
 
-//Duration returns the amount of time required between events.
+// Duration returns the amount of time required between events.
 func (rl *IPRateLimiter) Duration() time.Duration {
 	return rl.config.Duration
 }

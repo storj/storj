@@ -15,6 +15,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/storj/private/tagsql"
 	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/orders/ordersfile"
 )
 
 // ErrOrders represents errors from the ordersdb database.
@@ -28,7 +29,7 @@ type ordersDB struct {
 }
 
 // Enqueue inserts order to the unsent list.
-func (db *ordersDB) Enqueue(ctx context.Context, info *orders.Info) (err error) {
+func (db *ordersDB) Enqueue(ctx context.Context, info *ordersfile.Info) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	limitSerialized, err := pb.Marshal(info.Limit)
@@ -61,7 +62,7 @@ func (db *ordersDB) Enqueue(ctx context.Context, info *orders.Info) (err error) 
 // which have not. In case of database or other system error, the method will
 // stop without any further processing and will return an error without any
 // order.
-func (db *ordersDB) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info, err error) {
+func (db *ordersDB) ListUnsent(ctx context.Context, limit int) (_ []*ordersfile.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := db.QueryContext(ctx, `
@@ -79,7 +80,7 @@ func (db *ordersDB) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 	var unmarshalErrors errs.Group
 	defer func() { err = errs.Combine(err, unmarshalErrors.Err(), rows.Close()) }()
 
-	var infos []*orders.Info
+	var infos []*ordersfile.Info
 	for rows.Next() {
 		var limitSerialized []byte
 		var orderSerialized []byte
@@ -89,7 +90,7 @@ func (db *ordersDB) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 			return nil, ErrOrders.Wrap(err)
 		}
 
-		var info orders.Info
+		var info ordersfile.Info
 		info.Limit = &pb.OrderLimit{}
 		info.Order = &pb.Order{}
 
@@ -111,8 +112,8 @@ func (db *ordersDB) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 	return infos, ErrOrders.Wrap(rows.Err())
 }
 
-// ListUnsentBySatellite returns orders that haven't been sent yet grouped by
-// satellite. Does not return uplink identity.
+// ListUnsentBySatellite returns orders that haven't been sent yet and are not expired.
+// The orders are ordered by the Satellite ID.
 //
 // If there is some unmarshal error while reading an order, the method proceed
 // with the following ones and the function will return the ones which have
@@ -120,14 +121,15 @@ func (db *ordersDB) ListUnsent(ctx context.Context, limit int) (_ []*orders.Info
 // which have not. In case of database or other system error, the method will
 // stop without any further processing and will return an error without any
 // order.
-func (db *ordersDB) ListUnsentBySatellite(ctx context.Context) (_ map[storj.NodeID][]*orders.Info, err error) {
+func (db *ordersDB) ListUnsentBySatellite(ctx context.Context) (_ map[storj.NodeID][]*ordersfile.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 	// TODO: add some limiting
 
 	rows, err := db.QueryContext(ctx, `
 		SELECT order_limit_serialized, order_serialized
 		FROM unsent_order
-	`)
+		WHERE order_limit_expiration >= $1
+	`, time.Now().UTC())
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -138,7 +140,7 @@ func (db *ordersDB) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 	var unmarshalErrors errs.Group
 	defer func() { err = errs.Combine(err, unmarshalErrors.Err(), rows.Close()) }()
 
-	infos := map[storj.NodeID][]*orders.Info{}
+	infos := map[storj.NodeID][]*ordersfile.Info{}
 	for rows.Next() {
 		var limitSerialized []byte
 		var orderSerialized []byte
@@ -148,7 +150,7 @@ func (db *ordersDB) ListUnsentBySatellite(ctx context.Context) (_ map[storj.Node
 			return nil, ErrOrders.Wrap(err)
 		}
 
-		var info orders.Info
+		var info ordersfile.Info
 		info.Limit = &pb.OrderLimit{}
 		info.Order = &pb.Order{}
 

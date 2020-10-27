@@ -26,11 +26,14 @@ type DB interface {
 type Stats struct {
 	SatelliteID storj.NodeID
 
-	Uptime Metric
-	Audit  Metric
+	Uptime      Metric
+	Audit       Metric
+	OnlineScore float64
 
-	Disqualified *time.Time
-	Suspended    *time.Time
+	DisqualifiedAt       *time.Time
+	SuspendedAt          *time.Time
+	OfflineSuspendedAt   *time.Time
+	OfflineUnderReviewAt *time.Time
 
 	UpdatedAt time.Time
 	JoinedAt  time.Time

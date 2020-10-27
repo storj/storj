@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 // Report represents the deleteion status report.
@@ -49,8 +50,8 @@ func (r Report) DeletedObjects() ([]*pb.Object, error) {
 			continue
 		}
 		object := &pb.Object{
-			Bucket:            d.Bucket,
-			EncryptedPath:     d.EncryptedPath,
+			Bucket:            []byte(d.BucketName),
+			EncryptedPath:     []byte(d.ObjectKey),
 			Version:           -1,
 			ExpiresAt:         d.LastSegment.ExpirationDate,
 			CreatedAt:         d.LastSegment.CreationDate,
@@ -89,16 +90,16 @@ func (r Report) DeletedObjects() ([]*pb.Object, error) {
 }
 
 // GenerateReport returns the result of a delete, success, or failure.
-func GenerateReport(ctx context.Context, log *zap.Logger, requests []*ObjectIdentifier, deletedPaths [][]byte, pointers []*pb.Pointer) Report {
+func GenerateReport(ctx context.Context, log *zap.Logger, requests []*metabase.ObjectLocation, deletedPaths []metabase.SegmentKey, pointers []*pb.Pointer) Report {
 	defer mon.Task()(&ctx)(nil)
 
 	report := Report{}
-	deletedObjects := make(map[string]*ObjectState)
+	deletedObjects := make(map[metabase.ObjectLocation]*ObjectState)
 	for i, path := range deletedPaths {
 		if path == nil {
 			continue
 		}
-		id, segmentIdx, err := ParseSegmentPath(path)
+		segmentLocation, err := metabase.ParseSegmentKey(path)
 		if err != nil {
 			log.Debug("failed to parse deleted segmnt path for report",
 				zap.String("Raw Segment Path", string(path)),
@@ -106,31 +107,33 @@ func GenerateReport(ctx context.Context, log *zap.Logger, requests []*ObjectIden
 			continue
 		}
 
-		if _, ok := deletedObjects[id.Key()]; !ok {
-			deletedObjects[id.Key()] = &ObjectState{
+		object := segmentLocation.Object()
+
+		if _, ok := deletedObjects[object]; !ok {
+			deletedObjects[object] = &ObjectState{
 				OtherSegments: []*pb.Pointer{},
 			}
 		}
 
-		switch segmentIdx {
-		case lastSegmentIndex:
-			deletedObjects[id.Key()].LastSegment = pointers[i]
+		switch {
+		case segmentLocation.IsLast():
+			deletedObjects[object].LastSegment = pointers[i]
 		default:
-			deletedObjects[id.Key()].OtherSegments = append(deletedObjects[id.Key()].OtherSegments, pointers[i])
+			deletedObjects[object].OtherSegments = append(deletedObjects[object].OtherSegments, pointers[i])
 		}
 	}
 
 	// populate report with failed and deleted objects
 	for _, req := range requests {
-		state, ok := deletedObjects[req.Key()]
+		state, ok := deletedObjects[*req]
 		if !ok {
 			report.Failed = append(report.Failed, &ObjectState{
-				ObjectIdentifier: *req,
+				ObjectLocation: *req,
 			})
 			continue
 		}
 
-		state.ObjectIdentifier = *req
+		state.ObjectLocation = *req
 		report.Deleted = append(report.Deleted, state)
 	}
 	return report

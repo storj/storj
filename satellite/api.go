@@ -11,7 +11,7 @@ import (
 	"net/mail"
 	"net/smtp"
 
-	monkit "github.com/spacemonkeygo/monkit/v3"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -36,7 +36,6 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gracefulexit"
-	"storj.io/storj/satellite/heldamount"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
@@ -51,6 +50,7 @@ import (
 	"storj.io/storj/satellite/referrals"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/rewards"
+	"storj.io/storj/satellite/snopayout"
 )
 
 // API is the satellite API process
@@ -118,6 +118,10 @@ type API struct {
 		Cache accounting.Cache
 	}
 
+	ProjectLimits struct {
+		Cache *accounting.ProjectLimitCache
+	}
+
 	Mail struct {
 		Service *mailservice.Service
 	}
@@ -150,10 +154,10 @@ type API struct {
 		Endpoint *nodestats.Endpoint
 	}
 
-	HeldAmount struct {
-		Endpoint *heldamount.Endpoint
-		Service  *heldamount.Service
-		DB       heldamount.DB
+	SnoPayout struct {
+		Endpoint *snopayout.Endpoint
+		Service  *snopayout.Service
+		DB       snopayout.DB
 	}
 
 	GracefulExit struct {
@@ -293,12 +297,19 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.LiveAccounting.Cache = liveAccounting
 	}
 
+	{ // setup project limits
+		peer.ProjectLimits.Cache = accounting.NewProjectLimitCache(peer.DB.ProjectAccounting(),
+			config.Metainfo.ProjectLimits.DefaultMaxUsage,
+			config.Metainfo.ProjectLimits.DefaultMaxBandwidth,
+			config.ProjectLimit,
+		)
+	}
+
 	{ // setup accounting project usage
 		peer.Accounting.ProjectUsage = accounting.NewService(
 			peer.DB.ProjectAccounting(),
 			peer.LiveAccounting.Cache,
-			config.Metainfo.ProjectLimits.DefaultMaxUsage,
-			config.Metainfo.ProjectLimits.DefaultMaxBandwidth,
+			peer.ProjectLimits.Cache,
 			config.LiveAccounting.BandwidthCacheTTL,
 		)
 	}
@@ -322,19 +333,24 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.NodeAPIVersion(),
 			config.Orders.SettlementBatchSize,
 			config.Orders.WindowEndpointRolloutPhase,
+			config.Orders.OrdersSemaphoreSize,
 		)
-		peer.Orders.Service = orders.NewService(
+		var err error
+		peer.Orders.Service, err = orders.NewService(
 			peer.Log.Named("orders:service"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
 			peer.Orders.DB,
 			peer.DB.Buckets(),
-			config.Orders.Expiration,
+			config.Orders,
 			&pb.NodeAddress{
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   config.Contact.ExternalAddress,
 			},
 		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 		if err := pb.DRPCRegisterOrders(peer.Server.DRPC(), peer.Orders.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -521,7 +537,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		var stripeClient stripecoinpayments.StripeClient
 		switch pc.Provider {
 		default:
-			stripeClient = stripecoinpayments.NewStripeMock(peer.ID())
+			stripeClient = stripecoinpayments.NewStripeMock(
+				peer.ID(),
+				peer.DB.StripeCoinPayments().Customers(),
+				peer.DB.Console().Users(),
+			)
 		case "stripecoinpayments":
 			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
 		}
@@ -586,6 +606,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Console(),
 			peer.DB.ProjectAccounting(),
 			peer.Accounting.ProjectUsage,
+			peer.DB.Buckets(),
 			peer.DB.Rewards(),
 			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,
@@ -626,17 +647,17 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
-	{ // setup heldamount endpoint
-		peer.HeldAmount.DB = peer.DB.HeldAmount()
-		peer.HeldAmount.Service = heldamount.NewService(
-			peer.Log.Named("heldamount:service"),
-			peer.HeldAmount.DB)
-		peer.HeldAmount.Endpoint = heldamount.NewEndpoint(
-			peer.Log.Named("heldamount:endpoint"),
+	{ // setup SnoPayout endpoint
+		peer.SnoPayout.DB = peer.DB.SnoPayout()
+		peer.SnoPayout.Service = snopayout.NewService(
+			peer.Log.Named("payout:service"),
+			peer.SnoPayout.DB)
+		peer.SnoPayout.Endpoint = snopayout.NewEndpoint(
+			peer.Log.Named("payout:endpoint"),
 			peer.DB.StoragenodeAccounting(),
 			peer.Overlay.DB,
-			peer.HeldAmount.Service)
-		if err := pb.DRPCRegisterHeldAmount(peer.Server.DRPC(), peer.HeldAmount.Endpoint); err != nil {
+			peer.SnoPayout.Service)
+		if err := pb.DRPCRegisterHeldAmount(peer.Server.DRPC(), peer.SnoPayout.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 	}

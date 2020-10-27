@@ -32,10 +32,12 @@ type Processes struct {
 	MaxStartupWait time.Duration
 }
 
+const storjSimMaxLineLen = 10000
+
 // NewProcesses returns a group of processes.
 func NewProcesses(dir string) *Processes {
 	return &Processes{
-		Output:         NewPrefixWriter("sim", os.Stdout),
+		Output:         NewPrefixWriter("sim", storjSimMaxLineLen, os.Stdout),
 		Directory:      dir,
 		List:           nil,
 		MaxStartupWait: time.Minute,

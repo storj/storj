@@ -3,19 +3,9 @@
 
 <template>
     <div class="dashboard-area">
-        <div class="dashboard-area__title-area">
-            <h1 class="dashboard-area__title-area__title">Project Dashboard</h1>
-            <a
-                class="dashboard-area__title-area__link"
-                href="https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"
-                target="_blank"
-                rel="noopener noreferrer"
-            >
-                Request Limit Increase ->
-            </a>
-        </div>
-        <ProjectDetails/>
+        <h1 class="dashboard-area__title">{{projectName}} Dashboard</h1>
         <ProjectUsage/>
+        <ProjectSummary/>
         <BucketArea/>
     </div>
 </template>
@@ -24,20 +14,19 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import BucketArea from '@/components/project/buckets/BucketArea.vue';
-import ProjectDetails from '@/components/project/ProjectDetails.vue';
+import ProjectSummary from '@/components/project/summary/ProjectSummary.vue';
 import ProjectUsage from '@/components/project/usage/ProjectUsage.vue';
 
 import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { MetaUtils } from '@/utils/meta';
-import { ProjectOwning } from '@/utils/projectOwning';
 
 @Component({
     components: {
         BucketArea,
-        ProjectDetails,
         ProjectUsage,
+        ProjectSummary,
     },
 })
 export default class ProjectDashboard extends Vue {
@@ -52,8 +41,8 @@ export default class ProjectDashboard extends Vue {
             return;
         }
 
-        const defaultProjectLimit: number = parseInt(MetaUtils.getMetaContent('default-project-limit'));
-        if (defaultProjectLimit && new ProjectOwning(this.$store).usersProjectsCount() < defaultProjectLimit) {
+        const projectLimit: number = this.$store.getters.user.projectLimit;
+        if (projectLimit && this.$store.getters.projectsCount < projectLimit) {
             this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
         }
 
@@ -61,33 +50,34 @@ export default class ProjectDashboard extends Vue {
             project_id: this.$store.getters.selectedProject.id,
         });
     }
+
+    /**
+     * Returns selected project name.
+     */
+    public get projectName(): string {
+        return this.$store.getters.selectedProject.name;
+    }
+
+    /**
+     * Returns project limits increase request url from config.
+     */
+    public get projectLimitsIncreaseRequestURL(): string {
+        return MetaUtils.getMetaContent('project-limits-increase-request-url');
+    }
 }
 </script>
 
 <style scoped lang="scss">
     .dashboard-area {
-        padding: 40px 30px;
+        padding: 50px 30px 30px 30px;
         font-family: 'font_regular', sans-serif;
 
-        &__title-area {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin-bottom: 20px;
-
-            &__title {
-                font-family: 'font_bold', sans-serif;
-                font-size: 22px;
-                line-height: 27px;
-                color: #384b65;
-                margin: 0;
-            }
-
-            &__link {
-                font-size: 14px;
-                line-height: 14px;
-                color: #2683ff;
-            }
+        &__title {
+            font-family: 'font_bold', sans-serif;
+            font-size: 22px;
+            line-height: 27px;
+            color: #384b65;
+            margin: 0 0 30px 0;
         }
     }
 </style>

@@ -3,9 +3,15 @@
 
 export const APP_STATE_ACTIONS = {
     TOGGLE_TEAM_MEMBERS: 'toggleAddTeamMembersPopup',
-    TOGGLE_NEW_PROJ : 'toggleNewProjectPopup',
     TOGGLE_SAVE_API_KEY_MODAL: 'toggleSaveApiKeyModal',
     TOGGLE_ACCOUNT: 'toggleAccountDropdown',
+    TOGGLE_SELECT_PROJECT_DROPDOWN: 'toggleSelectProjectDropdown',
+    TOGGLE_RESOURCES_DROPDOWN: 'toggleResourcesDropdown',
+    TOGGLE_SETTINGS_DROPDOWN: 'toggleSettingsDropdown',
+    TOGGLE_EDIT_PROJECT_DROPDOWN: 'toggleEditProjectDropdown',
+    TOGGLE_FREE_CREDITS_DROPDOWN: 'toggleFreeCreditsDropdown',
+    TOGGLE_AVAILABLE_BALANCE_DROPDOWN: 'toggleAvailableBalanceDropdown',
+    TOGGLE_PERIODS_DROPDOWN: 'togglePeriodsDropdown',
     TOGGLE_DEL_PROJ: 'toggleDeleteProjectPopup',
     TOGGLE_DEL_ACCOUNT: 'toggleDeleteAccountPopup',
     TOGGLE_SORT_PM_BY_DROPDOWN: 'toggleSortProjectMembersByPopup',

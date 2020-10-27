@@ -11,6 +11,7 @@ import {
     Metric,
     Satellite,
     Satellites,
+    SatelliteScores,
     Stamp,
 } from '@/storagenode/satellite';
 
@@ -114,6 +115,15 @@ export class SNOApi {
 
         const satelliteByDayInfo = new SatelliteByDayInfo(json);
 
+        const satellitesScores = json.audits.map(scoreInfo => {
+            return new SatelliteScores(
+                scoreInfo.satelliteName,
+                scoreInfo.auditScore,
+                scoreInfo.suspensionScore,
+                scoreInfo.onlineScore,
+            );
+        });
+
         return new Satellites(
             satelliteByDayInfo.storageDaily,
             satelliteByDayInfo.bandwidthDaily,
@@ -124,6 +134,7 @@ export class SNOApi {
             json.egressSummary,
             json.ingressSummary,
             new Date(json.earliestJoinedAt),
+            satellitesScores,
         );
     }
 }

@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.14.7
+GO_VERSION ?= 1.15.2
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
@@ -88,7 +88,7 @@ install-sim: ## install storj-sim
 	## install exact version of storj/gateway
 	mkdir -p .build/gateway-tmp
 	-cd .build/gateway-tmp && go mod init gatewaybuild
-	cd .build/gateway-tmp && GO111MODULE=on go get storj.io/gateway@latest
+	cd .build/gateway-tmp && go mod edit -replace github.com/minio/minio=github.com/storj/minio@storj && GO111MODULE=on go get storj.io/gateway@master
 
 ##@ Test
 
@@ -111,11 +111,6 @@ test-certificates: ## Test certificate signing service and storagenode setup (je
 test-docker: ## Run tests in Docker
 	docker-compose up -d --remove-orphans test
 	docker-compose run test make test
-
-.PHONY: check-satellite-config-lock
-check-satellite-config-lock: ## Test if the satellite config file has changed (jenkins)
-	@echo "Running ${@}"
-	@cd scripts; ./check-satellite-config-lock.sh
 
 .PHONY: test-sim-backwards-compatible
 test-sim-backwards-compatible: ## Test uploading a file with lastest release (jenkins)
@@ -267,7 +262,7 @@ storagenode_%: storagenode-console
 	$(MAKE) binary-check COMPONENT=storagenode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: storagenode-updater_%
 storagenode-updater_%:
-	$(MAKE) binary-check COMPONENT=storagenode-updater GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+	EXTRA_ARGS="-tags=service" $(MAKE) binary-check COMPONENT=storagenode-updater GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 .PHONY: uplink_%
 uplink_%:
 	$(MAKE) binary-check COMPONENT=uplink GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
@@ -311,16 +306,8 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 .PHONY: binaries-upload
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
 	cd "release/${TAG}"; for f in *; do \
-		c="$${f%%_*}" \
-		&& if [ "$${f##*.}" != "$${f}" ]; then \
-			ln -s "$${f}" "$${f%%_*}.$${f##*.}" \
-			&& zip "$${f}.zip" "$${f%%_*}.$${f##*.}" \
-			&& rm "$${f%%_*}.$${f##*.}" \
-		; else \
-			ln -sf "$${f}" "$${f%%_*}" \
-			&& zip "$${f}.zip" "$${f%%_*}" \
-			&& rm "$${f%%_*}" \
-		; fi \
+		zipname=$$(echo $${f} | sed 's/.exe//g') && \
+		zip "$${zipname}.zip" "$${f}" \
 	; done
 	cd "release/${TAG}"; gsutil -m cp -r *.zip "gs://storj-v3-alpha-builds/${TAG}/"
 
@@ -363,17 +350,6 @@ diagrams-graphml:
 	archview -root "storj.io/storj/satellite.Repairer" -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/satellite/ -out satellite-repair.graphml ./satellite/...
 	archview -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/satellite/   -out satellite.graphml    ./satellite/...
 	archview -skip-class "Peer,Master Database" -trim-prefix storj.io/storj/storagenode/ -out storage-node.graphml ./storagenode/...
-
-.PHONY: update-satellite-config-lock
-update-satellite-config-lock: ## Update the satellite config lock file
-	@docker run -ti --rm \
-		-v ${GOPATH}/pkg/mod:/go/pkg/mod \
-		-v ${CURDIR}:/storj \
-		-v $(shell go env GOCACHE):/go-cache \
-		-e "GOCACHE=/go-cache" \
-		-u root:root \
-		golang:${GO_VERSION} \
-		/bin/bash -c "cd /storj/scripts; ./update-satellite-config-lock.sh"
 
 .PHONY: bump-dependencies
 bump-dependencies:

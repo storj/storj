@@ -73,7 +73,7 @@ export default class CreditsItem extends Vue {
             font-family: 'font_regular', sans-serif;
             text-align: left;
             margin: 10px 0;
-            font-size: 14px;
+            font-size: 16px;
             line-height: 19px;
             color: #354049;
         }

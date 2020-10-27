@@ -2,7 +2,12 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="satellite-selection-toggle-container" v-if="satellites" @click.stop="toggleDropDown">
+    <button
+        name="Choose your satellite"
+        class="satellite-selection-toggle-container"
+        v-if="satellites"
+        @click.stop="toggleDropDown"
+    >
         <p
             class="satellite-selection-toggle-container__text"
             :class="{'with-id-button': selectedSatellite.id && isNameShown, 'with-copy-button': selectedSatellite.id && !isNameShown}"
@@ -37,7 +42,7 @@
             alt="Arrow down"
         />
         <SatelliteSelectionDropdown v-if="isPopupShown"/>
-    </div>
+    </button>
 </template>
 
 <script lang="ts">

@@ -8,7 +8,7 @@
         <VBar
             :current="used"
             :max="limit"
-            color="#2683ff"
+            color="#0068DC"
         />
         <div class="usage-area__limits-area">
             <pre class="usage-area__limits-area__title">{{title}} Used</pre>
@@ -93,7 +93,7 @@ export default class UsageArea extends Vue {
         &__title {
             font-size: 16px;
             line-height: 16px;
-            color: #384b65;
+            color: #1b2533;
             margin-bottom: 25px;
             font-family: 'font_bold', sans-serif;
         }
@@ -101,7 +101,7 @@ export default class UsageArea extends Vue {
         &__remaining {
             font-size: 16px;
             line-height: 16px;
-            color: #354049;
+            color: #1b2533;
             margin-bottom: 15px;
             font-family: 'font_regular', sans-serif;
         }
@@ -116,14 +116,14 @@ export default class UsageArea extends Vue {
             &__title {
                 font-size: 14px;
                 line-height: 14px;
-                color: rgba(56, 75, 101, 0.4);
+                color: #384761;
                 font-family: 'font_regular', sans-serif;
             }
 
             &__limits {
                 font-size: 14px;
                 line-height: 14px;
-                color: #354049;
+                color: #1b2533;
                 font-family: 'font_regular', sans-serif;
             }
         }

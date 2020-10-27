@@ -16,9 +16,7 @@ import (
 )
 
 func TestNewRegistrationSecret(t *testing.T) {
-	// testing constants
 	const (
-		// for user
 		shortName    = "lastName"
 		email        = "email@mail.test"
 		pass         = "123456"

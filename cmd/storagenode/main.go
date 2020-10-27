@@ -140,7 +140,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
-		log.Fatal("Failed to load identity.", zap.Error(err))
+		log.Error("Failed to load identity.", zap.Error(err))
+		return errs.New("Failed to load identity: %+v", err)
 	}
 
 	if err := runCfg.Verify(log); err != nil {
@@ -184,6 +185,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	err = db.MigrateToLatest(ctx)
 	if err != nil {
 		return errs.New("Error creating tables for master database on storagenode: %+v", err)
+	}
+
+	err = db.CheckVersion(ctx)
+	if err != nil {
+		return errs.New("Error checking version for storagenode database: %+v", err)
 	}
 
 	preflightEnabled, err := cmd.Flags().GetBool("preflight.database-check")
@@ -260,7 +266,7 @@ func cmdConfig(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	//run setup if we can't access the config file
+	// run setup if we can't access the config file
 	conf := filepath.Join(setupDir, "config.yaml")
 	if _, err := os.Stat(conf); err != nil {
 		return cmdSetup(cmd, args)

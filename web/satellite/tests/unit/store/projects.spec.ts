@@ -5,13 +5,31 @@ import Vuex from 'vuex';
 
 import { ProjectsApiGql } from '@/api/projects';
 import { makeProjectsModule, PROJECTS_ACTIONS, PROJECTS_MUTATIONS } from '@/store/modules/projects';
-import { Project, ProjectLimits } from '@/types/projects';
+import { Project, ProjectFields, ProjectLimits } from '@/types/projects';
 import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 const projectsApi = new ProjectsApiGql();
-const { FETCH, CREATE, SELECT, DELETE, CLEAR, UPDATE, GET_LIMITS } = PROJECTS_ACTIONS;
-const { ADD, SET_PROJECTS, SELECT_PROJECT, UPDATE_PROJECT, REMOVE, CLEAR_PROJECTS, SET_LIMITS } = PROJECTS_MUTATIONS;
+const {
+    FETCH,
+    CREATE,
+    SELECT,
+    DELETE,
+    CLEAR,
+    UPDATE_NAME,
+    UPDATE_DESCRIPTION,
+    GET_LIMITS,
+} = PROJECTS_ACTIONS;
+const {
+    ADD,
+    SET_PROJECTS,
+    SELECT_PROJECT,
+    UPDATE_PROJECT_NAME,
+    UPDATE_PROJECT_DESCRIPTION,
+    REMOVE,
+    CLEAR_PROJECTS,
+    SET_LIMITS,
+} = PROJECTS_MUTATIONS;
 
 const projectsModule = makeProjectsModule(projectsApi);
 const selectedProject = new Project('1', '', '', '');
@@ -77,12 +95,22 @@ describe('mutations', () => {
         expect(state.currentLimits.bandwidthLimit).toBe(0);
     });
 
-    it('update project', () => {
+    it('update project name', () => {
+        state.projects = projects;
+
+        const newName = 'newName';
+
+        store.commit(UPDATE_PROJECT_NAME, { id: '11', name: newName });
+
+        expect(state.projects.find((pr: Project) => pr.id === '11').name).toBe(newName);
+    });
+
+    it('update project description', () => {
         state.projects = projects;
 
         const newDescription = 'newDescription';
 
-        store.commit(UPDATE_PROJECT, { id: '11', description: newDescription });
+        store.commit(UPDATE_PROJECT_DESCRIPTION, { id: '11', description: newDescription });
 
         expect(state.projects.find((pr: Project) => pr.id === '11').description).toBe(newDescription);
     });
@@ -202,15 +230,30 @@ describe('actions', () => {
         expect(state.selectedProject.id).toEqual('1');
     });
 
-    it('success update project', async () => {
+    it('success update project name', async () => {
+        jest.spyOn(projectsApi, 'update').mockReturnValue(
+            Promise.resolve(),
+        );
+
+        state.projects = projects;
+        const newName = 'newName';
+        const fieldsToUpdate = new ProjectFields(newName, state.projects[0].description);
+
+        await store.dispatch(UPDATE_NAME, fieldsToUpdate);
+
+        expect(state.projects.find((pr: Project) => pr.id === '1').name).toBe(newName);
+    });
+
+    it('success update project description', async () => {
         jest.spyOn(projectsApi, 'update').mockReturnValue(
             Promise.resolve(),
         );
 
         state.projects = projects;
         const newDescription = 'newDescription1';
+        const fieldsToUpdate = new ProjectFields(state.projects[0].name, newDescription);
 
-        await store.dispatch(UPDATE, { id: '1', description: newDescription });
+        await store.dispatch(UPDATE_DESCRIPTION, fieldsToUpdate);
 
         expect(state.projects.find((pr: Project) => pr.id === '1').description).toBe(newDescription);
     });
@@ -220,9 +263,10 @@ describe('actions', () => {
 
         state.projects = projects;
         const newDescription = 'newDescription2';
+        const fieldsToUpdate = new ProjectFields(state.projects[0].name, newDescription);
 
         try {
-            await store.dispatch(UPDATE, { id: '1', description: newDescription });
+            await store.dispatch(UPDATE_DESCRIPTION, fieldsToUpdate);
             expect(true).toBe(false);
         } catch (error) {
             expect(state.projects.find((pr: Project) => pr.id === '1').description).toBe('newDescription1');

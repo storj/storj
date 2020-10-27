@@ -5,26 +5,27 @@ import Vuex from 'vuex';
 
 import { makeNodeModule } from '@/app/store/modules/node';
 import { makePayoutModule, PAYOUT_ACTIONS, PAYOUT_MUTATIONS } from '@/app/store/modules/payout';
-import {
-    EstimatedPayout,
-    HeldHistory,
-    HeldHistoryAllStatItem,
-    HeldHistoryMonthlyBreakdownItem,
-    HeldInfo,
-    PayoutHistoryItem,
-    PayoutInfoRange,
-    PayoutPeriod,
-    PreviousMonthEstimatedPayout,
-    TotalPayoutInfo,
-} from '@/app/types/payout';
+import { PayoutInfoRange } from '@/app/types/payout';
 import { getHeldPercentage, getMonthsBeforeNow } from '@/app/utils/payout';
 import { PayoutHttpApi } from '@/storagenode/api/payout';
 import { SNOApi } from '@/storagenode/api/storagenode';
+import {
+    EstimatedPayout,
+    PayoutPeriod,
+    Paystub,
+    PreviousMonthEstimatedPayout,
+    SatelliteHeldHistory,
+    SatellitePayoutForPeriod,
+    TotalHeldAndPaid,
+    TotalPaystubForPeriod,
+} from '@/storagenode/payouts/payouts';
+import { PayoutService } from '@/storagenode/payouts/service';
 import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 const payoutApi = new PayoutHttpApi();
-const payoutModule = makePayoutModule(payoutApi);
+const payoutService = new PayoutService(payoutApi);
+const payoutModule = makePayoutModule(payoutApi, payoutService);
 
 const nodeApi = new SNOApi();
 const nodeModule = makeNodeModule(nodeApi);
@@ -40,23 +41,30 @@ describe('mutations', (): void => {
         createLocalVue().use(Vuex);
     });
 
-    it('sets held information', (): void => {
-        const heldInfo = new HeldInfo(13, 12, 11);
+    it('sets payout information', (): void => {
+        const totalPaystubForPeriod = new TotalPaystubForPeriod([new Paystub(13, 12, 11)]);
 
-        store.commit(PAYOUT_MUTATIONS.SET_HELD_INFO, heldInfo);
+        store.commit(PAYOUT_MUTATIONS.SET_PAYOUT_INFO, totalPaystubForPeriod);
 
-        expect(state.payoutModule.heldInfo.usageAtRest).toBe(13);
-        expect(state.payoutModule.heldInfo.usageGet).toBe(12);
-        expect(state.payoutModule.heldInfo.usagePut).toBe(11);
+        expect(state.payoutModule.totalPaystubForPeriod.usageAtRest).toBe(13);
+        expect(state.payoutModule.totalPaystubForPeriod.usageGet).toBe(12);
+        expect(state.payoutModule.totalPaystubForPeriod.usagePut).toBe(11);
     });
 
     it('sets total payout information', (): void => {
-        const totalInfo = new TotalPayoutInfo(50, 100, 22);
+        const paystub = new Paystub();
+        paystub.held = 600000;
+        paystub.disposed = 100000;
+        paystub.paid = 1000000;
 
-        store.commit(PAYOUT_MUTATIONS.SET_TOTAL, totalInfo);
+        const totalHeldAndPaid = new TotalHeldAndPaid([paystub]);
+        totalHeldAndPaid.setCurrentMonthEarnings(22);
 
-        expect(state.payoutModule.totalHeldAmount).toBe(50);
-        expect(state.payoutModule.totalEarnings).toBe(100);
+        store.commit(PAYOUT_MUTATIONS.SET_TOTAL, totalHeldAndPaid);
+
+        expect(state.payoutModule.totalHeldAndPaid.held).toBe(50);
+        expect(state.payoutModule.totalHeldAndPaid.paid).toBe(100);
+        expect(state.payoutModule.totalHeldAndPaid.disposed).toBe(10);
         expect(state.payoutModule.currentMonthEarnings).toBe(22);
     });
 
@@ -84,25 +92,19 @@ describe('mutations', (): void => {
     it('sets held history', (): void => {
         const testJoinAt = new Date(Date.UTC(2020, 0, 30));
 
-        const testHeldHistory = new HeldHistory(
-            [
-                new HeldHistoryMonthlyBreakdownItem('1', 'name1', 1, 50000, 0, 0),
-                new HeldHistoryMonthlyBreakdownItem('2', 'name2', 5, 50000, 422280, 0),
-                new HeldHistoryMonthlyBreakdownItem('3', 'name3', 6, 50000, 7333880, 7852235),
-            ],
-            [
-                new HeldHistoryAllStatItem('1', 'name1', 1, 1000000, 0, testJoinAt),
-                new HeldHistoryAllStatItem('2', 'name2', 5, 300000, 20, testJoinAt),
-            ],
-        );
+        const testHeldHistory = [
+            new SatelliteHeldHistory('1', 'name1', 1, 50000, 0, 0, 1, testJoinAt),
+            new SatelliteHeldHistory('2', 'name2', 5, 50000, 422280, 0),
+            new SatelliteHeldHistory('3', 'name3', 6, 50000, 7333880, 7852235),
+        ];
 
         store.commit(PAYOUT_MUTATIONS.SET_HELD_HISTORY, testHeldHistory);
 
-        expect(state.payoutModule.heldHistory.monthlyBreakdown.length).toBe(testHeldHistory.monthlyBreakdown.length);
-        expect(state.payoutModule.heldHistory.monthlyBreakdown[1].satelliteName).toBe(testHeldHistory.monthlyBreakdown[1].satelliteName);
-        expect(state.payoutModule.heldHistory.allStats.length).toBe(testHeldHistory.allStats.length);
-        expect(state.payoutModule.heldHistory.allStats[0].joinedAt).toBe(testJoinAt);
-        expect(state.payoutModule.heldHistory.allStats[1].totalHeld).toBe(30);
+        expect(state.payoutModule.heldHistory.length).toBe(testHeldHistory.length);
+        expect(state.payoutModule.heldHistory[1].satelliteName).toBe(testHeldHistory[1].satelliteName);
+        expect(state.payoutModule.heldHistory[1].holdForFirstPeriod).toBe(testHeldHistory[1].holdForFirstPeriod);
+        expect(state.payoutModule.heldHistory[0].joinedAt).toBe(testJoinAt);
+        expect(state.payoutModule.heldHistory[2].totalHeld).toBe(785.2235);
     });
 
     it('sets estimated payout information', (): void => {
@@ -149,6 +151,16 @@ describe('mutations', (): void => {
         expect(state.payoutModule.payoutPeriods[1]).toBe(secondExpectedPeriod);
     });
 
+    it('sets available payout history periods', (): void => {
+        const firstExpectedPeriod = '2020-08';
+        const incomingDataSet = [firstExpectedPeriod];
+
+        store.commit(PAYOUT_MUTATIONS.SET_PAYOUT_HISTORY_AVAILABLE_PERIODS, incomingDataSet);
+
+        expect(state.payoutModule.payoutHistoryAvailablePeriods.length).toBe(1);
+        expect(state.payoutModule.payoutHistoryAvailablePeriods[0]).toBe(firstExpectedPeriod);
+    });
+
     it('sets payout history period', (): void => {
         const expectedPeriod = '2020-04';
 
@@ -159,10 +171,10 @@ describe('mutations', (): void => {
 
     it('sets payout history period', (): void => {
         const payoutHistory = [
-            new PayoutHistoryItem('1', 'name1', 1, 10, 120, 140,
+            new SatellitePayoutForPeriod('1', 'name1', 1, 10, 120, 140,
                 50, 60, 20, 80, 'receipt1', false,
             ),
-            new PayoutHistoryItem('2', 'name2', 16, 10, 120, 140,
+            new SatellitePayoutForPeriod('2', 'name2', 16, 10, 120, 140,
                 50, 60, 20, 80, 'receipt2', true,
             ),
         ];
@@ -179,82 +191,96 @@ describe('actions', () => {
         jest.resetAllMocks();
     });
 
-    it('success get held info by month', async (): Promise<void> => {
-        jest.spyOn(payoutApi, 'getHeldInfoByMonth').mockReturnValue(
-            Promise.resolve(new HeldInfo(1, 2 , 3, 4, 5)),
+    it('success get payout info by month', async (): Promise<void> => {
+        const paystub = new Paystub();
+        paystub.usagePut = 3;
+        paystub.held = 100000;
+
+        jest.spyOn(payoutApi, 'getPaystubsForPeriod').mockReturnValue(
+            Promise.resolve([paystub]),
         );
 
         const range = new PayoutInfoRange(null, new PayoutPeriod(2020, 3));
 
         store.commit(PAYOUT_MUTATIONS.SET_RANGE, range);
 
-        await store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO);
+        await store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_INFO);
 
-        expect(state.payoutModule.heldInfo.usagePut).toBe(3);
-        expect(state.payoutModule.heldInfo.held).toBe(0);
+        expect(state.payoutModule.totalPaystubForPeriod.usagePut).toBe(3);
+        expect(state.payoutModule.totalPaystubForPeriod.held).toBe(10);
         expect(state.payoutModule.heldPercentage).toBe(getHeldPercentage(new Date()));
     });
 
-    it('get held info by month throws an error when api call fails', async (): Promise<void> => {
-        jest.spyOn(payoutApi, 'getHeldInfoByMonth').mockImplementation(() => { throw new Error(); });
+    it('get payout info by month throws an error when api call fails', async (): Promise<void> => {
+        jest.spyOn(payoutApi, 'getPaystubsForPeriod').mockImplementation(() => { throw new Error(); });
 
         try {
-            await store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO);
+            await store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_INFO);
             expect(true).toBe(false);
         } catch (error) {
-            expect(state.payoutModule.heldInfo.usagePut).toBe(3);
-            expect(state.payoutModule.heldInfo.held).toBe(0);
+            expect(state.payoutModule.totalPaystubForPeriod.usagePut).toBe(3);
+            expect(state.payoutModule.totalPaystubForPeriod.held).toBe(10);
         }
     });
 
-    it('success get held info by period', async (): Promise<void> => {
-        jest.spyOn(payoutApi, 'getHeldInfoByPeriod').mockReturnValue(
-            Promise.resolve(new HeldInfo(1, 2 , 3, 4, 5)),
+    it('success get payout info by period', async (): Promise<void> => {
+        const paystub = new Paystub();
+        paystub.usagePut = 3;
+        paystub.held = 100000;
+
+        jest.spyOn(payoutApi, 'getPaystubsForPeriod').mockReturnValue(
+            Promise.resolve([paystub]),
         );
 
         const range = new PayoutInfoRange(new PayoutPeriod(2019, 2), new PayoutPeriod(2020, 3));
 
         store.commit(PAYOUT_MUTATIONS.SET_RANGE, range);
 
-        await store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO);
+        await store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_INFO);
 
-        expect(state.payoutModule.heldInfo.usagePut).toBe(3);
-        expect(state.payoutModule.heldInfo.held).toBe(0);
+        expect(state.payoutModule.totalPaystubForPeriod.usagePut).toBe(3);
+        expect(state.payoutModule.totalPaystubForPeriod.held).toBe(10);
     });
 
-    it('get held info by period throws an error when api call fails', async (): Promise<void> => {
-        jest.spyOn(payoutApi, 'getHeldInfoByPeriod').mockImplementation(() => { throw new Error(); });
+    it('get payout info by period throws an error when api call fails', async (): Promise<void> => {
+        jest.spyOn(payoutApi, 'getPaystubsForPeriod').mockImplementation(() => { throw new Error(); });
 
         try {
-            await store.dispatch(PAYOUT_ACTIONS.GET_HELD_INFO);
+            await store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_INFO);
             expect(true).toBe(false);
         } catch (error) {
-            expect(state.payoutModule.heldInfo.usagePut).toBe(3);
-            expect(state.payoutModule.heldInfo.held).toBe(0);
+            expect(state.payoutModule.totalPaystubForPeriod.usagePut).toBe(3);
+            expect(state.payoutModule.totalPaystubForPeriod.held).toBe(10);
         }
     });
 
     it('success get total', async (): Promise<void> => {
-        jest.spyOn(payoutApi, 'getTotal').mockReturnValue(
-            Promise.resolve(new TotalPayoutInfo(10, 20, 5)),
+        const paystub = new Paystub();
+        paystub.held = 100000;
+        paystub.disposed = 50000;
+        paystub.paid = 200000;
+
+        jest.spyOn(payoutApi, 'getPaystubsForPeriod').mockReturnValue(
+            Promise.resolve([paystub]),
         );
 
         await store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
 
-        expect(state.payoutModule.totalHeldAmount).toBe(10);
-        expect(state.payoutModule.totalEarnings).toBe(20);
+        expect(state.payoutModule.totalHeldAndPaid.held).toBe(5);
+        expect(state.payoutModule.totalHeldAndPaid.paid).toBe(20);
+        expect(state.payoutModule.totalHeldAndPaid.disposed).toBe(5);
         expect(state.payoutModule.currentMonthEarnings).toBe(0);
     });
 
     it('get total throws an error when api call fails', async (): Promise<void> => {
-        jest.spyOn(payoutApi, 'getTotal').mockImplementation(() => { throw new Error(); });
+        jest.spyOn(payoutApi, 'getPaystubsForPeriod').mockImplementation(() => { throw new Error(); });
 
         try {
             await store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
             expect(true).toBe(false);
         } catch (error) {
-            expect(state.payoutModule.totalHeldAmount).toBe(10);
-            expect(state.payoutModule.totalEarnings).toBe(20);
+            expect(state.payoutModule.totalHeldAndPaid.held).toBe(5);
+            expect(state.payoutModule.totalHeldAndPaid.paid).toBe(20);
             expect(state.payoutModule.currentMonthEarnings).toBe(0);
         }
     });
@@ -270,11 +296,17 @@ describe('actions', () => {
             ]),
         );
 
-        await store.dispatch(PAYOUT_ACTIONS.GET_PERIODS);
+        await store.dispatch(PAYOUT_ACTIONS.GET_PERIODS, 'id');
 
         expect(state.payoutModule.payoutPeriods.length).toBe(2);
         expect(state.payoutModule.payoutPeriods[0].period).toBe(firstExpectedPeriod);
         expect(state.payoutModule.payoutPeriods[1].period).toBe(secondExpectedPeriod);
+        expect(state.payoutModule.payoutHistoryAvailablePeriods.length).toBe(1);
+
+        await store.dispatch(PAYOUT_ACTIONS.GET_PERIODS);
+
+        expect(state.payoutModule.payoutHistoryAvailablePeriods.length).toBe(2);
+        expect(state.payoutModule.payoutHistoryAvailablePeriods[0].period).toBe(firstExpectedPeriod);
     });
 
     it('get available periods throws an error when api call fails', async () => {
@@ -290,28 +322,22 @@ describe('actions', () => {
 
     it('success get held history', async (): Promise<void> => {
         const testJoinAt = new Date(Date.UTC(2020, 0, 30));
+        const testHeldHistory = [
+            new SatelliteHeldHistory('1', 'name1', 1, 50000, 0, 0, 1, testJoinAt),
+            new SatelliteHeldHistory('2', 'name2', 5, 50000, 422280, 0),
+            new SatelliteHeldHistory('3', 'name3', 6, 50000, 7333880, 7852235),
+        ];
 
         jest.spyOn(payoutApi, 'getHeldHistory').mockReturnValue(
-            Promise.resolve(new HeldHistory(
-                [
-                    new HeldHistoryMonthlyBreakdownItem('1', 'name1', 1, 50000, 0, 0),
-                    new HeldHistoryMonthlyBreakdownItem('2', 'name2', 5, 50000, 422280, 0),
-                    new HeldHistoryMonthlyBreakdownItem('3', 'name3', 6, 50000, 7333880, 7852235),
-                ],
-                [
-                    new HeldHistoryAllStatItem('1', 'name1', 1, 100, 0, testJoinAt),
-                    new HeldHistoryAllStatItem('2', 'name2', 5, 300000, 20, testJoinAt),
-                ],
-            )),
+            Promise.resolve(testHeldHistory),
         );
 
         await store.dispatch(PAYOUT_ACTIONS.GET_HELD_HISTORY);
 
-        expect(state.payoutModule.heldHistory.monthlyBreakdown.length).toBe(3);
-        expect(state.payoutModule.heldHistory.monthlyBreakdown[1].satelliteName).toBe('name2');
-        expect(state.payoutModule.heldHistory.allStats.length).toBe(2);
-        expect(state.payoutModule.heldHistory.allStats[0].joinedAt).toBe(testJoinAt);
-        expect(state.payoutModule.heldHistory.allStats[1].totalHeld).toBe(30);
+        expect(state.payoutModule.heldHistory.length).toBe(3);
+        expect(state.payoutModule.heldHistory[1].satelliteName).toBe('name2');
+        expect(state.payoutModule.heldHistory[0].joinedAt).toBe(testJoinAt);
+        expect(state.payoutModule.heldHistory[2].totalHeld).toBe(785.2235);
     });
 
     it('get total throws an error when api call fails', async (): Promise<void> => {
@@ -321,8 +347,7 @@ describe('actions', () => {
             await store.dispatch(PAYOUT_ACTIONS.GET_HELD_HISTORY);
             expect(true).toBe(false);
         } catch (error) {
-            expect(state.payoutModule.heldHistory.monthlyBreakdown.length).toBe(3);
-            expect(state.payoutModule.heldHistory.monthlyBreakdown[1].satelliteName).toBe('name2');
+            expect(state.payoutModule.heldHistory.length).toBe(3);
         }
     });
 
@@ -349,7 +374,7 @@ describe('actions', () => {
     it('success get payout history', async (): Promise<void> => {
         jest.spyOn(payoutApi, 'getPayoutHistory').mockReturnValue(
             Promise.resolve([
-                new PayoutHistoryItem('1', 'name1', 1, 100000, 2200000, 140,
+                new SatellitePayoutForPeriod('1', 'name1', 1, 100000, 2200000, 140,
                     500000, 600000, 200000, 800000, 'receipt1', false,
                 ),
             ]),
@@ -367,10 +392,10 @@ describe('getters', () => {
     it('getter totalPaidForPayoutHistoryPeriod returns correct value',  async (): Promise<void> => {
         jest.spyOn(payoutApi, 'getPayoutHistory').mockReturnValue(
             Promise.resolve([
-                new PayoutHistoryItem('1', 'name1', 1, 10, 120, 140,
+                new SatellitePayoutForPeriod('1', 'name1', 1, 10, 120, 140,
                     50, 60, 20, 1300000, 'receipt1', false,
                 ),
-                new PayoutHistoryItem('2', 'name2', 16, 10, 120, 140,
+                new SatellitePayoutForPeriod('2', 'name2', 16, 10, 120, 140,
                     50, 60, 20, 1700000, 'receipt2', true,
                 ),
             ]),
@@ -382,7 +407,7 @@ describe('getters', () => {
     });
 
     it('get estimated payout information throws an error when api call fails', async (): Promise<void> => {
-        jest.spyOn(payoutApi, 'getEstimatedInfo').mockImplementation(() => { throw new Error(); });
+        jest.spyOn(payoutApi, 'getEstimatedPayout').mockImplementation(() => { throw new Error(); });
 
         try {
             await store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION);
@@ -394,7 +419,7 @@ describe('getters', () => {
     });
 
     it('success get estimated payout information', async (): Promise<void> => {
-        jest.spyOn(payoutApi, 'getEstimatedInfo').mockReturnValue(
+        jest.spyOn(payoutApi, 'getEstimatedPayout').mockReturnValue(
             Promise.resolve(new EstimatedPayout(
                 new PreviousMonthEstimatedPayout(
                     1,

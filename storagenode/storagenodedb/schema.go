@@ -562,7 +562,7 @@ func Schema() map[string]*dbschema.Schema {
 							IsNullable: false,
 						},
 						&dbschema.Column{
-							Name:       "disqualified",
+							Name:       "disqualified_at",
 							Type:       "TIMESTAMP",
 							IsNullable: true,
 						},
@@ -572,12 +572,27 @@ func Schema() map[string]*dbschema.Schema {
 							IsNullable: false,
 						},
 						&dbschema.Column{
+							Name:       "offline_suspended_at",
+							Type:       "TIMESTAMP",
+							IsNullable: true,
+						},
+						&dbschema.Column{
+							Name:       "offline_under_review_at",
+							Type:       "TIMESTAMP",
+							IsNullable: true,
+						},
+						&dbschema.Column{
+							Name:       "online_score",
+							Type:       "REAL",
+							IsNullable: false,
+						},
+						&dbschema.Column{
 							Name:       "satellite_id",
 							Type:       "BLOB",
 							IsNullable: false,
 						},
 						&dbschema.Column{
-							Name:       "suspended",
+							Name:       "suspended_at",
 							Type:       "TIMESTAMP",
 							IsNullable: true,
 						},
@@ -670,6 +685,26 @@ func Schema() map[string]*dbschema.Schema {
 						&dbschema.Column{
 							Name:       "status",
 							Type:       "INTEGER",
+							IsNullable: false,
+						},
+					},
+				},
+			},
+		},
+		"secret": &dbschema.Schema{
+			Tables: []*dbschema.Table{
+				&dbschema.Table{
+					Name:       "secret",
+					PrimaryKey: []string{"token"},
+					Columns: []*dbschema.Column{
+						&dbschema.Column{
+							Name:       "created_at",
+							Type:       "timestamp with time zone",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "token",
+							Type:       "bytea",
 							IsNullable: false,
 						},
 					},

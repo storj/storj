@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div id="app" @click="onClick">
+    <div id="app">
         <router-view/>
         <!-- Area for displaying notification -->
         <NotificationArea/>
@@ -23,14 +23,6 @@ import { MetaUtils } from '@/utils/meta';
     },
 })
 export default class App extends Vue {
-    private ids: string[] = [
-                'accountDropdown',
-                'accountDropdownButton',
-                'notificationArea',
-                'paymentSelectButton',
-                'paymentSelect',
-            ];
-
     /**
      * Lifecycle hook after initial render.
      * Sets up variables from meta tags from config such satellite name, etc.
@@ -47,30 +39,19 @@ export default class App extends Vue {
             this.$segment.init(segmentioId);
         }
     }
-
-    /**
-     * Uses for closing dropdowns on click outside them.
-     * @param e
-     */
-    public onClick(e: Event): void {
-        let target: any = e.target;
-        while (target) {
-            if (this.ids.includes(target.id)) {
-                return;
-            }
-            target = target.parentNode;
-        }
-
-        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-    }
 }
 </script>
 
 <style lang="scss">
+    html {
+        overflow: hidden;
+    }
+
     body {
         margin: 0 !important;
         height: 100vh;
         zoom: 100%;
+        overflow: hidden;
     }
 
     img,
@@ -97,6 +78,8 @@ export default class App extends Vue {
     }
 
     a {
+        text-decoration: none;
+        outline: none;
         cursor: pointer;
     }
 
@@ -109,19 +92,13 @@ export default class App extends Vue {
         caret-color: #2683ff;
     }
 
-    /* width */
-
     ::-webkit-scrollbar {
         width: 4px;
     }
 
-    /* Track */
-
     ::-webkit-scrollbar-track {
         box-shadow: inset 0 0 5px #fff;
     }
-
-    /* Handle */
 
     ::-webkit-scrollbar-thumb {
         background: #afb7c1;

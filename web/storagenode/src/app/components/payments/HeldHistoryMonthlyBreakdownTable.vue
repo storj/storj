@@ -18,25 +18,28 @@
                     <p class="held-history-table-container--large__labels-area__text">Month 7-9</p>
                 </div>
             </div>
-            <div v-for="item in monthlyBreakdown" class="held-history-table-container--large__info-area" :key="item.satelliteID">
+            <div v-for="item in allSatellitesHeldHistory" class="held-history-table-container--large__info-area" :key="item.satelliteID">
                 <div class="justify-start column-1">
                     <p class="held-history-table-container--large__info-area__text">{{ item.satelliteName }}</p>
-                    <p class="held-history-table-container--large__info-area__months">{{ item.age }} month</p>
+                    <p class="held-history-table-container--large__info-area__months">{{ item.monthsWithNode }} month</p>
                 </div>
                 <div class="column justify-end column-2">
-                    <p class="held-history-table-container--large__info-area__text">{{ item.firstPeriod | centsToDollars }}</p>
+                    <p class="held-history-table-container--large__info-area__text">{{ item.holdForFirstPeriod |
+                        centsToDollars }}</p>
                 </div>
                 <div class="column justify-end column-3">
-                    <p class="held-history-table-container--large__info-area__text">{{ item.secondPeriod | centsToDollars }}</p>
+                    <p class="held-history-table-container--large__info-area__text">{{ item.holdForSecondPeriod |
+                        centsToDollars }}</p>
                 </div>
                 <div class="column justify-end column-4">
-                    <p class="held-history-table-container--large__info-area__text">{{ item.thirdPeriod | centsToDollars }}</p>
+                    <p class="held-history-table-container--large__info-area__text">{{ item.holdForThirdPeriod |
+                        centsToDollars }}</p>
                 </div>
             </div>
         </div>
         <div class="held-history-table-container--small">
             <HeldHistoryMonthlyBreakdownTableItemSmall
-                v-for="item in monthlyBreakdown"
+                v-for="item in allSatellitesHeldHistory"
                 :held-history-item="item"
                 :key="item.satelliteID"
             />
@@ -50,7 +53,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import BaseHeldHistoryTable from '@/app/components/payments/BaseHeldHistoryTable.vue';
 import HeldHistoryMonthlyBreakdownTableItemSmall from '@/app/components/payments/HeldHistoryMonthlyBreakdownTableItemSmall.vue';
 
-import { HeldHistoryMonthlyBreakdownItem } from '@/app/types/payout';
+import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
 
 @Component({
     components: {
@@ -61,8 +64,8 @@ export default class HeldHistoryMonthlyBreakdownTable extends BaseHeldHistoryTab
     /**
      * Returns list of satellite held history items by periods from store.
      */
-    public get monthlyBreakdown(): HeldHistoryMonthlyBreakdownItem[] {
-        return this.$store.state.payoutModule.heldHistory.monthlyBreakdown;
+    public get allSatellitesHeldHistory(): SatelliteHeldHistory[] {
+        return this.$store.state.payoutModule.heldHistory;
     }
 }
 </script>

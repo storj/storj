@@ -10,13 +10,14 @@
                 </router-link>
                 <p class="notifications-container__header__text">Notifications</p>
             </div>
-            <div
+            <button
+                name="Mark all notifications as read"
                 class="notifications-container__header__button"
                 :class="{ disabled: isMarkAllAsReadButtonDisabled }"
                 @click="markAllAsRead"
             >
                 <p class="notifications-container__header__button__label">Mark all as read</p>
-            </div>
+            </button>
         </div>
         <div class="notifications-container__content-area" v-if="notifications.length">
             <SNONotification

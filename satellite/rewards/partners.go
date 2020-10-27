@@ -183,6 +183,10 @@ func DefaultPartners() PartnerList {
 			ID:   "7bf23e53-6393-4bd0-8bf9-53ecf0de742f",
 			UUID: parseUUID("7bf23e53-6393-4bd0-8bf9-53ecf0de742f"),
 		}, {
+			Name: "Videocoin",
+			ID:   "76db19c1-f777-4334-912c-1d3e563e4e21",
+			UUID: parseUUID("76db19c1-f777-4334-912c-1d3e563e4e21"),
+		}, {
 			Name: "Zenko",
 			ID:   "8cd605fa-ad00-45b6-823e-550eddc611d6",
 			UUID: parseUUID("8cd605fa-ad00-45b6-823e-550eddc611d6"),

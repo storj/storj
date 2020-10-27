@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/gracefulexit"
-	"storj.io/storj/storagenode/pieces"
 )
 
 func TestWorkerSuccess(t *testing.T) {
@@ -33,6 +32,12 @@ func TestWorkerSuccess(t *testing.T) {
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.GracefulExit.NumWorkers = 2
+				config.GracefulExit.NumConcurrentTransfers = 2
+				config.GracefulExit.MinBytesPerSecond = 128
+				config.GracefulExit.MinDownloadTimeout = 2 * time.Minute
+			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
@@ -69,14 +74,7 @@ func TestWorkerSuccess(t *testing.T) {
 		require.Len(t, queueItems, 1)
 
 		// run the SN chore again to start processing transfers.
-		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.Storage2.Store, exitingNode.Peer.Storage2.Trust, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.NodeURL(),
-			gracefulexit.Config{
-				ChoreInterval:          0,
-				NumWorkers:             2,
-				NumConcurrentTransfers: 2,
-				MinBytesPerSecond:      128,
-				MinDownloadTimeout:     2 * time.Minute,
-			})
+		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.GracefulExit.Service, exitingNode.PieceTransfer.Service, exitingNode.Dialer, satellite.NodeURL(), exitingNode.Config.GracefulExit)
 		defer ctx.Check(worker.Close)
 
 		err = worker.Run(ctx, func() {})
@@ -105,6 +103,14 @@ func TestWorkerTimeout(t *testing.T) {
 				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
 			},
 			Satellite: testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.GracefulExit.NumWorkers = 2
+				config.GracefulExit.NumConcurrentTransfers = 2
+				// This config value will create a very short timeframe allowed for receiving
+				// data from storage nodes. This will cause context to cancel with timeout.
+				config.GracefulExit.MinBytesPerSecond = 10 * memory.MiB
+				config.GracefulExit.MinDownloadTimeout = 2 * time.Millisecond
+			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
@@ -144,19 +150,9 @@ func TestWorkerTimeout(t *testing.T) {
 		// make uploads on storage node slower than the timeout for transferring bytes to another node
 		delay := 200 * time.Millisecond
 		storageNodeDB.SetLatency(delay)
-		store := pieces.NewStore(zaptest.NewLogger(t), storageNodeDB.Pieces(), nil, nil, storageNodeDB.PieceSpaceUsedDB(), pieces.DefaultConfig)
 
 		// run the SN chore again to start processing transfers.
-		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), store, exitingNode.Peer.Storage2.Trust, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.NodeURL(),
-			gracefulexit.Config{
-				ChoreInterval:          0,
-				NumWorkers:             2,
-				NumConcurrentTransfers: 2,
-				// This config value will create a very short timeframe allowed for receiving
-				// data from storage nodes. This will cause context to cancel with timeout.
-				MinBytesPerSecond:  10 * memory.MiB,
-				MinDownloadTimeout: 2 * time.Millisecond,
-			})
+		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.GracefulExit.Service, exitingNode.PieceTransfer.Service, exitingNode.Dialer, satellite.NodeURL(), exitingNode.Config.GracefulExit)
 		defer ctx.Check(worker.Close)
 
 		err = worker.Run(ctx, func() {})
@@ -190,6 +186,12 @@ func TestWorkerFailure_IneligibleNodeAge(t *testing.T) {
 				config.Metainfo.RS.SuccessThreshold = successThreshold
 				config.Metainfo.RS.TotalThreshold = successThreshold
 			},
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.GracefulExit.NumWorkers = 2
+				config.GracefulExit.NumConcurrentTransfers = 2
+				config.GracefulExit.MinBytesPerSecond = 128
+				config.GracefulExit.MinDownloadTimeout = 2 * time.Minute
+			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
@@ -209,14 +211,7 @@ func TestWorkerFailure_IneligibleNodeAge(t *testing.T) {
 		err = exitingNode.DB.Satellites().InitiateGracefulExit(ctx, satellite.ID(), time.Now(), piecesContentSize)
 		require.NoError(t, err)
 
-		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.Storage2.Store, exitingNode.Peer.Storage2.Trust, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.NodeURL(),
-			gracefulexit.Config{
-				ChoreInterval:          0,
-				NumWorkers:             2,
-				NumConcurrentTransfers: 2,
-				MinBytesPerSecond:      128,
-				MinDownloadTimeout:     2 * time.Minute,
-			})
+		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.GracefulExit.Service, exitingNode.PieceTransfer.Service, exitingNode.Dialer, satellite.NodeURL(), exitingNode.Config.GracefulExit)
 		defer ctx.Check(worker.Close)
 
 		err = worker.Run(ctx, func() {})

@@ -22,6 +22,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
+	_ "storj.io/private/process/googleprofiler" // This attaches google cloud profiler.
 	"storj.io/private/version"
 	"storj.io/storj/cmd/satellite/reports"
 	"storj.io/storj/pkg/cache"
@@ -320,7 +321,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
-		log.Fatal("Failed to load identity.", zap.Error(err))
+		log.Error("Failed to load identity.", zap.Error(err))
+		return errs.New("Failed to load identity: %+v", err)
 	}
 
 	db, err := satellitedb.New(log.Named("db"), runCfg.Database, satellitedb.Options{
@@ -384,7 +386,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	err = db.CheckVersion(ctx)
 	if err != nil {
-		log.Fatal("Failed satellite database version check.", zap.Error(err))
+		log.Error("Failed satellite database version check.", zap.Error(err))
 		return errs.New("Error checking version for satellitedb: %+v", err)
 	}
 

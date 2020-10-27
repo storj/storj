@@ -306,7 +306,7 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 		err = errs.Combine(err, store.v0PieceInfo.Delete(ctx, satellite, pieceID))
 	}
 
-	store.log.Debug("deleted piece", zap.String("satelliteID", satellite.String()), zap.String("pieceID", pieceID.String()))
+	store.log.Debug("deleted piece", zap.String("Satellite ID", satellite.String()), zap.String("Piece ID", pieceID.String()))
 
 	return Error.Wrap(err)
 }
@@ -697,6 +697,11 @@ func (store *Store) StorageStatus(ctx context.Context) (_ StorageStatus, err err
 		DiskUsed: -1, // TODO set value
 		DiskFree: diskFree,
 	}, nil
+}
+
+// CheckWritability tests writability of the storage directory by creating and deleting a file.
+func (store *Store) CheckWritability() error {
+	return store.blobs.CheckWritability()
 }
 
 type storedPieceAccess struct {

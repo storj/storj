@@ -8,6 +8,7 @@ import Vuex from 'vuex';
 
 import PeriodSelection from '@/components/account/billing/depositAndBillingHistory/PeriodSelection.vue';
 
+import { appStateModule } from '@/store/modules/appState';
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
 import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
@@ -42,7 +43,7 @@ localVue.directive('click-outside', {
 
 localVue.use(Vuex);
 
-const store = new Vuex.Store({ modules: { projectsModule }});
+const store = new Vuex.Store({ modules: { projectsModule, appStateModule }});
 store.commit(PROJECTS_MUTATIONS.SET_PROJECTS, [project]);
 store.commit(PROJECTS_MUTATIONS.SELECT_PROJECT, project.id);
 
@@ -74,12 +75,11 @@ describe('PeriodSelection', (): void => {
         const wrapper = mount(PeriodSelection, {
             localVue,
             store,
-            methods: {
-                onCurrentPeriodClick: currentClickSpy,
-                onPreviousPeriodClick: previousClickSpy,
-                redirect: historyClickSpy,
-            },
         });
+
+        wrapper.vm.onCurrentPeriodClick = currentClickSpy;
+        wrapper.vm.onPreviousPeriodClick = previousClickSpy;
+        wrapper.vm.redirect = historyClickSpy;
 
         await wrapper.find('.period-selection').trigger('click');
         await wrapper.findAll('.period-selection__dropdown__item').at(0).trigger('click');

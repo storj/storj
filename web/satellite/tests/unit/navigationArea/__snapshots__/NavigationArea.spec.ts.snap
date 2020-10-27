@@ -1,0 +1,27 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`NavigationArea snapshot not changed during onboarding tour 1`] = ``;
+
+exports[`NavigationArea snapshot not changed with project 1`] = `
+<div class="navigation-area">
+  <editprojectdropdown-stub></editprojectdropdown-stub>
+  <router-link-stub to="/project-dashboard" tag="a" ariacurrentvalue="page" event="click" aria-label="Dashboard" class="navigation-area__item-container">
+    <div class="navigation-area__item-container__link">
+      <anonymous-stub></anonymous-stub>
+      <h1 class="navigation-area__item-container__link__title">Dashboard</h1>
+    </div>
+  </router-link-stub>
+  <router-link-stub to="/api-keys" tag="a" ariacurrentvalue="page" event="click" aria-label="API Keys" class="navigation-area__item-container">
+    <div class="navigation-area__item-container__link">
+      <anonymous-stub></anonymous-stub>
+      <h1 class="navigation-area__item-container__link__title">API Keys</h1>
+    </div>
+  </router-link-stub>
+  <router-link-stub to="/project-members" tag="a" ariacurrentvalue="page" event="click" aria-label="Users" class="navigation-area__item-container">
+    <div class="navigation-area__item-container__link">
+      <anonymous-stub></anonymous-stub>
+      <h1 class="navigation-area__item-container__link__title">Users</h1>
+    </div>
+  </router-link-stub>
+</div>
+`;

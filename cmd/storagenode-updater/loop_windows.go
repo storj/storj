@@ -32,8 +32,7 @@ func loopFunc(ctx context.Context) error {
 		zap.L().Error("Error updating service.", zap.String("Service", runCfg.ServiceName), zap.Error(err))
 	}
 
-	updaterBinName := os.Args[0]
-	if err := updateSelf(ctx, updaterBinName, all.Processes.StoragenodeUpdater); err != nil {
+	if err := updateSelf(ctx, updaterBinaryPath, all.Processes.StoragenodeUpdater); err != nil {
 		// don't finish loop in case of error just wait for another execution
 		zap.L().Error("Error updating service.", zap.String("Service", updaterServiceName), zap.Error(err))
 	}
@@ -47,7 +46,15 @@ func updateSelf(ctx context.Context, binaryLocation string, ver version.Process)
 		return errs.Wrap(err)
 	}
 
-	currentVersion := version.Build.Version
+	currentVersion, err := binaryVersion(binaryLocation)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	zap.L().Info("Current binary version",
+		zap.String("Service", updaterServiceName),
+		zap.String("Version", currentVersion.String()),
+	)
 
 	// should update
 	shouldUpdate, reason, err := version.ShouldUpdateVersion(currentVersion, nodeID, ver)

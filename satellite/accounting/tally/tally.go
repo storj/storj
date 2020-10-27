@@ -17,6 +17,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 // Error is a standard error class for this package.
@@ -173,15 +174,15 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 			monAccounting.IntVal("bucket.remote_bytes").Observe(bucket.RemoteBytes)
 			total.Combine(bucket)
 		}
-		monAccounting.IntVal("total.objects").Observe(total.ObjectCount) //locked
+		monAccounting.IntVal("total.objects").Observe(total.ObjectCount) //mon:locked
 
-		monAccounting.IntVal("total.segments").Observe(total.Segments())            //locked
-		monAccounting.IntVal("total.inline_segments").Observe(total.InlineSegments) //locked
-		monAccounting.IntVal("total.remote_segments").Observe(total.RemoteSegments) //locked
+		monAccounting.IntVal("total.segments").Observe(total.Segments())            //mon:locked
+		monAccounting.IntVal("total.inline_segments").Observe(total.InlineSegments) //mon:locked
+		monAccounting.IntVal("total.remote_segments").Observe(total.RemoteSegments) //mon:locked
 
-		monAccounting.IntVal("total.bytes").Observe(total.Bytes())            //locked
-		monAccounting.IntVal("total.inline_bytes").Observe(total.InlineBytes) //locked
-		monAccounting.IntVal("total.remote_bytes").Observe(total.RemoteBytes) //locked
+		monAccounting.IntVal("total.bytes").Observe(total.Bytes())            //mon:locked
+		monAccounting.IntVal("total.inline_bytes").Observe(total.InlineBytes) //mon:locked
+		monAccounting.IntVal("total.remote_bytes").Observe(total.RemoteBytes) //mon:locked
 	}
 
 	// return errors if something went wrong.
@@ -195,7 +196,7 @@ type Observer struct {
 	Now    time.Time
 	Log    *zap.Logger
 	Node   map[storj.NodeID]float64
-	Bucket map[string]*accounting.BucketTally
+	Bucket map[metabase.BucketLocation]*accounting.BucketTally
 }
 
 // NewObserver returns an metainfo loop observer that adds up totals for buckets and nodes.
@@ -205,7 +206,7 @@ func NewObserver(log *zap.Logger, now time.Time) *Observer {
 		Now:    now,
 		Log:    log,
 		Node:   make(map[storj.NodeID]float64),
-		Bucket: make(map[string]*accounting.BucketTally),
+		Bucket: make(map[metabase.BucketLocation]*accounting.BucketTally),
 	}
 }
 
@@ -214,38 +215,36 @@ func (observer *Observer) pointerExpired(pointer *pb.Pointer) bool {
 }
 
 // ensureBucket returns bucket corresponding to the passed in path.
-func (observer *Observer) ensureBucket(ctx context.Context, path metainfo.ScopedPath) *accounting.BucketTally {
-	bucketID := storj.JoinPaths(path.ProjectIDString, path.BucketName)
-
-	bucket, exists := observer.Bucket[bucketID]
+func (observer *Observer) ensureBucket(ctx context.Context, location metabase.SegmentLocation) *accounting.BucketTally {
+	bucketLocation := location.Bucket()
+	bucket, exists := observer.Bucket[bucketLocation]
 	if !exists {
 		bucket = &accounting.BucketTally{}
-		bucket.ProjectID = path.ProjectID
-		bucket.BucketName = []byte(path.BucketName)
-		observer.Bucket[bucketID] = bucket
+		bucket.BucketLocation = bucketLocation
+		observer.Bucket[bucketLocation] = bucket
 	}
 
 	return bucket
 }
 
 // Object is called for each object once.
-func (observer *Observer) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+func (observer *Observer) Object(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
 	if observer.pointerExpired(pointer) {
 		return nil
 	}
 
-	bucket := observer.ensureBucket(ctx, path)
+	bucket := observer.ensureBucket(ctx, location)
 	bucket.ObjectCount++
 	return nil
 }
 
 // InlineSegment is called for each inline segment.
-func (observer *Observer) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+func (observer *Observer) InlineSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
 	if observer.pointerExpired(pointer) {
 		return nil
 	}
 
-	bucket := observer.ensureBucket(ctx, path)
+	bucket := observer.ensureBucket(ctx, location)
 	bucket.InlineSegments++
 	bucket.InlineBytes += int64(len(pointer.InlineSegment))
 	bucket.MetadataSize += int64(len(pointer.Metadata))
@@ -254,12 +253,12 @@ func (observer *Observer) InlineSegment(ctx context.Context, path metainfo.Scope
 }
 
 // RemoteSegment is called for each remote segment.
-func (observer *Observer) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) (err error) {
+func (observer *Observer) RemoteSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
 	if observer.pointerExpired(pointer) {
 		return nil
 	}
 
-	bucket := observer.ensureBucket(ctx, path)
+	bucket := observer.ensureBucket(ctx, location)
 	bucket.RemoteSegments++
 	bucket.RemoteBytes += pointer.GetSegmentSize()
 	bucket.MetadataSize += int64(len(pointer.Metadata))
@@ -271,7 +270,7 @@ func (observer *Observer) RemoteSegment(ctx context.Context, path metainfo.Scope
 	minimumRequired := redundancy.GetMinReq()
 
 	if remote == nil || redundancy == nil || minimumRequired <= 0 {
-		observer.Log.Error("failed sanity check", zap.String("path", path.Raw))
+		observer.Log.Error("failed sanity check", zap.ByteString("key", location.Encode()))
 		return nil
 	}
 
@@ -282,7 +281,7 @@ func (observer *Observer) RemoteSegment(ctx context.Context, path metainfo.Scope
 	return nil
 }
 
-func projectTotalsFromBuckets(buckets map[string]*accounting.BucketTally) map[uuid.UUID]int64 {
+func projectTotalsFromBuckets(buckets map[metabase.BucketLocation]*accounting.BucketTally) map[uuid.UUID]int64 {
 	projectTallyTotals := make(map[uuid.UUID]int64)
 	for _, bucket := range buckets {
 		projectTallyTotals[bucket.ProjectID] += (bucket.InlineBytes + bucket.RemoteBytes)

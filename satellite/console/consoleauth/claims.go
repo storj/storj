@@ -11,7 +11,7 @@ import (
 	"storj.io/common/uuid"
 )
 
-//TODO: change to JWT or Macaroon based auth
+// TODO: change to JWT or Macaroon based auth
 
 // Claims represents data signed by server and used for authentication.
 type Claims struct {

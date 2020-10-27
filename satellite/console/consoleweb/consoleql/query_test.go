@@ -15,7 +15,6 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
@@ -51,7 +50,9 @@ func TestGraphqlQuery(t *testing.T) {
 		cache, err := live.NewCache(log.Named("cache"), live.Config{StorageBackend: "redis://" + redis.Addr() + "?db=0"})
 		require.NoError(t, err)
 
-		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, 0, 0, 5*time.Minute)
+		projectLimitCache := accounting.NewProjectLimitCache(db.ProjectAccounting(), 0, 0, accounting.ProjectLimitConfig{CacheCapacity: 100})
+
+		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, projectLimitCache, 5*time.Minute)
 
 		// TODO maybe switch this test to testplanet to avoid defining config and Stripe service
 		pc := paymentsconfig.Config{
@@ -62,7 +63,11 @@ func TestGraphqlQuery(t *testing.T) {
 
 		paymentsService, err := stripecoinpayments.NewService(
 			log.Named("payments.stripe:service"),
-			stripecoinpayments.NewStripeMock(testrand.NodeID()),
+			stripecoinpayments.NewStripeMock(
+				testrand.NodeID(),
+				db.StripeCoinPayments().Customers(),
+				db.Console().Users(),
+			),
 			pc.StripeCoinPayments,
 			db.StripeCoinPayments(),
 			db.Console().Projects(),
@@ -84,6 +89,7 @@ func TestGraphqlQuery(t *testing.T) {
 			db.Console(),
 			db.ProjectAccounting(),
 			projectUsage,
+			db.Buckets(),
 			db.Rewards(),
 			partnersService,
 			paymentsService.Accounts(),
@@ -145,7 +151,7 @@ func TestGraphqlQuery(t *testing.T) {
 		token, err := service.Token(ctx, createUser.Email, createUser.Password)
 		require.NoError(t, err)
 
-		sauth, err := service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
+		sauth, err := service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
 		require.NoError(t, err)
 
 		authCtx := console.WithAuth(ctx, sauth)

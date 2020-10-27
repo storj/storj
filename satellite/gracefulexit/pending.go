@@ -9,6 +9,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 // PendingFinishedPromise for waiting for information about finished state.
@@ -49,7 +50,7 @@ func (promise *PendingFinishedPromise) finishCalled(err error) {
 // PendingTransfer is the representation of work on the pending map.
 // It contains information about a transfer request that has been sent to a storagenode by the satellite.
 type PendingTransfer struct {
-	Path             []byte
+	Key              metabase.SegmentKey
 	PieceSize        int64
 	SatelliteMessage *pb.SatelliteMessage
 	OriginalPointer  *pb.Pointer

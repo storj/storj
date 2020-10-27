@@ -5,7 +5,6 @@ package pgutil
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"time"
 
@@ -17,6 +16,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/dbschema"
+	"storj.io/storj/private/dbutil/pgutil/pgerrcode"
 	"storj.io/storj/private/tagsql"
 )
 
@@ -107,26 +107,8 @@ func CheckApplicationName(s string) (r string) {
 
 // IsConstraintError checks if given error is about constraint violation.
 func IsConstraintError(err error) bool {
-	errCode := ErrorCode(err)
+	errCode := pgerrcode.FromError(err)
 	return strings.HasPrefix(errCode, pgErrorClassConstraintViolation)
-}
-
-// ErrorCode returns the 5-character PostgreSQL error code string associated
-// with the given error, if any.
-func ErrorCode(err error) string {
-	var sqlStateErr errWithSQLState
-	if errors.As(err, &sqlStateErr) {
-		return sqlStateErr.SQLState()
-	}
-	return ""
-}
-
-// errWithSQLState is an interface supported by error classes corresponding
-// to PostgreSQL errors from certain drivers. This is satisfied, in particular,
-// by pgx (*pgconn.PgError) and may be adopted by other types. An effort is
-// apparently underway to get lib/pq to add this interface.
-type errWithSQLState interface {
-	SQLState() string
 }
 
 // The following XArray() helper methods exist alongside similar methods in the
@@ -159,16 +141,16 @@ func ByteaArray(bytesArray [][]byte) *pgtype.ByteaArray {
 	}
 }
 
-// StringArray returns an object usable by pg drivers for passing a []string slice
-// into a database as type VARCHAR[].
-func StringArray(stringSlice []string) *pgtype.VarcharArray {
-	pgtypeVarcharArray := make([]pgtype.Varchar, len(stringSlice))
+// TextArray returns an object usable by pg drivers for passing a []string slice
+// into a database as type TEXT[].
+func TextArray(stringSlice []string) *pgtype.TextArray {
+	pgtypeTextArray := make([]pgtype.Text, len(stringSlice))
 	for i, s := range stringSlice {
-		pgtypeVarcharArray[i].String = s
-		pgtypeVarcharArray[i].Status = pgtype.Present
+		pgtypeTextArray[i].String = s
+		pgtypeTextArray[i].Status = pgtype.Present
 	}
-	return &pgtype.VarcharArray{
-		Elements:   pgtypeVarcharArray,
+	return &pgtype.TextArray{
+		Elements:   pgtypeTextArray,
 		Dimensions: []pgtype.ArrayDimension{{Length: int32(len(stringSlice)), LowerBound: 1}},
 		Status:     pgtype.Present,
 	}

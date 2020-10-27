@@ -66,8 +66,8 @@ func (chore *Chore) RunOnce(ctx context.Context) (err error) {
 		return errs.New("retain months cannot be less than 0")
 	}
 
-	beforeTime := time.Now().UTC().AddDate(0, -chore.config.RetainMonths, 0)
-	beforeMonth := time.Date(beforeTime.Year(), beforeTime.Month(), 1, 0, 0, 0, 0, time.UTC)
+	now := time.Now().UTC()
+	beforeMonth := time.Date(now.Year(), now.Month()-time.Month(chore.config.RetainMonths), 1, 0, 0, 0, 0, time.UTC)
 
 	return chore.db.DeleteProjectAllocatedBandwidthBefore(ctx, beforeMonth)
 }

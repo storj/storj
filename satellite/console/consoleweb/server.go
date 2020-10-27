@@ -24,16 +24,16 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/graphql-go/graphql"
 	"github.com/graphql-go/graphql/gqlerrors"
-	monkit "github.com/spacemonkeygo/monkit/v3"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
 	"storj.io/common/uuid"
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
@@ -66,18 +66,20 @@ type Config struct {
 	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:""`
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
-	ContactInfoURL               string `help:"url link to contacts page" default:"https://forum.storj.io"`
-	FrameAncestors               string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io"`
-	LetUsKnowURL                 string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
-	SEO                          string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
-	SatelliteName                string `help:"used to display at web satellite console" default:"Storj"`
-	SatelliteOperator            string `help:"name of organization which set up satellite" default:"Storj Labs" `
-	TermsAndConditionsURL        string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
-	SegmentIOPublicKey           string `help:"used to initialize segment.io at web satellite console" default:""`
-	AccountActivationRedirectURL string `help:"url link for account activation redirect" default:""`
-	VerificationPageURL          string `help:"url link to sign up verification page" default:"https://tardigrade.io/verify"`
-	PartneredSatelliteNames      string `help:"names of partnered satellites" default:"US-Central-1,Europe-West-1,Asia-East-1"`
-	GoogleTagManagerID           string `help:"id for google tag manager" default:""`
+	ContactInfoURL                  string `help:"url link to contacts page" default:"https://forum.storj.io"`
+	FrameAncestors                  string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io"`
+	LetUsKnowURL                    string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
+	SEO                             string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
+	SatelliteName                   string `help:"used to display at web satellite console" default:"Storj"`
+	SatelliteOperator               string `help:"name of organization which set up satellite" default:"Storj Labs" `
+	TermsAndConditionsURL           string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
+	SegmentIOPublicKey              string `help:"used to initialize segment.io at web satellite console" default:""`
+	AccountActivationRedirectURL    string `help:"url link for account activation redirect" default:""`
+	VerificationPageURL             string `help:"url link to sign up verification page" default:"https://tardigrade.io/verify"`
+	PartneredSatelliteNames         string `help:"names of partnered satellites" default:"US-Central-1,Europe-West-1,Asia-East-1"`
+	GoogleTagManagerID              string `help:"id for google tag manager" default:""`
+	GeneralRequestURL               string `help:"url link to general request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
+	ProjectLimitsIncreaseRequestURL string `help:"url link to project limit increase request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
 
 	RateLimit web.IPRateLimiterConfig
 
@@ -155,7 +157,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	router.HandleFunc("/populate-promotional-coupons", server.populatePromotionalCoupons).Methods(http.MethodPost)
 	router.HandleFunc("/robots.txt", server.seoHandler)
 
-	router.Handle("/api/v0/graphql", server.withAuth(http.HandlerFunc(server.grapqlHandler)))
+	router.Handle("/api/v0/graphql", server.withAuth(http.HandlerFunc(server.graphqlHandler)))
 
 	router.Handle(
 		"/api/v0/projects/{id}/usage-limits",
@@ -203,7 +205,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	}
 
 	server.server = http.Server{
-		Handler:        router,
+		Handler:        server.withRequest(router),
 		MaxHeaderBytes: ContentLengthLimit.Int(),
 	}
 
@@ -271,13 +273,15 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
 	var data struct {
-		SatelliteName           string
-		SegmentIOPublicKey      string
-		StripePublicKey         string
-		VerificationPageURL     string
-		PartneredSatelliteNames string
-		GoogleTagManagerID      string
-		DefaultProjectLimit     int
+		SatelliteName                   string
+		SegmentIOPublicKey              string
+		StripePublicKey                 string
+		VerificationPageURL             string
+		PartneredSatelliteNames         string
+		GoogleTagManagerID              string
+		DefaultProjectLimit             int
+		GeneralRequestURL               string
+		ProjectLimitsIncreaseRequestURL string
 	}
 
 	data.SatelliteName = server.config.SatelliteName
@@ -287,9 +291,16 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.PartneredSatelliteNames = server.config.PartneredSatelliteNames
 	data.GoogleTagManagerID = server.config.GoogleTagManagerID
 	data.DefaultProjectLimit = server.config.DefaultProjectLimit
+	data.GeneralRequestURL = server.config.GeneralRequestURL
+	data.ProjectLimitsIncreaseRequestURL = server.config.ProjectLimitsIncreaseRequestURL
 
-	if server.templates.index == nil || server.templates.index.Execute(w, data) != nil {
-		server.log.Error("index template could not be executed")
+	if server.templates.index == nil {
+		server.log.Error("index template is not set")
+		return
+	}
+
+	if err := server.templates.index.Execute(w, data); err != nil {
+		server.log.Error("index template could not be executed", zap.Error(err))
 		return
 	}
 }
@@ -308,7 +319,7 @@ func (server *Server) withAuth(handler http.Handler) http.Handler {
 				return console.WithAuthFailure(ctx, err)
 			}
 
-			ctx = auth.WithAPIKey(ctx, []byte(token))
+			ctx = consoleauth.WithAPIKey(ctx, []byte(token))
 
 			auth, err := server.service.Authorize(ctx)
 			if err != nil {
@@ -324,6 +335,13 @@ func (server *Server) withAuth(handler http.Handler) http.Handler {
 	})
 }
 
+// withRequest ensures the http request itself is reachable from the context.
+func (server *Server) withRequest(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler.ServeHTTP(w, r.Clone(console.WithRequest(r.Context(), r)))
+	})
+}
+
 // bucketUsageReportHandler generate bucket usage report page for project.
 func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -336,7 +354,7 @@ func (server *Server) bucketUsageReportHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	auth, err := server.service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
+	auth, err := server.service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
 	if err != nil {
 		server.serveError(w, http.StatusUnauthorized)
 		return
@@ -616,8 +634,8 @@ func (server *Server) projectUsageLimitsHandler(w http.ResponseWriter, r *http.R
 	}
 }
 
-// grapqlHandler is graphql endpoint http handler function.
-func (server *Server) grapqlHandler(w http.ResponseWriter, r *http.Request) {
+// graphqlHandler is graphql endpoint http handler function.
+func (server *Server) graphqlHandler(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
 

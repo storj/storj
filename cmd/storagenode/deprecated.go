@@ -21,6 +21,11 @@ type Deprecated struct {
 			Wallet string `default:"" hidden:"true"`
 		}
 	}
+	Storage2 struct {
+		Monitor struct {
+			VerifyDirInterval string `default:"" hidden:"true"`
+		}
+	}
 }
 
 // maps deprecated config values to new values if applicable.
@@ -50,6 +55,12 @@ func mapDeprecatedConfigs(log *zap.Logger) {
 			oldValue:        runCfg.Deprecated.Kademlia.Operator.Email,
 			oldConfigString: "kademlia.operator.email",
 		},
+		{
+			newValue:        &runCfg.Config.Storage2.Monitor.VerifyDirReadableInterval,
+			newConfigString: "storage2.monitor.verify-dir-readable-interval",
+			oldValue:        runCfg.Deprecated.Storage2.Monitor.VerifyDirInterval,
+			oldConfigString: "storage2.monitor.verify-dir-interval",
+		},
 	}
 
 	for _, migration := range migrations {
@@ -58,7 +69,6 @@ func mapDeprecatedConfigs(log *zap.Logger) {
 			override := parseOverride(typ, migration.oldValue)
 
 			reflect.ValueOf(migration.newValue).Elem().Set(reflect.ValueOf(override))
-
 			log.Debug("Found deprecated flag. Migrating value.",
 				zap.Stringer("Value", reflect.ValueOf(migration.newValue).Elem()),
 				zap.String("From", migration.oldConfigString),

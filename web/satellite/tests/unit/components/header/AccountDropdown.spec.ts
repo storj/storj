@@ -4,7 +4,7 @@
 import sinon from 'sinon';
 import Vuex from 'vuex';
 
-import AccountDropdown from '@/components/header/AccountDropdown.vue';
+import AccountDropdown from '@/components/header/accountDropdown/AccountDropdown.vue';
 
 import { RouteConfig, router } from '@/router';
 import { appStateModule } from '@/store/modules/appState';
@@ -26,37 +26,18 @@ describe('AccountDropdown', () => {
         expect(wrapper).toMatchSnapshot();
     });
 
-    it('renders correctly if on onBoarding tour', async (): Promise<void> => {
-        const wrapper = mount(AccountDropdown, {
-            store,
-            localVue,
-            router,
-        });
-
-        await router.push(RouteConfig.OnboardingTour.path);
-
-        expect(wrapper).toMatchSnapshot();
-    });
-
     it('router works correctly', async (): Promise<void> => {
         const routerSpy = sinon.spy();
         const wrapper = mount(AccountDropdown, {
             store,
             localVue,
             router,
-            methods: {
-                onAccountSettingsClick: routerSpy,
-                onLogoutClick: routerSpy,
-            },
         });
 
-        await router.push(RouteConfig.ProjectDashboard.path);
-        await wrapper.find('.settings').trigger('click');
+        wrapper.vm.onLogoutClick = routerSpy;
+
+        await wrapper.find('.account-dropdown__wrap__item-container').trigger('click');
 
         expect(routerSpy.callCount).toBe(1);
-
-        await wrapper.find('.logout').trigger('click');
-
-        expect(routerSpy.callCount).toBe(2);
     });
 });

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="period-selection" @click.stop="toggle">
+    <div class="period-selection" @click.stop="toggleDropdown">
         <div class="period-selection__current-choice">
             <div class="period-selection__current-choice__label-area">
                 <DatePickerIcon/>
@@ -11,7 +11,7 @@
             <ExpandIcon v-if="!isDropdownShown"/>
             <HideIcon v-else/>
         </div>
-        <div class="period-selection__dropdown" v-show="isDropdownShown" v-click-outside="close">
+        <div class="period-selection__dropdown" v-show="isDropdownShown" v-click-outside="closeDropdown">
             <div
                 class="period-selection__dropdown__item"
                 v-for="(option, index) in periodOptions"
@@ -38,6 +38,7 @@ import HideIcon from '@/../static/images/common/BlueHide.svg';
 
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 @Component({
@@ -55,7 +56,6 @@ export default class PeriodSelection extends Vue {
         'Previous Billing Period',
     ];
     public currentOption: string = this.periodOptions[0];
-    public isDropdownShown: boolean = false;
 
     /**
      * Lifecycle hook before changing location.
@@ -72,6 +72,13 @@ export default class PeriodSelection extends Vue {
         }
 
         next();
+    }
+
+    /**
+     * Indicates if periods dropdown is shown.
+     */
+    public get isDropdownShown(): Date {
+        return this.$store.state.appStateModule.appState.isPeriodsDropdownShown;
     }
 
     /**
@@ -110,21 +117,23 @@ export default class PeriodSelection extends Vue {
         }
 
         this.currentOption = option;
-        this.close();
+        this.closeDropdown();
     }
 
     /**
      * Closes dropdown.
      */
-    public close(): void {
-        this.isDropdownShown = false;
+    public closeDropdown(): void {
+        if (!this.isDropdownShown) return;
+
+        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
     }
 
     /**
      * Toggles dropdown visibility.
      */
-    public toggle(): void {
-        this.isDropdownShown = !this.isDropdownShown;
+    public toggleDropdown(): void {
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_PERIODS_DROPDOWN);
     }
 
     /**
@@ -137,7 +146,7 @@ export default class PeriodSelection extends Vue {
     /**
      * Sets billing state to previous billing period.
      */
-    private async onPreviousPeriodClick(): Promise<void> {
+    public async onPreviousPeriodClick(): Promise<void> {
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP);
             this.$segment.track(SegmentEvent.REPORT_VIEWED, {
@@ -153,7 +162,7 @@ export default class PeriodSelection extends Vue {
     /**
      * Sets billing state to current billing period.
      */
-    private async onCurrentPeriodClick(): Promise<void> {
+    public async onCurrentPeriodClick(): Promise<void> {
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
             this.$segment.track(SegmentEvent.REPORT_VIEWED, {

@@ -129,13 +129,13 @@ func (dashboard *StorageNode) EstimatedPayout(w http.ResponseWriter, r *http.Req
 		}
 
 		if err := json.NewEncoder(w).Encode(data); err != nil {
-			dashboard.log.Error("failed to encode json response", zap.Error(ErrHeldAmountAPI.Wrap(err)))
+			dashboard.log.Error("failed to encode json response", zap.Error(ErrPayoutAPI.Wrap(err)))
 			return
 		}
 	} else {
 		satelliteID, err := storj.NodeIDFromString(id)
 		if err != nil {
-			dashboard.serveJSONError(w, http.StatusBadRequest, ErrHeldAmountAPI.Wrap(err))
+			dashboard.serveJSONError(w, http.StatusBadRequest, ErrPayoutAPI.Wrap(err))
 			return
 		}
 
@@ -146,7 +146,7 @@ func (dashboard *StorageNode) EstimatedPayout(w http.ResponseWriter, r *http.Req
 		}
 
 		if err := json.NewEncoder(w).Encode(data); err != nil {
-			dashboard.log.Error("failed to encode json response", zap.Error(ErrHeldAmountAPI.Wrap(err)))
+			dashboard.log.Error("failed to encode json response", zap.Error(ErrPayoutAPI.Wrap(err)))
 			return
 		}
 	}

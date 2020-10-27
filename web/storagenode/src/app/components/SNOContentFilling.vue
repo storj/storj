@@ -78,20 +78,22 @@
                 <div class="chart-container__title-area">
                     <p class="chart-container__title-area__title">Bandwidth Used This Month</p>
                     <div class="chart-container__title-area__buttons-area">
-                        <div
+                        <button
+                            name="Show Egress Chart"
                             class="chart-container__title-area__chart-choice-item"
                             :class="{ 'egress-chart-shown': isEgressChartShown }"
                             @click.stop="toggleEgressChartShowing"
                         >
                             Egress
-                        </div>
-                        <div
+                        </button>
+                        <button
+                            name="Show Ingress Chart"
                             class="chart-container__title-area__chart-choice-item"
                             :class="{ 'ingress-chart-shown': isIngressChartShown }"
                             @click.stop="toggleIngressChartShowing"
                         >
                             Ingress
-                        </div>
+                        </button>
                     </div>
                 </div>
                 <p class="chart-container__amount" v-if="isBandwidthChartShown"><b>{{ bandwidthSummary }}</b></p>
@@ -119,12 +121,9 @@
                 <DiskStatChart />
             </section>
         </section>
-        <div class="info-area__blurred-checks" v-if="!selectedSatellite.id">
-            <p class="info-area__blurred-checks__title">Select a Specific Satellite to View Audit and Uptime Percentages</p>
-        </div>
-        <div v-if="selectedSatellite.id">
+        <div>
             <p class="info-area__title">Suspension & Audit</p>
-            <div class="info-area__checks-area">
+            <div class="info-area__checks-area" v-if="selectedSatellite.id">
                 <ChecksArea
                     label="Suspension Score"
                     :amount="checks.suspension"
@@ -136,6 +135,7 @@
                     info-text="Percentage of successful pings/communication between the node & satellite."
                 />
             </div>
+            <AllSatellitesAuditsArea v-else />
         </div>
         <div class="info-area__payout-header">
             <p class="info-area__title">Payout</p>
@@ -155,6 +155,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import AllSatellitesAuditsArea from '@/app/components/AllSatellitesAuditsArea.vue';
 import BandwidthChart from '@/app/components/BandwidthChart.vue';
 import BarInfo from '@/app/components/BarInfo.vue';
 import ChecksArea from '@/app/components/ChecksArea.vue';
@@ -191,6 +192,7 @@ class Checks {
 
 @Component ({
     components: {
+        AllSatellitesAuditsArea,
         DiskStatChart,
         TotalPayoutArea,
         EstimationArea,
@@ -530,6 +532,7 @@ export default class SNOContentFilling extends Vue {
                 flex-direction: row;
                 align-items: center;
                 justify-content: flex-end;
+                text-decoration: none;
 
                 &__text {
                     font-size: 16px;

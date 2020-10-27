@@ -49,6 +49,48 @@ func (server *Server) checkProjectUsage(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+func (server *Server) getProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	projectUUIDString, ok := vars["project"]
+	if !ok {
+		httpJSONError(w, "project-uuid missing",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	projectUUID, err := uuid.FromString(projectUUIDString)
+	if err != nil {
+		httpJSONError(w, "invalid project-uuid",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		httpJSONError(w, "invalid form",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	project, err := server.db.Console().Projects().Get(ctx, projectUUID)
+	if err != nil {
+		httpJSONError(w, "unable to fetch project details",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	data, err := json.Marshal(project)
+	if err != nil {
+		httpJSONError(w, "json encoding failed",
+			err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(data) // nothing to do with the error response, probably the client requesting disappeared
+}
+
 func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -102,11 +144,17 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 		} `json:"rate"`
 		Buckets int `json:"maxBuckets"`
 	}
-	output.Usage.Amount = usagelimit
-	output.Usage.Bytes = usagelimit.Int64()
-	output.Bandwidth.Amount = bandwidthlimit
-	output.Bandwidth.Bytes = bandwidthlimit.Int64()
-	output.Buckets = project.MaxBuckets
+	if usagelimit != nil {
+		output.Usage.Amount = memory.Size(*usagelimit)
+		output.Usage.Bytes = *usagelimit
+	}
+	if bandwidthlimit != nil {
+		output.Bandwidth.Amount = memory.Size(*bandwidthlimit)
+		output.Bandwidth.Bytes = *bandwidthlimit
+	}
+	if project.MaxBuckets != nil {
+		output.Buckets = *project.MaxBuckets
+	}
 	if project.RateLimit != nil {
 		output.Rate.RPS = *project.RateLimit
 	}
@@ -419,10 +467,10 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 
 func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, projectID uuid.UUID) (hasUsage bool) {
 	// do not delete projects that have usage for the current month.
-	year, month, _ := time.Now().UTC().Date()
+	year, month, _ := server.nowFn().UTC().Date()
 	firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 
-	currentUsage, err := server.db.ProjectAccounting().GetProjectTotal(ctx, projectID, firstOfMonth, time.Now())
+	currentUsage, err := server.db.ProjectAccounting().GetProjectTotal(ctx, projectID, firstOfMonth, server.nowFn())
 	if err != nil {
 		httpJSONError(w, "unable to list project usage",
 			err.Error(), http.StatusInternalServerError)
@@ -443,10 +491,11 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 	}
 
 	if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.ObjectCount > 0 {
-		err := server.db.StripeCoinPayments().ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour))
+		// time passed into the check function need to be the UTC midnight dates of the first and last day of the month
+		err := server.db.StripeCoinPayments().ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour*24))
 		switch err {
 		case stripecoinpayments.ErrProjectRecordExists:
-			record, err := server.db.StripeCoinPayments().ProjectRecords().Get(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour))
+			record, err := server.db.StripeCoinPayments().ProjectRecords().Get(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour*24))
 			if err != nil {
 				httpJSONError(w, "unable to get project records",
 					err.Error(), http.StatusInternalServerError)

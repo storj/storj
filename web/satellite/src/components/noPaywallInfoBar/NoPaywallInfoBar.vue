@@ -45,7 +45,7 @@ export default class NoPaywallInfoBar extends Vue {
             return item.type === PaymentsHistoryItemType.Coupon;
         });
 
-        return coupons[coupons.length - 1];
+        return coupons[coupons.length - 1] || new PaymentsHistoryItem(); // returns new item in case when coupons array is empty.
     }
 }
 </script>

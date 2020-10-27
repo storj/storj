@@ -173,11 +173,6 @@ func (service *Service) Delete(ctx context.Context, requests []Request, successT
 	}
 	defer service.concurrentRequests.Release(int64(totalPieceCount))
 
-	threshold, err := sync2.NewSuccessThreshold(len(requests), successThreshold)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
 	// Create a map for matching node information with the corresponding
 	// request.
 	nodesReqs := make(map[storj.NodeID]Request, len(requests))
@@ -207,6 +202,11 @@ func (service *Service) Delete(ctx context.Context, requests []Request, successT
 				Pieces: req.Pieces,
 			}
 		}
+	}
+
+	threshold, err := sync2.NewSuccessThreshold(len(nodesReqs), successThreshold)
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
 	for _, req := range nodesReqs {

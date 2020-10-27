@@ -5,6 +5,7 @@ package consoleapi
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -20,8 +21,14 @@ import (
 	"storj.io/storj/satellite/rewards"
 )
 
-// ErrAuthAPI - console auth api error type.
-var ErrAuthAPI = errs.Class("console auth api error")
+var (
+	// ErrAuthAPI - console auth api error type.
+	ErrAuthAPI = errs.Class("console auth api error")
+
+	// errNotImplemented is the error value used by handlers of this package to
+	// response with status Not Implemented.
+	errNotImplemented = errs.New("not implemented")
+)
 
 // Auth is an api controller that exposes all auth functionality.
 type Auth struct {
@@ -208,11 +215,12 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	var user struct {
-		ID        uuid.UUID `json:"id"`
-		FullName  string    `json:"fullName"`
-		ShortName string    `json:"shortName"`
-		Email     string    `json:"email"`
-		PartnerID uuid.UUID `json:"partnerId"`
+		ID           uuid.UUID `json:"id"`
+		FullName     string    `json:"fullName"`
+		ShortName    string    `json:"shortName"`
+		Email        string    `json:"email"`
+		PartnerID    uuid.UUID `json:"partnerId"`
+		ProjectLimit int       `json:"projectLimit"`
 	}
 
 	auth, err := console.GetAuth(ctx)
@@ -226,6 +234,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.Email = auth.User.Email
 	user.ID = auth.User.ID
 	user.PartnerID = auth.User.PartnerID
+	user.ProjectLimit = auth.User.ProjectLimit
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(&user)
@@ -235,26 +244,13 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// DeleteAccount - authorizes user and deletes account by password.
+// DeleteAccount authorizes user and deletes account by password.
 func (a *Auth) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&errNotImplemented)
 
-	var deleteRequest struct {
-		Password string `json:"password"`
-	}
-
-	err = json.NewDecoder(r.Body).Decode(&deleteRequest)
-	if err != nil {
-		a.serveJSONError(w, err)
-		return
-	}
-
-	err = a.service.DeleteAccount(ctx, deleteRequest.Password)
-	if err != nil {
-		a.serveJSONError(w, err)
-	}
+	// We do not want to allow account deletion via API currently.
+	a.serveJSONError(w, errNotImplemented)
 }
 
 // ChangePassword auth user, changes users password for a new one.
@@ -411,6 +407,8 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusUnauthorized
 	case console.ErrEmailUsed.Has(err):
 		return http.StatusConflict
+	case errors.Is(err, errNotImplemented):
+		return http.StatusNotImplemented
 	default:
 		return http.StatusInternalServerError
 	}

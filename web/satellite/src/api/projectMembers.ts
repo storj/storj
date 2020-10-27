@@ -117,7 +117,13 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
         }
 
         const projectMembersPage: ProjectMembersPage = new ProjectMembersPage();
-        projectMembersPage.projectMembers = projectMembers.projectMembers.map(key => new ProjectMember(key.user.fullName, key.user.shortName, key.user.email, key.joinedAt, key.user.id));
+        projectMembersPage.projectMembers = projectMembers.projectMembers.map(key => new ProjectMember(
+            key.user.fullName,
+            key.user.shortName,
+            key.user.email,
+            new Date(key.joinedAt),
+            key.user.id,
+        ));
 
         projectMembersPage.search = projectMembers.search;
         projectMembersPage.limit = projectMembers.limit;

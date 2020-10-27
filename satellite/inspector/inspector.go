@@ -120,12 +120,12 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 		return nil, Error.Wrap(err)
 	}
 
-	path, err := metainfo.CreatePath(ctx, projectID, in.GetSegmentIndex(), in.GetBucket(), in.GetEncryptedPath())
+	location, err := metainfo.CreatePath(ctx, projectID, in.GetSegmentIndex(), in.GetBucket(), in.GetEncryptedPath())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	pointer, err := endpoint.metainfo.Get(ctx, path)
+	pointer, err := endpoint.metainfo.Get(ctx, location.Encode())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

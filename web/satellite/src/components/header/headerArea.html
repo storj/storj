@@ -1,27 +1,28 @@
 <!--Copyright (C) 2019 Storj Labs, Inc.-->
 <!--See LICENSE for copying information.-->
 
-<div class="dashboard-header-container">
-    <div class="dashboard-header-container__left-area">
-        <NavigationMenuIcon
-            class="dashboard-header-container__left-area__menu-button"
-            v-if="!isNavigationVisible"
-            @click.stop="toggleNavigationVisibility"
-        />
-        <div class="dashboard-header-container__left-area__close-button" v-if="isNavigationVisible" @click.stop="toggleNavigationVisibility">
-            <NavigationCloseIcon/>
-            <p class="dashboard-header-container__left-area__close-button__title">Close</p>
+<div class="header-container">
+    <div class="header-container__left-area">
+        <div class="header-container__left-area__logo-area">
+            <NavigationMenuIcon
+                class="header-container__left-area__logo-area__menu-button"
+                v-if="!isNavigationVisible"
+                @click.stop="toggleNavigationVisibility"
+            />
+            <div class="header-container__left-area__logo-area__close-button" v-if="isNavigationVisible" @click.stop="toggleNavigationVisibility">
+                <NavigationCloseIcon/>
+                <p class="header-container__left-area__logo-area__close-button__title">Close</p>
+            </div>
+            <LogoIcon
+                class="logo"
+                @click.stop="onLogoClick"
+            />
         </div>
+        <ProjectSelection class="project-selection"/>
+        <ResourcesSelection class="resources-selection"/>
+        <SettingsSelection class="settings-selection"/>
     </div>
-    <LogoIcon
-        class="storj-title"
-        @click.stop="onLogoClick"
-    />
-    <div class="dashboard-header-container__right-area">
-        <NewProjectArea class="dashboard-header-container__right-area__new-project"/>
-        <AccountButton class="dashboard-header-container__right-area__account-button"/>
-    </div>
-    <ProjectCreationSuccessPopup/>
+    <AccountButton class="header-container__account-button"/>
     <NavigationArea
         class="adapted-navigation"
         v-if="isNavigationVisible"

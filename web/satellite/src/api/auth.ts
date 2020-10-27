@@ -125,7 +125,18 @@ export class AuthHttpApi {
         const path = `${this.ROOT_PATH}/account`;
         const response = await this.http.get(path);
         if (response.ok) {
-            return await response.json();
+            const userResponse = await response.json();
+
+            return new User(
+                userResponse.id,
+                userResponse.fullName,
+                userResponse.shortName,
+                userResponse.email,
+                userResponse.partner,
+                userResponse.partnerId,
+                userResponse.password,
+                userResponse.projectLimit,
+            );
         }
 
         if (response.status === 401) {

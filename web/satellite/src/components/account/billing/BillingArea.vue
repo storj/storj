@@ -63,7 +63,6 @@ import SmallDepositHistory from '@/components/account/billing/depositAndBillingH
 import EstimatedCostsAndCredits from '@/components/account/billing/estimatedCostsAndCredits/EstimatedCostsAndCredits.vue';
 import HistoryDropdown from '@/components/account/billing/HistoryDropdown.vue';
 import PaymentMethods from '@/components/account/billing/paymentMethods/PaymentMethods.vue';
-import VDatepicker from '@/components/common/VDatePicker.vue';
 
 import DatePickerIcon from '@/../static/images/account/billing/datePicker.svg';
 import ExpandIcon from '@/../static/images/account/billing/expand.svg';
@@ -76,7 +75,6 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccountBalance } from '@/types/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { ProjectOwning } from '@/utils/projectOwning';
 
 @Component({
     components: {
@@ -84,7 +82,6 @@ import { ProjectOwning } from '@/utils/projectOwning';
         SmallDepositHistory,
         EstimatedCostsAndCredits,
         PaymentMethods,
-        VDatepicker,
         DatePickerIcon,
         LowBalanceIcon,
         NegativeBalanceIcon,
@@ -94,8 +91,6 @@ import { ProjectOwning } from '@/utils/projectOwning';
     },
 })
 export default class BillingArea extends Vue {
-    public isCreditsDropdownShown: boolean = false;
-    public isBalanceDropdownShown: boolean = false;
     public readonly creditHistoryRoute: string = RouteConfig.Account.with(RouteConfig.CreditsHistory).path;
     public readonly balanceHistoryRoute: string = RouteConfig.Account.with(RouteConfig.DepositHistory).path;
 
@@ -108,7 +103,6 @@ export default class BillingArea extends Vue {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY);
             if (this.$store.getters.canUserCreateFirstProject && !this.userHasOwnProject) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
-                await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
             }
         } catch (error) {
             await this.$notify.error(error.message);
@@ -126,6 +120,20 @@ export default class BillingArea extends Vue {
      * If balance is lower - yellow notification should appear.
      */
     private readonly CRITICAL_AMOUNT: number = 1000;
+
+    /**
+     * Indicates if free credits dropdown shown.
+     */
+    public get isCreditsDropdownShown(): boolean {
+        return this.$store.state.appStateModule.appState.isFreeCreditsDropdownShown;
+    }
+
+    /**
+     * Indicates if available balance dropdown shown.
+     */
+    public get isBalanceDropdownShown(): boolean {
+        return this.$store.state.appStateModule.appState.isAvailableBalanceDropdownShown;
+    }
 
     /**
      * Returns account balance from store.
@@ -175,35 +183,37 @@ export default class BillingArea extends Vue {
      * Indicates if user has own project.
      */
     public get userHasOwnProject(): boolean {
-        return new ProjectOwning(this.$store).usersProjectsCount() > 0;
+        return this.$store.getters.projectsCount > 0;
     }
 
     /**
      * Toggles free credits dropdown visibility.
      */
     public toggleCreditsDropdown(): void {
-        this.isCreditsDropdownShown = !this.isCreditsDropdownShown;
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_FREE_CREDITS_DROPDOWN);
     }
 
     /**
      * Toggles available balance dropdown visibility.
      */
     public toggleBalanceDropdown(): void {
-        this.isBalanceDropdownShown = !this.isBalanceDropdownShown;
+        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_AVAILABLE_BALANCE_DROPDOWN);
     }
 
     /**
-     * Closes free credits dropdown.
+     * Closes free credits and balance dropdowns.
      */
     public closeDropdown(): void {
-        this.isCreditsDropdownShown = false;
-        this.isBalanceDropdownShown = false;
+        if (!this.isCreditsDropdownShown && !this.isBalanceDropdownShown) return;
+
+        this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
     }
 }
 </script>
 
 <style scoped lang="scss">
     .account-billing-area {
+        padding-bottom: 40px;
 
         &__title-area {
             display: flex;

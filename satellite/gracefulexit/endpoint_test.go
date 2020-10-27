@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 	"strconv"
-	"sync"
 	"testing"
 	"time"
 
@@ -24,16 +23,17 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testblobs"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/gracefulexit"
-	"storj.io/storj/storagenode/pieces"
 )
 
 const numObjects = 6
@@ -172,8 +172,10 @@ func TestConcurrentConnections(t *testing.T) {
 
 		var group errgroup.Group
 		concurrentCalls := 4
-		var wg sync.WaitGroup
-		wg.Add(1)
+
+		var mainStarted sync2.Fence
+		defer mainStarted.Release()
+
 		for i := 0; i < concurrentCalls; i++ {
 			group.Go(func() (err error) {
 				// connect to satellite so we initiate the exit.
@@ -185,8 +187,9 @@ func TestConcurrentConnections(t *testing.T) {
 
 				client := pb.NewDRPCSatelliteGracefulExitClient(conn)
 
-				// wait for "main" call to begin
-				wg.Wait()
+				if !mainStarted.Wait(ctx) {
+					return ctx.Err()
+				}
 
 				c, err := client.Process(ctx)
 				require.NoError(t, err)
@@ -226,7 +229,7 @@ func TestConcurrentConnections(t *testing.T) {
 		require.NoError(t, err)
 
 		// start receiving from concurrent connections
-		wg.Done()
+		mainStarted.Release()
 
 		err = group.Wait()
 		require.NoError(t, err)
@@ -252,6 +255,15 @@ func TestRecvTimeout(t *testing.T) {
 				config.Metainfo.RS.RepairThreshold = 3
 				config.Metainfo.RS.SuccessThreshold = successThreshold
 				config.Metainfo.RS.TotalThreshold = successThreshold
+			},
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.GracefulExit = gracefulexit.Config{
+					ChoreInterval:          2 * time.Minute,
+					NumWorkers:             2,
+					NumConcurrentTransfers: 2,
+					MinBytesPerSecond:      128,
+					MinDownloadTimeout:     2 * time.Minute,
+				}
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -292,17 +304,9 @@ func TestRecvTimeout(t *testing.T) {
 		// make uploads on storage node slower than the timeout for transferring bytes to another node
 		delay := 200 * time.Millisecond
 		storageNodeDB.SetLatency(delay)
-		store := pieces.NewStore(zaptest.NewLogger(t), storageNodeDB.Pieces(), nil, nil, storageNodeDB.PieceSpaceUsedDB(), pieces.DefaultConfig)
 
 		// run the SN chore again to start processing transfers.
-		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), store, exitingNode.Storage2.Trust, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.NodeURL(),
-			gracefulexit.Config{
-				ChoreInterval:          0,
-				NumWorkers:             2,
-				NumConcurrentTransfers: 2,
-				MinBytesPerSecond:      128,
-				MinDownloadTimeout:     2 * time.Minute,
-			})
+		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.GracefulExit.Service, exitingNode.PieceTransfer.Service, exitingNode.Dialer, satellite.NodeURL(), exitingNode.Config.GracefulExit)
 		defer ctx.Check(worker.Close)
 
 		err = worker.Run(ctx, func() {})
@@ -790,7 +794,7 @@ func TestSuccessPointerUpdate(t *testing.T) {
 		keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, string(keys[0]))
+		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(keys[0]))
 		require.NoError(t, err)
 
 		found := 0
@@ -861,8 +865,8 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 			// update pointer to include the new receiving node before responding to satellite
 			keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)
 			require.NoError(t, err)
-			path := string(keys[0])
-			pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+
+			pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(keys[0]))
 			require.NoError(t, err)
 			require.NotNil(t, pointer.GetRemote())
 			require.True(t, len(pointer.GetRemote().GetRemotePieces()) > 0)
@@ -883,7 +887,7 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 				NodeId:   firstRecNodeID,
 			}
 
-			_, err = satellite.Metainfo.Service.UpdatePieces(ctx, path, pointer, pieceToAdd, pieceToRemove)
+			_, err = satellite.Metainfo.Service.UpdatePieces(ctx, metabase.SegmentKey(keys[0]), pointer, pieceToAdd, pieceToRemove)
 			require.NoError(t, err)
 
 			err = processClient.Send(success)
@@ -907,8 +911,8 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 		// check exiting node is still in the pointer
 		keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)
 		require.NoError(t, err)
-		path := string(keys[0])
-		pointer, err := satellite.Metainfo.Service.Get(ctx, path)
+
+		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(keys[0]))
 		require.NoError(t, err)
 		require.NotNil(t, pointer.GetRemote())
 		require.True(t, len(pointer.GetRemote().GetRemotePieces()) > 0)
@@ -1102,7 +1106,7 @@ func TestFailureNotFoundPieceHashVerified(t *testing.T) {
 
 		var pointer *pb.Pointer
 		for _, key := range keys {
-			p, err := satellite.Metainfo.Service.Get(ctx, string(key))
+			p, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(key))
 			require.NoError(t, err)
 
 			if p.GetRemote() != nil {
@@ -1134,7 +1138,7 @@ func TestFailureNotFoundPieceHashUnverified(t *testing.T) {
 		var oldPointer *pb.Pointer
 		var path []byte
 		for _, key := range keys {
-			p, err := satellite.Metainfo.Service.Get(ctx, string(key))
+			p, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(key))
 			require.NoError(t, err)
 
 			if p.GetRemote() != nil {
@@ -1195,7 +1199,7 @@ func TestFailureNotFoundPieceHashUnverified(t *testing.T) {
 
 		var pointer *pb.Pointer
 		for _, key := range keys {
-			p, err := satellite.Metainfo.Service.Get(ctx, string(key))
+			p, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(key))
 			require.NoError(t, err)
 
 			if p.GetRemote() != nil {
@@ -1485,11 +1489,11 @@ func testTransfers(t *testing.T, objects int, verifier func(t *testing.T, ctx *t
 		require.NoError(t, err)
 		defer ctx.Check(c.CloseSend)
 
-		verifier(t, ctx, nodeFullIDs, satellite, c, exitingNode, len(incompleteTransfers))
+		verifier(t, ctx, nodeFullIDs, satellite, c, exitingNode.Peer, len(incompleteTransfers))
 	})
 }
 
-func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int) (*storagenode.Peer, error) {
+func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int) (*testplanet.StorageNode, error) {
 	satellite := planet.Satellites[0]
 	keys, err := satellite.Metainfo.Database.List(ctx, nil, objects)
 	if err != nil {
@@ -1502,7 +1506,7 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 	}
 
 	for _, key := range keys {
-		pointer, err := satellite.Metainfo.Service.Get(ctx, string(key))
+		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(key))
 		if err != nil {
 			return nil, err
 		}
@@ -1526,6 +1530,5 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 		}
 	}
 
-	node := planet.FindNode(exitingNodeID)
-	return node.Peer, nil
+	return planet.FindNode(exitingNodeID), nil
 }

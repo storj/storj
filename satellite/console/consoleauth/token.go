@@ -12,7 +12,7 @@ import (
 	"github.com/zeebo/errs"
 )
 
-//TODO: change to JWT or Macaroon based auth
+// TODO: change to JWT or Macaroon based auth
 
 // Token represents authentication data structure.
 type Token struct {

@@ -76,8 +76,13 @@ func TestProjectUsageStorage(t *testing.T) {
 
 		data := testrand.Bytes(1 * memory.MB)
 
+		// set limit manually to 1MB until column values can be nullable
+		accountingDB := planet.Satellites[0].DB.ProjectAccounting()
+		err := accountingDB.UpdateProjectUsageLimit(ctx, planet.Uplinks[0].Projects[0].ID, 1*memory.MB)
+		require.NoError(t, err)
+
 		// successful upload
-		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/0", data)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/0", data)
 		atomic.StoreUint32(&uploaded, 1)
 		require.NoError(t, err)
 		planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
@@ -323,7 +328,6 @@ func TestProjectUsageCustomLimit(t *testing.T) {
 		project := projects[0]
 		// set custom usage limit for project
 		expectedLimit := memory.Size(memory.GiB.Int64() * 10)
-
 		err = acctDB.UpdateProjectUsageLimit(ctx, project.ID, expectedLimit)
 		require.NoError(t, err)
 
@@ -424,16 +428,21 @@ func TestUsageRollups(t *testing.T) {
 		for i := 0; i < tallyIntervals; i++ {
 			interval := start.Add(tallyInterval * time.Duration(i))
 
-			bucketTallies := make(map[string]*accounting.BucketTally)
+			bucketTallies := make(map[metabase.BucketLocation]*accounting.BucketTally)
 			for j, bucket := range buckets {
-				bucketID1 := project1.String() + "/" + bucket
-				bucketID2 := project2.String() + "/" + bucket
+				bucketLoc1 := metabase.BucketLocation{
+					ProjectID:  project1,
+					BucketName: bucket,
+				}
+				bucketLoc2 := metabase.BucketLocation{
+					ProjectID:  project2,
+					BucketName: bucket,
+				}
 				value1 := getValue(i, j, p1base) * 10
 				value2 := getValue(i, j, p2base) * 10
 
 				tally1 := &accounting.BucketTally{
-					BucketName:     []byte(bucket),
-					ProjectID:      project1,
+					BucketLocation: bucketLoc1,
 					ObjectCount:    value1,
 					InlineSegments: value1,
 					RemoteSegments: value1,
@@ -443,8 +452,7 @@ func TestUsageRollups(t *testing.T) {
 				}
 
 				tally2 := &accounting.BucketTally{
-					BucketName:     []byte(bucket),
-					ProjectID:      project2,
+					BucketLocation: bucketLoc2,
 					ObjectCount:    value2,
 					InlineSegments: value2,
 					RemoteSegments: value2,
@@ -453,8 +461,8 @@ func TestUsageRollups(t *testing.T) {
 					MetadataSize:   value2,
 				}
 
-				bucketTallies[bucketID1] = tally1
-				bucketTallies[bucketID2] = tally2
+				bucketTallies[bucketLoc1] = tally1
+				bucketTallies[bucketLoc2] = tally2
 			}
 
 			err := db.ProjectAccounting().SaveTallies(ctx, interval, bucketTallies)
@@ -573,7 +581,7 @@ func TestProjectUsage_FreeUsedStorageSpace(t *testing.T) {
 		// check if usage is equal to first uploaded file
 		prefix, err := metainfo.CreatePath(ctx, project.ID, -1, []byte("testbucket"), []byte{})
 		require.NoError(t, err)
-		items, _, err := satMetainfo.Service.List(ctx, prefix, "", true, 1, meta.All)
+		items, _, err := satMetainfo.Service.List(ctx, prefix.Encode(), "", true, 1, meta.All)
 		require.NoError(t, err)
 
 		usage, err := accounting.ProjectUsage.GetProjectStorageTotals(ctx, project.ID)

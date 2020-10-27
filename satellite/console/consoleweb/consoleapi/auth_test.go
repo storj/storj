@@ -6,10 +6,18 @@ package consoleapi_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"io"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"reflect"
 	"strconv"
+	"strings"
 	"testing"
+	"testing/quick"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -18,6 +26,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 )
 
 func TestAuth_Register(t *testing.T) {
@@ -89,4 +98,124 @@ func TestAuth_Register(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestDeleteAccount(t *testing.T) {
+	// We do a black box testing because currently we don't allow to delete
+	// accounts through the API hence we must always return an error response.
+
+	config := &quick.Config{
+		Values: func(values []reflect.Value, rnd *rand.Rand) {
+			// TODO: use or implement a better and thorough HTTP Request random generator
+
+			var method string
+			switch rnd.Intn(9) {
+			case 0:
+				method = http.MethodGet
+			case 1:
+				method = http.MethodHead
+			case 2:
+				method = http.MethodPost
+			case 3:
+				method = http.MethodPut
+			case 4:
+				method = http.MethodPatch
+			case 5:
+				method = http.MethodDelete
+			case 6:
+				method = http.MethodConnect
+			case 7:
+				method = http.MethodOptions
+			case 8:
+				method = http.MethodTrace
+			default:
+				t.Fatal("unexpected random value for HTTP method selection")
+			}
+
+			var path string
+			{
+
+				val, ok := quick.Value(reflect.TypeOf(""), rnd)
+				require.True(t, ok, "quick.Values generator function couldn't generate a string")
+				path = url.PathEscape(val.String())
+			}
+
+			var query string
+			{
+				nparams := rnd.Intn(27)
+				params := make([]string, nparams)
+
+				for i := 0; i < nparams; i++ {
+					val, ok := quick.Value(reflect.TypeOf(""), rnd)
+					require.True(t, ok, "quick.Values generator function couldn't generate a string")
+					param := val.String()
+
+					val, ok = quick.Value(reflect.TypeOf(""), rnd)
+					require.True(t, ok, "quick.Values generator function couldn't generate a string")
+					param += "=" + val.String()
+
+					params[i] = param
+				}
+
+				query = url.QueryEscape(strings.Join(params, "&"))
+			}
+
+			var body io.Reader
+			{
+				val, ok := quick.Value(reflect.TypeOf([]byte(nil)), rnd)
+				require.True(t, ok, "quick.Values generator function couldn't generate a byte slice")
+				body = bytes.NewReader(val.Bytes())
+			}
+
+			withQuery := ""
+			if len(query) > 0 {
+				withQuery = "?"
+			}
+
+			reqURL, err := url.Parse("//storj.io/" + path + withQuery + query)
+			require.NoError(t, err, "error when generating a random URL")
+			req, err := http.NewRequest(method, reqURL.String(), body)
+			require.NoError(t, err, "error when geneating a random request")
+			values[0] = reflect.ValueOf(req)
+		},
+	}
+
+	expectedHandler := func(_ *http.Request) (status int, body []byte) {
+		return http.StatusNotImplemented, []byte("{\"error\":\"not implemented\"}\n")
+	}
+
+	actualHandler := func(r *http.Request) (status int, body []byte) {
+		rr := httptest.NewRecorder()
+		(&consoleapi.Auth{}).DeleteAccount(rr, r)
+
+		//nolint:bodyclose
+		result := rr.Result()
+		defer func() {
+			err := result.Body.Close()
+			require.NoError(t, err)
+		}()
+
+		body, err := ioutil.ReadAll(result.Body)
+		require.NoError(t, err)
+
+		return result.StatusCode, body
+
+	}
+
+	err := quick.CheckEqual(expectedHandler, actualHandler, config)
+	if err != nil {
+		fmt.Printf("%+v\n", err)
+		cerr := err.(*quick.CheckEqualError)
+
+		t.Fatalf(`DeleteAccount handler has returned a different response:
+round: %d
+input args: %+v
+expected response:
+	status code: %d
+	response body: %s
+returned response:
+	status code: %d
+	response body: %s
+`, cerr.Count, cerr.In, cerr.Out1[0], cerr.Out1[1], cerr.Out2[0], cerr.Out2[1])
+	}
 }

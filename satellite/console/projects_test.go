@@ -4,6 +4,7 @@
 package console_test
 
 import (
+	"math/rand"
 	"sort"
 	"testing"
 	"time"
@@ -20,7 +21,6 @@ import (
 )
 
 func TestProjectsRepository(t *testing.T) {
-	//testing constants
 	const (
 		// for user
 		shortName    = "lastName"
@@ -33,6 +33,7 @@ func TestProjectsRepository(t *testing.T) {
 		description = "some description"
 
 		// updated project values
+		newName        = "newProjectName"
 		newDescription = "some new description"
 	)
 
@@ -105,9 +106,10 @@ func TestProjectsRepository(t *testing.T) {
 
 				newRateLimit := 1000
 
-				// creating new project with updated values
+				// creating new project with updated values.
 				newProject := &console.Project{
 					ID:          oldProject.ID,
+					Name:        newName,
 					Description: newDescription,
 					RateLimit:   &newRateLimit,
 				}
@@ -119,6 +121,7 @@ func TestProjectsRepository(t *testing.T) {
 				newProject, err = projects.Get(ctx, oldProject.ID)
 				require.NoError(t, err)
 				require.Equal(t, oldProject.ID, newProject.ID)
+				require.Equal(t, newName, newProject.Name)
 				require.Equal(t, newDescription, newProject.Description)
 				require.Equal(t, newRateLimit, *newProject.RateLimit)
 			})
@@ -191,7 +194,7 @@ func TestProjectsList(t *testing.T) {
 
 		projectsDB := db.Console().Projects()
 
-		//create projects
+		// Create projects
 		var projects []console.Project
 		for i := 0; i < length; i++ {
 			proj, err := projectsDB.Insert(ctx,
@@ -239,11 +242,48 @@ func TestGetMaxBuckets(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		maxCount := 100
 		consoleDB := db.Console()
-		project, err := consoleDB.Projects().Insert(ctx, &console.Project{Name: "testproject1", MaxBuckets: maxCount})
+		project, err := consoleDB.Projects().Insert(ctx, &console.Project{Name: "testproject1", MaxBuckets: &maxCount})
 		require.NoError(t, err)
 		projectsDB := db.Console().Projects()
 		max, err := projectsDB.GetMaxBuckets(ctx, project.ID)
 		require.NoError(t, err)
-		require.Equal(t, maxCount, max)
+		require.Equal(t, maxCount, *max)
 	})
+}
+
+func TestValidateNameAndDescription(t *testing.T) {
+	t.Run("Project name and description validation test", func(t *testing.T) {
+		validDescription := randString(100)
+
+		// update project with empty name.
+		err := console.ValidateNameAndDescription("", validDescription)
+		require.Error(t, err)
+
+		notValidName := randString(21)
+
+		// update project with too long name.
+		err = console.ValidateNameAndDescription(notValidName, validDescription)
+		require.Error(t, err)
+
+		validName := randString(15)
+		notValidDescription := randString(101)
+
+		// update project with too long description.
+		err = console.ValidateNameAndDescription(validName, notValidDescription)
+		require.Error(t, err)
+
+		// update project with valid name and description.
+		err = console.ValidateNameAndDescription(validName, validDescription)
+		require.NoError(t, err)
+	})
+}
+
+func randString(n int) string {
+	var letters = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
 }

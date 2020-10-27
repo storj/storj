@@ -67,8 +67,8 @@ type DB interface {
 	// UpdateCheckIn updates a single storagenode's check-in stats.
 	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, config NodeSelectionConfig) (err error)
 
-	// UpdateAuditHistory updates a node's audit history with an online or offline audit and returns the online score for the tracking period.
-	UpdateAuditHistory(ctx context.Context, nodeID storj.NodeID, auditTime time.Time, online bool, config AuditHistoryConfig) (onlineScore float64, err error)
+	// UpdateAuditHistory updates a node's audit history with an online or offline audit.
+	UpdateAuditHistory(ctx context.Context, nodeID storj.NodeID, auditTime time.Time, online bool, config AuditHistoryConfig) (auditHistory *pb.AuditHistory, err error)
 
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
 	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
@@ -101,6 +101,11 @@ type DB interface {
 	SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
 	// UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
 	UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error)
+
+	// TestVetNode directly sets a node's vetted_at timestamp to make testing easier
+	TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error)
+	// TestUnvetNode directly sets a node's vetted_at timestamp to null to make testing easier
+	TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error)
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins.
@@ -133,8 +138,6 @@ type FindStorageNodesRequest struct {
 // NodeCriteria are the requirements for selecting nodes.
 type NodeCriteria struct {
 	FreeDisk         int64
-	AuditCount       int64
-	UptimeCount      int64
 	ExcludedIDs      []storj.NodeID
 	ExcludedNetworks []string // the /24 subnet IPv4 or /64 subnet IPv6 for nodes
 	MinimumVersion   string   // semver or empty
@@ -152,6 +155,8 @@ const (
 	AuditFailure
 	// AuditUnknown represents an audit that resulted in an unknown error from the node.
 	AuditUnknown
+	// AuditOffline represents an audit where a node was offline.
+	AuditOffline
 )
 
 // UpdateRequest is used to update a node status.
@@ -226,6 +231,9 @@ type NodeStats struct {
 	UnknownAuditReputationAlpha float64
 	UnknownAuditReputationBeta  float64
 	UnknownAuditSuspended       *time.Time
+	OfflineUnderReview          *time.Time
+	OfflineSuspended            *time.Time
+	OnlineScore                 float64
 }
 
 // NodeLastContact contains the ID, address, and timestamp.
@@ -367,8 +375,6 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 
 	criteria := NodeCriteria{
 		FreeDisk:         preferences.MinimumDiskSpace.Int64(),
-		AuditCount:       preferences.AuditCount,
-		UptimeCount:      preferences.UptimeCount,
 		ExcludedIDs:      excludedIDs,
 		ExcludedNetworks: excludedNetworks,
 		MinimumVersion:   preferences.MinimumVersion,
@@ -527,15 +533,40 @@ func ResolveIPAndNetwork(ctx context.Context, target string) (ipPort, network st
 
 	// If addr can be converted to 4byte notation, it is an IPv4 address, else its an IPv6 address
 	if ipv4 := ipAddr.IP.To4(); ipv4 != nil {
-		//Filter all IPv4 Addresses into /24 Subnet's
+		// Filter all IPv4 Addresses into /24 Subnet's
 		mask := net.CIDRMask(24, 32)
 		return net.JoinHostPort(ipAddr.String(), port), ipv4.Mask(mask).String(), nil
 	}
 	if ipv6 := ipAddr.IP.To16(); ipv6 != nil {
-		//Filter all IPv6 Addresses into /64 Subnet's
+		// Filter all IPv6 Addresses into /64 Subnet's
 		mask := net.CIDRMask(64, 128)
 		return net.JoinHostPort(ipAddr.String(), port), ipv6.Mask(mask).String(), nil
 	}
 
 	return "", "", errors.New("unable to get network for address " + ipAddr.String())
+}
+
+// TestVetNode directly sets a node's vetted_at timestamp to make testing easier.
+func (service *Service) TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error) {
+	vettedTime, err = service.db.TestVetNode(ctx, nodeID)
+	service.log.Warn("node vetted", zap.Stringer("node ID", nodeID), zap.Stringer("vetted time", vettedTime))
+	if err != nil {
+		service.log.Warn("error vetting node", zap.Stringer("node ID", nodeID))
+		return nil, err
+	}
+	err = service.SelectionCache.Refresh(ctx)
+	service.log.Warn("nodecache refresh err", zap.Error(err))
+	return vettedTime, err
+}
+
+// TestUnvetNode directly sets a node's vetted_at timestamp to null to make testing easier.
+func (service *Service) TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error) {
+	err = service.db.TestUnvetNode(ctx, nodeID)
+	if err != nil {
+		service.log.Warn("error unvetting node", zap.Stringer("node ID", nodeID), zap.Error(err))
+		return err
+	}
+	err = service.SelectionCache.Refresh(ctx)
+	service.log.Warn("nodecache refresh err", zap.Error(err))
+	return err
 }

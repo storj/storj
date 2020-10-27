@@ -3,7 +3,7 @@
 exports[`NotificationArea.vue renders correctly 1`] = ``;
 
 exports[`NotificationArea.vue renders correctly with notification 1`] = `
-<div id="notificationArea" class="notification-container">
+<div class="notification-container">
   <div class="notification-wrap" style="background-color: rgb(219, 241, 211);">
     <div class="notification-wrap__text-area">
       <div class="notification-wrap__text-area__image"><svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">

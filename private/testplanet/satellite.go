@@ -25,7 +25,6 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/private/debug"
 	"storj.io/private/version"
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
 	versionchecker "storj.io/storj/private/version/checker"
@@ -40,6 +39,7 @@ import (
 	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/dbcleanup"
@@ -121,7 +121,7 @@ type Satellite struct {
 		Inspector *irreparable.Inspector
 	}
 	Audit struct {
-		Queue    *audit.Queue
+		Queues   *audit.Queues
 		Worker   *audit.Worker
 		Chore    *audit.Chore
 		Verifier *audit.Verifier
@@ -150,6 +150,10 @@ type Satellite struct {
 
 	LiveAccounting struct {
 		Cache accounting.Cache
+	}
+
+	ProjectLimits struct {
+		Cache *accounting.ProjectLimitCache
 	}
 
 	Mail struct {
@@ -265,7 +269,7 @@ func (system *Satellite) AuthenticatedContext(ctx context.Context, userID uuid.U
 		return nil, err
 	}
 
-	auth, err := system.API.Console.Service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
+	auth, err := system.API.Console.Service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
 	if err != nil {
 		return nil, err
 	}
@@ -397,7 +401,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				Node: overlay.NodeSelectionConfig{
 					UptimeCount:      0,
 					AuditCount:       0,
-					NewNodeFraction:  0,
+					NewNodeFraction:  1,
 					OnlineWindow:     time.Minute,
 					DistinctIP:       false,
 					MinimumDiskSpace: 100 * memory.MB,
@@ -479,7 +483,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				FlushBatchSize:             10,
 				FlushInterval:              defaultInterval,
 				NodeStatusLogging:          true,
-				WindowEndpointRolloutPhase: orders.WindowEndpointRolloutPhase1,
+				WindowEndpointRolloutPhase: orders.WindowEndpointRolloutPhase3,
 			},
 			Checker: checker.Config{
 				Interval:                  defaultInterval,
@@ -712,7 +716,7 @@ func createNewSystem(log *zap.Logger, config satellite.Config, peer *satellite.C
 	system.Repair.Repairer = repairerPeer.Repairer
 	system.Repair.Inspector = api.Repair.Inspector
 
-	system.Audit.Queue = peer.Audit.Queue
+	system.Audit.Queues = peer.Audit.Queues
 	system.Audit.Worker = peer.Audit.Worker
 	system.Audit.Chore = peer.Audit.Chore
 	system.Audit.Verifier = peer.Audit.Verifier
@@ -726,11 +730,13 @@ func createNewSystem(log *zap.Logger, config satellite.Config, peer *satellite.C
 
 	system.Accounting.Tally = peer.Accounting.Tally
 	system.Accounting.Rollup = peer.Accounting.Rollup
-	system.Accounting.ProjectUsage = peer.Accounting.ProjectUsage
+	system.Accounting.ProjectUsage = api.Accounting.ProjectUsage
 	system.Accounting.ReportedRollup = peer.Accounting.ReportedRollupChore
 	system.Accounting.ProjectBWCleanup = peer.Accounting.ProjectBWCleanupChore
 
 	system.LiveAccounting = peer.LiveAccounting
+
+	system.ProjectLimits.Cache = api.ProjectLimits.Cache
 
 	system.Marketing.Listener = api.Marketing.Listener
 	system.Marketing.Endpoint = api.Marketing.Endpoint

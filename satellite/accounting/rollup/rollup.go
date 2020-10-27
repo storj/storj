@@ -78,7 +78,7 @@ func (r *Service) Rollup(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 
-	//remove the latest day (which we cannot know is complete), then push to DB
+	// remove the latest day (which we cannot know is complete), then push to DB
 	latestTally = time.Date(latestTally.Year(), latestTally.Month(), latestTally.Day(), 0, 0, 0, 0, latestTally.Location())
 	delete(rollupStats, latestTally)
 	if len(rollupStats) == 0 {
@@ -113,7 +113,7 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 		r.logger.Info("Rollup found no new tallies")
 		return lastRollup, nil
 	}
-	//loop through tallies and build Rollup
+	// loop through tallies and build Rollup
 	for _, tallyRow := range tallies {
 		node := tallyRow.NodeID
 		// tallyEndTime is the time the at rest tally was saved
@@ -121,7 +121,7 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 		if tallyEndTime.After(latestTally) {
 			latestTally = tallyEndTime
 		}
-		//create or get AccoutingRollup day entry
+		// create or get AccoutingRollup day entry
 		iDay := time.Date(tallyEndTime.Year(), tallyEndTime.Month(), tallyEndTime.Day(), 0, 0, 0, 0, tallyEndTime.Location())
 		if rollupStats[iDay] == nil {
 			rollupStats[iDay] = make(map[storj.NodeID]*accounting.Rollup)
@@ -129,7 +129,7 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 		if rollupStats[iDay][node] == nil {
 			rollupStats[iDay][node] = &accounting.Rollup{NodeID: node, StartTime: iDay}
 		}
-		//increment data at rest sum
+		// increment data at rest sum
 		rollupStats[iDay][node].AtRestTotal += tallyRow.DataTotal
 	}
 

@@ -12,7 +12,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 )
 
-//TODO: change to JWT or Macaroon based auth
+// TODO: change to JWT or Macaroon based auth
 
 // Signer creates signature for provided data.
 type Signer interface {
@@ -37,6 +37,9 @@ type key int
 
 // authKey is context key for Authorization.
 const authKey key = 0
+
+// requestKey is context key for Requests.
+const requestKey key = 1
 
 // ErrUnauthorized is error class for authorization related errors.
 var ErrUnauthorized = errs.Class("unauthorized error")

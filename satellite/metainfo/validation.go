@@ -21,8 +21,8 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth"
 )
 
 const (
@@ -127,7 +127,7 @@ func getAPIKey(ctx context.Context, header *pb.RequestHeader) (key *macaroon.API
 		return macaroon.ParseRawAPIKey(header.ApiKey)
 	}
 
-	keyData, ok := auth.GetAPIKey(ctx)
+	keyData, ok := consoleauth.GetAPIKey(ctx)
 	if !ok {
 		return nil, errs.New("missing credentials")
 	}
@@ -231,7 +231,7 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (e
 			zap.Stringer("projectID", projectID),
 			zap.Float64("limit", float64(limiter.(*rate.Limiter).Limit())))
 
-		mon.Event("metainfo_rate_limit_exceeded") //locked
+		mon.Event("metainfo_rate_limit_exceeded") //mon:locked
 
 		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Too Many Requests")
 	}

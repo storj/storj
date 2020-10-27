@@ -6,16 +6,18 @@
 package metainfo
 
 import (
+	"bytes"
+
 	"storj.io/common/pb"
-	"storj.io/common/storj"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 // sanityCheckPointer implements sanity checking test data,
 // we don't need this in production code.
-func sanityCheckPointer(path string, pointer *pb.Pointer) (err error) {
-	tokens := storj.SplitPath(path)
+func sanityCheckPointer(key metabase.SegmentKey, pointer *pb.Pointer) (err error) {
+	tokens := bytes.Split(key, []byte("/"))
 	if len(tokens) <= 3 {
-		return Error.New("invalid path %q", path)
+		return Error.New("invalid path %s", key)
 	}
 
 	if pointer.Type == pb.Pointer_REMOTE {

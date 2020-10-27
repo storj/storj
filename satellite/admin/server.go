@@ -10,6 +10,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"go.uber.org/zap"
@@ -52,6 +53,8 @@ type Server struct {
 
 	db       DB
 	payments payments.Accounts
+
+	nowFn func() time.Time
 }
 
 // NewServer returns a new administration Server.
@@ -64,6 +67,8 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, accounts payments.
 
 		db:       db,
 		payments: accounts,
+
+		nowFn: time.Now,
 	}
 
 	server.server.Handler = &protectedServer{
@@ -79,12 +84,16 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, accounts payments.
 	server.mux.HandleFunc("/api/coupon", server.addCoupon).Methods("POST")
 	server.mux.HandleFunc("/api/coupon/{couponid}", server.couponInfo).Methods("GET")
 	server.mux.HandleFunc("/api/coupon/{couponid}", server.deleteCoupon).Methods("DELETE")
+	server.mux.HandleFunc("/api/project", server.addProject).Methods("POST")
 	server.mux.HandleFunc("/api/project/{project}/usage", server.checkProjectUsage).Methods("GET")
 	server.mux.HandleFunc("/api/project/{project}/limit", server.getProjectLimit).Methods("GET")
 	server.mux.HandleFunc("/api/project/{project}/limit", server.putProjectLimit).Methods("PUT", "POST")
+	server.mux.HandleFunc("/api/project/{project}", server.getProject).Methods("GET")
 	server.mux.HandleFunc("/api/project/{project}", server.renameProject).Methods("PUT")
 	server.mux.HandleFunc("/api/project/{project}", server.deleteProject).Methods("DELETE")
-	server.mux.HandleFunc("/api/project", server.addProject).Methods("POST")
+	server.mux.HandleFunc("/api/project/{project}/apikey", server.addAPIKey).Methods("POST")
+	server.mux.HandleFunc("/api/project/{project}/apikey/{name}", server.deleteAPIKeyByName).Methods("DELETE")
+	server.mux.HandleFunc("/api/apikey/{apikey}", server.deleteAPIKey).Methods("DELETE")
 
 	return server
 }
@@ -138,6 +147,11 @@ func (server *Server) Run(ctx context.Context) error {
 		return Error.Wrap(err)
 	})
 	return group.Wait()
+}
+
+// SetNow allows tests to have the server act as if the current time is whatever they want.
+func (server *Server) SetNow(nowFn func() time.Time) {
+	server.nowFn = nowFn
 }
 
 // Close closes server and underlying listener.

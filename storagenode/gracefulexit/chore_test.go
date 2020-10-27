@@ -16,6 +16,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 )
@@ -171,7 +172,7 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 	}
 
 	for _, key := range keys {
-		pointer, err := satellite.Metainfo.Service.Get(ctx, string(key))
+		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(key))
 		if err != nil {
 			return nil, err
 		}

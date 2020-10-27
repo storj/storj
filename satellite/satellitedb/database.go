@@ -12,6 +12,7 @@ import (
 	"storj.io/storj/pkg/cache"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/storj/private/tagsql"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
@@ -20,7 +21,6 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gracefulexit"
-	"storj.io/storj/satellite/heldamount"
 	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -30,6 +30,7 @@ import (
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/snopayout"
 )
 
 var (
@@ -41,6 +42,8 @@ var (
 // of the db driver, db implementation, and db source URL.
 type satelliteDB struct {
 	*dbx.DB
+
+	migrationDB tagsql.DB
 
 	opts           Options
 	log            *zap.Logger
@@ -97,6 +100,9 @@ func New(log *zap.Logger, databaseURL string, opts Options) (satellite.DB, error
 		implementation: implementation,
 		source:         source,
 	}
+
+	core.migrationDB = core
+
 	return core, nil
 }
 
@@ -197,8 +203,8 @@ func (db *satelliteDB) DowntimeTracking() downtime.DB {
 	return &downtimeTrackingDB{db: db}
 }
 
-// HeldAmount returns database for storagenode payStubs and payments info.
-func (db *satelliteDB) HeldAmount() heldamount.DB {
+// SnoPayout returns database for storagenode payStubs and payments info.
+func (db *satelliteDB) SnoPayout() snopayout.DB {
 	return &paymentStubs{db: db}
 }
 

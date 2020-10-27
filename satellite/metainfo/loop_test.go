@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 // TestLoop does the following
@@ -293,7 +294,7 @@ type testObserver struct {
 	objectCount    int
 	remoteSegCount int
 	inlineSegCount int
-	uniquePaths    map[string]metainfo.ScopedPath
+	uniquePaths    map[string]metabase.SegmentLocation
 	onSegment      func(context.Context) error // if set, run this during RemoteSegment()
 }
 
@@ -302,19 +303,20 @@ func newTestObserver(onSegment func(context.Context) error) *testObserver {
 		objectCount:    0,
 		remoteSegCount: 0,
 		inlineSegCount: 0,
-		uniquePaths:    make(map[string]metainfo.ScopedPath),
+		uniquePaths:    make(map[string]metabase.SegmentLocation),
 		onSegment:      onSegment,
 	}
 }
 
-func (obs *testObserver) RemoteSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) error {
+func (obs *testObserver) RemoteSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) error {
 	obs.remoteSegCount++
 
-	if _, ok := obs.uniquePaths[path.Raw]; ok {
+	key := location.Encode()
+	if _, ok := obs.uniquePaths[string(key)]; ok {
 		// TODO: collect the errors and check in test
 		panic("Expected unique path in observer.RemoteSegment")
 	}
-	obs.uniquePaths[path.Raw] = path
+	obs.uniquePaths[string(key)] = location
 
 	if obs.onSegment != nil {
 		return obs.onSegment(ctx)
@@ -323,17 +325,18 @@ func (obs *testObserver) RemoteSegment(ctx context.Context, path metainfo.Scoped
 	return nil
 }
 
-func (obs *testObserver) Object(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) error {
+func (obs *testObserver) Object(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) error {
 	obs.objectCount++
 	return nil
 }
 
-func (obs *testObserver) InlineSegment(ctx context.Context, path metainfo.ScopedPath, pointer *pb.Pointer) error {
+func (obs *testObserver) InlineSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) error {
 	obs.inlineSegCount++
-	if _, ok := obs.uniquePaths[path.Raw]; ok {
+	key := location.Encode()
+	if _, ok := obs.uniquePaths[string(key)]; ok {
 		// TODO: collect the errors and check in test
 		panic("Expected unique path in observer.InlineSegment")
 	}
-	obs.uniquePaths[path.Raw] = path
+	obs.uniquePaths[string(key)] = location
 	return nil
 }

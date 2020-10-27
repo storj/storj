@@ -12,8 +12,8 @@ exports[`should render correctly 1`] = `
       <p class="user-container__base-info__name-area__owner-status">Project Owner</p>
     </div>
   </div>
-  <p class="user-container__date">8/9/2019</p>
-  <p class="user-container__user-email">test@example.com</p>
+  <p class="user-container__date">1/1/1970</p>
+  <p title="test@example.com" class="user-container__user-email">test@example.com</p>
 </div>
 `;
 
@@ -29,7 +29,7 @@ exports[`should render correctly with item row highlighted 1`] = `
       <p class="user-container__base-info__name-area__owner-status">Project Owner</p>
     </div>
   </div>
-  <p class="user-container__date">8/9/2019</p>
-  <p class="user-container__user-email">test@example.com</p>
+  <p class="user-container__date">1/1/1970</p>
+  <p title="test@example.com" class="user-container__user-email">test@example.com</p>
 </div>
 `;

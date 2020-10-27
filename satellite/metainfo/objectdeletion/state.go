@@ -7,13 +7,14 @@ import (
 	"context"
 
 	"storj.io/common/pb"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 // ObjectState determines how an object should be handled during
 // a delete operation.
 // It also stores pointers related to an object.
 type ObjectState struct {
-	ObjectIdentifier
+	metabase.ObjectLocation
 
 	LastSegment *pb.Pointer
 	ZeroSegment *pb.Pointer
@@ -53,32 +54,32 @@ const (
 )
 
 // CreateObjectStates creates the current object states.
-func CreateObjectStates(ctx context.Context, requests []*ObjectIdentifier, pointers []*pb.Pointer, paths [][]byte) (map[string]*ObjectState, error) {
+func CreateObjectStates(ctx context.Context, requests []*metabase.ObjectLocation, pointers []*pb.Pointer, paths []metabase.SegmentKey) (map[metabase.ObjectLocation]*ObjectState, error) {
 
 	// Fetch headers to figure out the status of objects.
-	objects := make(map[string]*ObjectState)
+	objects := make(map[metabase.ObjectLocation]*ObjectState)
 	for _, req := range requests {
-		objects[req.Key()] = &ObjectState{
-			ObjectIdentifier: *req,
+		objects[*req] = &ObjectState{
+			ObjectLocation: *req,
 		}
 	}
 
 	for i, p := range paths {
 		// Update our state map.
-		id, segment, err := ParseSegmentPath(p)
+		segmentLocation, err := metabase.ParseSegmentKey(p)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
-		state, ok := objects[id.Key()]
+		state, ok := objects[segmentLocation.Object()]
 		if !ok {
 			return nil, Error.Wrap(err)
 		}
 
-		switch segment {
-		case lastSegmentIndex:
+		switch {
+		case segmentLocation.IsLast():
 			state.LastSegment = pointers[i]
-		case firstSegmentIndex:
+		case segmentLocation.IsFirst():
 			state.ZeroSegment = pointers[i]
 		default:
 			return nil, Error.New("pointerDB failure")

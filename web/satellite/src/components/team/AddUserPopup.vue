@@ -46,7 +46,7 @@
                             width='205px'
                             height='48px'
                             :on-press="onClose"
-                            is-white="true"
+                            is-transparent="true"
                         />
                         <VButton
                             label='Add Team Members'
@@ -67,7 +67,7 @@
                     <p class="notification-wrap__text-area__text">
                         If the team member you want to invite to join the project is still not on this Satellite, please
                         share this link to the signup page and ask them to register here:
-                        <router-link target="_blank" rel="noopener noreferrer" exact to="/register">
+                        <router-link target="_blank" rel="noopener noreferrer" exact to="/signup">
                             {{registerPath}}
                         </router-link>
                     </p>

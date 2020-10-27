@@ -14,15 +14,15 @@ import (
 type Status = int
 
 const (
-	//Unexpected status should not be used for sanity checking.
+	// Unexpected status should not be used for sanity checking.
 	Unexpected Status = 0
-	//Normal status reflects a lack of graceful exit.
+	// Normal status reflects a lack of graceful exit.
 	Normal = 1
-	//Exiting reflects an active graceful exit.
+	// Exiting reflects an active graceful exit.
 	Exiting = 2
-	//ExitSucceeded reflects a graceful exit that succeeded.
+	// ExitSucceeded reflects a graceful exit that succeeded.
 	ExitSucceeded = 3
-	//ExitFailed reflects a graceful exit that failed.
+	// ExitFailed reflects a graceful exit that failed.
 	ExitFailed = 4
 )
 

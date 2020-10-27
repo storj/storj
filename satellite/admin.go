@@ -115,7 +115,11 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 		var err error
 		switch pc.Provider {
 		default:
-			stripeClient = stripecoinpayments.NewStripeMock(peer.ID())
+			stripeClient = stripecoinpayments.NewStripeMock(
+				peer.ID(),
+				peer.DB.StripeCoinPayments().Customers(),
+				peer.DB.Console().Users(),
+			)
 		case "stripecoinpayments":
 			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
 		}
@@ -144,7 +148,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Payments.Stripe = stripeClient
 		peer.Payments.Accounts = peer.Payments.Service.Accounts()
 	}
-	{ //setup admin endpoint
+	{ // setup admin endpoint
 		var err error
 		peer.Admin.Listener, err = net.Listen("tcp", config.Admin.Address)
 		if err != nil {

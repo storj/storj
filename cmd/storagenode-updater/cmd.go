@@ -19,6 +19,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
+	"storj.io/private/version"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/storagenode"
 )
@@ -31,6 +32,8 @@ const (
 var (
 	// TODO: replace with config value of random bytes in storagenode config.
 	nodeID storj.NodeID
+
+	updaterBinaryPath string
 
 	rootCmd = &cobra.Command{
 		Use:   "storagenode-updater",
@@ -52,7 +55,7 @@ var (
 	runCfg struct {
 		storagenode.Config
 
-		BinaryLocation string `help:"the storage node executable binary location" default:"storagenode.exe"`
+		BinaryLocation string `help:"the storage node executable binary location" default:"storagenode"`
 		ServiceName    string `help:"storage node OS service name" default:"storagenode"`
 		// deprecated
 		Log string `help:"deprecated, use --log.output" default:""`
@@ -83,6 +86,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
+	updaterBinaryPath, err = os.Executable()
+	if err != nil {
+		zap.L().Fatal("Unable to find storage node updater binary path.")
+	}
+
 	if !fileExists(runCfg.BinaryLocation) {
 		zap.L().Fatal("Unable to find storage node executable binary.")
 	}
@@ -95,6 +103,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	if nodeID.IsZero() {
 		zap.L().Fatal("Empty node ID.")
 	}
+
+	zap.L().Info("Running on version",
+		zap.String("Service", updaterServiceName),
+		zap.String("Version", version.Build.Version.String()),
+	)
 
 	ctx, _ := process.Ctx(cmd)
 
@@ -132,7 +145,7 @@ func openLog(logPath string) error {
 		logPath = "winfile:///" + logPath
 	}
 
-	logger, err := process.NewLoggerWithOutputPaths(logPath)
+	logger, err := process.NewLoggerWithOutputPaths("storagenode-updater", logPath)
 	if err != nil {
 		return err
 	}

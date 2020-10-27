@@ -46,7 +46,7 @@
                                 label="Cancel"
                                 width="122px"
                                 height="48px"
-                                is-white="true"
+                                is-transparent="true"
                                 :on-press="onClearSelection"
                             />
                             <span class="header-selected-api-keys__info-text" v-if="!isDeleteClicked">

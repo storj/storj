@@ -95,7 +95,7 @@ type Core struct {
 		Checker *checker.Checker
 	}
 	Audit struct {
-		Queue    *audit.Queue
+		Queues   *audit.Queues
 		Worker   *audit.Worker
 		Chore    *audit.Chore
 		Verifier *audit.Verifier
@@ -117,7 +117,6 @@ type Core struct {
 	Accounting struct {
 		Tally                 *tally.Service
 		Rollup                *rollup.Service
-		ProjectUsage          *accounting.Service
 		ReportedRollupChore   *reportedrollup.Chore
 		ProjectBWCleanupChore *projectbwcleanup.Chore
 	}
@@ -245,16 +244,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.LiveAccounting.Cache = liveAccounting
 	}
 
-	{ // setup accounting project usage
-		peer.Accounting.ProjectUsage = accounting.NewService(
-			peer.DB.ProjectAccounting(),
-			peer.LiveAccounting.Cache,
-			config.Metainfo.ProjectLimits.DefaultMaxUsage,
-			config.Metainfo.ProjectLimits.DefaultMaxBandwidth,
-			config.LiveAccounting.BandwidthCacheTTL,
-		)
-	}
-
 	{ // setup orders
 		peer.Orders.DB = rollupsWriteCache
 		peer.Orders.Chore = orders.NewChore(log.Named("orders:chore"), rollupsWriteCache, config.Orders)
@@ -263,18 +252,22 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Run:   peer.Orders.Chore.Run,
 			Close: peer.Orders.Chore.Close,
 		})
-		peer.Orders.Service = orders.NewService(
+		var err error
+		peer.Orders.Service, err = orders.NewService(
 			peer.Log.Named("orders:service"),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.Overlay.Service,
 			peer.Orders.DB,
 			peer.DB.Buckets(),
-			config.Orders.Expiration,
+			config.Orders,
 			&pb.NodeAddress{
 				Transport: pb.NodeTransport_TCP_TLS_GRPC,
 				Address:   config.Contact.ExternalAddress,
 			},
 		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 	}
 
 	{ // setup metainfo
@@ -315,7 +308,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup audit
 		config := config.Audit
 
-		peer.Audit.Queue = &audit.Queue{}
+		peer.Audit.Queues = audit.NewQueues()
 
 		peer.Audit.Verifier = audit.NewVerifier(log.Named("audit:verifier"),
 			peer.Metainfo.Service,
@@ -336,7 +329,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		)
 
 		peer.Audit.Worker, err = audit.NewWorker(peer.Log.Named("audit:worker"),
-			peer.Audit.Queue,
+			peer.Audit.Queues,
 			peer.Audit.Verifier,
 			peer.Audit.Reporter,
 			config,
@@ -354,7 +347,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 
 		peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit:chore"),
-			peer.Audit.Queue,
+			peer.Audit.Queues,
 			peer.Metainfo.Loop,
 			config,
 		)
@@ -456,7 +449,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		var stripeClient stripecoinpayments.StripeClient
 		switch pc.Provider {
 		default:
-			stripeClient = stripecoinpayments.NewStripeMock(peer.ID())
+			stripeClient = stripecoinpayments.NewStripeMock(
+				peer.ID(),
+				peer.DB.StripeCoinPayments().Customers(),
+				peer.DB.Console().Users(),
+			)
 		case "stripecoinpayments":
 			stripeClient = stripecoinpayments.NewStripeClient(log, pc.StripeCoinPayments)
 		}
