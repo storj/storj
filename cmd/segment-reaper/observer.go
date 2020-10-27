@@ -81,17 +81,17 @@ type observer struct {
 }
 
 // RemoteSegment processes a segment to collect data needed to detect zombie segment.
-func (obsvr *observer) RemoteSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
-	return obsvr.processSegment(ctx, location, pointer)
+func (obsvr *observer) RemoteSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
+	return obsvr.processSegment(ctx, segment)
 }
 
 // InlineSegment processes a segment to collect data needed to detect zombie segment.
-func (obsvr *observer) InlineSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
-	return obsvr.processSegment(ctx, location, pointer)
+func (obsvr *observer) InlineSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
+	return obsvr.processSegment(ctx, segment)
 }
 
 // Object not used in this implementation.
-func (obsvr *observer) Object(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
+func (obsvr *observer) Object(ctx context.Context, object *metainfo.Object) (err error) {
 	return nil
 }
 
@@ -106,8 +106,8 @@ func (obsvr *observer) Object(ctx context.Context, location metabase.SegmentLoca
 // NOTE it's expected that this method is called continually for the objects
 // which belong to a same project before calling it with objects of another
 // project.
-func (obsvr *observer) processSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) error {
-	if !obsvr.lastProjectID.IsZero() && obsvr.lastProjectID != location.ProjectID {
+func (obsvr *observer) processSegment(ctx context.Context, segment *metainfo.Segment) error {
+	if !obsvr.lastProjectID.IsZero() && obsvr.lastProjectID != segment.Location.ProjectID {
 		err := obsvr.analyzeProject(ctx)
 		if err != nil {
 			return err
@@ -117,11 +117,11 @@ func (obsvr *observer) processSegment(ctx context.Context, location metabase.Seg
 		obsvr.clearBucketsObjects()
 	}
 
-	obsvr.lastProjectID = location.ProjectID
-	isLastSegment := location.IsLast()
+	obsvr.lastProjectID = segment.Location.ProjectID
+	isLastSegment := segment.Location.IsLast()
 
 	// collect number of pointers for reporting
-	if pointer.Type == pb.Pointer_INLINE {
+	if segment.Inline {
 		obsvr.inlineSegments++
 		if isLastSegment {
 			obsvr.lastInlineSegments++
@@ -130,14 +130,14 @@ func (obsvr *observer) processSegment(ctx context.Context, location metabase.Seg
 		obsvr.remoteSegments++
 	}
 
-	object := findOrCreate(location.BucketName, location.ObjectKey, obsvr.objects)
-	if obsvr.from != nil && pointer.CreationDate.Before(*obsvr.from) {
+	object := findOrCreate(segment.Location.BucketName, segment.Location.ObjectKey, obsvr.objects)
+	if obsvr.from != nil && segment.CreationDate.Before(*obsvr.from) {
 		object.skip = true
 		// release the memory consumed by the segments because it won't be used
 		// for skip objects
 		object.segments = nil
 		return nil
-	} else if obsvr.to != nil && pointer.CreationDate.After(*obsvr.to) {
+	} else if obsvr.to != nil && segment.CreationDate.After(*obsvr.to) {
 		object.skip = true
 		// release the memory consumed by the segments because it won't be used
 		// for skip objects
@@ -147,20 +147,13 @@ func (obsvr *observer) processSegment(ctx context.Context, location metabase.Seg
 
 	if isLastSegment {
 		object.hasLastSegment = true
-
-		streamMeta := pb.StreamMeta{}
-		err := pb.Unmarshal(pointer.Metadata, &streamMeta)
-		if err != nil {
-			return errs.New("unexpected error unmarshalling pointer metadata %s", err)
-		}
-
-		if streamMeta.NumberOfSegments > 0 {
-			object.expectedNumberOfSegments = int(streamMeta.NumberOfSegments)
+		if segment.MetadataNumberOfSegments > 0 {
+			object.expectedNumberOfSegments = segment.MetadataNumberOfSegments
 		}
 	} else {
-		segmentIndex := int(location.Index)
-		if int64(segmentIndex) != location.Index {
-			return errs.New("unsupported segment index: %d", location.Index)
+		segmentIndex := int(segment.Location.Index)
+		if int64(segmentIndex) != segment.Location.Index {
+			return errs.New("unsupported segment index: %d", segment.Location.Index)
 		}
 		ok, err := object.segments.Has(segmentIndex)
 		if err != nil {
@@ -168,7 +161,7 @@ func (obsvr *observer) processSegment(ctx context.Context, location metabase.Seg
 		}
 		if ok {
 			// TODO make location displayable
-			return errs.New("fatal error this segment is duplicated: %s", location.Encode())
+			return errs.New("fatal error this segment is duplicated: %s", segment.Location.Encode())
 		}
 
 		err = object.segments.Set(segmentIndex)

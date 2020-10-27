@@ -25,6 +25,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/teststore"
@@ -45,14 +46,14 @@ func TestObserver_processSegment(t *testing.T) {
 		testdata1 := generateTestdataObjects(ctx, t, false)
 		// Call processSegment with testadata objects of the first project
 		for _, objSeg := range testdata1.objSegments {
-			err := obsvr.processSegment(ctx, objSeg.location, objSeg.pointer)
+			err := obsvr.processSegment(ctx, objSeg)
 			require.NoError(t, err)
 		}
 
 		testdata2 := generateTestdataObjects(ctx, t, false)
 		// Call processSegment with testadata objects of the second project
 		for _, objSeg := range testdata2.objSegments {
-			err := obsvr.processSegment(ctx, objSeg.location, objSeg.pointer)
+			err := obsvr.processSegment(ctx, objSeg)
 			require.NoError(t, err)
 		}
 
@@ -79,7 +80,7 @@ func TestObserver_processSegment(t *testing.T) {
 
 		// Call processSegment with the testdata
 		for _, objSeg := range testdata.objSegments {
-			err := obsvr.processSegment(ctx, objSeg.location, objSeg.pointer)
+			err := obsvr.processSegment(ctx, objSeg)
 			require.NoError(t, err)
 		}
 
@@ -104,7 +105,7 @@ func TestObserver_processSegment(t *testing.T) {
 		)
 
 		for _, objSeg := range testdata.objSegments {
-			err := obsvr.processSegment(ctx, objSeg.location, objSeg.pointer)
+			err := obsvr.processSegment(ctx, objSeg)
 			require.NoError(t, err)
 		}
 
@@ -145,19 +146,19 @@ func TestObserver_processSegment(t *testing.T) {
 				// Assign a creation date before the from
 				decrement := -time.Duration(rand.Int63n(math.MaxInt64-1) + 1)
 				creationDate := from.Add(decrement)
-				objSegmentsRefs[i].pointer.CreationDate = creationDate
+				objSegmentsRefs[i].CreationDate = creationDate
 				continue
 			}
 
 			// Assign a creation date between from and to (both included)
 			increment := time.Duration(rand.Int63n(int64(diffFromTo) + 1))
-			objSegmentsRefs[i].pointer.CreationDate = from.Add(increment)
+			objSegmentsRefs[i].CreationDate = from.Add(increment)
 		}
 
 		numSegmentsObjInDateRange := rand.Intn(50) + 15
 		var pathObjInDateRange metabase.ObjectKey
 		{ // Object with all the segments with creation date between the from/to range
-			var otherObjSegments []segmentRef
+			var otherObjSegments []*metainfo.Segment
 			pathObjInDateRange, otherObjSegments = createNewObjectSegments(
 				ctx, t, numSegmentsObjInDateRange, &projectID, bucketName, true, false,
 			)
@@ -171,7 +172,7 @@ func TestObserver_processSegment(t *testing.T) {
 		})
 
 		for _, objSeg := range objSegmentsRefs {
-			err := obsvr.processSegment(ctx, objSeg.location, objSeg.pointer)
+			err := obsvr.processSegment(ctx, objSeg)
 			require.NoError(t, err)
 		}
 
@@ -226,19 +227,19 @@ func TestObserver_processSegment(t *testing.T) {
 				// Assign a creation date after the to
 				increment := time.Duration(rand.Int63n(math.MaxInt64-1) + 1)
 				creationDate := to.Add(increment)
-				objSegmentsRefs[i].pointer.CreationDate = creationDate
+				objSegmentsRefs[i].CreationDate = creationDate
 				continue
 			}
 
 			// Assign a creation date between from and to (both included)
 			increment := time.Duration(rand.Int63n(int64(diffFromTo) + 1))
-			objSegmentsRefs[i].pointer.CreationDate = from.Add(increment)
+			objSegmentsRefs[i].CreationDate = from.Add(increment)
 		}
 
 		numSegmentsObjInDateRange := rand.Intn(50) + 15
 		var pathObjInDateRange metabase.ObjectKey
 		{ // Object with all the segments with creation date between the from/to range
-			var otherObjSegments []segmentRef
+			var otherObjSegments []*metainfo.Segment
 			pathObjInDateRange, otherObjSegments = createNewObjectSegments(
 				ctx, t, numSegmentsObjInDateRange, &projectID, bucketName, false, true,
 			)
@@ -252,7 +253,7 @@ func TestObserver_processSegment(t *testing.T) {
 		})
 
 		for _, objSeg := range objSegmentsRefs {
-			err := obsvr.processSegment(ctx, objSeg.location, objSeg.pointer)
+			err := obsvr.processSegment(ctx, objSeg)
 			require.NoError(t, err)
 		}
 
@@ -324,16 +325,16 @@ func TestObserver_processSegment_from_to(t *testing.T) {
 			from:    from,
 			to:      to,
 		}
-		location := metabase.SegmentLocation{
-			ProjectID:  testrand.UUID(),
-			BucketName: "bucket1",
-			Index:      metabase.LastSegmentIndex,
-			ObjectKey:  metabase.ObjectKey("path1"),
-		}
-		pointer := &pb.Pointer{
+		objSeg := metainfo.Segment{
+			Location: metabase.SegmentLocation{
+				ProjectID:  testrand.UUID(),
+				BucketName: "bucket1",
+				Index:      metabase.LastSegmentIndex,
+				ObjectKey:  metabase.ObjectKey("path1"),
+			},
 			CreationDate: tt.pointerCreateDate,
 		}
-		err := observer.processSegment(ctx, location, pointer)
+		err := observer.processSegment(ctx, &objSeg)
 		require.NoError(t, err)
 
 		objectsMap, ok := observer.objects["bucket1"]
@@ -572,13 +573,6 @@ func TestObserver_findZombieSegments(t *testing.T) {
 	}
 }
 
-// segmentRef is an object segment reference to be used for simulating calls to
-// observer.processSegment.
-type segmentRef struct {
-	location metabase.SegmentLocation
-	pointer  *pb.Pointer
-}
-
 // createNewObjectSegments creates a list of segment references which belongs to
 // a same object.
 //
@@ -590,56 +584,41 @@ type segmentRef struct {
 // It returns the object path and the list of object segment references.
 func createNewObjectSegments(
 	ctx context.Context, t *testing.T, numSegments int, projectID *uuid.UUID, bucketName string, inline bool, withNumSegments bool,
-) (objectKey metabase.ObjectKey, _ []segmentRef) {
+) (objectKey metabase.ObjectKey, _ []*metainfo.Segment) {
 	t.Helper()
 
 	var (
 		objectID   = metabase.ObjectKey(testrand.UUID().String())
-		references = make([]segmentRef, 0, numSegments)
+		references = make([]*metainfo.Segment, 0, numSegments)
 	)
 
 	for i := 0; i < (numSegments - 1); i++ {
-		references = append(references, segmentRef{
-			location: metabase.SegmentLocation{
+		references = append(references, &metainfo.Segment{
+			Location: metabase.SegmentLocation{
 				ProjectID:  *projectID,
 				BucketName: bucketName,
 				Index:      int64(i),
 				ObjectKey:  objectID,
 			},
-			pointer: &pb.Pointer{
-				Type:         pb.Pointer_REMOTE,
-				CreationDate: time.Now(),
-			},
+			CreationDate: time.Now(),
 		})
 	}
 
-	pointerType := pb.Pointer_REMOTE
-	if inline {
-		pointerType = pb.Pointer_INLINE
-	}
-
-	var pointerNumSegments int64
+	var pointerNumSegments int
 	if withNumSegments {
-		pointerNumSegments = int64(numSegments)
+		pointerNumSegments = numSegments
 	}
 
-	metadata, err := pb.Marshal(&pb.StreamMeta{
-		NumberOfSegments: pointerNumSegments,
-	})
-	require.NoError(t, err)
-
-	references = append(references, segmentRef{
-		location: metabase.SegmentLocation{
+	references = append(references, &metainfo.Segment{
+		Location: metabase.SegmentLocation{
 			ProjectID:  *projectID,
 			BucketName: bucketName,
 			Index:      metabase.LastSegmentIndex,
 			ObjectKey:  objectID,
 		},
-		pointer: &pb.Pointer{
-			Type:         pointerType,
-			Metadata:     metadata,
-			CreationDate: time.Now(),
-		},
+		Inline:                   inline,
+		MetadataNumberOfSegments: pointerNumSegments,
+		CreationDate:             time.Now(),
 	})
 
 	return objectID, references
@@ -653,7 +632,7 @@ type testdataObjects struct {
 	expectedObjects        bucketsObjects
 
 	// data used for calling processSegment
-	objSegments []segmentRef
+	objSegments []*metainfo.Segment
 	projectID   *uuid.UUID
 }
 

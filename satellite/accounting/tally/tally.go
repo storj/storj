@@ -11,7 +11,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
@@ -210,12 +209,8 @@ func NewObserver(log *zap.Logger, now time.Time) *Observer {
 	}
 }
 
-func (observer *Observer) pointerExpired(pointer *pb.Pointer) bool {
-	return !pointer.ExpirationDate.IsZero() && pointer.ExpirationDate.Before(observer.Now)
-}
-
 // ensureBucket returns bucket corresponding to the passed in path.
-func (observer *Observer) ensureBucket(ctx context.Context, location metabase.SegmentLocation) *accounting.BucketTally {
+func (observer *Observer) ensureBucket(ctx context.Context, location metabase.ObjectLocation) *accounting.BucketTally {
 	bucketLocation := location.Bucket()
 	bucket, exists := observer.Bucket[bucketLocation]
 	if !exists {
@@ -228,56 +223,56 @@ func (observer *Observer) ensureBucket(ctx context.Context, location metabase.Se
 }
 
 // Object is called for each object once.
-func (observer *Observer) Object(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
-	if observer.pointerExpired(pointer) {
+func (observer *Observer) Object(ctx context.Context, object *metainfo.Object) (err error) {
+	if object.Expired(observer.Now) {
 		return nil
 	}
 
-	bucket := observer.ensureBucket(ctx, location)
+	bucket := observer.ensureBucket(ctx, object.Location)
 	bucket.ObjectCount++
+
 	return nil
 }
 
 // InlineSegment is called for each inline segment.
-func (observer *Observer) InlineSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
-	if observer.pointerExpired(pointer) {
+func (observer *Observer) InlineSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
+	if segment.Expired(observer.Now) {
 		return nil
 	}
 
-	bucket := observer.ensureBucket(ctx, location)
+	bucket := observer.ensureBucket(ctx, segment.Location.Object())
 	bucket.InlineSegments++
-	bucket.InlineBytes += int64(len(pointer.InlineSegment))
-	bucket.MetadataSize += int64(len(pointer.Metadata))
+	bucket.InlineBytes += int64(segment.DataSize)
+	bucket.MetadataSize += int64(segment.MetadataSize)
 
 	return nil
 }
 
 // RemoteSegment is called for each remote segment.
-func (observer *Observer) RemoteSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
-	if observer.pointerExpired(pointer) {
+func (observer *Observer) RemoteSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
+	if segment.Expired(observer.Now) {
 		return nil
 	}
 
-	bucket := observer.ensureBucket(ctx, location)
+	bucket := observer.ensureBucket(ctx, segment.Location.Object())
 	bucket.RemoteSegments++
-	bucket.RemoteBytes += pointer.GetSegmentSize()
-	bucket.MetadataSize += int64(len(pointer.Metadata))
+	bucket.RemoteBytes += int64(segment.DataSize)
+	bucket.MetadataSize += int64(segment.MetadataSize)
 
 	// add node info
-	remote := pointer.GetRemote()
-	redundancy := remote.GetRedundancy()
-	segmentSize := pointer.GetSegmentSize()
-	minimumRequired := redundancy.GetMinReq()
+	minimumRequired := segment.Redundancy.RequiredShares
 
-	if remote == nil || redundancy == nil || minimumRequired <= 0 {
-		observer.Log.Error("failed sanity check", zap.ByteString("key", location.Encode()))
+	if minimumRequired <= 0 {
+		observer.Log.Error("failed sanity check", zap.ByteString("key", segment.Location.Encode()))
 		return nil
 	}
 
-	pieceSize := float64(segmentSize / int64(minimumRequired))
-	for _, piece := range remote.GetRemotePieces() {
-		observer.Node[piece.NodeId] += pieceSize
+	pieceSize := float64(segment.DataSize / int(minimumRequired)) // TODO: Add this as a method to RedundancyScheme
+
+	for _, piece := range segment.Pieces {
+		observer.Node[piece.StorageNode] += pieceSize
 	}
+
 	return nil
 }
 

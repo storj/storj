@@ -19,7 +19,6 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/memory"
-	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
@@ -308,15 +307,15 @@ func newTestObserver(onSegment func(context.Context) error) *testObserver {
 	}
 }
 
-func (obs *testObserver) RemoteSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) error {
+func (obs *testObserver) RemoteSegment(ctx context.Context, segment *metainfo.Segment) error {
 	obs.remoteSegCount++
 
-	key := location.Encode()
+	key := segment.Location.Encode()
 	if _, ok := obs.uniquePaths[string(key)]; ok {
 		// TODO: collect the errors and check in test
 		panic("Expected unique path in observer.RemoteSegment")
 	}
-	obs.uniquePaths[string(key)] = location
+	obs.uniquePaths[string(key)] = segment.Location
 
 	if obs.onSegment != nil {
 		return obs.onSegment(ctx)
@@ -325,18 +324,18 @@ func (obs *testObserver) RemoteSegment(ctx context.Context, location metabase.Se
 	return nil
 }
 
-func (obs *testObserver) Object(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) error {
+func (obs *testObserver) Object(ctx context.Context, object *metainfo.Object) error {
 	obs.objectCount++
 	return nil
 }
 
-func (obs *testObserver) InlineSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) error {
+func (obs *testObserver) InlineSegment(ctx context.Context, segment *metainfo.Segment) error {
 	obs.inlineSegCount++
-	key := location.Encode()
+	key := segment.Location.Encode()
 	if _, ok := obs.uniquePaths[string(key)]; ok {
 		// TODO: collect the errors and check in test
 		panic("Expected unique path in observer.InlineSegment")
 	}
-	obs.uniquePaths[string(key)] = location
+	obs.uniquePaths[string(key)] = segment.Location
 	return nil
 }

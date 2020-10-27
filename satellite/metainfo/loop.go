@@ -13,6 +13,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 )
@@ -24,13 +25,47 @@ var (
 	LoopClosedError = LoopError.New("loop closed")
 )
 
+// Object is the object info passed to Observer by metainfo loop.
+type Object struct {
+	Location       metabase.ObjectLocation // tally
+	SegmentCount   int                     // metrics
+	LastSegment    *Segment                // metrics
+	expirationDate time.Time               // tally
+}
+
+// Expired checks if object is expired relative to now.
+func (object *Object) Expired(now time.Time) bool {
+	return !object.expirationDate.IsZero() && object.expirationDate.Before(now)
+}
+
+// Segment is the segment info passed to Observer by metainfo loop.
+type Segment struct {
+	Location                 metabase.SegmentLocation // tally, expired deletion, repair, graceful exit, audit, segment reaper
+	DataSize                 int                      // tally, graceful exit
+	MetadataSize             int                      // tally
+	Inline                   bool                     //  metrics, segment reaper
+	Redundancy               storj.RedundancyScheme   // tally, graceful exit, repair
+	RootPieceID              storj.PieceID            // gc, graceful exit
+	Pieces                   metabase.Pieces          // tally, audit, gc, graceful exit, repair
+	CreationDate             time.Time                // repair, segment reaper
+	expirationDate           time.Time                // tally, expired deletion, repair
+	LastRepaired             time.Time                // repair
+	Pointer                  *pb.Pointer              // expired deletion, repair
+	MetadataNumberOfSegments int                      // segment reaper
+}
+
+// Expired checks if segment is expired relative to now.
+func (segment *Segment) Expired(now time.Time) bool {
+	return !segment.expirationDate.IsZero() && segment.expirationDate.Before(now)
+}
+
 // Observer is an interface defining an observer that can subscribe to the metainfo loop.
 //
 // architecture: Observer
 type Observer interface {
-	Object(context.Context, metabase.SegmentLocation, *pb.Pointer) error
-	RemoteSegment(context.Context, metabase.SegmentLocation, *pb.Pointer) error
-	InlineSegment(context.Context, metabase.SegmentLocation, *pb.Pointer) error
+	Object(context.Context, *Object) error
+	RemoteSegment(context.Context, *Segment) error
+	InlineSegment(context.Context, *Segment) error
 }
 
 // NullObserver is an observer that does nothing. This is useful for joining
@@ -38,17 +73,17 @@ type Observer interface {
 type NullObserver struct{}
 
 // Object implements the Observer interface.
-func (NullObserver) Object(context.Context, metabase.SegmentLocation, *pb.Pointer) error {
+func (NullObserver) Object(context.Context, *Object) error {
 	return nil
 }
 
 // RemoteSegment implements the Observer interface.
-func (NullObserver) RemoteSegment(context.Context, metabase.SegmentLocation, *pb.Pointer) error {
+func (NullObserver) RemoteSegment(context.Context, *Segment) error {
 	return nil
 }
 
 // InlineSegment implements the Observer interface.
-func (NullObserver) InlineSegment(context.Context, metabase.SegmentLocation, *pb.Pointer) error {
+func (NullObserver) InlineSegment(context.Context, *Segment) error {
 	return nil
 }
 
@@ -79,25 +114,25 @@ func newObserverContext(ctx context.Context, obs Observer) *observerContext {
 	}
 }
 
-func (observer *observerContext) Object(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) error {
+func (observer *observerContext) Object(ctx context.Context, object *Object) error {
 	start := time.Now()
 	defer func() { observer.object.Insert(time.Since(start)) }()
 
-	return observer.observer.Object(ctx, location, pointer)
+	return observer.observer.Object(ctx, object)
 }
 
-func (observer *observerContext) RemoteSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) error {
+func (observer *observerContext) RemoteSegment(ctx context.Context, segment *Segment) error {
 	start := time.Now()
 	defer func() { observer.remote.Insert(time.Since(start)) }()
 
-	return observer.observer.RemoteSegment(ctx, location, pointer)
+	return observer.observer.RemoteSegment(ctx, segment)
 }
 
-func (observer *observerContext) InlineSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) error {
+func (observer *observerContext) InlineSegment(ctx context.Context, segment *Segment) error {
 	start := time.Now()
 	defer func() { observer.inline.Insert(time.Since(start)) }()
 
-	return observer.observer.InlineSegment(ctx, location, pointer)
+	return observer.observer.InlineSegment(ctx, segment)
 }
 
 func (observer *observerContext) HandleError(err error) bool {
@@ -240,20 +275,71 @@ func IterateDatabase(ctx context.Context, rateLimit float64, db PointerDB, obser
 // handlePointer deals with a pointer for a single observer
 // if there is some error on the observer, handles the error and returns false. Otherwise, returns true.
 func handlePointer(ctx context.Context, observer *observerContext, location metabase.SegmentLocation, pointer *pb.Pointer) bool {
+	segment := &Segment{
+		Location:       location,
+		MetadataSize:   len(pointer.Metadata),
+		CreationDate:   pointer.CreationDate,
+		LastRepaired:   pointer.LastRepaired,
+		Pointer:        pointer,
+		expirationDate: pointer.ExpirationDate,
+	}
+
+	if location.IsLast() {
+		streamMeta := pb.StreamMeta{}
+		err := pb.Unmarshal(pointer.Metadata, &streamMeta)
+		if observer.HandleError(LoopError.Wrap(err)) {
+			return false
+		}
+		segment.MetadataNumberOfSegments = int(streamMeta.NumberOfSegments)
+	}
+
 	switch pointer.GetType() {
 	case pb.Pointer_REMOTE:
-		if observer.HandleError(observer.RemoteSegment(ctx, location, pointer)) {
+		switch {
+		case pointer.Remote == nil:
+			observer.HandleError(LoopError.New("no remote segment specified"))
+			return false
+		case pointer.Remote.RemotePieces == nil:
+			observer.HandleError(LoopError.New("no remote segment pieces specified"))
+			return false
+		case pointer.Remote.Redundancy == nil:
+			observer.HandleError(LoopError.New("no redundancy scheme specified"))
+			return false
+		}
+		segment.DataSize = int(pointer.SegmentSize)
+		segment.RootPieceID = pointer.Remote.RootPieceId
+		segment.Redundancy = storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: int16(pointer.Remote.Redundancy.MinReq),
+			RepairShares:   int16(pointer.Remote.Redundancy.RepairThreshold),
+			OptimalShares:  int16(pointer.Remote.Redundancy.SuccessThreshold),
+			TotalShares:    int16(pointer.Remote.Redundancy.Total),
+			ShareSize:      pointer.Remote.Redundancy.ErasureShareSize,
+		}
+		segment.Pieces = make(metabase.Pieces, len(pointer.Remote.RemotePieces))
+		for i, piece := range pointer.Remote.RemotePieces {
+			segment.Pieces[i].Number = uint16(piece.PieceNum)
+			segment.Pieces[i].StorageNode = piece.NodeId
+		}
+		if observer.HandleError(observer.RemoteSegment(ctx, segment)) {
 			return false
 		}
 	case pb.Pointer_INLINE:
-		if observer.HandleError(observer.InlineSegment(ctx, location, pointer)) {
+		segment.DataSize = len(pointer.InlineSegment)
+		segment.Inline = true
+		if observer.HandleError(observer.InlineSegment(ctx, segment)) {
 			return false
 		}
 	default:
 		return false
 	}
 	if location.IsLast() {
-		if observer.HandleError(observer.Object(ctx, location, pointer)) {
+		if observer.HandleError(observer.Object(ctx, &Object{
+			Location:       location.Object(),
+			SegmentCount:   segment.MetadataNumberOfSegments,
+			LastSegment:    segment,
+			expirationDate: segment.expirationDate,
+		})) {
 			return false
 		}
 	}
