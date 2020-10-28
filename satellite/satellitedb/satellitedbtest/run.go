@@ -119,13 +119,13 @@ func CreateMasterDB(ctx context.Context, log *zap.Logger, name string, category 
 		return nil, err
 	}
 
-	return CreateMasterDBOnTopOf(log, tempDB)
+	return CreateMasterDBOnTopOf(ctx, log, tempDB)
 }
 
 // CreateMasterDBOnTopOf creates a new satellite database on top of an already existing
 // temporary database.
-func CreateMasterDBOnTopOf(log *zap.Logger, tempDB *dbutil.TempDatabase) (db satellite.DB, err error) {
-	masterDB, err := satellitedb.New(log.Named("db"), tempDB.ConnStr, satellitedb.Options{})
+func CreateMasterDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase) (db satellite.DB, err error) {
+	masterDB, err := satellitedb.Open(ctx, log.Named("db"), tempDB.ConnStr, satellitedb.Options{})
 	return &tempMasterDB{DB: masterDB, tempDB: tempDB}, err
 }
 

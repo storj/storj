@@ -26,7 +26,7 @@ func cmdAdminRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Failed to load identity: %+v", err)
 	}
 
-	db, err := satellitedb.New(log.Named("db"), runCfg.Database, satellitedb.Options{
+	db, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
 		APIKeysLRUOptions: runCfg.APIKeysLRUOptions(),
 	})
 	if err != nil {
