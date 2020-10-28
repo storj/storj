@@ -107,6 +107,19 @@ func (obj ObjectLocation) Segment(index int64) (SegmentLocation, error) {
 	}, nil
 }
 
+// Verify object location fields.
+func (obj ObjectLocation) Verify() error {
+	switch {
+	case obj.ProjectID.IsZero():
+		return ErrInvalidRequest.New("ProjectID missing")
+	case obj.BucketName == "":
+		return ErrInvalidRequest.New("BucketName missing")
+	case len(obj.ObjectKey) == 0:
+		return ErrInvalidRequest.New("ObjectKey missing")
+	}
+	return nil
+}
+
 // SegmentKey is an encoded metainfo key. This is used as the key in pointerdb key-value store.
 type SegmentKey []byte
 
@@ -186,6 +199,77 @@ func (seg SegmentLocation) Encode() SegmentKey {
 		string(seg.ObjectKey),
 	))
 }
+
+// ObjectStream uniquely defines an object and stream.
+//
+// TODO: figure out whether ther's a better name.
+type ObjectStream struct {
+	ProjectID  uuid.UUID
+	BucketName string
+	ObjectKey  ObjectKey
+	Version    Version
+	StreamID   uuid.UUID
+}
+
+// Verify object stream fields.
+func (obj *ObjectStream) Verify() error {
+	switch {
+	case obj.ProjectID.IsZero():
+		return ErrInvalidRequest.New("ProjectID missing")
+	case obj.BucketName == "":
+		return ErrInvalidRequest.New("BucketName missing")
+	case len(obj.ObjectKey) == 0:
+		return ErrInvalidRequest.New("ObjectKey missing")
+	case obj.Version < 0:
+		return ErrInvalidRequest.New("Version invalid: %v", obj.Version)
+	case obj.StreamID.IsZero():
+		return ErrInvalidRequest.New("StreamID missing")
+	}
+	return nil
+}
+
+// Location returns object location.
+func (obj *ObjectStream) Location() ObjectLocation {
+	return ObjectLocation{
+		ProjectID:  obj.ProjectID,
+		BucketName: obj.BucketName,
+		ObjectKey:  obj.ObjectKey,
+	}
+}
+
+// SegmentPosition is segment part and index combined.
+type SegmentPosition struct {
+	Part  uint32
+	Index uint32
+}
+
+// SegmentPositionFromEncoded decodes an uint64 into a SegmentPosition.
+func SegmentPositionFromEncoded(v uint64) SegmentPosition {
+	return SegmentPosition{
+		Part:  uint32(v >> 32),
+		Index: uint32(v),
+	}
+}
+
+// Encode encodes a segment position into an uint64, that can be stored in a database.
+func (pos SegmentPosition) Encode() uint64 { return uint64(pos.Part)<<32 | uint64(pos.Index) }
+
+// Version is used to uniquely identify objects with the same key.
+type Version int64
+
+// NextVersion means that the version should be chosen automatically.
+const NextVersion = Version(0)
+
+// ObjectStatus defines the statuses that the object might be in.
+type ObjectStatus byte
+
+const (
+	// Pending means that the object is being uploaded or that the client failed during upload.
+	// The failed upload may be continued in the future.
+	Pending = ObjectStatus(0)
+	// Committed means that the object is finished and should be visible for general listing.
+	Committed = ObjectStatus(1)
+)
 
 // Pieces defines information for pieces.
 type Pieces []Piece
