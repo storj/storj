@@ -8,7 +8,6 @@ import (
 	"context"
 	"crypto/subtle"
 	"regexp"
-	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -25,101 +24,9 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 )
 
-const (
-	requestTTL = time.Hour * 4
-)
-
 var (
 	ipRegexp = regexp.MustCompile(`^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$`)
 )
-
-// TTLItem keeps association between serial number and ttl.
-type TTLItem struct {
-	serialNumber storj.SerialNumber
-	ttl          time.Time
-}
-
-type createRequest struct {
-	Expiration time.Time
-	Redundancy *pb.RedundancyScheme
-
-	ttl time.Time
-}
-
-type createRequests struct {
-	mu sync.RWMutex
-	// orders limit serial number used because with CreateSegment we don't have path yet
-	entries map[storj.SerialNumber]*createRequest
-
-	muTTL      sync.Mutex
-	entriesTTL []*TTLItem
-}
-
-func newCreateRequests() *createRequests {
-	return &createRequests{
-		entries:    make(map[storj.SerialNumber]*createRequest),
-		entriesTTL: make([]*TTLItem, 0),
-	}
-}
-
-func (requests *createRequests) Put(serialNumber storj.SerialNumber, createRequest *createRequest) {
-	ttl := time.Now().Add(requestTTL)
-
-	go func() {
-		requests.muTTL.Lock()
-		requests.entriesTTL = append(requests.entriesTTL, &TTLItem{
-			serialNumber: serialNumber,
-			ttl:          ttl,
-		})
-		requests.muTTL.Unlock()
-	}()
-
-	createRequest.ttl = ttl
-	requests.mu.Lock()
-	requests.entries[serialNumber] = createRequest
-	requests.mu.Unlock()
-
-	go requests.cleanup()
-}
-
-func (requests *createRequests) Load(serialNumber storj.SerialNumber) (*createRequest, bool) {
-	requests.mu.RLock()
-	request, found := requests.entries[serialNumber]
-	if request != nil && request.ttl.Before(time.Now()) {
-		request = nil
-		found = false
-	}
-	requests.mu.RUnlock()
-
-	return request, found
-}
-
-func (requests *createRequests) Remove(serialNumber storj.SerialNumber) {
-	requests.mu.Lock()
-	delete(requests.entries, serialNumber)
-	requests.mu.Unlock()
-}
-
-func (requests *createRequests) cleanup() {
-	requests.muTTL.Lock()
-	now := time.Now()
-	remove := make([]storj.SerialNumber, 0)
-	newStart := 0
-	for i, item := range requests.entriesTTL {
-		if item.ttl.Before(now) {
-			remove = append(remove, item.serialNumber)
-			newStart = i + 1
-		} else {
-			break
-		}
-	}
-	requests.entriesTTL = requests.entriesTTL[newStart:]
-	requests.muTTL.Unlock()
-
-	for _, serialNumber := range remove {
-		requests.Remove(serialNumber)
-	}
-}
 
 func getAPIKey(ctx context.Context, header *pb.RequestHeader) (key *macaroon.APIKey, err error) {
 	defer mon.Task()(&ctx)(&err)

@@ -77,7 +77,6 @@ type Endpoint struct {
 	projectUsage         *accounting.Service
 	projects             console.Projects
 	apiKeys              APIKeys
-	createRequests       *createRequests
 	satellite            signing.Signer
 	limiterCache         *lrucache.ExpiringLRU
 	encInlineSegmentSize int64 // max inline segment size + encryption overhead
@@ -117,7 +116,6 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 		apiKeys:             apiKeys,
 		projectUsage:        projectUsage,
 		projects:            projects,
-		createRequests:      newCreateRequests(),
 		satellite:           satellite,
 		limiterCache: lrucache.New(lrucache.Options{
 			Capacity:   config.RateLimiter.CacheCapacity,
