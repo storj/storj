@@ -50,7 +50,7 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, pointerDB.Close())
 	}()
 
-	revocationDB, err := revocation.NewDBFromCfg(runCfg.Config.Server.Config)
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, runCfg.Config.Server.Config)
 	if err != nil {
 		return errs.New("Error creating revocation database on satellite api: %+v", err)
 	}

@@ -72,6 +72,8 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 	}
 
 	for i := 0; i < count; i++ {
+		ctx := context.TODO()
+
 		prefix := "storage" + strconv.Itoa(i)
 		log := planet.log.Named(prefix)
 		storageDir := filepath.Join(planet.directory, prefix)
@@ -207,7 +209,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 			}
 		}
 
-		revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
+		revocationDB, err := revocation.OpenDBFromCfg(ctx, config.Server.Config)
 		if err != nil {
 			return xs, errs.Wrap(err)
 		}
@@ -221,7 +223,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 		// Mark the peer's PieceDeleter as in testing mode, so it is easy to wait on the deleter
 		peer.Storage2.PieceDeleter.SetupTest()
 
-		err = db.MigrateToLatest(context.TODO())
+		err = db.MigrateToLatest(ctx)
 		if err != nil {
 			return nil, err
 		}

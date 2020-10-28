@@ -323,6 +323,8 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 	}()
 
 	for i := 0; i < count; i++ {
+		ctx := context.TODO()
+
 		prefix := "satellite" + strconv.Itoa(i)
 		log := planet.log.Named(prefix)
 
@@ -336,7 +338,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 			return nil, err
 		}
 
-		db, err := satellitedbtest.CreateMasterDB(context.TODO(), log.Named("db"), planet.config.Name, "S", i, satelliteDatabases.MasterDB)
+		db, err := satellitedbtest.CreateMasterDB(ctx, log.Named("db"), planet.config.Name, "S", i, satelliteDatabases.MasterDB)
 		if err != nil {
 			return nil, err
 		}
@@ -351,7 +353,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 		}
 		planet.databases = append(planet.databases, db)
 
-		pointerDB, err := satellitedbtest.CreatePointerDB(context.TODO(), log.Named("pointerdb"), planet.config.Name, "P", i, satelliteDatabases.PointerDB)
+		pointerDB, err := satellitedbtest.CreatePointerDB(ctx, log.Named("pointerdb"), planet.config.Name, "P", i, satelliteDatabases.PointerDB)
 		if err != nil {
 			return nil, err
 		}
@@ -620,7 +622,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 
 		versionInfo := planet.NewVersionInfo()
 
-		revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
+		revocationDB, err := revocation.OpenDBFromCfg(ctx, config.Server.Config)
 		if err != nil {
 			return xs, errs.Wrap(err)
 		}
@@ -641,27 +643,27 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 			return xs, err
 		}
 
-		err = db.TestingMigrateToLatest(context.TODO())
+		err = db.TestingMigrateToLatest(ctx)
 		if err != nil {
 			return nil, err
 		}
 
-		api, err := planet.newAPI(i, identity, db, pointerDB, config, versionInfo)
+		api, err := planet.newAPI(ctx, i, identity, db, pointerDB, config, versionInfo)
 		if err != nil {
 			return xs, err
 		}
 
-		adminPeer, err := planet.newAdmin(i, identity, db, config, versionInfo)
+		adminPeer, err := planet.newAdmin(ctx, i, identity, db, config, versionInfo)
 		if err != nil {
 			return xs, err
 		}
 
-		repairerPeer, err := planet.newRepairer(i, identity, db, pointerDB, config, versionInfo)
+		repairerPeer, err := planet.newRepairer(ctx, i, identity, db, pointerDB, config, versionInfo)
 		if err != nil {
 			return xs, err
 		}
 
-		gcPeer, err := planet.newGarbageCollection(i, identity, db, pointerDB, config, versionInfo)
+		gcPeer, err := planet.newGarbageCollection(ctx, i, identity, db, pointerDB, config, versionInfo)
 		if err != nil {
 			return xs, err
 		}
@@ -753,12 +755,12 @@ func createNewSystem(log *zap.Logger, config satellite.Config, peer *satellite.C
 	return system
 }
 
-func (planet *Planet) newAPI(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.API, error) {
+func (planet *Planet) newAPI(ctx context.Context, count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.API, error) {
 	prefix := "satellite-api" + strconv.Itoa(count)
 	log := planet.log.Named(prefix)
 	var err error
 
-	revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, config.Server.Config)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -776,18 +778,18 @@ func (planet *Planet) newAPI(count int, identity *identity.FullIdentity, db sate
 	return satellite.NewAPI(log, identity, db, pointerDB, revocationDB, liveAccounting, rollupsWriteCache, &config, versionInfo, nil)
 }
 
-func (planet *Planet) newAdmin(count int, identity *identity.FullIdentity, db satellite.DB, config satellite.Config, versionInfo version.Info) (*satellite.Admin, error) {
+func (planet *Planet) newAdmin(ctx context.Context, count int, identity *identity.FullIdentity, db satellite.DB, config satellite.Config, versionInfo version.Info) (*satellite.Admin, error) {
 	prefix := "satellite-admin" + strconv.Itoa(count)
 	log := planet.log.Named(prefix)
 
 	return satellite.NewAdmin(log, identity, db, versionInfo, &config, nil)
 }
 
-func (planet *Planet) newRepairer(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.Repairer, error) {
+func (planet *Planet) newRepairer(ctx context.Context, count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.Repairer, error) {
 	prefix := "satellite-repairer" + strconv.Itoa(count)
 	log := planet.log.Named(prefix)
 
-	revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, config.Server.Config)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -807,11 +809,11 @@ func (cache rollupsWriteCacheCloser) Close() error {
 	return cache.RollupsWriteCache.CloseAndFlush(context.TODO())
 }
 
-func (planet *Planet) newGarbageCollection(count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.GarbageCollection, error) {
+func (planet *Planet) newGarbageCollection(ctx context.Context, count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.GarbageCollection, error) {
 	prefix := "satellite-gc" + strconv.Itoa(count)
 	log := planet.log.Named(prefix)
 
-	revocationDB, err := revocation.NewDBFromCfg(config.Server.Config)
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, config.Server.Config)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

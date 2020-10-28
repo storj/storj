@@ -158,7 +158,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	revocationDB, err := revocation.NewDBFromCfg(runCfg.Server.Config)
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, runCfg.Server.Config)
 	if err != nil {
 		return errs.New("Error creating revocation database: %+v", err)
 	}

@@ -44,7 +44,7 @@ func cmdGCRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, pointerDB.Close())
 	}()
 
-	revocationDB, err := revocation.NewDBFromCfg(runCfg.Server.Config)
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, runCfg.Server.Config)
 	if err != nil {
 		return errs.New("Error creating revocation database GC: %+v", err)
 	}

@@ -27,7 +27,7 @@ func RunDBs(t *testing.T, test func(*testing.T, extensions.RevocationDB, storage
 
 		// Test using redis-backed revocation DB
 		dbURL := "redis://" + redis.Addr() + "?db=0"
-		db, err := revocation.NewDB(dbURL)
+		db, err := revocation.OpenDB(ctx, dbURL)
 		require.NoError(t, err)
 		defer ctx.Check(db.Close)
 
@@ -39,7 +39,7 @@ func RunDBs(t *testing.T, test func(*testing.T, extensions.RevocationDB, storage
 		defer ctx.Cleanup()
 
 		// Test using bolt-backed revocation DB
-		db, err := revocation.NewDB("bolt://" + ctx.File("revocations.db"))
+		db, err := revocation.OpenDB(ctx, "bolt://"+ctx.File("revocations.db"))
 		require.NoError(t, err)
 		defer ctx.Check(db.Close)
 
