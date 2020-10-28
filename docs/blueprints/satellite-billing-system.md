@@ -2,7 +2,7 @@
 Satellite billing system combines stripe and coinpayments API for credit card and cryptocurrency processing. It uses `satellite/accounting` pkg for project accounting. Billing is set on account but that is the subject for future changes as we want billing to be on a project level. That requires decoupling stripe dependency to the level where we utilize only credit card processing and maintain all other stuff such as customer balances and invoicing internally. Every satellite should have separate stripe and coinpayments account to prevent collision of customer related data such as uuid and email.
 
 # Stripe customer
-Stripe operates on a basis of customers. Where customer is, from stripe doc: Customer objects allow you to perform recurring charges, and to track multiple charges, that are associated with the same customer. The API allows you to create, delete, and update your customers. You can retrieve individual customers as well as a list of all your customers. Satellite billing doesn't uses `customer` concern with public API, so it is treated as implementation detail. Stripe customer balance is automatically applied to invoice total before charging a credit card. 
+Stripe operates on a basis of customers. Where customer is, from stripe doc: Customer objects allow you to perform recurring charges, and to track multiple charges, that are associated with the same customer. The API allows you to create, delete, and update your customers. You can retrieve individual customers as well as a list of all your customers. Satellite billing doesn't uses `customer` concern with public API, so it is treated as implementation detail. Stripe customer balance is automatically applied to invoice total before charging a credit card.
 
 Stripe billing system implementation stores a customer reference for every user:
 ```
@@ -51,7 +51,7 @@ type Accounts interface {
 ```
 
 # Customer setup
-Every satellite user has a corresponding customer entity on stripe which holds credit cards, balance which reflects the ammount of STORJ tokens, and is used for invoicing. Every time a user visits billing page on the satellite UI we try to create a customer for him if one doesn't exists.
+Every satellite user has a corresponding customer entity on stripe which holds credit cards, balance which reflects the amount of STORJ tokens, and is used for invoicing. Every time a user visits billing page on the satellite UI we try to create a customer for him if one doesn't exists.
 ```go
 // Setup creates a payment account for the user.
 // If account is already set up it will return nil.
@@ -241,7 +241,7 @@ type Chore struct {
 ```
 
 # STORJ tokens processsing
-Unlike with credit cards billing system uses deposit model for STORJ tokens, user has to deposit some amount prior using satellite services. 
+Unlike with credit cards billing system uses deposit model for STORJ tokens, user has to deposit some amount prior using satellite services.
 
 Public API of token related billing:
 ```go
@@ -257,7 +257,7 @@ type StorjTokens interface {
 ```
 
 # Making a deposit
-STORJ cryptocurrency processing is done via coinpayments API. Every time a user wants to deposit some amount of STORJ token to his account balacne, new coinpayments transaction is created. Transaction amount is set in USD, and conversion rates is beeing locked(saved) after transaction is created and stored in the db.
+STORJ cryptocurrency processing is done via coinpayments API. Every time a user wants to deposit some amount of STORJ token to his account balacne, new coinpayments transaction is created. Transaction amount is set in USD, and conversion rates is being locked(saved) after transaction is created and stored in the db.
 ```go
 // Deposit creates new deposit transaction with the given amount returning
 // ETH wallet address where funds should be sent. There is one
@@ -403,7 +403,7 @@ func (tokens *storjTokens) ListTransactionInfos(ctx context.Context, userID uuid
 ```
 
 # Transaction update cycle
-There is a cycle that iterates over all `pending`(`pending` and `paid` statuses of coinpayments transaction respectively) transactions, list it's infos and updates tx status and received amount. If updated is status is set to `cancelled` or `completed`, that transactions won't take part in the next update cycle. When there is a status transation to `completed` along with the update `apply_balance_transaction_intent` is created. Transaction with status `completed` and present `apply_balance_transaction_intent` with state `unapplied` defines as `UnappliedTransaction` which is later processed in update balance cycle. If the received amount is greater that 50$ a promotional coupon for 55$ is created.
+There is a cycle that iterates over all `pending`(`pending` and `paid` statuses of coinpayments transaction respectively) transactions, list it's infos and updates tx status and received amount. If updated is status is set to `cancelled` or `completed`, that transactions won't take part in the next update cycle. When there is a status transaction to `completed` along with the update `apply_balance_transaction_intent` is created. Transaction with status `completed` and present `apply_balance_transaction_intent` with state `unapplied` defines as `UnappliedTransaction` which is later processed in update balance cycle. If the received amount is greater that 50$ a promotional coupon for 55$ is created.
 ```go
 // updateTransactions updates statuses and received amount for given transactions.
 func (service *Service) updateTransactions(ctx context.Context, ids TransactionAndUserList) (err error) {
@@ -501,7 +501,7 @@ func (service *Service) applyTransactionBalance(ctx context.Context, tx Transact
 ```
 
 # Invoices
-Invoices are statements of amounts owed by a customer, and are generated one-off. 
+Invoices are statements of amounts owed by a customer, and are generated one-off.
 ```go
 // Invoice holds all public information about invoice.
 type Invoice struct {
@@ -526,7 +526,7 @@ type Invoices interface {
 ```
 
 # Invoice creation
-Invoice include project usage cost as well as any discounts applied. Coupons and credits applied as separate invoice line items, therefore it reduce total due amount. Next applied STORJ token amount which is repesented as credits on custmer balance if any. If invoice total amount is greater than zero after bonuses and STORJ tokens, default credit card at the moment of invoice creation will be charged. If total amount is less than 1$, then stripe won't try to charge credit card but increase debt on customer balance. 
+Invoice include project usage cost as well as any discounts applied. Coupons and credits applied as separate invoice line items, therefore it reduce total due amount. Next applied STORJ token amount which is repesented as credits on custmer balance if any. If invoice total amount is greater than zero after bonuses and STORJ tokens, default credit card at the moment of invoice creation will be charged. If total amount is less than 1$, then stripe won't try to charge credit card but increase debt on customer balance.
 
 Invoice creation consist of few steps. First invoice project records have to be created. Each record consist of project id, usage and timestamps of the start and end of billing period. This way we ensure that usage is the same during all invoice creation steps and there won't be two or more invoices created for the same period(actually only invoice line items for certain billing period and project are ensured not to be created more than once). Coupon usages are also created during this step, which are later used to create coupon invoice line items.
 
@@ -548,7 +548,7 @@ prepare-invoice-records Prepares invoice project records that will be used durin
 ```bash
 inspector payments prepare-invoice-records [mm/yyyy]
 ```
-Create project records for all projects for specified billing period. Billing period defined as `[0th nanosecond of the first day of the month; 0th nanosecond of the first day of the following month)`. 
+Create project records for all projects for specified billing period. Billing period defined as `[0th nanosecond of the first day of the month; 0th nanosecond of the first day of the following month)`.
 Project record contains project usage for some billing period. Therefore, it is impossible to create project record for the same project and billing period.
 ```go
 // ProjectRecord holds project usage particular for billing period.
@@ -608,7 +608,7 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 	return nil
 }
 ```
-If a project record already exists, project is skipped. 
+If a project record already exists, project is skipped.
 ```go
 // createProjectRecords creates invoice project record if none exists.
 func (service *Service) createProjectRecords(ctx context.Context, projects []console.Project, start, end time.Time) (err error) {
@@ -696,31 +696,31 @@ Iterate over all project records, calculating price and creating invoice line it
 // applyProjectRecords applies invoice intents as invoice line items to stripe customer.  
 func (service *Service) applyProjectRecords(ctx context.Context, records []ProjectRecord) (err error) {  
    defer mon.Task()(&ctx)(&err)  
-  
+
    for _, record := range records {  
       if err = ctx.Err(); err != nil {  
          return err  
   }  
-  
+
       proj, err := service.projectsDB.Get(ctx, record.ProjectID)  
       if err != nil {  
          return err  
   }  
-  
+
       cusID, err := service.db.Customers().GetCustomerID(ctx, proj.OwnerID)  
       if err != nil {  
          if err == ErrNoCustomer {  
             continue  
   }  
-  
+
          return err  
   }  
-  
+
       if err = service.createInvoiceItems(ctx, cusID, proj.Name, record); err != nil {  
          return err  
   }  
    }  
-  
+
    return nil  
 }
 ```
@@ -763,46 +763,46 @@ Iterate over all customers and create invoice for each.
 // CreateInvoices lists through all customers and creates invoices.  
 func (service *Service) CreateInvoices(ctx context.Context) (err error) {  
    defer mon.Task()(&ctx)(&err)  
-  
+
    const limit = 25  
   before := time.Now()  
-  
+
    cusPage, err := service.db.Customers().List(ctx, 0, limit, before)  
    if err != nil {  
       return Error.Wrap(err)  
    }  
-  
+
    for _, cus := range cusPage.Customers {  
       if err = ctx.Err(); err != nil {  
          return Error.Wrap(err)  
       }  
-  
+
       if err = service.createInvoice(ctx, cus.ID); err != nil {  
          return Error.Wrap(err)  
       }  
    }  
-  
+
    for cusPage.Next {  
       if err = ctx.Err(); err != nil {  
          return Error.Wrap(err)  
       }  
-  
+
       cusPage, err = service.db.Customers().List(ctx, cusPage.NextOffset, limit, before)  
       if err != nil {  
          return Error.Wrap(err)  
       }  
-  
+
       for _, cus := range cusPage.Customers {  
          if err = ctx.Err(); err != nil {  
             return Error.Wrap(err)  
          }  
-  
+
          if err = service.createInvoice(ctx, cus.ID); err != nil {  
             return Error.Wrap(err)  
          }  
       }  
    }  
-  
+
    return nil  
 }
 ```

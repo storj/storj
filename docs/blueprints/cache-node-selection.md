@@ -30,7 +30,7 @@ When selecting nodes to store files to, the following criteria must be met:
 - the node is not disqualified
 - the node is not suspended
 - the node has not exited
-- the node has sufficent free disk space
+- the node has sufficient free disk space
 - the node has been contacted recently
 - the node has participated in a sufficient number of audit
 - the nodes has sufficient uptime counts
@@ -102,7 +102,7 @@ For now, lets try out using an in-memory cache for the performanace gains. If we
 
 3) Using a postgres materialized view for cached node data
 
-Using a postgres materialized view to store all the vetted and unvetted nodes would allow us to implement this cache in the database layer instead of the application layer. This would require the application code to handle the refresh of the materialized view which could occur when one of the events from the #Update section happened. 
+Using a postgres materialized view to store all the vetted and unvetted nodes would allow us to implement this cache in the database layer instead of the application layer. This would require the application code to handle the refresh of the materialized view which could occur when one of the events from the #Update section happened.
 
 Pro:
 - allows the db to handle the logic instead of adding a cache at the application layer
