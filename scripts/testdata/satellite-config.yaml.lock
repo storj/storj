@@ -35,7 +35,7 @@
 # checker.reliability-cache-staleness: 5m0s
 
 # override value for repair threshold
-# checker.repair-override: 0
+# checker.repair-override: 52
 
 # percent of held amount disposed to node after leaving withheld
 compensation.dispose-percent: 50
