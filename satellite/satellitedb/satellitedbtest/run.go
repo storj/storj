@@ -162,7 +162,7 @@ func CreatePointerDB(ctx context.Context, log *zap.Logger, name string, category
 // CreatePointerDBOnTopOf creates a new satellite database on top of an already existing
 // temporary database.
 func CreatePointerDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase) (db metainfo.PointerDB, err error) {
-	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), tempDB.ConnStr)
+	pointerDB, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), tempDB.ConnStr)
 	if err != nil {
 		return nil, err
 	}

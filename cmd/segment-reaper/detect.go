@@ -49,7 +49,7 @@ func cmdDetect(cmd *cobra.Command, args []string) (err error) {
 		log.Warn("Failed to initialize telemetry batcher on segment reaper", zap.Error(err))
 	}
 
-	db, err := metainfo.NewStore(log.Named("pointerdb"), detectCfg.DatabaseURL)
+	db, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), detectCfg.DatabaseURL)
 	if err != nil {
 		return errs.New("error connecting database: %+v", err)
 	}
