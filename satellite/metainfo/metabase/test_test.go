@@ -4,6 +4,7 @@
 package metabase_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -158,6 +159,7 @@ func (step DeleteObjectLatestVersion) Check(ctx *testcontext.Context, t *testing
 	checkError(t, err, step.ErrClass, step.ErrText)
 
 	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	fmt.Println(diff)
 	require.Zero(t, diff)
 }
 
@@ -170,6 +172,21 @@ type DeleteObjectAllVersions struct {
 
 func (step DeleteObjectAllVersions) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 	result, err := db.DeleteObjectAllVersions(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	require.Zero(t, diff)
+}
+
+type ListBucket struct {
+	Opts     metabase.ListBucket
+	Result   metabase.ListBucketResult
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+func (step ListBucket) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	result, err := db.ListBucket(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
 	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
