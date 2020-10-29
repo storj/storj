@@ -24,7 +24,7 @@ func run(t *testing.T, fn func(*testcontext.Context, *testing.T, tagsql.DB, tags
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		db, err := tagsql.Open("sqlite3", ":memory:")
+		db, err := tagsql.Open(ctx, "sqlite3", ":memory:")
 		if err != nil {
 			t.Fatal(err)
 		}

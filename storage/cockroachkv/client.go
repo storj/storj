@@ -37,12 +37,12 @@ type Client struct {
 func Open(ctx context.Context, dbURL string) (*Client, error) {
 	dbURL = pgutil.CheckApplicationName(dbURL)
 
-	db, err := tagsql.Open("cockroach", dbURL)
+	db, err := tagsql.Open(ctx, "cockroach", dbURL)
 	if err != nil {
 		return nil, err
 	}
 
-	dbutil.Configure(db, "cockroachkv", mon)
+	dbutil.Configure(ctx, db, "cockroachkv", mon)
 
 	return NewWith(db, dbURL), nil
 }

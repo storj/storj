@@ -21,7 +21,7 @@ import (
 )
 
 // Open opens *sql.DB and wraps the implementation with tagging.
-func Open(driverName, dataSourceName string) (DB, error) {
+func Open(ctx context.Context, driverName, dataSourceName string) (DB, error) {
 	db, err := sql.Open(driverName, dataSourceName)
 	if err != nil {
 		return nil, err

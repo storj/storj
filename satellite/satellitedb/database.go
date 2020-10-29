@@ -90,7 +90,7 @@ func Open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 	}
 	log.Debug("Connected to:", zap.String("db source", source))
 
-	dbutil.Configure(dbxDB.DB, "satellitedb", mon)
+	dbutil.Configure(ctx, dbxDB.DB, "satellitedb", mon)
 
 	core := &satelliteDB{
 		DB: dbxDB,

@@ -318,7 +318,7 @@ func (db *DB) openDatabase(ctx context.Context, dbName string) error {
 		return ErrDatabase.Wrap(err)
 	}
 
-	sqlDB, err := tagsql.Open(driver, "file:"+path+"?_journal=WAL&_busy_timeout=10000")
+	sqlDB, err := tagsql.Open(ctx, driver, "file:"+path+"?_journal=WAL&_busy_timeout=10000")
 	if err != nil {
 		return ErrDatabase.Wrap(err)
 	}
@@ -326,7 +326,7 @@ func (db *DB) openDatabase(ctx context.Context, dbName string) error {
 	mDB := db.SQLDBs[dbName]
 	mDB.Configure(sqlDB)
 
-	dbutil.Configure(sqlDB, dbName, mon)
+	dbutil.Configure(ctx, sqlDB, dbName, mon)
 
 	return nil
 }
