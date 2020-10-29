@@ -70,7 +70,7 @@ func cmdRun(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	authorizationDB, err := authorization.NewDBFromCfg(runCfg.AuthorizationDB)
+	authorizationDB, err := authorization.OpenDBFromCfg(ctx, runCfg.AuthorizationDB)
 	if err != nil {
 		return errs.New("error opening authorizations database: %+v", err)
 	}
