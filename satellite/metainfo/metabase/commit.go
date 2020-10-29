@@ -30,8 +30,7 @@ type BeginObjectNextVersion struct {
 	ExpiresAt              *time.Time
 	ZombieDeletionDeadline *time.Time
 
-	// TODO: should we include encrypted metadata
-	// TODO: should we include encryption
+	Encryption storj.EncryptionParameters
 }
 
 // BeginObjectNextVersion adds a pending object to the database, with automatically assigned version.
@@ -42,14 +41,20 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 		return -1, err
 	}
 
-	if opts.Version != NextVersion {
+	switch {
+	case opts.Encryption.IsZero() || opts.Encryption.CipherSuite == storj.EncUnspecified:
+		return -1, ErrInvalidRequest.New("Encryption is missing")
+	case opts.Encryption.BlockSize <= 0:
+		return -1, ErrInvalidRequest.New("Encryption.BlockSize is negative or zero")
+	case opts.Version != NextVersion:
 		return -1, ErrInvalidRequest.New("Version should be metabase.NextVersion")
 	}
 
 	row := db.db.QueryRow(ctx, `
 		INSERT INTO objects (
 			project_id, bucket_name, object_key, version, stream_id,
-			expires_at, zombie_deletion_deadline
+			expires_at, encryption,
+			zombie_deletion_deadline
 		) VALUES (
 			$1, $2, $3,
 				coalesce((
@@ -59,10 +64,12 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 					ORDER BY version DESC
 					LIMIT 1
 				), 1), 
-				$4, $5, $6)
+			$4, $5, $6,
+			$7)
 		RETURNING version
 	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.StreamID,
-		opts.ExpiresAt, opts.ZombieDeletionDeadline)
+		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
+		opts.ZombieDeletionDeadline)
 
 	var v int64
 	if err := row.Scan(&v); err != nil {
@@ -79,8 +86,7 @@ type BeginObjectExactVersion struct {
 	ExpiresAt              *time.Time
 	ZombieDeletionDeadline *time.Time
 
-	// TODO: should we include encrypted metadata
-	// TODO: should we include encryption
+	Encryption storj.EncryptionParameters
 }
 
 // BeginObjectExactVersion adds a pending object to the database, with specific version.
@@ -91,21 +97,29 @@ func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExact
 		return -1, err
 	}
 
-	if opts.Version == NextVersion {
+	switch {
+	case opts.Encryption.IsZero() || opts.Encryption.CipherSuite == storj.EncUnspecified:
+		return -1, ErrInvalidRequest.New("Encryption is missing")
+	case opts.Encryption.BlockSize <= 0:
+		return -1, ErrInvalidRequest.New("Encryption.BlockSize is negative or zero")
+	case opts.Version == NextVersion:
 		return -1, ErrInvalidRequest.New("Version should not be metabase.NextVersion")
 	}
 
 	_, err = db.db.ExecContext(ctx, `
 		INSERT INTO objects (
 			project_id, bucket_name, object_key, version, stream_id,
-			expires_at, zombie_deletion_deadline
+			expires_at, encryption,
+			zombie_deletion_deadline
 		) values (
 			$1, $2, $3, $4, $5,
-			$6, $7
+			$6, $7,
+			$8
 		)
 	`,
 		opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID,
-		opts.ExpiresAt, opts.ZombieDeletionDeadline)
+		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
+		opts.ZombieDeletionDeadline)
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
 			return -1, ErrConflict.New("object already exists")
@@ -430,8 +444,6 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 type CommitObject struct {
 	ObjectStream
 
-	Encryption storj.EncryptionParameters
-
 	// TODO: proof
 	Proofs []SegmentProof
 }
@@ -445,10 +457,6 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (err error) {
 
 	if err := opts.ObjectStream.Verify(); err != nil {
 		return err
-	}
-
-	if opts.Encryption.IsZero() {
-		return ErrInvalidRequest.New("encryption is zero")
 	}
 
 	// TODO: deduplicate basic checks.
@@ -479,7 +487,6 @@ func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) 
 	result, err := tx.ExecContext(ctx, `
 		UPDATE objects SET
 			status = 1, -- committed
-			encryption = $6,
 			segment_count = 0, -- TODO
 			total_encrypted_size = 0, -- TODO
 			fixed_segment_size = 0, -- TODO
@@ -491,9 +498,7 @@ func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) 
 			version      = $4 AND
 			stream_id    = $5 AND
 			status       = 0;
-	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID,
-		encryptionParameters{&opts.Encryption},
-	)
+	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID)
 	if err != nil {
 		return Error.New("failed to update object: %w", err)
 	}

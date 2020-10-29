@@ -114,6 +114,7 @@ func TestBeginObjectNextVersion(t *testing.T) {
 				BeginObjectNextVersion{
 					Opts: metabase.BeginObjectNextVersion{
 						ObjectStream: test.ObjectStream,
+						Encryption:   defaultTestEncryption,
 					},
 					Version:  -1,
 					ErrClass: test.ErrClass,
@@ -135,10 +136,68 @@ func TestBeginObjectNextVersion(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
+					Encryption: defaultTestEncryption,
 				},
 				Version:  -1,
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "Version should be metabase.NextVersion",
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Encryption invalid", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    5,
+						StreamID:   obj.StreamID,
+					},
+					Encryption: storj.EncryptionParameters{},
+				},
+				Version:  -1,
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "Encryption is missing",
+			}.Check(ctx, t, db)
+
+			BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    5,
+						StreamID:   obj.StreamID,
+					},
+					Encryption: storj.EncryptionParameters{
+						BlockSize: 123,
+					},
+				},
+				Version:  -1,
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "Encryption is missing",
+			}.Check(ctx, t, db)
+
+			BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    5,
+						StreamID:   obj.StreamID,
+					},
+					Encryption: storj.EncryptionParameters{
+						CipherSuite: storj.EncAESGCM,
+						BlockSize:   -123,
+					},
+				},
+				Version:  -1,
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "Encryption.BlockSize is negative or zero",
 			}.Check(ctx, t, db)
 		})
 
@@ -155,6 +214,7 @@ func TestBeginObjectNextVersion(t *testing.T) {
 						Version:    metabase.NextVersion,
 						StreamID:   obj.StreamID,
 					},
+					Encryption: defaultTestEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
@@ -169,6 +229,7 @@ func TestBeginObjectNextVersion(t *testing.T) {
 						Version:    metabase.NextVersion,
 						StreamID:   obj.StreamID,
 					},
+					Encryption: defaultTestEncryption,
 				},
 				Version: 2,
 			}.Check(ctx, t, db)
@@ -185,6 +246,8 @@ func TestBeginObjectNextVersion(t *testing.T) {
 						},
 						CreatedAt: now1,
 						Status:    metabase.Pending,
+
+						Encryption: defaultTestEncryption,
 					},
 					{
 						ObjectStream: metabase.ObjectStream{
@@ -196,6 +259,8 @@ func TestBeginObjectNextVersion(t *testing.T) {
 						},
 						CreatedAt: now2,
 						Status:    metabase.Pending,
+
+						Encryption: defaultTestEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -220,6 +285,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 				BeginObjectExactVersion{
 					Opts: metabase.BeginObjectExactVersion{
 						ObjectStream: test.ObjectStream,
+						Encryption:   defaultTestEncryption,
 					},
 					Version:  -1,
 					ErrClass: test.ErrClass,
@@ -241,10 +307,68 @@ func TestBeginObjectExactVersion(t *testing.T) {
 						Version:    metabase.NextVersion,
 						StreamID:   obj.StreamID,
 					},
+					Encryption: defaultTestEncryption,
 				},
 				Version:  -1,
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "Version should not be metabase.NextVersion",
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Encryption invalid", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    metabase.NextVersion,
+						StreamID:   obj.StreamID,
+					},
+					Encryption: storj.EncryptionParameters{},
+				},
+				Version:  -1,
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "Encryption is missing",
+			}.Check(ctx, t, db)
+
+			BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    metabase.NextVersion,
+						StreamID:   obj.StreamID,
+					},
+					Encryption: storj.EncryptionParameters{
+						BlockSize: 123,
+					},
+				},
+				Version:  -1,
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "Encryption is missing",
+			}.Check(ctx, t, db)
+
+			BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    metabase.NextVersion,
+						StreamID:   obj.StreamID,
+					},
+					Encryption: storj.EncryptionParameters{
+						CipherSuite: storj.EncAESGCM,
+						BlockSize:   -123,
+					},
+				},
+				Version:  -1,
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "Encryption.BlockSize is negative or zero",
 			}.Check(ctx, t, db)
 		})
 
@@ -261,6 +385,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
+					Encryption: defaultTestEncryption,
 				},
 				Version: 5,
 			}.Check(ctx, t, db)
@@ -277,6 +402,8 @@ func TestBeginObjectExactVersion(t *testing.T) {
 						},
 						CreatedAt: now1,
 						Status:    metabase.Pending,
+
+						Encryption: defaultTestEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -295,6 +422,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
+					Encryption: defaultTestEncryption,
 				},
 				Version: 5,
 			}.Check(ctx, t, db)
@@ -308,6 +436,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
+					Encryption: defaultTestEncryption,
 				},
 				Version:  -1,
 				ErrClass: &metabase.ErrConflict,
@@ -326,6 +455,8 @@ func TestBeginObjectExactVersion(t *testing.T) {
 						},
 						CreatedAt: now1,
 						Status:    metabase.Pending,
+
+						Encryption: defaultTestEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -344,6 +475,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
+					Encryption: defaultTestEncryption,
 				},
 				Version: 5,
 			}.Check(ctx, t, db)
@@ -357,7 +489,6 @@ func TestBeginObjectExactVersion(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
-					Encryption: defaultTestEncryption,
 				},
 			}.Check(ctx, t, db)
 
@@ -370,6 +501,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
+					Encryption: defaultTestEncryption,
 				},
 				Version:  -1,
 				ErrClass: &metabase.ErrConflict,
@@ -473,6 +605,7 @@ func TestBeginSegment(t *testing.T) {
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
@@ -480,7 +613,6 @@ func TestBeginSegment(t *testing.T) {
 			CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: obj,
-					Encryption:   defaultTestEncryption,
 				},
 			}.Check(ctx, t, db)
 
@@ -517,6 +649,7 @@ func TestBeginSegment(t *testing.T) {
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
@@ -538,6 +671,8 @@ func TestBeginSegment(t *testing.T) {
 						ObjectStream: obj,
 						CreatedAt:    now,
 						Status:       metabase.Pending,
+
+						Encryption: defaultTestEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -550,6 +685,7 @@ func TestBeginSegment(t *testing.T) {
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
@@ -573,6 +709,8 @@ func TestBeginSegment(t *testing.T) {
 						ObjectStream: obj,
 						CreatedAt:    now,
 						Status:       metabase.Pending,
+
+						Encryption: defaultTestEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -606,6 +744,7 @@ func TestCommitSegment(t *testing.T) {
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
@@ -743,6 +882,8 @@ func TestCommitSegment(t *testing.T) {
 						ObjectStream: obj,
 						CreatedAt:    now,
 						Status:       metabase.Pending,
+
+						Encryption: defaultTestEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -755,6 +896,7 @@ func TestCommitSegment(t *testing.T) {
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
@@ -815,6 +957,8 @@ func TestCommitSegment(t *testing.T) {
 						ObjectStream: obj,
 						CreatedAt:    now1,
 						Status:       metabase.Pending,
+
+						Encryption: defaultTestEncryption,
 					},
 				},
 				Segments: []metabase.RawSegment{
@@ -879,6 +1023,7 @@ func TestCommitSegment(t *testing.T) {
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
 				},
 				Version: obj.Version,
 			}.Check(ctx, t, db)
@@ -886,8 +1031,6 @@ func TestCommitSegment(t *testing.T) {
 			CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: obj,
-
-					Encryption: defaultTestEncryption,
 				},
 			}.Check(ctx, t, db)
 
@@ -934,6 +1077,7 @@ func TestCommitSegment(t *testing.T) {
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
 				},
 				Version: obj.Version,
 			}.Check(ctx, t, db)
@@ -960,6 +1104,8 @@ func TestCommitSegment(t *testing.T) {
 						ObjectStream: obj,
 						CreatedAt:    now,
 						Status:       metabase.Pending,
+
+						Encryption: defaultTestEncryption,
 					},
 				},
 				Segments: []metabase.RawSegment{
@@ -1008,6 +1154,7 @@ func TestCommitInlineSegment(t *testing.T) {
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
@@ -1129,6 +1276,7 @@ func TestCommitInlineSegment(t *testing.T) {
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
@@ -1179,6 +1327,8 @@ func TestCommitInlineSegment(t *testing.T) {
 						ObjectStream: obj,
 						CreatedAt:    now1,
 						Status:       metabase.Pending,
+
+						Encryption: defaultTestEncryption,
 					},
 				},
 				Segments: []metabase.RawSegment{
@@ -1216,7 +1366,6 @@ func TestCommitObject(t *testing.T) {
 				CommitObject{
 					Opts: metabase.CommitObject{
 						ObjectStream: test.ObjectStream,
-						Encryption:   defaultTestEncryption,
 					},
 					ErrClass: test.ErrClass,
 					ErrText:  test.ErrText,
@@ -1237,7 +1386,6 @@ func TestCommitObject(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
-					Encryption: defaultTestEncryption,
 				},
 				ErrClass: &metabase.Error,
 				ErrText:  "object with specified version and pending status is missing", // TODO: this error message could be better
@@ -1257,6 +1405,7 @@ func TestCommitObject(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
+					Encryption: defaultTestEncryption,
 				},
 				Version: 5,
 			}.Check(ctx, t, db)
@@ -1271,7 +1420,6 @@ func TestCommitObject(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
-					Encryption: defaultTestEncryption,
 				},
 			}.Check(ctx, t, db)
 
@@ -1285,7 +1433,6 @@ func TestCommitObject(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
-					Encryption: defaultTestEncryption,
 				},
 				ErrClass: &metabase.Error,
 				ErrText:  "object with specified version and pending status is missing", // TODO: this error message could be better
@@ -1301,8 +1448,9 @@ func TestCommitObject(t *testing.T) {
 							Version:    5,
 							StreamID:   obj.StreamID,
 						},
-						CreatedAt:  now,
-						Status:     metabase.Committed,
+						CreatedAt: now,
+						Status:    metabase.Committed,
+
 						Encryption: defaultTestEncryption,
 					},
 				},

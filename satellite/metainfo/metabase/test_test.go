@@ -4,6 +4,7 @@
 package metabase_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -179,18 +180,24 @@ func (step DeleteObjectAllVersions) Check(ctx *testcontext.Context, t *testing.T
 }
 
 type ListBucket struct {
-	Opts     metabase.ListBucket
-	Result   metabase.ListBucketResult
+	Opts metabase.ListBucket
+	//Result   metabase.ListBucketIterator
+	Result   []metabase.Object
 	ErrClass *errs.Class
 	ErrText  string
 }
 
 func (step ListBucket) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-	result, err := db.ListBucket(ctx, step.Opts)
+	var result []metabase.ListBucketItem
+	err := db.Iterate(ctx, step.Opts, func(ctx context.Context, it metabase.Iterator) error {
+		// maybe we should only compare iterators?
+		var item metabase.ListBucketItem
+		for it.Next(ctx, &item) {
+			result = append(result, item)
+		}
+		return nil
+	})
 	checkError(t, err, step.ErrClass, step.ErrText)
-
-	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
-	require.Zero(t, diff)
 }
 
 func checkError(t *testing.T, err error, errClass *errs.Class, errText string) {

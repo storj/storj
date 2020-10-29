@@ -68,20 +68,25 @@ func TestListBucket(t *testing.T) {
 			Verify{}.Check(ctx, t, db)
 		})
 
+		// TODO: for now we cannot distinguish between empty bucket and non-existing bucket
+		// t.Run("List empty bucket", func(t *testing.T) {
+		// 	defer DeleteAll{}.Check(ctx, t, db)
+
+		// 	Verify{}.Check(ctx, t, db)
+		// })
+
 		t.Run("List recursively", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
-
-			expected := metabase.ListBucketResult{}
 
 			obj := randObjectStream()
 			now := time.Now()
 			createObject(ctx, t, db, obj, 0)
-			expected.Objects = append(expected.Objects, metabase.Object{
+			expected := []metabase.Object{{
 				ObjectStream: obj,
 				CreatedAt:    now,
 				Status:       metabase.Committed,
 				Encryption:   defaultTestEncryption,
-			})
+			}}
 
 			ListBucket{
 				Opts: metabase.ListBucket{

@@ -5,11 +5,9 @@ package metabase
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 
-	"github.com/zeebo/errs"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/tagsql"
 )
 
 // ListBucket contains arguments necessary for listing a bucket
@@ -18,11 +16,10 @@ type ListBucket struct {
 	ProjectID  uuid.UUID
 	BucketName string
 	Recursive  bool
+	limit      int
 }
 
-type ListBucketResult struct {
-	Objects []Object
-}
+type ListBucketItem Object
 
 // Verify verifies get object reqest fields.
 func (opts *ListBucket) Verify() error {
@@ -38,17 +35,62 @@ func (opts *ListBucket) Verify() error {
 	return nil
 }
 
-// ListBucket returns a list of objects within the bucket.
-func (db *DB) ListBucket(ctx context.Context, opts ListBucket) (result ListBucketResult, err error) {
+//Iterator iterates.
+type Iterator interface {
+	Next(ctx context.Context, item *ListBucketItem) bool
+}
+
+//ListBucketIterator enables iteration on objects in a bucket.
+type ListBucketIterator struct {
+	ProjectID  uuid.UUID
+	BucketName string
+	db         *DB
+	curRows    tagsql.Rows
+	curIndex   int
+}
+
+//Iterate iterates
+func (db *DB) Iterate(ctx context.Context, opts ListBucket, fn func(context.Context, Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := opts.Verify(); err != nil {
-		return ListBucketResult{}, err
+	if err = opts.Verify(); err != nil {
+		return err
 	}
+	it := &ListBucketIterator{db: db,
+		ProjectID:  opts.ProjectID,
+		BucketName: opts.BucketName}
+	it.curRows, err = it.doNextQuery(ctx)
 
-	objects := []Object{}
-	// TODO handle encryption column
-	rows, err := db.db.Query(ctx, `
+	if err != nil {
+		return err
+	}
+	return fn(ctx, it)
+}
+
+//Next returns next object
+func (it *ListBucketIterator) Next(ctx context.Context, item *ListBucketItem) bool {
+	next := it.curRows.Next()
+	if next {
+		err := it.curRows.Scan(
+			&item.StreamID, &item.ObjectKey, &item.Version,
+			&item.CreatedAt, &item.ExpiresAt,
+			&item.Status, &item.SegmentCount,
+			&item.EncryptedMetadataNonce, &item.EncryptedMetadata,
+			&item.TotalEncryptedSize, &item.FixedSegmentSize,
+			encryptionParameters{&item.Encryption},
+		)
+		if err != nil {
+			return false
+		}
+		return true
+	}
+	return false
+}
+
+func (it *ListBucketIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return it.db.db.Query(ctx, `
 		SELECT
 			stream_id, object_key, version,
 			created_at, expires_at,
@@ -60,36 +102,5 @@ func (db *DB) ListBucket(ctx context.Context, opts ListBucket) (result ListBucke
 		WHERE
 			project_id  = $1 AND
 			bucket_name = $2 -- what about status?
-		`, opts.ProjectID, opts.BucketName)
-
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return result, nil
-		}
-		return ListBucketResult{}, Error.New("list bucket query: %w", err)
-	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
-
-	for rows.Next() {
-		var object Object
-		err := rows.Scan(
-			&object.StreamID, &object.ObjectKey, &object.Version,
-			&object.CreatedAt, &object.ExpiresAt,
-			&object.Status, &object.SegmentCount,
-			&object.EncryptedMetadataNonce, &object.EncryptedMetadata,
-			&object.TotalEncryptedSize, &object.FixedSegmentSize,
-			encryptionParameters{&object.Encryption},
-		)
-		if err != nil {
-			return ListBucketResult{}, Error.New("ListBucket scan failed: %w", err)
-		}
-		object.ProjectID = opts.ProjectID
-		object.BucketName = opts.BucketName
-		objects = append(objects, object)
-	}
-	if err := rows.Err(); err != nil {
-		return ListBucketResult{}, Error.New("ListBucket scan failed: %w", err)
-	}
-	result.Objects = objects
-	return result, nil
+		`, it.ProjectID, it.BucketName)
 }

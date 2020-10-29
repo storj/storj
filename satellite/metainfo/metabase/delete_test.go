@@ -130,6 +130,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
@@ -149,6 +150,8 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 						ObjectStream: obj,
 						CreatedAt:    now,
 						Status:       metabase.Pending,
+
+						Encryption: defaultTestEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -199,6 +202,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
 				},
 				Version: obj.Version,
 			}.Check(ctx, t, db)
@@ -224,8 +228,6 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 			CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: obj,
-
-					Encryption: defaultTestEncryption,
 				},
 			}.Check(ctx, t, db)
 
@@ -293,6 +295,7 @@ func TestDeleteObjectLatestVersion(t *testing.T) {
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
@@ -309,6 +312,8 @@ func TestDeleteObjectLatestVersion(t *testing.T) {
 						ObjectStream: obj,
 						CreatedAt:    now,
 						Status:       metabase.Pending,
+
+						Encryption: defaultTestEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -357,6 +362,7 @@ func TestDeleteObjectLatestVersion(t *testing.T) {
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
 				},
 				Version: obj.Version,
 			}.Check(ctx, t, db)
@@ -382,8 +388,6 @@ func TestDeleteObjectLatestVersion(t *testing.T) {
 			CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: obj,
-
-					Encryption: defaultTestEncryption,
 				},
 			}.Check(ctx, t, db)
 
@@ -516,6 +520,7 @@ func TestDeleteObjectAllVersions(t *testing.T) {
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
@@ -532,6 +537,8 @@ func TestDeleteObjectAllVersions(t *testing.T) {
 						ObjectStream: obj,
 						CreatedAt:    now,
 						Status:       metabase.Pending,
+
+						Encryption: defaultTestEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -578,6 +585,7 @@ func TestDeleteObjectAllVersions(t *testing.T) {
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
 				},
 				Version: obj.Version,
 			}.Check(ctx, t, db)
@@ -603,8 +611,6 @@ func TestDeleteObjectAllVersions(t *testing.T) {
 			CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: obj,
-
-					Encryption: defaultTestEncryption,
 				},
 			}.Check(ctx, t, db)
 
@@ -647,6 +653,7 @@ func createObject(ctx *testcontext.Context, t *testing.T, db *metabase.DB, obj m
 	BeginObjectExactVersion{
 		Opts: metabase.BeginObjectExactVersion{
 			ObjectStream: obj,
+			Encryption:   defaultTestEncryption,
 		},
 		Version: obj.Version,
 	}.Check(ctx, t, db)
@@ -685,7 +692,6 @@ func createObject(ctx *testcontext.Context, t *testing.T, db *metabase.DB, obj m
 	CommitObject{
 		Opts: metabase.CommitObject{
 			ObjectStream: obj,
-			Encryption:   defaultTestEncryption,
 		},
 	}.Check(ctx, t, db)
 }
