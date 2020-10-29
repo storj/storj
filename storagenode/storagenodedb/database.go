@@ -112,8 +112,8 @@ type DB struct {
 	SQLDBs map[string]DBContainer
 }
 
-// New creates a new master database for storage node.
-func New(log *zap.Logger, config Config) (*DB, error) {
+// OpenNew creates a new master database for storage node.
+func OpenNew(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
 	piecesDir, err := filestore.NewDir(log, config.Pieces)
 	if err != nil {
 		return nil, err
@@ -180,8 +180,8 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	return db, nil
 }
 
-// Open opens a new master database for storage node.
-func Open(log *zap.Logger, config Config) (*DB, error) {
+// OpenExisting opens an existing master database for storage node.
+func OpenExisting(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
 	piecesDir, err := filestore.OpenDir(log, config.Pieces)
 	if err != nil {
 		return nil, err
@@ -245,7 +245,7 @@ func Open(log *zap.Logger, config Config) (*DB, error) {
 		},
 	}
 
-	err = db.openDatabases()
+	err = db.openDatabases(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +254,7 @@ func Open(log *zap.Logger, config Config) (*DB, error) {
 }
 
 // openDatabases opens all the SQLite3 storage node databases and returns if any fails to open successfully.
-func (db *DB) openDatabases() error {
+func (db *DB) openDatabases(ctx context.Context) error {
 	// These objects have a Configure method to allow setting the underlining SQLDB connection
 	// that each uses internally to do data access to the SQLite3 databases.
 	// The reason it was done this way was because there's some outside consumers that are
@@ -278,7 +278,7 @@ func (db *DB) openDatabases() error {
 	}
 
 	for _, dbName := range dbs {
-		err := db.openExistingDatabase(dbName)
+		err := db.openExistingDatabase(ctx, dbName)
 		if err != nil {
 			return errs.Combine(err, db.closeDatabases())
 		}
@@ -292,7 +292,7 @@ func (db *DB) rawDatabaseFromName(dbName string) tagsql.DB {
 }
 
 // openExistingDatabase opens existing database at the specified path.
-func (db *DB) openExistingDatabase(dbName string) error {
+func (db *DB) openExistingDatabase(ctx context.Context, dbName string) error {
 	path := db.filepathFromDBName(dbName)
 	if _, err := os.Stat(path); err != nil {
 		if os.IsNotExist(err) {
@@ -302,11 +302,11 @@ func (db *DB) openExistingDatabase(dbName string) error {
 		return ErrDatabase.Wrap(err)
 	}
 
-	return db.openDatabase(dbName)
+	return db.openDatabase(ctx, dbName)
 }
 
 // openDatabase opens or creates a database at the specified path.
-func (db *DB) openDatabase(dbName string) error {
+func (db *DB) openDatabase(ctx context.Context, dbName string) error {
 	path := db.filepathFromDBName(dbName)
 
 	driver := db.config.Driver
@@ -564,7 +564,7 @@ func (db *DB) migrateToDB(ctx context.Context, dbName string, tablesToKeep ...st
 		}
 	}
 
-	err = db.openDatabase(dbName)
+	err = db.openDatabase(ctx, dbName)
 	if err != nil {
 		return ErrDatabase.Wrap(err)
 	}
@@ -584,7 +584,7 @@ func (db *DB) migrateToDB(ctx context.Context, dbName string, tablesToKeep ...st
 		return ErrDatabase.Wrap(err)
 	}
 
-	err = db.openExistingDatabase(dbName)
+	err = db.openExistingDatabase(ctx, dbName)
 	if err != nil {
 		return ErrDatabase.Wrap(err)
 	}
@@ -607,7 +607,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Initial setup",
 				Version:     0,
 				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(DeprecatedInfoDBName); err != nil {
+					if err := db.openDatabase(ctx, DeprecatedInfoDBName); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -1027,31 +1027,31 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Split into multiple sqlite databases",
 				Version:     23,
 				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(BandwidthDBName); err != nil {
+					if err := db.openDatabase(ctx, BandwidthDBName); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.openDatabase(OrdersDBName); err != nil {
+					if err := db.openDatabase(ctx, OrdersDBName); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.openDatabase(PieceExpirationDBName); err != nil {
+					if err := db.openDatabase(ctx, PieceExpirationDBName); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.openDatabase(PieceInfoDBName); err != nil {
+					if err := db.openDatabase(ctx, PieceInfoDBName); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.openDatabase(PieceSpaceUsedDBName); err != nil {
+					if err := db.openDatabase(ctx, PieceSpaceUsedDBName); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.openDatabase(ReputationDBName); err != nil {
+					if err := db.openDatabase(ctx, ReputationDBName); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.openDatabase(StorageUsageDBName); err != nil {
+					if err := db.openDatabase(ctx, StorageUsageDBName); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.openDatabase(UsedSerialsDBName); err != nil {
+					if err := db.openDatabase(ctx, UsedSerialsDBName); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
-					if err := db.openDatabase(SatellitesDBName); err != nil {
+					if err := db.openDatabase(ctx, SatellitesDBName); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -1151,7 +1151,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Create notifications table",
 				Version:     28,
 				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(NotificationsDBName); err != nil {
+					if err := db.openDatabase(ctx, NotificationsDBName); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -1212,7 +1212,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Create paystubs table and payments table",
 				Version:     32,
 				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(HeldAmountDBName); err != nil {
+					if err := db.openDatabase(ctx, HeldAmountDBName); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -1311,7 +1311,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Create pricing table",
 				Version:     35,
 				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(PricingDBName); err != nil {
+					if err := db.openDatabase(ctx, PricingDBName); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -1808,7 +1808,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Description: "Create secret table",
 				Version:     46,
 				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(SecretDBName); err != nil {
+					if err := db.openDatabase(ctx, SecretDBName); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 

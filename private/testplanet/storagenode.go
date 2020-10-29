@@ -197,7 +197,7 @@ func (planet *Planet) newStorageNodes(count int, whitelistedSatellites storj.Nod
 		verisonInfo := planet.NewVersionInfo()
 
 		var db storagenode.DB
-		db, err = storagenodedb.New(log.Named("db"), config.DatabaseConfig())
+		db, err = storagenodedb.OpenNew(ctx, log.Named("db"), config.DatabaseConfig())
 		if err != nil {
 			return nil, err
 		}
