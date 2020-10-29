@@ -24,6 +24,7 @@ const (
 )
 
 const maxListLimit = 1000
+const batchsizeLimit = 1000
 
 // BucketPrefix consists of <project id>/<bucket name>.
 type BucketPrefix string

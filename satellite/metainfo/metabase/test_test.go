@@ -4,6 +4,7 @@
 package metabase_test
 
 import (
+	"context"
 	"sort"
 	"testing"
 	"time"
@@ -254,6 +255,35 @@ func (step DeleteObjectsAllVersions) Check(ctx *testcontext.Context, t *testing.
 	sortObjectsByKey(step.Result.Objects)
 
 	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	require.Zero(t, diff)
+}
+
+type IterateCollector []metabase.ObjectEntry
+
+func (coll *IterateCollector) Add(ctx context.Context, it metabase.ObjectsIterator) error {
+	var item metabase.ObjectEntry
+
+	for it.Next(ctx, &item) {
+		*coll = append(*coll, item)
+	}
+	return nil
+}
+
+type IterateObjects struct {
+	Opts metabase.IterateObjects
+
+	Result   []metabase.ObjectEntry
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+func (step IterateObjects) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	var result IterateCollector
+
+	err := db.IterateObjectsAllVersions(ctx, step.Opts, result.Add)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), cmpopts.EquateApproxTime(5*time.Second))
 	require.Zero(t, diff)
 }
 

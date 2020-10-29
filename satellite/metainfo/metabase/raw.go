@@ -94,7 +94,7 @@ func (db *DB) testingGetAllObjects(ctx context.Context) (_ []RawObject, err erro
 	objs := []RawObject{}
 
 	rows, err := db.db.Query(ctx, `
-		SELECT 
+		SELECT
 			project_id, bucket_name, object_key, version, stream_id,
 			created_at, expires_at,
 			status, segment_count,
@@ -103,6 +103,7 @@ func (db *DB) testingGetAllObjects(ctx context.Context) (_ []RawObject, err erro
 			encryption,
 			zombie_deletion_deadline
 		FROM objects
+		ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
 	`)
 	if err != nil {
 		return nil, Error.New("testingGetAllObjects query: %w", err)
@@ -152,7 +153,7 @@ func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err er
 	segs := []RawSegment{}
 
 	rows, err := db.db.Query(ctx, `
-		SELECT 
+		SELECT
 			stream_id, position,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size,
@@ -160,6 +161,7 @@ func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err er
 			redundancy,
 			inline_data, remote_pieces
 		FROM segments
+		ORDER BY stream_id ASC, position ASC
 	`)
 	if err != nil {
 		return nil, Error.New("testingGetAllSegments query: %w", err)
