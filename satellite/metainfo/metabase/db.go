@@ -62,7 +62,7 @@ func (db *DB) MigrateToLatest(ctx context.Context) error {
 
 	// TODO: verify whether this is all we need.
 	_, err = db.db.ExecContext(ctx, `
-		CREATE TABLE objects (
+		CREATE TABLE IF NOT EXISTS objects (
 			project_id   BYTEA NOT NULL,
 			bucket_name  BYTEA NOT NULL, -- we're using bucket_name here to avoid a lookup into buckets table
 			object_key   BYTEA NOT NULL, -- using 'object_key' instead of 'key' to avoid reserved word
@@ -94,7 +94,7 @@ func (db *DB) MigrateToLatest(ctx context.Context) error {
 
 	// TODO: verify whether this is all we need.
 	_, err = db.db.ExecContext(ctx, `
-		CREATE TABLE segments (
+		CREATE TABLE IF NOT EXISTS segments (
 			stream_id  BYTEA NOT NULL,
 			position   INT8  NOT NULL,
 

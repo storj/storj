@@ -67,7 +67,7 @@ type Repairer struct {
 
 // NewRepairer creates a new repairer peer.
 func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
-	pointerDB metainfo.PointerDB,
+	pointerDB metainfo.PointerDB, metabaseDB metainfo.MetabaseDB,
 	revocationDB extensions.RevocationDB, repairQueue queue.RepairQueue,
 	bucketsDB metainfo.BucketsDB, overlayCache overlay.DB,
 	rollupsWriteCache *orders.RollupsWriteCache, irrDB irreparable.DB,
@@ -128,7 +128,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	}
 
 	{ // setup metainfo
-		peer.Metainfo = metainfo.NewService(log.Named("metainfo"), pointerDB, bucketsDB)
+		peer.Metainfo = metainfo.NewService(log.Named("metainfo"), pointerDB, bucketsDB, metabaseDB)
 	}
 
 	{ // setup overlay

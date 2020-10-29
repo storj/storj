@@ -50,6 +50,14 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, pointerDB.Close())
 	}()
 
+	metabaseDB, err := metainfo.OpenMetabase(ctx, log.Named("metabase"), runCfg.Config.Metainfo.DatabaseURL)
+	if err != nil {
+		return errs.New("Error creating metabase connection on satellite api: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, metabaseDB.Close())
+	}()
+
 	revocationDB, err := revocation.OpenDBFromCfg(ctx, runCfg.Config.Server.Config)
 	if err != nil {
 		return errs.New("Error creating revocation database on satellite api: %+v", err)
@@ -71,7 +79,7 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, rollupsWriteCache.CloseAndFlush(context2.WithoutCancellation(ctx)))
 	}()
 
-	peer, err := satellite.NewAPI(log, identity, db, pointerDB, revocationDB, accountingCache, rollupsWriteCache, &runCfg.Config, version.Build, process.AtomicLevel(cmd))
+	peer, err := satellite.NewAPI(log, identity, db, pointerDB, metabaseDB, revocationDB, accountingCache, rollupsWriteCache, &runCfg.Config, version.Build, process.AtomicLevel(cmd))
 	if err != nil {
 		return err
 	}
@@ -88,6 +96,11 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 	err = pointerDB.MigrateToLatest(ctx)
 	if err != nil {
 		return errs.New("Error creating metainfodb tables on satellite api: %+v", err)
+	}
+
+	err = metabaseDB.MigrateToLatest(ctx)
+	if err != nil {
+		return errs.New("Error creating metabase tables on satellite api: %+v", err)
 	}
 
 	err = db.CheckVersion(ctx)

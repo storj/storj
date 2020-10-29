@@ -5,12 +5,14 @@ package metainfo
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
 	"storj.io/storj/private/dbutil"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/metainfo/objectdeletion"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/storage"
@@ -93,6 +95,37 @@ func OpenStore(ctx context.Context, logger *zap.Logger, dbURLString string) (db 
 		db, err = postgreskv.Open(ctx, source)
 	case dbutil.Cockroach:
 		db, err = cockroachkv.Open(ctx, source)
+	default:
+		err = Error.New("unsupported db implementation: %s", dbURLString)
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Debug("Connected to:", zap.String("db source", source))
+	return db, nil
+}
+
+// MetabaseDB stores objects and segments.
+type MetabaseDB interface {
+	io.Closer
+	// MigrateToLatest migrates to latest schema version.
+	MigrateToLatest(ctx context.Context) error
+}
+
+// OpenMetabase returns database for storing objects and segments.
+func OpenMetabase(ctx context.Context, logger *zap.Logger, dbURLString string) (db MetabaseDB, err error) {
+	_, source, implementation, err := dbutil.SplitConnStr(dbURLString)
+	if err != nil {
+		return nil, err
+	}
+
+	switch implementation {
+	case dbutil.Postgres:
+		db, err = metabase.Open(ctx, "pgx", dbURLString)
+	case dbutil.Cockroach:
+		db, err = metabase.Open(ctx, "cockroach", dbURLString)
 	default:
 		err = Error.New("unsupported db implementation: %s", dbURLString)
 	}
