@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"strconv"
 	"time"
 
@@ -68,6 +69,7 @@ import (
 
 // Satellite contains all the processes needed to run a full Satellite setup.
 type Satellite struct {
+	Name   string
 	Config satellite.Config
 
 	Core     *satellite.Core
@@ -190,6 +192,9 @@ type Satellite struct {
 		Service         *downtime.Service
 	}
 }
+
+// Label returns name for debugger.
+func (system *Satellite) Label() string { return system.Name }
 
 // ID returns the ID of the Satellite system.
 func (system *Satellite) ID() storj.NodeID { return system.API.Identity.ID }
@@ -314,374 +319,383 @@ func (system *Satellite) Run(ctx context.Context) (err error) {
 func (system *Satellite) PrivateAddr() string { return system.API.Server.PrivateAddr().String() }
 
 // newSatellites initializes satellites.
-func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtest.SatelliteDatabases) ([]*Satellite, error) {
-	var xs []*Satellite
-	defer func() {
-		for _, x := range xs {
-			planet.peers = append(planet.peers, newClosablePeer(x))
-		}
-	}()
+func (planet *Planet) newSatellites(ctx context.Context, count int, databases satellitedbtest.SatelliteDatabases) ([]*Satellite, error) {
+	var satellites []*Satellite
 
 	for i := 0; i < count; i++ {
-		ctx := context.TODO()
-
-		prefix := "satellite" + strconv.Itoa(i)
+		index := i
+		prefix := "satellite" + strconv.Itoa(index)
 		log := planet.log.Named(prefix)
 
-		storageDir := filepath.Join(planet.directory, prefix)
-		if err := os.MkdirAll(storageDir, 0700); err != nil {
-			return nil, err
-		}
+		var system *Satellite
+		var err error
 
-		identity, err := planet.NewIdentity()
+		pprof.Do(ctx, pprof.Labels("peer", prefix), func(ctx context.Context) {
+			system, err = planet.newSatellite(ctx, prefix, index, log, databases)
+		})
 		if err != nil {
 			return nil, err
 		}
 
-		db, err := satellitedbtest.CreateMasterDB(ctx, log.Named("db"), planet.config.Name, "S", i, satelliteDatabases.MasterDB)
-		if err != nil {
-			return nil, err
-		}
-
-		if planet.config.Reconfigure.SatelliteDB != nil {
-			var newdb satellite.DB
-			newdb, err = planet.config.Reconfigure.SatelliteDB(log.Named("db"), i, db)
-			if err != nil {
-				return nil, errs.Combine(err, db.Close())
-			}
-			db = newdb
-		}
-		planet.databases = append(planet.databases, db)
-
-		pointerDB, err := satellitedbtest.CreatePointerDB(ctx, log.Named("pointerdb"), planet.config.Name, "P", i, satelliteDatabases.PointerDB)
-		if err != nil {
-			return nil, err
-		}
-
-		if planet.config.Reconfigure.SatellitePointerDB != nil {
-			var newPointerDB metainfo.PointerDB
-			newPointerDB, err = planet.config.Reconfigure.SatellitePointerDB(log.Named("pointerdb"), i, pointerDB)
-			if err != nil {
-				return nil, errs.Combine(err, pointerDB.Close())
-			}
-			pointerDB = newPointerDB
-		}
-		planet.databases = append(planet.databases, pointerDB)
-
-		redis, err := redisserver.Mini()
-		if err != nil {
-			return nil, err
-		}
-		planet.databases = append(planet.databases, redis)
-
-		config := satellite.Config{
-			Server: server.Config{
-				Address:        "127.0.0.1:0",
-				PrivateAddress: "127.0.0.1:0",
-
-				Config: tlsopts.Config{
-					RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
-					UsePeerCAWhitelist:  true,
-					PeerCAWhitelistPath: planet.whitelistPath,
-					PeerIDVersions:      "latest",
-					Extensions: extensions.Config{
-						Revocation:          false,
-						WhitelistSignedLeaf: false,
-					},
-				},
-			},
-			Debug: debug.Config{
-				Address: "",
-			},
-			Admin: admin.Config{
-				Address: "127.0.0.1:0",
-			},
-			Contact: contact.Config{
-				Timeout: 1 * time.Minute,
-			},
-			Overlay: overlay.Config{
-				Node: overlay.NodeSelectionConfig{
-					UptimeCount:      0,
-					AuditCount:       0,
-					NewNodeFraction:  1,
-					OnlineWindow:     time.Minute,
-					DistinctIP:       false,
-					MinimumDiskSpace: 100 * memory.MB,
-
-					AuditReputationRepairWeight: 1,
-					AuditReputationUplinkWeight: 1,
-					AuditReputationLambda:       0.95,
-					AuditReputationWeight:       1,
-					AuditReputationDQ:           0.6,
-					SuspensionGracePeriod:       time.Hour,
-					SuspensionDQEnabled:         true,
-				},
-				NodeSelectionCache: overlay.CacheConfig{
-					Staleness: 3 * time.Minute,
-				},
-				UpdateStatsBatchSize: 100,
-				AuditHistory: overlay.AuditHistoryConfig{
-					WindowSize:       10 * time.Minute,
-					TrackingPeriod:   time.Hour,
-					GracePeriod:      time.Hour,
-					OfflineThreshold: 0.6,
-				},
-			},
-			Metainfo: metainfo.Config{
-				DatabaseURL:          "", // not used
-				MinRemoteSegmentSize: 0,  // TODO: fix tests to work with 1024
-				MaxInlineSegmentSize: 4 * memory.KiB,
-				MaxSegmentSize:       64 * memory.MiB,
-				MaxMetadataSize:      2 * memory.KiB,
-				MaxCommitInterval:    1 * time.Hour,
-				Overlay:              true,
-				RS: metainfo.RSConfig{
-					MaxBufferMem:     memory.Size(256),
-					ErasureShareSize: memory.Size(256),
-					MinThreshold:     atLeastOne(planet.config.StorageNodeCount * 1 / 5),
-					RepairThreshold:  atLeastOne(planet.config.StorageNodeCount * 2 / 5),
-					SuccessThreshold: atLeastOne(planet.config.StorageNodeCount * 3 / 5),
-					TotalThreshold:   atLeastOne(planet.config.StorageNodeCount * 4 / 5),
-
-					MinTotalThreshold: (planet.config.StorageNodeCount * 4 / 5),
-					MaxTotalThreshold: (planet.config.StorageNodeCount * 4 / 5),
-					Validate:          false,
-				},
-				Loop: metainfo.LoopConfig{
-					CoalesceDuration: 1 * time.Second,
-					ListLimit:        10000,
-				},
-				RateLimiter: metainfo.RateLimiterConfig{
-					Enabled:         true,
-					Rate:            1000,
-					CacheCapacity:   100,
-					CacheExpiration: 10 * time.Second,
-				},
-				ProjectLimits: metainfo.ProjectLimitConfig{
-					MaxBuckets:          10,
-					DefaultMaxUsage:     25 * memory.GB,
-					DefaultMaxBandwidth: 25 * memory.GB,
-				},
-				PieceDeletion: piecedeletion.Config{
-					MaxConcurrency:      100,
-					MaxConcurrentPieces: 1000,
-
-					MaxPiecesPerBatch:   4000,
-					MaxPiecesPerRequest: 2000,
-
-					DialTimeout:    2 * time.Second,
-					RequestTimeout: 2 * time.Second,
-					FailThreshold:  2 * time.Second,
-				},
-				ObjectDeletion: objectdeletion.Config{
-					MaxObjectsPerRequest:     100,
-					ZombieSegmentsPerRequest: 3,
-					MaxConcurrentRequests:    100,
-				},
-			},
-			Orders: orders.Config{
-				Expiration:                 7 * 24 * time.Hour,
-				SettlementBatchSize:        10,
-				FlushBatchSize:             10,
-				FlushInterval:              defaultInterval,
-				NodeStatusLogging:          true,
-				WindowEndpointRolloutPhase: orders.WindowEndpointRolloutPhase3,
-			},
-			Checker: checker.Config{
-				Interval:                  defaultInterval,
-				IrreparableInterval:       defaultInterval,
-				ReliabilityCacheStaleness: 1 * time.Minute,
-			},
-			Payments: paymentsconfig.Config{
-				StorageTBPrice: "10",
-				EgressTBPrice:  "45",
-				ObjectPrice:    "0.0000022",
-				StripeCoinPayments: stripecoinpayments.Config{
-					TransactionUpdateInterval:    defaultInterval,
-					AccountBalanceUpdateInterval: defaultInterval,
-					ConversionRatesCycleInterval: defaultInterval,
-					ListingLimit:                 100,
-				},
-				CouponDuration:    2,
-				CouponValue:       275,
-				PaywallProportion: 1,
-			},
-			Repairer: repairer.Config{
-				MaxRepair:                     10,
-				Interval:                      defaultInterval,
-				Timeout:                       1 * time.Minute, // Repairs can take up to 10 seconds. Leaving room for outliers
-				DownloadTimeout:               1 * time.Minute,
-				TotalTimeout:                  10 * time.Minute,
-				MaxBufferMem:                  4 * memory.MiB,
-				MaxExcessRateOptimalThreshold: 0.05,
-				InMemoryRepair:                false,
-			},
-			Audit: audit.Config{
-				MaxRetriesStatDB:   0,
-				MinBytesPerSecond:  1 * memory.KB,
-				MinDownloadTimeout: 5 * time.Second,
-				MaxReverifyCount:   3,
-				ChoreInterval:      defaultInterval,
-				QueueInterval:      defaultInterval,
-				Slots:              3,
-				WorkerConcurrency:  2,
-			},
-			GarbageCollection: gc.Config{
-				Interval:          defaultInterval,
-				Enabled:           true,
-				InitialPieces:     10,
-				FalsePositiveRate: 0.1,
-				ConcurrentSends:   1,
-				RunInCore:         false,
-			},
-			ExpiredDeletion: expireddeletion.Config{
-				Interval: defaultInterval,
-				Enabled:  true,
-			},
-			DBCleanup: dbcleanup.Config{
-				SerialsInterval: defaultInterval,
-			},
-			Tally: tally.Config{
-				Interval: defaultInterval,
-			},
-			Rollup: rollup.Config{
-				Interval:      defaultInterval,
-				DeleteTallies: false,
-			},
-			ReportedRollup: reportedrollup.Config{
-				Interval: defaultInterval,
-			},
-			ProjectBWCleanup: projectbwcleanup.Config{
-				Interval:     defaultInterval,
-				RetainMonths: 1,
-			},
-			LiveAccounting: live.Config{
-				StorageBackend:    "redis://" + redis.Addr() + "?db=0",
-				BandwidthCacheTTL: 5 * time.Minute,
-			},
-			Mail: mailservice.Config{
-				SMTPServerAddress: "smtp.mail.test:587",
-				From:              "Labs <storj@mail.test>",
-				AuthType:          "simulate",
-				TemplatePath:      filepath.Join(developmentRoot, "web/satellite/static/emails"),
-			},
-			Console: consoleweb.Config{
-				Address:         "127.0.0.1:0",
-				StaticDir:       filepath.Join(developmentRoot, "web/satellite"),
-				AuthToken:       "very-secret-token",
-				AuthTokenSecret: "my-suppa-secret-key",
-				Config: console.Config{
-					PasswordCost:        console.TestPasswordCost,
-					DefaultProjectLimit: 5,
-				},
-				RateLimit: web.IPRateLimiterConfig{
-					Duration:  5 * time.Minute,
-					Burst:     3,
-					NumLimits: 10,
-				},
-			},
-			Marketing: marketingweb.Config{
-				Address:   "127.0.0.1:0",
-				StaticDir: filepath.Join(developmentRoot, "web/marketing"),
-			},
-			Version: planet.NewVersionConfig(),
-			GracefulExit: gracefulexit.Config{
-				Enabled: true,
-
-				ChoreBatchSize: 10,
-				ChoreInterval:  defaultInterval,
-
-				EndpointBatchSize:            100,
-				MaxFailuresPerPiece:          5,
-				MaxInactiveTimeFrame:         time.Second * 10,
-				OverallMaxFailuresPercentage: 10,
-				RecvTimeout:                  time.Minute * 1,
-				MaxOrderLimitSendCount:       3,
-				NodeMinAgeInMonths:           0,
-			},
-			Metrics: metrics.Config{
-				ChoreInterval: defaultInterval,
-			},
-			Downtime: downtime.Config{
-				DetectionInterval:          defaultInterval,
-				EstimationInterval:         defaultInterval,
-				EstimationBatchSize:        5,
-				EstimationConcurrencyLimit: 5,
-			},
-		}
-
-		if planet.ReferralManager != nil {
-			config.Referrals.ReferralManagerURL = storj.NodeURL{
-				ID:      planet.ReferralManager.Identity().ID,
-				Address: planet.ReferralManager.Addr().String(),
-			}
-		}
-		if planet.config.Reconfigure.Satellite != nil {
-			planet.config.Reconfigure.Satellite(log, i, &config)
-		}
-
-		versionInfo := planet.NewVersionInfo()
-
-		revocationDB, err := revocation.OpenDBFromCfg(ctx, config.Server.Config)
-		if err != nil {
-			return xs, errs.Wrap(err)
-		}
-
-		planet.databases = append(planet.databases, revocationDB)
-
-		liveAccounting, err := live.NewCache(log.Named("live-accounting"), config.LiveAccounting)
-		if err != nil {
-			return xs, errs.Wrap(err)
-		}
-		planet.databases = append(planet.databases, liveAccounting)
-
-		rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
-		planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
-
-		peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccounting, rollupsWriteCache, versionInfo, &config, nil)
-		if err != nil {
-			return xs, err
-		}
-
-		err = db.TestingMigrateToLatest(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		api, err := planet.newAPI(ctx, i, identity, db, pointerDB, config, versionInfo)
-		if err != nil {
-			return xs, err
-		}
-
-		adminPeer, err := planet.newAdmin(ctx, i, identity, db, config, versionInfo)
-		if err != nil {
-			return xs, err
-		}
-
-		repairerPeer, err := planet.newRepairer(ctx, i, identity, db, pointerDB, config, versionInfo)
-		if err != nil {
-			return xs, err
-		}
-
-		gcPeer, err := planet.newGarbageCollection(ctx, i, identity, db, pointerDB, config, versionInfo)
-		if err != nil {
-			return xs, err
-		}
-
-		log.Debug("id=" + peer.ID().String() + " addr=" + api.Addr())
-
-		system := createNewSystem(log, config, peer, api, repairerPeer, adminPeer, gcPeer)
-		xs = append(xs, system)
+		log.Debug("id=" + system.ID().String() + " addr=" + system.Addr())
+		satellites = append(satellites, system)
+		planet.peers = append(planet.peers, newClosablePeer(system))
 	}
-	return xs, nil
+
+	return satellites, nil
+}
+
+func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int, log *zap.Logger, databases satellitedbtest.SatelliteDatabases) (*Satellite, error) {
+	storageDir := filepath.Join(planet.directory, prefix)
+	if err := os.MkdirAll(storageDir, 0700); err != nil {
+		return nil, err
+	}
+
+	identity, err := planet.NewIdentity()
+	if err != nil {
+		return nil, err
+	}
+
+	db, err := satellitedbtest.CreateMasterDB(ctx, log.Named("db"), planet.config.Name, "S", index, databases.MasterDB)
+	if err != nil {
+		return nil, err
+	}
+
+	if planet.config.Reconfigure.SatelliteDB != nil {
+		var newdb satellite.DB
+		newdb, err = planet.config.Reconfigure.SatelliteDB(log.Named("db"), index, db)
+		if err != nil {
+			return nil, errs.Combine(err, db.Close())
+		}
+		db = newdb
+	}
+	planet.databases = append(planet.databases, db)
+
+	pointerDB, err := satellitedbtest.CreatePointerDB(ctx, log.Named("pointerdb"), planet.config.Name, "P", index, databases.PointerDB)
+	if err != nil {
+		return nil, err
+	}
+
+	if planet.config.Reconfigure.SatellitePointerDB != nil {
+		var newPointerDB metainfo.PointerDB
+		newPointerDB, err = planet.config.Reconfigure.SatellitePointerDB(log.Named("pointerdb"), index, pointerDB)
+		if err != nil {
+			return nil, errs.Combine(err, pointerDB.Close())
+		}
+		pointerDB = newPointerDB
+	}
+	planet.databases = append(planet.databases, pointerDB)
+
+	redis, err := redisserver.Mini(ctx)
+	if err != nil {
+		return nil, err
+	}
+	planet.databases = append(planet.databases, redis)
+
+	config := satellite.Config{
+		Server: server.Config{
+			Address:        "127.0.0.1:0",
+			PrivateAddress: "127.0.0.1:0",
+
+			Config: tlsopts.Config{
+				RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
+				UsePeerCAWhitelist:  true,
+				PeerCAWhitelistPath: planet.whitelistPath,
+				PeerIDVersions:      "latest",
+				Extensions: extensions.Config{
+					Revocation:          false,
+					WhitelistSignedLeaf: false,
+				},
+			},
+		},
+		Debug: debug.Config{
+			Address: "",
+		},
+		Admin: admin.Config{
+			Address: "127.0.0.1:0",
+		},
+		Contact: contact.Config{
+			Timeout: 1 * time.Minute,
+		},
+		Overlay: overlay.Config{
+			Node: overlay.NodeSelectionConfig{
+				UptimeCount:      0,
+				AuditCount:       0,
+				NewNodeFraction:  1,
+				OnlineWindow:     time.Minute,
+				DistinctIP:       false,
+				MinimumDiskSpace: 100 * memory.MB,
+
+				AuditReputationRepairWeight: 1,
+				AuditReputationUplinkWeight: 1,
+				AuditReputationLambda:       0.95,
+				AuditReputationWeight:       1,
+				AuditReputationDQ:           0.6,
+				SuspensionGracePeriod:       time.Hour,
+				SuspensionDQEnabled:         true,
+			},
+			NodeSelectionCache: overlay.CacheConfig{
+				Staleness: 3 * time.Minute,
+			},
+			UpdateStatsBatchSize: 100,
+			AuditHistory: overlay.AuditHistoryConfig{
+				WindowSize:       10 * time.Minute,
+				TrackingPeriod:   time.Hour,
+				GracePeriod:      time.Hour,
+				OfflineThreshold: 0.6,
+			},
+		},
+		Metainfo: metainfo.Config{
+			DatabaseURL:          "", // not used
+			MinRemoteSegmentSize: 0,  // TODO: fix tests to work with 1024
+			MaxInlineSegmentSize: 4 * memory.KiB,
+			MaxSegmentSize:       64 * memory.MiB,
+			MaxMetadataSize:      2 * memory.KiB,
+			MaxCommitInterval:    1 * time.Hour,
+			Overlay:              true,
+			RS: metainfo.RSConfig{
+				MaxBufferMem:     memory.Size(256),
+				ErasureShareSize: memory.Size(256),
+				MinThreshold:     atLeastOne(planet.config.StorageNodeCount * 1 / 5),
+				RepairThreshold:  atLeastOne(planet.config.StorageNodeCount * 2 / 5),
+				SuccessThreshold: atLeastOne(planet.config.StorageNodeCount * 3 / 5),
+				TotalThreshold:   atLeastOne(planet.config.StorageNodeCount * 4 / 5),
+
+				MinTotalThreshold: (planet.config.StorageNodeCount * 4 / 5),
+				MaxTotalThreshold: (planet.config.StorageNodeCount * 4 / 5),
+				Validate:          false,
+			},
+			Loop: metainfo.LoopConfig{
+				CoalesceDuration: 1 * time.Second,
+				ListLimit:        10000,
+			},
+			RateLimiter: metainfo.RateLimiterConfig{
+				Enabled:         true,
+				Rate:            1000,
+				CacheCapacity:   100,
+				CacheExpiration: 10 * time.Second,
+			},
+			ProjectLimits: metainfo.ProjectLimitConfig{
+				MaxBuckets:          10,
+				DefaultMaxUsage:     25 * memory.GB,
+				DefaultMaxBandwidth: 25 * memory.GB,
+			},
+			PieceDeletion: piecedeletion.Config{
+				MaxConcurrency:      100,
+				MaxConcurrentPieces: 1000,
+
+				MaxPiecesPerBatch:   4000,
+				MaxPiecesPerRequest: 2000,
+
+				DialTimeout:    2 * time.Second,
+				RequestTimeout: 2 * time.Second,
+				FailThreshold:  2 * time.Second,
+			},
+			ObjectDeletion: objectdeletion.Config{
+				MaxObjectsPerRequest:     100,
+				ZombieSegmentsPerRequest: 3,
+				MaxConcurrentRequests:    100,
+			},
+		},
+		Orders: orders.Config{
+			Expiration:                 7 * 24 * time.Hour,
+			SettlementBatchSize:        10,
+			FlushBatchSize:             10,
+			FlushInterval:              defaultInterval,
+			NodeStatusLogging:          true,
+			WindowEndpointRolloutPhase: orders.WindowEndpointRolloutPhase3,
+		},
+		Checker: checker.Config{
+			Interval:                  defaultInterval,
+			IrreparableInterval:       defaultInterval,
+			ReliabilityCacheStaleness: 1 * time.Minute,
+		},
+		Payments: paymentsconfig.Config{
+			StorageTBPrice: "10",
+			EgressTBPrice:  "45",
+			ObjectPrice:    "0.0000022",
+			StripeCoinPayments: stripecoinpayments.Config{
+				TransactionUpdateInterval:    defaultInterval,
+				AccountBalanceUpdateInterval: defaultInterval,
+				ConversionRatesCycleInterval: defaultInterval,
+				ListingLimit:                 100,
+			},
+			CouponDuration:    2,
+			CouponValue:       275,
+			PaywallProportion: 1,
+		},
+		Repairer: repairer.Config{
+			MaxRepair:                     10,
+			Interval:                      defaultInterval,
+			Timeout:                       1 * time.Minute, // Repairs can take up to 10 seconds. Leaving room for outliers
+			DownloadTimeout:               1 * time.Minute,
+			TotalTimeout:                  10 * time.Minute,
+			MaxBufferMem:                  4 * memory.MiB,
+			MaxExcessRateOptimalThreshold: 0.05,
+			InMemoryRepair:                false,
+		},
+		Audit: audit.Config{
+			MaxRetriesStatDB:   0,
+			MinBytesPerSecond:  1 * memory.KB,
+			MinDownloadTimeout: 5 * time.Second,
+			MaxReverifyCount:   3,
+			ChoreInterval:      defaultInterval,
+			QueueInterval:      defaultInterval,
+			Slots:              3,
+			WorkerConcurrency:  2,
+		},
+		GarbageCollection: gc.Config{
+			Interval:          defaultInterval,
+			Enabled:           true,
+			InitialPieces:     10,
+			FalsePositiveRate: 0.1,
+			ConcurrentSends:   1,
+			RunInCore:         false,
+		},
+		ExpiredDeletion: expireddeletion.Config{
+			Interval: defaultInterval,
+			Enabled:  true,
+		},
+		DBCleanup: dbcleanup.Config{
+			SerialsInterval: defaultInterval,
+		},
+		Tally: tally.Config{
+			Interval: defaultInterval,
+		},
+		Rollup: rollup.Config{
+			Interval:      defaultInterval,
+			DeleteTallies: false,
+		},
+		ReportedRollup: reportedrollup.Config{
+			Interval: defaultInterval,
+		},
+		ProjectBWCleanup: projectbwcleanup.Config{
+			Interval:     defaultInterval,
+			RetainMonths: 1,
+		},
+		LiveAccounting: live.Config{
+			StorageBackend:    "redis://" + redis.Addr() + "?db=0",
+			BandwidthCacheTTL: 5 * time.Minute,
+		},
+		Mail: mailservice.Config{
+			SMTPServerAddress: "smtp.mail.test:587",
+			From:              "Labs <storj@mail.test>",
+			AuthType:          "simulate",
+			TemplatePath:      filepath.Join(developmentRoot, "web/satellite/static/emails"),
+		},
+		Console: consoleweb.Config{
+			Address:         "127.0.0.1:0",
+			StaticDir:       filepath.Join(developmentRoot, "web/satellite"),
+			AuthToken:       "very-secret-token",
+			AuthTokenSecret: "my-suppa-secret-key",
+			Config: console.Config{
+				PasswordCost:        console.TestPasswordCost,
+				DefaultProjectLimit: 5,
+			},
+			RateLimit: web.IPRateLimiterConfig{
+				Duration:  5 * time.Minute,
+				Burst:     3,
+				NumLimits: 10,
+			},
+		},
+		Marketing: marketingweb.Config{
+			Address:   "127.0.0.1:0",
+			StaticDir: filepath.Join(developmentRoot, "web/marketing"),
+		},
+		Version: planet.NewVersionConfig(),
+		GracefulExit: gracefulexit.Config{
+			Enabled: true,
+
+			ChoreBatchSize: 10,
+			ChoreInterval:  defaultInterval,
+
+			EndpointBatchSize:            100,
+			MaxFailuresPerPiece:          5,
+			MaxInactiveTimeFrame:         time.Second * 10,
+			OverallMaxFailuresPercentage: 10,
+			RecvTimeout:                  time.Minute * 1,
+			MaxOrderLimitSendCount:       3,
+			NodeMinAgeInMonths:           0,
+		},
+		Metrics: metrics.Config{
+			ChoreInterval: defaultInterval,
+		},
+		Downtime: downtime.Config{
+			DetectionInterval:          defaultInterval,
+			EstimationInterval:         defaultInterval,
+			EstimationBatchSize:        5,
+			EstimationConcurrencyLimit: 5,
+		},
+	}
+
+	if planet.ReferralManager != nil {
+		config.Referrals.ReferralManagerURL = storj.NodeURL{
+			ID:      planet.ReferralManager.Identity().ID,
+			Address: planet.ReferralManager.Addr().String(),
+		}
+	}
+	if planet.config.Reconfigure.Satellite != nil {
+		planet.config.Reconfigure.Satellite(log, index, &config)
+	}
+
+	versionInfo := planet.NewVersionInfo()
+
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, config.Server.Config)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	planet.databases = append(planet.databases, revocationDB)
+
+	liveAccounting, err := live.NewCache(log.Named("live-accounting"), config.LiveAccounting)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	planet.databases = append(planet.databases, liveAccounting)
+
+	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
+	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
+
+	peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccounting, rollupsWriteCache, versionInfo, &config, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	err = db.TestingMigrateToLatest(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	api, err := planet.newAPI(ctx, index, identity, db, pointerDB, config, versionInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	adminPeer, err := planet.newAdmin(ctx, index, identity, db, config, versionInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	repairerPeer, err := planet.newRepairer(ctx, index, identity, db, pointerDB, config, versionInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	gcPeer, err := planet.newGarbageCollection(ctx, index, identity, db, pointerDB, config, versionInfo)
+	if err != nil {
+		return nil, err
+	}
+
+	return createNewSystem(prefix, log, config, peer, api, repairerPeer, adminPeer, gcPeer), nil
 }
 
 // createNewSystem makes a new Satellite System and exposes the same interface from
 // before we split out the API. In the short term this will help keep all the tests passing
 // without much modification needed. However long term, we probably want to rework this
 // so it represents how the satellite will run when it is made up of many prrocesses.
-func createNewSystem(log *zap.Logger, config satellite.Config, peer *satellite.Core, api *satellite.API, repairerPeer *satellite.Repairer, adminPeer *satellite.Admin, gcPeer *satellite.GarbageCollection) *Satellite {
+func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer *satellite.Core, api *satellite.API, repairerPeer *satellite.Repairer, adminPeer *satellite.Admin, gcPeer *satellite.GarbageCollection) *Satellite {
 	system := &Satellite{
+		Name:     name,
 		Config:   config,
 		Core:     peer,
 		API:      api,
@@ -755,8 +769,8 @@ func createNewSystem(log *zap.Logger, config satellite.Config, peer *satellite.C
 	return system
 }
 
-func (planet *Planet) newAPI(ctx context.Context, count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.API, error) {
-	prefix := "satellite-api" + strconv.Itoa(count)
+func (planet *Planet) newAPI(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.API, error) {
+	prefix := "satellite-api" + strconv.Itoa(index)
 	log := planet.log.Named(prefix)
 	var err error
 
@@ -778,15 +792,15 @@ func (planet *Planet) newAPI(ctx context.Context, count int, identity *identity.
 	return satellite.NewAPI(log, identity, db, pointerDB, revocationDB, liveAccounting, rollupsWriteCache, &config, versionInfo, nil)
 }
 
-func (planet *Planet) newAdmin(ctx context.Context, count int, identity *identity.FullIdentity, db satellite.DB, config satellite.Config, versionInfo version.Info) (*satellite.Admin, error) {
-	prefix := "satellite-admin" + strconv.Itoa(count)
+func (planet *Planet) newAdmin(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, config satellite.Config, versionInfo version.Info) (*satellite.Admin, error) {
+	prefix := "satellite-admin" + strconv.Itoa(index)
 	log := planet.log.Named(prefix)
 
 	return satellite.NewAdmin(log, identity, db, versionInfo, &config, nil)
 }
 
-func (planet *Planet) newRepairer(ctx context.Context, count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.Repairer, error) {
-	prefix := "satellite-repairer" + strconv.Itoa(count)
+func (planet *Planet) newRepairer(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.Repairer, error) {
+	prefix := "satellite-repairer" + strconv.Itoa(index)
 	log := planet.log.Named(prefix)
 
 	revocationDB, err := revocation.OpenDBFromCfg(ctx, config.Server.Config)
@@ -809,8 +823,8 @@ func (cache rollupsWriteCacheCloser) Close() error {
 	return cache.RollupsWriteCache.CloseAndFlush(context.TODO())
 }
 
-func (planet *Planet) newGarbageCollection(ctx context.Context, count int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.GarbageCollection, error) {
-	prefix := "satellite-gc" + strconv.Itoa(count)
+func (planet *Planet) newGarbageCollection(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.GarbageCollection, error) {
+	prefix := "satellite-gc" + strconv.Itoa(index)
 	log := planet.log.Named(prefix)
 
 	revocationDB, err := revocation.OpenDBFromCfg(ctx, config.Server.Config)

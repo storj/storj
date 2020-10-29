@@ -21,7 +21,7 @@ func RunDBs(t *testing.T, test func(*testing.T, extensions.RevocationDB, storage
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		redis, err := redisserver.Mini()
+		redis, err := redisserver.Mini(ctx)
 		require.NoError(t, err)
 		defer ctx.Check(redis.Close)
 

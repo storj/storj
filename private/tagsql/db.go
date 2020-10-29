@@ -12,6 +12,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"errors"
+	"runtime/pprof"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -22,15 +23,21 @@ import (
 
 // Open opens *sql.DB and wraps the implementation with tagging.
 func Open(ctx context.Context, driverName, dataSourceName string) (DB, error) {
-	db, err := sql.Open(driverName, dataSourceName)
+	var sdb *sql.DB
+	var err error
+	pprof.Do(ctx, pprof.Labels("db", driverName), func(ctx context.Context) {
+		sdb, err = sql.Open(driverName, dataSourceName)
+	})
 	if err != nil {
 		return nil, err
 	}
-	err = db.Ping()
+
+	err = sdb.PingContext(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return Wrap(db), nil
+
+	return Wrap(sdb), nil
 }
 
 // Wrap turns a *sql.DB into a DB-matching interface.

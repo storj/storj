@@ -4,16 +4,21 @@
 package redis
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/testcontext"
 	"storj.io/storj/storage/redis/redisserver"
 	"storj.io/storj/storage/testsuite"
 )
 
 func TestSuite(t *testing.T) {
-	redis, err := redisserver.Start()
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	redis, err := redisserver.Start(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -36,7 +41,9 @@ func TestInvalidConnection(t *testing.T) {
 }
 
 func BenchmarkSuite(b *testing.B) {
-	redis, err := redisserver.Start()
+	ctx := context.Background()
+
+	redis, err := redisserver.Start(ctx)
 	if err != nil {
 		b.Fatal(err)
 	}
