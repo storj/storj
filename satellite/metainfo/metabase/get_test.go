@@ -99,6 +99,8 @@ func TestGetObjectExactVersion(t *testing.T) {
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
+
+					Encryption: defaultTestEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
@@ -118,6 +120,8 @@ func TestGetObjectExactVersion(t *testing.T) {
 						ObjectStream: obj,
 						CreatedAt:    now,
 						Status:       metabase.Pending,
+
+						Encryption: defaultTestEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -199,6 +203,8 @@ func TestGetObjectLatestVersion(t *testing.T) {
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
+
+					Encryption: defaultTestEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
@@ -217,6 +223,8 @@ func TestGetObjectLatestVersion(t *testing.T) {
 						ObjectStream: obj,
 						CreatedAt:    now,
 						Status:       metabase.Pending,
+
+						Encryption: defaultTestEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
