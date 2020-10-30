@@ -70,7 +70,7 @@ func cmdCreateAuth(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return errs.New("Count couldn't be parsed: %s", args[0])
 	}
-	authDB, err := authorization.NewDBFromCfg(authCfg.Config.AuthorizationDB)
+	authDB, err := authorization.OpenDBFromCfg(ctx, authCfg.Config.AuthorizationDB)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func cmdCreateAuth(cmd *cobra.Command, args []string) error {
 
 func cmdInfoAuth(cmd *cobra.Command, args []string) error {
 	ctx, _ := process.Ctx(cmd)
-	authDB, err := authorization.NewDBFromCfg(authCfg.Config.AuthorizationDB)
+	authDB, err := authorization.OpenDBFromCfg(ctx, authCfg.Config.AuthorizationDB)
 	if err != nil {
 		return err
 	}
@@ -194,7 +194,7 @@ func writeTokenInfo(claimed, open authorization.Group, w io.Writer) error {
 
 func cmdExportAuth(cmd *cobra.Command, args []string) error {
 	ctx, _ := process.Ctx(cmd)
-	authDB, err := authorization.NewDBFromCfg(authCfg.Config.AuthorizationDB)
+	authDB, err := authorization.OpenDBFromCfg(ctx, authCfg.Config.AuthorizationDB)
 	if err != nil {
 		return err
 	}

@@ -34,7 +34,7 @@ type Config struct {
 	IrreparableInterval time.Duration `help:"how frequently irrepairable checker should check for lost pieces" releaseDefault:"30m" devDefault:"0h0m5s"`
 
 	ReliabilityCacheStaleness time.Duration `help:"how stale reliable node cache can be" releaseDefault:"5m" devDefault:"5m"`
-	RepairOverride            int           `help:"override value for repair threshold" default:"0"`
+	RepairOverride            int           `help:"override value for repair threshold" releaseDefault:"52" devDefault:"0"`
 }
 
 // durabilityStats remote segment information.

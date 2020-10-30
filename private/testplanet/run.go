@@ -5,6 +5,7 @@ package testplanet
 
 import (
 	"context"
+	"runtime/pprof"
 	"strings"
 	"testing"
 
@@ -52,17 +53,19 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 				planetConfig.Name = t.Name()
 			}
 
-			planet, err := NewCustom(zaptest.NewLogger(t), planetConfig, satelliteDB)
-			if err != nil {
-				t.Fatalf("%+v", err)
-			}
-			defer ctx.Check(planet.Shutdown)
+			pprof.Do(ctx, pprof.Labels("planet", planetConfig.Name), func(namedctx context.Context) {
+				planet, err := NewCustom(namedctx, zaptest.NewLogger(t), planetConfig, satelliteDB)
+				if err != nil {
+					t.Fatalf("%+v", err)
+				}
+				defer ctx.Check(planet.Shutdown)
 
-			planet.Start(ctx)
+				planet.Start(namedctx)
 
-			provisionUplinks(ctx, t, planet)
+				provisionUplinks(namedctx, t, planet)
 
-			test(t, ctx, planet)
+				test(t, ctx, planet)
+			})
 		})
 	}
 }

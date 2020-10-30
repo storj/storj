@@ -43,7 +43,7 @@ func TestGraphqlQuery(t *testing.T) {
 			},
 		)
 
-		redis, err := redisserver.Mini()
+		redis, err := redisserver.Mini(ctx)
 		require.NoError(t, err)
 		defer ctx.Check(redis.Close)
 

@@ -6,6 +6,7 @@ package redisserver
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -15,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"time"
@@ -51,17 +53,17 @@ func freeport() (addr string, port int) {
 }
 
 // Start starts a redis-server when available, otherwise falls back to miniredis.
-func Start() (Server, error) {
-	server, err := Process()
+func Start(ctx context.Context) (Server, error) {
+	server, err := Process(ctx)
 	if err != nil {
 		log.Println("failed to start redis-server: ", err)
-		return Mini()
+		return Mini(ctx)
 	}
 	return server, err
 }
 
 // Process starts a redis-server test process.
-func Process() (Server, error) {
+func Process(ctx context.Context) (Server, error) {
 	tmpdir, err := ioutil.TempDir("", "storj-redis")
 	if err != nil {
 		return nil, err
@@ -159,12 +161,17 @@ func pingServer(addr string) error {
 }
 
 // Mini starts miniredis server.
-func Mini() (Server, error) {
-	server, err := miniredis.Run()
+func Mini(ctx context.Context) (Server, error) {
+	var server *miniredis.Miniredis
+	var err error
+
+	pprof.Do(ctx, pprof.Labels("db", "miniredis"), func(ctx context.Context) {
+		server, err = miniredis.Run()
+	})
+
 	if err != nil {
 		return nil, err
 	}
-
 	return &miniserver{server}, nil
 }
 

@@ -155,7 +155,7 @@ func migrateTest(t *testing.T, connStr string) {
 	defer func() { require.NoError(t, tempDB.Close()) }()
 
 	// create a new satellitedb connection
-	db, err := satellitedb.New(log, tempDB.ConnStr, satellitedb.Options{})
+	db, err := satellitedb.Open(ctx, log, tempDB.ConnStr, satellitedb.Options{})
 	require.NoError(t, err)
 	defer func() { require.NoError(t, db.Close()) }()
 
@@ -247,7 +247,7 @@ func benchmarkSetup(b *testing.B, connStr string, merged bool) {
 			defer func() { require.NoError(b, tempDB.Close()) }()
 
 			// create a new satellitedb connection
-			db, err := satellitedb.New(log, tempDB.ConnStr, satellitedb.Options{})
+			db, err := satellitedb.Open(ctx, log, tempDB.ConnStr, satellitedb.Options{})
 			require.NoError(b, err)
 			defer func() { require.NoError(b, db.Close()) }()
 

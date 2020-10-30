@@ -28,7 +28,7 @@ func cmdGCRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Failed to load identity: %+v", err)
 	}
 
-	db, err := satellitedb.New(log.Named("db"), runCfg.Database, satellitedb.Options{})
+	db, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{})
 	if err != nil {
 		return errs.New("Error starting master database on satellite GC: %+v", err)
 	}
@@ -36,7 +36,7 @@ func cmdGCRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL)
+	pointerDB, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL)
 	if err != nil {
 		return errs.New("Error creating pointerDB connection GC: %+v", err)
 	}
@@ -44,7 +44,7 @@ func cmdGCRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, pointerDB.Close())
 	}()
 
-	revocationDB, err := revocation.NewDBFromCfg(runCfg.Server.Config)
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, runCfg.Server.Config)
 	if err != nil {
 		return errs.New("Error creating revocation database GC: %+v", err)
 	}

@@ -739,4 +739,3 @@ func Schema() map[string]*dbschema.Schema {
 		"used_serial": &dbschema.Schema{},
 	}
 }
-

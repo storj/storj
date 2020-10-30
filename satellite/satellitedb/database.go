@@ -4,6 +4,7 @@
 package satellitedb
 
 import (
+	"context"
 	"sync"
 
 	"github.com/zeebo/errs"
@@ -70,8 +71,8 @@ type Options struct {
 
 var _ dbx.DBMethods = &satelliteDB{}
 
-// New creates instance of database supports postgres.
-func New(log *zap.Logger, databaseURL string, opts Options) (satellite.DB, error) {
+// Open creates instance of database supports postgres.
+func Open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options) (satellite.DB, error) {
 	driver, source, implementation, err := dbutil.SplitConnStr(databaseURL)
 	if err != nil {
 		return nil, err
@@ -89,7 +90,7 @@ func New(log *zap.Logger, databaseURL string, opts Options) (satellite.DB, error
 	}
 	log.Debug("Connected to:", zap.String("db source", source))
 
-	dbutil.Configure(dbxDB.DB, "satellitedb", mon)
+	dbutil.Configure(ctx, dbxDB.DB, "satellitedb", mon)
 
 	core := &satelliteDB{
 		DB: dbxDB,

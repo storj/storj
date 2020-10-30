@@ -20,10 +20,10 @@ import (
 	"storj.io/storj/storage/testsuite"
 )
 
-func newTestPostgres(t testing.TB) (store *Client, cleanup func()) {
+func openTestPostgres(ctx context.Context, t testing.TB) (store *Client, cleanup func()) {
 	connstr := pgtest.PickPostgres(t)
 
-	pgdb, err := New(connstr)
+	pgdb, err := Open(ctx, connstr)
 	if err != nil {
 		t.Fatalf("init: %v", err)
 	}
@@ -36,11 +36,11 @@ func newTestPostgres(t testing.TB) (store *Client, cleanup func()) {
 }
 
 func TestSuite(t *testing.T) {
-	store, cleanup := newTestPostgres(t)
-	defer cleanup()
-
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
+
+	store, cleanup := openTestPostgres(ctx, t)
+	defer cleanup()
 
 	err := store.MigrateToLatest(ctx)
 	require.NoError(t, err)
@@ -56,7 +56,7 @@ func TestThatMigrationActuallyHappened(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	store, cleanup := newTestPostgres(t)
+	store, cleanup := openTestPostgres(ctx, t)
 	defer cleanup()
 
 	rows, err := store.db.Query(ctx, `
@@ -96,7 +96,9 @@ func TestThatMigrationActuallyHappened(t *testing.T) {
 func BenchmarkSuite(b *testing.B) {
 	b.Skip("broken")
 
-	store, cleanup := newTestPostgres(b)
+	ctx := context.Background()
+
+	store, cleanup := openTestPostgres(ctx, b)
 	defer cleanup()
 
 	testsuite.RunBenchmarks(b, store)
@@ -157,7 +159,9 @@ func (store *pgLongBenchmarkStore) BulkDeleteAll(ctx context.Context) error {
 }
 
 func BenchmarkSuiteLong(b *testing.B) {
-	store, cleanup := newTestPostgres(b)
+	ctx := context.Background()
+
+	store, cleanup := openTestPostgres(ctx, b)
 	defer cleanup()
 
 	testsuite.BenchmarkPathOperationsInLargeDb(b, &pgLongBenchmarkStore{store})

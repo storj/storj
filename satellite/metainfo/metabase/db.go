@@ -24,8 +24,8 @@ type DB struct {
 }
 
 // Open opens a connection to metabase.
-func Open(driverName, connstr string) (*DB, error) {
-	db, err := tagsql.Open(driverName, connstr)
+func Open(ctx context.Context, driverName, connstr string) (*DB, error) {
+	db, err := tagsql.Open(ctx, driverName, connstr)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

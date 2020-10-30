@@ -47,13 +47,13 @@ type DBConfig struct {
 	Overwrite bool   `default:"false" help:"if true, overwrites config AND authorization db is truncated" setup:"true"`
 }
 
-// NewDBFromCfg creates and/or opens the authorization database specified by the config.
-func NewDBFromCfg(config DBConfig) (*DB, error) {
-	return NewDB(config.URL, config.Overwrite)
+// OpenDBFromCfg creates and/or opens the authorization database specified by the config.
+func OpenDBFromCfg(ctx context.Context, config DBConfig) (*DB, error) {
+	return OpenDB(ctx, config.URL, config.Overwrite)
 }
 
-// NewDB creates and/or opens the authorization database.
-func NewDB(dbURL string, overwrite bool) (*DB, error) {
+// OpenDB creates and/or opens the authorization database.
+func OpenDB(ctx context.Context, dbURL string, overwrite bool) (*DB, error) {
 	driver, source, _, err := dbutil.SplitConnStr(dbURL)
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)

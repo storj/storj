@@ -209,7 +209,7 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 			},
 		}
 
-		revocationDB, err := revocation.NewDBFromCfg(tlscfg)
+		revocationDB, err := revocation.OpenDBFromCfg(ctx, tlscfg)
 		require.NoError(t, err)
 
 		tlsOptions, err := tlsopts.NewOptions(storageNode.Identity, tlscfg, revocationDB)

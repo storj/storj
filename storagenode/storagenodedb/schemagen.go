@@ -47,7 +47,7 @@ func runSchemaGen(ctx context.Context, log *zap.Logger) (err error) {
 		}
 	}()
 
-	db, err := storagenodedb.New(log, storagenodedb.Config{
+	db, err := storagenodedb.OpenNew(ctx, log, storagenodedb.Config{
 		Storage: storagePath,
 		Info:    filepath.Join(storagePath, "piecestore.db"),
 		Info2:   filepath.Join(storagePath, "info.db"),

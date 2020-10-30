@@ -25,6 +25,8 @@ var (
 )
 
 func cmdSetup(cmd *cobra.Command, args []string) error {
+	ctx, _ := process.Ctx(cmd)
+
 	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
@@ -44,7 +46,7 @@ func cmdSetup(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	authorizationDB, err := authorization.NewDBFromCfg(setupCfg.Config.AuthorizationDB)
+	authorizationDB, err := authorization.OpenDBFromCfg(ctx, setupCfg.Config.AuthorizationDB)
 	if err != nil {
 		return err
 	}

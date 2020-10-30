@@ -44,7 +44,7 @@ func All(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
 
-			db, err := metabase.Open(info.driver, info.connstr)
+			db, err := metabase.Open(ctx, info.driver, info.connstr)
 			if err != nil {
 				t.Fatal(err)
 			}

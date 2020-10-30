@@ -26,7 +26,7 @@ func TestTempPostgresDB(t *testing.T) {
 	require.NoError(t, err)
 
 	// assert new test db exists and can be connected to again
-	otherConn, err := tagsql.Open(testDB.Driver, testDB.ConnStr)
+	otherConn, err := tagsql.Open(ctx, testDB.Driver, testDB.ConnStr)
 	require.NoError(t, err)
 	defer ctx.Check(otherConn.Close)
 

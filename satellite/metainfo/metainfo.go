@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/metainfo/objectdeletion"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
@@ -665,7 +666,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	// use only satellite values for Redundancy Scheme
 	pbRS := endpoint.redundancyScheme()
 
-	streamID, err := endpoint.packStreamID(ctx, &pb.SatStreamID{
+	streamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
 		Bucket:         req.Bucket,
 		EncryptedPath:  req.EncryptedPath,
 		Version:        req.Version,
@@ -853,7 +854,7 @@ func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bu
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	streamID, err := endpoint.packStreamID(ctx, &pb.SatStreamID{
+	streamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
 		Bucket:        bucket,
 		EncryptedPath: encryptedPath,
 		Version:       version,
@@ -1200,7 +1201,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	segmentID, err := endpoint.packSegmentID(ctx, &pb.SatSegmentID{
+	segmentID, err := endpoint.packSegmentID(ctx, &internalpb.SegmentID{
 		StreamId:            streamID,
 		Index:               req.Position.Index,
 		OriginalOrderLimits: addressedLimits,
@@ -1522,7 +1523,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	segmentID, err := endpoint.packSegmentID(ctx, &pb.SatSegmentID{})
+	segmentID, err := endpoint.packSegmentID(ctx, &internalpb.SegmentID{})
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1656,10 +1657,10 @@ func getLimitByStorageNodeID(limits []*pb.AddressedOrderLimit, storageNodeID sto
 	return nil
 }
 
-func (endpoint *Endpoint) packStreamID(ctx context.Context, satStreamID *pb.SatStreamID) (streamID storj.StreamID, err error) {
+func (endpoint *Endpoint) packStreamID(ctx context.Context, satStreamID *internalpb.StreamID) (streamID storj.StreamID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	signedStreamID, err := signing.SignStreamID(ctx, endpoint.satellite, satStreamID)
+	signedStreamID, err := SignStreamID(ctx, endpoint.satellite, satStreamID)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1676,10 +1677,10 @@ func (endpoint *Endpoint) packStreamID(ctx context.Context, satStreamID *pb.SatS
 	return streamID, nil
 }
 
-func (endpoint *Endpoint) packSegmentID(ctx context.Context, satSegmentID *pb.SatSegmentID) (segmentID storj.SegmentID, err error) {
+func (endpoint *Endpoint) packSegmentID(ctx context.Context, satSegmentID *internalpb.SegmentID) (segmentID storj.SegmentID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	signedSegmentID, err := signing.SignSegmentID(ctx, endpoint.satellite, satSegmentID)
+	signedSegmentID, err := SignSegmentID(ctx, endpoint.satellite, satSegmentID)
 	if err != nil {
 		return nil, err
 	}
@@ -1696,16 +1697,16 @@ func (endpoint *Endpoint) packSegmentID(ctx context.Context, satSegmentID *pb.Sa
 	return segmentID, nil
 }
 
-func (endpoint *Endpoint) unmarshalSatStreamID(ctx context.Context, streamID storj.StreamID) (_ *pb.SatStreamID, err error) {
+func (endpoint *Endpoint) unmarshalSatStreamID(ctx context.Context, streamID storj.StreamID) (_ *internalpb.StreamID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	satStreamID := &pb.SatStreamID{}
+	satStreamID := &internalpb.StreamID{}
 	err = pb.Unmarshal(streamID, satStreamID)
 	if err != nil {
 		return nil, err
 	}
 
-	err = signing.VerifyStreamID(ctx, endpoint.satellite, satStreamID)
+	err = VerifyStreamID(ctx, endpoint.satellite, satStreamID)
 	if err != nil {
 		return nil, err
 	}

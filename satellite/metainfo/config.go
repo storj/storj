@@ -81,8 +81,8 @@ type PointerDB interface {
 	storage.KeyValueStore
 }
 
-// NewStore returns database for storing pointer data.
-func NewStore(logger *zap.Logger, dbURLString string) (db PointerDB, err error) {
+// OpenStore returns database for storing pointer data.
+func OpenStore(ctx context.Context, logger *zap.Logger, dbURLString string) (db PointerDB, err error) {
 	_, source, implementation, err := dbutil.SplitConnStr(dbURLString)
 	if err != nil {
 		return nil, err
@@ -90,9 +90,9 @@ func NewStore(logger *zap.Logger, dbURLString string) (db PointerDB, err error) 
 
 	switch implementation {
 	case dbutil.Postgres:
-		db, err = postgreskv.New(source)
+		db, err = postgreskv.Open(ctx, source)
 	case dbutil.Cockroach:
-		db, err = cockroachkv.New(source)
+		db, err = cockroachkv.Open(ctx, source)
 	default:
 		err = Error.New("unsupported db implementation: %s", dbURLString)
 	}

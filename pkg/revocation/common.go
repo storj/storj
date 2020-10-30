@@ -4,6 +4,8 @@
 package revocation
 
 import (
+	"context"
+
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/storj/private/dbutil"
@@ -11,18 +13,18 @@ import (
 	"storj.io/storj/storage/redis"
 )
 
-// NewDBFromCfg is a convenience method to create a revocation DB
+// OpenDBFromCfg is a convenience method to create a revocation DB
 // directly from a config. If the revocation extension option is not set, it
 // returns a nil db with no error.
-func NewDBFromCfg(cfg tlsopts.Config) (*DB, error) {
+func OpenDBFromCfg(ctx context.Context, cfg tlsopts.Config) (*DB, error) {
 	if !cfg.Extensions.Revocation {
 		return &DB{}, nil
 	}
-	return NewDB(cfg.RevocationDBURL)
+	return OpenDB(ctx, cfg.RevocationDBURL)
 }
 
-// NewDB returns a new revocation database given the URL.
-func NewDB(dbURL string) (*DB, error) {
+// OpenDB returns a new revocation database given the URL.
+func OpenDB(ctx context.Context, dbURL string) (*DB, error) {
 	driver, source, _, err := dbutil.SplitConnStr(dbURL)
 	if err != nil {
 		return nil, extensions.ErrRevocationDB.Wrap(err)
@@ -30,12 +32,12 @@ func NewDB(dbURL string) (*DB, error) {
 	var db *DB
 	switch driver {
 	case "bolt":
-		db, err = newDBBolt(source)
+		db, err = openDBBolt(ctx, source)
 		if err != nil {
 			return nil, extensions.ErrRevocationDB.Wrap(err)
 		}
 	case "redis":
-		db, err = newDBRedis(dbURL)
+		db, err = openDBRedis(ctx, dbURL)
 		if err != nil {
 			return nil, extensions.ErrRevocationDB.Wrap(err)
 		}
@@ -45,8 +47,8 @@ func NewDB(dbURL string) (*DB, error) {
 	return db, nil
 }
 
-// newDBBolt creates a bolt-backed DB.
-func newDBBolt(path string) (*DB, error) {
+// openDBBolt creates a bolt-backed DB.
+func openDBBolt(ctx context.Context, path string) (*DB, error) {
 	client, err := boltdb.New(path, extensions.RevocationBucket)
 	if err != nil {
 		return nil, err
@@ -56,8 +58,8 @@ func newDBBolt(path string) (*DB, error) {
 	}, nil
 }
 
-// newDBRedis creates a redis-backed DB.
-func newDBRedis(address string) (*DB, error) {
+// openDBRedis creates a redis-backed DB.
+func openDBRedis(ctx context.Context, address string) (*DB, error) {
 	client, err := redis.NewClientFrom(address)
 	if err != nil {
 		return nil, err

@@ -28,7 +28,7 @@ func TestNewDB(t *testing.T) {
 	defer ctx.Cleanup()
 
 	dbURL := "bolt://" + ctx.File("authorizations.db")
-	db, err := NewDB(dbURL, false)
+	db, err := OpenDB(ctx, dbURL, false)
 	require.NoError(t, err)
 	defer ctx.Check(db.Close)
 
@@ -40,7 +40,7 @@ func TestNewDBFromCfg(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	db, err := NewDBFromCfg(DBConfig{
+	db, err := OpenDBFromCfg(ctx, DBConfig{
 		URL:       "bolt://" + ctx.File("authorizations.db"),
 		Overwrite: false,
 	})
@@ -410,7 +410,7 @@ func TestAuthorizationDB_Emails(t *testing.T) {
 
 func newTestAuthDB(t *testing.T, ctx *testcontext.Context) *DB {
 	dbURL := "bolt://" + ctx.File("authorizations.db")
-	db, err := NewDB(dbURL, false)
+	db, err := OpenDB(ctx, dbURL, false)
 	require.NoError(t, err)
 	return db
 }

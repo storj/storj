@@ -21,10 +21,10 @@ import (
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
-func runBillingCmd(cmdFunc func(*stripecoinpayments.Service, *dbx.DB) error) error {
+func runBillingCmd(ctx context.Context, cmdFunc func(context.Context, *stripecoinpayments.Service, *dbx.DB) error) error {
 	// Open SatelliteDB for the Payment Service
 	logger := zap.L()
-	db, err := satellitedb.New(logger.Named("db"), runCfg.Database, satellitedb.Options{})
+	db, err := satellitedb.Open(ctx, logger.Named("db"), runCfg.Database, satellitedb.Options{})
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
 	}
@@ -55,7 +55,7 @@ func runBillingCmd(cmdFunc func(*stripecoinpayments.Service, *dbx.DB) error) err
 		return err
 	}
 
-	return cmdFunc(payments, dbxDB)
+	return cmdFunc(ctx, payments, dbxDB)
 }
 
 func setupPayments(log *zap.Logger, db satellite.DB) (*stripecoinpayments.Service, error) {
@@ -124,7 +124,7 @@ type userData struct {
 
 // generateStripeCustomers creates missing stripe-customers for users in our database.
 func generateStripeCustomers(ctx context.Context) (err error) {
-	return runBillingCmd(func(payments *stripecoinpayments.Service, dbxDB *dbx.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, dbxDB *dbx.DB) error {
 		accounts := payments.Accounts()
 
 		rows, err := dbxDB.Query(ctx, "SELECT id, email FROM users WHERE id NOT IN (SELECT user_id from stripe_customers) AND users.status=1")
