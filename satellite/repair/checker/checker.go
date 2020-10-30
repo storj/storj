@@ -222,7 +222,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	} else if numHealthy < redundancy.MinReq && numHealthy < repairThreshold {
 
 		// make an entry into the irreparable table
-		segmentInfo := &pb.IrreparableSegment{
+		segmentInfo := &internalpb.IrreparableSegment{
 			Path:               key,
 			SegmentDetail:      pointer,
 			LostPieces:         int32(len(missingPieces)),
@@ -345,7 +345,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metainfo
 
 		obs.monStats.remoteSegmentsLost++
 		// make an entry into the irreparable table
-		segmentInfo := &pb.IrreparableSegment{
+		segmentInfo := &internalpb.IrreparableSegment{
 			Path:               key,
 			SegmentDetail:      segment.Pointer, // TODO: replace with something better than pb.Pointer
 			LostPieces:         int32(len(missingPieces)),

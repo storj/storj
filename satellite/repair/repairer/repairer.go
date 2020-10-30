@@ -13,7 +13,6 @@ import (
 	"golang.org/x/sync/semaphore"
 
 	"storj.io/common/memory"
-	"storj.io/common/pb"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/repair/irreparable"
@@ -162,7 +161,7 @@ func (service *Service) worker(ctx context.Context, seg *internalpb.InjuredSegme
 		if irreparableErr, ok := err.(*irreparableError); ok {
 			service.log.Error("segment could not be repaired! adding to irreparableDB for more attention",
 				zap.Error(err))
-			segmentInfo := &pb.IrreparableSegment{
+			segmentInfo := &internalpb.IrreparableSegment{
 				Path:               seg.GetPath(),
 				SegmentDetail:      irreparableErr.segmentInfo,
 				LostPieces:         irreparableErr.piecesRequired - irreparableErr.piecesAvailable,
