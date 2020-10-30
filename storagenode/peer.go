@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/gracefulexit"
 	"storj.io/storj/storagenode/inspector"
+	"storj.io/storj/storagenode/internalpb"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/notifications"
@@ -681,7 +682,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Console.Listener.Addr(),
 			config.Contact.ExternalAddress,
 		)
-		if err := pb.DRPCRegisterPieceStoreInspector(peer.Server.PrivateDRPC(), peer.Storage2.Inspector); err != nil {
+		if err := internalpb.DRPCRegisterPieceStoreInspector(peer.Server.PrivateDRPC(), peer.Storage2.Inspector); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 	}
