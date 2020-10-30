@@ -727,19 +727,9 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 func (endpoint *Endpoint) commitObject(ctx context.Context, req *pb.ObjectCommitRequest, pointer *pb.Pointer) (resp *pb.ObjectCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	streamID := &pb.SatStreamID{}
-	err = pb.Unmarshal(req.StreamId, streamID)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-
-	err = signing.VerifyStreamID(ctx, endpoint.satellite, streamID)
+	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
-
-	if streamID.CreationDate.Before(time.Now().Add(-satIDExpiration)) {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "stream ID expired")
 	}
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
@@ -1718,10 +1708,10 @@ func (endpoint *Endpoint) unmarshalSatStreamID(ctx context.Context, streamID sto
 	return satStreamID, nil
 }
 
-func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID storj.SegmentID) (_ *pb.SatSegmentID, err error) {
+func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID storj.SegmentID) (_ *internalpb.SegmentID, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	satSegmentID := &pb.SatSegmentID{}
+	satSegmentID := &internalpb.SegmentID{}
 	err = pb.Unmarshal(segmentID, satSegmentID)
 	if err != nil {
 		return nil, err
@@ -1730,7 +1720,7 @@ func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID s
 		return nil, errs.New("stream ID missing")
 	}
 
-	err = signing.VerifySegmentID(ctx, endpoint.satellite, satSegmentID)
+	err = VerifySegmentID(ctx, endpoint.satellite, satSegmentID)
 	if err != nil {
 		return nil, err
 	}
