@@ -7,7 +7,7 @@ option go_package = "storj.io/storj/storagenode/internalpb";
 import "gogo.proto";
 import "google/protobuf/timestamp.proto";
 
-package gracefulexit;
+package storagenode.gracefulexit;
 
 // NodeGracefulExit is a private service on storagenodes.
 service NodeGracefulExit {

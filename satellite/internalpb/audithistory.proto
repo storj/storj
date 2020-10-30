@@ -4,7 +4,7 @@
 syntax = "proto3";
 option go_package = "storj.io/storj/satellite/internalpb";
 
-package audithistory;
+package satellite.audithistory;
 
 import "gogo.proto";
 import "google/protobuf/timestamp.proto";

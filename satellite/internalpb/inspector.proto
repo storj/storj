@@ -8,7 +8,7 @@ import "gogo.proto";
 import "node.proto";
 import "pointerdb.proto";
 
-package inspector;
+package satellite.inspector;
 
 service OverlayInspector {
   // CountNodes returns the number of nodes in the cache
