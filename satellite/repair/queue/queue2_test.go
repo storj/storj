@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storage"
@@ -29,7 +29,7 @@ func TestUntilEmpty(t *testing.T) {
 		pathsMap := make(map[string]int)
 		for i := 0; i < 20; i++ {
 			path := "/path/" + strconv.Itoa(i)
-			injuredSeg := &pb.InjuredSegment{Path: []byte(path)}
+			injuredSeg := &internalpb.InjuredSegment{Path: []byte(path)}
 			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, 10)
 			require.NoError(t, err)
 			require.False(t, alreadyInserted)
@@ -62,7 +62,7 @@ func TestOrder(t *testing.T) {
 		olderRepairPath := []byte("/path/older")
 
 		for _, path := range [][]byte{oldRepairPath, recentRepairPath, nullPath, olderRepairPath} {
-			injuredSeg := &pb.InjuredSegment{Path: path}
+			injuredSeg := &internalpb.InjuredSegment{Path: path}
 			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, 10)
 			require.NoError(t, err)
 			require.False(t, alreadyInserted)
@@ -157,7 +157,7 @@ func TestOrderHealthyPieces(t *testing.T) {
 		})
 		for _, item := range injuredSegList {
 			// first, insert the injured segment
-			injuredSeg := &pb.InjuredSegment{Path: item.path}
+			injuredSeg := &internalpb.InjuredSegment{Path: item.path}
 			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, item.health)
 			require.NoError(t, err)
 			require.False(t, alreadyInserted)
@@ -221,7 +221,7 @@ func TestOrderOverwrite(t *testing.T) {
 			{[]byte("path/a"), 8},
 		}
 		for i, item := range injuredSegList {
-			injuredSeg := &pb.InjuredSegment{Path: item.path}
+			injuredSeg := &internalpb.InjuredSegment{Path: item.path}
 			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, item.health)
 			require.NoError(t, err)
 			if i == 2 {
@@ -256,7 +256,7 @@ func TestCount(t *testing.T) {
 		numSegments := 20
 		for i := 0; i < numSegments; i++ {
 			path := "/path/" + strconv.Itoa(i)
-			injuredSeg := &pb.InjuredSegment{Path: []byte(path)}
+			injuredSeg := &internalpb.InjuredSegment{Path: []byte(path)}
 			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, 10)
 			require.NoError(t, err)
 			require.False(t, alreadyInserted)

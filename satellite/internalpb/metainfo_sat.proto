@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 syntax = "proto3";
-option go_package = "storj.io/storj/internalpb";
+option go_package = "storj.io/storj/satellite/internalpb";
 
 package metainfo;
 

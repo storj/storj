@@ -15,6 +15,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/sync2"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/storage"
@@ -149,7 +150,7 @@ func (service *Service) process(ctx context.Context) (err error) {
 	return nil
 }
 
-func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err error) {
+func (service *Service) worker(ctx context.Context, seg *internalpb.InjuredSegment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	workerStartTime := time.Now().UTC()

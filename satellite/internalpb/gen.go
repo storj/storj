@@ -3,8 +3,6 @@
 
 // +build ignore
 
-//go:generate go run gen.go
-
 package main
 
 import (
@@ -18,7 +16,7 @@ import (
 )
 
 var (
-	mainpkg = flag.String("pkg", "storj.io/storj/internalpb", "main package name")
+	mainpkg = flag.String("pkg", "storj.io/storj/satellite/internalpb", "main package name")
 	protoc  = flag.String("protoc", "protoc", "protoc compiler")
 )
 
@@ -67,10 +65,10 @@ func main() {
 
 		commonPb := os.Getenv("STORJ_COMMON_PB")
 		if commonPb == "" {
-			commonPb = "../../common/pb"
+			commonPb = "../../../common/pb"
 		}
 
-		overrideImports := ",Mgoogle/protobuf/timestamp.proto=storj.io/storj/internalpb"
+		overrideImports := ",Mgoogle/protobuf/timestamp.proto=storj.io/storj/satellite/internalpb"
 		args := []string{
 			"--lint_out=.",
 			"--drpc_out=plugins=drpc,paths=source_relative" + overrideImports + ":.",
