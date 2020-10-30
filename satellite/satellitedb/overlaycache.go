@@ -21,6 +21,7 @@ import (
 	"storj.io/private/version"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/tagsql"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -1191,7 +1192,7 @@ type updateNodeStats struct {
 	OnlineScore                 float64Field
 }
 
-func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditHistory *pb.AuditHistory, now time.Time) updateNodeStats {
+func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditHistory *internalpb.AuditHistory, now time.Time) updateNodeStats {
 	// there are three audit outcomes: success, failure, and unknown
 	// if a node fails enough audits, it gets disqualified
 	// if a node gets enough "unknown" audits, it gets put into suspension
@@ -1378,7 +1379,7 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	return updateFields
 }
 
-func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditHistory *pb.AuditHistory, now time.Time) dbx.Node_Update_Fields {
+func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditHistory *internalpb.AuditHistory, now time.Time) dbx.Node_Update_Fields {
 
 	update := cache.populateUpdateNodeStats(dbNode, updateReq, auditHistory, now)
 	updateFields := dbx.Node_Update_Fields{}
