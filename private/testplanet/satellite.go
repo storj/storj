@@ -483,7 +483,7 @@ func (planet *Planet) newSatellites(count int, satelliteDatabases satellitedbtes
 				FlushBatchSize:             10,
 				FlushInterval:              defaultInterval,
 				NodeStatusLogging:          true,
-				WindowEndpointRolloutPhase: orders.WindowEndpointRolloutPhase3,
+				WindowEndpointRolloutPhase: orders.WindowEndpointRolloutPhase1,
 			},
 			Checker: checker.Config{
 				Interval:                  defaultInterval,
