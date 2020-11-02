@@ -59,8 +59,8 @@ func TestGetObjectExactVersion(t *testing.T) {
 					ObjectLocation: location,
 					Version:        1,
 				},
-				ErrClass: &metabase.Error,
-				ErrText:  "object missing",
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: sql: no rows in result set",
 			}.Check(ctx, t, db)
 
 			Verify{}.Check(ctx, t, db)
@@ -76,8 +76,8 @@ func TestGetObjectExactVersion(t *testing.T) {
 					ObjectLocation: location,
 					Version:        11,
 				},
-				ErrClass: &metabase.Error,
-				ErrText:  "object missing",
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: sql: no rows in result set",
 			}.Check(ctx, t, db)
 
 			Verify{
@@ -110,8 +110,8 @@ func TestGetObjectExactVersion(t *testing.T) {
 					ObjectLocation: location,
 					Version:        1,
 				},
-				ErrClass: &metabase.Error,
-				ErrText:  "object missing",
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: sql: no rows in result set",
 			}.Check(ctx, t, db)
 
 			Verify{
@@ -190,8 +190,8 @@ func TestGetObjectLatestVersion(t *testing.T) {
 				Opts: metabase.GetObjectLatestVersion{
 					ObjectLocation: location,
 				},
-				ErrClass: &metabase.Error,
-				ErrText:  "object missing",
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: sql: no rows in result set",
 			}.Check(ctx, t, db)
 
 			Verify{}.Check(ctx, t, db)
@@ -213,8 +213,8 @@ func TestGetObjectLatestVersion(t *testing.T) {
 				Opts: metabase.GetObjectLatestVersion{
 					ObjectLocation: location,
 				},
-				ErrClass: &metabase.Error,
-				ErrText:  "object missing",
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: sql: no rows in result set",
 			}.Check(ctx, t, db)
 
 			Verify{

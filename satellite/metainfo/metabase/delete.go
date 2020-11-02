@@ -84,7 +84,7 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return DeleteObjectResult{}, Error.New("object missing")
+			return DeleteObjectResult{}, storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
 		}
 		return DeleteObjectResult{}, Error.New("unable to delete object: %w", err)
 	}
@@ -95,7 +95,7 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 	}
 
 	if len(ids) == 0 {
-		return DeleteObjectResult{}, Error.New("object missing")
+		return DeleteObjectResult{}, storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
 	}
 
 	segmentInfos, err := deleteSegments(ctx, tx, ids)
@@ -168,7 +168,7 @@ func (db *DB) DeleteObjectLatestVersion(ctx context.Context, opts DeleteObjectLa
 	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return DeleteObjectResult{}, Error.New("object missing")
+			return DeleteObjectResult{}, storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
 		}
 		return DeleteObjectResult{}, Error.New("unable to delete object: %w", err)
 	}
@@ -179,7 +179,7 @@ func (db *DB) DeleteObjectLatestVersion(ctx context.Context, opts DeleteObjectLa
 	}
 
 	if len(ids) == 0 {
-		return DeleteObjectResult{}, Error.New("object missing")
+		return DeleteObjectResult{}, storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
 	}
 
 	segmentInfos, err := deleteSegments(ctx, tx, ids)
@@ -229,7 +229,7 @@ func (db *DB) DeleteObjectAllVersions(ctx context.Context, opts DeleteObjectAllV
 	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return DeleteObjectResult{}, Error.New("object missing")
+			return DeleteObjectResult{}, storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
 		}
 		return DeleteObjectResult{}, Error.New("unable to delete object: %w", err)
 	}
@@ -240,7 +240,7 @@ func (db *DB) DeleteObjectAllVersions(ctx context.Context, opts DeleteObjectAllV
 	}
 
 	if len(ids) == 0 {
-		return DeleteObjectResult{}, Error.New("object missing")
+		return DeleteObjectResult{}, storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
 	}
 
 	segmentInfos, err := deleteSegments(ctx, tx, ids)

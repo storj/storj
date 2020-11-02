@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 )
 
@@ -73,7 +74,7 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return Object{}, Error.New("object missing")
+			return Object{}, storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
 		}
 		return Object{}, Error.New("unable to query object status: %w", err)
 	}
@@ -130,7 +131,7 @@ func (db *DB) GetObjectLatestVersion(ctx context.Context, opts GetObjectLatestVe
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return Object{}, Error.New("object missing")
+			return Object{}, storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
 		}
 		return Object{}, Error.New("unable to query object status: %w", err)
 	}

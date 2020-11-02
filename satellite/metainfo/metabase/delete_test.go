@@ -104,8 +104,8 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 					ObjectLocation: location,
 					Version:        1,
 				},
-				ErrClass: &metabase.Error,
-				ErrText:  "object missing",
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: no rows deleted",
 			}.Check(ctx, t, db)
 			Verify{}.Check(ctx, t, db)
 		})
@@ -118,8 +118,8 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 					ObjectLocation: location,
 					Version:        33,
 				},
-				ErrClass: &metabase.Error,
-				ErrText:  "object missing",
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: no rows deleted",
 			}.Check(ctx, t, db)
 			Verify{}.Check(ctx, t, db)
 		})
@@ -140,8 +140,8 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 					ObjectLocation: location,
 					Version:        1,
 				},
-				ErrClass: &metabase.Error,
-				ErrText:  "object missing",
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: no rows deleted",
 			}.Check(ctx, t, db)
 
 			Verify{
@@ -272,8 +272,8 @@ func TestDeleteObjectLatestVersion(t *testing.T) {
 
 			DeleteObjectLatestVersion{
 				Opts:     metabase.DeleteObjectLatestVersion{ObjectLocation: location},
-				ErrClass: &metabase.Error,
-				ErrText:  "object missing",
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: no rows deleted",
 			}.Check(ctx, t, db)
 			Verify{}.Check(ctx, t, db)
 		})
@@ -283,8 +283,8 @@ func TestDeleteObjectLatestVersion(t *testing.T) {
 
 			DeleteObjectLatestVersion{
 				Opts:     metabase.DeleteObjectLatestVersion{ObjectLocation: location},
-				ErrClass: &metabase.Error,
-				ErrText:  "object missing",
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: no rows deleted",
 			}.Check(ctx, t, db)
 			Verify{}.Check(ctx, t, db)
 		})
@@ -302,8 +302,8 @@ func TestDeleteObjectLatestVersion(t *testing.T) {
 
 			DeleteObjectLatestVersion{
 				Opts:     metabase.DeleteObjectLatestVersion{ObjectLocation: obj.Location()},
-				ErrClass: &metabase.Error,
-				ErrText:  "object missing",
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: no rows deleted",
 			}.Check(ctx, t, db)
 
 			Verify{
@@ -497,8 +497,8 @@ func TestDeleteObjectAllVersions(t *testing.T) {
 
 			DeleteObjectAllVersions{
 				Opts:     metabase.DeleteObjectAllVersions{ObjectLocation: obj.Location()},
-				ErrClass: &metabase.Error,
-				ErrText:  "object missing",
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: no rows deleted",
 			}.Check(ctx, t, db)
 			Verify{}.Check(ctx, t, db)
 		})
@@ -508,8 +508,8 @@ func TestDeleteObjectAllVersions(t *testing.T) {
 
 			DeleteObjectAllVersions{
 				Opts:     metabase.DeleteObjectAllVersions{ObjectLocation: obj.Location()},
-				ErrClass: &metabase.Error,
-				ErrText:  "object missing",
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: no rows deleted",
 			}.Check(ctx, t, db)
 			Verify{}.Check(ctx, t, db)
 		})
@@ -527,8 +527,8 @@ func TestDeleteObjectAllVersions(t *testing.T) {
 
 			DeleteObjectAllVersions{
 				Opts:     metabase.DeleteObjectAllVersions{ObjectLocation: obj.Location()},
-				ErrClass: &metabase.Error,
-				ErrText:  "object missing",
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: no rows deleted",
 			}.Check(ctx, t, db)
 
 			Verify{
