@@ -1411,6 +1411,9 @@ func TestCommitObject(t *testing.T) {
 			}.Check(ctx, t, db)
 			now := time.Now()
 
+			encryptedMetadata := testrand.Bytes(1024)
+			encryptedMetadataNonce := testrand.Nonce()
+
 			CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: metabase.ObjectStream{
@@ -1420,6 +1423,8 @@ func TestCommitObject(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
+					EncryptedMetadataNonce: encryptedMetadataNonce[:],
+					EncryptedMetadata:      encryptedMetadata,
 				},
 			}.Check(ctx, t, db)
 
@@ -1450,6 +1455,9 @@ func TestCommitObject(t *testing.T) {
 						},
 						CreatedAt: now,
 						Status:    metabase.Committed,
+
+						EncryptedMetadataNonce: encryptedMetadataNonce[:],
+						EncryptedMetadata:      encryptedMetadata,
 
 						Encryption: defaultTestEncryption,
 					},

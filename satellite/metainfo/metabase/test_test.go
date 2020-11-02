@@ -12,7 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metainfo/metabase"
 )
 
@@ -204,4 +206,67 @@ func (step Verify) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB
 	diff := cmp.Diff(metabase.RawState(step), *state,
 		cmpopts.EquateApproxTime(5*time.Second))
 	require.Zero(t, diff)
+}
+
+type CreateTestObject struct {
+	BeginObjectExactVersion *metabase.BeginObjectExactVersion
+	CommitObject            *metabase.CommitObject
+	// TODO add BeginSegment, CommitSegment
+}
+
+func (co CreateTestObject) Run(ctx *testcontext.Context, t *testing.T, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte) {
+	boeOpts := metabase.BeginObjectExactVersion{
+		ObjectStream: obj,
+		Encryption:   defaultTestEncryption,
+	}
+	if co.BeginObjectExactVersion != nil {
+		boeOpts = *co.BeginObjectExactVersion
+	}
+
+	BeginObjectExactVersion{
+		Opts:    boeOpts,
+		Version: obj.Version,
+	}.Check(ctx, t, db)
+
+	for i := byte(1); i <= numberOfSegments; i++ {
+		BeginSegment{
+			Opts: metabase.BeginSegment{
+				ObjectStream: obj,
+				Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
+				RootPieceID:  storj.PieceID{i},
+				Pieces: []metabase.Piece{{
+					Number:      1,
+					StorageNode: testrand.NodeID(),
+				}},
+			},
+		}.Check(ctx, t, db)
+
+		CommitSegment{
+			Opts: metabase.CommitSegment{
+				ObjectStream: obj,
+				Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
+				RootPieceID:  storj.PieceID{1},
+				Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+
+				EncryptedKey:      []byte{3},
+				EncryptedKeyNonce: []byte{4},
+
+				EncryptedSize: 1024,
+				PlainSize:     512,
+				PlainOffset:   0,
+				Redundancy:    defaultTestRedundancy,
+			},
+		}.Check(ctx, t, db)
+	}
+
+	coOpts := metabase.CommitObject{
+		ObjectStream: obj,
+	}
+	if co.CommitObject != nil {
+		coOpts = *co.CommitObject
+	}
+
+	CommitObject{
+		Opts: coOpts,
+	}.Check(ctx, t, db)
 }

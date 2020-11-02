@@ -444,6 +444,9 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 type CommitObject struct {
 	ObjectStream
 
+	EncryptedMetadata      []byte
+	EncryptedMetadataNonce []byte
+
 	// TODO: proof
 	Proofs []SegmentProof
 }
@@ -488,6 +491,10 @@ func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) 
 		UPDATE objects SET
 			status = 1, -- committed
 			segment_count = 0, -- TODO
+
+			encrypted_metadata_nonce = $6,
+			encrypted_metadata = $7,
+
 			total_encrypted_size = 0, -- TODO
 			fixed_segment_size = 0, -- TODO
 			zombie_deletion_deadline = NULL
@@ -498,7 +505,8 @@ func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) 
 			version      = $4 AND
 			stream_id    = $5 AND
 			status       = 0;
-	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID)
+	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID,
+		opts.EncryptedMetadataNonce, opts.EncryptedMetadata)
 	if err != nil {
 		return Error.New("failed to update object: %w", err)
 	}

@@ -233,7 +233,13 @@ func TestGetObjectLatestVersion(t *testing.T) {
 		t.Run("Get object", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
-			createObject(ctx, t, db, obj, 0)
+			CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:           obj,
+					EncryptedMetadataNonce: []byte("nonce"),
+					EncryptedMetadata:      []byte("metadata"),
+				},
+			}.Run(ctx, t, db, obj, 0)
 
 			GetObjectLatestVersion{
 				Opts: metabase.GetObjectLatestVersion{
@@ -245,6 +251,9 @@ func TestGetObjectLatestVersion(t *testing.T) {
 					Status:       metabase.Committed,
 
 					Encryption: defaultTestEncryption,
+
+					EncryptedMetadataNonce: []byte("nonce"),
+					EncryptedMetadata:      []byte("metadata"),
 				},
 			}.Check(ctx, t, db)
 
@@ -255,6 +264,9 @@ func TestGetObjectLatestVersion(t *testing.T) {
 					Status:       metabase.Committed,
 
 					Encryption: defaultTestEncryption,
+
+					EncryptedMetadataNonce: []byte("nonce"),
+					EncryptedMetadata:      []byte("metadata"),
 				},
 			}}.Check(ctx, t, db)
 		})
