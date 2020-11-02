@@ -29,6 +29,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/internalpb"
 	satMetainfo "storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/uplink"
@@ -166,10 +167,10 @@ func TestRevokeMacaroon(t *testing.T) {
 		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
 		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
-		satStreamID := &pb.SatStreamID{
+		satStreamID := &internalpb.StreamID{
 			CreationDate: time.Now(),
 		}
-		signedStreamID, err := signing.SignStreamID(ctx, signer, satStreamID)
+		signedStreamID, err := satMetainfo.SignStreamID(ctx, signer, satStreamID)
 		require.NoError(t, err)
 
 		encodedStreamID, err := pb.Marshal(signedStreamID)
@@ -189,7 +190,7 @@ func TestRevokeMacaroon(t *testing.T) {
 
 		// these methods needs SegmentID
 
-		signedSegmentID, err := signing.SignSegmentID(ctx, signer, &pb.SatSegmentID{
+		signedSegmentID, err := satMetainfo.SignSegmentID(ctx, signer, &internalpb.SegmentID{
 			StreamId:     satStreamID,
 			CreationDate: time.Now(),
 		})
@@ -253,10 +254,10 @@ func TestInvalidAPIKey(t *testing.T) {
 			// these methods needs StreamID to do authentication
 
 			signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
-			satStreamID := &pb.SatStreamID{
+			satStreamID := &internalpb.StreamID{
 				CreationDate: time.Now(),
 			}
-			signedStreamID, err := signing.SignStreamID(ctx, signer, satStreamID)
+			signedStreamID, err := satMetainfo.SignStreamID(ctx, signer, satStreamID)
 			require.NoError(t, err)
 
 			encodedStreamID, err := pb.Marshal(signedStreamID)
@@ -279,7 +280,7 @@ func TestInvalidAPIKey(t *testing.T) {
 
 			// these methods needs SegmentID
 
-			signedSegmentID, err := signing.SignSegmentID(ctx, signer, &pb.SatSegmentID{
+			signedSegmentID, err := satMetainfo.SignSegmentID(ctx, signer, &internalpb.SegmentID{
 				StreamId:     satStreamID,
 				CreationDate: time.Now(),
 			})
@@ -940,7 +941,7 @@ func TestIDs(t *testing.T) {
 		satellitePeer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
 
 		{ // streamID expired
-			signedStreamID, err := signing.SignStreamID(ctx, satellitePeer, &pb.SatStreamID{
+			signedStreamID, err := satMetainfo.SignStreamID(ctx, satellitePeer, &internalpb.StreamID{
 				CreationDate: time.Now().Add(-36 * time.Hour),
 			})
 			require.NoError(t, err)
@@ -958,7 +959,7 @@ func TestIDs(t *testing.T) {
 		}
 
 		{ // segment id missing stream id
-			signedSegmentID, err := signing.SignSegmentID(ctx, satellitePeer, &pb.SatSegmentID{
+			signedSegmentID, err := satMetainfo.SignSegmentID(ctx, satellitePeer, &internalpb.SegmentID{
 				CreationDate: time.Now().Add(-1 * time.Hour),
 			})
 			require.NoError(t, err)
@@ -976,9 +977,9 @@ func TestIDs(t *testing.T) {
 		}
 
 		{ // segmentID expired
-			signedSegmentID, err := signing.SignSegmentID(ctx, satellitePeer, &pb.SatSegmentID{
+			signedSegmentID, err := satMetainfo.SignSegmentID(ctx, satellitePeer, &internalpb.SegmentID{
 				CreationDate: time.Now().Add(-36 * time.Hour),
-				StreamId: &pb.SatStreamID{
+				StreamId: &internalpb.StreamID{
 					CreationDate: time.Now(),
 				},
 			})

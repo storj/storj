@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	mainpkg = flag.String("pkg", "storj.io/storj/satellite/internalpb", "main package name")
+	mainpkg = flag.String("pkg", "storj.io/storj/storagenode/internalpb", "main package name")
 	protoc  = flag.String("protoc", "protoc", "protoc compiler")
 )
 
@@ -68,7 +68,7 @@ func main() {
 			commonPb = "../../../common/pb"
 		}
 
-		overrideImports := ",Mgoogle/protobuf/timestamp.proto=storj.io/storj/satellite/internalpb"
+		overrideImports := ",Mgoogle/protobuf/timestamp.proto=storj.io/storj/storagenode/internalpb"
 		args := []string{
 			"--lint_out=.",
 			"--drpc_out=plugins=drpc,paths=source_relative" + overrideImports + ":.",

@@ -8,7 +8,7 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 
-	"storj.io/common/pb"
+	"storj.io/storj/satellite/internalpb"
 )
 
 var (
@@ -28,7 +28,7 @@ func NewInspector(irrdb DB) *Inspector {
 }
 
 // ListIrreparableSegments returns a number of irreparable segments by limit and offset.
-func (srv *Inspector) ListIrreparableSegments(ctx context.Context, req *pb.ListIrreparableSegmentsRequest) (_ *pb.ListIrreparableSegmentsResponse, err error) {
+func (srv *Inspector) ListIrreparableSegments(ctx context.Context, req *internalpb.ListIrreparableSegmentsRequest) (_ *internalpb.ListIrreparableSegmentsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	last := req.GetLastSeenSegmentPath()
 	if len(req.GetLastSeenSegmentPath()) == 0 {
@@ -39,5 +39,5 @@ func (srv *Inspector) ListIrreparableSegments(ctx context.Context, req *pb.ListI
 		return nil, err
 	}
 
-	return &pb.ListIrreparableSegmentsResponse{Segments: segments}, err
+	return &internalpb.ListIrreparableSegmentsResponse{Segments: segments}, err
 }

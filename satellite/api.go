@@ -37,6 +37,7 @@ import (
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
 	"storj.io/storj/satellite/marketingweb"
@@ -257,7 +258,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 
 		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
-		if err := pb.DRPCRegisterOverlayInspector(peer.Server.PrivateDRPC(), peer.Overlay.Inspector); err != nil {
+		if err := internalpb.DRPCRegisterOverlayInspector(peer.Server.PrivateDRPC(), peer.Overlay.Inspector); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 	}
@@ -448,7 +449,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup datarepair
 		peer.Repair.Inspector = irreparable.NewInspector(peer.DB.Irreparable())
-		if err := pb.DRPCRegisterIrreparableInspector(peer.Server.PrivateDRPC(), peer.Repair.Inspector); err != nil {
+		if err := internalpb.DRPCRegisterIrreparableInspector(peer.Server.PrivateDRPC(), peer.Repair.Inspector); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 	}
@@ -459,7 +460,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Overlay.Service,
 			peer.Metainfo.Service,
 		)
-		if err := pb.DRPCRegisterHealthInspector(peer.Server.PrivateDRPC(), peer.Inspector.Endpoint); err != nil {
+		if err := internalpb.DRPCRegisterHealthInspector(peer.Server.PrivateDRPC(), peer.Inspector.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 	}

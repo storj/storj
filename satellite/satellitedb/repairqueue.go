@@ -11,8 +11,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/pb"
 	"storj.io/storj/private/dbutil"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/storage"
 )
@@ -24,7 +24,7 @@ type repairQueue struct {
 	db *satelliteDB
 }
 
-func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment, numHealthy int) (alreadyInserted bool, err error) {
+func (r *repairQueue) Insert(ctx context.Context, seg *internalpb.InjuredSegment, numHealthy int) (alreadyInserted bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	// insert if not exists, or update healthy count if does exist
 	var query string
@@ -77,7 +77,7 @@ func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment, numHea
 	return alreadyInserted, rows.Err()
 }
 
-func (r *repairQueue) Select(ctx context.Context) (seg *pb.InjuredSegment, err error) {
+func (r *repairQueue) Select(ctx context.Context) (seg *internalpb.InjuredSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
 	switch r.db.implementation {
 	case dbutil.Cockroach:
@@ -103,7 +103,7 @@ func (r *repairQueue) Select(ctx context.Context) (seg *pb.InjuredSegment, err e
 	return seg, err
 }
 
-func (r *repairQueue) Delete(ctx context.Context, seg *pb.InjuredSegment) (err error) {
+func (r *repairQueue) Delete(ctx context.Context, seg *internalpb.InjuredSegment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = r.db.ExecContext(ctx, r.db.Rebind(`DELETE FROM injuredsegments WHERE path = ?`), seg.Path)
 	return Error.Wrap(err)
@@ -115,7 +115,7 @@ func (r *repairQueue) Clean(ctx context.Context, before time.Time) (deleted int6
 	return n, Error.Wrap(err)
 }
 
-func (r *repairQueue) SelectN(ctx context.Context, limit int) (segs []pb.InjuredSegment, err error) {
+func (r *repairQueue) SelectN(ctx context.Context, limit int) (segs []internalpb.InjuredSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if limit <= 0 || limit > RepairQueueSelectLimit {
 		limit = RepairQueueSelectLimit
@@ -128,7 +128,7 @@ func (r *repairQueue) SelectN(ctx context.Context, limit int) (segs []pb.Injured
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
-		var seg pb.InjuredSegment
+		var seg internalpb.InjuredSegment
 		err = rows.Scan(&seg)
 		if err != nil {
 			return segs, Error.Wrap(err)

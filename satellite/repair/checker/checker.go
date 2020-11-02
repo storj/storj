@@ -15,6 +15,7 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/pb"
 	"storj.io/common/sync2"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
@@ -204,7 +205,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	// If the segment is suddenly entirely healthy again, we don't need to repair and we don't need to
 	// keep it in the irreparabledb queue either.
 	if numHealthy >= redundancy.MinReq && numHealthy <= repairThreshold && numHealthy < redundancy.SuccessThreshold {
-		_, err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
+		_, err = checker.repairQueue.Insert(ctx, &internalpb.InjuredSegment{
 			Path:         key,
 			LostPieces:   missingPieces,
 			InsertedTime: time.Now().UTC(),
@@ -221,7 +222,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	} else if numHealthy < redundancy.MinReq && numHealthy < repairThreshold {
 
 		// make an entry into the irreparable table
-		segmentInfo := &pb.IrreparableSegment{
+		segmentInfo := &internalpb.IrreparableSegment{
 			Path:               key,
 			SegmentDetail:      pointer,
 			LostPieces:         int32(len(missingPieces)),
@@ -308,7 +309,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metainfo
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
 	if numHealthy >= required && numHealthy <= repairThreshold && numHealthy < successThreshold {
 		obs.monStats.remoteSegmentsNeedingRepair++
-		alreadyInserted, err := obs.repairQueue.Insert(ctx, &pb.InjuredSegment{
+		alreadyInserted, err := obs.repairQueue.Insert(ctx, &internalpb.InjuredSegment{
 			Path:         key,
 			LostPieces:   missingPieces,
 			InsertedTime: time.Now().UTC(),
@@ -344,7 +345,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metainfo
 
 		obs.monStats.remoteSegmentsLost++
 		// make an entry into the irreparable table
-		segmentInfo := &pb.IrreparableSegment{
+		segmentInfo := &internalpb.IrreparableSegment{
 			Path:               key,
 			SegmentDetail:      segment.Pointer, // TODO: replace with something better than pb.Pointer
 			LostPieces:         int32(len(missingPieces)),

@@ -9,6 +9,7 @@ import (
 	"errors"
 
 	"storj.io/common/pb"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -18,7 +19,7 @@ type irreparableDB struct {
 }
 
 // IncrementRepairAttempts a db entry for to increment the repair attempts field.
-func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInfo *pb.IrreparableSegment) (err error) {
+func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInfo *internalpb.IrreparableSegment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
 		bytes, err := pb.Marshal(segmentInfo.SegmentDetail)
@@ -58,7 +59,7 @@ func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInf
 }
 
 // Get a irreparable's segment info from the db.
-func (db *irreparableDB) Get(ctx context.Context, segmentKey metabase.SegmentKey) (resp *pb.IrreparableSegment, err error) {
+func (db *irreparableDB) Get(ctx context.Context, segmentKey metabase.SegmentKey) (resp *internalpb.IrreparableSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxInfo, err := db.db.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentKey))
 	if err != nil {
@@ -72,7 +73,7 @@ func (db *irreparableDB) Get(ctx context.Context, segmentKey metabase.SegmentKey
 		return nil, Error.Wrap(err)
 	}
 
-	return &pb.IrreparableSegment{
+	return &internalpb.IrreparableSegment{
 		Path:               dbxInfo.Segmentpath,
 		SegmentDetail:      p,
 		LostPieces:         int32(dbxInfo.PiecesLostCount),
@@ -82,7 +83,7 @@ func (db *irreparableDB) Get(ctx context.Context, segmentKey metabase.SegmentKey
 }
 
 // GetLimited returns a list of irreparable segment info starting after the last segment info we retrieved.
-func (db *irreparableDB) GetLimited(ctx context.Context, limit int, lastSeenSegmentKey metabase.SegmentKey) (resp []*pb.IrreparableSegment, err error) {
+func (db *irreparableDB) GetLimited(ctx context.Context, limit int, lastSeenSegmentKey metabase.SegmentKey) (resp []*internalpb.IrreparableSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
 	// the offset is hardcoded to 0 since we are using the lastSeenSegmentPath to
 	// indicate the item we last listed instead. In a perfect world this db query would
@@ -102,7 +103,7 @@ func (db *irreparableDB) GetLimited(ctx context.Context, limit int, lastSeenSegm
 		if err != nil {
 			return nil, err
 		}
-		segment := &pb.IrreparableSegment{
+		segment := &internalpb.IrreparableSegment{
 			Path:               row.Segmentpath,
 			SegmentDetail:      p,
 			LostPieces:         int32(row.PiecesLostCount),
