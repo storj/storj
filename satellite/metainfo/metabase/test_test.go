@@ -50,9 +50,13 @@ type CommitObject struct {
 	ErrText  string
 }
 
-func (step CommitObject) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-	err := db.CommitObject(ctx, step.Opts)
+func (step CommitObject) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) metabase.Object {
+	object, err := db.CommitObject(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
+	if err == nil {
+		require.Equal(t, step.Opts.ObjectStream, object.ObjectStream)
+	}
+	return object
 }
 
 type BeginSegment struct {

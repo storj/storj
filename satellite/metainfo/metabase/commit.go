@@ -455,11 +455,11 @@ type CommitObject struct {
 type SegmentProof struct{}
 
 // CommitObject adds a pending object to the database.
-func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (err error) {
+func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.ObjectStream.Verify(); err != nil {
-		return err
+		return Object{}, err
 	}
 
 	// TODO: deduplicate basic checks.
@@ -471,12 +471,12 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (err error) {
 	}
 }
 
-func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) (err error) {
+func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) (object Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	tx, err := db.db.BeginTx(ctx, nil)
 	if err != nil {
-		return Error.New("failed BeginTx: %w", err)
+		return Object{}, Error.New("failed BeginTx: %w", err)
 	}
 	committed := false
 	defer func() {
@@ -487,7 +487,7 @@ func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) 
 
 	// TODO: fetch info from segments
 
-	result, err := tx.ExecContext(ctx, `
+	err = tx.QueryRow(ctx, `
 		UPDATE objects SET
 			status = 1, -- committed
 			segment_count = 0, -- TODO
@@ -504,29 +504,45 @@ func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) 
 			object_key   = $3 AND
 			version      = $4 AND
 			stream_id    = $5 AND
-			status       = 0;
+			status       = 0
+		RETURNING
+			stream_id,
+			created_at, expires_at,
+			encryption;
 	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID,
-		opts.EncryptedMetadataNonce, opts.EncryptedMetadata)
+		opts.EncryptedMetadataNonce, opts.EncryptedMetadata).
+		Scan(
+			&object.StreamID,
+			&object.CreatedAt, &object.ExpiresAt,
+			encryptionParameters{&object.Encryption},
+		)
 	if err != nil {
-		return Error.New("failed to update object: %w", err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return Object{}, storj.ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+		}
+		return Object{}, Error.New("failed to update object: %w", err)
 	}
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return Error.New("failed to get rows affected: %w", err)
-	}
-	if rowsAffected == 0 {
-		return Error.New("object with specified version and pending status is missing")
-	}
+
+	object.ProjectID = opts.ProjectID
+	object.BucketName = opts.BucketName
+	object.ObjectKey = opts.ObjectKey
+	object.Version = opts.Version
+	object.Status = Committed
+	object.SegmentCount = 0 // TODO
+	object.EncryptedMetadataNonce = opts.EncryptedMetadataNonce
+	object.EncryptedMetadata = opts.EncryptedMetadata
+	object.TotalEncryptedSize = 0 // TODO
+	object.FixedSegmentSize = 0   // TODO
 
 	// TODO: delete segments
 
 	err = tx.Commit()
 	committed = true
 
-	return Error.Wrap(err)
+	return object, Error.Wrap(err)
 }
 
-func (db *DB) commitObjectWithProofs(ctx context.Context, opts CommitObject) (err error) {
+func (db *DB) commitObjectWithProofs(ctx context.Context, opts CommitObject) (object Object, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return Error.New("unimplemented")
+	return Object{}, Error.New("unimplemented")
 }

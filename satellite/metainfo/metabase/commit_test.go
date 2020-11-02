@@ -1387,8 +1387,8 @@ func TestCommitObject(t *testing.T) {
 						StreamID:   obj.StreamID,
 					},
 				},
-				ErrClass: &metabase.Error,
-				ErrText:  "object with specified version and pending status is missing", // TODO: this error message could be better
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: object with specified version and pending status is missing", // TODO: this error message could be better
 			}.Check(ctx, t, db)
 			Verify{}.Check(ctx, t, db)
 		})
@@ -1439,8 +1439,8 @@ func TestCommitObject(t *testing.T) {
 						StreamID:   obj.StreamID,
 					},
 				},
-				ErrClass: &metabase.Error,
-				ErrText:  "object with specified version and pending status is missing", // TODO: this error message could be better
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: object with specified version and pending status is missing", // TODO: this error message could be better
 			}.Check(ctx, t, db)
 
 			Verify{
