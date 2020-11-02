@@ -50,23 +50,25 @@ func TestUploadAndPartialDownload(t *testing.T) {
 			{1513, 1584},
 			{13581, 4783},
 		} {
-			if piecestore.DefaultConfig.InitialStep < tt.size {
-				t.Fatal("test expects initial step to be larger than size to download")
-			}
-			totalDownload += piecestore.DefaultConfig.InitialStep
+			func() {
+				if piecestore.DefaultConfig.InitialStep < tt.size {
+					t.Fatal("test expects initial step to be larger than size to download")
+				}
+				totalDownload += piecestore.DefaultConfig.InitialStep
 
-			download, cleanup, err := planet.Uplinks[0].DownloadStreamRange(ctx, planet.Satellites[0], "testbucket", "test/path", tt.offset, -1)
-			require.NoError(t, err)
-			defer ctx.Check(cleanup)
+				download, cleanup, err := planet.Uplinks[0].DownloadStreamRange(ctx, planet.Satellites[0], "testbucket", "test/path", tt.offset, -1)
+				require.NoError(t, err)
+				defer ctx.Check(cleanup)
 
-			data := make([]byte, tt.size)
-			n, err := io.ReadFull(download, data)
-			require.NoError(t, err)
-			assert.Equal(t, int(tt.size), n)
+				data := make([]byte, tt.size)
+				n, err := io.ReadFull(download, data)
+				require.NoError(t, err)
+				assert.Equal(t, int(tt.size), n)
 
-			assert.Equal(t, expectedData[tt.offset:tt.offset+tt.size], data)
+				assert.Equal(t, expectedData[tt.offset:tt.offset+tt.size], data)
 
-			require.NoError(t, download.Close())
+				require.NoError(t, download.Close())
+			}()
 		}
 
 		var totalBandwidthUsage bandwidth.Usage

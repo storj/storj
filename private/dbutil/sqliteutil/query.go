@@ -73,82 +73,95 @@ func QuerySchema(ctx context.Context, db dbschema.Queryer) (*dbschema.Schema, er
 
 func discoverTables(ctx context.Context, db dbschema.Queryer, schema *dbschema.Schema, tableDefinitions []*definition) (err error) {
 	for _, definition := range tableDefinitions {
-		table := schema.EnsureTable(definition.name)
-
-		tableRows, err := db.QueryContext(ctx, `PRAGMA table_info(`+definition.name+`)`)
-		if err != nil {
-			return errs.Wrap(err)
-		}
-		defer func() { err = errs.Combine(err, tableRows.Close()) }()
-
-		for tableRows.Next() {
-			var defaultValue sql.NullString
-			var index, name, columnType string
-			var pk int
-			var notNull bool
-			err := tableRows.Scan(&index, &name, &columnType, &notNull, &defaultValue, &pk)
-			if err != nil {
-				return errs.Wrap(err)
-			}
-
-			column := &dbschema.Column{
-				Name:       name,
-				Type:       columnType,
-				IsNullable: !notNull && pk == 0,
-			}
-			table.AddColumn(column)
-			if pk > 0 {
-				if table.PrimaryKey == nil {
-					table.PrimaryKey = make([]string, 0)
-				}
-				table.PrimaryKey = append(table.PrimaryKey, name)
-			}
-
-		}
-
-		matches := rxUnique.FindAllStringSubmatch(definition.sql, -1)
-		for _, match := range matches {
-			// TODO feel this can be done easier
-			var columns []string
-			for _, name := range strings.Split(match[1], ",") {
-				columns = append(columns, strings.TrimSpace(name))
-			}
-
-			table.Unique = append(table.Unique, columns)
-		}
-
-		keysRows, err := db.QueryContext(ctx, `PRAGMA foreign_key_list(`+definition.name+`)`)
-		if err != nil {
-			return errs.Wrap(err)
-		}
-		defer func() { err = errs.Combine(err, keysRows.Close()) }()
-
-		for keysRows.Next() {
-			var id, sec int
-			var tableName, from, to, onUpdate, onDelete, match string
-			err := keysRows.Scan(&id, &sec, &tableName, &from, &to, &onUpdate, &onDelete, &match)
-			if err != nil {
-				return errs.Wrap(err)
-			}
-
-			column, found := table.FindColumn(from)
-			if found {
-				if onDelete == "NO ACTION" {
-					onDelete = ""
-				}
-				if onUpdate == "NO ACTION" {
-					onUpdate = ""
-				}
-				column.Reference = &dbschema.Reference{
-					Table:    tableName,
-					Column:   to,
-					OnUpdate: onUpdate,
-					OnDelete: onDelete,
-				}
-			}
+		if err := discoverTable(ctx, db, schema, definition); err != nil {
+			return err
 		}
 	}
 	return errs.Wrap(err)
+}
+
+func discoverTable(ctx context.Context, db dbschema.Queryer, schema *dbschema.Schema, definition *definition) (err error) {
+	table := schema.EnsureTable(definition.name)
+
+	tableRows, err := db.QueryContext(ctx, `PRAGMA table_info(`+definition.name+`)`)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	for tableRows.Next() {
+		var defaultValue sql.NullString
+		var index, name, columnType string
+		var pk int
+		var notNull bool
+		err := tableRows.Scan(&index, &name, &columnType, &notNull, &defaultValue, &pk)
+		if err != nil {
+			return errs.Wrap(errs.Combine(tableRows.Err(), tableRows.Close(), err))
+		}
+
+		column := &dbschema.Column{
+			Name:       name,
+			Type:       columnType,
+			IsNullable: !notNull && pk == 0,
+		}
+		table.AddColumn(column)
+		if pk > 0 {
+			if table.PrimaryKey == nil {
+				table.PrimaryKey = make([]string, 0)
+			}
+			table.PrimaryKey = append(table.PrimaryKey, name)
+		}
+	}
+	err = errs.Combine(tableRows.Err(), tableRows.Close())
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	matches := rxUnique.FindAllStringSubmatch(definition.sql, -1)
+	for _, match := range matches {
+		// TODO feel this can be done easier
+		var columns []string
+		for _, name := range strings.Split(match[1], ",") {
+			columns = append(columns, strings.TrimSpace(name))
+		}
+
+		table.Unique = append(table.Unique, columns)
+	}
+
+	keysRows, err := db.QueryContext(ctx, `PRAGMA foreign_key_list(`+definition.name+`)`)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	for keysRows.Next() {
+		var id, sec int
+		var tableName, from, to, onUpdate, onDelete, match string
+		err := keysRows.Scan(&id, &sec, &tableName, &from, &to, &onUpdate, &onDelete, &match)
+		if err != nil {
+			return errs.Wrap(errs.Combine(keysRows.Err(), keysRows.Close(), err))
+		}
+
+		column, found := table.FindColumn(from)
+		if found {
+			if onDelete == "NO ACTION" {
+				onDelete = ""
+			}
+			if onUpdate == "NO ACTION" {
+				onUpdate = ""
+			}
+			column.Reference = &dbschema.Reference{
+				Table:    tableName,
+				Column:   to,
+				OnUpdate: onUpdate,
+				OnDelete: onDelete,
+			}
+		}
+	}
+	err = errs.Combine(keysRows.Err(), keysRows.Close())
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	return nil
 }
 
 func discoverIndexes(ctx context.Context, db dbschema.Queryer, schema *dbschema.Schema, indexDefinitions []*definition) (err error) {

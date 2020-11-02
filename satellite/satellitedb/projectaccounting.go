@@ -358,72 +358,78 @@ func (db *ProjectAccounting) GetBucketUsageRollups(ctx context.Context, projectI
 
 	var bucketUsageRollups []accounting.BucketUsageRollup
 	for _, bucket := range buckets {
-		bucketRollup := accounting.BucketUsageRollup{
-			ProjectID:  projectID,
-			BucketName: []byte(bucket),
-			Since:      since,
-			Before:     before,
-		}
+		err := func() error {
+			bucketRollup := accounting.BucketUsageRollup{
+				ProjectID:  projectID,
+				BucketName: []byte(bucket),
+				Since:      since,
+				Before:     before,
+			}
 
-		// get bucket_bandwidth_rollups
-		rollupsRows, err := db.db.QueryContext(ctx, roullupsQuery, projectID[:], []byte(bucket), since, before)
-		if err != nil {
-			return nil, err
-		}
-		defer func() { err = errs.Combine(err, rollupsRows.Close()) }()
-
-		// fill egress
-		for rollupsRows.Next() {
-			var action pb.PieceAction
-			var settled, inline int64
-
-			err = rollupsRows.Scan(&settled, &inline, &action)
+			// get bucket_bandwidth_rollups
+			rollupsRows, err := db.db.QueryContext(ctx, roullupsQuery, projectID[:], []byte(bucket), since, before)
 			if err != nil {
-				return nil, err
+				return err
+			}
+			defer func() { err = errs.Combine(err, rollupsRows.Close()) }()
+
+			// fill egress
+			for rollupsRows.Next() {
+				var action pb.PieceAction
+				var settled, inline int64
+
+				err = rollupsRows.Scan(&settled, &inline, &action)
+				if err != nil {
+					return err
+				}
+
+				switch action {
+				case pb.PieceAction_GET:
+					bucketRollup.GetEgress += memory.Size(settled + inline).GB()
+				case pb.PieceAction_GET_AUDIT:
+					bucketRollup.AuditEgress += memory.Size(settled + inline).GB()
+				case pb.PieceAction_GET_REPAIR:
+					bucketRollup.RepairEgress += memory.Size(settled + inline).GB()
+				default:
+					continue
+				}
+			}
+			if err := rollupsRows.Err(); err != nil {
+				return err
 			}
 
-			switch action {
-			case pb.PieceAction_GET:
-				bucketRollup.GetEgress += memory.Size(settled + inline).GB()
-			case pb.PieceAction_GET_AUDIT:
-				bucketRollup.AuditEgress += memory.Size(settled + inline).GB()
-			case pb.PieceAction_GET_REPAIR:
-				bucketRollup.RepairEgress += memory.Size(settled + inline).GB()
-			default:
-				continue
+			bucketStorageTallies, err := storageQuery(ctx,
+				dbx.BucketStorageTally_ProjectId(projectID[:]),
+				dbx.BucketStorageTally_BucketName([]byte(bucket)),
+				dbx.BucketStorageTally_IntervalStart(since),
+				dbx.BucketStorageTally_IntervalStart(before))
+
+			if err != nil {
+				return err
 			}
-		}
-		if err := rollupsRows.Err(); err != nil {
-			return nil, err
-		}
 
-		bucketStorageTallies, err := storageQuery(ctx,
-			dbx.BucketStorageTally_ProjectId(projectID[:]),
-			dbx.BucketStorageTally_BucketName([]byte(bucket)),
-			dbx.BucketStorageTally_IntervalStart(since),
-			dbx.BucketStorageTally_IntervalStart(before))
+			// fill metadata, objects and stored data
+			// hours calculated from previous tallies,
+			// so we skip the most recent one
+			for i := len(bucketStorageTallies) - 1; i > 0; i-- {
+				current := bucketStorageTallies[i]
 
+				hours := bucketStorageTallies[i-1].IntervalStart.Sub(current.IntervalStart).Hours()
+
+				bucketRollup.RemoteStoredData += memory.Size(current.Remote).GB() * hours
+				bucketRollup.InlineStoredData += memory.Size(current.Inline).GB() * hours
+				bucketRollup.MetadataSize += memory.Size(current.MetadataSize).GB() * hours
+				bucketRollup.RemoteSegments += float64(current.RemoteSegmentsCount) * hours
+				bucketRollup.InlineSegments += float64(current.InlineSegmentsCount) * hours
+				bucketRollup.ObjectCount += float64(current.ObjectCount) * hours
+			}
+
+			bucketUsageRollups = append(bucketUsageRollups, bucketRollup)
+			return nil
+		}()
 		if err != nil {
 			return nil, err
 		}
-
-		// fill metadata, objects and stored data
-		// hours calculated from previous tallies,
-		// so we skip the most recent one
-		for i := len(bucketStorageTallies) - 1; i > 0; i-- {
-			current := bucketStorageTallies[i]
-
-			hours := bucketStorageTallies[i-1].IntervalStart.Sub(current.IntervalStart).Hours()
-
-			bucketRollup.RemoteStoredData += memory.Size(current.Remote).GB() * hours
-			bucketRollup.InlineStoredData += memory.Size(current.Inline).GB() * hours
-			bucketRollup.MetadataSize += memory.Size(current.MetadataSize).GB() * hours
-			bucketRollup.RemoteSegments += float64(current.RemoteSegmentsCount) * hours
-			bucketRollup.InlineSegments += float64(current.InlineSegmentsCount) * hours
-			bucketRollup.ObjectCount += float64(current.ObjectCount) * hours
-		}
-
-		bucketUsageRollups = append(bucketUsageRollups, bucketRollup)
 	}
 
 	return bucketUsageRollups, nil

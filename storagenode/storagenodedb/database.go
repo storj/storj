@@ -349,100 +349,108 @@ func (db *DB) MigrateToLatest(ctx context.Context) error {
 // Preflight conducts a pre-flight check to ensure correct schemas and minimal read+write functionality of the database tables.
 func (db *DB) Preflight(ctx context.Context) (err error) {
 	for dbName, dbContainer := range db.SQLDBs {
-		nextDB := dbContainer.GetDB()
-		// Preflight stage 1: test schema correctness
-		schema, err := sqliteutil.QuerySchema(ctx, nextDB)
-		if err != nil {
-			return ErrPreflight.New("database %q: schema check failed: %v", dbName, err)
-		}
-		// we don't care about changes in versions table
-		schema.DropTable("versions")
-		// if there was a previous pre-flight failure, test_table might still be in the schema
-		schema.DropTable("test_table")
-
-		// If tables and indexes of the schema are empty, set to nil
-		// to help with comparison to the snapshot.
-		if len(schema.Tables) == 0 {
-			schema.Tables = nil
-		}
-		if len(schema.Indexes) == 0 {
-			schema.Indexes = nil
-		}
-
-		// get expected schema
-		expectedSchema := Schema()[dbName]
-
-		// find extra indexes
-		var extraIdxs []*dbschema.Index
-		for _, idx := range schema.Indexes {
-			if _, exists := expectedSchema.FindIndex(idx.Name); exists {
-				continue
-			}
-
-			extraIdxs = append(extraIdxs, idx)
-		}
-		// drop index from schema if it is not unique to not fail preflight
-		for _, idx := range extraIdxs {
-			if !idx.Unique {
-				schema.DropIndex(idx.Name)
-			}
-		}
-		// warn that schema contains unexpected indexes
-		if len(extraIdxs) > 0 {
-			db.log.Warn(fmt.Sprintf("database %q: schema contains unexpected indices %v", dbName, extraIdxs))
-		}
-
-		// expect expected schema to match actual schema
-		if diff := cmp.Diff(expectedSchema, schema); diff != "" {
-			return ErrPreflight.New("database %q: expected schema does not match actual: %s", dbName, diff)
-		}
-
-		// Preflight stage 2: test basic read/write access
-		// for each database, create a new table, insert a row into that table, retrieve and validate that row, and drop the table.
-
-		// drop test table in case the last preflight check failed before table could be dropped
-		_, err = nextDB.ExecContext(ctx, "DROP TABLE IF EXISTS test_table")
-		if err != nil {
-			return ErrPreflight.New("database %q: failed drop if test_table: %w", dbName, err)
-		}
-		_, err = nextDB.ExecContext(ctx, "CREATE TABLE test_table(id int NOT NULL, name varchar(30), PRIMARY KEY (id))")
-		if err != nil {
-			return ErrPreflight.New("database %q: failed create test_table: %w", dbName, err)
-		}
-
-		var expectedID, actualID int
-		var expectedName, actualName string
-		expectedID = 1
-		expectedName = "TEST"
-		_, err = nextDB.ExecContext(ctx, "INSERT INTO test_table VALUES ( ?, ? )", expectedID, expectedName)
-		if err != nil {
-			return ErrPreflight.New("database: %q: failed inserting test value: %w", dbName, err)
-		}
-
-		rows, err := nextDB.QueryContext(ctx, "SELECT id, name FROM test_table")
-		if err != nil {
-			return ErrPreflight.New("database: %q: failed selecting test value: %w", dbName, err)
-		}
-		defer func() { err = errs.Combine(err, rows.Close()) }()
-		if !rows.Next() {
-			return ErrPreflight.New("database %q: no rows in test_table", dbName)
-		}
-		err = rows.Scan(&actualID, &actualName)
-		if err != nil {
-			return ErrPreflight.New("database %q: failed scanning row: %w", dbName, err)
-		}
-		if expectedID != actualID || expectedName != actualName {
-			return ErrPreflight.New("database %q: expected (%d, '%s'), actual (%d, '%s')", dbName, expectedID, expectedName, actualID, actualName)
-		}
-		if rows.Next() {
-			return ErrPreflight.New("database %q: more than one row in test_table", dbName)
-		}
-
-		_, err = nextDB.ExecContext(ctx, "DROP TABLE test_table")
-		if err != nil {
-			return ErrPreflight.New("database %q: failed drop test_table %w", dbName, err)
+		if err := db.preflight(ctx, dbName, dbContainer); err != nil {
+			return err
 		}
 	}
+	return nil
+}
+
+func (db *DB) preflight(ctx context.Context, dbName string, dbContainer DBContainer) error {
+	nextDB := dbContainer.GetDB()
+	// Preflight stage 1: test schema correctness
+	schema, err := sqliteutil.QuerySchema(ctx, nextDB)
+	if err != nil {
+		return ErrPreflight.New("database %q: schema check failed: %v", dbName, err)
+	}
+	// we don't care about changes in versions table
+	schema.DropTable("versions")
+	// if there was a previous pre-flight failure, test_table might still be in the schema
+	schema.DropTable("test_table")
+
+	// If tables and indexes of the schema are empty, set to nil
+	// to help with comparison to the snapshot.
+	if len(schema.Tables) == 0 {
+		schema.Tables = nil
+	}
+	if len(schema.Indexes) == 0 {
+		schema.Indexes = nil
+	}
+
+	// get expected schema
+	expectedSchema := Schema()[dbName]
+
+	// find extra indexes
+	var extraIdxs []*dbschema.Index
+	for _, idx := range schema.Indexes {
+		if _, exists := expectedSchema.FindIndex(idx.Name); exists {
+			continue
+		}
+
+		extraIdxs = append(extraIdxs, idx)
+	}
+	// drop index from schema if it is not unique to not fail preflight
+	for _, idx := range extraIdxs {
+		if !idx.Unique {
+			schema.DropIndex(idx.Name)
+		}
+	}
+	// warn that schema contains unexpected indexes
+	if len(extraIdxs) > 0 {
+		db.log.Warn(fmt.Sprintf("database %q: schema contains unexpected indices %v", dbName, extraIdxs))
+	}
+
+	// expect expected schema to match actual schema
+	if diff := cmp.Diff(expectedSchema, schema); diff != "" {
+		return ErrPreflight.New("database %q: expected schema does not match actual: %s", dbName, diff)
+	}
+
+	// Preflight stage 2: test basic read/write access
+	// for each database, create a new table, insert a row into that table, retrieve and validate that row, and drop the table.
+
+	// drop test table in case the last preflight check failed before table could be dropped
+	_, err = nextDB.ExecContext(ctx, "DROP TABLE IF EXISTS test_table")
+	if err != nil {
+		return ErrPreflight.New("database %q: failed drop if test_table: %w", dbName, err)
+	}
+	_, err = nextDB.ExecContext(ctx, "CREATE TABLE test_table(id int NOT NULL, name varchar(30), PRIMARY KEY (id))")
+	if err != nil {
+		return ErrPreflight.New("database %q: failed create test_table: %w", dbName, err)
+	}
+
+	var expectedID, actualID int
+	var expectedName, actualName string
+	expectedID = 1
+	expectedName = "TEST"
+	_, err = nextDB.ExecContext(ctx, "INSERT INTO test_table VALUES ( ?, ? )", expectedID, expectedName)
+	if err != nil {
+		return ErrPreflight.New("database: %q: failed inserting test value: %w", dbName, err)
+	}
+
+	rows, err := nextDB.QueryContext(ctx, "SELECT id, name FROM test_table")
+	if err != nil {
+		return ErrPreflight.New("database: %q: failed selecting test value: %w", dbName, err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	if !rows.Next() {
+		return ErrPreflight.New("database %q: no rows in test_table", dbName)
+	}
+	err = rows.Scan(&actualID, &actualName)
+	if err != nil {
+		return ErrPreflight.New("database %q: failed scanning row: %w", dbName, err)
+	}
+	if expectedID != actualID || expectedName != actualName {
+		return ErrPreflight.New("database %q: expected (%d, '%s'), actual (%d, '%s')", dbName, expectedID, expectedName, actualID, actualName)
+	}
+	if rows.Next() {
+		return ErrPreflight.New("database %q: more than one row in test_table", dbName)
+	}
+
+	_, err = nextDB.ExecContext(ctx, "DROP TABLE test_table")
+	if err != nil {
+		return ErrPreflight.New("database %q: failed drop test_table %w", dbName, err)
+	}
+
 	return nil
 }
 
