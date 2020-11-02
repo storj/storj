@@ -1466,3 +1466,99 @@ func TestCommitObject(t *testing.T) {
 		})
 	})
 }
+
+func TestUpdateObjectMetadata(t *testing.T) {
+	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := randObjectStream()
+		now := time.Now()
+
+		for _, test := range invalidObjectStreams(obj) {
+			test := test
+			t.Run(test.Name, func(t *testing.T) {
+				defer DeleteAll{}.Check(ctx, t, db)
+				UpdateObjectMetadata{
+					Opts: metabase.UpdateObjectMetadata{
+						ObjectStream: test.ObjectStream,
+					},
+					ErrClass: test.ErrClass,
+					ErrText:  test.ErrText,
+				}.Check(ctx, t, db)
+				Verify{}.Check(ctx, t, db)
+			})
+		}
+
+		t.Run("Version invalid", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			UpdateObjectMetadata{
+				Opts: metabase.UpdateObjectMetadata{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    0,
+						StreamID:   obj.StreamID,
+					},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "Version invalid: 0",
+			}.Check(ctx, t, db)
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Object missing", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			UpdateObjectMetadata{
+				Opts: metabase.UpdateObjectMetadata{
+					ObjectStream: obj,
+				},
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: object with specified version and committed status is missing",
+			}.Check(ctx, t, db)
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Update metadata", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			CreateTestObject{}.Run(ctx, t, db, obj, 0)
+
+			encryptedMetadata := testrand.Bytes(1024)
+			encryptedMetadataNonce := testrand.Nonce()
+
+			Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Committed,
+						Encryption:   defaultTestEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			UpdateObjectMetadata{
+				Opts: metabase.UpdateObjectMetadata{
+					ObjectStream:           obj,
+					EncryptedMetadata:      encryptedMetadata,
+					EncryptedMetadataNonce: encryptedMetadataNonce[:],
+				},
+			}.Check(ctx, t, db)
+
+			Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Committed,
+						Encryption:   defaultTestEncryption,
+
+						EncryptedMetadata:      encryptedMetadata,
+						EncryptedMetadataNonce: encryptedMetadataNonce[:],
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+	})
+}

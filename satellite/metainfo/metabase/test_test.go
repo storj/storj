@@ -92,6 +92,17 @@ func (step CommitInlineSegment) Check(ctx *testcontext.Context, t *testing.T, db
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
 
+type UpdateObjectMetadata struct {
+	Opts     metabase.UpdateObjectMetadata
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+func (step UpdateObjectMetadata) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	err := db.UpdateObjectMetadata(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+}
+
 type GetObjectExactVersion struct {
 	Opts     metabase.GetObjectExactVersion
 	Result   metabase.Object
