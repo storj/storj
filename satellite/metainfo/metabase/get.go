@@ -196,3 +196,53 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 
 	return segment, nil
 }
+
+// GetLatestObjectLastSegment contains arguments necessary for fetching a last segment information.
+type GetLatestObjectLastSegment struct {
+	ObjectLocation
+}
+
+// GetLatestObjectLastSegment returns an object last segment information.
+func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return Segment{}, err
+	}
+
+	err = db.db.QueryRow(ctx, `
+		SELECT
+			stream_id, position,
+			root_piece_id, encrypted_key_nonce, encrypted_key,
+			encrypted_size, plain_offset, plain_size,
+			redundancy,
+			inline_data, remote_pieces
+		FROM segments
+		WHERE
+			stream_id = (SELECT stream_id FROM objects WHERE
+				project_id   = $1 AND
+				bucket_name  = $2 AND
+				object_key   = $3 AND
+				status       = 1
+				ORDER BY version DESC
+				LIMIT 1
+			)
+		ORDER BY position DESC
+		LIMIT 1
+	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey)).
+		Scan(
+			&segment.StreamID, &segment.Position,
+			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
+			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
+			redundancyScheme{&segment.Redundancy},
+			&segment.InlineData, &segment.Pieces,
+		)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Segment{}, storj.ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
+		}
+		return Segment{}, Error.New("unable to query segment: %w", err)
+	}
+
+	return segment, nil
+}

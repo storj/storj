@@ -407,3 +407,86 @@ func TestGetSegmentByPosition(t *testing.T) {
 		})
 	})
 }
+
+func TestGetLatestObjectLastSegment(t *testing.T) {
+	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := randObjectStream()
+		location := obj.Location()
+		now := time.Now()
+
+		for _, test := range invalidObjectLocations(location) {
+			test := test
+			t.Run(test.Name, func(t *testing.T) {
+				defer DeleteAll{}.Check(ctx, t, db)
+				GetLatestObjectLastSegment{
+					Opts: metabase.GetLatestObjectLastSegment{
+						ObjectLocation: test.ObjectLocation,
+					},
+					ErrClass: test.ErrClass,
+					ErrText:  test.ErrText,
+				}.Check(ctx, t, db)
+
+				Verify{}.Check(ctx, t, db)
+			})
+		}
+
+		t.Run("Object or segment missing", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			GetLatestObjectLastSegment{
+				Opts: metabase.GetLatestObjectLastSegment{
+					ObjectLocation: location,
+				},
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: object or segment missing",
+			}.Check(ctx, t, db)
+
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Get last segment", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			createObject(ctx, t, db, obj, 2)
+
+			expectedSegmentSecond := metabase.Segment{
+				StreamID: obj.StreamID,
+				Position: metabase.SegmentPosition{
+					Index: 2,
+				},
+				RootPieceID:       storj.PieceID{1},
+				EncryptedKey:      []byte{3},
+				EncryptedKeyNonce: []byte{4},
+				EncryptedSize:     1024,
+				PlainSize:         512,
+				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+				Redundancy:        defaultTestRedundancy,
+			}
+
+			expectedSegmentFirst := expectedSegmentSecond
+			expectedSegmentFirst.Position.Index = 1
+
+			GetLatestObjectLastSegment{
+				Opts: metabase.GetLatestObjectLastSegment{
+					ObjectLocation: location,
+				},
+				Result: expectedSegmentSecond,
+			}.Check(ctx, t, db)
+
+			Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Committed,
+						Encryption:   defaultTestEncryption,
+					},
+				},
+				Segments: []metabase.RawSegment{
+					metabase.RawSegment(expectedSegmentFirst),
+					metabase.RawSegment(expectedSegmentSecond),
+				},
+			}.Check(ctx, t, db)
+		})
+	})
+}

@@ -148,6 +148,21 @@ func (step GetSegmentByPosition) Check(ctx *testcontext.Context, t *testing.T, d
 	require.Zero(t, diff)
 }
 
+type GetLatestObjectLastSegment struct {
+	Opts     metabase.GetLatestObjectLastSegment
+	Result   metabase.Segment
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+func (step GetLatestObjectLastSegment) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	result, err := db.GetLatestObjectLastSegment(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	require.Zero(t, diff)
+}
+
 type DeleteObjectExactVersion struct {
 	Opts     metabase.DeleteObjectExactVersion
 	Result   metabase.DeleteObjectResult
