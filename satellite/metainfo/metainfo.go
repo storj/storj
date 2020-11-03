@@ -29,7 +29,6 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metainfo/metabase"
-	"storj.io/storj/satellite/metainfo/objectdeletion"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/metainfo/pointerverification"
 	"storj.io/storj/satellite/orders"
@@ -68,7 +67,6 @@ type Endpoint struct {
 	log                  *zap.Logger
 	metainfo             *Service
 	deletePieces         *piecedeletion.Service
-	deleteObjects        *objectdeletion.Service
 	orders               *orders.Service
 	overlay              *overlay.Service
 	attributions         attribution.DB
@@ -99,15 +97,10 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 	if err != nil {
 		return nil, err
 	}
-	objectDeletion, err := objectdeletion.NewService(log, metainfo, config.ObjectDeletion)
-	if err != nil {
-		return nil, err
-	}
 	return &Endpoint{
 		log:                 log,
 		metainfo:            metainfo,
 		deletePieces:        deletePieces,
-		deleteObjects:       objectDeletion,
 		orders:              orders,
 		overlay:             cache,
 		attributions:        attributions,
@@ -461,20 +454,20 @@ func (endpoint *Endpoint) deleteByPrefix(ctx context.Context, projectID uuid.UUI
 			return deletedCount, err
 		}
 
-		deleteReqs := make([]*metabase.ObjectLocation, len(segments))
+		deleteReqs := make([]metabase.ObjectLocation, len(segments))
 		for i, segment := range segments {
-			deleteReqs[i] = &metabase.ObjectLocation{
+			deleteReqs[i] = metabase.ObjectLocation{
 				ProjectID:  projectID,
 				BucketName: string(bucketName),
 				ObjectKey:  metabase.ObjectKey(segment.Path),
 			}
 		}
-		rep, err := endpoint.deleteObjectsPieces(ctx, deleteReqs...)
+		deletedObjects, err := endpoint.deleteObjectsPieces(ctx, deleteReqs...)
 		if err != nil {
 			return deletedCount, err
 		}
 
-		deletedCount += len(rep.Deleted)
+		deletedCount += len(deletedObjects)
 
 		if !more {
 			break
@@ -1008,7 +1001,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 	})
 	canList := err == nil
 
-	report, err := endpoint.DeleteObjectPieces(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedPath)
+	deletedObjects, err := endpoint.DeleteObjectPieces(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedPath)
 	if err != nil {
 		if !canRead && !canList {
 			// No error info is returned if neither Read, nor List permission is granted
@@ -1020,7 +1013,6 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 	var object *pb.Object
 	if canRead || canList {
 		// Info about deleted object is returned only if either Read, or List permission is granted
-		deletedObjects, err := report.DeletedObjects()
 		if err != nil {
 			endpoint.log.Error("failed to construct deleted object information",
 				zap.Stringer("Project ID", keyInfo.ProjectID),
@@ -1739,16 +1731,16 @@ func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID s
 // having import cycles.
 func (endpoint *Endpoint) DeleteObjectPieces(
 	ctx context.Context, projectID uuid.UUID, bucket, encryptedPath []byte,
-) (report objectdeletion.Report, err error) {
+) (deletedObjects []*pb.Object, err error) {
 	defer mon.Task()(&ctx, projectID.String(), bucket, encryptedPath)(&err)
 
-	req := &metabase.ObjectLocation{
+	req := metabase.ObjectLocation{
 		ProjectID:  projectID,
 		BucketName: string(bucket),
 		ObjectKey:  metabase.ObjectKey(encryptedPath),
 	}
 
-	report, err = endpoint.deleteObjectsPieces(ctx, req)
+	deletedObjects, err = endpoint.deleteObjectsPieces(ctx, req)
 	if err != nil {
 		endpoint.log.Error("failed to delete pointers",
 			zap.Stringer("project_id", projectID),
@@ -1756,52 +1748,81 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 			zap.Binary("encrypted_path", encryptedPath),
 			zap.Error(err),
 		)
-		// Only return an error if we failed to delete the pointers. If we failed
-		// to delete pieces, let garbage collector take care of it.
-		if objectdeletion.Error.Has(err) {
-			return report, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
+		return deletedObjects, err
 	}
 
-	return report, nil
+	return deletedObjects, nil
 }
 
-func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, reqs ...*metabase.ObjectLocation) (report objectdeletion.Report, err error) {
+func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, reqs ...metabase.ObjectLocation) (deletedObjects []*pb.Object, err error) {
 	// We should ignore client cancelling and always try to delete segments.
 	ctx = context2.WithoutCancellation(ctx)
 
-	results, err := endpoint.deleteObjects.Delete(ctx, reqs...)
+	result, err := endpoint.metainfo.metabaseDB.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{Locations: reqs})
 	if err != nil {
-		return report, err
+		return nil, err
 	}
+
+	deletedObjects = make([]*pb.Object, len(result.Objects))
+	for i, object := range result.Objects {
+		deletedObjects[i] = objectToProto(object)
+	}
+
+	nodesPieces := groupPiecesByNodeID(result.Segments)
 
 	var requests []piecedeletion.Request
-	for _, r := range results {
-		pointers := r.DeletedPointers()
-		report.Deleted = append(report.Deleted, r.Deleted...)
-		report.Failed = append(report.Failed, r.Failed...)
-
-		nodesPieces := objectdeletion.GroupPiecesByNodeID(pointers)
-
-		if len(nodesPieces) == 0 {
-			continue
-		}
-
-		for node, pieces := range nodesPieces {
-			requests = append(requests, piecedeletion.Request{
-				Node: storj.NodeURL{
-					ID: node,
-				},
-				Pieces: pieces,
-			})
-		}
+	for node, pieces := range nodesPieces {
+		requests = append(requests, piecedeletion.Request{
+			Node: storj.NodeURL{
+				ID: node,
+			},
+			Pieces: pieces,
+		})
 	}
 
+	// Only return an error if we failed to delete the objects. If we failed
+	// to delete pieces, let garbage collector take care of it.
 	if err := endpoint.deletePieces.Delete(ctx, requests, deleteObjectPiecesSuccessThreshold); err != nil {
 		endpoint.log.Error("failed to delete pieces", zap.Error(err))
 	}
 
-	return report, nil
+	return deletedObjects, nil
+}
+
+func objectToProto(object metabase.Object) *pb.Object {
+	result := &pb.Object{
+		Bucket:            []byte(object.BucketName),
+		EncryptedPath:     []byte(object.ObjectKey),
+		Version:           int32(object.Version),
+		CreatedAt:         object.CreatedAt,
+		EncryptedMetadata: object.EncryptedMetadata,
+		EncryptionParameters: &pb.EncryptionParameters{
+			CipherSuite: pb.CipherSuite(object.Encryption.CipherSuite),
+			BlockSize:   int64(object.Encryption.BlockSize),
+		},
+	}
+
+	if object.ExpiresAt != nil {
+		result.ExpiresAt = *object.ExpiresAt
+	}
+
+	// TODO: add the rest of the fields
+
+	return result
+}
+
+// groupPiecesByNodeID returns a map that contains pieces with node id as the key.
+func groupPiecesByNodeID(segments []metabase.DeletedSegmentInfo) map[storj.NodeID][]storj.PieceID {
+	piecesToDelete := map[storj.NodeID][]storj.PieceID{}
+
+	for _, segment := range segments {
+		for _, piece := range segment.Pieces {
+			pieceID := segment.RootPieceID.Derive(piece.StorageNode, int32(piece.Number))
+			piecesToDelete[piece.StorageNode] = append(piecesToDelete[piece.StorageNode], pieceID)
+		}
+	}
+
+	return piecesToDelete
 }
 
 func (endpoint *Endpoint) redundancyScheme() *pb.RedundancyScheme {
