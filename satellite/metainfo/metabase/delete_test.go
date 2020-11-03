@@ -664,6 +664,311 @@ func TestDeleteObjectAllVersions(t *testing.T) {
 	})
 }
 
+func TestDeleteObjectsAllVersions(t *testing.T) {
+	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := randObjectStream()
+
+		location := obj.Location()
+
+		now := time.Now()
+
+		for _, test := range invalidObjectLocations(location) {
+			test := test
+			t.Run(test.Name, func(t *testing.T) {
+				defer DeleteAll{}.Check(ctx, t, db)
+				DeleteObjectsAllVersions{
+					Opts: metabase.DeleteObjectsAllVersions{
+						Locations: []metabase.ObjectLocation{test.ObjectLocation},
+					},
+					ErrClass: test.ErrClass,
+					ErrText:  test.ErrText,
+				}.Check(ctx, t, db)
+				Verify{}.Check(ctx, t, db)
+			})
+		}
+
+		t.Run("Delete two objects from different projects", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			obj2 := randObjectStream()
+
+			DeleteObjectsAllVersions{
+				Opts: metabase.DeleteObjectsAllVersions{
+					Locations: []metabase.ObjectLocation{location, obj2.Location()},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "all objects must be in the same bucket",
+			}.Check(ctx, t, db)
+
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete two objects from same project, but different buckets", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			obj2 := randObjectStream()
+			obj2.ProjectID = obj.ProjectID
+
+			DeleteObjectsAllVersions{
+				Opts: metabase.DeleteObjectsAllVersions{
+					Locations: []metabase.ObjectLocation{location, obj2.Location()},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "all objects must be in the same bucket",
+			}.Check(ctx, t, db)
+
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete empty list of objects", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			DeleteObjectsAllVersions{}.Check(ctx, t, db)
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Object missing", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			DeleteObjectsAllVersions{
+				Opts: metabase.DeleteObjectsAllVersions{
+					Locations: []metabase.ObjectLocation{location},
+				},
+			}.Check(ctx, t, db)
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete partial object", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			DeleteObjectsAllVersions{
+				Opts: metabase.DeleteObjectsAllVersions{
+					Locations: []metabase.ObjectLocation{location},
+				},
+			}.Check(ctx, t, db)
+
+			Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Pending,
+
+						Encryption: defaultTestEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete object without segments", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			object := createObject(ctx, t, db, obj, 0)
+
+			DeleteObjectsAllVersions{
+				Opts: metabase.DeleteObjectsAllVersions{
+					Locations: []metabase.ObjectLocation{location},
+				},
+				Result: metabase.DeleteObjectResult{
+					Objects: []metabase.Object{object},
+				},
+			}.Check(ctx, t, db)
+
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete object with segments", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			object := createObject(ctx, t, db, obj, 2)
+
+			expectedSegmentInfo := metabase.DeletedSegmentInfo{
+				RootPieceID: storj.PieceID{1},
+				Pieces:      metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+			}
+
+			DeleteObjectsAllVersions{
+				Opts: metabase.DeleteObjectsAllVersions{
+					Locations: []metabase.ObjectLocation{location},
+				},
+				Result: metabase.DeleteObjectResult{
+					Objects:  []metabase.Object{object},
+					Segments: []metabase.DeletedSegmentInfo{expectedSegmentInfo, expectedSegmentInfo},
+				},
+			}.Check(ctx, t, db)
+
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete two objects with segments from same bucket", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			obj2 := randObjectStream()
+			obj2.ProjectID = obj.ProjectID
+			obj2.BucketName = obj.BucketName
+
+			object1 := createObject(ctx, t, db, obj, 1)
+			object2 := createObject(ctx, t, db, obj2, 2)
+
+			expectedSegmentInfo := metabase.DeletedSegmentInfo{
+				RootPieceID: storj.PieceID{1},
+				Pieces:      metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+			}
+
+			DeleteObjectsAllVersions{
+				Opts: metabase.DeleteObjectsAllVersions{
+					Locations: []metabase.ObjectLocation{location, obj2.Location()},
+				},
+				Result: metabase.DeleteObjectResult{
+					Objects:  []metabase.Object{object1, object2},
+					Segments: []metabase.DeletedSegmentInfo{expectedSegmentInfo, expectedSegmentInfo, expectedSegmentInfo},
+				},
+			}.Check(ctx, t, db)
+
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete object with inline segment", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
+				},
+				Version: obj.Version,
+			}.Check(ctx, t, db)
+
+			CommitInlineSegment{
+				Opts: metabase.CommitInlineSegment{
+					ObjectStream: obj,
+					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
+					RootPieceID:  testrand.PieceID(),
+
+					EncryptedKey:      testrand.Bytes(32),
+					EncryptedKeyNonce: testrand.Bytes(32),
+
+					InlineData: testrand.Bytes(1024),
+
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
+					Redundancy:    defaultTestRedundancy,
+				},
+			}.Check(ctx, t, db)
+
+			object := CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+				},
+			}.Check(ctx, t, db)
+
+			DeleteObjectsAllVersions{
+				Opts: metabase.DeleteObjectsAllVersions{
+					Locations: []metabase.ObjectLocation{location},
+				},
+				Result: metabase.DeleteObjectResult{
+					Objects: []metabase.Object{object},
+				},
+			}.Check(ctx, t, db)
+
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete object with inline segment and object with remote segments", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
+				},
+				Version: obj.Version,
+			}.Check(ctx, t, db)
+
+			CommitInlineSegment{
+				Opts: metabase.CommitInlineSegment{
+					ObjectStream: obj,
+					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
+					RootPieceID:  testrand.PieceID(),
+
+					EncryptedKey:      testrand.Bytes(32),
+					EncryptedKeyNonce: testrand.Bytes(32),
+
+					InlineData: testrand.Bytes(1024),
+
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
+					Redundancy:    defaultTestRedundancy,
+				},
+			}.Check(ctx, t, db)
+
+			object1 := CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+				},
+			}.Check(ctx, t, db)
+
+			obj2 := randObjectStream()
+			obj2.ProjectID = obj.ProjectID
+			obj2.BucketName = obj.BucketName
+
+			object2 := createObject(ctx, t, db, obj2, 2)
+
+			expectedSegmentInfo := metabase.DeletedSegmentInfo{
+				RootPieceID: storj.PieceID{1},
+				Pieces:      metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+			}
+
+			DeleteObjectsAllVersions{
+				Opts: metabase.DeleteObjectsAllVersions{
+					Locations: []metabase.ObjectLocation{location, object2.Location()},
+				},
+				Result: metabase.DeleteObjectResult{
+					Objects:  []metabase.Object{object1, object2},
+					Segments: []metabase.DeletedSegmentInfo{expectedSegmentInfo, expectedSegmentInfo},
+				},
+			}.Check(ctx, t, db)
+
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Delete multiple versions of the same object at once", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			expected := metabase.DeleteObjectResult{}
+
+			for i := 1; i <= 10; i++ {
+				obj.StreamID = testrand.UUID()
+				obj.Version = metabase.Version(i)
+				expected.Objects = append(expected.Objects, createObject(ctx, t, db, obj, 1))
+				expected.Segments = append(expected.Segments, metabase.DeletedSegmentInfo{
+					RootPieceID: storj.PieceID{1},
+					Pieces:      metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+				})
+			}
+
+			DeleteObjectsAllVersions{
+				Opts: metabase.DeleteObjectsAllVersions{
+					Locations: []metabase.ObjectLocation{location},
+				},
+				Result: expected,
+			}.Check(ctx, t, db)
+
+			Verify{}.Check(ctx, t, db)
+		})
+	})
+}
+
 func createObject(ctx *testcontext.Context, t *testing.T, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte) metabase.Object {
 	BeginObjectExactVersion{
 		Opts: metabase.BeginObjectExactVersion{

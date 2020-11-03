@@ -4,6 +4,7 @@
 package metabase_test
 
 import (
+	"sort"
 	"testing"
 	"time"
 
@@ -208,6 +209,24 @@ func (step DeleteObjectAllVersions) Check(ctx *testcontext.Context, t *testing.T
 	require.Zero(t, diff)
 }
 
+type DeleteObjectsAllVersions struct {
+	Opts     metabase.DeleteObjectsAllVersions
+	Result   metabase.DeleteObjectResult
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+func (step DeleteObjectsAllVersions) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	result, err := db.DeleteObjectsAllVersions(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	sortObjectsByKey(result.Objects)
+	sortObjectsByKey(step.Result.Objects)
+
+	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	require.Zero(t, diff)
+}
+
 func checkError(t *testing.T, err error, errClass *errs.Class, errText string) {
 	if errClass != nil {
 		require.True(t, errClass.Has(err), "expected an error %v got %v", *errClass, err)
@@ -218,6 +237,12 @@ func checkError(t *testing.T, err error, errClass *errs.Class, errText string) {
 	if errClass == nil && errText == "" {
 		require.NoError(t, err)
 	}
+}
+
+func sortObjectsByKey(objects []metabase.Object) {
+	sort.Slice(objects, func(i, j int) bool {
+		return objects[i].ObjectKey < objects[j].ObjectKey
+	})
 }
 
 type DeleteAll struct{}

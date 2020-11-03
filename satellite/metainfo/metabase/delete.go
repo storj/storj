@@ -4,9 +4,11 @@
 package metabase
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
+	"sort"
 
 	"github.com/zeebo/errs"
 
@@ -47,6 +49,43 @@ type DeletedSegmentInfo struct {
 // DeleteObjectAllVersions contains arguments necessary for deleting all object versions.
 type DeleteObjectAllVersions struct {
 	ObjectLocation
+}
+
+// DeleteObjectsAllVersions contains arguments necessary for deleting all versions of multiple objects from the same bucket.
+type DeleteObjectsAllVersions struct {
+	Locations []ObjectLocation
+}
+
+// Verify delete objects fields.
+func (delete *DeleteObjectsAllVersions) Verify() error {
+	if len(delete.Locations) == 0 {
+		return nil
+	}
+
+	// TODO: make this limit configurable
+	if len(delete.Locations) > 1000 {
+		return ErrInvalidRequest.New("cannot delete more than 1000 objects in a single request")
+	}
+
+	var errGroup errs.Group
+	for _, location := range delete.Locations {
+		errGroup.Add(location.Verify())
+	}
+
+	err := errGroup.Err()
+	if err != nil {
+		return err
+	}
+
+	// Verify if all locations are in the same bucket
+	first := delete.Locations[0]
+	for _, item := range delete.Locations[1:] {
+		if first.ProjectID != item.ProjectID || first.BucketName != item.BucketName {
+			return ErrInvalidRequest.New("all objects must be in the same bucket")
+		}
+	}
+
+	return nil
 }
 
 // DeleteObjectLatestVersion contains arguments necessary for deleting latest object version.
@@ -279,6 +318,95 @@ func (db *DB) DeleteObjectAllVersions(ctx context.Context, opts DeleteObjectAllV
 	return result, nil
 }
 
+// DeleteObjectsAllVersions deletes all versions of multiple objects from the same bucket.
+func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAllVersions) (result DeleteObjectResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(opts.Locations) == 0 {
+		// nothing to delete, no error
+		return DeleteObjectResult{}, nil
+	}
+
+	if err := opts.Verify(); err != nil {
+		return DeleteObjectResult{}, err
+	}
+
+	tx, err := db.db.BeginTx(ctx, nil)
+	if err != nil {
+		return DeleteObjectResult{}, Error.New("failed BeginTx: %w", err)
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			err = errs.Combine(err, Error.Wrap(tx.Rollback()))
+		}
+	}()
+
+	// It is aleady verified that all object locations are in the same bucket
+	projectID := opts.Locations[0].ProjectID
+	bucketName := opts.Locations[0].BucketName
+
+	objectKeys := make([][]byte, len(opts.Locations))
+	for i := range opts.Locations {
+		objectKeys[i] = []byte(opts.Locations[i].ObjectKey)
+	}
+
+	// Sorting the object keys just in case.
+	// TODO: Check if this is really necessary for the SQL query.
+	sort.Slice(objectKeys, func(i, j int) bool {
+		return bytes.Compare(objectKeys[i], objectKeys[j]) < 0
+	})
+
+	rows, err := tx.Query(ctx, `
+		DELETE FROM objects
+			WHERE
+				project_id   = $1 AND
+				bucket_name  = $2 AND
+				object_key   = ANY ($3) AND
+				status       = 1
+			RETURNING
+				project_id, bucket_name,
+				object_key, version, stream_id,
+				created_at, expires_at,
+				status, segment_count,
+				encrypted_metadata_nonce, encrypted_metadata,
+				total_encrypted_size, fixed_segment_size,
+				encryption;
+	`, projectID, bucketName, pgutil.ByteaArray(objectKeys))
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return DeleteObjectResult{}, storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
+		}
+		return DeleteObjectResult{}, Error.New("unable to delete object: %w", err)
+	}
+
+	result.Objects, err = scanMultipleObjectsDeletion(rows)
+	if err != nil {
+		return DeleteObjectResult{}, err
+	}
+
+	if len(result.Objects) == 0 {
+		// nothing was delete, no error
+		return DeleteObjectResult{}, nil
+	}
+
+	segmentInfos, err := deleteSegments(ctx, tx, result.Objects)
+	if err != nil {
+		return DeleteObjectResult{}, err
+	}
+
+	if len(segmentInfos) != 0 {
+		result.Segments = segmentInfos
+	}
+
+	err, committed = tx.Commit(), true
+	if err != nil {
+		return DeleteObjectResult{}, Error.New("unable to commit tx: %w", err)
+	}
+
+	return result, nil
+}
+
 func scanObjectDeletion(location ObjectLocation, rows tagsql.Rows) (objects []Object, err error) {
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
@@ -309,6 +437,32 @@ func scanObjectDeletion(location ObjectLocation, rows tagsql.Rows) (objects []Ob
 	return objects, nil
 }
 
+func scanMultipleObjectsDeletion(rows tagsql.Rows) (objects []Object, err error) {
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	objects = make([]Object, 0, 10)
+	for rows.Next() {
+		var object Object
+		err = rows.Scan(&object.ProjectID, &object.BucketName,
+			&object.ObjectKey, &object.Version, &object.StreamID,
+			&object.CreatedAt, &object.ExpiresAt,
+			&object.Status, &object.SegmentCount,
+			&object.EncryptedMetadataNonce, &object.EncryptedMetadata,
+			&object.TotalEncryptedSize, &object.FixedSegmentSize,
+			encryptionParameters{&object.Encryption})
+		if err != nil {
+			return nil, Error.New("unable to delete object: %w", err)
+		}
+		objects = append(objects, object)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, Error.New("unable to delete object: %w", err)
+	}
+
+	return objects, nil
+}
+
 func deleteSegments(ctx context.Context, tx tagsql.Tx, objects []Object) (_ []DeletedSegmentInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -319,6 +473,12 @@ func deleteSegments(ctx context.Context, tx tagsql.Tx, objects []Object) (_ []De
 	for i := range objects {
 		streamIDs[i] = objects[i].StreamID[:]
 	}
+
+	// Sorting the stream IDs just in case.
+	// TODO: Check if this is really necessary for the SQL query.
+	sort.Slice(streamIDs, func(i, j int) bool {
+		return bytes.Compare(streamIDs[i], streamIDs[j]) < 0
+	})
 
 	segmentsRows, err := tx.Query(ctx, `
 			DELETE FROM segments
