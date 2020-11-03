@@ -6,14 +6,22 @@ package testplanet
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest"
 )
 
+var useAbsTime = os.Getenv("STORJ_TESTPLANET_ABSTIME")
+
 func newLogger(t *testing.T) *zap.Logger {
+	if useAbsTime != "" {
+		return zaptest.NewLogger(t)
+	}
+
 	start := time.Now()
 	cfg := zap.NewDevelopmentEncoderConfig()
 
