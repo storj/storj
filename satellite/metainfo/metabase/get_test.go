@@ -397,7 +397,12 @@ func TestGetSegmentByPosition(t *testing.T) {
 						ObjectStream: obj,
 						CreatedAt:    now,
 						Status:       metabase.Committed,
-						Encryption:   defaultTestEncryption,
+						SegmentCount: 1,
+
+						TotalEncryptedSize: 1024,
+						FixedSegmentSize:   1024,
+
+						Encryption: defaultTestEncryption,
 					},
 				},
 				Segments: []metabase.RawSegment{
@@ -479,7 +484,12 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 						ObjectStream: obj,
 						CreatedAt:    now,
 						Status:       metabase.Committed,
-						Encryption:   defaultTestEncryption,
+						SegmentCount: 2,
+
+						TotalEncryptedSize: 2048,
+						FixedSegmentSize:   1024,
+
+						Encryption: defaultTestEncryption,
 					},
 				},
 				Segments: []metabase.RawSegment{

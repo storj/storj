@@ -453,8 +453,11 @@ func TestDeleteObjectLatestVersion(t *testing.T) {
 						ObjectStream: obj,
 						CreatedAt:    now,
 						Status:       metabase.Committed,
+						SegmentCount: 1,
 
-						Encryption: defaultTestEncryption,
+						TotalEncryptedSize: 1024,
+						FixedSegmentSize:   1024,
+						Encryption:         defaultTestEncryption,
 					},
 				},
 				Segments: []metabase.RawSegment{
@@ -472,9 +475,6 @@ func TestDeleteObjectLatestVersion(t *testing.T) {
 						PlainOffset:   0,
 
 						Redundancy: defaultTestRedundancy,
-
-						// InlineData []byte
-
 					},
 				},
 			}.Check(ctx, t, db)

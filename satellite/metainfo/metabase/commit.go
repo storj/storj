@@ -14,6 +14,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/storj/private/dbutil/pgutil/pgerrcode"
+	"storj.io/storj/private/tagsql"
 )
 
 var (
@@ -485,18 +486,80 @@ func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) 
 		}
 	}()
 
-	// TODO: fetch info from segments
+	type Segment struct {
+		Position      SegmentPosition
+		EncryptedSize int32
+		PlainOffset   int64
+		PlainSize     int32
+	}
+
+	var segments []Segment
+	err = withRows(tx.Query(ctx, `
+		SELECT position, encrypted_size, plain_offset, plain_size
+		FROM segments
+		WHERE stream_id = $1
+		ORDER BY position
+	`, opts.StreamID))(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			var segment Segment
+			err := rows.Scan(&segment.Position, &segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize)
+			if err != nil {
+				return Error.New("failed to scan segments: %w", err)
+			}
+			segments = append(segments, segment)
+		}
+		return nil
+	})
+	if err != nil {
+		return Object{}, Error.New("failed to fetch segments: %w", err)
+	}
+
+	// verify segments
+	if len(segments) > 0 {
+		// without proofs we expect the segments to be contiguous
+		hasOffset := false
+		offset := int64(0)
+		for i, seg := range segments {
+			if seg.Position.Part != 0 && seg.Position.Index != uint32(i) {
+				return Object{}, Error.New("expected segment (%d,%d), found (%d,%d)", 0, i, seg.Position.Part, seg.Position.Index)
+			}
+			if seg.PlainOffset != 0 {
+				hasOffset = true
+			}
+			if hasOffset && seg.PlainOffset != offset {
+				return Object{}, Error.New("segment %d should be at plain offset %d, offset is %d", seg.Position.Index, offset, seg.PlainOffset)
+			}
+			offset += int64(seg.PlainSize)
+		}
+	}
+
+	// TODO: would we even need this when we make main index plain_offset?
+	fixedSegmentSize := int32(0)
+	if len(segments) > 0 {
+		fixedSegmentSize = segments[0].EncryptedSize
+		for _, seg := range segments[:len(segments)-1] {
+			if seg.EncryptedSize != fixedSegmentSize {
+				fixedSegmentSize = -1
+				break
+			}
+		}
+	}
+
+	var totalEncryptedSize int64
+	for _, seg := range segments {
+		totalEncryptedSize += int64(seg.EncryptedSize)
+	}
 
 	err = tx.QueryRow(ctx, `
 		UPDATE objects SET
 			status = 1, -- committed
-			segment_count = 0, -- TODO
+			segment_count = $6,
 
-			encrypted_metadata_nonce = $6,
-			encrypted_metadata = $7,
+			encrypted_metadata_nonce = $7,
+			encrypted_metadata = $8,
 
-			total_encrypted_size = 0, -- TODO
-			fixed_segment_size = 0, -- TODO
+			total_encrypted_size = $9,
+			fixed_segment_size = $10,
 			zombie_deletion_deadline = NULL
 		WHERE
 			project_id   = $1 AND
@@ -506,13 +569,15 @@ func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) 
 			stream_id    = $5 AND
 			status       = 0
 		RETURNING
-			stream_id,
 			created_at, expires_at,
 			encryption;
 	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID,
-		opts.EncryptedMetadataNonce, opts.EncryptedMetadata).
+		len(segments),
+		opts.EncryptedMetadataNonce, opts.EncryptedMetadata,
+		totalEncryptedSize,
+		fixedSegmentSize,
+	).
 		Scan(
-			&object.StreamID,
 			&object.CreatedAt, &object.ExpiresAt,
 			encryptionParameters{&object.Encryption},
 		)
@@ -523,18 +588,17 @@ func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) 
 		return Object{}, Error.New("failed to update object: %w", err)
 	}
 
+	object.StreamID = opts.StreamID
 	object.ProjectID = opts.ProjectID
 	object.BucketName = opts.BucketName
 	object.ObjectKey = opts.ObjectKey
 	object.Version = opts.Version
 	object.Status = Committed
-	object.SegmentCount = 0 // TODO
+	object.SegmentCount = int32(len(segments))
 	object.EncryptedMetadataNonce = opts.EncryptedMetadataNonce
 	object.EncryptedMetadata = opts.EncryptedMetadata
-	object.TotalEncryptedSize = 0 // TODO
-	object.FixedSegmentSize = 0   // TODO
-
-	// TODO: delete segments
+	object.TotalEncryptedSize = totalEncryptedSize
+	object.FixedSegmentSize = fixedSegmentSize
 
 	err = tx.Commit()
 	committed = true
