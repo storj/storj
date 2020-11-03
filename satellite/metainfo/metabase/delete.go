@@ -33,12 +33,12 @@ func (obj *DeleteObjectExactVersion) Verify() error {
 
 // DeleteObjectResult result of deleting object.
 type DeleteObjectResult struct {
+	Objects  []Object
 	Segments []DeletedSegmentInfo
 }
 
 // DeletedSegmentInfo info about deleted segment.
 type DeletedSegmentInfo struct {
-	// TODO figure out which part of object are needed to delete from SN
 	RootPieceID storj.PieceID
 	Pieces      Pieces
 }
@@ -80,7 +80,13 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 			object_key   = $3 AND
 			version      = $4 AND
 			status       = 1
-		RETURNING stream_id;
+		RETURNING
+			version, stream_id,
+			created_at, expires_at,
+			status, segment_count,
+			encrypted_metadata_nonce, encrypted_metadata,
+			total_encrypted_size, fixed_segment_size,
+			encryption;
 	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -89,16 +95,16 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 		return DeleteObjectResult{}, Error.New("unable to delete object: %w", err)
 	}
 
-	ids, err := scanObjectDeletion(rows)
+	result.Objects, err = scanObjectDeletion(opts.ObjectLocation, rows)
 	if err != nil {
 		return DeleteObjectResult{}, err
 	}
 
-	if len(ids) == 0 {
+	if len(result.Objects) == 0 {
 		return DeleteObjectResult{}, storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
 	}
 
-	segmentInfos, err := deleteSegments(ctx, tx, ids)
+	segmentInfos, err := deleteSegments(ctx, tx, result.Objects)
 	if err != nil {
 		return DeleteObjectResult{}, err
 	}
@@ -164,7 +170,13 @@ func (db *DB) DeleteObjectLatestVersion(ctx context.Context, opts DeleteObjectLa
 				ORDER BY version DESC LIMIT 1
 			) AND
 			status       = 1
-		RETURNING stream_id;
+		RETURNING
+			version, stream_id,
+			created_at, expires_at,
+			status, segment_count,
+			encrypted_metadata_nonce, encrypted_metadata,
+			total_encrypted_size, fixed_segment_size,
+			encryption;
 	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -173,16 +185,16 @@ func (db *DB) DeleteObjectLatestVersion(ctx context.Context, opts DeleteObjectLa
 		return DeleteObjectResult{}, Error.New("unable to delete object: %w", err)
 	}
 
-	ids, err := scanObjectDeletion(rows)
+	result.Objects, err = scanObjectDeletion(opts.ObjectLocation, rows)
 	if err != nil {
 		return DeleteObjectResult{}, err
 	}
 
-	if len(ids) == 0 {
+	if len(result.Objects) == 0 {
 		return DeleteObjectResult{}, storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
 	}
 
-	segmentInfos, err := deleteSegments(ctx, tx, ids)
+	segmentInfos, err := deleteSegments(ctx, tx, result.Objects)
 	if err != nil {
 		return DeleteObjectResult{}, err
 	}
@@ -225,7 +237,13 @@ func (db *DB) DeleteObjectAllVersions(ctx context.Context, opts DeleteObjectAllV
 			bucket_name  = $2 AND
 			object_key   = $3 AND
 			status       = 1
-		RETURNING stream_id;
+		RETURNING
+			version, stream_id,
+			created_at, expires_at,
+			status, segment_count,
+			encrypted_metadata_nonce, encrypted_metadata,
+			total_encrypted_size, fixed_segment_size,
+			encryption;
 	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -234,16 +252,16 @@ func (db *DB) DeleteObjectAllVersions(ctx context.Context, opts DeleteObjectAllV
 		return DeleteObjectResult{}, Error.New("unable to delete object: %w", err)
 	}
 
-	ids, err := scanObjectDeletion(rows)
+	result.Objects, err = scanObjectDeletion(opts.ObjectLocation, rows)
 	if err != nil {
 		return DeleteObjectResult{}, err
 	}
 
-	if len(ids) == 0 {
+	if len(result.Objects) == 0 {
 		return DeleteObjectResult{}, storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
 	}
 
-	segmentInfos, err := deleteSegments(ctx, tx, ids)
+	segmentInfos, err := deleteSegments(ctx, tx, result.Objects)
 	if err != nil {
 		return DeleteObjectResult{}, err
 	}
@@ -260,39 +278,49 @@ func (db *DB) DeleteObjectAllVersions(ctx context.Context, opts DeleteObjectAllV
 	return result, nil
 }
 
-func scanObjectDeletion(rows tagsql.Rows) (segmentIds []interface{}, err error) {
+func scanObjectDeletion(location ObjectLocation, rows tagsql.Rows) (objects []Object, err error) {
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	ids := make([]interface{}, 0, 10)
+	objects = make([]Object, 0, 10)
 	for rows.Next() {
-		var streamID []byte
-		err = rows.Scan(&streamID)
+		var object Object
+		object.ProjectID = location.ProjectID
+		object.BucketName = location.BucketName
+		object.ObjectKey = location.ObjectKey
+
+		err = rows.Scan(&object.Version, &object.StreamID,
+			&object.CreatedAt, &object.ExpiresAt,
+			&object.Status, &object.SegmentCount,
+			&object.EncryptedMetadataNonce, &object.EncryptedMetadata,
+			&object.TotalEncryptedSize, &object.FixedSegmentSize,
+			encryptionParameters{&object.Encryption})
 		if err != nil {
-			return []interface{}{}, Error.New("unable to delete object: %w", err)
+			return nil, Error.New("unable to delete object: %w", err)
 		}
 
-		ids = append(ids, streamID)
+		objects = append(objects, object)
 	}
 
 	if err := rows.Err(); err != nil {
-		return []interface{}{}, Error.New("unable to delete object: %w", err)
+		return nil, Error.New("unable to delete object: %w", err)
 	}
-	return ids, nil
+
+	return objects, nil
 }
 
-func deleteSegments(ctx context.Context, tx tagsql.Tx, segmentIds []interface{}) (_ []DeletedSegmentInfo, err error) {
+func deleteSegments(ctx context.Context, tx tagsql.Tx, objects []Object) (_ []DeletedSegmentInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO we need to figure out how integrate this with piece deletion code
 	// one issue is that with this approach we need to return all pieces SN ids at once
 
-	infos := make([]DeletedSegmentInfo, 0, len(segmentIds))
-	for _, id := range segmentIds {
+	infos := make([]DeletedSegmentInfo, 0, len(objects))
+	for _, object := range objects {
 		segmentsRows, err := tx.Query(ctx, `
 			DELETE FROM segments
 			WHERE stream_id = $1
 			RETURNING root_piece_id, remote_pieces;
-		`, id)
+		`, object.StreamID)
 		if err != nil {
 			return []DeletedSegmentInfo{}, Error.New("unable to delete object: %w", err)
 		}
