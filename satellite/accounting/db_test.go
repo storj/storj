@@ -158,16 +158,18 @@ func TestStorageNodeUsage_TwoRollupsInADay(t *testing.T) {
 		rollups[t1][nodeID] = &accounting.Rollup{
 			NodeID:      nodeID,
 			AtRestTotal: 1000,
+			StartTime:   t1,
 		}
 		rollups[t2][nodeID] = &accounting.Rollup{
 			NodeID:      nodeID,
 			AtRestTotal: 500,
+			StartTime:   t2,
 		}
 		// save rollup
 		err = accountingDB.SaveRollup(ctx, now.Add(time.Hour*-24), rollups)
 		require.NoError(t, err)
 
-		nodeStorageUsages, err := accountingDB.QueryStorageNodeUsage(ctx, nodeID, time.Time{}, now)
+		nodeStorageUsages, err := accountingDB.QueryStorageNodeUsage(ctx, nodeID, t1.Add(-24*time.Hour), t2.Add(24*time.Hour))
 		require.NoError(t, err)
 		require.NotNil(t, nodeStorageUsages)
 		require.Equal(t, 1, len(nodeStorageUsages))
