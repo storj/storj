@@ -11,6 +11,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
+	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/tagsql"
 )
 
@@ -314,35 +315,36 @@ func deleteSegments(ctx context.Context, tx tagsql.Tx, objects []Object) (_ []De
 	// TODO we need to figure out how integrate this with piece deletion code
 	// one issue is that with this approach we need to return all pieces SN ids at once
 
-	infos := make([]DeletedSegmentInfo, 0, len(objects))
-	for _, object := range objects {
-		segmentsRows, err := tx.Query(ctx, `
+	streamIDs := make([][]byte, len(objects))
+	for i := range objects {
+		streamIDs[i] = objects[i].StreamID[:]
+	}
+
+	segmentsRows, err := tx.Query(ctx, `
 			DELETE FROM segments
-			WHERE stream_id = $1
+			WHERE stream_id = ANY ($1)
 			RETURNING root_piece_id, remote_pieces;
-		`, object.StreamID)
+		`, pgutil.ByteaArray(streamIDs))
+	if err != nil {
+		return []DeletedSegmentInfo{}, Error.New("unable to delete object: %w", err)
+	}
+	defer func() { err = errs.Combine(err, segmentsRows.Close()) }()
+
+	infos := make([]DeletedSegmentInfo, 0, len(objects))
+	for segmentsRows.Next() {
+		var segmentInfo DeletedSegmentInfo
+		err = segmentsRows.Scan(&segmentInfo.RootPieceID, &segmentInfo.Pieces)
 		if err != nil {
 			return []DeletedSegmentInfo{}, Error.New("unable to delete object: %w", err)
 		}
 
-		for segmentsRows.Next() {
-			var segmentInfo DeletedSegmentInfo
-			err = segmentsRows.Scan(&segmentInfo.RootPieceID, &segmentInfo.Pieces)
-			if err != nil {
-				return []DeletedSegmentInfo{}, errs.Combine(Error.New("unable to delete object: %w", err), segmentsRows.Close())
-			}
-
-			if len(segmentInfo.Pieces) != 0 {
-				infos = append(infos, segmentInfo)
-			}
-		}
-		if err := segmentsRows.Err(); err != nil {
-			return []DeletedSegmentInfo{}, Error.New("unable to delete object: %w", err)
-		}
-
-		if err := segmentsRows.Close(); err != nil {
-			return []DeletedSegmentInfo{}, Error.New("unable to delete object: %w", err)
+		if len(segmentInfo.Pieces) != 0 {
+			infos = append(infos, segmentInfo)
 		}
 	}
+	if err := segmentsRows.Err(); err != nil {
+		return []DeletedSegmentInfo{}, Error.New("unable to delete object: %w", err)
+	}
+
 	return infos, nil
 }
