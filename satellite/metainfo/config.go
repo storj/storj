@@ -112,10 +112,14 @@ type MetabaseDB interface {
 	io.Closer
 	// MigrateToLatest migrates to latest schema version.
 	MigrateToLatest(ctx context.Context) error
+
+	// InternalImplementation returns *metabase.DB.
+	// TODO: remove.
+	InternalImplementation() interface{}
 }
 
 // OpenMetabase returns database for storing objects and segments.
-func OpenMetabase(ctx context.Context, logger *zap.Logger, dbURLString string) (db MetabaseDB, err error) {
+func OpenMetabase(ctx context.Context, log *zap.Logger, dbURLString string) (db MetabaseDB, err error) {
 	_, source, implementation, err := dbutil.SplitConnStr(dbURLString)
 	if err != nil {
 		return nil, err
@@ -123,9 +127,9 @@ func OpenMetabase(ctx context.Context, logger *zap.Logger, dbURLString string) (
 
 	switch implementation {
 	case dbutil.Postgres:
-		db, err = metabase.Open(ctx, "pgx", dbURLString)
+		db, err = metabase.Open(ctx, log, "pgx", dbURLString)
 	case dbutil.Cockroach:
-		db, err = metabase.Open(ctx, "cockroach", dbURLString)
+		db, err = metabase.Open(ctx, log, "cockroach", dbURLString)
 	default:
 		err = Error.New("unsupported db implementation: %s", dbURLString)
 	}
@@ -134,6 +138,6 @@ func OpenMetabase(ctx context.Context, logger *zap.Logger, dbURLString string) (
 		return nil, err
 	}
 
-	logger.Debug("Connected to:", zap.String("db source", source))
+	log.Debug("Connected to:", zap.String("db source", source))
 	return db, nil
 }

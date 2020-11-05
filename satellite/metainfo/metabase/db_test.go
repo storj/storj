@@ -10,9 +10,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
+	_ "storj.io/storj/private/dbutil/cockroachutil" // register cockroach driver
 	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 var databases = flag.String("databases", os.Getenv("STORJ_TEST_DATABASES"), "databases to use for testing")
@@ -26,7 +29,7 @@ func All(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 
 	infos := []dbinfo{
 		{"pg", "pgx", "postgres://storj:storj-pass@localhost/metabase?sslmode=disable"},
-		{"crdb", "pgx", "postgres://root@localhost:26257/metabase?sslmode=disable"},
+		{"crdb", "pgx", "cockroach://root@localhost:26257/metabase?sslmode=disable"},
 	}
 	if *databases != "" {
 		infos = nil
@@ -44,7 +47,11 @@ func All(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
 
-			db, err := metabase.Open(ctx, info.driver, info.connstr)
+			db, err := satellitedbtest.CreateMetabaseDB(ctx, zaptest.NewLogger(t), t.Name(), "M", 0, satellitedbtest.Database{
+				Name:    info.name,
+				URL:     info.connstr,
+				Message: "",
+			})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -54,20 +61,11 @@ func All(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 				}
 			}()
 
-			// TODO: use schemas instead
-			if err := db.DestroyTables(ctx); err != nil {
-				t.Fatal(err)
-			}
 			if err := db.MigrateToLatest(ctx); err != nil {
 				t.Fatal(err)
 			}
-			defer func() {
-				if err := db.DestroyTables(ctx); err != nil {
-					t.Fatal(err)
-				}
-			}()
 
-			fn(ctx, t, db)
+			fn(ctx, t, db.InternalImplementation().(*metabase.DB))
 		})
 	}
 }

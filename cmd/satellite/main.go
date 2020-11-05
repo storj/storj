@@ -437,6 +437,18 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for pointer database on satellite: %+v", err)
 	}
 
+	metabaseDB, err := metainfo.OpenMetabase(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL)
+	if err != nil {
+		return errs.New("Error creating metabase connection: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, metabaseDB.Close())
+	}()
+	err = metabaseDB.MigrateToLatest(ctx)
+	if err != nil {
+		return errs.New("Error creating metabase tables: %+v", err)
+	}
+
 	return nil
 }
 
