@@ -179,6 +179,21 @@ func (step GetSegmentByOffset) Check(ctx *testcontext.Context, t *testing.T, db 
 	require.Zero(t, diff)
 }
 
+type ListSegments struct {
+	Opts     metabase.ListSegments
+	Result   metabase.ListSegmentsResult
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+func (step ListSegments) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	result, err := db.ListSegments(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	require.Zero(t, diff)
+}
+
 type DeleteObjectExactVersion struct {
 	Opts     metabase.DeleteObjectExactVersion
 	Result   metabase.DeleteObjectResult

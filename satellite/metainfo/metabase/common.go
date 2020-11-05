@@ -23,6 +23,8 @@ const (
 	FirstSegmentIndex = 0
 )
 
+const maxListLimit = 1000
+
 // BucketPrefix consists of <project id>/<bucket name>.
 type BucketPrefix string
 

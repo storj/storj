@@ -501,24 +501,25 @@ func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) 
 		return Object{}, Error.New("failed to fetch segments: %w", err)
 	}
 
+	// TODO disabled for now
 	// verify segments
-	if len(segments) > 0 {
-		// without proofs we expect the segments to be contiguous
-		hasOffset := false
-		offset := int64(0)
-		for i, seg := range segments {
-			if seg.Position.Part != 0 && seg.Position.Index != uint32(i) {
-				return Object{}, Error.New("expected segment (%d,%d), found (%d,%d)", 0, i, seg.Position.Part, seg.Position.Index)
-			}
-			if seg.PlainOffset != 0 {
-				hasOffset = true
-			}
-			if hasOffset && seg.PlainOffset != offset {
-				return Object{}, Error.New("segment %d should be at plain offset %d, offset is %d", seg.Position.Index, offset, seg.PlainOffset)
-			}
-			offset += int64(seg.PlainSize)
-		}
-	}
+	// if len(segments) > 0 {
+	// 	// without proofs we expect the segments to be contiguous
+	// 	hasOffset := false
+	// 	offset := int64(0)
+	// 	for i, seg := range segments {
+	// 		if seg.Position.Part != 0 && seg.Position.Index != uint32(i) {
+	// 			return Object{}, Error.New("expected segment (%d,%d), found (%d,%d)", 0, i, seg.Position.Part, seg.Position.Index)
+	// 		}
+	// 		if seg.PlainOffset != 0 {
+	// 			hasOffset = true
+	// 		}
+	// 		if hasOffset && seg.PlainOffset != offset {
+	// 			return Object{}, Error.New("segment %d should be at plain offset %d, offset is %d", seg.Position.Index, offset, seg.PlainOffset)
+	// 		}
+	// 		offset += int64(seg.PlainSize)
+	// 	}
+	// }
 
 	// TODO: would we even need this when we make main index plain_offset?
 	fixedSegmentSize := int32(0)
