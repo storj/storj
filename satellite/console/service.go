@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"net/mail"
 	"sort"
 	"time"
 
@@ -860,6 +861,32 @@ func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName 
 		PasswordHash: nil,
 		Status:       auth.User.Status,
 	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// ChangeEmail updates email for a given user.
+func (s *Service) ChangeEmail(ctx context.Context, newEmail string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	auth, err := s.getAuthAndAuditLog(ctx, "change email")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if _, err := mail.ParseAddress(newEmail); err != nil {
+		return ErrValidation.Wrap(err)
+	}
+
+	_, err = s.store.Users().GetByEmail(ctx, newEmail)
+	if err == nil {
+		return ErrEmailUsed.New(emailUsedErrMsg)
+	}
+
+	auth.User.Email = newEmail
+	err = s.store.Users().Update(ctx, &auth.User)
 	if err != nil {
 		return Error.Wrap(err)
 	}
