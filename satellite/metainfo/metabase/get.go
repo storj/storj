@@ -159,7 +159,7 @@ func (seg *GetSegmentByPosition) Verify() error {
 	return nil
 }
 
-// GetSegmentByPosition returns a segment information.
+// GetSegmentByPosition returns a information about segment which covers specified offset.
 func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPosition) (segment Segment, err error) {
 	defer mon.Task()(&ctx)(&err)
 

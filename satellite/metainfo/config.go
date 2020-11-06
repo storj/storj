@@ -170,6 +170,20 @@ type MetabaseDB interface {
 	MigrateToLatest(ctx context.Context) error
 	// DeleteObjectsAllVersions deletes all versions of multiple objects from the same bucket.
 	DeleteObjectsAllVersions(ctx context.Context, opts metabase.DeleteObjectsAllVersions) (result metabase.DeleteObjectResult, err error)
+	// BeginObjectExactVersion adds a pending object to the database, with specific version.
+	BeginObjectExactVersion(ctx context.Context, opts metabase.BeginObjectExactVersion) (committed metabase.Version, err error)
+	// CommitObject adds a pending object to the database.
+	CommitObject(ctx context.Context, opts metabase.CommitObject) (object metabase.Object, err error)
+	// BeginSegment verifies whether a new segment upload can be started.
+	BeginSegment(ctx context.Context, opts metabase.BeginSegment) (err error)
+	// CommitSegment commits segment to the database.
+	CommitSegment(ctx context.Context, opts metabase.CommitSegment) (err error)
+	// GetObjectLatestVersion returns object information for latest version.
+	GetObjectLatestVersion(ctx context.Context, opts metabase.GetObjectLatestVersion) (_ metabase.Object, err error)
+	// GetSegmentByPosition returns a information about segment which covers specified offset.
+	GetSegmentByPosition(ctx context.Context, opts metabase.GetSegmentByPosition) (segment metabase.Segment, err error)
+	// GetLatestObjectLastSegment returns an object last segment information.
+	GetLatestObjectLastSegment(ctx context.Context, opts metabase.GetLatestObjectLastSegment) (segment metabase.Segment, err error)
 
 	// InternalImplementation returns *metabase.DB.
 	// TODO: remove.

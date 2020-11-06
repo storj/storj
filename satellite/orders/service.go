@@ -203,6 +203,76 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabas
 	return signer.AddressedLimits, signer.PrivateKey, nil
 }
 
+// CreateGetOrderLimits2 creates the order limits for downloading the pieces of pointer.
+func (service *Service) CreateGetOrderLimits2(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment) (_ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+	pieceSize := eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy)
+
+	nodeIDs := make([]storj.NodeID, len(segment.Pieces))
+	for i, piece := range segment.Pieces {
+		nodeIDs[i] = piece.StorageNode
+	}
+
+	nodes, err := service.overlay.GetOnlineNodesForGetDelete(ctx, nodeIDs)
+	if err != nil {
+		service.log.Debug("error getting nodes from overlay", zap.Error(err))
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	signer, err := NewSignerGet(service, segment.RootPieceID, time.Now(), pieceSize, bucket)
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	neededLimits := segment.Redundancy.DownloadNodes()
+
+	pieces := segment.Pieces
+	for _, pieceIndex := range service.perm(len(pieces)) {
+		piece := pieces[pieceIndex]
+		node, ok := nodes[piece.StorageNode]
+		if !ok {
+			continue
+		}
+
+		address := node.Address.Address
+		if node.LastIPPort != "" {
+			address = node.LastIPPort
+		}
+
+		_, err := signer.Sign(ctx, storj.NodeURL{
+			ID:      piece.StorageNode,
+			Address: address,
+		}, int32(piece.Number))
+		if err != nil {
+			return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+		}
+
+		if len(signer.AddressedLimits) >= int(neededLimits) {
+			break
+		}
+	}
+	if len(signer.AddressedLimits) < redundancy.RequiredCount() {
+		mon.Meter("download_failed_not_enough_pieces_uplink").Mark(1) //mon:locked
+		return nil, storj.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.New("not enough orderlimits: got %d, required %d", len(signer.AddressedLimits), redundancy.RequiredCount())
+	}
+
+	err = service.saveSerial(ctx, signer.Serial, bucket, signer.OrderExpiration)
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	if err := service.updateBandwidth(ctx, bucket, signer.AddressedLimits...); err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	return signer.AddressedLimits, signer.PrivateKey, nil
+}
+
 func (service *Service) perm(n int) []int {
 	service.rngMu.Lock()
 	defer service.rngMu.Unlock()

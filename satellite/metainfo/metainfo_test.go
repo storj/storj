@@ -1512,8 +1512,11 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 				OptimalShares:  3,
 				TotalShares:    4,
 			},
-			EncryptionParameters: storj.EncryptionParameters{},
-			ExpiresAt:            time.Now().Add(24 * time.Hour),
+			EncryptionParameters: storj.EncryptionParameters{
+				BlockSize:   256,
+				CipherSuite: storj.EncNull,
+			},
+			ExpiresAt: time.Now().Add(24 * time.Hour),
 		}
 		beginObjectResponse, err := metainfoClient.BeginObject(ctx, params)
 		require.NoError(t, err)
@@ -1554,6 +1557,9 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 		}
 		err = metainfoClient.CommitSegment(ctx, metainfo.CommitSegmentParams{
 			SegmentID: segmentID,
+			Encryption: storj.SegmentEncryption{
+				EncryptedKey: []byte{1},
+			},
 
 			SizeEncryptedData: memory.MiB.Int64(),
 			UploadResult: []*pb.SegmentPieceUploadResult{
