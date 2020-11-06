@@ -5,9 +5,9 @@ package pgtest
 
 import (
 	"flag"
-	"math/rand"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"storj.io/common/testcontext"
@@ -77,20 +77,20 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, connstr
 	}
 }
 
-// PickPostgres picks a random postgres database from flag.
+// PickPostgres picks one postgres database from flag.
 func PickPostgres(t TB) string {
 	if *postgres == "" || strings.EqualFold(*postgres, "omit") {
 		t.Skip("Postgres flag missing, example: -postgres-test-db=" + DefaultPostgres)
 	}
-	return pickRandom(*postgres)
+	return pickNext(*postgres, &pickPostgres)
 }
 
-// PickCockroach picks a random cockroach database from flag.
+// PickCockroach picks one cockroach database from flag.
 func PickCockroach(t TB) string {
 	if *cockroach == "" || strings.EqualFold(*cockroach, "omit") {
 		t.Skip("Cockroach flag missing, example: -cockroach-test-db=" + DefaultCockroach)
 	}
-	return pickRandom(*cockroach)
+	return pickNext(*cockroach, &pickCockroach)
 }
 
 // PickCockroachAlt picks an alternate cockroach database from flag.
@@ -104,13 +104,17 @@ func PickCockroachAlt(t TB) string {
 		t.Skip("Cockroach alt flag omitted.")
 	}
 
-	return pickRandom(*cockroachAlt)
+	return pickNext(*cockroachAlt, &pickCockroach)
 }
 
-func pickRandom(dbstr string) string {
+var pickPostgres uint64
+var pickCockroach uint64
+
+func pickNext(dbstr string, counter *uint64) string {
 	values := strings.Split(dbstr, ";")
 	if len(values) <= 1 {
 		return dbstr
 	}
-	return values[rand.Intn(len(values))]
+	v := atomic.AddUint64(counter, 1)
+	return values[v%uint64(len(values))]
 }
