@@ -188,6 +188,8 @@ type MetabaseDB interface {
 	GetLatestObjectLastSegment(ctx context.Context, opts metabase.GetLatestObjectLastSegment) (segment metabase.Segment, err error)
 	// ListSegments lists specified stream segments.
 	ListSegments(ctx context.Context, opts metabase.ListSegments) (result metabase.ListSegmentsResult, err error)
+	// IterateObjectsAllVersions iterates through all versions of all committed objects.
+	IterateObjectsAllVersions(ctx context.Context, opts metabase.IterateObjects, fn func(context.Context, metabase.ObjectsIterator) error) (err error)
 
 	// InternalImplementation returns *metabase.DB.
 	// TODO: remove.

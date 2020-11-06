@@ -34,15 +34,15 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 	}
 
 	// TODO verify this limit
-	if opts.Limit > maxListLimit {
-		return ListSegmentsResult{}, ErrInvalidRequest.New("Maximum listing limit is %d", maxListLimit)
+	if opts.Limit > MaxListLimit {
+		return ListSegmentsResult{}, ErrInvalidRequest.New("Maximum listing limit is %d", MaxListLimit)
 	}
 	if opts.Limit < 0 {
 		return ListSegmentsResult{}, ErrInvalidRequest.New("Invalid limit: %d", opts.Limit)
 	}
 
 	if opts.Limit == 0 {
-		opts.Limit = maxListLimit
+		opts.Limit = MaxListLimit
 	}
 
 	err = withRows(db.db.Query(ctx, `
