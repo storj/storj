@@ -104,7 +104,6 @@ func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, coun
 		if i < makeReputable {
 			stats, err := db.UpdateStats(ctx, &overlay.UpdateRequest{
 				NodeID:       storj.NodeID{byte(i)},
-				IsUp:         true,
 				AuditOutcome: overlay.AuditSuccess,
 				AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
 				AuditHistory: testAuditHistoryConfig(),

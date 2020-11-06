@@ -19,9 +19,9 @@ func TestMigrateTablesToDatabase(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	srcDB := newMemDB(t)
+	srcDB := openMemDB(ctx, t)
 	defer ctx.Check(srcDB.Close)
-	destDB := newMemDB(t)
+	destDB := openMemDB(ctx, t)
 	defer ctx.Check(srcDB.Close)
 
 	query := `
@@ -53,7 +53,7 @@ func TestKeepTables(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	db := newMemDB(t)
+	db := openMemDB(ctx, t)
 	defer ctx.Check(db.Close)
 
 	table1SQL := `
@@ -90,8 +90,8 @@ func execSQL(ctx context.Context, t *testing.T, db tagsql.DB, query string, args
 	require.NoError(t, err)
 }
 
-func newMemDB(t *testing.T) tagsql.DB {
-	db, err := tagsql.Open("sqlite3", ":memory:")
+func openMemDB(ctx context.Context, t *testing.T) tagsql.DB {
+	db, err := tagsql.Open(ctx, "sqlite3", ":memory:")
 	require.NoError(t, err)
 	return db
 }

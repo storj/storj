@@ -8,7 +8,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/pb"
+	"storj.io/storj/satellite/internalpb"
 )
 
 // Inspector is a RPC service for inspecting overlay internals
@@ -24,20 +24,20 @@ func NewInspector(service *Service) *Inspector {
 }
 
 // CountNodes returns the number of nodes in the overlay.
-func (srv *Inspector) CountNodes(ctx context.Context, req *pb.CountNodesRequest) (_ *pb.CountNodesResponse, err error) {
+func (srv *Inspector) CountNodes(ctx context.Context, req *internalpb.CountNodesRequest) (_ *internalpb.CountNodesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	overlayKeys, err := srv.service.Inspect(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	return &pb.CountNodesResponse{
+	return &internalpb.CountNodesResponse{
 		Count: int64(len(overlayKeys)),
 	}, nil
 }
 
 // DumpNodes returns all of the nodes in the overlay.
-func (srv *Inspector) DumpNodes(ctx context.Context, req *pb.DumpNodesRequest) (_ *pb.DumpNodesResponse, err error) {
+func (srv *Inspector) DumpNodes(ctx context.Context, req *internalpb.DumpNodesRequest) (_ *internalpb.DumpNodesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return &pb.DumpNodesResponse{}, errs.New("Not Implemented")
+	return &internalpb.DumpNodesResponse{}, errs.New("Not Implemented")
 }

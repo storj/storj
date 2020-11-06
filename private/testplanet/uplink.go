@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"runtime/pprof"
 	"strconv"
 	"time"
 
@@ -68,10 +69,15 @@ func (project *Project) DialMetainfo(ctx context.Context) (*metainfo.Client, err
 }
 
 // newUplinks creates initializes uplinks, requires peer to have at least one satellite.
-func (planet *Planet) newUplinks(prefix string, count int) ([]*Uplink, error) {
+func (planet *Planet) newUplinks(ctx context.Context, prefix string, count int) ([]*Uplink, error) {
 	var xs []*Uplink
 	for i := 0; i < count; i++ {
-		uplink, err := planet.newUplink(prefix + strconv.Itoa(i))
+		name := prefix + strconv.Itoa(i)
+		var uplink *Uplink
+		var err error
+		pprof.Do(ctx, pprof.Labels("peer", name), func(ctx context.Context) {
+			uplink, err = planet.newUplink(ctx, name)
+		})
 		if err != nil {
 			return nil, err
 		}
@@ -82,9 +88,7 @@ func (planet *Planet) newUplinks(prefix string, count int) ([]*Uplink, error) {
 }
 
 // newUplink creates a new uplink.
-func (planet *Planet) newUplink(name string) (*Uplink, error) {
-	ctx := context.TODO()
-
+func (planet *Planet) newUplink(ctx context.Context, name string) (*Uplink, error) {
 	identity, err := planet.NewIdentity()
 	if err != nil {
 		return nil, err

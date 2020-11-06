@@ -163,16 +163,18 @@ func testConstraints(t *testing.T, ctx *testcontext.Context, store storage.KeyVa
 			{storage.Value("old-value"), nil},
 			{storage.Value("old-value"), storage.Value("new-value")},
 		} {
-			errTag := fmt.Sprintf("%d. %+v", i, tt)
-			key := storage.Key("test-key")
-			val := storage.Value("test-value")
-			defer func() { _ = store.Delete(ctx, key) }()
+			func() {
+				errTag := fmt.Sprintf("%d. %+v", i, tt)
+				key := storage.Key("test-key")
+				val := storage.Value("test-value")
+				defer func() { _ = store.Delete(ctx, key) }()
 
-			err := store.Put(ctx, key, val)
-			require.NoError(t, err, errTag)
+				err := store.Put(ctx, key, val)
+				require.NoError(t, err, errTag)
 
-			err = store.CompareAndSwap(ctx, key, tt.old, tt.new)
-			assert.True(t, storage.ErrValueChanged.Has(err), "%s: unexpected error: %+v", errTag, err)
+				err = store.CompareAndSwap(ctx, key, tt.old, tt.new)
+				assert.True(t, storage.ErrValueChanged.Has(err), "%s: unexpected error: %+v", errTag, err)
+			}()
 		}
 	})
 

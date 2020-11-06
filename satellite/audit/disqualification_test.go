@@ -214,7 +214,6 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 
 		_, err = satellitePeer.Overlay.Service.BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 			NodeID:                disqualifiedNode.ID(),
-			IsUp:                  true,
 			AuditOutcome:          overlay.AuditSuccess,
 			AuditLambda:           0, // forget about history
 			AuditWeight:           1,

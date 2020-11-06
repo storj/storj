@@ -13,11 +13,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/memory"
-	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/storage"
 	"storj.io/uplink/private/eestream"
 )
@@ -54,7 +54,7 @@ func TestInspectorStats(t *testing.T) {
 				encryptedPath := strings.Join(fullPath[3:], "/")
 
 				{ // Test Segment Health Request
-					req := &pb.SegmentHealthRequest{
+					req := &internalpb.SegmentHealthRequest{
 						ProjectId:     []byte(projectID),
 						EncryptedPath: []byte(encryptedPath),
 						Bucket:        []byte(bucket),
@@ -72,7 +72,7 @@ func TestInspectorStats(t *testing.T) {
 				}
 
 				{ // Test Object Health Request
-					objectHealthReq := &pb.ObjectHealthRequest{
+					objectHealthReq := &internalpb.ObjectHealthRequest{
 						ProjectId:         []byte(projectID),
 						EncryptedPath:     []byte(encryptedPath),
 						Bucket:            []byte(bucket),

@@ -14,6 +14,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -22,9 +23,9 @@ func TestIrreparable(t *testing.T) {
 		irrdb := db.Irreparable()
 
 		// Create and insert test segment infos into DB
-		var segments []*pb.IrreparableSegment
+		var segments []*internalpb.IrreparableSegment
 		for i := 0; i < 3; i++ {
-			segments = append(segments, &pb.IrreparableSegment{
+			segments = append(segments, &internalpb.IrreparableSegment{
 				Path: []byte(strconv.Itoa(i)),
 				SegmentDetail: &pb.Pointer{
 					CreationDate: time.Now(),

@@ -12,11 +12,12 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
-func addAudit(a *pb.AuditHistory, auditTime time.Time, online bool, config overlay.AuditHistoryConfig) error {
+func addAudit(a *internalpb.AuditHistory, auditTime time.Time, online bool, config overlay.AuditHistoryConfig) error {
 	newAuditWindowStartTime := auditTime.Truncate(config.WindowSize)
 	earliestWindow := newAuditWindowStartTime.Add(-config.TrackingPeriod)
 	// windowsModified is used to determine whether we will need to recalculate the score because windows have been added or removed.
@@ -38,7 +39,7 @@ func addAudit(a *pb.AuditHistory, auditTime time.Time, online bool, config overl
 	// if there are no windows or the latest window has passed, add another window
 	if len(a.Windows) == 0 || a.Windows[len(a.Windows)-1].WindowStart.Before(newAuditWindowStartTime) {
 		windowsModified = true
-		a.Windows = append(a.Windows, &pb.AuditWindow{WindowStart: newAuditWindowStartTime})
+		a.Windows = append(a.Windows, &internalpb.AuditWindow{WindowStart: newAuditWindowStartTime})
 	}
 
 	latestIndex := len(a.Windows) - 1
@@ -77,7 +78,7 @@ func addAudit(a *pb.AuditHistory, auditTime time.Time, online bool, config overl
 }
 
 // UpdateAuditHistory updates a node's audit history with an online or offline audit.
-func (cache *overlaycache) UpdateAuditHistory(ctx context.Context, nodeID storj.NodeID, auditTime time.Time, online bool, config overlay.AuditHistoryConfig) (history *pb.AuditHistory, err error) {
+func (cache *overlaycache) UpdateAuditHistory(ctx context.Context, nodeID storj.NodeID, auditTime time.Time, online bool, config overlay.AuditHistoryConfig) (history *internalpb.AuditHistory, err error) {
 	err = cache.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
 		_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
 		if err != nil {
@@ -93,7 +94,7 @@ func (cache *overlaycache) UpdateAuditHistory(ctx context.Context, nodeID storj.
 	return history, err
 }
 
-func (cache *overlaycache) updateAuditHistoryWithTx(ctx context.Context, tx *dbx.Tx, nodeID storj.NodeID, auditTime time.Time, online bool, config overlay.AuditHistoryConfig) (*pb.AuditHistory, error) {
+func (cache *overlaycache) updateAuditHistoryWithTx(ctx context.Context, tx *dbx.Tx, nodeID storj.NodeID, auditTime time.Time, online bool, config overlay.AuditHistoryConfig) (*internalpb.AuditHistory, error) {
 	// get and deserialize node audit history
 	historyBytes := []byte{}
 	newEntry := false
@@ -110,7 +111,7 @@ func (cache *overlaycache) updateAuditHistoryWithTx(ctx context.Context, tx *dbx
 		historyBytes = dbAuditHistory.History
 	}
 
-	history := &pb.AuditHistory{}
+	history := &internalpb.AuditHistory{}
 	err = pb.Unmarshal(historyBytes, history)
 	if err != nil {
 		return history, err

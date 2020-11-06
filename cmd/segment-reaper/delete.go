@@ -49,7 +49,7 @@ func cmdDelete(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
 	log := zap.L()
-	db, err := metainfo.NewStore(log.Named("pointerdb"), deleteCfg.DatabaseURL)
+	db, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), deleteCfg.DatabaseURL)
 	if err != nil {
 		return errs.New("error connecting database: %+v", err)
 	}

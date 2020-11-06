@@ -14,6 +14,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/overlay"
 )
@@ -45,10 +46,10 @@ func NewEndpoint(log *zap.Logger, cache *overlay.Service, metainfo *metainfo.Ser
 }
 
 // ObjectHealth will check the health of an object.
-func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *pb.ObjectHealthRequest) (resp *pb.ObjectHealthResponse, err error) {
+func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *internalpb.ObjectHealthRequest) (resp *internalpb.ObjectHealthResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var segmentHealthResponses []*pb.SegmentHealth
+	var segmentHealthResponses []*internalpb.SegmentHealth
 	var redundancy *pb.RedundancyScheme
 
 	limit := int64(100)
@@ -76,7 +77,7 @@ func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *pb.ObjectHealthR
 			break
 		}
 
-		segment := &pb.SegmentHealthRequest{
+		segment := &internalpb.SegmentHealthRequest{
 			Bucket:        bucket,
 			EncryptedPath: encryptedPath,
 			SegmentIndex:  segmentIndex,
@@ -103,17 +104,17 @@ func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *pb.ObjectHealthR
 		segmentIndex++
 	}
 
-	return &pb.ObjectHealthResponse{
+	return &internalpb.ObjectHealthResponse{
 		Segments:   segmentHealthResponses,
 		Redundancy: redundancy,
 	}, nil
 }
 
 // SegmentHealth will check the health of a segment.
-func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealthRequest) (resp *pb.SegmentHealthResponse, err error) {
+func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *internalpb.SegmentHealthRequest) (resp *internalpb.SegmentHealthResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	health := &pb.SegmentHealth{}
+	health := &internalpb.SegmentHealth{}
 
 	projectID, err := uuid.FromString(string(in.GetProjectId()))
 	if err != nil {
@@ -180,7 +181,7 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *pb.SegmentHealt
 		health.Segment = []byte("l")
 	}
 
-	return &pb.SegmentHealthResponse{
+	return &internalpb.SegmentHealthResponse{
 		Health:     health,
 		Redundancy: pointer.GetRemote().GetRedundancy(),
 	}, nil

@@ -18,10 +18,10 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
-	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/private/process"
 	"storj.io/private/version"
+	"storj.io/storj/storagenode/internalpb"
 )
 
 const contactWindow = time.Hour * 2
@@ -38,8 +38,8 @@ func dialDashboardClient(ctx context.Context, address string) (*dashboardClient,
 	return &dashboardClient{conn: conn}, nil
 }
 
-func (dash *dashboardClient) dashboard(ctx context.Context) (*pb.DashboardResponse, error) {
-	return pb.NewDRPCPieceStoreInspectorClient(dash.conn).Dashboard(ctx, &pb.DashboardRequest{})
+func (dash *dashboardClient) dashboard(ctx context.Context) (*internalpb.DashboardResponse, error) {
+	return internalpb.NewDRPCPieceStoreInspectorClient(dash.conn).Dashboard(ctx, &internalpb.DashboardRequest{})
 }
 
 func (dash *dashboardClient) close() error {
@@ -81,7 +81,7 @@ func cmdDashboard(cmd *cobra.Command, args []string) (err error) {
 	}
 }
 
-func printDashboard(data *pb.DashboardResponse) error {
+func printDashboard(data *internalpb.DashboardResponse) error {
 	clearScreen()
 	var warnFlag bool
 	color.NoColor = !useColor

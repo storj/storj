@@ -193,7 +193,7 @@ func cmdRevokePeerCA(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	revDB, err := revocation.NewDB(revokePeerCACfg.RevocationDBURL)
+	revDB, err := revocation.OpenDB(ctx, revokePeerCACfg.RevocationDBURL)
 	if err != nil {
 		return err
 	}

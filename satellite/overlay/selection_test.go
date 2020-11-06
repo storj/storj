@@ -188,7 +188,6 @@ func TestEnsureMinimumRequested(t *testing.T) {
 			reputable[node.ID()] = true
 			_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 				NodeID:       node.ID(),
-				IsUp:         true,
 				AuditOutcome: overlay.AuditSuccess,
 				AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
 				AuditHistory: testAuditHistoryConfig(),
@@ -232,7 +231,6 @@ func TestEnsureMinimumRequested(t *testing.T) {
 			reputable[node.ID()] = true
 			_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 				NodeID:       node.ID(),
-				IsUp:         true,
 				AuditOutcome: overlay.AuditSuccess,
 				AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
 				AuditHistory: testAuditHistoryConfig(),
@@ -397,7 +395,6 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 			for k := 0; k < i; k++ {
 				_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 					NodeID:       node.ID(),
-					IsUp:         true,
 					AuditOutcome: overlay.AuditSuccess,
 					AuditLambda:  1, AuditWeight: 1, AuditDQ: 0.5,
 					AuditHistory: testAuditHistoryConfig(),
@@ -628,7 +625,6 @@ func TestDistinctIPs(t *testing.T) {
 		for i := 9; i > 7; i-- {
 			_, err := satellite.DB.OverlayCache().UpdateStats(ctx, &overlay.UpdateRequest{
 				NodeID:       planet.StorageNodes[i].ID(),
-				IsUp:         true,
 				AuditOutcome: overlay.AuditSuccess,
 				AuditLambda:  1,
 				AuditWeight:  1,
@@ -660,7 +656,6 @@ func TestDistinctIPsWithBatch(t *testing.T) {
 			// These are done individually b/c the previous stat data is important
 			_, err := satellite.Overlay.Service.BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 				NodeID:       planet.StorageNodes[i].ID(),
-				IsUp:         true,
 				AuditOutcome: overlay.AuditSuccess,
 				AuditLambda:  1,
 				AuditWeight:  1,

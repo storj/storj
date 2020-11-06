@@ -9,9 +9,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/storagenode/internalpb"
 )
 
 func TestGetNonExitingSatellites(t *testing.T) {
@@ -27,7 +27,7 @@ func TestGetNonExitingSatellites(t *testing.T) {
 		err := storagenode.DB.Satellites().InitiateGracefulExit(ctx, exitingSatellite.ID(), time.Now(), 0)
 		require.NoError(t, err)
 
-		nonExitingSatellites, err := storagenode.GracefulExit.Endpoint.GetNonExitingSatellites(ctx, &pb.GetNonExitingSatellitesRequest{})
+		nonExitingSatellites, err := storagenode.GracefulExit.Endpoint.GetNonExitingSatellites(ctx, &internalpb.GetNonExitingSatellitesRequest{})
 		require.NoError(t, err)
 		require.Len(t, nonExitingSatellites.GetSatellites(), totalSatelliteCount-exitingSatelliteCount)
 
@@ -44,7 +44,7 @@ func TestInitiateGracefulExit(t *testing.T) {
 		storagenode := planet.StorageNodes[0]
 		exitingSatelliteID := planet.Satellites[0].ID()
 
-		req := &pb.InitiateGracefulExitRequest{
+		req := &internalpb.InitiateGracefulExitRequest{
 			NodeId: exitingSatelliteID,
 		}
 
@@ -75,7 +75,7 @@ func TestGetExitProgress(t *testing.T) {
 		require.NoError(t, err)
 
 		// check graceful exit progress
-		resp, err := storagenode.GracefulExit.Endpoint.GetExitProgress(ctx, &pb.GetExitProgressRequest{})
+		resp, err := storagenode.GracefulExit.Endpoint.GetExitProgress(ctx, &internalpb.GetExitProgressRequest{})
 		require.NoError(t, err)
 		require.Len(t, resp.GetProgress(), 1)
 		progress := resp.GetProgress()[0]

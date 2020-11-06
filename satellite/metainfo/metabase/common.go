@@ -186,3 +186,12 @@ func (seg SegmentLocation) Encode() SegmentKey {
 		string(seg.ObjectKey),
 	))
 }
+
+// Pieces defines information for pieces.
+type Pieces []Piece
+
+// Piece defines information for a segment piece.
+type Piece struct {
+	Number      uint16
+	StorageNode storj.NodeID
+}

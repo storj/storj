@@ -193,6 +193,9 @@ func TestConcurrentConnections(t *testing.T) {
 
 				c, err := client.Process(ctx)
 				require.NoError(t, err)
+				defer func() {
+					err = errs.Combine(err, c.Close())
+				}()
 
 				_, err = c.Recv()
 				require.Error(t, err)
@@ -207,27 +210,33 @@ func TestConcurrentConnections(t *testing.T) {
 		defer ctx.Check(conn.Close)
 
 		client := pb.NewDRPCSatelliteGracefulExitClient(conn)
-		// this connection will immediately return since graceful exit has not been initiated yet
-		c, err := client.Process(ctx)
-		require.NoError(t, err)
-		response, err := c.Recv()
-		require.NoError(t, err)
-		switch response.GetMessage().(type) {
-		case *pb.SatelliteMessage_NotReady:
-		default:
-			t.FailNow()
+
+		{ // this connection will immediately return since graceful exit has not been initiated yet
+			c, err := client.Process(ctx)
+			require.NoError(t, err)
+			response, err := c.Recv()
+			require.NoError(t, err)
+			switch response.GetMessage().(type) {
+			case *pb.SatelliteMessage_NotReady:
+			default:
+				t.FailNow()
+			}
+			require.NoError(t, c.Close())
 		}
 
 		// wait for initial loop to start so we have pieces to transfer
 		satellite.GracefulExit.Chore.Loop.TriggerWait()
 
-		// this connection should not close immediately, since there are pieces to transfer
-		c, err = client.Process(ctx)
-		require.NoError(t, err)
+		{ // this connection should not close immediately, since there are pieces to transfer
+			c, err := client.Process(ctx)
+			require.NoError(t, err)
 
-		_, err = c.Recv()
-		require.NoError(t, err)
+			_, err = c.Recv()
+			require.NoError(t, err)
 
+			// deferring here to ensure that the other connections see the in-use connection.
+			defer ctx.Check(c.Close)
+		}
 		// start receiving from concurrent connections
 		mainStarted.Release()
 
@@ -416,6 +425,8 @@ func TestExitDisqualifiedNodeFailOnStart(t *testing.T) {
 		response, err := processClient.Recv()
 		require.True(t, errs2.IsRPC(err, rpcstatus.FailedPrecondition))
 		require.Nil(t, response)
+
+		require.NoError(t, processClient.Close())
 
 		// disqualified node should fail graceful exit
 		exitStatus, err := satellite.Overlay.DB.GetExitStatus(ctx, exitingNode.ID())

@@ -30,16 +30,16 @@ type Client struct {
 	lookupLimit int
 }
 
-// New instantiates a new postgreskv client given db URL.
-func New(dbURL string) (*Client, error) {
+// Open connects a new postgreskv client given db URL.
+func Open(ctx context.Context, dbURL string) (*Client, error) {
 	dbURL = pgutil.CheckApplicationName(dbURL)
 
-	db, err := tagsql.Open("pgx", dbURL)
+	db, err := tagsql.Open(ctx, "pgx", dbURL)
 	if err != nil {
 		return nil, err
 	}
 
-	dbutil.Configure(db, "postgreskv", mon)
+	dbutil.Configure(ctx, db, "postgreskv", mon)
 	return NewWith(db, dbURL), nil
 }
 

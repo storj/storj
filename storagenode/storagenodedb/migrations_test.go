@@ -101,7 +101,7 @@ func TestMigrate(t *testing.T) {
 	}
 
 	// create a new satellitedb connection
-	db, err := storagenodedb.New(log, cfg)
+	db, err := storagenodedb.OpenNew(ctx, log, cfg)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, db.Close()) }()
 

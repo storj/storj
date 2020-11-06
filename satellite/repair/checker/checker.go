@@ -15,6 +15,7 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/pb"
 	"storj.io/common/sync2"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
@@ -34,7 +35,7 @@ type Config struct {
 	IrreparableInterval time.Duration `help:"how frequently irrepairable checker should check for lost pieces" releaseDefault:"30m" devDefault:"0h0m5s"`
 
 	ReliabilityCacheStaleness time.Duration `help:"how stale reliable node cache can be" releaseDefault:"5m" devDefault:"5m"`
-	RepairOverride            int           `help:"override value for repair threshold" default:"0"`
+	RepairOverride            int           `help:"override value for repair threshold" releaseDefault:"52" devDefault:"0"`
 }
 
 // durabilityStats remote segment information.
@@ -204,7 +205,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	// If the segment is suddenly entirely healthy again, we don't need to repair and we don't need to
 	// keep it in the irreparabledb queue either.
 	if numHealthy >= redundancy.MinReq && numHealthy <= repairThreshold && numHealthy < redundancy.SuccessThreshold {
-		_, err = checker.repairQueue.Insert(ctx, &pb.InjuredSegment{
+		_, err = checker.repairQueue.Insert(ctx, &internalpb.InjuredSegment{
 			Path:         key,
 			LostPieces:   missingPieces,
 			InsertedTime: time.Now().UTC(),
@@ -221,7 +222,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	} else if numHealthy < redundancy.MinReq && numHealthy < repairThreshold {
 
 		// make an entry into the irreparable table
-		segmentInfo := &pb.IrreparableSegment{
+		segmentInfo := &internalpb.IrreparableSegment{
 			Path:               key,
 			SegmentDetail:      pointer,
 			LostPieces:         int32(len(missingPieces)),
@@ -257,54 +258,62 @@ type checkerObserver struct {
 	log            *zap.Logger
 }
 
-func (obs *checkerObserver) RemoteSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
+func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// ignore pointer if expired
-	if !pointer.ExpirationDate.IsZero() && pointer.ExpirationDate.Before(time.Now().UTC()) {
+	if segment.Expired(time.Now()) {
 		return nil
 	}
 
 	obs.monStats.remoteSegmentsChecked++
-	remote := pointer.GetRemote()
 
-	pieces := remote.GetRemotePieces()
-	if pieces == nil {
+	pieces := segment.Pieces
+	if len(pieces) == 0 {
 		obs.log.Debug("no pieces on remote segment")
 		return nil
 	}
 
-	missingPieces, err := obs.nodestate.MissingPieces(ctx, pointer.CreationDate, pieces)
+	pbPieces := make([]*pb.RemotePiece, len(pieces))
+	for i, piece := range pieces {
+		pbPieces[i] = &pb.RemotePiece{
+			PieceNum: int32(piece.Number),
+			NodeId:   piece.StorageNode,
+		}
+	}
+
+	// TODO: update MissingPieces to accept metabase.Pieces
+	missingPieces, err := obs.nodestate.MissingPieces(ctx, segment.CreationDate, pbPieces)
 	if err != nil {
 		obs.monStats.remoteSegmentsFailedToCheck++
 		return errs.Combine(Error.New("error getting missing pieces"), err)
 	}
 
-	numHealthy := int32(len(pieces) - len(missingPieces))
+	numHealthy := len(pieces) - len(missingPieces)
 	mon.IntVal("checker_segment_total_count").Observe(int64(len(pieces)))  //mon:locked
 	mon.IntVal("checker_segment_healthy_count").Observe(int64(numHealthy)) //mon:locked
 
-	segmentAge := time.Since(pointer.CreationDate)
+	segmentAge := time.Since(segment.CreationDate)
 	mon.IntVal("checker_segment_age").Observe(int64(segmentAge.Seconds())) //mon:locked
 
-	redundancy := pointer.Remote.Redundancy
-
-	repairThreshold := redundancy.RepairThreshold
+	required := int(segment.Redundancy.RequiredShares)
+	repairThreshold := int(segment.Redundancy.RepairShares)
 	if obs.overrideRepair != 0 {
-		repairThreshold = obs.overrideRepair
+		repairThreshold = int(obs.overrideRepair)
 	}
+	successThreshold := int(segment.Redundancy.OptimalShares)
 
-	key := location.Encode()
+	key := segment.Location.Encode()
 	// we repair when the number of healthy pieces is less than or equal to the repair threshold and is greater or equal to
 	// minimum required pieces in redundancy
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
-	if numHealthy >= redundancy.MinReq && numHealthy <= repairThreshold && numHealthy < redundancy.SuccessThreshold {
+	if numHealthy >= required && numHealthy <= repairThreshold && numHealthy < successThreshold {
 		obs.monStats.remoteSegmentsNeedingRepair++
-		alreadyInserted, err := obs.repairQueue.Insert(ctx, &pb.InjuredSegment{
+		alreadyInserted, err := obs.repairQueue.Insert(ctx, &internalpb.InjuredSegment{
 			Path:         key,
 			LostPieces:   missingPieces,
 			InsertedTime: time.Now().UTC(),
-		}, int(numHealthy))
+		}, numHealthy)
 		if err != nil {
 			obs.log.Error("error adding injured segment to queue", zap.Error(err))
 			return nil
@@ -320,25 +329,25 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, location metabase
 			obs.log.Error("error deleting entry from irreparable db", zap.Error(err))
 			return nil
 		}
-	} else if numHealthy < redundancy.MinReq && numHealthy < repairThreshold {
-		lostSegInfo := location.Object()
+	} else if numHealthy < required && numHealthy < repairThreshold {
+		lostSegInfo := segment.Location.Object()
 		if !containsObjectLocation(obs.monStats.remoteSegmentInfo, lostSegInfo) {
 			obs.monStats.remoteSegmentInfo = append(obs.monStats.remoteSegmentInfo, lostSegInfo)
 		}
 
 		var segmentAge time.Duration
-		if pointer.CreationDate.Before(pointer.LastRepaired) {
-			segmentAge = time.Since(pointer.LastRepaired)
+		if segment.CreationDate.Before(segment.LastRepaired) {
+			segmentAge = time.Since(segment.LastRepaired)
 		} else {
-			segmentAge = time.Since(pointer.CreationDate)
+			segmentAge = time.Since(segment.CreationDate)
 		}
 		mon.IntVal("checker_segment_time_until_irreparable").Observe(int64(segmentAge.Seconds())) //mon:locked
 
 		obs.monStats.remoteSegmentsLost++
 		// make an entry into the irreparable table
-		segmentInfo := &pb.IrreparableSegment{
+		segmentInfo := &internalpb.IrreparableSegment{
 			Path:               key,
-			SegmentDetail:      pointer,
+			SegmentDetail:      segment.Pointer, // TODO: replace with something better than pb.Pointer
 			LostPieces:         int32(len(missingPieces)),
 			LastRepairAttempt:  time.Now().Unix(),
 			RepairAttemptCount: int64(1),
@@ -350,11 +359,11 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, location metabase
 			obs.log.Error("error handling irreparable segment to queue", zap.Error(err))
 			return nil
 		}
-	} else if numHealthy > repairThreshold && numHealthy <= (repairThreshold+int32(len(obs.monStats.remoteSegmentsOverThreshold))) {
+	} else if numHealthy > repairThreshold && numHealthy <= (repairThreshold+len(obs.monStats.remoteSegmentsOverThreshold)) {
 		// record metrics for segments right above repair threshold
 		// numHealthy=repairThreshold+1 through numHealthy=repairThreshold+5
 		for i := range obs.monStats.remoteSegmentsOverThreshold {
-			if numHealthy == (repairThreshold + int32(i) + 1) {
+			if numHealthy == (repairThreshold + i + 1) {
 				obs.monStats.remoteSegmentsOverThreshold[i]++
 				break
 			}
@@ -364,7 +373,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, location metabase
 	return nil
 }
 
-func (obs *checkerObserver) Object(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
+func (obs *checkerObserver) Object(ctx context.Context, object *metainfo.Object) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	obs.monStats.objectsChecked++
@@ -372,7 +381,7 @@ func (obs *checkerObserver) Object(ctx context.Context, location metabase.Segmen
 	return nil
 }
 
-func (obs *checkerObserver) InlineSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
+func (obs *checkerObserver) InlineSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return nil
 }

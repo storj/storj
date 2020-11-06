@@ -7,6 +7,7 @@ package lifecycle
 import (
 	"context"
 	"errors"
+	"runtime/pprof"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -54,7 +55,10 @@ func (group *Group) Run(ctx context.Context, g *errgroup.Group) {
 			continue
 		}
 		g.Go(func() error {
-			err := item.Run(ctx)
+			var err error
+			pprof.Do(ctx, pprof.Labels("name", item.Name), func(ctx context.Context) {
+				err = item.Run(ctx)
+			})
 			if errors.Is(ctx.Err(), context.Canceled) {
 				err = errs2.IgnoreCanceled(err)
 			}

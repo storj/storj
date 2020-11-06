@@ -4,6 +4,7 @@
 package dbutil
 
 import (
+	"context"
 	"database/sql"
 	"flag"
 	"time"
@@ -26,7 +27,7 @@ type ConfigurableDB interface {
 }
 
 // Configure Sets Connection Boundaries and adds db_stats monitoring to monkit.
-func Configure(db ConfigurableDB, dbName string, mon *monkit.Scope) {
+func Configure(ctx context.Context, db ConfigurableDB, dbName string, mon *monkit.Scope) {
 	if *maxIdleConns >= 0 {
 		db.SetMaxIdleConns(*maxIdleConns)
 	}

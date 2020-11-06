@@ -189,7 +189,7 @@ func cmdAuthorize(cmd *cobra.Command, args []string) (err error) {
 	// Ensure we dont enforce a signed Peer Identity
 	config.Signer.TLS.UsePeerCAWhitelist = false
 
-	revocationDB, err := revocation.NewDBFromCfg(config.Signer.TLS)
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, config.Signer.TLS)
 	if err != nil {
 		return errs.New("error creating revocation database: %+v", err)
 	}

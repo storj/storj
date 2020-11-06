@@ -11,7 +11,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
@@ -85,6 +84,24 @@ func (service *Service) SetNow(now func() time.Time) {
 }
 
 // Tally calculates data-at-rest usage once.
+//
+// How live accounting is calculated:
+//
+// At the beginning of the tally iteration, we get a map containing the current
+// project totals from the cache- initialLiveTotals (our current estimation of
+// the project totals). At the end of the tally iteration, we have the totals
+// from what we saw during the metainfo loop.
+//
+// However, data which was uploaded during the loop may or may not have been
+// seen in the metainfo loop. For this reason, we also read the live accounting
+// totals again at the end of the tally iteration- latestLiveTotals.
+//
+// The difference between latest and initial indicates how much data was
+// uploaded during the metainfo loop and is assigned to delta. However, again,
+// we aren't certain how much of the delta is accounted for in the metainfo
+// totals. For the reason we make an assumption that 50% of the data is
+// accounted for. So to calculate the new live accounting totals, we sum the
+// metainfo totals and 50% of the deltas.
 func (service *Service) Tally(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -152,6 +169,9 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 			if delta < 0 {
 				delta = 0
 			}
+
+			// read the method documentation why the increase passed to this method
+			// is calculated in this way
 			err = service.liveAccounting.AddProjectStorageUsage(ctx, projectID, -latestLiveTotals[projectID]+tallyTotal+(delta/2))
 			if err != nil {
 				return Error.Wrap(err)
@@ -210,12 +230,8 @@ func NewObserver(log *zap.Logger, now time.Time) *Observer {
 	}
 }
 
-func (observer *Observer) pointerExpired(pointer *pb.Pointer) bool {
-	return !pointer.ExpirationDate.IsZero() && pointer.ExpirationDate.Before(observer.Now)
-}
-
 // ensureBucket returns bucket corresponding to the passed in path.
-func (observer *Observer) ensureBucket(ctx context.Context, location metabase.SegmentLocation) *accounting.BucketTally {
+func (observer *Observer) ensureBucket(ctx context.Context, location metabase.ObjectLocation) *accounting.BucketTally {
 	bucketLocation := location.Bucket()
 	bucket, exists := observer.Bucket[bucketLocation]
 	if !exists {
@@ -228,56 +244,56 @@ func (observer *Observer) ensureBucket(ctx context.Context, location metabase.Se
 }
 
 // Object is called for each object once.
-func (observer *Observer) Object(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
-	if observer.pointerExpired(pointer) {
+func (observer *Observer) Object(ctx context.Context, object *metainfo.Object) (err error) {
+	if object.Expired(observer.Now) {
 		return nil
 	}
 
-	bucket := observer.ensureBucket(ctx, location)
+	bucket := observer.ensureBucket(ctx, object.Location)
 	bucket.ObjectCount++
+
 	return nil
 }
 
 // InlineSegment is called for each inline segment.
-func (observer *Observer) InlineSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
-	if observer.pointerExpired(pointer) {
+func (observer *Observer) InlineSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
+	if segment.Expired(observer.Now) {
 		return nil
 	}
 
-	bucket := observer.ensureBucket(ctx, location)
+	bucket := observer.ensureBucket(ctx, segment.Location.Object())
 	bucket.InlineSegments++
-	bucket.InlineBytes += int64(len(pointer.InlineSegment))
-	bucket.MetadataSize += int64(len(pointer.Metadata))
+	bucket.InlineBytes += int64(segment.DataSize)
+	bucket.MetadataSize += int64(segment.MetadataSize)
 
 	return nil
 }
 
 // RemoteSegment is called for each remote segment.
-func (observer *Observer) RemoteSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
-	if observer.pointerExpired(pointer) {
+func (observer *Observer) RemoteSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
+	if segment.Expired(observer.Now) {
 		return nil
 	}
 
-	bucket := observer.ensureBucket(ctx, location)
+	bucket := observer.ensureBucket(ctx, segment.Location.Object())
 	bucket.RemoteSegments++
-	bucket.RemoteBytes += pointer.GetSegmentSize()
-	bucket.MetadataSize += int64(len(pointer.Metadata))
+	bucket.RemoteBytes += int64(segment.DataSize)
+	bucket.MetadataSize += int64(segment.MetadataSize)
 
 	// add node info
-	remote := pointer.GetRemote()
-	redundancy := remote.GetRedundancy()
-	segmentSize := pointer.GetSegmentSize()
-	minimumRequired := redundancy.GetMinReq()
+	minimumRequired := segment.Redundancy.RequiredShares
 
-	if remote == nil || redundancy == nil || minimumRequired <= 0 {
-		observer.Log.Error("failed sanity check", zap.ByteString("key", location.Encode()))
+	if minimumRequired <= 0 {
+		observer.Log.Error("failed sanity check", zap.ByteString("key", segment.Location.Encode()))
 		return nil
 	}
 
-	pieceSize := float64(segmentSize / int64(minimumRequired))
-	for _, piece := range remote.GetRemotePieces() {
-		observer.Node[piece.NodeId] += pieceSize
+	pieceSize := float64(segment.DataSize / int(minimumRequired)) // TODO: Add this as a method to RedundancyScheme
+
+	for _, piece := range segment.Pieces {
+		observer.Node[piece.StorageNode] += pieceSize
 	}
+
 	return nil
 }
 

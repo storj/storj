@@ -47,7 +47,7 @@ func TestFileConcurrency(t *testing.T) {
 
 	log := zaptest.NewLogger(t)
 
-	db, err := storagenodedb.New(log, storagenodedb.Config{
+	db, err := storagenodedb.OpenNew(ctx, log, storagenodedb.Config{
 		Pieces: ctx.Dir("storage"),
 		Info2:  ctx.Dir("storage") + "/info.db",
 	})
@@ -74,7 +74,7 @@ func TestInMemoryConcurrency(t *testing.T) {
 		Filestore: filestore.DefaultConfig,
 	}
 
-	db, err := storagenodedb.New(log, cfg)
+	db, err := storagenodedb.OpenNew(ctx, log, cfg)
 	if err != nil {
 		t.Fatal(err)
 	}

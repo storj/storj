@@ -18,12 +18,12 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/identity"
-	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/private/process"
 	"storj.io/storj/private/prompt"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/uplink/private/eestream"
 )
 
@@ -87,9 +87,9 @@ var (
 type Inspector struct {
 	conn          *rpc.Conn
 	identity      *identity.FullIdentity
-	overlayclient pb.DRPCOverlayInspectorClient
-	irrdbclient   pb.DRPCIrreparableInspectorClient
-	healthclient  pb.DRPCHealthInspectorClient
+	overlayclient internalpb.DRPCOverlayInspectorClient
+	irrdbclient   internalpb.DRPCIrreparableInspectorClient
+	healthclient  internalpb.DRPCHealthInspectorClient
 }
 
 // NewInspector creates a new inspector client for access to overlay.
@@ -110,9 +110,9 @@ func NewInspector(ctx context.Context, address, path string) (*Inspector, error)
 	return &Inspector{
 		conn:          conn,
 		identity:      id,
-		overlayclient: pb.NewDRPCOverlayInspectorClient(conn),
-		irrdbclient:   pb.NewDRPCIrreparableInspectorClient(conn),
-		healthclient:  pb.NewDRPCHealthInspectorClient(conn),
+		overlayclient: internalpb.NewDRPCOverlayInspectorClient(conn),
+		irrdbclient:   internalpb.NewDRPCIrreparableInspectorClient(conn),
+		healthclient:  internalpb.NewDRPCHealthInspectorClient(conn),
 	}, nil
 }
 
@@ -157,7 +157,7 @@ func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	req := &pb.ObjectHealthRequest{
+	req := &internalpb.ObjectHealthRequest{
 		ProjectId:         []byte(args[0]),
 		Bucket:            []byte(args[1]),
 		EncryptedPath:     decodedPath,
@@ -215,7 +215,7 @@ func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 		return ErrRequest.Wrap(err)
 	}
 
-	req := &pb.SegmentHealthRequest{
+	req := &internalpb.SegmentHealthRequest{
 		ProjectId:     []byte(args[0]),
 		SegmentIndex:  segmentIndex,
 		Bucket:        []byte(args[2]),
@@ -250,7 +250,7 @@ func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err := printSegmentHealthAndNodeTables(w, redundancy, []*pb.SegmentHealth{resp.GetHealth()}); err != nil {
+	if err := printSegmentHealthAndNodeTables(w, redundancy, []*internalpb.SegmentHealth{resp.GetHealth()}); err != nil {
 		return err
 	}
 
@@ -265,7 +265,7 @@ func csvOutput() (*os.File, error) {
 	return os.Create(CSVPath)
 }
 
-func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.RedundancyStrategy, segments []*pb.SegmentHealth) error {
+func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.RedundancyStrategy, segments []*internalpb.SegmentHealth) error {
 	segmentTableHeader := []string{
 		"Segment Index", "Healthy Nodes", "Unhealthy Nodes", "Offline Nodes",
 	}
@@ -378,7 +378,7 @@ func getSegments(cmd *cobra.Command, args []string) error {
 
 	// query DB and paginate results
 	for {
-		req := &pb.ListIrreparableSegmentsRequest{
+		req := &internalpb.ListIrreparableSegmentsRequest{
 			Limit:               irreparableLimit,
 			LastSeenSegmentPath: lastSeenSegmentPath,
 		}
@@ -416,8 +416,8 @@ func getSegments(cmd *cobra.Command, args []string) error {
 }
 
 // sortSegments by the object they belong to.
-func sortSegments(segments []*pb.IrreparableSegment) map[string][]*pb.IrreparableSegment {
-	objects := make(map[string][]*pb.IrreparableSegment)
+func sortSegments(segments []*internalpb.IrreparableSegment) map[string][]*internalpb.IrreparableSegment {
+	objects := make(map[string][]*internalpb.IrreparableSegment)
 	for _, seg := range segments {
 		pathElements := storj.SplitPath(string(seg.Path))
 

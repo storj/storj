@@ -89,35 +89,106 @@ func BenchmarkOverlay(b *testing.B) {
 			}
 		})
 
-		b.Run("UpdateStats", func(b *testing.B) {
+		b.Run("UpdateStatsSuccess", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				id := all[i%len(all)]
-				outcome := overlay.AuditFailure
-				if i&1 == 0 {
-					outcome = overlay.AuditSuccess
-				}
 				_, err := overlaydb.UpdateStats(ctx, &overlay.UpdateRequest{
 					NodeID:       id,
-					AuditOutcome: outcome,
-					IsUp:         i&2 == 0,
+					AuditOutcome: overlay.AuditSuccess,
 					AuditHistory: testAuditHistoryConfig(),
 				}, time.Now())
 				require.NoError(b, err)
 			}
 		})
 
-		b.Run("BatchUpdateStats", func(b *testing.B) {
+		b.Run("UpdateStatsFailure", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				id := all[i%len(all)]
+				_, err := overlaydb.UpdateStats(ctx, &overlay.UpdateRequest{
+					NodeID:       id,
+					AuditOutcome: overlay.AuditFailure,
+					AuditHistory: testAuditHistoryConfig(),
+				}, time.Now())
+				require.NoError(b, err)
+			}
+		})
+
+		b.Run("UpdateStatsUnknown", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				id := all[i%len(all)]
+				_, err := overlaydb.UpdateStats(ctx, &overlay.UpdateRequest{
+					NodeID:       id,
+					AuditOutcome: overlay.AuditUnknown,
+					AuditHistory: testAuditHistoryConfig(),
+				}, time.Now())
+				require.NoError(b, err)
+			}
+		})
+
+		b.Run("UpdateStatsOffline", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				id := all[i%len(all)]
+				_, err := overlaydb.UpdateStats(ctx, &overlay.UpdateRequest{
+					NodeID:       id,
+					AuditOutcome: overlay.AuditOffline,
+					AuditHistory: testAuditHistoryConfig(),
+				}, time.Now())
+				require.NoError(b, err)
+			}
+		})
+
+		b.Run("BatchUpdateStatsSuccess", func(b *testing.B) {
 			var updateRequests []*overlay.UpdateRequest
 			for i := 0; i < b.N; i++ {
 				id := all[i%len(all)]
-				outcome := overlay.AuditFailure
-				if i&1 == 0 {
-					outcome = overlay.AuditSuccess
-				}
 				updateRequests = append(updateRequests, &overlay.UpdateRequest{
 					NodeID:       id,
-					AuditOutcome: outcome,
-					IsUp:         i&2 == 0,
+					AuditOutcome: overlay.AuditSuccess,
+					AuditHistory: testAuditHistoryConfig(),
+				})
+
+			}
+			_, err := overlaydb.BatchUpdateStats(ctx, updateRequests, 100, time.Now())
+			require.NoError(b, err)
+		})
+
+		b.Run("BatchUpdateStatsFailure", func(b *testing.B) {
+			var updateRequests []*overlay.UpdateRequest
+			for i := 0; i < b.N; i++ {
+				id := all[i%len(all)]
+				updateRequests = append(updateRequests, &overlay.UpdateRequest{
+					NodeID:       id,
+					AuditOutcome: overlay.AuditFailure,
+					AuditHistory: testAuditHistoryConfig(),
+				})
+
+			}
+			_, err := overlaydb.BatchUpdateStats(ctx, updateRequests, 100, time.Now())
+			require.NoError(b, err)
+		})
+
+		b.Run("BatchUpdateStatsUnknown", func(b *testing.B) {
+			var updateRequests []*overlay.UpdateRequest
+			for i := 0; i < b.N; i++ {
+				id := all[i%len(all)]
+				updateRequests = append(updateRequests, &overlay.UpdateRequest{
+					NodeID:       id,
+					AuditOutcome: overlay.AuditUnknown,
+					AuditHistory: testAuditHistoryConfig(),
+				})
+
+			}
+			_, err := overlaydb.BatchUpdateStats(ctx, updateRequests, 100, time.Now())
+			require.NoError(b, err)
+		})
+
+		b.Run("BatchUpdateStatsOffline", func(b *testing.B) {
+			var updateRequests []*overlay.UpdateRequest
+			for i := 0; i < b.N; i++ {
+				id := all[i%len(all)]
+				updateRequests = append(updateRequests, &overlay.UpdateRequest{
+					NodeID:       id,
+					AuditOutcome: overlay.AuditOffline,
 					AuditHistory: testAuditHistoryConfig(),
 				})
 
@@ -272,7 +343,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 				if i%2 == 0 { // make half of nodes "new" and half "vetted"
 					_, err = overlaydb.UpdateStats(ctx, &overlay.UpdateRequest{
 						NodeID:       nodeID,
-						IsUp:         true,
 						AuditOutcome: overlay.AuditSuccess,
 						AuditLambda:  1,
 						AuditWeight:  1,
@@ -293,7 +363,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 					case 2:
 						err := overlaydb.UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
 							NodeID: nodeID,
-							IsUp:   true,
 							Address: &pb.NodeAddress{
 								Address: address,
 							},

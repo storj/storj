@@ -46,11 +46,11 @@ type CacheStorage struct {
 type Cache struct {
 	log *zap.Logger
 
-	db             CacheStorage
-	service        *Service
-	payoutEndpoint *payout.Endpoint
-	payoutService  *payout.Service
-	trust          *trust.Pool
+	db                CacheStorage
+	service           *Service
+	payoutEndpoint    *payout.Endpoint
+	reputationService *reputation.Service
+	trust             *trust.Pool
 
 	maxSleep   time.Duration
 	Reputation *sync2.Cycle
@@ -58,17 +58,17 @@ type Cache struct {
 }
 
 // NewCache creates new caching service instance.
-func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service, heldamountEndpoint *payout.Endpoint, heldamountService *payout.Service, trust *trust.Pool) *Cache {
+func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service, payoutEndpoint *payout.Endpoint, reputationService *reputation.Service, trust *trust.Pool) *Cache {
 	return &Cache{
-		log:            log,
-		db:             db,
-		service:        service,
-		payoutEndpoint: heldamountEndpoint,
-		payoutService:  heldamountService,
-		trust:          trust,
-		maxSleep:       config.MaxSleep,
-		Reputation:     sync2.NewCycle(config.ReputationSync),
-		Storage:        sync2.NewCycle(config.StorageSync),
+		log:               log,
+		db:                db,
+		service:           service,
+		payoutEndpoint:    payoutEndpoint,
+		reputationService: reputationService,
+		trust:             trust,
+		maxSleep:          config.MaxSleep,
+		Reputation:        sync2.NewCycle(config.ReputationSync),
+		Storage:           sync2.NewCycle(config.StorageSync),
 	}
 }
 
@@ -155,8 +155,8 @@ func (cache *Cache) CacheReputationStats(ctx context.Context) (err error) {
 			return err
 		}
 
-		if err = cache.db.Reputation.Store(ctx, *stats); err != nil {
-			cache.log.Error("err", zap.Error(err))
+		if err = cache.reputationService.Store(ctx, *stats, satellite); err != nil {
+			cache.log.Error("failed to store reputation", zap.Error(err))
 			return err
 		}
 
