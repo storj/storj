@@ -218,6 +218,10 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 		return nil, err
 	}
 
+	if err := db.Pieces().CreateVerificationFile(identity.ID); err != nil {
+		return nil, err
+	}
+
 	if planet.config.Reconfigure.StorageNodeDB != nil {
 		db, err = planet.config.Reconfigure.StorageNodeDB(index, db, planet.log)
 		if err != nil {
