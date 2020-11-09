@@ -1351,7 +1351,135 @@ func TestCommitInlineSegment(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-		// TODO:
+
+		t.Run("commit inline segment of missing object", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			rootPieceID := testrand.PieceID()
+			encryptedKey := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Bytes(32)
+
+			CommitInlineSegment{
+				Opts: metabase.CommitInlineSegment{
+					ObjectStream: obj,
+					RootPieceID:  rootPieceID,
+					InlineData:   []byte{1, 2, 3},
+
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce,
+
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
+					Redundancy:    defaultTestRedundancy,
+				},
+				ErrClass: &metabase.Error,
+				ErrText:  "pending object missing",
+			}.Check(ctx, t, db)
+
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("commit segment of committed object", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			rootPieceID := testrand.PieceID()
+			encryptedKey := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Bytes(32)
+
+			now := time.Now()
+
+			createObject(ctx, t, db, obj, 0)
+			CommitInlineSegment{
+				Opts: metabase.CommitInlineSegment{
+					ObjectStream: obj,
+					RootPieceID:  rootPieceID,
+					InlineData:   []byte{1, 2, 3},
+
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce,
+
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
+					Redundancy:    defaultTestRedundancy,
+				},
+				ErrClass: &metabase.Error,
+				ErrText:  "pending object missing",
+			}.Check(ctx, t, db)
+
+			Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Committed,
+						Encryption:   defaultTestEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("commit segment of pending object", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			rootPieceID := testrand.PieceID()
+			encryptedKey := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Bytes(32)
+
+			now := time.Now()
+			BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
+				},
+				Version: obj.Version,
+			}.Check(ctx, t, db)
+
+			CommitInlineSegment{
+				Opts: metabase.CommitInlineSegment{
+					ObjectStream: obj,
+					RootPieceID:  rootPieceID,
+					InlineData:   []byte{1, 2, 3},
+
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce,
+
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
+					Redundancy:    defaultTestRedundancy,
+				},
+			}.Check(ctx, t, db)
+
+			Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Pending,
+						Encryption:   defaultTestEncryption,
+					},
+				},
+				Segments: []metabase.RawSegment{
+					{
+						StreamID: obj.StreamID,
+
+						RootPieceID:       rootPieceID,
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce,
+
+						EncryptedSize: 1024,
+						PlainOffset:   0,
+						PlainSize:     512,
+
+						Redundancy: defaultTestRedundancy,
+
+						InlineData: []byte{1, 2, 3},
+					},
+				},
+			}.Check(ctx, t, db)
+		})
 	})
 }
 
