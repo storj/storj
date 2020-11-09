@@ -4,6 +4,7 @@
 import Vue from 'vue';
 import Router, { RouteRecord } from 'vue-router';
 
+import AccessGrants from '@/components/accessGrants/AccessGrant.vue';
 import CreateAccessNameStep from '@/components/accessGrants/steps/CreateAccessNameStep.vue';
 import CreateAccessPassphraseStep from '@/components/accessGrants/steps/CreateAccessPassphraseStep.vue';
 import CreateAccessPermissionsStep from '@/components/accessGrants/steps/CreateAccessPermissionsStep.vue';
@@ -23,7 +24,6 @@ import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
 import store from '@/store';
 import { NavigationLink } from '@/types/navigation';
-const AccessGrants = () => import('@/components/accessGrants/AccessGrant.vue');
 const DashboardArea = () => import('@/views/DashboardArea.vue');
 const ForgotPassword = () => import('@/views/forgotPassword/ForgotPassword.vue');
 const LoginArea = () => import('@/views/login/LoginArea.vue');
@@ -76,7 +76,7 @@ export const notProjectRelatedRoutes = [
     RouteConfig.DepositHistory.name,
     RouteConfig.CreditsHistory.name,
     RouteConfig.Settings.name,
-        RouteConfig.AccessGrants.name,
+    RouteConfig.AccessGrants.name,
     // RouteConfig.Referral.name,
 ];
 
@@ -177,37 +177,38 @@ export const router = new Router({
                     name: RouteConfig.EditProjectDetails.name,
                     component: EditProjectDetails,
                 },
-                                {
-                                    path: RouteConfig.AccessGrants.path,
-                                    meta: {
-                                            requiresAuth: true,
-                                    },
-                                    component: AccessGrants,
-                                    children: [
-                                        {
-                                                path: RouteConfig.NameStep.path,
-                                                name: RouteConfig.NameStep.name,
-                                                component: CreateAccessNameStep,
-                                        },
-                                        {
-                                                path: RouteConfig.PermissionsStep.path,
-                                                name: RouteConfig.PermissionsStep.name,
-                                                component: CreateAccessPermissionsStep,
-                                        },
-                                        {
-                                                path: RouteConfig.PassphraseStep.path,
-                                                name: RouteConfig.PassphraseStep.name,
-                                                component: CreateAccessPassphraseStep,
-                                        },
-                                        {
-                                                path: RouteConfig.UplinkStep.path,
-                                                name: RouteConfig.UplinkStep.name,
-                                                component: CreateAccessUplinkStep,
-                                        },
-                                    ],
-                                },
-            ],
-        },
+                {
+                    path: RouteConfig.AccessGrants.path,
+                    name: RouteConfig.AccessGrants.name,
+                    meta: {
+                            requiresAuth: true,
+                    },
+                    component: AccessGrants,
+                    children: [
+                        {
+                                path: RouteConfig.NameStep.path,
+                                name: RouteConfig.NameStep.name,
+                                component: CreateAccessNameStep,
+                        },
+                        {
+                                path: RouteConfig.PermissionsStep.path,
+                                name: RouteConfig.PermissionsStep.name,
+                                component: CreateAccessPermissionsStep,
+                        },
+                        {
+                                path: RouteConfig.PassphraseStep.path,
+                                name: RouteConfig.PassphraseStep.name,
+                                component: CreateAccessPassphraseStep,
+                        },
+                        {
+                                path: RouteConfig.UplinkStep.path,
+                                name: RouteConfig.UplinkStep.name,
+                                component: CreateAccessUplinkStep,
+                        },
+                    ],
+                },
+],
+            },
         {
             path: '*',
             name: '404',
