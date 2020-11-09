@@ -211,7 +211,8 @@ func TestSatellitePayStubPeriodCached(t *testing.T) {
 		heldAmountDB := db.Payout()
 		reputationDB := db.Reputation()
 		satellitesDB := db.Satellites()
-		service := payout.NewService(nil, heldAmountDB, reputationDB, satellitesDB, nil)
+		service, err := payout.NewService(nil, heldAmountDB, reputationDB, satellitesDB, nil)
+		require.NoError(t, err)
 
 		payStub := payout.PayStub{
 			SatelliteID:    storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
@@ -261,7 +262,8 @@ func TestAllPayStubPeriodCached(t *testing.T) {
 		heldAmountDB := db.Payout()
 		reputationDB := db.Reputation()
 		satellitesDB := db.Satellites()
-		service := payout.NewService(nil, heldAmountDB, reputationDB, satellitesDB, nil)
+		service, err := payout.NewService(nil, heldAmountDB, reputationDB, satellitesDB, nil)
+		require.NoError(t, err)
 
 		payStub := payout.PayStub{
 			SatelliteID:    storj.NodeID{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
