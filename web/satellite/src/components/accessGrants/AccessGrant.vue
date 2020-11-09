@@ -9,4 +9,5 @@ export default class AccessGrant extends Vue {
 }
 </script>
 
-<style scoped lang="scss"></style>
+<style lang="scss" scoped>/* stylelint-disable no-empty-source */
+</style>

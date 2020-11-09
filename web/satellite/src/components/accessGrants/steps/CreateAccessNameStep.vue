@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-
+	<div></div>
 </template>
 
 <script lang="ts">
@@ -12,5 +12,5 @@ export default class CreateAccessNameStep extends Vue {
 }
 </script>
 
-<style scoped lang="scss">
+<style lang="scss" scoped>/* stylelint-disable no-empty-source */
 </style>

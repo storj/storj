@@ -12,5 +12,5 @@ export default class CreateAccessPermissionsStep extends Vue {
 }
 </script>
 
-<style scoped lang="scss">
+<style lang="scss" scoped>/* stylelint-disable no-empty-source */
 </style>
