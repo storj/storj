@@ -1,7 +1,12 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { Notification, NotificationsApi, NotificationsCursor, NotificationsState } from '@/app/types/notifications';
+import {
+    NotificationsApi,
+    NotificationsCursor,
+    NotificationsPage,
+    NotificationsResponse,
+} from '@/storagenode/notifications/notifications';
 import { HttpClient } from '@/storagenode/utils/httpClient';
 
 /**
@@ -15,10 +20,10 @@ export class NotificationsHttpApi implements NotificationsApi {
     /**
      * Fetch notifications.
      *
-     * @returns notifications state
+     * @returns notifications response.
      * @throws Error
      */
-    public async get(cursor: NotificationsCursor): Promise<NotificationsState> {
+    public async get(cursor: NotificationsCursor): Promise<NotificationsResponse> {
         const path = `${this.ROOT_PATH}/list?page=${cursor.page}&limit=${cursor.limit}`;
         const response = await this.client.get(path);
 
@@ -27,28 +32,12 @@ export class NotificationsHttpApi implements NotificationsApi {
         }
 
         const notificationResponse = await response.json();
-        let notifications: Notification[] = [];
-        let pageCount: number = 0;
-        let unreadCount: number = 0;
 
-        if (notificationResponse) {
-            notifications = notificationResponse.page.notifications.map(item =>
-                new Notification(
-                    item.id,
-                    item.senderId,
-                    item.type,
-                    item.title,
-                    item.message,
-                    !!item.readAt,
-                    new Date(item.createdAt),
-                ),
-            );
-
-            pageCount = notificationResponse.page.pageCount;
-            unreadCount = notificationResponse.unreadCount;
-        }
-
-        return new NotificationsState(notifications, pageCount, unreadCount);
+        return new NotificationsResponse(
+            new NotificationsPage(notificationResponse.page.notifications, notificationResponse.page.pageCount),
+            notificationResponse.unreadCount,
+            notificationResponse.totalCount,
+        );
     }
 
     /**

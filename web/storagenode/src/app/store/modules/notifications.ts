@@ -1,12 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import {
-    Notification,
-    NotificationsApi,
-    NotificationsCursor,
-    NotificationsState,
-} from '@/app/types/notifications';
+import { NotificationsState, UINotification } from '@/app/types/notifications';
+import { NotificationsService } from '@/storagenode/notifications/service';
 
 export const NOTIFICATIONS_MUTATIONS = {
     SET_NOTIFICATIONS: 'SET_NOTIFICATIONS',
@@ -24,22 +20,22 @@ export const NOTIFICATIONS_ACTIONS = {
 /**
  * creates notifications module with all dependencies
  *
- * @param api - payments api
+ * @param service - payments service
  */
-export function makeNotificationsModule(api: NotificationsApi) {
+export function newNotificationsModule(service: NotificationsService) {
     return {
         state: new NotificationsState(),
         mutations: {
-            [NOTIFICATIONS_MUTATIONS.SET_NOTIFICATIONS](state: NotificationsState, notificationsResponse: NotificationsState): void {
-                state.notifications = notificationsResponse.notifications;
-                state.pageCount = notificationsResponse.pageCount;
-                state.unreadCount = notificationsResponse.unreadCount;
+            [NOTIFICATIONS_MUTATIONS.SET_NOTIFICATIONS](state: NotificationsState, notificationsState: NotificationsState): void {
+                state.notifications = notificationsState.notifications;
+                state.pageCount = notificationsState.pageCount;
+                state.unreadCount = notificationsState.unreadCount;
             },
-            [NOTIFICATIONS_MUTATIONS.SET_LATEST](state: NotificationsState, notificationsResponse: NotificationsState): void {
-                state.latestNotifications = notificationsResponse.notifications;
+            [NOTIFICATIONS_MUTATIONS.SET_LATEST](state: NotificationsState, notificationsState: NotificationsState): void {
+                state.latestNotifications = notificationsState.notifications;
             },
             [NOTIFICATIONS_MUTATIONS.MARK_AS_READ](state: NotificationsState, id: string): void {
-                state.notifications = state.notifications.map((notification: Notification) => {
+                state.notifications = state.notifications.map((notification: UINotification) => {
                     if (notification.id === id) {
                         notification.markAsRead();
                     }
@@ -48,7 +44,7 @@ export function makeNotificationsModule(api: NotificationsApi) {
                 });
             },
             [NOTIFICATIONS_MUTATIONS.READ_ALL](state: NotificationsState): void {
-                state.notifications = state.notifications.map((notification: Notification) => {
+                state.notifications = state.notifications.map((notification: UINotification) => {
                     notification.markAsRead();
 
                     return notification;
@@ -58,24 +54,26 @@ export function makeNotificationsModule(api: NotificationsApi) {
             },
         },
         actions: {
-            [NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS]: async function ({commit}: any, cursor: NotificationsCursor): Promise<NotificationsState> {
-                const notificationsResponse = await api.get(cursor);
+            [NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS]: async function ({commit}: any, pageIndex: number): Promise<void> {
+                const notificationsResponse = await service.notifications(pageIndex);
 
-                commit(NOTIFICATIONS_MUTATIONS.SET_NOTIFICATIONS, notificationsResponse);
+                const notifications = notificationsResponse.page.notifications.map(notification => new UINotification(notification));
 
-                if (cursor.page === 1) {
-                    commit(NOTIFICATIONS_MUTATIONS.SET_LATEST, notificationsResponse);
+                const notificationState = new NotificationsState(notifications, notificationsResponse.page.pageCount, notificationsResponse.unreadCount);
+
+                commit(NOTIFICATIONS_MUTATIONS.SET_NOTIFICATIONS, notificationState);
+
+                if (pageIndex === 1) {
+                    commit(NOTIFICATIONS_MUTATIONS.SET_LATEST, notificationState);
                 }
-
-                return notificationsResponse;
             },
-            [NOTIFICATIONS_ACTIONS.MARK_AS_READ]: async function ({commit}: any, id: string): Promise<any> {
-                await api.read(id);
+            [NOTIFICATIONS_ACTIONS.MARK_AS_READ]: async function ({commit}: any, id: string): Promise<void> {
+                await service.readSingeNotification(id);
 
                 commit(NOTIFICATIONS_MUTATIONS.MARK_AS_READ, id);
             },
-            [NOTIFICATIONS_ACTIONS.READ_ALL]: async function ({commit}: any): Promise<any> {
-                await api.readAll();
+            [NOTIFICATIONS_ACTIONS.READ_ALL]: async function ({commit}: any): Promise<void> {
+                await service.readAllNotifications();
 
                 commit(NOTIFICATIONS_MUTATIONS.READ_ALL);
             },
