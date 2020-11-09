@@ -10,6 +10,3 @@ import { Component, Vue } from 'vue-property-decorator';
 export default class CreateAccessUplinkStep extends Vue {
 }
 </script>
-
-<style lang="scss" scoped>/* stylelint-disable no-empty-source */
-</style>
