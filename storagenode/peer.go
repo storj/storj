@@ -555,13 +555,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup payout service.
-		peer.Payout.Service = payout.NewService(
+		service, err := payout.NewService(
 			peer.Log.Named("payout:service"),
 			peer.DB.Payout(),
 			peer.DB.Reputation(),
 			peer.DB.Satellites(),
 			peer.Storage2.Trust,
 		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Payout.Service = service
 		peer.Payout.Endpoint = payout.NewEndpoint(
 			peer.Log.Named("payout:endpoint"),
 			peer.Dialer,

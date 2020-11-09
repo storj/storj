@@ -376,8 +376,15 @@ func TestHeldAmountApi(t *testing.T) {
 					JoinedAt:            date,
 				}
 
+				stefanID, err := storj.NodeIDFromString("118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW")
+				require.NoError(t, err)
+
+				held2 := payout.SatelliteHeldHistory{
+					SatelliteID: stefanID,
+				}
+
 				var periods []payout.SatelliteHeldHistory
-				periods = append(periods, held)
+				periods = append(periods, held, held2)
 
 				expected, err := json.Marshal(periods)
 				require.NoError(t, err)
