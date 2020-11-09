@@ -23,6 +23,7 @@ import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
 import store from '@/store';
 import { NavigationLink } from '@/types/navigation';
+const AccessGrants = () => import('@/components/accessGrants/AccessGrant.vue');
 const DashboardArea = () => import('@/views/DashboardArea.vue');
 const ForgotPassword = () => import('@/views/forgotPassword/ForgotPassword.vue');
 const LoginArea = () => import('@/views/login/LoginArea.vue');
@@ -31,8 +32,8 @@ const RegisterArea = () => import('@/views/register/RegisterArea.vue');
 Vue.use(Router);
 
 /**
-* RouteConfig contains information about all routes and subroutes
-*/
+ * RouteConfig contains information about all routes and subroutes
+ */
 export abstract class RouteConfig {
     // root paths
     public static Root = new NavigationLink('/', 'Root');
@@ -47,10 +48,10 @@ export abstract class RouteConfig {
     public static CreateProject = new NavigationLink('/create-project', 'Create Project');
     public static EditProjectDetails = new NavigationLink('/edit-project-details', 'Edit Project Details');
     public static AccessGrants = new NavigationLink('/access-grants', 'Access Grants');
-    public static NameStep = new NavigationLink('/access-create-name', 'Name Your Access');
-    public static PermissionsStep = new NavigationLink('/access-create-permissions', 'Access Permissions');
-    public static PassphraseStep = new NavigationLink('/access-create-passphrase', 'Encryption Passphrase');
-    public static UplinkStep = new NavigationLink('/access-create-uplink', 'Upload Data');
+    public static NameStep = new NavigationLink('/access-grants/access-create-name', 'Name Your Access');
+    public static PermissionsStep = new NavigationLink('/access-grants/access-create-permissions', 'Access Permissions');
+    public static PassphraseStep = new NavigationLink('/access-grants/access-create-passphrase', 'Encryption Passphrase');
+    public static UplinkStep = new NavigationLink('/access-grants/access-create-uplink', 'Upload Data');
 
     // child paths
     public static Settings = new NavigationLink('settings', 'Settings');
@@ -75,7 +76,7 @@ export const notProjectRelatedRoutes = [
     RouteConfig.DepositHistory.name,
     RouteConfig.CreditsHistory.name,
     RouteConfig.Settings.name,
-    RouteConfig.AccessGrants.name,
+        RouteConfig.AccessGrants.name,
     // RouteConfig.Referral.name,
 ];
 
@@ -176,28 +177,36 @@ export const router = new Router({
                     name: RouteConfig.EditProjectDetails.name,
                     component: EditProjectDetails,
                 },
-                {
-                    path: RouteConfig.NameStep.path,
-                    name: RouteConfig.NameStep.name,
-                    component: CreateAccessNameStep,
-                },
-                {
-                    path: RouteConfig.PermissionsStep.path,
-                    name: RouteConfig.PermissionsStep.name,
-                    component: CreateAccessPermissionsStep,
-                },
-                {
-                    path: RouteConfig.PassphraseStep.path,
-                    name: RouteConfig.PassphraseStep.name,
-                    component: CreateAccessPassphraseStep,
-                },
-                {
-                    path: RouteConfig.UplinkStep.path,
-                    name: RouteConfig.UplinkStep.name,
-                    component: CreateAccessUplinkStep,
-                },
+                                {
+                                    path: RouteConfig.AccessGrants.path,
+                                    meta: {
+                                            requiresAuth: true,
+                                    },
+                                    component: AccessGrants,
+                                    children: [
+                                        {
+                                                path: RouteConfig.NameStep.path,
+                                                name: RouteConfig.NameStep.name,
+                                                component: CreateAccessNameStep,
+                                        },
+                                        {
+                                                path: RouteConfig.PermissionsStep.path,
+                                                name: RouteConfig.PermissionsStep.name,
+                                                component: CreateAccessPermissionsStep,
+                                        },
+                                        {
+                                                path: RouteConfig.PassphraseStep.path,
+                                                name: RouteConfig.PassphraseStep.name,
+                                                component: CreateAccessPassphraseStep,
+                                        },
+                                        {
+                                                path: RouteConfig.UplinkStep.path,
+                                                name: RouteConfig.UplinkStep.name,
+                                                component: CreateAccessUplinkStep,
+                                        },
+                                    ],
+                                },
             ],
-
         },
         {
             path: '*',
@@ -235,18 +244,18 @@ router.afterEach(({name}, from) => {
     }
 
     const selectedProjectName = store.state.projectsModule.selectedProject.name ?
-    `${store.state.projectsModule.selectedProject.name} | ` : '';
+        `${store.state.projectsModule.selectedProject.name} | ` : '';
 
     document.title = `${selectedProjectName + router.currentRoute.name} | ${store.state.appStateModule.satelliteName}`;
 });
 
 /**
-* if our route is a tab and has no sub tab route - we will navigate to default subtab.
-* F.E. /account/ -> /account/billing/;
-* @param routes - array of RouteRecord from vue-router
-* @param next - callback to process next route
-* @param tabRoute - tabNavigator route
-*/
+ * if our route is a tab and has no sub tab route - we will navigate to default subtab.
+ * F.E. /account/ -> /account/billing/;
+ * @param routes - array of RouteRecord from vue-router
+ * @param next - callback to process next route
+ * @param tabRoute - tabNavigator route
+ */
 function navigateToDefaultSubTab(routes: RouteRecord[], tabRoute: NavigationLink): boolean {
     return routes.length === 2 && (routes[1].name as string) === tabRoute.name;
 }

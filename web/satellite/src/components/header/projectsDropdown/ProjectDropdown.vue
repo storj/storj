@@ -22,9 +22,6 @@
             >
                 <p class="project-dropdown__wrap__choice__unselected">{{ project.name }}</p>
             </div>
-						<div @click="toggleSelection" @click.prevent.stop="closeDropdown" class="project-dropdown__wrap__create-project__wrapper">
-							<p class="project-dropdown__wrap__create-project__text">Create Project</p>
-						</div>
         </div>
         <div class="project-dropdown__create-project" v-if="isCreateProjectButtonShown" @click.stop="onCreateProjectsClick">
             <div class="project-dropdown__create-project__border"/>
@@ -47,9 +44,8 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
-import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
-
 @Component({
     components: {
         SelectionIcon,
@@ -57,7 +53,6 @@ import { LocalData } from '@/utils/localData';
 })
 export default class ProjectDropdown extends Vue {
     private FIRST_PAGE = 1;
-
     /**
      * Fetches all project related information.
      * @param projectID
@@ -67,7 +62,6 @@ export default class ProjectDropdown extends Vue {
         LocalData.setSelectedProjectId(projectID);
         await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
         this.closeDropdown();
-
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
             await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
@@ -78,35 +72,24 @@ export default class ProjectDropdown extends Vue {
             await this.$notify.error(`Unable to select project. ${error.message}`);
         }
     }
-
     /**
      * Returns projects list from store.
      */
     public get projects(): Project[] {
         return this.$store.getters.projectsWithoutSelected;
     }
-
     /**
      * Returns selected project from store.
      */
     public get selectedProject(): Project {
         return this.$store.getters.selectedProject;
     }
-
-        /**
-		 * Opens new project creation popup.
-		 */
-        public toggleSelection(): void {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
-        }
-
     /**
      * Indicates if create project button is shown.
      */
     public get isCreateProjectButtonShown(): boolean {
         return this.$store.state.appStateModule.appState.isCreateProjectButtonShown;
     }
-
     /**
      * Redirects to create project page.
      */
@@ -114,7 +97,6 @@ export default class ProjectDropdown extends Vue {
         this.$router.push(RouteConfig.CreateProject.path);
         this.closeDropdown();
     }
-
     /**
      * Closes dropdown.
      */
@@ -191,20 +173,6 @@ export default class ProjectDropdown extends Vue {
                     &__image {
                         object-fit: cover;
                     }
-                }
-            }
-
-            &__create-project {
-
-                &__wrapper {
-                    border-top: 1px solid #d4d4d4;
-                }
-
-                &__text {
-                    color: #2683ff;
-                    padding-left: 20px;
-                    font-weight: bold;
-                    font-size: 14px;
                 }
             }
         }
