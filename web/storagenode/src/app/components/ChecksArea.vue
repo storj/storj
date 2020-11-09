@@ -53,7 +53,7 @@ export default class ChecksArea extends Vue {
     }
 
     public get value(): string {
-        return this.amount.toFixed(1);
+        return this.amount.toFixed(2);
     }
 }
 </script>
