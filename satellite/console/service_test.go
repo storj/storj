@@ -130,5 +130,19 @@ func TestService(t *testing.T) {
 				require.Error(t, err)
 				require.Equal(t, "service error: project usage error: some buckets still exist", err.Error())
 			})
+
+			t.Run("TestChangeEmail", func(t *testing.T) {
+				const newEmail = "newEmail@example.com"
+
+				err = service.ChangeEmail(authCtx2, newEmail)
+				require.NoError(t, err)
+
+				userWithUpdatedEmail, err := service.GetUserByEmail(authCtx2, newEmail)
+				require.NoError(t, err)
+				require.Equal(t, newEmail, userWithUpdatedEmail.Email)
+
+				err = service.ChangeEmail(authCtx2, newEmail)
+				require.Error(t, err)
+			})
 		})
 }
