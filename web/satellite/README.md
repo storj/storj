@@ -67,7 +67,7 @@ docker run -p 8080:8080 storjlabs/satellite-ui:latest
 - [unit](./unit "unit") folder: contains project unit tests.
 ### Configuration files
 - **.env**: file for environment level variables.
-- **.gitignore**: folders, files and extentions which are ignored for git.
+- **.gitignore**: folders, files and extensions which are ignored for git.
 - **babel.config.js**: [babel](https://babeljs.io/) configuration for javascript transcompilation.
 - **index.html**: DOM entry point.
 - **jestSetup.ts**: [jest](https://jestjs.io/) configuration for unit testing.

@@ -8,7 +8,7 @@ This document describes how storage node transfers its pieces during Graceful Ex
 
 ## Background
 
-During Graceful Exit a storage node needs to transfer pieces to other nodes. During transfering the storage node or satellite may crash, hence it needs to be able to continue after a restart. 
+During Graceful Exit a storage node needs to transfer pieces to other nodes. During transferring the storage node or satellite may crash, hence it needs to be able to continue after a restart.
 
 Satellite gathers transferred pieces list asynchronously, which is described in [Gathering Pieces Document](pieces.md). This may consume a significant amount of time.
 
@@ -28,11 +28,11 @@ The `worker` should continue to poll the satellite at a configurable interval un
 
 The satellite should return pieces to transfer from the transfer queue if piece durability <= optimal. If durability > optimal, we remove the exiting node from the segment / pointer.
 
-The storage node should concurrently transfer pieces returned by the satellite. The storage node should send a `TransferSucceeded` message as pieces are successfuly transfered. The Storage node should send a `TransferFailed`, with reason, on failure.
+The storage node should concurrently transfer pieces returned by the satellite. The storage node should send a `TransferSucceeded` message as pieces are successfully transferred. The Storage node should send a `TransferFailed`, with reason, on failure.
 
 The satellites should set the `finished_at` on success, and respond with a `DeletePiece` message. Otherwise increment `failed_count` and set the `last_failed_at` and `last_failed_code` for reprocessing.
 
-The satellite should respond with an `ExitCompleted` message when all pieces have finished processing. 
+The satellite should respond with an `ExitCompleted` message when all pieces have finished processing.
 
 If the storage node has failed too many transfers overall, failed the same piece over a certain threshold, or has sent incorrect data, the satellite will send an `ExitFailed` message. This indicates that the process has ended ungracefully.
 
@@ -75,7 +75,7 @@ We could have a separate initiate graceful exit RPC, however this would complica
 ## Implementation
 
 1. Add protobuf definitions.
-2. Update node selection to ignore exiting nodes for repairs and uploads. 
+2. Update node selection to ignore exiting nodes for repairs and uploads.
 3. Update repairer to repair segments for nodes that failed an exit.
 4. Implement verifying a transfer on the satellite.
 5. Implement transferring a single piece on storage node.
@@ -143,7 +143,7 @@ when storage node prematurely exits
 go func() {
     for {
         ensure we have only up to N inprogress at the same time
-        
+
         list transferred piece that is not in progress
         if no pieces {
             morepieces = false
