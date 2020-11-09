@@ -12,10 +12,10 @@
         <div
             class="notification-popup-container__content"
             :class="{'collapsed': isCollapsed}"
-            v-if="latestNotifications.length"
+            v-if="latest.length"
         >
             <SNONotification
-                v-for="notification in latestNotifications"
+                v-for="notification in latest"
                 :key="notification.id"
                 is-small="true"
                 :notification="notification"
@@ -34,6 +34,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import SNONotification from '@/app/components/notifications/SNONotification.vue';
 
 import { RouteConfig } from '@/app/router';
+import { UINotification } from '@/app/types/notifications';
 
 @Component({
     components: {
@@ -49,7 +50,7 @@ export default class NotificationsPopup extends Vue {
     /**
      * Represents first page of notifications.
      */
-    public get latestNotifications(): Notification[] {
+    public get latest(): UINotification[] {
         return this.$store.state.notificationsModule.latestNotifications;
     }
 
@@ -57,7 +58,7 @@ export default class NotificationsPopup extends Vue {
      * Indicates if popup is smaller than with scroll.
      */
     public get isCollapsed(): boolean {
-        return this.latestNotifications.length < 4;
+        return this.latest.length < 4;
     }
 }
 </script>

@@ -1,0 +1,141 @@
+// Copyright (C) 2020 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package multinodedbtest
+
+import (
+	"context"
+	"fmt"
+	"strconv"
+	"strings"
+	"testing"
+
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
+
+	"storj.io/common/testcontext"
+	"storj.io/storj/multinode"
+	"storj.io/storj/multinode/multinodedb"
+	"storj.io/storj/multinode/multinodedb/dbx"
+	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/dbutil/pgtest"
+	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/storj/private/dbutil/tempdb"
+)
+
+// Database describes a test database.
+type Database struct {
+	Name    string
+	URL     string
+	Message string
+}
+
+// tempMasterDB is a multinode.DB-implementing type that cleans up after itself when closed.
+type tempMasterDB struct {
+	multinode.DB
+	tempDB *dbutil.TempDatabase
+}
+
+// Close closes a tempMasterDB and cleans it up afterward.
+func (db *tempMasterDB) Close() error {
+	return errs.Combine(db.DB.Close(), db.tempDB.Close())
+}
+
+// TestDBAccess provides a somewhat regularized access to the underlying DB.
+func (db *tempMasterDB) TestDBAccess() *dbx.DB {
+	return db.DB.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
+}
+
+type ignoreSkip struct{}
+
+func (ignoreSkip) Skip(...interface{}) {}
+
+// SchemaSuffix returns a suffix for schemas.
+func SchemaSuffix() string {
+	return pgutil.CreateRandomTestingSchemaName(6)
+}
+
+// SchemaName returns a properly formatted schema string.
+func SchemaName(testname, category string, index int, schemaSuffix string) string {
+	// postgres has a maximum schema length of 64
+	// we need additional 6 bytes for the random suffix
+	// and 4 bytes for the index "/S0/""
+
+	indexStr := strconv.Itoa(index)
+
+	var maxTestNameLen = 64 - len(category) - len(indexStr) - len(schemaSuffix) - 2
+	if len(testname) > maxTestNameLen {
+		testname = testname[:maxTestNameLen]
+	}
+
+	if schemaSuffix == "" {
+		return strings.ToLower(testname + "/" + category + indexStr)
+	}
+
+	return strings.ToLower(testname + "/" + schemaSuffix + "/" + category + indexStr)
+}
+
+// CreateMasterDB creates a new satellite database for testing.
+func CreateMasterDB(ctx context.Context, log *zap.Logger, name string, category string, index int, dbInfo Database) (db multinode.DB, err error) {
+	if dbInfo.URL == "" {
+		return nil, fmt.Errorf("database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
+	}
+
+	schemaSuffix := SchemaSuffix()
+	log.Debug("creating", zap.String("suffix", schemaSuffix))
+	schema := SchemaName(name, category, index, schemaSuffix)
+
+	tempDB, err := tempdb.OpenUnique(ctx, dbInfo.URL, schema)
+	if err != nil {
+		return nil, err
+	}
+
+	return CreateMasterDBOnTopOf(ctx, log, tempDB)
+}
+
+// CreateMasterDBOnTopOf creates a new satellite database on top of an already existing
+// temporary database.
+func CreateMasterDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase) (db multinode.DB, err error) {
+	masterDB, err := multinodedb.Open(ctx, log, tempDB.ConnStr)
+	return &tempMasterDB{DB: masterDB, tempDB: tempDB}, err
+}
+
+// Run method will iterate over all supported databases. Will establish
+// connection and will create tables for each DB.
+func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db multinode.DB)) {
+	masterDB := Database{
+		Name:    "Postgres",
+		URL:     pgtest.PickPostgres(ignoreSkip{}),
+		Message: "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable.",
+	}
+
+	t.Run(masterDB.Name, func(t *testing.T) {
+		t.Parallel()
+
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		if masterDB.URL == "" {
+			t.Skipf("Database %s connection string not provided. %s", masterDB.Name, masterDB.Message)
+		}
+
+		db, err := CreateMasterDB(ctx, zaptest.NewLogger(t), t.Name(), "T", 0, masterDB)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			err := db.Close()
+			if err != nil {
+				t.Fatal(err)
+			}
+		}()
+
+		err = db.CreateSchema(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		test(ctx, t, db)
+	})
+}

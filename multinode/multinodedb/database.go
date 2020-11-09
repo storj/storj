@@ -1,16 +1,18 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package mutlinodedb
+package multinodedb
 
 import (
+	"context"
+
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/multinode"
 	"storj.io/storj/multinode/console"
-	"storj.io/storj/multinode/mutlinodedb/dbx"
+	"storj.io/storj/multinode/multinodedb/dbx"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
 )
@@ -39,8 +41,8 @@ type multinodeDB struct {
 	source         string
 }
 
-// New creates instance of database supports postgres.
-func New(log *zap.Logger, databaseURL string) (multinode.DB, error) {
+// Open creates instance of database supports postgres.
+func Open(ctx context.Context, log *zap.Logger, databaseURL string) (multinode.DB, error) {
 	driver, source, implementation, err := dbutil.SplitConnStr(databaseURL)
 	if err != nil {
 		return nil, err
@@ -52,17 +54,17 @@ func New(log *zap.Logger, databaseURL string) (multinode.DB, error) {
 
 	source = pgutil.CheckApplicationName(source)
 
-	// dbxDB, err := dbx.Open(driver, source)
-	// if err != nil {
-	// 	return nil, Error.New("failed opening database via DBX at %q: %v",
-	// 		source, err)
-	// }
-	// log.Debug("Connected to:", zap.String("db source", source))
+	dbxDB, err := dbx.Open(driver, source)
+	if err != nil {
+		return nil, Error.New("failed opening database via DBX at %q: %v",
+			source, err)
+	}
+	log.Debug("Connected to:", zap.String("db source", source))
 
-	// dbutil.Configure(dbxDB.DB, "multinodedb", mon)
+	dbutil.Configure(ctx, dbxDB.DB, "multinodedb", mon)
 
 	core := &multinodeDB{
-		// DB: dbxDB,
+		DB: dbxDB,
 
 		log:            log,
 		driver:         driver,
@@ -77,6 +79,18 @@ func New(log *zap.Logger, databaseURL string) (multinode.DB, error) {
 func (db *multinodeDB) Nodes() console.Nodes {
 	return &nodes{
 		methods: db,
-		db:      db,
 	}
+}
+
+// Members returns members database.
+func (db *multinodeDB) Members() console.Members {
+	return &members{
+		methods: db,
+	}
+}
+
+// CreateSchema creates schema.
+func (db *multinodeDB) CreateSchema(ctx context.Context) error {
+	_, err := db.ExecContext(ctx, db.DB.Schema())
+	return err
 }

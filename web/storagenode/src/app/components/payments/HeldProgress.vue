@@ -89,7 +89,7 @@ export default class HeldProgress extends Vue {
             ),
             new HeldStep(
                 '+50%',
-                'Month 15',
+                'Month 16',
                 this.monthsOnNetwork > 15,
                 this.monthsOnNetwork < 15,
             ),

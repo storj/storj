@@ -30,12 +30,12 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
-import { Notification } from '@/app/types/notifications';
+import { UINotification } from '@/app/types/notifications';
 
 @Component
 export default class SNONotification extends Vue {
-    @Prop({default: () => new Notification()})
-    public readonly notification: Notification;
+    @Prop({default: () => new UINotification()})
+    public readonly notification: UINotification;
 
     /**
      * isSmall props indicates if component used in popup.
