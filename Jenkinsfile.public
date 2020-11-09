@@ -79,12 +79,9 @@ pipeline {
                         sh 'psql -U postgres -c \'create database teststorj;\''
                         sh 'psql -U postgres -c \'create database testmetabase;\''
                         sh 'use-ports -from 1024 -to 10000 &'
-                        script {
-                            try {
-                                sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 20m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
-                            } catch(err) {
-                                unstable('tests failed')
-                            }
+
+                        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                            sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 20m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
                         }
                         sh 'check-clean-directory'
                     }
@@ -119,12 +116,8 @@ pipeline {
                         sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database benchcockroach;\''
 
                         sh 'psql -U postgres -c \'create database benchstorj;\''
-                        script {
-                            try {
-                                sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
-                            } catch(err) {
-                                unstable('benchmarks failed')
-                            }
+                        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                            sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
                         }
                     }
                 }
@@ -140,12 +133,8 @@ pipeline {
 
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj2;\''
-                        script {
-                            try {
-                                sh 'make test-sim'
-                            } catch(err) {
-                                unstable('integration failed')
-                            }
+                        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                            sh 'make test-sim'
                         }
 
                         // sh 'make test-certificates' // flaky
@@ -162,12 +151,8 @@ pipeline {
 
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach4;\''
-                        script {
-                            try {
-                                sh 'make test-sim'
-                            } catch(err) {
-                                unstable('cockroach integration failed')
-                            }
+                        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                            sh 'make test-sim'
                         }
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach4;\''
                     }
@@ -183,12 +168,8 @@ pipeline {
 
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj3;\''
-                        script {
-                            try {
-                                sh 'make test-sim-backwards-compatible'
-                            } catch(err) {
-                                unstable('backwards compatibility failed')
-                            }
+                        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                            sh 'make test-sim-backwards-compatible'
                         }
                     }
                 }
@@ -204,10 +185,8 @@ pipeline {
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach5;\''
                         script{
-                            try {
+                            catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
                                 sh 'make test-sim-backwards-compatible'
-                            } catch(err) {
-                                unstable('cockroach backwards compatibility failed')
                             }
                         }
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach5;\''
