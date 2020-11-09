@@ -54,7 +54,7 @@ import VPagination from '@/app/components/VPagination.vue';
 import BackArrowIcon from '@/../static/images/notifications/backArrow.svg';
 
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
-import { Notification, NotificationsCursor } from '@/app/types/notifications';
+import { UINotification } from '@/app/types/notifications';
 
 @Component ({
     components: {
@@ -67,7 +67,7 @@ export default class NotificationsArea extends Vue {
     /**
      * Returns notification of current page.
      */
-    public get notifications(): Notification[] {
+    public get notifications(): UINotification[] {
         return this.$store.state.notificationsModule.notifications;
     }
 
@@ -92,7 +92,7 @@ export default class NotificationsArea extends Vue {
      */
     public async onPageClick(index: number): Promise<void> {
         try {
-            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, new NotificationsCursor(index));
+            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, index);
         } catch (error) {
             console.error(error.message);
         }
