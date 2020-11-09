@@ -8,7 +8,7 @@
 <script lang="ts">
 import { Vue } from 'vue-property-decorator';
 
-export default class type extends Vue {
+export default class CreateAccessPassphraseStep extends Vue {
 }
 </script>
 
