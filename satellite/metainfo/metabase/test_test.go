@@ -4,6 +4,7 @@
 package metabase_test
 
 import (
+	"bytes"
 	"context"
 	"sort"
 	"testing"
@@ -251,11 +252,21 @@ func (step DeleteObjectsAllVersions) Check(ctx *testcontext.Context, t *testing.
 	result, err := db.DeleteObjectsAllVersions(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	sortObjectsByKey(result.Objects)
-	sortObjectsByKey(step.Result.Objects)
+	sortObjects(result.Objects)
+	sortObjects(step.Result.Objects)
 
 	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
 	require.Zero(t, diff)
+}
+
+type DeleteExpiredObjects struct {
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+func (step DeleteExpiredObjects) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	err := db.DeleteExpiredObjects(ctx, time.Now())
+	checkError(t, err, step.ErrClass, step.ErrText)
 }
 
 type IterateCollector []metabase.ObjectEntry
@@ -299,9 +310,21 @@ func checkError(t *testing.T, err error, errClass *errs.Class, errText string) {
 	}
 }
 
-func sortObjectsByKey(objects []metabase.Object) {
+func sortObjects(objects []metabase.Object) {
 	sort.Slice(objects, func(i, j int) bool {
-		return objects[i].ObjectKey < objects[j].ObjectKey
+		return bytes.Compare(objects[i].StreamID[:], objects[j].StreamID[:]) < 0
+	})
+}
+
+func sortRawObjects(objects []metabase.RawObject) {
+	sort.Slice(objects, func(i, j int) bool {
+		return bytes.Compare(objects[i].StreamID[:], objects[j].StreamID[:]) < 0
+	})
+}
+
+func sortRawSegments(segments []metabase.RawSegment) {
+	sort.Slice(segments, func(i, j int) bool {
+		return bytes.Compare(segments[i].StreamID[:], segments[j].StreamID[:]) < 0
 	})
 }
 
@@ -318,6 +341,11 @@ func (step Verify) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB
 	state, err := db.TestingGetState(ctx)
 	require.NoError(t, err)
 
+	sortRawObjects(state.Objects)
+	sortRawObjects(step.Objects)
+	sortRawSegments(state.Segments)
+	sortRawSegments(step.Segments)
+
 	diff := cmp.Diff(metabase.RawState(step), *state,
 		cmpopts.EquateApproxTime(5*time.Second))
 	require.Zero(t, diff)
@@ -329,7 +357,7 @@ type CreateTestObject struct {
 	// TODO add BeginSegment, CommitSegment
 }
 
-func (co CreateTestObject) Run(ctx *testcontext.Context, t *testing.T, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte) {
+func (co CreateTestObject) Run(ctx *testcontext.Context, t *testing.T, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte) metabase.Object {
 	boeOpts := metabase.BeginObjectExactVersion{
 		ObjectStream: obj,
 		Encryption:   defaultTestEncryption,
@@ -381,7 +409,7 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t *testing.T, db *metab
 		coOpts = *co.CommitObject
 	}
 
-	CommitObject{
+	return CommitObject{
 		Opts: coOpts,
 	}.Check(ctx, t, db)
 }
