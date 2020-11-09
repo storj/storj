@@ -68,7 +68,6 @@ import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
-import { NotificationsCursor } from '@/app/types/notifications';
 
 const {
     GET_NODE_INFO,
@@ -90,18 +89,23 @@ const {
 export default class SNOHeader extends Vue {
     public isNotificationPopupShown: boolean = false;
     public isOptionsShown: boolean = false;
+    private readonly FIRST_PAGE: number = 1;
 
     /**
      * Lifecycle hook before render.
      * Fetches first page of notifications.
      */
-    public beforeMount(): void {
+    public async beforeMount(): Promise<void> {
+        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
+
         try {
-            this.$store.dispatch(NODE_ACTIONS.GET_NODE_INFO);
-            this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, new NotificationsCursor(1));
+            await this.$store.dispatch(NODE_ACTIONS.GET_NODE_INFO);
+            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, this.FIRST_PAGE);
         } catch (error) {
             console.error(error.message);
         }
+
+        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
     }
 
     public get nodeId(): string {
@@ -192,7 +196,7 @@ export default class SNOHeader extends Vue {
         }
 
         try {
-            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, new NotificationsCursor(1));
+            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, this.FIRST_PAGE);
         } catch (error) {
             console.error(error.message);
         }
