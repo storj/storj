@@ -400,32 +400,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # request rate per project per second.
 # metainfo.rate-limiter.rate: 1000
 
-# the size of each new erasure share in bytes
-# metainfo.rs.erasure-share-size: 256 B
-
-# maximum buffer memory to be allocated for read buffers
-# metainfo.rs.max-buffer-mem: 4.0 MiB
-
-# the largest amount of pieces to encode to. n (upper bound for validation).
-# metainfo.rs.max-total-threshold: 130
-
-# the minimum pieces required to recover a segment. k.
-# metainfo.rs.min-threshold: 29
-
-# the largest amount of pieces to encode to. n (lower bound for validation).
-# metainfo.rs.min-total-threshold: 95
-
-# the minimum safe pieces before a repair is triggered. m.
-# metainfo.rs.repair-threshold: 35
-
-# the desired total pieces for a segment. o.
-# metainfo.rs.success-threshold: 80
-
-# the largest amount of pieces to encode to. n.
-# metainfo.rs.total-threshold: 110
-
-# validate redundancy scheme configuration
-# metainfo.rs.validate: true
+# redundancy scheme configuration in the format k/m/o/n-sharesize
+# metainfo.rs: 29/35/80/110-256 B
 
 # address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000

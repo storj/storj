@@ -32,14 +32,12 @@ func TestChore(t *testing.T) {
 		StorageNodeCount: 8,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.GracefulExit.MaxInactiveTimeFrame = maximumInactiveTimeFrame
-
-				config.Metainfo.RS.MinThreshold = 4
-				config.Metainfo.RS.RepairThreshold = 6
-				config.Metainfo.RS.SuccessThreshold = 8
-				config.Metainfo.RS.TotalThreshold = 8
-			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.GracefulExit.MaxInactiveTimeFrame = maximumInactiveTimeFrame
+				},
+				testplanet.ReconfigureRS(4, 6, 8, 8),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
@@ -136,14 +134,12 @@ func TestDurabilityRatio(t *testing.T) {
 		StorageNodeCount: 4,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.GracefulExit.MaxInactiveTimeFrame = maximumInactiveTimeFrame
-
-				config.Metainfo.RS.MinThreshold = 2
-				config.Metainfo.RS.RepairThreshold = 3
-				config.Metainfo.RS.SuccessThreshold = successThreshold
-				config.Metainfo.RS.TotalThreshold = 4
-			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.GracefulExit.MaxInactiveTimeFrame = maximumInactiveTimeFrame
+				},
+				testplanet.ReconfigureRS(2, 3, successThreshold, 4),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]

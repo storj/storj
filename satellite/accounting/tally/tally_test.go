@@ -143,7 +143,7 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 		require.NoError(t, err)
 
 		// Confirm the correct number of shares were stored
-		rs := satelliteRS(planet.Satellites[0])
+		rs := satelliteRS(t, planet.Satellites[0])
 		if !correctRedundencyScheme(len(obs.Node), rs) {
 			t.Fatalf("expected between: %d and %d, actual: %d", rs.RepairShares, rs.TotalShares, len(obs.Node))
 		}
@@ -175,7 +175,7 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellitePeer := planet.Satellites[0]
-		redundancyScheme := satelliteRS(satellitePeer)
+		redundancyScheme := satelliteRS(t, satellitePeer)
 		expectedBucketTallies := make(map[metabase.BucketLocation]*accounting.BucketTally)
 		for _, tt := range testCases {
 			tt := tt // avoid scopelint error
@@ -221,7 +221,7 @@ func TestTallyIgnoresExpiredPointers(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellitePeer := planet.Satellites[0]
-		redundancyScheme := satelliteRS(satellitePeer)
+		redundancyScheme := satelliteRS(t, satellitePeer)
 
 		projectID, err := uuid.FromString("9656af6e-2d9c-42fa-91f2-bfd516a722d7")
 		require.NoError(t, err)
@@ -423,12 +423,14 @@ func correctRedundencyScheme(shareCount int, uplinkRS storj.RedundancyScheme) bo
 	return int(uplinkRS.RepairShares) <= shareCount && shareCount <= int(uplinkRS.TotalShares)
 }
 
-func satelliteRS(satellite *testplanet.Satellite) storj.RedundancyScheme {
+func satelliteRS(t *testing.T, satellite *testplanet.Satellite) storj.RedundancyScheme {
+	rs := satellite.Config.Metainfo.RS
+
 	return storj.RedundancyScheme{
-		RequiredShares: int16(satellite.Config.Metainfo.RS.MinThreshold),
-		RepairShares:   int16(satellite.Config.Metainfo.RS.RepairThreshold),
-		OptimalShares:  int16(satellite.Config.Metainfo.RS.SuccessThreshold),
-		TotalShares:    int16(satellite.Config.Metainfo.RS.TotalThreshold),
-		ShareSize:      satellite.Config.Metainfo.RS.ErasureShareSize.Int32(),
+		RequiredShares: int16(rs.Min),
+		RepairShares:   int16(rs.Repair),
+		OptimalShares:  int16(rs.Success),
+		TotalShares:    int16(rs.Total),
+		ShareSize:      rs.ErasureShareSize.Int32(),
 	}
 }
