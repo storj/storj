@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-	<div></div>
+	<div>TESTING</div>
 </template>
 
 <script lang="ts">
