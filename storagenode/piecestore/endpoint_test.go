@@ -530,8 +530,6 @@ func TestDeletePieces(t *testing.T) {
 }
 
 func TestTooManyRequests(t *testing.T) {
-	t.Skip("flaky, because of EOF issues")
-
 	const uplinkCount = 6
 	const maxConcurrent = 3
 	const expectedFailures = uplinkCount - maxConcurrent
