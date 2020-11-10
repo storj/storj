@@ -500,3 +500,131 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 		})
 	})
 }
+
+func TestGetSegmentByOffset(t *testing.T) {
+	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := randObjectStream()
+		location := obj.Location()
+		now := time.Now()
+
+		for _, test := range invalidObjectLocations(location) {
+			test := test
+			t.Run(test.Name, func(t *testing.T) {
+				defer DeleteAll{}.Check(ctx, t, db)
+				GetSegmentByOffset{
+					Opts: metabase.GetSegmentByOffset{
+						ObjectLocation: test.ObjectLocation,
+					},
+					ErrClass: test.ErrClass,
+					ErrText:  test.ErrText,
+				}.Check(ctx, t, db)
+
+				Verify{}.Check(ctx, t, db)
+			})
+		}
+
+		t.Run("Invalid PlainOffset", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			GetSegmentByOffset{
+				Opts: metabase.GetSegmentByOffset{
+					ObjectLocation: location,
+					PlainOffset:    -1,
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "Invalid PlainOffset: -1",
+			}.Check(ctx, t, db)
+
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Object or segment missing", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			GetSegmentByOffset{
+				Opts: metabase.GetSegmentByOffset{
+					ObjectLocation: location,
+				},
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: object or segment missing",
+			}.Check(ctx, t, db)
+
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Get segment", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			CreateTestObject{}.Run(ctx, t, db, obj, 4)
+
+			segments := make([]metabase.Segment, 4)
+			for i := range segments {
+				segments[i] = metabase.Segment{
+					StreamID: obj.StreamID,
+					Position: metabase.SegmentPosition{
+						Index: uint32(i),
+					},
+					RootPieceID:       storj.PieceID{1},
+					EncryptedKey:      []byte{3},
+					EncryptedKeyNonce: []byte{4},
+					EncryptedSize:     1060,
+					PlainSize:         512,
+					PlainOffset:       int64(i * 512),
+					Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+					Redundancy:        defaultTestRedundancy,
+				}
+			}
+
+			var testCases = []struct {
+				Offset          int64
+				ExpectedSegment metabase.Segment
+			}{
+				{0, segments[0]},
+				{100, segments[0]},
+				{1023, segments[1]},
+				{1024, segments[2]},
+			}
+
+			for _, tc := range testCases {
+				GetSegmentByOffset{
+					Opts: metabase.GetSegmentByOffset{
+						ObjectLocation: location,
+						PlainOffset:    tc.Offset,
+					},
+					Result: tc.ExpectedSegment,
+				}.Check(ctx, t, db)
+			}
+
+			GetSegmentByOffset{
+				Opts: metabase.GetSegmentByOffset{
+					ObjectLocation: location,
+					PlainOffset:    2048,
+				},
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: object or segment missing",
+			}.Check(ctx, t, db)
+
+			Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Committed,
+						SegmentCount: 4,
+
+						TotalEncryptedSize: 4240,
+						FixedSegmentSize:   1060,
+
+						Encryption: defaultTestEncryption,
+					},
+				},
+				Segments: []metabase.RawSegment{
+					metabase.RawSegment(segments[0]),
+					metabase.RawSegment(segments[1]),
+					metabase.RawSegment(segments[2]),
+					metabase.RawSegment(segments[3]),
+				},
+			}.Check(ctx, t, db)
+		})
+	})
+}

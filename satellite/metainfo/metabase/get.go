@@ -246,3 +246,60 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 
 	return segment, nil
 }
+
+// GetSegmentByOffset contains arguments necessary for fetching a segment information.
+type GetSegmentByOffset struct {
+	ObjectLocation
+	PlainOffset int64
+}
+
+// GetSegmentByOffset returns an object segment information.
+func (db *DB) GetSegmentByOffset(ctx context.Context, opts GetSegmentByOffset) (segment Segment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return Segment{}, err
+	}
+
+	if opts.PlainOffset < 0 {
+		return Segment{}, ErrInvalidRequest.New("Invalid PlainOffset: %d", opts.PlainOffset)
+	}
+
+	err = db.db.QueryRow(ctx, `
+		SELECT
+			stream_id, position,
+			root_piece_id, encrypted_key_nonce, encrypted_key,
+			encrypted_size, plain_offset, plain_size,
+			redundancy,
+			inline_data, remote_pieces
+		FROM segments
+		WHERE
+			stream_id = (SELECT stream_id FROM objects WHERE
+				project_id   = $1 AND
+				bucket_name  = $2 AND
+				object_key   = $3 AND
+				status       = 1
+				ORDER BY version DESC
+				LIMIT 1
+			) AND
+			plain_offset <= $4 AND
+			(plain_size + plain_offset) > $4
+		ORDER BY plain_offset ASC
+		LIMIT 1
+	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.PlainOffset).
+		Scan(
+			&segment.StreamID, &segment.Position,
+			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
+			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
+			redundancyScheme{&segment.Redundancy},
+			&segment.InlineData, &segment.Pieces,
+		)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Segment{}, storj.ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
+		}
+		return Segment{}, Error.New("unable to query segment: %w", err)
+	}
+
+	return segment, nil
+}

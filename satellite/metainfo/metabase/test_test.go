@@ -164,6 +164,21 @@ func (step GetLatestObjectLastSegment) Check(ctx *testcontext.Context, t *testin
 	require.Zero(t, diff)
 }
 
+type GetSegmentByOffset struct {
+	Opts     metabase.GetSegmentByOffset
+	Result   metabase.Segment
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+func (step GetSegmentByOffset) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	result, err := db.GetSegmentByOffset(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	require.Zero(t, diff)
+}
+
 type DeleteObjectExactVersion struct {
 	Opts     metabase.DeleteObjectExactVersion
 	Result   metabase.DeleteObjectResult
@@ -283,12 +298,12 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t *testing.T, db *metab
 		Version: obj.Version,
 	}.Check(ctx, t, db)
 
-	for i := byte(1); i <= numberOfSegments; i++ {
+	for i := byte(0); i < numberOfSegments; i++ {
 		BeginSegment{
 			Opts: metabase.BeginSegment{
 				ObjectStream: obj,
 				Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
-				RootPieceID:  storj.PieceID{i},
+				RootPieceID:  storj.PieceID{i + 1},
 				Pieces: []metabase.Piece{{
 					Number:      1,
 					StorageNode: testrand.NodeID(),
@@ -306,9 +321,9 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t *testing.T, db *metab
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
 
-				EncryptedSize: 1024,
+				EncryptedSize: 1060,
 				PlainSize:     512,
-				PlainOffset:   0,
+				PlainOffset:   int64(i) * 512,
 				Redundancy:    defaultTestRedundancy,
 			},
 		}.Check(ctx, t, db)
