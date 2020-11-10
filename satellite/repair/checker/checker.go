@@ -391,7 +391,7 @@ func (obs *checkerObserver) InlineSegment(ctx context.Context, segment *metainfo
 func (checker *Checker) IrreparableProcess(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	const limit = 1000
-	var lastSeenSegmentKey metabase.SegmentKey
+	lastSeenSegmentKey := metabase.SegmentKey{}
 
 	for {
 		segments, err := checker.irrdb.GetLimited(ctx, limit, lastSeenSegmentKey)

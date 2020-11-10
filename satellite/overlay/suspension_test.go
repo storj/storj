@@ -66,7 +66,6 @@ func TestAuditSuspendWithUpdateStats(t *testing.T) {
 		_, err = oc.UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       nodeID,
 			AuditOutcome: overlay.AuditUnknown,
-			IsUp:         true,
 			AuditLambda:  1,
 			AuditWeight:  1,
 			AuditDQ:      0.6,
@@ -90,7 +89,6 @@ func TestAuditSuspendWithUpdateStats(t *testing.T) {
 			_, err = oc.UpdateStats(ctx, &overlay.UpdateRequest{
 				NodeID:       nodeID,
 				AuditOutcome: overlay.AuditSuccess,
-				IsUp:         true,
 				AuditLambda:  1,
 				AuditWeight:  1,
 				AuditDQ:      0.6,
@@ -121,7 +119,6 @@ func TestAuditSuspendFailedAudit(t *testing.T) {
 		_, err = oc.UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       nodeID,
 			AuditOutcome: overlay.AuditFailure,
-			IsUp:         true,
 			AuditLambda:  1,
 			AuditWeight:  1,
 			AuditDQ:      0.6,
@@ -277,7 +274,6 @@ func TestAuditSuspendBatchUpdateStats(t *testing.T) {
 		nodeUpdateReq := &overlay.UpdateRequest{
 			NodeID:       nodeID,
 			AuditOutcome: overlay.AuditSuccess,
-			IsUp:         true,
 			AuditLambda:  1,
 			AuditWeight:  1,
 			AuditDQ:      0.6,
@@ -343,7 +339,6 @@ func TestOfflineSuspend(t *testing.T) {
 		updateReq := &overlay.UpdateRequest{
 			NodeID:       nodeID,
 			AuditOutcome: overlay.AuditOffline,
-			IsUp:         false,
 			AuditHistory: overlay.AuditHistoryConfig{
 				WindowSize:       time.Hour,
 				TrackingPeriod:   2 * time.Hour,
@@ -472,12 +467,11 @@ func setOnlineScore(ctx context.Context, reqPtr *overlay.UpdateRequest, desiredS
 	for window := 0; window < windowsPerTrackingPeriod+1; window++ {
 		updateReqs := []*overlay.UpdateRequest{}
 		for i := 0; i < totalAudits; i++ {
-			isUp := true
-			if i >= onlineAudits {
-				isUp = false
-			}
 			updateReq := *reqPtr
-			updateReq.IsUp = isUp
+			updateReq.AuditOutcome = overlay.AuditSuccess
+			if i >= onlineAudits {
+				updateReq.AuditOutcome = overlay.AuditOffline
+			}
 			updateReq.AuditHistory.GracePeriod = gracePeriod
 
 			updateReqs = append(updateReqs, &updateReq)

@@ -34,18 +34,20 @@ func TestBasic(t *testing.T) {
 
 			for _, sat := range planet.Satellites {
 				for _, sn := range planet.StorageNodes {
-					node := sn.Contact.Service.Local()
-					conn, err := sn.Dialer.DialNodeURL(ctx, sat.NodeURL())
+					func() {
+						node := sn.Contact.Service.Local()
+						conn, err := sn.Dialer.DialNodeURL(ctx, sat.NodeURL())
 
-					require.NoError(t, err)
-					defer ctx.Check(conn.Close)
-					_, err = pb.NewDRPCNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
-						Address:  node.Address,
-						Version:  &node.Version,
-						Capacity: &node.Capacity,
-						Operator: &node.Operator,
-					})
-					require.NoError(t, err)
+						require.NoError(t, err)
+						defer ctx.Check(conn.Close)
+						_, err = pb.NewDRPCNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
+							Address:  node.Address,
+							Version:  &node.Version,
+							Capacity: &node.Capacity,
+							Operator: &node.Operator,
+						})
+						require.NoError(t, err)
+					}()
 				}
 			}
 			// wait a bit to see whether some failures occur

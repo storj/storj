@@ -215,85 +215,87 @@ func TestInvalidAPIKey(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, invalidAPIKey := range []string{"", "invalid", "testKey"} {
-			client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], throwawayKey)
-			require.NoError(t, err)
-			defer ctx.Check(client.Close)
+			func() {
+				client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], throwawayKey)
+				require.NoError(t, err)
+				defer ctx.Check(client.Close)
 
-			client.SetRawAPIKey([]byte(invalidAPIKey))
+				client.SetRawAPIKey([]byte(invalidAPIKey))
 
-			_, err = client.BeginObject(ctx, metainfo.BeginObjectParams{})
-			assertInvalidArgument(t, err, false)
+				_, err = client.BeginObject(ctx, metainfo.BeginObjectParams{})
+				assertInvalidArgument(t, err, false)
 
-			_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
-			assertInvalidArgument(t, err, false)
+				_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
+				assertInvalidArgument(t, err, false)
 
-			_, err = client.ListBuckets(ctx, metainfo.ListBucketsParams{})
-			assertInvalidArgument(t, err, false)
+				_, err = client.ListBuckets(ctx, metainfo.ListBucketsParams{})
+				assertInvalidArgument(t, err, false)
 
-			_, _, err = client.ListObjects(ctx, metainfo.ListObjectsParams{})
-			assertInvalidArgument(t, err, false)
+				_, _, err = client.ListObjects(ctx, metainfo.ListObjectsParams{})
+				assertInvalidArgument(t, err, false)
 
-			_, err = client.CreateBucket(ctx, metainfo.CreateBucketParams{})
-			assertInvalidArgument(t, err, false)
+				_, err = client.CreateBucket(ctx, metainfo.CreateBucketParams{})
+				assertInvalidArgument(t, err, false)
 
-			_, err = client.DeleteBucket(ctx, metainfo.DeleteBucketParams{})
-			assertInvalidArgument(t, err, false)
+				_, err = client.DeleteBucket(ctx, metainfo.DeleteBucketParams{})
+				assertInvalidArgument(t, err, false)
 
-			_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
-			assertInvalidArgument(t, err, false)
+				_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
+				assertInvalidArgument(t, err, false)
 
-			_, err = client.GetBucket(ctx, metainfo.GetBucketParams{})
-			assertInvalidArgument(t, err, false)
+				_, err = client.GetBucket(ctx, metainfo.GetBucketParams{})
+				assertInvalidArgument(t, err, false)
 
-			_, err = client.GetObject(ctx, metainfo.GetObjectParams{})
-			assertInvalidArgument(t, err, false)
+				_, err = client.GetObject(ctx, metainfo.GetObjectParams{})
+				assertInvalidArgument(t, err, false)
 
-			_, err = client.GetProjectInfo(ctx)
-			assertInvalidArgument(t, err, false)
+				_, err = client.GetProjectInfo(ctx)
+				assertInvalidArgument(t, err, false)
 
-			// these methods needs StreamID to do authentication
+				// these methods needs StreamID to do authentication
 
-			signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
-			satStreamID := &internalpb.StreamID{
-				CreationDate: time.Now(),
-			}
-			signedStreamID, err := satMetainfo.SignStreamID(ctx, signer, satStreamID)
-			require.NoError(t, err)
+				signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
+				satStreamID := &internalpb.StreamID{
+					CreationDate: time.Now(),
+				}
+				signedStreamID, err := satMetainfo.SignStreamID(ctx, signer, satStreamID)
+				require.NoError(t, err)
 
-			encodedStreamID, err := pb.Marshal(signedStreamID)
-			require.NoError(t, err)
+				encodedStreamID, err := pb.Marshal(signedStreamID)
+				require.NoError(t, err)
 
-			streamID, err := storj.StreamIDFromBytes(encodedStreamID)
-			require.NoError(t, err)
+				streamID, err := storj.StreamIDFromBytes(encodedStreamID)
+				require.NoError(t, err)
 
-			err = client.CommitObject(ctx, metainfo.CommitObjectParams{StreamID: streamID})
-			assertInvalidArgument(t, err, false)
+				err = client.CommitObject(ctx, metainfo.CommitObjectParams{StreamID: streamID})
+				assertInvalidArgument(t, err, false)
 
-			_, _, _, err = client.BeginSegment(ctx, metainfo.BeginSegmentParams{StreamID: streamID})
-			assertInvalidArgument(t, err, false)
+				_, _, _, err = client.BeginSegment(ctx, metainfo.BeginSegmentParams{StreamID: streamID})
+				assertInvalidArgument(t, err, false)
 
-			err = client.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{StreamID: streamID})
-			assertInvalidArgument(t, err, false)
+				err = client.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{StreamID: streamID})
+				assertInvalidArgument(t, err, false)
 
-			_, _, err = client.DownloadSegment(ctx, metainfo.DownloadSegmentParams{StreamID: streamID})
-			assertInvalidArgument(t, err, false)
+				_, _, err = client.DownloadSegment(ctx, metainfo.DownloadSegmentParams{StreamID: streamID})
+				assertInvalidArgument(t, err, false)
 
-			// these methods needs SegmentID
+				// these methods needs SegmentID
 
-			signedSegmentID, err := satMetainfo.SignSegmentID(ctx, signer, &internalpb.SegmentID{
-				StreamId:     satStreamID,
-				CreationDate: time.Now(),
-			})
-			require.NoError(t, err)
+				signedSegmentID, err := satMetainfo.SignSegmentID(ctx, signer, &internalpb.SegmentID{
+					StreamId:     satStreamID,
+					CreationDate: time.Now(),
+				})
+				require.NoError(t, err)
 
-			encodedSegmentID, err := pb.Marshal(signedSegmentID)
-			require.NoError(t, err)
+				encodedSegmentID, err := pb.Marshal(signedSegmentID)
+				require.NoError(t, err)
 
-			segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
-			require.NoError(t, err)
+				segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
+				require.NoError(t, err)
 
-			err = client.CommitSegment(ctx, metainfo.CommitSegmentParams{SegmentID: segmentID})
-			assertInvalidArgument(t, err, false)
+				err = client.CommitSegment(ctx, metainfo.CommitSegmentParams{SegmentID: segmentID})
+				assertInvalidArgument(t, err, false)
+			}()
 		}
 	})
 }

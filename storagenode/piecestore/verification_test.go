@@ -226,45 +226,47 @@ func TestOrderLimitGetValidation(t *testing.T) {
 				err:             "expected get or get repair or audit action got PUT",
 			},
 		} {
-			client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
-			require.NoError(t, err)
-			defer ctx.Check(client.Close)
-
-			signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
-			satellite := planet.Satellites[0].Identity
-			if tt.satellite != nil {
-				signer = signing.SignerFromFullIdentity(tt.satellite)
-				satellite = tt.satellite
-			}
-
-			orderLimit, piecePrivateKey := GenerateOrderLimit(
-				t,
-				satellite.ID,
-				planet.StorageNodes[0].ID(),
-				tt.pieceID,
-				tt.action,
-				tt.serialNumber,
-				tt.pieceExpiration,
-				tt.orderExpiration,
-				tt.limit,
-			)
-
-			orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
-			require.NoError(t, err)
-
-			downloader, err := client.Download(ctx, orderLimit, piecePrivateKey, 0, tt.limit)
-			require.NoError(t, err)
-
-			buffer, readErr := ioutil.ReadAll(downloader)
-			closeErr := downloader.Close()
-			err = errs.Combine(readErr, closeErr)
-			if tt.err != "" {
-				assert.Equal(t, 0, len(buffer))
-				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.err)
-			} else {
+			func() {
+				client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
 				require.NoError(t, err)
-			}
+				defer ctx.Check(client.Close)
+
+				signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
+				satellite := planet.Satellites[0].Identity
+				if tt.satellite != nil {
+					signer = signing.SignerFromFullIdentity(tt.satellite)
+					satellite = tt.satellite
+				}
+
+				orderLimit, piecePrivateKey := GenerateOrderLimit(
+					t,
+					satellite.ID,
+					planet.StorageNodes[0].ID(),
+					tt.pieceID,
+					tt.action,
+					tt.serialNumber,
+					tt.pieceExpiration,
+					tt.orderExpiration,
+					tt.limit,
+				)
+
+				orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
+				require.NoError(t, err)
+
+				downloader, err := client.Download(ctx, orderLimit, piecePrivateKey, 0, tt.limit)
+				require.NoError(t, err)
+
+				buffer, readErr := ioutil.ReadAll(downloader)
+				closeErr := downloader.Close()
+				err = errs.Combine(readErr, closeErr)
+				if tt.err != "" {
+					assert.Equal(t, 0, len(buffer))
+					require.Error(t, err)
+					require.Contains(t, err.Error(), tt.err)
+				} else {
+					require.NoError(t, err)
+				}
+			}()
 		}
 	})
 }

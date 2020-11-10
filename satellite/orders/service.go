@@ -566,7 +566,11 @@ func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, buc
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	nodeURL := storj.NodeURL{ID: nodeID, Address: node.Address.Address}
+	address := node.Address.Address
+	if node.LastIPPort != "" {
+		address = node.LastIPPort
+	}
+	nodeURL := storj.NodeURL{ID: nodeID, Address: address}
 	limit, err = signer.Sign(ctx, nodeURL, pieceNum)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)

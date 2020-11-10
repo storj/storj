@@ -164,7 +164,6 @@ const (
 type UpdateRequest struct {
 	NodeID       storj.NodeID
 	AuditOutcome AuditType
-	IsUp         bool
 	// n.b. these are set values from the satellite.
 	// They are part of the UpdateRequest struct in order to be
 	// more easily accessible in satellite/satellitedb/overlaycache.go.

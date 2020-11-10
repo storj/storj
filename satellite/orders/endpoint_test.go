@@ -76,106 +76,108 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 		}
 
 		for _, tt := range testCases {
-			// create serial number to use in test. must be unique for each run.
-			serialNumber1 := testrand.SerialNumber()
-			err = ordersDB.CreateSerialInfo(ctx, serialNumber1, []byte(bucketID), now.AddDate(1, 0, 10))
-			require.NoError(t, err)
+			func() {
+				// create serial number to use in test. must be unique for each run.
+				serialNumber1 := testrand.SerialNumber()
+				err = ordersDB.CreateSerialInfo(ctx, serialNumber1, []byte(bucketID), now.AddDate(1, 0, 10))
+				require.NoError(t, err)
 
-			serialNumber2 := testrand.SerialNumber()
-			err = ordersDB.CreateSerialInfo(ctx, serialNumber2, []byte(bucketID), now.AddDate(1, 0, 10))
-			require.NoError(t, err)
+				serialNumber2 := testrand.SerialNumber()
+				err = ordersDB.CreateSerialInfo(ctx, serialNumber2, []byte(bucketID), now.AddDate(1, 0, 10))
+				require.NoError(t, err)
 
-			piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
-			require.NoError(t, err)
+				piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+				require.NoError(t, err)
 
-			// create signed orderlimit or order to test with
-			limit1 := &pb.OrderLimit{
-				SerialNumber:    serialNumber1,
-				SatelliteId:     satellite.ID(),
-				UplinkPublicKey: piecePublicKey,
-				StorageNodeId:   storagenode.ID(),
-				PieceId:         storj.NewPieceID(),
-				Action:          pb.PieceAction_PUT,
-				Limit:           1000,
-				PieceExpiration: time.Time{},
-				OrderCreation:   tt.orderCreation,
-				OrderExpiration: now.Add(24 * time.Hour),
-			}
-			orderLimit1, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), limit1)
-			require.NoError(t, err)
+				// create signed orderlimit or order to test with
+				limit1 := &pb.OrderLimit{
+					SerialNumber:    serialNumber1,
+					SatelliteId:     satellite.ID(),
+					UplinkPublicKey: piecePublicKey,
+					StorageNodeId:   storagenode.ID(),
+					PieceId:         storj.NewPieceID(),
+					Action:          pb.PieceAction_PUT,
+					Limit:           1000,
+					PieceExpiration: time.Time{},
+					OrderCreation:   tt.orderCreation,
+					OrderExpiration: now.Add(24 * time.Hour),
+				}
+				orderLimit1, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), limit1)
+				require.NoError(t, err)
 
-			order1, err := signing.SignUplinkOrder(ctx, piecePrivateKey, &pb.Order{
-				SerialNumber: serialNumber1,
-				Amount:       tt.dataAmount,
-			})
-			require.NoError(t, err)
+				order1, err := signing.SignUplinkOrder(ctx, piecePrivateKey, &pb.Order{
+					SerialNumber: serialNumber1,
+					Amount:       tt.dataAmount,
+				})
+				require.NoError(t, err)
 
-			limit2 := &pb.OrderLimit{
-				SerialNumber:    serialNumber2,
-				SatelliteId:     satellite.ID(),
-				UplinkPublicKey: piecePublicKey,
-				StorageNodeId:   storagenode.ID(),
-				PieceId:         storj.NewPieceID(),
-				Action:          pb.PieceAction_PUT,
-				Limit:           1000,
-				PieceExpiration: time.Time{},
-				OrderCreation:   now,
-				OrderExpiration: now.Add(24 * time.Hour),
-			}
-			orderLimit2, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), limit2)
-			require.NoError(t, err)
+				limit2 := &pb.OrderLimit{
+					SerialNumber:    serialNumber2,
+					SatelliteId:     satellite.ID(),
+					UplinkPublicKey: piecePublicKey,
+					StorageNodeId:   storagenode.ID(),
+					PieceId:         storj.NewPieceID(),
+					Action:          pb.PieceAction_PUT,
+					Limit:           1000,
+					PieceExpiration: time.Time{},
+					OrderCreation:   now,
+					OrderExpiration: now.Add(24 * time.Hour),
+				}
+				orderLimit2, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), limit2)
+				require.NoError(t, err)
 
-			order2, err := signing.SignUplinkOrder(ctx, piecePrivateKey, &pb.Order{
-				SerialNumber: serialNumber2,
-				Amount:       tt.dataAmount,
-			})
-			require.NoError(t, err)
+				order2, err := signing.SignUplinkOrder(ctx, piecePrivateKey, &pb.Order{
+					SerialNumber: serialNumber2,
+					Amount:       tt.dataAmount,
+				})
+				require.NoError(t, err)
 
-			// create connection between storagenode and satellite
-			conn, err := storagenode.Dialer.DialNodeURL(ctx, storj.NodeURL{ID: satellite.ID(), Address: satellite.Addr()})
-			require.NoError(t, err)
-			defer ctx.Check(conn.Close)
+				// create connection between storagenode and satellite
+				conn, err := storagenode.Dialer.DialNodeURL(ctx, storj.NodeURL{ID: satellite.ID(), Address: satellite.Addr()})
+				require.NoError(t, err)
+				defer ctx.Check(conn.Close)
 
-			stream, err := pb.NewDRPCOrdersClient(conn).SettlementWithWindow(ctx)
-			require.NoError(t, err)
-			defer ctx.Check(stream.Close)
+				stream, err := pb.NewDRPCOrdersClient(conn).SettlementWithWindow(ctx)
+				require.NoError(t, err)
+				defer ctx.Check(stream.Close)
 
-			// storagenode settles an order and orderlimit
-			err = stream.Send(&pb.SettlementRequest{
-				Limit: orderLimit1,
-				Order: order1,
-			})
-			require.NoError(t, err)
-			err = stream.Send(&pb.SettlementRequest{
-				Limit: orderLimit2,
-				Order: order2,
-			})
-			require.NoError(t, err)
-			resp, err := stream.CloseAndRecv()
-			require.NoError(t, err)
+				// storagenode settles an order and orderlimit
+				err = stream.Send(&pb.SettlementRequest{
+					Limit: orderLimit1,
+					Order: order1,
+				})
+				require.NoError(t, err)
+				err = stream.Send(&pb.SettlementRequest{
+					Limit: orderLimit2,
+					Order: order2,
+				})
+				require.NoError(t, err)
+				resp, err := stream.CloseAndRecv()
+				require.NoError(t, err)
 
-			// the settled amount is only returned during phase3
-			var settled map[int32]int64
-			if satellite.Config.Orders.WindowEndpointRolloutPhase == orders.WindowEndpointRolloutPhase3 {
-				settled = map[int32]int64{int32(pb.PieceAction_PUT): tt.settledAmt}
-			}
-			require.Equal(t, &pb.SettlementWithWindowResponse{
-				Status:        pb.SettlementWithWindowResponse_ACCEPTED,
-				ActionSettled: settled,
-			}, resp)
+				// the settled amount is only returned during phase3
+				var settled map[int32]int64
+				if satellite.Config.Orders.WindowEndpointRolloutPhase == orders.WindowEndpointRolloutPhase3 {
+					settled = map[int32]int64{int32(pb.PieceAction_PUT): tt.settledAmt}
+				}
+				require.Equal(t, &pb.SettlementWithWindowResponse{
+					Status:        pb.SettlementWithWindowResponse_ACCEPTED,
+					ActionSettled: settled,
+				}, resp)
 
-			// trigger and wait for all of the chores necessary to flush the orders
-			assert.NoError(t, satellite.Accounting.ReportedRollup.RunOnce(ctx, tt.orderCreation))
-			satellite.Orders.Chore.Loop.TriggerWait()
+				// trigger and wait for all of the chores necessary to flush the orders
+				assert.NoError(t, satellite.Accounting.ReportedRollup.RunOnce(ctx, tt.orderCreation))
+				satellite.Orders.Chore.Loop.TriggerWait()
 
-			// assert all the right stuff is in the satellite storagenode and bucket bandwidth tables
-			snbw, err = ordersDB.GetStorageNodeBandwidth(ctx, storagenode.ID(), time.Time{}, tt.orderCreation)
-			require.NoError(t, err)
-			require.EqualValues(t, tt.settledAmt, snbw)
+				// assert all the right stuff is in the satellite storagenode and bucket bandwidth tables
+				snbw, err = ordersDB.GetStorageNodeBandwidth(ctx, storagenode.ID(), time.Time{}, tt.orderCreation)
+				require.NoError(t, err)
+				require.EqualValues(t, tt.settledAmt, snbw)
 
-			newBbw, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, tt.orderCreation)
-			require.NoError(t, err)
-			require.EqualValues(t, tt.settledAmt, newBbw)
+				newBbw, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, tt.orderCreation)
+				require.NoError(t, err)
+				require.EqualValues(t, tt.settledAmt, newBbw)
+			}()
 		}
 	})
 }
@@ -223,72 +225,74 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 		}
 
 		for _, tt := range testCases {
-			// create signed orderlimit or order to test with
-			limit := &pb.OrderLimit{
-				SerialNumber:    serialNumber,
-				SatelliteId:     satellite.ID(),
-				UplinkPublicKey: piecePublicKey,
-				StorageNodeId:   storagenode.ID(),
-				PieceId:         storj.NewPieceID(),
-				Action:          pb.PieceAction_PUT,
-				Limit:           1000,
-				PieceExpiration: time.Time{},
-				OrderCreation:   now,
-				OrderExpiration: now.Add(24 * time.Hour),
-			}
-			orderLimit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), limit)
-			require.NoError(t, err)
+			func() {
+				// create signed orderlimit or order to test with
+				limit := &pb.OrderLimit{
+					SerialNumber:    serialNumber,
+					SatelliteId:     satellite.ID(),
+					UplinkPublicKey: piecePublicKey,
+					StorageNodeId:   storagenode.ID(),
+					PieceId:         storj.NewPieceID(),
+					Action:          pb.PieceAction_PUT,
+					Limit:           1000,
+					PieceExpiration: time.Time{},
+					OrderCreation:   now,
+					OrderExpiration: now.Add(24 * time.Hour),
+				}
+				orderLimit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), limit)
+				require.NoError(t, err)
 
-			order, err := signing.SignUplinkOrder(ctx, piecePrivateKey, &pb.Order{
-				SerialNumber: serialNumber,
-				Amount:       tt.dataAmount,
-			})
-			require.NoError(t, err)
+				order, err := signing.SignUplinkOrder(ctx, piecePrivateKey, &pb.Order{
+					SerialNumber: serialNumber,
+					Amount:       tt.dataAmount,
+				})
+				require.NoError(t, err)
 
-			// create connection between storagenode and satellite
-			conn, err := storagenode.Dialer.DialNodeURL(ctx, storj.NodeURL{ID: satellite.ID(), Address: satellite.Addr()})
-			require.NoError(t, err)
-			defer ctx.Check(conn.Close)
+				// create connection between storagenode and satellite
+				conn, err := storagenode.Dialer.DialNodeURL(ctx, storj.NodeURL{ID: satellite.ID(), Address: satellite.Addr()})
+				require.NoError(t, err)
+				defer ctx.Check(conn.Close)
 
-			stream, err := pb.NewDRPCOrdersClient(conn).SettlementWithWindow(ctx)
-			require.NoError(t, err)
-			defer ctx.Check(stream.Close)
+				stream, err := pb.NewDRPCOrdersClient(conn).SettlementWithWindow(ctx)
+				require.NoError(t, err)
+				defer ctx.Check(stream.Close)
 
-			// storagenode settles an order and orderlimit
-			err = stream.Send(&pb.SettlementRequest{
-				Limit: orderLimit,
-				Order: order,
-			})
-			require.NoError(t, err)
-			resp, err := stream.CloseAndRecv()
-			require.NoError(t, err)
+				// storagenode settles an order and orderlimit
+				err = stream.Send(&pb.SettlementRequest{
+					Limit: orderLimit,
+					Order: order,
+				})
+				require.NoError(t, err)
+				resp, err := stream.CloseAndRecv()
+				require.NoError(t, err)
 
-			expected := new(pb.SettlementWithWindowResponse)
-			switch {
-			case satellite.Config.Orders.WindowEndpointRolloutPhase != orders.WindowEndpointRolloutPhase3:
-				expected.Status = pb.SettlementWithWindowResponse_ACCEPTED
-				expected.ActionSettled = nil
-			case tt.expectedStatus == pb.SettlementWithWindowResponse_ACCEPTED:
-				expected.Status = pb.SettlementWithWindowResponse_ACCEPTED
-				expected.ActionSettled = map[int32]int64{int32(pb.PieceAction_PUT): tt.dataAmount}
-			default:
-				expected.Status = pb.SettlementWithWindowResponse_REJECTED
-				expected.ActionSettled = nil
-			}
-			require.Equal(t, expected, resp)
+				expected := new(pb.SettlementWithWindowResponse)
+				switch {
+				case satellite.Config.Orders.WindowEndpointRolloutPhase != orders.WindowEndpointRolloutPhase3:
+					expected.Status = pb.SettlementWithWindowResponse_ACCEPTED
+					expected.ActionSettled = nil
+				case tt.expectedStatus == pb.SettlementWithWindowResponse_ACCEPTED:
+					expected.Status = pb.SettlementWithWindowResponse_ACCEPTED
+					expected.ActionSettled = map[int32]int64{int32(pb.PieceAction_PUT): tt.dataAmount}
+				default:
+					expected.Status = pb.SettlementWithWindowResponse_REJECTED
+					expected.ActionSettled = nil
+				}
+				require.Equal(t, expected, resp)
 
-			// flush all the chores
-			assert.NoError(t, satellite.Accounting.ReportedRollup.RunOnce(ctx, now))
-			satellite.Orders.Chore.Loop.TriggerWait()
+				// flush all the chores
+				assert.NoError(t, satellite.Accounting.ReportedRollup.RunOnce(ctx, now))
+				satellite.Orders.Chore.Loop.TriggerWait()
 
-			// assert all the right stuff is in the satellite storagenode and bucket bandwidth tables
-			snbw, err = ordersDB.GetStorageNodeBandwidth(ctx, storagenode.ID(), time.Time{}, now)
-			require.NoError(t, err)
-			require.Equal(t, dataAmount, snbw)
+				// assert all the right stuff is in the satellite storagenode and bucket bandwidth tables
+				snbw, err = ordersDB.GetStorageNodeBandwidth(ctx, storagenode.ID(), time.Time{}, now)
+				require.NoError(t, err)
+				require.Equal(t, dataAmount, snbw)
 
-			newBbw, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
-			require.NoError(t, err)
-			require.Equal(t, dataAmount, newBbw)
+				newBbw, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
+				require.NoError(t, err)
+				require.Equal(t, dataAmount, newBbw)
+			}()
 		}
 	})
 }

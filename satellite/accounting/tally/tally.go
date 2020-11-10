@@ -84,6 +84,24 @@ func (service *Service) SetNow(now func() time.Time) {
 }
 
 // Tally calculates data-at-rest usage once.
+//
+// How live accounting is calculated:
+//
+// At the beginning of the tally iteration, we get a map containing the current
+// project totals from the cache- initialLiveTotals (our current estimation of
+// the project totals). At the end of the tally iteration, we have the totals
+// from what we saw during the metainfo loop.
+//
+// However, data which was uploaded during the loop may or may not have been
+// seen in the metainfo loop. For this reason, we also read the live accounting
+// totals again at the end of the tally iteration- latestLiveTotals.
+//
+// The difference between latest and initial indicates how much data was
+// uploaded during the metainfo loop and is assigned to delta. However, again,
+// we aren't certain how much of the delta is accounted for in the metainfo
+// totals. For the reason we make an assumption that 50% of the data is
+// accounted for. So to calculate the new live accounting totals, we sum the
+// metainfo totals and 50% of the deltas.
 func (service *Service) Tally(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -151,6 +169,9 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 			if delta < 0 {
 				delta = 0
 			}
+
+			// read the method documentation why the increase passed to this method
+			// is calculated in this way
 			err = service.liveAccounting.AddProjectStorageUsage(ctx, projectID, -latestLiveTotals[projectID]+tallyTotal+(delta/2))
 			if err != nil {
 				return Error.Wrap(err)

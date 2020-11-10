@@ -366,7 +366,8 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 					continue
 				}
 
-				auditHistory, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, now, updateReq.IsUp, updateReq.AuditHistory)
+				isUp := updateReq.AuditOutcome != overlay.AuditOffline
+				auditHistory, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, now, isUp, updateReq.AuditHistory)
 				if err != nil {
 					doAppendAll = false
 					return err
@@ -444,7 +445,8 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 			return nil
 		}
 
-		auditHistory, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, now, updateReq.IsUp, updateReq.AuditHistory)
+		isUp := updateReq.AuditOutcome != overlay.AuditOffline
+		auditHistory, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, now, isUp, updateReq.AuditHistory)
 		if err != nil {
 			return err
 		}
@@ -1259,7 +1261,8 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	mon.FloatVal("audit_online_score").Observe(auditOnlineScore)              //mon:locked
 
 	totalUptimeCount := dbNode.TotalUptimeCount
-	if updateReq.IsUp {
+	isUp := updateReq.AuditOutcome != overlay.AuditOffline
+	if isUp {
 		totalUptimeCount++
 	}
 
@@ -1317,7 +1320,7 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 		updateFields.UnknownAuditSuspended = timeField{set: true, isNil: true}
 	}
 
-	if updateReq.IsUp {
+	if isUp {
 		updateFields.UptimeSuccessCount = int64Field{set: true, value: dbNode.UptimeSuccessCount + 1}
 		updateFields.LastContactSuccess = timeField{set: true, value: now}
 	} else {

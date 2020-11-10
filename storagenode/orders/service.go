@@ -398,7 +398,6 @@ func (service *Service) sendOrdersFromFileStore(ctx context.Context, now time.Ti
 		var group errgroup.Group
 		attemptedSatellites := 0
 		ctx, cancel := context.WithTimeout(ctx, service.config.SenderTimeout)
-		defer cancel()
 
 		for satelliteID, unsentInfo := range ordersBySatellite {
 			satelliteID, unsentInfo := satelliteID, unsentInfo
@@ -430,6 +429,7 @@ func (service *Service) sendOrdersFromFileStore(ctx context.Context, now time.Ti
 
 		}
 		_ = group.Wait() // doesn't return errors
+		cancel()
 
 		// if all satellites that orders need to be sent to  are offline, exit and try again later.
 		if attemptedSatellites == 0 {

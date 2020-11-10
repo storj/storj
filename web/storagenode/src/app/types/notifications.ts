@@ -2,23 +2,39 @@
 // See LICENSE for copying information.
 
 import { NotificationIcon } from '@/app/utils/notificationIcons';
+import { Notification, NotificationTypes } from '@/storagenode/notifications/notifications';
+
+/**
+ * Holds all notifications module state.
+ */
+export class NotificationsState {
+    public latestNotifications: UINotification[] = [];
+
+    public constructor(
+        public notifications: UINotification[] = [],
+        public pageCount: number = 0,
+        public unreadCount: number = 0,
+    ) { }
+}
 
 /**
  * Describes notification entity.
  */
-export class Notification {
+export class UINotification {
     public icon: NotificationIcon;
+    public isRead: boolean;
+    public id: string;
+    public senderId: string;
+    public type: NotificationTypes;
+    public title: string;
+    public message: string;
+    public readAt: Date | null;
+    public createdAt: Date;
 
-    public constructor(
-        public id: string = '',
-        public senderId: string = '',
-        public type: NotificationTypes = NotificationTypes.Custom,
-        public title: string = '',
-        public message: string = '',
-        public isRead: boolean = false,
-        public createdAt: Date = new Date(),
-    ) {
+    public constructor(notification: Partial<UINotification> = new Notification()) {
+        Object.assign(this, notification);
         this.setIcon();
+        this.isRead = !!this.readAt;
     }
 
     /**
@@ -69,61 +85,4 @@ export class Notification {
                 this.icon = NotificationIcon.INFO;
         }
     }
-}
-
-/**
- * Describes all current notifications types.
- */
-export enum NotificationTypes {
-    Custom = 0,
-    AuditCheckFailure = 1,
-    UptimeCheckFailure = 2,
-    Disqualification = 3,
-    Suspension = 4,
-}
-
-/**
- * Describes page offset for pagination.
- */
-export class NotificationsCursor {
-    public constructor(
-        public page: number = 0,
-        public limit: number = 7,
-    ) { }
-}
-
-/**
- * Holds all notifications module state.
- */
-export class NotificationsState {
-    public latestNotifications: Notification[] = [];
-
-    public constructor(
-        public notifications: Notification[] = [],
-        public pageCount: number = 0,
-        public unreadCount: number = 0,
-    ) { }
-}
-
-/**
- * Exposes all notifications-related functionality.
- */
-export interface NotificationsApi {
-    /**
-     * Fetches notifications.
-     * @throws Error
-     */
-    get(cursor: NotificationsCursor): Promise<NotificationsState>;
-
-    /**
-     * Marks single notification as read.
-     * @throws Error
-     */
-    read(id: string): Promise<void>;
-
-    /**
-     * Marks all notification as read.
-     * @throws Error
-     */
-    readAll(): Promise<void>;
 }
