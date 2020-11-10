@@ -68,7 +68,7 @@ import DisqualificationIcon from '@/../static/images/disqualify.svg';
 import EyeIcon from '@/../static/images/Eye.svg';
 import SuspensionIcon from '@/../static/images/suspend.svg';
 
-import { SatelliteInfo } from '@/storagenode/dashboard';
+import { SatelliteInfo } from '@/storagenode/sno/sno';
 
 @Component({
     components: {

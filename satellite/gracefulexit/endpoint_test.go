@@ -255,16 +255,14 @@ func TestRecvTimeout(t *testing.T) {
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
 			},
-			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
-				// This config value will create a very short timeframe allowed for receiving
-				// data from storage nodes. This will cause context to cancel with timeout.
-				config.GracefulExit.RecvTimeout = 10 * time.Millisecond
-
-				config.Metainfo.RS.MinThreshold = 2
-				config.Metainfo.RS.RepairThreshold = 3
-				config.Metainfo.RS.SuccessThreshold = successThreshold
-				config.Metainfo.RS.TotalThreshold = successThreshold
-			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// This config value will create a very short timeframe allowed for receiving
+					// data from storage nodes. This will cause context to cancel with timeout.
+					config.GracefulExit.RecvTimeout = 10 * time.Millisecond
+				},
+				testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+			),
 			StorageNode: func(index int, config *storagenode.Config) {
 				config.GracefulExit = gracefulexit.Config{
 					ChoreInterval:          2 * time.Minute,
@@ -1240,17 +1238,15 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 		StorageNodeCount: 5,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
-				// We don't care whether a node gracefully exits or not in this test,
-				// so we set the max failures percentage extra high.
-				config.GracefulExit.OverallMaxFailuresPercentage = 101
-				config.GracefulExit.MaxOrderLimitSendCount = maxOrderLimitSendCount
-
-				config.Metainfo.RS.MinThreshold = 2
-				config.Metainfo.RS.RepairThreshold = 3
-				config.Metainfo.RS.SuccessThreshold = 4
-				config.Metainfo.RS.TotalThreshold = 4
-			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// We don't care whether a node gracefully exits or not in this test,
+					// so we set the max failures percentage extra high.
+					config.GracefulExit.OverallMaxFailuresPercentage = 101
+					config.GracefulExit.MaxOrderLimitSendCount = maxOrderLimitSendCount
+				},
+				testplanet.ReconfigureRS(2, 3, 4, 4),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
@@ -1370,15 +1366,13 @@ func TestIneligibleNodeAge(t *testing.T) {
 		StorageNodeCount: 5,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
-				// Set the required node age to 1 month.
-				config.GracefulExit.NodeMinAgeInMonths = 1
-
-				config.Metainfo.RS.MinThreshold = 2
-				config.Metainfo.RS.RepairThreshold = 3
-				config.Metainfo.RS.SuccessThreshold = 4
-				config.Metainfo.RS.TotalThreshold = 4
-			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// Set the required node age to 1 month.
+					config.GracefulExit.NodeMinAgeInMonths = 1
+				},
+				testplanet.ReconfigureRS(2, 3, 4, 4),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]

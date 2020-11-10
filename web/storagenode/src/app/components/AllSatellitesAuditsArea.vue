@@ -35,7 +35,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import DisqualifyIcon from '@/../static/images/disqualify.svg';
 
-import { SatelliteScores } from '@/storagenode/satellite';
+import { SatelliteScores } from '@/storagenode/sno/sno';
 
 @Component({
     components: { DisqualifyIcon },

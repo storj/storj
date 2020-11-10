@@ -102,7 +102,6 @@ export default class PayoutPeriodCalendar extends Vue {
             const lastMonthDate = new Date();
             lastMonthDate.setMonth(lastMonthDate.getUTCMonth() - 1);
 
-
             const selectedPeriod: PayoutInfoRange = this.$store.state.payoutModule.periodRange;
             const lastMonthPayoutPeriod = new PayoutPeriod(lastMonthDate.getUTCFullYear(), lastMonthDate.getUTCMonth());
             const isLastPeriodSelected: boolean = !selectedPeriod.start && selectedPeriod.end.period === lastMonthPayoutPeriod.period;

@@ -53,7 +53,7 @@ import DropdownArrowIcon from '@/../static/images/dropdownArrow.svg';
 import EyeIcon from '@/../static/images/Eye.svg';
 
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
-import { SatelliteInfo } from '@/storagenode/dashboard';
+import { SatelliteInfo } from '@/storagenode/sno/sno';
 
 import SatelliteSelectionDropdown from './SatelliteSelectionDropdown.vue';
 

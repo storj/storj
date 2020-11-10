@@ -87,7 +87,7 @@ Create `satellites_exit_progress` tables:
 
 ```
 model satellite_exit_progress (
-    fk satellite_id 
+    fk satellite_id
 
     field initiated_at         timestamp ( updateable )
     field finished_at          timestamp ( updateable )

@@ -254,7 +254,6 @@ export class PreviousMonthEstimatedPayout {
     ) {}
 }
 
-
 /**
  * Contains payout information for payout history table.
  */

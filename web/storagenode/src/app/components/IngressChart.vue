@@ -24,7 +24,7 @@ import { ChartData } from '@/app/types/chartData';
 import { Tooltip, TooltipParams } from '@/app/types/tooltip';
 import { ChartUtils } from '@/app/utils/chart';
 import { formatBytes } from '@/app/utils/converter';
-import { IngressUsed } from '@/storagenode/satellite';
+import { IngressUsed } from '@/storagenode/sno/sno';
 
 /**
  * stores ingress data for ingress bandwidth chart's tooltip
