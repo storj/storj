@@ -1202,9 +1202,10 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 	mon.Meter("req_put_remote").Mark(1)
 
 	return &pb.SegmentBeginResponse{
-		SegmentId:       segmentID,
-		AddressedLimits: addressedLimits,
-		PrivateKey:      piecePrivateKey,
+		SegmentId:        segmentID,
+		AddressedLimits:  addressedLimits,
+		PrivateKey:       piecePrivateKey,
+		RedundancyScheme: endpoint.defaultRS,
 	}, nil
 }
 
