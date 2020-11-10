@@ -122,7 +122,7 @@ type Config struct {
 	MaxMetadataSize      memory.Size          `default:"2KiB" help:"maximum segment metadata size"`
 	MaxCommitInterval    time.Duration        `default:"48h" help:"maximum time allowed to pass between creating and committing a segment"`
 	Overlay              bool                 `default:"true" help:"toggle flag if overlay is enabled"`
-	RS                   RSConfig             `help:"redundancy scheme configuration"`
+	RS                   RSConfig             `releaseDefault:"29/35/80/110-256B" devDefault:"4/6/8/10-256B" help:"redundancy scheme configuration in the format k/m/o/n-sharesize"`
 	Loop                 LoopConfig           `help:"loop configuration"`
 	RateLimiter          RateLimiterConfig    `help:"rate limiter configuration"`
 	ProjectLimits        ProjectLimitConfig   `help:"project limit configuration"`
