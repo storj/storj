@@ -20,12 +20,14 @@ import (
 	"time"
 
 	"github.com/alessio/shellescape"
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/fpath"
 	"storj.io/common/identity"
+	"storj.io/common/pb"
 	"storj.io/common/processgroup"
 	"storj.io/common/storj"
 	"storj.io/storj/private/dbutil"
@@ -524,6 +526,10 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 			if runAccessData := vip.GetString("access"); runAccessData != accessData {
 				process.AddExtra("ACCESS", runAccessData)
+
+				if apiKey, err := getAPIKey(runAccessData); err == nil {
+					process.AddExtra("API_KEY", apiKey)
+				}
 			}
 
 			process.AddExtra("ACCESS_KEY", vip.GetString("minio.access-key"))
@@ -665,6 +671,22 @@ func identitySetup(network *Processes) (*Processes, error) {
 	}
 
 	return processes, nil
+}
+
+// getAPIKey parses an access string to return its corresponding api key.
+func getAPIKey(access string) (apiKey string, err error) {
+	data, version, err := base58.CheckDecode(access)
+	if err != nil || version != 0 {
+		return "", errors.New("invalid access grant format")
+	}
+
+	p := new(pb.Scope)
+	if err := pb.Unmarshal(data, p); err != nil {
+		return "", err
+	}
+
+	apiKey = base58.CheckEncode(p.ApiKey, 0)
+	return apiKey, nil
 }
 
 // readConfigString reads from dir/config.yaml flagName returns the value in `into`.

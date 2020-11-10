@@ -39,7 +39,7 @@ presents challenges when revoking a macaroon.
 For example, if I hold the API key for Project A, I can create Macaroon A with a
 caveat that it can only read and write files within Bucket A. I can
 then share this macaroon with my own customer, Customer A. Customer A may then,
-if they wish, create Macaroon B which is futher caveated -- for example,
+if they wish, create Macaroon B which is further caveated -- for example,
 restricted to read-only access in Bucket A -- and share Macaroon B with someone
 else. This can occur without my knowledge.
 
@@ -94,7 +94,7 @@ This approach was deemed best because it:
 - Creates very little load on the database.
 - Is backwards compatible, and allows us to revoke existing macaroons.
 - Allows us to revoke an entire "macaroon tree" while maintaining the
-  distributive properies of macaroons.
+  distributive properties of macaroons.
 
 Disadvantages to this approach:
 

@@ -5,16 +5,18 @@ import Vuex from 'vuex';
 
 import AllSatellitesAuditsArea from '@/app/components/AllSatellitesAuditsArea.vue';
 
-import { makeNodeModule, NODE_ACTIONS, NODE_MUTATIONS } from '@/app/store/modules/node';
-import { SNOApi } from '@/storagenode/api/storagenode';
-import { Satellites, SatelliteScores } from '@/storagenode/satellite';
+import { newNodeModule, NODE_ACTIONS } from '@/app/store/modules/node';
+import { StorageNodeApi } from '@/storagenode/api/storagenode';
+import { StorageNodeService } from '@/storagenode/sno/service';
+import { Satellites, SatelliteScores } from '@/storagenode/sno/sno';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
 
-const nodeApi = new SNOApi();
-const nodeModule = makeNodeModule(nodeApi);
+const nodeApi = new StorageNodeApi();
+const nodeService = new StorageNodeService(nodeApi);
+const nodeModule = newNodeModule(nodeService);
 
 const store = new Vuex.Store({ modules: { node: nodeModule }});
 

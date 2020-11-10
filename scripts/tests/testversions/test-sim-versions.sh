@@ -96,7 +96,7 @@ install_sim(){
         rm -rf .build/gateway-tmp
         mkdir -p .build/gateway-tmp
         pushd .build/gateway-tmp
-            go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@v1.0.0-rc.8
+            go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@latest
         popd
     fi
 }
@@ -168,8 +168,6 @@ echo "Setting up environments for versions" ${unique_versions}
 # clean up git worktree
 git worktree prune
 for version in ${unique_versions}; do
-    # run in parallel
-    (
         dir=$(version_dir ${version})
         bin_dir=${dir}/bin
 
@@ -180,23 +178,26 @@ for version in ${unique_versions}; do
         else
             git worktree add -f "$dir" "${version}"
         fi
-        rm -f ${dir}/private/version/release.go
+
         rm -f ${dir}/internal/version/release.go
-        if [[ $version = $current_release_version || $version = "master" ]]
-        then
+        if [ -d "${dir}/private/version/release.go" ]; then
             # clear out release information
             cat > ${dir}/private/version/release.go <<-EOF
 		// Copyright (C) 2020 Storj Labs, Inc.
 		// See LICENSE for copying information.
 		package version
 		EOF
+        fi
+
+        if [[ $version = $current_release_version || $version = "master" ]]
+        then
 
             echo "Installing storj-sim for ${version} in ${dir}."
             install_sim ${dir} ${bin_dir}
             echo "finished installing"
 
             echo "Setting up storj-sim for ${version}. Bin: ${bin_dir}, Config: ${dir}/local-network"
-            PATH=${bin_dir}:$PATH storj-sim -x --host="${STORJ_NETWORK_HOST4}" --postgres="${STORJ_SIM_POSTGRES}" --config-dir "${dir}/local-network" network setup > /dev/null 2>&1
+            PATH=${bin_dir}:$PATH storj-sim -x --host="${STORJ_NETWORK_HOST4}" --postgres="${STORJ_SIM_POSTGRES}" --config-dir "${dir}/local-network" network setup >/dev/null 2>&1
             echo "Finished setting up. ${dir}/local-network:" $(ls ${dir}/local-network)
             echo "Binary shasums:"
             shasum ${bin_dir}/satellite
@@ -215,17 +216,6 @@ for version in ${unique_versions}; do
             echo "Binary shasums:"
             shasum ${bin_dir}/uplink
         fi
-    ) &
-done
-
-for job in `jobs -p`
-do
-    echo "wait for $job"
-    RESULT=0
-    wait $job || RESULT=1
-    if [ "$RESULT" == "1" ]; then
-           exit $?
-    fi
 done
 
 # Use stage 1 satellite version as the starting state. Create a cp of that

@@ -1,4 +1,5 @@
 {
+  "message": "Thank you for your pull request and welcome to our community. We require contributors to sign our [Contributor License Agreement](https://docs.google.com/forms/d/e/1FAIpQLSdVzD5W8rx-J_jLaPuG31nbOzS8yhNIIu4yHvzonji6NeZ4ig/viewform), and we don't seem to have the users {{usersWithoutCLA}} on file. Once you have signed the CLA, please let us know, so we can manually review and add you to the approved contributors list.",
   "contributors": [
     "aleitner",
     "aligeti",

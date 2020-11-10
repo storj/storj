@@ -5,13 +5,14 @@ import Vuex from 'vuex';
 
 import TotalHeldArea from '@/app/components/payments/TotalHeldArea.vue';
 
-import { makeNodeModule, NODE_MUTATIONS } from '@/app/store/modules/node';
-import { makePayoutModule, PAYOUT_MUTATIONS } from '@/app/store/modules/payout';
+import { newNodeModule, NODE_MUTATIONS } from '@/app/store/modules/node';
+import { newPayoutModule, PAYOUT_MUTATIONS } from '@/app/store/modules/payout';
 import { PayoutHttpApi } from '@/storagenode/api/payout';
-import { SNOApi } from '@/storagenode/api/storagenode';
+import { StorageNodeApi } from '@/storagenode/api/storagenode';
 import { Paystub, TotalHeldAndPaid } from '@/storagenode/payouts/payouts';
 import { PayoutService } from '@/storagenode/payouts/service';
-import { Metric, Satellite, Stamp } from '@/storagenode/satellite';
+import { StorageNodeService } from '@/storagenode/sno/service';
+import { Metric, Satellite, Stamp } from '@/storagenode/sno/sno';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
@@ -23,9 +24,10 @@ localVue.filter('centsToDollars', (cents: number): string => {
 
 const payoutApi = new PayoutHttpApi();
 const payoutService = new PayoutService(payoutApi);
-const payoutModule = makePayoutModule(payoutApi, payoutService);
-const nodeApi = new SNOApi();
-const nodeModule = makeNodeModule(nodeApi);
+const payoutModule = newPayoutModule(payoutService);
+const nodeApi = new StorageNodeApi();
+const nodeService = new StorageNodeService(nodeApi);
+const nodeModule = newNodeModule(nodeService);
 
 const store = new Vuex.Store({ modules: { payoutModule, node: nodeModule }});
 

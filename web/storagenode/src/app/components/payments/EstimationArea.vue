@@ -127,7 +127,8 @@ import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import {
     BANDWIDTH_DOWNLOAD_PRICE_PER_TB,
     BANDWIDTH_REPAIR_PRICE_PER_TB,
-    DISK_SPACE_PRICE_PER_TB, PAYOUT_ACTIONS,
+    DISK_SPACE_PRICE_PER_TB,
+    PAYOUT_ACTIONS,
 } from '@/app/store/modules/payout';
 import {
     monthNames,
@@ -194,7 +195,6 @@ export default class EstimationArea extends Vue {
 
         const lastMonthDate = new Date();
         lastMonthDate.setMonth(lastMonthDate.getUTCMonth() - 1);
-
 
         const selectedPeriod: PayoutInfoRange = this.$store.state.payoutModule.periodRange;
         const lastMonthPayoutPeriod = new PayoutPeriod(lastMonthDate.getUTCFullYear(), lastMonthDate.getUTCMonth());

@@ -37,14 +37,13 @@ require (
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
-	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b // indirect
 	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
 	golang.org/x/sys v0.0.0-20200929083018-4d22bbb62b3c
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	google.golang.org/api v0.20.0 // indirect
-	storj.io/common v0.0.0-20201030140758-31112c1cc750
-	storj.io/drpc v0.0.14
+	storj.io/common v0.0.0-20201106104920-372a344bdd45
+	storj.io/drpc v0.0.16
 	storj.io/monkit-jaeger v0.0.0-20200518165323-80778fc3f91b
 	storj.io/private v0.0.0-20201026143115-bc926bfa3bca
-	storj.io/uplink v1.3.2-0.20201104145754-2f6dfd29a96c
+	storj.io/uplink v1.3.2-0.20201106105834-ec8e5cc29f7e
 )
