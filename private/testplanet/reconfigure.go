@@ -66,10 +66,10 @@ var Combine = func(elements ...func(log *zap.Logger, index int, config *satellit
 // ReconfigureRS returns function to change satellite redundancy scheme values.
 var ReconfigureRS = func(minThreshold, repairThreshold, successThreshold, totalThreshold int) func(log *zap.Logger, index int, config *satellite.Config) {
 	return func(log *zap.Logger, index int, config *satellite.Config) {
-		config.Metainfo.RS.MinThreshold = minThreshold
-		config.Metainfo.RS.RepairThreshold = repairThreshold
-		config.Metainfo.RS.SuccessThreshold = successThreshold
-		config.Metainfo.RS.TotalThreshold = totalThreshold
+		config.Metainfo.RS.Min = minThreshold
+		config.Metainfo.RS.Repair = repairThreshold
+		config.Metainfo.RS.Success = successThreshold
+		config.Metainfo.RS.Total = totalThreshold
 	}
 }
 

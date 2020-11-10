@@ -81,6 +81,7 @@ type Endpoint struct {
 	limiterCache         *lrucache.ExpiringLRU
 	encInlineSegmentSize int64 // max inline segment size + encryption overhead
 	revocations          revocation.DB
+	defaultRS            *pb.RedundancyScheme
 	config               Config
 }
 
@@ -103,6 +104,16 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 	if err != nil {
 		return nil, err
 	}
+
+	defaultRSScheme := &pb.RedundancyScheme{
+		Type:             pb.RedundancyScheme_RS,
+		MinReq:           int32(config.RS.Min),
+		RepairThreshold:  int32(config.RS.Repair),
+		SuccessThreshold: int32(config.RS.Success),
+		Total:            int32(config.RS.Total),
+		ErasureShareSize: config.RS.ErasureShareSize.Int32(),
+	}
+
 	return &Endpoint{
 		log:                 log,
 		metainfo:            metainfo,
@@ -123,6 +134,7 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 		}),
 		encInlineSegmentSize: encInlineSegmentSize,
 		revocations:          revocations,
+		defaultRS:            defaultRSScheme,
 		config:               config,
 	}, nil
 }
@@ -248,7 +260,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 	}
 
 	// override RS to fit satellite settings
-	convBucket, err := convertBucketToProto(bucket, endpoint.redundancyScheme())
+	convBucket, err := convertBucketToProto(bucket, endpoint.defaultRS)
 	if err != nil {
 		return resp, err
 	}
@@ -323,7 +335,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 
 	// override RS to fit satellite settings
-	convBucket, err := convertBucketToProto(bucket, endpoint.redundancyScheme())
+	convBucket, err := convertBucketToProto(bucket, endpoint.defaultRS)
 	if err != nil {
 		endpoint.log.Error("error while converting bucket to proto", zap.String("bucketName", bucket.Name), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to create bucket")
@@ -382,7 +394,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 			return nil, err
 		}
 
-		convBucket, err = convertBucketToProto(bucket, endpoint.redundancyScheme())
+		convBucket, err = convertBucketToProto(bucket, endpoint.defaultRS)
 		if err != nil {
 			return nil, err
 		}
@@ -664,7 +676,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	// use only satellite values for Redundancy Scheme
-	pbRS := endpoint.redundancyScheme()
+	pbRS := endpoint.defaultRS
 
 	streamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
 		Bucket:         req.Bucket,
@@ -1802,17 +1814,6 @@ func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, reqs ...*meta
 	}
 
 	return report, nil
-}
-
-func (endpoint *Endpoint) redundancyScheme() *pb.RedundancyScheme {
-	return &pb.RedundancyScheme{
-		Type:             pb.RedundancyScheme_RS,
-		MinReq:           int32(endpoint.config.RS.MinThreshold),
-		RepairThreshold:  int32(endpoint.config.RS.RepairThreshold),
-		SuccessThreshold: int32(endpoint.config.RS.SuccessThreshold),
-		Total:            int32(endpoint.config.RS.TotalThreshold),
-		ErasureShareSize: endpoint.config.RS.ErasureShareSize.Int32(),
-	}
 }
 
 // RevokeAPIKey handles requests to revoke an api key.
