@@ -141,7 +141,8 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	numHealthy := len(pieces) - len(missingPieces)
 	// irreparable piece
 	if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
-		mon.Meter("repair_nodes_unavailable").Mark(1) //mon:locked
+		mon.Counter("repairer_segments_below_min_req").Inc(1) //mon:locked
+		mon.Meter("repair_nodes_unavailable").Mark(1)         //mon:locked
 		return true, &irreparableError{
 			path:            path,
 			piecesAvailable: int32(numHealthy),
@@ -149,6 +150,9 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 			segmentInfo:     pointer,
 		}
 	}
+
+	// ensure we get values, even if only zero values, so that redash can have an alert based on this
+	mon.Counter("repairer_segments_below_min_req").Inc(0) //mon:locked
 
 	repairThreshold := pointer.Remote.Redundancy.RepairThreshold
 	if repairer.repairOverride != 0 {
