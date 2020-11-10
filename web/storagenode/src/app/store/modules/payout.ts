@@ -1,6 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { StoreModule } from '@/app/store';
 import {
     PayoutInfoRange,
     PayoutState,
@@ -9,7 +10,6 @@ import { TB } from '@/app/utils/converter';
 import { getHeldPercentage } from '@/app/utils/payout';
 import {
     EstimatedPayout,
-    PayoutApi,
     PayoutPeriod,
     SatelliteHeldHistory,
     SatellitePayoutForPeriod,
@@ -50,10 +50,9 @@ export const DISK_SPACE_PRICE_PER_TB = 150;
 /**
  * creates notifications module with all dependencies
  *
- * @param api - payments api
  * @param service - payments service
  */
-export function makePayoutModule(api: PayoutApi, service: PayoutService) {
+export function newPayoutModule(service: PayoutService): StoreModule<PayoutState> {
     return {
         state: new PayoutState(),
         mutations: {
