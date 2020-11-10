@@ -8,12 +8,13 @@ import Vuex from 'vuex';
 import PayoutHistoryPeriodDropdown from '@/app/components/payments/PayoutHistoryPeriodDropdown.vue';
 
 import { appStateModule } from '@/app/store/modules/appState';
-import { makeNodeModule, NODE_MUTATIONS } from '@/app/store/modules/node';
-import { makePayoutModule, PAYOUT_MUTATIONS } from '@/app/store/modules/payout';
+import { newNodeModule, NODE_MUTATIONS } from '@/app/store/modules/node';
+import { newPayoutModule, PAYOUT_MUTATIONS } from '@/app/store/modules/payout';
 import { PayoutHttpApi } from '@/storagenode/api/payout';
-import { SNOApi } from '@/storagenode/api/storagenode';
+import { StorageNodeApi } from '@/storagenode/api/storagenode';
 import { PayoutService } from '@/storagenode/payouts/service';
-import { Satellites } from '@/storagenode/satellite';
+import { StorageNodeService } from '@/storagenode/sno/service';
+import { Satellites } from '@/storagenode/sno/sno';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 let clickOutsideEvent: EventListener;
@@ -42,9 +43,10 @@ localVue.directive('click-outside', {
 
 const payoutApi = new PayoutHttpApi();
 const payoutService = new PayoutService(payoutApi);
-const payoutModule = makePayoutModule(payoutApi, payoutService);
-const nodeApi = new SNOApi();
-const nodeModule = makeNodeModule(nodeApi);
+const payoutModule = newPayoutModule(payoutService);
+const nodeApi = new StorageNodeApi();
+const nodeService = new StorageNodeService(nodeApi);
+const nodeModule = newNodeModule(nodeService);
 
 const store = new Vuex.Store({ modules: { payoutModule, node: nodeModule, appStateModule }});
 

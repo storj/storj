@@ -96,6 +96,10 @@ func DefaultPartners() PartnerList {
 			ID:   "8ee019ef-2aae-4867-9c18-41c65ea318c4",
 			UUID: parseUUID("8ee019ef-2aae-4867-9c18-41c65ea318c4"),
 		}, {
+			Name: "MAXN",
+			ID:   "3934efec-2857-4703-8ce3-aabf2d3285c4",
+			UUID: parseUUID("3934efec-2857-4703-8ce3-aabf2d3285c4"),
+		}, {
 			Name: "MongoDB",
 			ID:   "bbd340b2-0ae4-4254-af90-eaba6c273abb",
 			UUID: parseUUID("bbd340b2-0ae4-4254-af90-eaba6c273abb"),

@@ -24,7 +24,7 @@ import { ChartData } from '@/app/types/chartData';
 import { Tooltip, TooltipParams } from '@/app/types/tooltip';
 import { ChartUtils } from '@/app/utils/chart';
 import { formatBytes } from '@/app/utils/converter';
-import { Stamp } from '@/storagenode/satellite';
+import { Stamp } from '@/storagenode/sno/sno';
 
 /**
  * stores stamp data for disc space chart's tooltip

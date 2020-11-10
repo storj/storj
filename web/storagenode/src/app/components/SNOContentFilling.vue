@@ -175,7 +175,7 @@ import LargeSuspensionIcon from '@/../static/images/largeSuspend.svg';
 import { RouteConfig } from '@/app/router';
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { formatBytes } from '@/app/utils/converter';
-import { SatelliteInfo } from '@/storagenode/dashboard';
+import { SatelliteInfo } from '@/storagenode/sno/sno';
 
 /**
  * Checks class holds info for Checks entity.

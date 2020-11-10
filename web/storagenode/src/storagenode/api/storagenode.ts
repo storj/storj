@@ -1,47 +1,39 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { BandwidthInfo, Dashboard, DiskSpaceInfo, SatelliteInfo } from '@/storagenode/dashboard';
 import {
-    BandwidthUsed,
-    Egress,
-    EgressUsed,
-    Ingress,
-    IngressUsed,
+    Dashboard,
     Metric,
     Satellite,
+    SatelliteByDayInfo,
+    SatelliteInfo,
     Satellites,
     SatelliteScores,
-    Stamp,
-} from '@/storagenode/satellite';
+    Traffic,
+} from '@/storagenode/sno/sno';
+import { HttpClient } from '@/storagenode/utils/httpClient';
 
 /**
- * Implementation for HTTP GET requests
- * @param url - holds url of request target
- * @throws Error - holds error message if request wasn't successful
+ * Used to get dashboard and satellite data from json.
  */
-async function httpGet(url): Promise<Response> {
-    const response = await fetch(url);
+export class StorageNodeApi {
+    private readonly client: HttpClient = new HttpClient();
+    private readonly ROOT_PATH: string = '/api/sno';
 
-    if (response.ok) {
-        return response;
-    }
-
-    throw new Error(response.statusText);
-}
-
-/**
- * used to get dashboard and satellite data from json
- */
-export class SNOApi {
     /**
-     * parses dashboard data from json
-     * @returns dashboard - new dashboard instance filled with data from json
+     * Gets dashboard data from server.
+     * @returns dashboard - new dashboard instance filled with data from json.
      */
     public async dashboard(): Promise<Dashboard> {
-        const json = await (await httpGet('/api/sno')).json();
+        const response = await this.client.get(this.ROOT_PATH);
 
-        const satellitesJson = json.satellites || [];
+        if (!response.ok) {
+            throw new Error('can not get node information');
+        }
+
+        const data = await response.json();
+
+        const satellitesJson = data.satellites || [];
 
         const satellites: SatelliteInfo[] = satellitesJson.map((satellite: any) => {
             const disqualified: Date | null = satellite.disqualified ? new Date(satellite.disqualified) : null;
@@ -50,72 +42,86 @@ export class SNOApi {
             return new SatelliteInfo(satellite.id, satellite.url, disqualified, suspended);
         });
 
-        const diskSpace: DiskSpaceInfo = new DiskSpaceInfo(json.diskSpace.used, json.diskSpace.available, json.diskSpace.trash);
-        const bandwidth: BandwidthInfo = new BandwidthInfo(json.bandwidth.used);
+        const diskSpace: Traffic = new Traffic(data.diskSpace.used, data.diskSpace.available, data.diskSpace.trash);
+        const bandwidth: Traffic = new Traffic(data.bandwidth.used);
 
-        return new Dashboard(json.nodeID, json.wallet, satellites, diskSpace, bandwidth,
-            new Date(json.lastPinged), new Date(json.startedAt), json.version, json.allowedVersion, json.upToDate);
+        return new Dashboard(data.nodeID, data.wallet, satellites, diskSpace, bandwidth,
+            new Date(data.lastPinged), new Date(data.startedAt), data.version, data.allowedVersion, data.upToDate);
     }
 
     /**
-     * parses satellite data from json
-     * @returns satellite - new satellite instance filled with data from json
+     * Gets satellite data from server.
+     * @returns satellite - new satellite instance filled with data from json.
      */
     public async satellite(id: string): Promise<Satellite> {
-        const url = `/api/sno/satellite/${id}`;
+        const url = `${this.ROOT_PATH}/satellite/${id}`;
 
-        const json = await (await httpGet(url)).json();
+        const response = await this.client.get(url);
 
-        const satelliteByDayInfo = new SatelliteByDayInfo(json);
+        if (!response.ok) {
+            throw new Error('can not get satellite information');
+        }
+
+        const data = await response.json();
+
+        const satelliteByDayInfo = new SatelliteByDayInfo(data);
 
         const audit: Metric = new Metric(
-            json.audit.totalCount,
-            json.audit.successCount,
-            json.audit.alpha,
-            json.audit.beta,
-            json.audit.unknownAlpha,
-            json.audit.unknownBeta,
-            json.audit.score,
-            json.audit.unknownScore,
+            data.audit.totalCount,
+            data.audit.successCount,
+            data.audit.alpha,
+            data.audit.beta,
+            data.audit.unknownAlpha,
+            data.audit.unknownBeta,
+            data.audit.score,
+            data.audit.unknownScore,
         );
 
         const uptime: Metric = new Metric(
-            json.uptime.totalCount,
-            json.uptime.successCount,
-            json.uptime.alpha,
-            json.uptime.beta,
-            json.uptime.unknownAlpha,
-            json.uptime.unknownBeta,
-            json.uptime.score,
-            json.uptime.unknownScore,
+            data.uptime.totalCount,
+            data.uptime.successCount,
+            data.uptime.alpha,
+            data.uptime.beta,
+            data.uptime.unknownAlpha,
+            data.uptime.unknownBeta,
+            data.uptime.score,
+            data.uptime.unknownScore,
         );
 
         return new Satellite(
-            json.id,
+            data.id,
             satelliteByDayInfo.storageDaily,
             satelliteByDayInfo.bandwidthDaily,
             satelliteByDayInfo.egressDaily,
             satelliteByDayInfo.ingressDaily,
-            json.storageSummary,
-            json.bandwidthSummary,
-            json.egressSummary,
-            json.ingressSummary,
+            data.storageSummary,
+            data.bandwidthSummary,
+            data.egressSummary,
+            data.ingressSummary,
             audit,
             uptime,
-            new Date(json.nodeJoinedAt),
+            new Date(data.nodeJoinedAt),
         );
     }
 
     /**
-     * parses data for all satellites from json
-     * @returns satellites - new satellites instance filled with data from json
+     * Gets data for all satellites from server.
+     * @returns satellites - new satellites instance filled with data from json.
      */
     public async satellites(): Promise<Satellites> {
-        const json = await (await httpGet('/api/sno/satellites')).json();
+        const url = `${this.ROOT_PATH}/satellites`;
 
-        const satelliteByDayInfo = new SatelliteByDayInfo(json);
+        const response = await this.client.get(url);
 
-        const satellitesScores = json.audits.map(scoreInfo => {
+        if (!response.ok) {
+            throw new Error('can not get all satellites information');
+        }
+
+        const data = await response.json();
+
+        const satelliteByDayInfo = new SatelliteByDayInfo(data);
+
+        const satellitesScores = data.audits.map(scoreInfo => {
             return new SatelliteScores(
                 scoreInfo.satelliteName,
                 scoreInfo.auditScore,
@@ -129,50 +135,12 @@ export class SNOApi {
             satelliteByDayInfo.bandwidthDaily,
             satelliteByDayInfo.egressDaily,
             satelliteByDayInfo.ingressDaily,
-            json.storageSummary,
-            json.bandwidthSummary,
-            json.egressSummary,
-            json.ingressSummary,
-            new Date(json.earliestJoinedAt),
+            data.storageSummary,
+            data.bandwidthSummary,
+            data.egressSummary,
+            data.ingressSummary,
+            new Date(data.earliestJoinedAt),
             satellitesScores,
         );
-    }
-}
-
-/**
- * SatelliteByDayInfo holds by day bandwidth metrics.
- */
-class SatelliteByDayInfo {
-    public storageDaily: Stamp[];
-    public bandwidthDaily: BandwidthUsed[];
-    public egressDaily: EgressUsed[];
-    public ingressDaily: IngressUsed[];
-
-    public constructor(json) {
-        const storageDailyJson = json.storageDaily || [];
-        const bandwidthDailyJson = json.bandwidthDaily || [];
-
-        this.storageDaily = storageDailyJson.map((stamp: any) => {
-            return new Stamp(stamp.atRestTotal, new Date(stamp.intervalStart));
-        });
-
-        this.bandwidthDaily = bandwidthDailyJson.map((bandwidth: any) => {
-            const egress = new Egress(bandwidth.egress.audit, bandwidth.egress.repair, bandwidth.egress.usage);
-            const ingress = new Ingress(bandwidth.ingress.repair, bandwidth.ingress.usage);
-
-            return new BandwidthUsed(egress, ingress, new Date(bandwidth.intervalStart));
-        });
-
-        this.egressDaily = bandwidthDailyJson.map((bandwidth: any) => {
-            const egress = new Egress(bandwidth.egress.audit, bandwidth.egress.repair, bandwidth.egress.usage);
-
-            return new EgressUsed(egress, new Date(bandwidth.intervalStart));
-        });
-
-        this.ingressDaily = bandwidthDailyJson.map((bandwidth: any) => {
-            const ingress = new Ingress(bandwidth.ingress.repair, bandwidth.ingress.usage);
-
-            return new IngressUsed(ingress, new Date(bandwidth.intervalStart));
-        });
     }
 }
