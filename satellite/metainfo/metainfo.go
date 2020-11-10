@@ -857,12 +857,13 @@ func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bu
 	}
 
 	object := &pb.Object{
-		Bucket:            bucket,
-		EncryptedPath:     encryptedPath,
-		Version:           int32(metaObject.Version), // TODO incomatible types
-		StreamId:          streamID,
-		ExpiresAt:         expires,
-		CreatedAt:         metaObject.CreatedAt,
+		Bucket:        bucket,
+		EncryptedPath: encryptedPath,
+		Version:       int32(metaObject.Version), // TODO incomatible types
+		StreamId:      streamID,
+		ExpiresAt:     expires,
+		CreatedAt:     metaObject.CreatedAt,
+
 		EncryptedMetadata: metaObject.EncryptedMetadata,
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(metaObject.Encryption.CipherSuite),
@@ -1346,7 +1347,7 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 		Redundancy:  rs,
 		Pieces:      pieces,
 
-		PlainSize: 1, // TODO
+		PlainSize: int32(req.PlainSize),
 	})
 
 	if err != nil {
@@ -1469,8 +1470,65 @@ func (endpoint *Endpoint) FinishDeleteSegment(ctx context.Context, req *pb.Segme
 
 // ListSegments list object segments.
 func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListRequest) (resp *pb.SegmentListResponse, err error) {
-	// nothing is using this method
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "not implemented")
+	defer mon.Task()(&ctx)(&err)
+
+	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:            macaroon.ActionList,
+		Bucket:        streamID.Bucket,
+		EncryptedPath: streamID.EncryptedPath,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	cursor := req.CursorPosition
+	if cursor == nil {
+		cursor = &pb.SegmentPosition{}
+	}
+
+	id, err := uuid.FromBytes(streamID.StreamId)
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	result, err := endpoint.metainfo.metabaseDB.ListSegments(ctx, metabase.ListSegments{
+		StreamID: id,
+		Cursor: metabase.SegmentPosition{
+			Part:  uint32(cursor.PartNumber),
+			Index: uint32(cursor.Index),
+		},
+		Limit: int(req.Limit),
+	})
+	if err != nil {
+		if storj.ErrObjectNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	items := make([]*pb.SegmentListItem, len(result.Segments))
+	for i, item := range result.Segments {
+		items[i] = &pb.SegmentListItem{
+			Position: &pb.SegmentPosition{
+				PartNumber: int32(item.Position.Part),
+				Index:      int32(item.Position.Index),
+			},
+			PlainSize: int64(item.PlainSize),
+		}
+	}
+
+	return &pb.SegmentListResponse{
+		Items: items,
+		More:  result.More,
+	}, nil
 }
 
 // DownloadSegment returns data necessary to download segment.

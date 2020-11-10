@@ -186,6 +186,8 @@ type MetabaseDB interface {
 	GetSegmentByPosition(ctx context.Context, opts metabase.GetSegmentByPosition) (segment metabase.Segment, err error)
 	// GetLatestObjectLastSegment returns an object last segment information.
 	GetLatestObjectLastSegment(ctx context.Context, opts metabase.GetLatestObjectLastSegment) (segment metabase.Segment, err error)
+	// ListSegments lists specified stream segments.
+	ListSegments(ctx context.Context, opts metabase.ListSegments) (result metabase.ListSegmentsResult, err error)
 
 	// InternalImplementation returns *metabase.DB.
 	// TODO: remove.
