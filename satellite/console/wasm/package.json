@@ -1,0 +1,12 @@
+{
+  "name": "wasm",
+  "version": "1.0.0",
+  "description": "In order to use the uplink library from the browser, we can compile the uplink library to WebAssembly (wasm).",
+  "main": "storj.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepublish": "cp \"$(go env GOROOT)/misc/wasm/wasm_exec.js\" . && GOOS=js GOARCH=wasm go build -o access.wasm access.go"
+  },
+  "author": "",
+  "license": "ISC"
+}
