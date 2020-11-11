@@ -113,11 +113,6 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		return Error.New("disk space requirement not met")
 	}
 
-	// Create file to identify the storage directory.
-	if err := service.store.CreateVerificationFile(service.contact.Local().ID); err != nil {
-		return Error.New("failed to create storage directory verification: %v", err)
-	}
-
 	group, ctx := errgroup.WithContext(ctx)
 	group.Go(func() error {
 		return service.VerifyDirReadableLoop.Run(ctx, func(ctx context.Context) error {
