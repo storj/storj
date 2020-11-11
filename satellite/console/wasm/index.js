@@ -23,6 +23,7 @@ async function runMethod(method, args) {
 
 worker.onmessage = async function handleCallback(event) {
 	callbacks[event.data.id](event.data);
+	callbacks[event.data.id] = undefined;
 };
 
 module.exports = new Proxy({}, {
