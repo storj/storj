@@ -11,6 +11,7 @@ pipeline {
     }
     environment {
         NPM_CONFIG_CACHE = '/npm/cache'
+        GOTRACEBACK = 'all'
     }
     stages {
         stage('Build') {

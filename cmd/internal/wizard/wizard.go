@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -91,16 +92,16 @@ func PromptForSatellite(cmd *cobra.Command) (string, error) {
 	}
 
 	if len(satelliteAddress) == 1 {
-		switch satelliteAddress {
-		case "1":
-			satelliteAddress = satellites[0]
-		case "2":
-			satelliteAddress = satellites[1]
-		case "3":
-			satelliteAddress = satellites[2]
-		default:
-			return "", errs.New("satellite address cannot be one character")
+		satIdx, err := strconv.Atoi(satelliteAddress)
+		if err != nil {
+			return "", errs.New("invalid satellite address option")
 		}
+
+		if satIdx < 1 || satIdx > len(satellites) {
+			return "", errs.New("invalid satellite address option")
+		}
+
+		satelliteAddress = satellites[satIdx-1]
 	}
 
 	nodeURL, err := storj.ParseNodeURL(satelliteAddress)
