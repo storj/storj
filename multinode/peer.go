@@ -12,6 +12,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/identity"
+	"storj.io/private/debug"
 	"storj.io/storj/multinode/console"
 	"storj.io/storj/multinode/console/server"
 	"storj.io/storj/private/lifecycle"
@@ -39,7 +40,9 @@ type DB interface {
 // Config is all the configuration parameters for a Multinode Dashboard.
 type Config struct {
 	Identity identity.Config
-	Console  server.Config
+	Debug    debug.Config
+
+	Console server.Config
 }
 
 // Peer is the a Multinode Dashboard application itself.
