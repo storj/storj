@@ -58,6 +58,7 @@ storj.io/storj/satellite/repair/checker."checker_segment_age" IntVal
 storj.io/storj/satellite/repair/checker."checker_segment_healthy_count" IntVal
 storj.io/storj/satellite/repair/checker."checker_segment_time_until_irreparable" IntVal
 storj.io/storj/satellite/repair/checker."checker_segment_total_count" IntVal
+storj.io/storj/satellite/repair/checker."checker_segments_below_min_req" Counter
 storj.io/storj/satellite/repair/checker."healthy_segments_removed_from_queue" IntVal
 storj.io/storj/satellite/repair/checker."new_remote_segments_needing_repair" IntVal
 storj.io/storj/satellite/repair/checker."remote_files_checked" IntVal
@@ -88,6 +89,7 @@ storj.io/storj/satellite/repair/repairer."repair_segment_size" IntVal
 storj.io/storj/satellite/repair/repairer."repair_success" Meter
 storj.io/storj/satellite/repair/repairer."repair_too_many_nodes_failed" Meter
 storj.io/storj/satellite/repair/repairer."repair_unnecessary" Meter
+storj.io/storj/satellite/repair/repairer."repairer_segments_below_min_req" Counter
 storj.io/storj/satellite/repair/repairer."segment_deleted_before_repair" Meter
 storj.io/storj/satellite/repair/repairer."segment_repair_count" IntVal
 storj.io/storj/satellite/repair/repairer."segment_time_until_repair" IntVal

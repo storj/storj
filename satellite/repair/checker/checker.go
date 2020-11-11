@@ -268,6 +268,9 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metainfo
 
 	obs.monStats.remoteSegmentsChecked++
 
+	// ensure we get values, even if only zero values, so that redash can have an alert based on this
+	mon.Counter("checker_segments_below_min_req").Inc(0) //mon:locked
+
 	pieces := segment.Pieces
 	if len(pieces) == 0 {
 		obs.log.Debug("no pieces on remote segment")
@@ -344,6 +347,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metainfo
 		mon.IntVal("checker_segment_time_until_irreparable").Observe(int64(segmentAge.Seconds())) //mon:locked
 
 		obs.monStats.remoteSegmentsLost++
+		mon.Counter("checker_segments_below_min_req").Inc(1) //mon:locked
 		// make an entry into the irreparable table
 		segmentInfo := &internalpb.IrreparableSegment{
 			Path:               key,
