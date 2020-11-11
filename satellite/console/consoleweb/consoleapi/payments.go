@@ -262,13 +262,16 @@ func (p *Payments) TokenDeposit(w http.ResponseWriter, r *http.Request) {
 
 	if err = json.NewDecoder(r.Body).Decode(&requestData); err != nil {
 		p.serveJSONError(w, http.StatusBadRequest, err)
+		return
 	}
 
 	if requestData.Amount < 0 {
 		p.serveJSONError(w, http.StatusBadRequest, errs.New("amount can not be negative"))
+		return
 	}
 	if requestData.Amount == 0 {
 		p.serveJSONError(w, http.StatusBadRequest, errs.New("amount should be greater than zero"))
+		return
 	}
 
 	tx, err := p.service.Payments().TokenDeposit(ctx, requestData.Amount)
