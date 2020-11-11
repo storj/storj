@@ -32,7 +32,7 @@ major_release_tags=$(
     grep -v rc |                                                     # remove release candidates
     sort -n -k2,2 -t'.' --unique |                                   # only keep the largest patch version
     sort -V |                                                        # resort based using "version sort"
-    awk 'BEGIN{FS="[v.]"} $2 >= 0 && $3 >= 15 || $2 >= 1 {print $0}' # keep only >= v0.15.x and v1.0.0
+    awk 'BEGIN{FS="[v.]"} $2 >= 0 && $3 >= 35 || $2 >= 1 && $3 != 3 {print $0}' # keep only >= v0.31.x and v1.0.0 except v1.3.x
 )
 current_release_version=$(echo $major_release_tags | xargs -n 1 | tail -1)
 stage1_sat_version=$current_release_version
