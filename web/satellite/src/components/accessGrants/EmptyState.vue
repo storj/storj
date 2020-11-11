@@ -24,8 +24,6 @@ import VButton from '@/components/common/VButton.vue';
 
 import Key from '@/../static/images/accessGrants/key.svg';
 
-// import Background from '@/../static/images/accessGrants/access-grants-bg.svg';
-
 @Component({
     components: {
         Key,
@@ -40,6 +38,8 @@ export default class EmptyState extends Vue {
 <style scoped lang="scss">
 .empty-state {
     background-image: url('../../../static/images/accessGrants/access-grants-bg.png');
+    background-size: contain;
+    margin-top: 40px;
 
     &__modal {
         display: block;
@@ -49,7 +49,8 @@ export default class EmptyState extends Vue {
         text-align: center;
         background: #fff;
         padding: 100px 30px;
-        margin-top: 110px;
+        position: relative;
+        top: 110px;
 
         &__heading {
             font-family: 'font_bold', sans-serif;
