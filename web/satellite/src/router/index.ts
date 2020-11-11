@@ -4,7 +4,7 @@
 import Vue from 'vue';
 import Router, { RouteRecord } from 'vue-router';
 
-import AccessGrants from '@/components/accessGrants/AccessGrant.vue';
+import AccessGrants from '@/components/accessGrants/AccessGrants.vue';
 import CreateAccessNameStep from '@/components/accessGrants/steps/CreateAccessNameStep.vue';
 import CreateAccessPassphraseStep from '@/components/accessGrants/steps/CreateAccessPassphraseStep.vue';
 import CreateAccessPermissionsStep from '@/components/accessGrants/steps/CreateAccessPermissionsStep.vue';
@@ -48,10 +48,6 @@ export abstract class RouteConfig {
     public static CreateProject = new NavigationLink('/create-project', 'Create Project');
     public static EditProjectDetails = new NavigationLink('/edit-project-details', 'Edit Project Details');
     public static AccessGrants = new NavigationLink('/access-grants', 'Access Grants');
-    public static NameStep = new NavigationLink('/access-grants/access-create-name', 'Name Your Access');
-    public static PermissionsStep = new NavigationLink('/access-grants/access-create-permissions', 'Access Permissions');
-    public static PassphraseStep = new NavigationLink('/access-grants/access-create-passphrase', 'Encryption Passphrase');
-    public static UplinkStep = new NavigationLink('/access-grants/access-create-uplink', 'Upload Data');
 
     // child paths
     public static Settings = new NavigationLink('settings', 'Settings');
@@ -59,6 +55,10 @@ export abstract class RouteConfig {
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
     public static DepositHistory = new NavigationLink('deposit-history', 'Deposit History');
     public static CreditsHistory = new NavigationLink('credits-history', 'Credits History');
+    public static NameStep = new NavigationLink('access-create-name', 'Name Your Access');
+    public static PermissionsStep = new NavigationLink('access-create-permissions', 'Access Permissions');
+    public static PassphraseStep = new NavigationLink('access-create-passphrase', 'Encryption Passphrase');
+    public static UplinkStep = new NavigationLink('access-create-uplink', 'Upload Data');
 
     // TODO: disabled until implementation
     // public static Referral = new NavigationLink('referral', 'Referral');
