@@ -16,9 +16,39 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/uplink"
 	"storj.io/uplink/private/access2"
 )
+
+// Permission defines what actions can be used to share.
+//
+// This struct has been taken from storj.io/uplink and duplicated to avoid
+// pulling in that dependency.
+type Permission struct {
+	// AllowDownload gives permission to download the object's content. It
+	// allows getting object metadata, but it does not allow listing buckets.
+	AllowDownload bool
+	// AllowUpload gives permission to create buckets and upload new objects.
+	// It does not allow overwriting existing objects unless AllowDelete is
+	// granted too.
+	AllowUpload bool
+	// AllowList gives permission to list buckets. It allows getting object
+	// metadata, but it does not allow downloading the object's content.
+	AllowList bool
+	// AllowDelete gives permission to delete buckets and objects. Unless
+	// either AllowDownload or AllowList is granted too, no object metadata and
+	// no error info will be returned for deleted objects.
+	AllowDelete bool
+	// NotBefore restricts when the resulting access grant is valid for.
+	// If set, the resulting access grant will not work if the Satellite
+	// believes the time is before NotBefore.
+	// If set, this value should always be before NotAfter.
+	NotBefore time.Time
+	// NotAfter restricts when the resulting access grant is valid for.
+	// If set, the resulting access grant will not work if the Satellite
+	// believes the time is after NotAfter.
+	// If set, this value should always be after NotBefore.
+	NotAfter time.Time
+}
 
 func main() {
 	js.Global().Set("generateAccessGrant", generateAccessGrant())
@@ -123,7 +153,7 @@ func setAPIKeyPermission() js.Func {
 // newPermission creates a new permission object.
 func newPermission() js.Func {
 	return js.FuncOf(responseHandler(func(this js.Value, args []js.Value) (interface{}, error) {
-		p, err := json.Marshal(uplink.Permission{})
+		p, err := json.Marshal(Permission{})
 		if err != nil {
 			return nil, err
 		}
@@ -137,8 +167,8 @@ func newPermission() js.Func {
 	}))
 }
 
-func setPermission(key string, buckets []string, permission uplink.Permission) (*macaroon.APIKey, error) {
-	if permission == (uplink.Permission{}) {
+func setPermission(key string, buckets []string, permission Permission) (*macaroon.APIKey, error) {
+	if permission == (Permission{}) {
 		return nil, errs.New("permission is empty")
 	}
 
@@ -182,8 +212,8 @@ func setPermission(key string, buckets []string, permission uplink.Permission) (
 	return restrictedKey, nil
 }
 
-func parsePermission(arg js.Value) (uplink.Permission, error) {
-	var permission uplink.Permission
+func parsePermission(arg js.Value) (Permission, error) {
+	var permission Permission
 
 	// convert javascript object to a json string
 	jsJSON := js.Global().Get("JSON")
