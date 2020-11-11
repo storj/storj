@@ -214,17 +214,14 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 				Opts: metabase.CommitInlineSegment{
 					ObjectStream: obj,
 					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
-					RootPieceID:  testrand.PieceID(),
 
 					EncryptedKey:      testrand.Bytes(32),
 					EncryptedKeyNonce: testrand.Bytes(32),
 
 					InlineData: testrand.Bytes(1024),
 
-					EncryptedSize: 1024,
-					PlainSize:     512,
-					PlainOffset:   0,
-					Redundancy:    defaultTestRedundancy,
+					PlainSize:   512,
+					PlainOffset: 0,
 				},
 			}.Check(ctx, t, db)
 
@@ -379,17 +376,14 @@ func TestDeleteObjectLatestVersion(t *testing.T) {
 				Opts: metabase.CommitInlineSegment{
 					ObjectStream: obj,
 					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
-					RootPieceID:  testrand.PieceID(),
 
 					EncryptedKey:      testrand.Bytes(32),
 					EncryptedKeyNonce: testrand.Bytes(32),
 
 					InlineData: testrand.Bytes(1024),
 
-					EncryptedSize: 1024,
-					PlainSize:     512,
-					PlainOffset:   0,
-					Redundancy:    defaultTestRedundancy,
+					PlainSize:   512,
+					PlainOffset: 0,
 				},
 			}.Check(ctx, t, db)
 
@@ -608,17 +602,14 @@ func TestDeleteObjectAllVersions(t *testing.T) {
 				Opts: metabase.CommitInlineSegment{
 					ObjectStream: obj,
 					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
-					RootPieceID:  testrand.PieceID(),
 
 					EncryptedKey:      testrand.Bytes(32),
 					EncryptedKeyNonce: testrand.Bytes(32),
 
 					InlineData: testrand.Bytes(1024),
 
-					EncryptedSize: 1024,
-					PlainSize:     512,
-					PlainOffset:   0,
-					Redundancy:    defaultTestRedundancy,
+					PlainSize:   512,
+					PlainOffset: 0,
 				},
 			}.Check(ctx, t, db)
 
@@ -851,17 +842,14 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 				Opts: metabase.CommitInlineSegment{
 					ObjectStream: obj,
 					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
-					RootPieceID:  testrand.PieceID(),
 
 					EncryptedKey:      testrand.Bytes(32),
 					EncryptedKeyNonce: testrand.Bytes(32),
 
 					InlineData: testrand.Bytes(1024),
 
-					EncryptedSize: 1024,
-					PlainSize:     512,
-					PlainOffset:   0,
-					Redundancy:    defaultTestRedundancy,
+					PlainSize:   512,
+					PlainOffset: 0,
 				},
 			}.Check(ctx, t, db)
 
@@ -898,17 +886,14 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 				Opts: metabase.CommitInlineSegment{
 					ObjectStream: obj,
 					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
-					RootPieceID:  testrand.PieceID(),
 
 					EncryptedKey:      testrand.Bytes(32),
 					EncryptedKeyNonce: testrand.Bytes(32),
 
 					InlineData: testrand.Bytes(1024),
 
-					EncryptedSize: 1024,
-					PlainSize:     512,
-					PlainOffset:   0,
-					Redundancy:    defaultTestRedundancy,
+					PlainSize:   512,
+					PlainOffset: 0,
 				},
 			}.Check(ctx, t, db)
 

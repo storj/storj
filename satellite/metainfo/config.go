@@ -178,6 +178,8 @@ type MetabaseDB interface {
 	BeginSegment(ctx context.Context, opts metabase.BeginSegment) (err error)
 	// CommitSegment commits segment to the database.
 	CommitSegment(ctx context.Context, opts metabase.CommitSegment) (err error)
+	// CommitInlineSegment commits inline segment to the database.
+	CommitInlineSegment(ctx context.Context, opts metabase.CommitInlineSegment) (err error)
 	// GetObjectLatestVersion returns object information for latest version.
 	GetObjectLatestVersion(ctx context.Context, opts metabase.GetObjectLatestVersion) (_ metabase.Object, err error)
 	// GetSegmentByPosition returns a information about segment which covers specified offset.

@@ -1366,7 +1366,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 	return resp, err
 }
 
-// MakeInlineSegment makes inline segment on satellite.
+// makeInlineSegment makes inline segment on satellite.
 func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.SegmentMakeInlineRequest, savePointer bool) (pointer *pb.Pointer, resp *pb.SegmentMakeInlineResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1412,30 +1412,34 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 		// that will be affected is our per-project bandwidth and storage limits.
 	}
 
-	metadata, err := pb.Marshal(&pb.SegmentMeta{
-		EncryptedKey: req.EncryptedKey,
-		KeyNonce:     req.EncryptedKeyNonce.Bytes(),
-	})
-
-	pointer = &pb.Pointer{
-		Type:           pb.Pointer_INLINE,
-		SegmentSize:    inlineUsed,
-		CreationDate:   streamID.CreationDate,
-		ExpirationDate: streamID.ExpirationDate,
-		InlineSegment:  req.EncryptedInlineData,
-		Metadata:       metadata,
+	id, err := uuid.FromBytes(streamID.StreamId)
+	if err != nil {
+		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	if savePointer {
-		location, err := CreatePath(ctx, keyInfo.ProjectID, int64(req.Position.Index), streamID.Bucket, streamID.EncryptedPath)
-		if err != nil {
-			return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		}
+	err = endpoint.metainfo.metabaseDB.CommitInlineSegment(ctx, metabase.CommitInlineSegment{
+		ObjectStream: metabase.ObjectStream{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(streamID.Bucket),
+			ObjectKey:  metabase.ObjectKey(streamID.EncryptedPath),
+			StreamID:   id,
+			Version:    1,
+		},
+		EncryptedKey:      req.EncryptedKey,
+		EncryptedKeyNonce: req.EncryptedKeyNonce.Bytes(),
 
-		err = endpoint.metainfo.UnsynchronizedPut(ctx, location.Encode(), pointer)
-		if err != nil {
-			return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
+		Position: metabase.SegmentPosition{
+			Part:  uint32(req.Position.PartNumber),
+			Index: uint32(req.Position.Index),
+		},
+
+		PlainSize: 1, // TODO
+
+		InlineData: req.EncryptedInlineData,
+	})
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
@@ -1447,7 +1451,7 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 	endpoint.log.Info("Inline Segment Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "inline"))
 	mon.Meter("req_put_inline").Mark(1)
 
-	return pointer, &pb.SegmentMakeInlineResponse{}, nil
+	return nil, &pb.SegmentMakeInlineResponse{}, nil
 }
 
 // BeginDeleteSegment begins segment deletion process.

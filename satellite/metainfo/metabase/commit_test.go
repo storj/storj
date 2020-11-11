@@ -1164,22 +1164,12 @@ func TestCommitInlineSegment(t *testing.T) {
 					ObjectStream: obj,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "RootPieceID missing",
-			}.Check(ctx, t, db)
-
-			CommitInlineSegment{
-				Opts: metabase.CommitInlineSegment{
-					ObjectStream: obj,
-					RootPieceID:  testrand.PieceID(),
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "InlineData missing",
 			}.Check(ctx, t, db)
 
 			CommitInlineSegment{
 				Opts: metabase.CommitInlineSegment{
 					ObjectStream: obj,
-					RootPieceID:  testrand.PieceID(),
 					InlineData:   []byte{1, 2, 3},
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
@@ -1189,7 +1179,6 @@ func TestCommitInlineSegment(t *testing.T) {
 			CommitInlineSegment{
 				Opts: metabase.CommitInlineSegment{
 					ObjectStream: obj,
-					RootPieceID:  testrand.PieceID(),
 
 					InlineData: []byte{1, 2, 3},
 
@@ -1202,31 +1191,13 @@ func TestCommitInlineSegment(t *testing.T) {
 			CommitInlineSegment{
 				Opts: metabase.CommitInlineSegment{
 					ObjectStream: obj,
-					RootPieceID:  testrand.PieceID(),
 
 					InlineData: []byte{1, 2, 3},
 
 					EncryptedKey:      testrand.Bytes(32),
 					EncryptedKeyNonce: testrand.Bytes(32),
 
-					EncryptedSize: -1,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "EncryptedSize negative or zero",
-			}.Check(ctx, t, db)
-
-			CommitInlineSegment{
-				Opts: metabase.CommitInlineSegment{
-					ObjectStream: obj,
-					RootPieceID:  testrand.PieceID(),
-
-					InlineData: []byte{1, 2, 3},
-
-					EncryptedKey:      testrand.Bytes(32),
-					EncryptedKeyNonce: testrand.Bytes(32),
-
-					EncryptedSize: 1024,
-					PlainSize:     -1,
+					PlainSize: -1,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "PlainSize negative or zero",
@@ -1235,37 +1206,17 @@ func TestCommitInlineSegment(t *testing.T) {
 			CommitInlineSegment{
 				Opts: metabase.CommitInlineSegment{
 					ObjectStream: obj,
-					RootPieceID:  testrand.PieceID(),
 
 					InlineData: []byte{1, 2, 3},
 
 					EncryptedKey:      testrand.Bytes(32),
 					EncryptedKeyNonce: testrand.Bytes(32),
 
-					EncryptedSize: 1024,
-					PlainSize:     512,
-					PlainOffset:   -1,
+					PlainSize:   512,
+					PlainOffset: -1,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "PlainOffset negative",
-			}.Check(ctx, t, db)
-
-			CommitInlineSegment{
-				Opts: metabase.CommitInlineSegment{
-					ObjectStream: obj,
-					RootPieceID:  testrand.PieceID(),
-
-					InlineData: []byte{1, 2, 3},
-
-					EncryptedKey:      testrand.Bytes(32),
-					EncryptedKeyNonce: testrand.Bytes(32),
-
-					EncryptedSize: 1024,
-					PlainSize:     512,
-					PlainOffset:   0,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "Redundancy zero",
 			}.Check(ctx, t, db)
 		})
 
@@ -1281,7 +1232,6 @@ func TestCommitInlineSegment(t *testing.T) {
 				Version: 1,
 			}.Check(ctx, t, db)
 
-			rootPieceID := testrand.PieceID()
 			encryptedKey := testrand.Bytes(32)
 			encryptedKeyNonce := testrand.Bytes(32)
 
@@ -1289,16 +1239,13 @@ func TestCommitInlineSegment(t *testing.T) {
 				Opts: metabase.CommitInlineSegment{
 					ObjectStream: obj,
 					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
-					RootPieceID:  rootPieceID,
 					InlineData:   []byte{1, 2, 3},
 
 					EncryptedKey:      encryptedKey,
 					EncryptedKeyNonce: encryptedKeyNonce,
 
-					EncryptedSize: 1024,
-					PlainSize:     512,
-					PlainOffset:   0,
-					Redundancy:    defaultTestRedundancy,
+					PlainSize:   512,
+					PlainOffset: 0,
 				},
 			}.Check(ctx, t, db)
 
@@ -1306,16 +1253,13 @@ func TestCommitInlineSegment(t *testing.T) {
 				Opts: metabase.CommitInlineSegment{
 					ObjectStream: obj,
 					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
-					RootPieceID:  rootPieceID,
 					InlineData:   []byte{1, 2, 3},
 
 					EncryptedKey:      encryptedKey,
 					EncryptedKeyNonce: encryptedKeyNonce,
 
-					EncryptedSize: 1024,
-					PlainSize:     512,
-					PlainOffset:   0,
-					Redundancy:    defaultTestRedundancy,
+					PlainSize:   512,
+					PlainOffset: 0,
 				},
 				ErrClass: &metabase.ErrConflict,
 				ErrText:  "segment already exists",
@@ -1336,17 +1280,14 @@ func TestCommitInlineSegment(t *testing.T) {
 						StreamID: obj.StreamID,
 						Position: metabase.SegmentPosition{Part: 0, Index: 0},
 
-						RootPieceID:       rootPieceID,
 						EncryptedKey:      encryptedKey,
 						EncryptedKeyNonce: encryptedKeyNonce,
 
-						EncryptedSize: 1024,
-						PlainOffset:   0,
-						PlainSize:     512,
+						PlainOffset: 0,
+						PlainSize:   512,
 
-						Redundancy: defaultTestRedundancy,
-
-						InlineData: []byte{1, 2, 3},
+						InlineData:    []byte{1, 2, 3},
+						EncryptedSize: 3,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -1355,23 +1296,19 @@ func TestCommitInlineSegment(t *testing.T) {
 		t.Run("commit inline segment of missing object", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
-			rootPieceID := testrand.PieceID()
 			encryptedKey := testrand.Bytes(32)
 			encryptedKeyNonce := testrand.Bytes(32)
 
 			CommitInlineSegment{
 				Opts: metabase.CommitInlineSegment{
 					ObjectStream: obj,
-					RootPieceID:  rootPieceID,
 					InlineData:   []byte{1, 2, 3},
 
 					EncryptedKey:      encryptedKey,
 					EncryptedKeyNonce: encryptedKeyNonce,
 
-					EncryptedSize: 1024,
-					PlainSize:     512,
-					PlainOffset:   0,
-					Redundancy:    defaultTestRedundancy,
+					PlainSize:   512,
+					PlainOffset: 0,
 				},
 				ErrClass: &metabase.Error,
 				ErrText:  "pending object missing",
@@ -1383,7 +1320,6 @@ func TestCommitInlineSegment(t *testing.T) {
 		t.Run("commit segment of committed object", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
-			rootPieceID := testrand.PieceID()
 			encryptedKey := testrand.Bytes(32)
 			encryptedKeyNonce := testrand.Bytes(32)
 
@@ -1393,16 +1329,13 @@ func TestCommitInlineSegment(t *testing.T) {
 			CommitInlineSegment{
 				Opts: metabase.CommitInlineSegment{
 					ObjectStream: obj,
-					RootPieceID:  rootPieceID,
 					InlineData:   []byte{1, 2, 3},
 
 					EncryptedKey:      encryptedKey,
 					EncryptedKeyNonce: encryptedKeyNonce,
 
-					EncryptedSize: 1024,
-					PlainSize:     512,
-					PlainOffset:   0,
-					Redundancy:    defaultTestRedundancy,
+					PlainSize:   512,
+					PlainOffset: 0,
 				},
 				ErrClass: &metabase.Error,
 				ErrText:  "pending object missing",
@@ -1423,7 +1356,6 @@ func TestCommitInlineSegment(t *testing.T) {
 		t.Run("commit segment of pending object", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
-			rootPieceID := testrand.PieceID()
 			encryptedKey := testrand.Bytes(32)
 			encryptedKeyNonce := testrand.Bytes(32)
 
@@ -1439,16 +1371,13 @@ func TestCommitInlineSegment(t *testing.T) {
 			CommitInlineSegment{
 				Opts: metabase.CommitInlineSegment{
 					ObjectStream: obj,
-					RootPieceID:  rootPieceID,
 					InlineData:   []byte{1, 2, 3},
 
 					EncryptedKey:      encryptedKey,
 					EncryptedKeyNonce: encryptedKeyNonce,
 
-					EncryptedSize: 1024,
-					PlainSize:     512,
-					PlainOffset:   0,
-					Redundancy:    defaultTestRedundancy,
+					PlainSize:   512,
+					PlainOffset: 0,
 				},
 			}.Check(ctx, t, db)
 
@@ -1465,17 +1394,14 @@ func TestCommitInlineSegment(t *testing.T) {
 					{
 						StreamID: obj.StreamID,
 
-						RootPieceID:       rootPieceID,
 						EncryptedKey:      encryptedKey,
 						EncryptedKeyNonce: encryptedKeyNonce,
 
-						EncryptedSize: 1024,
-						PlainOffset:   0,
-						PlainSize:     512,
+						PlainOffset: 0,
+						PlainSize:   512,
 
-						Redundancy: defaultTestRedundancy,
-
-						InlineData: []byte{1, 2, 3},
+						InlineData:    []byte{1, 2, 3},
+						EncryptedSize: 3,
 					},
 				},
 			}.Check(ctx, t, db)

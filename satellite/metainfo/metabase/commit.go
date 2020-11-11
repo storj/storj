@@ -331,17 +331,13 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 type CommitInlineSegment struct {
 	ObjectStream
 
-	Position    SegmentPosition
-	RootPieceID storj.PieceID // TODO: do we need this?
+	Position SegmentPosition
 
 	EncryptedKeyNonce []byte
 	EncryptedKey      []byte
 
-	PlainOffset   int64 // offset in the original data stream
-	PlainSize     int32 // size before encryption
-	EncryptedSize int32 // segment size after encryption
-
-	Redundancy storj.RedundancyScheme // TODO: do we need this?
+	PlainOffset int64 // offset in the original data stream
+	PlainSize   int32 // size before encryption
 
 	InlineData []byte
 }
@@ -357,22 +353,16 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 	// TODO: do we have a lower limit for inline data?
 
 	switch {
-	case opts.RootPieceID.IsZero():
-		return ErrInvalidRequest.New("RootPieceID missing")
 	case len(opts.InlineData) == 0:
 		return ErrInvalidRequest.New("InlineData missing")
 	case len(opts.EncryptedKey) == 0:
 		return ErrInvalidRequest.New("EncryptedKey missing")
 	case len(opts.EncryptedKeyNonce) == 0:
 		return ErrInvalidRequest.New("EncryptedKeyNonce missing")
-	case opts.EncryptedSize <= 0:
-		return ErrInvalidRequest.New("EncryptedSize negative or zero")
 	case opts.PlainSize <= 0:
 		return ErrInvalidRequest.New("PlainSize negative or zero")
 	case opts.PlainOffset < 0:
 		return ErrInvalidRequest.New("PlainOffset negative")
-	case opts.Redundancy.IsZero():
-		return ErrInvalidRequest.New("Redundancy zero")
 	}
 
 	tx, err := db.db.BeginTx(ctx, nil)
@@ -411,19 +401,16 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 			stream_id, position,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size, plain_offset, plain_size,
-			redundancy,
 			inline_data
 		) VALUES (
 			$1, $2,
 			$3, $4, $5,
 			$6, $7, $8,
-			$9,
-			$10
+			$9
 		)`,
 		opts.StreamID, opts.Position,
-		opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
-		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize,
-		redundancyScheme{&opts.Redundancy},
+		storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
+		len(opts.InlineData), opts.PlainOffset, opts.PlainSize,
 		opts.InlineData,
 	)
 	if err != nil {
