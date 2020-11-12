@@ -14,6 +14,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/storj/private/dbutil/pgutil/pgerrcode"
+	"storj.io/storj/private/dbutil/txutil"
 	"storj.io/storj/private/tagsql"
 )
 
@@ -64,7 +65,7 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 					WHERE project_id = $1 AND bucket_name = $2 AND object_key = $3
 					ORDER BY version DESC
 					LIMIT 1
-				), 1), 
+				), 1),
 			$4, $5, $6,
 			$7)
 		RETURNING version
@@ -162,54 +163,40 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 
 	// NOTE: these queries could be combined into one.
 
-	tx, err := db.db.BeginTx(ctx, nil)
-	if err != nil {
-		return Error.New("failed BeginTx: %w", err)
-	}
-	committed := false
-	defer func() {
-		if !committed {
-			err = errs.Combine(err, Error.Wrap(tx.Rollback()))
+	return txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
+		// Verify that object exists and is partial.
+		var value int
+		err = tx.QueryRow(ctx, `
+			SELECT 1
+			FROM objects WHERE
+				project_id   = $1 AND
+				bucket_name  = $2 AND
+				object_key   = $3 AND
+				version      = $4 AND
+				stream_id    = $5 AND
+				status       = 0
+		`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID).Scan(&value)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return Error.New("pending object missing")
+			}
+			return Error.New("unable to query object status: %w", err)
 		}
-	}()
 
-	// Verify that object exists and is partial.
-	var value int
-	err = tx.QueryRow(ctx, `
-		SELECT 1
-		FROM objects WHERE
-			project_id   = $1 AND
-			bucket_name  = $2 AND
-			object_key   = $3 AND
-			version      = $4 AND
-			stream_id    = $5 AND
-			status       = 0
-	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID).Scan(&value)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return Error.New("pending object missing")
+		// Verify that the segment does not exist.
+		err = tx.QueryRow(ctx, `
+			SELECT 1
+			FROM segments WHERE
+				stream_id = $1 AND
+				position  = $2
+		`, opts.StreamID, opts.Position).Scan(&value)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return Error.New("unable to query segments: %w", err)
 		}
-		return Error.New("unable to query object status: %w", err)
-	}
+		err = nil //nolint:ineffassign ignore any other err result (explicitly)
 
-	// Verify that the segment does not exist.
-	err = tx.QueryRow(ctx, `
-		SELECT 1
-		FROM segments WHERE
-			stream_id = $1 AND
-			position  = $2
-	`, opts.StreamID, opts.Position).Scan(&value)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return Error.New("unable to query segments: %w", err)
-	}
-	err = nil // ignore any other err result (explicitly)
-
-	err, committed = tx.Commit(), true
-	if err != nil {
-		return Error.New("unable to commit tx: %w", err)
-	}
-
-	return nil
+		return nil
+	})
 }
 
 // CommitSegment contains all necessary information about the segment.
@@ -261,70 +248,56 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 	// TODO: verify opts.Pieces content is non-zero
 	// TODO: verify opts.Pieces is compatible with opts.Redundancy
 
-	tx, err := db.db.BeginTx(ctx, nil)
-	if err != nil {
-		return Error.New("failed BeginTx: %w", err)
-	}
-	committed := false
-	defer func() {
-		if !committed {
-			err = errs.Combine(err, Error.Wrap(tx.Rollback()))
+	return txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+		// Verify that object exists and is partial.
+		var value int
+		err = tx.QueryRowContext(ctx, `
+			SELECT 1
+			FROM objects WHERE
+				project_id   = $1 AND
+				bucket_name  = $2 AND
+				object_key   = $3 AND
+				version      = $4 AND
+				stream_id    = $5 AND
+				status       = 0
+		`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID).Scan(&value)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return Error.New("pending object missing")
+			}
+			return Error.New("unable to query object status: %w", err)
 		}
-	}()
 
-	// Verify that object exists and is partial.
-	var value int
-	err = tx.QueryRowContext(ctx, `
-		SELECT 1
-		FROM objects WHERE
-			project_id   = $1 AND
-			bucket_name  = $2 AND
-			object_key   = $3 AND
-			version      = $4 AND
-			stream_id    = $5 AND
-			status       = 0
-	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID).Scan(&value)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return Error.New("pending object missing")
+		// Insert into segments.
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO segments (
+				stream_id, position,
+				root_piece_id, encrypted_key_nonce, encrypted_key,
+				encrypted_size, plain_offset, plain_size,
+				redundancy,
+				remote_pieces
+			) VALUES (
+				$1, $2,
+				$3, $4, $5,
+				$6, $7, $8,
+				$9,
+				$10
+			)`,
+			opts.StreamID, opts.Position,
+			opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
+			opts.EncryptedSize, opts.PlainOffset, opts.PlainSize,
+			redundancyScheme{&opts.Redundancy},
+			opts.Pieces,
+		)
+		if err != nil {
+			if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
+				return ErrConflict.New("segment already exists")
+			}
+			return Error.New("unable to insert segment: %w", err)
 		}
-		return Error.New("unable to query object status: %w", err)
-	}
 
-	// Insert into segments.
-	_, err = tx.ExecContext(ctx, `
-		INSERT INTO segments (
-			stream_id, position,
-			root_piece_id, encrypted_key_nonce, encrypted_key,
-			encrypted_size, plain_offset, plain_size,
-			redundancy,
-			remote_pieces
-		) VALUES (
-			$1, $2,
-			$3, $4, $5,
-			$6, $7, $8,
-			$9,
-			$10
-		)`,
-		opts.StreamID, opts.Position,
-		opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
-		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize,
-		redundancyScheme{&opts.Redundancy},
-		opts.Pieces,
-	)
-	if err != nil {
-		if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
-			return ErrConflict.New("segment already exists")
-		}
-		return Error.New("unable to insert segment: %w", err)
-	}
-
-	err, committed = tx.Commit(), true
-	if err != nil {
-		return Error.New("unable to commit tx: %w", err)
-	}
-
-	return nil
+		return nil
+	})
 }
 
 // CommitInlineSegment contains all necessary information about the segment.
@@ -365,67 +338,53 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 		return ErrInvalidRequest.New("PlainOffset negative")
 	}
 
-	tx, err := db.db.BeginTx(ctx, nil)
-	if err != nil {
-		return Error.New("failed BeginTx: %w", err)
-	}
-	committed := false
-	defer func() {
-		if !committed {
-			err = errs.Combine(err, Error.Wrap(tx.Rollback()))
+	return txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+		// Verify that object exists and is partial.
+		var value int
+		err = tx.QueryRowContext(ctx, `
+			SELECT 1
+			FROM objects WHERE
+				project_id   = $1 AND
+				bucket_name  = $2 AND
+				object_key   = $3 AND
+				version      = $4 AND
+				stream_id    = $5 AND
+				status       = 0
+		`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID).Scan(&value)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return Error.New("pending object missing")
+			}
+			return Error.New("unable to query object status: %w", err)
 		}
-	}()
 
-	// Verify that object exists and is partial.
-	var value int
-	err = tx.QueryRowContext(ctx, `
-		SELECT 1
-		FROM objects WHERE
-			project_id   = $1 AND
-			bucket_name  = $2 AND
-			object_key   = $3 AND
-			version      = $4 AND
-			stream_id    = $5 AND
-			status       = 0
-	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID).Scan(&value)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return Error.New("pending object missing")
+		// Insert into segments.
+		_, err = tx.ExecContext(ctx, `
+			INSERT INTO segments (
+				stream_id, position,
+				root_piece_id, encrypted_key_nonce, encrypted_key,
+				encrypted_size, plain_offset, plain_size,
+				inline_data
+			) VALUES (
+				$1, $2,
+				$3, $4, $5,
+				$6, $7, $8,
+				$9
+			)`,
+			opts.StreamID, opts.Position,
+			storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
+			len(opts.InlineData), opts.PlainOffset, opts.PlainSize,
+			opts.InlineData,
+		)
+		if err != nil {
+			if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
+				return ErrConflict.New("segment already exists")
+			}
+			return Error.New("unable to insert segment: %w", err)
 		}
-		return Error.New("unable to query object status: %w", err)
-	}
 
-	// Insert into segments.
-	_, err = tx.ExecContext(ctx, `
-		INSERT INTO segments (
-			stream_id, position,
-			root_piece_id, encrypted_key_nonce, encrypted_key,
-			encrypted_size, plain_offset, plain_size,
-			inline_data
-		) VALUES (
-			$1, $2,
-			$3, $4, $5,
-			$6, $7, $8,
-			$9
-		)`,
-		opts.StreamID, opts.Position,
-		storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
-		len(opts.InlineData), opts.PlainOffset, opts.PlainSize,
-		opts.InlineData,
-	)
-	if err != nil {
-		if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
-			return ErrConflict.New("segment already exists")
-		}
-		return Error.New("unable to insert segment: %w", err)
-	}
-
-	err, committed = tx.Commit(), true
-	if err != nil {
-		return Error.New("unable to commit tx: %w", err)
-	}
-
-	return nil
+		return nil
+	})
 }
 
 // CommitObject contains arguments necessary for committing an object.
@@ -461,137 +420,127 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 
 func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) (object Object, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	tx, err := db.db.BeginTx(ctx, nil)
-	if err != nil {
-		return Object{}, Error.New("failed BeginTx: %w", err)
-	}
-	committed := false
-	defer func() {
-		if !committed {
-			err = errs.Combine(err, Error.Wrap(tx.Rollback()))
+	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+		type Segment struct {
+			Position      SegmentPosition
+			EncryptedSize int32
+			PlainOffset   int64
+			PlainSize     int32
 		}
-	}()
 
-	type Segment struct {
-		Position      SegmentPosition
-		EncryptedSize int32
-		PlainOffset   int64
-		PlainSize     int32
-	}
-
-	var segments []Segment
-	err = withRows(tx.Query(ctx, `
-		SELECT position, encrypted_size, plain_offset, plain_size
-		FROM segments
-		WHERE stream_id = $1
-		ORDER BY position
-	`, opts.StreamID))(func(rows tagsql.Rows) error {
-		for rows.Next() {
-			var segment Segment
-			err := rows.Scan(&segment.Position, &segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize)
-			if err != nil {
-				return Error.New("failed to scan segments: %w", err)
+		var segments []Segment
+		err = withRows(tx.Query(ctx, `
+			SELECT position, encrypted_size, plain_offset, plain_size
+			FROM segments
+			WHERE stream_id = $1
+			ORDER BY position
+		`, opts.StreamID))(func(rows tagsql.Rows) error {
+			for rows.Next() {
+				var segment Segment
+				err := rows.Scan(&segment.Position, &segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize)
+				if err != nil {
+					return Error.New("failed to scan segments: %w", err)
+				}
+				segments = append(segments, segment)
 			}
-			segments = append(segments, segment)
+			return nil
+		})
+		if err != nil {
+			return Error.New("failed to fetch segments: %w", err)
 		}
+
+		// TODO disabled for now
+		// verify segments
+		// if len(segments) > 0 {
+		// 	// without proofs we expect the segments to be contiguous
+		// 	hasOffset := false
+		// 	offset := int64(0)
+		// 	for i, seg := range segments {
+		// 		if seg.Position.Part != 0 && seg.Position.Index != uint32(i) {
+		// 			return Error.New("expected segment (%d,%d), found (%d,%d)", 0, i, seg.Position.Part, seg.Position.Index)
+		// 		}
+		// 		if seg.PlainOffset != 0 {
+		// 			hasOffset = true
+		// 		}
+		// 		if hasOffset && seg.PlainOffset != offset {
+		// 			return Error.New("segment %d should be at plain offset %d, offset is %d", seg.Position.Index, offset, seg.PlainOffset)
+		// 		}
+		// 		offset += int64(seg.PlainSize)
+		// 	}
+		// }
+
+		// TODO: would we even need this when we make main index plain_offset?
+		fixedSegmentSize := int32(0)
+		if len(segments) > 0 {
+			fixedSegmentSize = segments[0].EncryptedSize
+			for _, seg := range segments[:len(segments)-1] {
+				if seg.EncryptedSize != fixedSegmentSize {
+					fixedSegmentSize = -1
+					break
+				}
+			}
+		}
+
+		var totalEncryptedSize int64
+		for _, seg := range segments {
+			totalEncryptedSize += int64(seg.EncryptedSize)
+		}
+
+		err = tx.QueryRow(ctx, `
+			UPDATE objects SET
+				status = 1, -- committed
+				segment_count = $6,
+
+				encrypted_metadata_nonce = $7,
+				encrypted_metadata = $8,
+
+				total_encrypted_size = $9,
+				fixed_segment_size = $10,
+				zombie_deletion_deadline = NULL
+			WHERE
+				project_id   = $1 AND
+				bucket_name  = $2 AND
+				object_key   = $3 AND
+				version      = $4 AND
+				stream_id    = $5 AND
+				status       = 0
+			RETURNING
+				created_at, expires_at,
+				encryption;
+		`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID,
+			len(segments),
+			opts.EncryptedMetadataNonce, opts.EncryptedMetadata,
+			totalEncryptedSize,
+			fixedSegmentSize,
+		).
+			Scan(
+				&object.CreatedAt, &object.ExpiresAt,
+				encryptionParameters{&object.Encryption},
+			)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return storj.ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+			}
+			return Error.New("failed to update object: %w", err)
+		}
+
+		object.StreamID = opts.StreamID
+		object.ProjectID = opts.ProjectID
+		object.BucketName = opts.BucketName
+		object.ObjectKey = opts.ObjectKey
+		object.Version = opts.Version
+		object.Status = Committed
+		object.SegmentCount = int32(len(segments))
+		object.EncryptedMetadataNonce = opts.EncryptedMetadataNonce
+		object.EncryptedMetadata = opts.EncryptedMetadata
+		object.TotalEncryptedSize = totalEncryptedSize
+		object.FixedSegmentSize = fixedSegmentSize
 		return nil
 	})
 	if err != nil {
-		return Object{}, Error.New("failed to fetch segments: %w", err)
+		return Object{}, err
 	}
-
-	// TODO disabled for now
-	// verify segments
-	// if len(segments) > 0 {
-	// 	// without proofs we expect the segments to be contiguous
-	// 	hasOffset := false
-	// 	offset := int64(0)
-	// 	for i, seg := range segments {
-	// 		if seg.Position.Part != 0 && seg.Position.Index != uint32(i) {
-	// 			return Object{}, Error.New("expected segment (%d,%d), found (%d,%d)", 0, i, seg.Position.Part, seg.Position.Index)
-	// 		}
-	// 		if seg.PlainOffset != 0 {
-	// 			hasOffset = true
-	// 		}
-	// 		if hasOffset && seg.PlainOffset != offset {
-	// 			return Object{}, Error.New("segment %d should be at plain offset %d, offset is %d", seg.Position.Index, offset, seg.PlainOffset)
-	// 		}
-	// 		offset += int64(seg.PlainSize)
-	// 	}
-	// }
-
-	// TODO: would we even need this when we make main index plain_offset?
-	fixedSegmentSize := int32(0)
-	if len(segments) > 0 {
-		fixedSegmentSize = segments[0].EncryptedSize
-		for _, seg := range segments[:len(segments)-1] {
-			if seg.EncryptedSize != fixedSegmentSize {
-				fixedSegmentSize = -1
-				break
-			}
-		}
-	}
-
-	var totalEncryptedSize int64
-	for _, seg := range segments {
-		totalEncryptedSize += int64(seg.EncryptedSize)
-	}
-
-	err = tx.QueryRow(ctx, `
-		UPDATE objects SET
-			status = 1, -- committed
-			segment_count = $6,
-
-			encrypted_metadata_nonce = $7,
-			encrypted_metadata = $8,
-
-			total_encrypted_size = $9,
-			fixed_segment_size = $10,
-			zombie_deletion_deadline = NULL
-		WHERE
-			project_id   = $1 AND
-			bucket_name  = $2 AND
-			object_key   = $3 AND
-			version      = $4 AND
-			stream_id    = $5 AND
-			status       = 0
-		RETURNING
-			created_at, expires_at,
-			encryption;
-	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID,
-		len(segments),
-		opts.EncryptedMetadataNonce, opts.EncryptedMetadata,
-		totalEncryptedSize,
-		fixedSegmentSize,
-	).
-		Scan(
-			&object.CreatedAt, &object.ExpiresAt,
-			encryptionParameters{&object.Encryption},
-		)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return Object{}, storj.ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
-		}
-		return Object{}, Error.New("failed to update object: %w", err)
-	}
-
-	object.StreamID = opts.StreamID
-	object.ProjectID = opts.ProjectID
-	object.BucketName = opts.BucketName
-	object.ObjectKey = opts.ObjectKey
-	object.Version = opts.Version
-	object.Status = Committed
-	object.SegmentCount = int32(len(segments))
-	object.EncryptedMetadataNonce = opts.EncryptedMetadataNonce
-	object.EncryptedMetadata = opts.EncryptedMetadata
-	object.TotalEncryptedSize = totalEncryptedSize
-	object.FixedSegmentSize = fixedSegmentSize
-
-	err = tx.Commit()
-	committed = true
-
-	return object, Error.Wrap(err)
+	return object, nil
 }
 
 func (db *DB) commitObjectWithProofs(ctx context.Context, opts CommitObject) (object Object, err error) {
