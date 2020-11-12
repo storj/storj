@@ -25,19 +25,21 @@ type Config struct {
 //
 // architecture: Chore
 type Service struct {
-	logger        *zap.Logger
-	Loop          *sync2.Cycle
-	sdb           accounting.StoragenodeAccounting
-	deleteTallies bool
+	logger          *zap.Logger
+	Loop            *sync2.Cycle
+	sdb             accounting.StoragenodeAccounting
+	deleteTallies   bool
+	OrderExpiration time.Duration
 }
 
 // New creates a new rollup service.
-func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, interval time.Duration, deleteTallies bool) *Service {
+func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, interval time.Duration, deleteTallies bool, orderExpiration time.Duration) *Service {
 	return &Service{
-		logger:        logger,
-		Loop:          sync2.NewCycle(interval),
-		sdb:           sdb,
-		deleteTallies: deleteTallies,
+		logger:          logger,
+		Loop:            sync2.NewCycle(interval),
+		sdb:             sdb,
+		deleteTallies:   deleteTallies,
+		OrderExpiration: orderExpiration,
 	}
 }
 
@@ -93,6 +95,7 @@ func (r *Service) Rollup(ctx context.Context) (err error) {
 
 	if r.deleteTallies {
 		// Delete already rolled up tallies
+		latestTally = latestTally.Add(-r.OrderExpiration)
 		err = r.sdb.DeleteTalliesBefore(ctx, latestTally)
 		if err != nil {
 			return Error.Wrap(err)
