@@ -36,6 +36,11 @@ var (
 		Short: "Run the multinode dashboard",
 		RunE:  cmdRun,
 	}
+	createSchemaCmd = &cobra.Command{
+		Use:   "create-schema",
+		Short: "Create schemas for multinode dashboard databases",
+		RunE:  cmdCreateSchema,
+	}
 	setupCmd = &cobra.Command{
 		Use:         "setup",
 		Short:       "Create config files",
@@ -60,41 +65,13 @@ func init() {
 	cfgstruct.SetupFlag(zap.L(), rootCmd, &identityDir, "identity-dir", defaultIdentityDir, "main directory for multinode identity credentials")
 	defaults := cfgstruct.DefaultsFlag(rootCmd)
 
-	rootCmd.AddCommand(runCmd)
 	rootCmd.AddCommand(setupCmd)
+	rootCmd.AddCommand(runCmd)
+	rootCmd.AddCommand(createSchemaCmd)
 
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(createSchemaCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
-}
-
-func cmdRun(cmd *cobra.Command, args []string) (err error) {
-	ctx, _ := process.Ctx(cmd)
-	log := zap.L()
-
-	runCfg.Debug.Address = *process.DebugAddrFlag
-
-	identity, err := runCfg.Identity.Load()
-	if err != nil {
-		log.Error("Failed to load identity.", zap.Error(err))
-		return errs.New("Failed to load identity: %+v", err)
-	}
-
-	db, err := multinodedb.Open(ctx, log.Named("db"), runCfg.Database)
-	if err != nil {
-		return errs.New("Error starting master database on multinode: %+v", err)
-	}
-	defer func() {
-		err = errs.Combine(err, db.Close())
-	}()
-
-	peer, err := multinode.New(log, identity, runCfg.Config, db)
-	if err != nil {
-		return err
-	}
-
-	runError := peer.Run(ctx)
-	closeError := peer.Close()
-	return errs.Combine(runError, closeError)
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
@@ -114,4 +91,54 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	return process.SaveConfig(cmd, filepath.Join(setupDir, "config.yaml"))
+}
+
+func cmdRun(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+	log := zap.L()
+
+	runCfg.Debug.Address = *process.DebugAddrFlag
+
+	identity, err := runCfg.Identity.Load()
+	if err != nil {
+		log.Error("failed to load identity", zap.Error(err))
+		return errs.New("failed to load identity: %+v", err)
+	}
+
+	db, err := multinodedb.Open(ctx, log.Named("db"), runCfg.Database)
+	if err != nil {
+		return errs.New("error connecting to master database on multinode: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, db.Close())
+	}()
+
+	peer, err := multinode.New(log, identity, runCfg.Config, db)
+	if err != nil {
+		return err
+	}
+
+	runError := peer.Run(ctx)
+	closeError := peer.Close()
+	return errs.Combine(runError, closeError)
+}
+
+func cmdCreateSchema(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+	log := zap.L()
+
+	db, err := multinodedb.Open(ctx, log.Named("db"), runCfg.Database)
+	if err != nil {
+		return errs.New("error connecting to master database on multinode: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, db.Close())
+	}()
+
+	err = db.CreateSchema(ctx)
+	if err != nil {
+		return errs.New("error creating database schemas for multinode dashboard db: %+v", err)
+	}
+
+	return nil
 }
