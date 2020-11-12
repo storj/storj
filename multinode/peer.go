@@ -70,6 +70,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config, db DB) (_ 
 		Log:      log,
 		Identity: full,
 		DB:       db,
+		Servers:  lifecycle.NewGroup(log.Named("servers")),
 	}
 
 	{ // console setup
