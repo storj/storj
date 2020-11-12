@@ -245,6 +245,11 @@ func (store *FileStore) ListUnsentBySatellite(ctx context.Context, now time.Time
 				if ordersfile.ErrEntryCorrupt.Has(err) {
 					store.log.Warn("Corrupted order detected in orders file", zap.Error(err))
 					mon.Meter("orders_unsent_file_corrupted").Mark64(1)
+					// if the error is unexpected EOF, we want the metrics and logs, but there
+					// is no use in trying to read from the file again.
+					if errs.Is(err, io.ErrUnexpectedEOF) {
+						break
+					}
 					continue
 				}
 				return err
