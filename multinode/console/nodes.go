@@ -5,6 +5,7 @@ package console
 
 import (
 	"context"
+	"encoding/base64"
 
 	"storj.io/common/storj"
 )
@@ -34,4 +35,9 @@ type Node struct {
 	Logo []byte
 	// Tag is configured by used and could be used to group nodes. // TODO: should node have multiple tags?
 	Tag string // TODO: create enum or type in future.
+}
+
+// APISecretFromBase64 decodes API secret from base 64 string.
+func APISecretFromBase64(s string) ([]byte, error) {
+	return base64.URLEncoding.DecodeString(s)
 }

@@ -64,8 +64,8 @@ export default class PayoutPeriodCalendar extends Vue {
     public period: string = '';
 
     private displayedMonths: StoredMonthsByYear = {};
-    private firstSelectedMonth: MonthButton | null;
-    private secondSelectedMonth: MonthButton | null;
+    private firstSelectedMonth: MonthButton | null = null;
+    private secondSelectedMonth: MonthButton | null = null;
 
     /**
      * Lifecycle hook after initial render.

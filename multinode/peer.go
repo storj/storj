@@ -57,7 +57,7 @@ type Peer struct {
 	// Web server with web UI
 	Console struct {
 		Listener net.Listener
-		// TODO: Service  *console.Service
+		Service  *console.Service
 		Endpoint *server.Server
 	}
 
@@ -70,12 +70,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config, db DB) (_ 
 		Log:      log,
 		Identity: full,
 		DB:       db,
+		Servers:  lifecycle.NewGroup(log.Named("servers")),
 	}
 
 	{ // console setup
-		// peer.Console.Service = console.NewService(
-		// 	 peer.Log.Named("console:service"),
-		// )
+		peer.Console.Service = console.NewService(
+			peer.Log.Named("console:service"),
+			peer.DB.Nodes(),
+		)
 
 		peer.Console.Listener, err = net.Listen("tcp", config.Console.Address)
 		if err != nil {
@@ -85,11 +87,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config, db DB) (_ 
 		peer.Console.Endpoint, err = server.NewServer(
 			peer.Log.Named("console:endpoint"),
 			config.Console,
+			peer.Console.Service,
 			peer.Console.Listener,
 		)
 		if err != nil {
 			return nil, err
 		}
+
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "console:endpoint",
 			Run:   peer.Console.Endpoint.Run,
