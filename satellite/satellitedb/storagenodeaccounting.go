@@ -101,23 +101,49 @@ func (db *StoragenodeAccounting) GetTalliesSince(ctx context.Context, latestRoll
 }
 
 // GetBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup.
-func (db *StoragenodeAccounting) GetBandwidthSince(ctx context.Context, latestRollup time.Time) (_ []*accounting.StoragenodeBandwidthRollup, err error) {
+func (db *StoragenodeAccounting) GetBandwidthSince(ctx context.Context, latestRollup time.Time) (out []*accounting.StoragenodeBandwidthRollup, err error) {
 	defer mon.Task()(&ctx)(&err)
-	rollups, err := db.db.All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx, dbx.StoragenodeBandwidthRollup_IntervalStart(latestRollup))
-	out := make([]*accounting.StoragenodeBandwidthRollup, len(rollups))
-	for i, r := range rollups {
+	// get everything from the current rollups table
+	rollups, err := db.db.All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx,
+		dbx.StoragenodeBandwidthRollup_IntervalStart(latestRollup))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, r := range rollups {
 		nodeID, err := storj.NodeIDFromBytes(r.StoragenodeId)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-		out[i] = &accounting.StoragenodeBandwidthRollup{
+		out = append(out, &accounting.StoragenodeBandwidthRollup{
 			NodeID:        nodeID,
 			IntervalStart: r.IntervalStart,
 			Action:        r.Action,
 			Settled:       r.Settled,
-		}
+		})
 	}
-	return out, Error.Wrap(err)
+
+	// include everything from the phase2 rollups table as well
+	phase2rollups, err := db.db.All_StoragenodeBandwidthRollupPhase2_By_IntervalStart_GreaterOrEqual(ctx,
+		dbx.StoragenodeBandwidthRollupPhase2_IntervalStart(latestRollup))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, r := range phase2rollups {
+		nodeID, err := storj.NodeIDFromBytes(r.StoragenodeId)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		out = append(out, &accounting.StoragenodeBandwidthRollup{
+			NodeID:        nodeID,
+			IntervalStart: r.IntervalStart,
+			Action:        r.Action,
+			Settled:       r.Settled,
+		})
+	}
+
+	return out, nil
 }
 
 // SaveRollup records raw tallies of at rest data to the database.

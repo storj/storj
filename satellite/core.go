@@ -414,7 +414,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Accounting Tally", peer.Accounting.Tally.Loop))
 
-		peer.Accounting.Rollup = rollup.New(peer.Log.Named("accounting:rollup"), peer.DB.StoragenodeAccounting(), config.Rollup.Interval, config.Rollup.DeleteTallies)
+		// Lets add 1 more day so we catch any off by one errors when deleting tallies
+		orderExpirationPlusDay := config.Orders.Expiration + config.Rollup.Interval
+		peer.Accounting.Rollup = rollup.New(peer.Log.Named("accounting:rollup"), peer.DB.StoragenodeAccounting(), config.Rollup.Interval, config.Rollup.DeleteTallies, orderExpirationPlusDay)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "accounting:rollup",
 			Run:   peer.Accounting.Rollup.Run,

@@ -77,8 +77,8 @@ type Transaction interface {
 	// UpdateBucketBandwidthBatch updates all the bandwidth rollups in the database
 	UpdateBucketBandwidthBatch(ctx context.Context, intervalStart time.Time, rollups []BucketBandwidthRollup) error
 
-	// UpdateStoragenodeBandwidthBatch updates all the bandwidth rollups in the database
-	UpdateStoragenodeBandwidthBatch(ctx context.Context, intervalStart time.Time, rollups []StoragenodeBandwidthRollup) error
+	// UpdateStoragenodeBandwidthBatchPhase2 updates all the bandwidth rollups in the database
+	UpdateStoragenodeBandwidthBatchPhase2(ctx context.Context, intervalStart time.Time, rollups []StoragenodeBandwidthRollup) error
 
 	// CreateConsumedSerialsBatch creates the batch of ConsumedSerials.
 	CreateConsumedSerialsBatch(ctx context.Context, consumedSerials []ConsumedSerial) (err error)

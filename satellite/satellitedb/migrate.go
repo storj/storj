@@ -1002,6 +1002,23 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX IF NOT EXISTS graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at );`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create table storagenode_bandwidth_rollups_phase2",
+				Version:     131,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`CREATE TABLE storagenode_bandwidth_rollups_phase2 (
+						storagenode_id bytea NOT NULL,
+						interval_start timestamp with time zone NOT NULL,
+						interval_seconds integer NOT NULL,
+						action integer NOT NULL,
+						allocated bigint DEFAULT 0,
+						settled bigint NOT NULL,
+						PRIMARY KEY ( storagenode_id, interval_start, action )
+					);`,
+				},
+			},
 		},
 	}
 }
