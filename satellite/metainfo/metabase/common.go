@@ -260,6 +260,9 @@ func SegmentPositionFromEncoded(v uint64) SegmentPosition {
 // Encode encodes a segment position into an uint64, that can be stored in a database.
 func (pos SegmentPosition) Encode() uint64 { return uint64(pos.Part)<<32 | uint64(pos.Index) }
 
+// Less returns whether pos should before b.
+func (pos SegmentPosition) Less(b SegmentPosition) bool { return pos.Encode() < b.Encode() }
+
 // Version is used to uniquely identify objects with the same key.
 type Version int64
 

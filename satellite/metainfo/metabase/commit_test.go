@@ -1428,7 +1428,7 @@ func TestCommitObject(t *testing.T) {
 			})
 		}
 
-		t.Run("no proofs with version without pending", func(t *testing.T) {
+		t.Run("version without pending", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
 			CommitObject{
@@ -1447,7 +1447,7 @@ func TestCommitObject(t *testing.T) {
 			Verify{}.Check(ctx, t, db)
 		})
 
-		t.Run("no proofs with version", func(t *testing.T) {
+		t.Run("version", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
 			BeginObjectExactVersion{

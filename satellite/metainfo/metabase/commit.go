@@ -394,13 +394,7 @@ type CommitObject struct {
 	EncryptedMetadata             []byte
 	EncryptedMetadataNonce        []byte
 	EncryptedMetadataEncryptedKey []byte
-
-	// TODO: proof
-	Proofs []SegmentProof
 }
-
-// SegmentProof ensures that segments cannot be tampered with.
-type SegmentProof struct{}
 
 // CommitObject adds a pending object to the database.
 func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Object, err error) {
@@ -410,17 +404,6 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		return Object{}, err
 	}
 
-	// TODO: deduplicate basic checks.
-	switch {
-	case len(opts.Proofs) > 0:
-		return db.commitObjectWithProofs(ctx, opts)
-	default:
-		return db.commitObjectWithoutProofs(ctx, opts)
-	}
-}
-
-func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) (object Object, err error) {
-	defer mon.Task()(&ctx)(&err)
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		type Segment struct {
 			Position      SegmentPosition
@@ -548,11 +531,6 @@ func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) 
 		return Object{}, err
 	}
 	return object, nil
-}
-
-func (db *DB) commitObjectWithProofs(ctx context.Context, opts CommitObject) (object Object, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return Object{}, Error.New("unimplemented")
 }
 
 // UpdateObjectMetadata contains arguments necessary for updating an object metadata.

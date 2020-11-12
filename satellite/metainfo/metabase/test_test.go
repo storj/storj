@@ -62,6 +62,23 @@ func (step CommitObject) Check(ctx *testcontext.Context, t *testing.T, db *metab
 	return object
 }
 
+type CommitObjectWithSegments struct {
+	Opts     metabase.CommitObjectWithSegments
+	Deleted  []metabase.DeletedSegmentInfo
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+func (step CommitObjectWithSegments) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) metabase.Object {
+	object, deleted, err := db.CommitObjectWithSegments(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+	if err == nil {
+		require.Equal(t, step.Opts.ObjectStream, object.ObjectStream)
+	}
+	require.Equal(t, step.Deleted, deleted)
+	return object
+}
+
 type BeginSegment struct {
 	Opts     metabase.BeginSegment
 	ErrClass *errs.Class
