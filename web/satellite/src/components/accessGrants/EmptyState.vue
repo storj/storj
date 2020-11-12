@@ -1,6 +1,6 @@
-
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
+
 <template>
 	<div class="empty-state">
 		<div class="empty-state__modal">
@@ -8,10 +8,10 @@
 			<h4 class="empty-state__modal__heading">Create Your First Access Grant</h4>
 			<p class="empty-state__modal__subheading">Get started by creating an Access to interact with your Buckets</p>
 			<VButton
-				label="Create Access Grant +"
-				width="199px"
-				height="44px"
-				v-bind:style="{ margin: `0 auto`, marginTop: `25px`}"
+			label="Create Access Grant +"
+			width="199px"
+			height="44px"
+			class="empty-state__modal__cta"
 			/>
 		</div>
 	</div>
@@ -65,6 +65,10 @@ export default class EmptyState extends Vue {
             font-size: 16px;
             font-weight: 400;
             line-height: 21px;
+        }
+
+        &__cta {
+            margin: 25px auto 0;
         }
     }
 }
