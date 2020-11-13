@@ -128,7 +128,7 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) 
 	defer func() { err = errs.Combine(err, conn.Close()) }()
 
 	self := service.Local()
-	_, err = pb.NewDRPCNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
+	resp, err := pb.NewDRPCNodeClient(conn).CheckIn(ctx, &pb.CheckInRequest{
 		Address:  self.Address,
 		Version:  &self.Version,
 		Capacity: &self.Capacity,
@@ -136,6 +136,9 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) 
 	})
 	if err != nil {
 		return errPingSatellite.Wrap(err)
+	}
+	if resp != nil && !resp.PingNodeSuccess {
+		return errPingSatellite.New("%s", resp.PingErrorMessage)
 	}
 	return nil
 }
