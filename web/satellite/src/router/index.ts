@@ -9,6 +9,7 @@ import CreateAccessGrant from '@/components/accessGrants/CreateAccessGrant.vue';
 import NameStep from '@/components/accessGrants/steps/NameStep.vue';
 import PassphraseStep from '@/components/accessGrants/steps/PassphraseStep.vue';
 import PermissionsStep from '@/components/accessGrants/steps/PermissionsStep.vue';
+import ResultStep from '@/components/accessGrants/steps/ResultStep.vue';
 import UploadStep from '@/components/accessGrants/steps/UploadStep.vue';
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
@@ -60,6 +61,7 @@ export abstract class RouteConfig {
     public static NameStep = new NavigationLink('name', 'Name Access Grant');
     public static PermissionsStep = new NavigationLink('permissions', 'Access Grant Permissions');
     public static PassphraseStep = new NavigationLink('passphrase', 'Access Grant Passphrase');
+    public static ResultStep = new NavigationLink('result', 'Access Grant Result');
     public static UploadStep = new NavigationLink('upload', 'Access Grant Upload Data');
 
     // TODO: disabled until implementation
@@ -203,6 +205,11 @@ export const router = new Router({
                                     path: RouteConfig.PassphraseStep.path,
                                     name: RouteConfig.PassphraseStep.name,
                                     component: PassphraseStep,
+                                },
+                                {
+                                    path: RouteConfig.ResultStep.path,
+                                    name: RouteConfig.ResultStep.name,
+                                    component: ResultStep,
                                 },
                                 {
                                     path: RouteConfig.UploadStep.path,
