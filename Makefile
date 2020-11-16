@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.15.4
+GO_VERSION ?= 1.15.5
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
