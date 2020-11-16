@@ -46,6 +46,7 @@
             @close="onClearSelection"
             @reset-pagination="resetPagination"
         />
+        <router-view/>
     </div>
 </template>
 
@@ -60,6 +61,7 @@ import VButton from '@/components/common/VButton.vue';
 import VList from '@/components/common/VList.vue';
 import VPagination from '@/components/common/VPagination.vue';
 
+import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant, AccessGrantsOrderBy } from '@/types/accessGrants';
 import { SortDirection } from '@/types/common';
@@ -164,8 +166,7 @@ export default class AccessGrants extends Vue {
      * Starts create access grant flow.
      */
     public onCreateClick(): void {
-        // mock
-        return;
+        this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).with(RouteConfig.NameStep).path);
     }
 
     /**
