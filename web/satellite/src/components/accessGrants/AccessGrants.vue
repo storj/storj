@@ -5,7 +5,7 @@
     <div class="access-grants">
         <div class="access-grants__title-area">
             <h2 class="access-grants__title-area__title">Access Grants</h2>
-            <div class="access-grants__title-area__right">
+            <div class="access-grants__title-area__right" v-if="accessGrantsList.length">
                 <VButton
                     v-if="selectedAccessGrantsAmount"
                     :label="deleteButtonLabel"
