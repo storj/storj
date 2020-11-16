@@ -124,7 +124,7 @@ func (it *objectsIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err 
 				object_key, stream_id, version, status,
 				created_at, expires_at,
 				segment_count,
-				encrypted_metadata_nonce, encrypted_metadata,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 				total_encrypted_size, fixed_segment_size,
 				encryption
 			FROM objects

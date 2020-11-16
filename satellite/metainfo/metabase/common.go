@@ -271,9 +271,12 @@ type ObjectStatus byte
 const (
 	// Pending means that the object is being uploaded or that the client failed during upload.
 	// The failed upload may be continued in the future.
-	Pending = ObjectStatus(0)
+	Pending = ObjectStatus(1)
 	// Committed means that the object is finished and should be visible for general listing.
-	Committed = ObjectStatus(1)
+	Committed = ObjectStatus(3)
+
+	pendingStatus   = "1"
+	committedStatus = "3"
 )
 
 // Pieces defines information for pieces.

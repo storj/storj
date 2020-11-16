@@ -174,8 +174,8 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 				object_key   = $3 AND
 				version      = $4 AND
 				stream_id    = $5 AND
-				status       = 0
-		`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID).Scan(&value)
+				status       = `+pendingStatus,
+			opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID).Scan(&value)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return Error.New("pending object missing")
@@ -259,8 +259,8 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 				object_key   = $3 AND
 				version      = $4 AND
 				stream_id    = $5 AND
-				status       = 0
-		`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID).Scan(&value)
+				status       = `+pendingStatus,
+			opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID).Scan(&value)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return Error.New("pending object missing")
@@ -349,8 +349,8 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 				object_key   = $3 AND
 				version      = $4 AND
 				stream_id    = $5 AND
-				status       = 0
-		`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID).Scan(&value)
+				status       = `+pendingStatus,
+			opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID).Scan(&value)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return Error.New("pending object missing")
@@ -489,7 +489,7 @@ func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) 
 
 		err = tx.QueryRow(ctx, `
 			UPDATE objects SET
-				status = 1, -- committed
+				status =`+committedStatus+`,
 				segment_count = $6,
 
 				encrypted_metadata_nonce         = $7,
@@ -505,7 +505,7 @@ func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) 
 				object_key   = $3 AND
 				version      = $4 AND
 				stream_id    = $5 AND
-				status       = 0
+				status       = `+pendingStatus+`
 			RETURNING
 				created_at, expires_at,
 				encryption;
@@ -588,8 +588,8 @@ func (db *DB) UpdateObjectMetadata(ctx context.Context, opts UpdateObjectMetadat
 			object_key   = $3 AND
 			version      = $4 AND
 			stream_id    = $5 AND
-			status       = 1
-	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID,
+			status       = `+committedStatus,
+		opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID,
 		opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey)
 	if err != nil {
 		return Error.New("unable to update object metadata: %w", err)

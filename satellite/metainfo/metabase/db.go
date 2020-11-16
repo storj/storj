@@ -93,7 +93,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						created_at TIMESTAMPTZ NOT NULL default now(),
 						expires_at TIMESTAMPTZ,
 
-						status         INT2 NOT NULL default 0,
+						status         INT2 NOT NULL default ` + pendingStatus + `,
 						segment_count  INT4 NOT NULL default 0,
 
 						encrypted_metadata_nonce         BYTEA default NULL,

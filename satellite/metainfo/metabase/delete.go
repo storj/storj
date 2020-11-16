@@ -110,7 +110,7 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 				bucket_name  = $2 AND
 				object_key   = $3 AND
 				version      = $4 AND
-				status       = 1
+				status       = `+committedStatus+`
 			RETURNING
 				version, stream_id,
 				created_at, expires_at,
@@ -186,10 +186,10 @@ func (db *DB) DeleteObjectLatestVersion(ctx context.Context, opts DeleteObjectLa
 					project_id   = $1 AND
 					bucket_name  = $2 AND
 					object_key   = $3 AND
-					status       = 1
+					status       = `+committedStatus+`
 					ORDER BY version DESC LIMIT 1
 				) AND
-				status       = 1
+				status       = `+committedStatus+`
 			RETURNING
 				version, stream_id,
 				created_at, expires_at,
@@ -245,7 +245,7 @@ func (db *DB) DeleteObjectAllVersions(ctx context.Context, opts DeleteObjectAllV
 				project_id   = $1 AND
 				bucket_name  = $2 AND
 				object_key   = $3 AND
-				status       = 1
+				status       = `+committedStatus+`
 			RETURNING
 				version, stream_id,
 				created_at, expires_at,
@@ -322,7 +322,7 @@ func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAl
 					project_id   = $1 AND
 					bucket_name  = $2 AND
 					object_key   = ANY ($3) AND
-					status       = 1
+					status       = `+committedStatus+`
 				RETURNING
 					project_id, bucket_name,
 					object_key, version, stream_id,

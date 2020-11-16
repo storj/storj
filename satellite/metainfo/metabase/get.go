@@ -49,7 +49,7 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 	object := Object{}
 	// TODO handle encryption column
 	err = db.db.QueryRow(ctx, `
-		SELECT 
+		SELECT
 			stream_id,
 			created_at, expires_at,
 			segment_count,
@@ -62,8 +62,8 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 			bucket_name  = $2 AND
 			object_key   = $3 AND
 			version      = $4 AND
-			status       = 1
-	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version).
+			status       = `+committedStatus,
+		opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version).
 		Scan(
 			&object.StreamID,
 			&object.CreatedAt, &object.ExpiresAt,
@@ -105,7 +105,7 @@ func (db *DB) GetObjectLatestVersion(ctx context.Context, opts GetObjectLatestVe
 
 	object := Object{}
 	err = db.db.QueryRow(ctx, `
-		SELECT 
+		SELECT
 			stream_id, version,
 			created_at, expires_at,
 			segment_count,
@@ -117,7 +117,7 @@ func (db *DB) GetObjectLatestVersion(ctx context.Context, opts GetObjectLatestVe
 			project_id   = $1 AND
 			bucket_name  = $2 AND
 			object_key   = $3 AND
-			status       = 1
+			status       = `+committedStatus+`
 		ORDER BY version desc
 		LIMIT 1
 	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey)).
@@ -168,9 +168,9 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 	}
 
 	err = db.db.QueryRow(ctx, `
-		SELECT 
+		SELECT
 			root_piece_id, encrypted_key_nonce, encrypted_key,
-			encrypted_size, plain_offset, plain_size, 
+			encrypted_size, plain_offset, plain_size,
 			redundancy,
 			inline_data, remote_pieces
 		FROM objects, segments
@@ -223,7 +223,7 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 				project_id   = $1 AND
 				bucket_name  = $2 AND
 				object_key   = $3 AND
-				status       = 1
+				status       = `+committedStatus+`
 				ORDER BY version DESC
 				LIMIT 1
 			)
@@ -278,7 +278,7 @@ func (db *DB) GetSegmentByOffset(ctx context.Context, opts GetSegmentByOffset) (
 				project_id   = $1 AND
 				bucket_name  = $2 AND
 				object_key   = $3 AND
-				status       = 1
+				status       = `+committedStatus+`
 				ORDER BY version DESC
 				LIMIT 1
 			) AND
