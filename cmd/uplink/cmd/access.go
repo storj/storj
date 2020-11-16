@@ -4,8 +4,12 @@
 package cmd
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"net/http"
+	"strings"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/spf13/cobra"
@@ -17,9 +21,14 @@ import (
 	"storj.io/uplink"
 )
 
+type registerConfig struct {
+	AuthService string `help:"the address to the service you wish to register your access with" default:"" basic-help:"true"`
+}
+
 var (
-	inspectCfg AccessConfig
-	listCfg    AccessConfig
+	inspectCfg  AccessConfig
+	listCfg     AccessConfig
+	registerCfg registerConfig
 )
 
 func init() {
@@ -44,12 +53,21 @@ func init() {
 		Args:  cobra.NoArgs,
 	}
 
+	registerCmd := &cobra.Command{
+		Use:   "register [ACCESS]",
+		Short: "Register your access for use with a hosted gateway.",
+		RunE:  registerAccess,
+		Args:  cobra.MaximumNArgs(1),
+	}
+
 	RootCmd.AddCommand(accessCmd)
 	accessCmd.AddCommand(inspectCmd)
 	accessCmd.AddCommand(listCmd)
+	accessCmd.AddCommand(registerCmd)
 
 	process.Bind(inspectCmd, &inspectCfg, defaults, cfgstruct.ConfDir(getConfDir()))
 	process.Bind(listCmd, &listCfg, defaults, cfgstruct.ConfDir(getConfDir()))
+	process.Bind(registerCmd, &registerCfg, defaults, cfgstruct.ConfDir(getConfDir()))
 }
 
 func accessList(cmd *cobra.Command, args []string) (err error) {
@@ -124,4 +142,47 @@ func parseAccess(access string) (sa string, apiKey string, ea string, err error)
 	apiKey = base58.CheckEncode(p.ApiKey, 0)
 	ea = base58.CheckEncode(eaData, 0)
 	return p.SatelliteAddr, apiKey, ea, nil
+}
+
+func registerAccess(cmd *cobra.Command, args []string) (err error) {
+	if len(args) == 0 {
+		return fmt.Errorf("no access specified")
+	}
+
+	if registerCfg.AuthService == "" {
+		return errs.New("no auth service address provided")
+	}
+
+	accessRaw := args[0]
+
+	resp, err := http.Post(fmt.Sprintf("%s/v1/access", registerCfg.AuthService), "application/json", strings.NewReader(fmt.Sprintf(`{"access_grant":"%s"}`, accessRaw)))
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	respBody := make(map[string]string)
+	if err := json.Unmarshal(body, &respBody); err != nil {
+		return errs.New("unexpected response from auth service: %s", string(body))
+	}
+
+	accessKey, ok := respBody["access_key_id"]
+	if !ok {
+		return errs.New("access_key_id missing in response")
+	}
+	secretKey, ok := respBody["secret_key"]
+	if !ok {
+		return errs.New("secret_key missing in response")
+	}
+	fmt.Println("=========== CREDENTIALS =========================================================")
+	fmt.Println("Access Key ID: ", accessKey)
+	fmt.Println("Secret Key:    ", secretKey)
+	fmt.Println("Endpoint:      ", respBody["endpoint"])
+
+	return nil
 }

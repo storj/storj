@@ -240,7 +240,7 @@ func (chore *Chore) runOnceHelper(ctx context.Context, now time.Time) (done bool
 			if err := tx.UpdateBucketBandwidthBatch(ctx, now, bucketRollups); err != nil {
 				return errs.Wrap(err)
 			}
-			if err := tx.UpdateStoragenodeBandwidthBatch(ctx, now, storagenodeRollups); err != nil {
+			if err := tx.UpdateStoragenodeBandwidthBatchPhase2(ctx, now, storagenodeRollups); err != nil {
 				return errs.Wrap(err)
 			}
 			if err := tx.CreateConsumedSerialsBatch(ctx, consumedSerials); err != nil {

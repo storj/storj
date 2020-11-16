@@ -3,31 +3,30 @@
 
 import Vuex from 'vuex';
 
-import { makeNodeModule, NODE_ACTIONS, NODE_MUTATIONS, StatusOnline } from '@/app/store/modules/node';
-import { SNOApi } from '@/storagenode/api/storagenode';
-import {
-    BandwidthInfo,
-    Dashboard,
-    DiskSpaceInfo,
-    SatelliteInfo,
-} from '@/storagenode/dashboard';
+import { newNodeModule, NODE_ACTIONS, NODE_MUTATIONS, StatusOnline } from '@/app/store/modules/node';
+import { StorageNodeApi } from '@/storagenode/api/storagenode';
+import { StorageNodeService } from '@/storagenode/sno/service';
 import {
     BandwidthUsed,
+    Dashboard,
     Egress,
     EgressUsed,
     Ingress,
     IngressUsed,
     Metric,
     Satellite,
-    Satellites, SatelliteScores,
-    Stamp,
-} from '@/storagenode/satellite';
+    SatelliteInfo,
+    Satellites,
+    SatelliteScores,
+    Stamp, Traffic,
+} from '@/storagenode/sno/sno';
 import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 
-const nodeApi = new SNOApi();
-const nodeModule = makeNodeModule(nodeApi);
+const nodeApi = new StorageNodeApi();
+const nodeService = new StorageNodeService(nodeApi);
+const nodeModule = newNodeModule(nodeService);
 
 Vue.use(Vuex);
 
@@ -48,8 +47,8 @@ describe('mutations', () => {
                 new SatelliteInfo('3', 'url1', null, null),
                 new SatelliteInfo('4', 'url2', new Date(2020, 1, 1), new Date(2020, 0, 1)),
             ],
-            new DiskSpaceInfo(99, 100, 5),
-            new BandwidthInfo(50),
+            new Traffic(99, 100, 5),
+            new Traffic(50),
             new Date(),
             new Date(2019, 3, 1),
             '0.1.1',
@@ -188,8 +187,8 @@ describe('actions', () => {
                         new SatelliteInfo('3', 'url1', null, null),
                         new SatelliteInfo('4', 'url2', new Date(2020, 1, 1), new Date(2020, 0, 1)),
                     ],
-                    new DiskSpaceInfo(99, 100, 1),
-                    new BandwidthInfo(50),
+                    new Traffic(99, 100, 1),
+                    new Traffic(50),
                     new Date(),
                     new Date(2019, 3, 1),
                     '0.1.1',
@@ -332,8 +331,8 @@ describe('getters', () => {
                 new SatelliteInfo('3', 'url1', null, null),
                 new SatelliteInfo('4', 'url2', firstTestDate, new Date(2020, 0, 1)),
             ],
-            new DiskSpaceInfo(99, 100, 4),
-            new BandwidthInfo(50),
+            new Traffic(99, 100, 4),
+            new Traffic(50),
             new Date(),
             firstTestDate,
             '0.1.1',

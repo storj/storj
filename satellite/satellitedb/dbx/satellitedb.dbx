@@ -660,13 +660,6 @@ model storagenode_bandwidth_rollup (
 
 create storagenode_bandwidth_rollup()
 
-read scalar (
-	select storagenode_bandwidth_rollup
-	where  storagenode_bandwidth_rollup.storagenode_id = ?
-	where  storagenode_bandwidth_rollup.interval_start = ?
-	where  storagenode_bandwidth_rollup.action = ?
-)
-
 read all (
 	select storagenode_bandwidth_rollup
 	where storagenode_bandwidth_rollup.interval_start >= ?
@@ -676,6 +669,31 @@ read all (
 	select storagenode_bandwidth_rollup
 	where storagenode_bandwidth_rollup.storagenode_id = ?
 	where storagenode_bandwidth_rollup.interval_start = ?
+)
+
+///////////////////////////////////////
+// orders phase2->phase3 rollout table
+///////////////////////////////////////
+
+model storagenode_bandwidth_rollup_phase2 (
+	table storagenode_bandwidth_rollups_phase2 // make the pluralization consistent
+
+	key storagenode_id interval_start action
+
+	field storagenode_id   blob
+	field interval_start   timestamp
+	field interval_seconds uint
+	field action           uint
+
+	field allocated uint64 ( updatable, nullable, default 0 )
+	field settled   uint64 ( updatable )
+)
+
+create storagenode_bandwidth_rollup_phase2 ( )
+
+read all (
+	select storagenode_bandwidth_rollup_phase2
+	where storagenode_bandwidth_rollup_phase2.interval_start >= ?
 )
 
 model storagenode_storage_tally (

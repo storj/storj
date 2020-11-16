@@ -64,8 +64,8 @@ export default class PayoutPeriodCalendar extends Vue {
     public period: string = '';
 
     private displayedMonths: StoredMonthsByYear = {};
-    private firstSelectedMonth: MonthButton | null;
-    private secondSelectedMonth: MonthButton | null;
+    private firstSelectedMonth: MonthButton | null = null;
+    private secondSelectedMonth: MonthButton | null = null;
 
     /**
      * Lifecycle hook after initial render.
@@ -101,7 +101,6 @@ export default class PayoutPeriodCalendar extends Vue {
         } catch (error) {
             const lastMonthDate = new Date();
             lastMonthDate.setMonth(lastMonthDate.getUTCMonth() - 1);
-
 
             const selectedPeriod: PayoutInfoRange = this.$store.state.payoutModule.periodRange;
             const lastMonthPayoutPeriod = new PayoutPeriod(lastMonthDate.getUTCFullYear(), lastMonthDate.getUTCMonth());

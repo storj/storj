@@ -24,7 +24,7 @@ import { ChartData } from '@/app/types/chartData';
 import { Tooltip, TooltipParams } from '@/app/types/tooltip';
 import { ChartUtils } from '@/app/utils/chart';
 import { formatBytes } from '@/app/utils/converter';
-import { BandwidthUsed } from '@/storagenode/satellite';
+import { BandwidthUsed } from '@/storagenode/sno/sno';
 
 /**
  * stores bandwidth data for bandwidth chart's tooltip

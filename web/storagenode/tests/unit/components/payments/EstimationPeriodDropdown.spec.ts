@@ -7,14 +7,22 @@ import Vuex from 'vuex';
 import EstimationPeriodDropdown from '@/app/components/payments/EstimationPeriodDropdown.vue';
 
 import { appStateModule } from '@/app/store/modules/appState';
-import { makeNodeModule, NODE_MUTATIONS } from '@/app/store/modules/node';
-import { SNOApi } from '@/storagenode/api/storagenode';
-import { BandwidthInfo, Dashboard, DiskSpaceInfo, SatelliteInfo } from '@/storagenode/dashboard';
-import { Metric, Satellite, Stamp } from '@/storagenode/satellite';
+import { newNodeModule, NODE_MUTATIONS } from '@/app/store/modules/node';
+import { StorageNodeApi } from '@/storagenode/api/storagenode';
+import { StorageNodeService } from '@/storagenode/sno/service';
+import {
+    Dashboard,
+    Metric,
+    Satellite,
+    SatelliteInfo,
+    Stamp,
+    Traffic,
+} from '@/storagenode/sno/sno';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
-const nodeApi = new SNOApi();
-const nodeModule = makeNodeModule(nodeApi);
+const nodeApi = new StorageNodeApi();
+const nodeService = new StorageNodeService(nodeApi);
+const nodeModule = newNodeModule(nodeService);
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
@@ -59,8 +67,8 @@ describe('EstimationPeriodDropdown', (): void => {
                 new SatelliteInfo('3', 'url1', null, null),
                 new SatelliteInfo('4', 'url2', new Date(), new Date(2020, 0, 1)),
             ],
-            new DiskSpaceInfo(99, 100, 4),
-            new BandwidthInfo(50),
+            new Traffic(99, 100, 4),
+            new Traffic(50),
             new Date(),
             new Date(),
             '0.1.1',

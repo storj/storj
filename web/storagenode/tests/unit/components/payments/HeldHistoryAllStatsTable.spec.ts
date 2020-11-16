@@ -5,7 +5,7 @@ import Vuex from 'vuex';
 
 import HeldHistoryAllStatsTable from '@/app/components/payments/HeldHistoryAllStatsTable.vue';
 
-import { makePayoutModule, PAYOUT_MUTATIONS } from '@/app/store/modules/payout';
+import { newPayoutModule, PAYOUT_MUTATIONS } from '@/app/store/modules/payout';
 import { PayoutHttpApi } from '@/storagenode/api/payout';
 import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
 import { PayoutService } from '@/storagenode/payouts/service';
@@ -20,7 +20,7 @@ localVue.filter('centsToDollars', (cents: number): string => {
 
 const payoutApi = new PayoutHttpApi();
 const payoutService = new PayoutService(payoutApi);
-const payoutModule = makePayoutModule(payoutApi, payoutService);
+const payoutModule = newPayoutModule(payoutService);
 
 const store = new Vuex.Store({ modules: { payoutModule }});
 

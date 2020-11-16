@@ -260,6 +260,15 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	identity, err := setupCfg.Identity.Load()
+	if err != nil {
+		return err
+	}
+
+	if err := db.Pieces().CreateVerificationFile(identity.ID); err != nil {
+		return err
+	}
+
 	return db.Close()
 }
 

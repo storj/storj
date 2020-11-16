@@ -5,7 +5,7 @@ import VueClipboard from 'vue-clipboard2';
 
 import SatelliteSelectionDropdownItem from '@/app/components/SatelliteSelectionDropdownItem.vue';
 
-import { SatelliteInfo } from '@/storagenode/dashboard';
+import { SatelliteInfo } from '@/storagenode/sno/sno';
 import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
