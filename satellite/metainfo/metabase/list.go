@@ -46,14 +46,12 @@ func (db *DB) IterateObjectsAllVersions(ctx context.Context, opts IterateObjects
 // Verify verifies get object request fields.
 func (opts *IterateObjects) Verify() error {
 	switch {
-	case opts.BucketName == "":
-		return ErrInvalidRequest.New("BucketName missing")
 	case opts.ProjectID.IsZero():
 		return ErrInvalidRequest.New("ProjectID missing")
+	case opts.BucketName == "":
+		return ErrInvalidRequest.New("BucketName missing")
 	case !opts.Recursive:
 		return ErrInvalidRequest.New("non-recursive listing not implemented yet")
-	case opts.Prefix != "":
-		return ErrInvalidRequest.New("prefixed listing not implemented yet")
 	case opts.BatchSize < 0:
 		return ErrInvalidRequest.New("BatchSize is negative")
 	case !(opts.Status == Pending || opts.Status == Committed):
