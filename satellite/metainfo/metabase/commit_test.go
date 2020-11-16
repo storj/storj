@@ -1467,6 +1467,7 @@ func TestCommitObject(t *testing.T) {
 
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
+			encryptedMetadataKey := testrand.Bytes(265)
 
 			CommitObject{
 				Opts: metabase.CommitObject{
@@ -1477,8 +1478,9 @@ func TestCommitObject(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
-					EncryptedMetadataNonce: encryptedMetadataNonce[:],
-					EncryptedMetadata:      encryptedMetadata,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				},
 			}.Check(ctx, t, db)
 
@@ -1510,8 +1512,9 @@ func TestCommitObject(t *testing.T) {
 						CreatedAt: now,
 						Status:    metabase.Committed,
 
-						EncryptedMetadataNonce: encryptedMetadataNonce[:],
-						EncryptedMetadata:      encryptedMetadata,
+						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+						EncryptedMetadata:             encryptedMetadata,
+						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 
 						Encryption: defaultTestEncryption,
 					},
@@ -1580,6 +1583,7 @@ func TestUpdateObjectMetadata(t *testing.T) {
 
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
+			encryptedMetadataKey := testrand.Bytes(265)
 
 			Verify{
 				Objects: []metabase.RawObject{
@@ -1594,9 +1598,10 @@ func TestUpdateObjectMetadata(t *testing.T) {
 
 			UpdateObjectMetadata{
 				Opts: metabase.UpdateObjectMetadata{
-					ObjectStream:           obj,
-					EncryptedMetadata:      encryptedMetadata,
-					EncryptedMetadataNonce: encryptedMetadataNonce[:],
+					ObjectStream:                  obj,
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				},
 			}.Check(ctx, t, db)
 
@@ -1608,8 +1613,9 @@ func TestUpdateObjectMetadata(t *testing.T) {
 						Status:       metabase.Committed,
 						Encryption:   defaultTestEncryption,
 
-						EncryptedMetadata:      encryptedMetadata,
-						EncryptedMetadataNonce: encryptedMetadataNonce[:],
+						EncryptedMetadata:             encryptedMetadata,
+						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 					},
 				},
 			}.Check(ctx, t, db)

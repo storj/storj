@@ -160,7 +160,18 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 		t.Run("Delete object without segments", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
-			object := createObject(ctx, t, db, obj, 0)
+			encryptedMetadata := testrand.Bytes(1024)
+			encryptedMetadataNonce := testrand.Nonce()
+			encryptedMetadataKey := testrand.Bytes(265)
+
+			object := CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:                  obj,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+				},
+			}.Run(ctx, t, db, obj, 0)
 
 			DeleteObjectExactVersion{
 				Opts: metabase.DeleteObjectExactVersion{
@@ -324,7 +335,18 @@ func TestDeleteObjectLatestVersion(t *testing.T) {
 		t.Run("Delete object without segments", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
-			object := createObject(ctx, t, db, obj, 0)
+			encryptedMetadata := testrand.Bytes(1024)
+			encryptedMetadataNonce := testrand.Nonce()
+			encryptedMetadataKey := testrand.Bytes(265)
+
+			object := CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:                  obj,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+				},
+			}.Run(ctx, t, db, obj, 0)
 
 			DeleteObjectLatestVersion{
 				Opts: metabase.DeleteObjectLatestVersion{
@@ -552,7 +574,18 @@ func TestDeleteObjectAllVersions(t *testing.T) {
 		t.Run("Delete object without segments", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
-			object := createObject(ctx, t, db, obj, 0)
+			encryptedMetadata := testrand.Bytes(1024)
+			encryptedMetadataNonce := testrand.Nonce()
+			encryptedMetadataKey := testrand.Bytes(265)
+
+			object := CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:                  obj,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+				},
+			}.Run(ctx, t, db, obj, 0)
 
 			DeleteObjectAllVersions{
 				Opts: metabase.DeleteObjectAllVersions{ObjectLocation: obj.Location()},

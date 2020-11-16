@@ -23,8 +23,9 @@ type RawObject struct {
 	Status       ObjectStatus
 	SegmentCount int32
 
-	EncryptedMetadataNonce []byte
-	EncryptedMetadata      []byte
+	EncryptedMetadataNonce        []byte
+	EncryptedMetadata             []byte
+	EncryptedMetadataEncryptedKey []byte
 
 	TotalEncryptedSize int64
 	FixedSegmentSize   int32
@@ -98,7 +99,7 @@ func (db *DB) testingGetAllObjects(ctx context.Context) (_ []RawObject, err erro
 			project_id, bucket_name, object_key, version, stream_id,
 			created_at, expires_at,
 			status, segment_count,
-			encrypted_metadata_nonce, encrypted_metadata,
+			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 			total_encrypted_size, fixed_segment_size,
 			encryption,
 			zombie_deletion_deadline
@@ -126,6 +127,7 @@ func (db *DB) testingGetAllObjects(ctx context.Context) (_ []RawObject, err erro
 
 			&obj.EncryptedMetadataNonce,
 			&obj.EncryptedMetadata,
+			&obj.EncryptedMetadataEncryptedKey,
 
 			&obj.TotalEncryptedSize,
 			&obj.FixedSegmentSize,

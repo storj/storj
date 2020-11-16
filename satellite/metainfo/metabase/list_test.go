@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metainfo/metabase"
 )
@@ -110,6 +111,10 @@ func TestIterateObjects(t *testing.T) {
 				Version: 1,
 			}.Check(ctx, t, db)
 
+			encryptedMetadata := testrand.Bytes(1024)
+			encryptedMetadataNonce := testrand.Nonce()
+			encryptedMetadataKey := testrand.Bytes(265)
+
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: committed,
@@ -119,7 +124,10 @@ func TestIterateObjects(t *testing.T) {
 			}.Check(ctx, t, db)
 			CommitObject{
 				Opts: metabase.CommitObject{
-					ObjectStream: committed,
+					ObjectStream:                  committed,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				},
 			}.Check(ctx, t, db)
 
@@ -131,10 +139,13 @@ func TestIterateObjects(t *testing.T) {
 					Status:     metabase.Committed,
 				},
 				Result: []metabase.ObjectEntry{{
-					ObjectStream: committed,
-					CreatedAt:    now,
-					Status:       metabase.Committed,
-					Encryption:   defaultTestEncryption,
+					ObjectStream:                  committed,
+					CreatedAt:                     now,
+					Status:                        metabase.Committed,
+					Encryption:                    defaultTestEncryption,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				}},
 			}.Check(ctx, t, db)
 

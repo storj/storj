@@ -9,6 +9,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metainfo/metabase"
 )
 
@@ -233,11 +234,16 @@ func TestGetObjectLatestVersion(t *testing.T) {
 		t.Run("Get object", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
+			encryptedMetadata := testrand.Bytes(1024)
+			encryptedMetadataNonce := testrand.Nonce()
+			encryptedMetadataKey := testrand.Bytes(265)
+
 			CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:           obj,
-					EncryptedMetadataNonce: []byte("nonce"),
-					EncryptedMetadata:      []byte("metadata"),
+					ObjectStream:                  obj,
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				},
 			}.Run(ctx, t, db, obj, 0)
 
@@ -252,8 +258,9 @@ func TestGetObjectLatestVersion(t *testing.T) {
 
 					Encryption: defaultTestEncryption,
 
-					EncryptedMetadataNonce: []byte("nonce"),
-					EncryptedMetadata:      []byte("metadata"),
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				},
 			}.Check(ctx, t, db)
 
@@ -265,8 +272,9 @@ func TestGetObjectLatestVersion(t *testing.T) {
 
 					Encryption: defaultTestEncryption,
 
-					EncryptedMetadataNonce: []byte("nonce"),
-					EncryptedMetadata:      []byte("metadata"),
+					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
+					EncryptedMetadata:             encryptedMetadata,
+					EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 				},
 			}}.Check(ctx, t, db)
 		})

@@ -115,7 +115,7 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 				version, stream_id,
 				created_at, expires_at,
 				status, segment_count,
-				encrypted_metadata_nonce, encrypted_metadata,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 				total_encrypted_size, fixed_segment_size,
 				encryption;
 		`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version)
@@ -194,7 +194,7 @@ func (db *DB) DeleteObjectLatestVersion(ctx context.Context, opts DeleteObjectLa
 				version, stream_id,
 				created_at, expires_at,
 				status, segment_count,
-				encrypted_metadata_nonce, encrypted_metadata,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 				total_encrypted_size, fixed_segment_size,
 				encryption;
 		`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey))
@@ -250,7 +250,7 @@ func (db *DB) DeleteObjectAllVersions(ctx context.Context, opts DeleteObjectAllV
 				version, stream_id,
 				created_at, expires_at,
 				status, segment_count,
-				encrypted_metadata_nonce, encrypted_metadata,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 				total_encrypted_size, fixed_segment_size,
 				encryption;
 		`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey))
@@ -328,7 +328,7 @@ func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAl
 					object_key, version, stream_id,
 					created_at, expires_at,
 					status, segment_count,
-					encrypted_metadata_nonce, encrypted_metadata,
+					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 					total_encrypted_size, fixed_segment_size,
 					encryption;
 		`, projectID, bucketName, pgutil.ByteaArray(objectKeys))
@@ -378,7 +378,7 @@ func scanObjectDeletion(location ObjectLocation, rows tagsql.Rows) (objects []Ob
 		err = rows.Scan(&object.Version, &object.StreamID,
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.Status, &object.SegmentCount,
-			&object.EncryptedMetadataNonce, &object.EncryptedMetadata,
+			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption})
 		if err != nil {
@@ -405,7 +405,7 @@ func scanMultipleObjectsDeletion(rows tagsql.Rows) (objects []Object, err error)
 			&object.ObjectKey, &object.Version, &object.StreamID,
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.Status, &object.SegmentCount,
-			&object.EncryptedMetadataNonce, &object.EncryptedMetadata,
+			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption})
 		if err != nil {

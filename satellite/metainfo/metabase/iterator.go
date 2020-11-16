@@ -146,7 +146,7 @@ func (it *objectsIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err 
 			object_key, stream_id, version, status,
 			created_at, expires_at,
 			segment_count,
-			encrypted_metadata_nonce, encrypted_metadata,
+			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 			total_encrypted_size, fixed_segment_size,
 			encryption
 		FROM objects
@@ -171,7 +171,7 @@ func (it *objectsIterator) scanItem(item *ObjectEntry) error {
 		&item.ObjectKey, &item.StreamID, &item.Version, &item.Status,
 		&item.CreatedAt, &item.ExpiresAt,
 		&item.SegmentCount,
-		&item.EncryptedMetadataNonce, &item.EncryptedMetadata,
+		&item.EncryptedMetadataNonce, &item.EncryptedMetadata, &item.EncryptedMetadataEncryptedKey,
 		&item.TotalEncryptedSize, &item.FixedSegmentSize,
 		encryptionParameters{&item.Encryption},
 	)

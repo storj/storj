@@ -391,8 +391,9 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 type CommitObject struct {
 	ObjectStream
 
-	EncryptedMetadata      []byte
-	EncryptedMetadataNonce []byte
+	EncryptedMetadata             []byte
+	EncryptedMetadataNonce        []byte
+	EncryptedMetadataEncryptedKey []byte
 
 	// TODO: proof
 	Proofs []SegmentProof
@@ -491,11 +492,12 @@ func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) 
 				status = 1, -- committed
 				segment_count = $6,
 
-				encrypted_metadata_nonce = $7,
-				encrypted_metadata = $8,
+				encrypted_metadata_nonce         = $7,
+				encrypted_metadata               = $8,
+				encrypted_metadata_encrypted_key = $9,
 
-				total_encrypted_size = $9,
-				fixed_segment_size = $10,
+				total_encrypted_size = $10,
+				fixed_segment_size = $11,
 				zombie_deletion_deadline = NULL
 			WHERE
 				project_id   = $1 AND
@@ -509,7 +511,7 @@ func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) 
 				encryption;
 		`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID,
 			len(segments),
-			opts.EncryptedMetadataNonce, opts.EncryptedMetadata,
+			opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey,
 			totalEncryptedSize,
 			fixedSegmentSize,
 		).
@@ -533,6 +535,7 @@ func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) 
 		object.SegmentCount = int32(len(segments))
 		object.EncryptedMetadataNonce = opts.EncryptedMetadataNonce
 		object.EncryptedMetadata = opts.EncryptedMetadata
+		object.EncryptedMetadataEncryptedKey = opts.EncryptedMetadataEncryptedKey
 		object.TotalEncryptedSize = totalEncryptedSize
 		object.FixedSegmentSize = fixedSegmentSize
 		return nil
@@ -552,8 +555,9 @@ func (db *DB) commitObjectWithProofs(ctx context.Context, opts CommitObject) (ob
 type UpdateObjectMetadata struct {
 	ObjectStream
 
-	EncryptedMetadata      []byte
-	EncryptedMetadataNonce []byte
+	EncryptedMetadata             []byte
+	EncryptedMetadataNonce        []byte
+	EncryptedMetadataEncryptedKey []byte
 }
 
 // UpdateObjectMetadata updates an object metadata.
@@ -575,8 +579,9 @@ func (db *DB) UpdateObjectMetadata(ctx context.Context, opts UpdateObjectMetadat
 	// during commit object.
 	result, err := db.db.ExecContext(ctx, `
 		UPDATE objects SET
-			encrypted_metadata_nonce = $6,
-			encrypted_metadata       = $7
+			encrypted_metadata_nonce         = $6,
+			encrypted_metadata               = $7,
+			encrypted_metadata_encrypted_key = $8
 		WHERE
 			project_id   = $1 AND
 			bucket_name  = $2 AND
@@ -585,7 +590,7 @@ func (db *DB) UpdateObjectMetadata(ctx context.Context, opts UpdateObjectMetadat
 			stream_id    = $5 AND
 			status       = 1
 	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID,
-		opts.EncryptedMetadataNonce, opts.EncryptedMetadata)
+		opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey)
 	if err != nil {
 		return Error.New("unable to update object metadata: %w", err)
 	}

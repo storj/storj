@@ -53,7 +53,7 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 			stream_id,
 			created_at, expires_at,
 			segment_count,
-			encrypted_metadata_nonce, encrypted_metadata,
+			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 			total_encrypted_size, fixed_segment_size,
 			encryption
 		FROM objects
@@ -68,7 +68,7 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 			&object.StreamID,
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.SegmentCount,
-			&object.EncryptedMetadataNonce, &object.EncryptedMetadata,
+			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption},
 		)
@@ -109,7 +109,7 @@ func (db *DB) GetObjectLatestVersion(ctx context.Context, opts GetObjectLatestVe
 			stream_id, version,
 			created_at, expires_at,
 			segment_count,
-			encrypted_metadata_nonce, encrypted_metadata,
+			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 			total_encrypted_size, fixed_segment_size,
 			encryption
 		FROM objects
@@ -125,7 +125,7 @@ func (db *DB) GetObjectLatestVersion(ctx context.Context, opts GetObjectLatestVe
 			&object.StreamID, &object.Version,
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.SegmentCount,
-			&object.EncryptedMetadataNonce, &object.EncryptedMetadata,
+			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption},
 		)
