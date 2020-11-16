@@ -1,15 +1,25 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
+
 <template>
     <div class="access-grants">
         <div class="access-grants__title-area">
             <h2 class="access-grants__title-area__title">Access Grants</h2>
             <div class="access-grants__title-area__right">
                 <VButton
+                    v-if="selectedAccessGrantsAmount"
+                    :label="deleteButtonLabel"
+                    width="203px"
+                    height="40px"
+                    :on-press="onDeleteClick"
+                    is-deletion="true"
+                />
+                <VButton
+                    v-else
                     label="Create Access Grant +"
                     width="203px"
                     height="44px"
-                    class="access-grants__title-area__right__cta"
+                    :on-press="onCreateClick"
                 />
             </div>
         </div>
@@ -31,6 +41,11 @@
             />
         </div>
         <EmptyState v-else />
+        <ConfirmDeletePopup
+            v-if="isDeleteClicked"
+            @close="onClearSelection"
+            @reset-pagination="resetPagination"
+        />
     </div>
 </template>
 
@@ -38,6 +53,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import AccessGrantsItem from '@/components/accessGrants/AccessGrantsItem.vue';
+import ConfirmDeletePopup from '@/components/accessGrants/ConfirmDeletePopup.vue';
 import EmptyState from '@/components/accessGrants/EmptyState.vue';
 import SortAccessGrantsHeader from '@/components/accessGrants/SortingHeader.vue';
 import VButton from '@/components/common/VButton.vue';
@@ -50,7 +66,6 @@ import { SortDirection } from '@/types/common';
 
 const {
     FETCH,
-    DELETE,
     TOGGLE_SELECTION,
     CLEAR,
     CLEAR_SELECTION,
@@ -70,6 +85,7 @@ declare interface ResetPagination {
         VList,
         VPagination,
         VButton,
+        ConfirmDeletePopup,
     },
 })
 export default class AccessGrants extends Vue {
@@ -133,53 +149,45 @@ export default class AccessGrants extends Vue {
         }
 
         if (this.totalPageCount > 1) {
-            this.$refs.pagination.resetPageIndex();
+            this.resetPagination();
         }
     }
 
     /**
-     * Deletes selected access grants, fetches updated list and changes area state to default.
+     * Resets pagination to default state.
      */
-    private async delete(): Promise<void> {
-        try {
-            await this.$store.dispatch(DELETE);
-            await this.$notify.success(`Access Grant deleted successfully`);
-        } catch (error) {
-            await this.$notify.error(error.message);
-        }
-
-        try {
-            await this.$store.dispatch(FETCH, this.FIRST_PAGE);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`);
-        }
-
-        this.isDeleteClicked = false;
-
-        if (this.totalPageCount > 1) {
-            this.$refs.pagination.resetPageIndex();
-        }
+    public resetPagination(): void {
+        this.$refs.pagination.resetPageIndex();
     }
 
     /**
-     * Holds on button click login for deleting API key process.
+     * Starts create access grant flow.
+     */
+    public onCreateClick(): void {
+        // mock
+        return;
+    }
+
+    /**
+     * Holds on button click login for deleting access grant process.
      */
     public onDeleteClick(): void {
-        if (!this.isDeleteClicked) {
-            this.isDeleteClicked = true;
-
-            return;
-        }
-
-        this.delete();
+        this.isDeleteClicked = true;
     }
 
     /**
-     * Clears API Keys selection.
+     * Clears access grants selection.
      */
-    public onClearSelection(): void {
-        this.$store.dispatch(CLEAR_SELECTION);
+    public async onClearSelection(): Promise<void> {
+        await this.$store.dispatch(CLEAR_SELECTION);
         this.isDeleteClicked = false;
+    }
+
+    /**
+     * Returns delete access grants button label.
+     */
+    public get deleteButtonLabel(): string {
+        return `Remove Selected (${this.selectedAccessGrantsAmount})`;
     }
 
     /**
@@ -190,7 +198,7 @@ export default class AccessGrants extends Vue {
     }
 
     /**
-     * Returns Access Grant item component.
+     * Returns AccessGrant item component.
      */
     public get itemComponent() {
         return AccessGrantsItem;
@@ -201,6 +209,13 @@ export default class AccessGrants extends Vue {
      */
     public get accessGrantsList(): AccessGrant[] {
         return this.$store.state.accessGrantsModule.page.accessGrants;
+    }
+
+    /**
+     * Returns selected access grants IDs amount from store.
+     */
+    public get selectedAccessGrantsAmount(): number {
+        return this.$store.state.accessGrantsModule.selectedAccessGrantsIds.length;
     }
 }
 </script>

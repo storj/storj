@@ -19,8 +19,8 @@ export const ACCESS_GRANTS_ACTIONS = {
     SET_SEARCH_QUERY: 'setAccessGrantsSearchQuery',
     SET_SORT_BY: 'setAccessGrantsSortingBy',
     SET_SORT_DIRECTION: 'setAccessGrantsSortingDirection',
-    TOGGLE_SELECTION: 'toggleAccessGrantSelection',
-    CLEAR_SELECTION: 'clearAccessGrantSelection',
+    TOGGLE_SELECTION: 'toggleAccessGrantsSelection',
+    CLEAR_SELECTION: 'clearAccessGrantsSelection',
 };
 
 export const ACCESS_GRANTS_MUTATIONS = {
@@ -52,9 +52,9 @@ export class AccessGrantsState {
 }
 
 /**
- * creates apiKeys module with all dependencies
+ * creates access grants module with all dependencies
  *
- * @param api - apiKeys api
+ * @param api - accessGrants api
  */
 export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<AccessGrantsState> {
     return {
@@ -84,13 +84,21 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
             },
             [TOGGLE_SELECTION](state: AccessGrantsState, accessGrant: AccessGrant) {
                 if (!state.selectedAccessGrantsIds.includes(accessGrant.id)) {
-                    accessGrant.isSelected = true;
+                    state.page.accessGrants.forEach((grant: AccessGrant) => {
+                        if (grant.id === accessGrant.id) {
+                            grant.isSelected = true;
+                        }
+                    });
                     state.selectedAccessGrantsIds.push(accessGrant.id);
 
                     return;
                 }
 
-                accessGrant.isSelected = false;
+                state.page.accessGrants.forEach((grant: AccessGrant) => {
+                    if (grant.id === accessGrant.id) {
+                        grant.isSelected = false;
+                    }
+                });
                 state.selectedAccessGrantsIds = state.selectedAccessGrantsIds.filter(accessGrantId => {
                     return accessGrant.id !== accessGrantId;
                 });
@@ -138,7 +146,7 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
             setAccessGrantsSortingDirection: function ({commit}, direction: SortDirection) {
                 commit(CHANGE_SORT_ORDER_DIRECTION, direction);
             },
-            toggleAccessGrantSelection: function ({commit}, accessGrant: AccessGrant): void {
+            toggleAccessGrantsSelection: function ({commit}, accessGrant: AccessGrant): void {
                 commit(TOGGLE_SELECTION, accessGrant);
             },
             clearAccessGrantsSelection: function ({commit}): void {
