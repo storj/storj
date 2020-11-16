@@ -30,8 +30,12 @@ func iterateAllVersions(ctx context.Context, db *DB, opts IterateObjects, fn fun
 		opts:      &opts,
 		batchSize: opts.BatchSize,
 		curIndex:  0,
-		status:    Committed,
+		status:    opts.Status,
 		cursor:    opts.Cursor,
+	}
+
+	if it.batchSize <= 0 || it.batchSize > batchsizeLimit {
+		it.batchSize = batchsizeLimit
 	}
 
 	it.curRows, err = it.doNextQuery(ctx)

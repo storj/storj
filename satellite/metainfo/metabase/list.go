@@ -31,6 +31,7 @@ type IterateObjects struct {
 	BatchSize  int
 	Prefix     ObjectKey
 	Cursor     IterateCursor
+	Status     ObjectStatus
 }
 
 // IterateObjectsAllVersions iterates through all versions of all committed objects.
@@ -55,8 +56,8 @@ func (opts *IterateObjects) Verify() error {
 		return ErrInvalidRequest.New("prefixed listing not implemented yet")
 	case opts.BatchSize < 0:
 		return ErrInvalidRequest.New("BatchSize is negative")
-	case opts.BatchSize == 0 || opts.BatchSize > batchsizeLimit:
-		opts.BatchSize = batchsizeLimit
+	case !(opts.Status == Pending || opts.Status == Committed):
+		return ErrInvalidRequest.New("Status %v is not supported", opts.Status)
 	}
 	return nil
 }

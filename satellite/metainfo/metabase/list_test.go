@@ -22,6 +22,7 @@ func TestIterateObjects(t *testing.T) {
 					ProjectID:  uuid.UUID{1},
 					BucketName: "",
 					Recursive:  true,
+					Status:     metabase.Committed,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "BucketName missing",
@@ -35,6 +36,7 @@ func TestIterateObjects(t *testing.T) {
 					ProjectID:  uuid.UUID{},
 					BucketName: "sj://mybucket",
 					Recursive:  true,
+					Status:     metabase.Committed,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "ProjectID missing",
@@ -49,14 +51,29 @@ func TestIterateObjects(t *testing.T) {
 					BucketName: "mybucket",
 					BatchSize:  -1,
 					Recursive:  true,
+					Status:     metabase.Committed,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "BatchSize is negative",
 			}.Check(ctx, t, db)
 			Verify{}.Check(ctx, t, db)
 		})
+		t.Run("Status is invalid", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+			IterateObjects{
+				Opts: metabase.IterateObjects{
+					ProjectID:  uuid.UUID{1},
+					BucketName: "test",
+					Recursive:  true,
+					Status:     255,
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "Status 255 is not supported",
+			}.Check(ctx, t, db)
+			Verify{}.Check(ctx, t, db)
+		})
 
-		t.Run("List empty bucket", func(t *testing.T) {
+		t.Run("empty bucket", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 			objects := createObjects(ctx, t, db, 2, uuid.UUID{1}, "mybucket")
 			IterateObjects{
@@ -65,13 +82,79 @@ func TestIterateObjects(t *testing.T) {
 					BucketName: "myemptybucket",
 					BatchSize:  10,
 					Recursive:  true,
+					Status:     metabase.Committed,
 				},
 				Result: nil,
 			}.Check(ctx, t, db)
 			Verify{Objects: objects}.Check(ctx, t, db)
 		})
 
-		t.Run("List less objects than limit", func(t *testing.T) {
+		t.Run("based on status", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+
+			pending := randObjectStream()
+			committed := randObjectStream()
+			committed.ProjectID = pending.ProjectID
+			committed.BucketName = pending.BucketName
+
+			projectID := pending.ProjectID
+			bucketName := pending.BucketName
+
+			BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: pending,
+					Encryption:   defaultTestEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: committed,
+					Encryption:   defaultTestEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+			CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: committed,
+				},
+			}.Check(ctx, t, db)
+
+			IterateObjects{
+				Opts: metabase.IterateObjects{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+					Recursive:  true,
+					Status:     metabase.Committed,
+				},
+				Result: []metabase.ObjectEntry{{
+					ObjectStream: committed,
+					CreatedAt:    now,
+					Status:       metabase.Committed,
+					Encryption:   defaultTestEncryption,
+				}},
+			}.Check(ctx, t, db)
+
+			IterateObjects{
+				Opts: metabase.IterateObjects{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+					Recursive:  true,
+					Status:     metabase.Pending,
+				},
+				Result: []metabase.ObjectEntry{{
+					ObjectStream: pending,
+					CreatedAt:    now,
+					Status:       metabase.Pending,
+					Encryption:   defaultTestEncryption,
+				}},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("less objects than limit", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 			numberOfObjects := 3
 			limit := 10
@@ -86,13 +169,14 @@ func TestIterateObjects(t *testing.T) {
 					BucketName: "mybucket",
 					Recursive:  true,
 					BatchSize:  limit,
+					Status:     metabase.Committed,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
 			Verify{Objects: objects}.Check(ctx, t, db)
 		})
 
-		t.Run("List more objects than limit", func(t *testing.T) {
+		t.Run("more objects than limit", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 			numberOfObjects := 10
 			limit := 3
@@ -107,13 +191,14 @@ func TestIterateObjects(t *testing.T) {
 					BucketName: "mybucket",
 					Recursive:  true,
 					BatchSize:  limit,
+					Status:     metabase.Committed,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
 			Verify{Objects: objects}.Check(ctx, t, db)
 		})
 
-		t.Run("List objects in one bucket in project with 2 buckets", func(t *testing.T) {
+		t.Run("objects in one bucket in project with 2 buckets", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 			numberOfObjectsPerBucket := 5
 			batchSize := 10
@@ -129,13 +214,14 @@ func TestIterateObjects(t *testing.T) {
 					BucketName: "bucket-a",
 					Recursive:  true,
 					BatchSize:  batchSize,
+					Status:     metabase.Committed,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
 			Verify{Objects: append(objectsBucketA, objectsBucketB...)}.Check(ctx, t, db)
 		})
 
-		t.Run("List objects in one bucket with same bucketName in another project", func(t *testing.T) {
+		t.Run("objects in one bucket with same bucketName in another project", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 			numberOfObjectsPerBucket := 5
 			batchSize := 10
@@ -151,6 +237,7 @@ func TestIterateObjects(t *testing.T) {
 					BucketName: "mybucket",
 					Recursive:  true,
 					BatchSize:  batchSize,
+					Status:     metabase.Committed,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
