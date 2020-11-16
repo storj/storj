@@ -95,7 +95,7 @@ export default class ProgressBar extends Vue {
         }
 
         &__progress {
-            background: #DCDDE1;
+            background: #dcdde1;
             width: 4px;
             height: 33%;
             margin-left: 8px;

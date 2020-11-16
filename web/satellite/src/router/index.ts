@@ -200,6 +200,7 @@ export const router = new Router({
                                     path: RouteConfig.PermissionsStep.path,
                                     name: RouteConfig.PermissionsStep.name,
                                     component: PermissionsStep,
+                                    props: true,
                                 },
                                 {
                                     path: RouteConfig.PassphraseStep.path,
