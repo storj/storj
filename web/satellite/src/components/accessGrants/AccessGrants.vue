@@ -214,7 +214,6 @@ export default class AccessGrants extends Vue {
     /**
      * Returns selected access grants IDs amount from store.
      */
-
     public get selectedAccessGrantsAmount(): number {
         return this.$store.state.accessGrantsModule.selectedAccessGrantsIds.length;
     }
