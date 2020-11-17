@@ -110,6 +110,7 @@ CREATE TABLE injuredsegments (
 	attempted timestamp with time zone,
 	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	num_healthy_pieces integer NOT NULL DEFAULT 52,
+	segment_health double precision NOT NULL DEFAULT 1,
 	PRIMARY KEY ( path )
 );
 CREATE TABLE irreparabledbs (
@@ -449,6 +450,7 @@ CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at 
 CREATE INDEX graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );
+CREATE INDEX injuredsegments_segment_health_index ON injuredsegments ( segment_health );
 CREATE INDEX injuredsegments_updated_at_index ON injuredsegments ( updated_at );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );

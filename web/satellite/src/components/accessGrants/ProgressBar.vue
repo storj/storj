@@ -6,8 +6,8 @@
 </template>
 
 <script lang="ts">
-import { Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
-export default class ProgressBar extends Vue {
-}
+@Component
+export default class ProgressBar extends Vue {}
 </script>

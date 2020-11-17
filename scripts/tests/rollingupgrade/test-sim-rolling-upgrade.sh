@@ -274,6 +274,8 @@ old_api_cmd="${test_dir}/local-network/satellite/0/old_satellite run api --confi
 nohup $old_api_cmd &
 # Storing the background process' PID.
 old_api_pid=$!
+# Give the old api endpoint 5 seconds to start to avoid a race condition with the database migration
+sleep 5
 
 # Downloading every file uploaded in stage 1 from the network using the latest commit from master branch for each uplink version
 for ul_version in ${stage2_uplink_versions}; do

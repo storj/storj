@@ -383,6 +383,7 @@ CREATE TABLE injuredsegments (
 	attempted timestamp with time zone,
 	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	num_healthy_pieces integer NOT NULL DEFAULT 52,
+	segment_health double precision NOT NULL DEFAULT 1,
 	PRIMARY KEY ( path )
 );
 CREATE TABLE irreparabledbs (
@@ -722,6 +723,7 @@ CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at 
 CREATE INDEX graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );
+CREATE INDEX injuredsegments_segment_health_index ON injuredsegments ( segment_health );
 CREATE INDEX injuredsegments_updated_at_index ON injuredsegments ( updated_at );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );
@@ -904,6 +906,7 @@ CREATE TABLE injuredsegments (
 	attempted timestamp with time zone,
 	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	num_healthy_pieces integer NOT NULL DEFAULT 52,
+	segment_health double precision NOT NULL DEFAULT 1,
 	PRIMARY KEY ( path )
 );
 CREATE TABLE irreparabledbs (
@@ -1243,6 +1246,7 @@ CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at 
 CREATE INDEX graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );
+CREATE INDEX injuredsegments_segment_health_index ON injuredsegments ( segment_health );
 CREATE INDEX injuredsegments_updated_at_index ON injuredsegments ( updated_at );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );
@@ -2949,6 +2953,7 @@ type Injuredsegment struct {
 	Attempted        *time.Time
 	UpdatedAt        time.Time
 	NumHealthyPieces int
+	SegmentHealth    float64
 }
 
 func (Injuredsegment) _Table() string { return "injuredsegments" }
@@ -2957,6 +2962,7 @@ type Injuredsegment_Create_Fields struct {
 	Attempted        Injuredsegment_Attempted_Field
 	UpdatedAt        Injuredsegment_UpdatedAt_Field
 	NumHealthyPieces Injuredsegment_NumHealthyPieces_Field
+	SegmentHealth    Injuredsegment_SegmentHealth_Field
 }
 
 type Injuredsegment_Update_Fields struct {
@@ -3071,6 +3077,25 @@ func (f Injuredsegment_NumHealthyPieces_Field) value() interface{} {
 }
 
 func (Injuredsegment_NumHealthyPieces_Field) _Column() string { return "num_healthy_pieces" }
+
+type Injuredsegment_SegmentHealth_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func Injuredsegment_SegmentHealth(v float64) Injuredsegment_SegmentHealth_Field {
+	return Injuredsegment_SegmentHealth_Field{_set: true, _value: v}
+}
+
+func (f Injuredsegment_SegmentHealth_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Injuredsegment_SegmentHealth_Field) _Column() string { return "segment_health" }
 
 type Irreparabledb struct {
 	Segmentpath        []byte

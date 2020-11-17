@@ -6,12 +6,14 @@ import { Bucket, BucketCursor, BucketPage, BucketsApi } from '@/types/buckets';
 
 export const BUCKET_ACTIONS = {
     FETCH: 'setBuckets',
+    FETCH_ALL_BUCKET_NAMES: 'getAllBucketNames',
     SET_SEARCH: 'setBucketSearch',
     CLEAR: 'clearBuckets',
 };
 
 export const BUCKET_MUTATIONS = {
     SET: 'setBuckets',
+    SET_ALL_BUCKET_NAMES: 'setAllBucketNames',
     SET_SEARCH: 'setBucketSearch',
     SET_PAGE: 'setBucketPage',
     CLEAR: 'clearBuckets',
@@ -19,9 +21,11 @@ export const BUCKET_MUTATIONS = {
 
 const {
     FETCH,
+    FETCH_ALL_BUCKET_NAMES,
 } = BUCKET_ACTIONS;
 const {
     SET,
+    SET_ALL_BUCKET_NAMES,
     SET_PAGE,
     SET_SEARCH,
     CLEAR,
@@ -30,6 +34,7 @@ const bucketPageLimit = 7;
 const firstPage = 1;
 
 export class BucketsState {
+    public allBucketNames: string[] = [];
     public cursor: BucketCursor = { limit: bucketPageLimit, search: '', page: firstPage };
     public page: BucketPage = { buckets: new Array<Bucket>(), currentPage: 1, pageCount: 1, offset: 0, limit: bucketPageLimit, search: '', totalCount: 0 };
 }
@@ -47,6 +52,9 @@ export function makeBucketsModule(api: BucketsApi): StoreModule<BucketsState> {
             [SET](state: BucketsState, page: BucketPage) {
                 state.page = page;
             },
+            [SET_ALL_BUCKET_NAMES](state: BucketsState, allBucketNames: string[]) {
+                state.allBucketNames = allBucketNames;
+            },
             [SET_PAGE](state: BucketsState, page: number) {
                 state.cursor.page = page;
             },
@@ -54,6 +62,7 @@ export function makeBucketsModule(api: BucketsApi): StoreModule<BucketsState> {
                 state.cursor.search = search;
             },
             [CLEAR](state: BucketsState) {
+                state.allBucketNames = [];
                 state.cursor = new BucketCursor('', bucketPageLimit, firstPage);
                 state.page = new BucketPage([], '', bucketPageLimit, 0, 1, 1, 0);
             },
@@ -69,6 +78,13 @@ export function makeBucketsModule(api: BucketsApi): StoreModule<BucketsState> {
                 const result: BucketPage = await api.get(projectID, before, state.cursor);
 
                 commit(SET, result);
+
+                return result;
+            },
+            [FETCH_ALL_BUCKET_NAMES]: async function({commit, rootGetters}: any): Promise<string[]> {
+                const result: string[] = await api.getAllBucketNames(rootGetters.selectedProject.id);
+
+                commit(SET_ALL_BUCKET_NAMES, result);
 
                 return result;
             },

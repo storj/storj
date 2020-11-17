@@ -4,11 +4,15 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"storj.io/common/fpath"
+	"storj.io/common/sync2"
 )
 
 // Flags contains different flags for commands.
@@ -105,8 +109,51 @@ func main() {
 		},
 	)
 
+	toolCmd := &cobra.Command{
+		Use:   "tool",
+		Short: "tools for working with storj-sim",
+	}
+
+	toolCmd.AddCommand(
+		func() *cobra.Command {
+			cmd := &cobra.Command{
+				Use:   "wait-for <address>",
+				Short: "waits for an address to accept connections",
+				Args:  cobra.ExactArgs(1),
+			}
+			retries := cmd.Flags().Int("retry", -1, "maximum retry count")
+			interval := cmd.Flags().Duration("interval", 50*time.Millisecond, "how long to wait after each retry")
+
+			cmd.RunE = func(cmd *cobra.Command, args []string) (err error) {
+				ctx, cancel := NewCLIContext(context.Background())
+				defer cancel()
+				defer fmt.Println()
+
+				target := args[0]
+
+				if *retries <= 0 {
+					*retries = 1 << 31
+				}
+				for try := 0; try < *retries; try++ {
+					if tryConnect(target) {
+						return nil
+					}
+					fmt.Print(".")
+
+					if !sync2.Sleep(ctx, *interval) {
+						return ctx.Err()
+					}
+				}
+
+				return fmt.Errorf("failed to connect to %q", target)
+			}
+			return cmd
+		}(),
+	)
+
 	rootCmd.AddCommand(
 		networkCmd,
+		toolCmd,
 	)
 	rootCmd.SilenceUsage = true
 	err := rootCmd.Execute()
