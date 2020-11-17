@@ -246,3 +246,26 @@ func parseSegmentPath(segmentPath []byte) (segmentIndex int64, err error) {
 	}
 	return segmentIndex, nil
 }
+
+func TestIsBucketEmpty(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		uplinkPeer := planet.Uplinks[0]
+
+		err := uplinkPeer.CreateBucket(ctx, satellite, "bucket")
+		require.NoError(t, err)
+
+		empty, err := satellite.Metainfo.Service.IsBucketEmpty(ctx, uplinkPeer.Projects[0].ID, []byte("bucket"))
+		require.NoError(t, err)
+		require.True(t, empty)
+
+		err = uplinkPeer.Upload(ctx, satellite, "bucket", "test/path", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+
+		empty, err = satellite.Metainfo.Service.IsBucketEmpty(ctx, uplinkPeer.Projects[0].ID, []byte("bucket"))
+		require.NoError(t, err)
+		require.False(t, empty)
+	})
+}

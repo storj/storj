@@ -636,3 +636,102 @@ func TestGetSegmentByOffset(t *testing.T) {
 		})
 	})
 }
+
+func TestBucketEmpty(t *testing.T) {
+	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := randObjectStream()
+		now := time.Now()
+
+		t.Run("ProjectID missing", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			BucketEmpty{
+				Opts:     metabase.BucketEmpty{},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "ProjectID missing",
+			}.Check(ctx, t, db)
+
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("BucketName missing", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			BucketEmpty{
+				Opts: metabase.BucketEmpty{
+					ProjectID: obj.ProjectID,
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "BucketName missing",
+			}.Check(ctx, t, db)
+
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("BucketEmpty true", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			BucketEmpty{
+				Opts: metabase.BucketEmpty{
+					ProjectID:  obj.ProjectID,
+					BucketName: obj.BucketName,
+				},
+				Result: true,
+			}.Check(ctx, t, db)
+
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("BucketEmpty false with pending object", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+
+					Encryption: defaultTestEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			BucketEmpty{
+				Opts: metabase.BucketEmpty{
+					ProjectID:  obj.ProjectID,
+					BucketName: obj.BucketName,
+				},
+				Result: false,
+			}.Check(ctx, t, db)
+
+			Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Pending,
+						Encryption:   defaultTestEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("BucketEmpty false with committed object", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			object := createObject(ctx, t, db, obj, 0)
+
+			BucketEmpty{
+				Opts: metabase.BucketEmpty{
+					ProjectID:  obj.ProjectID,
+					BucketName: obj.BucketName,
+				},
+				Result: false,
+			}.Check(ctx, t, db)
+
+			Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(object),
+				},
+			}.Check(ctx, t, db)
+		})
+	})
+}

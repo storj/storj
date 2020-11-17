@@ -303,3 +303,41 @@ func (db *DB) GetSegmentByOffset(ctx context.Context, opts GetSegmentByOffset) (
 
 	return segment, nil
 }
+
+// BucketEmpty contains arguments necessary for checking if bucket is empty.
+type BucketEmpty struct {
+	ProjectID  uuid.UUID
+	BucketName string
+}
+
+// BucketEmpty returns true if bucket does not contain objects (pending or committed).
+// This method doesn't check bucket existence.
+func (db *DB) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	switch {
+	case opts.ProjectID.IsZero():
+		return false, ErrInvalidRequest.New("ProjectID missing")
+	case opts.BucketName == "":
+		return false, ErrInvalidRequest.New("BucketName missing")
+	}
+
+	var value int
+	err = db.db.QueryRow(ctx, `
+		SELECT
+			1
+		FROM objects
+		WHERE
+			project_id   = $1 AND
+			bucket_name  = $2
+		LIMIT 1
+	`, opts.ProjectID, opts.BucketName).Scan(&value)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return true, nil
+		}
+		return false, Error.New("unable to query objects: %w", err)
+	}
+
+	return false, nil
+}

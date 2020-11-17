@@ -440,16 +440,11 @@ func (s *Service) DeleteBucket(ctx context.Context, bucketName []byte, projectID
 
 // IsBucketEmpty returns whether bucket is empty.
 func (s *Service) IsBucketEmpty(ctx context.Context, projectID uuid.UUID, bucketName []byte) (bool, error) {
-	prefix, err := CreatePath(ctx, projectID, -1, bucketName, []byte{})
-	if err != nil {
-		return false, Error.Wrap(err)
-	}
-
-	items, _, err := s.List(ctx, prefix.Encode(), "", true, 1, 0)
-	if err != nil {
-		return false, Error.Wrap(err)
-	}
-	return len(items) == 0, nil
+	empty, err := s.metabaseDB.BucketEmpty(ctx, metabase.BucketEmpty{
+		ProjectID:  projectID,
+		BucketName: string(bucketName),
+	})
+	return empty, Error.Wrap(err)
 }
 
 // ListBuckets returns a list of buckets for a project.

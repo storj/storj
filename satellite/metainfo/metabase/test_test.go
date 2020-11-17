@@ -181,6 +181,20 @@ func (step GetSegmentByOffset) Check(ctx *testcontext.Context, t *testing.T, db 
 	require.Zero(t, diff)
 }
 
+type BucketEmpty struct {
+	Opts     metabase.BucketEmpty
+	Result   bool
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+func (step BucketEmpty) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	result, err := db.BucketEmpty(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	require.Equal(t, step.Result, result)
+}
+
 type ListSegments struct {
 	Opts     metabase.ListSegments
 	Result   metabase.ListSegmentsResult
