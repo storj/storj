@@ -4,7 +4,7 @@
 <template>
 	<div class="duration-selection">
 		<div
-            class="duration-selection__toggle-container"
+        	class="duration-selection__toggle-container"
             @click="toggleDurationPicker"
         >
             <h1 class="duration-selection__toggle-container__name">Forever</h1>
