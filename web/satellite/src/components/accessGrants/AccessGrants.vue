@@ -92,6 +92,7 @@ declare interface ResetPagination {
 })
 export default class AccessGrants extends Vue {
     private FIRST_PAGE = 1;
+
     /**
      * Indicates if delete confirmation state should appear.
      */
@@ -159,7 +160,9 @@ export default class AccessGrants extends Vue {
      * Resets pagination to default state.
      */
     public resetPagination(): void {
-        this.$refs.pagination.resetPageIndex();
+        if (this.totalPageCount > 0) {
+            this.$refs.pagination.resetPageIndex();
+        }
     }
 
     /**

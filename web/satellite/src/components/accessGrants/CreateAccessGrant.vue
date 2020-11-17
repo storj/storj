@@ -54,7 +54,7 @@ export default class CreateAccessGrant extends Vue {
         &__container {
             background: #fff;
             border-radius: 6px;
-            max-width: 835px;
+            width: 835px;
             height: 470px;
             display: flex;
             align-items: center;

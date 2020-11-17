@@ -202,6 +202,12 @@ export default class DashboardArea extends Vue {
             await this.$notify.error(`Unable to fetch api keys. ${error.message}`);
         }
 
+        try {
+            await this.$store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch all bucket names. ${error.message}`);
+        }
+
         await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
         try {
             await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);

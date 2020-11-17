@@ -20,12 +20,14 @@ export const ACCESS_GRANTS_ACTIONS = {
     SET_SORT_BY: 'setAccessGrantsSortingBy',
     SET_SORT_DIRECTION: 'setAccessGrantsSortingDirection',
     TOGGLE_SELECTION: 'toggleAccessGrantsSelection',
+    TOGGLE_BUCKET_SELECTION: 'toggleBucketSelection',
     CLEAR_SELECTION: 'clearAccessGrantsSelection',
 };
 
 export const ACCESS_GRANTS_MUTATIONS = {
     SET_PAGE: 'setAccessGrants',
     TOGGLE_SELECTION: 'toggleAccessGrantsSelection',
+    TOGGLE_BUCKET_SELECTION: 'toggleBucketSelection',
     CLEAR_SELECTION: 'clearAccessGrantsSelection',
     CLEAR: 'clearAccessGrants',
     CHANGE_SORT_ORDER: 'changeAccessGrantsSortOrder',
@@ -37,6 +39,7 @@ export const ACCESS_GRANTS_MUTATIONS = {
 const {
     SET_PAGE,
     TOGGLE_SELECTION,
+    TOGGLE_BUCKET_SELECTION,
     CLEAR_SELECTION,
     CLEAR,
     CHANGE_SORT_ORDER,
@@ -49,6 +52,7 @@ export class AccessGrantsState {
     public cursor: AccessGrantCursor = new AccessGrantCursor();
     public page: AccessGrantsPage = new AccessGrantsPage();
     public selectedAccessGrantsIds: string[] = [];
+    public selectedBucketNames: string[] = [];
 }
 
 /**
@@ -103,6 +107,17 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
                     return accessGrant.id !== accessGrantId;
                 });
             },
+            [TOGGLE_BUCKET_SELECTION](state: AccessGrantsState, bucketName: string) {
+                if (!state.selectedBucketNames.includes(bucketName)) {
+                    state.selectedBucketNames.push(bucketName);
+
+                    return;
+                }
+
+                state.selectedBucketNames = state.selectedBucketNames.filter(name => {
+                    return bucketName !== name;
+                });
+            },
             [CLEAR_SELECTION](state: AccessGrantsState) {
                 state.selectedAccessGrantsIds = [];
                 state.page.accessGrants = state.page.accessGrants.map((accessGrant: AccessGrant) => {
@@ -148,6 +163,9 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
             },
             toggleAccessGrantsSelection: function ({commit}, accessGrant: AccessGrant): void {
                 commit(TOGGLE_SELECTION, accessGrant);
+            },
+            toggleBucketSelection: function ({commit}, bucketName: string): void {
+                commit(TOGGLE_BUCKET_SELECTION, bucketName);
             },
             clearAccessGrantsSelection: function ({commit}): void {
                 commit(CLEAR_SELECTION);
