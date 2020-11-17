@@ -157,6 +157,9 @@ contact.external-address: ""
 # macaroon revocation cache expiration
 # database-options.revocations-cache.expiration: 5m0s
 
+# number of records to delete per delete execution. 0 indicates no limit. applicable to cockroach DB only.
+# db-cleanup.batch-size: 1000
+
 # how often to delete expired serial numbers
 # db-cleanup.serials-interval: 4h0m0s
 

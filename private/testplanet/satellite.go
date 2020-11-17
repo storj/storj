@@ -553,6 +553,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		},
 		DBCleanup: dbcleanup.Config{
 			SerialsInterval: defaultInterval,
+			BatchSize:       1000,
 		},
 		Tally: tally.Config{
 			Interval: defaultInterval,
