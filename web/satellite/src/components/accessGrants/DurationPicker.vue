@@ -45,8 +45,9 @@ export default class DurationPicker extends Vue {
 .duration-picker {
     background: #fff;
     width: 530px;
-    height: 650px;
+    height: 595px;
     border: 1px solid #384b65;
+    margin: 0 auto;
 
     &__list {
         -moz-column-count: 2;
@@ -62,7 +63,7 @@ export default class DurationPicker extends Vue {
         }
 
         &__column-item {
-			font-size: 14px;
+            font-size: 14px;
             margin-bottom: 10px;
             font-weight: 400;
             padding: 15px 0 15px 12px;
@@ -86,12 +87,38 @@ export default class DurationPicker extends Vue {
 
         &__wrapper {
             text-align: center;
-            margin: 40px auto;
+            margin: 30px auto;
         }
 
         &__popup {
-            top: 521px;
-            left: 267px;
+            top: 480px !important;
+            left: 267px !important;
+        }
+    }
+}
+
+</style>
+
+<style lang="scss">
+
+.duration-picker {
+
+    &__date-picker {
+
+        &__popup {
+            top: 480px !important;
+            left: 220px !important;
+            right: 0;
+            margin-left: auto;
+            margin-right: auto;
+            width: 480px;
+        }
+
+        @media screen and (max-width: 1280px) {
+
+            &__popup {
+                left: 0 !important;
+            }
         }
     }
 }
