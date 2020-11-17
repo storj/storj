@@ -39,7 +39,7 @@ type DB interface {
 	// UnuseSerialNumber removes pair serial number -> storage node id from database
 	UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) error
 	// DeleteExpiredSerials deletes all expired serials in serial_number, used_serials, and consumed_serials table.
-	DeleteExpiredSerials(ctx context.Context, now time.Time) (_ int, err error)
+	DeleteExpiredSerials(ctx context.Context, now time.Time, options *SerialDeleteOptions) (_ int, err error)
 	// DeleteExpiredConsumedSerials deletes all expired serials in the consumed_serials table.
 	DeleteExpiredConsumedSerials(ctx context.Context, now time.Time) (_ int, err error)
 	// GetBucketIDFromSerialNumber returns the bucket ID associated with the serial number
@@ -70,6 +70,11 @@ type DB interface {
 	// WithQueue runs the callback and provides it with a Queue. When the callback returns with
 	// no error, any pending serials returned by the queue are removed from it.
 	WithQueue(ctx context.Context, cb func(ctx context.Context, queue Queue) error) error
+}
+
+// SerialDeleteOptions are option when deleting from serial tables.
+type SerialDeleteOptions struct {
+	BatchSize int
 }
 
 // Transaction represents a database transaction but with higher level actions.

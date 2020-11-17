@@ -58,9 +58,47 @@ func (db *ordersDB) CreateSerialInfo(ctx context.Context, serialNumber storj.Ser
 	)
 }
 
-// DeleteExpiredSerials deletes all expired serials in serial_number and used_serials table.
-func (db *ordersDB) DeleteExpiredSerials(ctx context.Context, now time.Time) (_ int, err error) {
+// DeleteExpiredSerials deletes all expired serials in the serial_number table.
+func (db *ordersDB) DeleteExpiredSerials(ctx context.Context, now time.Time, options *orders.SerialDeleteOptions) (_ int, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if db.db.implementation == dbutil.Cockroach && options != nil {
+		var deleted int
+
+		for {
+			d, err := func() (_ int, err error) {
+				var r int
+				rs, err := db.db.Query(ctx, "DELETE FROM serial_numbers WHERE expires_at <= $1 ORDER BY expires_at DESC LIMIT $2 RETURNING expires_at;", now.UTC(), options.BatchSize)
+				if err != nil {
+					return 0, err
+				}
+				defer func() { err = errs.Combine(err, rs.Close()) }()
+
+				for rs.Next() {
+					err = rs.Scan(&now)
+					if err != nil {
+						return r, err
+					}
+					r++
+				}
+				if rs.Err() != nil {
+					return r, rs.Err()
+				}
+
+				return r, nil
+			}()
+			deleted += d
+			if err != nil {
+				return deleted, err
+			}
+
+			if d < options.BatchSize {
+				break
+			}
+		}
+
+		return deleted, err
+	}
 
 	count, err := db.db.Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx, dbx.SerialNumber_ExpiresAt(now.UTC()))
 	if err != nil {
