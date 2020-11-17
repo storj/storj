@@ -246,9 +246,15 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	failedNum, updateErr := repairer.updateAuditFailStatus(ctx, failedNodeIDs)
 	if updateErr != nil || failedNum > 0 {
 		// failed updates should not affect repair, therefore we will not return the error
-		repairer.log.Debug("failed to update audit fail status", zap.Int("Failed Update Number", failedNum), zap.Error(err))
+		repairer.log.Debug("failed to update audit fail status", zap.Int("Failed Update Number", failedNum), zap.Error(updateErr))
 	}
 	if err != nil {
+		// If the context was closed during the Get phase, it will appear here as though
+		// we just failed to download enough pieces to reconstruct the segment. Check for
+		// a closed context before doing any further error processing.
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return false, ctxErr
+		}
 		// If Get failed because of input validation, then it will keep failing. But if it
 		// gave us irreparableError, then we failed to download enough pieces and must try
 		// to wait for nodes to come back online.
