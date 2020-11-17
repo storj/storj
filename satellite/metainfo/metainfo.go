@@ -35,7 +35,6 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/rewards"
-	"storj.io/storj/storage"
 	"storj.io/uplink/private/eestream"
 	"storj.io/uplink/private/storage/meta"
 )
@@ -918,8 +917,8 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	var prefix metabase.ObjectKey
 	if len(req.EncryptedPrefix) != 0 {
 		prefix = metabase.ObjectKey(req.EncryptedPrefix)
-		if prefix[len(prefix)-1] != storage.Delimiter {
-			prefix += metabase.ObjectKey(storage.Delimiter)
+		if prefix[len(prefix)-1] != metabase.Delimiter {
+			prefix += metabase.ObjectKey(metabase.Delimiter)
 		}
 	}
 

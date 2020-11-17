@@ -18,6 +18,7 @@ var Error = errs.Class("metabase")
 
 // Common constants for segment keys.
 const (
+	Delimiter         = '/'
 	LastSegmentName   = "l"
 	LastSegmentIndex  = -1
 	FirstSegmentIndex = 0
