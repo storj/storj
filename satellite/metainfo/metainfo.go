@@ -781,8 +781,9 @@ func (endpoint *Endpoint) commitObject(ctx context.Context, req *pb.ObjectCommit
 			StreamID:   id,
 			Version:    metabase.Version(1),
 		},
-		EncryptedMetadata:      req.EncryptedMetadata,
-		EncryptedMetadataNonce: req.EncryptedMetadataNonce[:],
+		EncryptedMetadata:             req.EncryptedMetadata,
+		EncryptedMetadataNonce:        req.EncryptedMetadataNonce[:],
+		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
 	})
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
@@ -856,6 +857,42 @@ func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bu
 		expires = *metaObject.ExpiresAt
 	}
 
+	nonce, err := storj.NonceFromBytes(metaObject.EncryptedMetadataNonce)
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	streamMeta := &pb.StreamMeta{}
+	err = pb.Unmarshal(metaObject.EncryptedMetadata, streamMeta)
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	// TODO is this enough to handle old uplinks
+	if streamMeta.EncryptionBlockSize == 0 {
+		streamMeta.EncryptionBlockSize = metaObject.Encryption.BlockSize
+	}
+	if streamMeta.EncryptionType == 0 {
+		streamMeta.EncryptionType = int32(metaObject.Encryption.CipherSuite)
+	}
+	if streamMeta.NumberOfSegments == 0 {
+		streamMeta.NumberOfSegments = int64(metaObject.SegmentCount)
+	}
+	if streamMeta.LastSegmentMeta == nil {
+		streamMeta.LastSegmentMeta = &pb.SegmentMeta{
+			EncryptedKey: metaObject.EncryptedMetadataEncryptedKey,
+			KeyNonce:     metaObject.EncryptedMetadataNonce,
+		}
+	}
+
+	metadataBytes, err := pb.Marshal(streamMeta)
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
 	object := &pb.Object{
 		Bucket:        bucket,
 		EncryptedPath: encryptedPath,
@@ -864,7 +901,9 @@ func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bu
 		ExpiresAt:     expires,
 		CreatedAt:     metaObject.CreatedAt,
 
-		EncryptedMetadata: metaObject.EncryptedMetadata,
+		EncryptedMetadata:             metadataBytes,
+		EncryptedMetadataNonce:        nonce,
+		EncryptedMetadataEncryptedKey: metaObject.EncryptedMetadataEncryptedKey,
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(metaObject.Encryption.CipherSuite),
 			BlockSize:   int64(metaObject.Encryption.BlockSize),
