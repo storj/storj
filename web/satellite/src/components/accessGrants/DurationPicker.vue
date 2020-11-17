@@ -18,9 +18,9 @@
 		<hr class="duration-picker__break">
 		<div class="duration-picker__date-picker__wrapper">
 			<DatePicker
-				range
-				open
-				popup-class="duration-picker__date-picker__popup"
+			range
+			open
+			popup-class="duration-picker__date-picker__popup"
 			/>
 		</div>
 	</div>
