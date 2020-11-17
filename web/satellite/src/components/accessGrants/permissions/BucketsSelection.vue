@@ -4,8 +4,8 @@
 <template>
     <div class="buckets-selection">
         <div
-            class="buckets-selection__toggle-container"
-            @click.stop="toggleDropdown"
+			class="buckets-selection__toggle-container"
+			@click.stop="toggleDropdown"
         >
             <h1 class="buckets-selection__toggle-container__name">{{ selectionLabel }}</h1>
             <ExpandIcon
