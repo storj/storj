@@ -19,9 +19,20 @@ instantiateStreaming(response, go.importObject).then(result => go.run(result.ins
 
 self.onmessage = function (event) {
     const type = event.data.type;
+    let result;
     switch (type) {
         case 'GenerateAccess':
-            const result = self.generateAccessGrant();
+            result = self.generateAccessGrant();
+
+            self.postMessage(result);
+            break;
+        case 'NewPermission':
+            result = self.newPermission();
+
+            self.postMessage(result);
+            break;
+        case 'SetPermission':
+            result = self.setAPIKeyPermission();
 
             self.postMessage(result);
             break;

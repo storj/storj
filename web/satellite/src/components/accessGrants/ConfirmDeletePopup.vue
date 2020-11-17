@@ -11,15 +11,17 @@
             <p class="confirm-delete__container__list-label">
                 The following access grant(s) will be removed from this project:
             </p>
-            <div
-                class="confirm-delete__container__list"
-                v-for="accessGrant in selectedAccessGrants"
-                :key="accessGrant.id"
-            >
-                <div class="confirm-delete__container__list__item">
-                    <p class="confirm-delete__container__list__item__name">
-                        {{accessGrant.name}}
-                    </p>
+            <div class="confirm-delete__container__list">
+                <div
+                    class="confirm-delete__container__list__container"
+                    v-for="accessGrant in selectedAccessGrants"
+                    :key="accessGrant.id"
+                >
+                    <div class="confirm-delete__container__list__container__item">
+                        <p class="confirm-delete__container__list__container__item__name">
+                            {{accessGrant.name}}
+                        </p>
+                    </div>
                 </div>
             </div>
             <div class="confirm-delete__container__buttons-area">
@@ -156,20 +158,23 @@ export default class ConfirmDeletePopup extends Vue {
                 border-radius: 6px;
                 width: 100%;
 
-                &__item {
-                    padding: 25px;
-                    width: calc(100% - 50px);
-                    background: rgba(245, 246, 250, 0.6);
+                &__container {
 
-                    &__name {
-                        font-family: 'font_medium', sans-serif;
-                        margin: 0;
-                        font-weight: bold;
-                        font-size: 14px;
-                        line-height: 19px;
-                        color: #1b2533;
-                        text-overflow: ellipsis;
-                        white-space: nowrap;
+                    &__item {
+                        padding: 25px;
+                        width: calc(100% - 50px);
+                        background: rgba(245, 246, 250, 0.6);
+
+                        &__name {
+                            font-family: 'font_medium', sans-serif;
+                            margin: 0;
+                            font-weight: bold;
+                            font-size: 14px;
+                            line-height: 19px;
+                            color: #1b2533;
+                            text-overflow: ellipsis;
+                            white-space: nowrap;
+                        }
                     }
                 }
             }
