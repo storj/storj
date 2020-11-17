@@ -221,38 +221,38 @@ export default class AccessGrants extends Vue {
 </script>
 
 <style scoped lang="scss">
-.access-grants {
-    position: relative;
-    padding: 40px 30px 55px 30px;
-    font-family: 'font_regular', sans-serif;
+	.access-grants {
+	    position: relative;
+	    padding: 40px 30px 55px 30px;
+	    font-family: 'font_regular', sans-serif;
 
-        &__title-area {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
+	        &__title-area {
+	            display: flex;
+	            align-items: center;
+	            justify-content: space-between;
 
-            &__title {
-                font-family: 'font_bold', sans-serif;
-                font-size: 22px;
-                line-height: 27px;
-                color: #263549;
-                margin: 0;
-            }
-        }
+	            &__title {
+	                font-family: 'font_bold', sans-serif;
+	                font-size: 22px;
+	                line-height: 27px;
+	                color: #263549;
+	                margin: 0;
+	            }
+	        }
 
-        .access-grants-items {
-            position: relative;
+	        .access-grants-items {
+	            position: relative;
 
-            &__content {
-                background-color: #fff;
-                display: flex;
-                flex-direction: column;
-                width: calc(100% - 32px);
-                justify-content: flex-start;
-                padding: 16px;
-                border-radius: 0 0 8px 8px;
-            }
-        }
-    }
-}
+	            &__content {
+	                background-color: #fff;
+	                display: flex;
+	                flex-direction: column;
+	                width: calc(100% - 32px);
+	                justify-content: flex-start;
+	                padding: 16px;
+	                border-radius: 0 0 8px 8px;
+	            }
+	        }
+	    }
+	}
 </style>
