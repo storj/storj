@@ -280,10 +280,8 @@ func (obj *pgxDB) Schema() string {
 CREATE TABLE nodes (
 	id bytea NOT NULL,
 	name text NOT NULL,
-	tag text NOT NULL,
 	public_address text NOT NULL,
 	api_secret bytea NOT NULL,
-	logo bytea NOT NULL,
 	PRIMARY KEY ( id )
 );`
 }
@@ -462,18 +460,14 @@ func (Member_CreatedAt_Field) _Column() string { return "created_at" }
 type Node struct {
 	Id            []byte
 	Name          string
-	Tag           string
 	PublicAddress string
 	ApiSecret     []byte
-	Logo          []byte
 }
 
 func (Node) _Table() string { return "nodes" }
 
 type Node_Update_Fields struct {
 	Name Node_Name_Field
-	Tag  Node_Tag_Field
-	Logo Node_Logo_Field
 }
 
 type Node_Id_Field struct {
@@ -514,25 +508,6 @@ func (f Node_Name_Field) value() interface{} {
 
 func (Node_Name_Field) _Column() string { return "name" }
 
-type Node_Tag_Field struct {
-	_set   bool
-	_null  bool
-	_value string
-}
-
-func Node_Tag(v string) Node_Tag_Field {
-	return Node_Tag_Field{_set: true, _value: v}
-}
-
-func (f Node_Tag_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Node_Tag_Field) _Column() string { return "tag" }
-
 type Node_PublicAddress_Field struct {
 	_set   bool
 	_null  bool
@@ -570,25 +545,6 @@ func (f Node_ApiSecret_Field) value() interface{} {
 }
 
 func (Node_ApiSecret_Field) _Column() string { return "api_secret" }
-
-type Node_Logo_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func Node_Logo(v []byte) Node_Logo_Field {
-	return Node_Logo_Field{_set: true, _value: v}
-}
-
-func (f Node_Logo_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Node_Logo_Field) _Column() string { return "logo" }
 
 func toUTC(t time.Time) time.Time {
 	return t.UTC()
@@ -1013,29 +969,25 @@ func (h *__sqlbundle_Hole) Render() string {
 func (obj *pgxImpl) Create_Node(ctx context.Context,
 	node_id Node_Id_Field,
 	node_name Node_Name_Field,
-	node_tag Node_Tag_Field,
 	node_public_address Node_PublicAddress_Field,
-	node_api_secret Node_ApiSecret_Field,
-	node_logo Node_Logo_Field) (
+	node_api_secret Node_ApiSecret_Field) (
 	node *Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 	__id_val := node_id.value()
 	__name_val := node_name.value()
-	__tag_val := node_tag.value()
 	__public_address_val := node_public_address.value()
 	__api_secret_val := node_api_secret.value()
-	__logo_val := node_logo.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, name, tag, public_address, api_secret, logo ) VALUES ( ?, ?, ?, ?, ?, ? ) RETURNING nodes.id, nodes.name, nodes.tag, nodes.public_address, nodes.api_secret, nodes.logo")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, name, public_address, api_secret ) VALUES ( ?, ?, ?, ? ) RETURNING nodes.id, nodes.name, nodes.public_address, nodes.api_secret")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __name_val, __tag_val, __public_address_val, __api_secret_val, __logo_val)
+	__values = append(__values, __id_val, __name_val, __public_address_val, __api_secret_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Name, &node.Tag, &node.PublicAddress, &node.ApiSecret, &node.Logo)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Name, &node.PublicAddress, &node.ApiSecret)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -1080,7 +1032,7 @@ func (obj *pgxImpl) Get_Node_By_Id(ctx context.Context,
 	node *Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.name, nodes.tag, nodes.public_address, nodes.api_secret, nodes.logo FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.name, nodes.public_address, nodes.api_secret FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -1089,11 +1041,43 @@ func (obj *pgxImpl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Name, &node.Tag, &node.PublicAddress, &node.ApiSecret, &node.Logo)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Name, &node.PublicAddress, &node.ApiSecret)
 	if err != nil {
 		return (*Node)(nil), obj.makeErr(err)
 	}
 	return node, nil
+
+}
+
+func (obj *pgxImpl) All_Node(ctx context.Context) (
+	rows []*Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.name, nodes.public_address, nodes.api_secret FROM nodes")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		node := &Node{}
+		err = __rows.Scan(&node.Id, &node.Name, &node.PublicAddress, &node.ApiSecret)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, node)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
 
 }
 
@@ -1161,6 +1145,47 @@ func (obj *pgxImpl) Get_Member_By_Id(ctx context.Context,
 	}
 	return member, nil
 
+}
+
+func (obj *pgxImpl) Update_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field,
+	update Node_Update_Fields) (
+	node *Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.name, nodes.public_address, nodes.api_secret")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Name._set {
+		__values = append(__values, update.Name.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	node = &Node{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Name, &node.PublicAddress, &node.ApiSecret)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return node, nil
 }
 
 func (obj *pgxImpl) Update_Member_By_Id(ctx context.Context,
@@ -1349,6 +1374,15 @@ func (rx *Rx) Rollback() (err error) {
 	return err
 }
 
+func (rx *Rx) All_Node(ctx context.Context) (
+	rows []*Node, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_Node(ctx)
+}
+
 func (rx *Rx) Create_Member(ctx context.Context,
 	member_id Member_Id_Field,
 	member_email Member_Email_Field,
@@ -1366,16 +1400,14 @@ func (rx *Rx) Create_Member(ctx context.Context,
 func (rx *Rx) Create_Node(ctx context.Context,
 	node_id Node_Id_Field,
 	node_name Node_Name_Field,
-	node_tag Node_Tag_Field,
 	node_public_address Node_PublicAddress_Field,
-	node_api_secret Node_ApiSecret_Field,
-	node_logo Node_Logo_Field) (
+	node_api_secret Node_ApiSecret_Field) (
 	node *Node, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Node(ctx, node_id, node_name, node_tag, node_public_address, node_api_secret, node_logo)
+	return tx.Create_Node(ctx, node_id, node_name, node_public_address, node_api_secret)
 
 }
 
@@ -1440,7 +1472,21 @@ func (rx *Rx) Update_Member_By_Id(ctx context.Context,
 	return tx.Update_Member_By_Id(ctx, member_id, update)
 }
 
+func (rx *Rx) Update_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field,
+	update Node_Update_Fields) (
+	node *Node, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_Node_By_Id(ctx, node_id, update)
+}
+
 type Methods interface {
+	All_Node(ctx context.Context) (
+		rows []*Node, err error)
+
 	Create_Member(ctx context.Context,
 		member_id Member_Id_Field,
 		member_email Member_Email_Field,
@@ -1451,10 +1497,8 @@ type Methods interface {
 	Create_Node(ctx context.Context,
 		node_id Node_Id_Field,
 		node_name Node_Name_Field,
-		node_tag Node_Tag_Field,
 		node_public_address Node_PublicAddress_Field,
-		node_api_secret Node_ApiSecret_Field,
-		node_logo Node_Logo_Field) (
+		node_api_secret Node_ApiSecret_Field) (
 		node *Node, err error)
 
 	Delete_Member_By_Id(ctx context.Context,
@@ -1481,6 +1525,11 @@ type Methods interface {
 		member_id Member_Id_Field,
 		update Member_Update_Fields) (
 		member *Member, err error)
+
+	Update_Node_By_Id(ctx context.Context,
+		node_id Node_Id_Field,
+		update Node_Update_Fields) (
+		node *Node, err error)
 }
 
 type TxMethods interface {

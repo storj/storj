@@ -260,7 +260,8 @@ model injuredsegment (
 	field data blob
 	field attempted timestamp (updatable, nullable)
 	field updated_at timestamp ( updatable, default current_timestamp )
-    field num_healthy_pieces int (default 52)
+	field num_healthy_pieces int (default 52)
+	field segment_health float64 (default 1)
 
 	index (
 		fields attempted
@@ -268,6 +269,10 @@ model injuredsegment (
 
 	index (
 		fields num_healthy_pieces
+	)
+
+	index (
+		fields segment_health
 	)
 
 	index (

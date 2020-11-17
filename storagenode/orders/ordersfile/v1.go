@@ -149,9 +149,10 @@ func (of *fileV1) ReadOne() (info *Info, err error) {
 	defer func() {
 		// Treat all non-EOF errors as corrupt entry errors so that ReadOne is called again.
 		if err != nil && !errors.Is(err, io.EOF) {
-			// seek to just after where we started at the beginning of ReadOne
-			_, seekErr := of.f.Seek(startPosition+1, io.SeekStart)
-			if err != nil {
+			// seek forward by len(entryHeader) bytes for next iteration.
+			nextStartPosition := startPosition + int64(len(entryHeader))
+			_, seekErr := of.f.Seek(nextStartPosition, io.SeekStart)
+			if seekErr != nil {
 				err = errs.Combine(err, seekErr)
 			}
 			of.br.Reset(of.f)

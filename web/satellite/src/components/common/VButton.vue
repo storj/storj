@@ -59,8 +59,7 @@ export default class VButton extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .transparent,
-    .red {
+    .transparent {
         background-color: transparent !important;
         border: 1px solid #afb7c1 !important;
 
@@ -94,6 +93,15 @@ export default class VButton extends Vue {
 
         .label {
             color: #acb0bc !important;
+        }
+    }
+
+    .red {
+        background-color: #fff3f2 !important;
+        border: 2px solid #e30011 !important;
+
+        .label {
+            color: #e30011 !important;
         }
     }
 

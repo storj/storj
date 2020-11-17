@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/repair"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 )
@@ -36,6 +37,9 @@ type Config struct {
 
 	ReliabilityCacheStaleness time.Duration `help:"how stale reliable node cache can be" releaseDefault:"5m" devDefault:"5m"`
 	RepairOverride            int           `help:"override value for repair threshold" releaseDefault:"52" devDefault:"0"`
+	// Node failure rate is an estimation based on a 6 hour checker run interval (4 checker iterations per day), a network of about 9200 nodes, and about 2 nodes churning per day.
+	// This results in `2/9200/4 = 0.00005435` being the probability of any single node going down in the interval of one checker iteration.
+	NodeFailureRate float64 `help:"the probability of a single node going down within the next checker iteration" default:"0.00005435"`
 }
 
 // durabilityStats remote segment information.
@@ -62,6 +66,7 @@ type Checker struct {
 	metaLoop        *metainfo.Loop
 	nodestate       *ReliabilityCache
 	repairOverride  int32
+	nodeFailureRate float64
 	Loop            *sync2.Cycle
 	IrreparableLoop *sync2.Cycle
 }
@@ -71,12 +76,13 @@ func NewChecker(logger *zap.Logger, repairQueue queue.RepairQueue, irrdb irrepar
 	return &Checker{
 		logger: logger,
 
-		repairQueue:    repairQueue,
-		irrdb:          irrdb,
-		metainfo:       metainfo,
-		metaLoop:       metaLoop,
-		nodestate:      NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
-		repairOverride: int32(config.RepairOverride),
+		repairQueue:     repairQueue,
+		irrdb:           irrdb,
+		metainfo:        metainfo,
+		metaLoop:        metaLoop,
+		nodestate:       NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
+		repairOverride:  int32(config.RepairOverride),
+		nodeFailureRate: config.NodeFailureRate,
 
 		Loop:            sync2.NewCycle(config.Interval),
 		IrreparableLoop: sync2.NewCycle(config.IrreparableInterval),
@@ -118,12 +124,13 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	startTime := time.Now()
 
 	observer := &checkerObserver{
-		repairQueue:    checker.repairQueue,
-		irrdb:          checker.irrdb,
-		nodestate:      checker.nodestate,
-		monStats:       durabilityStats{},
-		overrideRepair: checker.repairOverride,
-		log:            checker.logger,
+		repairQueue:     checker.repairQueue,
+		irrdb:           checker.irrdb,
+		nodestate:       checker.nodestate,
+		monStats:        durabilityStats{},
+		overrideRepair:  checker.repairOverride,
+		nodeFailureRate: checker.nodeFailureRate,
+		log:             checker.logger,
 	}
 	err = checker.metaLoop.Join(ctx, observer)
 	if err != nil {
@@ -205,11 +212,12 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	// If the segment is suddenly entirely healthy again, we don't need to repair and we don't need to
 	// keep it in the irreparabledb queue either.
 	if numHealthy >= redundancy.MinReq && numHealthy <= repairThreshold && numHealthy < redundancy.SuccessThreshold {
+		segmentHealth := repair.SegmentHealth(int(numHealthy), int(redundancy.MinReq), checker.nodeFailureRate)
 		_, err = checker.repairQueue.Insert(ctx, &internalpb.InjuredSegment{
 			Path:         key,
 			LostPieces:   missingPieces,
 			InsertedTime: time.Now().UTC(),
-		}, int(numHealthy))
+		}, segmentHealth)
 		if err != nil {
 			return errs.Combine(Error.New("error adding injured segment to queue"), err)
 		}
@@ -250,12 +258,13 @@ var _ metainfo.Observer = (*checkerObserver)(nil)
 //
 // architecture: Observer
 type checkerObserver struct {
-	repairQueue    queue.RepairQueue
-	irrdb          irreparable.DB
-	nodestate      *ReliabilityCache
-	monStats       durabilityStats
-	overrideRepair int32
-	log            *zap.Logger
+	repairQueue     queue.RepairQueue
+	irrdb           irreparable.DB
+	nodestate       *ReliabilityCache
+	monStats        durabilityStats
+	overrideRepair  int32
+	nodeFailureRate float64
+	log             *zap.Logger
 }
 
 func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
@@ -305,18 +314,21 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metainfo
 		repairThreshold = int(obs.overrideRepair)
 	}
 	successThreshold := int(segment.Redundancy.OptimalShares)
+	segmentHealth := repair.SegmentHealth(numHealthy, required, obs.nodeFailureRate)
+	mon.FloatVal("checker_segment_health").Observe(segmentHealth) //mon:locked
 
 	key := segment.Location.Encode()
 	// we repair when the number of healthy pieces is less than or equal to the repair threshold and is greater or equal to
 	// minimum required pieces in redundancy
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
 	if numHealthy >= required && numHealthy <= repairThreshold && numHealthy < successThreshold {
+		mon.FloatVal("checker_injured_segment_health").Observe(segmentHealth) //mon:locked
 		obs.monStats.remoteSegmentsNeedingRepair++
 		alreadyInserted, err := obs.repairQueue.Insert(ctx, &internalpb.InjuredSegment{
 			Path:         key,
 			LostPieces:   missingPieces,
 			InsertedTime: time.Now().UTC(),
-		}, numHealthy)
+		}, segmentHealth)
 		if err != nil {
 			obs.log.Error("error adding injured segment to queue", zap.Error(err))
 			return nil
