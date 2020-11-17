@@ -337,11 +337,11 @@ func TestIterateObjects(t *testing.T) {
 
 					Prefix: "b/",
 				},
-				Result: []metabase.ObjectEntry{
+				Result: withoutPrefix("b/",
 					objects["b/1"],
 					objects["b/2"],
 					objects["b/3"],
-				},
+				),
 			}.Check(ctx, t, db)
 
 			IterateObjects{
@@ -354,11 +354,11 @@ func TestIterateObjects(t *testing.T) {
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "a"},
 				},
-				Result: []metabase.ObjectEntry{
+				Result: withoutPrefix("b/",
 					objects["b/1"],
 					objects["b/2"],
 					objects["b/3"],
-				},
+				),
 			}.Check(ctx, t, db)
 
 			IterateObjects{
@@ -371,10 +371,10 @@ func TestIterateObjects(t *testing.T) {
 					Prefix: "b/",
 					Cursor: metabase.IterateCursor{Key: "b/2", Version: -3},
 				},
-				Result: []metabase.ObjectEntry{
+				Result: withoutPrefix("b/",
 					objects["b/2"],
 					objects["b/3"],
-				},
+				),
 			}.Check(ctx, t, db)
 
 			IterateObjects{
@@ -436,4 +436,13 @@ func createObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.
 	}
 
 	return objects
+}
+
+func withoutPrefix(prefix metabase.ObjectKey, entries ...metabase.ObjectEntry) []metabase.ObjectEntry {
+	xs := make([]metabase.ObjectEntry, len(entries))
+	for i, e := range entries {
+		xs[i] = e
+		xs[i].ObjectKey = entries[i].ObjectKey[len(prefix):]
+	}
+	return xs
 }

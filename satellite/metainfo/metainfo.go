@@ -35,6 +35,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/rewards"
+	"storj.io/storj/storage"
 	"storj.io/uplink/private/eestream"
 	"storj.io/uplink/private/storage/meta"
 )
@@ -914,13 +915,21 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		limit = metabase.MaxListLimit
 	}
 
+	var prefix metabase.ObjectKey
+	if len(req.EncryptedPrefix) != 0 {
+		prefix = metabase.ObjectKey(req.EncryptedPrefix)
+		if prefix[len(prefix)-1] != storage.Delimiter {
+			prefix += metabase.ObjectKey(storage.Delimiter)
+		}
+	}
+
 	resp = &pb.ObjectListResponse{}
 	// TODO: Replace with IterateObjectsLatestVersion when ready
 	err = endpoint.metainfo.metabaseDB.IterateObjectsAllVersions(ctx,
 		metabase.IterateObjects{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
-			Prefix:     metabase.ObjectKey(req.EncryptedPrefix),
+			Prefix:     prefix,
 			Cursor:     metabase.IterateCursor{Key: metabase.ObjectKey(req.EncryptedCursor)},
 			Recursive:  req.Recursive,
 			BatchSize:  limit + 1,

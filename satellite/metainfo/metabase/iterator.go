@@ -143,7 +143,7 @@ func (it *objectsIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err 
 
 	return it.db.db.Query(ctx, `
 		SELECT
-			object_key, stream_id, version, status,
+			SUBSTRING(object_key from $8), stream_id, version, status,
 			created_at, expires_at,
 			segment_count,
 			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
@@ -162,6 +162,8 @@ func (it *objectsIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err 
 		[]byte(it.cursor.Key), int(it.cursor.Version),
 		[]byte(it.limitKey),
 		it.batchSize,
+
+		len(it.limitKey)+1,
 	)
 }
 
