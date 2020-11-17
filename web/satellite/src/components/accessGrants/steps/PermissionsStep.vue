@@ -28,7 +28,13 @@
                 </div>
             </div>
             <div class="permissions__content__right">
+				<div class="permissions__content__right__duration-select">
+					<p class="permissions__content__right__duration-select__label">Duration</p>
+					<DurationSelection />
+					<DurationPicker/>
+                </div>
                 <div class="permissions__content__right__buckets-select">
+
                     <p class="permissions__content__right__buckets-select__label">Buckets</p>
                     <BucketsSelection />
                 </div>
@@ -61,6 +67,8 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import BucketNameBullet from '@/components/accessGrants/permissions/BucketNameBullet.vue';
 import BucketsSelection from '@/components/accessGrants/permissions/BucketsSelection.vue';
+import DurationPicker from '@/components/accessGrants/permissions/DurationPicker.vue';
+import DurationSelection from '@/components/accessGrants/permissions/DurationSelection.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import BackIcon from '@/../static/images/accessGrants/back.svg';
@@ -73,6 +81,8 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
         BackIcon,
         BucketsSelection,
         BucketNameBullet,
+        DurationPicker,
+        DurationSelection,
         VButton,
     },
 })
@@ -229,7 +239,8 @@ export default class PermissionsStep extends Vue {
                 width: 100%;
                 margin-left: 100px;
 
-                &__buckets-select {
+                &__buckets-select,
+                &__duration-select {
                     display: flex;
                     align-items: center;
                     width: 100%;
@@ -241,6 +252,10 @@ export default class PermissionsStep extends Vue {
                         color: #354049;
                         margin: 0;
                     }
+                }
+
+                &__duration-select {
+                    margin-bottom: 40px;
                 }
 
                 &__bucket-bullets {
