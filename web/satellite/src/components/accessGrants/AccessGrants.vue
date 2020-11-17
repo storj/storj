@@ -60,6 +60,7 @@ import VButton from '@/components/common/VButton.vue';
 import VList from '@/components/common/VList.vue';
 import VPagination from '@/components/common/VPagination.vue';
 
+
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant, AccessGrantsOrderBy } from '@/types/accessGrants';
 import { SortDirection } from '@/types/common';
@@ -94,7 +95,6 @@ export default class AccessGrants extends Vue {
      * Indicates if delete confirmation state should appear.
      */
     private isDeleteClicked: boolean = false;
-
     public $refs!: {
         pagination: HTMLElement & ResetPagination;
     };
@@ -147,7 +147,6 @@ export default class AccessGrants extends Vue {
         } catch (error) {
             await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`);
         }
-
         if (this.totalPageCount > 1) {
             this.resetPagination();
         }
@@ -214,6 +213,7 @@ export default class AccessGrants extends Vue {
     /**
      * Returns selected access grants IDs amount from store.
      */
+
     public get selectedAccessGrantsAmount(): number {
         return this.$store.state.accessGrantsModule.selectedAccessGrantsIds.length;
     }
@@ -221,38 +221,37 @@ export default class AccessGrants extends Vue {
 </script>
 
 <style scoped lang="scss">
-	.access-grants {
-	    position: relative;
-	    padding: 40px 30px 55px 30px;
-	    font-family: 'font_regular', sans-serif;
+    .access-grants {
+        position: relative;
+        padding: 40px 30px 55px 30px;
+        font-family: 'font_regular', sans-serif;
 
-	        &__title-area {
-	            display: flex;
-	            align-items: center;
-	            justify-content: space-between;
+        &__title-area {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
 
-	            &__title {
-	                font-family: 'font_bold', sans-serif;
-	                font-size: 22px;
-	                line-height: 27px;
-	                color: #263549;
-	                margin: 0;
-	            }
-	        }
+            &__title {
+                font-family: 'font_bold', sans-serif;
+                font-size: 22px;
+                line-height: 27px;
+                color: #263549;
+                margin: 0;
+            }
+        }
 
-	        .access-grants-items {
-	            position: relative;
+        .access-grants-items {
+            position: relative;
 
-	            &__content {
-	                background-color: #fff;
-	                display: flex;
-	                flex-direction: column;
-	                width: calc(100% - 32px);
-	                justify-content: flex-start;
-	                padding: 16px;
-	                border-radius: 0 0 8px 8px;
-	            }
-	        }
-	    }
-	}
+            &__content {
+                background-color: #fff;
+                display: flex;
+                flex-direction: column;
+                width: calc(100% - 32px);
+                justify-content: flex-start;
+                padding: 16px;
+                border-radius: 0 0 8px 8px;
+            }
+        }
+    }
 </style>
