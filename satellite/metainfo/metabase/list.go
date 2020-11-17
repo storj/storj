@@ -5,12 +5,40 @@ package metabase
 
 import (
 	"context"
+	"time"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 )
 
 // ObjectEntry contains information about an item in a bucket.
-type ObjectEntry Object
+type ObjectEntry struct {
+	IsPrefix bool
+
+	ObjectKey ObjectKey
+	Version   Version
+	StreamID  uuid.UUID
+
+	CreatedAt time.Time
+	ExpiresAt *time.Time
+
+	Status       ObjectStatus
+	SegmentCount int32
+
+	EncryptedMetadataNonce        []byte
+	EncryptedMetadata             []byte
+	EncryptedMetadataEncryptedKey []byte
+
+	TotalEncryptedSize int64
+	FixedSegmentSize   int32
+
+	Encryption storj.EncryptionParameters
+
+	// ZombieDeletionDeadline defines when the pending raw object should be deleted from the database.
+	// This is as a safeguard against objects that failed to upload and the client has not indicated
+	// whether they want to continue uploading or delete the already uploaded data.
+	ZombieDeletionDeadline *time.Time
+}
 
 // ObjectsIterator iterates over a sequence of ObjectEntry items.
 type ObjectsIterator interface {
@@ -50,8 +78,6 @@ func (opts *IterateObjects) Verify() error {
 		return ErrInvalidRequest.New("ProjectID missing")
 	case opts.BucketName == "":
 		return ErrInvalidRequest.New("BucketName missing")
-	case !opts.Recursive:
-		return ErrInvalidRequest.New("non-recursive listing not implemented yet")
 	case opts.BatchSize < 0:
 		return ErrInvalidRequest.New("BatchSize is negative")
 	case !(opts.Status == Pending || opts.Status == Committed):

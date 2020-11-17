@@ -6,6 +6,7 @@ package metabase
 import (
 	"bytes"
 	"context"
+	"strings"
 
 	"github.com/zeebo/errs"
 
@@ -22,10 +23,13 @@ type objectsIterator struct {
 	status     ObjectStatus
 	limitKey   ObjectKey
 	batchSize  int
+	recursive  bool
 
 	curIndex int
 	curRows  tagsql.Rows
 	cursor   IterateCursor
+
+	skipPrefix ObjectKey
 }
 
 func iterateAllVersions(ctx context.Context, db *DB, opts IterateObjects, fn func(context.Context, ObjectsIterator) error) (err error) {
@@ -39,6 +43,7 @@ func iterateAllVersions(ctx context.Context, db *DB, opts IterateObjects, fn fun
 		status:     opts.Status,
 		limitKey:   nextPrefix(opts.Prefix),
 		batchSize:  opts.BatchSize,
+		recursive:  opts.Recursive,
 
 		curIndex: 0,
 		cursor:   opts.Cursor,
@@ -72,6 +77,43 @@ func iterateAllVersions(ctx context.Context, db *DB, opts IterateObjects, fn fun
 
 // Next returns true if there was another item and copy it in item.
 func (it *objectsIterator) Next(ctx context.Context, item *ObjectEntry) bool {
+	if it.recursive {
+		return it.next(ctx, item)
+	}
+
+	// TODO: implement this on the database side
+
+	ok := it.next(ctx, item)
+	if !ok {
+		return false
+	}
+
+	// skip until we are past the prefix we returned before.
+	if it.skipPrefix != "" {
+		for strings.HasPrefix(string(item.ObjectKey), string(it.skipPrefix)) {
+			if !it.next(ctx, item) {
+				return false
+			}
+		}
+		it.skipPrefix = ""
+	}
+
+	// should this be treated as a prefix?
+	p := strings.IndexByte(string(item.ObjectKey), Delimiter)
+	if p >= 0 {
+		it.skipPrefix = item.ObjectKey[:p+1]
+		*item = ObjectEntry{
+			IsPrefix:  true,
+			ObjectKey: item.ObjectKey[:p+1],
+			Status:    it.status,
+		}
+	}
+
+	return true
+}
+
+// next returns true if there was another item and copy it in item.
+func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 	next := it.curRows.Next()
 	if !next {
 		if it.curIndex < it.batchSize {
@@ -103,9 +145,6 @@ func (it *objectsIterator) Next(ctx context.Context, item *ObjectEntry) bool {
 	if err != nil {
 		return false
 	}
-
-	item.ProjectID = it.projectID
-	item.BucketName = it.bucketName
 
 	it.curIndex++
 	it.cursor.Key = item.ObjectKey
@@ -169,6 +208,7 @@ func (it *objectsIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err 
 
 // scanItem scans doNextQuery results into ObjectEntry.
 func (it *objectsIterator) scanItem(item *ObjectEntry) error {
+	item.IsPrefix = false
 	return it.curRows.Scan(
 		&item.ObjectKey, &item.StreamID, &item.Version, &item.Status,
 		&item.CreatedAt, &item.ExpiresAt,

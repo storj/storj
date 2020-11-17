@@ -945,9 +945,11 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 				if entry.ExpiresAt != nil {
 					item.ExpiresAt = *entry.ExpiresAt
 				}
-				item.EncryptedMetadataNonce, err = storj.NonceFromBytes(entry.EncryptedMetadataNonce)
-				if err != nil {
-					return err
+				if len(entry.EncryptedMetadataNonce) > 0 {
+					item.EncryptedMetadataNonce, err = storj.NonceFromBytes(entry.EncryptedMetadataNonce)
+					if err != nil {
+						return err
+					}
 				}
 				resp.Items = append(resp.Items, item)
 			}

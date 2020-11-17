@@ -139,7 +139,9 @@ func TestIterateObjects(t *testing.T) {
 					Status:     metabase.Committed,
 				},
 				Result: []metabase.ObjectEntry{{
-					ObjectStream:                  committed,
+					ObjectKey:                     committed.ObjectKey,
+					Version:                       committed.Version,
+					StreamID:                      committed.StreamID,
 					CreatedAt:                     now,
 					Status:                        metabase.Committed,
 					Encryption:                    defaultTestEncryption,
@@ -157,10 +159,12 @@ func TestIterateObjects(t *testing.T) {
 					Status:     metabase.Pending,
 				},
 				Result: []metabase.ObjectEntry{{
-					ObjectStream: pending,
-					CreatedAt:    now,
-					Status:       metabase.Pending,
-					Encryption:   defaultTestEncryption,
+					ObjectKey:  pending.ObjectKey,
+					Version:    pending.Version,
+					StreamID:   pending.StreamID,
+					CreatedAt:  now,
+					Status:     metabase.Pending,
+					Encryption: defaultTestEncryption,
 				}},
 			}.Check(ctx, t, db)
 		})
@@ -172,7 +176,7 @@ func TestIterateObjects(t *testing.T) {
 			expected := make([]metabase.ObjectEntry, numberOfObjects)
 			objects := createObjects(ctx, t, db, numberOfObjects, uuid.UUID{1}, "mybucket")
 			for i, obj := range objects {
-				expected[i] = metabase.ObjectEntry(obj)
+				expected[i] = objectEntryFromRaw(obj)
 			}
 			IterateObjects{
 				Opts: metabase.IterateObjects{
@@ -194,7 +198,7 @@ func TestIterateObjects(t *testing.T) {
 			expected := make([]metabase.ObjectEntry, numberOfObjects)
 			objects := createObjects(ctx, t, db, numberOfObjects, uuid.UUID{1}, "mybucket")
 			for i, obj := range objects {
-				expected[i] = metabase.ObjectEntry(obj)
+				expected[i] = objectEntryFromRaw(obj)
 			}
 			IterateObjects{
 				Opts: metabase.IterateObjects{
@@ -216,7 +220,7 @@ func TestIterateObjects(t *testing.T) {
 			objectsBucketA := createObjects(ctx, t, db, numberOfObjectsPerBucket, uuid.UUID{1}, "bucket-a")
 			objectsBucketB := createObjects(ctx, t, db, numberOfObjectsPerBucket, uuid.UUID{1}, "bucket-b")
 			for i, obj := range objectsBucketA {
-				expected[i] = metabase.ObjectEntry(obj)
+				expected[i] = objectEntryFromRaw(obj)
 			}
 			IterateObjects{
 				Opts: metabase.IterateObjects{
@@ -237,7 +241,7 @@ func TestIterateObjects(t *testing.T) {
 			objectsProject1 := createObjects(ctx, t, db, numberOfObjectsPerBucket, uuid.UUID{1}, "mybucket")
 			objectsProject2 := createObjects(ctx, t, db, numberOfObjectsPerBucket, uuid.UUID{2}, "mybucket")
 			for i, obj := range objectsProject1 {
-				expected[i] = metabase.ObjectEntry(obj)
+				expected[i] = objectEntryFromRaw(obj)
 			}
 			IterateObjects{
 				Opts: metabase.IterateObjects{
@@ -251,7 +255,8 @@ func TestIterateObjects(t *testing.T) {
 			Verify{Objects: append(objectsProject1, objectsProject2...)}.Check(ctx, t, db)
 		})
 
-		t.Run("options", func(t *testing.T) {
+		t.Run("recursive", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
 			projectID, bucketName := uuid.UUID{1}, "bucky"
 
 			objects := createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
@@ -390,6 +395,157 @@ func TestIterateObjects(t *testing.T) {
 				Result: nil,
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("non-recursive", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+			projectID, bucketName := uuid.UUID{1}, "bucky"
+
+			objects := createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
+				"a",
+				"b/1",
+				"b/2",
+				"b/3",
+				"c",
+				"c/",
+				"c//",
+				"c/1",
+				"g",
+			})
+
+			IterateObjects{
+				Opts: metabase.IterateObjects{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+					Status:     metabase.Committed,
+				},
+				Result: []metabase.ObjectEntry{
+					objects["a"],
+					prefixEntry("b/", metabase.Committed),
+					objects["c"],
+					prefixEntry("c/", metabase.Committed),
+					objects["g"],
+				},
+			}.Check(ctx, t, db)
+
+			IterateObjects{
+				Opts: metabase.IterateObjects{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+					Status:     metabase.Committed,
+
+					Cursor: metabase.IterateCursor{Key: "a", Version: 10},
+				},
+				Result: []metabase.ObjectEntry{
+					prefixEntry("b/", metabase.Committed),
+					objects["c"],
+					prefixEntry("c/", metabase.Committed),
+					objects["g"],
+				},
+			}.Check(ctx, t, db)
+
+			IterateObjects{
+				Opts: metabase.IterateObjects{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+					Status:     metabase.Committed,
+
+					Cursor: metabase.IterateCursor{Key: "b", Version: 0},
+				},
+				Result: []metabase.ObjectEntry{
+					prefixEntry("b/", metabase.Committed),
+					objects["c"],
+					prefixEntry("c/", metabase.Committed),
+					objects["g"],
+				},
+			}.Check(ctx, t, db)
+
+			IterateObjects{
+				Opts: metabase.IterateObjects{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+					Status:     metabase.Committed,
+
+					Prefix: "b/",
+				},
+				Result: withoutPrefix("b/",
+					objects["b/1"],
+					objects["b/2"],
+					objects["b/3"],
+				),
+			}.Check(ctx, t, db)
+
+			IterateObjects{
+				Opts: metabase.IterateObjects{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+					Status:     metabase.Committed,
+
+					Prefix: "b/",
+					Cursor: metabase.IterateCursor{Key: "a"},
+				},
+				Result: withoutPrefix("b/",
+					objects["b/1"],
+					objects["b/2"],
+					objects["b/3"],
+				),
+			}.Check(ctx, t, db)
+
+			IterateObjects{
+				Opts: metabase.IterateObjects{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+					Status:     metabase.Committed,
+
+					Prefix: "b/",
+					Cursor: metabase.IterateCursor{Key: "b/2", Version: -3},
+				},
+				Result: withoutPrefix("b/",
+					objects["b/2"],
+					objects["b/3"],
+				),
+			}.Check(ctx, t, db)
+
+			IterateObjects{
+				Opts: metabase.IterateObjects{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+					Status:     metabase.Committed,
+
+					Prefix: "b/",
+					Cursor: metabase.IterateCursor{Key: "c/"},
+				},
+				Result: nil,
+			}.Check(ctx, t, db)
+
+			IterateObjects{
+				Opts: metabase.IterateObjects{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+					Status:     metabase.Committed,
+
+					Prefix: "c/",
+					Cursor: metabase.IterateCursor{Key: "c/"},
+				},
+				Result: withoutPrefix("c/",
+					objects["c/"],
+					prefixEntry("c//", metabase.Committed),
+					objects["c/1"],
+				),
+			}.Check(ctx, t, db)
+
+			IterateObjects{
+				Opts: metabase.IterateObjects{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+					Status:     metabase.Committed,
+
+					Prefix: "c//",
+				},
+				Result: withoutPrefix("c//",
+					objects["c//"],
+				),
+			}.Check(ctx, t, db)
+		})
 	})
 }
 
@@ -428,10 +584,12 @@ func createObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.
 		createObject(ctx, t, db, obj, 0)
 
 		objects[key] = metabase.ObjectEntry{
-			ObjectStream: obj,
-			CreatedAt:    now,
-			Status:       metabase.Committed,
-			Encryption:   defaultTestEncryption,
+			ObjectKey:  obj.ObjectKey,
+			Version:    obj.Version,
+			StreamID:   obj.StreamID,
+			CreatedAt:  now,
+			Status:     metabase.Committed,
+			Encryption: defaultTestEncryption,
 		}
 	}
 
@@ -445,4 +603,32 @@ func withoutPrefix(prefix metabase.ObjectKey, entries ...metabase.ObjectEntry) [
 		xs[i].ObjectKey = entries[i].ObjectKey[len(prefix):]
 	}
 	return xs
+}
+
+func prefixEntry(key metabase.ObjectKey, status metabase.ObjectStatus) metabase.ObjectEntry {
+	return metabase.ObjectEntry{
+		IsPrefix:  true,
+		ObjectKey: key,
+		Status:    status,
+	}
+}
+
+func objectEntryFromRaw(m metabase.RawObject) metabase.ObjectEntry {
+	return metabase.ObjectEntry{
+		IsPrefix:                      false,
+		ObjectKey:                     m.ObjectKey,
+		Version:                       m.Version,
+		StreamID:                      m.StreamID,
+		CreatedAt:                     m.CreatedAt,
+		ExpiresAt:                     m.ExpiresAt,
+		Status:                        m.Status,
+		SegmentCount:                  m.SegmentCount,
+		EncryptedMetadataNonce:        m.EncryptedMetadataNonce,
+		EncryptedMetadata:             m.EncryptedMetadata,
+		EncryptedMetadataEncryptedKey: m.EncryptedMetadataEncryptedKey,
+		TotalEncryptedSize:            m.TotalEncryptedSize,
+		FixedSegmentSize:              m.FixedSegmentSize,
+		Encryption:                    m.Encryption,
+		ZombieDeletionDeadline:        m.ZombieDeletionDeadline,
+	}
 }
