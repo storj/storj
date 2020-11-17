@@ -53,7 +53,7 @@ export default class DurationPicker extends Vue {
         -moz-column-gap: 48px;
         -webkit-column-count: 2;
         column-count: 2;
-        padding: 24px 24px 0;
+        padding: 18px 24px 0;
 
         &__column {
             list-style-type: none;
@@ -62,24 +62,24 @@ export default class DurationPicker extends Vue {
         }
 
         &__column-item {
-            margin-bottom: 24px;
-            font-style: normal;
+			font-size: 14px;
+            margin-bottom: 10px;
             font-weight: 400;
-            padding: 10px 0 10px 12px;
+            padding: 15px 0 15px 12px;
             border-left: 7px solid #fff;
             color: #1b2533;
 
             &:hover {
                 font-weight: bold;
                 background: #f5f6fa;
-                border-left: 7px solid #2582ff;
+                border-left: 6px solid #2582ff;
                 cursor: pointer;
             }
         }
     }
 
     &__break {
-        width: 82%;
+        width: 84%;
     }
 
     &__date-picker {
