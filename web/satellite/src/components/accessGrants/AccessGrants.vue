@@ -94,6 +94,7 @@ export default class AccessGrants extends Vue {
      * Indicates if delete confirmation state should appear.
      */
     private isDeleteClicked: boolean = false;
+
     public $refs!: {
         pagination: HTMLElement & ResetPagination;
     };
@@ -146,6 +147,7 @@ export default class AccessGrants extends Vue {
         } catch (error) {
             await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`);
         }
+
         if (this.totalPageCount > 1) {
             this.resetPagination();
         }
