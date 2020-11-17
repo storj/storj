@@ -65,6 +65,7 @@ import VButton from '@/components/common/VButton.vue';
 
 import BackIcon from '@/../static/images/accessGrants/back.svg';
 
+import { RouteConfig } from '@/router';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 
 @Component({
@@ -118,7 +119,6 @@ export default class PermissionsStep extends Vue {
         } catch (error) {
             await this.$notify.error(`Unable to fetch all bucket names. ${error.message}`);
         }
-
     }
 
     /**
@@ -135,8 +135,12 @@ export default class PermissionsStep extends Vue {
      * Holds on continue in CLI button click logic.
      */
     public onContinueInCLIClick(): void {
-        // mock
-        return;
+        this.$router.push({
+            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CLIStep)).name,
+            params: {
+                key: this.key,
+            },
+        });
     }
 
     /**
@@ -257,6 +261,7 @@ export default class PermissionsStep extends Vue {
         }
 
         &__cli-link {
+            font-family: 'font_medium', sans-serif;
             cursor: pointer;
             font-weight: 600;
             font-size: 16px;

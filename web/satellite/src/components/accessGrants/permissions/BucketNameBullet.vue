@@ -50,6 +50,7 @@ export default class BucketNameBullet extends Vue {
             line-height: 12px;
             white-space: nowrap;
             text-overflow: ellipsis;
+            overflow: hidden;
             max-width: 190px;
             letter-spacing: 0.05em;
             color: #1b2533;

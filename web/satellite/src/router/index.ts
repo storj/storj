@@ -6,6 +6,7 @@ import Router, { RouteRecord } from 'vue-router';
 
 import AccessGrants from '@/components/accessGrants/AccessGrants.vue';
 import CreateAccessGrant from '@/components/accessGrants/CreateAccessGrant.vue';
+import CLIStep from '@/components/accessGrants/steps/CLIStep.vue';
 import NameStep from '@/components/accessGrants/steps/NameStep.vue';
 import PassphraseStep from '@/components/accessGrants/steps/PassphraseStep.vue';
 import PermissionsStep from '@/components/accessGrants/steps/PermissionsStep.vue';
@@ -62,6 +63,7 @@ export abstract class RouteConfig {
     public static PermissionsStep = new NavigationLink('permissions', 'Access Grant Permissions');
     public static PassphraseStep = new NavigationLink('passphrase', 'Access Grant Passphrase');
     public static ResultStep = new NavigationLink('result', 'Access Grant Result');
+    public static CLIStep = new NavigationLink('cli', 'Access Grant In CLI');
     public static UploadStep = new NavigationLink('upload', 'Access Grant Upload Data');
 
     // TODO: disabled until implementation
@@ -211,6 +213,11 @@ export const router = new Router({
                                     path: RouteConfig.ResultStep.path,
                                     name: RouteConfig.ResultStep.name,
                                     component: ResultStep,
+                                },
+                                {
+                                    path: RouteConfig.CLIStep.path,
+                                    name: RouteConfig.CLIStep.name,
+                                    component: CLIStep,
                                 },
                                 {
                                     path: RouteConfig.UploadStep.path,

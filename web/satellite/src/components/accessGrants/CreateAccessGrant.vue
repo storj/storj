@@ -4,7 +4,7 @@
 <template>
     <div class="create-grant">
         <div class="create-grant__container">
-            <ProgressBar/>
+            <ProgressBar v-if="!isProgressBarHidden"/>
             <router-view/>
             <div class="create-grant__container__close-cross-container" @click="onCloseClick">
                 <CloseCrossIcon />
@@ -34,6 +34,13 @@ export default class CreateAccessGrant extends Vue {
      */
     public onCloseClick(): void {
         this.$router.push(RouteConfig.AccessGrants.path);
+    }
+
+    /**
+     * Indicates if progress bar is hidden.
+     */
+    public get isProgressBarHidden(): boolean {
+        return this.$route.name === RouteConfig.CLIStep.name || this.$route.name === RouteConfig.UploadStep.name;
     }
 }
 </script>
