@@ -4,7 +4,7 @@
 <template>
     <div class="permissions">
         <BackIcon class="permissions__back-icon" @click="onBackClick"/>
-        <h1 class="permissions__title">Permissions</h1>
+        <h1 class="permissions__title">Access Permissions</h1>
         <p class="permissions__sub-title">
             Assign permissions to this Access Grant.
         </p>
@@ -28,29 +28,51 @@
                 </div>
             </div>
             <div class="permissions__content__right">
-                <div class="permissions__content__right__buckets">
-                    <p class="permissions__content__right__buckets__label">Buckets</p>
+                <div class="permissions__content__right__buckets-select">
+                    <p class="permissions__content__right__buckets-select__label">Buckets</p>
                     <BucketsSelection />
+                </div>
+                <div class="permissions__content__right__bucket-bullets">
+                    <div
+                        class="permissions__content__right__bucket-bullets__container"
+                        v-for="(name, index) in selectedBucketNames"
+                        :key="index"
+                    >
+                        <BucketNameBullet :name="name"/>
+                    </div>
                 </div>
             </div>
         </div>
+        <VButton
+            class="permissions__button"
+            label="Continue in Browser"
+            width="100%"
+            height="48px"
+            :on-press="onContinueInBrowserClick"
+        />
+        <p class="permissions__cli-link" @click.stop="onContinueInCLIClick">
+            Continue in CLI
+        </p>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import BucketNameBullet from '@/components/accessGrants/permissions/BucketNameBullet.vue';
 import BucketsSelection from '@/components/accessGrants/permissions/BucketsSelection.vue';
+import VButton from '@/components/common/VButton.vue';
 
 import BackIcon from '@/../static/images/accessGrants/back.svg';
 
-import { RouteConfig } from '@/router';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 
 @Component({
     components: {
         BackIcon,
         BucketsSelection,
+        BucketNameBullet,
+        VButton,
     },
 })
 export default class PermissionsStep extends Vue {
@@ -104,12 +126,44 @@ export default class PermissionsStep extends Vue {
      * Redirects to previous step.
      */
     public onBackClick(): void {
-        this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
+        const PREVIOUS_ROUTE_NUMBER: number = -1;
+
+        this.$router.go(PREVIOUS_ROUTE_NUMBER);
+    }
+
+    /**
+     * Holds on continue in CLI button click logic.
+     */
+    public onContinueInCLIClick(): void {
+        // mock
+        return;
+    }
+
+    /**
+     * Holds on continue in browser button click logic.
+     */
+    public onContinueInBrowserClick(): void {
+        // mock
+        return;
+    }
+
+    /**
+     * Returns stored selected bucket names.
+     */
+    public get selectedBucketNames(): string[] {
+        return this.$store.state.accessGrantsModule.selectedBucketNames;
     }
 }
 </script>
 
 <style scoped lang="scss">
+    ::-webkit-scrollbar,
+    ::-webkit-scrollbar-track,
+    ::-webkit-scrollbar-thumb {
+        margin: 0;
+        width: 0;
+    }
+
     .permissions {
         height: calc(100% - 60px);
         width: calc(100% - 130px);
@@ -171,7 +225,7 @@ export default class PermissionsStep extends Vue {
                 width: 100%;
                 margin-left: 100px;
 
-                &__buckets {
+                &__buckets-select {
                     display: flex;
                     align-items: center;
                     width: 100%;
@@ -184,7 +238,30 @@ export default class PermissionsStep extends Vue {
                         margin: 0;
                     }
                 }
+
+                &__bucket-bullets {
+                    display: flex;
+                    align-items: center;
+                    flex-wrap: wrap;
+                    margin: 15px 0 0 85px;
+                    max-height: 200px;
+                    max-width: 235px;
+                    overflow-x: hidden;
+                    overflow-y: scroll;
+                }
             }
+        }
+
+        &__button {
+            margin-top: 60px;
+        }
+
+        &__cli-link {
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 16px;
+            line-height: 23px;
+            color: #0068dc;
         }
     }
 </style>

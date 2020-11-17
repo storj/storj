@@ -95,7 +95,7 @@ export default class BucketsSelection extends Vue {
         border-radius: 6px;
         border: 1px solid rgba(56, 75, 101, 0.4);
         font-family: 'font_regular', sans-serif;
-        width: 100%;
+        width: 235px;
 
         &__toggle-container {
             position: relative;

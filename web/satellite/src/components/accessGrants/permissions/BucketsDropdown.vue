@@ -4,7 +4,7 @@
 <template>
     <div class="buckets-dropdown">
         <div class="buckets-dropdown__container">
-            <p class="buckets-dropdown__container__all">
+            <p class="buckets-dropdown__container__all" @click.stop="selectAllBuckets">
                 All
             </p>
             <div
@@ -12,12 +12,13 @@
                 v-for="(name, index) in allBucketNames"
                 :key="index"
             >
-                <div class="buckets-dropdown__container__choices__item">
+                <div
+                    class="buckets-dropdown__container__choices__item"
+                    :class="{ selected: isNameSelected(name) }"
+                    @click.stop="toggleBucketSelection(name)"
+                >
                     <div class="buckets-dropdown__container__choices__item__left">
-                        <SelectionIcon
-                            class="buckets-dropdown__container__choices__item__left__icon"
-                            :class="{ selected: isNameSelected(name) }"
-                        />
+                        <SelectionIcon class="buckets-dropdown__container__choices__item__left__icon"/>
                         <p class="buckets-dropdown__container__choices__item__left__label">{{ name }}</p>
                     </div>
                     <UnselectIcon
@@ -36,6 +37,8 @@ import { Component, Vue } from 'vue-property-decorator';
 import SelectionIcon from '@/../static/images/accessGrants/selection.svg';
 import UnselectIcon from '@/../static/images/accessGrants/unselect.svg';
 
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+
 @Component({
     components: {
         SelectionIcon,
@@ -43,6 +46,21 @@ import UnselectIcon from '@/../static/images/accessGrants/unselect.svg';
     },
 })
 export default class BucketsDropdown extends Vue {
+    /**
+     * Clears selection of specific buckets and closes dropdown.
+     */
+    public selectAllBuckets(): void {
+        this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
+        this.$emit('close');
+    }
+
+    /**
+     * Toggles bucket selection.
+     */
+    public toggleBucketSelection(name: string): void {
+        this.$store.dispatch(ACCESS_GRANTS_ACTIONS.TOGGLE_BUCKET_SELECTION, name);
+    }
+
     /**
      * Indicates if bucket name is selected.
      * @param name
@@ -73,13 +91,6 @@ export default class BucketsDropdown extends Vue {
     ::-webkit-scrollbar-thumb {
         margin: 0;
         width: 0;
-    }
-
-    .selected {
-
-        .bucket-name-selection-path {
-            stroke: #0068dc;
-        }
     }
 
     .buckets-dropdown {
@@ -123,6 +134,25 @@ export default class BucketsDropdown extends Vue {
 
             &__choices {
 
+                &__item__unselect-icon {
+                    opacity: 0;
+                }
+
+                .selected {
+                    background-color: #f5f6fa;
+
+                    .bucket-name-selection-path {
+                        stroke: #0068dc !important;
+                    }
+
+                    &:hover {
+
+                        .buckets-dropdown__container__choices__item__unselect-icon {
+                            opacity: 1 !important;
+                        }
+                    }
+                }
+
                 &__item {
                     display: flex;
                     align-items: center;
@@ -136,14 +166,6 @@ export default class BucketsDropdown extends Vue {
 
                         &__label {
                             margin: 0 0 0 15px;
-                        }
-                    }
-
-                    &__unselect-icon {
-                        opacity: 0;
-
-                        &:hover {
-                            opacity: 1;
                         }
                     }
 

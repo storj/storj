@@ -119,6 +119,7 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
                 });
             },
             [CLEAR_SELECTION](state: AccessGrantsState) {
+                state.selectedBucketNames = [];
                 state.selectedAccessGrantsIds = [];
                 state.page.accessGrants = state.page.accessGrants.map((accessGrant: AccessGrant) => {
                     accessGrant.isSelected = false;
