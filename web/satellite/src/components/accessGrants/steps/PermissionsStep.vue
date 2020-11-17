@@ -11,12 +11,12 @@
         <div class="permissions__content">
             <div class="permissions__content__left">
                 <div class="permissions__content__left__item">
-                    <input type="checkbox" id="read" name="read" v-model="isRead" :checked="isRead">
-                    <label class="permissions__content__left__item__label" for="read">Read</label>
+                    <input type="checkbox" id="download" name="download" v-model="isDownload" :checked="isDownload">
+                    <label class="permissions__content__left__item__label" for="download">Download</label>
                 </div>
                 <div class="permissions__content__left__item">
-                    <input type="checkbox" id="write" name="write" v-model="isWrite" :checked="isWrite">
-                    <label class="permissions__content__left__item__label" for="write">Write</label>
+                    <input type="checkbox" id="upload" name="upload" v-model="isUpload" :checked="isUpload">
+                    <label class="permissions__content__left__item__label" for="upload">Upload</label>
                 </div>
                 <div class="permissions__content__left__item">
                     <input type="checkbox" id="list" name="list" v-model="isList" :checked="isList">
@@ -40,7 +40,7 @@
                 <div class="permissions__content__right__bucket-bullets">
                     <div
                         class="permissions__content__right__bucket-bullets__container"
-                        v-for="(name, index) in selectedBucketNames"
+                        v-for="(name, index) in storedBucketNames"
                         :key="index"
                     >
                         <BucketNameBullet :name="name"/>
@@ -90,8 +90,8 @@ export default class PermissionsStep extends Vue {
     private restrictedKey: string = '';
     private worker: Worker;
 
-    public isRead: boolean = true;
-    public isWrite: boolean = true;
+    public isDownload: boolean = true;
+    public isUpload: boolean = true;
     public isList: boolean = true;
     public isDelete: boolean = true;
 
@@ -156,15 +156,43 @@ export default class PermissionsStep extends Vue {
      * Holds on continue in browser button click logic.
      */
     public onContinueInBrowserClick(): void {
-        // mock
-        return;
+        this.worker.postMessage({
+            'type': 'SetPermission',
+            'isDownload': this.isDownload,
+            'isUpload': this.isUpload,
+            'isList': this.isList,
+            'isDelete': this.isDelete,
+            'buckets': this.selectedBucketNames,
+            'apiKey': this.key,
+        });
+
+        this.$router.push({
+            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.PassphraseStep)).name,
+            params: {
+                key: this.restrictedKey,
+            },
+        });
     }
 
     /**
      * Returns stored selected bucket names.
      */
-    public get selectedBucketNames(): string[] {
+    public get storedBucketNames(): string[] {
         return this.$store.state.accessGrantsModule.selectedBucketNames;
+    }
+
+    /**
+     * Returns selected bucket names from store or all bucket names.
+     */
+    private get selectedBucketNames(): string[] {
+        return this.storedBucketNames.length ? this.storedBucketNames : this.allBucketNames;
+    }
+
+    /**
+     * Returns all bucket names.
+     */
+    private get allBucketNames(): string[] {
+        return this.$store.state.bucketUsageModule.allBucketNames;
     }
 }
 </script>

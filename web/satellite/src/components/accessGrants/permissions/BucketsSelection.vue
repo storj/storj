@@ -65,24 +65,10 @@ export default class BucketsSelection extends Vue {
     }
 
     /**
-     * Returns selected bucket names from store or all bucket names.
-     */
-    public get selectedBucketNames(): string[] {
-        return this.storedBucketNames.length ? this.storedBucketNames : this.allBucketNames;
-    }
-
-    /**
      * Returns stored selected bucket names.
      */
-    public get storedBucketNames(): string[] {
+    private get storedBucketNames(): string[] {
         return this.$store.state.accessGrantsModule.selectedBucketNames;
-    }
-
-    /**
-     * Returns all bucket names.
-     */
-    public get allBucketNames(): string[] {
-        return this.$store.state.bucketUsageModule.allBucketNames;
     }
 }
 </script>

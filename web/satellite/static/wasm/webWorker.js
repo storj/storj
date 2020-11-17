@@ -18,21 +18,30 @@ const response = fetch('/static/static/wasm/access.wasm');
 instantiateStreaming(response, go.importObject).then(result => go.run(result.instance)).catch(err => self.postMessage(new Error(err.message)));
 
 self.onmessage = function (event) {
-    const type = event.data.type;
+    const data = event.data;
     let result;
-    switch (type) {
+    switch (data.type) {
         case 'GenerateAccess':
             result = self.generateAccessGrant();
 
             self.postMessage(result);
             break;
-        case 'NewPermission':
-            result = self.newPermission();
-
-            self.postMessage(result);
-            break;
         case 'SetPermission':
-            result = self.setAPIKeyPermission();
+            const isDownload = data.isDownload;
+            const isUpload = data.isUpload;
+            const isList = data.isList;
+            const isDelete = data.isDelete;
+            const buckets = data.buckets;
+            const apiKey = data.apiKey;
+
+            let permission = self.newPermission().value;
+
+            permission.AllowDownload = isDownload;
+            permission.AllowUpload = isUpload;
+            permission.AllowDelete = isDelete;
+            permission.AllowList = isList;
+
+            result = self.setAPIKeyPermission(apiKey, buckets, permission);
 
             self.postMessage(result);
             break;
