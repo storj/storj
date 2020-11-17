@@ -109,7 +109,7 @@ func (of *fileV0) ReadOne() (info *Info, err error) {
 	}
 	orderSize := binary.LittleEndian.Uint32(sizeBytes[:])
 	if orderSize > uint32(math.MaxInt32) {
-		return nil, ErrEntryCorrupt.New("invalid order's size; %d is over the maximum %d", limitSize, math.MaxInt32)
+		return nil, ErrEntryCorrupt.New("invalid order's size; %d is over the maximum %d", orderSize, math.MaxInt32)
 	}
 
 	orderSerialized := make([]byte, orderSize)
