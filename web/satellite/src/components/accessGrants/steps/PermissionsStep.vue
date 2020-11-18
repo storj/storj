@@ -54,6 +54,7 @@
             width="100%"
             height="48px"
             :on-press="onContinueInBrowserClick"
+            :is-disabled="isLoading"
         />
         <p class="permissions__cli-link" @click.stop="onContinueInCLIClick">
             Continue in CLI
@@ -90,6 +91,7 @@ export default class PermissionsStep extends Vue {
     private restrictedKey: string = '';
     private worker: Worker;
 
+    public isLoading: boolean = false;
     public isDownload: boolean = true;
     public isUpload: boolean = true;
     public isList: boolean = true;
@@ -144,6 +146,8 @@ export default class PermissionsStep extends Vue {
      * Holds on continue in CLI button click logic.
      */
     public onContinueInCLIClick(): void {
+        if (this.isLoading) return;
+
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CLIStep)).name,
             params: {
@@ -156,6 +160,10 @@ export default class PermissionsStep extends Vue {
      * Holds on continue in browser button click logic.
      */
     public onContinueInBrowserClick(): void {
+        if (this.isLoading) return;
+
+        this.isLoading = true;
+
         this.worker.postMessage({
             'type': 'SetPermission',
             'isDownload': this.isDownload,
@@ -166,12 +174,28 @@ export default class PermissionsStep extends Vue {
             'apiKey': this.key,
         });
 
-        this.$router.push({
-            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.PassphraseStep)).name,
-            params: {
-                key: this.restrictedKey,
-            },
-        });
+        // Give time for web worker to return value.
+        setTimeout(() => {
+            this.isLoading = false;
+
+            // if (this.accessGrantsAmount > 1) {
+            //     this.$router.push({
+            //         name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.EnterPassphraseStep)).name,
+            //         params: {
+            //             key: this.restrictedKey,
+            //         },
+            //     });
+            //
+            //     return;
+            // }
+
+            this.$router.push({
+                name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CreatePassphraseStep)).name,
+                params: {
+                    key: this.restrictedKey,
+                },
+            });
+        }, 1000);
     }
 
     /**
@@ -186,6 +210,13 @@ export default class PermissionsStep extends Vue {
      */
     private get selectedBucketNames(): string[] {
         return this.storedBucketNames.length ? this.storedBucketNames : this.allBucketNames;
+    }
+
+    /**
+     * Returns amount of access grants from store.
+     */
+    private get accessGrantsAmount(): number {
+        return this.$store.state.accessGrantsModule.page.accessGrants.length;
     }
 
     /**
@@ -218,7 +249,7 @@ export default class PermissionsStep extends Vue {
 
         &__back-icon {
             position: absolute;
-            top: 40px;
+            top: 30px;
             left: 65px;
             cursor: pointer;
         }

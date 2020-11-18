@@ -7,8 +7,9 @@ import Router, { RouteRecord } from 'vue-router';
 import AccessGrants from '@/components/accessGrants/AccessGrants.vue';
 import CreateAccessGrant from '@/components/accessGrants/CreateAccessGrant.vue';
 import CLIStep from '@/components/accessGrants/steps/CLIStep.vue';
+import CreatePassphraseStep from '@/components/accessGrants/steps/CreatePassphraseStep.vue';
+import EnterPassphraseStep from '@/components/accessGrants/steps/EnterPassphraseStep.vue';
 import NameStep from '@/components/accessGrants/steps/NameStep.vue';
-import PassphraseStep from '@/components/accessGrants/steps/PassphraseStep.vue';
 import PermissionsStep from '@/components/accessGrants/steps/PermissionsStep.vue';
 import ResultStep from '@/components/accessGrants/steps/ResultStep.vue';
 import UploadStep from '@/components/accessGrants/steps/UploadStep.vue';
@@ -61,7 +62,8 @@ export abstract class RouteConfig {
     public static CreateAccessGrant = new NavigationLink('create-grant', 'Create Access Grant');
     public static NameStep = new NavigationLink('name', 'Name Access Grant');
     public static PermissionsStep = new NavigationLink('permissions', 'Access Grant Permissions');
-    public static PassphraseStep = new NavigationLink('passphrase', 'Access Grant Passphrase');
+    public static CreatePassphraseStep = new NavigationLink('create-passphrase', 'Access Grant Create Passphrase');
+    public static EnterPassphraseStep = new NavigationLink('enter-passphrase', 'Access Grant Enter Passphrase');
     public static ResultStep = new NavigationLink('result', 'Access Grant Result');
     public static CLIStep = new NavigationLink('cli', 'Access Grant In CLI');
     public static UploadStep = new NavigationLink('upload', 'Access Grant Upload Data');
@@ -205,9 +207,14 @@ export const router = new Router({
                                     props: true,
                                 },
                                 {
-                                    path: RouteConfig.PassphraseStep.path,
-                                    name: RouteConfig.PassphraseStep.name,
-                                    component: PassphraseStep,
+                                    path: RouteConfig.CreatePassphraseStep.path,
+                                    name: RouteConfig.CreatePassphraseStep.name,
+                                    component: CreatePassphraseStep,
+                                },
+                                {
+                                    path: RouteConfig.EnterPassphraseStep.path,
+                                    name: RouteConfig.EnterPassphraseStep.name,
+                                    component: EnterPassphraseStep,
                                 },
                                 {
                                     path: RouteConfig.ResultStep.path,

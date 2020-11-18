@@ -12,6 +12,7 @@
                 width="199px"
                 height="44px"
                 class="empty-state__modal__cta"
+                :on-press="onCreateClick"
             />
         </div>
     </div>
@@ -24,13 +25,22 @@ import VButton from '@/components/common/VButton.vue';
 
 import Key from '@/../static/images/accessGrants/key.svg';
 
+import { RouteConfig } from '@/router';
+
 @Component({
     components: {
         Key,
         VButton,
     },
 })
-export default class EmptyState extends Vue {}
+export default class EmptyState extends Vue {
+    /**
+     * Starts create access grant flow.
+     */
+    public onCreateClick(): void {
+        this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).with(RouteConfig.NameStep).path);
+    }
+}
 </script>
 
 <style scoped lang="scss">
