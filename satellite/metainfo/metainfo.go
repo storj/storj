@@ -857,10 +857,13 @@ func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bu
 		expires = *metaObject.ExpiresAt
 	}
 
-	nonce, err := storj.NonceFromBytes(metaObject.EncryptedMetadataNonce)
-	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	var nonce storj.Nonce
+	if len(metaObject.EncryptedMetadataNonce) > 0 {
+		nonce, err = storj.NonceFromBytes(metaObject.EncryptedMetadataNonce)
+		if err != nil {
+			endpoint.log.Error("internal", zap.Error(err))
+			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
 	}
 
 	streamMeta := &pb.StreamMeta{}
