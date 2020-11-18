@@ -216,14 +216,17 @@ func TestQueryAttribution(t *testing.T) {
 			require.NoError(t, err)
 		}
 
+		// Wait for the storage nodes to be done processing the download
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
 		{ // Flush all the pending information through the system.
 			// Calculate the usage used for upload
 			for _, sn := range planet.StorageNodes {
 				sn.Storage2.Orders.SendOrders(ctx, tomorrow)
 			}
 
-			rollout := planet.Satellites[0].Core.Accounting.ReportedRollupChore
-			require.NoError(t, rollout.RunOnce(ctx, now))
+			// The orders chore writes bucket bandwidth rollup changes to satellitedb
+			planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
 
 			// Trigger tally so it gets all set up and can return a storage usage
 			planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
@@ -291,8 +294,8 @@ func TestAttributionReport(t *testing.T) {
 				sn.Storage2.Orders.SendOrders(ctx, tomorrow)
 			}
 
-			rollout := planet.Satellites[0].Core.Accounting.ReportedRollupChore
-			require.NoError(t, rollout.RunOnce(ctx, now))
+			// The orders chore writes bucket bandwidth rollup changes to satellitedb
+			planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
 
 			// Trigger tally so it gets all set up and can return a storage usage
 			planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()

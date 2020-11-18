@@ -554,12 +554,27 @@ func (endpoint *Endpoint) SettlementWithWindowMigration(stream pb.DRPCOrders_Set
 	})
 }
 
+func trackFinalStatus(status pb.SettlementWithWindowResponse_Status) {
+	switch status {
+	case pb.SettlementWithWindowResponse_ACCEPTED:
+		mon.Event("settlement_response_accepted")
+	case pb.SettlementWithWindowResponse_REJECTED:
+		mon.Event("settlement_response_rejected")
+	default:
+		mon.Event("settlement_response_unknown")
+	}
+}
+
 // SettlementWithWindowFinal processes all orders that were created in a 1 hour window.
 // Only one window is processed at a time.
 // Batches are atomic, all orders are settled successfully or they all fail.
 func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_SettlementWithWindowStream) (err error) {
 	ctx := stream.Context()
 	defer mon.Task()(&ctx)(&err)
+
+	var alreadyProcessed bool
+	var status pb.SettlementWithWindowResponse_Status
+	defer trackFinalStatus(status)
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
@@ -640,12 +655,13 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 	}
 	if len(storagenodeSettled) == 0 {
 		log.Debug("no orders were successfully processed", zap.Int("received count", receivedCount))
+		status = pb.SettlementWithWindowResponse_REJECTED
 		return stream.SendAndClose(&pb.SettlementWithWindowResponse{
-			Status:        pb.SettlementWithWindowResponse_REJECTED,
+			Status:        status,
 			ActionSettled: storagenodeSettled,
 		})
 	}
-	status, alreadyProcessed, err := endpoint.DB.UpdateStoragenodeBandwidthSettleWithWindow(
+	status, alreadyProcessed, err = endpoint.DB.UpdateStoragenodeBandwidthSettleWithWindow(
 		ctx, peer.ID, storagenodeSettled, time.Unix(0, window),
 	)
 	if err != nil {

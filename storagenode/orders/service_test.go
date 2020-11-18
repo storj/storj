@@ -69,13 +69,15 @@ func TestOrderDBSettle(t *testing.T) {
 		// trigger order send
 		service.Sender.TriggerWait()
 
+		// in phase3 the orders are only sent from the filestore
+		// so we expect any orders in ordersDB will remain there
 		toSend, err = node.DB.Orders().ListUnsent(ctx, 10)
 		require.NoError(t, err)
-		require.Len(t, toSend, 0)
+		require.Len(t, toSend, 1)
 
 		archived, err := node.DB.Orders().ListArchived(ctx, 10)
 		require.NoError(t, err)
-		require.Len(t, archived, 1)
+		require.Len(t, archived, 0)
 	})
 }
 
@@ -178,14 +180,14 @@ func TestOrderFileStoreAndDBSettle(t *testing.T) {
 		// trigger order send
 		service.SendOrders(ctx, tomorrow)
 
-		// DB and filestore orders should both be archived.
+		// DB should not be archived in phase3, but and filestore orders should be archived.
 		toSendDB, err = node.DB.Orders().ListUnsent(ctx, 10)
 		require.NoError(t, err)
-		require.Len(t, toSendDB, 0)
+		require.Len(t, toSendDB, 1)
 
 		archived, err := node.DB.Orders().ListArchived(ctx, 10)
 		require.NoError(t, err)
-		require.Len(t, archived, 1)
+		require.Len(t, archived, 0)
 
 		toSendFileStore, err = node.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 		require.NoError(t, err)

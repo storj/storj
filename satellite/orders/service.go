@@ -35,7 +35,7 @@ type Config struct {
 	FlushInterval                time.Duration              `help:"how often to flush the rollups write cache to the database" devDefault:"30s" releaseDefault:"1m"`
 	ReportedRollupsReadBatchSize int                        `help:"how many records to read in a single transaction when calculating billable bandwidth" default:"1000"`
 	NodeStatusLogging            bool                       `hidden:"true" help:"deprecated, log the offline/disqualification status of nodes" default:"false"`
-	WindowEndpointRolloutPhase   WindowEndpointRolloutPhase `help:"rollout phase for the windowed endpoint" default:"phase2"`
+	WindowEndpointRolloutPhase   WindowEndpointRolloutPhase `help:"rollout phase for the windowed endpoint" default:"phase3"`
 	OrdersSemaphoreSize          int                        `help:"how many concurrent orders to process at once. zero is unlimited" default:"2"`
 }
 
