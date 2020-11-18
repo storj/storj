@@ -355,6 +355,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			apiProcess.Arguments["setup"] = append(apiProcess.Arguments["setup"],
 				"--database", masterDBURL,
 				"--metainfo.database-url", metainfoDBURL,
+				"--orders.include-encrypted-metadata=true",
+				"--orders.encryption-keys", "0100000000000000=0100000000000000000000000000000000000000000000000000000000000000",
 			)
 		}
 		apiProcess.ExecBefore["run"] = func(process *Process) error {
@@ -392,6 +394,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		coreProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"run": {
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugPeerHTTP)),
+				"--orders.include-encrypted-metadata=true",
+				"--orders.encryption-keys", "0100000000000000=0100000000000000000000000000000000000000000000000000000000000000",
 			},
 		})
 		coreProcess.WaitForExited(migrationProcess)
@@ -419,6 +423,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"run": {
 				"repair",
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugRepairerHTTP)),
+				"--orders.include-encrypted-metadata=true",
+				"--orders.encryption-keys", "0100000000000000=0100000000000000000000000000000000000000000000000000000000000000",
 			},
 		})
 		repairProcess.WaitForExited(migrationProcess)

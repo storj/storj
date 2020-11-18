@@ -325,17 +325,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Orders Chore", peer.Orders.Chore.Loop))
-
-		satelliteSignee := signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity())
-		peer.Orders.Endpoint = orders.NewEndpoint(
-			peer.Log.Named("orders:endpoint"),
-			satelliteSignee,
-			peer.Orders.DB,
-			peer.DB.NodeAPIVersion(),
-			config.Orders.SettlementBatchSize,
-			config.Orders.WindowEndpointRolloutPhase,
-			config.Orders.OrdersSemaphoreSize,
-		)
 		var err error
 		peer.Orders.Service, err = orders.NewService(
 			peer.Log.Named("orders:service"),
@@ -352,6 +341,19 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
+		satelliteSignee := signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity())
+		peer.Orders.Endpoint = orders.NewEndpoint(
+			peer.Log.Named("orders:endpoint"),
+			satelliteSignee,
+			peer.Orders.DB,
+			peer.DB.NodeAPIVersion(),
+			config.Orders.SettlementBatchSize,
+			config.Orders.WindowEndpointRolloutPhase,
+			config.Orders.OrdersSemaphoreSize,
+			peer.Orders.Service,
+		)
+
 		if err := pb.DRPCRegisterOrders(peer.Server.DRPC(), peer.Orders.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
