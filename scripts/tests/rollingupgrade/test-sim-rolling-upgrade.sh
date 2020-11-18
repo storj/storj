@@ -275,7 +275,7 @@ nohup $old_api_cmd &
 # Storing the background process' PID.
 old_api_pid=$!
 # Wait until old satellite api is responding to requests to ensure it happens before migration.
-storj-sim tool wait-for -retry 50 -interval 100ms  "127.0.0.1:30000"
+storj-sim tool wait-for --retry 50 --interval 100ms  "127.0.0.1:30000"
 
 # Downloading every file uploaded in stage 1 from the network using the latest commit from master branch for each uplink version
 for ul_version in ${stage2_uplink_versions}; do
