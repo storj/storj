@@ -31,7 +31,7 @@ import (
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
-	"storj.io/storj/storagenode/apikey"
+	"storj.io/storj/storagenode/apikeys"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console"
@@ -88,7 +88,7 @@ type DB interface {
 	Notifications() notifications.DB
 	Payout() payout.DB
 	Pricing() pricing.DB
-	Secret() apikey.DB
+	Secret() apikeys.DB
 
 	Preflight(ctx context.Context) error
 }

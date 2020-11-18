@@ -25,7 +25,7 @@ import (
 	"storj.io/storj/private/tagsql"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
-	"storj.io/storj/storagenode/apikey"
+	"storj.io/storj/storagenode/apikeys"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
@@ -544,7 +544,7 @@ func (db *DB) Pricing() pricing.DB {
 }
 
 // Secret returns instance of the Secret database.
-func (db *DB) Secret() apikey.DB {
+func (db *DB) Secret() apikeys.DB {
 	return db.secretDB
 }
 

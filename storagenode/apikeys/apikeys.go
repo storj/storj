@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package apikey
+package apikeys
 
 import (
 	"bytes"
@@ -41,8 +41,8 @@ type APIKey struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-// NewSecretToken creates new apikey token.
-func NewSecretToken() (Secret, error) {
+// NewSecret creates new apikey secret.
+func NewSecret() (Secret, error) {
 	var b [32]byte
 
 	_, err := rand.Read(b[:])

@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/pkg/revocation"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/apikeys"
 	"storj.io/storj/storagenode/storagenodedb"
 )
 
@@ -85,6 +86,11 @@ var (
 		RunE:        cmdGracefulExitStatus,
 		Annotations: map[string]string{"type": "helper"},
 	}
+	issueAPITokenCmd = &cobra.Command{
+		Use:   "issue-apikey",
+		Short: "Issue apikey for mnd",
+		RunE:  cmdIssue,
+	}
 
 	runCfg       StorageNodeFlags
 	setupCfg     StorageNodeFlags
@@ -119,6 +125,7 @@ func init() {
 	rootCmd.AddCommand(dashboardCmd)
 	rootCmd.AddCommand(gracefulExitInitCmd)
 	rootCmd.AddCommand(gracefulExitStatusCmd)
+	rootCmd.AddCommand(issueAPITokenCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(configCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
@@ -126,6 +133,7 @@ func init() {
 	process.Bind(dashboardCmd, &dashboardCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 	process.Bind(gracefulExitInitCmd, &diagCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 	process.Bind(gracefulExitStatusCmd, &diagCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
+	process.Bind(issueAPITokenCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -284,6 +292,36 @@ func cmdConfig(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	return fpath.EditFile(conf)
+}
+
+func cmdIssue(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	ident, err := runCfg.Identity.Load()
+	if err != nil {
+		zap.L().Fatal("Failed to load identity.", zap.Error(err))
+	} else {
+		zap.L().Info("Identity loaded.", zap.Stringer("Node ID", ident.ID))
+	}
+
+	db, err := storagenodedb.OpenExisting(ctx, zap.L().Named("db"), diagCfg.DatabaseConfig())
+	if err != nil {
+		return errs.New("Error starting master database on storage node: %v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, db.Close())
+	}()
+
+	service := apikeys.NewService(db.Secret())
+
+	apiKey, err := service.Issue(ctx)
+	if err != nil {
+		return errs.New("Error while trying to issue new api key: %v", err)
+	}
+
+	fmt.Print(apiKey.Secret.String())
+
+	return
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
