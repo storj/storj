@@ -146,15 +146,10 @@ func (signer *Signer) Sign(ctx context.Context, node storj.NodeURL, pieceNum int
 			return nil, ErrSigner.New("default encryption key is missing")
 		}
 
-		bucketID, err := signer.Service.buckets.GetBucketID(ctx, signer.Bucket)
-		if err != nil {
-			return nil, ErrSigner.Wrap(err)
-		}
-
 		encrypted, err := encryptionKey.EncryptMetadata(
 			signer.Serial,
 			&pb.OrderLimitMetadata{
-				BucketId: bucketID[:],
+				ProjectBucketPrefix: []byte(signer.Bucket.Prefix()),
 			},
 		)
 		if err != nil {

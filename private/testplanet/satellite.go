@@ -390,7 +390,13 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	if err != nil {
 		return nil, err
 	}
-	planet.databases = append(planet.databases, redis)
+	encryptionKeys, err := orders.NewEncryptionKeys(orders.EncryptionKey{
+		ID:  orders.EncryptionKeyID{1},
+		Key: storj.Key{1},
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	config := satellite.Config{
 		Server: server.Config{
@@ -499,6 +505,8 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			FlushInterval:              defaultInterval,
 			NodeStatusLogging:          true,
 			WindowEndpointRolloutPhase: orders.WindowEndpointRolloutPhase3,
+			IncludeEncryptedMetadata:   true,
+			EncryptionKeys:             *encryptionKeys,
 		},
 		Checker: checker.Config{
 			Interval:                  defaultInterval,

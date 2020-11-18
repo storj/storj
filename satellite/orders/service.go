@@ -22,8 +22,12 @@ import (
 	"storj.io/uplink/private/eestream"
 )
 
-// ErrDownloadFailedNotEnoughPieces is returned when download failed due to missing pieces.
-var ErrDownloadFailedNotEnoughPieces = errs.Class("not enough pieces for download")
+var (
+	// ErrDownloadFailedNotEnoughPieces is returned when download failed due to missing pieces.
+	ErrDownloadFailedNotEnoughPieces = errs.Class("not enough pieces for download")
+	// ErrDecryptOrderMetadata is returned when a step of decrypting metadata fails.
+	ErrDecryptOrderMetadata = errs.Class("decrytping order metadata")
+)
 
 // Config is a configuration struct for orders Service.
 type Config struct {
@@ -603,4 +607,25 @@ func (service *Service) UpdatePutInlineOrder(ctx context.Context, bucket metabas
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
 	return service.orders.UpdateBucketBandwidthInline(ctx, bucket.ProjectID, []byte(bucket.BucketName), pb.PieceAction_PUT, amount, intervalStart)
+}
+
+// DecryptOrderMetadata decrypts the order metadata.
+func (service *Service) DecryptOrderMetadata(ctx context.Context, order *pb.OrderLimit) (_ *pb.OrderLimitMetadata, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var orderKeyID EncryptionKeyID
+	copy(orderKeyID[:], order.EncryptedMetadataKeyId)
+
+	var key = service.encryptionKeys.Default
+	if key.ID != orderKeyID {
+		val, ok := service.encryptionKeys.KeyByID[orderKeyID]
+		if !ok {
+			return nil, ErrDecryptOrderMetadata.New("no encryption key found that matches the order.EncryptedMetadataKeyId")
+		}
+		key = EncryptionKey{
+			ID:  orderKeyID,
+			Key: val,
+		}
+	}
+	return key.DecryptMetadata(order.SerialNumber, order.EncryptedMetadata)
 }
