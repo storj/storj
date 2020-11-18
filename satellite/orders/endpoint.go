@@ -461,7 +461,7 @@ func (endpoint *Endpoint) SettlementWithWindowMigration(stream pb.DRPCOrders_Set
 
 	var receivedCount int
 	var window int64
-	var actions = map[pb.PieceAction]struct{}{}
+	actions := map[pb.PieceAction]struct{}{}
 	var requests []*ProcessOrderRequest
 	var finished bool
 
@@ -590,9 +590,9 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 	log := endpoint.log.Named(peer.ID.String())
 	log.Debug("SettlementWithWindow")
 
-	var storagenodeSettled = map[int32]int64{}
-	var bucketSettled = map[bucketIDAction]int64{}
-	var seenSerials = map[storj.SerialNumber]struct{}{}
+	storagenodeSettled := map[int32]int64{}
+	bucketSettled := map[bucketIDAction]int64{}
+	seenSerials := map[storj.SerialNumber]struct{}{}
 
 	var window int64
 	var request *pb.SettlementRequest

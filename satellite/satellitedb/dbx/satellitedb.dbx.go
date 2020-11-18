@@ -274,7 +274,6 @@ func newpgx(db *DB) *pgxDB {
 
 func (obj *pgxDB) Schema() string {
 	return `CREATE TABLE accounting_rollups (
-	id bigserial NOT NULL,
 	node_id bytea NOT NULL,
 	start_time timestamp with time zone NOT NULL,
 	put_total bigint NOT NULL,
@@ -283,7 +282,7 @@ func (obj *pgxDB) Schema() string {
 	get_repair_total bigint NOT NULL,
 	put_repair_total bigint NOT NULL,
 	at_rest_total double precision NOT NULL,
-	PRIMARY KEY ( id )
+	PRIMARY KEY ( node_id, start_time )
 );
 CREATE TABLE accounting_timestamps (
 	name text NOT NULL,
@@ -797,7 +796,6 @@ func newpgxcockroach(db *DB) *pgxcockroachDB {
 
 func (obj *pgxcockroachDB) Schema() string {
 	return `CREATE TABLE accounting_rollups (
-	id bigserial NOT NULL,
 	node_id bytea NOT NULL,
 	start_time timestamp with time zone NOT NULL,
 	put_total bigint NOT NULL,
@@ -806,7 +804,7 @@ func (obj *pgxcockroachDB) Schema() string {
 	get_repair_total bigint NOT NULL,
 	put_repair_total bigint NOT NULL,
 	at_rest_total double precision NOT NULL,
-	PRIMARY KEY ( id )
+	PRIMARY KEY ( node_id, start_time )
 );
 CREATE TABLE accounting_timestamps (
 	name text NOT NULL,
@@ -1319,7 +1317,6 @@ nextval:
 }
 
 type AccountingRollup struct {
-	Id             int64
 	NodeId         []byte
 	StartTime      time.Time
 	PutTotal       int64
@@ -1334,25 +1331,6 @@ func (AccountingRollup) _Table() string { return "accounting_rollups" }
 
 type AccountingRollup_Update_Fields struct {
 }
-
-type AccountingRollup_Id_Field struct {
-	_set   bool
-	_null  bool
-	_value int64
-}
-
-func AccountingRollup_Id(v int64) AccountingRollup_Id_Field {
-	return AccountingRollup_Id_Field{_set: true, _value: v}
-}
-
-func (f AccountingRollup_Id_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (AccountingRollup_Id_Field) _Column() string { return "id" }
 
 type AccountingRollup_NodeId_Field struct {
 	_set   bool
@@ -9089,7 +9067,7 @@ func (obj *pgxImpl) CreateNoReturn_AccountingTimestamps(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) CreateNoReturn_AccountingRollup(ctx context.Context,
+func (obj *pgxImpl) ReplaceNoReturn_AccountingRollup(ctx context.Context,
 	accounting_rollup_node_id AccountingRollup_NodeId_Field,
 	accounting_rollup_start_time AccountingRollup_StartTime_Field,
 	accounting_rollup_put_total AccountingRollup_PutTotal_Field,
@@ -9109,7 +9087,7 @@ func (obj *pgxImpl) CreateNoReturn_AccountingRollup(ctx context.Context,
 	__put_repair_total_val := accounting_rollup_put_repair_total.value()
 	__at_rest_total_val := accounting_rollup_at_rest_total.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_rollups ( node_id, start_time, put_total, get_total, get_audit_total, get_repair_total, put_repair_total, at_rest_total ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_rollups ( node_id, start_time, put_total, get_total, get_audit_total, get_repair_total, put_repair_total, at_rest_total ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) ON CONFLICT ( node_id, start_time ) DO UPDATE SET node_id = EXCLUDED.node_id, start_time = EXCLUDED.start_time, put_total = EXCLUDED.put_total, get_total = EXCLUDED.get_total, get_audit_total = EXCLUDED.get_audit_total, get_repair_total = EXCLUDED.get_repair_total, put_repair_total = EXCLUDED.put_repair_total, at_rest_total = EXCLUDED.at_rest_total")
 
 	var __values []interface{}
 	__values = append(__values, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val)
@@ -10630,34 +10608,12 @@ func (obj *pgxImpl) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Get_AccountingRollup_By_Id(ctx context.Context,
-	accounting_rollup_id AccountingRollup_Id_Field) (
-	accounting_rollup *AccountingRollup, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total FROM accounting_rollups WHERE accounting_rollups.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, accounting_rollup_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	accounting_rollup = &AccountingRollup{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.PutTotal, &accounting_rollup.GetTotal, &accounting_rollup.GetAuditTotal, &accounting_rollup.GetRepairTotal, &accounting_rollup.PutRepairTotal, &accounting_rollup.AtRestTotal)
-	if err != nil {
-		return (*AccountingRollup)(nil), obj.makeErr(err)
-	}
-	return accounting_rollup, nil
-
-}
-
 func (obj *pgxImpl) All_AccountingRollup_By_StartTime_GreaterOrEqual(ctx context.Context,
 	accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field) (
 	rows []*AccountingRollup, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total FROM accounting_rollups WHERE accounting_rollups.start_time >= ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total FROM accounting_rollups WHERE accounting_rollups.start_time >= ?")
 
 	var __values []interface{}
 	__values = append(__values, accounting_rollup_start_time_greater_or_equal.value())
@@ -10673,7 +10629,7 @@ func (obj *pgxImpl) All_AccountingRollup_By_StartTime_GreaterOrEqual(ctx context
 
 	for __rows.Next() {
 		accounting_rollup := &AccountingRollup{}
-		err = __rows.Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.PutTotal, &accounting_rollup.GetTotal, &accounting_rollup.GetAuditTotal, &accounting_rollup.GetRepairTotal, &accounting_rollup.PutRepairTotal, &accounting_rollup.AtRestTotal)
+		err = __rows.Scan(&accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.PutTotal, &accounting_rollup.GetTotal, &accounting_rollup.GetAuditTotal, &accounting_rollup.GetRepairTotal, &accounting_rollup.PutRepairTotal, &accounting_rollup.AtRestTotal)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -14360,33 +14316,6 @@ func (obj *pgxImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Delete_AccountingRollup_By_Id(ctx context.Context,
-	accounting_rollup_id AccountingRollup_Id_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM accounting_rollups WHERE accounting_rollups.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, accounting_rollup_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *pgxImpl) Delete_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	deleted bool, err error) {
@@ -15418,7 +15347,7 @@ func (obj *pgxcockroachImpl) CreateNoReturn_AccountingTimestamps(ctx context.Con
 
 }
 
-func (obj *pgxcockroachImpl) CreateNoReturn_AccountingRollup(ctx context.Context,
+func (obj *pgxcockroachImpl) ReplaceNoReturn_AccountingRollup(ctx context.Context,
 	accounting_rollup_node_id AccountingRollup_NodeId_Field,
 	accounting_rollup_start_time AccountingRollup_StartTime_Field,
 	accounting_rollup_put_total AccountingRollup_PutTotal_Field,
@@ -15438,7 +15367,7 @@ func (obj *pgxcockroachImpl) CreateNoReturn_AccountingRollup(ctx context.Context
 	__put_repair_total_val := accounting_rollup_put_repair_total.value()
 	__at_rest_total_val := accounting_rollup_at_rest_total.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO accounting_rollups ( node_id, start_time, put_total, get_total, get_audit_total, get_repair_total, put_repair_total, at_rest_total ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("UPSERT INTO accounting_rollups ( node_id, start_time, put_total, get_total, get_audit_total, get_repair_total, put_repair_total, at_rest_total ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __values []interface{}
 	__values = append(__values, __node_id_val, __start_time_val, __put_total_val, __get_total_val, __get_audit_total_val, __get_repair_total_val, __put_repair_total_val, __at_rest_total_val)
@@ -16959,34 +16888,12 @@ func (obj *pgxcockroachImpl) Find_AccountingTimestamps_Value_By_Name(ctx context
 
 }
 
-func (obj *pgxcockroachImpl) Get_AccountingRollup_By_Id(ctx context.Context,
-	accounting_rollup_id AccountingRollup_Id_Field) (
-	accounting_rollup *AccountingRollup, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total FROM accounting_rollups WHERE accounting_rollups.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, accounting_rollup_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	accounting_rollup = &AccountingRollup{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.PutTotal, &accounting_rollup.GetTotal, &accounting_rollup.GetAuditTotal, &accounting_rollup.GetRepairTotal, &accounting_rollup.PutRepairTotal, &accounting_rollup.AtRestTotal)
-	if err != nil {
-		return (*AccountingRollup)(nil), obj.makeErr(err)
-	}
-	return accounting_rollup, nil
-
-}
-
 func (obj *pgxcockroachImpl) All_AccountingRollup_By_StartTime_GreaterOrEqual(ctx context.Context,
 	accounting_rollup_start_time_greater_or_equal AccountingRollup_StartTime_Field) (
 	rows []*AccountingRollup, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.id, accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total FROM accounting_rollups WHERE accounting_rollups.start_time >= ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT accounting_rollups.node_id, accounting_rollups.start_time, accounting_rollups.put_total, accounting_rollups.get_total, accounting_rollups.get_audit_total, accounting_rollups.get_repair_total, accounting_rollups.put_repair_total, accounting_rollups.at_rest_total FROM accounting_rollups WHERE accounting_rollups.start_time >= ?")
 
 	var __values []interface{}
 	__values = append(__values, accounting_rollup_start_time_greater_or_equal.value())
@@ -17002,7 +16909,7 @@ func (obj *pgxcockroachImpl) All_AccountingRollup_By_StartTime_GreaterOrEqual(ct
 
 	for __rows.Next() {
 		accounting_rollup := &AccountingRollup{}
-		err = __rows.Scan(&accounting_rollup.Id, &accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.PutTotal, &accounting_rollup.GetTotal, &accounting_rollup.GetAuditTotal, &accounting_rollup.GetRepairTotal, &accounting_rollup.PutRepairTotal, &accounting_rollup.AtRestTotal)
+		err = __rows.Scan(&accounting_rollup.NodeId, &accounting_rollup.StartTime, &accounting_rollup.PutTotal, &accounting_rollup.GetTotal, &accounting_rollup.GetAuditTotal, &accounting_rollup.GetRepairTotal, &accounting_rollup.PutRepairTotal, &accounting_rollup.AtRestTotal)
 		if err != nil {
 			return nil, obj.makeErr(err)
 		}
@@ -20689,33 +20596,6 @@ func (obj *pgxcockroachImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Con
 
 }
 
-func (obj *pgxcockroachImpl) Delete_AccountingRollup_By_Id(ctx context.Context,
-	accounting_rollup_id AccountingRollup_Id_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM accounting_rollups WHERE accounting_rollups.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, accounting_rollup_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
 func (obj *pgxcockroachImpl) Delete_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	deleted bool, err error) {
@@ -21932,24 +21812,6 @@ func (rx *Rx) Count_UserCredit_By_ReferredBy(ctx context.Context,
 	return tx.Count_UserCredit_By_ReferredBy(ctx, user_credit_referred_by)
 }
 
-func (rx *Rx) CreateNoReturn_AccountingRollup(ctx context.Context,
-	accounting_rollup_node_id AccountingRollup_NodeId_Field,
-	accounting_rollup_start_time AccountingRollup_StartTime_Field,
-	accounting_rollup_put_total AccountingRollup_PutTotal_Field,
-	accounting_rollup_get_total AccountingRollup_GetTotal_Field,
-	accounting_rollup_get_audit_total AccountingRollup_GetAuditTotal_Field,
-	accounting_rollup_get_repair_total AccountingRollup_GetRepairTotal_Field,
-	accounting_rollup_put_repair_total AccountingRollup_PutRepairTotal_Field,
-	accounting_rollup_at_rest_total AccountingRollup_AtRestTotal_Field) (
-	err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.CreateNoReturn_AccountingRollup(ctx, accounting_rollup_node_id, accounting_rollup_start_time, accounting_rollup_put_total, accounting_rollup_get_total, accounting_rollup_get_audit_total, accounting_rollup_get_repair_total, accounting_rollup_put_repair_total, accounting_rollup_at_rest_total)
-
-}
-
 func (rx *Rx) CreateNoReturn_AccountingTimestamps(ctx context.Context,
 	accounting_timestamps_name AccountingTimestamps_Name_Field,
 	accounting_timestamps_value AccountingTimestamps_Value_Field) (
@@ -22477,16 +22339,6 @@ func (rx *Rx) Create_ValueAttribution(ctx context.Context,
 
 }
 
-func (rx *Rx) Delete_AccountingRollup_By_Id(ctx context.Context,
-	accounting_rollup_id AccountingRollup_Id_Field) (
-	deleted bool, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_AccountingRollup_By_Id(ctx, accounting_rollup_id)
-}
-
 func (rx *Rx) Delete_ApiKey_By_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field) (
 	deleted bool, err error) {
@@ -22749,16 +22601,6 @@ func (rx *Rx) First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(c
 		return
 	}
 	return tx.First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(ctx, bucket_storage_tally_project_id)
-}
-
-func (rx *Rx) Get_AccountingRollup_By_Id(ctx context.Context,
-	accounting_rollup_id AccountingRollup_Id_Field) (
-	accounting_rollup *AccountingRollup, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_AccountingRollup_By_Id(ctx, accounting_rollup_id)
 }
 
 func (rx *Rx) Get_ApiKey_By_Head(ctx context.Context,
@@ -23258,6 +23100,24 @@ func (rx *Rx) Paged_PendingSerialQueue(ctx context.Context,
 	return tx.Paged_PendingSerialQueue(ctx, limit, start)
 }
 
+func (rx *Rx) ReplaceNoReturn_AccountingRollup(ctx context.Context,
+	accounting_rollup_node_id AccountingRollup_NodeId_Field,
+	accounting_rollup_start_time AccountingRollup_StartTime_Field,
+	accounting_rollup_put_total AccountingRollup_PutTotal_Field,
+	accounting_rollup_get_total AccountingRollup_GetTotal_Field,
+	accounting_rollup_get_audit_total AccountingRollup_GetAuditTotal_Field,
+	accounting_rollup_get_repair_total AccountingRollup_GetRepairTotal_Field,
+	accounting_rollup_put_repair_total AccountingRollup_PutRepairTotal_Field,
+	accounting_rollup_at_rest_total AccountingRollup_AtRestTotal_Field) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.ReplaceNoReturn_AccountingRollup(ctx, accounting_rollup_node_id, accounting_rollup_start_time, accounting_rollup_put_total, accounting_rollup_get_total, accounting_rollup_get_audit_total, accounting_rollup_get_repair_total, accounting_rollup_put_repair_total, accounting_rollup_at_rest_total)
+
+}
+
 func (rx *Rx) ReplaceNoReturn_NodeApiVersion(ctx context.Context,
 	node_api_version_id NodeApiVersion_Id_Field,
 	node_api_version_api_version NodeApiVersion_ApiVersion_Field) (
@@ -23629,17 +23489,6 @@ type Methods interface {
 		user_credit_referred_by UserCredit_ReferredBy_Field) (
 		count int64, err error)
 
-	CreateNoReturn_AccountingRollup(ctx context.Context,
-		accounting_rollup_node_id AccountingRollup_NodeId_Field,
-		accounting_rollup_start_time AccountingRollup_StartTime_Field,
-		accounting_rollup_put_total AccountingRollup_PutTotal_Field,
-		accounting_rollup_get_total AccountingRollup_GetTotal_Field,
-		accounting_rollup_get_audit_total AccountingRollup_GetAuditTotal_Field,
-		accounting_rollup_get_repair_total AccountingRollup_GetRepairTotal_Field,
-		accounting_rollup_put_repair_total AccountingRollup_PutRepairTotal_Field,
-		accounting_rollup_at_rest_total AccountingRollup_AtRestTotal_Field) (
-		err error)
-
 	CreateNoReturn_AccountingTimestamps(ctx context.Context,
 		accounting_timestamps_name AccountingTimestamps_Name_Field,
 		accounting_timestamps_value AccountingTimestamps_Value_Field) (
@@ -23922,10 +23771,6 @@ type Methods interface {
 		value_attribution_partner_id ValueAttribution_PartnerId_Field) (
 		value_attribution *ValueAttribution, err error)
 
-	Delete_AccountingRollup_By_Id(ctx context.Context,
-		accounting_rollup_id AccountingRollup_Id_Field) (
-		deleted bool, err error)
-
 	Delete_ApiKey_By_Id(ctx context.Context,
 		api_key_id ApiKey_Id_Field) (
 		deleted bool, err error)
@@ -24034,10 +23879,6 @@ type Methods interface {
 	First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(ctx context.Context,
 		bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field) (
 		bucket_storage_tally *BucketStorageTally, err error)
-
-	Get_AccountingRollup_By_Id(ctx context.Context,
-		accounting_rollup_id AccountingRollup_Id_Field) (
-		accounting_rollup *AccountingRollup, err error)
 
 	Get_ApiKey_By_Head(ctx context.Context,
 		api_key_head ApiKey_Head_Field) (
@@ -24253,6 +24094,17 @@ type Methods interface {
 	Paged_PendingSerialQueue(ctx context.Context,
 		limit int, start *Paged_PendingSerialQueue_Continuation) (
 		rows []*PendingSerialQueue, next *Paged_PendingSerialQueue_Continuation, err error)
+
+	ReplaceNoReturn_AccountingRollup(ctx context.Context,
+		accounting_rollup_node_id AccountingRollup_NodeId_Field,
+		accounting_rollup_start_time AccountingRollup_StartTime_Field,
+		accounting_rollup_put_total AccountingRollup_PutTotal_Field,
+		accounting_rollup_get_total AccountingRollup_GetTotal_Field,
+		accounting_rollup_get_audit_total AccountingRollup_GetAuditTotal_Field,
+		accounting_rollup_get_repair_total AccountingRollup_GetRepairTotal_Field,
+		accounting_rollup_put_repair_total AccountingRollup_PutRepairTotal_Field,
+		accounting_rollup_at_rest_total AccountingRollup_AtRestTotal_Field) (
+		err error)
 
 	ReplaceNoReturn_NodeApiVersion(ctx context.Context,
 		node_api_version_id NodeApiVersion_Id_Field,
