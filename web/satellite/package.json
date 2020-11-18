@@ -131,7 +131,7 @@
       "^.+\\.svg$": "<rootDir>/tests/unit/mock/svgTransform.js"
     },
     "transformIgnorePatterns": [
-      "/node_modules/(?!(apollo-client|apollo-link))"
+      "/node_modules/(?!(apollo-client|apollo-link|vue2-datepicker))"
     ],
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/src/$1"
