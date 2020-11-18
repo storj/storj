@@ -7,7 +7,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"io"
-	"math"
 	"os"
 
 	"storj.io/common/pb"
@@ -87,8 +86,8 @@ func (of *fileV0) ReadOne() (info *Info, err error) {
 		return nil, Error.Wrap(err)
 	}
 	limitSize := binary.LittleEndian.Uint32(sizeBytes[:])
-	if limitSize > uint32(math.MaxInt32) {
-		return nil, ErrEntryCorrupt.New("invalid limit's size; %d is over the maximum %d", limitSize, math.MaxInt32)
+	if limitSize > uint32(orderLimitSizeCap) {
+		return nil, ErrEntryCorrupt.New("invalid limit size: %d is over the maximum %d", limitSize, orderLimitSizeCap)
 	}
 
 	limitSerialized := make([]byte, limitSize)
@@ -108,8 +107,8 @@ func (of *fileV0) ReadOne() (info *Info, err error) {
 		return nil, Error.Wrap(err)
 	}
 	orderSize := binary.LittleEndian.Uint32(sizeBytes[:])
-	if orderSize > uint32(math.MaxInt32) {
-		return nil, ErrEntryCorrupt.New("invalid order's size; %d is over the maximum %d", orderSize, math.MaxInt32)
+	if orderSize > uint32(orderSizeCap) {
+		return nil, ErrEntryCorrupt.New("invalid order size: %d is over the maximum %d", orderSize, orderSizeCap)
 	}
 
 	orderSerialized := make([]byte, orderSize)
