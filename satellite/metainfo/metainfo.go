@@ -961,6 +961,12 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		}
 	}
 
+	// Default to Commmitted status for backward-compatibility with older uplinks.
+	status := metabase.Committed
+	if req.Status != pb.Object_INVALID {
+		status = metabase.ObjectStatus(req.Status)
+	}
+
 	resp = &pb.ObjectListResponse{}
 	// TODO: Replace with IterateObjectsLatestVersion when ready
 	err = endpoint.metainfo.metabaseDB.IterateObjectsAllVersions(ctx,
@@ -971,7 +977,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 			Cursor:     metabase.IterateCursor{Key: metabase.ObjectKey(req.EncryptedCursor)},
 			Recursive:  req.Recursive,
 			BatchSize:  limit + 1,
-			Status:     metabase.Committed,
+			Status:     status,
 		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 			entry := metabase.ObjectEntry{}
 			for len(resp.Items) < limit && it.Next(ctx, &entry) {
