@@ -99,6 +99,8 @@ func TestOrderFileStoreSettle(t *testing.T) {
 		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
 		toSend, err := node.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 		require.NoError(t, err)
 		require.Len(t, toSend, 1)
@@ -170,6 +172,8 @@ func TestOrderFileStoreAndDBSettle(t *testing.T) {
 		testData := testrand.Bytes(8 * memory.KiB)
 		err = uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
+
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
 
 		toSendFileStore, err := node.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 		require.NoError(t, err)
