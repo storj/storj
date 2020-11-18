@@ -840,7 +840,7 @@ func (db *ordersDB) UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Conte
 // SettledAmountsMatch checks if database rows match the orders. If the settled amount for
 // each action are not the same then false is returned.
 func SettledAmountsMatch(rows []*dbx.StoragenodeBandwidthRollup, orderActionAmounts map[int32]int64) bool {
-	var rowsSumByAction = map[int32]int64{}
+	rowsSumByAction := map[int32]int64{}
 	for _, row := range rows {
 		rowsSumByAction[int32(row.Action)] += int64(row.Settled)
 	}

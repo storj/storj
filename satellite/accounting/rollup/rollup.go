@@ -69,6 +69,11 @@ func (r *Service) Rollup(ctx context.Context) (err error) {
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	// unexpired orders with created at times before the last rollup timestamp could still have been added later
+	if !lastRollup.IsZero() {
+		lastRollup = lastRollup.Add(-r.OrderExpiration)
+	}
+
 	rollupStats := make(accounting.RollupStats)
 	latestTally, err := r.RollupStorage(ctx, lastRollup, rollupStats)
 	if err != nil {
