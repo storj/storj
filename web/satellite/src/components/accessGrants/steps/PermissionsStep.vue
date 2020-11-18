@@ -29,12 +29,11 @@
             </div>
             <div class="permissions__content__right">
 		        <div class="permissions__content__right__duration-select">
-					<p class="permissions__content__right__duration-select__label">Duration</p>
-					<DurationSelection />
-					<DurationPicker/>
+                    <p class="permissions__content__right__duration-select__label">Duration</p>
+                    <DurationSelection />
+                    <DurationPicker/>
                 </div>
                 <div class="permissions__content__right__buckets-select">
-
                     <p class="permissions__content__right__buckets-select__label">Buckets</p>
                     <BucketsSelection />
                 </div>
