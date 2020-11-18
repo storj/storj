@@ -178,16 +178,16 @@ export default class PermissionsStep extends Vue {
         setTimeout(() => {
             this.isLoading = false;
 
-            // if (this.accessGrantsAmount > 1) {
-            //     this.$router.push({
-            //         name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.EnterPassphraseStep)).name,
-            //         params: {
-            //             key: this.restrictedKey,
-            //         },
-            //     });
-            //
-            //     return;
-            // }
+            if (this.accessGrantsAmount > 1) {
+                this.$router.push({
+                    name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.EnterPassphraseStep)).name,
+                    params: {
+                        key: this.restrictedKey,
+                    },
+                });
+
+                return;
+            }
 
             this.$router.push({
                 name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CreatePassphraseStep)).name,
