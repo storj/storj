@@ -28,7 +28,7 @@
                 </div>
             </div>
             <div class="permissions__content__right">
-		        <div class="permissions__content__right__duration-select">
+                <div class="permissions__content__right__duration-select">
                     <p class="permissions__content__right__duration-select__label">Duration</p>
                     <DurationSelection />
                     <DurationPicker/>
