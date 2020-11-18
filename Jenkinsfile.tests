@@ -25,7 +25,7 @@ node('node') {
           sh 'docker run --rm -d -e POSTGRES_HOST_AUTH_METHOD=trust --name postgres-ui-$BUILD_NUMBER postgres:12.3'
           sh 'docker run --rm -d --name redis-ui-$BUILD_NUMBER redis:latest'
 
-          sh '''until $(docker logs postgres-$BUILD_NUMBER | grep "database system is ready to accept connections" > /dev/null)
+          sh '''until $(docker logs postgres-ui-$BUILD_NUMBER | grep "database system is ready to accept connections" > /dev/null)
                 do printf '.'
                 sleep 5
                 done
