@@ -21,7 +21,7 @@
                 range
                 open
                 popup-class="duration-picker__date-picker__popup"
-                input-class="duration-picker__date-picker__popup"
+                input-class="duration-picker__date-picker__input"
             />
         </div>
     </div>
@@ -97,10 +97,6 @@ export default class DurationPicker extends Vue {
             &__wrapper {
                 text-align: center;
                 margin: 30px auto;
-            }
-
-            &__input {
-                display: none;
             }
         }
     }
