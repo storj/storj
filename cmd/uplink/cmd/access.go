@@ -23,6 +23,7 @@ import (
 
 type registerConfig struct {
 	AuthService string `help:"the address to the service you wish to register your access with" default:"" basic-help:"true"`
+	AccessConfig
 }
 
 var (
@@ -154,6 +155,15 @@ func registerAccess(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	accessRaw := args[0]
+
+	// try assuming that accessRaw is a named access
+	access, err := registerCfg.GetNamedAccess(accessRaw)
+	if err == nil && access != nil {
+		accessRaw, err = access.Serialize()
+		if err != nil {
+			return fmt.Errorf("error serializing named access '%s'", accessRaw)
+		}
+	}
 
 	resp, err := http.Post(fmt.Sprintf("%s/v1/access", registerCfg.AuthService), "application/json", strings.NewReader(fmt.Sprintf(`{"access_grant":"%s"}`, accessRaw)))
 	if err != nil {
