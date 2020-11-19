@@ -999,6 +999,22 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 						return err
 					}
 				}
+				// Add Stream ID to list items if listing is for pending objects.
+				// The client requires the Stream ID to use in the MultipartInfo.
+				if status == metabase.Pending {
+					satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
+						Bucket:         req.Bucket,
+						EncryptedPath:  item.EncryptedPath,
+						Version:        item.Version,
+						CreationDate:   item.CreatedAt,
+						ExpirationDate: item.ExpiresAt,
+						StreamId:       entry.StreamID[:],
+					})
+					if err != nil {
+						return err
+					}
+					item.StreamId = &satStreamID
+				}
 				resp.Items = append(resp.Items, item)
 			}
 			resp.More = it.Next(ctx, &entry)
