@@ -19,6 +19,7 @@
             width="100%"
             height="48px"
             :on-press="onNextClick"
+            :is-disabled="isLoading"
         />
     </div>
 </template>
@@ -45,7 +46,7 @@ export default class EnterPassphraseStep extends Vue {
     private key: string = '';
     private access: string = '';
     private worker: Worker;
-    private isLoading: boolean = false;
+    private isLoading: boolean = true;
 
     public passphrase: string = '';
     public errorMessage: string = '';
@@ -54,13 +55,13 @@ export default class EnterPassphraseStep extends Vue {
      * Lifecycle hook after initial render.
      * Sets local key from props value.
      */
-    public mounted(): void {
+    public async mounted(): Promise<void> {
         if (!this.$route.params.key) {
-            this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
+            await this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
         }
 
         this.key = this.$route.params.key;
-        this.worker = new Worker('/static/static/wasm/webWorker.js');
+        this.worker = await new Worker('/static/static/wasm/webWorker.js');
         this.worker.onmessage = (event: MessageEvent) => {
             const data = event.data;
             if (data.error) {
@@ -69,13 +70,15 @@ export default class EnterPassphraseStep extends Vue {
                 return;
             }
 
-            this.$notify.success('Access Grant was generated successfully');
-
             this.access = data.value;
+
+            this.$notify.success('Access Grant was generated successfully');
         };
         this.worker.onerror = (error: ErrorEvent) => {
             this.$notify.error(error.message);
         };
+
+        this.isLoading = false;
     }
 
     /**
@@ -118,6 +121,7 @@ export default class EnterPassphraseStep extends Vue {
                 name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.ResultStep)).name,
                 params: {
                     access: this.access,
+                    key: this.key,
                 },
             });
         }, 1000);
@@ -150,6 +154,8 @@ export default class EnterPassphraseStep extends Vue {
         flex-direction: column;
         align-items: center;
         position: relative;
+        background-color: #fff;
+        border-radius: 0 6px 6px 0;
 
         &__back-icon {
             position: absolute;
@@ -178,7 +184,7 @@ export default class EnterPassphraseStep extends Vue {
         }
 
         &__input {
-            width: calc(100% - 8px);
+            width: calc(100% - 12px);
         }
 
         &__next-button {

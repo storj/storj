@@ -8,8 +8,8 @@
             From here, you’ll set up Tardigrade to store data for your project using our S3 Gateway, Uplink CLI, or
             select from our growing library of connectors to build apps on Tardigrade.
         </p>
-        <div class="upload-data__docs-area">
-            <div class="upload-data__docs-area__option">
+        <div class="upload-data__docs-area" :class="{ justify: !isUplinkSectionEnabled }">
+            <div class="upload-data__docs-area__option" :class="{ margin: !isUplinkSectionEnabled }">
                 <h2 class="upload-data__docs-area__option__title">
                     Migrate Data from your Existing AWS buckets
                 </h2>
@@ -29,7 +29,7 @@
                     S3 Gateway Docs
                 </a>
             </div>
-            <div class="upload-data__docs-area__option uplink-option">
+            <div class="upload-data__docs-area__option uplink-option" v-if="isUplinkSectionEnabled">
                 <h2 class="upload-data__docs-area__option__title">
                     Upload Data from Your Local Environment
                 </h2>
@@ -93,6 +93,20 @@ import { RouteConfig } from '@/router';
     },
 })
 export default class UploadStep extends Vue {
+    public isUplinkSectionEnabled: boolean = true;
+
+    /**
+     * Lifecycle hook after initial render.
+     * Sets uplink section visibility from props value.
+     */
+    public mounted(): void {
+        if (!this.$route.params.isUplinkSectionEnabled) {
+            this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
+        }
+
+        this.$route.params.isUplinkSectionEnabled === 'true' ? this.isUplinkSectionEnabled = true : this.isUplinkSectionEnabled = false;
+    }
+
     /**
      * Holds on close button click logic.
      * Redirects to access grants page.
@@ -201,5 +215,13 @@ export default class UploadStep extends Vue {
 
     .uplink-option {
         margin: 0 25px;
+    }
+
+    .justify {
+        justify-content: center;
+    }
+
+    .margin {
+        margin-right: 25px;
     }
 </style>

@@ -132,6 +132,8 @@ export default class NameStep extends Vue {
         display: flex;
         flex-direction: column;
         align-items: center;
+        background-color: #fff;
+        border-radius: 0 6px 6px 0;
 
         &__title {
             font-family: 'font_bold', sans-serif;
@@ -152,14 +154,14 @@ export default class NameStep extends Vue {
         }
 
         &__input {
-            width: calc(100% - 10px);
+            width: calc(100% - 12px);
         }
 
         &__buttons-area {
             width: 100%;
             display: flex;
             align-items: center;
-            margin-top: 100px;
+            margin-top: 130px;
         }
     }
 
