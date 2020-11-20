@@ -1434,7 +1434,9 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 		EncryptedKey:      req.EncryptedKey,
 		EncryptedKeyNonce: req.EncryptedKeyNonce[:],
 
-		EncryptedSize: int32(req.SizeEncryptedData), // TODO verify int32 vs int64
+		EncryptedSize: int32(req.SizeEncryptedData), // TODO incompatible types int32 vs int64
+		PlainSize:     int32(req.PlainSize),         // TODO incompatible types int32 vs int64
+
 		Position: metabase.SegmentPosition{
 			Part:  uint32(segmentID.PartNumber),
 			Index: uint32(segmentID.Index),
@@ -1442,11 +1444,11 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 		RootPieceID: segmentID.RootPieceId,
 		Redundancy:  rs,
 		Pieces:      pieces,
-
-		PlainSize: int32(req.PlainSize),
 	})
-
 	if err != nil {
+		if metabase.ErrInvalidRequest.Has(err) {
+			return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		}
 		endpoint.log.Error("internal", zap.Error(err))
 		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -1536,11 +1538,14 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 			Index: uint32(req.Position.Index),
 		},
 
-		PlainSize: 1, // TODO
+		PlainSize: int32(req.PlainSize), // TODO incompatible types int32 vs int64
 
 		InlineData: req.EncryptedInlineData,
 	})
 	if err != nil {
+		if metabase.ErrInvalidRequest.Has(err) {
+			return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		}
 		endpoint.log.Error("internal", zap.Error(err))
 		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
