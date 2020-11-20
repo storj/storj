@@ -42,14 +42,39 @@ func (service *Service) Add(ctx context.Context, id storj.NodeID, apiSecret []by
 	return Error.Wrap(service.nodes.Add(ctx, id, apiSecret, publicAddress))
 }
 
+// UpdateName will update name of the specified node.
+func (service *Service) UpdateName(ctx context.Context, id storj.NodeID, name string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	return Error.Wrap(service.nodes.UpdateName(ctx, id, name))
+}
+
+// Get retrieves node by id.
+func (service *Service) Get(ctx context.Context, id storj.NodeID) (_ Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	node, err := service.nodes.GetByID(ctx, id)
+	if err != nil {
+		return Node{}, Error.Wrap(err)
+	}
+
+	return node, nil
+
+}
+
+// List retrieves list of all added nodes.
+func (service *Service) List(ctx context.Context) (_ []Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	nodes, err := service.nodes.GetAll(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return nodes, nil
+}
+
 // Remove removes node from the system.
 func (service *Service) Remove(ctx context.Context, id storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return Error.Wrap(service.nodes.Remove(ctx, id))
-}
-
-// Update will update name of the specified node.
-func (service *Service) Update(ctx context.Context, id storj.NodeID, name string) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	return Error.Wrap(service.nodes.UpdateName(ctx, id, name))
 }
