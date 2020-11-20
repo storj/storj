@@ -6,10 +6,11 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/spf13/cobra"
@@ -24,6 +25,7 @@ import (
 type registerConfig struct {
 	AuthService string `help:"the address to the service you wish to register your access with" default:"" basic-help:"true"`
 	Public      bool   `help:"if the access should be public" default:"false" basic-help:"true"`
+	AWSProfile  string `help:"update AWS credentials file, appending the credentials using this profile name" default:"" basic-help:"true"`
 	AccessConfig
 }
 
@@ -31,6 +33,7 @@ var (
 	inspectCfg  AccessConfig
 	listCfg     AccessConfig
 	registerCfg registerConfig
+	awsErr      = errs.Class("error writing AWS credentials file")
 )
 
 func init() {
@@ -128,7 +131,7 @@ func accessInspect(cmd *cobra.Command, args []string) (err error) {
 func parseAccess(access string) (sa string, apiKey string, ea string, err error) {
 	data, version, err := base58.CheckDecode(access)
 	if err != nil || version != 0 {
-		return "", "", "", errors.New("invalid access grant format")
+		return "", "", "", errs.New("invalid access grant format: %v", err)
 	}
 
 	p := new(pb.Scope)
@@ -148,7 +151,7 @@ func parseAccess(access string) (sa string, apiKey string, ea string, err error)
 
 func registerAccess(cmd *cobra.Command, args []string) (err error) {
 	if len(args) == 0 {
-		return fmt.Errorf("no access specified")
+		return errs.New("no access specified")
 	}
 
 	if registerCfg.AuthService == "" {
@@ -162,7 +165,7 @@ func registerAccess(cmd *cobra.Command, args []string) (err error) {
 	if err == nil && access != nil {
 		accessRaw, err = access.Serialize()
 		if err != nil {
-			return fmt.Errorf("error serializing named access '%s'", accessRaw)
+			return errs.New("error serializing named access '%s': %v", accessRaw, err)
 		}
 	}
 
@@ -203,5 +206,38 @@ func registerAccess(cmd *cobra.Command, args []string) (err error) {
 	fmt.Println("Secret Key:    ", secretKey)
 	fmt.Println("Endpoint:      ", respBody["endpoint"])
 
+	return tryWriteAWSCredentials(registerCfg.AWSProfile, accessKey, secretKey)
+}
+
+// tryWriteAWSCredentials appends to ~/.aws/credentials or %USERPROFILE%\.aws\credentials.
+func tryWriteAWSCredentials(profileName, accessKey, secretKey string) error {
+	if registerCfg.AWSProfile == "" {
+		return nil
+	}
+	credPath := os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
+	if credPath == "" {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return awsErr.New("cannot determine home directory: %v", err)
+		}
+		credPath = filepath.Join(homeDir, ".aws", "credentials")
+	}
+	// open file
+	f, err := os.OpenFile(credPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return awsErr.New("error opening AWS credentials file: %v", err)
+	}
+	defer func() { _ = f.Close() }()
+	// write data
+	if _, err := fmt.Fprintf(f, "\n[%s]\n", profileName); err != nil {
+		return awsErr.New("error writing to AWS credentials file: %v", err)
+	}
+	if _, err := fmt.Fprintf(f, "aws_access_key_id = %s\n", accessKey); err != nil {
+		return awsErr.New("error writing to AWS credentials file: %v", err)
+	}
+	if _, err := fmt.Fprintf(f, "aws_secret_access_key = %s\n", secretKey); err != nil {
+		return awsErr.New("error writing to AWS credentials file: %v", err)
+	}
+	fmt.Printf("Updated AWS credential file %s with profile '%s'\n", credPath, profileName)
 	return nil
 }
