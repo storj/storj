@@ -143,7 +143,7 @@ func (ros *RepairOverrides) GetMap() RepairOverridesMap {
 		overrideMap: make(map[string]int32),
 	}
 	for _, ro := range ros.List {
-		key := getRSKey(ro.Min, ro.Success, ro.Total)
+		key := getRepairOverrideKey(ro.Min, ro.Success, ro.Total)
 		newMap.overrideMap[key] = ro.Override
 	}
 	return newMap
@@ -158,16 +158,16 @@ type RepairOverridesMap struct {
 
 // GetOverrideValuePB returns the override value for a pb RS scheme if it exists, or 0 otherwise.
 func (rom *RepairOverridesMap) GetOverrideValuePB(rs *pb.RedundancyScheme) int32 {
-	key := getRSKey(int(rs.MinReq), int(rs.SuccessThreshold), int(rs.Total))
+	key := getRepairOverrideKey(int(rs.MinReq), int(rs.SuccessThreshold), int(rs.Total))
 	return rom.overrideMap[key]
 }
 
 // GetOverrideValue returns the override value for an RS scheme if it exists, or 0 otherwise.
 func (rom *RepairOverridesMap) GetOverrideValue(rs storj.RedundancyScheme) int32 {
-	key := getRSKey(int(rs.RequiredShares), int(rs.OptimalShares), int(rs.TotalShares))
+	key := getRepairOverrideKey(int(rs.RequiredShares), int(rs.OptimalShares), int(rs.TotalShares))
 	return rom.overrideMap[key]
 }
 
-func getRSKey(min, success, total int) string {
+func getRepairOverrideKey(min, success, total int) string {
 	return fmt.Sprintf("%d/%d/%d", min, success, total)
 }
