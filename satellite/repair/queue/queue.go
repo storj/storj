@@ -16,7 +16,7 @@ import (
 // architecture: Database
 type RepairQueue interface {
 	// Insert adds an injured segment.
-	Insert(ctx context.Context, s *internalpb.InjuredSegment, numHealthy int) (alreadyInserted bool, err error)
+	Insert(ctx context.Context, s *internalpb.InjuredSegment, segmentHealth float64) (alreadyInserted bool, err error)
 	// Select gets an injured segment.
 	Select(ctx context.Context) (*internalpb.InjuredSegment, error)
 	// Delete removes an injured segment.

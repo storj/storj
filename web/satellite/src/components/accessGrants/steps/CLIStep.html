@@ -1,0 +1,33 @@
+<!--Copyright (C) 2020 Storj Labs, Inc.-->
+<!--See LICENSE for copying information.-->
+
+<div class="cli-container">
+    <BackIcon class="cli-container__back-icon" @click="onBackClick"/>
+    <h1 class="cli-container__title">Create Access Grant in CLI</h1>
+    <p class="cli-container__sub-title">
+        Use this token to create your access grant in the CLI tool.
+    </p>
+    <div class="cli-container__token-area">
+        <p class="cli-container__token-area__label">Token</p>
+        <div class="cli-container__token-area__container">
+            <p class="cli-container__token-area__container__token">{{ key }}</p>
+            <VButton
+                class="cli-container__token-area__container__button"
+                label="Copy"
+                width="66px"
+                height="30px"
+                :on-press="onCopyClick"
+            />
+        </div>
+    </div>
+    <VButton
+        class="cli-container__done-button"
+        label="Done"
+        width="100%"
+        height="48px"
+        :on-press="onDoneClick"
+    />
+    <a class="cli-container__docs-link" href="https://documentation.storj.io/" target="_blank" rel="noopener noreferrer">
+        Visit the Docs
+    </a>
+</div>

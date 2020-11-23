@@ -182,14 +182,14 @@ func TestClean(t *testing.T) {
 
 		timeBeforeInsert1 := time.Now()
 
-		numHealthy := 10
-		_, err := q.Insert(ctx, seg1, numHealthy)
+		segmentHealth := 1.3
+		_, err := q.Insert(ctx, seg1, segmentHealth)
 		require.NoError(t, err)
 
-		_, err = q.Insert(ctx, seg2, numHealthy)
+		_, err = q.Insert(ctx, seg2, segmentHealth)
 		require.NoError(t, err)
 
-		_, err = q.Insert(ctx, seg3, numHealthy)
+		_, err = q.Insert(ctx, seg3, segmentHealth)
 		require.NoError(t, err)
 
 		count, err := q.Count(ctx)
@@ -208,11 +208,11 @@ func TestClean(t *testing.T) {
 
 		// seg1 "becomes healthy", so do not update it
 		// seg2 stays at the same health
-		_, err = q.Insert(ctx, seg2, numHealthy)
+		_, err = q.Insert(ctx, seg2, segmentHealth)
 		require.NoError(t, err)
 
 		// seg3 has a lower health
-		_, err = q.Insert(ctx, seg3, numHealthy-1)
+		_, err = q.Insert(ctx, seg3, segmentHealth-0.1)
 		require.NoError(t, err)
 
 		count, err = q.Count(ctx)

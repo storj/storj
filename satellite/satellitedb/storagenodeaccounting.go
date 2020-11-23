@@ -164,7 +164,7 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 				putRepair := dbx.AccountingRollup_PutRepairTotal(ar.PutRepairTotal)
 				atRest := dbx.AccountingRollup_AtRestTotal(ar.AtRestTotal)
 
-				err := tx.CreateNoReturn_AccountingRollup(ctx, nID, start, put, get, audit, getRepair, putRepair, atRest)
+				err := tx.ReplaceNoReturn_AccountingRollup(ctx, nID, start, put, get, audit, getRepair, putRepair, atRest)
 				if err != nil {
 					return err
 				}
@@ -202,7 +202,7 @@ func (db *StoragenodeAccounting) LastTimestamp(ctx context.Context, timestampTyp
 // QueryPaymentInfo queries Overlay, Accounting Rollup on nodeID.
 func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) (_ []*accounting.CSVRow, err error) {
 	defer mon.Task()(&ctx)(&err)
-	var sqlStmt = `SELECT n.id, n.created_at, r.at_rest_total, r.get_repair_total,
+	sqlStmt := `SELECT n.id, n.created_at, r.at_rest_total, r.get_repair_total,
 		r.put_repair_total, r.get_audit_total, r.put_total, r.get_total, n.wallet, n.disqualified
 		FROM (
 			SELECT node_id, SUM(at_rest_total::decimal) AS at_rest_total, SUM(get_repair_total) AS get_repair_total,
@@ -366,7 +366,7 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 // DeleteTalliesBefore deletes all raw tallies prior to some time.
 func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	var deleteRawSQL = `DELETE FROM storagenode_storage_tallies WHERE interval_end_time < ?`
+	deleteRawSQL := `DELETE FROM storagenode_storage_tallies WHERE interval_end_time < ?`
 	_, err = db.db.DB.ExecContext(ctx, db.db.Rebind(deleteRawSQL), latestRollup)
 	return err
 }

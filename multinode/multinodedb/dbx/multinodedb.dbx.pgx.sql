@@ -11,9 +11,7 @@ CREATE TABLE members (
 CREATE TABLE nodes (
 	id bytea NOT NULL,
 	name text NOT NULL,
-	tag text NOT NULL,
 	public_address text NOT NULL,
 	api_secret bytea NOT NULL,
-	logo bytea NOT NULL,
 	PRIMARY KEY ( id )
 );

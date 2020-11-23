@@ -41,6 +41,7 @@ class HeldStep {
 @Component
 export default class HeldProgress extends Vue {
     public steps: HeldStep[] = [];
+    private MONTHS_BREAKPOINTS: number[] = [0, 3, 6, 9, 15];
 
     /**
      * Returns approximated number of months that node is online.
@@ -65,33 +66,33 @@ export default class HeldProgress extends Vue {
         this.steps = [
             new HeldStep(
                 '75%',
-                'Month 1-3',
-                this.monthsOnNetwork > 0 && this.monthsOnNetwork <= 3,
+                `Month ${this.MONTHS_BREAKPOINTS[0] + 1}-${this.MONTHS_BREAKPOINTS[1]}`,
+                this.monthsOnNetwork > this.MONTHS_BREAKPOINTS[0] && this.monthsOnNetwork <= this.MONTHS_BREAKPOINTS[1],
                 false,
             ),
             new HeldStep(
                 '50%',
-                'Month 4-6',
-                this.monthsOnNetwork > 3 && this.monthsOnNetwork <= 6,
-                this.monthsOnNetwork < 4,
+                `Month ${this.MONTHS_BREAKPOINTS[1] + 1}-${this.MONTHS_BREAKPOINTS[4]}`,
+                this.monthsOnNetwork > this.MONTHS_BREAKPOINTS[1] && this.monthsOnNetwork <= this.MONTHS_BREAKPOINTS[2],
+                this.monthsOnNetwork < this.MONTHS_BREAKPOINTS[1] + 1,
             ),
             new HeldStep(
                 '25%',
-                'Month 7-9',
-                this.monthsOnNetwork > 6 && this.monthsOnNetwork <= 9,
-                this.monthsOnNetwork < 7,
+                `Month ${this.MONTHS_BREAKPOINTS[2] + 1}-${this.MONTHS_BREAKPOINTS[3]}`,
+                this.monthsOnNetwork > this.MONTHS_BREAKPOINTS[2] && this.monthsOnNetwork <= this.MONTHS_BREAKPOINTS[3],
+                this.monthsOnNetwork < this.MONTHS_BREAKPOINTS[2] + 1,
             ),
             new HeldStep(
                 '0%',
-                'Month 10-15',
-                this.monthsOnNetwork > 9 && this.monthsOnNetwork <= 15,
-                this.monthsOnNetwork < 10,
+                `Month ${this.MONTHS_BREAKPOINTS[3] + 1}-${this.MONTHS_BREAKPOINTS[4]}`,
+                this.monthsOnNetwork > this.MONTHS_BREAKPOINTS[3] && this.monthsOnNetwork <= this.MONTHS_BREAKPOINTS[4],
+                this.monthsOnNetwork < this.MONTHS_BREAKPOINTS[3] + 1,
             ),
             new HeldStep(
                 '+50%',
-                'Month 16',
-                this.monthsOnNetwork > 15,
-                this.monthsOnNetwork < 15,
+                `Month ${this.MONTHS_BREAKPOINTS[4] + 1}`,
+                this.monthsOnNetwork > this.MONTHS_BREAKPOINTS[4],
+                this.monthsOnNetwork < this.MONTHS_BREAKPOINTS[4] + 1,
             ),
         ];
     }

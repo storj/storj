@@ -95,11 +95,9 @@ read scalar (
 )
 
 model accounting_rollup (
-	key id
-
+    key node_id start_time
 	index ( fields start_time )
 
-	field id               serial64
 	field node_id          blob
 	field start_time       timestamp
 	field put_total        int64
@@ -110,13 +108,7 @@ model accounting_rollup (
 	field at_rest_total    float64
 )
 
-create accounting_rollup ( noreturn )
-delete accounting_rollup ( where accounting_rollup.id = ? )
-
-read one (
-	select accounting_rollup
-	where  accounting_rollup.id = ?
-)
+create accounting_rollup ( noreturn, replace )
 
 read all (
 	select accounting_rollup
@@ -260,7 +252,8 @@ model injuredsegment (
 	field data blob
 	field attempted timestamp (updatable, nullable)
 	field updated_at timestamp ( updatable, default current_timestamp )
-    field num_healthy_pieces int (default 52)
+	field num_healthy_pieces int (default 52)
+	field segment_health float64 (default 1)
 
 	index (
 		fields attempted
@@ -268,6 +261,10 @@ model injuredsegment (
 
 	index (
 		fields num_healthy_pieces
+	)
+
+	index (
+		fields segment_health
 	)
 
 	index (

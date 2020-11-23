@@ -47,7 +47,7 @@ func (pm *PayoutMonthly) SetDiskSpacePayout(diskSpacePrice int64) {
 // SetHeldAmount counts held amount for PayoutMonthly object.
 func (pm *PayoutMonthly) SetHeldAmount() {
 	amount := (pm.DiskSpacePayout + pm.EgressBandwidthPayout + pm.EgressRepairAuditPayout) * pm.HeldRate / 100
-	pm.Held = RoundFloat(amount)
+	pm.Held = amount
 }
 
 // SetPayout counts payout amount for PayoutMonthly object.

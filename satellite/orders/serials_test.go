@@ -46,12 +46,39 @@ func TestSerialNumbers(t *testing.T) {
 		require.True(t, orders.ErrUsingSerialNumber.Has(err))
 		require.Empty(t, bucketID)
 
-		deleted, err := ordersDB.DeleteExpiredSerials(ctx, time.Now())
+		deleted, err := ordersDB.DeleteExpiredSerials(ctx, time.Now(), nil)
 		require.NoError(t, err)
 		require.Equal(t, deleted, 1)
 
 		// check serial number has been deleted from serial_numbers and used_serials
 		_, err = ordersDB.UseSerialNumber(ctx, storj.SerialNumber{1}, storj.NodeID{1})
+		require.EqualError(t, err, "serial number: serial number not found")
+	})
+}
+
+func TestDeleteExpiredWithOptions(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		ordersDB := db.Orders()
+
+		err := ordersDB.CreateSerialInfo(ctx, storj.SerialNumber{1}, []byte("bucketID1"), time.Now())
+		require.NoError(t, err)
+
+		err = ordersDB.CreateSerialInfo(ctx, storj.SerialNumber{2}, []byte("bucketID2"), time.Now())
+		require.NoError(t, err)
+
+		options := &orders.SerialDeleteOptions{
+			BatchSize: 1,
+		}
+
+		deleted, err := ordersDB.DeleteExpiredSerials(ctx, time.Now(), options)
+		require.NoError(t, err)
+		require.Equal(t, 2, deleted)
+
+		// check serial number has been deleted from serial_numbers and used_serials
+		_, err = ordersDB.UseSerialNumber(ctx, storj.SerialNumber{1}, storj.NodeID{1})
+		require.EqualError(t, err, "serial number: serial number not found")
+
+		_, err = ordersDB.UseSerialNumber(ctx, storj.SerialNumber{2}, storj.NodeID{1})
 		require.EqualError(t, err, "serial number: serial number not found")
 	})
 }

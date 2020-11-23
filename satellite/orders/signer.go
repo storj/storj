@@ -151,14 +151,17 @@ func (signer *Signer) Sign(ctx context.Context, node storj.NodeURL, pieceNum int
 			return nil, ErrSigner.Wrap(err)
 		}
 
-		metadata, err := pb.Marshal(&pb.OrderLimitMetadata{
-			BucketId: bucketID[:],
-		})
+		encrypted, err := encryptionKey.EncryptMetadata(
+			signer.Serial,
+			&pb.OrderLimitMetadata{
+				BucketId: bucketID[:],
+			},
+		)
 		if err != nil {
 			return nil, ErrSigner.Wrap(err)
 		}
 		signer.EncryptedMetadataKeyID = encryptionKey.ID[:]
-		signer.EncryptedMetadata = encryptionKey.Encrypt(metadata, signer.Serial)
+		signer.EncryptedMetadata = encrypted
 	}
 
 	limit := &pb.OrderLimit{

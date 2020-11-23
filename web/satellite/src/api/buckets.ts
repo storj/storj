@@ -2,13 +2,18 @@
 // See LICENSE for copying information.
 
 import { BaseGql } from '@/api/baseGql';
+import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { Bucket, BucketCursor, BucketPage, BucketsApi } from '@/types/buckets';
+import { HttpClient } from '@/utils/httpClient';
 
 /**
  * BucketsApiGql is a graphql implementation of Buckets API.
  * Exposes all bucket-related functionality.
  */
 export class BucketsApiGql extends BaseGql implements BucketsApi {
+    private readonly client: HttpClient = new HttpClient();
+    private readonly ROOT_PATH: string = '/api/v0/buckets';
+
     /**
      * Fetch buckets.
      *
@@ -51,6 +56,27 @@ export class BucketsApiGql extends BaseGql implements BucketsApi {
         const response = await this.query(query, variables);
 
         return this.getBucketPage(response.data.project.bucketUsages);
+    }
+
+    /**
+     * Fetch all bucket names.
+     *
+     * @returns string[]
+     * @throws Error
+     */
+    public async getAllBucketNames(projectId: string): Promise<string[]> {
+        const path = `${this.ROOT_PATH}/bucket-names?projectID=${projectId}`;
+        const response = await this.client.get(path);
+
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new ErrorUnauthorized();
+            }
+
+            throw new Error('Can not get account balance');
+        }
+
+        return await response.json();
     }
 
     /**
