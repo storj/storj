@@ -152,11 +152,13 @@ func (keys *EncryptionKeys) Set(s string) error {
 		return nil
 	}
 
+	keys.Clear()
+
 	for _, x := range strings.Split(s, ",") {
 		x = strings.TrimSpace(x)
 		var ekey EncryptionKey
 		if err := ekey.Set(x); err != nil {
-			return ErrEncryptionKey.New("invalid keys %q: %v", s, err)
+			return ErrEncryptionKey.New("invalid keys %q: %w", s, err)
 		}
 		if err := keys.Add(ekey); err != nil {
 			return err
@@ -180,12 +182,19 @@ func (keys *EncryptionKeys) Add(ekey EncryptionKey) error {
 	}
 
 	if _, exists := keys.KeyByID[ekey.ID]; exists {
-		return ErrEncryptionKey.New("duplicate key identifier %q", ekey)
+		return ErrEncryptionKey.New("duplicate key identifier %q", ekey.String())
 	}
 
 	keys.List = append(keys.List, ekey)
 	keys.KeyByID[ekey.ID] = ekey.Key
 	return nil
+}
+
+// Clear removes all keys.
+func (keys *EncryptionKeys) Clear() {
+	keys.Default = EncryptionKey{}
+	keys.List = nil
+	keys.KeyByID = map[EncryptionKeyID]storj.Key{}
 }
 
 // String is required for pflag.Value.
