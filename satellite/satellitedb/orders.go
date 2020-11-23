@@ -59,10 +59,10 @@ func (db *ordersDB) CreateSerialInfo(ctx context.Context, serialNumber storj.Ser
 }
 
 // DeleteExpiredSerials deletes all expired serials in the serial_number table.
-func (db *ordersDB) DeleteExpiredSerials(ctx context.Context, now time.Time, options *orders.SerialDeleteOptions) (_ int, err error) {
+func (db *ordersDB) DeleteExpiredSerials(ctx context.Context, now time.Time, options orders.SerialDeleteOptions) (_ int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if db.db.implementation == dbutil.Cockroach && options != nil {
+	if db.db.implementation == dbutil.Cockroach && options.BatchSize > 0 {
 		var deleted int
 
 		for {

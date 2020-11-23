@@ -37,25 +37,22 @@ type Chore struct {
 
 	Serials *sync2.Cycle
 	config  Config
-	options *orders.SerialDeleteOptions
+
+	serialsDeleteOptions orders.SerialDeleteOptions
 }
 
 // NewChore creates new chore for deleting DB entries.
 func NewChore(log *zap.Logger, ordersDB orders.DB, config Config) *Chore {
-	var options *orders.SerialDeleteOptions
-	if config.BatchSize > 0 {
-		options = &orders.SerialDeleteOptions{
-			BatchSize: config.BatchSize,
-		}
-	}
-
 	return &Chore{
 		log:    log,
 		orders: ordersDB,
 
 		Serials: sync2.NewCycle(config.SerialsInterval),
 		config:  config,
-		options: options,
+
+		serialsDeleteOptions: orders.SerialDeleteOptions{
+			BatchSize: config.BatchSize,
+		},
 	}
 }
 
@@ -71,7 +68,7 @@ func (chore *Chore) deleteExpiredSerials(ctx context.Context) (err error) {
 
 	now := time.Now()
 
-	deleted, err := chore.orders.DeleteExpiredSerials(ctx, now, chore.options)
+	deleted, err := chore.orders.DeleteExpiredSerials(ctx, now, chore.serialsDeleteOptions)
 	if err != nil {
 		chore.log.Error("deleting expired serial numbers", zap.Error(err))
 	} else {
