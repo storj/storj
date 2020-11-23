@@ -46,7 +46,7 @@ func TestSerialNumbers(t *testing.T) {
 		require.True(t, orders.ErrUsingSerialNumber.Has(err))
 		require.Empty(t, bucketID)
 
-		deleted, err := ordersDB.DeleteExpiredSerials(ctx, time.Now(), nil)
+		deleted, err := ordersDB.DeleteExpiredSerials(ctx, time.Now(), orders.SerialDeleteOptions{})
 		require.NoError(t, err)
 		require.Equal(t, deleted, 1)
 
@@ -66,11 +66,9 @@ func TestDeleteExpiredWithOptions(t *testing.T) {
 		err = ordersDB.CreateSerialInfo(ctx, storj.SerialNumber{2}, []byte("bucketID2"), time.Now())
 		require.NoError(t, err)
 
-		options := &orders.SerialDeleteOptions{
+		deleted, err := ordersDB.DeleteExpiredSerials(ctx, time.Now(), orders.SerialDeleteOptions{
 			BatchSize: 1,
-		}
-
-		deleted, err := ordersDB.DeleteExpiredSerials(ctx, time.Now(), options)
+		})
 		require.NoError(t, err)
 		require.Equal(t, 2, deleted)
 
