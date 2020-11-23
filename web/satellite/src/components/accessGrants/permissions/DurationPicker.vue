@@ -20,6 +20,8 @@
             <DatePicker
                 range
                 open
+                :append-to-body="false"
+                :inline="true"
                 popup-class="duration-picker__date-picker__popup"
                 input-class="duration-picker__date-picker__input"
             />
@@ -55,15 +57,14 @@ export default class DurationPicker extends Vue {
         position: absolute;
         z-index: 1;
         right: 0;
-        left: 0;
-        top: 190px;
+        top: 100%;
 
         &__list {
             -moz-column-count: 2;
             -moz-column-gap: 48px;
             -webkit-column-count: 2;
             column-count: 2;
-            padding: 18px 24px 0;
+            padding: 10px 24px 0;
 
             &__column {
                 list-style-type: none;
@@ -73,9 +74,8 @@ export default class DurationPicker extends Vue {
 
             &__column-item {
                 font-size: 14px;
-                margin-bottom: 10px;
                 font-weight: 400;
-                padding: 15px 0 15px 12px;
+                padding: 10px 0 10px 12px;
                 border-left: 7px solid #fff;
                 color: #1b2533;
 
@@ -90,31 +90,28 @@ export default class DurationPicker extends Vue {
 
         &__break {
             width: 84%;
+            margin: 0 auto;
         }
 
         &__date-picker {
 
             &__wrapper {
-                text-align: center;
-                margin: 30px auto;
+                position: relative;
+                margin: 0;
             }
         }
     }
-
 </style>
 
 <style lang="scss">
-
     .duration-picker {
 
         &__date-picker {
 
             &__popup {
-                top: 70% !important;
-                left: 210px !important;
-                right: 0;
-                margin-left: auto;
-                margin-right: auto;
+                position: absolute;
+                top: 0;
+                left: 25px;
                 width: 480px;
             }
         }
