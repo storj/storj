@@ -49,6 +49,9 @@ func TestSendingReceivingOrders(t *testing.T) {
 		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
+		// Wait for storage nodes to propagate all information.
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
 		sumBeforeSend := 0
 		for _, storageNode := range planet.StorageNodes {
 			// change settle buffer so orders can be sent
@@ -102,6 +105,9 @@ func TestUnableToSendOrders(t *testing.T) {
 
 		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
+
+		// Wait for storage nodes to propagate all information.
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
 
 		sumBeforeSend := 0
 		for _, storageNode := range planet.StorageNodes {
@@ -239,6 +245,9 @@ func TestMultiProjectUploadDownloadBandwidth(t *testing.T) {
 		data, err = planet.Uplinks[1].Download(ctx, planet.Satellites[0], "testbucket1", "test/path")
 		require.NoError(t, err)
 		require.Equal(t, secondExpectedData, data)
+
+		// Wait for storage nodes to propagate all information.
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
 
 		// Have the nodes send up the orders.
 		for _, storageNode := range planet.StorageNodes {

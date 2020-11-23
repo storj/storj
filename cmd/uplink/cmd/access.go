@@ -4,12 +4,12 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/spf13/cobra"
@@ -23,6 +23,8 @@ import (
 
 type registerConfig struct {
 	AuthService string `help:"the address to the service you wish to register your access with" default:"" basic-help:"true"`
+	Public      bool   `help:"if the access should be public" default:"false" basic-help:"true"`
+	AccessConfig
 }
 
 var (
@@ -155,7 +157,24 @@ func registerAccess(cmd *cobra.Command, args []string) (err error) {
 
 	accessRaw := args[0]
 
-	resp, err := http.Post(fmt.Sprintf("%s/v1/access", registerCfg.AuthService), "application/json", strings.NewReader(fmt.Sprintf(`{"access_grant":"%s"}`, accessRaw)))
+	// try assuming that accessRaw is a named access
+	access, err := registerCfg.GetNamedAccess(accessRaw)
+	if err == nil && access != nil {
+		accessRaw, err = access.Serialize()
+		if err != nil {
+			return fmt.Errorf("error serializing named access '%s'", accessRaw)
+		}
+	}
+
+	postData, err := json.Marshal(map[string]interface{}{
+		"access_grant": accessRaw,
+		"public":       registerCfg.Public,
+	})
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	resp, err := http.Post(fmt.Sprintf("%s/v1/access", registerCfg.AuthService), "application/json", bytes.NewReader(postData))
 	if err != nil {
 		return err
 	}

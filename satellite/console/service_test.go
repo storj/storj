@@ -8,7 +8,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/console"
@@ -143,6 +145,31 @@ func TestService(t *testing.T) {
 
 				err = service.ChangeEmail(authCtx2, newEmail)
 				require.Error(t, err)
+			})
+
+			t.Run("TestGetAllBucketNames", func(t *testing.T) {
+				bucket1 := storj.Bucket{
+					ID:        testrand.UUID(),
+					Name:      "testBucket1",
+					ProjectID: up2Pro1.ID,
+				}
+
+				bucket2 := storj.Bucket{
+					ID:        testrand.UUID(),
+					Name:      "testBucket2",
+					ProjectID: up2Pro1.ID,
+				}
+
+				_, err := sat.DB.Buckets().CreateBucket(authCtx1, bucket1)
+				require.NoError(t, err)
+
+				_, err = sat.DB.Buckets().CreateBucket(authCtx1, bucket2)
+				require.NoError(t, err)
+
+				bucketNames, err := service.GetAllBucketNames(authCtx1, up2Pro1.ID)
+				require.NoError(t, err)
+				require.Equal(t, bucket1.Name, bucketNames[0])
+				require.Equal(t, bucket2.Name, bucketNames[1])
 			})
 		})
 }

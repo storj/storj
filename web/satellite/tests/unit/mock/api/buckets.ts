@@ -10,4 +10,8 @@ export class BucketsMock implements BucketsApi {
     get(projectId: string, before: Date, cursor: BucketCursor): Promise<BucketPage> {
         return Promise.resolve(new BucketPage());
     }
+
+    getAllBucketNames(projectId: string): Promise<string[]> {
+        return Promise.resolve(['test']);
+    }
 }
