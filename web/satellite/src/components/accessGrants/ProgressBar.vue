@@ -50,7 +50,7 @@ export default class ProgressBar extends Vue {
      * Indicates if current route is on passphrase step.
      */
     public get isPassphraseStep(): boolean {
-        return this.$route.name === RouteConfig.PassphraseStep.name;
+        return this.$route.name === RouteConfig.CreatePassphraseStep.name || this.$route.name === RouteConfig.EnterPassphraseStep.name;
     }
 
     /**
@@ -69,7 +69,7 @@ export default class ProgressBar extends Vue {
         flex-direction: column;
         align-items: flex-start;
         background: #f5f6fa;
-        height: 360px;
+        height: 380px;
         border-radius: 6px 0 0 6px;
 
         &__item {

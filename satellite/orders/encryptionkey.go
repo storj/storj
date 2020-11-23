@@ -33,6 +33,17 @@ type EncryptionKeys struct {
 	KeyByID map[EncryptionKeyID]storj.Key
 }
 
+// NewEncryptionKeys creates a new EncrytpionKeys object with the provided keys.
+func NewEncryptionKeys(keys ...EncryptionKey) (*EncryptionKeys, error) {
+	var ekeys EncryptionKeys
+	for _, key := range keys {
+		if err := ekeys.Add(key); err != nil {
+			return nil, err
+		}
+	}
+	return &ekeys, nil
+}
+
 // EncryptionKey contains an identifier and an encryption key that is used to
 // encrypt transient metadata in orders.
 //
@@ -137,9 +148,6 @@ func (EncryptionKeys) Type() string { return "orders.EncryptionKeys" }
 
 // Set adds the values from a comma delimited hex encoded strings "hex(id1)=hex(key1),hex(id2)=hex(key2)".
 func (keys *EncryptionKeys) Set(s string) error {
-	if keys.KeyByID == nil {
-		keys.KeyByID = map[EncryptionKeyID]storj.Key{}
-	}
 	if s == "" {
 		return nil
 	}
@@ -150,22 +158,33 @@ func (keys *EncryptionKeys) Set(s string) error {
 		if err := ekey.Set(x); err != nil {
 			return ErrEncryptionKey.New("invalid keys %q: %v", s, err)
 		}
-		if ekey.IsZero() {
-			continue
+		if err := keys.Add(ekey); err != nil {
+			return err
 		}
-
-		if keys.Default.IsZero() {
-			keys.Default = ekey
-		}
-
-		if _, exists := keys.KeyByID[ekey.ID]; exists {
-			return ErrEncryptionKey.New("duplicate key identifier %q", s)
-		}
-
-		keys.List = append(keys.List, ekey)
-		keys.KeyByID[ekey.ID] = ekey.Key
 	}
 
+	return nil
+}
+
+// Add adds an encryption key to EncryptionsKeys object.
+func (keys *EncryptionKeys) Add(ekey EncryptionKey) error {
+	if keys.KeyByID == nil {
+		keys.KeyByID = map[EncryptionKeyID]storj.Key{}
+	}
+	if ekey.IsZero() {
+		return ErrEncryptionKey.New("key is zero")
+	}
+
+	if keys.Default.IsZero() {
+		keys.Default = ekey
+	}
+
+	if _, exists := keys.KeyByID[ekey.ID]; exists {
+		return ErrEncryptionKey.New("duplicate key identifier %q", ekey)
+	}
+
+	keys.List = append(keys.List, ekey)
+	keys.KeyByID[ekey.ID] = ekey.Key
 	return nil
 }
 

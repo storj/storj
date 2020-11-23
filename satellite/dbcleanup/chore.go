@@ -25,6 +25,7 @@ var (
 // Config defines configuration struct for dbcleanup chore.
 type Config struct {
 	SerialsInterval time.Duration `help:"how often to delete expired serial numbers" default:"4h"`
+	BatchSize       int           `help:"number of records to delete per delete execution. 0 indicates no limit. applicable to cockroach DB only." default:"1000"`
 }
 
 // Chore for deleting DB entries that are no longer needed.
@@ -35,15 +36,23 @@ type Chore struct {
 	orders orders.DB
 
 	Serials *sync2.Cycle
+	config  Config
+
+	serialsDeleteOptions orders.SerialDeleteOptions
 }
 
 // NewChore creates new chore for deleting DB entries.
-func NewChore(log *zap.Logger, orders orders.DB, config Config) *Chore {
+func NewChore(log *zap.Logger, ordersDB orders.DB, config Config) *Chore {
 	return &Chore{
 		log:    log,
-		orders: orders,
+		orders: ordersDB,
 
 		Serials: sync2.NewCycle(config.SerialsInterval),
+		config:  config,
+
+		serialsDeleteOptions: orders.SerialDeleteOptions{
+			BatchSize: config.BatchSize,
+		},
 	}
 }
 
@@ -59,7 +68,7 @@ func (chore *Chore) deleteExpiredSerials(ctx context.Context) (err error) {
 
 	now := time.Now()
 
-	deleted, err := chore.orders.DeleteExpiredSerials(ctx, now)
+	deleted, err := chore.orders.DeleteExpiredSerials(ctx, now, chore.serialsDeleteOptions)
 	if err != nil {
 		chore.log.Error("deleting expired serial numbers", zap.Error(err))
 	} else {

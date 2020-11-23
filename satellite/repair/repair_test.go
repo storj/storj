@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/storage"
 )
 
@@ -915,7 +916,11 @@ func testDataRepairOverrideHigherLimit(t *testing.T, inMemoryRepair bool) {
 			Satellite: testplanet.Combine(
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.InMemoryRepair = inMemoryRepair
-					config.Checker.RepairOverride = repairOverride
+					config.Checker.RepairOverrides = checker.RepairOverrides{
+						List: []checker.RepairOverride{
+							{Min: 3, Success: 9, Total: 9, Override: repairOverride},
+						},
+					}
 				},
 				testplanet.ReconfigureRS(3, 4, 9, 9),
 			),
@@ -1007,7 +1012,11 @@ func testDataRepairOverrideLowerLimit(t *testing.T, inMemoryRepair bool) {
 			Satellite: testplanet.Combine(
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					config.Repairer.InMemoryRepair = inMemoryRepair
-					config.Checker.RepairOverride = repairOverride
+					config.Checker.RepairOverrides = checker.RepairOverrides{
+						List: []checker.RepairOverride{
+							{Min: 3, Success: 9, Total: 9, Override: repairOverride},
+						},
+					}
 				},
 				testplanet.ReconfigureRS(3, 6, 9, 9),
 			),

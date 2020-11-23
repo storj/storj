@@ -11,12 +11,12 @@
         <div class="permissions__content">
             <div class="permissions__content__left">
                 <div class="permissions__content__left__item">
-                    <input type="checkbox" id="read" name="read" v-model="isRead" :checked="isRead">
-                    <label class="permissions__content__left__item__label" for="read">Read</label>
+                    <input type="checkbox" id="download" name="download" v-model="isDownload" :checked="isDownload">
+                    <label class="permissions__content__left__item__label" for="download">Download</label>
                 </div>
                 <div class="permissions__content__left__item">
-                    <input type="checkbox" id="write" name="write" v-model="isWrite" :checked="isWrite">
-                    <label class="permissions__content__left__item__label" for="write">Write</label>
+                    <input type="checkbox" id="upload" name="upload" v-model="isUpload" :checked="isUpload">
+                    <label class="permissions__content__left__item__label" for="upload">Upload</label>
                 </div>
                 <div class="permissions__content__left__item">
                     <input type="checkbox" id="list" name="list" v-model="isList" :checked="isList">
@@ -28,6 +28,11 @@
                 </div>
             </div>
             <div class="permissions__content__right">
+                <div class="permissions__content__right__duration-select">
+                    <p class="permissions__content__right__duration-select__label">Duration</p>
+                    <DurationSelection />
+                    <DurationPicker/>
+                </div>
                 <div class="permissions__content__right__buckets-select">
                     <p class="permissions__content__right__buckets-select__label">Buckets</p>
                     <BucketsSelection />
@@ -35,7 +40,7 @@
                 <div class="permissions__content__right__bucket-bullets">
                     <div
                         class="permissions__content__right__bucket-bullets__container"
-                        v-for="(name, index) in selectedBucketNames"
+                        v-for="(name, index) in storedBucketNames"
                         :key="index"
                     >
                         <BucketNameBullet :name="name"/>
@@ -49,6 +54,7 @@
             width="100%"
             height="48px"
             :on-press="onContinueInBrowserClick"
+            :is-disabled="isLoading"
         />
         <p class="permissions__cli-link" @click.stop="onContinueInCLIClick">
             Continue in CLI
@@ -61,6 +67,8 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import BucketNameBullet from '@/components/accessGrants/permissions/BucketNameBullet.vue';
 import BucketsSelection from '@/components/accessGrants/permissions/BucketsSelection.vue';
+import DurationPicker from '@/components/accessGrants/permissions/DurationPicker.vue';
+import DurationSelection from '@/components/accessGrants/permissions/DurationSelection.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import BackIcon from '@/../static/images/accessGrants/back.svg';
@@ -73,6 +81,8 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
         BackIcon,
         BucketsSelection,
         BucketNameBullet,
+        DurationPicker,
+        DurationSelection,
         VButton,
     },
 })
@@ -81,8 +91,9 @@ export default class PermissionsStep extends Vue {
     private restrictedKey: string = '';
     private worker: Worker;
 
-    public isRead: boolean = true;
-    public isWrite: boolean = true;
+    public isLoading: boolean = false;
+    public isDownload: boolean = true;
+    public isUpload: boolean = true;
     public isList: boolean = true;
     public isDelete: boolean = true;
 
@@ -135,6 +146,8 @@ export default class PermissionsStep extends Vue {
      * Holds on continue in CLI button click logic.
      */
     public onContinueInCLIClick(): void {
+        if (this.isLoading) return;
+
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CLIStep)).name,
             params: {
@@ -147,15 +160,70 @@ export default class PermissionsStep extends Vue {
      * Holds on continue in browser button click logic.
      */
     public onContinueInBrowserClick(): void {
-        // mock
-        return;
+        if (this.isLoading) return;
+
+        this.isLoading = true;
+
+        this.worker.postMessage({
+            'type': 'SetPermission',
+            'isDownload': this.isDownload,
+            'isUpload': this.isUpload,
+            'isList': this.isList,
+            'isDelete': this.isDelete,
+            'buckets': this.selectedBucketNames,
+            'apiKey': this.key,
+        });
+
+        // Give time for web worker to return value.
+        setTimeout(() => {
+            this.isLoading = false;
+
+            if (this.accessGrantsAmount > 1) {
+                this.$router.push({
+                    name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.EnterPassphraseStep)).name,
+                    params: {
+                        key: this.restrictedKey,
+                    },
+                });
+
+                return;
+            }
+
+            this.$router.push({
+                name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CreatePassphraseStep)).name,
+                params: {
+                    key: this.restrictedKey,
+                },
+            });
+        }, 1000);
     }
 
     /**
      * Returns stored selected bucket names.
      */
-    public get selectedBucketNames(): string[] {
+    public get storedBucketNames(): string[] {
         return this.$store.state.accessGrantsModule.selectedBucketNames;
+    }
+
+    /**
+     * Returns selected bucket names from store or all bucket names.
+     */
+    private get selectedBucketNames(): string[] {
+        return this.storedBucketNames.length ? this.storedBucketNames : this.allBucketNames;
+    }
+
+    /**
+     * Returns amount of access grants from store.
+     */
+    private get accessGrantsAmount(): number {
+        return this.$store.state.accessGrantsModule.page.accessGrants.length;
+    }
+
+    /**
+     * Returns all bucket names.
+     */
+    private get allBucketNames(): string[] {
+        return this.$store.state.bucketUsageModule.allBucketNames;
     }
 }
 </script>
@@ -181,7 +249,7 @@ export default class PermissionsStep extends Vue {
 
         &__back-icon {
             position: absolute;
-            top: 40px;
+            top: 30px;
             left: 65px;
             cursor: pointer;
         }
@@ -229,7 +297,8 @@ export default class PermissionsStep extends Vue {
                 width: 100%;
                 margin-left: 100px;
 
-                &__buckets-select {
+                &__buckets-select,
+                &__duration-select {
                     display: flex;
                     align-items: center;
                     width: 100%;
@@ -241,6 +310,10 @@ export default class PermissionsStep extends Vue {
                         color: #354049;
                         margin: 0;
                     }
+                }
+
+                &__duration-select {
+                    margin-bottom: 40px;
                 }
 
                 &__bucket-bullets {
