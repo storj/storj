@@ -39,7 +39,7 @@ type DB interface {
 	// UnuseSerialNumber removes pair serial number -> storage node id from database
 	UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) error
 	// DeleteExpiredSerials deletes all expired serials in serial_number, used_serials, and consumed_serials table.
-	DeleteExpiredSerials(ctx context.Context, now time.Time, options *SerialDeleteOptions) (_ int, err error)
+	DeleteExpiredSerials(ctx context.Context, now time.Time, options SerialDeleteOptions) (_ int, err error)
 	// DeleteExpiredConsumedSerials deletes all expired serials in the consumed_serials table.
 	DeleteExpiredConsumedSerials(ctx context.Context, now time.Time) (_ int, err error)
 	// GetBucketIDFromSerialNumber returns the bucket ID associated with the serial number
