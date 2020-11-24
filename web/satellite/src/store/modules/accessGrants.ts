@@ -9,6 +9,7 @@ import {
     AccessGrantsOrderBy,
     AccessGrantsPage,
     DurationPermission,
+    GatewayCredentials,
 } from '@/types/accessGrants';
 import { SortDirection } from '@/types/common';
 
@@ -17,6 +18,7 @@ export const ACCESS_GRANTS_ACTIONS = {
     CREATE: 'createAccessGrant',
     DELETE: 'deleteAccessGrants',
     CLEAR: 'clearAccessGrants',
+    GET_GATEWAY_CREDENTIALS: 'getGatewayCredentials',
     SET_SEARCH_QUERY: 'setAccessGrantsSearchQuery',
     SET_SORT_BY: 'setAccessGrantsSortingBy',
     SET_SORT_DIRECTION: 'setAccessGrantsSortingDirection',
@@ -28,6 +30,7 @@ export const ACCESS_GRANTS_ACTIONS = {
 
 export const ACCESS_GRANTS_MUTATIONS = {
     SET_PAGE: 'setAccessGrants',
+    SET_GATEWAY_CREDENTIALS: 'setGatewayCredentials',
     TOGGLE_SELECTION: 'toggleAccessGrantsSelection',
     TOGGLE_BUCKET_SELECTION: 'toggleBucketSelection',
     CLEAR_SELECTION: 'clearAccessGrantsSelection',
@@ -50,6 +53,7 @@ const {
     SET_SEARCH_QUERY,
     SET_PAGE_NUMBER,
     SET_DURATION_PERMISSION,
+    SET_GATEWAY_CREDENTIALS,
 } = ACCESS_GRANTS_MUTATIONS;
 
 export class AccessGrantsState {
@@ -59,6 +63,7 @@ export class AccessGrantsState {
     public selectedBucketNames: string[] = [];
     public permissionNotBefore: Date = new Date();
     public permissionNotAfter: Date = new Date('2200-01-01');
+    public gatewayCredentials: GatewayCredentials = new GatewayCredentials();
 }
 
 /**
@@ -79,6 +84,9 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
 
                     return accessGrant;
                 });
+            },
+            [SET_GATEWAY_CREDENTIALS](state: AccessGrantsState, credentials: GatewayCredentials) {
+                state.gatewayCredentials = credentials;
             },
             [SET_PAGE_NUMBER](state: AccessGrantsState, pageNumber: number) {
                 state.cursor.page = pageNumber;
@@ -165,6 +173,11 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
                 await api.delete(state.selectedAccessGrantsIds);
 
                 commit(CLEAR_SELECTION);
+            },
+            getGatewayCredentials: async function({state, commit}: any, accessGrant: string): Promise<void> {
+                const credentials: GatewayCredentials = await api.getGatewayCredentials(accessGrant);
+
+                commit(SET_GATEWAY_CREDENTIALS, credentials);
             },
             setAccessGrantsSearchQuery: function ({commit}, search: string) {
                 commit(SET_SEARCH_QUERY, search);

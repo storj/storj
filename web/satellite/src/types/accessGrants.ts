@@ -32,6 +32,14 @@ export interface AccessGrantsApi {
      * @throws Error
      */
     delete(ids: string[]): Promise<void>;
+
+    /**
+     * Get gateway credentials using access grant
+     *
+     * @returns GatewayCredentials
+     * @throws Error
+     */
+    getGatewayCredentials(accessGrant: string): Promise<GatewayCredentials>;
 }
 
 /**
@@ -101,5 +109,18 @@ export class DurationPermission {
     constructor(
         public notBefore: Date = new Date(),
         public notAfter: Date = new Date(),
+    ) {}
+}
+
+/**
+ * GatewayCredentials class holds info for gateway credentials generated from access grant.
+ */
+export class GatewayCredentials {
+    constructor(
+        public id: string = '',
+        public createdAt: Date = new Date(),
+        public accessKeyId: string = '',
+        public secretKey: string = '',
+        public endpoint: string = '',
     ) {}
 }
