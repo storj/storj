@@ -23,8 +23,9 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import DurationPicker from '@/components/accessGrants/permissions/DurationPicker.vue';
+
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
-import DurationPicker from "@/components/accessGrants/permissions/DurationPicker.vue";
 
 @Component({
     components: {
@@ -60,12 +61,14 @@ export default class DurationSelection extends Vue {
         font-family: 'font_regular', sans-serif;
         width: 235px;
         position: relative;
+
         &__toggle-container {
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 15px 20px;
             width: calc(100% - 40px);
+
             &__name {
                 font-style: normal;
                 font-weight: normal;
