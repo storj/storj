@@ -62,7 +62,7 @@ fi
 echo "section tests start"
 echo "section tests start"
 echo "section tests start"
-storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network run &&
+storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network run &
 curl -s -X POST -H "Content-Type: application/json" -d "{ \"email\": \"test1@g.com\", \"password\": \"123qwe\", \"fullName\": \"full\", \"shortName\": \"\", \"partnerId\": \"\", \"referrerUserId\": \"\"}" http://localhost:10002/api/v0/auth/register
 echo "section ROD start"
 echo "section ROD start"
