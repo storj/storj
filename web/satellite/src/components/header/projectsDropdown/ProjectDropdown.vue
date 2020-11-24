@@ -22,9 +22,6 @@
             >
                 <p class="project-dropdown__wrap__choice__unselected">{{ project.name }}</p>
             </div>
-						<div @click="toggleSelection" @click.prevent.stop="closeDropdown" class="project-dropdown__wrap__create-project__wrapper">
-							<p class="project-dropdown__wrap__create-project__text">Create Project</p>
-						</div>
         </div>
         <div class="project-dropdown__create-project" v-if="isCreateProjectButtonShown" @click.stop="onCreateProjectsClick">
             <div class="project-dropdown__create-project__border"/>
@@ -47,7 +44,7 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
-import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
 
 @Component({
@@ -92,13 +89,6 @@ export default class ProjectDropdown extends Vue {
     public get selectedProject(): Project {
         return this.$store.getters.selectedProject;
     }
-
-        /**
-		 * Opens new project creation popup.
-		 */
-        public toggleSelection(): void {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
-        }
 
     /**
      * Indicates if create project button is shown.
@@ -191,20 +181,6 @@ export default class ProjectDropdown extends Vue {
                     &__image {
                         object-fit: cover;
                     }
-                }
-            }
-
-            &__create-project {
-
-                &__wrapper {
-                    border-top: 1px solid #d4d4d4;
-                }
-
-                &__text {
-                    color: #2683ff;
-                    padding-left: 20px;
-                    font-weight: bold;
-                    font-size: 14px;
                 }
             }
         }
