@@ -20,7 +20,7 @@ The review period consists of one _grace period_ and one _tracking period_. The 
 
 ## Rationale
 
-This approach works because it allows us to consider the number of offline audits, but ensure that they are spread out over a period of time. For instance, if a node happens to be offline for 1 hour and unluckily receives an absurdly high amount of audits at that time, it should still be able to recover. It has only affected the score of one window. If we take an example of a tracking period of 30 days and a window size of 24 hours, we can see that a single ruined window should not spell disaster. However, if a node is having bad luck with audits over multiple windows over the tracking period, this seems to indicate that the node is not quite as reliable as we would like. Even then, the addition of suspension mode gives the node a chance to fix its connection issues.
+This approach works because it allows us to consider the number of offline audits, but ensure that they are spread out over a period of time. For instance, if a node happens to be offline for 1 hour and unluckily receives an absurdly high number of audits at that time, it should still be able to recover. It has only affected the score of one window. If we take an example of a tracking period of 30 days and a window size of 24 hours, we can see that a single ruined window should not spell disaster. However, if a node is having bad luck with audits over multiple windows over the tracking period, this seems to indicate that the node is not quite as reliable as we would like. Even then, the addition of suspension mode gives the node a chance to fix its connection issues.
 
 ### Alternate approaches
 
@@ -63,7 +63,7 @@ CREATE TABLE audit_history (
     data BYTEA,
 )
 ```
-`data` refers to a serialzed data structure containing the node's audit history.
+`data` refers to a serialized data structure containing the node's audit history.
 
 ```
 type AuditResults struct {
@@ -130,7 +130,7 @@ NOTE: We should not implement disqualification right away. It might also be good
 ### 6) Implement email and node dashboard notifications of offline suspension and under review status
 The `NodeStats` protobuf will need to be updated to send and receive these new fields
 
-## Wrapup
+## Wrap-up
 
 Once the design outlined in the document is implemented, other documents detailing the old uptime reputation will need to be edited.
 
@@ -154,11 +154,11 @@ Once the design outlined in the document is implemented, other documents detaili
 
     Failing to connect to a node does not necessarily mean that it is offline.
 
-    Satellite side network issues could results in many nodes being counted as offline.
+    Satellite side network issues could result in many nodes being counted as offline.
     One solution for satellite side issues could be that we cache and batch audit history writes. Upon syncing to the DB, we determine the total percentage of offline audits the batch contains. If it is above some threshold, we decide that there must have been some network issues and we either throw out the results or give everyone a perfect score for that period. 
 
     It will be more difficult to differentiate network problems from real downtime for a single node. 
 
-    We've received some suggestions about retrying a connection before determining that a node is offline. One the one hand, this gives us more confidence that the node is in fact offline. On the other hand, this increases code complexity and decreases audit throughput.
+    We've received some suggestions about retrying a connection before determining that a node is offline. On the one hand, this gives us more confidence that the node is in fact offline. On the other hand, this increases code complexity and decreases audit throughput.
 
     If we decide not to attempt retries, we should adjust the offline threshold accordingly to account for offline false positives and ensure that even the smallest nodes are still audited enough that any false positives should not pose a real threat.
