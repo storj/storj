@@ -55,7 +55,7 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 		FROM segments
 		WHERE
 			stream_id = $1 AND
-			($2 = 0 OR position > $2)
+			($2 = 0::INT8 OR position > $2)
 		ORDER BY position ASC
 		LIMIT $3
 	`, opts.StreamID, opts.Cursor, opts.Limit+1))(func(rows tagsql.Rows) error {

@@ -132,6 +132,20 @@ func TestListSegments(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
+			ListSegments{
+				Opts: metabase.ListSegments{
+					StreamID: obj.StreamID,
+					Limit:    2,
+					Cursor: metabase.SegmentPosition{
+						Part:  1,
+						Index: 10,
+					},
+				},
+				Result: metabase.ListSegmentsResult{
+					More: false,
+				},
+			}.Check(ctx, t, db)
+
 			Verify{
 				Objects: []metabase.RawObject{
 					metabase.RawObject(expectedObject),
