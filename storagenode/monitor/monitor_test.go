@@ -10,10 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/memory"
-	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/storagenode/internalpb"
 )
 
 func TestMonitor(t *testing.T) {
@@ -34,7 +34,7 @@ func TestMonitor(t *testing.T) {
 			storageNode.Storage2.Monitor.Loop.TriggerWait()
 			storageNode.Storage2.Monitor.VerifyDirReadableLoop.TriggerWait()
 			storageNode.Storage2.Monitor.VerifyDirWritableLoop.TriggerWait()
-			stats, err := storageNode.Storage2.Inspector.Stats(ctx, &pb.StatsRequest{})
+			stats, err := storageNode.Storage2.Inspector.Stats(ctx, &internalpb.StatsRequest{})
 			require.NoError(t, err)
 			if stats.UsedSpace > 0 {
 				nodeAssertions++

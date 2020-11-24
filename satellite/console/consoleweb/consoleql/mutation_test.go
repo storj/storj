@@ -17,7 +17,6 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/private/post"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
@@ -46,7 +45,7 @@ func (*discardSender) FromAddress() post.Address {
 	return post.Address{}
 }
 
-func TestGrapqhlMutation(t *testing.T) {
+func TestGraphqlMutation(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		log := zaptest.NewLogger(t)
 
@@ -60,7 +59,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			},
 		)
 
-		redis, err := redisserver.Mini()
+		redis, err := redisserver.Mini(ctx)
 		require.NoError(t, err)
 		defer ctx.Check(redis.Close)
 
@@ -80,7 +79,11 @@ func TestGrapqhlMutation(t *testing.T) {
 
 		paymentsService, err := stripecoinpayments.NewService(
 			log.Named("payments.stripe:service"),
-			stripecoinpayments.NewStripeMock(testrand.NodeID()),
+			stripecoinpayments.NewStripeMock(
+				testrand.NodeID(),
+				db.StripeCoinPayments().Customers(),
+				db.Console().Users(),
+			),
 			pc.StripeCoinPayments,
 			db.StripeCoinPayments(),
 			db.Console().Projects(),
@@ -102,6 +105,7 @@ func TestGrapqhlMutation(t *testing.T) {
 			db.Console(),
 			db.ProjectAccounting(),
 			projectUsage,
+			db.Buckets(),
 			db.Rewards(),
 			partnersService,
 			paymentsService.Accounts(),
@@ -153,12 +157,12 @@ func TestGrapqhlMutation(t *testing.T) {
 		token, err := service.Token(ctx, createUser.Email, createUser.Password)
 		require.NoError(t, err)
 
-		sauth, err := service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
+		sauth, err := service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
 		require.NoError(t, err)
 
 		authCtx := console.WithAuth(ctx, sauth)
 
-		testQuery := func(t *testing.T, query string) interface{} {
+		testQuery := func(t *testing.T, query string) (interface{}, error) {
 			result := graphql.Do(graphql.Params{
 				Schema:        schema,
 				Context:       authCtx,
@@ -167,17 +171,19 @@ func TestGrapqhlMutation(t *testing.T) {
 			})
 
 			for _, err := range result.Errors {
-				assert.NoError(t, err)
+				if err.OriginalError() != nil {
+					return nil, err
+				}
 			}
 			require.False(t, result.HasErrors())
 
-			return result.Data
+			return result.Data, nil
 		}
 
 		token, err = service.Token(ctx, rootUser.Email, createUser.Password)
 		require.NoError(t, err)
 
-		sauth, err = service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
+		sauth, err = service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
 		require.NoError(t, err)
 
 		authCtx = console.WithAuth(ctx, sauth)
@@ -195,7 +201,8 @@ func TestGrapqhlMutation(t *testing.T) {
 				projectInfo.Description,
 			)
 
-			result := testQuery(t, query)
+			result, err := testQuery(t, query)
+			require.NoError(t, err)
 
 			data := result.(map[string]interface{})
 			project := data[consoleql.CreateProjectMutation].(map[string]interface{})
@@ -269,7 +276,8 @@ func TestGrapqhlMutation(t *testing.T) {
 				user2.Email,
 			)
 
-			result := testQuery(t, query)
+			result, err := testQuery(t, query)
+			require.NoError(t, err)
 
 			data := result.(map[string]interface{})
 			proj := data[consoleql.AddProjectMembersMutation].(map[string]interface{})
@@ -290,7 +298,8 @@ func TestGrapqhlMutation(t *testing.T) {
 				user2.Email,
 			)
 
-			result := testQuery(t, query)
+			result, err := testQuery(t, query)
+			require.NoError(t, err)
 
 			data := result.(map[string]interface{})
 			proj := data[consoleql.DeleteProjectMembersMutation].(map[string]interface{})
@@ -315,7 +324,8 @@ func TestGrapqhlMutation(t *testing.T) {
 				keyName,
 			)
 
-			result := testQuery(t, query)
+			result, err := testQuery(t, query)
+			require.NoError(t, err)
 
 			data := result.(map[string]interface{})
 			createAPIKey := data[consoleql.CreateAPIKeyMutation].(map[string]interface{})
@@ -344,7 +354,9 @@ func TestGrapqhlMutation(t *testing.T) {
 				keyID,
 			)
 
-			result := testQuery(t, query)
+			result, err := testQuery(t, query)
+			require.NoError(t, err)
+
 			data := result.(map[string]interface{})
 			keyInfoList := data[consoleql.DeleteAPIKeysMutation].([]interface{})
 
@@ -367,7 +379,8 @@ func TestGrapqhlMutation(t *testing.T) {
 				testDescription,
 			)
 
-			result := testQuery(t, query)
+			result, err := testQuery(t, query)
+			require.NoError(t, err)
 
 			data := result.(map[string]interface{})
 			proj := data[consoleql.UpdateProjectMutation].(map[string]interface{})
@@ -383,16 +396,10 @@ func TestGrapqhlMutation(t *testing.T) {
 				projectID,
 			)
 
-			result := testQuery(t, query)
-
-			data := result.(map[string]interface{})
-			proj := data[consoleql.DeleteProjectMutation].(map[string]interface{})
-
-			assert.Equal(t, testName, proj[consoleql.FieldName])
-			assert.Equal(t, project.ID.String(), proj[consoleql.FieldID])
-
-			_, err := service.GetProject(authCtx, project.ID)
-			assert.Error(t, err)
+			result, err := testQuery(t, query)
+			require.Error(t, err)
+			require.Nil(t, result)
+			require.Equal(t, console.ErrUnauthorized.New("not implemented").Error(), err.Error())
 		})
 	})
 }

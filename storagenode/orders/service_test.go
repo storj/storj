@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/orders/ordersfile"
 )
 
 // TODO remove when db is removed.
@@ -52,7 +53,7 @@ func TestOrderDBSettle(t *testing.T) {
 		}
 		signedOrder, err := signing.SignUplinkOrder(ctx, piecePrivateKey, order)
 		require.NoError(t, err)
-		order0 := &orders.Info{
+		order0 := &ordersfile.Info{
 			Limit: orderLimit,
 			Order: signedOrder,
 		}
@@ -68,13 +69,15 @@ func TestOrderDBSettle(t *testing.T) {
 		// trigger order send
 		service.Sender.TriggerWait()
 
+		// in phase3 the orders are only sent from the filestore
+		// so we expect any orders in ordersDB will remain there
 		toSend, err = node.DB.Orders().ListUnsent(ctx, 10)
 		require.NoError(t, err)
-		require.Len(t, toSend, 0)
+		require.Len(t, toSend, 1)
 
 		archived, err := node.DB.Orders().ListArchived(ctx, 10)
 		require.NoError(t, err)
-		require.Len(t, archived, 1)
+		require.Len(t, archived, 0)
 	})
 }
 
@@ -96,7 +99,9 @@ func TestOrderFileStoreSettle(t *testing.T) {
 		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		toSend, err := node.OrdersStore.ListUnsentBySatellite(tomorrow)
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
+		toSend, err := node.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 		require.NoError(t, err)
 		require.Len(t, toSend, 1)
 		ordersForSat := toSend[satellite.ID()]
@@ -105,7 +110,7 @@ func TestOrderFileStoreSettle(t *testing.T) {
 		// trigger order send
 		service.SendOrders(ctx, tomorrow)
 
-		toSend, err = node.OrdersStore.ListUnsentBySatellite(tomorrow)
+		toSend, err = node.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 		require.NoError(t, err)
 		require.Len(t, toSend, 0)
 
@@ -116,7 +121,7 @@ func TestOrderFileStoreSettle(t *testing.T) {
 }
 
 // TODO remove when db is removed.
-// TestOrderFileStoreAndDBSettle ensures that if orders exist in both DB and filestore, that the DB orders are settled first.
+// TestOrderFileStoreAndDBSettle ensures that if orders exist in both DB and filestore, that the DB orders and filestore are both settled.
 func TestOrderFileStoreAndDBSettle(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
@@ -150,7 +155,7 @@ func TestOrderFileStoreAndDBSettle(t *testing.T) {
 		}
 		signedOrder, err := signing.SignUplinkOrder(ctx, piecePrivateKey, order)
 		require.NoError(t, err)
-		order0 := &orders.Info{
+		order0 := &ordersfile.Info{
 			Limit: orderLimit,
 			Order: signedOrder,
 		}
@@ -168,7 +173,9 @@ func TestOrderFileStoreAndDBSettle(t *testing.T) {
 		err = uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		toSendFileStore, err := node.OrdersStore.ListUnsentBySatellite(tomorrow)
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
+		toSendFileStore, err := node.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 		require.NoError(t, err)
 		require.Len(t, toSendFileStore, 1)
 		ordersForSat := toSendFileStore[satellite.ID()]
@@ -177,32 +184,21 @@ func TestOrderFileStoreAndDBSettle(t *testing.T) {
 		// trigger order send
 		service.SendOrders(ctx, tomorrow)
 
-		// DB orders should be archived, but filestore orders should still be unsent.
+		// DB should not be archived in phase3, but and filestore orders should be archived.
 		toSendDB, err = node.DB.Orders().ListUnsent(ctx, 10)
 		require.NoError(t, err)
-		require.Len(t, toSendDB, 0)
+		require.Len(t, toSendDB, 1)
 
 		archived, err := node.DB.Orders().ListArchived(ctx, 10)
 		require.NoError(t, err)
-		require.Len(t, archived, 1)
+		require.Len(t, archived, 0)
 
-		toSendFileStore, err = node.OrdersStore.ListUnsentBySatellite(tomorrow)
-		require.NoError(t, err)
-		require.Len(t, toSendFileStore, 1)
-		ordersForSat = toSendFileStore[satellite.ID()]
-		require.Len(t, ordersForSat.InfoList, 1)
-
-		// trigger order send again
-		service.SendOrders(ctx, tomorrow)
-
-		// now FileStore orders should be archived too.
-		toSendFileStore, err = node.OrdersStore.ListUnsentBySatellite(tomorrow)
+		toSendFileStore, err = node.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 		require.NoError(t, err)
 		require.Len(t, toSendFileStore, 0)
-
-		archived, err = node.OrdersStore.ListArchived()
+		filestoreArchived, err := node.OrdersStore.ListArchived()
 		require.NoError(t, err)
-		require.Len(t, archived, 1)
+		require.Len(t, filestoreArchived, 1)
 	})
 }
 
@@ -221,14 +217,14 @@ func TestCleanArchiveDB(t *testing.T) {
 		serialNumber0 := testrand.SerialNumber()
 		serialNumber1 := testrand.SerialNumber()
 
-		order0 := &orders.Info{
+		order0 := &ordersfile.Info{
 			Limit: &pb.OrderLimit{
 				SatelliteId:  satellite,
 				SerialNumber: serialNumber0,
 			},
 			Order: &pb.Order{},
 		}
-		order1 := &orders.Info{
+		order1 := &ordersfile.Info{
 			Limit: &pb.OrderLimit{
 				SatelliteId:  satellite,
 				SerialNumber: serialNumber1,
@@ -295,7 +291,7 @@ func TestCleanArchiveFileStore(t *testing.T) {
 		serialNumber1 := testrand.SerialNumber()
 		createdAt1 := now.Add(-24 * time.Hour)
 
-		order0 := &orders.Info{
+		order0 := &ordersfile.Info{
 			Limit: &pb.OrderLimit{
 				SatelliteId:   satellite,
 				SerialNumber:  serialNumber0,
@@ -303,7 +299,7 @@ func TestCleanArchiveFileStore(t *testing.T) {
 			},
 			Order: &pb.Order{},
 		}
-		order1 := &orders.Info{
+		order1 := &ordersfile.Info{
 			Limit: &pb.OrderLimit{
 				SatelliteId:   satellite,
 				SerialNumber:  serialNumber1,
@@ -319,9 +315,12 @@ func TestCleanArchiveFileStore(t *testing.T) {
 		require.NoError(t, err)
 
 		// archive one order yesterday, one today
-		err = node.OrdersStore.Archive(satellite, createdAt0.Truncate(time.Hour), yesterday, pb.SettlementWithWindowResponse_ACCEPTED)
+		unsentInfo := orders.UnsentInfo{Version: ordersfile.V1}
+		unsentInfo.CreatedAtHour = createdAt0.Truncate(time.Hour)
+		err = node.OrdersStore.Archive(satellite, unsentInfo, yesterday, pb.SettlementWithWindowResponse_ACCEPTED)
 		require.NoError(t, err)
-		err = node.OrdersStore.Archive(satellite, createdAt1.Truncate(time.Hour), now, pb.SettlementWithWindowResponse_ACCEPTED)
+		unsentInfo.CreatedAtHour = createdAt1.Truncate(time.Hour)
+		err = node.OrdersStore.Archive(satellite, unsentInfo, now, pb.SettlementWithWindowResponse_ACCEPTED)
 		require.NoError(t, err)
 
 		archived, err := node.OrdersStore.ListArchived()

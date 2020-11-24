@@ -12,6 +12,18 @@ test_files_dir="${main_cfg_dir}/testfiles"
 stage1_dst_dir="${main_cfg_dir}/stage1"
 stage2_dst_dir="${main_cfg_dir}/stage2"
 
+replace_in_file(){
+    local src="$1"
+    local dest="$2"
+    local path=$3
+    case "$OSTYPE" in
+    darwin*)
+        sed -i '' "s|# ${src}|${dest}|" "${path}" ;;
+    *)
+        sed -i "s|# ${src}|${dest}|" "${path}" ;;
+    esac
+}
+
 setup(){
     mkdir -p "$test_files_dir" "$stage1_dst_dir" "$stage2_dst_dir"
     random_bytes_file () {
@@ -55,32 +67,12 @@ if [ ! -d ${main_cfg_dir}/uplink ]; then
     mkdir -p ${main_cfg_dir}/uplink
     api_key=$(storj-sim --config-dir=$main_cfg_dir network env GATEWAY_0_API_KEY)
     sat_addr=$(storj-sim --config-dir=$main_cfg_dir network env SATELLITE_0_ADDR)
-    should_use_access=$(echo $uplink_version | awk 'BEGIN{FS="[v.]"} $3 >= 30 || $2 >= 1 {print $0}')
-    if [[ ${#should_use_access} -gt 0 ]]; then
-        access=$(storj-sim --config-dir=$main_cfg_dir network env GATEWAY_0_ACCESS)
-        new_access=$(go run $update_access_script_path $(storj-sim --config-dir=$main_cfg_dir network env SATELLITE_0_DIR) $access)
-        uplink import --config-dir="${main_cfg_dir}/uplink" "${new_access}"
-    else
-        uplink setup --config-dir="${main_cfg_dir}/uplink" --non-interactive --api-key="$api_key" --satellite-addr="$sat_addr" --enc.encryption-key="test"
-    fi
-fi
-
-if [[ $uplink_version = "v0.29.10" ]]; then
-    uplink share --config-dir="${main_cfg_dir}/uplink" | grep "Scope" | awk -F ": " '{print $2}' | tee ${main_cfg_dir}/uplink/access.txt
-fi
-
-# after version v0.30.x we need to use access instead of separate values for api key, sat addr, and encryption key
-should_use_access=$(echo $uplink_version | awk 'BEGIN{FS="[v.]"} $3 == 30 {print $0}')
-if [[ ${#should_use_access} -gt 0 ]] && [ -e ${main_cfg_dir}/uplink/access.txt ]
-then
-    # the access provided by storj-sim uses an empty encryption key; we cannot do uplink setup above with an empty encryption key
-    # therefore, we use a hack -> get an access key from the existing uplink config, then import that same access key
-
-    # super hack:
-    access=$(head -n 1 ${main_cfg_dir}/uplink/access.txt)
+    access=$(storj-sim --config-dir=$main_cfg_dir network env GATEWAY_0_ACCESS)
     new_access=$(go run $update_access_script_path $(storj-sim --config-dir=$main_cfg_dir network env SATELLITE_0_DIR) $access)
-    uplink import --config-dir="${main_cfg_dir}/uplink" "${new_access}"
-    rm -rf ${main_cfg_dir}/uplink/access.txt
+    uplink --metrics.addr="" import --config-dir="${main_cfg_dir}/uplink" "${new_access}"
+
+    replace_in_file "version.server-address:.*" "version.server-address: http://$(storj-sim --config-dir=$main_cfg_dir network env VERSIONCONTROL_0_ADDR)" ${main_cfg_dir}/uplink/config.yaml
+    replace_in_file "tls.use-peer-ca-whitelist:.*" "tls.use-peer-ca-whitelist: false" ${main_cfg_dir}/uplink/config.yaml
 fi
 
 echo -e "\nConfig directory for satellite:"

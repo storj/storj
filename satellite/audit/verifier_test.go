@@ -5,8 +5,6 @@ package audit_test
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"testing"
 	"time"
 
@@ -66,10 +64,10 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 		require.NoError(t, err)
 
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucket, pointer, nil)
+		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucket, pointer, nil)
 		require.NoError(t, err)
 
-		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
+		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, cachedIPsAndPorts, randomIndex, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
@@ -117,7 +115,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		require.NoError(t, err)
 
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucket, pointer, nil)
+		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucket, pointer, nil)
 		require.NoError(t, err)
 
 		// stop the first node in the pointer
@@ -125,7 +123,7 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		err = planet.StopNodeAndUpdate(ctx, planet.FindNode(stoppedNodeID))
 		require.NoError(t, err)
 
-		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
+		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, cachedIPsAndPorts, randomIndex, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
@@ -180,10 +178,10 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 		pointer.GetRemote().RootPieceId = storj.NewPieceID()
 
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucket, pointer, nil)
+		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucket, pointer, nil)
 		require.NoError(t, err)
 
-		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
+		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, cachedIPsAndPorts, randomIndex, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
@@ -257,10 +255,10 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 			5*time.Second)
 
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucket, pointer, nil)
+		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucket, pointer, nil)
 		require.NoError(t, err)
 
-		shares, err := verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
+		shares, err := verifier.DownloadShares(ctx, limits, privateKey, cachedIPsAndPorts, randomIndex, shareSize)
 		require.NoError(t, err)
 
 		for _, share := range shares {
@@ -330,14 +328,14 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 			150*time.Millisecond)
 
 		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucket, pointer, nil)
+		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucket, pointer, nil)
 		require.NoError(t, err)
 
 		// make downloads on storage node slower than the timeout on the satellite for downloading shares
 		delay := 200 * time.Millisecond
 		storageNodeDB.SetLatency(delay)
 
-		shares, err := verifier.DownloadShares(ctx, limits, privateKey, randomIndex, shareSize)
+		shares, err := verifier.DownloadShares(ctx, limits, privateKey, cachedIPsAndPorts, randomIndex, shareSize)
 		require.NoError(t, err)
 
 		require.Len(t, shares, 1)
@@ -419,11 +417,6 @@ func TestVerifierExpired(t *testing.T) {
 		// Verify should not return an error
 		report, err := audits.Verifier.Verify(ctx, path, nil)
 		require.NoError(t, err)
-
-		// Verify should delete the expired segment
-		pointer, err = satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
-		require.Error(t, err)
-		require.Nil(t, pointer)
 
 		assert.Len(t, report.Successes, 0)
 		assert.Len(t, report.Fails, 0)
@@ -783,16 +776,14 @@ func TestVerifierSlowDownload(t *testing.T) {
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
 			},
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				// These config values are chosen to force the slow node to time out without timing out on the three normal nodes
-				config.Audit.MinBytesPerSecond = 100 * memory.KiB
-				config.Audit.MinDownloadTimeout = 950 * time.Millisecond
-
-				config.Metainfo.RS.MinThreshold = 2
-				config.Metainfo.RS.RepairThreshold = 2
-				config.Metainfo.RS.SuccessThreshold = 4
-				config.Metainfo.RS.TotalThreshold = 4
-			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// These config values are chosen to force the slow node to time out without timing out on the three normal nodes
+					config.Audit.MinBytesPerSecond = 100 * memory.KiB
+					config.Audit.MinDownloadTimeout = 950 * time.Millisecond
+				},
+				testplanet.ReconfigureRS(2, 2, 4, 4),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
@@ -879,180 +870,5 @@ func TestVerifierUnknownError(t *testing.T) {
 		require.Len(t, report.PendingAudits, 0)
 		require.Len(t, report.Unknown, 1)
 		require.Equal(t, report.Unknown[0], badNode.ID())
-	})
-}
-
-func TestVerifyPieceHashes(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(2, 2, 6, 6),
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-		audits := satellite.Audit
-
-		nodes := storj.NodeIDList{
-			planet.StorageNodes[0].ID(),
-			planet.StorageNodes[1].ID(),
-			planet.StorageNodes[2].ID(),
-			planet.StorageNodes[3].ID(),
-			planet.StorageNodes[4].ID(),
-			planet.StorageNodes[5].ID(),
-		}
-
-		// happy path test cases
-		for i, tt := range []struct {
-			report  audit.Report
-			err     error
-			changed bool
-		}{
-			{ // empty report is sometimes returned if the segment was expired or deleted.
-				report:  audit.Report{},
-				changed: false,
-			},
-			{ // all nodes from the pointer responded successfully to the audit
-				report:  audit.Report{Successes: nodes},
-				changed: true,
-			},
-			{ // one node failed the audit
-				report:  audit.Report{Successes: nodes[1:], Fails: nodes[:1]},
-				changed: true,
-			},
-			{ // 4 nodes failed the audit
-				report:  audit.Report{Successes: nodes[4:], Fails: nodes[:4]},
-				changed: true,
-			},
-			{ // one node was offline
-				report:  audit.Report{Successes: nodes[1:], Offlines: nodes[:1]},
-				changed: true,
-			},
-			{ // 4 nodes were offline
-				report:  audit.Report{Successes: nodes[4:], Offlines: nodes[:4]},
-				changed: true,
-			},
-			{ // one node was contained and scheduled for reverification
-				report:  audit.Report{Successes: nodes[1:], PendingAudits: []*audit.PendingAudit{{NodeID: nodes[0]}}},
-				changed: true,
-			},
-			{ // 4 nodes were contained and scheduled for reverification
-				report:  audit.Report{Successes: nodes[4:], PendingAudits: []*audit.PendingAudit{{NodeID: nodes[0]}, {NodeID: nodes[1]}, {NodeID: nodes[2]}, {NodeID: nodes[3]}}},
-				changed: true,
-			},
-			{ // one node returned unknown error
-				report:  audit.Report{Successes: nodes[1:], Unknown: nodes[:1]},
-				changed: true,
-			},
-			{ // 4 nodes returned unknown error
-				report:  audit.Report{Successes: nodes[4:], Unknown: nodes[:4]},
-				changed: true,
-			},
-			{ // one node failed the audit and 2 nodes were offline
-				report:  audit.Report{Successes: nodes[3:], Fails: nodes[:1], Offlines: nodes[1:3]},
-				changed: true,
-			},
-			{ // one node failed the audit, one was offline, one was contained, and one returned unknown error
-				report:  audit.Report{Successes: nodes[4:], Fails: nodes[:1], Offlines: nodes[1:2], PendingAudits: []*audit.PendingAudit{{NodeID: nodes[2]}}, Unknown: nodes[3:4]},
-				changed: true,
-			},
-			{ // remaining nodes are below repair threshold
-				report:  audit.Report{Successes: nodes[5:], Offlines: nodes[:5]},
-				changed: false,
-			},
-			{ // Verify returns an error
-				report:  audit.Report{},
-				err:     errors.New("test error"),
-				changed: false,
-			},
-		} {
-			errTag := fmt.Sprintf("%d. %+v", i, tt)
-
-			testReport := tt.report
-			testErr := tt.err
-
-			audits.Verifier.OnTestingVerifyMockFunc = func() (audit.Report, error) {
-				return testReport, testErr
-			}
-
-			ul := planet.Uplinks[0]
-			testData := testrand.Bytes(8 * memory.KiB)
-
-			err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
-			require.NoError(t, err)
-
-			keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)
-			require.NoError(t, err, errTag)
-			require.Equal(t, 1, len(keys))
-
-			key := metabase.SegmentKey(keys[0])
-
-			// verifying segments with piece_hashes_verified = true should return no error and changed = false
-			changed, err := audits.Verifier.VerifyPieceHashes(ctx, string(key), false)
-			require.NoError(t, err, errTag)
-			assert.False(t, changed, errTag)
-
-			// assert that piece_hashes_verified = true before setting it to false
-			pointer, err := satellite.Metainfo.Service.Get(ctx, key)
-			require.NoError(t, err, errTag)
-			require.True(t, pointer.PieceHashesVerified, errTag)
-
-			// set the piece_hashes_verified to false and store it in the pointer
-			pointer.PieceHashesVerified = false
-			err = satellite.Metainfo.Service.UnsynchronizedPut(ctx, key, pointer)
-			require.NoError(t, err, errTag)
-
-			// verifying (dry run) segments with piece_hashes_verified = false should return no error and changed = true
-			changed, err = audits.Verifier.VerifyPieceHashes(ctx, string(key), true)
-			assert.Equal(t, tt.err, err, errTag)
-			assert.Equal(t, tt.changed, changed, errTag)
-
-			// assert that piece_hashes_verified is still false after the dry run
-			dryRunPointer, err := satellite.Metainfo.Service.Get(ctx, key)
-			require.NoError(t, err, errTag)
-			assert.False(t, dryRunPointer.PieceHashesVerified, errTag)
-
-			// assert the no piece was removed from the pointer by the dry run
-			for i, piece := range dryRunPointer.Remote.RemotePieces {
-				require.GreaterOrEqual(t, len(pointer.Remote.RemotePieces), i, errTag)
-				assert.Equal(t, pointer.Remote.RemotePieces[i].NodeId, piece.NodeId, errTag)
-			}
-
-			// verifying (no dry run) segments with piece_hashes_verified = false should return no error and changed = true
-			changed, err = audits.Verifier.VerifyPieceHashes(ctx, string(key), false)
-			assert.Equal(t, tt.err, err, errTag)
-			assert.Equal(t, tt.changed, changed, errTag)
-
-			// assert that piece_hashes_verified = true if the segment was verified
-			verifiedPointer, err := satellite.Metainfo.Service.Get(ctx, key)
-			require.NoError(t, err, errTag)
-			assert.Equal(t, tt.changed, verifiedPointer.PieceHashesVerified, errTag)
-
-			if changed {
-				// assert the remaining pieces in the pointer are the expected ones
-				for _, piece := range verifiedPointer.Remote.RemotePieces {
-					assert.Contains(t, tt.report.Successes, piece.NodeId, errTag)
-					assert.NotContains(t, tt.report.Fails, piece.NodeId, errTag)
-					assert.NotContains(t, tt.report.Offlines, piece.NodeId, errTag)
-					assert.NotContains(t, tt.report.Unknown, piece.NodeId, errTag)
-					for _, pending := range tt.report.PendingAudits {
-						assert.NotEqual(t, pending.NodeID, piece.NodeId, errTag)
-					}
-				}
-			} else {
-				// assert the no piece was removed from the pointer if it wasn't verified
-				for i, piece := range verifiedPointer.Remote.RemotePieces {
-					require.GreaterOrEqual(t, len(pointer.Remote.RemotePieces), i, errTag)
-					assert.Equal(t, pointer.Remote.RemotePieces[i].NodeId, piece.NodeId, errTag)
-				}
-			}
-
-			// fixing non-existing object should return no error and changed = false
-			err = satellite.Metainfo.Service.UnsynchronizedDelete(ctx, key)
-			require.NoError(t, err, errTag)
-
-			changed, err = audits.Verifier.VerifyPieceHashes(ctx, string(key), false)
-			require.NoError(t, err, errTag)
-			assert.False(t, changed, errTag)
-		}
 	})
 }

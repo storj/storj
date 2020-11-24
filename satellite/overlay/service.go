@@ -14,6 +14,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/storage"
 )
 
@@ -68,7 +69,7 @@ type DB interface {
 	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, config NodeSelectionConfig) (err error)
 
 	// UpdateAuditHistory updates a node's audit history with an online or offline audit.
-	UpdateAuditHistory(ctx context.Context, nodeID storj.NodeID, auditTime time.Time, online bool, config AuditHistoryConfig) (auditHistory *pb.AuditHistory, err error)
+	UpdateAuditHistory(ctx context.Context, nodeID storj.NodeID, auditTime time.Time, online bool, config AuditHistoryConfig) (auditHistory *internalpb.AuditHistory, err error)
 
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
 	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
@@ -155,13 +156,14 @@ const (
 	AuditFailure
 	// AuditUnknown represents an audit that resulted in an unknown error from the node.
 	AuditUnknown
+	// AuditOffline represents an audit where a node was offline.
+	AuditOffline
 )
 
 // UpdateRequest is used to update a node status.
 type UpdateRequest struct {
 	NodeID       storj.NodeID
 	AuditOutcome AuditType
-	IsUp         bool
 	// n.b. these are set values from the satellite.
 	// They are part of the UpdateRequest struct in order to be
 	// more easily accessible in satellite/satellitedb/overlaycache.go.
@@ -531,12 +533,12 @@ func ResolveIPAndNetwork(ctx context.Context, target string) (ipPort, network st
 
 	// If addr can be converted to 4byte notation, it is an IPv4 address, else its an IPv6 address
 	if ipv4 := ipAddr.IP.To4(); ipv4 != nil {
-		//Filter all IPv4 Addresses into /24 Subnet's
+		// Filter all IPv4 Addresses into /24 Subnet's
 		mask := net.CIDRMask(24, 32)
 		return net.JoinHostPort(ipAddr.String(), port), ipv4.Mask(mask).String(), nil
 	}
 	if ipv6 := ipAddr.IP.To16(); ipv6 != nil {
-		//Filter all IPv6 Addresses into /64 Subnet's
+		// Filter all IPv6 Addresses into /64 Subnet's
 		mask := net.CIDRMask(64, 128)
 		return net.JoinHostPort(ipAddr.String(), port), ipv6.Mask(mask).String(), nil
 	}

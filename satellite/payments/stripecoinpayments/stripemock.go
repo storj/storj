@@ -4,6 +4,7 @@
 package stripecoinpayments
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -20,6 +21,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/console"
 )
 
 // mocks synchronized map for caching mockStripeClient.
@@ -33,19 +35,25 @@ import (
 // instance of mockStripeClient.
 var mocks = struct {
 	sync.Mutex
-	m map[storj.NodeID]StripeClient
+	m map[storj.NodeID]*mockStripeState
 }{
-	m: make(map[storj.NodeID]StripeClient),
+	m: make(map[storj.NodeID]*mockStripeState),
 }
 
-// mockStripeClient Stripe client mock.
-type mockStripeClient struct {
-	customers                   *mockCustomers
+// mockStripeState Stripe client mock.
+type mockStripeState struct {
+	customers                   *mockCustomersState
 	paymentMethods              *mockPaymentMethods
 	invoices                    *mockInvoices
 	invoiceItems                *mockInvoiceItems
 	customerBalanceTransactions *mockCustomerBalanceTransactions
 	charges                     *mockCharges
+}
+
+type mockStripeClient struct {
+	customersDB CustomersDB
+	usersDB     console.Users
+	*mockStripeState
 }
 
 // NewStripeMock creates new Stripe client mock.
@@ -57,28 +65,39 @@ type mockStripeClient struct {
 // If called by CLI tool, the id param should be a zero value, i.e. storj.NodeID{}.
 // If called by satellitedb test case, the id param should be a random value,
 // i.e. testrand.NodeID().
-func NewStripeMock(id storj.NodeID) StripeClient {
+func NewStripeMock(id storj.NodeID, customersDB CustomersDB, usersDB console.Users) StripeClient {
 	mocks.Lock()
 	defer mocks.Unlock()
 
-	mock, ok := mocks.m[id]
+	state, ok := mocks.m[id]
 	if !ok {
-		mock = &mockStripeClient{
-			customers:                   newMockCustomers(),
+		state = &mockStripeState{
+			customers:                   &mockCustomersState{},
 			paymentMethods:              newMockPaymentMethods(),
 			invoices:                    &mockInvoices{},
 			invoiceItems:                &mockInvoiceItems{},
 			customerBalanceTransactions: newMockCustomerBalanceTransactions(),
 			charges:                     &mockCharges{},
 		}
-		mocks.m[id] = mock
+		mocks.m[id] = state
 	}
 
-	return mock
+	return &mockStripeClient{
+		customersDB:     customersDB,
+		usersDB:         usersDB,
+		mockStripeState: state,
+	}
 }
 
 func (m *mockStripeClient) Customers() StripeCustomers {
-	return m.customers
+	mocks.Lock()
+	defer mocks.Unlock()
+
+	return &mockCustomers{
+		customersDB: m.customersDB,
+		usersDB:     m.usersDB,
+		state:       m.customers,
+	}
 }
 
 func (m *mockStripeClient) PaymentMethods() StripePaymentMethods {
@@ -102,50 +121,112 @@ func (m *mockStripeClient) Charges() StripeCharges {
 }
 
 type mockCustomers struct {
-	customers []*stripe.Customer
+	customersDB CustomersDB
+	usersDB     console.Users
+	state       *mockCustomersState
 }
 
-func newMockCustomers() *mockCustomers {
-	return &mockCustomers{
-		customers: make([]*stripe.Customer, 0, 5),
-	}
+type mockCustomersState struct {
+	customers   []*stripe.Customer
+	repopulated bool
 }
 
-func (m *mockCustomers) New(params *stripe.CustomerParams) (*stripe.Customer, error) {
-	uuid, err := uuid.New()
-	if err != nil {
-		return nil, err
+// The Stripe Client Mock is in-memory so all data is lost when the satellite is stopped.
+// We need to repopulate the mock on every restart to ensure that requests to the mock
+// for existing users won't fail with errors like "customer not found".
+func (m *mockCustomers) repopulate() error {
+	mocks.Lock()
+	defer mocks.Unlock()
+
+	if !m.state.repopulated {
+		const limit = 25
+		ctx := context.TODO()
+
+		cusPage, err := m.customersDB.List(ctx, 0, limit, time.Now())
+		if err != nil {
+			return err
+		}
+		for _, cus := range cusPage.Customers {
+			user, err := m.usersDB.Get(ctx, cus.UserID)
+			if err != nil {
+				return err
+			}
+			m.state.customers = append(m.state.customers, newMockCustomer(cus.ID, user.Email))
+		}
+
+		for cusPage.Next {
+			cusPage, err := m.customersDB.List(ctx, cusPage.NextOffset, limit, time.Now())
+			if err != nil {
+				return err
+			}
+			for _, cus := range cusPage.Customers {
+				user, err := m.usersDB.Get(ctx, cus.UserID)
+				if err != nil {
+					return err
+				}
+				m.state.customers = append(m.state.customers, newMockCustomer(cus.ID, user.Email))
+			}
+		}
+
+		m.state.repopulated = true
 	}
-	customer := &stripe.Customer{
-		ID:    uuid.String(),
-		Email: *params.Email,
+
+	return nil
+}
+
+func newMockCustomer(id, email string) *stripe.Customer {
+	return &stripe.Customer{
+		ID:    id,
+		Email: email,
 		InvoiceSettings: &stripe.CustomerInvoiceSettings{
 			DefaultPaymentMethod: &stripe.PaymentMethod{
 				ID: "pm_card_mastercard",
 			},
 		},
 	}
+}
+
+func (m *mockCustomers) New(params *stripe.CustomerParams) (*stripe.Customer, error) {
+	if err := m.repopulate(); err != nil {
+		return nil, err
+	}
+
+	uuid, err := uuid.New()
+	if err != nil {
+		return nil, err
+	}
+
+	customer := newMockCustomer(uuid.String(), *params.Email)
 
 	mocks.Lock()
 	defer mocks.Unlock()
 
-	m.customers = append(m.customers, customer)
+	m.state.customers = append(m.state.customers, customer)
 	return customer, nil
 }
 
 func (m *mockCustomers) Get(id string, params *stripe.CustomerParams) (*stripe.Customer, error) {
+	if err := m.repopulate(); err != nil {
+		return nil, err
+	}
+
 	mocks.Lock()
 	defer mocks.Unlock()
 
-	for _, customer := range m.customers {
+	for _, customer := range m.state.customers {
 		if id == customer.ID {
 			return customer, nil
 		}
 	}
+
 	return nil, errors.New("customer not found")
 }
 
 func (m *mockCustomers) Update(id string, params *stripe.CustomerParams) (*stripe.Customer, error) {
+	if err := m.repopulate(); err != nil {
+		return nil, err
+	}
+
 	customer, err := m.Get(id, nil)
 	if err != nil {
 		return nil, err

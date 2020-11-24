@@ -22,10 +22,11 @@ func cmdAdminRun(cmd *cobra.Command, args []string) (err error) {
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
-		log.Fatal("Failed to load identity.", zap.Error(err))
+		log.Error("Failed to load identity.", zap.Error(err))
+		return errs.New("Failed to load identity: %+v", err)
 	}
 
-	db, err := satellitedb.New(log.Named("db"), runCfg.Database, satellitedb.Options{
+	db, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
 		APIKeysLRUOptions: runCfg.APIKeysLRUOptions(),
 	})
 	if err != nil {
@@ -51,7 +52,7 @@ func cmdAdminRun(cmd *cobra.Command, args []string) (err error) {
 
 	err = db.CheckVersion(ctx)
 	if err != nil {
-		log.Fatal("Failed satellite database version check.", zap.Error(err))
+		log.Error("Failed satellite database version check.", zap.Error(err))
 		return errs.New("Error checking version for satellitedb: %+v", err)
 	}
 

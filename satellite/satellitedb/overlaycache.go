@@ -21,6 +21,7 @@ import (
 	"storj.io/private/version"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/tagsql"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -365,7 +366,8 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 					continue
 				}
 
-				auditHistory, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, now, updateReq.IsUp, updateReq.AuditHistory)
+				isUp := updateReq.AuditOutcome != overlay.AuditOffline
+				auditHistory, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, now, isUp, updateReq.AuditHistory)
 				if err != nil {
 					doAppendAll = false
 					return err
@@ -443,7 +445,8 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 			return nil
 		}
 
-		auditHistory, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, now, updateReq.IsUp, updateReq.AuditHistory)
+		isUp := updateReq.AuditOutcome != overlay.AuditOffline
+		auditHistory, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, now, isUp, updateReq.AuditHistory)
 		if err != nil {
 			return err
 		}
@@ -1191,7 +1194,7 @@ type updateNodeStats struct {
 	OnlineScore                 float64Field
 }
 
-func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditHistory *pb.AuditHistory, now time.Time) updateNodeStats {
+func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditHistory *internalpb.AuditHistory, now time.Time) updateNodeStats {
 	// there are three audit outcomes: success, failure, and unknown
 	// if a node fails enough audits, it gets disqualified
 	// if a node gets enough "unknown" audits, it gets put into suspension
@@ -1246,16 +1249,20 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 			updateReq.AuditWeight,
 			totalAuditCount,
 		)
-
+	case overlay.AuditOffline:
+		// for audit offline, only update total audit count
+		updatedTotalAuditCount = totalAuditCount + 1
 	}
-	mon.FloatVal("audit_reputation_alpha").Observe(auditAlpha)                //locked
-	mon.FloatVal("audit_reputation_beta").Observe(auditBeta)                  //locked
-	mon.FloatVal("unknown_audit_reputation_alpha").Observe(unknownAuditAlpha) //locked
-	mon.FloatVal("unknown_audit_reputation_beta").Observe(unknownAuditBeta)   //locked
-	mon.FloatVal("audit_online_score").Observe(auditOnlineScore)              //locked
+
+	mon.FloatVal("audit_reputation_alpha").Observe(auditAlpha)                //mon:locked
+	mon.FloatVal("audit_reputation_beta").Observe(auditBeta)                  //mon:locked
+	mon.FloatVal("unknown_audit_reputation_alpha").Observe(unknownAuditAlpha) //mon:locked
+	mon.FloatVal("unknown_audit_reputation_beta").Observe(unknownAuditBeta)   //mon:locked
+	mon.FloatVal("audit_online_score").Observe(auditOnlineScore)              //mon:locked
 
 	totalUptimeCount := dbNode.TotalUptimeCount
-	if updateReq.IsUp {
+	isUp := updateReq.AuditOutcome != overlay.AuditOffline
+	if isUp {
 		totalUptimeCount++
 	}
 
@@ -1278,6 +1285,7 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	auditRep := auditAlpha / (auditAlpha + auditBeta)
 	if auditRep <= updateReq.AuditDQ {
 		cache.db.log.Info("Disqualified", zap.String("DQ type", "audit failure"), zap.String("Node ID", updateReq.NodeID.String()))
+		mon.Meter("bad_audit_dqs").Mark(1) //mon:locked
 		updateFields.Disqualified = timeField{set: true, value: now}
 	}
 
@@ -1302,6 +1310,7 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 				time.Since(*dbNode.UnknownAuditSuspended) > updateReq.SuspensionGracePeriod &&
 				updateReq.SuspensionDQEnabled {
 				cache.db.log.Info("Disqualified", zap.String("DQ type", "suspension grace period expired for unknown audits"), zap.String("Node ID", updateReq.NodeID.String()))
+				mon.Meter("unknown_suspension_dqs").Mark(1) //mon:locked
 				updateFields.Disqualified = timeField{set: true, value: now}
 				updateFields.UnknownAuditSuspended = timeField{set: true, isNil: true}
 			}
@@ -1311,7 +1320,7 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 		updateFields.UnknownAuditSuspended = timeField{set: true, isNil: true}
 	}
 
-	if updateReq.IsUp {
+	if isUp {
 		updateFields.UptimeSuccessCount = int64Field{set: true, value: dbNode.UptimeSuccessCount + 1}
 		updateFields.LastContactSuccess = timeField{set: true, value: now}
 	} else {
@@ -1351,16 +1360,14 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 		trackingPeriodPassed := now.After(trackingPeriodEnd)
 
 		// after tracking period has elapsed, if score is good, clear under review
-		// otherwise, disqualify node
-		// TODO until disqualification is enabled, nodes will remain under review if their score is passed after the grace+tracking period
+		// otherwise, disqualify node (if OfflineDQEnabled feature flag is true)
 		if trackingPeriodPassed {
 			if penalizeOfflineNode {
-				// TODO enable disqualification
-				/*
+				if updateReq.AuditHistory.OfflineDQEnabled {
 					cache.db.log.Info("Disqualified", zap.String("DQ type", "node offline"), zap.String("Node ID", updateReq.NodeID.String()))
+					mon.Meter("offline_dqs").Mark(1) //mon:locked
 					updateFields.Disqualified = timeField{set: true, value: now}
-					// TODO metric
-				*/
+				}
 			} else {
 				updateFields.OfflineUnderReview = timeField{set: true, isNil: true}
 				updateFields.OfflineSuspended = timeField{set: true, isNil: true}
@@ -1375,7 +1382,7 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	return updateFields
 }
 
-func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditHistory *pb.AuditHistory, now time.Time) dbx.Node_Update_Fields {
+func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditHistory *internalpb.AuditHistory, now time.Time) dbx.Node_Update_Fields {
 
 	update := cache.populateUpdateNodeStats(dbNode, updateReq, auditHistory, now)
 	updateFields := dbx.Node_Update_Fields{}

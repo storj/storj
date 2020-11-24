@@ -25,23 +25,23 @@ import (
 )
 
 func TestBasicMigrationSqliteNoRebind(t *testing.T) {
-	db, err := tagsql.Open("sqlite3", ":memory:")
-	require.NoError(t, err)
-	defer func() { assert.NoError(t, db.Close()) }()
-
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
+
+	db, err := tagsql.Open(ctx, "sqlite3", ":memory:")
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, db.Close()) }()
 
 	basicMigration(ctx, t, db, db)
 }
 
 func TestBasicMigrationSqlite(t *testing.T) {
-	db, err := tagsql.Open("sqlite3", ":memory:")
-	require.NoError(t, err)
-	defer func() { assert.NoError(t, db.Close()) }()
-
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
+
+	db, err := tagsql.Open(ctx, "sqlite3", ":memory:")
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, db.Close()) }()
 
 	basicMigration(ctx, t, db, &sqliteDB{DB: db})
 }
@@ -59,7 +59,7 @@ func TestBasicMigration(t *testing.T) {
 }
 
 func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB tagsql.DB) {
-	dbName := strings.ToLower(`versions_` + strings.Replace(t.Name(), "/", "_", -1))
+	dbName := strings.ToLower(`versions_` + strings.ReplaceAll(t.Name(), "/", "_"))
 	defer func() { assert.NoError(t, dropTables(ctx, db, dbName, "users")) }()
 
 	/* #nosec G306 */ // This is a test besides the file contains just test data.
@@ -69,7 +69,7 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB
 		Table: dbName,
 		Steps: []*migrate.Step{
 			{
-				DB:          testDB,
+				DB:          &testDB,
 				Description: "Initialize Table",
 				Version:     1,
 				Action: migrate.SQL{
@@ -78,7 +78,7 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB
 				},
 			},
 			{
-				DB:          testDB,
+				DB:          &testDB,
 				Description: "Move files",
 				Version:     2,
 				Action: migrate.Func(func(_ context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
@@ -103,7 +103,7 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB
 		Table: dbName,
 		Steps: []*migrate.Step{
 			{
-				DB:      testDB,
+				DB:      &testDB,
 				Version: 3,
 			},
 		},
@@ -137,27 +137,30 @@ func basicMigration(ctx *testcontext.Context, t *testing.T, db tagsql.DB, testDB
 }
 
 func TestMultipleMigrationSqlite(t *testing.T) {
-	db, err := tagsql.Open("sqlite3", ":memory:")
-	require.NoError(t, err)
-	defer func() { assert.NoError(t, db.Close()) }()
-
-	multipleMigration(t, db, &sqliteDB{DB: db})
-}
-
-func TestMultipleMigrationPostgres(t *testing.T) {
-	connstr := pgtest.PickPostgres(t)
-
-	db, err := tagsql.Open("pgx", connstr)
-	require.NoError(t, err)
-	defer func() { assert.NoError(t, db.Close()) }()
-
-	multipleMigration(t, db, &postgresDB{DB: db})
-}
-
-func multipleMigration(t *testing.T, db tagsql.DB, testDB tagsql.DB) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
+	db, err := tagsql.Open(ctx, "sqlite3", ":memory:")
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	multipleMigration(ctx, t, db, &sqliteDB{DB: db})
+}
+
+func TestMultipleMigrationPostgres(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	connstr := pgtest.PickPostgres(t)
+
+	db, err := tagsql.Open(ctx, "pgx", connstr)
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	multipleMigration(ctx, t, db, &postgresDB{DB: db})
+}
+
+func multipleMigration(ctx context.Context, t *testing.T, db tagsql.DB, testDB tagsql.DB) {
 	dbName := strings.ToLower(`versions_` + t.Name())
 	defer func() { assert.NoError(t, dropTables(ctx, db, dbName)) }()
 
@@ -166,7 +169,7 @@ func multipleMigration(t *testing.T, db tagsql.DB, testDB tagsql.DB) {
 		Table: dbName,
 		Steps: []*migrate.Step{
 			{
-				DB:          testDB,
+				DB:          &testDB,
 				Description: "Step 1",
 				Version:     1,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
@@ -175,7 +178,7 @@ func multipleMigration(t *testing.T, db tagsql.DB, testDB tagsql.DB) {
 				}),
 			},
 			{
-				DB:          testDB,
+				DB:          &testDB,
 				Description: "Step 2",
 				Version:     2,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
@@ -191,7 +194,7 @@ func multipleMigration(t *testing.T, db tagsql.DB, testDB tagsql.DB) {
 	assert.Equal(t, 2, steps)
 
 	m.Steps = append(m.Steps, &migrate.Step{
-		DB:          testDB,
+		DB:          &testDB,
 		Description: "Step 3",
 		Version:     3,
 		Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
@@ -213,27 +216,30 @@ func multipleMigration(t *testing.T, db tagsql.DB, testDB tagsql.DB) {
 }
 
 func TestFailedMigrationSqlite(t *testing.T) {
-	db, err := tagsql.Open("sqlite3", ":memory:")
-	require.NoError(t, err)
-	defer func() { assert.NoError(t, db.Close()) }()
-
-	failedMigration(t, db, &sqliteDB{DB: db})
-}
-
-func TestFailedMigrationPostgres(t *testing.T) {
-	connstr := pgtest.PickPostgres(t)
-
-	db, err := tagsql.Open("pgx", connstr)
-	require.NoError(t, err)
-	defer func() { assert.NoError(t, db.Close()) }()
-
-	failedMigration(t, db, &postgresDB{DB: db})
-}
-
-func failedMigration(t *testing.T, db tagsql.DB, testDB tagsql.DB) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
+	db, err := tagsql.Open(ctx, "sqlite3", ":memory:")
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	failedMigration(ctx, t, db, &sqliteDB{DB: db})
+}
+
+func TestFailedMigrationPostgres(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	connstr := pgtest.PickPostgres(t)
+
+	db, err := tagsql.Open(ctx, "pgx", connstr)
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, db.Close()) }()
+
+	failedMigration(ctx, t, db, &postgresDB{DB: db})
+}
+
+func failedMigration(ctx context.Context, t *testing.T, db tagsql.DB, testDB tagsql.DB) {
 	dbName := strings.ToLower(`versions_` + t.Name())
 	defer func() { assert.NoError(t, dropTables(ctx, db, dbName)) }()
 
@@ -241,7 +247,7 @@ func failedMigration(t *testing.T, db tagsql.DB, testDB tagsql.DB) {
 		Table: dbName,
 		Steps: []*migrate.Step{
 			{
-				DB:          testDB,
+				DB:          &testDB,
 				Description: "Step 1",
 				Version:     1,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {

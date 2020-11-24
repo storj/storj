@@ -15,6 +15,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storage"
 )
@@ -23,7 +24,7 @@ func TestInsertSelect(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		q := db.RepairQueue()
 
-		seg := &pb.InjuredSegment{
+		seg := &internalpb.InjuredSegment{
 			Path:       []byte("abc"),
 			LostPieces: []int32{int32(1), int32(3)},
 		}
@@ -42,7 +43,7 @@ func TestInsertDuplicate(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		q := db.RepairQueue()
 
-		seg := &pb.InjuredSegment{
+		seg := &internalpb.InjuredSegment{
 			Path:       []byte("abc"),
 			LostPieces: []int32{int32(1), int32(3)},
 		}
@@ -70,9 +71,9 @@ func TestSequential(t *testing.T) {
 		q := db.RepairQueue()
 
 		const N = 20
-		var addSegs []*pb.InjuredSegment
+		var addSegs []*internalpb.InjuredSegment
 		for i := 0; i < N; i++ {
-			seg := &pb.InjuredSegment{
+			seg := &internalpb.InjuredSegment{
 				Path:       []byte(strconv.Itoa(i)),
 				LostPieces: []int32{int32(i)},
 			}
@@ -108,14 +109,14 @@ func TestParallel(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		q := db.RepairQueue()
 		const N = 20
-		entries := make(chan *pb.InjuredSegment, N)
+		entries := make(chan *internalpb.InjuredSegment, N)
 
 		var inserts errs2.Group
 		// Add to queue concurrently
 		for i := 0; i < N; i++ {
 			i := i
 			inserts.Go(func() error {
-				_, err := q.Insert(ctx, &pb.InjuredSegment{
+				_, err := q.Insert(ctx, &internalpb.InjuredSegment{
 					Path:       []byte(strconv.Itoa(i)),
 					LostPieces: []int32{int32(i)},
 				}, 10)
@@ -146,7 +147,7 @@ func TestParallel(t *testing.T) {
 		require.Empty(t, remove.Wait(), "unexpected queue.Select/Delete errors")
 		close(entries)
 
-		var items []*pb.InjuredSegment
+		var items []*internalpb.InjuredSegment
 		for segment := range entries {
 			items = append(items, segment)
 		}
@@ -166,29 +167,29 @@ func TestClean(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		q := db.RepairQueue()
 
-		seg1 := &pb.InjuredSegment{
+		seg1 := &internalpb.InjuredSegment{
 			Path:       []byte("seg1"),
 			LostPieces: []int32{int32(1), int32(3)},
 		}
-		seg2 := &pb.InjuredSegment{
+		seg2 := &internalpb.InjuredSegment{
 			Path:       []byte("seg2"),
 			LostPieces: []int32{int32(1), int32(3)},
 		}
-		seg3 := &pb.InjuredSegment{
+		seg3 := &internalpb.InjuredSegment{
 			Path:       []byte("seg3"),
 			LostPieces: []int32{int32(1), int32(3)},
 		}
 
 		timeBeforeInsert1 := time.Now()
 
-		numHealthy := 10
-		_, err := q.Insert(ctx, seg1, numHealthy)
+		segmentHealth := 1.3
+		_, err := q.Insert(ctx, seg1, segmentHealth)
 		require.NoError(t, err)
 
-		_, err = q.Insert(ctx, seg2, numHealthy)
+		_, err = q.Insert(ctx, seg2, segmentHealth)
 		require.NoError(t, err)
 
-		_, err = q.Insert(ctx, seg3, numHealthy)
+		_, err = q.Insert(ctx, seg3, segmentHealth)
 		require.NoError(t, err)
 
 		count, err := q.Count(ctx)
@@ -207,11 +208,11 @@ func TestClean(t *testing.T) {
 
 		// seg1 "becomes healthy", so do not update it
 		// seg2 stays at the same health
-		_, err = q.Insert(ctx, seg2, numHealthy)
+		_, err = q.Insert(ctx, seg2, segmentHealth)
 		require.NoError(t, err)
 
 		// seg3 has a lower health
-		_, err = q.Insert(ctx, seg3, numHealthy-1)
+		_, err = q.Insert(ctx, seg3, segmentHealth-0.1)
 		require.NoError(t, err)
 
 		count, err = q.Count(ctx)

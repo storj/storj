@@ -260,7 +260,8 @@ model injuredsegment (
 	field data blob
 	field attempted timestamp (updatable, nullable)
 	field updated_at timestamp ( updatable, default current_timestamp )
-    field num_healthy_pieces int (default 52)
+	field num_healthy_pieces int (default 52)
+	field segment_health float64 (default 1)
 
 	index (
 		fields attempted
@@ -268,6 +269,10 @@ model injuredsegment (
 
 	index (
 		fields num_healthy_pieces
+	)
+
+	index (
+		fields segment_health
 	)
 
 	index (
@@ -320,10 +325,10 @@ model project (
 
     field name            text      ( updatable )
     field description     text      ( updatable )
-    field usage_limit     int64     ( nullable, default 50000000000, updatable )
-    field bandwidth_limit int64     ( nullable, default 50000000000, updatable )
+    field usage_limit     int64     ( nullable, updatable )
+    field bandwidth_limit int64     ( nullable, updatable )
     field rate_limit      int       ( nullable, updatable )
-    field max_buckets     int       ( nullable, default 100, updatable )
+    field max_buckets     int       ( nullable, updatable )
     field partner_id      blob      ( nullable )
     field owner_id        blob
 
@@ -660,13 +665,6 @@ model storagenode_bandwidth_rollup (
 
 create storagenode_bandwidth_rollup()
 
-read scalar (
-	select storagenode_bandwidth_rollup
-	where  storagenode_bandwidth_rollup.storagenode_id = ?
-	where  storagenode_bandwidth_rollup.interval_start = ?
-	where  storagenode_bandwidth_rollup.action = ?
-)
-
 read all (
 	select storagenode_bandwidth_rollup
 	where storagenode_bandwidth_rollup.interval_start >= ?
@@ -676,6 +674,31 @@ read all (
 	select storagenode_bandwidth_rollup
 	where storagenode_bandwidth_rollup.storagenode_id = ?
 	where storagenode_bandwidth_rollup.interval_start = ?
+)
+
+///////////////////////////////////////
+// orders phase2->phase3 rollout table
+///////////////////////////////////////
+
+model storagenode_bandwidth_rollup_phase2 (
+	table storagenode_bandwidth_rollups_phase2 // make the pluralization consistent
+
+	key storagenode_id interval_start action
+
+	field storagenode_id   blob
+	field interval_start   timestamp
+	field interval_seconds uint
+	field action           uint
+
+	field allocated uint64 ( updatable, nullable, default 0 )
+	field settled   uint64 ( updatable )
+)
+
+create storagenode_bandwidth_rollup_phase2 ( )
+
+read all (
+	select storagenode_bandwidth_rollup_phase2
+	where storagenode_bandwidth_rollup_phase2.interval_start >= ?
 )
 
 model storagenode_storage_tally (
@@ -1032,6 +1055,11 @@ model graceful_exit_transfer_queue (
 	field failed_count           int       ( updatable, nullable )
 	field finished_at            timestamp ( updatable, nullable )
 	field order_limit_send_count int       ( updatable, default 0 )
+
+	index (
+		name graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index
+		fields node_id durability_ratio queued_at finished_at last_failed_at
+	)
 )
 
 create graceful_exit_transfer_queue ( noreturn )

@@ -19,15 +19,15 @@ func update(ctx context.Context, serviceName, binaryLocation string, ver version
 		return errs.Wrap(err)
 	}
 
-	var currentVersion version.SemVer
-	if serviceName == updaterServiceName {
-		currentVersion = version.Build.Version
-	} else {
-		currentVersion, err = binaryVersion(binaryLocation)
-		if err != nil {
-			return errs.Wrap(err)
-		}
+	currentVersion, err := binaryVersion(binaryLocation)
+	if err != nil {
+		return errs.Wrap(err)
 	}
+
+	zap.L().Info("Current binary version",
+		zap.String("Service", serviceName),
+		zap.String("Version", currentVersion.String()),
+	)
 
 	// should update
 	shouldUpdate, reason, err := version.ShouldUpdateVersion(currentVersion, nodeID, ver)

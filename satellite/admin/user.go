@@ -108,7 +108,7 @@ func (server *Server) addUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//Set User Status to be activated, as we manually created it
+	// Set User Status to be activated, as we manually created it
 	newuser.Status = console.Active
 	newuser.PasswordHash = nil
 	err = server.db.Console().Users().Update(ctx, newuser)

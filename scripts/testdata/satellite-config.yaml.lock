@@ -31,11 +31,14 @@
 # how frequently irrepairable checker should check for lost pieces
 # checker.irreparable-interval: 30m0s
 
+# the probability of a single node going down within the next checker iteration
+# checker.node-failure-rate: 5.435e-05
+
 # how stale reliable node cache can be
 # checker.reliability-cache-staleness: 5m0s
 
 # override value for repair threshold
-# checker.repair-override: 0
+# checker.repair-override: 52
 
 # percent of held amount disposed to node after leaving withheld
 compensation.dispose-percent: 50
@@ -400,32 +403,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # request rate per project per second.
 # metainfo.rate-limiter.rate: 1000
 
-# the size of each new erasure share in bytes
-# metainfo.rs.erasure-share-size: 256 B
-
-# maximum buffer memory to be allocated for read buffers
-# metainfo.rs.max-buffer-mem: 4.0 MiB
-
-# the largest amount of pieces to encode to. n (upper bound for validation).
-# metainfo.rs.max-total-threshold: 130
-
-# the minimum pieces required to recover a segment. k.
-# metainfo.rs.min-threshold: 29
-
-# the largest amount of pieces to encode to. n (lower bound for validation).
-# metainfo.rs.min-total-threshold: 95
-
-# the minimum safe pieces before a repair is triggered. m.
-# metainfo.rs.repair-threshold: 35
-
-# the desired total pieces for a segment. o.
-# metainfo.rs.success-threshold: 80
-
-# the largest amount of pieces to encode to. n.
-# metainfo.rs.total-threshold: 110
-
-# validate redundancy scheme configuration
-# metainfo.rs.validate: true
+# redundancy scheme configuration in the format k/m/o/n-sharesize
+# metainfo.rs: 29/35/80/110-256 B
 
 # address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
@@ -463,6 +442,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # include encrypted metadata in the order limit
 # orders.include-encrypted-metadata: false
 
+# how many concurrent orders to process at once. zero is unlimited
+# orders.orders-semaphore-size: 2
+
 # how many records to read in a single transaction when calculating billable bandwidth
 # orders.reported-rollups-read-batch-size: 1000
 
@@ -470,10 +452,13 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # orders.settlement-batch-size: 250
 
 # rollout phase for the windowed endpoint
-# orders.window-endpoint-rollout-phase: phase1
+# orders.window-endpoint-rollout-phase: phase3
 
 # The length of time to give suspended SNOs to diagnose and fix issues causing downtime. Afterwards, they will have one tracking period to reach the minimum online score before disqualification
 # overlay.audit-history.grace-period: 168h0m0s
+
+# whether nodes will be disqualified if they have low online score after a review period
+# overlay.audit-history.offline-dq-enabled: false
 
 # The point below which a node is punished for offline audits. Determined by calculating the ratio of online/total audits within each window and finding the average across windows within the tracking period.
 # overlay.audit-history.offline-threshold: 0.6

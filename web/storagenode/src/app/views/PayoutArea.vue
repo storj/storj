@@ -57,7 +57,6 @@ import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
-import { NotificationsCursor } from '@/app/types/notifications';
 import { PayoutPeriod, TotalHeldAndPaid } from '@/storagenode/payouts/payouts';
 
 @Component ({
@@ -88,7 +87,7 @@ export default class PayoutArea extends Vue {
         }
 
         try {
-            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, new NotificationsCursor(1));
+            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, 1);
         } catch (error) {
             console.error(error);
         }

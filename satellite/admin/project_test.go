@@ -60,7 +60,7 @@ func TestAPI(t *testing.T) {
 		})
 
 		t.Run("GetProjectLimits", func(t *testing.T) {
-			assertGet(t, linkLimit, `{"usage":{"amount":"50.00 GB","bytes":50000000000},"bandwidth":{"amount":"50.00 GB","bytes":50000000000},"rate":{"rps":0},"maxBuckets":0}`, planet.Satellites[0].Config.Console.AuthToken)
+			assertGet(t, linkLimit, `{"usage":{"amount":"0 B","bytes":0},"bandwidth":{"amount":"0 B","bytes":0},"rate":{"rps":0},"maxBuckets":0}`, planet.Satellites[0].Config.Console.AuthToken)
 		})
 
 		t.Run("UpdateUsage", func(t *testing.T) {
@@ -75,7 +75,7 @@ func TestAPI(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.StatusCode)
 			require.NoError(t, response.Body.Close())
 
-			assertGet(t, linkLimit, `{"usage":{"amount":"1.0 TiB","bytes":1099511627776},"bandwidth":{"amount":"50.00 GB","bytes":50000000000},"rate":{"rps":0},"maxBuckets":0}`, planet.Satellites[0].Config.Console.AuthToken)
+			assertGet(t, linkLimit, `{"usage":{"amount":"1.0 TiB","bytes":1099511627776},"bandwidth":{"amount":"0 B","bytes":0},"rate":{"rps":0},"maxBuckets":0}`, planet.Satellites[0].Config.Console.AuthToken)
 
 			req, err = http.NewRequest(http.MethodPut, linkLimit+"?usage=1GB", nil)
 			require.NoError(t, err)
@@ -86,7 +86,7 @@ func TestAPI(t *testing.T) {
 			require.Equal(t, http.StatusOK, response.StatusCode)
 			require.NoError(t, response.Body.Close())
 
-			assertGet(t, linkLimit, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"50.00 GB","bytes":50000000000},"rate":{"rps":0},"maxBuckets":0}`, planet.Satellites[0].Config.Console.AuthToken)
+			assertGet(t, linkLimit, `{"usage":{"amount":"1.00 GB","bytes":1000000000},"bandwidth":{"amount":"0 B","bytes":0},"rate":{"rps":0},"maxBuckets":0}`, planet.Satellites[0].Config.Console.AuthToken)
 		})
 
 		t.Run("UpdateBandwidth", func(t *testing.T) {
@@ -538,7 +538,7 @@ func TestDeleteProjectWithUsagePreviousMonth(t *testing.T) {
 		err = planet.Satellites[0].DB.Console().APIKeys().Delete(ctx, apiKeys.APIKeys[0].ID)
 		require.NoError(t, err)
 
-		//ToDo: Improve updating of DB entries
+		// TODO: Improve updating of DB entries
 		now := time.Now().UTC()
 		// set fixed day to avoid failures at the end of the month
 		accTime := time.Date(now.Year(), now.Month()-1, 15, now.Hour(), now.Minute(), now.Second(), now.Nanosecond(), time.UTC)

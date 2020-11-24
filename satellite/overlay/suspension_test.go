@@ -66,7 +66,6 @@ func TestAuditSuspendWithUpdateStats(t *testing.T) {
 		_, err = oc.UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       nodeID,
 			AuditOutcome: overlay.AuditUnknown,
-			IsUp:         true,
 			AuditLambda:  1,
 			AuditWeight:  1,
 			AuditDQ:      0.6,
@@ -90,7 +89,6 @@ func TestAuditSuspendWithUpdateStats(t *testing.T) {
 			_, err = oc.UpdateStats(ctx, &overlay.UpdateRequest{
 				NodeID:       nodeID,
 				AuditOutcome: overlay.AuditSuccess,
-				IsUp:         true,
 				AuditLambda:  1,
 				AuditWeight:  1,
 				AuditDQ:      0.6,
@@ -121,7 +119,6 @@ func TestAuditSuspendFailedAudit(t *testing.T) {
 		_, err = oc.UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       nodeID,
 			AuditOutcome: overlay.AuditFailure,
-			IsUp:         true,
 			AuditLambda:  1,
 			AuditWeight:  1,
 			AuditDQ:      0.6,
@@ -247,10 +244,10 @@ func TestAuditSuspendDQDisabled(t *testing.T) {
 		require.Nil(t, n.UnknownAuditSuspended)
 		require.NotNil(t, n.Disqualified)
 
-		// offline node should still be suspended but not disqualified
+		// offline node should not be suspended or disqualified
 		n, err = oc.Get(ctx, offlineNodeID)
 		require.NoError(t, err)
-		require.NotNil(t, n.UnknownAuditSuspended)
+		require.Nil(t, n.UnknownAuditSuspended)
 		require.Nil(t, n.Disqualified)
 
 		// unknown node should still be suspended but not disqualified
@@ -277,7 +274,6 @@ func TestAuditSuspendBatchUpdateStats(t *testing.T) {
 		nodeUpdateReq := &overlay.UpdateRequest{
 			NodeID:       nodeID,
 			AuditOutcome: overlay.AuditSuccess,
-			IsUp:         true,
 			AuditLambda:  1,
 			AuditWeight:  1,
 			AuditDQ:      0.6,
@@ -325,7 +321,7 @@ func TestAuditSuspendBatchUpdateStats(t *testing.T) {
 // TestOfflineSuspend tests that a node enters offline suspension and "under review" when online score passes below threshold.
 // The node should be able to enter and exit suspension while remaining under review.
 // The node should be reinstated if it has a good online score after the review period.
-// (TODO) The node should be disqualified if it has a bad online score after the review period.
+// The node should be disqualified if it has a bad online score after the review period.
 func TestOfflineSuspend(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
@@ -342,13 +338,13 @@ func TestOfflineSuspend(t *testing.T) {
 
 		updateReq := &overlay.UpdateRequest{
 			NodeID:       nodeID,
-			AuditOutcome: overlay.AuditSuccess,
-			IsUp:         false,
+			AuditOutcome: overlay.AuditOffline,
 			AuditHistory: overlay.AuditHistoryConfig{
 				WindowSize:       time.Hour,
 				TrackingPeriod:   2 * time.Hour,
 				GracePeriod:      time.Hour,
 				OfflineThreshold: 0.6,
+				OfflineDQEnabled: true,
 			},
 
 			AuditLambda:               0.95,
@@ -456,15 +452,8 @@ func TestOfflineSuspend(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, node.OfflineSuspended)
 		require.NotNil(t, node.OfflineUnderReview)
-		require.Nil(t, node.Disqualified)
+		require.NotNil(t, node.Disqualified)
 		require.EqualValues(t, 0.5, node.Reputation.OnlineScore)
-		// TODO uncomment and remove above 4 lines when dq is enabled
-		/*
-			require.NotNil(t, node.OfflineSuspended)
-			require.NotNil(t, node.OfflineUnderReview)
-			require.NotNil(t, node.Disqualified)
-			require.EqualValues(t, 0.5, node.Reputation.OnlineScore)
-		*/
 	})
 }
 
@@ -478,12 +467,11 @@ func setOnlineScore(ctx context.Context, reqPtr *overlay.UpdateRequest, desiredS
 	for window := 0; window < windowsPerTrackingPeriod+1; window++ {
 		updateReqs := []*overlay.UpdateRequest{}
 		for i := 0; i < totalAudits; i++ {
-			isUp := true
-			if i >= onlineAudits {
-				isUp = false
-			}
 			updateReq := *reqPtr
-			updateReq.IsUp = isUp
+			updateReq.AuditOutcome = overlay.AuditSuccess
+			if i >= onlineAudits {
+				updateReq.AuditOutcome = overlay.AuditOffline
+			}
 			updateReq.AuditHistory.GracePeriod = gracePeriod
 
 			updateReqs = append(updateReqs, &updateReq)

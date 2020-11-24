@@ -47,16 +47,23 @@ populate_sno_versions(){
 # set peers' versions
 # in stage 1: satellite, uplink, and storagenode use latest release version
 # in stage 2: satellite core uses latest release version and satellite api uses master. Storage nodes are split into half on latest release version and half on master. Uplink uses the latest release version plus master
+BRANCH_NAME=${BRANCH_NAME:-""}
 git fetch --tags
+# if it's running on a release branch, we will set the stage 1 version to be the latest previous major release
+# if it's running on master, we will set the stage 1 version to be the current release version
 current_commit=$(git rev-parse HEAD)
-current_release_version=$(git describe --tags $current_commit | cut -d '.' -f 1-2)
-previous_release_version=$(git describe --tags `git rev-list --exclude='*rc*' --exclude=$current_release_version* --tags --max-count=1`)
-stage1_sat_version=$previous_release_version
-stage1_uplink_version=$previous_release_version
-stage1_storagenode_versions=$(populate_sno_versions $previous_release_version 10)
+stage1_release_version=$(git tag -l --sort -version:refname | grep -v rc | head -1)
+if [[ $BRANCH_NAME = v* ]]; then
+    current_major_release_version=$(git describe --tags $current_commit | cut -d '.' -f 1-2)
+    previous_release_version=$(git describe --tags `git rev-list --exclude='*rc*' --exclude=$current_major_release_version* --tags --max-count=1`)
+    stage1_release_version=$previous_release_version
+fi
+stage1_sat_version=$stage1_release_version
+stage1_uplink_version=$stage1_release_version
+stage1_storagenode_versions=$(populate_sno_versions $stage1_release_version 10)
 stage2_sat_version=$current_commit
-stage2_uplink_versions=$previous_release_version\ $current_commit
-stage2_storagenode_versions=$(populate_sno_versions $previous_release_version 5)\ $(populate_sno_versions $current_commit 5)
+stage2_uplink_versions=$stage1_release_version\ $current_commit
+stage2_storagenode_versions=$(populate_sno_versions $stage1_release_version 5)\ $(populate_sno_versions $current_commit 5)
 
 echo "stage1_sat_version" $stage1_sat_version
 echo "stage1_uplink_version" $stage1_uplink_version
@@ -201,7 +208,6 @@ for version in ${unique_versions}; do
 
     echo -e "\nAdding worktree for ${version} in ${dir}."
     git worktree add -f "$dir" "${version}"
-    rm -f ${dir}/private/version/release.go
     rm -f ${dir}/internal/version/release.go
     # clear out release information
     cat > ${dir}/private/version/release.go <<-EOF
@@ -210,7 +216,7 @@ for version in ${unique_versions}; do
 	package version
 	EOF
 
-    if [[ $version = $previous_release_version || $version = $current_commit ]]
+    if [[ $version = $stage1_release_version || $version = $current_commit ]]
     then
         echo "Installing storj-sim for ${version} in ${dir}."
         pushd ${dir}
@@ -268,6 +274,8 @@ old_api_cmd="${test_dir}/local-network/satellite/0/old_satellite run api --confi
 nohup $old_api_cmd &
 # Storing the background process' PID.
 old_api_pid=$!
+# Wait until old satellite api is responding to requests to ensure it happens before migration.
+storj-sim tool wait-for -retry 50 -interval 100ms  "127.0.0.1:30000"
 
 # Downloading every file uploaded in stage 1 from the network using the latest commit from master branch for each uplink version
 for ul_version in ${stage2_uplink_versions}; do

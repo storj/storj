@@ -42,7 +42,7 @@ func OpenUnique(ctx context.Context, connstr string, schemaPrefix string) (*dbut
 	schemaName := schemaPrefix + "-" + CreateRandomTestingSchemaName(8)
 	connStrWithSchema := ConnstrWithSchema(connstr, schemaName)
 
-	db, err := tagsql.Open("pgx", connStrWithSchema)
+	db, err := tagsql.Open(ctx, "pgx", connStrWithSchema)
 	if err == nil {
 		// check that connection actually worked before trying CreateSchema, to make
 		// troubleshooting (lots) easier
@@ -61,7 +61,7 @@ func OpenUnique(ctx context.Context, connstr string, schemaPrefix string) (*dbut
 		return DropSchema(ctx, cleanupDB, schemaName)
 	}
 
-	dbutil.Configure(db, "tmp_postgres", mon)
+	dbutil.Configure(ctx, db, "tmp_postgres", mon)
 	return &dbutil.TempDatabase{
 		DB:             db,
 		ConnStr:        connStrWithSchema,

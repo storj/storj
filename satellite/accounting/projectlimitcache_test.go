@@ -60,12 +60,14 @@ func TestProjectLimitCache(t *testing.T) {
 		projectUsageSvc := saPeer.Accounting.ProjectUsage
 		accountingDB := saPeer.DB.ProjectAccounting()
 		projectLimitCache := saPeer.ProjectLimits.Cache
+		defaultUsageLimit := saPeer.Config.Metainfo.ProjectLimits.DefaultMaxUsage.Int64()
+		defaultBandwidthLimit := saPeer.Config.Metainfo.ProjectLimits.DefaultMaxBandwidth.Int64()
+		dbDefaultLimits := accounting.ProjectLimits{Usage: &defaultUsageLimit, Bandwidth: &defaultBandwidthLimit}
 
 		testProject, err := saPeer.DB.Console().Projects().Insert(ctx, &console.Project{Name: "test", OwnerID: testrand.UUID()})
 		require.NoError(t, err)
 
 		const (
-			dbDefaultLimits        = 50000000000
 			errorLimit             = 0
 			expectedUsageLimit     = 1
 			expectedBandwidthLimit = 2
@@ -91,34 +93,37 @@ func TestProjectLimitCache(t *testing.T) {
 		})
 
 		t.Run("default limits", func(t *testing.T) {
-			actualStorageLimitFromDB, err := accountingDB.GetProjectStorageLimit(ctx, testProject.ID)
-			assert.NoError(t, err)
-			assert.Equal(t, int64(dbDefaultLimits), *actualStorageLimitFromDB)
-
 			actualLimitsFromDB, err := accountingDB.GetProjectLimits(ctx, testProject.ID)
 			assert.NoError(t, err)
-			defaultLimits := int64(dbDefaultLimits)
-			assert.Equal(t, accounting.ProjectLimits{Usage: &defaultLimits, Bandwidth: &defaultLimits}, actualLimitsFromDB)
+			assert.Equal(t, accounting.ProjectLimits{}, actualLimitsFromDB)
+
+			actualLimitsFromCache, err := projectLimitCache.GetProjectLimits(ctx, testProject.ID)
+			assert.NoError(t, err)
+			assert.Equal(t, dbDefaultLimits, actualLimitsFromCache)
+
+			actualStorageLimitFromDB, err := accountingDB.GetProjectStorageLimit(ctx, testProject.ID)
+			assert.NoError(t, err)
+			assert.Nil(t, actualStorageLimitFromDB)
 
 			actualStorageLimitFromCache, err := projectLimitCache.GetProjectStorageLimit(ctx, testProject.ID)
 			assert.NoError(t, err)
-			assert.Equal(t, memory.Size(dbDefaultLimits), actualStorageLimitFromCache)
+			assert.Equal(t, memory.Size(*dbDefaultLimits.Usage), actualStorageLimitFromCache)
 
 			actualStorageLimitFromSvc, err := projectUsageSvc.GetProjectStorageLimit(ctx, testProject.ID)
 			assert.NoError(t, err)
-			assert.Equal(t, memory.Size(dbDefaultLimits), actualStorageLimitFromSvc)
+			assert.Equal(t, memory.Size(*dbDefaultLimits.Usage), actualStorageLimitFromSvc)
 
 			actualBandwidthLimitFromDB, err := accountingDB.GetProjectBandwidthLimit(ctx, testProject.ID)
 			assert.NoError(t, err)
-			assert.Equal(t, int64(dbDefaultLimits), *actualBandwidthLimitFromDB)
+			assert.Nil(t, actualBandwidthLimitFromDB)
 
 			actualBandwidthLimitFromCache, err := projectLimitCache.GetProjectBandwidthLimit(ctx, testProject.ID)
 			assert.NoError(t, err)
-			assert.Equal(t, memory.Size(dbDefaultLimits), actualBandwidthLimitFromCache)
+			assert.Equal(t, memory.Size(*dbDefaultLimits.Bandwidth), actualBandwidthLimitFromCache)
 
 			actualBandwidthLimitFromSvc, err := projectUsageSvc.GetProjectBandwidthLimit(ctx, testProject.ID)
 			assert.NoError(t, err)
-			assert.Equal(t, memory.Size(dbDefaultLimits), actualBandwidthLimitFromSvc)
+			assert.Equal(t, memory.Size(*dbDefaultLimits.Bandwidth), actualBandwidthLimitFromSvc)
 		})
 
 		t.Run("update limits in the database", func(t *testing.T) {

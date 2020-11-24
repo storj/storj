@@ -15,7 +15,6 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/pkg/auth"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
@@ -44,7 +43,7 @@ func TestGraphqlQuery(t *testing.T) {
 			},
 		)
 
-		redis, err := redisserver.Mini()
+		redis, err := redisserver.Mini(ctx)
 		require.NoError(t, err)
 		defer ctx.Check(redis.Close)
 
@@ -64,7 +63,11 @@ func TestGraphqlQuery(t *testing.T) {
 
 		paymentsService, err := stripecoinpayments.NewService(
 			log.Named("payments.stripe:service"),
-			stripecoinpayments.NewStripeMock(testrand.NodeID()),
+			stripecoinpayments.NewStripeMock(
+				testrand.NodeID(),
+				db.StripeCoinPayments().Customers(),
+				db.Console().Users(),
+			),
 			pc.StripeCoinPayments,
 			db.StripeCoinPayments(),
 			db.Console().Projects(),
@@ -86,6 +89,7 @@ func TestGraphqlQuery(t *testing.T) {
 			db.Console(),
 			db.ProjectAccounting(),
 			projectUsage,
+			db.Buckets(),
 			db.Rewards(),
 			partnersService,
 			paymentsService.Accounts(),
@@ -147,7 +151,7 @@ func TestGraphqlQuery(t *testing.T) {
 		token, err := service.Token(ctx, createUser.Email, createUser.Password)
 		require.NoError(t, err)
 
-		sauth, err := service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
+		sauth, err := service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
 		require.NoError(t, err)
 
 		authCtx := console.WithAuth(ctx, sauth)

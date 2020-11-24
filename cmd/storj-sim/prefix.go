@@ -100,7 +100,8 @@ func (writer *prefixWriter) Write(data []byte) (int, error) {
 
 	// buffer everything that hasn't been written yet
 	if len(writer.buffer) > 0 {
-		buffer = append(writer.buffer, data...) // nolint gocritic
+		buffer = writer.buffer
+		buffer = append(buffer, data...)
 		defer func() {
 			writer.buffer = buffer
 		}()

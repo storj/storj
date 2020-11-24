@@ -103,7 +103,7 @@ export default class AddCardForm extends Vue {
      * Indicates if user has own project.
      */
     private get userHasOwnProject(): boolean {
-        return this.$store.getters.userProjectsCount > 0;
+        return this.$store.getters.projectsCount > 0;
     }
 }
 </script>

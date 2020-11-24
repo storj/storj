@@ -17,12 +17,12 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
-	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/private/process"
 	"storj.io/storj/private/date"
 	"storj.io/storj/private/prompt"
+	"storj.io/storj/storagenode/internalpb"
 )
 
 type gracefulExitClient struct {
@@ -42,20 +42,20 @@ func dialGracefulExitClient(ctx context.Context, address string) (*gracefulExitC
 	return &gracefulExitClient{conn: conn}, nil
 }
 
-func (client *gracefulExitClient) getNonExitingSatellites(ctx context.Context) (*pb.GetNonExitingSatellitesResponse, error) {
-	return pb.NewDRPCNodeGracefulExitClient(client.conn).GetNonExitingSatellites(ctx, &pb.GetNonExitingSatellitesRequest{})
+func (client *gracefulExitClient) getNonExitingSatellites(ctx context.Context) (*internalpb.GetNonExitingSatellitesResponse, error) {
+	return internalpb.NewDRPCNodeGracefulExitClient(client.conn).GetNonExitingSatellites(ctx, &internalpb.GetNonExitingSatellitesRequest{})
 }
 
-func (client *gracefulExitClient) initGracefulExit(ctx context.Context, req *pb.InitiateGracefulExitRequest) (*pb.ExitProgress, error) {
-	return pb.NewDRPCNodeGracefulExitClient(client.conn).InitiateGracefulExit(ctx, req)
+func (client *gracefulExitClient) initGracefulExit(ctx context.Context, req *internalpb.InitiateGracefulExitRequest) (*internalpb.ExitProgress, error) {
+	return internalpb.NewDRPCNodeGracefulExitClient(client.conn).InitiateGracefulExit(ctx, req)
 }
 
-func (client *gracefulExitClient) getExitProgress(ctx context.Context) (*pb.GetExitProgressResponse, error) {
-	return pb.NewDRPCNodeGracefulExitClient(client.conn).GetExitProgress(ctx, &pb.GetExitProgressRequest{})
+func (client *gracefulExitClient) getExitProgress(ctx context.Context) (*internalpb.GetExitProgressResponse, error) {
+	return internalpb.NewDRPCNodeGracefulExitClient(client.conn).GetExitProgress(ctx, &internalpb.GetExitProgressRequest{})
 }
 
-func (client *gracefulExitClient) gracefulExitFeasibility(ctx context.Context, id storj.NodeID) (*pb.GracefulExitFeasibilityResponse, error) {
-	return pb.NewDRPCNodeGracefulExitClient(client.conn).GracefulExitFeasibility(ctx, &pb.GracefulExitFeasibilityNodeRequest{NodeId: id})
+func (client *gracefulExitClient) gracefulExitFeasibility(ctx context.Context, id storj.NodeID) (*internalpb.GracefulExitFeasibilityResponse, error) {
+	return internalpb.NewDRPCNodeGracefulExitClient(client.conn).GracefulExitFeasibility(ctx, &internalpb.GracefulExitFeasibilityRequest{NodeId: id})
 }
 
 func (client *gracefulExitClient) close() error {
@@ -185,7 +185,7 @@ func cmdGracefulExitStatus(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-func displayExitProgress(w io.Writer, progresses []*pb.ExitProgress) {
+func displayExitProgress(w io.Writer, progresses []*internalpb.ExitProgress) {
 	fmt.Fprintln(w, "\nDomain Name\tNode ID\tPercent Complete\tSuccessful\tCompletion Receipt")
 
 	for _, progress := range progresses {
@@ -229,10 +229,10 @@ func gracefulExitInit(ctx context.Context, satelliteIDs []storj.NodeID, w *tabwr
 	}
 
 	// save satellites for graceful exit into the db
-	progresses := make([]*pb.ExitProgress, 0, len(satelliteIDs))
+	progresses := make([]*internalpb.ExitProgress, 0, len(satelliteIDs))
 	var errgroup errs.Group
 	for _, id := range satelliteIDs {
-		req := &pb.InitiateGracefulExitRequest{
+		req := &internalpb.InitiateGracefulExitRequest{
 			NodeId: id,
 		}
 		resp, err := client.initGracefulExit(ctx, req)

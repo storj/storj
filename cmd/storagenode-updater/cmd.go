@@ -33,6 +33,8 @@ var (
 	// TODO: replace with config value of random bytes in storagenode config.
 	nodeID storj.NodeID
 
+	updaterBinaryPath string
+
 	rootCmd = &cobra.Command{
 		Use:   "storagenode-updater",
 		Short: "Version updater for storage node",
@@ -84,6 +86,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
+	updaterBinaryPath, err = os.Executable()
+	if err != nil {
+		zap.L().Fatal("Unable to find storage node updater binary path.")
+	}
+
 	if !fileExists(runCfg.BinaryLocation) {
 		zap.L().Fatal("Unable to find storage node executable binary.")
 	}
@@ -97,7 +104,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		zap.L().Fatal("Empty node ID.")
 	}
 
-	zap.L().Info("Running on version", zap.String("version", version.Build.Version.String()))
+	zap.L().Info("Running on version",
+		zap.String("Service", updaterServiceName),
+		zap.String("Version", version.Build.Version.String()),
+	)
 
 	ctx, _ := process.Ctx(cmd)
 

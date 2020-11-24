@@ -64,10 +64,11 @@ type Migration struct {
 
 // Step describes a single step in migration.
 type Step struct {
-	DB          tagsql.DB // The DB to execute this step on
+	DB          *tagsql.DB // The DB to execute this step on
 	Description string
 	Version     int // Versions should start at 0
 	Action      Action
+	CreateDB    CreateDB
 
 	// SeparateTx marks a step as it should not be merged together for optimization.
 	// Cockroach cannot add a column and update the value in the same transaction.
@@ -124,7 +125,7 @@ func (migration *Migration) ValidateVersions(ctx context.Context, log *zap.Logge
 
 	expectedVersions := make(map[tagsql.DB]int)
 	for _, step := range migration.Steps {
-		expectedVersions[step.DB] = step.Version
+		expectedVersions[*step.DB] = step.Version
 	}
 
 	for database, expectedVersion := range expectedVersions {
@@ -158,16 +159,24 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 	initialSetup := false
 	for i, step := range migration.Steps {
 		step := step
-		if step.DB == nil {
+
+		if step.CreateDB != nil {
+			if err := step.CreateDB(ctx, log); err != nil {
+				return Error.Wrap(err)
+			}
+		}
+
+		db := *step.DB
+		if db == nil {
 			return Error.New("step.DB is nil for step %d", step.Version)
 		}
 
-		err = migration.ensureVersionTable(ctx, log, step.DB)
+		err = migration.ensureVersionTable(ctx, log, db)
 		if err != nil {
 			return Error.New("creating version table failed: %w", err)
 		}
 
-		version, err := migration.getLatestVersion(ctx, log, step.DB)
+		version, err := migration.getLatestVersion(ctx, log, db)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -184,13 +193,13 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 			stepLog.Info(step.Description)
 		}
 
-		err = txutil.WithTx(ctx, step.DB, nil, func(ctx context.Context, tx tagsql.Tx) error {
-			err = step.Action.Run(ctx, stepLog, step.DB, tx)
+		err = txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+			err = step.Action.Run(ctx, stepLog, db, tx)
 			if err != nil {
 				return err
 			}
 
-			err = migration.addVersion(ctx, tx, step.DB, step.Version)
+			err = migration.addVersion(ctx, tx, db, step.Version)
 			if err != nil {
 				return err
 			}
@@ -293,3 +302,6 @@ type Func func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx)
 func (fn Func) Run(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
 	return fn(ctx, log, db, tx)
 }
+
+// CreateDB is operation for creating new dbs.
+type CreateDB func(ctx context.Context, log *zap.Logger) error

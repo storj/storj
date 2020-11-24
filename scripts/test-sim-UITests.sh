@@ -14,12 +14,6 @@ trap cleanup EXIT
 echo "Running test-sim"
 make -C "$SCRIPTDIR"/.. install-sim
 
-echo "Overriding default max segment size to 6MiB"
-GOBIN=$TMP go install -v -ldflags "-X 'storj.io/uplink.maxSegmentSize=6MiB'" storj.io/storj/cmd/uplink
-
-# use modifed version of uplink
-export PATH=$TMP:$PATH
-
 export STORJ_NETWORK_DIR=$TMP
 
 STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
@@ -33,7 +27,7 @@ else
 	storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
 fi
 
-# run aws-cli tests
+# run UI tests
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network run &&
 curl -s -X POST -H "Content-Type: application/json" -d "{ \"email\": \"test1@g.com\", \"password\": \"123qwe\", \"fullName\": \"full\", \"shortName\": \"\", \"partnerId\": \"\", \"referrerUserId\": \"\"}" http://localhost:10002/api/v0/auth/register
 go test "$SCRIPTDIR"/tests/UITests/...

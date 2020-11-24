@@ -49,10 +49,13 @@ func TestSendingReceivingOrders(t *testing.T) {
 		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
+		// Wait for storage nodes to propagate all information.
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
 		sumBeforeSend := 0
 		for _, storageNode := range planet.StorageNodes {
 			// change settle buffer so orders can be sent
-			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(tomorrow)
+			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 			require.NoError(t, err)
 			for _, satUnsent := range unsentMap {
 				sumBeforeSend += len(satUnsent.InfoList)
@@ -66,7 +69,7 @@ func TestSendingReceivingOrders(t *testing.T) {
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Orders.SendOrders(ctx, tomorrow)
 
-			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(tomorrow)
+			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 			require.NoError(t, err)
 			for _, satUnsent := range unsentMap {
 				sumUnsent += len(satUnsent.InfoList)
@@ -103,9 +106,12 @@ func TestUnableToSendOrders(t *testing.T) {
 		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
+		// Wait for storage nodes to propagate all information.
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
 		sumBeforeSend := 0
 		for _, storageNode := range planet.StorageNodes {
-			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(tomorrow)
+			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 			require.NoError(t, err)
 			for _, satUnsent := range unsentMap {
 				sumBeforeSend += len(satUnsent.InfoList)
@@ -121,7 +127,7 @@ func TestUnableToSendOrders(t *testing.T) {
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Orders.SendOrders(ctx, tomorrow)
 
-			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(tomorrow)
+			unsentMap, err := storageNode.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 			require.NoError(t, err)
 			for _, satUnsent := range unsentMap {
 				sumUnsent += len(satUnsent.InfoList)
@@ -171,7 +177,7 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 		var expectedBucketBandwidth int64
 		expectedStorageBandwidth := make(map[storj.NodeID]int64)
 		for _, storageNode := range planet.StorageNodes {
-			infos, err := storageNode.OrdersStore.ListUnsentBySatellite(tomorrow)
+			infos, err := storageNode.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
 			require.NoError(t, err)
 			for _, unsentInfo := range infos {
 				for _, orderInfo := range unsentInfo.InfoList {
@@ -184,6 +190,7 @@ func TestUploadDownloadBandwidth(t *testing.T) {
 		for _, storageNode := range planet.StorageNodes {
 			storageNode.Storage2.Orders.SendOrders(ctx, tomorrow)
 		}
+		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
 
 		reportedRollupChore := planet.Satellites[0].Core.Accounting.ReportedRollupChore
 		require.NoError(t, reportedRollupChore.RunOnce(ctx, now))
@@ -238,6 +245,9 @@ func TestMultiProjectUploadDownloadBandwidth(t *testing.T) {
 		data, err = planet.Uplinks[1].Download(ctx, planet.Satellites[0], "testbucket1", "test/path")
 		require.NoError(t, err)
 		require.Equal(t, secondExpectedData, data)
+
+		// Wait for storage nodes to propagate all information.
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
 
 		// Have the nodes send up the orders.
 		for _, storageNode := range planet.StorageNodes {

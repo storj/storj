@@ -65,10 +65,11 @@ func getServicePID(service string) (int, error) {
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return 0, err
+		return 0, errs.New("Error retrieving service pid: systemctl: %s %v", string(out), err)
 	}
 
 	trimmed := strings.TrimPrefix(string(out), "MainPID=")
+	trimmed = strings.TrimSuffix(trimmed, "\n")
 
 	pid, err := strconv.Atoi(trimmed)
 	if err != nil {

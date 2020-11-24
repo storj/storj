@@ -12,7 +12,6 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 )
 
@@ -27,32 +26,31 @@ type expiredDeleter struct {
 }
 
 // RemoteSegment deletes the segment if it is expired.
-func (ed *expiredDeleter) RemoteSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
+func (ed *expiredDeleter) RemoteSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return ed.deleteSegmentIfExpired(ctx, location, pointer)
+	return ed.deleteSegmentIfExpired(ctx, segment)
 }
 
 // InlineSegment deletes the segment if it is expired.
-func (ed *expiredDeleter) InlineSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
+func (ed *expiredDeleter) InlineSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return ed.deleteSegmentIfExpired(ctx, location, pointer)
+	return ed.deleteSegmentIfExpired(ctx, segment)
 }
 
 // Object returns nil because the expired deleter only cares about segments.
-func (ed *expiredDeleter) Object(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
+func (ed *expiredDeleter) Object(ctx context.Context, object *metainfo.Object) (err error) {
 	return nil
 }
 
-func (ed *expiredDeleter) deleteSegmentIfExpired(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) error {
-	// delete segment if expired
-	if !pointer.ExpirationDate.IsZero() && pointer.ExpirationDate.Before(time.Now().UTC()) {
-		pointerBytes, err := pb.Marshal(pointer)
+func (ed *expiredDeleter) deleteSegmentIfExpired(ctx context.Context, segment *metainfo.Segment) error {
+	if segment.Expired(time.Now()) {
+		pointerBytes, err := pb.Marshal(segment.Pointer)
 		if err != nil {
 			return err
 		}
-		err = ed.metainfo.Delete(ctx, location.Encode(), pointerBytes)
+		err = ed.metainfo.Delete(ctx, segment.Location.Encode(), pointerBytes)
 		if storj.ErrObjectNotFound.Has(err) {
 			// segment already deleted
 			return nil

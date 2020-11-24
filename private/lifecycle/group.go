@@ -7,6 +7,8 @@ package lifecycle
 import (
 	"context"
 	"errors"
+	"runtime/pprof"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -53,8 +55,31 @@ func (group *Group) Run(ctx context.Context, g *errgroup.Group) {
 		if item.Run == nil {
 			continue
 		}
+
+		shutdownCtx, shutdownFinished := context.WithCancel(context.Background())
+		go func() {
+			select {
+			case <-ctx.Done():
+			case <-shutdownCtx.Done():
+				return
+			}
+
+			shutdownDeadline := time.NewTimer(15 * time.Second)
+			defer shutdownDeadline.Stop()
+			select {
+			case <-shutdownDeadline.C:
+				group.log.Warn("service takes long to shutdown", zap.String("name", item.Name))
+			case <-shutdownCtx.Done():
+			}
+		}()
+
 		g.Go(func() error {
-			err := item.Run(ctx)
+			defer shutdownFinished()
+
+			var err error
+			pprof.Do(ctx, pprof.Labels("name", item.Name), func(ctx context.Context) {
+				err = item.Run(ctx)
+			})
 			if errors.Is(ctx.Err(), context.Canceled) {
 				err = errs2.IgnoreCanceled(err)
 			}

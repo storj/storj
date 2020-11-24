@@ -42,7 +42,7 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db stor
 			Pieces:  storageDir,
 		}
 
-		db, err := storagenodedb.New(log, cfg)
+		db, err := storagenodedb.OpenNew(ctx, log, cfg)
 		if err != nil {
 			t.Fatal(err)
 		}

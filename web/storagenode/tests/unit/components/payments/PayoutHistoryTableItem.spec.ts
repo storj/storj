@@ -5,7 +5,7 @@ import Vuex from 'vuex';
 
 import PayoutHistoryTableItem from '@/app/components/payments/PayoutHistoryTableItem.vue';
 
-import { makePayoutModule } from '@/app/store/modules/payout';
+import { newPayoutModule } from '@/app/store/modules/payout';
 import { PayoutHttpApi } from '@/storagenode/api/payout';
 import { SatellitePayoutForPeriod } from '@/storagenode/payouts/payouts';
 import { PayoutService } from '@/storagenode/payouts/service';
@@ -20,7 +20,7 @@ localVue.filter('centsToDollars', (cents: number): string => {
 
 const payoutApi = new PayoutHttpApi();
 const payoutService = new PayoutService(payoutApi);
-const payoutModule = makePayoutModule(payoutApi, payoutService);
+const payoutModule = newPayoutModule(payoutService);
 
 const store = new Vuex.Store({ modules: { payoutModule }});
 

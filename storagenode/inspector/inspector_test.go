@@ -11,11 +11,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/memory"
-	"storj.io/common/pb"
 	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/storagenode/internalpb"
 )
 
 func TestInspectorStats(t *testing.T) {
@@ -29,7 +29,7 @@ func TestInspectorStats(t *testing.T) {
 		var availableSpace int64
 
 		for _, storageNode := range planet.StorageNodes {
-			response, err := storageNode.Storage2.Inspector.Stats(ctx, &pb.StatsRequest{})
+			response, err := storageNode.Storage2.Inspector.Stats(ctx, &internalpb.StatsRequest{})
 			require.NoError(t, err)
 
 			assert.Zero(t, response.UsedBandwidth)
@@ -65,7 +65,7 @@ func TestInspectorStats(t *testing.T) {
 
 		var downloaded int
 		for _, storageNode := range planet.StorageNodes {
-			response, err := storageNode.Storage2.Inspector.Stats(ctx, &pb.StatsRequest{})
+			response, err := storageNode.Storage2.Inspector.Stats(ctx, &internalpb.StatsRequest{})
 			require.NoError(t, err)
 
 			// TODO set more accurate assertions
@@ -95,7 +95,7 @@ func TestInspectorDashboard(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		for _, storageNode := range planet.StorageNodes {
-			response, err := storageNode.Storage2.Inspector.Dashboard(ctx, &pb.DashboardRequest{})
+			response, err := storageNode.Storage2.Inspector.Dashboard(ctx, &internalpb.DashboardRequest{})
 			require.NoError(t, err)
 
 			uptime, err := time.ParseDuration(response.Uptime)
@@ -112,7 +112,7 @@ func TestInspectorDashboard(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, storageNode := range planet.StorageNodes {
-			response, err := storageNode.Storage2.Inspector.Dashboard(ctx, &pb.DashboardRequest{})
+			response, err := storageNode.Storage2.Inspector.Dashboard(ctx, &internalpb.DashboardRequest{})
 			require.NoError(t, err)
 
 			assert.True(t, response.LastPinged.After(testStartedTime))

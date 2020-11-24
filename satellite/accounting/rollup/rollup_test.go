@@ -121,8 +121,9 @@ func TestRollupDeletes(t *testing.T) {
 			testData := createData(planet, days)
 
 			// Set timestamp back by the number of days we want to save
-			timestamp := time.Now().UTC().AddDate(0, 0, -1*days)
+			timestamp := time.Now().UTC().AddDate(0, 0, -days).Truncate(time.Millisecond)
 			start := timestamp
+			firstTimestamp := start
 
 			for i := 0; i < days; i++ {
 				err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, timestamp, testData[i].nodeData)
@@ -133,12 +134,13 @@ func TestRollupDeletes(t *testing.T) {
 				err = planet.Satellites[0].Accounting.Rollup.Rollup(ctx)
 				require.NoError(t, err)
 
-				// Assert that RollupStorage deleted all raws except for today's
+				// Assert that RollupStorage deleted all tallies before Config.Orders.Expiration
 				raw, err := planet.Satellites[0].DB.StoragenodeAccounting().GetTallies(ctx)
 				require.NoError(t, err)
 				for _, r := range raw {
-					assert.WithinDuration(t, timestamp, r.IntervalEndTime, time.Second)
-					assert.Equal(t, testData[i].nodeData[r.NodeID], r.DataTotal)
+					assert.WithinDuration(t, timestamp, r.IntervalEndTime, planet.Satellites[0].Accounting.Rollup.OrderExpiration)
+					thisDay := r.IntervalEndTime.Sub(firstTimestamp) / (24 * time.Hour)
+					assert.Equal(t, testData[thisDay].nodeData[r.NodeID], r.DataTotal)
 				}
 
 				// Advance time by 24 hours
@@ -156,7 +158,6 @@ func TestRollupDeletes(t *testing.T) {
 					continue
 				}
 				// the number of rows should be number of nodes
-
 				assert.Equal(t, len(planet.StorageNodes), len(rows))
 
 				// verify data is correct
@@ -217,7 +218,6 @@ func dqNodes(ctx *testcontext.Context, planet *testplanet.Planet) (map[storj.Nod
 		}
 		updateRequests = append(updateRequests, &overlay.UpdateRequest{
 			NodeID:       n.ID(),
-			IsUp:         true,
 			AuditOutcome: overlay.AuditFailure,
 		})
 	}

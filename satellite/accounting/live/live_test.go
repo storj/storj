@@ -32,7 +32,7 @@ func TestLiveAccountingCache(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	redis, err := redisserver.Mini()
+	redis, err := redisserver.Mini(ctx)
 	require.NoError(t, err)
 	defer ctx.Check(redis.Close)
 
@@ -75,7 +75,7 @@ func TestRedisCacheConcurrency(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	redis, err := redisserver.Mini()
+	redis, err := redisserver.Mini(ctx)
 	require.NoError(t, err)
 	defer ctx.Check(redis.Close)
 
@@ -162,7 +162,7 @@ func TestGetAllProjectTotals(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	redis, err := redisserver.Mini()
+	redis, err := redisserver.Mini(ctx)
 	require.NoError(t, err)
 	defer ctx.Check(redis.Close)
 

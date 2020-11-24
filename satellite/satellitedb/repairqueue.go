@@ -11,8 +11,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/pb"
 	"storj.io/storj/private/dbutil"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/storage"
 )
@@ -24,7 +24,7 @@ type repairQueue struct {
 	db *satelliteDB
 }
 
-func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment, numHealthy int) (alreadyInserted bool, err error) {
+func (r *repairQueue) Insert(ctx context.Context, seg *internalpb.InjuredSegment, segmentHealth float64) (alreadyInserted bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	// insert if not exists, or update healthy count if does exist
 	var query string
@@ -37,29 +37,29 @@ func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment, numHea
 		query = `
 			INSERT INTO injuredsegments
 			(
-				path, data, num_healthy_pieces
+				path, data, segment_health
 			)
 			VALUES (
 				$1, $2, $3
 			)
 			ON CONFLICT (path)
 			DO UPDATE
-			SET num_healthy_pieces=$3, updated_at=current_timestamp
+			SET segment_health=$3, updated_at=current_timestamp
 			RETURNING (xmax != 0) AS alreadyInserted
 		`
 	case dbutil.Cockroach:
 		query = `
 			WITH updater AS (
-				UPDATE injuredsegments SET num_healthy_pieces = $3, updated_at = current_timestamp WHERE path = $1
+				UPDATE injuredsegments SET segment_health = $3, updated_at = current_timestamp WHERE path = $1
 				RETURNING *
 			)
-			INSERT INTO injuredsegments (path, data, num_healthy_pieces)
+			INSERT INTO injuredsegments (path, data, segment_health)
 			SELECT $1, $2, $3
 			WHERE NOT EXISTS (SELECT * FROM updater)
 			RETURNING false
 		`
 	}
-	rows, err := r.db.QueryContext(ctx, query, seg.Path, seg, numHealthy)
+	rows, err := r.db.QueryContext(ctx, query, seg.Path, seg, segmentHealth)
 	if err != nil {
 		return false, err
 	}
@@ -77,7 +77,7 @@ func (r *repairQueue) Insert(ctx context.Context, seg *pb.InjuredSegment, numHea
 	return alreadyInserted, rows.Err()
 }
 
-func (r *repairQueue) Select(ctx context.Context) (seg *pb.InjuredSegment, err error) {
+func (r *repairQueue) Select(ctx context.Context) (seg *internalpb.InjuredSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
 	switch r.db.implementation {
 	case dbutil.Cockroach:
@@ -85,14 +85,14 @@ func (r *repairQueue) Select(ctx context.Context) (seg *pb.InjuredSegment, err e
 				UPDATE injuredsegments SET attempted = now() WHERE path = (
 					SELECT path FROM injuredsegments
 					WHERE attempted IS NULL OR attempted < now() - interval '6 hours'
-					ORDER BY num_healthy_pieces ASC, attempted LIMIT 1
+					ORDER BY segment_health ASC, attempted LIMIT 1
 				) RETURNING data`).Scan(&seg)
 	case dbutil.Postgres:
 		err = r.db.QueryRowContext(ctx, `
 				UPDATE injuredsegments SET attempted = now() WHERE path = (
 					SELECT path FROM injuredsegments
 					WHERE attempted IS NULL OR attempted < now() - interval '6 hours'
-					ORDER BY num_healthy_pieces ASC, attempted NULLS FIRST FOR UPDATE SKIP LOCKED LIMIT 1
+					ORDER BY segment_health ASC, attempted NULLS FIRST FOR UPDATE SKIP LOCKED LIMIT 1
 				) RETURNING data`).Scan(&seg)
 	default:
 		return seg, errs.New("invalid dbType: %v", r.db.implementation)
@@ -103,7 +103,7 @@ func (r *repairQueue) Select(ctx context.Context) (seg *pb.InjuredSegment, err e
 	return seg, err
 }
 
-func (r *repairQueue) Delete(ctx context.Context, seg *pb.InjuredSegment) (err error) {
+func (r *repairQueue) Delete(ctx context.Context, seg *internalpb.InjuredSegment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = r.db.ExecContext(ctx, r.db.Rebind(`DELETE FROM injuredsegments WHERE path = ?`), seg.Path)
 	return Error.Wrap(err)
@@ -115,12 +115,12 @@ func (r *repairQueue) Clean(ctx context.Context, before time.Time) (deleted int6
 	return n, Error.Wrap(err)
 }
 
-func (r *repairQueue) SelectN(ctx context.Context, limit int) (segs []pb.InjuredSegment, err error) {
+func (r *repairQueue) SelectN(ctx context.Context, limit int) (segs []internalpb.InjuredSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if limit <= 0 || limit > RepairQueueSelectLimit {
 		limit = RepairQueueSelectLimit
 	}
-	//todo: strictly enforce order-by or change tests
+	// TODO: strictly enforce order-by or change tests
 	rows, err := r.db.QueryContext(ctx, r.db.Rebind(`SELECT data FROM injuredsegments LIMIT ?`), limit)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -128,7 +128,7 @@ func (r *repairQueue) SelectN(ctx context.Context, limit int) (segs []pb.Injured
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
-		var seg pb.InjuredSegment
+		var seg internalpb.InjuredSegment
 		err = rows.Scan(&seg)
 		if err != nil {
 			return segs, Error.Wrap(err)

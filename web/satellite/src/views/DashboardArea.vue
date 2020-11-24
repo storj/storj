@@ -26,11 +26,11 @@
                         <VInfoBar
                             v-if="isProjectLimitInfoBarShown"
                             is-blue="true"
-                            :first-value="`You have used ${userProjectsCount}`"
+                            :first-value="`You have used ${projectsCount}`"
                             first-description="of your"
-                            :second-value="defaultProjectLimit"
+                            :second-value="projectLimit"
                             second-description="available projects."
-                            :link="generalRequestURL"
+                            :link="projectLimitsIncreaseRequestURL"
                             link-label="Request Project Limit Increase"
                         />
                     </div>
@@ -51,6 +51,7 @@ import NoPaywallInfoBar from '@/components/noPaywallInfoBar/NoPaywallInfoBar.vue
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -87,6 +88,8 @@ const {
     },
 })
 export default class DashboardArea extends Vue {
+    private FIRST_PAGE: number = 1;
+
     /**
      * Holds router link to project dashboard page.
      */
@@ -176,7 +179,7 @@ export default class DashboardArea extends Vue {
         let apiKeysPage: ApiKeysPage = new ApiKeysPage();
 
         try {
-            apiKeysPage = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, 1);
+            apiKeysPage = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
             await this.$notify.error(`Unable to fetch api keys. ${error.message}`);
         }
@@ -193,9 +196,21 @@ export default class DashboardArea extends Vue {
             return;
         }
 
+        try {
+           await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch api keys. ${error.message}`);
+        }
+
+        try {
+            await this.$store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch all bucket names. ${error.message}`);
+        }
+
         await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
         try {
-            await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
+            await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
             await this.$notify.error(`Unable to fetch project members. ${error.message}`);
         }
@@ -207,7 +222,7 @@ export default class DashboardArea extends Vue {
         }
 
         try {
-            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
+            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
             await this.$notify.error(`Unable to fetch buckets. ${error.message}`);
         }
@@ -232,28 +247,31 @@ export default class DashboardArea extends Vue {
     public get isBillingInfoBarShown(): boolean {
         const isBillingPage = this.$route.name === RouteConfig.Billing.name;
 
-        return isBillingPage && this.userProjectsCount > 0;
+        return isBillingPage && this.projectsCount > 0;
     }
 
     /**
      * Indicates if project limit info bar is shown.
      */
     public get isProjectLimitInfoBarShown(): boolean {
-        return this.userProjectsCount === this.defaultProjectLimit && this.$route.name === RouteConfig.ProjectDashboard.name;
+        return this.$route.name === RouteConfig.ProjectDashboard.name;
     }
 
     /**
      * Returns user's projects count.
      */
-    public get userProjectsCount(): number {
-        return this.$store.getters.userProjectsCount;
+    public get projectsCount(): number {
+        return this.$store.getters.projectsCount;
     }
 
     /**
-     * Returns default project limit from config.
+     * Returns project limit from store.
      */
-    public get defaultProjectLimit(): number {
-        return parseInt(MetaUtils.getMetaContent('default-project-limit'));
+    public get projectLimit(): number {
+        const projectLimit: number = this.$store.getters.user.projectLimit;
+        if (projectLimit < this.projectsCount) return this.projectsCount;
+
+        return projectLimit;
     }
 
     /**
@@ -261,13 +279,6 @@ export default class DashboardArea extends Vue {
      */
     public get projectLimitsIncreaseRequestURL(): string {
         return MetaUtils.getMetaContent('project-limits-increase-request-url');
-    }
-
-    /**
-     * Returns general request url from config.
-     */
-    public get generalRequestURL(): string {
-        return MetaUtils.getMetaContent('general-request-url');
     }
 
     /**

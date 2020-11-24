@@ -110,7 +110,7 @@ func TestNewOptions(t *testing.T) {
 	for _, c := range cases {
 		t.Log(c.testID)
 
-		revocationDB, err := revocation.NewDBFromCfg(c.config)
+		revocationDB, err := revocation.OpenDBFromCfg(ctx, c.config)
 		require.NoError(t, err)
 
 		tlsOptions, err := tlsopts.NewOptions(fi, c.config, revocationDB)

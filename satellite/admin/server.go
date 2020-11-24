@@ -84,13 +84,16 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, accounts payments.
 	server.mux.HandleFunc("/api/coupon", server.addCoupon).Methods("POST")
 	server.mux.HandleFunc("/api/coupon/{couponid}", server.couponInfo).Methods("GET")
 	server.mux.HandleFunc("/api/coupon/{couponid}", server.deleteCoupon).Methods("DELETE")
+	server.mux.HandleFunc("/api/project", server.addProject).Methods("POST")
 	server.mux.HandleFunc("/api/project/{project}/usage", server.checkProjectUsage).Methods("GET")
 	server.mux.HandleFunc("/api/project/{project}/limit", server.getProjectLimit).Methods("GET")
 	server.mux.HandleFunc("/api/project/{project}/limit", server.putProjectLimit).Methods("PUT", "POST")
 	server.mux.HandleFunc("/api/project/{project}", server.getProject).Methods("GET")
 	server.mux.HandleFunc("/api/project/{project}", server.renameProject).Methods("PUT")
 	server.mux.HandleFunc("/api/project/{project}", server.deleteProject).Methods("DELETE")
-	server.mux.HandleFunc("/api/project", server.addProject).Methods("POST")
+	server.mux.HandleFunc("/api/project/{project}/apikey", server.addAPIKey).Methods("POST")
+	server.mux.HandleFunc("/api/project/{project}/apikey/{name}", server.deleteAPIKeyByName).Methods("DELETE")
+	server.mux.HandleFunc("/api/apikey/{apikey}", server.deleteAPIKey).Methods("DELETE")
 
 	return server
 }

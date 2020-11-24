@@ -80,15 +80,15 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		now := chore.nowFn()
 		switch {
 		case chore.version.FirstTimeSpotted.Add(time.Hour*336).Before(now) && chore.version.TimesNotified == notifications.TimesNotifiedSecond:
-			notification = notifications.NewVersionNotification(notifications.TimesNotifiedSecond, suggested, chore.nodeID)
+			notification = NewVersionNotification(notifications.TimesNotifiedSecond, suggested, chore.nodeID)
 			chore.version.TimesNotified = notifications.TimesNotifiedLast
 
 		case chore.version.FirstTimeSpotted.Add(time.Hour*144).Before(now) && chore.version.TimesNotified == notifications.TimesNotifiedFirst:
-			notification = notifications.NewVersionNotification(notifications.TimesNotifiedFirst, suggested, chore.nodeID)
+			notification = NewVersionNotification(notifications.TimesNotifiedFirst, suggested, chore.nodeID)
 			chore.version.TimesNotified = notifications.TimesNotifiedSecond
 
 		case chore.version.FirstTimeSpotted.Add(time.Hour*96).Before(now) && chore.version.TimesNotified == notifications.TimesNotifiedZero:
-			notification = notifications.NewVersionNotification(notifications.TimesNotifiedZero, suggested, chore.nodeID)
+			notification = NewVersionNotification(notifications.TimesNotifiedZero, suggested, chore.nodeID)
 			chore.version.TimesNotified = notifications.TimesNotifiedFirst
 		default:
 			return nil
@@ -160,4 +160,31 @@ func (chore *Chore) TestSetNow(now func() time.Time) {
 // TestCheckVersion returns chore.relevance, used for chore tests only.
 func (chore *Chore) TestCheckVersion() (relevance Relevance) {
 	return chore.version
+}
+
+// NewVersionNotification - returns version update required notification.
+func NewVersionNotification(timesSent notifications.TimesNotified, suggestedVersion version.SemVer, senderID storj.NodeID) (_ notifications.NewNotification) {
+	switch timesSent {
+	case notifications.TimesNotifiedZero:
+		return notifications.NewNotification{
+			SenderID: senderID,
+			Type:     notifications.TypeCustom,
+			Title:    "Please update your Node to Version " + suggestedVersion.String(),
+			Message:  "It's time to update your Node's software, new version is available.",
+		}
+	case notifications.TimesNotifiedFirst:
+		return notifications.NewNotification{
+			SenderID: senderID,
+			Type:     notifications.TypeCustom,
+			Title:    "Please update your Node to Version " + suggestedVersion.String(),
+			Message:  "It's time to update your Node's software, you are running outdated version!",
+		}
+	default:
+		return notifications.NewNotification{
+			SenderID: senderID,
+			Type:     notifications.TypeCustom,
+			Title:    "Please update your Node to Version " + suggestedVersion.String(),
+			Message:  "Last chance to update your software! Your node is running outdated version!",
+		}
+	}
 }

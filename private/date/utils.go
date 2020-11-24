@@ -43,7 +43,7 @@ func MonthsBetweenDates(from time.Time, to time.Time) int {
 	y2, M2, _ := to.UTC().Date()
 
 	months := ((y2 - y1) * 12) + int(M2) - int(M1)
-	//note that according to the tests, we ignore days of the month
+	// note that according to the tests, we ignore days of the month
 	return months
 }
 

@@ -744,5 +744,4 @@ func TestProjectUsage_BandwidthDownloadLimit(t *testing.T) {
 		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path1")
 		require.NoError(t, err)
 	})
-
 }

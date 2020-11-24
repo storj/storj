@@ -21,7 +21,7 @@ type PayoutMonthly struct {
 	EgressRepairAuditPayout float64 `json:"egressRepairAuditPayout"`
 	DiskSpace               float64 `json:"diskSpace"`
 	DiskSpacePayout         float64 `json:"diskSpacePayout"`
-	HeldRate                int64   `json:"heldRate"`
+	HeldRate                float64 `json:"heldRate"`
 	Payout                  float64 `json:"payout"`
 	Held                    float64 `json:"held"`
 }
@@ -46,8 +46,8 @@ func (pm *PayoutMonthly) SetDiskSpacePayout(diskSpacePrice int64) {
 
 // SetHeldAmount counts held amount for PayoutMonthly object.
 func (pm *PayoutMonthly) SetHeldAmount() {
-	amount := (pm.DiskSpacePayout + pm.EgressBandwidthPayout + pm.EgressRepairAuditPayout) * float64(pm.HeldRate/100)
-	pm.Held = RoundFloat(amount)
+	amount := (pm.DiskSpacePayout + pm.EgressBandwidthPayout + pm.EgressRepairAuditPayout) * pm.HeldRate / 100
+	pm.Held = amount
 }
 
 // SetPayout counts payout amount for PayoutMonthly object.

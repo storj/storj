@@ -95,14 +95,6 @@ func (s *Service) UpdatePieces(ctx context.Context, key metabase.SegmentKey, ref
 // Replacing the node ID and the hash of a piece can be done by adding the
 // piece to both toAdd and toRemove.
 func (s *Service) UpdatePiecesCheckDuplicates(ctx context.Context, key metabase.SegmentKey, ref *pb.Pointer, toAdd, toRemove []*pb.RemotePiece, checkDuplicates bool) (pointer *pb.Pointer, err error) {
-	return s.UpdatePiecesCheckDuplicatesVerifyHashes(ctx, key, ref, toAdd, toRemove, checkDuplicates, false)
-}
-
-// UpdatePiecesCheckDuplicatesVerifyHashes atomically adds toAdd pieces,
-// removes toRemove pieces, and sets PieceHashesVerified to verifyHashes in
-// the pointer under path. ref is the pointer that caller received via Get
-// prior to calling this method.
-func (s *Service) UpdatePiecesCheckDuplicatesVerifyHashes(ctx context.Context, key metabase.SegmentKey, ref *pb.Pointer, toAdd, toRemove []*pb.RemotePiece, checkDuplicates, verifyHashes bool) (pointer *pb.Pointer, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := sanityCheckPointer(key, ref); err != nil {
@@ -192,10 +184,6 @@ func (s *Service) UpdatePiecesCheckDuplicatesVerifyHashes(ctx context.Context, k
 
 		pointer.LastRepaired = ref.LastRepaired
 		pointer.RepairCount = ref.RepairCount
-
-		if verifyHashes {
-			pointer.PieceHashesVerified = true
-		}
 
 		// marshal the pointer
 		newPointerBytes, err := pb.Marshal(pointer)
@@ -468,97 +456,4 @@ func (s *Service) ListBuckets(ctx context.Context, projectID uuid.UUID, listOpts
 func (s *Service) CountBuckets(ctx context.Context, projectID uuid.UUID) (count int, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return s.bucketsDB.CountBuckets(ctx, projectID)
-}
-
-// FixOldStyleObject fixes metadata of objects without number of segments in their metadata.
-func (s *Service) FixOldStyleObject(ctx context.Context, key metabase.SegmentKey, dryRun bool) (changed bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	location, err := metabase.ParseSegmentKey(key)
-	if err != nil {
-		return false, Error.Wrap(err)
-	}
-
-	s.logger.Info("Fixing old-style object.", zap.String("Location", string(location.Encode())))
-
-	if location.Index != metabase.LastSegmentIndex {
-		return false, Error.New("only last segments accepted")
-	}
-
-	maxAttempts := 3
-	for attempts := 0; attempts < maxAttempts; attempts++ {
-		oldPointerBytes, pointer, err := s.GetWithBytes(ctx, key)
-		if err != nil {
-			if storj.ErrObjectNotFound.Has(err) {
-				s.logger.Info("Object not found.")
-				return false, nil
-			}
-			return false, Error.Wrap(err)
-		}
-
-		streamMeta := &pb.StreamMeta{}
-		err = pb.Unmarshal(pointer.Metadata, streamMeta)
-		if err != nil {
-			return false, Error.Wrap(err)
-		}
-
-		if streamMeta.NumberOfSegments != 0 {
-			s.logger.Info("Already new-style object, not fixing it.")
-			return false, nil
-		}
-
-		count := int64(1)
-
-		for {
-			location.Index++
-
-			_, err = s.db.Get(ctx, storage.Key(location.Encode()))
-			if err != nil {
-				if storage.ErrKeyNotFound.Has(err) {
-					s.logger.Info("Segment not found.", zap.Int64("Index", location.Index))
-					break
-				}
-				return false, Error.Wrap(err)
-			}
-
-			s.logger.Info("Segment found.", zap.Int64("Index", location.Index))
-
-			count++
-		}
-
-		if dryRun {
-			s.logger.Info("Dry run, skipping the actual fix.", zap.Int64("Segments Count", count))
-			return true, nil
-		}
-
-		s.logger.Info("Fixing object metadata.", zap.Int64("Segments Count", count))
-
-		streamMeta.NumberOfSegments = count
-		pointer.Metadata, err = pb.Marshal(streamMeta)
-		if err != nil {
-			return false, Error.Wrap(err)
-		}
-
-		newPointerBytes, err := pb.Marshal(pointer)
-		if err != nil {
-			return false, Error.Wrap(err)
-		}
-
-		err = s.db.CompareAndSwap(ctx, storage.Key(key), oldPointerBytes, newPointerBytes)
-		if err != nil {
-			if storage.ErrValueChanged.Has(err) {
-				s.logger.Info("Race detected while modifying object metadata. Retrying...")
-				continue
-			}
-			if storage.ErrKeyNotFound.Has(err) {
-				s.logger.Info("Object not found.")
-				return false, nil
-			}
-			return false, Error.Wrap(err)
-		}
-
-		return true, nil
-	}
-
-	return false, Error.New("Failed to modify object metadata in %d attempts.", maxAttempts)
 }

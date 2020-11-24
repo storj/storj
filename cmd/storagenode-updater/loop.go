@@ -7,7 +7,6 @@ package main
 
 import (
 	"context"
-	"os"
 
 	"go.uber.org/zap"
 
@@ -29,8 +28,7 @@ func loopFunc(ctx context.Context) error {
 		zap.L().Error("Error updating service.", zap.String("Service", runCfg.ServiceName), zap.Error(err))
 	}
 
-	updaterBinName := os.Args[0]
-	if err := update(ctx, updaterServiceName, updaterBinName, all.Processes.StoragenodeUpdater); err != nil {
+	if err := update(ctx, updaterServiceName, updaterBinaryPath, all.Processes.StoragenodeUpdater); err != nil {
 		// don't finish loop in case of error just wait for another execution
 		zap.L().Error("Error updating service.", zap.String("Service", updaterServiceName), zap.Error(err))
 	}

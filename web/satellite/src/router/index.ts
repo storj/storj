@@ -4,6 +4,14 @@
 import Vue from 'vue';
 import Router, { RouteRecord } from 'vue-router';
 
+import AccessGrants from '@/components/accessGrants/AccessGrants.vue';
+import CreateAccessGrant from '@/components/accessGrants/CreateAccessGrant.vue';
+import CLIStep from '@/components/accessGrants/steps/CLIStep.vue';
+import NameStep from '@/components/accessGrants/steps/NameStep.vue';
+import PassphraseStep from '@/components/accessGrants/steps/PassphraseStep.vue';
+import PermissionsStep from '@/components/accessGrants/steps/PermissionsStep.vue';
+import ResultStep from '@/components/accessGrants/steps/ResultStep.vue';
+import UploadStep from '@/components/accessGrants/steps/UploadStep.vue';
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
 import DetailedHistory from '@/components/account/billing/depositAndBillingHistory/DetailedHistory.vue';
@@ -42,6 +50,7 @@ export abstract class RouteConfig {
     public static OnboardingTour = new NavigationLink('/onboarding-tour', 'Onboarding Tour');
     public static CreateProject = new NavigationLink('/create-project', 'Create Project');
     public static EditProjectDetails = new NavigationLink('/edit-project-details', 'Edit Project Details');
+    public static AccessGrants = new NavigationLink('/access-grants', 'Access Grants');
 
     // child paths
     public static Settings = new NavigationLink('settings', 'Settings');
@@ -49,6 +58,14 @@ export abstract class RouteConfig {
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
     public static DepositHistory = new NavigationLink('deposit-history', 'Deposit History');
     public static CreditsHistory = new NavigationLink('credits-history', 'Credits History');
+    public static CreateAccessGrant = new NavigationLink('create-grant', 'Create Access Grant');
+    public static NameStep = new NavigationLink('name', 'Name Access Grant');
+    public static PermissionsStep = new NavigationLink('permissions', 'Access Grant Permissions');
+    public static PassphraseStep = new NavigationLink('passphrase', 'Access Grant Passphrase');
+    public static ResultStep = new NavigationLink('result', 'Access Grant Result');
+    public static CLIStep = new NavigationLink('cli', 'Access Grant In CLI');
+    public static UploadStep = new NavigationLink('upload', 'Access Grant Upload Data');
+
     // TODO: disabled until implementation
     // public static Referral = new NavigationLink('referral', 'Referral');
 
@@ -65,6 +82,7 @@ export const notProjectRelatedRoutes = [
     RouteConfig.DepositHistory.name,
     RouteConfig.CreditsHistory.name,
     RouteConfig.Settings.name,
+    RouteConfig.AccessGrants.name,
     // RouteConfig.Referral.name,
 ];
 
@@ -165,8 +183,53 @@ export const router = new Router({
                     name: RouteConfig.EditProjectDetails.name,
                     component: EditProjectDetails,
                 },
-            ],
-        },
+                {
+                    path: RouteConfig.AccessGrants.path,
+                    name: RouteConfig.AccessGrants.name,
+                    component: AccessGrants,
+                    children: [
+                        {
+                            path: RouteConfig.CreateAccessGrant.path,
+                            name: RouteConfig.CreateAccessGrant.name,
+                            component: CreateAccessGrant,
+                            children: [
+                                {
+                                    path: RouteConfig.NameStep.path,
+                                    name: RouteConfig.NameStep.name,
+                                    component: NameStep,
+                                },
+                                {
+                                    path: RouteConfig.PermissionsStep.path,
+                                    name: RouteConfig.PermissionsStep.name,
+                                    component: PermissionsStep,
+                                    props: true,
+                                },
+                                {
+                                    path: RouteConfig.PassphraseStep.path,
+                                    name: RouteConfig.PassphraseStep.name,
+                                    component: PassphraseStep,
+                                },
+                                {
+                                    path: RouteConfig.ResultStep.path,
+                                    name: RouteConfig.ResultStep.name,
+                                    component: ResultStep,
+                                },
+                                {
+                                    path: RouteConfig.CLIStep.path,
+                                    name: RouteConfig.CLIStep.name,
+                                    component: CLIStep,
+                                },
+                                {
+                                    path: RouteConfig.UploadStep.path,
+                                    name: RouteConfig.UploadStep.name,
+                                    component: UploadStep,
+                                },
+                            ],
+                        },
+                    ],
+                },
+],
+            },
         {
             path: '*',
             name: '404',
@@ -178,6 +241,12 @@ export const router = new Router({
 router.beforeEach((to, from, next) => {
     if (navigateToDefaultSubTab(to.matched, RouteConfig.Account)) {
         next(RouteConfig.Account.with(RouteConfig.Billing).path);
+
+        return;
+    }
+
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant))) {
+        next(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).with(RouteConfig.NameStep).path);
 
         return;
     }
@@ -216,5 +285,6 @@ router.afterEach(({name}, from) => {
  * @param tabRoute - tabNavigator route
  */
 function navigateToDefaultSubTab(routes: RouteRecord[], tabRoute: NavigationLink): boolean {
-    return routes.length === 2 && (routes[1].name as string) === tabRoute.name;
+    return (routes.length === 2 && (routes[1].name as string) === tabRoute.name) ||
+        (routes.length === 3 && (routes[2].name as string) === tabRoute.name);
 }

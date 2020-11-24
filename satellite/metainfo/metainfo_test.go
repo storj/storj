@@ -29,6 +29,8 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/internalpb"
+	satMetainfo "storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metainfo"
@@ -165,10 +167,10 @@ func TestRevokeMacaroon(t *testing.T) {
 		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
 		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
-		satStreamID := &pb.SatStreamID{
+		satStreamID := &internalpb.StreamID{
 			CreationDate: time.Now(),
 		}
-		signedStreamID, err := signing.SignStreamID(ctx, signer, satStreamID)
+		signedStreamID, err := satMetainfo.SignStreamID(ctx, signer, satStreamID)
 		require.NoError(t, err)
 
 		encodedStreamID, err := pb.Marshal(signedStreamID)
@@ -177,19 +179,10 @@ func TestRevokeMacaroon(t *testing.T) {
 		err = client.CommitObject(ctx, metainfo.CommitObjectParams{StreamID: encodedStreamID})
 		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
-		err = client.FinishDeleteObject(ctx, metainfo.FinishDeleteObjectParams{StreamID: encodedStreamID})
-		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
-
 		_, _, _, err = client.BeginSegment(ctx, metainfo.BeginSegmentParams{StreamID: encodedStreamID})
 		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
-		_, _, _, err = client.BeginDeleteSegment(ctx, metainfo.BeginDeleteSegmentParams{StreamID: encodedStreamID})
-		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
-
 		err = client.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{StreamID: encodedStreamID})
-		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
-
-		_, _, err = client.ListSegments(ctx, metainfo.ListSegmentsParams{StreamID: encodedStreamID})
 		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
 		_, _, err = client.DownloadSegment(ctx, metainfo.DownloadSegmentParams{StreamID: encodedStreamID})
@@ -197,7 +190,7 @@ func TestRevokeMacaroon(t *testing.T) {
 
 		// these methods needs SegmentID
 
-		signedSegmentID, err := signing.SignSegmentID(ctx, signer, &pb.SatSegmentID{
+		signedSegmentID, err := satMetainfo.SignSegmentID(ctx, signer, &internalpb.SegmentID{
 			StreamId:     satStreamID,
 			CreationDate: time.Now(),
 		})
@@ -222,94 +215,87 @@ func TestInvalidAPIKey(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, invalidAPIKey := range []string{"", "invalid", "testKey"} {
-			client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], throwawayKey)
-			require.NoError(t, err)
-			defer ctx.Check(client.Close)
+			func() {
+				client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], throwawayKey)
+				require.NoError(t, err)
+				defer ctx.Check(client.Close)
 
-			client.SetRawAPIKey([]byte(invalidAPIKey))
+				client.SetRawAPIKey([]byte(invalidAPIKey))
 
-			_, err = client.BeginObject(ctx, metainfo.BeginObjectParams{})
-			assertInvalidArgument(t, err, false)
+				_, err = client.BeginObject(ctx, metainfo.BeginObjectParams{})
+				assertInvalidArgument(t, err, false)
 
-			_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
-			assertInvalidArgument(t, err, false)
+				_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
+				assertInvalidArgument(t, err, false)
 
-			_, err = client.ListBuckets(ctx, metainfo.ListBucketsParams{})
-			assertInvalidArgument(t, err, false)
+				_, err = client.ListBuckets(ctx, metainfo.ListBucketsParams{})
+				assertInvalidArgument(t, err, false)
 
-			_, _, err = client.ListObjects(ctx, metainfo.ListObjectsParams{})
-			assertInvalidArgument(t, err, false)
+				_, _, err = client.ListObjects(ctx, metainfo.ListObjectsParams{})
+				assertInvalidArgument(t, err, false)
 
-			_, err = client.CreateBucket(ctx, metainfo.CreateBucketParams{})
-			assertInvalidArgument(t, err, false)
+				_, err = client.CreateBucket(ctx, metainfo.CreateBucketParams{})
+				assertInvalidArgument(t, err, false)
 
-			_, err = client.DeleteBucket(ctx, metainfo.DeleteBucketParams{})
-			assertInvalidArgument(t, err, false)
+				_, err = client.DeleteBucket(ctx, metainfo.DeleteBucketParams{})
+				assertInvalidArgument(t, err, false)
 
-			_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
-			assertInvalidArgument(t, err, false)
+				_, err = client.BeginDeleteObject(ctx, metainfo.BeginDeleteObjectParams{})
+				assertInvalidArgument(t, err, false)
 
-			_, err = client.GetBucket(ctx, metainfo.GetBucketParams{})
-			assertInvalidArgument(t, err, false)
+				_, err = client.GetBucket(ctx, metainfo.GetBucketParams{})
+				assertInvalidArgument(t, err, false)
 
-			_, err = client.GetObject(ctx, metainfo.GetObjectParams{})
-			assertInvalidArgument(t, err, false)
+				_, err = client.GetObject(ctx, metainfo.GetObjectParams{})
+				assertInvalidArgument(t, err, false)
 
-			_, err = client.GetProjectInfo(ctx)
-			assertInvalidArgument(t, err, false)
+				_, err = client.GetProjectInfo(ctx)
+				assertInvalidArgument(t, err, false)
 
-			// these methods needs StreamID to do authentication
+				// these methods needs StreamID to do authentication
 
-			signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
-			satStreamID := &pb.SatStreamID{
-				CreationDate: time.Now(),
-			}
-			signedStreamID, err := signing.SignStreamID(ctx, signer, satStreamID)
-			require.NoError(t, err)
+				signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
+				satStreamID := &internalpb.StreamID{
+					CreationDate: time.Now(),
+				}
+				signedStreamID, err := satMetainfo.SignStreamID(ctx, signer, satStreamID)
+				require.NoError(t, err)
 
-			encodedStreamID, err := pb.Marshal(signedStreamID)
-			require.NoError(t, err)
+				encodedStreamID, err := pb.Marshal(signedStreamID)
+				require.NoError(t, err)
 
-			streamID, err := storj.StreamIDFromBytes(encodedStreamID)
-			require.NoError(t, err)
+				streamID, err := storj.StreamIDFromBytes(encodedStreamID)
+				require.NoError(t, err)
 
-			err = client.CommitObject(ctx, metainfo.CommitObjectParams{StreamID: streamID})
-			assertInvalidArgument(t, err, false)
+				err = client.CommitObject(ctx, metainfo.CommitObjectParams{StreamID: streamID})
+				assertInvalidArgument(t, err, false)
 
-			err = client.FinishDeleteObject(ctx, metainfo.FinishDeleteObjectParams{StreamID: streamID})
-			assertInvalidArgument(t, err, false)
+				_, _, _, err = client.BeginSegment(ctx, metainfo.BeginSegmentParams{StreamID: streamID})
+				assertInvalidArgument(t, err, false)
 
-			_, _, _, err = client.BeginSegment(ctx, metainfo.BeginSegmentParams{StreamID: streamID})
-			assertInvalidArgument(t, err, false)
+				err = client.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{StreamID: streamID})
+				assertInvalidArgument(t, err, false)
 
-			_, _, _, err = client.BeginDeleteSegment(ctx, metainfo.BeginDeleteSegmentParams{StreamID: streamID})
-			assertInvalidArgument(t, err, false)
+				_, _, err = client.DownloadSegment(ctx, metainfo.DownloadSegmentParams{StreamID: streamID})
+				assertInvalidArgument(t, err, false)
 
-			err = client.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{StreamID: streamID})
-			assertInvalidArgument(t, err, false)
+				// these methods needs SegmentID
 
-			_, _, err = client.ListSegments(ctx, metainfo.ListSegmentsParams{StreamID: streamID})
-			assertInvalidArgument(t, err, false)
+				signedSegmentID, err := satMetainfo.SignSegmentID(ctx, signer, &internalpb.SegmentID{
+					StreamId:     satStreamID,
+					CreationDate: time.Now(),
+				})
+				require.NoError(t, err)
 
-			_, _, err = client.DownloadSegment(ctx, metainfo.DownloadSegmentParams{StreamID: streamID})
-			assertInvalidArgument(t, err, false)
+				encodedSegmentID, err := pb.Marshal(signedSegmentID)
+				require.NoError(t, err)
 
-			// these methods needs SegmentID
+				segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
+				require.NoError(t, err)
 
-			signedSegmentID, err := signing.SignSegmentID(ctx, signer, &pb.SatSegmentID{
-				StreamId:     satStreamID,
-				CreationDate: time.Now(),
-			})
-			require.NoError(t, err)
-
-			encodedSegmentID, err := pb.Marshal(signedSegmentID)
-			require.NoError(t, err)
-
-			segmentID, err := storj.SegmentIDFromBytes(encodedSegmentID)
-			require.NoError(t, err)
-
-			err = client.CommitSegment(ctx, metainfo.CommitSegmentParams{SegmentID: segmentID})
-			assertInvalidArgument(t, err, false)
+				err = client.CommitSegment(ctx, metainfo.CommitSegmentParams{SegmentID: segmentID})
+				assertInvalidArgument(t, err, false)
+			}()
 		}
 	})
 }
@@ -618,7 +604,7 @@ func TestBucketExistenceCheck(t *testing.T) {
 	})
 }
 
-func TestBeginCommitListSegment(t *testing.T) {
+func TestBeginCommit(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -724,74 +710,13 @@ func TestBeginCommitListSegment(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		segments, _, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
-			StreamID: object.StreamID,
-		})
-		require.NoError(t, err)
-		require.Len(t, segments, 1)
-	})
-}
-
-func TestListSegments(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.MaxSegmentSize(memory.KiB),
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		uplink := planet.Uplinks[0]
-
-		data := testrand.Bytes(15 * memory.KiB)
-		err := uplink.Upload(ctx, planet.Satellites[0], "testbucket", "test-path", data)
+		project := planet.Uplinks[0].Projects[0]
+		location, err := satMetainfo.CreatePath(ctx, project.ID, metabase.LastSegmentIndex, []byte(object.Bucket), []byte{})
 		require.NoError(t, err)
 
-		// 15KiB + encryption should be uploaded into 16 segments with SegmentSize == 1KiB
-		numberOfSegments := 16
-
-		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		items, _, err := planet.Satellites[0].Metainfo.Service.List(ctx, location.Encode(), "", false, 1, 0)
 		require.NoError(t, err)
-		defer ctx.Check(metainfoClient.Close)
-
-		items, _, err := metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
-			Bucket: []byte("testbucket"),
-			Limit:  1,
-		})
-		require.NoError(t, err)
-
-		object, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
-			Bucket:        []byte("testbucket"),
-			EncryptedPath: items[0].EncryptedPath,
-		})
-		require.NoError(t, err)
-
-		for i, test := range []struct {
-			Index  int32
-			Limit  int32
-			Result int
-			More   bool
-		}{
-			{Index: 0, Result: numberOfSegments},
-			{Index: 0, Result: numberOfSegments, Limit: int32(numberOfSegments), More: false},
-			{Index: 0, Result: 5, Limit: 5, More: true},
-			{Index: 16, Result: 0, More: false},
-			{Index: 11, Result: 5, Limit: 5, More: false},
-			{Index: 15, Result: 1, More: false},
-		} {
-			segments, more, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
-				StreamID: object.StreamID,
-				Limit:    test.Limit,
-				CursorPosition: storj.SegmentPosition{
-					Index: test.Index,
-				},
-			})
-			require.NoErrorf(t, err, "test case: %d", i)
-			require.Lenf(t, segments, test.Result, "test case: %d", i)
-			require.Equalf(t, test.More, more, "test case: %d", i)
-			if !more && test.Result > 0 {
-				require.Equalf(t, int32(-1), segments[test.Result-1].Position.Index, "test case: %d", i)
-			}
-		}
+		require.Len(t, items, 1)
 	})
 }
 
@@ -898,44 +823,15 @@ func TestInlineSegment(t *testing.T) {
 			})
 			require.Error(t, err)
 		}
-		{ // test listing inline segments
-			for _, test := range []struct {
-				Index  int32
-				Limit  int
-				Result int
-				More   bool
-			}{
-				{Index: 0, Result: len(segments), More: false},
-				{Index: 2, Result: len(segments) - 2, More: false},
-				{Index: 0, Result: 3, More: true, Limit: 3},
-				{Index: 0, Result: len(segments), More: false, Limit: len(segments)},
-				{Index: 0, Result: len(segments) - 1, More: true, Limit: len(segments) - 1},
-			} {
-				items, more, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
-					StreamID: object.StreamID,
-					CursorPosition: storj.SegmentPosition{
-						Index: test.Index,
-					},
-					Limit: int32(test.Limit),
-				})
-				require.NoError(t, err)
-				require.Equal(t, test.Result, len(items))
-				require.Equal(t, test.More, more)
-			}
-		}
 
 		{ // test download inline segments
-			items, _, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
-				StreamID: object.StreamID,
-			})
-			require.NoError(t, err)
-			require.Equal(t, len(segments), len(items))
+			existingSegments := []int32{0, 1, 2, 3, 4, 5, -1}
 
-			for i, item := range items {
+			for i, index := range existingSegments {
 				info, limits, err := metainfoClient.DownloadSegment(ctx, metainfo.DownloadSegmentParams{
 					StreamID: object.StreamID,
 					Position: storj.SegmentPosition{
-						Index: item.Position.Index,
+						Index: index,
 					},
 				})
 				require.NoError(t, err)
@@ -983,7 +879,6 @@ func TestRemoteSegment(t *testing.T) {
 
 		{
 			// Get object
-			// List segments
 			// Download segment
 
 			object, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
@@ -992,16 +887,10 @@ func TestRemoteSegment(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			segments, _, err := metainfoClient.ListSegments(ctx, metainfo.ListSegmentsParams{
-				StreamID: object.StreamID,
-			})
-			require.NoError(t, err)
-			require.Len(t, segments, 1)
-
 			_, limits, err := metainfoClient.DownloadSegment(ctx, metainfo.DownloadSegmentParams{
 				StreamID: object.StreamID,
 				Position: storj.SegmentPosition{
-					Index: segments[0].Position.Index,
+					Index: metabase.LastSegmentIndex,
 				},
 			})
 			require.NoError(t, err)
@@ -1054,7 +943,7 @@ func TestIDs(t *testing.T) {
 		satellitePeer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
 
 		{ // streamID expired
-			signedStreamID, err := signing.SignStreamID(ctx, satellitePeer, &pb.SatStreamID{
+			signedStreamID, err := satMetainfo.SignStreamID(ctx, satellitePeer, &internalpb.StreamID{
 				CreationDate: time.Now().Add(-36 * time.Hour),
 			})
 			require.NoError(t, err)
@@ -1072,7 +961,7 @@ func TestIDs(t *testing.T) {
 		}
 
 		{ // segment id missing stream id
-			signedSegmentID, err := signing.SignSegmentID(ctx, satellitePeer, &pb.SatSegmentID{
+			signedSegmentID, err := satMetainfo.SignSegmentID(ctx, satellitePeer, &internalpb.SegmentID{
 				CreationDate: time.Now().Add(-1 * time.Hour),
 			})
 			require.NoError(t, err)
@@ -1090,9 +979,9 @@ func TestIDs(t *testing.T) {
 		}
 
 		{ // segmentID expired
-			signedSegmentID, err := signing.SignSegmentID(ctx, satellitePeer, &pb.SatSegmentID{
+			signedSegmentID, err := satMetainfo.SignSegmentID(ctx, satellitePeer, &internalpb.SegmentID{
 				CreationDate: time.Now().Add(-36 * time.Hour),
-				StreamId: &pb.SatStreamID{
+				StreamId: &internalpb.StreamID{
 					CreationDate: time.Now(),
 				},
 			})
@@ -1185,29 +1074,32 @@ func TestBatch(t *testing.T) {
 			requests = append(requests, &metainfo.CommitObjectParams{
 				EncryptedMetadata: metadata,
 			})
-			requests = append(requests, &metainfo.ListSegmentsParams{})
 
 			responses, err := metainfoClient.Batch(ctx, requests...)
 			require.NoError(t, err)
-			require.Equal(t, numOfSegments+3, len(responses))
-
-			listResponse, err := responses[numOfSegments+2].ListSegment()
-			require.NoError(t, err)
-			require.Equal(t, numOfSegments, len(listResponse.Items))
+			require.Equal(t, numOfSegments+2, len(responses))
 
 			requests = make([]metainfo.BatchItem, 0)
 			requests = append(requests, &metainfo.GetObjectParams{
 				Bucket:        []byte("second-test-bucket"),
 				EncryptedPath: []byte("encrypted-path"),
 			})
-			for _, segment := range listResponse.Items {
+
+			for i := 0; i < numOfSegments-1; i++ {
 				requests = append(requests, &metainfo.DownloadSegmentParams{
-					Position: segment.Position,
+					Position: storj.SegmentPosition{
+						Index: int32(i),
+					},
 				})
 			}
+			requests = append(requests, &metainfo.DownloadSegmentParams{
+				Position: storj.SegmentPosition{
+					Index: -1,
+				},
+			})
 			responses, err = metainfoClient.Batch(ctx, requests...)
 			require.NoError(t, err)
-			require.Equal(t, len(listResponse.Items)+1, len(responses))
+			require.Equal(t, numOfSegments+1, len(responses))
 
 			for i, response := range responses[1:] {
 				downloadResponse, err := response.DownloadSegment()
@@ -1451,13 +1343,12 @@ func TestOverwriteZombieSegments(t *testing.T) {
 				require.NoError(t, err)
 
 				// delete some segments to leave only zombie segments
+				project := planet.Uplinks[0].Projects[0]
 				for _, segment := range tc.deletedSegments {
-					_, _, _, err = metainfoClient.BeginDeleteSegment(ctx, metainfo.BeginDeleteSegmentParams{
-						StreamID: object.StreamID,
-						Position: storj.SegmentPosition{
-							Index: segment,
-						},
-					})
+					location, err := satMetainfo.CreatePath(ctx, project.ID, int64(segment), []byte(object.Bucket), items[0].EncryptedPath)
+					require.NoError(t, err)
+
+					err = planet.Satellites[0].Metainfo.Service.UnsynchronizedDelete(ctx, location.Encode())
 					require.NoError(t, err)
 				}
 

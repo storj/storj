@@ -491,7 +491,7 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 	}
 
 	if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.ObjectCount > 0 {
-		//time passed into the check function need to be the UTC midnight dates of the first and last day of the month
+		// time passed into the check function need to be the UTC midnight dates of the first and last day of the month
 		err := server.db.StripeCoinPayments().ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour*24))
 		switch err {
 		case stripecoinpayments.ErrProjectRecordExists:

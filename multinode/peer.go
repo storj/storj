@@ -12,6 +12,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/identity"
+	"storj.io/private/debug"
+	"storj.io/storj/multinode/console"
 	"storj.io/storj/multinode/console/server"
 	"storj.io/storj/private/lifecycle"
 )
@@ -24,14 +26,23 @@ var (
 //
 // architecture: Master Database
 type DB interface {
+	// Nodes returns nodes database.
+	Nodes() console.Nodes
+	// Members returns members database.
+	Members() console.Members
+
 	// Close closes the database.
 	Close() error
+	// CreateSchema creates schema.
+	CreateSchema(ctx context.Context) error
 }
 
 // Config is all the configuration parameters for a Multinode Dashboard.
 type Config struct {
 	Identity identity.Config
-	Console  server.Config
+	Debug    debug.Config
+
+	Console server.Config
 }
 
 // Peer is the a Multinode Dashboard application itself.
@@ -46,7 +57,7 @@ type Peer struct {
 	// Web server with web UI
 	Console struct {
 		Listener net.Listener
-		// TODO: Service  *console.Service
+		Service  *console.Service
 		Endpoint *server.Server
 	}
 
@@ -59,12 +70,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config, db DB) (_ 
 		Log:      log,
 		Identity: full,
 		DB:       db,
+		Servers:  lifecycle.NewGroup(log.Named("servers")),
 	}
 
 	{ // console setup
-		// peer.Console.Service = console.NewService(
-		// 	 peer.Log.Named("console:service"),
-		// )
+		peer.Console.Service = console.NewService(
+			peer.Log.Named("console:service"),
+			peer.DB.Nodes(),
+		)
 
 		peer.Console.Listener, err = net.Listen("tcp", config.Console.Address)
 		if err != nil {
@@ -74,11 +87,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config, db DB) (_ 
 		peer.Console.Endpoint, err = server.NewServer(
 			peer.Log.Named("console:endpoint"),
 			config.Console,
+			peer.Console.Service,
 			peer.Console.Listener,
 		)
 		if err != nil {
 			return nil, err
 		}
+
 		peer.Servers.Add(lifecycle.Item{
 			Name:  "console:endpoint",
 			Run:   peer.Console.Endpoint.Run,

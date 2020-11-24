@@ -4,6 +4,7 @@
 package satellitedb
 
 import (
+	"context"
 	"sync"
 
 	"github.com/zeebo/errs"
@@ -12,6 +13,7 @@ import (
 	"storj.io/storj/pkg/cache"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/storj/private/tagsql"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
@@ -42,6 +44,8 @@ var (
 type satelliteDB struct {
 	*dbx.DB
 
+	migrationDB tagsql.DB
+
 	opts           Options
 	log            *zap.Logger
 	driver         string
@@ -67,8 +71,8 @@ type Options struct {
 
 var _ dbx.DBMethods = &satelliteDB{}
 
-// New creates instance of database supports postgres.
-func New(log *zap.Logger, databaseURL string, opts Options) (satellite.DB, error) {
+// Open creates instance of database supports postgres.
+func Open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options) (satellite.DB, error) {
 	driver, source, implementation, err := dbutil.SplitConnStr(databaseURL)
 	if err != nil {
 		return nil, err
@@ -86,7 +90,7 @@ func New(log *zap.Logger, databaseURL string, opts Options) (satellite.DB, error
 	}
 	log.Debug("Connected to:", zap.String("db source", source))
 
-	dbutil.Configure(dbxDB.DB, "satellitedb", mon)
+	dbutil.Configure(ctx, dbxDB.DB, "satellitedb", mon)
 
 	core := &satelliteDB{
 		DB: dbxDB,
@@ -97,6 +101,9 @@ func New(log *zap.Logger, databaseURL string, opts Options) (satellite.DB, error
 		implementation: implementation,
 		source:         source,
 	}
+
+	core.migrationDB = core
+
 	return core, nil
 }
 

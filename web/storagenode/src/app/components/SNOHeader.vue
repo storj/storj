@@ -5,45 +5,46 @@
     <div class="header">
         <div class="header__content-holder">
             <div class="header__content-holder__logo-area">
-                <StorjIcon
-                    class="header__content-holder__logo"
-                    alt="storj logo"
-                    @click="onHeaderLogoClick"
-                />
+                <button name="Logo Button" @click.prevent="onHeaderLogoClick">
+                    <StorjIcon
+                        class="header__content-holder__logo"
+                        alt="storj logo"
+                    />
+                </button>
                 <StorjIconWithoutText
                     alt="storj logo"
                     class="header__content-holder__logo--small"
                 />
-                <div class="header__content-holder__logo-area__refresh-button" @click="onRefresh">
+                <button name="Refresh" class="header__content-holder__logo-area__refresh-button" @click.prevent="onRefresh">
                     <RefreshIcon alt="refresh image"/>
-                </div>
+                </button>
             </div>
             <div class="header__content-holder__right-area">
-                <div class="header__content-holder__right-area__node-id-container" v-clipboard="this.nodeId">
+                <div role="button" tabindex="0" class="header__content-holder__right-area__node-id-container" v-clipboard="this.nodeId">
                     <b class="header__content-holder__right-area__node-id-container__title">Node ID:</b>
                     <p class="header__content-holder__right-area__node-id-container__id">{{ this.nodeId }}</p>
                     <CopyIcon />
                 </div>
-                <div class="options-button" @click="openOptionsDropdown">
-                    <SettingsIcon  />
-                </div>
+                <button name="Settings" aria-pressed="false" class="options-button" @click.prevent.stop="openOptionsDropdown">
+                    <SettingsIcon />
+                </button>
                 <OptionsDropdown
                     class="options-dropdown"
                     v-show="isOptionsShown"
                     @closeDropdown="closeOptionsDropdown"
                 />
-                <div class="header__content-holder__right-area__bell-area" @click.stop="toggleNotificationsPopup">
+                <button name="Notifications" aria-pressed="false" class="header__content-holder__right-area__bell-area" @click.stop.prevent="toggleNotificationsPopup">
                     <BellIcon />
                     <span
                         class="header__content-holder__right-area__bell-area__new-circle"
                         v-if="hasNewNotifications"
                     />
-                </div>
+                </button>
             </div>
             <NotificationsPopup
                 v-if="isNotificationPopupShown"
                 class="header__content-holder__right-area__bell-area__popup"
-                v-click-outside="closeNotificationPopup"
+                v-click-outside.stop="closeNotificationPopup"
             />
         </div>
     </div>
@@ -67,7 +68,6 @@ import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
-import { NotificationsCursor } from '@/app/types/notifications';
 
 const {
     GET_NODE_INFO,
@@ -89,18 +89,23 @@ const {
 export default class SNOHeader extends Vue {
     public isNotificationPopupShown: boolean = false;
     public isOptionsShown: boolean = false;
+    private readonly FIRST_PAGE: number = 1;
 
     /**
      * Lifecycle hook before render.
      * Fetches first page of notifications.
      */
-    public beforeMount(): void {
+    public async beforeMount(): Promise<void> {
+        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
+
         try {
-            this.$store.dispatch(NODE_ACTIONS.GET_NODE_INFO);
-            this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, new NotificationsCursor(1));
+            await this.$store.dispatch(NODE_ACTIONS.GET_NODE_INFO);
+            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, this.FIRST_PAGE);
         } catch (error) {
             console.error(error.message);
         }
+
+        await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
     }
 
     public get nodeId(): string {
@@ -191,7 +196,7 @@ export default class SNOHeader extends Vue {
         }
 
         try {
-            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, new NotificationsCursor(1));
+            await this.$store.dispatch(NOTIFICATIONS_ACTIONS.GET_NOTIFICATIONS, this.FIRST_PAGE);
         } catch (error) {
             console.error(error.message);
         }

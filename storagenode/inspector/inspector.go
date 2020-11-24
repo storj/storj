@@ -12,10 +12,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/contact"
+	"storj.io/storj/storagenode/internalpb"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 )
@@ -68,12 +68,12 @@ func NewEndpoint(
 }
 
 // Stats returns current statistics about the storage node.
-func (inspector *Endpoint) Stats(ctx context.Context, in *pb.StatsRequest) (out *pb.StatSummaryResponse, err error) {
+func (inspector *Endpoint) Stats(ctx context.Context, in *internalpb.StatsRequest) (out *internalpb.StatSummaryResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return inspector.retrieveStats(ctx)
 }
 
-func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummaryResponse, err error) {
+func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *internalpb.StatSummaryResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Space Usage
@@ -91,7 +91,7 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummary
 	totalUsedBandwidth := usage.Total()
 	availableSpace := inspector.pieceStoreConfig.AllocatedDiskSpace.Int64() - piecesContentSize
 
-	return &pb.StatSummaryResponse{
+	return &internalpb.StatSummaryResponse{
 		UsedSpace:      piecesContentSize,
 		AvailableSpace: availableSpace,
 		UsedIngress:    ingress,
@@ -101,12 +101,12 @@ func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummary
 }
 
 // Dashboard returns dashboard information.
-func (inspector *Endpoint) Dashboard(ctx context.Context, in *pb.DashboardRequest) (out *pb.DashboardResponse, err error) {
+func (inspector *Endpoint) Dashboard(ctx context.Context, in *internalpb.DashboardRequest) (out *internalpb.DashboardResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return inspector.getDashboardData(ctx)
 }
 
-func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *pb.DashboardResponse, err error) {
+func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *internalpb.DashboardResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	statsSummary, err := inspector.retrieveStats(ctx)
@@ -116,7 +116,7 @@ func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *pb.Dashboar
 
 	lastPingedAt := inspector.pingStats.WhenLastPinged()
 	self := inspector.contact.Local()
-	return &pb.DashboardResponse{
+	return &internalpb.DashboardResponse{
 		NodeId:           self.ID,
 		InternalAddress:  "",
 		ExternalAddress:  self.Address,

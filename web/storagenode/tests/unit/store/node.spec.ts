@@ -3,31 +3,30 @@
 
 import Vuex from 'vuex';
 
-import { makeNodeModule, NODE_ACTIONS, NODE_MUTATIONS, StatusOnline } from '@/app/store/modules/node';
-import { SNOApi } from '@/storagenode/api/storagenode';
-import {
-    BandwidthInfo,
-    Dashboard,
-    DiskSpaceInfo,
-    SatelliteInfo,
-} from '@/storagenode/dashboard';
+import { newNodeModule, NODE_ACTIONS, NODE_MUTATIONS, StatusOnline } from '@/app/store/modules/node';
+import { StorageNodeApi } from '@/storagenode/api/storagenode';
+import { StorageNodeService } from '@/storagenode/sno/service';
 import {
     BandwidthUsed,
+    Dashboard,
     Egress,
     EgressUsed,
     Ingress,
     IngressUsed,
     Metric,
     Satellite,
+    SatelliteInfo,
     Satellites,
-    Stamp,
-} from '@/storagenode/satellite';
+    SatelliteScores,
+    Stamp, Traffic,
+} from '@/storagenode/sno/sno';
 import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 
-const nodeApi = new SNOApi();
-const nodeModule = makeNodeModule(nodeApi);
+const nodeApi = new StorageNodeApi();
+const nodeService = new StorageNodeService(nodeApi);
+const nodeModule = newNodeModule(nodeService);
 
 Vue.use(Vuex);
 
@@ -48,8 +47,8 @@ describe('mutations', () => {
                 new SatelliteInfo('3', 'url1', null, null),
                 new SatelliteInfo('4', 'url2', new Date(2020, 1, 1), new Date(2020, 0, 1)),
             ],
-            new DiskSpaceInfo(99, 100, 5),
-            new BandwidthInfo(50),
+            new Traffic(99, 100, 5),
+            new Traffic(50),
             new Date(),
             new Date(2019, 3, 1),
             '0.1.1',
@@ -103,10 +102,17 @@ describe('mutations', () => {
 
     it('selects all satellites', () => {
         const satelliteInfo = new Satellites();
+        satelliteInfo.satellitesScores = [
+            new SatelliteScores('name1', 0.7, 0.9, 1),
+            new SatelliteScores('name1', 0.8, 0.8, 0.8),
+        ];
 
         store.commit(NODE_MUTATIONS.SELECT_ALL_SATELLITES, satelliteInfo);
 
         expect(state.node.selectedSatellite.id).toBe('');
+        expect(state.node.satellitesScores.length).toBe(satelliteInfo.satellitesScores.length);
+        expect(state.node.satellitesScores[0].auditScore.label).toBe('70 %');
+        expect(state.node.satellitesScores[0].iconClassName).toBe('warning');
     });
 
     it('sets daily data', () => {
@@ -181,8 +187,8 @@ describe('actions', () => {
                         new SatelliteInfo('3', 'url1', null, null),
                         new SatelliteInfo('4', 'url2', new Date(2020, 1, 1), new Date(2020, 0, 1)),
                     ],
-                    new DiskSpaceInfo(99, 100, 1),
-                    new BandwidthInfo(50),
+                    new Traffic(99, 100, 1),
+                    new Traffic(50),
                     new Date(),
                     new Date(2019, 3, 1),
                     '0.1.1',
@@ -272,13 +278,23 @@ describe('actions', () => {
     });
 
     it('success fetch all satellites info', async () => {
+        const satellitesInfo = new Satellites();
+        satellitesInfo.satellitesScores = [
+            new SatelliteScores('name1', 0.7, 0.9, 1),
+            new SatelliteScores('name1', 0.8, 0.8, 0.8),
+        ];
+
         jest.spyOn(nodeApi, 'satellites').mockReturnValue(
-            Promise.resolve(new Satellites()),
+            Promise.resolve(satellitesInfo),
         );
 
         await store.dispatch(NODE_ACTIONS.SELECT_SATELLITE);
 
         expect(state.node.selectedSatellite.id).toBe('');
+        expect(state.node.satellitesScores.length).toBe(satellitesInfo.satellitesScores.length);
+        expect(state.node.satellitesScores[0].onlineScore.label).toBe('100 %');
+        expect(state.node.satellitesScores[0].auditScore.statusClassName).toBe('warning');
+        expect(state.node.satellitesScores[1].auditScore.label).toBe('80 %');
     });
 });
 
@@ -315,8 +331,8 @@ describe('getters', () => {
                 new SatelliteInfo('3', 'url1', null, null),
                 new SatelliteInfo('4', 'url2', firstTestDate, new Date(2020, 0, 1)),
             ],
-            new DiskSpaceInfo(99, 100, 4),
-            new BandwidthInfo(50),
+            new Traffic(99, 100, 4),
+            new Traffic(50),
             new Date(),
             firstTestDate,
             '0.1.1',

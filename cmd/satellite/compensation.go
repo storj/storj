@@ -32,7 +32,7 @@ func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io
 		WithheldPercents: generateInvoicesCfg.Compensation.WithheldPercents,
 	}
 
-	db, err := satellitedb.New(zap.L().Named("db"), generateInvoicesCfg.Database, satellitedb.Options{})
+	db, err := satellitedb.Open(ctx, zap.L().Named("db"), generateInvoicesCfg.Database, satellitedb.Options{})
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
 	}
@@ -141,7 +141,7 @@ func recordPeriod(ctx context.Context, paystubsCSV, paymentsCSV string) (int, in
 		return 0, 0, err
 	}
 
-	db, err := satellitedb.New(zap.L().Named("db"), recordPeriodCfg.Database, satellitedb.Options{})
+	db, err := satellitedb.Open(ctx, zap.L().Named("db"), recordPeriodCfg.Database, satellitedb.Options{})
 	if err != nil {
 		return 0, 0, errs.New("error connecting to master database on satellite: %+v", err)
 	}
@@ -165,7 +165,7 @@ func recordOneOffPayments(ctx context.Context, paymentsCSV string) (int, error) 
 		return 0, err
 	}
 
-	db, err := satellitedb.New(zap.L().Named("db"), recordOneOffPaymentsCfg.Database, satellitedb.Options{})
+	db, err := satellitedb.Open(ctx, zap.L().Named("db"), recordOneOffPaymentsCfg.Database, satellitedb.Options{})
 	if err != nil {
 		return 0, errs.New("error connecting to master database on satellite: %+v", err)
 	}

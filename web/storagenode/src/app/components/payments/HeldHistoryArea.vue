@@ -6,7 +6,8 @@
         <div class="held-history-container__header">
             <p class="held-history-container__header__title">Held Amount History</p>
             <div class="held-history-container__header__selection-area">
-                <div
+                <button
+                    name="Select All Stats"
                     class="held-history-container__header__selection-area__item"
                     :class="{ active: isAllStatsShown }"
                     @click="showAllStats"
@@ -14,8 +15,9 @@
                     <p class="held-history-container__header__selection-area__item__label">
                         All Stats
                     </p>
-                </div>
-                <div
+                </button>
+                <button
+                    name="Select Monthly Breakdown"
                     class="held-history-container__header__selection-area__item"
                     :class="{ active: !isAllStatsShown }"
                     @click="showMonthlyBreakdown"
@@ -23,7 +25,7 @@
                     <p class="held-history-container__header__selection-area__item__label">
                         Monthly Breakdown
                     </p>
-                </div>
+                </button>
             </div>
         </div>
         <div class="held-history-container__divider"></div>

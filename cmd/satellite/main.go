@@ -219,22 +219,6 @@ var (
 		Long:  "Ensures that we have a stripe customer for every satellite user.",
 		RunE:  cmdStripeCustomer,
 	}
-	metainfoCmd = &cobra.Command{
-		Use:   "metainfo",
-		Short: "Metainfo commands",
-	}
-	fixOldStyleObjectsCmd = &cobra.Command{
-		Use:   "fix-old-style-objects",
-		Short: "Fixes old-style objects",
-		Long:  "Fixes the old-style objects by adding the number of segments to the metadata.",
-		RunE:  cmdFixOldStyleObjects,
-	}
-	verifyPieceHashesCmd = &cobra.Command{
-		Use:   "verify-piece-hashes",
-		Short: "Verifies piece hashes for unverified segments",
-		Long:  "Verifies piece hashes for all segments with PieceHashesVerifeid = false in their pointer.",
-		RunE:  cmdVerifyPieceHashes,
-	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -270,10 +254,6 @@ var (
 	}
 	verifyGracefulExitReceiptCfg struct {
 	}
-	dryRunCfg struct {
-		Satellite
-		DryRun bool `help:"only prints logs for the changes to be made without apply them" default:"true"`
-	}
 	confDir     string
 	identityDir string
 )
@@ -295,7 +275,6 @@ func init() {
 	rootCmd.AddCommand(reportsCmd)
 	rootCmd.AddCommand(compensationCmd)
 	rootCmd.AddCommand(billingCmd)
-	rootCmd.AddCommand(metainfoCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(gracefulExitCmd)
@@ -309,8 +288,6 @@ func init() {
 	billingCmd.AddCommand(createCustomerInvoicesCmd)
 	billingCmd.AddCommand(finalizeCustomerInvoicesCmd)
 	billingCmd.AddCommand(stripeCustomerCmd)
-	metainfoCmd.AddCommand(fixOldStyleObjectsCmd)
-	metainfoCmd.AddCommand(verifyPieceHashesCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -332,8 +309,6 @@ func init() {
 	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(finalizeCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(fixOldStyleObjectsCmd, &dryRunCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(verifyPieceHashesCmd, &dryRunCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -346,10 +321,11 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
-		log.Fatal("Failed to load identity.", zap.Error(err))
+		log.Error("Failed to load identity.", zap.Error(err))
+		return errs.New("Failed to load identity: %+v", err)
 	}
 
-	db, err := satellitedb.New(log.Named("db"), runCfg.Database, satellitedb.Options{
+	db, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
 		ReportedRollupsReadBatchSize: runCfg.Orders.SettlementBatchSize,
 	})
 	if err != nil {
@@ -359,7 +335,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL)
+	pointerDB, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL)
 	if err != nil {
 		return errs.New("Error creating metainfodb connection: %+v", err)
 	}
@@ -367,7 +343,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, pointerDB.Close())
 	}()
 
-	revocationDB, err := revocation.NewDBFromCfg(runCfg.Server.Config)
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, runCfg.Server.Config)
 	if err != nil {
 		return errs.New("Error creating revocation database: %+v", err)
 	}
@@ -410,7 +386,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	err = db.CheckVersion(ctx)
 	if err != nil {
-		log.Fatal("Failed satellite database version check.", zap.Error(err))
+		log.Error("Failed satellite database version check.", zap.Error(err))
 		return errs.New("Error checking version for satellitedb: %+v", err)
 	}
 
@@ -423,7 +399,7 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
-	db, err := satellitedb.New(log.Named("migration"), runCfg.Database, satellitedb.Options{})
+	db, err := satellitedb.Open(ctx, log.Named("migration"), runCfg.Database, satellitedb.Options{})
 	if err != nil {
 		return errs.New("Error creating new master database connection for satellitedb migration: %+v", err)
 	}
@@ -436,7 +412,7 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}
 
-	pdb, err := metainfo.NewStore(log.Named("migration"), runCfg.Metainfo.DatabaseURL)
+	pdb, err := metainfo.OpenStore(ctx, log.Named("migration"), runCfg.Metainfo.DatabaseURL)
 	if err != nil {
 		return errs.New("Error creating pointer database connection on satellite: %+v", err)
 	}
@@ -471,9 +447,10 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
 
 	// open the master db
-	database, err := satellitedb.New(zap.L().Named("db"), qdiagCfg.Database, satellitedb.Options{})
+	database, err := satellitedb.Open(ctx, zap.L().Named("db"), qdiagCfg.Database, satellitedb.Options{})
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
 	}
@@ -661,7 +638,7 @@ func cmdPrepareCustomerInvoiceRecords(cmd *cobra.Command, args []string) (err er
 		return errs.New("invalid period specified: %v", err)
 	}
 
-	return runBillingCmd(func(payments *stripecoinpayments.Service, _ *dbx.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ *dbx.DB) error {
 		return payments.PrepareInvoiceProjectRecords(ctx, period)
 	})
 }
@@ -674,7 +651,7 @@ func cmdCreateCustomerInvoiceItems(cmd *cobra.Command, args []string) (err error
 		return errs.New("invalid period specified: %v", err)
 	}
 
-	return runBillingCmd(func(payments *stripecoinpayments.Service, _ *dbx.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ *dbx.DB) error {
 		return payments.InvoiceApplyProjectRecords(ctx, period)
 	})
 }
@@ -687,7 +664,7 @@ func cmdCreateCustomerInvoiceCoupons(cmd *cobra.Command, args []string) (err err
 		return errs.New("invalid period specified: %v", err)
 	}
 
-	return runBillingCmd(func(payments *stripecoinpayments.Service, _ *dbx.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ *dbx.DB) error {
 		return payments.InvoiceApplyCoupons(ctx, period)
 	})
 }
@@ -700,7 +677,7 @@ func cmdCreateCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("invalid period specified: %v", err)
 	}
 
-	return runBillingCmd(func(payments *stripecoinpayments.Service, _ *dbx.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ *dbx.DB) error {
 		return payments.CreateInvoices(ctx, period)
 	})
 }
@@ -708,7 +685,7 @@ func cmdCreateCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 func cmdFinalizeCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	return runBillingCmd(func(payments *stripecoinpayments.Service, _ *dbx.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ *dbx.DB) error {
 		return payments.FinalizeInvoices(ctx)
 	})
 }
@@ -717,18 +694,6 @@ func cmdStripeCustomer(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
 	return generateStripeCustomers(ctx)
-}
-
-func cmdFixOldStyleObjects(cmd *cobra.Command, args []string) (err error) {
-	ctx, _ := process.Ctx(cmd)
-
-	return fixOldStyleObjects(ctx)
-}
-
-func cmdVerifyPieceHashes(cmd *cobra.Command, args []string) (err error) {
-	ctx, _ := process.Ctx(cmd)
-
-	return verifyPieceHashes(ctx)
 }
 
 func main() {

@@ -51,7 +51,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 					URL: "bolt://" + ctx.File("authorizations.db"),
 				}
 
-				authDB, err := authorization.NewDBFromCfg(authorizationsCfg)
+				authDB, err := authorization.OpenDBFromCfg(ctx, authorizationsCfg)
 				require.NoError(t, err)
 				require.NotNil(t, authDB)
 
@@ -104,7 +104,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				assert.Equal(t, clientIdent.CA.RawTBSCertificate, signedChain[0].RawTBSCertificate)
 				assert.Equal(t, signer.Cert.Raw, signedChainBytes[1])
 				// TODO: test scenario with rest chain
-				//assert.Equal(t, signingCA.RawRestChain(), signedChainBytes[1:])
+				// assert.Equal(t, signingCA.RawRestChain(), signedChainBytes[1:])
 
 				err = signedChain[0].CheckSignatureFrom(signer.Cert)
 				require.NoError(t, err)
@@ -113,7 +113,7 @@ func TestCertificateSigner_Sign_E2E(t *testing.T) {
 				assert.NoError(t, err)
 
 				// NB: re-open after closing for server
-				authDB, err = authorization.NewDBFromCfg(authorizationsCfg)
+				authDB, err = authorization.OpenDBFromCfg(ctx, authorizationsCfg)
 				require.NoError(t, err)
 				defer ctx.Check(authDB.Close)
 				require.NotNil(t, authDB)
@@ -150,7 +150,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 
 			userID := "user@mail.test"
 			// TODO: test with all types of authorization DBs (bolt, redis, etc.)
-			authDB, err := authorization.NewDB("bolt://"+ctx.File("authorizations.db"), false)
+			authDB, err := authorization.OpenDB(ctx, "bolt://"+ctx.File("authorizations.db"), false)
 			require.NoError(t, err)
 			defer ctx.Check(authDB.Close)
 			require.NotNil(t, authDB)
@@ -187,7 +187,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 			assert.Equal(t, ident.CA.RawTBSCertificate, signedChain[0].RawTBSCertificate)
 			assert.Equal(t, ca.Cert.Raw, signedChain[1].Raw)
 			// TODO: test scenario with rest chain
-			//assert.Equal(t, signingCA.RawRestChain(), res.Chain[1:])
+			// assert.Equal(t, signingCA.RawRestChain(), res.Chain[1:])
 
 			err = signedChain[0].CheckSignatureFrom(ca.Cert)
 			require.NoError(t, err)

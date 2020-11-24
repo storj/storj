@@ -1,0 +1,47 @@
+// dbx.v1 golang multinodedb.dbx .
+
+model node (
+    key id
+
+    field id              blob
+    field name            text    ( updatable )
+    field public_address  text
+    field api_secret      blob
+)
+
+create node ( )
+delete node ( where node.id = ? )
+update node ( where node.id = ? )
+
+read one (
+    select node
+    where node.id = ?
+)
+read all(
+    select node
+)
+
+model member (
+    key id
+
+    field id              blob
+    field email           text      ( updatable )
+    field name            text      ( updatable )
+    field password_hash   blob      ( updatable )
+
+    field created_at      timestamp ( autoinsert )
+)
+
+create member ( )
+delete member ( where member.id = ? )
+
+update member ( where member.id = ? )
+
+read one (
+    select member
+    where member.email = ?
+)
+read one (
+    select member
+    where member.id = ?
+)

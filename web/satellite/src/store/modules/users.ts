@@ -3,6 +3,7 @@
 
 import { StoreModule } from '@/store';
 import { UpdatedUser, User, UsersApi } from '@/types/users';
+import { MetaUtils } from '@/utils/meta';
 
 export const USER_ACTIONS = {
     UPDATE: 'updateUser',
@@ -43,6 +44,16 @@ export function makeUsersModule(api: UsersApi): StoreModule<User> {
                 state.shortName = user.shortName;
                 state.fullName = user.fullName;
                 state.partnerId = user.partnerId;
+
+                if (user.projectLimit === 0) {
+                    const limitFromConfig = MetaUtils.getMetaContent('default-project-limit');
+
+                    state.projectLimit = parseInt(limitFromConfig);
+
+                    return;
+                }
+
+                state.projectLimit = user.projectLimit;
             },
 
             [CLEAR](state: User): void {
@@ -51,6 +62,7 @@ export function makeUsersModule(api: UsersApi): StoreModule<User> {
                 state.shortName = '';
                 state.fullName = '';
                 state.partnerId = '';
+                state.projectLimit = 1;
             },
 
             [UPDATE_USER](state: User, user: UpdatedUser): void {

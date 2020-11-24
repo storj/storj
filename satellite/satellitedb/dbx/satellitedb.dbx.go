@@ -383,6 +383,7 @@ CREATE TABLE injuredsegments (
 	attempted timestamp with time zone,
 	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	num_healthy_pieces integer NOT NULL DEFAULT 52,
+	segment_health double precision NOT NULL DEFAULT 1,
 	PRIMARY KEY ( path )
 );
 CREATE TABLE irreparabledbs (
@@ -497,10 +498,10 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	usage_limit bigint DEFAULT 50000000000,
-	bandwidth_limit bigint DEFAULT 50000000000,
+	usage_limit bigint,
+	bandwidth_limit bigint,
 	rate_limit integer,
-	max_buckets integer DEFAULT 100,
+	max_buckets integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -550,6 +551,15 @@ CREATE TABLE serial_numbers (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE storagenode_bandwidth_rollups (
+	storagenode_id bytea NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
+	interval_seconds integer NOT NULL,
+	action integer NOT NULL,
+	allocated bigint DEFAULT 0,
+	settled bigint NOT NULL,
+	PRIMARY KEY ( storagenode_id, interval_start, action )
+);
+CREATE TABLE storagenode_bandwidth_rollups_phase2 (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
 	interval_seconds integer NOT NULL,
@@ -710,8 +720,10 @@ CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_t
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start );
 CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id );
 CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
+CREATE INDEX graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );
+CREATE INDEX injuredsegments_segment_health_index ON injuredsegments ( segment_health );
 CREATE INDEX injuredsegments_updated_at_index ON injuredsegments ( updated_at );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );
@@ -894,6 +906,7 @@ CREATE TABLE injuredsegments (
 	attempted timestamp with time zone,
 	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	num_healthy_pieces integer NOT NULL DEFAULT 52,
+	segment_health double precision NOT NULL DEFAULT 1,
 	PRIMARY KEY ( path )
 );
 CREATE TABLE irreparabledbs (
@@ -1008,10 +1021,10 @@ CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	description text NOT NULL,
-	usage_limit bigint DEFAULT 50000000000,
-	bandwidth_limit bigint DEFAULT 50000000000,
+	usage_limit bigint,
+	bandwidth_limit bigint,
 	rate_limit integer,
-	max_buckets integer DEFAULT 100,
+	max_buckets integer,
 	partner_id bytea,
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
@@ -1061,6 +1074,15 @@ CREATE TABLE serial_numbers (
 	PRIMARY KEY ( id )
 );
 CREATE TABLE storagenode_bandwidth_rollups (
+	storagenode_id bytea NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
+	interval_seconds integer NOT NULL,
+	action integer NOT NULL,
+	allocated bigint DEFAULT 0,
+	settled bigint NOT NULL,
+	PRIMARY KEY ( storagenode_id, interval_start, action )
+);
+CREATE TABLE storagenode_bandwidth_rollups_phase2 (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
 	interval_seconds integer NOT NULL,
@@ -1221,8 +1243,10 @@ CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_t
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start );
 CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id );
 CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
+CREATE INDEX graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX injuredsegments_num_healthy_pieces_index ON injuredsegments ( num_healthy_pieces );
+CREATE INDEX injuredsegments_segment_health_index ON injuredsegments ( segment_health );
 CREATE INDEX injuredsegments_updated_at_index ON injuredsegments ( updated_at );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );
@@ -2929,6 +2953,7 @@ type Injuredsegment struct {
 	Attempted        *time.Time
 	UpdatedAt        time.Time
 	NumHealthyPieces int
+	SegmentHealth    float64
 }
 
 func (Injuredsegment) _Table() string { return "injuredsegments" }
@@ -2937,6 +2962,7 @@ type Injuredsegment_Create_Fields struct {
 	Attempted        Injuredsegment_Attempted_Field
 	UpdatedAt        Injuredsegment_UpdatedAt_Field
 	NumHealthyPieces Injuredsegment_NumHealthyPieces_Field
+	SegmentHealth    Injuredsegment_SegmentHealth_Field
 }
 
 type Injuredsegment_Update_Fields struct {
@@ -3051,6 +3077,25 @@ func (f Injuredsegment_NumHealthyPieces_Field) value() interface{} {
 }
 
 func (Injuredsegment_NumHealthyPieces_Field) _Column() string { return "num_healthy_pieces" }
+
+type Injuredsegment_SegmentHealth_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func Injuredsegment_SegmentHealth(v float64) Injuredsegment_SegmentHealth_Field {
+	return Injuredsegment_SegmentHealth_Field{_set: true, _value: v}
+}
+
+func (f Injuredsegment_SegmentHealth_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Injuredsegment_SegmentHealth_Field) _Column() string { return "segment_health" }
 
 type Irreparabledb struct {
 	Segmentpath        []byte
@@ -6039,6 +6084,159 @@ func (f StoragenodeBandwidthRollup_Settled_Field) value() interface{} {
 
 func (StoragenodeBandwidthRollup_Settled_Field) _Column() string { return "settled" }
 
+type StoragenodeBandwidthRollupPhase2 struct {
+	StoragenodeId   []byte
+	IntervalStart   time.Time
+	IntervalSeconds uint
+	Action          uint
+	Allocated       *uint64
+	Settled         uint64
+}
+
+func (StoragenodeBandwidthRollupPhase2) _Table() string {
+	return "storagenode_bandwidth_rollups_phase2"
+}
+
+type StoragenodeBandwidthRollupPhase2_Create_Fields struct {
+	Allocated StoragenodeBandwidthRollupPhase2_Allocated_Field
+}
+
+type StoragenodeBandwidthRollupPhase2_Update_Fields struct {
+	Allocated StoragenodeBandwidthRollupPhase2_Allocated_Field
+	Settled   StoragenodeBandwidthRollupPhase2_Settled_Field
+}
+
+type StoragenodeBandwidthRollupPhase2_StoragenodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func StoragenodeBandwidthRollupPhase2_StoragenodeId(v []byte) StoragenodeBandwidthRollupPhase2_StoragenodeId_Field {
+	return StoragenodeBandwidthRollupPhase2_StoragenodeId_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeBandwidthRollupPhase2_StoragenodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeBandwidthRollupPhase2_StoragenodeId_Field) _Column() string { return "storagenode_id" }
+
+type StoragenodeBandwidthRollupPhase2_IntervalStart_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StoragenodeBandwidthRollupPhase2_IntervalStart(v time.Time) StoragenodeBandwidthRollupPhase2_IntervalStart_Field {
+	return StoragenodeBandwidthRollupPhase2_IntervalStart_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeBandwidthRollupPhase2_IntervalStart_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeBandwidthRollupPhase2_IntervalStart_Field) _Column() string { return "interval_start" }
+
+type StoragenodeBandwidthRollupPhase2_IntervalSeconds_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func StoragenodeBandwidthRollupPhase2_IntervalSeconds(v uint) StoragenodeBandwidthRollupPhase2_IntervalSeconds_Field {
+	return StoragenodeBandwidthRollupPhase2_IntervalSeconds_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeBandwidthRollupPhase2_IntervalSeconds_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeBandwidthRollupPhase2_IntervalSeconds_Field) _Column() string {
+	return "interval_seconds"
+}
+
+type StoragenodeBandwidthRollupPhase2_Action_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func StoragenodeBandwidthRollupPhase2_Action(v uint) StoragenodeBandwidthRollupPhase2_Action_Field {
+	return StoragenodeBandwidthRollupPhase2_Action_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeBandwidthRollupPhase2_Action_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeBandwidthRollupPhase2_Action_Field) _Column() string { return "action" }
+
+type StoragenodeBandwidthRollupPhase2_Allocated_Field struct {
+	_set   bool
+	_null  bool
+	_value *uint64
+}
+
+func StoragenodeBandwidthRollupPhase2_Allocated(v uint64) StoragenodeBandwidthRollupPhase2_Allocated_Field {
+	return StoragenodeBandwidthRollupPhase2_Allocated_Field{_set: true, _value: &v}
+}
+
+func StoragenodeBandwidthRollupPhase2_Allocated_Raw(v *uint64) StoragenodeBandwidthRollupPhase2_Allocated_Field {
+	if v == nil {
+		return StoragenodeBandwidthRollupPhase2_Allocated_Null()
+	}
+	return StoragenodeBandwidthRollupPhase2_Allocated(*v)
+}
+
+func StoragenodeBandwidthRollupPhase2_Allocated_Null() StoragenodeBandwidthRollupPhase2_Allocated_Field {
+	return StoragenodeBandwidthRollupPhase2_Allocated_Field{_set: true, _null: true}
+}
+
+func (f StoragenodeBandwidthRollupPhase2_Allocated_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f StoragenodeBandwidthRollupPhase2_Allocated_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeBandwidthRollupPhase2_Allocated_Field) _Column() string { return "allocated" }
+
+type StoragenodeBandwidthRollupPhase2_Settled_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func StoragenodeBandwidthRollupPhase2_Settled(v uint64) StoragenodeBandwidthRollupPhase2_Settled_Field {
+	return StoragenodeBandwidthRollupPhase2_Settled_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeBandwidthRollupPhase2_Settled_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeBandwidthRollupPhase2_Settled_Field) _Column() string { return "settled" }
+
 type StoragenodePayment struct {
 	Id        int64
 	CreatedAt time.Time
@@ -8716,8 +8914,8 @@ type BandwidthLimit_Row struct {
 }
 
 type BandwidthLimit_UsageLimit_Row struct {
-	BandwidthLimit int64
-	UsageLimit     int64
+	BandwidthLimit *int64
+	UsageLimit     *int64
 }
 
 type BucketId_Row struct {
@@ -9226,49 +9424,19 @@ func (obj *pgxImpl) Create_Project(ctx context.Context,
 	__id_val := project_id.value()
 	__name_val := project_name.value()
 	__description_val := project_description.value()
+	__usage_limit_val := optional.UsageLimit.value()
+	__bandwidth_limit_val := optional.BandwidthLimit.value()
 	__rate_limit_val := optional.RateLimit.value()
+	__max_buckets_val := optional.MaxBuckets.value()
 	__partner_id_val := optional.PartnerId.value()
 	__owner_id_val := project_owner_id.value()
 	__created_at_val := __now
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, name, description, rate_limit, partner_id, owner_id, created_at")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?")}
-	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO projects "), __clause, __sqlbundle_Literal(" RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")}}
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, usage_limit, bandwidth_limit, rate_limit, max_buckets, partner_id, owner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __name_val, __description_val, __rate_limit_val, __partner_id_val, __owner_id_val, __created_at_val)
+	__values = append(__values, __id_val, __name_val, __description_val, __usage_limit_val, __bandwidth_limit_val, __rate_limit_val, __max_buckets_val, __partner_id_val, __owner_id_val, __created_at_val)
 
-	__optional_columns := __sqlbundle_Literals{Join: ", "}
-	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
-
-	if optional.UsageLimit._set {
-		__values = append(__values, optional.UsageLimit.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("usage_limit"))
-		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
-	}
-
-	if optional.BandwidthLimit._set {
-		__values = append(__values, optional.BandwidthLimit.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("bandwidth_limit"))
-		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
-	}
-
-	if optional.MaxBuckets._set {
-		__values = append(__values, optional.MaxBuckets.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("max_buckets"))
-		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
-	}
-
-	if len(__optional_columns.SQLs) == 0 {
-		if __columns.SQL == nil {
-			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
-		}
-	} else {
-		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
-		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
-	}
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
@@ -9565,6 +9733,59 @@ func (obj *pgxImpl) Create_StoragenodeBandwidthRollup(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return storagenode_bandwidth_rollup, nil
+
+}
+
+func (obj *pgxImpl) Create_StoragenodeBandwidthRollupPhase2(ctx context.Context,
+	storagenode_bandwidth_rollup_phase2_storagenode_id StoragenodeBandwidthRollupPhase2_StoragenodeId_Field,
+	storagenode_bandwidth_rollup_phase2_interval_start StoragenodeBandwidthRollupPhase2_IntervalStart_Field,
+	storagenode_bandwidth_rollup_phase2_interval_seconds StoragenodeBandwidthRollupPhase2_IntervalSeconds_Field,
+	storagenode_bandwidth_rollup_phase2_action StoragenodeBandwidthRollupPhase2_Action_Field,
+	storagenode_bandwidth_rollup_phase2_settled StoragenodeBandwidthRollupPhase2_Settled_Field,
+	optional StoragenodeBandwidthRollupPhase2_Create_Fields) (
+	storagenode_bandwidth_rollup_phase2 *StoragenodeBandwidthRollupPhase2, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__storagenode_id_val := storagenode_bandwidth_rollup_phase2_storagenode_id.value()
+	__interval_start_val := storagenode_bandwidth_rollup_phase2_interval_start.value()
+	__interval_seconds_val := storagenode_bandwidth_rollup_phase2_interval_seconds.value()
+	__action_val := storagenode_bandwidth_rollup_phase2_action.value()
+	__settled_val := storagenode_bandwidth_rollup_phase2_settled.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("storagenode_id, interval_start, interval_seconds, action, settled")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO storagenode_bandwidth_rollups_phase2 "), __clause, __sqlbundle_Literal(" RETURNING storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.interval_seconds, storagenode_bandwidth_rollups_phase2.action, storagenode_bandwidth_rollups_phase2.allocated, storagenode_bandwidth_rollups_phase2.settled")}}
+
+	var __values []interface{}
+	__values = append(__values, __storagenode_id_val, __interval_start_val, __interval_seconds_val, __action_val, __settled_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Allocated._set {
+		__values = append(__values, optional.Allocated.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("allocated"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	storagenode_bandwidth_rollup_phase2 = &StoragenodeBandwidthRollupPhase2{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&storagenode_bandwidth_rollup_phase2.StoragenodeId, &storagenode_bandwidth_rollup_phase2.IntervalStart, &storagenode_bandwidth_rollup_phase2.IntervalSeconds, &storagenode_bandwidth_rollup_phase2.Action, &storagenode_bandwidth_rollup_phase2.Allocated, &storagenode_bandwidth_rollup_phase2.Settled)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return storagenode_bandwidth_rollup_phase2, nil
 
 }
 
@@ -11536,33 +11757,6 @@ func (obj *pgxImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_And_Inter
 
 }
 
-func (obj *pgxImpl) Find_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_And_Action(ctx context.Context,
-	storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
-	storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field,
-	storagenode_bandwidth_rollup_action StoragenodeBandwidthRollup_Action_Field) (
-	storagenode_bandwidth_rollup *StoragenodeBandwidthRollup, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.storagenode_id = ? AND storagenode_bandwidth_rollups.interval_start = ? AND storagenode_bandwidth_rollups.action = ?")
-
-	var __values []interface{}
-	__values = append(__values, storagenode_bandwidth_rollup_storagenode_id.value(), storagenode_bandwidth_rollup_interval_start.value(), storagenode_bandwidth_rollup_action.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	storagenode_bandwidth_rollup = &StoragenodeBandwidthRollup{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled)
-	if err == sql.ErrNoRows {
-		return (*StoragenodeBandwidthRollup)(nil), nil
-	}
-	if err != nil {
-		return (*StoragenodeBandwidthRollup)(nil), obj.makeErr(err)
-	}
-	return storagenode_bandwidth_rollup, nil
-
-}
-
 func (obj *pgxImpl) All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
 	storagenode_bandwidth_rollup_interval_start_greater_or_equal StoragenodeBandwidthRollup_IntervalStart_Field) (
 	rows []*StoragenodeBandwidthRollup, err error) {
@@ -11624,6 +11818,40 @@ func (obj *pgxImpl) All_StoragenodeBandwidthRollup_By_StoragenodeId_And_Interval
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, storagenode_bandwidth_rollup)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *pgxImpl) All_StoragenodeBandwidthRollupPhase2_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	storagenode_bandwidth_rollup_phase2_interval_start_greater_or_equal StoragenodeBandwidthRollupPhase2_IntervalStart_Field) (
+	rows []*StoragenodeBandwidthRollupPhase2, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.interval_seconds, storagenode_bandwidth_rollups_phase2.action, storagenode_bandwidth_rollups_phase2.allocated, storagenode_bandwidth_rollups_phase2.settled FROM storagenode_bandwidth_rollups_phase2 WHERE storagenode_bandwidth_rollups_phase2.interval_start >= ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_bandwidth_rollup_phase2_interval_start_greater_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		storagenode_bandwidth_rollup_phase2 := &StoragenodeBandwidthRollupPhase2{}
+		err = __rows.Scan(&storagenode_bandwidth_rollup_phase2.StoragenodeId, &storagenode_bandwidth_rollup_phase2.IntervalStart, &storagenode_bandwidth_rollup_phase2.IntervalSeconds, &storagenode_bandwidth_rollup_phase2.Action, &storagenode_bandwidth_rollup_phase2.Allocated, &storagenode_bandwidth_rollup_phase2.Settled)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, storagenode_bandwidth_rollup_phase2)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -14776,6 +15004,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollups_phase2;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -15515,49 +15753,19 @@ func (obj *pgxcockroachImpl) Create_Project(ctx context.Context,
 	__id_val := project_id.value()
 	__name_val := project_name.value()
 	__description_val := project_description.value()
+	__usage_limit_val := optional.UsageLimit.value()
+	__bandwidth_limit_val := optional.BandwidthLimit.value()
 	__rate_limit_val := optional.RateLimit.value()
+	__max_buckets_val := optional.MaxBuckets.value()
 	__partner_id_val := optional.PartnerId.value()
 	__owner_id_val := project_owner_id.value()
 	__created_at_val := __now
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, name, description, rate_limit, partner_id, owner_id, created_at")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?")}
-	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO projects "), __clause, __sqlbundle_Literal(" RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")}}
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO projects ( id, name, description, usage_limit, bandwidth_limit, rate_limit, max_buckets, partner_id, owner_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING projects.id, projects.name, projects.description, projects.usage_limit, projects.bandwidth_limit, projects.rate_limit, projects.max_buckets, projects.partner_id, projects.owner_id, projects.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __name_val, __description_val, __rate_limit_val, __partner_id_val, __owner_id_val, __created_at_val)
+	__values = append(__values, __id_val, __name_val, __description_val, __usage_limit_val, __bandwidth_limit_val, __rate_limit_val, __max_buckets_val, __partner_id_val, __owner_id_val, __created_at_val)
 
-	__optional_columns := __sqlbundle_Literals{Join: ", "}
-	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
-
-	if optional.UsageLimit._set {
-		__values = append(__values, optional.UsageLimit.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("usage_limit"))
-		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
-	}
-
-	if optional.BandwidthLimit._set {
-		__values = append(__values, optional.BandwidthLimit.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("bandwidth_limit"))
-		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
-	}
-
-	if optional.MaxBuckets._set {
-		__values = append(__values, optional.MaxBuckets.value())
-		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("max_buckets"))
-		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
-	}
-
-	if len(__optional_columns.SQLs) == 0 {
-		if __columns.SQL == nil {
-			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
-		}
-	} else {
-		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
-		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
-	}
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
@@ -15854,6 +16062,59 @@ func (obj *pgxcockroachImpl) Create_StoragenodeBandwidthRollup(ctx context.Conte
 		return nil, obj.makeErr(err)
 	}
 	return storagenode_bandwidth_rollup, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_StoragenodeBandwidthRollupPhase2(ctx context.Context,
+	storagenode_bandwidth_rollup_phase2_storagenode_id StoragenodeBandwidthRollupPhase2_StoragenodeId_Field,
+	storagenode_bandwidth_rollup_phase2_interval_start StoragenodeBandwidthRollupPhase2_IntervalStart_Field,
+	storagenode_bandwidth_rollup_phase2_interval_seconds StoragenodeBandwidthRollupPhase2_IntervalSeconds_Field,
+	storagenode_bandwidth_rollup_phase2_action StoragenodeBandwidthRollupPhase2_Action_Field,
+	storagenode_bandwidth_rollup_phase2_settled StoragenodeBandwidthRollupPhase2_Settled_Field,
+	optional StoragenodeBandwidthRollupPhase2_Create_Fields) (
+	storagenode_bandwidth_rollup_phase2 *StoragenodeBandwidthRollupPhase2, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__storagenode_id_val := storagenode_bandwidth_rollup_phase2_storagenode_id.value()
+	__interval_start_val := storagenode_bandwidth_rollup_phase2_interval_start.value()
+	__interval_seconds_val := storagenode_bandwidth_rollup_phase2_interval_seconds.value()
+	__action_val := storagenode_bandwidth_rollup_phase2_action.value()
+	__settled_val := storagenode_bandwidth_rollup_phase2_settled.value()
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("storagenode_id, interval_start, interval_seconds, action, settled")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO storagenode_bandwidth_rollups_phase2 "), __clause, __sqlbundle_Literal(" RETURNING storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.interval_seconds, storagenode_bandwidth_rollups_phase2.action, storagenode_bandwidth_rollups_phase2.allocated, storagenode_bandwidth_rollups_phase2.settled")}}
+
+	var __values []interface{}
+	__values = append(__values, __storagenode_id_val, __interval_start_val, __interval_seconds_val, __action_val, __settled_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Allocated._set {
+		__values = append(__values, optional.Allocated.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("allocated"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	storagenode_bandwidth_rollup_phase2 = &StoragenodeBandwidthRollupPhase2{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&storagenode_bandwidth_rollup_phase2.StoragenodeId, &storagenode_bandwidth_rollup_phase2.IntervalStart, &storagenode_bandwidth_rollup_phase2.IntervalSeconds, &storagenode_bandwidth_rollup_phase2.Action, &storagenode_bandwidth_rollup_phase2.Allocated, &storagenode_bandwidth_rollup_phase2.Settled)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return storagenode_bandwidth_rollup_phase2, nil
 
 }
 
@@ -17825,33 +18086,6 @@ func (obj *pgxcockroachImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_
 
 }
 
-func (obj *pgxcockroachImpl) Find_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_And_Action(ctx context.Context,
-	storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
-	storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field,
-	storagenode_bandwidth_rollup_action StoragenodeBandwidthRollup_Action_Field) (
-	storagenode_bandwidth_rollup *StoragenodeBandwidthRollup, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.storagenode_id = ? AND storagenode_bandwidth_rollups.interval_start = ? AND storagenode_bandwidth_rollups.action = ?")
-
-	var __values []interface{}
-	__values = append(__values, storagenode_bandwidth_rollup_storagenode_id.value(), storagenode_bandwidth_rollup_interval_start.value(), storagenode_bandwidth_rollup_action.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	storagenode_bandwidth_rollup = &StoragenodeBandwidthRollup{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled)
-	if err == sql.ErrNoRows {
-		return (*StoragenodeBandwidthRollup)(nil), nil
-	}
-	if err != nil {
-		return (*StoragenodeBandwidthRollup)(nil), obj.makeErr(err)
-	}
-	return storagenode_bandwidth_rollup, nil
-
-}
-
 func (obj *pgxcockroachImpl) All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
 	storagenode_bandwidth_rollup_interval_start_greater_or_equal StoragenodeBandwidthRollup_IntervalStart_Field) (
 	rows []*StoragenodeBandwidthRollup, err error) {
@@ -17913,6 +18147,40 @@ func (obj *pgxcockroachImpl) All_StoragenodeBandwidthRollup_By_StoragenodeId_And
 			return nil, obj.makeErr(err)
 		}
 		rows = append(rows, storagenode_bandwidth_rollup)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_StoragenodeBandwidthRollupPhase2_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	storagenode_bandwidth_rollup_phase2_interval_start_greater_or_equal StoragenodeBandwidthRollupPhase2_IntervalStart_Field) (
+	rows []*StoragenodeBandwidthRollupPhase2, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups_phase2.storagenode_id, storagenode_bandwidth_rollups_phase2.interval_start, storagenode_bandwidth_rollups_phase2.interval_seconds, storagenode_bandwidth_rollups_phase2.action, storagenode_bandwidth_rollups_phase2.allocated, storagenode_bandwidth_rollups_phase2.settled FROM storagenode_bandwidth_rollups_phase2 WHERE storagenode_bandwidth_rollups_phase2.interval_start >= ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_bandwidth_rollup_phase2_interval_start_greater_or_equal.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		storagenode_bandwidth_rollup_phase2 := &StoragenodeBandwidthRollupPhase2{}
+		err = __rows.Scan(&storagenode_bandwidth_rollup_phase2.StoragenodeId, &storagenode_bandwidth_rollup_phase2.IntervalStart, &storagenode_bandwidth_rollup_phase2.IntervalSeconds, &storagenode_bandwidth_rollup_phase2.Action, &storagenode_bandwidth_rollup_phase2.Allocated, &storagenode_bandwidth_rollup_phase2.Settled)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, storagenode_bandwidth_rollup_phase2)
 	}
 	if err := __rows.Err(); err != nil {
 		return nil, obj.makeErr(err)
@@ -21065,6 +21333,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollups_phase2;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -21573,6 +21851,16 @@ func (rx *Rx) All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx
 	return tx.All_Project_By_ProjectMember_MemberId_OrderBy_Asc_Project_Name(ctx, project_member_member_id)
 }
 
+func (rx *Rx) All_StoragenodeBandwidthRollupPhase2_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	storagenode_bandwidth_rollup_phase2_interval_start_greater_or_equal StoragenodeBandwidthRollupPhase2_IntervalStart_Field) (
+	rows []*StoragenodeBandwidthRollupPhase2, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_StoragenodeBandwidthRollupPhase2_By_IntervalStart_GreaterOrEqual(ctx, storagenode_bandwidth_rollup_phase2_interval_start_greater_or_equal)
+}
+
 func (rx *Rx) All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
 	storagenode_bandwidth_rollup_interval_start_greater_or_equal StoragenodeBandwidthRollup_IntervalStart_Field) (
 	rows []*StoragenodeBandwidthRollup, err error) {
@@ -22074,6 +22362,22 @@ func (rx *Rx) Create_StoragenodeBandwidthRollup(ctx context.Context,
 
 }
 
+func (rx *Rx) Create_StoragenodeBandwidthRollupPhase2(ctx context.Context,
+	storagenode_bandwidth_rollup_phase2_storagenode_id StoragenodeBandwidthRollupPhase2_StoragenodeId_Field,
+	storagenode_bandwidth_rollup_phase2_interval_start StoragenodeBandwidthRollupPhase2_IntervalStart_Field,
+	storagenode_bandwidth_rollup_phase2_interval_seconds StoragenodeBandwidthRollupPhase2_IntervalSeconds_Field,
+	storagenode_bandwidth_rollup_phase2_action StoragenodeBandwidthRollupPhase2_Action_Field,
+	storagenode_bandwidth_rollup_phase2_settled StoragenodeBandwidthRollupPhase2_Settled_Field,
+	optional StoragenodeBandwidthRollupPhase2_Create_Fields) (
+	storagenode_bandwidth_rollup_phase2 *StoragenodeBandwidthRollupPhase2, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_StoragenodeBandwidthRollupPhase2(ctx, storagenode_bandwidth_rollup_phase2_storagenode_id, storagenode_bandwidth_rollup_phase2_interval_start, storagenode_bandwidth_rollup_phase2_interval_seconds, storagenode_bandwidth_rollup_phase2_action, storagenode_bandwidth_rollup_phase2_settled, optional)
+
+}
+
 func (rx *Rx) Create_StripeCustomer(ctx context.Context,
 	stripe_customer_user_id StripeCustomer_UserId_Field,
 	stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
@@ -22435,18 +22739,6 @@ func (rx *Rx) Find_SerialNumber_By_SerialNumber(ctx context.Context,
 		return
 	}
 	return tx.Find_SerialNumber_By_SerialNumber(ctx, serial_number_serial_number)
-}
-
-func (rx *Rx) Find_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_And_Action(ctx context.Context,
-	storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
-	storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field,
-	storagenode_bandwidth_rollup_action StoragenodeBandwidthRollup_Action_Field) (
-	storagenode_bandwidth_rollup *StoragenodeBandwidthRollup, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Find_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_And_Action(ctx, storagenode_bandwidth_rollup_storagenode_id, storagenode_bandwidth_rollup_interval_start, storagenode_bandwidth_rollup_action)
 }
 
 func (rx *Rx) First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(ctx context.Context,
@@ -23304,6 +23596,10 @@ type Methods interface {
 		project_member_member_id ProjectMember_MemberId_Field) (
 		rows []*Project, err error)
 
+	All_StoragenodeBandwidthRollupPhase2_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+		storagenode_bandwidth_rollup_phase2_interval_start_greater_or_equal StoragenodeBandwidthRollupPhase2_IntervalStart_Field) (
+		rows []*StoragenodeBandwidthRollupPhase2, err error)
+
 	All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
 		storagenode_bandwidth_rollup_interval_start_greater_or_equal StoragenodeBandwidthRollup_IntervalStart_Field) (
 		rows []*StoragenodeBandwidthRollup, err error)
@@ -23567,6 +23863,15 @@ type Methods interface {
 		optional StoragenodeBandwidthRollup_Create_Fields) (
 		storagenode_bandwidth_rollup *StoragenodeBandwidthRollup, err error)
 
+	Create_StoragenodeBandwidthRollupPhase2(ctx context.Context,
+		storagenode_bandwidth_rollup_phase2_storagenode_id StoragenodeBandwidthRollupPhase2_StoragenodeId_Field,
+		storagenode_bandwidth_rollup_phase2_interval_start StoragenodeBandwidthRollupPhase2_IntervalStart_Field,
+		storagenode_bandwidth_rollup_phase2_interval_seconds StoragenodeBandwidthRollupPhase2_IntervalSeconds_Field,
+		storagenode_bandwidth_rollup_phase2_action StoragenodeBandwidthRollupPhase2_Action_Field,
+		storagenode_bandwidth_rollup_phase2_settled StoragenodeBandwidthRollupPhase2_Settled_Field,
+		optional StoragenodeBandwidthRollupPhase2_Create_Fields) (
+		storagenode_bandwidth_rollup_phase2 *StoragenodeBandwidthRollupPhase2, err error)
+
 	Create_StripeCustomer(ctx context.Context,
 		stripe_customer_user_id StripeCustomer_UserId_Field,
 		stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
@@ -23725,12 +24030,6 @@ type Methods interface {
 	Find_SerialNumber_By_SerialNumber(ctx context.Context,
 		serial_number_serial_number SerialNumber_SerialNumber_Field) (
 		serial_number *SerialNumber, err error)
-
-	Find_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_And_Action(ctx context.Context,
-		storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
-		storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field,
-		storagenode_bandwidth_rollup_action StoragenodeBandwidthRollup_Action_Field) (
-		storagenode_bandwidth_rollup *StoragenodeBandwidthRollup, err error)
 
 	First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalStart(ctx context.Context,
 		bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field) (

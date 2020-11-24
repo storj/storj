@@ -1,0 +1,48 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "storj.io/storj/storagenode/internalpb";
+
+import "gogo.proto";
+import "google/protobuf/timestamp.proto";
+
+package storagenode.inspector;
+
+service PieceStoreInspector {
+  // Stats return space and bandwidth stats for a storagenode
+  rpc Stats(StatsRequest) returns (StatSummaryResponse) {}
+  // Dashboard returns stats for a specific storagenode
+  rpc Dashboard(DashboardRequest) returns (DashboardResponse) {}
+}
+
+
+message StatsRequest {
+}
+
+message StatSummaryResponse {
+  int64 used_space = 1;
+  int64 available_space = 2;
+  int64 used_ingress = 3;
+  int64 used_egress = 4;
+  int64 used_bandwidth = 5;
+  int64 available_bandwidth = 6;
+}
+
+message DashboardRequest {
+}
+
+message DashboardResponse {
+  bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  int64 node_connections = 2;
+  string bootstrap_address = 3 [deprecated=true];
+  string internal_address = 4;
+  string external_address = 5;
+  string dashboard_address = 6;
+  StatSummaryResponse stats = 7;
+  string uptime = 8;
+  google.protobuf.Timestamp last_pinged = 9 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp last_queried = 10 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  bytes last_ping_from_id = 11 [(gogoproto.customtype) = "NodeID"];
+  string last_ping_from_address = 12;
+}

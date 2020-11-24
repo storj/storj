@@ -119,13 +119,13 @@ func CreateMasterDB(ctx context.Context, log *zap.Logger, name string, category 
 		return nil, err
 	}
 
-	return CreateMasterDBOnTopOf(log, tempDB)
+	return CreateMasterDBOnTopOf(ctx, log, tempDB)
 }
 
 // CreateMasterDBOnTopOf creates a new satellite database on top of an already existing
 // temporary database.
-func CreateMasterDBOnTopOf(log *zap.Logger, tempDB *dbutil.TempDatabase) (db satellite.DB, err error) {
-	masterDB, err := satellitedb.New(log.Named("db"), tempDB.ConnStr, satellitedb.Options{})
+func CreateMasterDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase) (db satellite.DB, err error) {
+	masterDB, err := satellitedb.Open(ctx, log.Named("db"), tempDB.ConnStr, satellitedb.Options{})
 	return &tempMasterDB{DB: masterDB, tempDB: tempDB}, err
 }
 
@@ -162,7 +162,7 @@ func CreatePointerDB(ctx context.Context, log *zap.Logger, name string, category
 // CreatePointerDBOnTopOf creates a new satellite database on top of an already existing
 // temporary database.
 func CreatePointerDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase) (db metainfo.PointerDB, err error) {
-	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), tempDB.ConnStr)
+	pointerDB, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), tempDB.ConnStr)
 	if err != nil {
 		return nil, err
 	}

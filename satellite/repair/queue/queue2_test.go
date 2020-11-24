@@ -13,9 +13,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storage"
@@ -29,7 +29,7 @@ func TestUntilEmpty(t *testing.T) {
 		pathsMap := make(map[string]int)
 		for i := 0; i < 20; i++ {
 			path := "/path/" + strconv.Itoa(i)
-			injuredSeg := &pb.InjuredSegment{Path: []byte(path)}
+			injuredSeg := &internalpb.InjuredSegment{Path: []byte(path)}
 			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, 10)
 			require.NoError(t, err)
 			require.False(t, alreadyInserted)
@@ -62,7 +62,7 @@ func TestOrder(t *testing.T) {
 		olderRepairPath := []byte("/path/older")
 
 		for _, path := range [][]byte{oldRepairPath, recentRepairPath, nullPath, olderRepairPath} {
-			injuredSeg := &pb.InjuredSegment{Path: path}
+			injuredSeg := &internalpb.InjuredSegment{Path: path}
 			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, 10)
 			require.NoError(t, err)
 			require.False(t, alreadyInserted)
@@ -122,7 +122,7 @@ func TestOrderHealthyPieces(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		repairQueue := db.RepairQueue()
 
-		// we insert (path, health, lastAttempted) as follows:
+		// we insert (path, segmentHealth, lastAttempted) as follows:
 		// ("path/a", 6, now-8h)
 		// ("path/b", 7, now)
 		// ("path/c", 8, null)
@@ -137,9 +137,9 @@ func TestOrderHealthyPieces(t *testing.T) {
 
 		// insert the 8 segments according to the plan above
 		injuredSegList := []struct {
-			path      []byte
-			health    int
-			attempted time.Time
+			path          []byte
+			segmentHealth float64
+			attempted     time.Time
 		}{
 			{[]byte("path/a"), 6, time.Now().Add(-8 * time.Hour)},
 			{[]byte("path/b"), 7, time.Now()},
@@ -157,8 +157,8 @@ func TestOrderHealthyPieces(t *testing.T) {
 		})
 		for _, item := range injuredSegList {
 			// first, insert the injured segment
-			injuredSeg := &pb.InjuredSegment{Path: item.path}
-			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, item.health)
+			injuredSeg := &internalpb.InjuredSegment{Path: item.path}
+			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, item.segmentHealth)
 			require.NoError(t, err)
 			require.False(t, alreadyInserted)
 
@@ -206,23 +206,23 @@ func TestOrderOverwrite(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		repairQueue := db.RepairQueue()
 
-		// insert "path/a" with segment health 10
-		// insert "path/b" with segment health 9
-		// re-insert "path/a" with segment health 8
+		// insert "path/a" with segment segment health 10
+		// insert "path/b" with segment segment health 9
+		// re-insert "path/a" with segment segment health 8
 		// when we select, expect "path/a" first since after the re-insert, it is the least durable segment.
 
 		// insert the 8 segments according to the plan above
 		injuredSegList := []struct {
-			path   []byte
-			health int
+			path          []byte
+			segmentHealth float64
 		}{
 			{[]byte("path/a"), 10},
 			{[]byte("path/b"), 9},
 			{[]byte("path/a"), 8},
 		}
 		for i, item := range injuredSegList {
-			injuredSeg := &pb.InjuredSegment{Path: item.path}
-			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, item.health)
+			injuredSeg := &internalpb.InjuredSegment{Path: item.path}
+			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, item.segmentHealth)
 			require.NoError(t, err)
 			if i == 2 {
 				require.True(t, alreadyInserted)
@@ -256,7 +256,7 @@ func TestCount(t *testing.T) {
 		numSegments := 20
 		for i := 0; i < numSegments; i++ {
 			path := "/path/" + strconv.Itoa(i)
-			injuredSeg := &pb.InjuredSegment{Path: []byte(path)}
+			injuredSeg := &internalpb.InjuredSegment{Path: []byte(path)}
 			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, 10)
 			require.NoError(t, err)
 			require.False(t, alreadyInserted)

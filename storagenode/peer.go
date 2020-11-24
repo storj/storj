@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
+	"storj.io/storj/storagenode/apikeys"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/collector"
 	"storj.io/storj/storagenode/console"
@@ -39,6 +40,7 @@ import (
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/gracefulexit"
 	"storj.io/storj/storagenode/inspector"
+	"storj.io/storj/storagenode/internalpb"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/notifications"
@@ -48,6 +50,7 @@ import (
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/piecestore/usedserials"
+	"storj.io/storj/storagenode/piecetransfer"
 	"storj.io/storj/storagenode/preflight"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
@@ -85,6 +88,7 @@ type DB interface {
 	Notifications() notifications.DB
 	Payout() payout.DB
 	Pricing() pricing.DB
+	Secret() apikeys.DB
 
 	Preflight(ctx context.Context) error
 }
@@ -252,7 +256,12 @@ type Peer struct {
 		Endpoint *consoleserver.Server
 	}
 
+	PieceTransfer struct {
+		Service piecetransfer.Service
+	}
+
 	GracefulExit struct {
+		Service      gracefulexit.Service
 		Endpoint     *gracefulexit.Endpoint
 		Chore        *gracefulexit.Chore
 		BlobsCleaner *gracefulexit.BlobsCleaner
@@ -268,6 +277,8 @@ type Peer struct {
 	}
 
 	Bandwidth *bandwidth.Service
+
+	Reputation *reputation.Service
 }
 
 // New creates a new Storage Node.
@@ -456,7 +467,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Contact.Service,
 			peer.DB.Bandwidth(),
 			config.Storage.AllocatedDiskSpace.Int64(),
-			//TODO use config.Storage.Monitor.Interval, but for some reason is not set
+			// TODO: use config.Storage.Monitor.Interval, but for some reason is not set
 			config.Storage.KBucketRefreshInterval,
 			peer.Contact.Chore.Trigger,
 			config.Storage2.Monitor,
@@ -544,17 +555,30 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup payout service.
-		peer.Payout.Service = payout.NewService(
+		service, err := payout.NewService(
 			peer.Log.Named("payout:service"),
 			peer.DB.Payout(),
 			peer.DB.Reputation(),
 			peer.DB.Satellites(),
 			peer.Storage2.Trust,
 		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Payout.Service = service
 		peer.Payout.Endpoint = payout.NewEndpoint(
 			peer.Log.Named("payout:endpoint"),
 			peer.Dialer,
 			peer.Storage2.Trust,
+		)
+	}
+
+	{ // setup reputation service.
+		peer.Reputation = reputation.NewService(
+			peer.Log.Named("reputation:service"),
+			peer.DB.Reputation(),
+			peer.Identity.ID,
+			peer.Notifications.Service,
 		)
 	}
 
@@ -577,7 +601,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			},
 			peer.NodeStats.Service,
 			peer.Payout.Endpoint,
-			peer.Payout.Service,
+			peer.Reputation,
 			peer.Storage2.Trust,
 		)
 		peer.Services.Add(lifecycle.Item{
@@ -619,6 +643,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Contact.PingStats,
 			peer.Contact.Service,
 			peer.Estimation.Service,
+			peer.Storage2.BlobsCache,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -661,12 +686,33 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Console.Listener.Addr(),
 			config.Contact.ExternalAddress,
 		)
-		if err := pb.DRPCRegisterPieceStoreInspector(peer.Server.PrivateDRPC(), peer.Storage2.Inspector); err != nil {
+		if err := internalpb.DRPCRegisterPieceStoreInspector(peer.Server.PrivateDRPC(), peer.Storage2.Inspector); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 	}
 
+	{ // setup piecetransfer service
+		peer.PieceTransfer.Service = piecetransfer.NewService(
+			peer.Log.Named("piecetransfer"),
+			peer.Storage2.Store,
+			peer.Storage2.Trust,
+			peer.Dialer,
+			// using GracefulExit config here for historical reasons
+			config.GracefulExit.MinDownloadTimeout,
+			config.GracefulExit.MinBytesPerSecond,
+		)
+	}
+
 	{ // setup graceful exit service
+		peer.GracefulExit.Service = gracefulexit.NewService(
+			peer.Log.Named("gracefulexit:service"),
+			peer.Storage2.Store,
+			peer.Storage2.Trust,
+			peer.DB.Satellites(),
+			peer.Dialer,
+			config.GracefulExit,
+		)
+
 		peer.GracefulExit.Endpoint = gracefulexit.NewEndpoint(
 			peer.Log.Named("gracefulexit:endpoint"),
 			peer.Storage2.Trust,
@@ -674,20 +720,19 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Dialer,
 			peer.Storage2.BlobsCache,
 		)
-		if err := pb.DRPCRegisterNodeGracefulExit(peer.Server.PrivateDRPC(), peer.GracefulExit.Endpoint); err != nil {
+		if err := internalpb.DRPCRegisterNodeGracefulExit(peer.Server.PrivateDRPC(), peer.GracefulExit.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
 		peer.GracefulExit.Chore = gracefulexit.NewChore(
 			peer.Log.Named("gracefulexit:chore"),
-			config.GracefulExit,
-			peer.Storage2.Store,
-			peer.Storage2.Trust,
+			peer.GracefulExit.Service,
+			peer.PieceTransfer.Service,
 			peer.Dialer,
-			peer.DB.Satellites(),
+			config.GracefulExit,
 		)
 		peer.GracefulExit.BlobsCleaner = gracefulexit.NewBlobsCleaner(
-			peer.Log.Named("gracefuexit:blobscleaner"),
+			peer.Log.Named("gracefulexit:blobscleaner"),
 			peer.Storage2.Store,
 			peer.Storage2.Trust,
 			peer.DB.Satellites(),
@@ -738,7 +783,7 @@ func (peer *Peer) Run(ctx context.Context) (err error) {
 	}
 
 	if err := peer.Preflight.LocalTime.Check(ctx); err != nil {
-		peer.Log.Fatal("Failed preflight check.", zap.Error(err))
+		peer.Log.Error("Failed preflight check.", zap.Error(err))
 		return err
 	}
 

@@ -68,7 +68,7 @@ func TestBasicBucketOperations(t *testing.T) {
 		require.Equal(t, expectedBucket.DefaultRedundancyScheme, bucket.DefaultRedundancyScheme)
 		require.Equal(t, expectedBucket.DefaultEncryptionParameters, bucket.DefaultEncryptionParameters)
 
-		//CountBuckets
+		// CountBuckets
 		count, err = bucketsDB.CountBuckets(ctx, project.ID)
 		require.NoError(t, err)
 		require.Equal(t, 1, count)

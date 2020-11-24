@@ -13,7 +13,10 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/testcontext"
+	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/internalpb"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -22,9 +25,9 @@ func TestIrreparable(t *testing.T) {
 		irrdb := db.Irreparable()
 
 		// Create and insert test segment infos into DB
-		var segments []*pb.IrreparableSegment
+		var segments []*internalpb.IrreparableSegment
 		for i := 0; i < 3; i++ {
-			segments = append(segments, &pb.IrreparableSegment{
+			segments = append(segments, &internalpb.IrreparableSegment{
 				Path: []byte(strconv.Itoa(i)),
 				SegmentDetail: &pb.Pointer{
 					CreationDate: time.Now(),
@@ -93,12 +96,97 @@ func TestIrreparable(t *testing.T) {
 			require.Empty(t, cmp.Diff(segments[0], dbxInfo, cmp.Comparer(pb.Equal)))
 		}
 
-		{ //Delete existing entry
+		{ // Delete existing entry
 			err := irrdb.Delete(ctx, segments[0].Path)
 			require.NoError(t, err)
 
 			_, err = irrdb.Get(ctx, segments[0].Path)
 			require.Error(t, err)
 		}
+	})
+}
+
+func TestIrreparableProcess(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		checker := planet.Satellites[0].Repair.Checker
+		checker.Loop.Stop()
+		checker.IrreparableLoop.Stop()
+		irreparabledb := planet.Satellites[0].DB.Irreparable()
+		queue := planet.Satellites[0].DB.RepairQueue()
+
+		seg := &internalpb.IrreparableSegment{
+			Path: []byte{1},
+			SegmentDetail: &pb.Pointer{
+				Type:         pb.Pointer_REMOTE,
+				CreationDate: time.Now(),
+				Remote: &pb.RemoteSegment{
+					Redundancy: &pb.RedundancyScheme{
+						MinReq:           1,
+						RepairThreshold:  2,
+						SuccessThreshold: 3,
+						Total:            4,
+					},
+					RemotePieces: []*pb.RemotePiece{
+						{
+							NodeId: planet.StorageNodes[0].ID(),
+						},
+						{
+							NodeId: planet.StorageNodes[1].ID(),
+						},
+						{
+							NodeId: planet.StorageNodes[2].ID(),
+						},
+					},
+				},
+			},
+			LostPieces:         int32(4),
+			LastRepairAttempt:  time.Now().Unix(),
+			RepairAttemptCount: int64(10),
+		}
+
+		require.NoError(t, irreparabledb.IncrementRepairAttempts(ctx, seg))
+
+		result, err := irreparabledb.Get(ctx, metabase.SegmentKey(seg.GetPath()))
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		// test healthy segment is removed from irreparable DB
+		require.NoError(t, checker.IrreparableProcess(ctx))
+
+		result, err = irreparabledb.Get(ctx, metabase.SegmentKey(seg.GetPath()))
+		require.Error(t, err)
+		require.Nil(t, result)
+
+		// test unhealthy repairable segment is removed from irreparable DB and inserted into repair queue
+		seg.SegmentDetail.Remote.RemotePieces[0] = &pb.RemotePiece{}
+		seg.SegmentDetail.Remote.RemotePieces[1] = &pb.RemotePiece{}
+
+		require.NoError(t, irreparabledb.IncrementRepairAttempts(ctx, seg))
+		require.NoError(t, checker.IrreparableProcess(ctx))
+
+		result, err = irreparabledb.Get(ctx, metabase.SegmentKey(seg.GetPath()))
+		require.Error(t, err)
+		require.Nil(t, result)
+
+		injured, err := queue.Select(ctx)
+		require.NoError(t, err)
+		require.Equal(t, seg.GetPath(), injured.GetPath())
+
+		n, err := queue.Clean(ctx, time.Now())
+		require.NoError(t, err)
+		require.EqualValues(t, 1, n)
+
+		// test irreparable segment remains in irreparable DB and repair_attempt_count is incremented
+		seg.SegmentDetail.Remote.RemotePieces[2] = &pb.RemotePiece{}
+
+		require.NoError(t, irreparabledb.IncrementRepairAttempts(ctx, seg))
+		require.NoError(t, checker.IrreparableProcess(ctx))
+
+		result, err = irreparabledb.Get(ctx, metabase.SegmentKey(seg.GetPath()))
+		require.NoError(t, err)
+		require.Equal(t, seg.GetPath(), result.Path)
+		require.Equal(t, seg.RepairAttemptCount+1, result.RepairAttemptCount)
 	})
 }

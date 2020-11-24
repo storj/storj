@@ -6,7 +6,7 @@ exports[`AllSatellitesAuditsArea renders correctly with actual values 1`] = `
     <div class="audits-area__content__item">
       <div class="audits-area__content__item__header">
         <p class="audits-area__content__item__header__satellite-name">name1</p>
-        <!---->
+        <disqualifyicon-stub class="disqualification"></disqualifyicon-stub>
       </div>
       <div class="audits-area__content__item__divider"></div>
       <div class="audits-area__content__item__info">
@@ -16,6 +16,10 @@ exports[`AllSatellitesAuditsArea renders correctly with actual values 1`] = `
       <div class="audits-area__content__item__info">
         <p class="audits-area__content__item__info__label">Audit</p>
         <p class="audits-area__content__item__info__value">100 %</p>
+      </div>
+      <div class="audits-area__content__item__info">
+        <p class="audits-area__content__item__info__label">Online</p>
+        <p class="audits-area__content__item__info__value disqualification">50 %</p>
       </div>
     </div>
     <div class="audits-area__content__item">
@@ -26,11 +30,15 @@ exports[`AllSatellitesAuditsArea renders correctly with actual values 1`] = `
       <div class="audits-area__content__item__divider"></div>
       <div class="audits-area__content__item__info">
         <p class="audits-area__content__item__info__label">Suspension</p>
-        <p class="audits-area__content__item__info__value disqualification">100 %</p>
+        <p class="audits-area__content__item__info__value">100 %</p>
       </div>
       <div class="audits-area__content__item__info">
         <p class="audits-area__content__item__info__label">Audit</p>
         <p class="audits-area__content__item__info__value disqualification">50 %</p>
+      </div>
+      <div class="audits-area__content__item__info">
+        <p class="audits-area__content__item__info__label">Online</p>
+        <p class="audits-area__content__item__info__value warning">70 %</p>
       </div>
     </div>
     <div class="audits-area__content__item">
@@ -41,11 +49,15 @@ exports[`AllSatellitesAuditsArea renders correctly with actual values 1`] = `
       <div class="audits-area__content__item__divider"></div>
       <div class="audits-area__content__item__info">
         <p class="audits-area__content__item__info__label">Suspension</p>
-        <p class="audits-area__content__item__info__value warning">100 %</p>
+        <p class="audits-area__content__item__info__value">100 %</p>
       </div>
       <div class="audits-area__content__item__info">
         <p class="audits-area__content__item__info__label">Audit</p>
         <p class="audits-area__content__item__info__value warning">70 %</p>
+      </div>
+      <div class="audits-area__content__item__info">
+        <p class="audits-area__content__item__info__label">Online</p>
+        <p class="audits-area__content__item__info__value">100 %</p>
       </div>
     </div>
   </div>

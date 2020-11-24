@@ -11,10 +11,8 @@ import (
 
 	"storj.io/common/bloomfilter"
 	"storj.io/common/memory"
-	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 var _ metainfo.Observer = (*PieceTracker)(nil)
@@ -45,26 +43,24 @@ func NewPieceTracker(log *zap.Logger, config Config, pieceCounts map[storj.NodeI
 }
 
 // RemoteSegment takes a remote segment found in metainfo and adds pieces to bloom filters.
-func (pieceTracker *PieceTracker) RemoteSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
+func (pieceTracker *PieceTracker) RemoteSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	remote := pointer.GetRemote()
-	pieces := remote.GetRemotePieces()
-
-	for _, piece := range pieces {
-		pieceID := remote.RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-		pieceTracker.add(piece.NodeId, pieceID)
+	for _, piece := range segment.Pieces {
+		pieceID := segment.RootPieceID.Derive(piece.StorageNode, int32(piece.Number))
+		pieceTracker.add(piece.StorageNode, pieceID)
 	}
+
 	return nil
 }
 
 // Object returns nil because gc does not interact with remote objects.
-func (pieceTracker *PieceTracker) Object(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
+func (pieceTracker *PieceTracker) Object(ctx context.Context, object *metainfo.Object) (err error) {
 	return nil
 }
 
 // InlineSegment returns nil because we're only doing gc for storage nodes for now.
-func (pieceTracker *PieceTracker) InlineSegment(ctx context.Context, location metabase.SegmentLocation, pointer *pb.Pointer) (err error) {
+func (pieceTracker *PieceTracker) InlineSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
 	return nil
 }
 

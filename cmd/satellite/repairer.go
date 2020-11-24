@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/context2"
+	"storj.io/common/errs2"
 	"storj.io/private/process"
 	"storj.io/private/version"
 	"storj.io/storj/pkg/revocation"
@@ -26,10 +27,11 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
-		log.Fatal("Failed to load identity.", zap.Error(err))
+		log.Error("Failed to load identity.", zap.Error(err))
+		return errs.New("Failed to load identity: %+v", err)
 	}
 
-	db, err := satellitedb.New(log.Named("db"), runCfg.Database, satellitedb.Options{})
+	db, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{})
 	if err != nil {
 		return errs.New("Error starting master database: %+v", err)
 	}
@@ -37,7 +39,7 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	pointerDB, err := metainfo.NewStore(log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL)
+	pointerDB, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL)
 	if err != nil {
 		return errs.New("Error creating metainfo database connection: %+v", err)
 	}
@@ -45,7 +47,7 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, pointerDB.Close())
 	}()
 
-	revocationDB, err := revocation.NewDBFromCfg(runCfg.Server.Config)
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, runCfg.Server.Config)
 	if err != nil {
 		return errs.New("Error creating revocation database: %+v", err)
 	}
@@ -92,11 +94,11 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 
 	err = db.CheckVersion(ctx)
 	if err != nil {
-		log.Fatal("Failed satellite database version check.", zap.Error(err))
+		log.Error("Failed satellite database version check.", zap.Error(err))
 		return errs.New("Error checking version for satellitedb: %+v", err)
 	}
 
 	runError := peer.Run(ctx)
 	closeError := peer.Close()
-	return errs.Combine(runError, closeError)
+	return errs2.IgnoreCanceled(errs.Combine(runError, closeError))
 }

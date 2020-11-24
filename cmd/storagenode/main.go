@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/pkg/revocation"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/apikeys"
 	"storj.io/storj/storagenode/storagenodedb"
 )
 
@@ -85,6 +86,11 @@ var (
 		RunE:        cmdGracefulExitStatus,
 		Annotations: map[string]string{"type": "helper"},
 	}
+	issueAPITokenCmd = &cobra.Command{
+		Use:   "issue-apikey",
+		Short: "Issue apikey for mnd",
+		RunE:  cmdIssue,
+	}
 
 	runCfg       StorageNodeFlags
 	setupCfg     StorageNodeFlags
@@ -119,6 +125,7 @@ func init() {
 	rootCmd.AddCommand(dashboardCmd)
 	rootCmd.AddCommand(gracefulExitInitCmd)
 	rootCmd.AddCommand(gracefulExitStatusCmd)
+	rootCmd.AddCommand(issueAPITokenCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(configCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
@@ -126,6 +133,7 @@ func init() {
 	process.Bind(dashboardCmd, &dashboardCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 	process.Bind(gracefulExitInitCmd, &diagCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 	process.Bind(gracefulExitStatusCmd, &diagCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
+	process.Bind(issueAPITokenCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -140,7 +148,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	identity, err := runCfg.Identity.Load()
 	if err != nil {
-		log.Fatal("Failed to load identity.", zap.Error(err))
+		log.Error("Failed to load identity.", zap.Error(err))
+		return errs.New("Failed to load identity: %+v", err)
 	}
 
 	if err := runCfg.Verify(log); err != nil {
@@ -148,7 +157,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	db, err := storagenodedb.Open(log.Named("db"), runCfg.DatabaseConfig())
+	db, err := storagenodedb.OpenExisting(ctx, log.Named("db"), runCfg.DatabaseConfig())
 	if err != nil {
 		return errs.New("Error starting master database on storagenode: %+v", err)
 	}
@@ -157,7 +166,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	revocationDB, err := revocation.NewDBFromCfg(runCfg.Server.Config)
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, runCfg.Server.Config)
 	if err != nil {
 		return errs.New("Error creating revocation database: %+v", err)
 	}
@@ -213,6 +222,8 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 }
 
 func cmdSetup(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
 	setupDir, err := filepath.Abs(confDir)
 	if err != nil {
 		return err
@@ -252,8 +263,17 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// create db
-	db, err := storagenodedb.New(zap.L().Named("db"), setupCfg.DatabaseConfig())
+	db, err := storagenodedb.OpenNew(ctx, zap.L().Named("db"), setupCfg.DatabaseConfig())
 	if err != nil {
+		return err
+	}
+
+	identity, err := setupCfg.Identity.Load()
+	if err != nil {
+		return err
+	}
+
+	if err := db.Pieces().CreateVerificationFile(identity.ID); err != nil {
 		return err
 	}
 
@@ -265,13 +285,43 @@ func cmdConfig(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	//run setup if we can't access the config file
+	// run setup if we can't access the config file
 	conf := filepath.Join(setupDir, "config.yaml")
 	if _, err := os.Stat(conf); err != nil {
 		return cmdSetup(cmd, args)
 	}
 
 	return fpath.EditFile(conf)
+}
+
+func cmdIssue(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	ident, err := runCfg.Identity.Load()
+	if err != nil {
+		zap.L().Fatal("Failed to load identity.", zap.Error(err))
+	} else {
+		zap.L().Info("Identity loaded.", zap.Stringer("Node ID", ident.ID))
+	}
+
+	db, err := storagenodedb.OpenExisting(ctx, zap.L().Named("db"), diagCfg.DatabaseConfig())
+	if err != nil {
+		return errs.New("Error starting master database on storage node: %v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, db.Close())
+	}()
+
+	service := apikeys.NewService(db.Secret())
+
+	apiKey, err := service.Issue(ctx)
+	if err != nil {
+		return errs.New("Error while trying to issue new api key: %v", err)
+	}
+
+	fmt.Print(apiKey.Secret.String())
+
+	return
 }
 
 func cmdDiag(cmd *cobra.Command, args []string) (err error) {
@@ -289,7 +339,7 @@ func cmdDiag(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	db, err := storagenodedb.Open(zap.L().Named("db"), diagCfg.DatabaseConfig())
+	db, err := storagenodedb.OpenExisting(ctx, zap.L().Named("db"), diagCfg.DatabaseConfig())
 	if err != nil {
 		return errs.New("Error starting master database on storage node: %v", err)
 	}

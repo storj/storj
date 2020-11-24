@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 	"strconv"
-	"sync"
 	"testing"
 	"time"
 
@@ -24,6 +23,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testblobs"
@@ -34,7 +34,6 @@ import (
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/gracefulexit"
-	"storj.io/storj/storagenode/pieces"
 )
 
 const numObjects = 6
@@ -173,8 +172,10 @@ func TestConcurrentConnections(t *testing.T) {
 
 		var group errgroup.Group
 		concurrentCalls := 4
-		var wg sync.WaitGroup
-		wg.Add(1)
+
+		var mainStarted sync2.Fence
+		defer mainStarted.Release()
+
 		for i := 0; i < concurrentCalls; i++ {
 			group.Go(func() (err error) {
 				// connect to satellite so we initiate the exit.
@@ -186,11 +187,15 @@ func TestConcurrentConnections(t *testing.T) {
 
 				client := pb.NewDRPCSatelliteGracefulExitClient(conn)
 
-				// wait for "main" call to begin
-				wg.Wait()
+				if !mainStarted.Wait(ctx) {
+					return ctx.Err()
+				}
 
 				c, err := client.Process(ctx)
 				require.NoError(t, err)
+				defer func() {
+					err = errs.Combine(err, c.Close())
+				}()
 
 				_, err = c.Recv()
 				require.Error(t, err)
@@ -205,29 +210,35 @@ func TestConcurrentConnections(t *testing.T) {
 		defer ctx.Check(conn.Close)
 
 		client := pb.NewDRPCSatelliteGracefulExitClient(conn)
-		// this connection will immediately return since graceful exit has not been initiated yet
-		c, err := client.Process(ctx)
-		require.NoError(t, err)
-		response, err := c.Recv()
-		require.NoError(t, err)
-		switch response.GetMessage().(type) {
-		case *pb.SatelliteMessage_NotReady:
-		default:
-			t.FailNow()
+
+		{ // this connection will immediately return since graceful exit has not been initiated yet
+			c, err := client.Process(ctx)
+			require.NoError(t, err)
+			response, err := c.Recv()
+			require.NoError(t, err)
+			switch response.GetMessage().(type) {
+			case *pb.SatelliteMessage_NotReady:
+			default:
+				t.FailNow()
+			}
+			require.NoError(t, c.Close())
 		}
 
 		// wait for initial loop to start so we have pieces to transfer
 		satellite.GracefulExit.Chore.Loop.TriggerWait()
 
-		// this connection should not close immediately, since there are pieces to transfer
-		c, err = client.Process(ctx)
-		require.NoError(t, err)
+		{ // this connection should not close immediately, since there are pieces to transfer
+			c, err := client.Process(ctx)
+			require.NoError(t, err)
 
-		_, err = c.Recv()
-		require.NoError(t, err)
+			_, err = c.Recv()
+			require.NoError(t, err)
 
+			// deferring here to ensure that the other connections see the in-use connection.
+			defer ctx.Check(c.Close)
+		}
 		// start receiving from concurrent connections
-		wg.Done()
+		mainStarted.Release()
 
 		err = group.Wait()
 		require.NoError(t, err)
@@ -244,15 +255,22 @@ func TestRecvTimeout(t *testing.T) {
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
 			},
-			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
-				// This config value will create a very short timeframe allowed for receiving
-				// data from storage nodes. This will cause context to cancel with timeout.
-				config.GracefulExit.RecvTimeout = 10 * time.Millisecond
-
-				config.Metainfo.RS.MinThreshold = 2
-				config.Metainfo.RS.RepairThreshold = 3
-				config.Metainfo.RS.SuccessThreshold = successThreshold
-				config.Metainfo.RS.TotalThreshold = successThreshold
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// This config value will create a very short timeframe allowed for receiving
+					// data from storage nodes. This will cause context to cancel with timeout.
+					config.GracefulExit.RecvTimeout = 10 * time.Millisecond
+				},
+				testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+			),
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.GracefulExit = gracefulexit.Config{
+					ChoreInterval:          2 * time.Minute,
+					NumWorkers:             2,
+					NumConcurrentTransfers: 2,
+					MinBytesPerSecond:      128,
+					MinDownloadTimeout:     2 * time.Minute,
+				}
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -293,17 +311,9 @@ func TestRecvTimeout(t *testing.T) {
 		// make uploads on storage node slower than the timeout for transferring bytes to another node
 		delay := 200 * time.Millisecond
 		storageNodeDB.SetLatency(delay)
-		store := pieces.NewStore(zaptest.NewLogger(t), storageNodeDB.Pieces(), nil, nil, storageNodeDB.PieceSpaceUsedDB(), pieces.DefaultConfig)
 
 		// run the SN chore again to start processing transfers.
-		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), store, exitingNode.Storage2.Trust, exitingNode.DB.Satellites(), exitingNode.Dialer, satellite.NodeURL(),
-			gracefulexit.Config{
-				ChoreInterval:          0,
-				NumWorkers:             2,
-				NumConcurrentTransfers: 2,
-				MinBytesPerSecond:      128,
-				MinDownloadTimeout:     2 * time.Minute,
-			})
+		worker := gracefulexit.NewWorker(zaptest.NewLogger(t), exitingNode.GracefulExit.Service, exitingNode.PieceTransfer.Service, exitingNode.Dialer, satellite.NodeURL(), exitingNode.Config.GracefulExit)
 		defer ctx.Check(worker.Close)
 
 		err = worker.Run(ctx, func() {})
@@ -413,6 +423,8 @@ func TestExitDisqualifiedNodeFailOnStart(t *testing.T) {
 		response, err := processClient.Recv()
 		require.True(t, errs2.IsRPC(err, rpcstatus.FailedPrecondition))
 		require.Nil(t, response)
+
+		require.NoError(t, processClient.Close())
 
 		// disqualified node should fail graceful exit
 		exitStatus, err := satellite.Overlay.DB.GetExitStatus(ctx, exitingNode.ID())
@@ -1226,17 +1238,15 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 		StorageNodeCount: 5,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
-				// We don't care whether a node gracefully exits or not in this test,
-				// so we set the max failures percentage extra high.
-				config.GracefulExit.OverallMaxFailuresPercentage = 101
-				config.GracefulExit.MaxOrderLimitSendCount = maxOrderLimitSendCount
-
-				config.Metainfo.RS.MinThreshold = 2
-				config.Metainfo.RS.RepairThreshold = 3
-				config.Metainfo.RS.SuccessThreshold = 4
-				config.Metainfo.RS.TotalThreshold = 4
-			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// We don't care whether a node gracefully exits or not in this test,
+					// so we set the max failures percentage extra high.
+					config.GracefulExit.OverallMaxFailuresPercentage = 101
+					config.GracefulExit.MaxOrderLimitSendCount = maxOrderLimitSendCount
+				},
+				testplanet.ReconfigureRS(2, 3, 4, 4),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
@@ -1356,15 +1366,13 @@ func TestIneligibleNodeAge(t *testing.T) {
 		StorageNodeCount: 5,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
-				// Set the required node age to 1 month.
-				config.GracefulExit.NodeMinAgeInMonths = 1
-
-				config.Metainfo.RS.MinThreshold = 2
-				config.Metainfo.RS.RepairThreshold = 3
-				config.Metainfo.RS.SuccessThreshold = 4
-				config.Metainfo.RS.TotalThreshold = 4
-			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// Set the required node age to 1 month.
+					config.GracefulExit.NodeMinAgeInMonths = 1
+				},
+				testplanet.ReconfigureRS(2, 3, 4, 4),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
@@ -1486,11 +1494,11 @@ func testTransfers(t *testing.T, objects int, verifier func(t *testing.T, ctx *t
 		require.NoError(t, err)
 		defer ctx.Check(c.CloseSend)
 
-		verifier(t, ctx, nodeFullIDs, satellite, c, exitingNode, len(incompleteTransfers))
+		verifier(t, ctx, nodeFullIDs, satellite, c, exitingNode.Peer, len(incompleteTransfers))
 	})
 }
 
-func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int) (*storagenode.Peer, error) {
+func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int) (*testplanet.StorageNode, error) {
 	satellite := planet.Satellites[0]
 	keys, err := satellite.Metainfo.Database.List(ctx, nil, objects)
 	if err != nil {
@@ -1527,6 +1535,5 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 		}
 	}
 
-	node := planet.FindNode(exitingNodeID)
-	return node.Peer, nil
+	return planet.FindNode(exitingNodeID), nil
 }

@@ -57,7 +57,7 @@ type Service struct {
 
 	html *htmltemplate.Template
 	// TODO(yar): prepare plain text version
-	//text *texttemplate.Template
+	// text *texttemplate.Template
 
 	sending sync.WaitGroup
 }
@@ -68,10 +68,10 @@ func New(log *zap.Logger, sender Sender, templatePath string) (*Service, error) 
 	service := &Service{log: log, sender: sender}
 
 	// TODO(yar): prepare plain text version
-	//service.text, err = texttemplate.ParseGlob(filepath.Join(templatePath, "*.txt"))
-	//if err != nil {
-	//	return nil, err
-	//}
+	// service.text, err = texttemplate.ParseGlob(filepath.Join(templatePath, "*.txt"))
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	service.html, err = htmltemplate.ParseGlob(filepath.Join(templatePath, "*.html"))
 	if err != nil {
@@ -126,9 +126,9 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 	var textBuffer bytes.Buffer
 
 	// TODO(yar): prepare plain text version
-	//if err = service.text.ExecuteTemplate(&textBuffer, msg.Template() + ".txt", msg); err != nil {
-	//	return
-	//}
+	// if err = service.text.ExecuteTemplate(&textBuffer, msg.Template() + ".txt", msg); err != nil {
+	// 	return
+	// }
 
 	if err = service.html.ExecuteTemplate(&htmlBuffer, msg.Template()+".html", msg); err != nil {
 		return

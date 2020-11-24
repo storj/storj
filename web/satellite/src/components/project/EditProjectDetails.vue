@@ -208,6 +208,7 @@ export default class EditProjectDetails extends Vue {
             width: 727px;
 
             &__back {
+                width: fit-content;
                 cursor: pointer;
                 font-weight: 500;
                 font-size: 16px;

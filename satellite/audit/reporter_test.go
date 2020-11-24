@@ -242,3 +242,29 @@ func TestGracefullyExitedNotUpdated(t *testing.T) {
 		}
 	})
 }
+
+func TestReportOfflineAudits(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		node := planet.StorageNodes[0]
+		audits := satellite.Audit
+		audits.Worker.Loop.Pause()
+		cache := satellite.Overlay.DB
+
+		_, err := audits.Reporter.RecordAudits(ctx, audit.Report{Offlines: storj.NodeIDList{node.ID()}}, "")
+		require.NoError(t, err)
+
+		d, err := cache.Get(ctx, node.ID())
+		require.NoError(t, err)
+		require.Equal(t, int64(1), d.Reputation.AuditCount)
+
+		// check that other reputation stats were not incorrectly updated by offline audit
+		require.EqualValues(t, 0, d.Reputation.AuditSuccessCount)
+		require.EqualValues(t, 1, d.Reputation.AuditReputationAlpha)
+		require.EqualValues(t, 0, d.Reputation.AuditReputationBeta)
+		require.EqualValues(t, 1, d.Reputation.UnknownAuditReputationAlpha)
+		require.EqualValues(t, 0, d.Reputation.UnknownAuditReputationBeta)
+	})
+}

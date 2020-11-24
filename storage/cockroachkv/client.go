@@ -33,16 +33,16 @@ type Client struct {
 	lookupLimit int
 }
 
-// New instantiates a new cockroachkv client given db URL.
-func New(dbURL string) (*Client, error) {
+// Open connects a new cockroachkv client given db URL.
+func Open(ctx context.Context, dbURL string) (*Client, error) {
 	dbURL = pgutil.CheckApplicationName(dbURL)
 
-	db, err := tagsql.Open("cockroach", dbURL)
+	db, err := tagsql.Open(ctx, "cockroach", dbURL)
 	if err != nil {
 		return nil, err
 	}
 
-	dbutil.Configure(db, "cockroachkv", mon)
+	dbutil.Configure(ctx, db, "cockroachkv", mon)
 
 	return NewWith(db, dbURL), nil
 }

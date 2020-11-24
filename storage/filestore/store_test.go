@@ -42,7 +42,7 @@ func TestStoreLoad(t *testing.T) {
 
 	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"), filestore.DefaultConfig)
 	require.NoError(t, err)
-	ctx.Check(store.Close)
+	defer ctx.Check(store.Close)
 
 	data := testrand.Bytes(blobSize)
 	temp := make([]byte, len(data))
@@ -171,7 +171,7 @@ func TestDeleteWhileReading(t *testing.T) {
 
 	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"), filestore.DefaultConfig)
 	require.NoError(t, err)
-	ctx.Check(store.Close)
+	defer ctx.Check(store.Close)
 
 	data := testrand.Bytes(blobSize)
 
@@ -306,7 +306,7 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 
 	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"), filestore.DefaultConfig)
 	require.NoError(t, err)
-	ctx.Check(store.Close)
+	defer ctx.Check(store.Close)
 
 	const blobSize = 1024
 
@@ -366,7 +366,7 @@ func TestStoreSpaceUsed(t *testing.T) {
 
 	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"), filestore.DefaultConfig)
 	require.NoError(t, err)
-	ctx.Check(store.Close)
+	defer ctx.Check(store.Close)
 
 	var (
 		namespace      = testrand.Bytes(namespaceSize)
@@ -416,7 +416,7 @@ func TestStoreTraversals(t *testing.T) {
 
 	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"), filestore.DefaultConfig)
 	require.NoError(t, err)
-	ctx.Check(store.Close)
+	defer ctx.Check(store.Close)
 
 	// invent some namespaces and store stuff in them
 	type namespaceWithBlobs struct {
@@ -539,7 +539,7 @@ func TestEmptyTrash(t *testing.T) {
 
 	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"), filestore.DefaultConfig)
 	require.NoError(t, err)
-	ctx.Check(store.Close)
+	defer ctx.Check(store.Close)
 
 	size := memory.KB
 
@@ -664,7 +664,7 @@ func TestTrashAndRestore(t *testing.T) {
 
 	store, err := filestore.NewAt(zaptest.NewLogger(t), ctx.Dir("store"), filestore.DefaultConfig)
 	require.NoError(t, err)
-	ctx.Check(store.Close)
+	defer ctx.Check(store.Close)
 
 	size := memory.KB
 
@@ -837,7 +837,7 @@ func TestBlobMemoryBuffer(t *testing.T) {
 		WriteBufferSize: 1 * memory.KiB,
 	})
 	require.NoError(t, err)
-	ctx.Check(store.Close)
+	defer ctx.Check(store.Close)
 
 	ref := storage.BlobRef{
 		Namespace: testrand.Bytes(32),

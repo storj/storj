@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.15.2
+GO_VERSION ?= 1.15.5
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
@@ -306,7 +306,7 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 .PHONY: binaries-upload
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
 	cd "release/${TAG}"; for f in *; do \
-		zipname=$$(echo "$${f}" | awk -F. '{print $$(NF-1)}') && \
+		zipname=$$(echo $${f} | sed 's/.exe//g') && \
 		zip "$${zipname}.zip" "$${f}" \
 	; done
 	cd "release/${TAG}"; gsutil -m cp -r *.zip "gs://storj-v3-alpha-builds/${TAG}/"

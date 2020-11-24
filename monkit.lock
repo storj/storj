@@ -54,10 +54,13 @@ storj.io/storj/satellite/gracefulexit."graceful_exit_transfer_piece_fail" Meter
 storj.io/storj/satellite/gracefulexit."graceful_exit_transfer_piece_success" Meter
 storj.io/storj/satellite/metainfo."metainfo_rate_limit_exceeded" Event
 storj.io/storj/satellite/orders."download_failed_not_enough_pieces_uplink" Meter
+storj.io/storj/satellite/repair/checker."checker_injured_segment_health" FloatVal
 storj.io/storj/satellite/repair/checker."checker_segment_age" IntVal
+storj.io/storj/satellite/repair/checker."checker_segment_health" FloatVal
 storj.io/storj/satellite/repair/checker."checker_segment_healthy_count" IntVal
 storj.io/storj/satellite/repair/checker."checker_segment_time_until_irreparable" IntVal
 storj.io/storj/satellite/repair/checker."checker_segment_total_count" IntVal
+storj.io/storj/satellite/repair/checker."checker_segments_below_min_req" Counter
 storj.io/storj/satellite/repair/checker."healthy_segments_removed_from_queue" IntVal
 storj.io/storj/satellite/repair/checker."new_remote_segments_needing_repair" IntVal
 storj.io/storj/satellite/repair/checker."remote_files_checked" IntVal
@@ -88,6 +91,7 @@ storj.io/storj/satellite/repair/repairer."repair_segment_size" IntVal
 storj.io/storj/satellite/repair/repairer."repair_success" Meter
 storj.io/storj/satellite/repair/repairer."repair_too_many_nodes_failed" Meter
 storj.io/storj/satellite/repair/repairer."repair_unnecessary" Meter
+storj.io/storj/satellite/repair/repairer."repairer_segments_below_min_req" Counter
 storj.io/storj/satellite/repair/repairer."segment_deleted_before_repair" Meter
 storj.io/storj/satellite/repair/repairer."segment_repair_count" IntVal
 storj.io/storj/satellite/repair/repairer."segment_time_until_repair" IntVal
@@ -96,9 +100,12 @@ storj.io/storj/satellite/repair/repairer."time_since_checker_queue" FloatVal
 storj.io/storj/satellite/satellitedb."audit_online_score" FloatVal
 storj.io/storj/satellite/satellitedb."audit_reputation_alpha" FloatVal
 storj.io/storj/satellite/satellitedb."audit_reputation_beta" FloatVal
+storj.io/storj/satellite/satellitedb."bad_audit_dqs" Meter
 storj.io/storj/satellite/satellitedb."nodetallies.totalsum" IntVal
+storj.io/storj/satellite/satellitedb."offline_dqs" Meter
 storj.io/storj/satellite/satellitedb."unknown_audit_reputation_alpha" FloatVal
 storj.io/storj/satellite/satellitedb."unknown_audit_reputation_beta" FloatVal
+storj.io/storj/satellite/satellitedb."unknown_suspension_dqs" Meter
 storj.io/storj/storage/filestore."open_file_in_trash" Meter
 storj.io/storj/storagenode/contact."satellite_contact_request" Meter
 storj.io/storj/storagenode/gracefulexit."satellite_gracefulexit_request" Meter

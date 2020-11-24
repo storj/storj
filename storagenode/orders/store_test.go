@@ -16,7 +16,9 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/private/testplanet"
 	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/orders/ordersfile"
 )
 
 func TestOrdersStore_Enqueue_GracePeriodFailure(t *testing.T) {
@@ -31,7 +33,7 @@ func TestOrdersStore_Enqueue_GracePeriodFailure(t *testing.T) {
 
 	// adding order before grace period should result in an error
 	newSN := testrand.SerialNumber()
-	newInfo := &orders.Info{
+	newInfo := &ordersfile.Info{
 		Limit: &pb.OrderLimit{
 			SerialNumber:    newSN,
 			SatelliteId:     testrand.NodeID(),
@@ -81,7 +83,7 @@ func TestOrdersStore_ListUnsentBySatellite(t *testing.T) {
 	status2 := pb.SettlementWithWindowResponse_REJECTED
 	for i := 0; i < 3; i++ {
 		// This should return all the orders created more than 1 hour before "now".
-		unsentMap, err := ordersStore.ListUnsentBySatellite(now.Add(12 * time.Hour))
+		unsentMap, err := ordersStore.ListUnsentBySatellite(ctx, now.Add(12*time.Hour))
 		require.NoError(t, err)
 
 		// on last iteration, expect nothing returned
@@ -129,7 +131,7 @@ func TestOrdersStore_ListUnsentBySatellite(t *testing.T) {
 				archivedAt = archiveTime2
 				status = status2
 			}
-			err = ordersStore.Archive(satelliteID, unsentSatList.CreatedAtHour, archivedAt, status)
+			err = ordersStore.Archive(satelliteID, unsentSatList, archivedAt, status)
 			require.NoError(t, err)
 		}
 	}
@@ -188,13 +190,13 @@ func TestOrdersStore_ListUnsentBySatellite_Ongoing(t *testing.T) {
 	require.NoError(t, err)
 
 	// empty store means no orders can be listed
-	unsent, err := ordersStore.ListUnsentBySatellite(tomorrow)
+	unsent, err := ordersStore.ListUnsentBySatellite(ctx, tomorrow)
 	require.NoError(t, err)
 	require.Len(t, unsent, 0)
 
 	// store an order that can be listed
 	sn := testrand.SerialNumber()
-	require.NoError(t, ordersStore.Enqueue(&orders.Info{
+	require.NoError(t, ordersStore.Enqueue(&ordersfile.Info{
 		Limit: &pb.OrderLimit{
 			SerialNumber:  sn,
 			SatelliteId:   satellite,
@@ -208,7 +210,7 @@ func TestOrdersStore_ListUnsentBySatellite_Ongoing(t *testing.T) {
 	}))
 
 	// check that we can list it tomorrow
-	unsent, err = ordersStore.ListUnsentBySatellite(tomorrow)
+	unsent, err = ordersStore.ListUnsentBySatellite(ctx, tomorrow)
 	require.NoError(t, err)
 	require.Len(t, unsent, 1)
 
@@ -217,13 +219,13 @@ func TestOrdersStore_ListUnsentBySatellite_Ongoing(t *testing.T) {
 	require.NoError(t, err)
 
 	// we should no longer be able to list that window
-	unsent, err = ordersStore.ListUnsentBySatellite(tomorrow)
+	unsent, err = ordersStore.ListUnsentBySatellite(ctx, tomorrow)
 	require.NoError(t, err)
 	require.Len(t, unsent, 0)
 
 	// commit the order
 	sn = testrand.SerialNumber()
-	require.NoError(t, commit(&orders.Info{
+	require.NoError(t, commit(&ordersfile.Info{
 		Limit: &pb.OrderLimit{
 			SerialNumber:  sn,
 			SatelliteId:   satellite,
@@ -237,12 +239,61 @@ func TestOrdersStore_ListUnsentBySatellite_Ongoing(t *testing.T) {
 	}))
 
 	// check that we can list it tomorrow
-	unsent, err = ordersStore.ListUnsentBySatellite(tomorrow)
+	unsent, err = ordersStore.ListUnsentBySatellite(ctx, tomorrow)
 	require.NoError(t, err)
 	require.Len(t, unsent, 1)
 }
 
-func TestOrdersStore_CorruptUnsent(t *testing.T) {
+func TestOrdersDB_ListUnsentBySatellite_Expired(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellitePeer := planet.Satellites[0]
+		storagenodePeer := planet.StorageNodes[0]
+		storageNodeOrdersDB := storagenodePeer.DB.Orders()
+		now := time.Now().UTC()
+		testSerialNumber := testrand.SerialNumber()
+		// Setup: add one order that is not expired
+		require.NoError(t, storageNodeOrdersDB.Enqueue(ctx, &ordersfile.Info{
+			Limit: &pb.OrderLimit{
+				SerialNumber:    testSerialNumber,
+				SatelliteId:     satellitePeer.ID(),
+				Action:          pb.PieceAction_GET,
+				OrderCreation:   now,
+				OrderExpiration: now.Add(5 * time.Hour),
+			},
+			Order: &pb.Order{
+				SerialNumber: testSerialNumber,
+				Amount:       100,
+			},
+		}))
+		testSerialNumber2 := testrand.SerialNumber()
+		// Setup: add one order that IS expired
+		require.NoError(t, storageNodeOrdersDB.Enqueue(ctx, &ordersfile.Info{
+			Limit: &pb.OrderLimit{
+				SerialNumber:    testSerialNumber2,
+				SatelliteId:     satellitePeer.ID(),
+				Action:          pb.PieceAction_GET,
+				OrderExpiration: now.Add(-5 * time.Hour),
+			},
+			Order: &pb.Order{
+				SerialNumber: testSerialNumber2,
+				Amount:       20,
+			},
+		}))
+
+		// Confirm that when you list unsent orders that expired orders are not returned
+		unsentOrdersBySA, err := storageNodeOrdersDB.ListUnsentBySatellite(ctx)
+		require.NoError(t, err)
+		require.Equal(t, len(unsentOrdersBySA), 1)
+		// there should only be 1 unsent order, since the other order is expired
+		require.Equal(t, len(unsentOrdersBySA[satellitePeer.ID()]), 1)
+		// the unsent order should be the unexpired order
+		require.Equal(t, unsentOrdersBySA[satellitePeer.ID()][0].Limit.SerialNumber, testSerialNumber)
+	})
+}
+
+func TestOrdersStore_CorruptUnsentV0(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 	dirName := ctx.Dir("test-orders")
@@ -255,12 +306,12 @@ func TestOrdersStore_CorruptUnsent(t *testing.T) {
 	require.NoError(t, err)
 
 	// empty store means no orders can be listed
-	unsent, err := ordersStore.ListUnsentBySatellite(tomorrow)
+	unsent, err := ordersStore.ListUnsentBySatellite(ctx, tomorrow)
 	require.NoError(t, err)
 	require.Len(t, unsent, 0)
 
 	sn := testrand.SerialNumber()
-	info := &orders.Info{
+	info := &ordersfile.Info{
 		Limit: &pb.OrderLimit{
 			SerialNumber:  sn,
 			SatelliteId:   satellite,
@@ -272,12 +323,86 @@ func TestOrdersStore_CorruptUnsent(t *testing.T) {
 			Amount:       1,
 		},
 	}
-	// store two orders for the same window
+	// store two orders for the same window using deprecated V0
+	unsentFileName := ordersfile.UnsentFileName(satellite, now, ordersfile.V0)
+	unsentDir := filepath.Join(dirName, "unsent")
+	unsentFilePath := filepath.Join(unsentDir, unsentFileName)
+	of, err := ordersfile.OpenWritableV0(unsentFilePath)
+	require.NoError(t, err)
+	require.NoError(t, of.Append(info))
+	require.NoError(t, of.Append(info))
+	require.NoError(t, of.Close())
+
+	// check that we can see both orders tomorrow
+	unsent, err = ordersStore.ListUnsentBySatellite(ctx, tomorrow)
+	require.NoError(t, err)
+	require.Len(t, unsent, 1)
+	require.Len(t, unsent[satellite].InfoList, 2)
+
+	// corrupt unsent orders file by removing the last byte
+	err = filepath.Walk(unsentDir, func(path string, info os.FileInfo, err error) error {
+		require.NoError(t, err)
+		if info.IsDir() {
+			return nil
+		}
+		err = os.Truncate(path, info.Size()-1)
+		return err
+	})
+	require.NoError(t, err)
+
+	// add another order, which we shouldn't see for V0 since it is after the corrupted one
+	of, err = ordersfile.OpenWritableV0(unsentFilePath)
+	require.NoError(t, err)
+	require.NoError(t, of.Append(info))
+	require.NoError(t, of.Close())
+
+	// only the second order should be corrupted, so we should still see one order
+	unsent, err = ordersStore.ListUnsentBySatellite(ctx, tomorrow)
+	require.NoError(t, err)
+	require.Len(t, unsent, 1)
+	require.Len(t, unsent[satellite].InfoList, 1)
+}
+
+func TestOrdersStore_CorruptUnsentV1(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	dirName := ctx.Dir("test-orders")
+	now := time.Now()
+	satellite := testrand.NodeID()
+	tomorrow := now.Add(24 * time.Hour)
+
+	// make order limit grace period 1 hour
+	ordersStore, err := orders.NewFileStore(zaptest.NewLogger(t), dirName, time.Hour)
+	require.NoError(t, err)
+
+	// empty store means no orders can be listed
+	unsent, err := ordersStore.ListUnsentBySatellite(ctx, tomorrow)
+	require.NoError(t, err)
+	require.Len(t, unsent, 0)
+
+	sn1 := testrand.SerialNumber()
+	sn2 := testrand.SerialNumber()
+	sn3 := testrand.SerialNumber()
+	info := &ordersfile.Info{
+		Limit: &pb.OrderLimit{
+			SerialNumber:  sn1,
+			SatelliteId:   satellite,
+			Action:        pb.PieceAction_GET,
+			OrderCreation: now,
+		},
+		Order: &pb.Order{
+			SerialNumber: sn1,
+			Amount:       1,
+		},
+	}
+	// store sn1 and sn2 in the same window
 	require.NoError(t, ordersStore.Enqueue(info))
+	info.Limit.SerialNumber = sn2
+	info.Order.SerialNumber = sn2
 	require.NoError(t, ordersStore.Enqueue(info))
 
 	// check that we can see both orders tomorrow
-	unsent, err = ordersStore.ListUnsentBySatellite(tomorrow)
+	unsent, err = ordersStore.ListUnsentBySatellite(ctx, tomorrow)
 	require.NoError(t, err)
 	require.Len(t, unsent, 1)
 	require.Len(t, unsent[satellite].InfoList, 2)
@@ -293,14 +418,93 @@ func TestOrdersStore_CorruptUnsent(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// only the second order should be corrupted, so we should still see one order
-	unsent, err = ordersStore.ListUnsentBySatellite(tomorrow)
+	// only the second order should be corrupted, so we should still see one order (sn1)
+	unsent, err = ordersStore.ListUnsentBySatellite(ctx, tomorrow)
 	require.NoError(t, err)
 	require.Len(t, unsent, 1)
 	require.Len(t, unsent[satellite].InfoList, 1)
+	require.EqualValues(t, sn1, unsent[satellite].InfoList[0].Order.SerialNumber)
+
+	// add another order, sn3, to the same window
+	info.Limit.SerialNumber = sn3
+	info.Order.SerialNumber = sn3
+	require.NoError(t, ordersStore.Enqueue(info))
+
+	// only the second order should be corrupted, so we should still see first and last orders (sn1, sn3)
+	unsent, err = ordersStore.ListUnsentBySatellite(ctx, tomorrow)
+	require.NoError(t, err)
+	require.Len(t, unsent, 1)
+	require.Len(t, unsent[satellite].InfoList, 2)
+	require.Equal(t, ordersfile.V1, unsent[satellite].Version)
+	require.EqualValues(t, sn1, unsent[satellite].InfoList[0].Order.SerialNumber)
+	require.EqualValues(t, sn3, unsent[satellite].InfoList[1].Order.SerialNumber)
 }
 
-func verifyInfosEqual(t *testing.T, a, b *orders.Info) {
+func TestOrdersStore_V0ToV1(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	dirName := ctx.Dir("test-orders")
+	now := time.Now()
+	satellite := testrand.NodeID()
+	tomorrow := now.Add(24 * time.Hour)
+
+	// make order limit grace period 1 hour
+	ordersStore, err := orders.NewFileStore(zaptest.NewLogger(t), dirName, time.Hour)
+	require.NoError(t, err)
+
+	// empty store means no orders can be listed
+	unsent, err := ordersStore.ListUnsentBySatellite(ctx, tomorrow)
+	require.NoError(t, err)
+	require.Len(t, unsent, 0)
+
+	sn1 := testrand.SerialNumber()
+	sn2 := testrand.SerialNumber()
+	info := &ordersfile.Info{
+		Limit: &pb.OrderLimit{
+			SerialNumber:  sn1,
+			SatelliteId:   satellite,
+			Action:        pb.PieceAction_GET,
+			OrderCreation: now,
+		},
+		Order: &pb.Order{
+			SerialNumber: sn1,
+			Amount:       1,
+		},
+	}
+	// store sn1 and sn2 in the same window
+	// sn1 is stored with deprecated V0, so sn2 should also be stored with V0 even when Enqueue() is used
+	unsentFileName := ordersfile.UnsentFileName(satellite, now, ordersfile.V0)
+	unsentDir := filepath.Join(dirName, "unsent")
+	unsentFilePath := filepath.Join(unsentDir, unsentFileName)
+	of, err := ordersfile.OpenWritableV0(unsentFilePath)
+	require.NoError(t, err)
+
+	require.NoError(t, of.Append(info))
+	info.Limit.SerialNumber = sn2
+	info.Order.SerialNumber = sn2
+	require.NoError(t, of.Append(info))
+	require.NoError(t, of.Close())
+
+	// check that we can see both orders tomorrow
+	unsent, err = ordersStore.ListUnsentBySatellite(ctx, tomorrow)
+	require.NoError(t, err)
+	require.Len(t, unsent, 1)
+	require.Len(t, unsent[satellite].InfoList, 2)
+	require.Equal(t, ordersfile.V0, unsent[satellite].Version)
+
+	// archive file to free up window
+	require.NoError(t, ordersStore.Archive(satellite, unsent[satellite], time.Now(), pb.SettlementWithWindowResponse_ACCEPTED))
+	// new file should be created with version V1
+	require.NoError(t, ordersStore.Enqueue(info))
+
+	unsent, err = ordersStore.ListUnsentBySatellite(ctx, tomorrow)
+	require.NoError(t, err)
+	require.Len(t, unsent, 1)
+	require.Len(t, unsent[satellite].InfoList, 1)
+	require.Equal(t, ordersfile.V1, unsent[satellite].Version)
+}
+
+func verifyInfosEqual(t *testing.T, a, b *ordersfile.Info) {
 	t.Helper()
 
 	require.NotNil(t, a)
@@ -333,13 +537,13 @@ func verifyArchivedInfosEqual(t *testing.T, a, b *orders.ArchivedInfo) {
 	require.Equal(t, a.ArchivedAt.UTC(), b.ArchivedAt.UTC())
 }
 
-func storeNewOrders(ordersStore *orders.FileStore, numSatellites, numOrdersPerSatPerTime int, createdAtTimes []time.Time) (map[storj.SerialNumber]*orders.Info, error) {
+func storeNewOrders(ordersStore *orders.FileStore, numSatellites, numOrdersPerSatPerTime int, createdAtTimes []time.Time) (map[storj.SerialNumber]*ordersfile.Info, error) {
 	actions := []pb.PieceAction{
 		pb.PieceAction_GET,
 		pb.PieceAction_PUT_REPAIR,
 		pb.PieceAction_GET_AUDIT,
 	}
-	originalInfos := make(map[storj.SerialNumber]*orders.Info)
+	originalInfos := make(map[storj.SerialNumber]*ordersfile.Info)
 	for i := 0; i < numSatellites; i++ {
 		satellite := testrand.NodeID()
 
@@ -350,7 +554,7 @@ func storeNewOrders(ordersStore *orders.FileStore, numSatellites, numOrdersPerSa
 				sn := testrand.SerialNumber()
 				action := actions[j%len(actions)]
 
-				newInfo := &orders.Info{
+				newInfo := &ordersfile.Info{
 					Limit: &pb.OrderLimit{
 						SerialNumber:    sn,
 						SatelliteId:     satellite,

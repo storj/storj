@@ -13,8 +13,8 @@ import (
 	"golang.org/x/sync/semaphore"
 
 	"storj.io/common/memory"
-	"storj.io/common/pb"
 	"storj.io/common/sync2"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/storage"
@@ -149,7 +149,7 @@ func (service *Service) process(ctx context.Context) (err error) {
 	return nil
 }
 
-func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err error) {
+func (service *Service) worker(ctx context.Context, seg *internalpb.InjuredSegment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	workerStartTime := time.Now().UTC()
@@ -161,7 +161,7 @@ func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err
 		if irreparableErr, ok := err.(*irreparableError); ok {
 			service.log.Error("segment could not be repaired! adding to irreparableDB for more attention",
 				zap.Error(err))
-			segmentInfo := &pb.IrreparableSegment{
+			segmentInfo := &internalpb.IrreparableSegment{
 				Path:               seg.GetPath(),
 				SegmentDetail:      irreparableErr.segmentInfo,
 				LostPieces:         irreparableErr.piecesRequired - irreparableErr.piecesAvailable,
@@ -191,13 +191,13 @@ func (service *Service) worker(ctx context.Context, seg *pb.InjuredSegment) (err
 
 	repairedTime := time.Now().UTC()
 	timeForRepair := repairedTime.Sub(workerStartTime)
-	mon.FloatVal("time_for_repair").Observe(timeForRepair.Seconds()) //locked
+	mon.FloatVal("time_for_repair").Observe(timeForRepair.Seconds()) //mon:locked
 
 	insertedTime := seg.GetInsertedTime()
 	// do not send metrics if segment was added before the InsertedTime field was added
 	if !insertedTime.IsZero() {
 		timeSinceQueued := workerStartTime.Sub(insertedTime)
-		mon.FloatVal("time_since_checker_queue").Observe(timeSinceQueued.Seconds()) //locked
+		mon.FloatVal("time_since_checker_queue").Observe(timeSinceQueued.Seconds()) //mon:locked
 	}
 
 	return nil

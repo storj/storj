@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"sync"
 	"time"
 
@@ -34,6 +35,8 @@ const defaultInterval = 15 * time.Second
 
 // Peer represents one of StorageNode or Satellite.
 type Peer interface {
+	Label() string
+
 	ID() storj.NodeID
 	Addr() string
 	URL() string
@@ -121,7 +124,7 @@ func (peer *closablePeer) Close() error {
 }
 
 // NewCustom creates a new full system with the specified configuration.
-func NewCustom(log *zap.Logger, config Config, satelliteDatabases satellitedbtest.SatelliteDatabases) (*Planet, error) {
+func NewCustom(ctx context.Context, log *zap.Logger, config Config, satelliteDatabases satellitedbtest.SatelliteDatabases) (*Planet, error) {
 	if config.IdentityVersion == nil {
 		version := storj.LatestIDVersion()
 		config.IdentityVersion = &version
@@ -161,7 +164,7 @@ func NewCustom(log *zap.Logger, config Config, satelliteDatabases satellitedbtes
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.Satellites, err = planet.newSatellites(config.SatelliteCount, satelliteDatabases)
+	planet.Satellites, err = planet.newSatellites(ctx, config.SatelliteCount, satelliteDatabases)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
@@ -171,12 +174,12 @@ func NewCustom(log *zap.Logger, config Config, satelliteDatabases satellitedbtes
 		whitelistedSatellites = append(whitelistedSatellites, satellite.NodeURL())
 	}
 
-	planet.StorageNodes, err = planet.newStorageNodes(config.StorageNodeCount, whitelistedSatellites)
+	planet.StorageNodes, err = planet.newStorageNodes(ctx, config.StorageNodeCount, whitelistedSatellites)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.Uplinks, err = planet.newUplinks("uplink", config.UplinkCount)
+	planet.Uplinks, err = planet.newUplinks(ctx, "uplink", config.UplinkCount)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
@@ -189,34 +192,42 @@ func (planet *Planet) Start(ctx context.Context) {
 	ctx, cancel := context.WithCancel(ctx)
 	planet.cancel = cancel
 
-	planet.run.Go(func() error {
-		return planet.VersionControl.Run(ctx)
+	pprof.Do(ctx, pprof.Labels("peer", "version-control"), func(ctx context.Context) {
+		planet.run.Go(func() error {
+			return planet.VersionControl.Run(ctx)
+		})
 	})
 
 	if planet.ReferralManager != nil {
-		planet.run.Go(func() error {
-			return planet.ReferralManager.Run(ctx)
+		pprof.Do(ctx, pprof.Labels("peer", "referral-manager"), func(ctx context.Context) {
+			planet.run.Go(func() error {
+				return planet.ReferralManager.Run(ctx)
+			})
 		})
 	}
 
 	for i := range planet.peers {
 		peer := &planet.peers[i]
 		peer.ctx, peer.cancel = context.WithCancel(ctx)
-		planet.run.Go(func() error {
-			defer close(peer.runFinished)
+		pprof.Do(peer.ctx, pprof.Labels("peer", peer.peer.Label()), func(ctx context.Context) {
+			planet.run.Go(func() error {
+				defer close(peer.runFinished)
 
-			err := peer.peer.Run(peer.ctx)
-			return err
+				err := peer.peer.Run(ctx)
+				return err
+			})
 		})
 	}
 
 	var group errgroup.Group
 	for _, peer := range planet.StorageNodes {
 		peer := peer
-		group.Go(func() error {
-			peer.Storage2.Monitor.Loop.TriggerWait()
-			peer.Contact.Chore.TriggerWait(ctx)
-			return nil
+		pprof.Do(ctx, pprof.Labels("peer", peer.Label(), "startup", "contact"), func(ctx context.Context) {
+			group.Go(func() error {
+				peer.Storage2.Monitor.Loop.TriggerWait()
+				peer.Contact.Chore.TriggerWait(ctx)
+				return nil
+			})
 		})
 	}
 	_ = group.Wait()

@@ -274,7 +274,7 @@ and are left with the following:
 
 The list of trusted Satellite URLs should be recalculated daily (with some jitter).
 
-### Backwards Compatability
+### Backwards Compatibility
 
 The old piecestore configuration (i.e. `piecestore.OldConfig`) currently contains a
 comma separated list of trusted Satellite URLs (`WhitelistedSatellites`). It
@@ -296,7 +296,7 @@ a fixed set of trusted Satellite URLs.
 * Implement a `trust.ListConfig` configuration struct which:
   * Contains the list of entries (with a release default of a single list containing `https://www.tardigrade.io/trusted-satellites`)
   * Contains a refresh interval
-  * Maintains backwards compatability with `WhitelistedSatellites` in `piecestore.OldConfig`
+  * Maintains backwards compatibility with `WhitelistedSatellites` in `piecestore.OldConfig`
 * Implement `storj.io/storj/storagenode/trust.List` that:
   * Consumes `trust.ListConfig` for configuration
   * Performs the initial fetching and building of trusted Satellite URLs

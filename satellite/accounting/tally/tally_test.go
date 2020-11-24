@@ -143,7 +143,7 @@ func TestCalculateNodeAtRestData(t *testing.T) {
 		require.NoError(t, err)
 
 		// Confirm the correct number of shares were stored
-		rs := satelliteRS(planet.Satellites[0])
+		rs := satelliteRS(t, planet.Satellites[0])
 		if !correctRedundencyScheme(len(obs.Node), rs) {
 			t.Fatalf("expected between: %d and %d, actual: %d", rs.RepairShares, rs.TotalShares, len(obs.Node))
 		}
@@ -175,7 +175,7 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellitePeer := planet.Satellites[0]
-		redundancyScheme := satelliteRS(satellitePeer)
+		redundancyScheme := satelliteRS(t, satellitePeer)
 		expectedBucketTallies := make(map[metabase.BucketLocation]*accounting.BucketTally)
 		for _, tt := range testCases {
 			tt := tt // avoid scopelint error
@@ -185,7 +185,9 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 				require.NoError(t, err)
 
 				// setup: create a pointer and save it to pointerDB
-				pointer := makePointer(planet.StorageNodes, redundancyScheme, int64(2), tt.inline)
+				pointer, err := makePointer(planet.StorageNodes, redundancyScheme, int64(20), tt.inline)
+				require.NoError(t, err)
+
 				metainfo := satellitePeer.Metainfo.Service
 				location := metabase.SegmentLocation{
 					ProjectID:  projectID,
@@ -219,14 +221,16 @@ func TestTallyIgnoresExpiredPointers(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellitePeer := planet.Satellites[0]
-		redundancyScheme := satelliteRS(satellitePeer)
+		redundancyScheme := satelliteRS(t, satellitePeer)
 
 		projectID, err := uuid.FromString("9656af6e-2d9c-42fa-91f2-bfd516a722d7")
 		require.NoError(t, err)
 		bucket := "bucket"
 
 		// setup: create an expired pointer and save it to pointerDB
-		pointer := makePointer(planet.StorageNodes, redundancyScheme, int64(2), false)
+		pointer, err := makePointer(planet.StorageNodes, redundancyScheme, int64(2), false)
+		require.NoError(t, err)
+
 		pointer.ExpirationDate = time.Now().Add(-24 * time.Hour)
 
 		metainfo := satellitePeer.Metainfo.Service
@@ -336,9 +340,9 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 	// if there is already an existing tally for this project and bucket, then
 	// add the new pointer data to the existing tally
 	if existingTally != nil {
-		existingTally.MetadataSize += int64(12)
+		existingTally.MetadataSize += int64(2)
 		existingTally.RemoteSegments++
-		existingTally.RemoteBytes += int64(2)
+		existingTally.RemoteBytes += int64(20)
 		return existingTally
 	}
 
@@ -347,16 +351,16 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 		return &accounting.BucketTally{
 			ObjectCount:    int64(1),
 			InlineSegments: int64(1),
-			InlineBytes:    int64(2),
-			MetadataSize:   int64(12),
+			InlineBytes:    int64(20),
+			MetadataSize:   int64(2),
 		}
 	}
 
 	// if the pointer was remote, create a tally with remote info
 	newRemoteTally := &accounting.BucketTally{
 		RemoteSegments: int64(1),
-		RemoteBytes:    int64(2),
-		MetadataSize:   int64(12),
+		RemoteBytes:    int64(20),
+		MetadataSize:   int64(2),
 	}
 
 	if last {
@@ -367,16 +371,21 @@ func addBucketTally(existingTally *accounting.BucketTally, inline, last bool) *a
 }
 
 // makePointer creates a pointer.
-func makePointer(storageNodes []*testplanet.StorageNode, rs storj.RedundancyScheme, segmentSize int64, inline bool) *pb.Pointer {
+func makePointer(storageNodes []*testplanet.StorageNode, rs storj.RedundancyScheme, segmentSize int64, inline bool) (*pb.Pointer, error) {
+	metadata, err := pb.Marshal(&pb.StreamMeta{NumberOfSegments: 1})
+	if err != nil {
+		return nil, err
+	}
+
 	if inline {
 		inlinePointer := &pb.Pointer{
 			CreationDate:  time.Now(),
 			Type:          pb.Pointer_INLINE,
 			InlineSegment: make([]byte, segmentSize),
 			SegmentSize:   segmentSize,
-			Metadata:      []byte("fakemetadata"),
+			Metadata:      metadata,
 		}
-		return inlinePointer
+		return inlinePointer, nil
 	}
 
 	pieces := make([]*pb.RemotePiece, rs.TotalShares)
@@ -403,8 +412,8 @@ func makePointer(storageNodes []*testplanet.StorageNode, rs storj.RedundancySche
 			RemotePieces: pieces,
 		},
 		SegmentSize: segmentSize,
-		Metadata:    []byte("fakemetadata"),
-	}
+		Metadata:    metadata,
+	}, nil
 }
 
 func correctRedundencyScheme(shareCount int, uplinkRS storj.RedundancyScheme) bool {
@@ -414,12 +423,14 @@ func correctRedundencyScheme(shareCount int, uplinkRS storj.RedundancyScheme) bo
 	return int(uplinkRS.RepairShares) <= shareCount && shareCount <= int(uplinkRS.TotalShares)
 }
 
-func satelliteRS(satellite *testplanet.Satellite) storj.RedundancyScheme {
+func satelliteRS(t *testing.T, satellite *testplanet.Satellite) storj.RedundancyScheme {
+	rs := satellite.Config.Metainfo.RS
+
 	return storj.RedundancyScheme{
-		RequiredShares: int16(satellite.Config.Metainfo.RS.MinThreshold),
-		RepairShares:   int16(satellite.Config.Metainfo.RS.RepairThreshold),
-		OptimalShares:  int16(satellite.Config.Metainfo.RS.SuccessThreshold),
-		TotalShares:    int16(satellite.Config.Metainfo.RS.TotalThreshold),
-		ShareSize:      satellite.Config.Metainfo.RS.ErasureShareSize.Int32(),
+		RequiredShares: int16(rs.Min),
+		RepairShares:   int16(rs.Repair),
+		OptimalShares:  int16(rs.Success),
+		TotalShares:    int16(rs.Total),
+		ShareSize:      rs.ErasureShareSize.Int32(),
 	}
 }

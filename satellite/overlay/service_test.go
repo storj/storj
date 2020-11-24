@@ -131,7 +131,6 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 
 		stats, err := service.UpdateStats(ctx, &overlay.UpdateRequest{
 			NodeID:       valid1ID,
-			IsUp:         true,
 			AuditOutcome: overlay.AuditFailure,
 		})
 		require.NoError(t, err)
@@ -148,7 +147,6 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		// should not update once already disqualified
 		_, err = service.BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
 			NodeID:       valid2ID,
-			IsUp:         false,
 			AuditOutcome: overlay.AuditSuccess,
 		}})
 		require.NoError(t, err)
@@ -197,7 +195,6 @@ func TestRandomizedSelection(t *testing.T) {
 			if i%2 == 0 { // make half of nodes "new" and half "vetted"
 				_, err = cache.UpdateStats(ctx, &overlay.UpdateRequest{
 					NodeID:       newID,
-					IsUp:         true,
 					AuditOutcome: overlay.AuditSuccess,
 					AuditLambda:  1,
 					AuditWeight:  1,
@@ -316,7 +313,6 @@ func TestRandomizedSelectionCache(t *testing.T) {
 			if i%2 == 0 { // make half of nodes "new" and half "vetted"
 				_, err = overlaydb.UpdateStats(ctx, &overlay.UpdateRequest{
 					NodeID:       newID,
-					IsUp:         true,
 					AuditOutcome: overlay.AuditSuccess,
 					AuditLambda:  1,
 					AuditWeight:  1,
@@ -775,7 +771,6 @@ func TestSuspendedSelection(t *testing.T) {
 			if i%2 == 0 { // make half of nodes "new" and half "vetted"
 				_, err = cache.UpdateStats(ctx, &overlay.UpdateRequest{
 					NodeID:       newID,
-					IsUp:         true,
 					AuditOutcome: overlay.AuditSuccess,
 					AuditLambda:  1,
 					AuditWeight:  1,
@@ -835,7 +830,6 @@ func TestConcurrentAudit(t *testing.T) {
 				_, err := planet.Satellites[0].Overlay.Service.UpdateStats(ctx, &overlay.UpdateRequest{
 					NodeID:       planet.StorageNodes[0].ID(),
 					AuditOutcome: overlay.AuditSuccess,
-					IsUp:         true,
 				})
 				return err
 			})
@@ -853,7 +847,6 @@ func TestConcurrentAudit(t *testing.T) {
 					{
 						NodeID:       planet.StorageNodes[0].ID(),
 						AuditOutcome: overlay.AuditSuccess,
-						IsUp:         true,
 					},
 				})
 				return err

@@ -298,7 +298,7 @@ func setupData(ctx context.Context, t *testing.T, db satellite.DB) (user *consol
 	})
 	require.NoError(t, err)
 
-	//create an user as referrer
+	// create an user as referrer
 	referrer, err = consoleDB.Users().Insert(ctx, &console.User{
 		ID:           testrand.UUID(),
 		FullName:     "referrer",

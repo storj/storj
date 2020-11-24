@@ -4,7 +4,9 @@ Satellite Admin package provides API endpoints for administrative tasks.
 
 Requires setting `Authorization` header for requests.
 
-## POST /api/user
+## User Management
+
+### POST /api/user
 
 Adds a new user.
 
@@ -30,7 +32,7 @@ A successful response body:
 }
 ```
 
-## PUT /api/user/{user-email}
+### PUT /api/user/{user-email}
 
 Updates the details of existing user found by its email.
 
@@ -55,7 +57,7 @@ Some example request bodies:
 }
 ```
 
-## GET /api/user/{user-email}
+### GET /api/user/{user-email}
 
 This endpoint returns information about user and their projects.
 
@@ -92,11 +94,13 @@ A successful response body:
 }
 ```
 
-## DELETE /api/user/{user-email}
+### DELETE /api/user/{user-email}
 
 Deletes the user.
 
-## POST /api/coupon
+## Coupon Management
+
+### POST /api/coupon
 
 Adds a coupon for specific user.
 
@@ -119,7 +123,7 @@ A successful response body:
 }
 ```
 
-## GET /api/coupon/{coupon-id}
+### GET /api/coupon/{coupon-id}
 
 Gets a coupon with the specified id.
 
@@ -138,17 +142,40 @@ A successful response body:
 }
 ```
 
-## DELETE /api/coupon/{coupon-id}
+### DELETE /api/coupon/{coupon-id}
 
 Deletes the specified coupon.
 
-## GET /api/project/{project-id}/usage
+## Project Management
+
+### POST /api/project
+
+Adds a project for specific user.
+
+An example of a required request body:
+
+```json
+{
+    "ownerId": "ca7aa0fb-442a-4d4e-aa36-a49abddae837",
+    "projectName": "My Second Project"
+}
+```
+
+A successful response body:
+
+```json
+{
+    "projectId": "ca7aa0fb-442a-4d4e-aa36-a49abddae646"
+}
+```
+
+### GET /api/project/{project-id}/usage
 
 This endpoint returns whether the project has outstanding usage or not.
 
 A project with not usage returns status code 200 and `{"result":"no project usage exist"}`.
 
-## GET /api/project/{project-id}/limit
+### GET /api/project/{project-id}/limit
 
 This endpoint returns information about project limits.
 
@@ -170,27 +197,27 @@ A successful response body:
 }
 ```
 
-## POST /api/project/{project-id}/limit?usage={value}
+### POST /api/project/{project-id}/limit?usage={value}
 
 Updates usage limit for a project.
 
-## POST /api/project/{project-id}/limit?bandwidth={value}
+### POST /api/project/{project-id}/limit?bandwidth={value}
 
 Updates bandwidth limit for a project.
 
-## POST /api/project/{project-id}/limit?rate={value}
+### POST /api/project/{project-id}/limit?rate={value}
 
 Updates rate limit for a project.
 
-## POST /api/project/{project-id}/limit?buckets={value}
+### POST /api/project/{project-id}/limit?buckets={value}
 
 Updates bucket limit for a project.
 
-## GET /api/project/{project-id}
+### GET /api/project/{project-id}
 
 Gets the common information about a project.
 
-## PUT /api/project/{project-id}
+### PUT /api/project/{project-id}
 
 Updates project name or description.
 
@@ -201,27 +228,38 @@ Updates project name or description.
 }
 ```
 
-## DELETE /api/project/{project-id}
+### DELETE /api/project/{project-id}
 
 Deletes the project.
 
-## POST /api/project
+### POST /api/project/{project}/apikey
 
-Adds a project for specific user.
+Adds an apikey for specific project.
 
 An example of a required request body:
 
 ```json
 {
-    "ownerId": "ca7aa0fb-442a-4d4e-aa36-a49abddae837",
-    "projectName": "My Second Project"
+    "name": "My first API Key"
 }
 ```
+**Note:** Additionally you can specify `partnerId` to associate it with the given apikey.
+If you specify it, it has to be a valid uuid and not an empty string.
 
 A successful response body:
 
 ```json
 {
-    "projectId": "ca7aa0fb-442a-4d4e-aa36-a49abddae837"
+    "apikey": "13YqdMKxAVBamFsS6Mj3sCQ35HySoA254xmXCCQGJqffLnqrBaQDoTcCiCfbkaFPNewHT79rrFC5XRm4Z2PENtRSBDVNz8zcjS28W5v"
 }
 ```
+
+### DELETE /api/project/{project}/apikey/{name}
+
+Deletes the given apikey by its name.
+
+## APIKey Management
+
+### DELETE /api/apikey/{apikey}
+
+Deletes the given apikey.

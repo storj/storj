@@ -183,7 +183,7 @@ export default class BillingArea extends Vue {
      * Indicates if user has own project.
      */
     public get userHasOwnProject(): boolean {
-        return this.$store.getters.userProjectsCount > 0;
+        return this.$store.getters.projectsCount > 0;
     }
 
     /**
