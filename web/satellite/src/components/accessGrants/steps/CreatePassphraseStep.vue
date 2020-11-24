@@ -59,6 +59,7 @@
             width="100%"
             height="48px"
             :on-press="onNextClick"
+            :is-disabled="isLoading"
         />
     </div>
 </template>
@@ -74,6 +75,7 @@ import BackIcon from '@/../static/images/accessGrants/back.svg';
 import WarningIcon from '@/../static/images/accessGrants/warning.svg';
 
 import { RouteConfig } from '@/router';
+import { MetaUtils } from '@/utils/meta';
 
 @Component({
     components: {
@@ -85,6 +87,9 @@ import { RouteConfig } from '@/router';
 })
 export default class CreatePassphraseStep extends Vue {
     private key: string = '';
+    private access: string = '';
+    private worker: Worker;
+    private isLoading: boolean = true;
 
     public isGenerateState: boolean = true;
     public isCreateState: boolean = false;
@@ -95,13 +100,31 @@ export default class CreatePassphraseStep extends Vue {
      * Lifecycle hook after initial render.
      * Sets local key from props value.
      */
-    public mounted(): void {
+    public async mounted(): Promise<void> {
         if (!this.$route.params.key) {
-            this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
+            await this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
         }
 
         this.key = this.$route.params.key;
         this.passphrase = bip39.generateMnemonic();
+        this.worker = await new Worker('/static/static/wasm/webWorker.js');
+        this.worker.onmessage = (event: MessageEvent) => {
+            const data = event.data;
+            if (data.error) {
+                this.$notify.error(data.error);
+
+                return;
+            }
+
+            this.access = data.value;
+
+            this.$notify.success('Access Grant was generated successfully');
+        };
+        this.worker.onerror = (error: ErrorEvent) => {
+            this.$notify.error(error.message);
+        };
+
+        this.isLoading = false;
     }
 
     /**
@@ -156,8 +179,30 @@ export default class CreatePassphraseStep extends Vue {
             return;
         }
 
-        // mock for now.
-        return;
+        this.isLoading = true;
+
+        const satelliteName = MetaUtils.getMetaContent('satellite-name');
+
+        this.worker.postMessage({
+            'type': 'GenerateAccess',
+            'apiKey': this.key,
+            'passphrase': this.passphrase,
+            'projectID': this.$store.getters.selectedProject.id,
+            'satelliteName': satelliteName,
+        });
+
+        // Give time for web worker to return value.
+        setTimeout(() => {
+            this.isLoading = false;
+
+            this.$router.push({
+                name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.ResultStep)).name,
+                params: {
+                    access: this.access,
+                    key: this.key,
+                },
+            });
+        }, 1000);
     }
 
     /**
@@ -187,6 +232,8 @@ export default class CreatePassphraseStep extends Vue {
         flex-direction: column;
         align-items: center;
         position: relative;
+        background-color: #fff;
+        border-radius: 0 6px 6px 0;
 
         &__back-icon {
             position: absolute;
@@ -211,7 +258,7 @@ export default class CreatePassphraseStep extends Vue {
             width: calc(100% - 40px);
             background: #fff9f7;
             border: 1px solid #f84b00;
-            margin-bottom: 30px;
+            margin-bottom: 35px;
             border-radius: 8px;
 
             &__label {

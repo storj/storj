@@ -8,7 +8,6 @@ import (
 	"context"
 	"io"
 	"math/rand"
-	"sync"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -100,14 +99,6 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		return Report{}, nil
 	}
 
-	defer func() {
-		// if piece hashes have not been verified for this segment, do not mark nodes as failing audit
-		if !pointer.PieceHashesVerified {
-			report.PendingAudits = nil
-			report.Fails = nil
-		}
-	}()
-
 	randomIndex, err := GetRandomStripe(ctx, pointer)
 	if err != nil {
 		return Report{}, err
@@ -135,7 +126,6 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 	offlineNodes = getOfflineNodes(pointer, orderLimits, skip)
 	if len(offlineNodes) > 0 {
 		verifier.log.Debug("Verify: order limits not created for some nodes (offline/disqualified)",
-			zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
 			zap.Strings("Node IDs", offlineNodes.Strings()))
 	}
 
@@ -172,7 +162,6 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 				// dial timeout
 				offlineNodes = append(offlineNodes, share.NodeID)
 				verifier.log.Debug("Verify: dial timeout (offline)",
-					zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
 					zap.Stringer("Node ID", share.NodeID),
 					zap.Error(share.Error))
 				continue
@@ -181,7 +170,6 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 				// dial failed -- offline node
 				offlineNodes = append(offlineNodes, share.NodeID)
 				verifier.log.Debug("Verify: dial failed (offline)",
-					zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
 					zap.Stringer("Node ID", share.NodeID),
 					zap.Error(share.Error))
 				continue
@@ -189,7 +177,6 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 			// unknown transport error
 			unknownNodes = append(unknownNodes, share.NodeID)
 			verifier.log.Info("Verify: unknown transport error (skipped)",
-				zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
 				zap.Stringer("Node ID", share.NodeID),
 				zap.Error(share.Error))
 			continue
@@ -199,7 +186,6 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 			// missing share
 			failedNodes = append(failedNodes, share.NodeID)
 			verifier.log.Info("Verify: piece not found (audit failed)",
-				zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
 				zap.Stringer("Node ID", share.NodeID),
 				zap.Error(share.Error))
 			continue
@@ -209,7 +195,6 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 			// dial successful, but download timed out
 			containedNodes[pieceNum] = share.NodeID
 			verifier.log.Info("Verify: download timeout (contained)",
-				zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
 				zap.Stringer("Node ID", share.NodeID),
 				zap.Error(share.Error))
 			continue
@@ -218,7 +203,6 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		// unknown error
 		unknownNodes = append(unknownNodes, share.NodeID)
 		verifier.log.Info("Verify: unknown error (skipped)",
-			zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
 			zap.Stringer("Node ID", share.NodeID),
 			zap.Error(share.Error))
 	}
@@ -389,43 +373,6 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		return Report{}, nil
 	}
 
-	pieceHashesVerified := make(map[storj.NodeID]bool)
-	pieceHashesVerifiedMutex := &sync.Mutex{}
-	defer func() {
-		pieceHashesVerifiedMutex.Lock()
-
-		// for each node in Fails and PendingAudits, remove if piece hashes not verified for that segment
-		// if the piece hashes are not verified, remove the "failed" node from containment
-		newFails := storj.NodeIDList{}
-		newPendingAudits := []*PendingAudit{}
-
-		for _, id := range report.Fails {
-			if pieceHashesVerified[id] {
-				newFails = append(newFails, id)
-			} else {
-				_, errDelete := verifier.containment.Delete(ctx, id)
-				if errDelete != nil {
-					verifier.log.Debug("Error deleting node from containment db", zap.Stringer("Node ID", id), zap.Error(errDelete))
-				}
-			}
-		}
-		for _, pending := range report.PendingAudits {
-			if pieceHashesVerified[pending.NodeID] {
-				newPendingAudits = append(newPendingAudits, pending)
-			} else {
-				_, errDelete := verifier.containment.Delete(ctx, pending.NodeID)
-				if errDelete != nil {
-					verifier.log.Debug("Error deleting node from containment db", zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
-				}
-			}
-		}
-
-		report.Fails = newFails
-		report.PendingAudits = newPendingAudits
-
-		pieceHashesVerifiedMutex.Unlock()
-	}()
-
 	pieces := pointer.GetRemote().GetRemotePieces()
 	ch := make(chan result, len(pieces))
 	var containedInSegment int64
@@ -460,11 +407,6 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				ch <- result{nodeID: pending.NodeID, status: skipped}
 				return
 			}
-
-			// set whether piece hashes have been verified for this segment so we know whether to report a failed or pending audit for this node
-			pieceHashesVerifiedMutex.Lock()
-			pieceHashesVerified[pending.NodeID] = pendingPointer.PieceHashesVerified
-			pieceHashesVerifiedMutex.Unlock()
 
 			if pendingPointer.GetRemote().RootPieceId != pending.PieceID {
 				ch <- result{nodeID: pending.NodeID, status: skipped}

@@ -91,7 +91,7 @@ export default class PermissionsStep extends Vue {
     private restrictedKey: string = '';
     private worker: Worker;
 
-    public isLoading: boolean = false;
+    public isLoading: boolean = true;
     public isDownload: boolean = true;
     public isUpload: boolean = true;
     public isList: boolean = true;
@@ -108,7 +108,7 @@ export default class PermissionsStep extends Vue {
         }
 
         this.key = this.$route.params.key;
-        this.worker = new Worker('/static/static/wasm/webWorker.js');
+        this.worker = await new Worker('/static/static/wasm/webWorker.js');
         this.worker.onmessage = (event: MessageEvent) => {
             const data = event.data;
             if (data.error) {
@@ -117,9 +117,9 @@ export default class PermissionsStep extends Vue {
                 return;
             }
 
-            this.$notify.success('Permissions were set successfully');
-
             this.restrictedKey = data.value;
+
+            this.$notify.success('Permissions were set successfully');
         };
         this.worker.onerror = (error: ErrorEvent) => {
             this.$notify.error(error.message);
@@ -130,6 +130,8 @@ export default class PermissionsStep extends Vue {
         } catch (error) {
             await this.$notify.error(`Unable to fetch all bucket names. ${error.message}`);
         }
+
+        this.isLoading = false;
     }
 
     /**
@@ -246,6 +248,8 @@ export default class PermissionsStep extends Vue {
         flex-direction: column;
         align-items: center;
         position: relative;
+        background-color: #fff;
+        border-radius: 0 6px 6px 0;
 
         &__back-icon {
             position: absolute;
@@ -269,7 +273,7 @@ export default class PermissionsStep extends Vue {
             line-height: 21px;
             color: #000;
             text-align: center;
-            margin: 0 0 50px 0;
+            margin: 0 0 70px 0;
         }
 
         &__content {

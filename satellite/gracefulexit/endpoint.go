@@ -583,13 +583,9 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 			return Error.Wrap(err)
 		}
 
-		// If the pointer was piece hash verified, we know this node definitely should have the piece
-		// Otherwise, no penalty.
-		if pointer.PieceHashesVerified {
-			err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
-			if err != nil {
-				return Error.Wrap(err)
-			}
+		err = endpoint.db.IncrementProgress(ctx, nodeID, 0, 0, 1)
+		if err != nil {
+			return Error.Wrap(err)
 		}
 
 		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.Key, transfer.PieceNum)
