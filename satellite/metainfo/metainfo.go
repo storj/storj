@@ -977,10 +977,13 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
 			Prefix:     prefix,
-			Cursor:     metabase.IterateCursor{Key: metabase.ObjectKey(req.EncryptedCursor)},
-			Recursive:  req.Recursive,
-			BatchSize:  limit + 1,
-			Status:     status,
+			Cursor: metabase.IterateCursor{
+				Key:     metabase.ObjectKey(req.EncryptedCursor),
+				Version: 1, // TODO: set to a the version from the protobuf request when it supports this
+			},
+			Recursive: req.Recursive,
+			BatchSize: limit + 1,
+			Status:    status,
 		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 			entry := metabase.ObjectEntry{}
 			for len(resp.Items) < limit && it.Next(ctx, &entry) {
