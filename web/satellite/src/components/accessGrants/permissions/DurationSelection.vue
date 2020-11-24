@@ -5,9 +5,9 @@
     <div class="duration-selection">
         <div
             class="duration-selection__toggle-container"
-            @click="togglePicker"
+            @click.stop="togglePicker"
         >
-            <h1 class="duration-selection__toggle-container__name">Forever</h1>
+            <h1 class="duration-selection__toggle-container__name">{{ dateRangeLabel }}</h1>
             <ExpandIcon
                 class="duration-selection__toggle-container__expand-icon"
                 alt="Arrow down (expand)"
@@ -15,6 +15,9 @@
         </div>
         <DurationPicker
             v-if="isDurationPickerVisible"
+            v-click-outside="closePicker"
+            @setLabel="setDateRangeLabel"
+            @close="closePicker"
         />
     </div>
 
@@ -36,17 +39,27 @@ import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 
 export default class DurationSelection extends Vue {
     public isDurationPickerVisible: boolean = false;
+    public dateRangeLabel: string = 'Forever';
+
     /**
      * Toggles duration picker.
      */
     public togglePicker(): void {
         this.isDurationPickerVisible = !this.isDurationPickerVisible;
     }
+
     /**
      * Closes duration picker.
      */
     public closePicker(): void {
         this.isDurationPickerVisible = false;
+    }
+
+    /**
+     * Sets date range label.
+     */
+    public setDateRangeLabel(label: string): void {
+        this.dateRangeLabel = label;
     }
 }
 </script>

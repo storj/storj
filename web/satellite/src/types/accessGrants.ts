@@ -93,3 +93,13 @@ export class AccessGrant {
         return this.createdAt.toLocaleString('en-US', {timeZone: 'UTC', timeZoneName: 'short'});
     }
 }
+
+/**
+ * DurationPermission class holds info for access grant's duration permission.
+ */
+export class DurationPermission {
+    constructor(
+        public notBefore: Date = new Date(),
+        public notAfter: Date = new Date(),
+    ) {}
+}

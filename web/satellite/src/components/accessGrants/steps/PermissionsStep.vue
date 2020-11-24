@@ -171,6 +171,8 @@ export default class PermissionsStep extends Vue {
             'isDelete': this.isDelete,
             'buckets': this.selectedBucketNames,
             'apiKey': this.key,
+            'notBefore': this.notBeforePermission,
+            'notAfter': this.notAfterPermission,
         });
 
         // Give time for web worker to return value.
@@ -223,6 +225,20 @@ export default class PermissionsStep extends Vue {
      */
     private get allBucketNames(): string[] {
         return this.$store.state.bucketUsageModule.allBucketNames;
+    }
+
+    /**
+     * Returns not before date permission from store as ISO string.
+     */
+    private get notBeforePermission(): string {
+        return this.$store.state.accessGrantsModule.permissionNotBefore.toISOString();
+    }
+
+    /**
+     * Returns not after date permission from store as ISO string.
+     */
+    private get notAfterPermission(): string {
+        return this.$store.state.accessGrantsModule.permissionNotAfter.toISOString();
     }
 }
 </script>
@@ -322,7 +338,7 @@ export default class PermissionsStep extends Vue {
                     align-items: center;
                     flex-wrap: wrap;
                     margin: 15px 0 0 85px;
-                    max-height: 200px;
+                    max-height: 100px;
                     max-width: 235px;
                     overflow-x: hidden;
                     overflow-y: scroll;
