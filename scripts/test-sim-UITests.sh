@@ -58,7 +58,7 @@ else
 	storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
 fi
 
-apt-get install curl
+apt-get install curl -y
 
 # run UI tests
 echo "section tests start"
