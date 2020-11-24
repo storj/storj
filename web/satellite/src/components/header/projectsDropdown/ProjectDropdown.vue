@@ -97,7 +97,7 @@ export default class ProjectDropdown extends Vue {
 		 * Opens new project creation popup.
 		 */
         public toggleSelection(): void {
-                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_PROJ);
+                this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_NEW_PROJ);
         }
 
     /**
