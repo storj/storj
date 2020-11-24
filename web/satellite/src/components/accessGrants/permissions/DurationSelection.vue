@@ -7,14 +7,16 @@
             class="duration-selection__toggle-container"
             @click="togglePicker"
         >
-        <h1 class="duration-selection__toggle-container__name">Forever</h1>
-        <ExpandIcon
-            class="duration-selection__toggle-container__expand-icon"
-            alt="Arrow down (expand)"
+            <h1 class="duration-selection__toggle-container__name">Forever</h1>
+            <ExpandIcon
+                class="duration-selection__toggle-container__expand-icon"
+                alt="Arrow down (expand)"
+            />
+        </div>
+        <DurationPicker
+            v-if="isDurationPickerVisible"
         />
-        <DurationPicker v-if="isDurationPickerVisible"/>
     </div>
-</div>
 
 </template>
 

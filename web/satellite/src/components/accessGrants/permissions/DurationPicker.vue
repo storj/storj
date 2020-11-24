@@ -5,14 +5,14 @@
     <div class="duration-picker">
         <div class="duration-picker__list">
             <ul class="duration-picker__list__column">
-                <li class="duration-picker__list__column-item">Forever</li>
-                <li class="duration-picker__list__column-item">1 month</li>
-                <li class="duration-picker__list__column-item">24 Hours</li>
+                <li v-on:click="onDurationClick" class="duration-picker__list__column-item">Forever</li>
+                <li v-on:click="onDurationClick" class="duration-picker__list__column-item">1 month</li>
+                <li v-on:click="onDurationClick" class="duration-picker__list__column-item">24 Hours</li>
             </ul>
             <ul class="duration-picker__list__column">
-                <li class="duration-picker__list__column-item">6 Months</li>
-                <li class="duration-picker__list__column-item">1 Week</li>
-                <li class="duration-picker__list__column-item">1 Year</li>
+                <li v-on:click="onDurationClick" class="duration-picker__list__column-item">6 Months</li>
+                <li v-on:click="onDurationClick" class="duration-picker__list__column-item">1 Week</li>
+                <li v-on:click="onDurationClick" class="duration-picker__list__column-item">1 Year</li>
             </ul>
         </div>
         <hr class="duration-picker__break">
@@ -22,8 +22,10 @@
                 open
                 :append-to-body="false"
                 :inline="true"
+                v-model="date"
                 popup-class="duration-picker__date-picker__popup"
                 input-class="duration-picker__date-picker__input"
+                @change="onDateChange($event)"
             />
         </div>
     </div>
@@ -39,6 +41,26 @@ import 'vue2-datepicker/index.css';
     },
 })
 export default class DurationPicker extends Vue {
+    private duration: string = '';
+
+    private dateRange: string[] = [];
+
+
+    /**
+     * When date range value changes
+     * @param dateRange
+     */
+    public onDateChange(date): void {
+        this.dateRange = date;
+    }
+
+    /**
+     * When duration button is clicked
+     * @param duration
+     */
+    public onDurationClick(event): void {
+        this.duration = event.target.textContent;
+    }
 }
 </script>
 
@@ -105,6 +127,10 @@ export default class DurationPicker extends Vue {
                 height: 210px;
             }
         }
+    }
+
+    .mx-calendar {
+        height: 210px;
     }
 
     .mx-table-date td, .mx-table-date th {
