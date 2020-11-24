@@ -1587,7 +1587,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 	}
 
 	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
-		Op:            macaroon.ActionList,
+		Op:            macaroon.ActionRead,
 		Bucket:        streamID.Bucket,
 		EncryptedPath: streamID.EncryptedPath,
 		Time:          time.Now(),
