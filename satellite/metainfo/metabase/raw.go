@@ -27,6 +27,7 @@ type RawObject struct {
 	EncryptedMetadata             []byte
 	EncryptedMetadataEncryptedKey []byte
 
+	TotalPlainSize     int64
 	TotalEncryptedSize int64
 	FixedSegmentSize   int32
 
@@ -100,7 +101,7 @@ func (db *DB) testingGetAllObjects(ctx context.Context) (_ []RawObject, err erro
 			created_at, expires_at,
 			status, segment_count,
 			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
-			total_encrypted_size, fixed_segment_size,
+			total_plain_size, total_encrypted_size, fixed_segment_size,
 			encryption,
 			zombie_deletion_deadline
 		FROM objects
@@ -129,6 +130,7 @@ func (db *DB) testingGetAllObjects(ctx context.Context) (_ []RawObject, err erro
 			&obj.EncryptedMetadata,
 			&obj.EncryptedMetadataEncryptedKey,
 
+			&obj.TotalPlainSize,
 			&obj.TotalEncryptedSize,
 			&obj.FixedSegmentSize,
 

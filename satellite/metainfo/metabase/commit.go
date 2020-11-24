@@ -482,8 +482,9 @@ func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) 
 			}
 		}
 
-		var totalEncryptedSize int64
+		var totalPlainSize, totalEncryptedSize int64
 		for _, seg := range segments {
+			totalPlainSize += int64(seg.PlainSize)
 			totalEncryptedSize += int64(seg.EncryptedSize)
 		}
 
@@ -496,8 +497,9 @@ func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) 
 				encrypted_metadata               = $8,
 				encrypted_metadata_encrypted_key = $9,
 
-				total_encrypted_size = $10,
-				fixed_segment_size = $11,
+				total_plain_size     = $10,
+				total_encrypted_size = $11,
+				fixed_segment_size   = $12,
 				zombie_deletion_deadline = NULL
 			WHERE
 				project_id   = $1 AND
@@ -512,6 +514,7 @@ func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) 
 		`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID,
 			len(segments),
 			opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey,
+			totalPlainSize,
 			totalEncryptedSize,
 			fixedSegmentSize,
 		).
@@ -536,6 +539,7 @@ func (db *DB) commitObjectWithoutProofs(ctx context.Context, opts CommitObject) 
 		object.EncryptedMetadataNonce = opts.EncryptedMetadataNonce
 		object.EncryptedMetadata = opts.EncryptedMetadata
 		object.EncryptedMetadataEncryptedKey = opts.EncryptedMetadataEncryptedKey
+		object.TotalPlainSize = totalPlainSize
 		object.TotalEncryptedSize = totalEncryptedSize
 		object.FixedSegmentSize = fixedSegmentSize
 		return nil

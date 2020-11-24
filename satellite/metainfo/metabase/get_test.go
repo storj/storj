@@ -407,6 +407,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 						Status:       metabase.Committed,
 						SegmentCount: 1,
 
+						TotalPlainSize:     512,
 						TotalEncryptedSize: 1024,
 						FixedSegmentSize:   1024,
 
@@ -494,6 +495,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 						Status:       metabase.Committed,
 						SegmentCount: 2,
 
+						TotalPlainSize:     1024,
 						TotalEncryptedSize: 2048,
 						FixedSegmentSize:   1024,
 
@@ -620,6 +622,7 @@ func TestGetSegmentByOffset(t *testing.T) {
 						Status:       metabase.Committed,
 						SegmentCount: 4,
 
+						TotalPlainSize:     2048,
 						TotalEncryptedSize: 4240,
 						FixedSegmentSize:   1060,
 

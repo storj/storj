@@ -164,7 +164,7 @@ func (it *objectsIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err 
 				created_at, expires_at,
 				segment_count,
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
-				total_encrypted_size, fixed_segment_size,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
 				encryption
 			FROM objects
 			WHERE
@@ -186,7 +186,7 @@ func (it *objectsIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err 
 			created_at, expires_at,
 			segment_count,
 			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
-			total_encrypted_size, fixed_segment_size,
+			total_plain_size, total_encrypted_size, fixed_segment_size,
 			encryption
 		FROM objects
 		WHERE
@@ -214,7 +214,7 @@ func (it *objectsIterator) scanItem(item *ObjectEntry) error {
 		&item.CreatedAt, &item.ExpiresAt,
 		&item.SegmentCount,
 		&item.EncryptedMetadataNonce, &item.EncryptedMetadata, &item.EncryptedMetadataEncryptedKey,
-		&item.TotalEncryptedSize, &item.FixedSegmentSize,
+		&item.TotalPlainSize, &item.TotalEncryptedSize, &item.FixedSegmentSize,
 		encryptionParameters{&item.Encryption},
 	)
 }

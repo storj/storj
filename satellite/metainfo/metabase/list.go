@@ -29,6 +29,7 @@ type ObjectEntry struct {
 	EncryptedMetadata             []byte
 	EncryptedMetadataEncryptedKey []byte
 
+	TotalPlainSize     int64
 	TotalEncryptedSize int64
 	FixedSegmentSize   int32
 

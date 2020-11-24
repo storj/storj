@@ -904,6 +904,9 @@ func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bu
 		ExpiresAt:     expires,
 		CreatedAt:     metaObject.CreatedAt,
 
+		TotalSize: metaObject.TotalEncryptedSize,
+		PlainSize: metaObject.TotalPlainSize,
+
 		EncryptedMetadata:             metadataBytes,
 		EncryptedMetadataNonce:        nonce,
 		EncryptedMetadataEncryptedKey: metaObject.EncryptedMetadataEncryptedKey,
@@ -992,6 +995,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 					Version:           int32(entry.Version),
 					CreatedAt:         entry.CreatedAt,
 					EncryptedMetadata: entry.EncryptedMetadata,
+					PlainSize:         entry.TotalPlainSize,
 				}
 				if entry.ExpiresAt != nil {
 					item.ExpiresAt = *entry.ExpiresAt

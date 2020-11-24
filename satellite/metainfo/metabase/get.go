@@ -54,7 +54,7 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 			created_at, expires_at,
 			segment_count,
 			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
-			total_encrypted_size, fixed_segment_size,
+			total_plain_size, total_encrypted_size, fixed_segment_size,
 			encryption
 		FROM objects
 		WHERE
@@ -69,7 +69,7 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.SegmentCount,
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
-			&object.TotalEncryptedSize, &object.FixedSegmentSize,
+			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption},
 		)
 	if err != nil {
@@ -110,7 +110,7 @@ func (db *DB) GetObjectLatestVersion(ctx context.Context, opts GetObjectLatestVe
 			created_at, expires_at,
 			segment_count,
 			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
-			total_encrypted_size, fixed_segment_size,
+			total_plain_size, total_encrypted_size, fixed_segment_size,
 			encryption
 		FROM objects
 		WHERE
@@ -126,7 +126,7 @@ func (db *DB) GetObjectLatestVersion(ctx context.Context, opts GetObjectLatestVe
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.SegmentCount,
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
-			&object.TotalEncryptedSize, &object.FixedSegmentSize,
+			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			encryptionParameters{&object.Encryption},
 		)
 	if err != nil {

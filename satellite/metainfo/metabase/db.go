@@ -100,6 +100,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						encrypted_metadata               BYTEA default NULL,
 						encrypted_metadata_encrypted_key BYTEA default NULL,
 
+						total_plain_size     INT4 NOT NULL default 0,
 						total_encrypted_size INT4 NOT NULL default 0,
 						fixed_segment_size   INT4 NOT NULL default 0,
 

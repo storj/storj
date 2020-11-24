@@ -471,6 +471,7 @@ func TestDeleteObjectLatestVersion(t *testing.T) {
 						Status:       metabase.Committed,
 						SegmentCount: 1,
 
+						TotalPlainSize:     512,
 						TotalEncryptedSize: 1024,
 						FixedSegmentSize:   1024,
 						Encryption:         defaultTestEncryption,
