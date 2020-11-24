@@ -42,9 +42,7 @@ import 'vue2-datepicker/index.css';
 })
 export default class DurationPicker extends Vue {
     private duration: string = '';
-
     private dateRange: string[] = [];
-
 
     /**
      * When date range value changes

@@ -23,7 +23,9 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+
 import BucketsDropdown from '@/components/accessGrants/permissions/BucketsDropdown.vue';
+
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 @Component({
     components: {
@@ -53,6 +55,7 @@ export default class BucketsSelection extends Vue {
         if (!this.storedBucketNames.length) {
             return ALL_SELECTED;
         }
+
         return this.storedBucketNames.length.toString();
     }
     /**
@@ -73,6 +76,7 @@ export default class BucketsSelection extends Vue {
         border: 1px solid rgba(56, 75, 101, 0.4);
         font-family: 'font_regular', sans-serif;
         width: 235px;
+
         &__toggle-container {
             position: relative;
             display: flex;
@@ -80,6 +84,7 @@ export default class BucketsSelection extends Vue {
             justify-content: space-between;
             padding: 15px 20px;
             width: calc(100% - 40px);
+
             &__name {
                 font-style: normal;
                 font-weight: normal;
