@@ -507,59 +507,6 @@ func TestVerifierMissingPiece(t *testing.T) {
 	})
 }
 
-// TestVerifierMissingPieceHashesNotVerified tests that if piece hashes were not verified for a pointer,
-// a node that fails an audit for that pointer does not get marked as failing an audit, but is removed from
-// the pointer.
-func TestVerifierMissingPieceHashesNotVerified(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-		audits := satellite.Audit
-
-		audits.Worker.Loop.Pause()
-		audits.Chore.Loop.Pause()
-
-		ul := planet.Uplinks[0]
-		testData := testrand.Bytes(8 * memory.KiB)
-
-		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
-		require.NoError(t, err)
-
-		audits.Chore.Loop.TriggerWait()
-		queue := audits.Queues.Fetch()
-		path, err := queue.Next()
-		require.NoError(t, err)
-
-		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
-		require.NoError(t, err)
-
-		// update pointer to have PieceHashesVerified false
-		err = satellite.Metainfo.Service.UnsynchronizedDelete(ctx, metabase.SegmentKey(path))
-		require.NoError(t, err)
-		pointer.PieceHashesVerified = false
-		err = satellite.Metainfo.Service.Put(ctx, metabase.SegmentKey(path), pointer)
-		require.NoError(t, err)
-
-		// delete the piece from the first node
-		origNumPieces := len(pointer.GetRemote().GetRemotePieces())
-		piece := pointer.GetRemote().GetRemotePieces()[0]
-		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-		node := planet.FindNode(piece.NodeId)
-		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
-		require.NoError(t, err)
-
-		report, err := audits.Verifier.Verify(ctx, path, nil)
-		require.NoError(t, err)
-
-		assert.Len(t, report.Successes, origNumPieces-1)
-		// expect no failed audit
-		assert.Len(t, report.Fails, 0)
-		assert.Len(t, report.Offlines, 0)
-		assert.Len(t, report.PendingAudits, 0)
-	})
-}
-
 func TestVerifierDialTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
