@@ -51,6 +51,7 @@ import NoPaywallInfoBar from '@/components/noPaywallInfoBar/NoPaywallInfoBar.vue
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
@@ -87,6 +88,8 @@ const {
     },
 })
 export default class DashboardArea extends Vue {
+    private FIRST_PAGE: number = 1;
+
     /**
      * Holds router link to project dashboard page.
      */
@@ -176,7 +179,7 @@ export default class DashboardArea extends Vue {
         let apiKeysPage: ApiKeysPage = new ApiKeysPage();
 
         try {
-            apiKeysPage = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, 1);
+            apiKeysPage = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
             await this.$notify.error(`Unable to fetch api keys. ${error.message}`);
         }
@@ -193,9 +196,21 @@ export default class DashboardArea extends Vue {
             return;
         }
 
+        try {
+           await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch api keys. ${error.message}`);
+        }
+
+        try {
+            await this.$store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch all bucket names. ${error.message}`);
+        }
+
         await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
         try {
-            await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
+            await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
             await this.$notify.error(`Unable to fetch project members. ${error.message}`);
         }
@@ -207,7 +222,7 @@ export default class DashboardArea extends Vue {
         }
 
         try {
-            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
+            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
             await this.$notify.error(`Unable to fetch buckets. ${error.message}`);
         }

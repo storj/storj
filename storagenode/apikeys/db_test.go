@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package apikey_test
+package apikeys_test
 
 import (
 	"testing"
@@ -11,20 +11,20 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/apikey"
+	"storj.io/storj/storagenode/apikeys"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
 func TestSecretDB(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		secrets := db.Secret()
-		token, err := apikey.NewSecretToken()
+		token, err := apikeys.NewSecret()
 		assert.NoError(t, err)
-		token2, err := apikey.NewSecretToken()
+		token2, err := apikeys.NewSecret()
 		assert.NoError(t, err)
 
 		t.Run("Test StoreSecret", func(t *testing.T) {
-			err := secrets.Store(ctx, apikey.APIKey{
+			err := secrets.Store(ctx, apikeys.APIKey{
 				Secret:    token,
 				CreatedAt: time.Now().UTC(),
 			})

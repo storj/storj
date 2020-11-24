@@ -16,6 +16,7 @@
     "apollo-link-context": "1.0.20",
     "apollo-link-error": "1.1.13",
     "apollo-link-http": "1.5.17",
+    "bip39": "3.0.3",
     "graphql": "15.3.0",
     "graphql-tag": "2.11.0",
     "load-script": "1.0.0",
@@ -25,6 +26,7 @@
     "vue-clipboard2": "0.3.1",
     "vue-property-decorator": "9.0.0",
     "vue-router": "3.4.3",
+    "vue2-datepicker": "3.7.0",
     "vuex": "3.5.1"
   },
   "devDependencies": {
@@ -130,7 +132,7 @@
       "^.+\\.svg$": "<rootDir>/tests/unit/mock/svgTransform.js"
     },
     "transformIgnorePatterns": [
-      "/node_modules/(?!(apollo-client|apollo-link))"
+      "/node_modules/(?!(apollo-client|apollo-link|vue2-datepicker))"
     ],
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/src/$1"

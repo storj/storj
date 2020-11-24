@@ -15,6 +15,18 @@ import (
 	"storj.io/storj/satellite/orders"
 )
 
+func TestEncryptionKeys_New(t *testing.T) {
+	var key1, key2 orders.EncryptionKey
+	require.NoError(t, key1.Set(`11223344556677FF=11223344556677881122334455667788112233445566778811223344556677FF`))
+	require.NoError(t, key2.Set(`0100000000000000=0100000000000000000000000000000000000000000000000000000000000000`))
+	ekeys, err := orders.NewEncryptionKeys(key1, key2)
+	require.NoError(t, err)
+	require.Equal(t, ekeys.Default.Key, key1.Key)
+	require.Equal(t, ekeys.Default.ID, key1.ID)
+	const keyCount = 2
+	require.Equal(t, len(ekeys.KeyByID), keyCount)
+	require.Equal(t, len(ekeys.List), keyCount)
+}
 func TestEncryptionKey_Set_Valid(t *testing.T) {
 	type Test struct {
 		Hex string

@@ -10,11 +10,11 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/storagenode/apikey"
+	"storj.io/storj/storagenode/apikeys"
 )
 
-// ensures that secretDB implements apikey.DB interface.
-var _ apikey.DB = (*secretDB)(nil)
+// ensures that secretDB implements apikeys.DB interface.
+var _ apikeys.DB = (*secretDB)(nil)
 
 // ErrSecret represents errors from the apikey database.
 var ErrSecret = errs.Class("apikey db error")
@@ -28,7 +28,7 @@ type secretDB struct {
 }
 
 // Store stores apikey into database.
-func (db *secretDB) Store(ctx context.Context, secret apikey.APIKey) (err error) {
+func (db *secretDB) Store(ctx context.Context, secret apikeys.APIKey) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `INSERT INTO secret (
@@ -45,7 +45,7 @@ func (db *secretDB) Store(ctx context.Context, secret apikey.APIKey) (err error)
 }
 
 // Check checks if apikey exists in db by token.
-func (db *secretDB) Check(ctx context.Context, token apikey.Secret) (err error) {
+func (db *secretDB) Check(ctx context.Context, token apikeys.Secret) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var bytes []uint8
@@ -62,7 +62,7 @@ func (db *secretDB) Check(ctx context.Context, token apikey.Secret) (err error) 
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return apikey.ErrNoSecret.Wrap(err)
+			return apikeys.ErrNoSecret.Wrap(err)
 		}
 		return ErrSecret.Wrap(err)
 	}
@@ -71,7 +71,7 @@ func (db *secretDB) Check(ctx context.Context, token apikey.Secret) (err error) 
 }
 
 // Revoke removes apikey from db.
-func (db *secretDB) Revoke(ctx context.Context, secret apikey.Secret) (err error) {
+func (db *secretDB) Revoke(ctx context.Context, secret apikeys.Secret) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `DELETE FROM secret WHERE token = ?`

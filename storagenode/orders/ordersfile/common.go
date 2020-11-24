@@ -13,6 +13,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/private/date"
@@ -29,6 +30,11 @@ const (
 
 	unsentFilePrefix  = "unsent-orders-"
 	archiveFilePrefix = "archived-orders-"
+
+	// order limits should always be less than 10KiB and orders should always be less than 100B,
+	// but use a larger number to give some more headroom.
+	orderLimitSizeCap = 32 * memory.KiB
+	orderSizeCap      = 32 * memory.KiB
 )
 
 var (

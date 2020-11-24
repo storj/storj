@@ -21,6 +21,7 @@ import (
 
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -1453,6 +1454,36 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 	}
 
 	return usage, nil
+}
+
+// GetAllBucketNames retrieves all bucket names of a specific project.
+func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_ []string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = s.getAuthAndAuditLog(ctx, "get all bucket names", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	listOptions := storj.BucketListOptions{
+		Direction: storj.Forward,
+	}
+
+	allowedBuckets := macaroon.AllowedBuckets{
+		All: true,
+	}
+
+	bucketsList, err := s.buckets.ListBuckets(ctx, projectID, listOptions, allowedBuckets)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	var list []string
+	for _, bucket := range bucketsList.Items {
+		list = append(list, bucket.Name)
+	}
+
+	return list, nil
 }
 
 // GetBucketUsageRollups retrieves summed usage rollups for every bucket of particular project for a given period.

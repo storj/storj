@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/repair/checker"
 	"storj.io/uplink/private/eestream"
 )
 
@@ -61,8 +62,8 @@ type SegmentRepairer struct {
 	// repaired pieces
 	multiplierOptimalThreshold float64
 
-	// repairOverride is the value handed over from the checker to override the Repair Threshold
-	repairOverride int
+	// repairOverrides is the set of values configured by the checker to override the repair threshold for various RS schemes.
+	repairOverrides checker.RepairOverridesMap
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer.
@@ -73,7 +74,7 @@ type SegmentRepairer struct {
 func NewSegmentRepairer(
 	log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service,
 	overlay *overlay.Service, dialer rpc.Dialer, timeout time.Duration,
-	excessOptimalThreshold float64, repairOverride int,
+	excessOptimalThreshold float64, repairOverrides checker.RepairOverrides,
 	downloadTimeout time.Duration, inMemoryRepair bool,
 	satelliteSignee signing.Signee,
 ) *SegmentRepairer {
@@ -90,7 +91,7 @@ func NewSegmentRepairer(
 		ec:                         NewECRepairer(log.Named("ec repairer"), dialer, satelliteSignee, downloadTimeout, inMemoryRepair),
 		timeout:                    timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
-		repairOverride:             repairOverride,
+		repairOverrides:            repairOverrides.GetMap(),
 	}
 }
 
@@ -155,8 +156,9 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	mon.Counter("repairer_segments_below_min_req").Inc(0) //mon:locked
 
 	repairThreshold := pointer.Remote.Redundancy.RepairThreshold
-	if repairer.repairOverride != 0 {
-		repairThreshold = int32(repairer.repairOverride)
+	overrideValue := repairer.repairOverrides.GetOverrideValuePB(pointer.Remote.Redundancy)
+	if overrideValue != 0 {
+		repairThreshold = overrideValue
 	}
 
 	// repair not needed
@@ -246,9 +248,15 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	failedNum, updateErr := repairer.updateAuditFailStatus(ctx, failedNodeIDs)
 	if updateErr != nil || failedNum > 0 {
 		// failed updates should not affect repair, therefore we will not return the error
-		repairer.log.Debug("failed to update audit fail status", zap.Int("Failed Update Number", failedNum), zap.Error(err))
+		repairer.log.Debug("failed to update audit fail status", zap.Int("Failed Update Number", failedNum), zap.Error(updateErr))
 	}
 	if err != nil {
+		// If the context was closed during the Get phase, it will appear here as though
+		// we just failed to download enough pieces to reconstruct the segment. Check for
+		// a closed context before doing any further error processing.
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return false, ctxErr
+		}
 		// If Get failed because of input validation, then it will keep failing. But if it
 		// gave us irreparableError, then we failed to download enough pieces and must try
 		// to wait for nodes to come back online.
