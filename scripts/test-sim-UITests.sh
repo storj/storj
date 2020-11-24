@@ -10,7 +10,26 @@ cleanup(){
 	rm -rf "$TMP"
 }
 trap cleanup EXIT
+# mirroring install-sim from the Makefile since it won't work on private Jenkins
+install_sim(){
+    local bin_dir="${TMP}/bin"
+    mkdir -p ${bin_dir}
 
+    go build -race -v -o ${bin_dir}/storagenode ./cmd/storagenode >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/satellite ./cmd/satellite >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/storj-sim ./cmd/storj-sim >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/versioncontrol ./cmd/versioncontrol >/dev/null 2>&1
+
+    go build -race -v -o ${bin_dir}/uplink ./cmd/uplink >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/identity ./cmd/identity >/dev/null 2>&1
+    go build -race -v -o ${bin_dir}/certificates ./cmd/certificates >/dev/null 2>&1
+
+    rm -rf .build/gateway-tmp
+    mkdir -p .build/gateway-tmp
+    pushd .build/gateway-tmp
+        go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@latest
+    popd
+}
 echo "Running test-sim"
 make -C "$SCRIPTDIR"/.. install-sim
 
