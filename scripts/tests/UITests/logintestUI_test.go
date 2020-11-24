@@ -39,7 +39,7 @@ func Example_logout()  {
 		Timeout(time.Minute).
 		ControlURL(url).
 		Trace(true).
-		Slowmotion(300 * time.Millisecond).
+		SlowMotion(300 * time.Millisecond).
 		MustConnect()
 
 	// Even you forget to close, rod will close it after main process ends.
@@ -92,7 +92,7 @@ func login_to_account() (*rod.Page, *rod.Browser) {
 		Timeout(time.Minute).
 		ControlURL(url).
 		Trace(true).
-		Slowmotion(300 * time.Millisecond).
+		SlowMotion(300 * time.Millisecond).
 		MustConnect()
 
 
@@ -142,7 +142,7 @@ func Example_droplistChosing (){
 
 	func Example_checkingElementsHeader(){
 		page, browser := login_to_account()
-		browser.Slowmotion(1 * time.Second)
+		browser.SlowMotion(1 * time.Second)
 		defer browser.MustClose()
 
 		projects := page.MustElement("div.project-selection__toggle-container").MustText()
@@ -405,7 +405,7 @@ func Example_droplistChosing (){
 			Timeout(time.Minute).
 			ControlURL(url).
 			Trace(true).
-			Slowmotion(300 * time.Millisecond).
+			SlowMotion(300 * time.Millisecond).
 			MustConnect()
 
 		// Even you forget to close, rod will close it after main process ends.
@@ -465,7 +465,7 @@ func Example_droplistChosing (){
 			Timeout(time.Minute).
 			ControlURL(url).
 			Trace(true).
-			Slowmotion(300 * time.Millisecond).
+			SlowMotion(300 * time.Millisecond).
 			MustConnect()
 
 		// Even you forget to close, rod will close it after main process ends.
@@ -534,7 +534,7 @@ func Example_droplistChosing (){
 			Timeout(time.Minute).
 			ControlURL(url).
 			Trace(true).
-			Slowmotion(300 * time.Millisecond).
+			SlowMotion(300 * time.Millisecond).
 			MustConnect()
 
 		// Even you forget to close, rod will close it after main process ends.
@@ -567,7 +567,7 @@ func Example_droplistChosing (){
 			Timeout(time.Minute).
 			ControlURL(url).
 			Trace(true).
-			Slowmotion(300 * time.Millisecond).
+			SlowMotion(300 * time.Millisecond).
 			MustConnect()
 
 		// Even you forget to close, rod will close it after main process ends.
