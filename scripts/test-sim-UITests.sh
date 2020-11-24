@@ -30,6 +30,17 @@ install_sim(){
         go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@latest
     popd
 }
+
+pushd $SCRIPTDIR
+    echo "Running test-sim"
+    git clone https://github.com/storj/storj.git --depth 1
+
+    pushd ./storj
+        install_sim
+    popd
+popd
+
+export PATH=$TMP/bin:$PATH
 echo "Running test-sim"
 make -C "$SCRIPTDIR"/.. install-sim
 
@@ -37,6 +48,7 @@ export STORJ_NETWORK_DIR=$TMP
 
 STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
 STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
+STORJ_SIM_REDIS=${STORJ_SIM_REDIS:-""}
 # STORJ_CONSOLE_payments_stripe-coin-payments_coinpayments-private-key="5366b14A7Dc5A1b0FCc3C8845c5d903E8c6b6360de5f3667AD8B58f5E8cC017c"
 # setup the network
 # if postgres connection string is set as STORJ_SIM_POSTGRES then use that for testing
