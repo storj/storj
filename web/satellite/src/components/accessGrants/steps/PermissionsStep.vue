@@ -31,7 +31,6 @@
                 <div class="permissions__content__right__duration-select">
                     <p class="permissions__content__right__duration-select__label">Duration</p>
                     <DurationSelection />
-                    <DurationPicker/>
                 </div>
                 <div class="permissions__content__right__buckets-select">
                     <p class="permissions__content__right__buckets-select__label">Buckets</p>
@@ -67,7 +66,6 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import BucketNameBullet from '@/components/accessGrants/permissions/BucketNameBullet.vue';
 import BucketsSelection from '@/components/accessGrants/permissions/BucketsSelection.vue';
-import DurationPicker from '@/components/accessGrants/permissions/DurationPicker.vue';
 import DurationSelection from '@/components/accessGrants/permissions/DurationSelection.vue';
 import VButton from '@/components/common/VButton.vue';
 
@@ -81,7 +79,6 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
         BackIcon,
         BucketsSelection,
         BucketNameBullet,
-        DurationPicker,
         DurationSelection,
         VButton,
     },
