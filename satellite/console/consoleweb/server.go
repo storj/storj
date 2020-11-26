@@ -267,7 +267,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 
 	cspValues := []string{
 		"default-src 'self'",
-		"connect-src 'self' api.segment.io *.google-analytics.com",
+		"connect-src 'self' api.segment.io *.google-analytics.com " + server.config.GatewayCredentialsRequestURL,
 		"frame-ancestors " + server.config.FrameAncestors,
 		"frame-src 'self' *.stripe.com *.googletagmanager.com",
 		"img-src 'self' data: *.customer.io *.googletagmanager.com *.google-analytics.com",
