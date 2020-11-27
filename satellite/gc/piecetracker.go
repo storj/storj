@@ -38,7 +38,7 @@ func NewPieceTracker(log *zap.Logger, config Config, pieceCounts map[storj.NodeI
 		creationDate: time.Now().UTC(),
 		pieceCounts:  pieceCounts,
 
-		retainInfos: make(map[storj.NodeID]*RetainInfo),
+		retainInfos: make(map[storj.NodeID]*RetainInfo, len(pieceCounts)),
 	}
 }
 
