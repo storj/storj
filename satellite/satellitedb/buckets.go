@@ -11,18 +11,12 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 type bucketsDB struct {
 	db *satelliteDB
-}
-
-// Buckets returns database for interacting with buckets.
-func (db *satelliteDB) Buckets() metainfo.BucketsDB {
-	return &bucketsDB{db: db}
 }
 
 // CreateBucket creates a new bucket.
