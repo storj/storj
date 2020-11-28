@@ -203,16 +203,19 @@ func (db *StoragenodeAccounting) NodeLastTimestamp(ctx context.Context, nodeID s
 	}
 	if rowValue == nil {
 		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-			lt, err := tx.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(ts))
-			if lt == nil {
-				return tx.CreateNoReturn_AccountingTimestamps(ctx,
-					dbx.AccountingTimestamps_Name(ts),
-					dbx.AccountingTimestamps_Value(lastTally),
-				)
+			// Check for the global value
+			lt, err := db.LastTimestamp(ctx, timestampType)
+			if err != nil {
+				return err
 			}
-			lastTally = lt.Value
-			return err
+
+			lastTally = lt
+			return tx.CreateNoReturn_AccountingTimestamps(ctx,
+				dbx.AccountingTimestamps_Name(ts),
+				dbx.AccountingTimestamps_Value(lastTally),
+			)
 		})
+
 		return lastTally, err
 	}
 
@@ -407,7 +410,7 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, nodeID storj.NodeID, latestRollup time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	deleteRawSQL := `DELETE FROM storagenode_storage_tallies WHERE node_id = ? AND interval_end_time < ?`
-	_, err = db.db.DB.ExecContext(ctx, db.db.Rebind(deleteRawSQL), nodeID, latestRollup)
+	_, err = db.db.DB.ExecContext(ctx, db.db.Rebind(deleteRawSQL), nodeID.Bytes(), latestRollup)
 	return err
 }
 

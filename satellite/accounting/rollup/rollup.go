@@ -82,7 +82,6 @@ func (r *Service) Rollup(ctx context.Context) (err error) {
 		if !nodeLastRollup.IsZero() {
 			nodeLastRollup = nodeLastRollup.Add(-r.OrderExpiration)
 		}
-
 		rollupStats := make(accounting.RollupStats)
 		latestTally, err := r.RollupStorage(ctx, id, nodeLastRollup, rollupStats)
 		if err != nil {
@@ -99,7 +98,7 @@ func (r *Service) Rollup(ctx context.Context) (err error) {
 		delete(rollupStats, latestTally)
 		if len(rollupStats) == 0 {
 			r.logger.Info("RollupStats is empty")
-			return nil
+			continue
 		}
 
 		err = r.sdb.SaveRollup(ctx, latestTally, rollupStats)
@@ -124,6 +123,7 @@ func (r *Service) Rollup(ctx context.Context) (err error) {
 func (r *Service) RollupStorage(ctx context.Context, nodeID storj.NodeID, lastRollup time.Time, rollupStats accounting.RollupStats) (latestTally time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
 	tallies, err := r.sdb.GetTalliesSince(ctx, nodeID, lastRollup)
+
 	if err != nil {
 		return lastRollup, Error.Wrap(err)
 	}
