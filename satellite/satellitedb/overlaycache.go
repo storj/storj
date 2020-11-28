@@ -1566,6 +1566,6 @@ func (cache *overlaycache) TestUnvetNode(ctx context.Context, nodeID storj.NodeI
 	if err != nil {
 		return err
 	}
-	_, err = cache.db.OverlayCache().Get(ctx, nodeID)
+	_, err = cache.Get(ctx, nodeID)
 	return err
 }

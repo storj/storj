@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/pkg/cache"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/storj/private/migrate"
 	"storj.io/storj/private/tagsql"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
@@ -22,6 +23,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -38,6 +40,10 @@ var (
 	// Error is the default satellitedb errs class.
 	Error = errs.Class("satellitedb")
 )
+
+type satelliteDBCollection struct {
+	dbs map[string]*satelliteDB
+}
 
 // satelliteDB combines access to different database tables with a record
 // of the db driver, db implementation, and db source URL.
@@ -71,8 +77,39 @@ type Options struct {
 
 var _ dbx.DBMethods = &satelliteDB{}
 
-// Open creates instance of database supports postgres.
-func Open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options) (satellite.DB, error) {
+var safelyPartitionableDBs = map[string]bool{
+	// WARNING: only list additional db names here after they have been
+	// validated to be safely partitionable and that they do not do
+	// cross-db queries.
+	"repairqueue": true,
+}
+
+// Open creates instance of satellite.DB.
+func Open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options) (rv satellite.DB, err error) {
+	dbMapping, err := dbutil.ParseDBMapping(databaseURL)
+	if err != nil {
+		return nil, err
+	}
+
+	dbc := &satelliteDBCollection{dbs: map[string]*satelliteDB{}}
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, dbc.Close())
+		}
+	}()
+
+	for key, val := range dbMapping {
+		db, err := open(ctx, log, val, opts, key)
+		if err != nil {
+			return nil, err
+		}
+		dbc.dbs[key] = db
+	}
+
+	return dbc, nil
+}
+
+func open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options, override string) (*satelliteDB, error) {
 	driver, source, implementation, err := dbutil.SplitConnStr(databaseURL)
 	if err != nil {
 		return nil, err
@@ -90,7 +127,11 @@ func Open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 	}
 	log.Debug("Connected to:", zap.String("db source", source))
 
-	dbutil.Configure(ctx, dbxDB.DB, "satellitedb", mon)
+	name := "satellitedb"
+	if override != "" {
+		name += ":" + override
+	}
+	dbutil.Configure(ctx, dbxDB.DB, name, mon)
 
 	core := &satelliteDB{
 		DB: dbxDB,
@@ -107,47 +148,66 @@ func Open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 	return core, nil
 }
 
+func (dbc *satelliteDBCollection) getByName(name string) *satelliteDB {
+	if safelyPartitionableDBs[name] {
+		if db, exists := dbc.dbs[name]; exists {
+			return db
+		}
+	}
+	return dbc.dbs[""]
+}
+
 // TestDBAccess for raw database access,
 // should not be used outside of migration tests.
 func (db *satelliteDB) TestDBAccess() *dbx.DB { return db.DB }
 
+// MigrationTestingDefaultDB assists in testing migrations themselves against
+// the default database.
+func (dbc *satelliteDBCollection) MigrationTestingDefaultDB() interface {
+	TestDBAccess() *dbx.DB
+	PostgresMigration() *migrate.Migration
+} {
+	return dbc.getByName("")
+}
+
 // PeerIdentities returns a storage for peer identities.
-func (db *satelliteDB) PeerIdentities() overlay.PeerIdentities {
-	return &peerIdentities{db: db}
+func (dbc *satelliteDBCollection) PeerIdentities() overlay.PeerIdentities {
+	return &peerIdentities{db: dbc.getByName("peeridentities")}
 }
 
 // Attribution is a getter for value attribution repository.
-func (db *satelliteDB) Attribution() attribution.DB {
-	return &attributionDB{db: db}
+func (dbc *satelliteDBCollection) Attribution() attribution.DB {
+	return &attributionDB{db: dbc.getByName("attribution")}
 }
 
 // OverlayCache is a getter for overlay cache repository.
-func (db *satelliteDB) OverlayCache() overlay.DB {
-	return &overlaycache{db: db}
+func (dbc *satelliteDBCollection) OverlayCache() overlay.DB {
+	return &overlaycache{db: dbc.getByName("overlaycache")}
 }
 
 // RepairQueue is a getter for RepairQueue repository.
-func (db *satelliteDB) RepairQueue() queue.RepairQueue {
-	return &repairQueue{db: db}
+func (dbc *satelliteDBCollection) RepairQueue() queue.RepairQueue {
+	return &repairQueue{db: dbc.getByName("repairqueue")}
 }
 
 // StoragenodeAccounting returns database for tracking storagenode usage.
-func (db *satelliteDB) StoragenodeAccounting() accounting.StoragenodeAccounting {
-	return &StoragenodeAccounting{db: db}
+func (dbc *satelliteDBCollection) StoragenodeAccounting() accounting.StoragenodeAccounting {
+	return &StoragenodeAccounting{db: dbc.getByName("storagenodeaccounting")}
 }
 
 // ProjectAccounting returns database for tracking project data use.
-func (db *satelliteDB) ProjectAccounting() accounting.ProjectAccounting {
-	return &ProjectAccounting{db: db}
+func (dbc *satelliteDBCollection) ProjectAccounting() accounting.ProjectAccounting {
+	return &ProjectAccounting{db: dbc.getByName("projectaccounting")}
 }
 
 // Irreparable returns database for storing segments that failed repair.
-func (db *satelliteDB) Irreparable() irreparable.DB {
-	return &irreparableDB{db: db}
+func (dbc *satelliteDBCollection) Irreparable() irreparable.DB {
+	return &irreparableDB{db: dbc.getByName("irreparable")}
 }
 
 // Revocation returns the database to deal with macaroon revocation.
-func (db *satelliteDB) Revocation() revocation.DB {
+func (dbc *satelliteDBCollection) Revocation() revocation.DB {
+	db := dbc.getByName("revocation")
 	db.revocationDBOnce.Do(func() {
 		db.revocationDB = &revocationDB{
 			db:      db,
@@ -159,7 +219,8 @@ func (db *satelliteDB) Revocation() revocation.DB {
 }
 
 // Console returns database for storing users, projects and api keys.
-func (db *satelliteDB) Console() console.DB {
+func (dbc *satelliteDBCollection) Console() console.DB {
+	db := dbc.getByName("console")
 	db.consoleDBOnce.Do(func() {
 		db.consoleDB = &ConsoleDB{
 			apikeysLRUOptions: db.opts.APIKeysLRUOptions,
@@ -175,46 +236,88 @@ func (db *satelliteDB) Console() console.DB {
 }
 
 // Rewards returns database for storing offers.
-func (db *satelliteDB) Rewards() rewards.DB {
-	return &offersDB{db: db}
+func (dbc *satelliteDBCollection) Rewards() rewards.DB {
+	return &offersDB{db: dbc.getByName("rewards")}
 }
 
 // Orders returns database for storing orders.
-func (db *satelliteDB) Orders() orders.DB {
+func (dbc *satelliteDBCollection) Orders() orders.DB {
+	db := dbc.getByName("orders")
 	return &ordersDB{db: db, reportedRollupsReadBatchSize: db.opts.ReportedRollupsReadBatchSize}
 }
 
 // Containment returns database for storing pending audit info.
-func (db *satelliteDB) Containment() audit.Containment {
-	return &containment{db: db}
+func (dbc *satelliteDBCollection) Containment() audit.Containment {
+	return &containment{db: dbc.getByName("containment")}
 }
 
 // GracefulExit returns database for graceful exit.
-func (db *satelliteDB) GracefulExit() gracefulexit.DB {
-	return &gracefulexitDB{db: db}
+func (dbc *satelliteDBCollection) GracefulExit() gracefulexit.DB {
+	return &gracefulexitDB{db: dbc.getByName("gracefulexit")}
 }
 
 // StripeCoinPayments returns database for stripecoinpayments.
-func (db *satelliteDB) StripeCoinPayments() stripecoinpayments.DB {
-	return &stripeCoinPaymentsDB{db: db}
+func (dbc *satelliteDBCollection) StripeCoinPayments() stripecoinpayments.DB {
+	return &stripeCoinPaymentsDB{db: dbc.getByName("stripecoinpayments")}
 }
 
 // DowntimeTracking returns database for downtime tracking.
-func (db *satelliteDB) DowntimeTracking() downtime.DB {
-	return &downtimeTrackingDB{db: db}
+func (dbc *satelliteDBCollection) DowntimeTracking() downtime.DB {
+	return &downtimeTrackingDB{db: dbc.getByName("downtimetracking")}
 }
 
 // SnoPayout returns database for storagenode payStubs and payments info.
-func (db *satelliteDB) SnoPayout() snopayout.DB {
-	return &paymentStubs{db: db}
+func (dbc *satelliteDBCollection) SnoPayout() snopayout.DB {
+	return &paymentStubs{db: dbc.getByName("snopayout")}
 }
 
 // Compenstation returns database for storage node compensation.
-func (db *satelliteDB) Compensation() compensation.DB {
-	return &compensationDB{db: db}
+func (dbc *satelliteDBCollection) Compensation() compensation.DB {
+	return &compensationDB{db: dbc.getByName("compensation")}
 }
 
 // NodeAPIVersion returns database for storage node api version lower bounds.
-func (db *satelliteDB) NodeAPIVersion() nodeapiversion.DB {
-	return &nodeAPIVersionDB{db: db}
+func (dbc *satelliteDBCollection) NodeAPIVersion() nodeapiversion.DB {
+	return &nodeAPIVersionDB{db: dbc.getByName("nodeapiversion")}
+}
+
+// Buckets returns database for interacting with buckets.
+func (dbc *satelliteDBCollection) Buckets() metainfo.BucketsDB {
+	return &bucketsDB{db: dbc.getByName("buckets")}
+}
+
+// CheckVersion confirms all databases are at the desired version.
+func (dbc *satelliteDBCollection) CheckVersion(ctx context.Context) error {
+	var eg errs.Group
+	for _, db := range dbc.dbs {
+		eg.Add(db.CheckVersion(ctx))
+	}
+	return eg.Err()
+}
+
+// MigrateToLatest migrates all databases to the latest version.
+func (dbc *satelliteDBCollection) MigrateToLatest(ctx context.Context) error {
+	var eg errs.Group
+	for _, db := range dbc.dbs {
+		eg.Add(db.MigrateToLatest(ctx))
+	}
+	return eg.Err()
+}
+
+// TestingMigrateToLatest is a method for creating all tables for all database for testing.
+func (dbc *satelliteDBCollection) TestingMigrateToLatest(ctx context.Context) error {
+	var eg errs.Group
+	for _, db := range dbc.dbs {
+		eg.Add(db.TestingMigrateToLatest(ctx))
+	}
+	return eg.Err()
+}
+
+// Close closes all satellite dbs.
+func (dbc *satelliteDBCollection) Close() error {
+	var eg errs.Group
+	for _, db := range dbc.dbs {
+		eg.Add(db.Close())
+	}
+	return eg.Err()
 }
