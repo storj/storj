@@ -152,9 +152,26 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 	if len(stats) == 0 {
 		return Error.New("In SaveRollup with empty nodeData")
 	}
-	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		for _, arsByDate := range stats {
-			for _, ar := range arsByDate {
+
+	batchSize := db.db.opts.SaveRollupBatchSize
+	if batchSize <= 0 {
+		batchSize = 1000
+	}
+
+	var rollups []*accounting.Rollup
+	for _, arsByDate := range stats {
+		for _, ar := range arsByDate {
+			rollups = append(rollups, ar)
+		}
+	}
+	finished := false
+
+	for !finished {
+		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			for i := 0; i < batchSize && len(rollups) > 0; i++ {
+				ar := rollups[0]
+				rollups = rollups[1:]
+
 				nID := dbx.AccountingRollup_NodeId(ar.NodeID.Bytes())
 				start := dbx.AccountingRollup_StartTime(ar.StartTime)
 				put := dbx.AccountingRollup_PutTotal(ar.PutTotal)
@@ -169,16 +186,24 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 					return err
 				}
 			}
-		}
 
-		return tx.UpdateNoReturn_AccountingTimestamps_By_Name(ctx,
-			dbx.AccountingTimestamps_Name(accounting.LastRollup),
-			dbx.AccountingTimestamps_Update_Fields{
-				Value: dbx.AccountingTimestamps_Value(latestRollup),
-			},
-		)
-	})
-	return Error.Wrap(err)
+			if len(rollups) == 0 {
+				finished = true
+				return tx.UpdateNoReturn_AccountingTimestamps_By_Name(ctx,
+					dbx.AccountingTimestamps_Name(accounting.LastRollup),
+					dbx.AccountingTimestamps_Update_Fields{
+						Value: dbx.AccountingTimestamps_Value(latestRollup),
+					},
+				)
+			}
+
+			return nil
+		})
+		if err != nil {
+			return Error.Wrap(err)
+		}
+	}
+	return nil
 }
 
 // LastTimestamp records the greatest last tallied time.
