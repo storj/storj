@@ -73,6 +73,9 @@ type Options struct {
 	// How many records to read in a single transaction when asked for all of the
 	// billable bandwidth from the reported serials table.
 	ReportedRollupsReadBatchSize int
+
+	// How many storage node rollups to save in one batch.
+	SaveRollupBatchSize int
 }
 
 var _ dbx.DBMethods = &satelliteDB{}

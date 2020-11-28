@@ -667,6 +667,9 @@ server.private-address: 127.0.0.1:7778
 # how frequently the tally service should run
 # tally.interval: 1h0m0s
 
+# how large of batches SaveRollup should process at a time
+# tally.save-rollup-batch-size: 1000
+
 # address for jaeger agent
 # tracing.agent-addr: agent.tracing.datasci.storj.io:5775
 
