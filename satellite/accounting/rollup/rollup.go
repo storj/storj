@@ -14,6 +14,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // Config contains configurable values for rollup.
@@ -68,54 +69,62 @@ func (r *Service) Close() error {
 func (r *Service) Rollup(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	nodeIDs, err := r.overlay.GetAllNodeIDs(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	for _, id := range nodeIDs {
-		nodeLastRollup, err := r.sdb.NodeLastTimestamp(ctx, id, accounting.LastRollup)
+	var cursor *dbx.Paged_Node_Id_Continuation
+	limit := 1000
+	for {
+		nodeIDs, next, err := r.overlay.GetNodeIDs(ctx, limit, cursor)
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		// unexpired orders with created at times before the last rollup timestamp could still have been added later
-		if !nodeLastRollup.IsZero() {
-			nodeLastRollup = nodeLastRollup.Add(-r.OrderExpiration)
-		}
-		rollupStats := make(accounting.RollupStats)
-		latestTally, err := r.RollupStorage(ctx, id, nodeLastRollup, rollupStats)
-		if err != nil {
-			return Error.Wrap(err)
-		}
+		cursor = next
 
-		err = r.RollupBW(ctx, id, nodeLastRollup, rollupStats)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		// remove the latest day (which we cannot know is complete), then push to DB
-		latestTally = time.Date(latestTally.Year(), latestTally.Month(), latestTally.Day(), 0, 0, 0, 0, latestTally.Location())
-		delete(rollupStats, latestTally)
-		if len(rollupStats) == 0 {
-			r.logger.Info("RollupStats is empty")
-			continue
-		}
-
-		err = r.sdb.SaveRollup(ctx, latestTally, rollupStats)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		if r.deleteTallies {
-			// Delete already rolled up tallies
-			latestTally = latestTally.Add(-r.OrderExpiration)
-			err = r.sdb.DeleteTalliesBefore(ctx, id, latestTally)
+		for _, id := range nodeIDs {
+			nodeLastRollup, err := r.sdb.NodeLastTimestamp(ctx, id, accounting.LastRollup)
 			if err != nil {
 				return Error.Wrap(err)
 			}
+			// unexpired orders with created at times before the last rollup timestamp could still have been added later
+			if !nodeLastRollup.IsZero() {
+				nodeLastRollup = nodeLastRollup.Add(-r.OrderExpiration)
+			}
+			rollupStats := make(accounting.RollupStats)
+			latestTally, err := r.RollupStorage(ctx, id, nodeLastRollup, rollupStats)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+
+			err = r.RollupBW(ctx, id, nodeLastRollup, rollupStats)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+
+			// remove the latest day (which we cannot know is complete), then push to DB
+			latestTally = time.Date(latestTally.Year(), latestTally.Month(), latestTally.Day(), 0, 0, 0, 0, latestTally.Location())
+			delete(rollupStats, latestTally)
+			if len(rollupStats) == 0 {
+				r.logger.Info("RollupStats is empty", zap.String("node", id.String()))
+				continue
+			}
+
+			err = r.sdb.SaveRollup(ctx, latestTally, rollupStats)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+
+			if r.deleteTallies {
+				// Delete already rolled up tallies
+				latestTally = latestTally.Add(-r.OrderExpiration)
+				err = r.sdb.DeleteTalliesBefore(ctx, id, latestTally)
+				if err != nil {
+					return Error.Wrap(err)
+				}
+			}
+		}
+
+		if len(nodeIDs) < limit {
+			break
 		}
 	}
-
 	return nil
 }
 

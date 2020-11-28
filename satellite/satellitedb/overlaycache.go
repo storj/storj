@@ -36,23 +36,25 @@ type overlaycache struct {
 	db *satelliteDB
 }
 
-func (cache *overlaycache) GetAllNodeIDs(ctx context.Context) (_ []storj.NodeID, err error) {
+// GetNodeIds returns a paged list of all node ids
+func (cache *overlaycache) GetNodeIDs(ctx context.Context, limit int, start *dbx.Paged_Node_Id_Continuation) (
+	_ []storj.NodeID, next *dbx.Paged_Node_Id_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbxNodeIDs, err := cache.db.All_Node_Id(ctx)
+	dbxNodeIDs, next, err := cache.db.Paged_Node_Id(ctx, limit, start)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	nodeIDs := []storj.NodeID{}
 	for _, id := range dbxNodeIDs {
 		nID, err := storj.NodeIDFromBytes(id.Id)
 		if err != nil {
-			continue
+			return nil, nil, err
 		}
 		nodeIDs = append(nodeIDs, nID)
 	}
 
-	return nodeIDs, err
+	return nodeIDs, next, err
 }
 
 // SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes.

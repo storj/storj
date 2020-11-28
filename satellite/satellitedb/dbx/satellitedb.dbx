@@ -200,7 +200,7 @@ read one (
 	where  node.id = ?
 )
 
-read all (
+read paged (
 	select node.id
 )
 

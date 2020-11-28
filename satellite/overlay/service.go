@@ -15,6 +15,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/internalpb"
+	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/storage"
 )
 
@@ -47,8 +48,8 @@ type DB interface {
 	// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
 	SelectAllStorageNodesUpload(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []*SelectedNode, err error)
 
-	// GetAllNodeIDs returns all node IDs
-	GetAllNodeIDs(ctx context.Context) ([]storj.NodeID, error)
+	// GetNodeIDs returns node IDs, paged
+	GetNodeIDs(ctx context.Context, limit int, start *dbx.Paged_Node_Id_Continuation) (_ []storj.NodeID, next *dbx.Paged_Node_Id_Continuation, err error)
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
 	// KnownOffline filters a set of nodes to offline nodes

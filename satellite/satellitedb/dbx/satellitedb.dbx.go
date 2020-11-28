@@ -8929,6 +8929,11 @@ type MaxBuckets_Row struct {
 	MaxBuckets *int
 }
 
+type Paged_Node_Id_Continuation struct {
+	_value_id []byte
+	_set      bool
+}
+
 type Paged_PendingSerialQueue_Continuation struct {
 	_value_storage_node_id []byte
 	_value_bucket_id       []byte
@@ -10664,35 +10669,50 @@ func (obj *pgxImpl) Get_Node_By_Id(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) All_Node_Id(ctx context.Context) (
-	rows []*Id_Row, err error) {
+func (obj *pgxImpl) Paged_Node_Id(ctx context.Context,
+	limit int, start *Paged_Node_Id_Continuation) (
+	rows []*Id_Row, next *Paged_Node_Id_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id FROM nodes")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.id FROM nodes WHERE (nodes.id) > ? ORDER BY nodes.id LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.id FROM nodes ORDER BY nodes.id LIMIT ?")
 
 	var __values []interface{}
 
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_id, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
 	obj.logStmt(__stmt, __values...)
 
 	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return nil, nil, obj.makeErr(err)
 	}
 	defer __rows.Close()
 
+	var __continuation Paged_Node_Id_Continuation
+	__continuation._set = true
+
 	for __rows.Next() {
 		row := &Id_Row{}
-		err = __rows.Scan(&row.Id)
+		err = __rows.Scan(&row.Id, &__continuation._value_id)
 		if err != nil {
-			return nil, obj.makeErr(err)
+			return nil, nil, obj.makeErr(err)
 		}
 		rows = append(rows, row)
+		next = &__continuation
 	}
 	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
+		return nil, nil, obj.makeErr(err)
 	}
-	return rows, nil
+
+	return rows, next, nil
 
 }
 
@@ -17049,35 +17069,50 @@ func (obj *pgxcockroachImpl) Get_Node_By_Id(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) All_Node_Id(ctx context.Context) (
-	rows []*Id_Row, err error) {
+func (obj *pgxcockroachImpl) Paged_Node_Id(ctx context.Context,
+	limit int, start *Paged_Node_Id_Continuation) (
+	rows []*Id_Row, next *Paged_Node_Id_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id FROM nodes")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.id FROM nodes WHERE (nodes.id) > ? ORDER BY nodes.id LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.id FROM nodes ORDER BY nodes.id LIMIT ?")
 
 	var __values []interface{}
 
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_id, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
 	obj.logStmt(__stmt, __values...)
 
 	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 	if err != nil {
-		return nil, obj.makeErr(err)
+		return nil, nil, obj.makeErr(err)
 	}
 	defer __rows.Close()
 
+	var __continuation Paged_Node_Id_Continuation
+	__continuation._set = true
+
 	for __rows.Next() {
 		row := &Id_Row{}
-		err = __rows.Scan(&row.Id)
+		err = __rows.Scan(&row.Id, &__continuation._value_id)
 		if err != nil {
-			return nil, obj.makeErr(err)
+			return nil, nil, obj.makeErr(err)
 		}
 		rows = append(rows, row)
+		next = &__continuation
 	}
 	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
+		return nil, nil, obj.makeErr(err)
 	}
-	return rows, nil
+
+	return rows, next, nil
 
 }
 
@@ -21843,15 +21878,6 @@ func (rx *Rx) All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
 	return tx.All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx, coupon_user_id)
 }
 
-func (rx *Rx) All_Node_Id(ctx context.Context) (
-	rows []*Id_Row, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.All_Node_Id(ctx)
-}
-
 func (rx *Rx) All_Node_Id_Node_Address_Node_LastIpPort_Node_LastContactSuccess_Node_LastContactFailure_By_LastContactSuccess_Less_And_LastContactSuccess_Greater_LastContactFailure_And_Disqualified_Is_Null_OrderBy_Asc_LastContactSuccess(ctx context.Context,
 	node_last_contact_success_less Node_LastContactSuccess_Field) (
 	rows []*Id_Address_LastIpPort_LastContactSuccess_LastContactFailure_Row, err error) {
@@ -23333,6 +23359,16 @@ func (rx *Rx) Limited_StripecoinpaymentsInvoiceProjectRecord_By_PeriodStart_And_
 	return tx.Limited_StripecoinpaymentsInvoiceProjectRecord_By_PeriodStart_And_PeriodEnd_And_State(ctx, stripecoinpayments_invoice_project_record_period_start, stripecoinpayments_invoice_project_record_period_end, stripecoinpayments_invoice_project_record_state, limit, offset)
 }
 
+func (rx *Rx) Paged_Node_Id(ctx context.Context,
+	limit int, start *Paged_Node_Id_Continuation) (
+	rows []*Id_Row, next *Paged_Node_Id_Continuation, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Paged_Node_Id(ctx, limit, start)
+}
+
 func (rx *Rx) Paged_PendingSerialQueue(ctx context.Context,
 	limit int, start *Paged_PendingSerialQueue_Continuation) (
 	rows []*PendingSerialQueue, next *Paged_PendingSerialQueue_Continuation, err error) {
@@ -23660,9 +23696,6 @@ type Methods interface {
 	All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Context,
 		coupon_user_id Coupon_UserId_Field) (
 		rows []*Coupon, err error)
-
-	All_Node_Id(ctx context.Context) (
-		rows []*Id_Row, err error)
 
 	All_Node_Id_Node_Address_Node_LastIpPort_Node_LastContactSuccess_Node_LastContactFailure_By_LastContactSuccess_Less_And_LastContactSuccess_Greater_LastContactFailure_And_Disqualified_Is_Null_OrderBy_Asc_LastContactSuccess(ctx context.Context,
 		node_last_contact_success_less Node_LastContactSuccess_Field) (
@@ -24348,6 +24381,10 @@ type Methods interface {
 		stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field,
 		limit int, offset int64) (
 		rows []*StripecoinpaymentsInvoiceProjectRecord, err error)
+
+	Paged_Node_Id(ctx context.Context,
+		limit int, start *Paged_Node_Id_Continuation) (
+		rows []*Id_Row, next *Paged_Node_Id_Continuation, err error)
 
 	Paged_PendingSerialQueue(ctx context.Context,
 		limit int, start *Paged_PendingSerialQueue_Continuation) (
