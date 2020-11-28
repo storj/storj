@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -106,7 +107,7 @@ func (db *StoragenodeAccounting) GetTalliesSince(ctx context.Context, nodeID sto
 func (db *StoragenodeAccounting) GetBandwidthSince(ctx context.Context, nodeID storj.NodeID, latestRollup time.Time) (out []*accounting.StoragenodeBandwidthRollup, err error) {
 	defer mon.Task()(&ctx)(&err)
 	// get everything from the current rollups table
-	rollups, err := db.db.All_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart(ctx,
+	rollups, err := db.db.All_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_GreaterOrEqual(ctx,
 		dbx.StoragenodeBandwidthRollup_StoragenodeId(nodeID.Bytes()),
 		dbx.StoragenodeBandwidthRollup_IntervalStart(latestRollup))
 	if err != nil {
@@ -168,7 +169,7 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 				getRepair := dbx.AccountingRollup_GetRepairTotal(ar.GetRepairTotal)
 				putRepair := dbx.AccountingRollup_PutRepairTotal(ar.PutRepairTotal)
 				atRest := dbx.AccountingRollup_AtRestTotal(ar.AtRestTotal)
-
+				fmt.Printf("%v %v %v %v %v %v %v %v\n", nID, start, put, get, audit, getRepair, putRepair, atRest)
 				err := tx.ReplaceNoReturn_AccountingRollup(ctx, nID, start, put, get, audit, getRepair, putRepair, atRest)
 				if err != nil {
 					return err

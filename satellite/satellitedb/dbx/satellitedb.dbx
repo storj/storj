@@ -668,6 +668,12 @@ read all (
 	where storagenode_bandwidth_rollup.interval_start = ?
 )
 
+read all (
+	select storagenode_bandwidth_rollup
+	where storagenode_bandwidth_rollup.storagenode_id = ?
+	where storagenode_bandwidth_rollup.interval_start >= ?
+)
+
 ///////////////////////////////////////
 // orders phase2->phase3 rollout table
 ///////////////////////////////////////

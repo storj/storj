@@ -78,7 +78,6 @@ func (r *Service) Rollup(ctx context.Context) (err error) {
 		if err != nil {
 			return Error.Wrap(err)
 		}
-
 		// unexpired orders with created at times before the last rollup timestamp could still have been added later
 		if !nodeLastRollup.IsZero() {
 			nodeLastRollup = nodeLastRollup.Add(-r.OrderExpiration)
