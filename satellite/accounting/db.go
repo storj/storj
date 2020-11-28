@@ -163,7 +163,7 @@ type StoragenodeAccounting interface {
 	// QueryStorageNodeUsage returns slice of StorageNodeUsage for given period
 	QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]StorageNodeUsage, error)
 	// DeleteTalliesBefore deletes all tallies prior to some time
-	DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) error
+	DeleteTalliesBefore(ctx context.Context, nodeID storj.NodeID, latestRollup time.Time) error
 }
 
 // ProjectAccounting stores information about bandwidth and storage usage for projects

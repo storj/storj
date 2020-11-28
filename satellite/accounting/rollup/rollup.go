@@ -73,7 +73,6 @@ func (r *Service) Rollup(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 
-	var overallLatestTally time.Time
 	for _, id := range nodeIDs {
 		nodeLastRollup, err := r.sdb.NodeLastTimestamp(ctx, id, accounting.LastRollup)
 		if err != nil {
@@ -108,15 +107,13 @@ func (r *Service) Rollup(ctx context.Context) (err error) {
 			return Error.Wrap(err)
 		}
 
-		overallLatestTally = latestTally
-	}
-
-	if r.deleteTallies {
-		// Delete already rolled up tallies
-		overallLatestTally = overallLatestTally.Add(-r.OrderExpiration)
-		err = r.sdb.DeleteTalliesBefore(ctx, overallLatestTally)
-		if err != nil {
-			return Error.Wrap(err)
+		if r.deleteTallies {
+			// Delete already rolled up tallies
+			latestTally = latestTally.Add(-r.OrderExpiration)
+			err = r.sdb.DeleteTalliesBefore(ctx, id, latestTally)
+			if err != nil {
+				return Error.Wrap(err)
+			}
 		}
 	}
 

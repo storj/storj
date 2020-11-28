@@ -404,10 +404,10 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 }
 
 // DeleteTalliesBefore deletes all raw tallies prior to some time.
-func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) (err error) {
+func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, nodeID storj.NodeID, latestRollup time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	deleteRawSQL := `DELETE FROM storagenode_storage_tallies WHERE interval_end_time < ?`
-	_, err = db.db.DB.ExecContext(ctx, db.db.Rebind(deleteRawSQL), latestRollup)
+	deleteRawSQL := `DELETE FROM storagenode_storage_tallies WHERE node_id = ? AND interval_end_time < ?`
+	_, err = db.db.DB.ExecContext(ctx, db.db.Rebind(deleteRawSQL), nodeID, latestRollup)
 	return err
 }
 

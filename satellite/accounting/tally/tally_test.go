@@ -52,7 +52,7 @@ func TestDeleteTalliesBefore(t *testing.T) {
 			err := planet.Satellites[0].DB.StoragenodeAccounting().SaveTallies(ctx, time.Now(), nodeData)
 			require.NoError(t, err)
 
-			err = planet.Satellites[0].DB.StoragenodeAccounting().DeleteTalliesBefore(ctx, test.eraseBefore)
+			err = planet.Satellites[0].DB.StoragenodeAccounting().DeleteTalliesBefore(ctx, id, test.eraseBefore)
 			require.NoError(t, err)
 
 			raws, err := planet.Satellites[0].DB.StoragenodeAccounting().GetTallies(ctx)
