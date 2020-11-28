@@ -147,11 +147,13 @@ type StoragenodeAccounting interface {
 	// GetTallies retrieves all tallies
 	GetTallies(ctx context.Context) ([]*StoragenodeStorageTally, error)
 	// GetTalliesSince retrieves all tallies since latestRollup
-	GetTalliesSince(ctx context.Context, latestRollup time.Time) ([]*StoragenodeStorageTally, error)
+	GetTalliesSince(ctx context.Context, nodeID storj.NodeID, latestRollup time.Time) ([]*StoragenodeStorageTally, error)
 	// GetBandwidthSince retrieves all bandwidth rollup entires since latestRollup
-	GetBandwidthSince(ctx context.Context, latestRollup time.Time) ([]*StoragenodeBandwidthRollup, error)
+	GetBandwidthSince(ctx context.Context, nodeID storj.NodeID, latestRollup time.Time) ([]*StoragenodeBandwidthRollup, error)
 	// SaveRollup records tally and bandwidth rollup aggregations to the database
 	SaveRollup(ctx context.Context, latestTally time.Time, stats RollupStats) error
+	// NodeLastTimestamp returns the last tallied time by node, or nil
+	NodeLastTimestamp(ctx context.Context, nodeID storj.NodeID, timestampType string) (time.Time, error)
 	// LastTimestamp records and returns the latest last tallied time.
 	LastTimestamp(ctx context.Context, timestampType string) (time.Time, error)
 	// QueryPaymentInfo queries Nodes and Accounting_Rollup on nodeID

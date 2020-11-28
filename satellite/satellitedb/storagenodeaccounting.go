@@ -82,9 +82,11 @@ func (db *StoragenodeAccounting) GetTallies(ctx context.Context) (_ []*accountin
 }
 
 // GetTalliesSince retrieves all raw tallies since latestRollup.
-func (db *StoragenodeAccounting) GetTalliesSince(ctx context.Context, latestRollup time.Time) (_ []*accounting.StoragenodeStorageTally, err error) {
+func (db *StoragenodeAccounting) GetTalliesSince(ctx context.Context, nodeID storj.NodeID, latestRollup time.Time) (_ []*accounting.StoragenodeStorageTally, err error) {
 	defer mon.Task()(&ctx)(&err)
-	raws, err := db.db.All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqual(ctx, dbx.StoragenodeStorageTally_IntervalEndTime(latestRollup))
+	raws, err := db.db.All_StoragenodeStorageTally_By_NodeId_And_IntervalEndTime_GreaterOrEqual(ctx,
+		dbx.StoragenodeStorageTally_NodeId(nodeID.Bytes()),
+		dbx.StoragenodeStorageTally_IntervalEndTime(latestRollup))
 	out := make([]*accounting.StoragenodeStorageTally, len(raws))
 	for i, r := range raws {
 		nodeID, err := storj.NodeIDFromBytes(r.NodeId)
@@ -101,10 +103,11 @@ func (db *StoragenodeAccounting) GetTalliesSince(ctx context.Context, latestRoll
 }
 
 // GetBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup.
-func (db *StoragenodeAccounting) GetBandwidthSince(ctx context.Context, latestRollup time.Time) (out []*accounting.StoragenodeBandwidthRollup, err error) {
+func (db *StoragenodeAccounting) GetBandwidthSince(ctx context.Context, nodeID storj.NodeID, latestRollup time.Time) (out []*accounting.StoragenodeBandwidthRollup, err error) {
 	defer mon.Task()(&ctx)(&err)
 	// get everything from the current rollups table
-	rollups, err := db.db.All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx,
+	rollups, err := db.db.All_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart(ctx,
+		dbx.StoragenodeBandwidthRollup_StoragenodeId(nodeID.Bytes()),
 		dbx.StoragenodeBandwidthRollup_IntervalStart(latestRollup))
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -124,7 +127,8 @@ func (db *StoragenodeAccounting) GetBandwidthSince(ctx context.Context, latestRo
 	}
 
 	// include everything from the phase2 rollups table as well
-	phase2rollups, err := db.db.All_StoragenodeBandwidthRollupPhase2_By_IntervalStart_GreaterOrEqual(ctx,
+	phase2rollups, err := db.db.All_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual(ctx,
+		dbx.StoragenodeBandwidthRollupPhase2_StoragenodeId(nodeID.Bytes()),
 		dbx.StoragenodeBandwidthRollupPhase2_IntervalStart(latestRollup))
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -152,6 +156,7 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 	if len(stats) == 0 {
 		return Error.New("In SaveRollup with empty nodeData")
 	}
+
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		for _, arsByDate := range stats {
 			for _, ar := range arsByDate {
@@ -168,17 +173,52 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 				if err != nil {
 					return err
 				}
+
+				ts := getNodeTimestampName(ar.NodeID, accounting.LastRollup)
+				err = tx.UpdateNoReturn_AccountingTimestamps_By_Name(ctx,
+					dbx.AccountingTimestamps_Name(ts),
+					dbx.AccountingTimestamps_Update_Fields{
+						Value: dbx.AccountingTimestamps_Value(latestRollup),
+					},
+				)
+				if err != nil {
+					return err
+				}
 			}
 		}
 
-		return tx.UpdateNoReturn_AccountingTimestamps_By_Name(ctx,
-			dbx.AccountingTimestamps_Name(accounting.LastRollup),
-			dbx.AccountingTimestamps_Update_Fields{
-				Value: dbx.AccountingTimestamps_Value(latestRollup),
-			},
-		)
+		return nil
 	})
 	return Error.Wrap(err)
+}
+
+// NodeLastTimestamp returns the last tallied time by node, or nil.
+func (db *StoragenodeAccounting) NodeLastTimestamp(ctx context.Context, nodeID storj.NodeID, timestampType string) (_ time.Time, err error) {
+	defer mon.Task()(&ctx)(&err)
+	ts := getNodeTimestampName(nodeID, timestampType)
+	lastTally := time.Time{}
+	rowValue, err := db.db.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(ts))
+	if err != nil {
+		return lastTally, err
+	}
+	if rowValue == nil {
+		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			lt, err := tx.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(ts))
+			if lt == nil {
+				return tx.CreateNoReturn_AccountingTimestamps(ctx,
+					dbx.AccountingTimestamps_Name(ts),
+					dbx.AccountingTimestamps_Value(lastTally),
+				)
+			}
+			lastTally = lt.Value
+			return err
+		})
+		return lastTally, err
+	}
+
+	lastTally = rowValue.Value
+
+	return lastTally, err
 }
 
 // LastTimestamp records the greatest last tallied time.
@@ -369,4 +409,8 @@ func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, latest
 	deleteRawSQL := `DELETE FROM storagenode_storage_tallies WHERE interval_end_time < ?`
 	_, err = db.db.DB.ExecContext(ctx, db.db.Rebind(deleteRawSQL), latestRollup)
 	return err
+}
+
+func getNodeTimestampName(nodeID storj.NodeID, timestampType string) string {
+	return nodeID.String() + "." + timestampType
 }

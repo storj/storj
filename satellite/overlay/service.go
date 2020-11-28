@@ -47,6 +47,8 @@ type DB interface {
 	// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
 	SelectAllStorageNodesUpload(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []*SelectedNode, err error)
 
+	// GetAllNodeIDs returns all node IDs
+	GetAllNodeIDs(ctx context.Context) ([]storj.NodeID, error)
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
 	// KnownOffline filters a set of nodes to offline nodes

@@ -36,6 +36,25 @@ type overlaycache struct {
 	db *satelliteDB
 }
 
+func (cache *overlaycache) GetAllNodeIDs(ctx context.Context) (_ []storj.NodeID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	dbxNodeIDs, err := cache.db.All_Node_Id(ctx)
+	if err != nil {
+		return nil, err
+	}
+	nodeIDs := []storj.NodeID{}
+	for _, id := range dbxNodeIDs {
+		nID, err := storj.NodeIDFromBytes(id.Id)
+		if err != nil {
+			continue
+		}
+		nodeIDs = append(nodeIDs, nID)
+	}
+
+	return nodeIDs, err
+}
+
 // SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes.
 func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)

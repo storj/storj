@@ -693,6 +693,12 @@ read all (
 	where storagenode_bandwidth_rollup_phase2.interval_start >= ?
 )
 
+read all (
+	select storagenode_bandwidth_rollup_phase2
+	where storagenode_bandwidth_rollup_phase2.storagenode_id = ?
+	where storagenode_bandwidth_rollup_phase2.interval_start >= ?
+)
+
 model storagenode_storage_tally (
 	// this primary key will enforce uniqueness on interval_end_time,node_id
 	// and also creates an index on interval_end_time implicitly.
@@ -716,6 +722,12 @@ read all (
 read all (
     select storagenode_storage_tally
     where storagenode_storage_tally.interval_end_time >= ?
+)
+
+read all (
+    select storagenode_storage_tally
+    where storagenode_storage_tally.node_id = ?
+	where storagenode_storage_tally.interval_end_time >= ?
 )
 
 // --- storage node payment tables --- //
