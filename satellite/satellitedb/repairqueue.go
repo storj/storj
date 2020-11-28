@@ -24,6 +24,10 @@ type repairQueue struct {
 	db *satelliteDB
 }
 
+func (r *repairQueue) TestDBAccess() *dbx.DB {
+	return r.db.DB
+}
+
 func (r *repairQueue) Insert(ctx context.Context, seg *internalpb.InjuredSegment, segmentHealth float64) (alreadyInserted bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	// insert if not exists, or update healthy count if does exist

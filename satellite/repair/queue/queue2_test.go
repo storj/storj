@@ -69,7 +69,7 @@ func TestOrder(t *testing.T) {
 		}
 
 		// TODO: remove dependency on *dbx.DB
-		dbAccess := db.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
+		dbAccess := db.RepairQueue().TestDBAccess()
 
 		err := dbAccess.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 			updateList := []struct {
@@ -133,7 +133,7 @@ func TestOrderHealthyPieces(t *testing.T) {
 		// ("path/h", 10, now-8h)
 
 		// TODO: remove dependency on *dbx.DB
-		dbAccess := db.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
+		dbAccess := db.RepairQueue().TestDBAccess()
 
 		// insert the 8 segments according to the plan above
 		injuredSegList := []struct {
