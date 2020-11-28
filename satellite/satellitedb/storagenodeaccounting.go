@@ -6,7 +6,6 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -169,7 +168,7 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 				getRepair := dbx.AccountingRollup_GetRepairTotal(ar.GetRepairTotal)
 				putRepair := dbx.AccountingRollup_PutRepairTotal(ar.PutRepairTotal)
 				atRest := dbx.AccountingRollup_AtRestTotal(ar.AtRestTotal)
-				fmt.Printf("%v %v %v %v %v %v %v %v\n", nID, start, put, get, audit, getRepair, putRepair, atRest)
+
 				err := tx.ReplaceNoReturn_AccountingRollup(ctx, nID, start, put, get, audit, getRepair, putRepair, atRest)
 				if err != nil {
 					return err
