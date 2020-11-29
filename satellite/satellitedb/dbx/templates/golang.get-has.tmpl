@@ -17,7 +17,7 @@ Has_{{ .Suffix }}({{ ctxarg .Args }})
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&has)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&has)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}

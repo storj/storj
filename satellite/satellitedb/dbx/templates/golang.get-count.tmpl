@@ -17,7 +17,7 @@ Count_{{ .Suffix }}({{ ctxarg .Args }})
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&count)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}

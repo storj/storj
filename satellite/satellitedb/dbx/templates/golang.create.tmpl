@@ -55,7 +55,7 @@
 	{{ else -}}
 	{{ if .SupportsReturning }}
 	{{ init .Return }}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan({{ addrof (flatten .Return) }})
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan({{ addrof (flatten .Return) }})
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}

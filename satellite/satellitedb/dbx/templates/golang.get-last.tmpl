@@ -12,7 +12,7 @@ getLast{{ .Return.Type }}(ctx context.Context,
 	obj.logStmt(__stmt, pk)
 
 	{{ init .Return }}
-	err = obj.driver.QueryRowContext(ctx, __stmt, pk).Scan({{ addrof (flatten .Return) }})
+	err = obj.queryRowContext(ctx, __stmt, pk).Scan({{ addrof (flatten .Return) }})
 	if err != nil {
 		return {{ zero .Return }}, obj.makeErr(err)
 	}
