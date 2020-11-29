@@ -10661,7 +10661,7 @@ func (obj *pgxImpl) Limited_Irreparabledb_By_Segmentpath_Greater_OrderBy_Asc_Seg
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*Irreparabledb, err error) {
+		rows, err = func() (rows []*Irreparabledb, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -10845,7 +10845,7 @@ func (obj *pgxImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ctx context
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*Node, err error) {
+		rows, err = func() (rows []*Node, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -10935,7 +10935,7 @@ func (obj *pgxImpl) Limited_Node_Id_Node_Address_Node_LastIpPort_Node_LastContac
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*Id_Address_LastIpPort_LastContactSuccess_LastContactFailure_Row, err error) {
+		rows, err = func() (rows []*Id_Address_LastIpPort_LastContactSuccess_LastContactFailure_Row, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -11441,7 +11441,7 @@ func (obj *pgxImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx 
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*Project, err error) {
+		rows, err = func() (rows []*Project, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -11535,7 +11535,7 @@ func (obj *pgxImpl) Limited_ProjectMember_By_ProjectId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*ProjectMember, err error) {
+		rows, err = func() (rows []*ProjectMember, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -11944,7 +11944,7 @@ func (obj *pgxImpl) First_BucketStorageTally_By_ProjectId_OrderBy_Desc_IntervalS
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		bucket_storage_tally, err := func() (bucket_storage_tally *BucketStorageTally, err error) {
+		bucket_storage_tally, err = func() (bucket_storage_tally *BucketStorageTally, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -12665,7 +12665,7 @@ func (obj *pgxImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEqual_
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*BucketMetainfo, err error) {
+		rows, err = func() (rows []*BucketMetainfo, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -12715,7 +12715,7 @@ func (obj *pgxImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_OrderBy
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*BucketMetainfo, err error) {
+		rows, err = func() (rows []*BucketMetainfo, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -12901,7 +12901,7 @@ func (obj *pgxImpl) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*StripeCustomer, err error) {
+		rows, err = func() (rows []*StripeCustomer, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -12996,7 +12996,7 @@ func (obj *pgxImpl) Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqual_And
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*CoinpaymentsTransaction, err error) {
+		rows, err = func() (rows []*CoinpaymentsTransaction, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -13071,7 +13071,7 @@ func (obj *pgxImpl) Limited_StripecoinpaymentsInvoiceProjectRecord_By_PeriodStar
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*StripecoinpaymentsInvoiceProjectRecord, err error) {
+		rows, err = func() (rows []*StripecoinpaymentsInvoiceProjectRecord, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -13301,7 +13301,7 @@ func (obj *pgxImpl) Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_OrderBy_D
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*Coupon, err error) {
+		rows, err = func() (rows []*Coupon, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -13350,7 +13350,7 @@ func (obj *pgxImpl) Limited_CouponUsage_By_Period_And_Status_Equal_Number(ctx co
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*CouponUsage, err error) {
+		rows, err = func() (rows []*CouponUsage, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -17448,7 +17448,7 @@ func (obj *pgxcockroachImpl) Limited_Irreparabledb_By_Segmentpath_Greater_OrderB
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*Irreparabledb, err error) {
+		rows, err = func() (rows []*Irreparabledb, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -17632,7 +17632,7 @@ func (obj *pgxcockroachImpl) Limited_Node_By_Id_GreaterOrEqual_OrderBy_Asc_Id(ct
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*Node, err error) {
+		rows, err = func() (rows []*Node, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -17722,7 +17722,7 @@ func (obj *pgxcockroachImpl) Limited_Node_Id_Node_Address_Node_LastIpPort_Node_L
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*Id_Address_LastIpPort_LastContactSuccess_LastContactFailure_Row, err error) {
+		rows, err = func() (rows []*Id_Address_LastIpPort_LastContactSuccess_LastContactFailure_Row, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -18228,7 +18228,7 @@ func (obj *pgxcockroachImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_Creat
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*Project, err error) {
+		rows, err = func() (rows []*Project, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -18322,7 +18322,7 @@ func (obj *pgxcockroachImpl) Limited_ProjectMember_By_ProjectId(ctx context.Cont
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*ProjectMember, err error) {
+		rows, err = func() (rows []*ProjectMember, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -18731,7 +18731,7 @@ func (obj *pgxcockroachImpl) First_BucketStorageTally_By_ProjectId_OrderBy_Desc_
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		bucket_storage_tally, err := func() (bucket_storage_tally *BucketStorageTally, err error) {
+		bucket_storage_tally, err = func() (bucket_storage_tally *BucketStorageTally, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -19452,7 +19452,7 @@ func (obj *pgxcockroachImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greate
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*BucketMetainfo, err error) {
+		rows, err = func() (rows []*BucketMetainfo, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -19502,7 +19502,7 @@ func (obj *pgxcockroachImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greate
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*BucketMetainfo, err error) {
+		rows, err = func() (rows []*BucketMetainfo, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -19688,7 +19688,7 @@ func (obj *pgxcockroachImpl) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_Ord
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*StripeCustomer, err error) {
+		rows, err = func() (rows []*StripeCustomer, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -19783,7 +19783,7 @@ func (obj *pgxcockroachImpl) Limited_CoinpaymentsTransaction_By_CreatedAt_LessOr
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*CoinpaymentsTransaction, err error) {
+		rows, err = func() (rows []*CoinpaymentsTransaction, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -19858,7 +19858,7 @@ func (obj *pgxcockroachImpl) Limited_StripecoinpaymentsInvoiceProjectRecord_By_P
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*StripecoinpaymentsInvoiceProjectRecord, err error) {
+		rows, err = func() (rows []*StripecoinpaymentsInvoiceProjectRecord, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -20088,7 +20088,7 @@ func (obj *pgxcockroachImpl) Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*Coupon, err error) {
+		rows, err = func() (rows []*Coupon, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err
@@ -20137,7 +20137,7 @@ func (obj *pgxcockroachImpl) Limited_CouponUsage_By_Period_And_Status_Equal_Numb
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, err := func() (rows []*CouponUsage, err error) {
+		rows, err = func() (rows []*CouponUsage, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, err

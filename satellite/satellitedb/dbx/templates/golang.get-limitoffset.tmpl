@@ -21,7 +21,7 @@ Limited_{{ .Suffix }}({{ ctxarg .Args }}, limit, offset)
 	obj.logStmt(__stmt, __values...)
 
   for {
-    rows, err := func() (rows {{ sliceof .Row }}, err error) {
+    rows, err = func() (rows {{ sliceof .Row }}, err error) {
       __rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
       if err != nil {
         return nil, err
