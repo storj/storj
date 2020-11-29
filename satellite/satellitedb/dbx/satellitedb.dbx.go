@@ -30,8 +30,9 @@ var _ = fmt.Sprint
 var _ sync.Mutex
 
 var (
-	WrapErr = func(err *Error) error { return err }
-	Logger  func(format string, args ...interface{})
+	WrapErr     = func(err *Error) error { return err }
+	Logger      func(format string, args ...interface{})
+	ShouldRetry func(err error) bool
 
 	errTooManyRows       = errors.New("too many rows")
 	errUnsupportedDriver = errors.New("unsupported driver")
@@ -87,6 +88,13 @@ func makeErr(err error) error {
 		e.Code = ErrorCode_TxDone
 	}
 	return wrapErr(e)
+}
+
+func shouldRetry(err error) bool {
+	if ShouldRetry == nil {
+		return false
+	}
+	return ShouldRetry(err)
 }
 
 func unsupportedDriver(driver string) error {
@@ -239,6 +247,7 @@ type pgxImpl struct {
 	db      *DB
 	dialect __sqlbundle_pgx
 	driver  driver
+	txn     bool
 }
 
 func (obj *pgxImpl) Rebind(s string) string {
@@ -255,6 +264,40 @@ func (obj *pgxImpl) makeErr(err error) error {
 		return constraintViolation(err, constraint)
 	}
 	return makeErr(err)
+}
+
+func (obj *pgxImpl) shouldRetry(err error) bool {
+	return !obj.txn && shouldRetry(err)
+}
+
+type pgxImpl_retryingRow struct {
+	obj   *pgxImpl
+	ctx   context.Context
+	query string
+	args  []interface{}
+}
+
+func (obj *pgxImpl) queryRowContext(ctx context.Context, query string, args ...interface{}) *pgxImpl_retryingRow {
+	return &pgxImpl_retryingRow{
+		obj:   obj,
+		ctx:   ctx,
+		query: query,
+		args:  args,
+	}
+}
+
+func (rows *pgxImpl_retryingRow) Scan(dest ...interface{}) error {
+	for {
+		err := rows.obj.driver.QueryRowContext(rows.ctx, rows.query, rows.args...).Scan(dest...)
+		if err != nil {
+			if rows.obj.shouldRetry(err) {
+				continue
+			}
+			// caller will wrap this error
+			return err
+		}
+		return nil
+	}
 }
 
 type pgxDB struct {
@@ -740,6 +783,7 @@ func (obj *pgxDB) wrapTx(tx tagsql.Tx) txMethods {
 		pgxImpl: &pgxImpl{
 			db:     obj.db,
 			driver: tx,
+			txn:    true,
 		},
 	}
 }
@@ -761,6 +805,7 @@ type pgxcockroachImpl struct {
 	db      *DB
 	dialect __sqlbundle_pgxcockroach
 	driver  driver
+	txn     bool
 }
 
 func (obj *pgxcockroachImpl) Rebind(s string) string {
@@ -777,6 +822,40 @@ func (obj *pgxcockroachImpl) makeErr(err error) error {
 		return constraintViolation(err, constraint)
 	}
 	return makeErr(err)
+}
+
+func (obj *pgxcockroachImpl) shouldRetry(err error) bool {
+	return !obj.txn && shouldRetry(err)
+}
+
+type pgxcockroachImpl_retryingRow struct {
+	obj   *pgxcockroachImpl
+	ctx   context.Context
+	query string
+	args  []interface{}
+}
+
+func (obj *pgxcockroachImpl) queryRowContext(ctx context.Context, query string, args ...interface{}) *pgxcockroachImpl_retryingRow {
+	return &pgxcockroachImpl_retryingRow{
+		obj:   obj,
+		ctx:   ctx,
+		query: query,
+		args:  args,
+	}
+}
+
+func (rows *pgxcockroachImpl_retryingRow) Scan(dest ...interface{}) error {
+	for {
+		err := rows.obj.driver.QueryRowContext(rows.ctx, rows.query, rows.args...).Scan(dest...)
+		if err != nil {
+			if rows.obj.shouldRetry(err) {
+				continue
+			}
+			// caller will wrap this error
+			return err
+		}
+		return nil
+	}
 }
 
 type pgxcockroachDB struct {
@@ -1262,6 +1341,7 @@ func (obj *pgxcockroachDB) wrapTx(tx tagsql.Tx) txMethods {
 		pgxcockroachImpl: &pgxcockroachImpl{
 			db:     obj.db,
 			driver: tx,
+			txn:    true,
 		},
 	}
 }
@@ -8984,7 +9064,7 @@ func (obj *pgxImpl) Create_ValueAttribution(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	value_attribution = &ValueAttribution{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.LastUpdated)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.LastUpdated)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9019,7 +9099,7 @@ func (obj *pgxImpl) Create_PendingAudits(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	pending_audits = &PendingAudits{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9336,7 +9416,7 @@ func (obj *pgxImpl) Create_AuditHistory(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	audit_history = &AuditHistory{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9395,7 +9475,7 @@ func (obj *pgxImpl) Create_User(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9433,7 +9513,7 @@ func (obj *pgxImpl) Create_Project(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9461,7 +9541,7 @@ func (obj *pgxImpl) Create_ProjectMember(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project_member = &ProjectMember{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9497,7 +9577,7 @@ func (obj *pgxImpl) Create_ApiKey(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9720,7 +9800,7 @@ func (obj *pgxImpl) Create_StoragenodeBandwidthRollup(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	storagenode_bandwidth_rollup = &StoragenodeBandwidthRollup{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9773,7 +9853,7 @@ func (obj *pgxImpl) Create_StoragenodeBandwidthRollupPhase2(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	storagenode_bandwidth_rollup_phase2 = &StoragenodeBandwidthRollupPhase2{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&storagenode_bandwidth_rollup_phase2.StoragenodeId, &storagenode_bandwidth_rollup_phase2.IntervalStart, &storagenode_bandwidth_rollup_phase2.IntervalSeconds, &storagenode_bandwidth_rollup_phase2.Action, &storagenode_bandwidth_rollup_phase2.Allocated, &storagenode_bandwidth_rollup_phase2.Settled)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&storagenode_bandwidth_rollup_phase2.StoragenodeId, &storagenode_bandwidth_rollup_phase2.IntervalStart, &storagenode_bandwidth_rollup_phase2.IntervalSeconds, &storagenode_bandwidth_rollup_phase2.Action, &storagenode_bandwidth_rollup_phase2.Allocated, &storagenode_bandwidth_rollup_phase2.Settled)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9927,7 +10007,7 @@ func (obj *pgxImpl) Create_RegistrationToken(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -9955,7 +10035,7 @@ func (obj *pgxImpl) Create_ResetPasswordToken(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	reset_password_token = &ResetPasswordToken{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10020,7 +10100,7 @@ func (obj *pgxImpl) Create_Offer(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	offer = &Offer{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10057,7 +10137,7 @@ func (obj *pgxImpl) Create_UserCredit(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_credit = &UserCredit{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&user_credit.Id, &user_credit.UserId, &user_credit.OfferId, &user_credit.ReferredBy, &user_credit.Type, &user_credit.CreditsEarnedInCents, &user_credit.CreditsUsedInCents, &user_credit.ExpiresAt, &user_credit.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_credit.Id, &user_credit.UserId, &user_credit.OfferId, &user_credit.ReferredBy, &user_credit.Type, &user_credit.CreditsEarnedInCents, &user_credit.CreditsUsedInCents, &user_credit.ExpiresAt, &user_credit.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10109,7 +10189,7 @@ func (obj *pgxImpl) Create_BucketMetainfo(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	bucket_metainfo = &BucketMetainfo{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10226,7 +10306,7 @@ func (obj *pgxImpl) Create_NodesOfflineTime(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	nodes_offline_time = &NodesOfflineTime{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&nodes_offline_time.NodeId, &nodes_offline_time.TrackedAt, &nodes_offline_time.Seconds)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&nodes_offline_time.NodeId, &nodes_offline_time.TrackedAt, &nodes_offline_time.Seconds)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10254,7 +10334,7 @@ func (obj *pgxImpl) Create_StripeCustomer(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	stripe_customer = &StripeCustomer{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10294,7 +10374,7 @@ func (obj *pgxImpl) Create_CoinpaymentsTransaction(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coinpayments_transaction = &CoinpaymentsTransaction{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10322,7 +10402,7 @@ func (obj *pgxImpl) Create_StripecoinpaymentsApplyBalanceIntent(ctx context.Cont
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_apply_balance_intent = &StripecoinpaymentsApplyBalanceIntent{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_apply_balance_intent.TxId, &stripecoinpayments_apply_balance_intent.State, &stripecoinpayments_apply_balance_intent.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_apply_balance_intent.TxId, &stripecoinpayments_apply_balance_intent.State, &stripecoinpayments_apply_balance_intent.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10362,7 +10442,7 @@ func (obj *pgxImpl) Create_StripecoinpaymentsInvoiceProjectRecord(ctx context.Co
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10390,7 +10470,7 @@ func (obj *pgxImpl) Create_StripecoinpaymentsTxConversionRate(ctx context.Contex
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_tx_conversion_rate = &StripecoinpaymentsTxConversionRate{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.Rate, &stripecoinpayments_tx_conversion_rate.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.Rate, &stripecoinpayments_tx_conversion_rate.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10428,7 +10508,7 @@ func (obj *pgxImpl) Create_Coupon(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coupon = &Coupon{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10457,7 +10537,7 @@ func (obj *pgxImpl) Create_CouponUsage(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coupon_usage = &CouponUsage{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon_usage.CouponId, &coupon_usage.Amount, &coupon_usage.Status, &coupon_usage.Period)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon_usage.CouponId, &coupon_usage.Amount, &coupon_usage.Status, &coupon_usage.Period)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10508,7 +10588,7 @@ func (obj *pgxImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context
 	obj.logStmt(__stmt, __values...)
 
 	value_attribution = &ValueAttribution{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.LastUpdated)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.LastUpdated)
 	if err != nil {
 		return (*ValueAttribution)(nil), obj.makeErr(err)
 	}
@@ -10530,7 +10610,7 @@ func (obj *pgxImpl) Get_PendingAudits_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	pending_audits = &PendingAudits{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
 	if err != nil {
 		return (*PendingAudits)(nil), obj.makeErr(err)
 	}
@@ -10552,7 +10632,7 @@ func (obj *pgxImpl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	irreparabledb = &Irreparabledb{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
 	if err != nil {
 		return (*Irreparabledb)(nil), obj.makeErr(err)
 	}
@@ -10611,7 +10691,7 @@ func (obj *pgxImpl) Find_AccountingTimestamps_Value_By_Name(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	row = &Value_Row{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.Value)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Value)
 	if err == sql.ErrNoRows {
 		return (*Value_Row)(nil), nil
 	}
@@ -10670,7 +10750,7 @@ func (obj *pgxImpl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.OnlineScore, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.OnlineScore, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err != nil {
 		return (*Node)(nil), obj.makeErr(err)
 	}
@@ -10862,7 +10942,7 @@ func (obj *pgxImpl) Get_AuditHistory_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	audit_history = &AuditHistory{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
 	if err != nil {
 		return (*AuditHistory)(nil), obj.makeErr(err)
 	}
@@ -10928,7 +11008,7 @@ func (obj *pgxImpl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit)
 	if err != nil {
 		return (*User)(nil), obj.makeErr(err)
 	}
@@ -10950,7 +11030,7 @@ func (obj *pgxImpl) Get_User_ProjectLimit_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	row = &ProjectLimit_Row{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.ProjectLimit)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ProjectLimit)
 	if err != nil {
 		return (*ProjectLimit_Row)(nil), obj.makeErr(err)
 	}
@@ -10972,7 +11052,7 @@ func (obj *pgxImpl) Get_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err != nil {
 		return (*Project)(nil), obj.makeErr(err)
 	}
@@ -10994,7 +11074,7 @@ func (obj *pgxImpl) Get_Project_UsageLimit_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	row = &UsageLimit_Row{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.UsageLimit)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.UsageLimit)
 	if err != nil {
 		return (*UsageLimit_Row)(nil), obj.makeErr(err)
 	}
@@ -11016,7 +11096,7 @@ func (obj *pgxImpl) Get_Project_BandwidthLimit_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	row = &BandwidthLimit_Row{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.BandwidthLimit)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.BandwidthLimit)
 	if err != nil {
 		return (*BandwidthLimit_Row)(nil), obj.makeErr(err)
 	}
@@ -11038,7 +11118,7 @@ func (obj *pgxImpl) Get_Project_MaxBuckets_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	row = &MaxBuckets_Row{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.MaxBuckets)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.MaxBuckets)
 	if err != nil {
 		return (*MaxBuckets_Row)(nil), obj.makeErr(err)
 	}
@@ -11060,7 +11140,7 @@ func (obj *pgxImpl) Get_Project_BandwidthLimit_Project_UsageLimit_By_Id(ctx cont
 	obj.logStmt(__stmt, __values...)
 
 	row = &BandwidthLimit_UsageLimit_Row{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.BandwidthLimit, &row.UsageLimit)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.BandwidthLimit, &row.UsageLimit)
 	if err != nil {
 		return (*BandwidthLimit_UsageLimit_Row)(nil), obj.makeErr(err)
 	}
@@ -11324,7 +11404,7 @@ func (obj *pgxImpl) Get_ApiKey_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
 	if err != nil {
 		return (*ApiKey)(nil), obj.makeErr(err)
 	}
@@ -11346,7 +11426,7 @@ func (obj *pgxImpl) Get_ApiKey_By_Head(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
 	if err != nil {
 		return (*ApiKey)(nil), obj.makeErr(err)
 	}
@@ -11369,7 +11449,7 @@ func (obj *pgxImpl) Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
 	if err != nil {
 		return (*ApiKey)(nil), obj.makeErr(err)
 	}
@@ -11560,7 +11640,7 @@ func (obj *pgxImpl) Has_ConsumedSerial_By_StorageNodeId_And_SerialNumber(ctx con
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&has)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&has)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -11585,7 +11665,7 @@ func (obj *pgxImpl) Find_BucketBandwidthRollup_By_BucketName_And_ProjectId_And_I
 	obj.logStmt(__stmt, __values...)
 
 	bucket_bandwidth_rollup = &BucketBandwidthRollup{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled)
 	if err == sql.ErrNoRows {
 		return (*BucketBandwidthRollup)(nil), nil
 	}
@@ -11611,7 +11691,7 @@ func (obj *pgxImpl) Find_ProjectBandwidthRollup_By_ProjectId_And_IntervalMonth(c
 	obj.logStmt(__stmt, __values...)
 
 	project_bandwidth_rollup = &ProjectBandwidthRollup{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project_bandwidth_rollup.ProjectId, &project_bandwidth_rollup.IntervalMonth, &project_bandwidth_rollup.EgressAllocated)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_bandwidth_rollup.ProjectId, &project_bandwidth_rollup.IntervalMonth, &project_bandwidth_rollup.EgressAllocated)
 	if err == sql.ErrNoRows {
 		return (*ProjectBandwidthRollup)(nil), nil
 	}
@@ -11942,7 +12022,7 @@ func (obj *pgxImpl) Get_PeerIdentity_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	peer_identity = &PeerIdentity{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
 	if err != nil {
 		return (*PeerIdentity)(nil), obj.makeErr(err)
 	}
@@ -11964,7 +12044,7 @@ func (obj *pgxImpl) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.Cont
 	obj.logStmt(__stmt, __values...)
 
 	row = &LeafSerialNumber_Row{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.LeafSerialNumber)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.LeafSerialNumber)
 	if err != nil {
 		return (*LeafSerialNumber_Row)(nil), obj.makeErr(err)
 	}
@@ -11986,7 +12066,7 @@ func (obj *pgxImpl) Get_RegistrationToken_By_Secret(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err != nil {
 		return (*RegistrationToken)(nil), obj.makeErr(err)
 	}
@@ -12013,7 +12093,7 @@ func (obj *pgxImpl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err != nil {
 		return (*RegistrationToken)(nil), obj.makeErr(err)
 	}
@@ -12035,7 +12115,7 @@ func (obj *pgxImpl) Get_ResetPasswordToken_By_Secret(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	reset_password_token = &ResetPasswordToken{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
 	if err != nil {
 		return (*ResetPasswordToken)(nil), obj.makeErr(err)
 	}
@@ -12057,7 +12137,7 @@ func (obj *pgxImpl) Get_ResetPasswordToken_By_OwnerId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	reset_password_token = &ResetPasswordToken{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
 	if err != nil {
 		return (*ResetPasswordToken)(nil), obj.makeErr(err)
 	}
@@ -12079,7 +12159,7 @@ func (obj *pgxImpl) Get_Offer_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	offer = &Offer{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
 	if err != nil {
 		return (*Offer)(nil), obj.makeErr(err)
 	}
@@ -12172,7 +12252,7 @@ func (obj *pgxImpl) Count_UserCredit_By_ReferredBy(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&count)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12196,7 +12276,7 @@ func (obj *pgxImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context
 	obj.logStmt(__stmt, __values...)
 
 	bucket_metainfo = &BucketMetainfo{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
 	if err != nil {
 		return (*BucketMetainfo)(nil), obj.makeErr(err)
 	}
@@ -12219,7 +12299,7 @@ func (obj *pgxImpl) Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx context.Cont
 	obj.logStmt(__stmt, __values...)
 
 	row = &Id_Row{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.Id)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Id)
 	if err != nil {
 		return (*Id_Row)(nil), obj.makeErr(err)
 	}
@@ -12316,7 +12396,7 @@ func (obj *pgxImpl) Count_BucketMetainfo_Name_By_ProjectId(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&count)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -12339,7 +12419,7 @@ func (obj *pgxImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	graceful_exit_progress = &GracefulExitProgress{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt)
 	if err != nil {
 		return (*GracefulExitProgress)(nil), obj.makeErr(err)
 	}
@@ -12363,7 +12443,7 @@ func (obj *pgxImpl) Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNu
 	obj.logStmt(__stmt, __values...)
 
 	graceful_exit_transfer_queue = &GracefulExitTransferQueue{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.RootPieceId, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt, &graceful_exit_transfer_queue.OrderLimitSendCount)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.RootPieceId, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt, &graceful_exit_transfer_queue.OrderLimitSendCount)
 	if err != nil {
 		return (*GracefulExitTransferQueue)(nil), obj.makeErr(err)
 	}
@@ -12421,7 +12501,7 @@ func (obj *pgxImpl) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	row = &CustomerId_Row{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.CustomerId)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.CustomerId)
 	if err != nil {
 		return (*CustomerId_Row)(nil), obj.makeErr(err)
 	}
@@ -12554,7 +12634,7 @@ func (obj *pgxImpl) Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 	if err != nil {
 		return (*StripecoinpaymentsInvoiceProjectRecord)(nil), obj.makeErr(err)
 	}
@@ -12615,7 +12695,7 @@ func (obj *pgxImpl) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx context.C
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_tx_conversion_rate = &StripecoinpaymentsTxConversionRate{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.Rate, &stripecoinpayments_tx_conversion_rate.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.Rate, &stripecoinpayments_tx_conversion_rate.CreatedAt)
 	if err != nil {
 		return (*StripecoinpaymentsTxConversionRate)(nil), obj.makeErr(err)
 	}
@@ -12637,7 +12717,7 @@ func (obj *pgxImpl) Get_Coupon_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coupon = &Coupon{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 	if err != nil {
 		return (*Coupon)(nil), obj.makeErr(err)
 	}
@@ -12837,7 +12917,7 @@ func (obj *pgxImpl) Has_NodeApiVersion_By_Id_And_ApiVersion_GreaterOrEqual(ctx c
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&has)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&has)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -12876,7 +12956,7 @@ func (obj *pgxImpl) Update_PendingAudits_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	pending_audits = &PendingAudits{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -13202,7 +13282,7 @@ func (obj *pgxImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.OnlineScore, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.OnlineScore, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -13476,7 +13556,7 @@ func (obj *pgxImpl) Update_AuditHistory_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	audit_history = &AuditHistory{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -13547,7 +13627,7 @@ func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -13613,7 +13693,7 @@ func (obj *pgxImpl) Update_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -13734,7 +13814,7 @@ func (obj *pgxImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -13903,7 +13983,7 @@ func (obj *pgxImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Cont
 	obj.logStmt(__stmt, __values...)
 
 	bucket_metainfo = &BucketMetainfo{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -14066,7 +14146,7 @@ func (obj *pgxImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coinpayments_transaction = &CoinpaymentsTransaction{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -14107,7 +14187,7 @@ func (obj *pgxImpl) Update_StripecoinpaymentsApplyBalanceIntent_By_TxId(ctx cont
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_apply_balance_intent = &StripecoinpaymentsApplyBalanceIntent{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_apply_balance_intent.TxId, &stripecoinpayments_apply_balance_intent.State, &stripecoinpayments_apply_balance_intent.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_apply_balance_intent.TxId, &stripecoinpayments_apply_balance_intent.State, &stripecoinpayments_apply_balance_intent.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -14148,7 +14228,7 @@ func (obj *pgxImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx cont
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -14189,7 +14269,7 @@ func (obj *pgxImpl) Update_Coupon_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coupon = &Coupon{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -14231,7 +14311,7 @@ func (obj *pgxImpl) Update_CouponUsage_By_CouponId_And_Period(ctx context.Contex
 	obj.logStmt(__stmt, __values...)
 
 	coupon_usage = &CouponUsage{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon_usage.CouponId, &coupon_usage.Amount, &coupon_usage.Status, &coupon_usage.Period)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon_usage.CouponId, &coupon_usage.Amount, &coupon_usage.Status, &coupon_usage.Period)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -15296,7 +15376,7 @@ func (obj *pgxcockroachImpl) Create_ValueAttribution(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	value_attribution = &ValueAttribution{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.LastUpdated)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.LastUpdated)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -15331,7 +15411,7 @@ func (obj *pgxcockroachImpl) Create_PendingAudits(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	pending_audits = &PendingAudits{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -15648,7 +15728,7 @@ func (obj *pgxcockroachImpl) Create_AuditHistory(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	audit_history = &AuditHistory{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -15707,7 +15787,7 @@ func (obj *pgxcockroachImpl) Create_User(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -15745,7 +15825,7 @@ func (obj *pgxcockroachImpl) Create_Project(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -15773,7 +15853,7 @@ func (obj *pgxcockroachImpl) Create_ProjectMember(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project_member = &ProjectMember{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_member.MemberId, &project_member.ProjectId, &project_member.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -15809,7 +15889,7 @@ func (obj *pgxcockroachImpl) Create_ApiKey(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16032,7 +16112,7 @@ func (obj *pgxcockroachImpl) Create_StoragenodeBandwidthRollup(ctx context.Conte
 	obj.logStmt(__stmt, __values...)
 
 	storagenode_bandwidth_rollup = &StoragenodeBandwidthRollup{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16085,7 +16165,7 @@ func (obj *pgxcockroachImpl) Create_StoragenodeBandwidthRollupPhase2(ctx context
 	obj.logStmt(__stmt, __values...)
 
 	storagenode_bandwidth_rollup_phase2 = &StoragenodeBandwidthRollupPhase2{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&storagenode_bandwidth_rollup_phase2.StoragenodeId, &storagenode_bandwidth_rollup_phase2.IntervalStart, &storagenode_bandwidth_rollup_phase2.IntervalSeconds, &storagenode_bandwidth_rollup_phase2.Action, &storagenode_bandwidth_rollup_phase2.Allocated, &storagenode_bandwidth_rollup_phase2.Settled)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&storagenode_bandwidth_rollup_phase2.StoragenodeId, &storagenode_bandwidth_rollup_phase2.IntervalStart, &storagenode_bandwidth_rollup_phase2.IntervalSeconds, &storagenode_bandwidth_rollup_phase2.Action, &storagenode_bandwidth_rollup_phase2.Allocated, &storagenode_bandwidth_rollup_phase2.Settled)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16239,7 +16319,7 @@ func (obj *pgxcockroachImpl) Create_RegistrationToken(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16267,7 +16347,7 @@ func (obj *pgxcockroachImpl) Create_ResetPasswordToken(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	reset_password_token = &ResetPasswordToken{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16332,7 +16412,7 @@ func (obj *pgxcockroachImpl) Create_Offer(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	offer = &Offer{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16369,7 +16449,7 @@ func (obj *pgxcockroachImpl) Create_UserCredit(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_credit = &UserCredit{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&user_credit.Id, &user_credit.UserId, &user_credit.OfferId, &user_credit.ReferredBy, &user_credit.Type, &user_credit.CreditsEarnedInCents, &user_credit.CreditsUsedInCents, &user_credit.ExpiresAt, &user_credit.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_credit.Id, &user_credit.UserId, &user_credit.OfferId, &user_credit.ReferredBy, &user_credit.Type, &user_credit.CreditsEarnedInCents, &user_credit.CreditsUsedInCents, &user_credit.ExpiresAt, &user_credit.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16421,7 +16501,7 @@ func (obj *pgxcockroachImpl) Create_BucketMetainfo(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	bucket_metainfo = &BucketMetainfo{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16538,7 +16618,7 @@ func (obj *pgxcockroachImpl) Create_NodesOfflineTime(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	nodes_offline_time = &NodesOfflineTime{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&nodes_offline_time.NodeId, &nodes_offline_time.TrackedAt, &nodes_offline_time.Seconds)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&nodes_offline_time.NodeId, &nodes_offline_time.TrackedAt, &nodes_offline_time.Seconds)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16566,7 +16646,7 @@ func (obj *pgxcockroachImpl) Create_StripeCustomer(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	stripe_customer = &StripeCustomer{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripe_customer.UserId, &stripe_customer.CustomerId, &stripe_customer.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16606,7 +16686,7 @@ func (obj *pgxcockroachImpl) Create_CoinpaymentsTransaction(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coinpayments_transaction = &CoinpaymentsTransaction{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16634,7 +16714,7 @@ func (obj *pgxcockroachImpl) Create_StripecoinpaymentsApplyBalanceIntent(ctx con
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_apply_balance_intent = &StripecoinpaymentsApplyBalanceIntent{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_apply_balance_intent.TxId, &stripecoinpayments_apply_balance_intent.State, &stripecoinpayments_apply_balance_intent.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_apply_balance_intent.TxId, &stripecoinpayments_apply_balance_intent.State, &stripecoinpayments_apply_balance_intent.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16674,7 +16754,7 @@ func (obj *pgxcockroachImpl) Create_StripecoinpaymentsInvoiceProjectRecord(ctx c
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16702,7 +16782,7 @@ func (obj *pgxcockroachImpl) Create_StripecoinpaymentsTxConversionRate(ctx conte
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_tx_conversion_rate = &StripecoinpaymentsTxConversionRate{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.Rate, &stripecoinpayments_tx_conversion_rate.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.Rate, &stripecoinpayments_tx_conversion_rate.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16740,7 +16820,7 @@ func (obj *pgxcockroachImpl) Create_Coupon(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coupon = &Coupon{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16769,7 +16849,7 @@ func (obj *pgxcockroachImpl) Create_CouponUsage(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coupon_usage = &CouponUsage{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon_usage.CouponId, &coupon_usage.Amount, &coupon_usage.Status, &coupon_usage.Period)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon_usage.CouponId, &coupon_usage.Amount, &coupon_usage.Status, &coupon_usage.Period)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16820,7 +16900,7 @@ func (obj *pgxcockroachImpl) Get_ValueAttribution_By_ProjectId_And_BucketName(ct
 	obj.logStmt(__stmt, __values...)
 
 	value_attribution = &ValueAttribution{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.LastUpdated)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&value_attribution.ProjectId, &value_attribution.BucketName, &value_attribution.PartnerId, &value_attribution.LastUpdated)
 	if err != nil {
 		return (*ValueAttribution)(nil), obj.makeErr(err)
 	}
@@ -16842,7 +16922,7 @@ func (obj *pgxcockroachImpl) Get_PendingAudits_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	pending_audits = &PendingAudits{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
 	if err != nil {
 		return (*PendingAudits)(nil), obj.makeErr(err)
 	}
@@ -16864,7 +16944,7 @@ func (obj *pgxcockroachImpl) Get_Irreparabledb_By_Segmentpath(ctx context.Contex
 	obj.logStmt(__stmt, __values...)
 
 	irreparabledb = &Irreparabledb{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&irreparabledb.Segmentpath, &irreparabledb.Segmentdetail, &irreparabledb.PiecesLostCount, &irreparabledb.SegDamagedUnixSec, &irreparabledb.RepairAttemptCount)
 	if err != nil {
 		return (*Irreparabledb)(nil), obj.makeErr(err)
 	}
@@ -16923,7 +17003,7 @@ func (obj *pgxcockroachImpl) Find_AccountingTimestamps_Value_By_Name(ctx context
 	obj.logStmt(__stmt, __values...)
 
 	row = &Value_Row{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.Value)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Value)
 	if err == sql.ErrNoRows {
 		return (*Value_Row)(nil), nil
 	}
@@ -16982,7 +17062,7 @@ func (obj *pgxcockroachImpl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.OnlineScore, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.OnlineScore, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err != nil {
 		return (*Node)(nil), obj.makeErr(err)
 	}
@@ -17174,7 +17254,7 @@ func (obj *pgxcockroachImpl) Get_AuditHistory_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	audit_history = &AuditHistory{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
 	if err != nil {
 		return (*AuditHistory)(nil), obj.makeErr(err)
 	}
@@ -17240,7 +17320,7 @@ func (obj *pgxcockroachImpl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit)
 	if err != nil {
 		return (*User)(nil), obj.makeErr(err)
 	}
@@ -17262,7 +17342,7 @@ func (obj *pgxcockroachImpl) Get_User_ProjectLimit_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	row = &ProjectLimit_Row{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.ProjectLimit)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.ProjectLimit)
 	if err != nil {
 		return (*ProjectLimit_Row)(nil), obj.makeErr(err)
 	}
@@ -17284,7 +17364,7 @@ func (obj *pgxcockroachImpl) Get_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err != nil {
 		return (*Project)(nil), obj.makeErr(err)
 	}
@@ -17306,7 +17386,7 @@ func (obj *pgxcockroachImpl) Get_Project_UsageLimit_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	row = &UsageLimit_Row{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.UsageLimit)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.UsageLimit)
 	if err != nil {
 		return (*UsageLimit_Row)(nil), obj.makeErr(err)
 	}
@@ -17328,7 +17408,7 @@ func (obj *pgxcockroachImpl) Get_Project_BandwidthLimit_By_Id(ctx context.Contex
 	obj.logStmt(__stmt, __values...)
 
 	row = &BandwidthLimit_Row{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.BandwidthLimit)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.BandwidthLimit)
 	if err != nil {
 		return (*BandwidthLimit_Row)(nil), obj.makeErr(err)
 	}
@@ -17350,7 +17430,7 @@ func (obj *pgxcockroachImpl) Get_Project_MaxBuckets_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	row = &MaxBuckets_Row{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.MaxBuckets)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.MaxBuckets)
 	if err != nil {
 		return (*MaxBuckets_Row)(nil), obj.makeErr(err)
 	}
@@ -17372,7 +17452,7 @@ func (obj *pgxcockroachImpl) Get_Project_BandwidthLimit_Project_UsageLimit_By_Id
 	obj.logStmt(__stmt, __values...)
 
 	row = &BandwidthLimit_UsageLimit_Row{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.BandwidthLimit, &row.UsageLimit)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.BandwidthLimit, &row.UsageLimit)
 	if err != nil {
 		return (*BandwidthLimit_UsageLimit_Row)(nil), obj.makeErr(err)
 	}
@@ -17636,7 +17716,7 @@ func (obj *pgxcockroachImpl) Get_ApiKey_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
 	if err != nil {
 		return (*ApiKey)(nil), obj.makeErr(err)
 	}
@@ -17658,7 +17738,7 @@ func (obj *pgxcockroachImpl) Get_ApiKey_By_Head(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
 	if err != nil {
 		return (*ApiKey)(nil), obj.makeErr(err)
 	}
@@ -17681,7 +17761,7 @@ func (obj *pgxcockroachImpl) Get_ApiKey_By_Name_And_ProjectId(ctx context.Contex
 	obj.logStmt(__stmt, __values...)
 
 	api_key = &ApiKey{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&api_key.Id, &api_key.ProjectId, &api_key.Head, &api_key.Name, &api_key.Secret, &api_key.PartnerId, &api_key.CreatedAt)
 	if err != nil {
 		return (*ApiKey)(nil), obj.makeErr(err)
 	}
@@ -17872,7 +17952,7 @@ func (obj *pgxcockroachImpl) Has_ConsumedSerial_By_StorageNodeId_And_SerialNumbe
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&has)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&has)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -17897,7 +17977,7 @@ func (obj *pgxcockroachImpl) Find_BucketBandwidthRollup_By_BucketName_And_Projec
 	obj.logStmt(__stmt, __values...)
 
 	bucket_bandwidth_rollup = &BucketBandwidthRollup{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled)
 	if err == sql.ErrNoRows {
 		return (*BucketBandwidthRollup)(nil), nil
 	}
@@ -17923,7 +18003,7 @@ func (obj *pgxcockroachImpl) Find_ProjectBandwidthRollup_By_ProjectId_And_Interv
 	obj.logStmt(__stmt, __values...)
 
 	project_bandwidth_rollup = &ProjectBandwidthRollup{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project_bandwidth_rollup.ProjectId, &project_bandwidth_rollup.IntervalMonth, &project_bandwidth_rollup.EgressAllocated)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project_bandwidth_rollup.ProjectId, &project_bandwidth_rollup.IntervalMonth, &project_bandwidth_rollup.EgressAllocated)
 	if err == sql.ErrNoRows {
 		return (*ProjectBandwidthRollup)(nil), nil
 	}
@@ -18254,7 +18334,7 @@ func (obj *pgxcockroachImpl) Get_PeerIdentity_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	peer_identity = &PeerIdentity{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&peer_identity.NodeId, &peer_identity.LeafSerialNumber, &peer_identity.Chain, &peer_identity.UpdatedAt)
 	if err != nil {
 		return (*PeerIdentity)(nil), obj.makeErr(err)
 	}
@@ -18276,7 +18356,7 @@ func (obj *pgxcockroachImpl) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx con
 	obj.logStmt(__stmt, __values...)
 
 	row = &LeafSerialNumber_Row{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.LeafSerialNumber)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.LeafSerialNumber)
 	if err != nil {
 		return (*LeafSerialNumber_Row)(nil), obj.makeErr(err)
 	}
@@ -18298,7 +18378,7 @@ func (obj *pgxcockroachImpl) Get_RegistrationToken_By_Secret(ctx context.Context
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err != nil {
 		return (*RegistrationToken)(nil), obj.makeErr(err)
 	}
@@ -18325,7 +18405,7 @@ func (obj *pgxcockroachImpl) Get_RegistrationToken_By_OwnerId(ctx context.Contex
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err != nil {
 		return (*RegistrationToken)(nil), obj.makeErr(err)
 	}
@@ -18347,7 +18427,7 @@ func (obj *pgxcockroachImpl) Get_ResetPasswordToken_By_Secret(ctx context.Contex
 	obj.logStmt(__stmt, __values...)
 
 	reset_password_token = &ResetPasswordToken{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
 	if err != nil {
 		return (*ResetPasswordToken)(nil), obj.makeErr(err)
 	}
@@ -18369,7 +18449,7 @@ func (obj *pgxcockroachImpl) Get_ResetPasswordToken_By_OwnerId(ctx context.Conte
 	obj.logStmt(__stmt, __values...)
 
 	reset_password_token = &ResetPasswordToken{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reset_password_token.Secret, &reset_password_token.OwnerId, &reset_password_token.CreatedAt)
 	if err != nil {
 		return (*ResetPasswordToken)(nil), obj.makeErr(err)
 	}
@@ -18391,7 +18471,7 @@ func (obj *pgxcockroachImpl) Get_Offer_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	offer = &Offer{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&offer.Id, &offer.Name, &offer.Description, &offer.AwardCreditInCents, &offer.InviteeCreditInCents, &offer.AwardCreditDurationDays, &offer.InviteeCreditDurationDays, &offer.RedeemableCap, &offer.ExpiresAt, &offer.CreatedAt, &offer.Status, &offer.Type)
 	if err != nil {
 		return (*Offer)(nil), obj.makeErr(err)
 	}
@@ -18484,7 +18564,7 @@ func (obj *pgxcockroachImpl) Count_UserCredit_By_ReferredBy(ctx context.Context,
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&count)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -18508,7 +18588,7 @@ func (obj *pgxcockroachImpl) Get_BucketMetainfo_By_ProjectId_And_Name(ctx contex
 	obj.logStmt(__stmt, __values...)
 
 	bucket_metainfo = &BucketMetainfo{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
 	if err != nil {
 		return (*BucketMetainfo)(nil), obj.makeErr(err)
 	}
@@ -18531,7 +18611,7 @@ func (obj *pgxcockroachImpl) Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx con
 	obj.logStmt(__stmt, __values...)
 
 	row = &Id_Row{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.Id)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Id)
 	if err != nil {
 		return (*Id_Row)(nil), obj.makeErr(err)
 	}
@@ -18628,7 +18708,7 @@ func (obj *pgxcockroachImpl) Count_BucketMetainfo_Name_By_ProjectId(ctx context.
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&count)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -18651,7 +18731,7 @@ func (obj *pgxcockroachImpl) Get_GracefulExitProgress_By_NodeId(ctx context.Cont
 	obj.logStmt(__stmt, __values...)
 
 	graceful_exit_progress = &GracefulExitProgress{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_progress.NodeId, &graceful_exit_progress.BytesTransferred, &graceful_exit_progress.PiecesTransferred, &graceful_exit_progress.PiecesFailed, &graceful_exit_progress.UpdatedAt)
 	if err != nil {
 		return (*GracefulExitProgress)(nil), obj.makeErr(err)
 	}
@@ -18675,7 +18755,7 @@ func (obj *pgxcockroachImpl) Get_GracefulExitTransferQueue_By_NodeId_And_Path_An
 	obj.logStmt(__stmt, __values...)
 
 	graceful_exit_transfer_queue = &GracefulExitTransferQueue{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.RootPieceId, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt, &graceful_exit_transfer_queue.OrderLimitSendCount)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&graceful_exit_transfer_queue.NodeId, &graceful_exit_transfer_queue.Path, &graceful_exit_transfer_queue.PieceNum, &graceful_exit_transfer_queue.RootPieceId, &graceful_exit_transfer_queue.DurabilityRatio, &graceful_exit_transfer_queue.QueuedAt, &graceful_exit_transfer_queue.RequestedAt, &graceful_exit_transfer_queue.LastFailedAt, &graceful_exit_transfer_queue.LastFailedCode, &graceful_exit_transfer_queue.FailedCount, &graceful_exit_transfer_queue.FinishedAt, &graceful_exit_transfer_queue.OrderLimitSendCount)
 	if err != nil {
 		return (*GracefulExitTransferQueue)(nil), obj.makeErr(err)
 	}
@@ -18733,7 +18813,7 @@ func (obj *pgxcockroachImpl) Get_StripeCustomer_CustomerId_By_UserId(ctx context
 	obj.logStmt(__stmt, __values...)
 
 	row = &CustomerId_Row{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&row.CustomerId)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.CustomerId)
 	if err != nil {
 		return (*CustomerId_Row)(nil), obj.makeErr(err)
 	}
@@ -18866,7 +18946,7 @@ func (obj *pgxcockroachImpl) Get_StripecoinpaymentsInvoiceProjectRecord_By_Proje
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 	if err != nil {
 		return (*StripecoinpaymentsInvoiceProjectRecord)(nil), obj.makeErr(err)
 	}
@@ -18927,7 +19007,7 @@ func (obj *pgxcockroachImpl) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx 
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_tx_conversion_rate = &StripecoinpaymentsTxConversionRate{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.Rate, &stripecoinpayments_tx_conversion_rate.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_tx_conversion_rate.TxId, &stripecoinpayments_tx_conversion_rate.Rate, &stripecoinpayments_tx_conversion_rate.CreatedAt)
 	if err != nil {
 		return (*StripecoinpaymentsTxConversionRate)(nil), obj.makeErr(err)
 	}
@@ -18949,7 +19029,7 @@ func (obj *pgxcockroachImpl) Get_Coupon_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coupon = &Coupon{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 	if err != nil {
 		return (*Coupon)(nil), obj.makeErr(err)
 	}
@@ -19149,7 +19229,7 @@ func (obj *pgxcockroachImpl) Has_NodeApiVersion_By_Id_And_ApiVersion_GreaterOrEq
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&has)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&has)
 	if err != nil {
 		return false, obj.makeErr(err)
 	}
@@ -19188,7 +19268,7 @@ func (obj *pgxcockroachImpl) Update_PendingAudits_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	pending_audits = &PendingAudits{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&pending_audits.NodeId, &pending_audits.PieceId, &pending_audits.StripeIndex, &pending_audits.ShareSize, &pending_audits.ExpectedShareHash, &pending_audits.ReverifyCount, &pending_audits.Path)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -19514,7 +19594,7 @@ func (obj *pgxcockroachImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.OnlineScore, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.UptimeSuccessCount, &node.TotalUptimeCount, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.OnlineScore, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.UptimeReputationAlpha, &node.UptimeReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -19788,7 +19868,7 @@ func (obj *pgxcockroachImpl) Update_AuditHistory_By_NodeId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	audit_history = &AuditHistory{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -19859,7 +19939,7 @@ func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -19925,7 +20005,7 @@ func (obj *pgxcockroachImpl) Update_Project_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	project = &Project{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&project.Id, &project.Name, &project.Description, &project.UsageLimit, &project.BandwidthLimit, &project.RateLimit, &project.MaxBuckets, &project.PartnerId, &project.OwnerId, &project.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -20046,7 +20126,7 @@ func (obj *pgxcockroachImpl) Update_RegistrationToken_By_Secret(ctx context.Cont
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -20215,7 +20295,7 @@ func (obj *pgxcockroachImpl) Update_BucketMetainfo_By_ProjectId_And_Name(ctx con
 	obj.logStmt(__stmt, __values...)
 
 	bucket_metainfo = &BucketMetainfo{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -20378,7 +20458,7 @@ func (obj *pgxcockroachImpl) Update_CoinpaymentsTransaction_By_Id(ctx context.Co
 	obj.logStmt(__stmt, __values...)
 
 	coinpayments_transaction = &CoinpaymentsTransaction{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coinpayments_transaction.Id, &coinpayments_transaction.UserId, &coinpayments_transaction.Address, &coinpayments_transaction.Amount, &coinpayments_transaction.Received, &coinpayments_transaction.Status, &coinpayments_transaction.Key, &coinpayments_transaction.Timeout, &coinpayments_transaction.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -20419,7 +20499,7 @@ func (obj *pgxcockroachImpl) Update_StripecoinpaymentsApplyBalanceIntent_By_TxId
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_apply_balance_intent = &StripecoinpaymentsApplyBalanceIntent{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_apply_balance_intent.TxId, &stripecoinpayments_apply_balance_intent.State, &stripecoinpayments_apply_balance_intent.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_apply_balance_intent.TxId, &stripecoinpayments_apply_balance_intent.State, &stripecoinpayments_apply_balance_intent.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -20460,7 +20540,7 @@ func (obj *pgxcockroachImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id
 	obj.logStmt(__stmt, __values...)
 
 	stripecoinpayments_invoice_project_record = &StripecoinpaymentsInvoiceProjectRecord{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -20501,7 +20581,7 @@ func (obj *pgxcockroachImpl) Update_Coupon_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coupon = &Coupon{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -20543,7 +20623,7 @@ func (obj *pgxcockroachImpl) Update_CouponUsage_By_CouponId_And_Period(ctx conte
 	obj.logStmt(__stmt, __values...)
 
 	coupon_usage = &CouponUsage{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&coupon_usage.CouponId, &coupon_usage.Amount, &coupon_usage.Status, &coupon_usage.Period)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon_usage.CouponId, &coupon_usage.Amount, &coupon_usage.Status, &coupon_usage.Period)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}

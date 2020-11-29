@@ -18,7 +18,7 @@ Get_{{ .Suffix }}({{ ctxarg .Args }})
 	obj.logStmt(__stmt, __values...)
 
 	{{ init .Row }}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan({{ addrof (flatten .Row) }})
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan({{ addrof (flatten .Row) }})
 	if err != nil {
 		return {{ zero .Row }}, obj.makeErr(err)
 	}

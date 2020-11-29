@@ -63,7 +63,7 @@ Update{{ if not .Return }}NoReturn{{ end }}_{{ .Suffix }}
 
 	{{ init .Return }}
 	{{- if .SupportsReturning }}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan({{ addrof (flatten .Return) }})
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan({{ addrof (flatten .Return) }})
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -80,7 +80,7 @@ Update{{ if not .Return }}NoReturn{{ end }}_{{ .Suffix }}
 	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
 	obj.logStmt("(IMPLIED) " + __stmt_get, __args...)
 
-	err = obj.driver.QueryRowContext(ctx, __stmt_get, __args...).Scan({{ addrof (flatten .Return) }})
+	err = obj.queryRowContext(ctx, __stmt_get, __args...).Scan({{ addrof (flatten .Return) }})
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
