@@ -1,0 +1,49 @@
+{{- define "name" -}}
+Raw{{ if .Replace }}Replace{{ else }}Create{{ end }}{{ if not .Return }}NoReturn{{ end }}_{{ .Suffix }}
+{{- end -}}
+
+{{- define "signature" -}}
+{{- template "name" . }}({{ ctxparam .Arg }}) (
+	{{ if .Return }}{{ param .Return }}, {{ end }}err error)
+{{- end -}}
+
+{{- define "invoke" -}}
+{{- template "name" . }}({{ ctxarg .Arg }})
+{{ end -}}
+
+{{- define "body" -}}
+	{{ initnew .Fields }}
+
+	{{ embedplaceholders .Info }}
+	{{ embedsql .Info "__embed_stmt" }}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, {{ arg .Fields }})
+
+	{{ if not .Return }}
+	_, err = obj.driver.ExecContext(ctx, __stmt, {{ arg .Fields}})
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+	{{ else -}}
+	{{ if .SupportsReturning }}
+	{{ init .Return }}
+	err = obj.driver.QueryRowContext(ctx, __stmt, {{ arg .Fields }}).Scan({{ addrof (flatten .Return) }})
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return {{ arg .Return }}, nil
+	{{ else -}}
+	__res, err := obj.driver.ExecContext(ctx, __stmt, {{ arg .Fields}})
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLast{{ .Return.Type }}(ctx, __pk)
+	{{ end -}}
+	{{ end -}}
+{{ end -}}

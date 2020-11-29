@@ -1,0 +1,29 @@
+{{- define "signature" -}}
+Find_{{ .Suffix }}({{ ctxparam .Args }}) (
+	{{ param .Row }}, err error)
+{{- end -}}
+
+{{- define "invoke" -}}
+Find_{{ .Suffix }}({{ ctxarg .Args }})
+{{- end -}}
+
+{{- define "body" }}
+	{{ embedplaceholders .Info }}
+	{{ embedsql .Info "__embed_stmt" }}
+
+	var __values []interface{}
+	{{ embedvalues .Args "__values" }}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	{{ init .Row }}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan({{ addrof (flatten .Row) }})
+	if err == sql.ErrNoRows {
+		return {{ zero .Row }}, nil
+	}
+	if err != nil {
+		return {{ zero .Row }}, obj.makeErr(err)
+	}
+	return {{ arg .Row }}, nil
+{{ end -}}
