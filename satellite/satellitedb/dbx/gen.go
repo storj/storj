@@ -31,7 +31,12 @@ func init() {
 		}
 		return class.Wrap(e)
 	}
-	ShouldRetry = cockroachutil.NeedsRetry
+	ShouldRetry = func(driver string, err error) bool {
+		if driver == "pgxcockroach" || driver == "cockroach" {
+			return cockroachutil.NeedsRetry(err)
+		}
+		return false
+	}
 }
 
 // Unwrap returns the underlying error.
