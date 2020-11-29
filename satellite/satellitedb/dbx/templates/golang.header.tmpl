@@ -32,6 +32,7 @@ var _ sync.Mutex
 var (
 	WrapErr = func(err *Error) error {return err}
 	Logger func(format string, args ...interface{})
+	ShouldRetry func(err error) bool
 
 	errTooManyRows = errors.New("too many rows")
 	errUnsupportedDriver = errors.New("unsupported driver")
@@ -87,6 +88,11 @@ func makeErr(err error) error {
 		e.Code = ErrorCode_TxDone
 	}
 	return wrapErr(e)
+}
+
+func shouldRetry(err error) bool {
+  if ShouldRetry == nil { return false }
+  return ShouldRetry(err)
 }
 
 func unsupportedDriver(driver string) error {
@@ -245,6 +251,7 @@ type {{ $impltype }} struct {
 	db      *DB
 	dialect __sqlbundle_{{ .Name }}
 	driver  driver
+	txn     bool
 }
 
 func (obj *{{ $impltype }}) Rebind(s string) string {
@@ -261,6 +268,40 @@ func (obj *{{ $impltype }}) makeErr(err error) error {
 		return constraintViolation(err, constraint)
 	}
 	return makeErr(err)
+}
+
+func (obj *{{ $impltype }}) shouldRetry(err error) bool {
+  return !obj.txn && shouldRetry(err)
+}
+
+type {{ $impltype }}_retryingRow struct {
+  obj *{{ $impltype }}
+  ctx context.Context
+  query string
+  args []interface{}
+}
+
+func (obj *{{ $impltype }}) queryRowContext(ctx context.Context, query string, args ...interface{}) *{{ $impltype }}_retryingRow {
+  return &{{ $impltype }}_retryingRow{
+    obj: obj,
+    ctx: ctx,
+    query: query,
+    args: args,
+  }
+}
+
+func (rows *{{ $impltype }}_retryingRow) Scan(dest ...interface{}) error {
+  for {
+    err := rows.obj.driver.QueryRowContext(rows.ctx, rows.query, rows.args...).Scan(dest...)
+    if err != nil {
+      if rows.obj.shouldRetry(err) {
+        continue
+      }
+      // caller will wrap this error
+      return err
+    }
+    return nil
+  }
 }
 
 type {{ $dbtype }} struct {
@@ -288,6 +329,7 @@ func (obj *{{ $dbtype }}) wrapTx(tx *sql.Tx) txMethods {
 		{{ $impltype }}: &{{ $impltype }}{
 			db:      obj.db,
 			driver:  tx,
+			txn:     true,
 		},
 	}
 }
