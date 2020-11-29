@@ -1,0 +1,52 @@
+{{- define "signature" -}}
+Paged_{{ .Suffix }}({{ ctxparam .Args }},
+	limit int, start *{{ .Continuation.Type }}) (
+	rows {{ sliceof .Row }}, next *{{ .Continuation.Type }}, err error)
+{{- end -}}
+
+{{- define "invoke" -}}
+Paged_{{ .Suffix }}({{ ctxarg .Args }}, limit, start)
+{{- end -}}
+
+{{- define "body" }}
+	{{ embedplaceholders .Info }}
+	{{ embedsql .Info "__embed_stmt" }}
+	{{ embedsql .FirstInfo "__embed_first_stmt" }}
+
+	var __values []interface{}
+	{{ embedvalues .Args "__values" }}
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, {{ .Continuation | rename "start" | flatten | slice 0 -1 | value | comma }}limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	{{ declare .Continuation }}
+	{{ .Continuation.Name }}._set = true
+
+	for __rows.Next() {
+		{{ initnew .Row }}
+		err = __rows.Scan({{ .Row | flatten | addrof | comma }}{{ .Continuation | flatten | slice 0 -1 | addrof }})
+		if err != nil {
+			return nil, nil, obj.makeErr(err)
+		}
+		rows = append(rows, {{ arg .Row }})
+		next = {{ addrof .Continuation }}
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, nil, obj.makeErr(err)
+	}
+
+	return rows, next, nil
+{{ end -}}

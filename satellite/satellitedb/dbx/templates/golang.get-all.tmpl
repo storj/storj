@@ -1,0 +1,38 @@
+{{- define "signature" -}}
+All_{{ .Suffix }}({{ ctxparam .Args }}) (
+	rows {{ sliceof .Row }}, err error)
+{{- end -}}
+
+{{- define "invoke" -}}
+All_{{ .Suffix }}({{ ctxarg .Args }})
+{{- end -}}
+
+{{- define "body" }}
+	{{ embedplaceholders .Info }}
+	{{ embedsql .Info "__embed_stmt" }}
+
+	var __values []interface{}
+	{{ embedvalues .Args "__values" }}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		{{ initnew .Row }}
+		err = __rows.Scan({{ addrof (flatten .Row) }})
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, {{ arg .Row }})
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+{{ end -}}

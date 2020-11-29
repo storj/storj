@@ -1,0 +1,26 @@
+{{- define "signature" -}}
+Count_{{ .Suffix }}({{ ctxparam .Args }}) (
+	count int64, err error)
+{{- end -}}
+
+{{- define "invoke" -}}
+Count_{{ .Suffix }}({{ ctxarg .Args }})
+{{- end -}}
+
+{{- define "body" }}
+	{{ embedplaceholders .Info }}
+	{{ embedsql .Info "__embed_stmt" }}
+
+	var __values []interface{}
+	{{ embedvalues .Args "__values" }}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+{{ end -}}
