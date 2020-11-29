@@ -32,7 +32,7 @@ var _ sync.Mutex
 var (
 	WrapErr     = func(err *Error) error { return err }
 	Logger      func(format string, args ...interface{})
-	ShouldRetry func(err error) bool
+	ShouldRetry func(driver string, err error) bool
 
 	errTooManyRows       = errors.New("too many rows")
 	errUnsupportedDriver = errors.New("unsupported driver")
@@ -90,11 +90,11 @@ func makeErr(err error) error {
 	return wrapErr(e)
 }
 
-func shouldRetry(err error) bool {
+func shouldRetry(driver string, err error) bool {
 	if ShouldRetry == nil {
 		return false
 	}
-	return ShouldRetry(err)
+	return ShouldRetry(driver, err)
 }
 
 func unsupportedDriver(driver string) error {
@@ -146,6 +146,8 @@ type DB struct {
 	Hooks struct {
 		Now func() time.Time
 	}
+
+	driver string
 }
 
 func Open(driver, source string) (db *DB, err error) {
@@ -173,6 +175,8 @@ func Open(driver, source string) (db *DB, err error) {
 
 	db = &DB{
 		DB: tagsql.Wrap(sql_db),
+
+		driver: driver,
 	}
 	db.Hooks.Now = time.Now
 
@@ -267,7 +271,7 @@ func (obj *pgxImpl) makeErr(err error) error {
 }
 
 func (obj *pgxImpl) shouldRetry(err error) bool {
-	return !obj.txn && shouldRetry(err)
+	return !obj.txn && shouldRetry(obj.db.driver, err)
 }
 
 type pgxImpl_retryingRow struct {
@@ -825,7 +829,7 @@ func (obj *pgxcockroachImpl) makeErr(err error) error {
 }
 
 func (obj *pgxcockroachImpl) shouldRetry(err error) bool {
-	return !obj.txn && shouldRetry(err)
+	return !obj.txn && shouldRetry(obj.db.driver, err)
 }
 
 type pgxcockroachImpl_retryingRow struct {
