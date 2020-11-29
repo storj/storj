@@ -659,13 +659,14 @@ create storagenode_bandwidth_rollup()
 
 read all (
 	select storagenode_bandwidth_rollup
-	where storagenode_bandwidth_rollup.interval_start >= ?
-)
-
-read all (
-	select storagenode_bandwidth_rollup
 	where storagenode_bandwidth_rollup.storagenode_id = ?
 	where storagenode_bandwidth_rollup.interval_start = ?
+)
+
+read paged (
+  select storagenode_bandwidth_rollup
+  where storagenode_bandwidth_rollup.storagenode_id = ?
+  where storagenode_bandwidth_rollup.interval_start >= ?
 )
 
 ///////////////////////////////////////
@@ -688,9 +689,10 @@ model storagenode_bandwidth_rollup_phase2 (
 
 create storagenode_bandwidth_rollup_phase2 ( )
 
-read all (
-	select storagenode_bandwidth_rollup_phase2
-	where storagenode_bandwidth_rollup_phase2.interval_start >= ?
+read paged (
+  select storagenode_bandwidth_rollup_phase2
+  where storagenode_bandwidth_rollup_phase2.storagenode_id = ?
+  where storagenode_bandwidth_rollup_phase2.interval_start >= ?
 )
 
 model storagenode_storage_tally (
