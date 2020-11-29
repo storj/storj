@@ -29,6 +29,7 @@ var (
 type Config struct {
 	Interval            time.Duration `help:"how frequently the tally service should run" releaseDefault:"1h" devDefault:"30s"`
 	SaveRollupBatchSize int           `help:"how large of batches SaveRollup should process at a time" default:"1000"`
+	ReadRollupBatchSize int           `help:"how large of batches GetBandwidthSince should process at a time" default:"10000"`
 }
 
 // Service is the tally service for data stored on each storage node

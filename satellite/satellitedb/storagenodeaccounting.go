@@ -101,49 +101,109 @@ func (db *StoragenodeAccounting) GetTalliesSince(ctx context.Context, latestRoll
 }
 
 // GetBandwidthSince retrieves all storagenode_bandwidth_rollup entires since latestRollup.
-func (db *StoragenodeAccounting) GetBandwidthSince(ctx context.Context, latestRollup time.Time) (out []*accounting.StoragenodeBandwidthRollup, err error) {
+func (db *StoragenodeAccounting) GetBandwidthSince(ctx context.Context, latestRollup time.Time,
+	cb func(context.Context, *accounting.StoragenodeBandwidthRollup) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	// get everything from the current rollups table
-	rollups, err := db.db.All_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx,
-		dbx.StoragenodeBandwidthRollup_IntervalStart(latestRollup))
+
+	// This table's key structure is storagenode_id, interval_start, so we're going to try and make
+	// things easier on the database by making individual requests node by node. This is also
+	// going to allow us to avoid 16 minute queries.
+	rows, err := db.db.QueryContext(ctx, db.db.Rebind(`select distinct storagenode_id from storagenode_bandwidth_rollups`))
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return err
 	}
+	defer func() {
+		err = errs.Combine(err, Error.Wrap(rows.Close()))
+	}()
 
-	for _, r := range rollups {
-		nodeID, err := storj.NodeIDFromBytes(r.StoragenodeId)
+	var nodeids [][]byte
+	for rows.Next() {
+		var nodeid []byte
+		err := rows.Scan(&nodeid)
 		if err != nil {
-			return nil, Error.Wrap(err)
+			return Error.Wrap(err)
 		}
-		out = append(out, &accounting.StoragenodeBandwidthRollup{
-			NodeID:        nodeID,
-			IntervalStart: r.IntervalStart,
-			Action:        r.Action,
-			Settled:       r.Settled,
-		})
+		nodeids = append(nodeids, nodeid)
 	}
-
-	// include everything from the phase2 rollups table as well
-	phase2rollups, err := db.db.All_StoragenodeBandwidthRollupPhase2_By_IntervalStart_GreaterOrEqual(ctx,
-		dbx.StoragenodeBandwidthRollupPhase2_IntervalStart(latestRollup))
+	err = rows.Err()
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return Error.Wrap(rows.Err())
 	}
 
-	for _, r := range phase2rollups {
-		nodeID, err := storj.NodeIDFromBytes(r.StoragenodeId)
-		if err != nil {
-			return nil, Error.Wrap(err)
+	pageLimit := db.db.opts.ReadRollupBatchSize
+	if pageLimit <= 0 {
+		pageLimit = 10000
+	}
+
+	for _, nodeid := range nodeids {
+
+		// for each node, let's page through all rollups
+		{
+			var cursor *dbx.Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation
+			for {
+				rollups, next, err := db.db.Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_GreaterOrEqual(ctx,
+					dbx.StoragenodeBandwidthRollup_StoragenodeId(nodeid), dbx.StoragenodeBandwidthRollup_IntervalStart(latestRollup),
+					pageLimit, cursor)
+				if err != nil {
+					return Error.Wrap(err)
+				}
+				cursor = next
+				for _, r := range rollups {
+					nodeID, err := storj.NodeIDFromBytes(r.StoragenodeId)
+					if err != nil {
+						return Error.Wrap(err)
+					}
+					err = cb(ctx, &accounting.StoragenodeBandwidthRollup{
+						NodeID:        nodeID,
+						IntervalStart: r.IntervalStart,
+						Action:        r.Action,
+						Settled:       r.Settled,
+					})
+					if err != nil {
+						return err
+					}
+				}
+				if len(rollups) < pageLimit {
+					break
+				}
+			}
 		}
-		out = append(out, &accounting.StoragenodeBandwidthRollup{
-			NodeID:        nodeID,
-			IntervalStart: r.IntervalStart,
-			Action:        r.Action,
-			Settled:       r.Settled,
-		})
+
+		// let's also do phase 2
+		{
+			var cursor *dbx.Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation
+			for {
+				rollups, next, err := db.db.Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual(ctx,
+					dbx.StoragenodeBandwidthRollupPhase2_StoragenodeId(nodeid), dbx.StoragenodeBandwidthRollupPhase2_IntervalStart(latestRollup),
+					pageLimit, cursor)
+				if err != nil {
+					return Error.Wrap(err)
+				}
+				cursor = next
+				for _, r := range rollups {
+					nodeID, err := storj.NodeIDFromBytes(r.StoragenodeId)
+					if err != nil {
+						return Error.Wrap(err)
+					}
+					err = cb(ctx, &accounting.StoragenodeBandwidthRollup{
+						NodeID:        nodeID,
+						IntervalStart: r.IntervalStart,
+						Action:        r.Action,
+						Settled:       r.Settled,
+					})
+					if err != nil {
+						return err
+					}
+				}
+				if len(rollups) < pageLimit {
+					break
+				}
+			}
+		}
 	}
 
-	return out, nil
+	return nil
+
 }
 
 // SaveRollup records raw tallies of at rest data to the database.
