@@ -4,7 +4,6 @@
 package queue_test
 
 import (
-	"context"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -16,7 +15,6 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storage"
 )
@@ -68,32 +66,19 @@ func TestOrder(t *testing.T) {
 			require.False(t, alreadyInserted)
 		}
 
-		// TODO: remove dependency on *dbx.DB
-		dbAccess := db.RepairQueue().TestDBAccess()
-
-		err := dbAccess.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-			updateList := []struct {
-				path      []byte
-				attempted time.Time
-			}{
-				{recentRepairPath, time.Now()},
-				{oldRepairPath, time.Now().Add(-7 * time.Hour)},
-				{olderRepairPath, time.Now().Add(-8 * time.Hour)},
-			}
-			for _, item := range updateList {
-				res, err := tx.Tx.ExecContext(ctx, dbAccess.Rebind(`UPDATE injuredsegments SET attempted = ? WHERE path = ?`), item.attempted, item.path)
-				if err != nil {
-					return err
-				}
-				count, err := res.RowsAffected()
-				if err != nil {
-					return err
-				}
-				require.EqualValues(t, 1, count)
-			}
-			return nil
-		})
-		require.NoError(t, err)
+		updateList := []struct {
+			path      []byte
+			attempted time.Time
+		}{
+			{recentRepairPath, time.Now()},
+			{oldRepairPath, time.Now().Add(-7 * time.Hour)},
+			{olderRepairPath, time.Now().Add(-8 * time.Hour)},
+		}
+		for _, item := range updateList {
+			rowsAffected, err := db.RepairQueue().TestingSetAttemptedTime(ctx, item.path, item.attempted)
+			require.NoError(t, err)
+			require.EqualValues(t, 1, rowsAffected)
+		}
 
 		// path with attempted = null should be selected first
 		injuredSeg, err := repairQueue.Select(ctx)
@@ -132,9 +117,6 @@ func TestOrderHealthyPieces(t *testing.T) {
 		// ("path/g", 10, null)
 		// ("path/h", 10, now-8h)
 
-		// TODO: remove dependency on *dbx.DB
-		dbAccess := db.RepairQueue().TestDBAccess()
-
 		// insert the 8 segments according to the plan above
 		injuredSegList := []struct {
 			path          []byte
@@ -164,11 +146,9 @@ func TestOrderHealthyPieces(t *testing.T) {
 
 			// next, if applicable, update the "attempted at" timestamp
 			if !item.attempted.IsZero() {
-				res, err := dbAccess.ExecContext(ctx, dbAccess.Rebind(`UPDATE injuredsegments SET attempted = ? WHERE path = ?`), item.attempted, item.path)
+				rowsAffected, err := db.RepairQueue().TestingSetAttemptedTime(ctx, item.path, item.attempted)
 				require.NoError(t, err)
-				count, err := res.RowsAffected()
-				require.NoError(t, err)
-				require.EqualValues(t, 1, count)
+				require.EqualValues(t, 1, rowsAffected)
 			}
 		}
 
