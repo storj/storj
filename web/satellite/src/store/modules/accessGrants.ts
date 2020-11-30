@@ -8,6 +8,8 @@ import {
     AccessGrantsApi,
     AccessGrantsOrderBy,
     AccessGrantsPage,
+    DurationPermission,
+    GatewayCredentials,
 } from '@/types/accessGrants';
 import { SortDirection } from '@/types/common';
 
@@ -16,9 +18,11 @@ export const ACCESS_GRANTS_ACTIONS = {
     CREATE: 'createAccessGrant',
     DELETE: 'deleteAccessGrants',
     CLEAR: 'clearAccessGrants',
+    GET_GATEWAY_CREDENTIALS: 'getGatewayCredentials',
     SET_SEARCH_QUERY: 'setAccessGrantsSearchQuery',
     SET_SORT_BY: 'setAccessGrantsSortingBy',
     SET_SORT_DIRECTION: 'setAccessGrantsSortingDirection',
+    SET_DURATION_PERMISSION: 'setAccessGrantsDurationPermission',
     TOGGLE_SELECTION: 'toggleAccessGrantsSelection',
     TOGGLE_BUCKET_SELECTION: 'toggleBucketSelection',
     CLEAR_SELECTION: 'clearAccessGrantsSelection',
@@ -26,6 +30,7 @@ export const ACCESS_GRANTS_ACTIONS = {
 
 export const ACCESS_GRANTS_MUTATIONS = {
     SET_PAGE: 'setAccessGrants',
+    SET_GATEWAY_CREDENTIALS: 'setGatewayCredentials',
     TOGGLE_SELECTION: 'toggleAccessGrantsSelection',
     TOGGLE_BUCKET_SELECTION: 'toggleBucketSelection',
     CLEAR_SELECTION: 'clearAccessGrantsSelection',
@@ -34,6 +39,7 @@ export const ACCESS_GRANTS_MUTATIONS = {
     CHANGE_SORT_ORDER_DIRECTION: 'changeAccessGrantsSortOrderDirection',
     SET_SEARCH_QUERY: 'setAccessGrantsSearchQuery',
     SET_PAGE_NUMBER: 'setAccessGrantsPage',
+    SET_DURATION_PERMISSION: 'setAccessGrantsDurationPermission',
 };
 
 const {
@@ -46,6 +52,8 @@ const {
     CHANGE_SORT_ORDER_DIRECTION,
     SET_SEARCH_QUERY,
     SET_PAGE_NUMBER,
+    SET_DURATION_PERMISSION,
+    SET_GATEWAY_CREDENTIALS,
 } = ACCESS_GRANTS_MUTATIONS;
 
 export class AccessGrantsState {
@@ -53,6 +61,9 @@ export class AccessGrantsState {
     public page: AccessGrantsPage = new AccessGrantsPage();
     public selectedAccessGrantsIds: string[] = [];
     public selectedBucketNames: string[] = [];
+    public permissionNotBefore: Date = new Date();
+    public permissionNotAfter: Date = new Date('2200-01-01');
+    public gatewayCredentials: GatewayCredentials = new GatewayCredentials();
 }
 
 /**
@@ -74,11 +85,18 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
                     return accessGrant;
                 });
             },
+            [SET_GATEWAY_CREDENTIALS](state: AccessGrantsState, credentials: GatewayCredentials) {
+                state.gatewayCredentials = credentials;
+            },
             [SET_PAGE_NUMBER](state: AccessGrantsState, pageNumber: number) {
                 state.cursor.page = pageNumber;
             },
             [SET_SEARCH_QUERY](state: AccessGrantsState, search: string) {
                 state.cursor.search = search;
+            },
+            [SET_DURATION_PERMISSION](state: AccessGrantsState, permission: DurationPermission) {
+                state.permissionNotBefore = permission.notBefore;
+                state.permissionNotAfter = permission.notAfter;
             },
             [CHANGE_SORT_ORDER](state: AccessGrantsState, order: AccessGrantsOrderBy) {
                 state.cursor.order = order;
@@ -131,6 +149,9 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
                 state.cursor = new AccessGrantCursor();
                 state.page = new AccessGrantsPage();
                 state.selectedAccessGrantsIds = [];
+                state.selectedBucketNames = [];
+                state.permissionNotBefore = new Date();
+                state.permissionNotAfter = new Date();
             },
         },
         actions: {
@@ -153,6 +174,11 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
 
                 commit(CLEAR_SELECTION);
             },
+            getGatewayCredentials: async function({state, commit}: any, accessGrant: string): Promise<void> {
+                const credentials: GatewayCredentials = await api.getGatewayCredentials(accessGrant);
+
+                commit(SET_GATEWAY_CREDENTIALS, credentials);
+            },
             setAccessGrantsSearchQuery: function ({commit}, search: string) {
                 commit(SET_SEARCH_QUERY, search);
             },
@@ -161,6 +187,9 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
             },
             setAccessGrantsSortingDirection: function ({commit}, direction: SortDirection) {
                 commit(CHANGE_SORT_ORDER_DIRECTION, direction);
+            },
+            setAccessGrantsDurationPermission: function ({commit}, permission: DurationPermission) {
+                commit(SET_DURATION_PERMISSION, permission);
             },
             toggleAccessGrantsSelection: function ({commit}, accessGrant: AccessGrant): void {
                 commit(TOGGLE_SELECTION, accessGrant);

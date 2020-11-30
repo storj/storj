@@ -39,6 +39,8 @@ self.onmessage = function (event) {
             const isList = data.isList;
             const isDelete = data.isDelete;
             const buckets = data.buckets;
+            const notBefore = data.notBefore;
+            const notAfter = data.notAfter;
             apiKey = data.apiKey;
 
             let permission = self.newPermission().value;
@@ -47,6 +49,8 @@ self.onmessage = function (event) {
             permission.AllowUpload = isUpload;
             permission.AllowDelete = isDelete;
             permission.AllowList = isList;
+            permission.NotBefore = notBefore;
+            permission.NotAfter = notAfter;
 
             result = self.setAPIKeyPermission(apiKey, buckets, permission);
 

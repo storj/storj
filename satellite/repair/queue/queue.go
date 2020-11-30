@@ -27,4 +27,7 @@ type RepairQueue interface {
 	SelectN(ctx context.Context, limit int) ([]internalpb.InjuredSegment, error)
 	// Count counts the number of segments in the repair queue.
 	Count(ctx context.Context) (count int, err error)
+
+	// TestingSetAttemptedTime sets attempted time for a repairpath.
+	TestingSetAttemptedTime(ctx context.Context, repairpath []byte, t time.Time) (rowsAffected int64, err error)
 }

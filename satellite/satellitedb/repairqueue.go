@@ -147,3 +147,14 @@ func (r *repairQueue) Count(ctx context.Context) (count int, err error) {
 
 	return count, Error.Wrap(err)
 }
+
+// TestingSetAttemptedTime sets attempted time for a repairpath.
+func (r *repairQueue) TestingSetAttemptedTime(ctx context.Context, repairpath []byte, t time.Time) (rowsAffected int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	res, err := r.db.ExecContext(ctx, r.db.Rebind(`UPDATE injuredsegments SET attempted = ? WHERE path = ?`), t, repairpath)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+	count, err := res.RowsAffected()
+	return count, Error.Wrap(err)
+}

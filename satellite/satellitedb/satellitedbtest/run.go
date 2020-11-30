@@ -24,7 +24,6 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // SatelliteDatabases maybe name can be better.
@@ -97,11 +96,6 @@ type tempMasterDB struct {
 // Close closes a tempMasterDB and cleans it up afterward.
 func (db *tempMasterDB) Close() error {
 	return errs.Combine(db.DB.Close(), db.tempDB.Close())
-}
-
-// TestDBAccess provides a somewhat regularized access to the underlying DB.
-func (db *tempMasterDB) TestDBAccess() *dbx.DB {
-	return db.DB.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
 }
 
 // CreateMasterDB creates a new satellite database for testing.
