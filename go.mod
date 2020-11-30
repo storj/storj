@@ -5,7 +5,7 @@ go 1.13
 require (
 	github.com/alessio/shellescape v1.2.2
 	github.com/alicebob/miniredis/v2 v2.13.3
-	github.com/btcsuite/btcutil v1.0.2
+	github.com/btcsuite/btcutil v1.0.3-0.20201124182144-4031bdc69ded
 	github.com/calebcase/tmpfile v1.0.2
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/fatih/color v1.9.0
@@ -41,9 +41,9 @@ require (
 	golang.org/x/sys v0.0.0-20200929083018-4d22bbb62b3c
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	google.golang.org/api v0.20.0 // indirect
-	storj.io/common v0.0.0-20201106104920-372a344bdd45
+	storj.io/common v0.0.0-20201124202331-31c1d1dc486d
 	storj.io/drpc v0.0.16
 	storj.io/monkit-jaeger v0.0.0-20200518165323-80778fc3f91b
 	storj.io/private v0.0.0-20201026143115-bc926bfa3bca
-	storj.io/uplink v1.3.2-0.20201106105834-ec8e5cc29f7e
+	storj.io/uplink v1.3.2-0.20201125144254-f5d420360f2b
 )
