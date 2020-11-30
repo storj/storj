@@ -170,6 +170,8 @@ type MetabaseDB interface {
 	MigrateToLatest(ctx context.Context) error
 	// DeleteObjectsAllVersions deletes all versions of multiple objects from the same bucket.
 	DeleteObjectsAllVersions(ctx context.Context, opts metabase.DeleteObjectsAllVersions) (result metabase.DeleteObjectResult, err error)
+	// DeleteExpiredObjects deletes all objects that expired before expiredBefore.
+	DeleteExpiredObjects(ctx context.Context, expiredBefore time.Time) error
 	// BeginObjectExactVersion adds a pending object to the database, with specific version.
 	BeginObjectExactVersion(ctx context.Context, opts metabase.BeginObjectExactVersion) (committed metabase.Version, err error)
 	// CommitObject adds a pending object to the database.

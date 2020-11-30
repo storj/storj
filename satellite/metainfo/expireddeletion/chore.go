@@ -23,7 +23,7 @@ var (
 
 // Config contains configurable values for expired segment cleanup.
 type Config struct {
-	Interval time.Duration `help:"the time between each attempt to go through the db and clean up expired segments" releaseDefault:"120h" devDefault:"10m"`
+	Interval time.Duration `help:"the time between each attempt to go through the db and clean up expired segments" releaseDefault:"120h" devDefault:"10s"`
 	Enabled  bool          `help:"set if expired segment cleanup is enabled or not" releaseDefault:"true" devDefault:"true"`
 }
 
@@ -31,22 +31,23 @@ type Config struct {
 //
 // architecture: Chore
 type Chore struct {
-	log    *zap.Logger
-	config Config
-	Loop   *sync2.Cycle
+	log      *zap.Logger
+	config   Config
+	metabase metainfo.MetabaseDB
 
-	metainfo     *metainfo.Service
-	metainfoLoop *metainfo.Loop
+	nowFn func() time.Time
+	Loop  *sync2.Cycle
 }
 
 // NewChore creates a new instance of the expireddeletion chore.
-func NewChore(log *zap.Logger, config Config, meta *metainfo.Service, loop *metainfo.Loop) *Chore {
+func NewChore(log *zap.Logger, config Config, metabase metainfo.MetabaseDB) *Chore {
 	return &Chore{
-		log:          log,
-		config:       config,
-		Loop:         sync2.NewCycle(config.Interval),
-		metainfo:     meta,
-		metainfoLoop: loop,
+		log:      log,
+		config:   config,
+		metabase: metabase,
+
+		nowFn: time.Now,
+		Loop:  sync2.NewCycle(config.Interval),
 	}
 }
 
@@ -58,20 +59,23 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		return nil
 	}
 
-	return chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
-		defer mon.Task()(&ctx)(&err)
+	return chore.Loop.Run(ctx, chore.deleteExpiredObjects)
+}
 
-		deleter := &expiredDeleter{
-			log:      chore.log.Named("expired deleter observer"),
-			metainfo: chore.metainfo,
-		}
+// Close stops the expireddeletion chore.
+func (chore *Chore) Close() error {
+	chore.Loop.Close()
+	return nil
+}
 
-		// delete expired segments
-		err = chore.metainfoLoop.Join(ctx, deleter)
-		if err != nil {
-			chore.log.Error("error joining metainfoloop", zap.Error(err))
-			return nil
-		}
-		return nil
-	})
+// SetNow allows tests to have the server act as if the current time is whatever they want.
+func (chore *Chore) SetNow(nowFn func() time.Time) {
+	chore.nowFn = nowFn
+}
+
+func (chore *Chore) deleteExpiredObjects(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	chore.log.Debug("deleting expired objects")
+
+	return chore.metabase.DeleteExpiredObjects(ctx, chore.nowFn())
 }

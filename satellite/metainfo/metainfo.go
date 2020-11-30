@@ -697,6 +697,13 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		BlockSize:   int32(req.EncryptionParameters.BlockSize), // TODO check conversion
 	}
 
+	var expiresAt *time.Time
+	if req.ExpiresAt.IsZero() {
+		expiresAt = nil
+	} else {
+		expiresAt = &req.ExpiresAt
+	}
+
 	_, err = endpoint.metainfo.metabaseDB.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
@@ -705,6 +712,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 			StreamID:   streamID,
 			Version:    metabase.Version(1),
 		},
+		ExpiresAt:  expiresAt,
 		Encryption: encryptionParameters,
 	})
 	if err != nil {

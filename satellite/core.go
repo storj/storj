@@ -385,12 +385,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.ExpiredDeletion.Chore = expireddeletion.NewChore(
 			peer.Log.Named("core-expired-deletion"),
 			config.ExpiredDeletion,
-			peer.Metainfo.Service,
-			peer.Metainfo.Loop,
+			peer.Metainfo.Metabase,
 		)
 		peer.Services.Add(lifecycle.Item{
-			Name: "expireddeletion:chore",
-			Run:  peer.ExpiredDeletion.Chore.Run,
+			Name:  "expireddeletion:chore",
+			Run:   peer.ExpiredDeletion.Chore.Run,
+			Close: peer.ExpiredDeletion.Chore.Close,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Expired Segments Chore", peer.ExpiredDeletion.Chore.Loop))
