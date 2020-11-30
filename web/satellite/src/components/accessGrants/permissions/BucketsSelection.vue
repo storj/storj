@@ -12,12 +12,12 @@
                 class="buckets-selection__toggle-container__expand-icon"
                 alt="Arrow down (expand)"
             />
-            <BucketsDropdown
-                v-show="isDropdownShown"
-                @close="closeDropdown"
-                v-click-outside="closeDropdown"
-            />
         </div>
+        <BucketsDropdown
+            v-if="isDropdownShown"
+            @close="closeDropdown"
+            v-click-outside="closeDropdown"
+        />
     </div>
 </template>
 
@@ -82,9 +82,9 @@ export default class BucketsSelection extends Vue {
         border: 1px solid rgba(56, 75, 101, 0.4);
         font-family: 'font_regular', sans-serif;
         width: 235px;
+        position: relative;
 
         &__toggle-container {
-            position: relative;
             display: flex;
             align-items: center;
             justify-content: space-between;

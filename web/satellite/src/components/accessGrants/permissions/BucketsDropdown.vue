@@ -7,9 +7,17 @@
             <p class="buckets-dropdown__container__all" @click.stop="selectAllBuckets">
                 All
             </p>
+            <label class="buckets-dropdown__container__search">
+                <input
+                    class="buckets-dropdown__container__search__input"
+                    placeholder="Search buckets"
+                    type="text"
+                    v-model="bucketSearch"
+                >
+            </label>
             <div
                 class="buckets-dropdown__container__choices"
-                v-for="(name, index) in allBucketNames"
+                v-for="(name, index) in bucketsList"
                 :key="index"
             >
                 <div
@@ -27,6 +35,9 @@
                     />
                 </div>
             </div>
+            <p class="buckets-dropdown__container__no-buckets" v-if="!bucketsList.length">
+                No Buckets
+            </p>
         </div>
     </div>
 </template>
@@ -46,6 +57,8 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
     },
 })
 export default class BucketsDropdown extends Vue {
+    public bucketSearch: string = '';
+
     /**
      * Clears selection of specific buckets and closes dropdown.
      */
@@ -70,17 +83,22 @@ export default class BucketsDropdown extends Vue {
     }
 
     /**
+     * Returns stored bucket names list filtered by search string.
+     */
+    public get bucketsList(): string[] {
+        const NON_EXIST_INDEX = -1;
+        const buckets: string[] = this.$store.state.bucketUsageModule.allBucketNames;
+
+        return buckets.filter((name: string) => {
+            return name.indexOf(this.bucketSearch.toLowerCase()) !== NON_EXIST_INDEX;
+        });
+    }
+
+    /**
      * Returns stored selected bucket names.
      */
     public get selectedBucketNames(): string[] {
         return this.$store.state.accessGrantsModule.selectedBucketNames;
-    }
-
-    /**
-     * Returns all bucket names.
-     */
-    public get allBucketNames(): string[] {
-        return this.$store.state.bucketUsageModule.allBucketNames;
     }
 }
 </script>
@@ -103,14 +121,14 @@ export default class BucketsDropdown extends Vue {
         background-color: #fff;
         border: 1px solid rgba(56, 75, 101, 0.4);
         width: 100%;
-        padding-top: 10px;
+        padding: 10px 0;
 
         &__container {
             overflow-y: scroll;
             overflow-x: hidden;
             height: auto;
             width: 100%;
-            max-height: 300px;
+            max-height: 230px;
             background-color: #fff;
             border-radius: 6px;
             font-family: 'font_regular', sans-serif;
@@ -119,6 +137,19 @@ export default class BucketsDropdown extends Vue {
             font-size: 16px;
             line-height: 21px;
             color: #384b65;
+
+            &__search {
+                padding: 5px 10px;
+                width: calc(100% - 20px);
+
+                &__input {
+                    font-size: 14px;
+                    line-height: 18px;
+                    border-radius: 6px;
+                    width: calc(100% - 30px);
+                    padding: 5px;
+                }
+            }
 
             &__all {
                 margin: 0;
@@ -130,6 +161,19 @@ export default class BucketsDropdown extends Vue {
                 &:hover {
                     background-color: #ecedf2;
                 }
+            }
+
+            &__no-buckets {
+                font-family: 'font_bold', sans-serif;
+                margin: 0;
+                font-size: 18px;
+                line-height: 24px;
+                cursor: default;
+                color: #000;
+                background-color: #fff;
+                width: 100%;
+                padding: 15px 0;
+                text-align: center;
             }
 
             &__choices {
