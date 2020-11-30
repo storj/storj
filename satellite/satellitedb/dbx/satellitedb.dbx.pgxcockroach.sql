@@ -32,6 +32,17 @@ CREATE TABLE bucket_bandwidth_rollups (
 	settled bigint NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
 );
+CREATE TABLE bucket_bandwidth_rollup_archives (
+	bucket_name bytea NOT NULL,
+	project_id bytea NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
+	interval_seconds integer NOT NULL,
+	action integer NOT NULL,
+	inline bigint NOT NULL,
+	allocated bigint NOT NULL,
+	settled bigint NOT NULL,
+	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
+);
 CREATE TABLE bucket_storage_tallies (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -278,6 +289,15 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	settled bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
 );
+CREATE TABLE storagenode_bandwidth_rollup_archives (
+	storagenode_id bytea NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
+	interval_seconds integer NOT NULL,
+	action integer NOT NULL,
+	allocated bigint DEFAULT 0,
+	settled bigint NOT NULL,
+	PRIMARY KEY ( storagenode_id, interval_start, action )
+);
 CREATE TABLE storagenode_bandwidth_rollups_phase2 (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
@@ -442,6 +462,8 @@ CREATE TABLE user_credits (
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time );
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start );
 CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id );
+CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start );
+CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id );
 CREATE INDEX bucket_storage_tallies_project_id_index ON bucket_storage_tallies ( project_id );
 CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
 CREATE INDEX graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at );
@@ -453,6 +475,7 @@ CREATE INDEX nodes_dis_unk_exit_fin_last_success_index ON nodes ( disqualified, 
 CREATE UNIQUE INDEX serial_number_index ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start );
+CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start );
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period );
 CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id );
 CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id );

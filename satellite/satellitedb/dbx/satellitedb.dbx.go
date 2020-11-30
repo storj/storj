@@ -352,552 +352,7 @@ CREATE TABLE bucket_bandwidth_rollups (
 	settled bigint NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
 );
-CREATE TABLE bucket_storage_tallies (
-	bucket_name bytea NOT NULL,
-	project_id bytea NOT NULL,
-	interval_start timestamp with time zone NOT NULL,
-	inline bigint NOT NULL,
-	remote bigint NOT NULL,
-	remote_segments_count integer NOT NULL,
-	inline_segments_count integer NOT NULL,
-	object_count integer NOT NULL,
-	metadata_size bigint NOT NULL,
-	PRIMARY KEY ( bucket_name, project_id, interval_start )
-);
-CREATE TABLE coinpayments_transactions (
-	id text NOT NULL,
-	user_id bytea NOT NULL,
-	address text NOT NULL,
-	amount bytea NOT NULL,
-	received bytea NOT NULL,
-	status integer NOT NULL,
-	key text NOT NULL,
-	timeout integer NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE consumed_serials (
-	storage_node_id bytea NOT NULL,
-	serial_number bytea NOT NULL,
-	expires_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( storage_node_id, serial_number )
-);
-CREATE TABLE coupons (
-	id bytea NOT NULL,
-	user_id bytea NOT NULL,
-	amount bigint NOT NULL,
-	description text NOT NULL,
-	type integer NOT NULL,
-	status integer NOT NULL,
-	duration bigint NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE coupon_usages (
-	coupon_id bytea NOT NULL,
-	amount bigint NOT NULL,
-	status integer NOT NULL,
-	period timestamp with time zone NOT NULL,
-	PRIMARY KEY ( coupon_id, period )
-);
-CREATE TABLE graceful_exit_progress (
-	node_id bytea NOT NULL,
-	bytes_transferred bigint NOT NULL,
-	pieces_transferred bigint NOT NULL DEFAULT 0,
-	pieces_failed bigint NOT NULL DEFAULT 0,
-	updated_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( node_id )
-);
-CREATE TABLE graceful_exit_transfer_queue (
-	node_id bytea NOT NULL,
-	path bytea NOT NULL,
-	piece_num integer NOT NULL,
-	root_piece_id bytea,
-	durability_ratio double precision NOT NULL,
-	queued_at timestamp with time zone NOT NULL,
-	requested_at timestamp with time zone,
-	last_failed_at timestamp with time zone,
-	last_failed_code integer,
-	failed_count integer,
-	finished_at timestamp with time zone,
-	order_limit_send_count integer NOT NULL DEFAULT 0,
-	PRIMARY KEY ( node_id, path, piece_num )
-);
-CREATE TABLE injuredsegments (
-	path bytea NOT NULL,
-	data bytea NOT NULL,
-	attempted timestamp with time zone,
-	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
-	segment_health double precision NOT NULL DEFAULT 1,
-	PRIMARY KEY ( path )
-);
-CREATE TABLE irreparabledbs (
-	segmentpath bytea NOT NULL,
-	segmentdetail bytea NOT NULL,
-	pieces_lost_count bigint NOT NULL,
-	seg_damaged_unix_sec bigint NOT NULL,
-	repair_attempt_count bigint NOT NULL,
-	PRIMARY KEY ( segmentpath )
-);
-CREATE TABLE nodes (
-	id bytea NOT NULL,
-	address text NOT NULL DEFAULT '',
-	last_net text NOT NULL,
-	last_ip_port text,
-	protocol integer NOT NULL DEFAULT 0,
-	type integer NOT NULL DEFAULT 0,
-	email text NOT NULL,
-	wallet text NOT NULL,
-	free_disk bigint NOT NULL DEFAULT -1,
-	piece_count bigint NOT NULL DEFAULT 0,
-	major bigint NOT NULL DEFAULT 0,
-	minor bigint NOT NULL DEFAULT 0,
-	patch bigint NOT NULL DEFAULT 0,
-	hash text NOT NULL DEFAULT '',
-	timestamp timestamp with time zone NOT NULL DEFAULT '0001-01-01 00:00:00+00',
-	release boolean NOT NULL DEFAULT false,
-	latency_90 bigint NOT NULL DEFAULT 0,
-	audit_success_count bigint NOT NULL DEFAULT 0,
-	total_audit_count bigint NOT NULL DEFAULT 0,
-	vetted_at timestamp with time zone,
-	uptime_success_count bigint NOT NULL DEFAULT 0,
-	total_uptime_count bigint NOT NULL DEFAULT 0,
-	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
-	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
-	last_contact_success timestamp with time zone NOT NULL DEFAULT 'epoch',
-	last_contact_failure timestamp with time zone NOT NULL DEFAULT 'epoch',
-	contained boolean NOT NULL DEFAULT false,
-	disqualified timestamp with time zone,
-	suspended timestamp with time zone,
-	unknown_audit_suspended timestamp with time zone,
-	offline_suspended timestamp with time zone,
-	under_review timestamp with time zone,
-	online_score double precision NOT NULL DEFAULT 1,
-	audit_reputation_alpha double precision NOT NULL DEFAULT 1,
-	audit_reputation_beta double precision NOT NULL DEFAULT 0,
-	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
-	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
-	uptime_reputation_alpha double precision NOT NULL DEFAULT 1,
-	uptime_reputation_beta double precision NOT NULL DEFAULT 0,
-	exit_initiated_at timestamp with time zone,
-	exit_loop_completed_at timestamp with time zone,
-	exit_finished_at timestamp with time zone,
-	exit_success boolean NOT NULL DEFAULT false,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE node_api_versions (
-	id bytea NOT NULL,
-	api_version integer NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	updated_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE offers (
-	id serial NOT NULL,
-	name text NOT NULL,
-	description text NOT NULL,
-	award_credit_in_cents integer NOT NULL DEFAULT 0,
-	invitee_credit_in_cents integer NOT NULL DEFAULT 0,
-	award_credit_duration_days integer,
-	invitee_credit_duration_days integer,
-	redeemable_cap integer,
-	expires_at timestamp with time zone NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	status integer NOT NULL,
-	type integer NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE peer_identities (
-	node_id bytea NOT NULL,
-	leaf_serial_number bytea NOT NULL,
-	chain bytea NOT NULL,
-	updated_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( node_id )
-);
-CREATE TABLE pending_audits (
-	node_id bytea NOT NULL,
-	piece_id bytea NOT NULL,
-	stripe_index bigint NOT NULL,
-	share_size bigint NOT NULL,
-	expected_share_hash bytea NOT NULL,
-	reverify_count bigint NOT NULL,
-	path bytea NOT NULL,
-	PRIMARY KEY ( node_id )
-);
-CREATE TABLE pending_serial_queue (
-	storage_node_id bytea NOT NULL,
-	bucket_id bytea NOT NULL,
-	serial_number bytea NOT NULL,
-	action integer NOT NULL,
-	settled bigint NOT NULL,
-	expires_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( storage_node_id, bucket_id, serial_number )
-);
-CREATE TABLE projects (
-	id bytea NOT NULL,
-	name text NOT NULL,
-	description text NOT NULL,
-	usage_limit bigint,
-	bandwidth_limit bigint,
-	rate_limit integer,
-	max_buckets integer,
-	partner_id bytea,
-	owner_id bytea NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE project_bandwidth_rollups (
-	project_id bytea NOT NULL,
-	interval_month date NOT NULL,
-	egress_allocated bigint NOT NULL,
-	PRIMARY KEY ( project_id, interval_month )
-);
-CREATE TABLE registration_tokens (
-	secret bytea NOT NULL,
-	owner_id bytea,
-	project_limit integer NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( secret ),
-	UNIQUE ( owner_id )
-);
-CREATE TABLE reported_serials (
-	expires_at timestamp with time zone NOT NULL,
-	storage_node_id bytea NOT NULL,
-	bucket_id bytea NOT NULL,
-	action integer NOT NULL,
-	serial_number bytea NOT NULL,
-	settled bigint NOT NULL,
-	observed_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( expires_at, storage_node_id, bucket_id, action, serial_number )
-);
-CREATE TABLE reset_password_tokens (
-	secret bytea NOT NULL,
-	owner_id bytea NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( secret ),
-	UNIQUE ( owner_id )
-);
-CREATE TABLE revocations (
-	revoked bytea NOT NULL,
-	api_key_id bytea NOT NULL,
-	PRIMARY KEY ( revoked )
-);
-CREATE TABLE serial_numbers (
-	id serial NOT NULL,
-	serial_number bytea NOT NULL,
-	bucket_id bytea NOT NULL,
-	expires_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE storagenode_bandwidth_rollups (
-	storagenode_id bytea NOT NULL,
-	interval_start timestamp with time zone NOT NULL,
-	interval_seconds integer NOT NULL,
-	action integer NOT NULL,
-	allocated bigint DEFAULT 0,
-	settled bigint NOT NULL,
-	PRIMARY KEY ( storagenode_id, interval_start, action )
-);
-CREATE TABLE storagenode_bandwidth_rollups_phase2 (
-	storagenode_id bytea NOT NULL,
-	interval_start timestamp with time zone NOT NULL,
-	interval_seconds integer NOT NULL,
-	action integer NOT NULL,
-	allocated bigint DEFAULT 0,
-	settled bigint NOT NULL,
-	PRIMARY KEY ( storagenode_id, interval_start, action )
-);
-CREATE TABLE storagenode_payments (
-	id bigserial NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	node_id bytea NOT NULL,
-	period text NOT NULL,
-	amount bigint NOT NULL,
-	receipt text,
-	notes text,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE storagenode_paystubs (
-	period text NOT NULL,
-	node_id bytea NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	codes text NOT NULL,
-	usage_at_rest double precision NOT NULL,
-	usage_get bigint NOT NULL,
-	usage_put bigint NOT NULL,
-	usage_get_repair bigint NOT NULL,
-	usage_put_repair bigint NOT NULL,
-	usage_get_audit bigint NOT NULL,
-	comp_at_rest bigint NOT NULL,
-	comp_get bigint NOT NULL,
-	comp_put bigint NOT NULL,
-	comp_get_repair bigint NOT NULL,
-	comp_put_repair bigint NOT NULL,
-	comp_get_audit bigint NOT NULL,
-	surge_percent bigint NOT NULL,
-	held bigint NOT NULL,
-	owed bigint NOT NULL,
-	disposed bigint NOT NULL,
-	paid bigint NOT NULL,
-	PRIMARY KEY ( period, node_id )
-);
-CREATE TABLE storagenode_storage_tallies (
-	node_id bytea NOT NULL,
-	interval_end_time timestamp with time zone NOT NULL,
-	data_total double precision NOT NULL,
-	PRIMARY KEY ( interval_end_time, node_id )
-);
-CREATE TABLE stripe_customers (
-	user_id bytea NOT NULL,
-	customer_id text NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( user_id ),
-	UNIQUE ( customer_id )
-);
-CREATE TABLE stripecoinpayments_invoice_project_records (
-	id bytea NOT NULL,
-	project_id bytea NOT NULL,
-	storage double precision NOT NULL,
-	egress bigint NOT NULL,
-	objects bigint NOT NULL,
-	period_start timestamp with time zone NOT NULL,
-	period_end timestamp with time zone NOT NULL,
-	state integer NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( project_id, period_start, period_end )
-);
-CREATE TABLE stripecoinpayments_tx_conversion_rates (
-	tx_id text NOT NULL,
-	rate bytea NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( tx_id )
-);
-CREATE TABLE users (
-	id bytea NOT NULL,
-	email text NOT NULL,
-	normalized_email text NOT NULL,
-	full_name text NOT NULL,
-	short_name text,
-	password_hash bytea NOT NULL,
-	status integer NOT NULL,
-	partner_id bytea,
-	created_at timestamp with time zone NOT NULL,
-	project_limit integer NOT NULL DEFAULT 0,
-	position text,
-	company_name text,
-	company_size integer,
-	working_on text,
-	is_professional boolean NOT NULL DEFAULT false,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE value_attributions (
-	project_id bytea NOT NULL,
-	bucket_name bytea NOT NULL,
-	partner_id bytea NOT NULL,
-	last_updated timestamp with time zone NOT NULL,
-	PRIMARY KEY ( project_id, bucket_name )
-);
-CREATE TABLE api_keys (
-	id bytea NOT NULL,
-	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	head bytea NOT NULL,
-	name text NOT NULL,
-	secret bytea NOT NULL,
-	partner_id bytea,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( head ),
-	UNIQUE ( name, project_id )
-);
-CREATE TABLE bucket_metainfos (
-	id bytea NOT NULL,
-	project_id bytea NOT NULL REFERENCES projects( id ),
-	name bytea NOT NULL,
-	partner_id bytea,
-	path_cipher integer NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	default_segment_size integer NOT NULL,
-	default_encryption_cipher_suite integer NOT NULL,
-	default_encryption_block_size integer NOT NULL,
-	default_redundancy_algorithm integer NOT NULL,
-	default_redundancy_share_size integer NOT NULL,
-	default_redundancy_required_shares integer NOT NULL,
-	default_redundancy_repair_shares integer NOT NULL,
-	default_redundancy_optimal_shares integer NOT NULL,
-	default_redundancy_total_shares integer NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( project_id, name )
-);
-CREATE TABLE project_members (
-	member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
-	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( member_id, project_id )
-);
-CREATE TABLE stripecoinpayments_apply_balance_intents (
-	tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
-	state integer NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( tx_id )
-);
-CREATE TABLE used_serials (
-	serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
-	storage_node_id bytea NOT NULL,
-	PRIMARY KEY ( serial_number_id, storage_node_id )
-);
-CREATE TABLE user_credits (
-	id serial NOT NULL,
-	user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
-	offer_id integer NOT NULL REFERENCES offers( id ),
-	referred_by bytea REFERENCES users( id ) ON DELETE SET NULL,
-	type text NOT NULL,
-	credits_earned_in_cents integer NOT NULL,
-	credits_used_in_cents integer NOT NULL,
-	expires_at timestamp with time zone NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id ),
-	UNIQUE ( id, offer_id )
-);
-CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time );
-CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start );
-CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id );
-CREATE INDEX bucket_storage_tallies_project_id_index ON bucket_storage_tallies ( project_id );
-CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
-CREATE INDEX graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at );
-CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
-CREATE INDEX injuredsegments_segment_health_index ON injuredsegments ( segment_health );
-CREATE INDEX injuredsegments_updated_at_index ON injuredsegments ( updated_at );
-CREATE INDEX node_last_ip ON nodes ( last_net );
-CREATE INDEX nodes_dis_unk_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, exit_finished_at, last_contact_success );
-CREATE UNIQUE INDEX serial_number_index ON serial_numbers ( serial_number );
-CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
-CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start );
-CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period );
-CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id );
-CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id );
-CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits ( id, offer_id );`
-}
-
-func (obj *pgxDB) wrapTx(tx tagsql.Tx) txMethods {
-	return &pgxTx{
-		dialectTx: dialectTx{tx: tx},
-		pgxImpl: &pgxImpl{
-			db:     obj.db,
-			driver: tx,
-			txn:    true,
-		},
-	}
-}
-
-type pgxTx struct {
-	dialectTx
-	*pgxImpl
-}
-
-func pgxLogStmt(stmt string, args ...interface{}) {
-	// TODO: render placeholders
-	if Logger != nil {
-		out := fmt.Sprintf("stmt: %s\nargs: %v\n", stmt, pretty(args))
-		Logger(out)
-	}
-}
-
-type pgxcockroachImpl struct {
-	db      *DB
-	dialect __sqlbundle_pgxcockroach
-	driver  driver
-	txn     bool
-}
-
-func (obj *pgxcockroachImpl) Rebind(s string) string {
-	return obj.dialect.Rebind(s)
-}
-
-func (obj *pgxcockroachImpl) logStmt(stmt string, args ...interface{}) {
-	pgxcockroachLogStmt(stmt, args...)
-}
-
-func (obj *pgxcockroachImpl) makeErr(err error) error {
-	constraint, ok := obj.isConstraintError(err)
-	if ok {
-		return constraintViolation(err, constraint)
-	}
-	return makeErr(err)
-}
-
-func (obj *pgxcockroachImpl) shouldRetry(err error) bool {
-	return !obj.txn && shouldRetry(obj.db.driver, err)
-}
-
-type pgxcockroachImpl_retryingRow struct {
-	obj   *pgxcockroachImpl
-	ctx   context.Context
-	query string
-	args  []interface{}
-}
-
-func (obj *pgxcockroachImpl) queryRowContext(ctx context.Context, query string, args ...interface{}) *pgxcockroachImpl_retryingRow {
-	return &pgxcockroachImpl_retryingRow{
-		obj:   obj,
-		ctx:   ctx,
-		query: query,
-		args:  args,
-	}
-}
-
-func (rows *pgxcockroachImpl_retryingRow) Scan(dest ...interface{}) error {
-	for {
-		err := rows.obj.driver.QueryRowContext(rows.ctx, rows.query, rows.args...).Scan(dest...)
-		if err != nil {
-			if rows.obj.shouldRetry(err) {
-				continue
-			}
-			// caller will wrap this error
-			return err
-		}
-		return nil
-	}
-}
-
-type pgxcockroachDB struct {
-	db *DB
-	*pgxcockroachImpl
-}
-
-func newpgxcockroach(db *DB) *pgxcockroachDB {
-	return &pgxcockroachDB{
-		db: db,
-		pgxcockroachImpl: &pgxcockroachImpl{
-			db:     db,
-			driver: db.DB,
-		},
-	}
-}
-
-func (obj *pgxcockroachDB) Schema() string {
-	return `CREATE TABLE accounting_rollups (
-	node_id bytea NOT NULL,
-	start_time timestamp with time zone NOT NULL,
-	put_total bigint NOT NULL,
-	get_total bigint NOT NULL,
-	get_audit_total bigint NOT NULL,
-	get_repair_total bigint NOT NULL,
-	put_repair_total bigint NOT NULL,
-	at_rest_total double precision NOT NULL,
-	PRIMARY KEY ( node_id, start_time )
-);
-CREATE TABLE accounting_timestamps (
-	name text NOT NULL,
-	value timestamp with time zone NOT NULL,
-	PRIMARY KEY ( name )
-);
-CREATE TABLE audit_histories (
-	node_id bytea NOT NULL,
-	history bytea NOT NULL,
-	PRIMARY KEY ( node_id )
-);
-CREATE TABLE bucket_bandwidth_rollups (
+CREATE TABLE bucket_bandwidth_rollup_archives (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
@@ -1154,6 +609,15 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	settled bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
 );
+CREATE TABLE storagenode_bandwidth_rollup_archives (
+	storagenode_id bytea NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
+	interval_seconds integer NOT NULL,
+	action integer NOT NULL,
+	allocated bigint DEFAULT 0,
+	settled bigint NOT NULL,
+	PRIMARY KEY ( storagenode_id, interval_start, action )
+);
 CREATE TABLE storagenode_bandwidth_rollups_phase2 (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
@@ -1318,6 +782,8 @@ CREATE TABLE user_credits (
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time );
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start );
 CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id );
+CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start );
+CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id );
 CREATE INDEX bucket_storage_tallies_project_id_index ON bucket_storage_tallies ( project_id );
 CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
 CREATE INDEX graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at );
@@ -1329,6 +795,586 @@ CREATE INDEX nodes_dis_unk_exit_fin_last_success_index ON nodes ( disqualified, 
 CREATE UNIQUE INDEX serial_number_index ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start );
+CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start );
+CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period );
+CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id );
+CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id );
+CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits ( id, offer_id );`
+}
+
+func (obj *pgxDB) wrapTx(tx tagsql.Tx) txMethods {
+	return &pgxTx{
+		dialectTx: dialectTx{tx: tx},
+		pgxImpl: &pgxImpl{
+			db:     obj.db,
+			driver: tx,
+			txn:    true,
+		},
+	}
+}
+
+type pgxTx struct {
+	dialectTx
+	*pgxImpl
+}
+
+func pgxLogStmt(stmt string, args ...interface{}) {
+	// TODO: render placeholders
+	if Logger != nil {
+		out := fmt.Sprintf("stmt: %s\nargs: %v\n", stmt, pretty(args))
+		Logger(out)
+	}
+}
+
+type pgxcockroachImpl struct {
+	db      *DB
+	dialect __sqlbundle_pgxcockroach
+	driver  driver
+	txn     bool
+}
+
+func (obj *pgxcockroachImpl) Rebind(s string) string {
+	return obj.dialect.Rebind(s)
+}
+
+func (obj *pgxcockroachImpl) logStmt(stmt string, args ...interface{}) {
+	pgxcockroachLogStmt(stmt, args...)
+}
+
+func (obj *pgxcockroachImpl) makeErr(err error) error {
+	constraint, ok := obj.isConstraintError(err)
+	if ok {
+		return constraintViolation(err, constraint)
+	}
+	return makeErr(err)
+}
+
+func (obj *pgxcockroachImpl) shouldRetry(err error) bool {
+	return !obj.txn && shouldRetry(obj.db.driver, err)
+}
+
+type pgxcockroachImpl_retryingRow struct {
+	obj   *pgxcockroachImpl
+	ctx   context.Context
+	query string
+	args  []interface{}
+}
+
+func (obj *pgxcockroachImpl) queryRowContext(ctx context.Context, query string, args ...interface{}) *pgxcockroachImpl_retryingRow {
+	return &pgxcockroachImpl_retryingRow{
+		obj:   obj,
+		ctx:   ctx,
+		query: query,
+		args:  args,
+	}
+}
+
+func (rows *pgxcockroachImpl_retryingRow) Scan(dest ...interface{}) error {
+	for {
+		err := rows.obj.driver.QueryRowContext(rows.ctx, rows.query, rows.args...).Scan(dest...)
+		if err != nil {
+			if rows.obj.shouldRetry(err) {
+				continue
+			}
+			// caller will wrap this error
+			return err
+		}
+		return nil
+	}
+}
+
+type pgxcockroachDB struct {
+	db *DB
+	*pgxcockroachImpl
+}
+
+func newpgxcockroach(db *DB) *pgxcockroachDB {
+	return &pgxcockroachDB{
+		db: db,
+		pgxcockroachImpl: &pgxcockroachImpl{
+			db:     db,
+			driver: db.DB,
+		},
+	}
+}
+
+func (obj *pgxcockroachDB) Schema() string {
+	return `CREATE TABLE accounting_rollups (
+	node_id bytea NOT NULL,
+	start_time timestamp with time zone NOT NULL,
+	put_total bigint NOT NULL,
+	get_total bigint NOT NULL,
+	get_audit_total bigint NOT NULL,
+	get_repair_total bigint NOT NULL,
+	put_repair_total bigint NOT NULL,
+	at_rest_total double precision NOT NULL,
+	PRIMARY KEY ( node_id, start_time )
+);
+CREATE TABLE accounting_timestamps (
+	name text NOT NULL,
+	value timestamp with time zone NOT NULL,
+	PRIMARY KEY ( name )
+);
+CREATE TABLE audit_histories (
+	node_id bytea NOT NULL,
+	history bytea NOT NULL,
+	PRIMARY KEY ( node_id )
+);
+CREATE TABLE bucket_bandwidth_rollups (
+	bucket_name bytea NOT NULL,
+	project_id bytea NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
+	interval_seconds integer NOT NULL,
+	action integer NOT NULL,
+	inline bigint NOT NULL,
+	allocated bigint NOT NULL,
+	settled bigint NOT NULL,
+	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
+);
+CREATE TABLE bucket_bandwidth_rollup_archives (
+	bucket_name bytea NOT NULL,
+	project_id bytea NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
+	interval_seconds integer NOT NULL,
+	action integer NOT NULL,
+	inline bigint NOT NULL,
+	allocated bigint NOT NULL,
+	settled bigint NOT NULL,
+	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
+);
+CREATE TABLE bucket_storage_tallies (
+	bucket_name bytea NOT NULL,
+	project_id bytea NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
+	inline bigint NOT NULL,
+	remote bigint NOT NULL,
+	remote_segments_count integer NOT NULL,
+	inline_segments_count integer NOT NULL,
+	object_count integer NOT NULL,
+	metadata_size bigint NOT NULL,
+	PRIMARY KEY ( bucket_name, project_id, interval_start )
+);
+CREATE TABLE coinpayments_transactions (
+	id text NOT NULL,
+	user_id bytea NOT NULL,
+	address text NOT NULL,
+	amount bytea NOT NULL,
+	received bytea NOT NULL,
+	status integer NOT NULL,
+	key text NOT NULL,
+	timeout integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE consumed_serials (
+	storage_node_id bytea NOT NULL,
+	serial_number bytea NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( storage_node_id, serial_number )
+);
+CREATE TABLE coupons (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	amount bigint NOT NULL,
+	description text NOT NULL,
+	type integer NOT NULL,
+	status integer NOT NULL,
+	duration bigint NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE coupon_usages (
+	coupon_id bytea NOT NULL,
+	amount bigint NOT NULL,
+	status integer NOT NULL,
+	period timestamp with time zone NOT NULL,
+	PRIMARY KEY ( coupon_id, period )
+);
+CREATE TABLE graceful_exit_progress (
+	node_id bytea NOT NULL,
+	bytes_transferred bigint NOT NULL,
+	pieces_transferred bigint NOT NULL DEFAULT 0,
+	pieces_failed bigint NOT NULL DEFAULT 0,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( node_id )
+);
+CREATE TABLE graceful_exit_transfer_queue (
+	node_id bytea NOT NULL,
+	path bytea NOT NULL,
+	piece_num integer NOT NULL,
+	root_piece_id bytea,
+	durability_ratio double precision NOT NULL,
+	queued_at timestamp with time zone NOT NULL,
+	requested_at timestamp with time zone,
+	last_failed_at timestamp with time zone,
+	last_failed_code integer,
+	failed_count integer,
+	finished_at timestamp with time zone,
+	order_limit_send_count integer NOT NULL DEFAULT 0,
+	PRIMARY KEY ( node_id, path, piece_num )
+);
+CREATE TABLE injuredsegments (
+	path bytea NOT NULL,
+	data bytea NOT NULL,
+	attempted timestamp with time zone,
+	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	segment_health double precision NOT NULL DEFAULT 1,
+	PRIMARY KEY ( path )
+);
+CREATE TABLE irreparabledbs (
+	segmentpath bytea NOT NULL,
+	segmentdetail bytea NOT NULL,
+	pieces_lost_count bigint NOT NULL,
+	seg_damaged_unix_sec bigint NOT NULL,
+	repair_attempt_count bigint NOT NULL,
+	PRIMARY KEY ( segmentpath )
+);
+CREATE TABLE nodes (
+	id bytea NOT NULL,
+	address text NOT NULL DEFAULT '',
+	last_net text NOT NULL,
+	last_ip_port text,
+	protocol integer NOT NULL DEFAULT 0,
+	type integer NOT NULL DEFAULT 0,
+	email text NOT NULL,
+	wallet text NOT NULL,
+	free_disk bigint NOT NULL DEFAULT -1,
+	piece_count bigint NOT NULL DEFAULT 0,
+	major bigint NOT NULL DEFAULT 0,
+	minor bigint NOT NULL DEFAULT 0,
+	patch bigint NOT NULL DEFAULT 0,
+	hash text NOT NULL DEFAULT '',
+	timestamp timestamp with time zone NOT NULL DEFAULT '0001-01-01 00:00:00+00',
+	release boolean NOT NULL DEFAULT false,
+	latency_90 bigint NOT NULL DEFAULT 0,
+	audit_success_count bigint NOT NULL DEFAULT 0,
+	total_audit_count bigint NOT NULL DEFAULT 0,
+	vetted_at timestamp with time zone,
+	uptime_success_count bigint NOT NULL DEFAULT 0,
+	total_uptime_count bigint NOT NULL DEFAULT 0,
+	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	last_contact_success timestamp with time zone NOT NULL DEFAULT 'epoch',
+	last_contact_failure timestamp with time zone NOT NULL DEFAULT 'epoch',
+	contained boolean NOT NULL DEFAULT false,
+	disqualified timestamp with time zone,
+	suspended timestamp with time zone,
+	unknown_audit_suspended timestamp with time zone,
+	offline_suspended timestamp with time zone,
+	under_review timestamp with time zone,
+	online_score double precision NOT NULL DEFAULT 1,
+	audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	uptime_reputation_alpha double precision NOT NULL DEFAULT 1,
+	uptime_reputation_beta double precision NOT NULL DEFAULT 0,
+	exit_initiated_at timestamp with time zone,
+	exit_loop_completed_at timestamp with time zone,
+	exit_finished_at timestamp with time zone,
+	exit_success boolean NOT NULL DEFAULT false,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE node_api_versions (
+	id bytea NOT NULL,
+	api_version integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE offers (
+	id serial NOT NULL,
+	name text NOT NULL,
+	description text NOT NULL,
+	award_credit_in_cents integer NOT NULL DEFAULT 0,
+	invitee_credit_in_cents integer NOT NULL DEFAULT 0,
+	award_credit_duration_days integer,
+	invitee_credit_duration_days integer,
+	redeemable_cap integer,
+	expires_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	status integer NOT NULL,
+	type integer NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE peer_identities (
+	node_id bytea NOT NULL,
+	leaf_serial_number bytea NOT NULL,
+	chain bytea NOT NULL,
+	updated_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( node_id )
+);
+CREATE TABLE pending_audits (
+	node_id bytea NOT NULL,
+	piece_id bytea NOT NULL,
+	stripe_index bigint NOT NULL,
+	share_size bigint NOT NULL,
+	expected_share_hash bytea NOT NULL,
+	reverify_count bigint NOT NULL,
+	path bytea NOT NULL,
+	PRIMARY KEY ( node_id )
+);
+CREATE TABLE pending_serial_queue (
+	storage_node_id bytea NOT NULL,
+	bucket_id bytea NOT NULL,
+	serial_number bytea NOT NULL,
+	action integer NOT NULL,
+	settled bigint NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( storage_node_id, bucket_id, serial_number )
+);
+CREATE TABLE projects (
+	id bytea NOT NULL,
+	name text NOT NULL,
+	description text NOT NULL,
+	usage_limit bigint,
+	bandwidth_limit bigint,
+	rate_limit integer,
+	max_buckets integer,
+	partner_id bytea,
+	owner_id bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE project_bandwidth_rollups (
+	project_id bytea NOT NULL,
+	interval_month date NOT NULL,
+	egress_allocated bigint NOT NULL,
+	PRIMARY KEY ( project_id, interval_month )
+);
+CREATE TABLE registration_tokens (
+	secret bytea NOT NULL,
+	owner_id bytea,
+	project_limit integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+);
+CREATE TABLE reported_serials (
+	expires_at timestamp with time zone NOT NULL,
+	storage_node_id bytea NOT NULL,
+	bucket_id bytea NOT NULL,
+	action integer NOT NULL,
+	serial_number bytea NOT NULL,
+	settled bigint NOT NULL,
+	observed_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( expires_at, storage_node_id, bucket_id, action, serial_number )
+);
+CREATE TABLE reset_password_tokens (
+	secret bytea NOT NULL,
+	owner_id bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( secret ),
+	UNIQUE ( owner_id )
+);
+CREATE TABLE revocations (
+	revoked bytea NOT NULL,
+	api_key_id bytea NOT NULL,
+	PRIMARY KEY ( revoked )
+);
+CREATE TABLE serial_numbers (
+	id serial NOT NULL,
+	serial_number bytea NOT NULL,
+	bucket_id bytea NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE storagenode_bandwidth_rollups (
+	storagenode_id bytea NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
+	interval_seconds integer NOT NULL,
+	action integer NOT NULL,
+	allocated bigint DEFAULT 0,
+	settled bigint NOT NULL,
+	PRIMARY KEY ( storagenode_id, interval_start, action )
+);
+CREATE TABLE storagenode_bandwidth_rollup_archives (
+	storagenode_id bytea NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
+	interval_seconds integer NOT NULL,
+	action integer NOT NULL,
+	allocated bigint DEFAULT 0,
+	settled bigint NOT NULL,
+	PRIMARY KEY ( storagenode_id, interval_start, action )
+);
+CREATE TABLE storagenode_bandwidth_rollups_phase2 (
+	storagenode_id bytea NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
+	interval_seconds integer NOT NULL,
+	action integer NOT NULL,
+	allocated bigint DEFAULT 0,
+	settled bigint NOT NULL,
+	PRIMARY KEY ( storagenode_id, interval_start, action )
+);
+CREATE TABLE storagenode_payments (
+	id bigserial NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	node_id bytea NOT NULL,
+	period text NOT NULL,
+	amount bigint NOT NULL,
+	receipt text,
+	notes text,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE storagenode_paystubs (
+	period text NOT NULL,
+	node_id bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	codes text NOT NULL,
+	usage_at_rest double precision NOT NULL,
+	usage_get bigint NOT NULL,
+	usage_put bigint NOT NULL,
+	usage_get_repair bigint NOT NULL,
+	usage_put_repair bigint NOT NULL,
+	usage_get_audit bigint NOT NULL,
+	comp_at_rest bigint NOT NULL,
+	comp_get bigint NOT NULL,
+	comp_put bigint NOT NULL,
+	comp_get_repair bigint NOT NULL,
+	comp_put_repair bigint NOT NULL,
+	comp_get_audit bigint NOT NULL,
+	surge_percent bigint NOT NULL,
+	held bigint NOT NULL,
+	owed bigint NOT NULL,
+	disposed bigint NOT NULL,
+	paid bigint NOT NULL,
+	PRIMARY KEY ( period, node_id )
+);
+CREATE TABLE storagenode_storage_tallies (
+	node_id bytea NOT NULL,
+	interval_end_time timestamp with time zone NOT NULL,
+	data_total double precision NOT NULL,
+	PRIMARY KEY ( interval_end_time, node_id )
+);
+CREATE TABLE stripe_customers (
+	user_id bytea NOT NULL,
+	customer_id text NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( user_id ),
+	UNIQUE ( customer_id )
+);
+CREATE TABLE stripecoinpayments_invoice_project_records (
+	id bytea NOT NULL,
+	project_id bytea NOT NULL,
+	storage double precision NOT NULL,
+	egress bigint NOT NULL,
+	objects bigint NOT NULL,
+	period_start timestamp with time zone NOT NULL,
+	period_end timestamp with time zone NOT NULL,
+	state integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( project_id, period_start, period_end )
+);
+CREATE TABLE stripecoinpayments_tx_conversion_rates (
+	tx_id text NOT NULL,
+	rate bytea NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( tx_id )
+);
+CREATE TABLE users (
+	id bytea NOT NULL,
+	email text NOT NULL,
+	normalized_email text NOT NULL,
+	full_name text NOT NULL,
+	short_name text,
+	password_hash bytea NOT NULL,
+	status integer NOT NULL,
+	partner_id bytea,
+	created_at timestamp with time zone NOT NULL,
+	project_limit integer NOT NULL DEFAULT 0,
+	position text,
+	company_name text,
+	company_size integer,
+	working_on text,
+	is_professional boolean NOT NULL DEFAULT false,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE value_attributions (
+	project_id bytea NOT NULL,
+	bucket_name bytea NOT NULL,
+	partner_id bytea NOT NULL,
+	last_updated timestamp with time zone NOT NULL,
+	PRIMARY KEY ( project_id, bucket_name )
+);
+CREATE TABLE api_keys (
+	id bytea NOT NULL,
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	head bytea NOT NULL,
+	name text NOT NULL,
+	secret bytea NOT NULL,
+	partner_id bytea,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( head ),
+	UNIQUE ( name, project_id )
+);
+CREATE TABLE bucket_metainfos (
+	id bytea NOT NULL,
+	project_id bytea NOT NULL REFERENCES projects( id ),
+	name bytea NOT NULL,
+	partner_id bytea,
+	path_cipher integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	default_segment_size integer NOT NULL,
+	default_encryption_cipher_suite integer NOT NULL,
+	default_encryption_block_size integer NOT NULL,
+	default_redundancy_algorithm integer NOT NULL,
+	default_redundancy_share_size integer NOT NULL,
+	default_redundancy_required_shares integer NOT NULL,
+	default_redundancy_repair_shares integer NOT NULL,
+	default_redundancy_optimal_shares integer NOT NULL,
+	default_redundancy_total_shares integer NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( project_id, name )
+);
+CREATE TABLE project_members (
+	member_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+	project_id bytea NOT NULL REFERENCES projects( id ) ON DELETE CASCADE,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( member_id, project_id )
+);
+CREATE TABLE stripecoinpayments_apply_balance_intents (
+	tx_id text NOT NULL REFERENCES coinpayments_transactions( id ) ON DELETE CASCADE,
+	state integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( tx_id )
+);
+CREATE TABLE used_serials (
+	serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
+	storage_node_id bytea NOT NULL,
+	PRIMARY KEY ( serial_number_id, storage_node_id )
+);
+CREATE TABLE user_credits (
+	id serial NOT NULL,
+	user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
+	offer_id integer NOT NULL REFERENCES offers( id ),
+	referred_by bytea REFERENCES users( id ) ON DELETE SET NULL,
+	type text NOT NULL,
+	credits_earned_in_cents integer NOT NULL,
+	credits_used_in_cents integer NOT NULL,
+	expires_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( id, offer_id )
+);
+CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time );
+CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start );
+CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id );
+CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start );
+CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id );
+CREATE INDEX bucket_storage_tallies_project_id_index ON bucket_storage_tallies ( project_id );
+CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
+CREATE INDEX graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at );
+CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
+CREATE INDEX injuredsegments_segment_health_index ON injuredsegments ( segment_health );
+CREATE INDEX injuredsegments_updated_at_index ON injuredsegments ( updated_at );
+CREATE INDEX node_last_ip ON nodes ( last_net );
+CREATE INDEX nodes_dis_unk_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, exit_finished_at, last_contact_success );
+CREATE UNIQUE INDEX serial_number_index ON serial_numbers ( serial_number );
+CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
+CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start );
+CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start );
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period );
 CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id );
 CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id );
@@ -1832,6 +1878,177 @@ func (f BucketBandwidthRollup_Settled_Field) value() interface{} {
 }
 
 func (BucketBandwidthRollup_Settled_Field) _Column() string { return "settled" }
+
+type BucketBandwidthRollupArchive struct {
+	BucketName      []byte
+	ProjectId       []byte
+	IntervalStart   time.Time
+	IntervalSeconds uint
+	Action          uint
+	Inline          uint64
+	Allocated       uint64
+	Settled         uint64
+}
+
+func (BucketBandwidthRollupArchive) _Table() string { return "bucket_bandwidth_rollup_archives" }
+
+type BucketBandwidthRollupArchive_Update_Fields struct {
+	Inline    BucketBandwidthRollupArchive_Inline_Field
+	Allocated BucketBandwidthRollupArchive_Allocated_Field
+	Settled   BucketBandwidthRollupArchive_Settled_Field
+}
+
+type BucketBandwidthRollupArchive_BucketName_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BucketBandwidthRollupArchive_BucketName(v []byte) BucketBandwidthRollupArchive_BucketName_Field {
+	return BucketBandwidthRollupArchive_BucketName_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthRollupArchive_BucketName_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthRollupArchive_BucketName_Field) _Column() string { return "bucket_name" }
+
+type BucketBandwidthRollupArchive_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func BucketBandwidthRollupArchive_ProjectId(v []byte) BucketBandwidthRollupArchive_ProjectId_Field {
+	return BucketBandwidthRollupArchive_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthRollupArchive_ProjectId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthRollupArchive_ProjectId_Field) _Column() string { return "project_id" }
+
+type BucketBandwidthRollupArchive_IntervalStart_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func BucketBandwidthRollupArchive_IntervalStart(v time.Time) BucketBandwidthRollupArchive_IntervalStart_Field {
+	return BucketBandwidthRollupArchive_IntervalStart_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthRollupArchive_IntervalStart_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthRollupArchive_IntervalStart_Field) _Column() string { return "interval_start" }
+
+type BucketBandwidthRollupArchive_IntervalSeconds_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func BucketBandwidthRollupArchive_IntervalSeconds(v uint) BucketBandwidthRollupArchive_IntervalSeconds_Field {
+	return BucketBandwidthRollupArchive_IntervalSeconds_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthRollupArchive_IntervalSeconds_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthRollupArchive_IntervalSeconds_Field) _Column() string { return "interval_seconds" }
+
+type BucketBandwidthRollupArchive_Action_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func BucketBandwidthRollupArchive_Action(v uint) BucketBandwidthRollupArchive_Action_Field {
+	return BucketBandwidthRollupArchive_Action_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthRollupArchive_Action_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthRollupArchive_Action_Field) _Column() string { return "action" }
+
+type BucketBandwidthRollupArchive_Inline_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketBandwidthRollupArchive_Inline(v uint64) BucketBandwidthRollupArchive_Inline_Field {
+	return BucketBandwidthRollupArchive_Inline_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthRollupArchive_Inline_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthRollupArchive_Inline_Field) _Column() string { return "inline" }
+
+type BucketBandwidthRollupArchive_Allocated_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketBandwidthRollupArchive_Allocated(v uint64) BucketBandwidthRollupArchive_Allocated_Field {
+	return BucketBandwidthRollupArchive_Allocated_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthRollupArchive_Allocated_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthRollupArchive_Allocated_Field) _Column() string { return "allocated" }
+
+type BucketBandwidthRollupArchive_Settled_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketBandwidthRollupArchive_Settled(v uint64) BucketBandwidthRollupArchive_Settled_Field {
+	return BucketBandwidthRollupArchive_Settled_Field{_set: true, _value: v}
+}
+
+func (f BucketBandwidthRollupArchive_Settled_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketBandwidthRollupArchive_Settled_Field) _Column() string { return "settled" }
 
 type BucketStorageTally struct {
 	BucketName          []byte
@@ -6055,6 +6272,163 @@ func (f StoragenodeBandwidthRollup_Settled_Field) value() interface{} {
 
 func (StoragenodeBandwidthRollup_Settled_Field) _Column() string { return "settled" }
 
+type StoragenodeBandwidthRollupArchive struct {
+	StoragenodeId   []byte
+	IntervalStart   time.Time
+	IntervalSeconds uint
+	Action          uint
+	Allocated       *uint64
+	Settled         uint64
+}
+
+func (StoragenodeBandwidthRollupArchive) _Table() string {
+	return "storagenode_bandwidth_rollup_archives"
+}
+
+type StoragenodeBandwidthRollupArchive_Create_Fields struct {
+	Allocated StoragenodeBandwidthRollupArchive_Allocated_Field
+}
+
+type StoragenodeBandwidthRollupArchive_Update_Fields struct {
+	Allocated StoragenodeBandwidthRollupArchive_Allocated_Field
+	Settled   StoragenodeBandwidthRollupArchive_Settled_Field
+}
+
+type StoragenodeBandwidthRollupArchive_StoragenodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func StoragenodeBandwidthRollupArchive_StoragenodeId(v []byte) StoragenodeBandwidthRollupArchive_StoragenodeId_Field {
+	return StoragenodeBandwidthRollupArchive_StoragenodeId_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeBandwidthRollupArchive_StoragenodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeBandwidthRollupArchive_StoragenodeId_Field) _Column() string {
+	return "storagenode_id"
+}
+
+type StoragenodeBandwidthRollupArchive_IntervalStart_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StoragenodeBandwidthRollupArchive_IntervalStart(v time.Time) StoragenodeBandwidthRollupArchive_IntervalStart_Field {
+	return StoragenodeBandwidthRollupArchive_IntervalStart_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeBandwidthRollupArchive_IntervalStart_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeBandwidthRollupArchive_IntervalStart_Field) _Column() string {
+	return "interval_start"
+}
+
+type StoragenodeBandwidthRollupArchive_IntervalSeconds_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func StoragenodeBandwidthRollupArchive_IntervalSeconds(v uint) StoragenodeBandwidthRollupArchive_IntervalSeconds_Field {
+	return StoragenodeBandwidthRollupArchive_IntervalSeconds_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeBandwidthRollupArchive_IntervalSeconds_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeBandwidthRollupArchive_IntervalSeconds_Field) _Column() string {
+	return "interval_seconds"
+}
+
+type StoragenodeBandwidthRollupArchive_Action_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func StoragenodeBandwidthRollupArchive_Action(v uint) StoragenodeBandwidthRollupArchive_Action_Field {
+	return StoragenodeBandwidthRollupArchive_Action_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeBandwidthRollupArchive_Action_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeBandwidthRollupArchive_Action_Field) _Column() string { return "action" }
+
+type StoragenodeBandwidthRollupArchive_Allocated_Field struct {
+	_set   bool
+	_null  bool
+	_value *uint64
+}
+
+func StoragenodeBandwidthRollupArchive_Allocated(v uint64) StoragenodeBandwidthRollupArchive_Allocated_Field {
+	return StoragenodeBandwidthRollupArchive_Allocated_Field{_set: true, _value: &v}
+}
+
+func StoragenodeBandwidthRollupArchive_Allocated_Raw(v *uint64) StoragenodeBandwidthRollupArchive_Allocated_Field {
+	if v == nil {
+		return StoragenodeBandwidthRollupArchive_Allocated_Null()
+	}
+	return StoragenodeBandwidthRollupArchive_Allocated(*v)
+}
+
+func StoragenodeBandwidthRollupArchive_Allocated_Null() StoragenodeBandwidthRollupArchive_Allocated_Field {
+	return StoragenodeBandwidthRollupArchive_Allocated_Field{_set: true, _null: true}
+}
+
+func (f StoragenodeBandwidthRollupArchive_Allocated_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f StoragenodeBandwidthRollupArchive_Allocated_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeBandwidthRollupArchive_Allocated_Field) _Column() string { return "allocated" }
+
+type StoragenodeBandwidthRollupArchive_Settled_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func StoragenodeBandwidthRollupArchive_Settled(v uint64) StoragenodeBandwidthRollupArchive_Settled_Field {
+	return StoragenodeBandwidthRollupArchive_Settled_Field{_set: true, _value: v}
+}
+
+func (f StoragenodeBandwidthRollupArchive_Settled_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodeBandwidthRollupArchive_Settled_Field) _Column() string { return "settled" }
+
 type StoragenodeBandwidthRollupPhase2 struct {
 	StoragenodeId   []byte
 	IntervalStart   time.Time
@@ -9084,6 +9458,22 @@ type MaxBuckets_Row struct {
 	MaxBuckets *int
 }
 
+type Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation struct {
+	_value_bucket_name    []byte
+	_value_project_id     []byte
+	_value_interval_start time.Time
+	_value_action         uint
+	_set                  bool
+}
+
+type Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation struct {
+	_value_bucket_name    []byte
+	_value_project_id     []byte
+	_value_interval_start time.Time
+	_value_action         uint
+	_set                  bool
+}
+
 type Paged_PendingSerialQueue_Continuation struct {
 	_value_storage_node_id []byte
 	_value_bucket_id       []byte
@@ -9091,7 +9481,21 @@ type Paged_PendingSerialQueue_Continuation struct {
 	_set                   bool
 }
 
+type Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation struct {
+	_value_storagenode_id []byte
+	_value_interval_start time.Time
+	_value_action         uint
+	_set                  bool
+}
+
 type Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation struct {
+	_value_storagenode_id []byte
+	_value_interval_start time.Time
+	_value_action         uint
+	_set                  bool
+}
+
+type Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation struct {
 	_value_storagenode_id []byte
 	_value_interval_start time.Time
 	_value_action         uint
@@ -11966,6 +12370,128 @@ func (obj *pgxImpl) Find_BucketBandwidthRollup_By_BucketName_And_ProjectId_And_I
 
 }
 
+func (obj *pgxImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	bucket_bandwidth_rollup_interval_start_greater_or_equal BucketBandwidthRollup_IntervalStart_Field,
+	limit int, start *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation) (
+	rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? AND (bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? ORDER BY bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_bandwidth_rollup_interval_start_greater_or_equal.value())
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_bucket_name, start._value_project_id, start._value_interval_start, start._value_action, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
+
+			var __continuation Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				bucket_bandwidth_rollup := &BucketBandwidthRollup{}
+				err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, bucket_bandwidth_rollup)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, err
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
+func (obj *pgxImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	bucket_bandwidth_rollup_archive_interval_start_greater_or_equal BucketBandwidthRollupArchive_IntervalStart_Field,
+	limit int, start *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation) (
+	rows []*BucketBandwidthRollupArchive, next *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? AND (bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_bandwidth_rollup_archive_interval_start_greater_or_equal.value())
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_bucket_name, start._value_project_id, start._value_interval_start, start._value_action, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*BucketBandwidthRollupArchive, next *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
+
+			var __continuation Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				bucket_bandwidth_rollup_archive := &BucketBandwidthRollupArchive{}
+				err = __rows.Scan(&bucket_bandwidth_rollup_archive.BucketName, &bucket_bandwidth_rollup_archive.ProjectId, &bucket_bandwidth_rollup_archive.IntervalStart, &bucket_bandwidth_rollup_archive.IntervalSeconds, &bucket_bandwidth_rollup_archive.Action, &bucket_bandwidth_rollup_archive.Inline, &bucket_bandwidth_rollup_archive.Allocated, &bucket_bandwidth_rollup_archive.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, bucket_bandwidth_rollup_archive)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, err
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
 func (obj *pgxImpl) Find_ProjectBandwidthRollup_By_ProjectId_And_IntervalMonth(ctx context.Context,
 	project_bandwidth_rollup_project_id ProjectBandwidthRollup_ProjectId_Field,
 	project_bandwidth_rollup_interval_month ProjectBandwidthRollup_IntervalMonth_Field) (
@@ -12176,6 +12702,67 @@ func (obj *pgxImpl) All_StoragenodeBandwidthRollup_By_StoragenodeId_And_Interval
 
 }
 
+func (obj *pgxImpl) Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	storagenode_bandwidth_rollup_interval_start_greater_or_equal StoragenodeBandwidthRollup_IntervalStart_Field,
+	limit int, start *Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation) (
+	rows []*StoragenodeBandwidthRollup, next *Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.interval_start >= ? AND (storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action) > (?, ?, ?) ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.interval_start >= ? ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_bandwidth_rollup_interval_start_greater_or_equal.value())
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_storagenode_id, start._value_interval_start, start._value_action, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*StoragenodeBandwidthRollup, next *Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
+
+			var __continuation Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
+				err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, storagenode_bandwidth_rollup)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, err
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
 func (obj *pgxImpl) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_GreaterOrEqual(ctx context.Context,
 	storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
 	storagenode_bandwidth_rollup_interval_start_greater_or_equal StoragenodeBandwidthRollup_IntervalStart_Field,
@@ -12218,6 +12805,67 @@ func (obj *pgxImpl) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_Interv
 					return nil, nil, err
 				}
 				rows = append(rows, storagenode_bandwidth_rollup)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, err
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
+func (obj *pgxImpl) Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	storagenode_bandwidth_rollup_archive_interval_start_greater_or_equal StoragenodeBandwidthRollupArchive_IntervalStart_Field,
+	limit int, start *Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation) (
+	rows []*StoragenodeBandwidthRollupArchive, next *Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.interval_seconds, storagenode_bandwidth_rollup_archives.action, storagenode_bandwidth_rollup_archives.allocated, storagenode_bandwidth_rollup_archives.settled, storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action FROM storagenode_bandwidth_rollup_archives WHERE storagenode_bandwidth_rollup_archives.interval_start >= ? AND (storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action) > (?, ?, ?) ORDER BY storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.interval_seconds, storagenode_bandwidth_rollup_archives.action, storagenode_bandwidth_rollup_archives.allocated, storagenode_bandwidth_rollup_archives.settled, storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action FROM storagenode_bandwidth_rollup_archives WHERE storagenode_bandwidth_rollup_archives.interval_start >= ? ORDER BY storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action LIMIT ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_bandwidth_rollup_archive_interval_start_greater_or_equal.value())
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_storagenode_id, start._value_interval_start, start._value_action, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*StoragenodeBandwidthRollupArchive, next *Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
+
+			var __continuation Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				storagenode_bandwidth_rollup_archive := &StoragenodeBandwidthRollupArchive{}
+				err = __rows.Scan(&storagenode_bandwidth_rollup_archive.StoragenodeId, &storagenode_bandwidth_rollup_archive.IntervalStart, &storagenode_bandwidth_rollup_archive.IntervalSeconds, &storagenode_bandwidth_rollup_archive.Action, &storagenode_bandwidth_rollup_archive.Allocated, &storagenode_bandwidth_rollup_archive.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, storagenode_bandwidth_rollup_archive)
 				next = &__continuation
 			}
 
@@ -15801,6 +16449,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollup_archives;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -16022,6 +16680,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_storage_tallies;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_bandwidth_rollup_archives;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -18925,6 +19593,128 @@ func (obj *pgxcockroachImpl) Find_BucketBandwidthRollup_By_BucketName_And_Projec
 
 }
 
+func (obj *pgxcockroachImpl) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	bucket_bandwidth_rollup_interval_start_greater_or_equal BucketBandwidthRollup_IntervalStart_Field,
+	limit int, start *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation) (
+	rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? AND (bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.interval_seconds, bucket_bandwidth_rollups.action, bucket_bandwidth_rollups.inline, bucket_bandwidth_rollups.allocated, bucket_bandwidth_rollups.settled, bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action FROM bucket_bandwidth_rollups WHERE bucket_bandwidth_rollups.interval_start >= ? ORDER BY bucket_bandwidth_rollups.bucket_name, bucket_bandwidth_rollups.project_id, bucket_bandwidth_rollups.interval_start, bucket_bandwidth_rollups.action LIMIT ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_bandwidth_rollup_interval_start_greater_or_equal.value())
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_bucket_name, start._value_project_id, start._value_interval_start, start._value_action, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
+
+			var __continuation Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				bucket_bandwidth_rollup := &BucketBandwidthRollup{}
+				err = __rows.Scan(&bucket_bandwidth_rollup.BucketName, &bucket_bandwidth_rollup.ProjectId, &bucket_bandwidth_rollup.IntervalStart, &bucket_bandwidth_rollup.IntervalSeconds, &bucket_bandwidth_rollup.Action, &bucket_bandwidth_rollup.Inline, &bucket_bandwidth_rollup.Allocated, &bucket_bandwidth_rollup.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, bucket_bandwidth_rollup)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, err
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	bucket_bandwidth_rollup_archive_interval_start_greater_or_equal BucketBandwidthRollupArchive_IntervalStart_Field,
+	limit int, start *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation) (
+	rows []*BucketBandwidthRollupArchive, next *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? AND (bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action) > (?, ?, ?, ?) ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.interval_seconds, bucket_bandwidth_rollup_archives.action, bucket_bandwidth_rollup_archives.inline, bucket_bandwidth_rollup_archives.allocated, bucket_bandwidth_rollup_archives.settled, bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action FROM bucket_bandwidth_rollup_archives WHERE bucket_bandwidth_rollup_archives.interval_start >= ? ORDER BY bucket_bandwidth_rollup_archives.bucket_name, bucket_bandwidth_rollup_archives.project_id, bucket_bandwidth_rollup_archives.interval_start, bucket_bandwidth_rollup_archives.action LIMIT ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_bandwidth_rollup_archive_interval_start_greater_or_equal.value())
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_bucket_name, start._value_project_id, start._value_interval_start, start._value_action, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*BucketBandwidthRollupArchive, next *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
+
+			var __continuation Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				bucket_bandwidth_rollup_archive := &BucketBandwidthRollupArchive{}
+				err = __rows.Scan(&bucket_bandwidth_rollup_archive.BucketName, &bucket_bandwidth_rollup_archive.ProjectId, &bucket_bandwidth_rollup_archive.IntervalStart, &bucket_bandwidth_rollup_archive.IntervalSeconds, &bucket_bandwidth_rollup_archive.Action, &bucket_bandwidth_rollup_archive.Inline, &bucket_bandwidth_rollup_archive.Allocated, &bucket_bandwidth_rollup_archive.Settled, &__continuation._value_bucket_name, &__continuation._value_project_id, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, bucket_bandwidth_rollup_archive)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, err
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
 func (obj *pgxcockroachImpl) Find_ProjectBandwidthRollup_By_ProjectId_And_IntervalMonth(ctx context.Context,
 	project_bandwidth_rollup_project_id ProjectBandwidthRollup_ProjectId_Field,
 	project_bandwidth_rollup_interval_month ProjectBandwidthRollup_IntervalMonth_Field) (
@@ -19135,6 +19925,67 @@ func (obj *pgxcockroachImpl) All_StoragenodeBandwidthRollup_By_StoragenodeId_And
 
 }
 
+func (obj *pgxcockroachImpl) Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	storagenode_bandwidth_rollup_interval_start_greater_or_equal StoragenodeBandwidthRollup_IntervalStart_Field,
+	limit int, start *Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation) (
+	rows []*StoragenodeBandwidthRollup, next *Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.interval_start >= ? AND (storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action) > (?, ?, ?) ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.interval_seconds, storagenode_bandwidth_rollups.action, storagenode_bandwidth_rollups.allocated, storagenode_bandwidth_rollups.settled, storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action FROM storagenode_bandwidth_rollups WHERE storagenode_bandwidth_rollups.interval_start >= ? ORDER BY storagenode_bandwidth_rollups.storagenode_id, storagenode_bandwidth_rollups.interval_start, storagenode_bandwidth_rollups.action LIMIT ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_bandwidth_rollup_interval_start_greater_or_equal.value())
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_storagenode_id, start._value_interval_start, start._value_action, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*StoragenodeBandwidthRollup, next *Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
+
+			var __continuation Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				storagenode_bandwidth_rollup := &StoragenodeBandwidthRollup{}
+				err = __rows.Scan(&storagenode_bandwidth_rollup.StoragenodeId, &storagenode_bandwidth_rollup.IntervalStart, &storagenode_bandwidth_rollup.IntervalSeconds, &storagenode_bandwidth_rollup.Action, &storagenode_bandwidth_rollup.Allocated, &storagenode_bandwidth_rollup.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, storagenode_bandwidth_rollup)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, err
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
 func (obj *pgxcockroachImpl) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_GreaterOrEqual(ctx context.Context,
 	storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
 	storagenode_bandwidth_rollup_interval_start_greater_or_equal StoragenodeBandwidthRollup_IntervalStart_Field,
@@ -19177,6 +20028,67 @@ func (obj *pgxcockroachImpl) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_A
 					return nil, nil, err
 				}
 				rows = append(rows, storagenode_bandwidth_rollup)
+				next = &__continuation
+			}
+
+			if err := __rows.Err(); err != nil {
+				return nil, nil, err
+			}
+
+			return rows, next, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, nil, obj.makeErr(err)
+		}
+		return rows, next, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	storagenode_bandwidth_rollup_archive_interval_start_greater_or_equal StoragenodeBandwidthRollupArchive_IntervalStart_Field,
+	limit int, start *Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation) (
+	rows []*StoragenodeBandwidthRollupArchive, next *Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.interval_seconds, storagenode_bandwidth_rollup_archives.action, storagenode_bandwidth_rollup_archives.allocated, storagenode_bandwidth_rollup_archives.settled, storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action FROM storagenode_bandwidth_rollup_archives WHERE storagenode_bandwidth_rollup_archives.interval_start >= ? AND (storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action) > (?, ?, ?) ORDER BY storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action LIMIT ?")
+
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.interval_seconds, storagenode_bandwidth_rollup_archives.action, storagenode_bandwidth_rollup_archives.allocated, storagenode_bandwidth_rollup_archives.settled, storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action FROM storagenode_bandwidth_rollup_archives WHERE storagenode_bandwidth_rollup_archives.interval_start >= ? ORDER BY storagenode_bandwidth_rollup_archives.storagenode_id, storagenode_bandwidth_rollup_archives.interval_start, storagenode_bandwidth_rollup_archives.action LIMIT ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_bandwidth_rollup_archive_interval_start_greater_or_equal.value())
+
+	var __stmt string
+	if start != nil && start._set {
+		__values = append(__values, start._value_storagenode_id, start._value_interval_start, start._value_action, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	} else {
+		__values = append(__values, limit)
+		__stmt = __sqlbundle_Render(obj.dialect, __embed_first_stmt)
+	}
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, next, err = func() (rows []*StoragenodeBandwidthRollupArchive, next *Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, nil, err
+			}
+			defer __rows.Close()
+
+			var __continuation Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
+			__continuation._set = true
+
+			for __rows.Next() {
+				storagenode_bandwidth_rollup_archive := &StoragenodeBandwidthRollupArchive{}
+				err = __rows.Scan(&storagenode_bandwidth_rollup_archive.StoragenodeId, &storagenode_bandwidth_rollup_archive.IntervalStart, &storagenode_bandwidth_rollup_archive.IntervalSeconds, &storagenode_bandwidth_rollup_archive.Action, &storagenode_bandwidth_rollup_archive.Allocated, &storagenode_bandwidth_rollup_archive.Settled, &__continuation._value_storagenode_id, &__continuation._value_interval_start, &__continuation._value_action)
+				if err != nil {
+					return nil, nil, err
+				}
+				rows = append(rows, storagenode_bandwidth_rollup_archive)
 				next = &__continuation
 			}
 
@@ -22760,6 +23672,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollup_archives;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -22981,6 +23903,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_storage_tallies;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM bucket_bandwidth_rollup_archives;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -24625,6 +25557,28 @@ func (rx *Rx) Limited_StripecoinpaymentsInvoiceProjectRecord_By_PeriodStart_And_
 	return tx.Limited_StripecoinpaymentsInvoiceProjectRecord_By_PeriodStart_And_PeriodEnd_And_State(ctx, stripecoinpayments_invoice_project_record_period_start, stripecoinpayments_invoice_project_record_period_end, stripecoinpayments_invoice_project_record_state, limit, offset)
 }
 
+func (rx *Rx) Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	bucket_bandwidth_rollup_archive_interval_start_greater_or_equal BucketBandwidthRollupArchive_IntervalStart_Field,
+	limit int, start *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation) (
+	rows []*BucketBandwidthRollupArchive, next *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual(ctx, bucket_bandwidth_rollup_archive_interval_start_greater_or_equal, limit, start)
+}
+
+func (rx *Rx) Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	bucket_bandwidth_rollup_interval_start_greater_or_equal BucketBandwidthRollup_IntervalStart_Field,
+	limit int, start *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation) (
+	rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx, bucket_bandwidth_rollup_interval_start_greater_or_equal, limit, start)
+}
+
 func (rx *Rx) Paged_PendingSerialQueue(ctx context.Context,
 	limit int, start *Paged_PendingSerialQueue_Continuation) (
 	rows []*PendingSerialQueue, next *Paged_PendingSerialQueue_Continuation, err error) {
@@ -24633,6 +25587,17 @@ func (rx *Rx) Paged_PendingSerialQueue(ctx context.Context,
 		return
 	}
 	return tx.Paged_PendingSerialQueue(ctx, limit, start)
+}
+
+func (rx *Rx) Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	storagenode_bandwidth_rollup_archive_interval_start_greater_or_equal StoragenodeBandwidthRollupArchive_IntervalStart_Field,
+	limit int, start *Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation) (
+	rows []*StoragenodeBandwidthRollupArchive, next *Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual(ctx, storagenode_bandwidth_rollup_archive_interval_start_greater_or_equal, limit, start)
 }
 
 func (rx *Rx) Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual(ctx context.Context,
@@ -24645,6 +25610,17 @@ func (rx *Rx) Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_Interv
 		return
 	}
 	return tx.Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual(ctx, storagenode_bandwidth_rollup_phase2_storagenode_id, storagenode_bandwidth_rollup_phase2_interval_start_greater_or_equal, limit, start)
+}
+
+func (rx *Rx) Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+	storagenode_bandwidth_rollup_interval_start_greater_or_equal StoragenodeBandwidthRollup_IntervalStart_Field,
+	limit int, start *Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation) (
+	rows []*StoragenodeBandwidthRollup, next *Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx, storagenode_bandwidth_rollup_interval_start_greater_or_equal, limit, start)
 }
 
 func (rx *Rx) Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_GreaterOrEqual(ctx context.Context,
@@ -25653,15 +26629,35 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*StripecoinpaymentsInvoiceProjectRecord, err error)
 
+	Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+		bucket_bandwidth_rollup_archive_interval_start_greater_or_equal BucketBandwidthRollupArchive_IntervalStart_Field,
+		limit int, start *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation) (
+		rows []*BucketBandwidthRollupArchive, next *Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error)
+
+	Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+		bucket_bandwidth_rollup_interval_start_greater_or_equal BucketBandwidthRollup_IntervalStart_Field,
+		limit int, start *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation) (
+		rows []*BucketBandwidthRollup, next *Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error)
+
 	Paged_PendingSerialQueue(ctx context.Context,
 		limit int, start *Paged_PendingSerialQueue_Continuation) (
 		rows []*PendingSerialQueue, next *Paged_PendingSerialQueue_Continuation, err error)
+
+	Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+		storagenode_bandwidth_rollup_archive_interval_start_greater_or_equal StoragenodeBandwidthRollupArchive_IntervalStart_Field,
+		limit int, start *Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation) (
+		rows []*StoragenodeBandwidthRollupArchive, next *Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation, err error)
 
 	Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual(ctx context.Context,
 		storagenode_bandwidth_rollup_phase2_storagenode_id StoragenodeBandwidthRollupPhase2_StoragenodeId_Field,
 		storagenode_bandwidth_rollup_phase2_interval_start_greater_or_equal StoragenodeBandwidthRollupPhase2_IntervalStart_Field,
 		limit int, start *Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation) (
 		rows []*StoragenodeBandwidthRollupPhase2, next *Paged_StoragenodeBandwidthRollupPhase2_By_StoragenodeId_And_IntervalStart_GreaterOrEqual_Continuation, err error)
+
+	Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx context.Context,
+		storagenode_bandwidth_rollup_interval_start_greater_or_equal StoragenodeBandwidthRollup_IntervalStart_Field,
+		limit int, start *Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation) (
+		rows []*StoragenodeBandwidthRollup, next *Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation, err error)
 
 	Paged_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart_GreaterOrEqual(ctx context.Context,
 		storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,

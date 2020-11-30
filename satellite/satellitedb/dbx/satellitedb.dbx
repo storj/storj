@@ -587,6 +587,39 @@ read scalar (
 	where  bucket_bandwidth_rollup.action = ?
 )
 
+read paged (
+    select bucket_bandwidth_rollup
+    where bucket_bandwidth_rollup.interval_start >= ?
+)
+
+model bucket_bandwidth_rollup_archive (
+	key    bucket_name project_id interval_start action
+	index (
+		name bucket_bandwidth_rollups_archive_project_id_action_interval_index
+		fields project_id action interval_start
+	)
+	index (
+		name bucket_bandwidth_rollups_archive_action_interval_project_id_index
+		fields action interval_start project_id
+	)
+
+	field bucket_name       blob
+	field project_id        blob
+
+	field interval_start   timestamp
+	field interval_seconds uint
+	field action           uint
+
+	field inline    uint64 ( updatable )
+	field allocated uint64 ( updatable )
+	field settled   uint64 ( updatable )
+)
+
+read paged (
+    select bucket_bandwidth_rollup_archive
+    where bucket_bandwidth_rollup_archive.interval_start >= ?
+)
+
 model revocation (
     key revoked
     field revoked blob
@@ -681,9 +714,36 @@ read all (
 )
 
 read paged (
+    select storagenode_bandwidth_rollup
+    where storagenode_bandwidth_rollup.interval_start >= ?
+)
+
+read paged (
   select storagenode_bandwidth_rollup
   where storagenode_bandwidth_rollup.storagenode_id = ?
   where storagenode_bandwidth_rollup.interval_start >= ?
+)
+
+model storagenode_bandwidth_rollup_archive (
+	key    storagenode_id interval_start action
+
+	index (
+		name storagenode_bandwidth_rollup_archives_interval_start_index
+		fields interval_start
+	)
+
+	field storagenode_id   blob
+	field interval_start   timestamp
+	field interval_seconds uint
+	field action           uint
+
+	field allocated uint64 ( updatable, nullable, default 0 )
+	field settled   uint64 ( updatable )
+)
+
+read paged (
+    select storagenode_bandwidth_rollup_archive
+    where storagenode_bandwidth_rollup_archive.interval_start >= ?
 )
 
 ///////////////////////////////////////
