@@ -36,6 +36,7 @@ import (
 	"storj.io/storj/satellite/accounting/projectbwcleanup"
 	"storj.io/storj/satellite/accounting/reportedrollup"
 	"storj.io/storj/satellite/accounting/rollup"
+	"storj.io/storj/satellite/accounting/rolluparchive"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/audit"
@@ -146,6 +147,7 @@ type Satellite struct {
 		ProjectUsage     *accounting.Service
 		ReportedRollup   *reportedrollup.Chore
 		ProjectBWCleanup *projectbwcleanup.Chore
+		RollupArchive    *rolluparchive.Chore
 	}
 
 	LiveAccounting struct {
@@ -564,6 +566,12 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		ReportedRollup: reportedrollup.Config{
 			Interval: defaultInterval,
 		},
+		RollupArchive: rolluparchive.Config{
+			Interval:   defaultInterval,
+			ArchiveAge: time.Hour * 24,
+			BatchSize:  1000,
+			Enabled:    true,
+		},
 		ProjectBWCleanup: projectbwcleanup.Config{
 			Interval:     defaultInterval,
 			RetainMonths: 1,
@@ -738,6 +746,7 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Accounting.ProjectUsage = api.Accounting.ProjectUsage
 	system.Accounting.ReportedRollup = peer.Accounting.ReportedRollupChore
 	system.Accounting.ProjectBWCleanup = peer.Accounting.ProjectBWCleanupChore
+	system.Accounting.RollupArchive = peer.Accounting.RollupArchiveChore
 
 	system.LiveAccounting = peer.LiveAccounting
 
