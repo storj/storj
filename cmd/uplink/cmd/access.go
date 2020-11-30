@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/fpath"
 	"storj.io/common/pb"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
@@ -33,7 +34,6 @@ var (
 	inspectCfg  AccessConfig
 	listCfg     AccessConfig
 	registerCfg registerConfig
-	awsErr      = errs.Class("error writing AWS credentials file")
 )
 
 func init() {
@@ -131,7 +131,7 @@ func accessInspect(cmd *cobra.Command, args []string) (err error) {
 func parseAccess(access string) (sa string, apiKey string, ea string, err error) {
 	data, version, err := base58.CheckDecode(access)
 	if err != nil || version != 0 {
-		return "", "", "", errs.New("invalid access grant format: %v", err)
+		return "", "", "", errs.New("invalid access grant format: %w", err)
 	}
 
 	p := new(pb.Scope)
@@ -141,7 +141,7 @@ func parseAccess(access string) (sa string, apiKey string, ea string, err error)
 
 	eaData, err := pb.Marshal(p.EncryptionAccess)
 	if err != nil {
-		return "", "", "", errs.New("unable to marshal encryption access: %v", err)
+		return "", "", "", errs.New("unable to marshal encryption access: %w", err)
 	}
 
 	apiKey = base58.CheckEncode(p.ApiKey, 0)
@@ -165,7 +165,7 @@ func registerAccess(cmd *cobra.Command, args []string) (err error) {
 	if err == nil && access != nil {
 		accessRaw, err = access.Serialize()
 		if err != nil {
-			return errs.New("error serializing named access '%s': %v", accessRaw, err)
+			return errs.New("error serializing named access '%s': %w", accessRaw, err)
 		}
 	}
 
@@ -206,38 +206,52 @@ func registerAccess(cmd *cobra.Command, args []string) (err error) {
 	fmt.Println("Secret Key:    ", secretKey)
 	fmt.Println("Endpoint:      ", respBody["endpoint"])
 
-	return tryWriteAWSCredentials(registerCfg.AWSProfile, accessKey, secretKey)
+	// update AWS credential file if requested
+	if registerCfg.AWSProfile != "" {
+		credentialsPath, err := getAwsCredentialsPath()
+		if err != nil {
+			return err
+		}
+		err = writeAWSCredentials(credentialsPath, registerCfg.AWSProfile, accessKey, secretKey)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-// tryWriteAWSCredentials appends to ~/.aws/credentials or %USERPROFILE%\.aws\credentials.
-func tryWriteAWSCredentials(profileName, accessKey, secretKey string) error {
-	if registerCfg.AWSProfile == "" {
-		return nil
+// getAwsCredentialsPath returns the expected AWS credentials path.
+func getAwsCredentialsPath() (string, error) {
+	if credentialsPath, found := os.LookupEnv("AWS_SHARED_CREDENTIALS_FILE"); found {
+		return credentialsPath, nil
 	}
-	credPath := os.Getenv("AWS_SHARED_CREDENTIALS_FILE")
-	if credPath == "" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return awsErr.New("cannot determine home directory: %v", err)
-		}
-		credPath = filepath.Join(homeDir, ".aws", "credentials")
-	}
-	// open file
-	f, err := os.OpenFile(credPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return awsErr.New("error opening AWS credentials file: %v", err)
+		return "", errs.Wrap(err)
 	}
-	defer func() { _ = f.Close() }()
-	// write data
-	if _, err := fmt.Fprintf(f, "\n[%s]\n", profileName); err != nil {
-		return awsErr.New("error writing to AWS credentials file: %v", err)
+	return filepath.Join(homeDir, ".aws", "credentials"), nil
+}
+
+// writeAWSCredentials appends to credentialsPath using an AWS compliant credential formatting.
+func writeAWSCredentials(credentialsPath, profileName, accessKey, secretKey string) error {
+	oldCredentials, err := ioutil.ReadFile(credentialsPath)
+	if err != nil && !os.IsNotExist(err) {
+		return errs.Wrap(err)
 	}
-	if _, err := fmt.Fprintf(f, "aws_access_key_id = %s\n", accessKey); err != nil {
-		return awsErr.New("error writing to AWS credentials file: %v", err)
+	const format = "\n[%s]\naws_access_key_id = %s\naws_secret_access_key = %s\n"
+	newCredentials := fmt.Sprintf(format, profileName, accessKey, secretKey)
+
+	var fileMode os.FileMode
+	fileInfo, err := os.Stat(credentialsPath)
+	if err == nil {
+		fileMode = fileInfo.Mode()
+	} else {
+		fileMode = 0644
 	}
-	if _, err := fmt.Fprintf(f, "aws_secret_access_key = %s\n", secretKey); err != nil {
-		return awsErr.New("error writing to AWS credentials file: %v", err)
+	err = fpath.AtomicWriteFile(credentialsPath, append(oldCredentials, newCredentials...), fileMode)
+	if err != nil {
+		return errs.Wrap(err)
 	}
-	fmt.Printf("Updated AWS credential file %s with profile '%s'\n", credPath, profileName)
+	fmt.Printf("Updated AWS credential file %s with profile '%s'\n", credentialsPath, profileName)
 	return nil
 }
