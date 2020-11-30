@@ -341,3 +341,51 @@ func (db *DB) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, er
 
 	return false, nil
 }
+
+// TestingAllCommittedObjects gets all objects from bucket.
+// Use only for testing purposes.
+func (db *DB) TestingAllCommittedObjects(ctx context.Context, projectID uuid.UUID, bucketName string) (objects []ObjectEntry, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = db.IterateObjectsAllVersions(ctx,
+		IterateObjects{
+			ProjectID:  projectID,
+			BucketName: bucketName,
+			Recursive:  true,
+			Status:     Committed,
+		}, func(ctx context.Context, it ObjectsIterator) error {
+			entry := ObjectEntry{}
+			for it.Next(ctx, &entry) {
+				objects = append(objects, entry)
+			}
+			return nil
+		},
+	)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return objects, nil
+}
+
+// TestingAllObjectSegments gets all segments for given object.
+// Use only for testing purposes.
+func (db *DB) TestingAllObjectSegments(ctx context.Context, objectLocation ObjectLocation) (segments []Segment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	object, err := db.GetObjectLatestVersion(ctx, GetObjectLatestVersion{
+		ObjectLocation: objectLocation,
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	response, err := db.ListSegments(ctx, ListSegments{
+		StreamID: object.StreamID,
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return response.Segments, nil
+}

@@ -35,7 +35,6 @@ import (
 	"storj.io/uplink"
 	"storj.io/uplink/private/metainfo"
 	"storj.io/uplink/private/object"
-	"storj.io/uplink/private/storage/meta"
 	"storj.io/uplink/private/testuplink"
 )
 
@@ -414,7 +413,7 @@ func TestExpirationTimeSegment(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(metainfoClient.Close)
 
-		for _, r := range []struct {
+		for i, r := range []struct {
 			expirationDate time.Time
 			errFlag        bool
 		}{
@@ -437,8 +436,12 @@ func TestExpirationTimeSegment(t *testing.T) {
 		} {
 			_, err := metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
 				Bucket:        []byte("my-bucket-name"),
-				EncryptedPath: []byte("path"),
+				EncryptedPath: []byte("path" + strconv.Itoa(i)),
 				ExpiresAt:     r.expirationDate,
+				EncryptionParameters: storj.EncryptionParameters{
+					CipherSuite: storj.EncAESGCM,
+					BlockSize:   256,
+				},
 			})
 			if r.errFlag {
 				assert.Error(t, err)
@@ -639,8 +642,11 @@ func TestBeginCommit(t *testing.T) {
 				OptimalShares:  3,
 				TotalShares:    4,
 			},
-			EncryptionParameters: storj.EncryptionParameters{},
-			ExpiresAt:            time.Now().Add(24 * time.Hour),
+			EncryptionParameters: storj.EncryptionParameters{
+				CipherSuite: storj.EncAESGCM,
+				BlockSize:   256,
+			},
+			ExpiresAt: time.Now().Add(24 * time.Hour),
 		}
 		beginObjectResponse, err := metainfoClient.BeginObject(ctx, params)
 		require.NoError(t, err)
@@ -681,7 +687,10 @@ func TestBeginCommit(t *testing.T) {
 		}
 		err = metainfoClient.CommitSegment(ctx, metainfo.CommitSegmentParams{
 			SegmentID: response.SegmentID,
-
+			Encryption: storj.SegmentEncryption{
+				EncryptedKey: testrand.Bytes(256),
+			},
+			PlainSize:         5000,
 			SizeEncryptedData: memory.MiB.Int64(),
 			UploadResult: []*pb.SegmentPieceUploadResult{
 				makeResult(0),
@@ -706,9 +715,9 @@ func TestBeginCommit(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Len(t, objects, 1)
-
 		require.Equal(t, params.EncryptedPath, objects[0].EncryptedPath)
-		require.True(t, params.ExpiresAt.Equal(objects[0].ExpiresAt))
+		// TODO find better way to compare (one ExpiresAt contains time zone informations)
+		require.Equal(t, params.ExpiresAt.Unix(), objects[0].ExpiresAt.Unix())
 
 		object, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
 			Bucket:        []byte(bucket.Name),
@@ -717,12 +726,9 @@ func TestBeginCommit(t *testing.T) {
 		require.NoError(t, err)
 
 		project := planet.Uplinks[0].Projects[0]
-		location, err := satMetainfo.CreatePath(ctx, project.ID, metabase.LastSegmentIndex, []byte(object.Bucket), []byte{})
+		allObjects, err := planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, project.ID, object.Bucket)
 		require.NoError(t, err)
-
-		items, _, err := planet.Satellites[0].Metainfo.Service.List(ctx, location.Encode(), "", false, 1, 0)
-		require.NoError(t, err)
-		require.Len(t, items, 1)
+		require.Len(t, allObjects, 1)
 	})
 }
 
@@ -767,8 +773,12 @@ func TestInlineSegment(t *testing.T) {
 				OptimalShares:  3,
 				TotalShares:    4,
 			},
-			EncryptionParameters: storj.EncryptionParameters{},
-			ExpiresAt:            time.Now().Add(24 * time.Hour),
+			EncryptionParameters: storj.EncryptionParameters{
+				CipherSuite: storj.EncAESGCM,
+				BlockSize:   256,
+			},
+
+			ExpiresAt: time.Now().Add(24 * time.Hour),
 		}
 		beginObjectResp, err := metainfoClient.BeginObject(ctx, params)
 		require.NoError(t, err)
@@ -782,7 +792,11 @@ func TestInlineSegment(t *testing.T) {
 				Position: storj.SegmentPosition{
 					Index: segment,
 				},
+				PlainSize:           1024,
 				EncryptedInlineData: segmentsData[i],
+				Encryption: storj.SegmentEncryption{
+					EncryptedKey: testrand.Bytes(256),
+				},
 			})
 			require.NoError(t, err)
 		}
@@ -804,7 +818,8 @@ func TestInlineSegment(t *testing.T) {
 		require.Len(t, objects, 1)
 
 		require.Equal(t, params.EncryptedPath, objects[0].EncryptedPath)
-		require.True(t, params.ExpiresAt.Equal(objects[0].ExpiresAt))
+		// TODO find better way to compare (one ExpiresAt contains time zone informations)
+		require.Equal(t, params.ExpiresAt.Unix(), objects[0].ExpiresAt.Unix())
 
 		object, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
 			Bucket:        params.Bucket,
@@ -816,6 +831,10 @@ func TestInlineSegment(t *testing.T) {
 			beginObjectResp, err := metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
 				Bucket:        []byte(bucket.Name),
 				EncryptedPath: []byte("too-large-inline-segment"),
+				EncryptionParameters: storj.EncryptionParameters{
+					CipherSuite: storj.EncAESGCM,
+					BlockSize:   256,
+				},
 			})
 			require.NoError(t, err)
 
@@ -826,6 +845,9 @@ func TestInlineSegment(t *testing.T) {
 					Index: 0,
 				},
 				EncryptedInlineData: data,
+				Encryption: storj.SegmentEncryption{
+					EncryptedKey: testrand.Bytes(256),
+				},
 			})
 			require.Error(t, err)
 		}
@@ -1446,19 +1468,18 @@ func TestInlineSegmentThreshold(t *testing.T) {
 			require.NoError(t, err)
 
 			// we don't know encrypted path
-			location := metabase.SegmentLocation{
+			objects, err := planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, projectID, "test-bucket-inline")
+			require.NoError(t, err)
+			require.Equal(t, 1, len(objects))
+
+			segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllObjectSegments(ctx, metabase.ObjectLocation{
 				ProjectID:  projectID,
 				BucketName: "test-bucket-inline",
-				Index:      metabase.LastSegmentIndex,
-			}
-			items, _, err := planet.Satellites[0].Metainfo.Service.List(ctx, location.Encode(), "", false, 0, meta.All)
+				ObjectKey:  objects[0].ObjectKey,
+			})
 			require.NoError(t, err)
-			require.Equal(t, 1, len(items))
-
-			location.ObjectKey = metabase.ObjectKey(items[0].Path)
-			pointer, err := planet.Satellites[0].Metainfo.Service.Get(ctx, location.Encode())
-			require.NoError(t, err)
-			require.Equal(t, pb.Pointer_INLINE, pointer.Type)
+			require.Zero(t, segments[0].Redundancy)
+			require.NotEmpty(t, segments[0].InlineData)
 		}
 
 		{ // one more byte over limit should enough to create remote segment
@@ -1466,21 +1487,18 @@ func TestInlineSegmentThreshold(t *testing.T) {
 			require.NoError(t, err)
 
 			// we don't know encrypted path
+			objects, err := planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, projectID, "test-bucket-remote")
 			require.NoError(t, err)
-			location := metabase.SegmentLocation{
+			require.Equal(t, 1, len(objects))
+
+			segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllObjectSegments(ctx, metabase.ObjectLocation{
 				ProjectID:  projectID,
 				BucketName: "test-bucket-remote",
-				Index:      metabase.LastSegmentIndex,
-			}
-
-			items, _, err := planet.Satellites[0].Metainfo.Service.List(ctx, location.Encode(), "", false, 0, meta.All)
+				ObjectKey:  objects[0].ObjectKey,
+			})
 			require.NoError(t, err)
-			require.Equal(t, 1, len(items))
-
-			location.ObjectKey = metabase.ObjectKey(items[0].Path)
-			pointer, err := planet.Satellites[0].Metainfo.Service.Get(ctx, location.Encode())
-			require.NoError(t, err)
-			require.Equal(t, pb.Pointer_REMOTE, pointer.Type)
+			require.NotZero(t, segments[0].Redundancy)
+			require.Empty(t, segments[0].InlineData)
 		}
 	})
 }

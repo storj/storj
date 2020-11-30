@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
@@ -195,6 +196,11 @@ type MetabaseDB interface {
 	// BucketEmpty returns true if bucket does not contain objects (pending or committed).
 	// This method doesn't check bucket existence.
 	BucketEmpty(ctx context.Context, opts metabase.BucketEmpty) (empty bool, err error)
+
+	// TestingAllCommittedObjects gets all objects from bucket. Use only for testing purposes.
+	TestingAllCommittedObjects(ctx context.Context, projectID uuid.UUID, bucketName string) (objects []metabase.ObjectEntry, err error)
+	// TestingAllObjectSegments gets all segments for given object. Use only for testing purposes.
+	TestingAllObjectSegments(ctx context.Context, objectLocation metabase.ObjectLocation) (segments []metabase.Segment, err error)
 
 	// InternalImplementation returns *metabase.DB.
 	// TODO: remove.
