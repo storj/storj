@@ -88,6 +88,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # allow domains to embed the satellite in a frame, space separated
 # console.frame-ancestors: tardigrade.io
 
+# url link for gateway credentials requests
+# console.gateway-credentials-request-url: ""
+
 # url link to general request page
 # console.general-request-url: https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000379291
 
@@ -666,6 +669,12 @@ server.private-address: 127.0.0.1:7778
 
 # how frequently the tally service should run
 # tally.interval: 1h0m0s
+
+# how large of batches GetBandwidthSince should process at a time
+# tally.read-rollup-batch-size: 10000
+
+# how large of batches SaveRollup should process at a time
+# tally.save-rollup-batch-size: 1000
 
 # address for jaeger agent
 # tracing.agent-addr: agent.tracing.datasci.storj.io:5775

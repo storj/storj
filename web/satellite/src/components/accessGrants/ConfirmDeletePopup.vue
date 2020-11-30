@@ -150,6 +150,7 @@ export default class ConfirmDeletePopup extends Vue {
                 line-height: 18px;
                 color: #e30011;
                 font-family: 'font_medium', sans-serif;
+                white-space: nowrap;
             }
 
             &__list {

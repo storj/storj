@@ -89,7 +89,7 @@ func TestOnlyInline(t *testing.T) {
 			ObjectCount:    1,
 			InlineSegments: 1,
 			InlineBytes:    int64(expectedTotalBytes),
-			MetadataSize:   113, // brittle, this is hardcoded since its too difficult to get this value progamatically
+			MetadataSize:   0,
 		}
 
 		// Execute test: upload a file, then calculate at rest data
@@ -108,6 +108,9 @@ func TestOnlyInline(t *testing.T) {
 
 			assert.Equal(t, 1, len(obs.Bucket))
 			for _, actualTally := range obs.Bucket {
+				// checking the exact metadata size is brittle, instead, verify that it's not zero
+				assert.NotZero(t, actualTally.MetadataSize)
+				actualTally.MetadataSize = expectedTally.MetadataSize
 				assert.Equal(t, expectedTally, actualTally)
 			}
 		}

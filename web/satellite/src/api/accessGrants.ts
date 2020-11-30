@@ -2,13 +2,23 @@
 // See LICENSE for copying information.
 
 import { BaseGql } from '@/api/baseGql';
-import { AccessGrant, AccessGrantCursor, AccessGrantsApi, AccessGrantsPage } from '@/types/accessGrants';
+import {
+    AccessGrant,
+    AccessGrantCursor,
+    AccessGrantsApi,
+    AccessGrantsPage,
+    GatewayCredentials,
+} from '@/types/accessGrants';
+import { HttpClient } from '@/utils/httpClient';
+import { MetaUtils } from '@/utils/meta';
 
 /**
  * AccessGrantsApiGql is a graphql implementation of Access Grants API.
  * Exposes all access grants-related functionality
  */
 export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
+    private readonly client: HttpClient = new HttpClient();
+
     /**
      * Fetch access grants.
      *
@@ -116,6 +126,37 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
         const response = await this.mutate(query, variables);
 
         return response.data.deleteAPIKeys;
+    }
+
+    /**
+     * Used to get gateway credentials using access grant.
+     *
+     * @param accessGrant - generated access grant
+     * @throws Error
+     */
+    public async getGatewayCredentials(accessGrant: string): Promise<GatewayCredentials> {
+        const requestURL: string = MetaUtils.getMetaContent('gateway-credentials-request-url');
+        if (!requestURL) throw new Error('Cannot get gateway credentials: request URL is not provided');
+
+        const path = `${requestURL}/v1/access`;
+        const body = {
+            access_grant: accessGrant,
+            public: false,
+        };
+        const response = await this.client.post(path, JSON.stringify(body));
+        if (!response.ok) {
+            throw new Error('Cannot get gateway credentials');
+        }
+
+        const result = await response.json();
+
+        return new GatewayCredentials(
+            result.id,
+            new Date(result.created_at),
+            result.access_key_id,
+            result.secret_key,
+            result.endpoint,
+        );
     }
 
     /**

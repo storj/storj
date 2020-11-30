@@ -12,6 +12,7 @@ import (
 	"storj.io/common/identity"
 	"storj.io/private/debug"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/private/migrate"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
@@ -47,6 +48,7 @@ import (
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/rewards"
+	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/satellite/snopayout"
 )
 
@@ -69,6 +71,12 @@ type DB interface {
 
 	// TestingMigrateToLatest initializes the database for testplanet.
 	TestingMigrateToLatest(ctx context.Context) error
+	// MigrationTestingDefaultDB assists in testing migrations themselves
+	// against the default database.
+	MigrationTestingDefaultDB() interface {
+		TestDBAccess() *dbx.DB
+		PostgresMigration() *migrate.Migration
+	}
 
 	// PeerIdentities returns a storage for peer identities
 	PeerIdentities() overlay.PeerIdentities

@@ -148,15 +148,7 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	var latestTally time.Time
-	bws, err := r.sdb.GetBandwidthSince(ctx, lastRollup.UTC())
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	if len(bws) == 0 {
-		r.logger.Info("Rollup found no new bw rollups")
-		return nil
-	}
-	for _, row := range bws {
+	err = r.sdb.GetBandwidthSince(ctx, lastRollup.UTC(), func(ctx context.Context, row *accounting.StoragenodeBandwidthRollup) error {
 		nodeID := row.NodeID
 		// interval is the time the bw order was saved
 		interval := row.IntervalStart.UTC()
@@ -186,7 +178,12 @@ func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStat
 		default:
 			r.logger.Info("delete order type")
 		}
-	}
 
+		return nil
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	// TODO: we don't do anything with latestTally after figuring it out. should we?
 	return nil
 }

@@ -568,7 +568,7 @@ func TestListGetObjects(t *testing.T) {
 				EncryptedPath: item.EncryptedPath,
 			})
 			require.NoError(t, err)
-			require.Equal(t, item.EncryptedPath, []byte(object.Path))
+			require.Equal(t, item.EncryptedPath, object.EncryptedPath)
 
 			require.NotEmpty(t, object.StreamID)
 		}

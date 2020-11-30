@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"storj.io/storj/satellite/internalpb"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // RepairQueue implements queueing for segments that need repairing.
@@ -27,4 +28,8 @@ type RepairQueue interface {
 	SelectN(ctx context.Context, limit int) ([]internalpb.InjuredSegment, error)
 	// Count counts the number of segments in the repair queue.
 	Count(ctx context.Context) (count int, err error)
+
+	// TestDBAccess returns raw RepairQueue database access for test purposes.
+	// TODO: remove dependency.
+	TestDBAccess() *dbx.DB
 }

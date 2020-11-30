@@ -80,6 +80,7 @@ type Config struct {
 	GoogleTagManagerID              string `help:"id for google tag manager" default:""`
 	GeneralRequestURL               string `help:"url link to general request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
 	ProjectLimitsIncreaseRequestURL string `help:"url link to project limit increase request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
+	GatewayCredentialsRequestURL    string `help:"url link for gateway credentials requests" default:""`
 
 	RateLimit web.IPRateLimiterConfig
 
@@ -266,7 +267,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 
 	cspValues := []string{
 		"default-src 'self'",
-		"connect-src 'self' api.segment.io *.google-analytics.com",
+		"connect-src 'self' api.segment.io *.google-analytics.com " + server.config.GatewayCredentialsRequestURL,
 		"frame-ancestors " + server.config.FrameAncestors,
 		"frame-src 'self' *.stripe.com *.googletagmanager.com",
 		"img-src 'self' data: *.customer.io *.googletagmanager.com *.google-analytics.com",
@@ -288,6 +289,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		DefaultProjectLimit             int
 		GeneralRequestURL               string
 		ProjectLimitsIncreaseRequestURL string
+		GatewayCredentialsRequestURL    string
 	}
 
 	data.SatelliteName = server.config.SatelliteName
@@ -299,6 +301,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.DefaultProjectLimit = server.config.DefaultProjectLimit
 	data.GeneralRequestURL = server.config.GeneralRequestURL
 	data.ProjectLimitsIncreaseRequestURL = server.config.ProjectLimitsIncreaseRequestURL
+	data.GatewayCredentialsRequestURL = server.config.GatewayCredentialsRequestURL
 
 	if server.templates.index == nil {
 		server.log.Error("index template is not set")

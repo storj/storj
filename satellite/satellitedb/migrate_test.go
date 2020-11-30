@@ -25,9 +25,7 @@ import (
 	"storj.io/storj/private/dbutil/pgtest"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/dbutil/tempdb"
-	"storj.io/storj/private/migrate"
 	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // loadSnapshots loads all the dbschemas from `testdata/postgres.*`.
@@ -134,13 +132,6 @@ func loadSchemaFromSQL(ctx context.Context, connstr, script string) (_ *dbschema
 func TestMigratePostgres(t *testing.T)  { migrateTest(t, pgtest.PickPostgres(t)) }
 func TestMigrateCockroach(t *testing.T) { migrateTest(t, pgtest.PickCockroachAlt(t)) }
 
-// satelliteDB provides access to certain methods on a *satellitedb.satelliteDB
-// instance, since that type is not exported.
-type satelliteDB interface {
-	TestDBAccess() *dbx.DB
-	PostgresMigration() *migrate.Migration
-}
-
 func migrateTest(t *testing.T, connStr string) {
 	t.Parallel()
 
@@ -160,7 +151,7 @@ func migrateTest(t *testing.T, connStr string) {
 	defer func() { require.NoError(t, db.Close()) }()
 
 	// we need raw database access unfortunately
-	rawdb := db.(satelliteDB).TestDBAccess()
+	rawdb := db.MigrationTestingDefaultDB().TestDBAccess()
 
 	snapshots, dbxschema, err := loadSnapshots(ctx, connStr, rawdb.Schema())
 	require.NoError(t, err)
@@ -168,7 +159,7 @@ func migrateTest(t *testing.T, connStr string) {
 	var finalSchema *dbschema.Schema
 
 	// get migration for this database
-	migrations := db.(satelliteDB).PostgresMigration()
+	migrations := db.MigrationTestingDefaultDB().PostgresMigration()
 	for i, step := range migrations.Steps {
 		tag := fmt.Sprintf("#%d - v%d", i, step.Version)
 
