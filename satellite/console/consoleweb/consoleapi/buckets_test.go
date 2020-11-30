@@ -32,8 +32,18 @@ func Test_AllBucketNames(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
-		project := planet.Uplinks[0].Projects[0]
-		service := sat.API.Console.Service
+
+		newUser := console.CreateUser{
+			FullName:  "Jack-bucket",
+			ShortName: "",
+			Email:     "bucketest@test.test",
+		}
+
+		user, err := sat.AddUser(ctx, newUser, 1)
+		require.NoError(t, err)
+
+		project, err := sat.AddProject(ctx, user.ID, "buckettest")
+		require.NoError(t, err)
 
 		bucket1 := storj.Bucket{
 			ID:        testrand.UUID(),
@@ -47,33 +57,14 @@ func Test_AllBucketNames(t *testing.T) {
 			ProjectID: project.ID,
 		}
 
-		_, err := sat.DB.Buckets().CreateBucket(ctx, bucket1)
+		_, err = sat.DB.Buckets().CreateBucket(ctx, bucket1)
 		require.NoError(t, err)
 
 		_, err = sat.DB.Buckets().CreateBucket(ctx, bucket2)
 		require.NoError(t, err)
 
-		user := console.CreateUser{
-			FullName:  "Jack",
-			ShortName: "",
-			Email:     "bucketest@test.test",
-			Password:  "123a123",
-		}
-		refUserID := ""
-
-		regToken, err := service.CreateRegToken(ctx, 1)
-		require.NoError(t, err)
-
-		createdUser, err := service.CreateUser(ctx, user, regToken.Secret, refUserID)
-		require.NoError(t, err)
-
-		activationToken, err := service.GenerateActivationToken(ctx, createdUser.ID, createdUser.Email)
-		require.NoError(t, err)
-
-		err = service.ActivateAccount(ctx, activationToken)
-		require.NoError(t, err)
-
-		token, err := service.Token(ctx, user.Email, user.Password)
+		// we are using full name as a password
+		token, err := sat.API.Console.Service.Token(ctx, user.Email, user.FullName)
 		require.NoError(t, err)
 
 		client := http.Client{}

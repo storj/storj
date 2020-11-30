@@ -1460,7 +1460,12 @@ func (s *Service) GetBucketTotals(ctx context.Context, projectID uuid.UUID, curs
 func (s *Service) GetAllBucketNames(ctx context.Context, projectID uuid.UUID) (_ []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = s.getAuthAndAuditLog(ctx, "get all bucket names", zap.String("projectID", projectID.String()))
+	auth, err := s.getAuthAndAuditLog(ctx, "get all bucket names", zap.String("projectID", projectID.String()))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
