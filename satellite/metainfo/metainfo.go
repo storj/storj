@@ -1017,6 +1017,9 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 						CreationDate:   item.CreatedAt,
 						ExpirationDate: item.ExpiresAt,
 						StreamId:       entry.StreamID[:],
+						// TODO: defaultRS may change while the upload is pending.
+						// Ideally, we should remove redundancy from satStreamID.
+						Redundancy: endpoint.defaultRS,
 					})
 					if err != nil {
 						return err
