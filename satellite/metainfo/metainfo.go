@@ -981,6 +981,11 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		status = metabase.ObjectStatus(req.Status)
 	}
 
+	cursor := string(req.EncryptedCursor)
+	if len(cursor) != 0 {
+		cursor = string(prefix) + cursor
+	}
+
 	resp = &pb.ObjectListResponse{}
 	// TODO: Replace with IterateObjectsLatestVersion when ready
 	err = endpoint.metainfo.metabaseDB.IterateObjectsAllVersions(ctx,
@@ -989,7 +994,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 			BucketName: string(req.Bucket),
 			Prefix:     prefix,
 			Cursor: metabase.IterateCursor{
-				Key:     metabase.ObjectKey(req.EncryptedCursor),
+				Key:     metabase.ObjectKey(cursor),
 				Version: 1, // TODO: set to a the version from the protobuf request when it supports this
 			},
 			Recursive: req.Recursive,
