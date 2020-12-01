@@ -67,7 +67,7 @@ export default class NavigationArea extends Vue {
      * Indicates if current route is onboarding tour.
      */
     private get isOnboardingTour(): boolean {
-        return this.$route.name === RouteConfig.OnboardingTour.name;
+        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 }
 </script>

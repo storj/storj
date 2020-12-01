@@ -6,6 +6,7 @@ import Vuex from 'vuex';
 
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
+import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
 import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
 
 import { RouteConfig } from '@/router';
@@ -37,11 +38,14 @@ describe('NavigationArea', () => {
         const router = new Router({
             mode: 'history',
             routes: [{
-                path: '/',
+                path: '/onboarding-tour',
                 name: RouteConfig.OnboardingTour.name,
                 component: OnboardingTourArea,
             }],
         });
+
+        router.push('/onboarding-tour');
+
         const wrapper = shallowMount(NavigationArea, {
             store,
             localVue,
@@ -66,6 +70,8 @@ describe('NavigationArea', () => {
     it('snapshot not changed with project', async () => {
         const projects = await store.dispatch('fetchProjects');
         store.commit(PROJECTS_MUTATIONS.SELECT_PROJECT, projects[0].id);
+
+        router.push('/');
 
         const wrapper = shallowMount(NavigationArea, {
             store,

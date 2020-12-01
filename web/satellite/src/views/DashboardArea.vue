@@ -234,7 +234,7 @@ export default class DashboardArea extends Vue {
      * Indicates if no paywall info bar is shown.
      */
     public get isNoPaywallInfoBarShown(): boolean {
-        const isOnboardingTour: boolean = this.$route.name === RouteConfig.OnboardingTour.name;
+        const isOnboardingTour: boolean = this.$route.path.includes(RouteConfig.OnboardingTour.path);
 
         return !this.isPaywallEnabled && !isOnboardingTour &&
             this.$store.state.paymentsModule.balance.coins === 0 &&
