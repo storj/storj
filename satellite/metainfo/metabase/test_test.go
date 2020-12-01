@@ -225,6 +225,21 @@ func (step DeleteObjectExactVersion) Check(ctx *testcontext.Context, t *testing.
 	require.Zero(t, diff)
 }
 
+type DeletePendingObject struct {
+	Opts     metabase.DeletePendingObject
+	Result   metabase.DeleteObjectResult
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+func (step DeletePendingObject) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	result, err := db.DeletePendingObject(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	require.Zero(t, diff)
+}
+
 type DeleteObjectLatestVersion struct {
 	Opts     metabase.DeleteObjectLatestVersion
 	Result   metabase.DeleteObjectResult

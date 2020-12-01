@@ -13,6 +13,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/dbutil/txutil"
 	"storj.io/storj/private/tagsql"
@@ -101,7 +102,6 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 	if err := opts.Verify(); err != nil {
 		return DeleteObjectResult{}, err
 	}
-
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		rows, err := tx.Query(ctx, `
 			DELETE FROM objects
@@ -119,6 +119,86 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 				total_plain_size, total_encrypted_size, fixed_segment_size,
 				encryption;
 		`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
+			}
+			return Error.New("unable to delete object: %w", err)
+		}
+
+		result.Objects, err = scanObjectDeletion(opts.ObjectLocation, rows)
+		if err != nil {
+			return err
+		}
+
+		if len(result.Objects) == 0 {
+			return storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
+		}
+
+		segmentInfos, err := deleteSegments(ctx, tx, result.Objects)
+		if err != nil {
+			return err
+		}
+
+		if len(segmentInfos) != 0 {
+			result.Segments = segmentInfos
+		}
+		return nil
+	})
+	if err != nil {
+		return DeleteObjectResult{}, err
+	}
+	return result, nil
+}
+
+// DeletePendingObject contains arguments necessary for deleting a pending object.
+type DeletePendingObject struct {
+	ObjectLocation
+	Version
+	StreamID uuid.UUID
+}
+
+// Verify verifies delete pending object fields validity.
+func (opts *DeletePendingObject) Verify() error {
+	if err := opts.ObjectLocation.Verify(); err != nil {
+		return err
+	}
+
+	if opts.Version <= 0 {
+		return ErrInvalidRequest.New("Version invalid: %v", opts.Version)
+	}
+
+	if opts.StreamID.IsZero() {
+		return ErrInvalidRequest.New("StreamID missing")
+	}
+	return nil
+}
+
+// DeletePendingObject deletes a pending object with specified version and streamID.
+func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return DeleteObjectResult{}, err
+	}
+	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+		rows, err := tx.Query(ctx, `
+			DELETE FROM objects
+			WHERE
+				project_id   = $1 AND
+				bucket_name  = $2 AND
+				object_key   = $3 AND
+				version      = $4 AND
+				stream_id    = $5 AND
+				status       = `+pendingStatus+`
+			RETURNING
+				version, stream_id,
+				created_at, expires_at,
+				status, segment_count,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				encryption;
+		`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
