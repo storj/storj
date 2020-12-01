@@ -24,8 +24,9 @@ node('node') {
           echo "STORJ_SIM_REDIS: $STORJ_SIM_REDIS"
           sh 'docker run --rm -d -e POSTGRES_HOST_AUTH_METHOD=trust --name postgres-ui-$BUILD_NUMBER postgres:12.3'
           sh 'docker run --rm -d --name redis-ui-$BUILD_NUMBER redis:latest'
-          sh 'docker run --rm curl'
-          sh 'docker run --rm apt-get install -y google-chrome'
+          sh 'docker run --rm browserless/chrome'
+          sh 'docker run --rm curlimages/curl'
+
 
           sh '''until $(docker logs postgres-ui-$BUILD_NUMBER | grep "database system is ready to accept connections" > /dev/null)
                 do printf '.'
