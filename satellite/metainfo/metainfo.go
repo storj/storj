@@ -837,82 +837,10 @@ func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bu
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	streamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
-		Bucket:        bucket,
-		EncryptedPath: encryptedPath,
-		Version:       version,
-		CreationDate:  time.Now(),
-		StreamId:      metaObject.StreamID[:],
-	})
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-
-	expires := time.Time{}
-	if metaObject.ExpiresAt != nil {
-		expires = *metaObject.ExpiresAt
-	}
-
-	var nonce storj.Nonce
-	if len(metaObject.EncryptedMetadataNonce) > 0 {
-		nonce, err = storj.NonceFromBytes(metaObject.EncryptedMetadataNonce)
-		if err != nil {
-			endpoint.log.Error("internal", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
-	}
-
-	streamMeta := &pb.StreamMeta{}
-	err = pb.Unmarshal(metaObject.EncryptedMetadata, streamMeta)
+	object, err := endpoint.objectToProto(ctx, metaObject)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-
-	// TODO is this enough to handle old uplinks
-	if streamMeta.EncryptionBlockSize == 0 {
-		streamMeta.EncryptionBlockSize = metaObject.Encryption.BlockSize
-	}
-	if streamMeta.EncryptionType == 0 {
-		streamMeta.EncryptionType = int32(metaObject.Encryption.CipherSuite)
-	}
-	if streamMeta.NumberOfSegments == 0 {
-		streamMeta.NumberOfSegments = int64(metaObject.SegmentCount)
-	}
-	if streamMeta.LastSegmentMeta == nil {
-		streamMeta.LastSegmentMeta = &pb.SegmentMeta{
-			EncryptedKey: metaObject.EncryptedMetadataEncryptedKey,
-			KeyNonce:     metaObject.EncryptedMetadataNonce,
-		}
-	}
-
-	metadataBytes, err := pb.Marshal(streamMeta)
-	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-
-	object := &pb.Object{
-		Bucket:        bucket,
-		EncryptedPath: encryptedPath,
-		Version:       int32(metaObject.Version), // TODO incomatible types
-		StreamId:      streamID,
-		ExpiresAt:     expires,
-		CreatedAt:     metaObject.CreatedAt,
-
-		TotalSize: metaObject.TotalEncryptedSize,
-		PlainSize: metaObject.TotalPlainSize,
-
-		EncryptedMetadata:             metadataBytes,
-		EncryptedMetadataNonce:        nonce,
-		EncryptedMetadataEncryptedKey: metaObject.EncryptedMetadataEncryptedKey,
-		EncryptionParameters: &pb.EncryptionParameters{
-			CipherSuite: pb.CipherSuite(metaObject.Encryption.CipherSuite),
-			BlockSize:   int64(metaObject.Encryption.BlockSize),
-		},
-
-		// TODO extend DownloadSegment response to provide RS values for client
-		RedundancyScheme: endpoint.defaultRS,
 	}
 
 	return object, nil
@@ -991,40 +919,9 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 			entry := metabase.ObjectEntry{}
 			for len(resp.Items) < limit && it.Next(ctx, &entry) {
-				item := &pb.ObjectListItem{
-					EncryptedPath:     []byte(entry.ObjectKey),
-					Version:           int32(entry.Version),
-					CreatedAt:         entry.CreatedAt,
-					EncryptedMetadata: entry.EncryptedMetadata,
-					PlainSize:         entry.TotalPlainSize,
-				}
-				if entry.ExpiresAt != nil {
-					item.ExpiresAt = *entry.ExpiresAt
-				}
-				if len(entry.EncryptedMetadataNonce) > 0 {
-					item.EncryptedMetadataNonce, err = storj.NonceFromBytes(entry.EncryptedMetadataNonce)
-					if err != nil {
-						return err
-					}
-				}
-				// Add Stream ID to list items if listing is for pending objects.
-				// The client requires the Stream ID to use in the MultipartInfo.
-				if status == metabase.Pending {
-					satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
-						Bucket:         req.Bucket,
-						EncryptedPath:  item.EncryptedPath,
-						Version:        item.Version,
-						CreationDate:   item.CreatedAt,
-						ExpirationDate: item.ExpiresAt,
-						StreamId:       entry.StreamID[:],
-						// TODO: defaultRS may change while the upload is pending.
-						// Ideally, we should remove redundancy from satStreamID.
-						Redundancy: endpoint.defaultRS,
-					})
-					if err != nil {
-						return err
-					}
-					item.StreamId = &satStreamID
+				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry)
+				if err != nil {
+					return err
 				}
 				resp.Items = append(resp.Items, item)
 			}
@@ -1944,7 +1841,11 @@ func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, reqs ...metab
 
 	deletedObjects = make([]*pb.Object, len(result.Objects))
 	for i, object := range result.Objects {
-		deletedObjects[i] = objectToProto(object)
+		deletedObject, err := endpoint.objectToProto(ctx, object)
+		if err != nil {
+			return nil, err
+		}
+		deletedObjects[i] = deletedObject
 	}
 
 	nodesPieces := groupPiecesByNodeID(result.Segments)
@@ -1968,26 +1869,161 @@ func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, reqs ...metab
 	return deletedObjects, nil
 }
 
-func objectToProto(object metabase.Object) *pb.Object {
+func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Object) (*pb.Object, error) {
+	expires := time.Time{}
+	if object.ExpiresAt != nil {
+		expires = *object.ExpiresAt
+	}
+
+	streamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
+		Bucket:        []byte(object.BucketName),
+		EncryptedPath: []byte(object.ObjectKey),
+		Version:       int32(object.Version), // TODO incomatible types
+		CreationDate:  time.Now(),
+		StreamId:      object.StreamID[:],
+		// TODO: defaultRS may change while the upload is pending.
+		// Ideally, we should remove redundancy from satStreamID.
+		Redundancy: endpoint.defaultRS,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var nonce storj.Nonce
+	if len(object.EncryptedMetadataNonce) > 0 {
+		nonce, err = storj.NonceFromBytes(object.EncryptedMetadataNonce)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	streamMeta := &pb.StreamMeta{}
+	err = pb.Unmarshal(object.EncryptedMetadata, streamMeta)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO is this enough to handle old uplinks
+	if streamMeta.EncryptionBlockSize == 0 {
+		streamMeta.EncryptionBlockSize = object.Encryption.BlockSize
+	}
+	if streamMeta.EncryptionType == 0 {
+		streamMeta.EncryptionType = int32(object.Encryption.CipherSuite)
+	}
+	if streamMeta.NumberOfSegments == 0 {
+		streamMeta.NumberOfSegments = int64(object.SegmentCount)
+	}
+	if streamMeta.LastSegmentMeta == nil {
+		streamMeta.LastSegmentMeta = &pb.SegmentMeta{
+			EncryptedKey: object.EncryptedMetadataEncryptedKey,
+			KeyNonce:     object.EncryptedMetadataNonce,
+		}
+	}
+
+	metadataBytes, err := pb.Marshal(streamMeta)
+	if err != nil {
+		return nil, err
+	}
+
 	result := &pb.Object{
-		Bucket:            []byte(object.BucketName),
-		EncryptedPath:     []byte(object.ObjectKey),
-		Version:           int32(object.Version),
-		CreatedAt:         object.CreatedAt,
-		EncryptedMetadata: object.EncryptedMetadata,
+		Bucket:        []byte(object.BucketName),
+		EncryptedPath: []byte(object.ObjectKey),
+		Version:       int32(object.Version), // TODO incomatible types
+		StreamId:      streamID,
+		ExpiresAt:     expires,
+		CreatedAt:     object.CreatedAt,
+
+		TotalSize: object.TotalEncryptedSize,
+		PlainSize: object.TotalPlainSize,
+
+		EncryptedMetadata:             metadataBytes,
+		EncryptedMetadataNonce:        nonce,
+		EncryptedMetadataEncryptedKey: object.EncryptedMetadataEncryptedKey,
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(object.Encryption.CipherSuite),
 			BlockSize:   int64(object.Encryption.BlockSize),
 		},
+
+		// TODO extend DownloadSegment response to provide RS values for client
+		RedundancyScheme: endpoint.defaultRS,
 	}
 
-	if object.ExpiresAt != nil {
-		result.ExpiresAt = *object.ExpiresAt
+	return result, nil
+}
+
+func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket []byte, entry metabase.ObjectEntry) (item *pb.ObjectListItem, err error) {
+	expires := time.Time{}
+	if entry.ExpiresAt != nil {
+		expires = *entry.ExpiresAt
 	}
 
-	// TODO: add the rest of the fields
+	var nonce storj.Nonce
+	if len(entry.EncryptedMetadataNonce) > 0 {
+		nonce, err = storj.NonceFromBytes(entry.EncryptedMetadataNonce)
+		if err != nil {
+			return nil, err
+		}
+	}
 
-	return result
+	streamMeta := &pb.StreamMeta{}
+	err = pb.Unmarshal(entry.EncryptedMetadata, streamMeta)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO is this enough to handle old uplinks
+	if streamMeta.EncryptionBlockSize == 0 {
+		streamMeta.EncryptionBlockSize = entry.Encryption.BlockSize
+	}
+	if streamMeta.EncryptionType == 0 {
+		streamMeta.EncryptionType = int32(entry.Encryption.CipherSuite)
+	}
+	if streamMeta.NumberOfSegments == 0 {
+		streamMeta.NumberOfSegments = int64(entry.SegmentCount)
+	}
+	if streamMeta.LastSegmentMeta == nil {
+		streamMeta.LastSegmentMeta = &pb.SegmentMeta{
+			EncryptedKey: entry.EncryptedMetadataEncryptedKey,
+			KeyNonce:     entry.EncryptedMetadataNonce,
+		}
+	}
+
+	metadataBytes, err := pb.Marshal(streamMeta)
+	if err != nil {
+		return nil, err
+	}
+
+	item = &pb.ObjectListItem{
+		EncryptedPath:          []byte(entry.ObjectKey),
+		Version:                int32(entry.Version), // TODO incomatible types
+		Status:                 pb.Object_Status(entry.Status),
+		ExpiresAt:              expires,
+		CreatedAt:              entry.CreatedAt,
+		PlainSize:              entry.TotalPlainSize,
+		EncryptedMetadata:      metadataBytes,
+		EncryptedMetadataNonce: nonce,
+	}
+
+	// Add Stream ID to list items if listing is for pending objects.
+	// The client requires the Stream ID to use in the MultipartInfo.
+	if entry.Status == metabase.Pending {
+		satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
+			Bucket:        bucket,
+			EncryptedPath: item.EncryptedPath,
+			Version:       item.Version,
+			CreationDate:  item.CreatedAt,
+			StreamId:      entry.StreamID[:],
+			// TODO: defaultRS may change while the upload is pending.
+			// Ideally, we should remove redundancy from satStreamID.
+			Redundancy: endpoint.defaultRS,
+		})
+		if err != nil {
+			return nil, err
+		}
+		item.StreamId = &satStreamID
+	}
+
+	return item, nil
 }
 
 // groupPiecesByNodeID returns a map that contains pieces with node id as the key.
