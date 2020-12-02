@@ -21,7 +21,6 @@ import (
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/nodeapiversion"
@@ -263,11 +262,6 @@ func (dbc *satelliteDBCollection) GracefulExit() gracefulexit.DB {
 // StripeCoinPayments returns database for stripecoinpayments.
 func (dbc *satelliteDBCollection) StripeCoinPayments() stripecoinpayments.DB {
 	return &stripeCoinPaymentsDB{db: dbc.getByName("stripecoinpayments")}
-}
-
-// DowntimeTracking returns database for downtime tracking.
-func (dbc *satelliteDBCollection) DowntimeTracking() downtime.DB {
-	return &downtimeTrackingDB{db: dbc.getByName("downtimetracking")}
 }
 
 // SnoPayout returns database for storagenode payStubs and payments info.

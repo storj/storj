@@ -27,7 +27,6 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/dbcleanup"
-	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/mailservice"
@@ -98,8 +97,6 @@ type DB interface {
 	GracefulExit() gracefulexit.DB
 	// StripeCoinPayments returns stripecoinpayments database.
 	StripeCoinPayments() stripecoinpayments.DB
-	// DowntimeTracking returns database for downtime tracking
-	DowntimeTracking() downtime.DB
 	// SnoPayout returns database for payout.
 	SnoPayout() snopayout.DB
 	// Compoensation tracks storage node compensation
@@ -155,8 +152,6 @@ type Config struct {
 	GracefulExit gracefulexit.Config
 
 	Metrics metrics.Config
-
-	Downtime downtime.Config
 
 	Compensation compensation.Config
 
