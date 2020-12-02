@@ -11,10 +11,14 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
+	"storj.io/storj/private/dbutil/pgtest"
+	"storj.io/storj/private/dbutil/tempdb"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/internalpb"
+	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storage"
 )
@@ -102,83 +106,98 @@ func TestOrder(t *testing.T) {
 	})
 }
 
-// TestOrderHealthyPieces ensures that we select in the correct order, accounting for segment health as well as last attempted repair time.
+// TestOrderHealthyPieces ensures that we select in the correct order, accounting for segment health as well as last attempted repair time. We only test on Postgres since Cockraoch doesn't order by segment health due to performance.
 func TestOrderHealthyPieces(t *testing.T) {
-	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		repairQueue := db.RepairQueue()
+	testorderHealthyPieces(t, pgtest.PickPostgres(t))
+}
 
-		// we insert (path, segmentHealth, lastAttempted) as follows:
-		// ("path/a", 6, now-8h)
-		// ("path/b", 7, now)
-		// ("path/c", 8, null)
-		// ("path/d", 9, null)
-		// ("path/e", 9, now-7h)
-		// ("path/f", 9, now-8h)
-		// ("path/g", 10, null)
-		// ("path/h", 10, now-8h)
+func testorderHealthyPieces(t *testing.T, connStr string) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
 
-		// insert the 8 segments according to the plan above
-		injuredSegList := []struct {
-			path          []byte
-			segmentHealth float64
-			attempted     time.Time
-		}{
-			{[]byte("path/a"), 6, time.Now().Add(-8 * time.Hour)},
-			{[]byte("path/b"), 7, time.Now()},
-			{[]byte("path/c"), 8, time.Time{}},
-			{[]byte("path/d"), 9, time.Time{}},
-			{[]byte("path/e"), 9, time.Now().Add(-7 * time.Hour)},
-			{[]byte("path/f"), 9, time.Now().Add(-8 * time.Hour)},
-			{[]byte("path/g"), 10, time.Time{}},
-			{[]byte("path/h"), 10, time.Now().Add(-8 * time.Hour)},
-		}
-		// shuffle list since select order should not depend on insert order
-		rand.Seed(time.Now().UnixNano())
-		rand.Shuffle(len(injuredSegList), func(i, j int) {
-			injuredSegList[i], injuredSegList[j] = injuredSegList[j], injuredSegList[i]
-		})
-		for _, item := range injuredSegList {
-			// first, insert the injured segment
-			injuredSeg := &internalpb.InjuredSegment{Path: item.path}
-			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, item.segmentHealth)
-			require.NoError(t, err)
-			require.False(t, alreadyInserted)
+	// create tempDB
+	tempDB, err := tempdb.OpenUnique(ctx, connStr, "orderhealthy")
+	require.NoError(t, err)
+	defer func() { require.NoError(t, tempDB.Close()) }()
 
-			// next, if applicable, update the "attempted at" timestamp
-			if !item.attempted.IsZero() {
-				rowsAffected, err := db.RepairQueue().TestingSetAttemptedTime(ctx, item.path, item.attempted)
-				require.NoError(t, err)
-				require.EqualValues(t, 1, rowsAffected)
-			}
-		}
+	// create a new satellitedb connection
+	db, err := satellitedb.Open(ctx, zaptest.NewLogger(t), tempDB.ConnStr, satellitedb.Options{ApplicationName: "satellite-repair-test"})
+	require.NoError(t, err)
+	defer func() { require.NoError(t, db.Close()) }()
+	require.NoError(t, db.MigrateToLatest(ctx))
 
-		// we expect segment health to be prioritized first
-		// if segment health is equal, we expect the least recently attempted, with nulls first, to be prioritized first
-		// (excluding segments that have been attempted in the past six hours)
-		// we do not expect to see segments that have been attempted in the past hour
-		// therefore, the order of selection should be:
-		// "path/a", "path/c", "path/d", "path/f", "path/e", "path/g", "path/h"
-		// "path/b" will not be selected because it was attempted recently
+	repairQueue := db.RepairQueue()
+	// we insert (path, segmentHealth, lastAttempted) as follows:
+	// ("path/a", 6, now-8h)
+	// ("path/b", 7, now)
+	// ("path/c", 8, null)
+	// ("path/d", 9, null)
+	// ("path/e", 9, now-7h)
+	// ("path/f", 9, now-8h)
+	// ("path/g", 10, null)
+	// ("path/h", 10, now-8h)
 
-		for _, nextPath := range []string{
-			"path/a",
-			"path/c",
-			"path/d",
-			"path/f",
-			"path/e",
-			"path/g",
-			"path/h",
-		} {
-			injuredSeg, err := repairQueue.Select(ctx)
-			require.NoError(t, err)
-			assert.Equal(t, nextPath, string(injuredSeg.Path))
-		}
-
-		// queue should be considered "empty" now
-		injuredSeg, err := repairQueue.Select(ctx)
-		assert.True(t, storage.ErrEmptyQueue.Has(err))
-		assert.Nil(t, injuredSeg)
+	// insert the 8 segments according to the plan above
+	injuredSegList := []struct {
+		path          []byte
+		segmentHealth float64
+		attempted     time.Time
+	}{
+		{[]byte("path/a"), 6, time.Now().Add(-8 * time.Hour)},
+		{[]byte("path/b"), 7, time.Now()},
+		{[]byte("path/c"), 8, time.Time{}},
+		{[]byte("path/d"), 9, time.Time{}},
+		{[]byte("path/e"), 9, time.Now().Add(-7 * time.Hour)},
+		{[]byte("path/f"), 9, time.Now().Add(-8 * time.Hour)},
+		{[]byte("path/g"), 10, time.Time{}},
+		{[]byte("path/h"), 10, time.Now().Add(-8 * time.Hour)},
+	}
+	// shuffle list since select order should not depend on insert order
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(len(injuredSegList), func(i, j int) {
+		injuredSegList[i], injuredSegList[j] = injuredSegList[j], injuredSegList[i]
 	})
+	for _, item := range injuredSegList {
+		// first, insert the injured segment
+		injuredSeg := &internalpb.InjuredSegment{Path: item.path}
+		alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, item.segmentHealth)
+		require.NoError(t, err)
+		require.False(t, alreadyInserted)
+
+		// next, if applicable, update the "attempted at" timestamp
+		if !item.attempted.IsZero() {
+			rowsAffected, err := db.RepairQueue().TestingSetAttemptedTime(ctx, item.path, item.attempted)
+			require.NoError(t, err)
+			require.EqualValues(t, 1, rowsAffected)
+		}
+	}
+
+	// we expect segment health to be prioritized first
+	// if segment health is equal, we expect the least recently attempted, with nulls first, to be prioritized first
+	// (excluding segments that have been attempted in the past six hours)
+	// we do not expect to see segments that have been attempted in the past hour
+	// therefore, the order of selection should be:
+	// "path/a", "path/c", "path/d", "path/f", "path/e", "path/g", "path/h"
+	// "path/b" will not be selected because it was attempted recently
+
+	for _, nextPath := range []string{
+		"path/a",
+		"path/c",
+		"path/d",
+		"path/f",
+		"path/e",
+		"path/g",
+		"path/h",
+	} {
+		injuredSeg, err := repairQueue.Select(ctx)
+		require.NoError(t, err)
+		assert.Equal(t, nextPath, string(injuredSeg.Path))
+	}
+
+	// queue should be considered "empty" now
+	injuredSeg, err := repairQueue.Select(ctx)
+	assert.True(t, storage.ErrEmptyQueue.Has(err))
+	assert.Nil(t, injuredSeg)
 }
 
 // TestOrderOverwrite ensures that re-inserting the same segment with a lower health, will properly adjust its prioritizationTestOrderOverwrite ensures that re-inserting the same segment with a lower health, will properly adjust its prioritization.
