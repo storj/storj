@@ -180,9 +180,11 @@ func (it *objectsIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err 
 		)
 	}
 
+	// TODO this query should use SUBSTRING(object_key from $8) but there is a problem how it
+	// works with CRDB.
 	return it.db.db.Query(ctx, `
 		SELECT
-			SUBSTRING(object_key from $8), stream_id, version, status,
+			object_key, stream_id, version, status,
 			created_at, expires_at,
 			segment_count,
 			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
@@ -202,14 +204,14 @@ func (it *objectsIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err 
 		[]byte(it.limitKey),
 		it.batchSize,
 
-		len(it.limitKey)+1,
+		// len(it.limitKey)+1, // TODO uncomment when CRDB issue will be fixed
 	)
 }
 
 // scanItem scans doNextQuery results into ObjectEntry.
 func (it *objectsIterator) scanItem(item *ObjectEntry) error {
 	item.IsPrefix = false
-	return it.curRows.Scan(
+	err := it.curRows.Scan(
 		&item.ObjectKey, &item.StreamID, &item.Version, &item.Status,
 		&item.CreatedAt, &item.ExpiresAt,
 		&item.SegmentCount,
@@ -217,6 +219,13 @@ func (it *objectsIterator) scanItem(item *ObjectEntry) error {
 		&item.TotalPlainSize, &item.TotalEncryptedSize, &item.FixedSegmentSize,
 		encryptionParameters{&item.Encryption},
 	)
+	if err != nil {
+		return err
+	}
+
+	// TODO this should be done with SQL query
+	item.ObjectKey = item.ObjectKey[len(it.limitKey):]
+	return nil
 }
 
 // nextPrefix returns the next prefix of the same length.
