@@ -60,6 +60,7 @@ fi
 
 # run UI tests
 echo "section tests start"
+apt-get -y install google-chrome-stable
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network run &
 go test "$SCRIPTDIR"/tests/UITests/.
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network destroy
