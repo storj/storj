@@ -92,8 +92,16 @@ func QuerySnapshot(ctx context.Context, db dbschema.Queryer) (*dbschema.Snapshot
 }
 
 // CheckApplicationName ensures that the Connection String contains an application name.
-func CheckApplicationName(s string) (r string) {
+func CheckApplicationName(s string, app string) (r string) {
 	if !strings.Contains(s, "application_name") {
+		if app != "" {
+			if !strings.Contains(s, "?") {
+				r = s + "?application_name=" + app
+				return
+			}
+			r = s + "&application_name=" + app
+			return
+		}
 		if !strings.Contains(s, "?") {
 			r = s + "?application_name=Satellite"
 			return
