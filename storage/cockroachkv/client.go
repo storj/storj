@@ -35,7 +35,10 @@ type Client struct {
 
 // Open connects a new cockroachkv client given db URL.
 func Open(ctx context.Context, dbURL string, app string) (*Client, error) {
-	dbURL = pgutil.CheckApplicationName(dbURL, app)
+	dbURL, err := pgutil.CheckApplicationName(dbURL, app)
+	if err != nil {
+		return nil, err
+	}
 
 	db, err := tagsql.Open(ctx, "cockroach", dbURL)
 	if err != nil {
