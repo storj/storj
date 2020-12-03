@@ -33,15 +33,11 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 		return ListSegmentsResult{}, ErrInvalidRequest.New("StreamID missing")
 	}
 
-	// TODO verify this limit
-	if opts.Limit > MaxListLimit {
-		return ListSegmentsResult{}, ErrInvalidRequest.New("Maximum listing limit is %d", MaxListLimit)
-	}
 	if opts.Limit < 0 {
 		return ListSegmentsResult{}, ErrInvalidRequest.New("Invalid limit: %d", opts.Limit)
 	}
 
-	if opts.Limit == 0 {
+	if opts.Limit == 0 || opts.Limit > MaxListLimit {
 		opts.Limit = MaxListLimit
 	}
 
