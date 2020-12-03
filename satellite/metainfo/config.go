@@ -171,6 +171,8 @@ type MetabaseDB interface {
 	MigrateToLatest(ctx context.Context) error
 	// DeleteObjectsAllVersions deletes all versions of multiple objects from the same bucket.
 	DeleteObjectsAllVersions(ctx context.Context, opts metabase.DeleteObjectsAllVersions) (result metabase.DeleteObjectResult, err error)
+	// DeletePendingObject deletes a pending object.
+	DeletePendingObject(ctx context.Context, opts metabase.DeletePendingObject) (result metabase.DeleteObjectResult, err error)
 	// DeleteExpiredObjects deletes all objects that expired before expiredBefore.
 	DeleteExpiredObjects(ctx context.Context, expiredBefore time.Time) error
 	// BeginObjectExactVersion adds a pending object to the database, with specific version.
@@ -197,8 +199,10 @@ type MetabaseDB interface {
 	// This method doesn't check bucket existence.
 	BucketEmpty(ctx context.Context, opts metabase.BucketEmpty) (empty bool, err error)
 
-	// TestingAllCommittedObjects gets all objects from bucket. Use only for testing purposes.
+	// TestingAllCommittedObjects gets all committed objects from bucket. Use only for testing purposes.
 	TestingAllCommittedObjects(ctx context.Context, projectID uuid.UUID, bucketName string) (objects []metabase.ObjectEntry, err error)
+	// TestingAllPendingObjects gets all pending objects from bucket. Use only for testing purposes.
+	TestingAllPendingObjects(ctx context.Context, projectID uuid.UUID, bucketName string) (objects []metabase.ObjectEntry, err error)
 	// TestingAllObjectSegments gets all segments for given object. Use only for testing purposes.
 	TestingAllObjectSegments(ctx context.Context, objectLocation metabase.ObjectLocation) (segments []metabase.Segment, err error)
 

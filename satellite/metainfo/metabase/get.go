@@ -347,12 +347,26 @@ func (db *DB) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, er
 func (db *DB) TestingAllCommittedObjects(ctx context.Context, projectID uuid.UUID, bucketName string) (objects []ObjectEntry, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	return db.testingAllObjectsByStatus(ctx, projectID, bucketName, Committed)
+}
+
+// TestingAllPendingObjects gets all objects from bucket.
+// Use only for testing purposes.
+func (db *DB) TestingAllPendingObjects(ctx context.Context, projectID uuid.UUID, bucketName string) (objects []ObjectEntry, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return db.testingAllObjectsByStatus(ctx, projectID, bucketName, Pending)
+}
+
+func (db *DB) testingAllObjectsByStatus(ctx context.Context, projectID uuid.UUID, bucketName string, status ObjectStatus) (objects []ObjectEntry, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	err = db.IterateObjectsAllVersions(ctx,
 		IterateObjects{
 			ProjectID:  projectID,
 			BucketName: bucketName,
 			Recursive:  true,
-			Status:     Committed,
+			Status:     status,
 		}, func(ctx context.Context, it ObjectsIterator) error {
 			entry := ObjectEntry{}
 			for it.Next(ctx, &entry) {

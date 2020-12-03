@@ -444,15 +444,10 @@ func (endpoint *Endpoint) deleteBucketObjects(ctx context.Context, projectID uui
 		// TODO we should implement custom method in metabase instead of using iterator
 		entry := metabase.ObjectEntry{}
 		for it.Next(ctx, &entry) {
-			deletedObjects, err := endpoint.deleteObjectsPieces(ctx, metabase.ObjectLocation{
-				ProjectID:  projectID,
-				BucketName: string(bucketName),
-				ObjectKey:  entry.ObjectKey,
-			})
+			deletedObjects, err := endpoint.DeleteCommittedObject(ctx, projectID, string(bucketName), entry.ObjectKey)
 			if err != nil {
 				return err
 			}
-
 			deletedCount += len(deletedObjects)
 		}
 
@@ -649,7 +644,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	canDelete := err == nil
 
 	if canDelete {
-		_, err = endpoint.DeleteObjectPieces(ctx, keyInfo.ProjectID, string(req.Bucket), metabase.ObjectKey(req.EncryptedPath))
+		_, err = endpoint.DeleteCommittedObject(ctx, keyInfo.ProjectID, string(req.Bucket), metabase.ObjectKey(req.EncryptedPath))
 		if err != nil {
 			return nil, err
 		}
@@ -980,7 +975,24 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 	})
 	canList := err == nil
 
-	deletedObjects, err := endpoint.DeleteObjectPieces(ctx, keyInfo.ProjectID, string(req.Bucket), metabase.ObjectKey(req.EncryptedPath))
+	var deletedObjects []*pb.Object
+
+	if req.GetStatus() == int32(metabase.Pending) {
+		if req.StreamId == nil {
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "StreamID missing")
+		}
+		var pbStreamID *internalpb.StreamID
+		pbStreamID, err = endpoint.unmarshalSatStreamID(ctx, *(req.StreamId))
+		if err == nil {
+			var streamID uuid.UUID
+			streamID, err = uuid.FromBytes(pbStreamID.StreamId)
+			if err == nil {
+				deletedObjects, err = endpoint.DeletePendingObject(ctx, keyInfo.ProjectID, string(req.Bucket), metabase.ObjectKey(req.EncryptedPath), req.GetVersion(), streamID)
+			}
+		}
+	} else {
+		deletedObjects, err = endpoint.DeleteCommittedObject(ctx, keyInfo.ProjectID, string(req.Bucket), metabase.ObjectKey(req.EncryptedPath))
+	}
 	if err != nil {
 		if !canRead && !canList {
 			// No error info is returned if neither Read, nor List permission is granted
@@ -1767,12 +1779,12 @@ func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID s
 	return satSegmentID, nil
 }
 
-// DeleteObjectPieces deletes all the pieces of the storage nodes that belongs
+// DeleteCommittedObject deletes all the pieces of the storage nodes that belongs
 // to the specified object.
 //
 // NOTE: this method is exported for being able to individually test it without
 // having import cycles.
-func (endpoint *Endpoint) DeleteObjectPieces(
+func (endpoint *Endpoint) DeleteCommittedObject(
 	ctx context.Context, projectID uuid.UUID, bucket string, object metabase.ObjectKey,
 ) (deletedObjects []*pb.Object, err error) {
 	defer mon.Task()(&ctx, projectID.String(), bucket, object)(&err)
@@ -1783,7 +1795,12 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 		ObjectKey:  object,
 	}
 
-	deletedObjects, err = endpoint.deleteObjectsPieces(ctx, req)
+	result, err := endpoint.metainfo.metabaseDB.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{Locations: []metabase.ObjectLocation{req}})
+	if err != nil {
+		return nil, err
+	}
+
+	deletedObjects, err = endpoint.deleteObjectsPieces(ctx, result)
 	if err != nil {
 		endpoint.log.Error("failed to delete pointers",
 			zap.Stringer("project", projectID),
@@ -1797,14 +1814,33 @@ func (endpoint *Endpoint) DeleteObjectPieces(
 	return deletedObjects, nil
 }
 
-func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, reqs ...metabase.ObjectLocation) (deletedObjects []*pb.Object, err error) {
-	// We should ignore client cancelling and always try to delete segments.
-	ctx = context2.WithoutCancellation(ctx)
+// DeletePendingObject deletes all the pieces of the storage nodes that belongs
+// to the specified pending object.
+//
+// NOTE: this method is exported for being able to individually test it without
+// having import cycles.
+func (endpoint *Endpoint) DeletePendingObject(ctx context.Context, projectID uuid.UUID, bucket string, objectKey metabase.ObjectKey, version int32, streamID uuid.UUID) (deletedObjects []*pb.Object, err error) {
 
-	result, err := endpoint.metainfo.metabaseDB.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{Locations: reqs})
+	req := metabase.DeletePendingObject{
+		ObjectLocation: metabase.ObjectLocation{
+			ProjectID:  projectID,
+			BucketName: bucket,
+			ObjectKey:  objectKey,
+		},
+		Version:  metabase.Version(version),
+		StreamID: streamID,
+	}
+	result, err := endpoint.metainfo.metabaseDB.DeletePendingObject(ctx, req)
 	if err != nil {
 		return nil, err
 	}
+
+	return endpoint.deleteObjectsPieces(ctx, result)
+}
+
+func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, result metabase.DeleteObjectResult) (deletedObjects []*pb.Object, err error) {
+	// We should ignore client cancelling and always try to delete segments.
+	ctx = context2.WithoutCancellation(ctx)
 
 	deletedObjects = make([]*pb.Object, len(result.Objects))
 	for i, object := range result.Objects {
