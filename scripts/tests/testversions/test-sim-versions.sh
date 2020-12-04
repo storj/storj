@@ -89,12 +89,10 @@ install_sim(){
     go build -race -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
 
     if [ -d "${work_dir}/cmd/gateway" ]; then
-        pushd ${work_dir}/cmd/gateway
-            go build -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
-        popd
+        (cd ${work_dir}/cmd/gateway && go build -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1)
     else
-		mkdir -p ${work_dir}/build/gateway-tmp
-		(cd ${work_dir}/build/gateway-tmp && go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@latest;)
+	mkdir -p ${work_dir}/build/gateway-tmp
+	(cd ${work_dir}/build/gateway-tmp && go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@latest;)
         rm -rf ${work_dir}/build/gateway-tmp
     fi
 }
@@ -112,7 +110,7 @@ setup_stage(){
     PATH=$src_sat_version_dir/bin:$PATH src_sat_cfg_dir=$(storj-sim network env --config-dir=${src_sat_version_dir}/local-network/ SATELLITE_0_DIR)
     PATH=$test_dir/bin:$PATH dest_sat_cfg_dir=$(storj-sim network env --config-dir=${test_dir}/local-network/ SATELLITE_0_DIR)
 
-	# ln binary and copy config.yaml for desired version
+    # ln binary and copy config.yaml for desired version
     ln -f $(version_dir ${sat_version})/bin/storj-sim $test_dir/bin/storj-sim
     ln -f $src_sat_version_dir/bin/satellite $dest_sat_cfg_dir/satellite
     cp $src_sat_cfg_dir/config.yaml $dest_sat_cfg_dir
