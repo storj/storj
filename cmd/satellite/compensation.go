@@ -57,7 +57,8 @@ func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io
 
 		node, err := db.OverlayCache().Get(ctx, usage.NodeID)
 		if err != nil {
-			return err
+			zap.L().Warn("failed to get node, skipping", zap.String("nodeID", usage.NodeID.String()), zap.Error(err))
+			continue
 		}
 		var gracefulExit *time.Time
 		if node.ExitStatus.ExitSuccess {
