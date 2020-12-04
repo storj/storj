@@ -52,7 +52,10 @@ func Open(ctx context.Context, log *zap.Logger, databaseURL string) (multinode.D
 		return nil, Error.New("unsupported driver %q", driver)
 	}
 
-	source = pgutil.CheckApplicationName(source)
+	source, err = pgutil.CheckApplicationName(source, "storagenode-multinode")
+	if err != nil {
+		return nil, err
+	}
 
 	dbxDB, err := dbx.Open(driver, source)
 	if err != nil {

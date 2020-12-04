@@ -24,7 +24,7 @@ import (
 func runBillingCmd(ctx context.Context, cmdFunc func(context.Context, *stripecoinpayments.Service, *dbx.DB) error) error {
 	// Open SatelliteDB for the Payment Service
 	logger := zap.L()
-	db, err := satellitedb.Open(ctx, logger.Named("db"), runCfg.Database, satellitedb.Options{})
+	db, err := satellitedb.Open(ctx, logger.Named("db"), runCfg.Database, satellitedb.Options{ApplicationName: "satellite-billing"})
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
 	}
