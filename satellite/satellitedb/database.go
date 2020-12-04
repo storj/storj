@@ -66,6 +66,7 @@ type satelliteDB struct {
 
 // Options includes options for how a satelliteDB runs.
 type Options struct {
+	ApplicationName      string
 	APIKeysLRUOptions    cache.Options
 	RevocationLRUOptions cache.Options
 
@@ -121,7 +122,10 @@ func open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 		return nil, Error.New("unsupported driver %q", driver)
 	}
 
-	source = pgutil.CheckApplicationName(source)
+	source, err = pgutil.CheckApplicationName(source, opts.ApplicationName)
+	if err != nil {
+		return nil, err
+	}
 
 	dbxDB, err := dbx.Open(driver, source)
 	if err != nil {
