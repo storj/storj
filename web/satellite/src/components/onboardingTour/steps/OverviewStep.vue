@@ -8,27 +8,35 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
 
-import FourthStepIcon from '@/../static/images/common/four.svg';
-import FirstStepIcon from '@/../static/images/common/one.svg';
-import ThirdStepIcon from '@/../static/images/common/three.svg';
-import SecondStepIcon from '@/../static/images/common/two.svg';
+import { RouteConfig } from '@/router';
 
 @Component({
     components: {
         VButton,
-        FirstStepIcon,
-        ThirdStepIcon,
-        SecondStepIcon,
-        FourthStepIcon,
     },
 })
 export default class OverviewStep extends Vue {
     /**
      * Holds button click logic.
-     * Sets tour state to adding payment method state.
+     * Redirects to next step (adding payment method).
      */
-    public onClick(): void {
-        this.$emit('setAddPaymentState');
+    public onAddPaymentClick(): void {
+        this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.PaymentStep).path);
+    }
+
+    /**
+     * Holds button click logic.
+     * Redirects to next step (creating access grant).
+     */
+    public onCreateGrantClick(): void {
+        this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).path);
+    }
+
+    /**
+     * Indicates if paywall is enabled.
+     */
+    public get isPaywallEnabled(): boolean {
+        return this.$store.state.paymentsModule.isPaywallEnabled;
     }
 }
 </script>

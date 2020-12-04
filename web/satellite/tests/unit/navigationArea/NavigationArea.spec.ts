@@ -6,7 +6,6 @@ import Vuex from 'vuex';
 
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
-import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
 import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
 
 import { RouteConfig } from '@/router';
