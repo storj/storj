@@ -35,6 +35,7 @@
         label="Add a Payment Method"
         width="252px"
         height="48px"
+        :is-disabled="isLoading"
         :on-press="onAddPaymentClick"
     />
     <VButton
@@ -43,6 +44,7 @@
         label="Create an Access Grant"
         width="252px"
         height="48px"
+        :is-disabled="isLoading"
         :on-press="onCreateGrantClick"
     />
 </div>

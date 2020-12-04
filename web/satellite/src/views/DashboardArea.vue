@@ -166,7 +166,7 @@ export default class DashboardArea extends Vue {
             await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
 
             try {
-                await this.$router.push(RouteConfig.OnboardingTour.path);
+                await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
             } catch (error) {
                 return;
             }
@@ -188,7 +188,7 @@ export default class DashboardArea extends Vue {
             await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
 
             try {
-                await this.$router.push(RouteConfig.OnboardingTour.path);
+                await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
             } catch (error) {
                 return;
             }
@@ -197,7 +197,7 @@ export default class DashboardArea extends Vue {
         }
 
         try {
-           await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
             await this.$notify.error(`Unable to fetch api keys. ${error.message}`);
         }

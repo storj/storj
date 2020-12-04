@@ -52,22 +52,8 @@ export default class OnboardingTourArea extends Vue {
             return;
         }
 
-        if (this.userHasProject && !this.userHasAccessGrants) {
+        if (this.$route.name === RouteConfig.AccessGrant.name) {
             this.disableInfoBar();
-            this.setCreateAccessGrantStep();
-
-            return;
-        }
-
-        if (this.$store.state.paymentsModule.creditCards.length > 0) {
-            this.disableInfoBar();
-            this.setCreateAccessGrantStep();
-
-            return;
-        }
-
-        if (this.$store.getters.isTransactionProcessing || this.$store.getters.isBalancePositive) {
-            this.setAddPaymentStep();
         }
     }
 
@@ -76,13 +62,6 @@ export default class OnboardingTourArea extends Vue {
      */
     public get isPaywallEnabled(): boolean {
         return this.$store.state.paymentsModule.isPaywallEnabled;
-    }
-
-    /**
-     * Sets area's state to adding payment method step.
-     */
-    public setAddPaymentStep(): void {
-        this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.PaymentStep).path);
     }
 
     /**

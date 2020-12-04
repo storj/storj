@@ -4,8 +4,8 @@ exports[`VerifyingStep.vue renders correctly 1`] = `
 <div class="verifying-step">
   <verifyingimage-stub></verifyingimage-stub>
   <h2 class="verifying-step__title">Verifying Payment</h2> <span class="verifying-step__sub-title">
-        Verification may take up to an hour. In the meantime, see how easy it is to get started visiting documentation
-        page, or check coin payment status.
+        Verification may take up to a few hours. In the meantime, see how easy it is to get started visiting
+        documentation page, or check coin payment status.
     </span>
   <div class="verifying-step__buttons-area"><a href="https://documentation.storj.io" target="_blank" rel="noopener noreferrer" class="verifying-step__buttons-area__how-to-button">
       Documentation

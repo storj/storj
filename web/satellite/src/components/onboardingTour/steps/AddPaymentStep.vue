@@ -5,7 +5,8 @@
     <div class="payment-step">
         <h1 class="payment-step__title">Get Started with 50 GB Free</h1>
         <p class="payment-step__sub-title">
-            Adding a payment method ensures your project won’t be interrupted after your <b>free</b> credit is used.
+            Experience the decentralized cloud for free! If you find our network isn’t for you, <b class="bold">cancel
+            any time before your credit runs out and you won’t be billed.</b>
         </p>
         <div class="payment-step__methods-container">
             <div class="payment-step__methods-container__title-area">
@@ -32,12 +33,12 @@
         <AddCardState
             v-if="isAddCardState"
             @toggleIsLoading="toggleIsLoading"
-            @setProjectState="setProjectState"
+            @setCreateGrantStep="setCreateGrantStep"
         />
         <AddStorjState
             v-if="isAddStorjState"
             @toggleIsLoading="toggleIsLoading"
-            @setProjectState="setProjectState"
+            @setCreateGrantStep="setCreateGrantStep"
         />
         <h1 class="payment-step__title second-title">Transparent Monthly Pricing</h1>
         <p class="payment-step__sub-title">
@@ -84,6 +85,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import AddCardState from '@/components/onboardingTour/steps/paymentStates/AddCardState.vue';
 import AddStorjState from '@/components/onboardingTour/steps/paymentStates/AddStorjState.vue';
 
+import { RouteConfig } from '@/router';
 import { AddingPaymentState } from '@/utils/constants/onboardingTourEnums';
 
 @Component({
@@ -102,6 +104,12 @@ export default class AddPaymentStep extends Vue {
      * Sets area to needed state.
      */
     public mounted(): void {
+        if (this.userHasProject) {
+            this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).path);
+
+            return;
+        }
+
         if (this.$store.getters.isTransactionProcessing || this.$store.getters.isBalancePositive) {
             this.setAddStorjState();
         }
@@ -143,10 +151,17 @@ export default class AddPaymentStep extends Vue {
     }
 
     /**
-     * Sets tour area to creating project state.
+     * Sets tour area to creating access grant state.
      */
-    public setProjectState(): void {
-        this.$emit('setProjectState');
+    public setCreateGrantStep(): void {
+        this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).path);
+    }
+
+    /**
+     * Indicates if user has at least one project.
+     */
+    private get userHasProject(): boolean {
+        return this.$store.state.projectsModule.projects.length > 0;
     }
 }
 </script>
@@ -169,6 +184,7 @@ export default class AddPaymentStep extends Vue {
         position: relative;
 
         &__title {
+            font-family: 'font_bold', sans-serif;
             font-size: 32px;
             line-height: 39px;
             color: #1b2533;
@@ -182,6 +198,10 @@ export default class AddPaymentStep extends Vue {
             margin-bottom: 35px;
             text-align: center;
             word-break: break-word;
+
+            .bold {
+                font-family: 'font_medium', sans-serif;
+            }
         }
 
         &__methods-container {
