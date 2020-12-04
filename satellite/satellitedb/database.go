@@ -21,7 +21,6 @@ import (
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/nodeapiversion"
@@ -67,6 +66,7 @@ type satelliteDB struct {
 
 // Options includes options for how a satelliteDB runs.
 type Options struct {
+	ApplicationName      string
 	APIKeysLRUOptions    cache.Options
 	RevocationLRUOptions cache.Options
 
@@ -122,7 +122,10 @@ func open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 		return nil, Error.New("unsupported driver %q", driver)
 	}
 
-	source = pgutil.CheckApplicationName(source)
+	source, err = pgutil.CheckApplicationName(source, opts.ApplicationName)
+	if err != nil {
+		return nil, err
+	}
 
 	dbxDB, err := dbx.Open(driver, source)
 	if err != nil {
@@ -263,11 +266,6 @@ func (dbc *satelliteDBCollection) GracefulExit() gracefulexit.DB {
 // StripeCoinPayments returns database for stripecoinpayments.
 func (dbc *satelliteDBCollection) StripeCoinPayments() stripecoinpayments.DB {
 	return &stripeCoinPaymentsDB{db: dbc.getByName("stripecoinpayments")}
-}
-
-// DowntimeTracking returns database for downtime tracking.
-func (dbc *satelliteDBCollection) DowntimeTracking() downtime.DB {
-	return &downtimeTrackingDB{db: dbc.getByName("downtimetracking")}
 }
 
 // SnoPayout returns database for storagenode payStubs and payments info.

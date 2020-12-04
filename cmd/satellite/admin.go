@@ -27,6 +27,7 @@ func cmdAdminRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	db, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
+		ApplicationName:   "satellite-admin",
 		APIKeysLRUOptions: runCfg.APIKeysLRUOptions(),
 	})
 	if err != nil {

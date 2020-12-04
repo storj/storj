@@ -32,7 +32,6 @@ import (
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/dbcleanup"
-	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metainfo"
@@ -136,12 +135,6 @@ type Core struct {
 
 	Metrics struct {
 		Chore *metrics.Chore
-	}
-
-	DowntimeTracking struct {
-		DetectionChore  *downtime.DetectionChore
-		EstimationChore *downtime.EstimationChore
-		Service         *downtime.Service
 	}
 }
 
@@ -527,39 +520,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Metrics", peer.Metrics.Chore.Loop))
-	}
-
-	{ // setup downtime tracking
-		peer.DowntimeTracking.Service = downtime.NewService(peer.Log.Named("downtime"), peer.Overlay.Service, peer.Contact.Service)
-
-		peer.DowntimeTracking.DetectionChore = downtime.NewDetectionChore(
-			peer.Log.Named("downtime:detection"),
-			config.Downtime,
-			peer.Overlay.Service,
-			peer.DowntimeTracking.Service,
-		)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "downtime:detection",
-			Run:   peer.DowntimeTracking.DetectionChore.Run,
-			Close: peer.DowntimeTracking.DetectionChore.Close,
-		})
-		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Downtime Detection", peer.DowntimeTracking.DetectionChore.Loop))
-
-		peer.DowntimeTracking.EstimationChore = downtime.NewEstimationChore(
-			peer.Log.Named("downtime:estimation"),
-			config.Downtime,
-			peer.Overlay.Service,
-			peer.DowntimeTracking.Service,
-			peer.DB.DowntimeTracking(),
-		)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "downtime:estimation",
-			Run:   peer.DowntimeTracking.EstimationChore.Run,
-			Close: peer.DowntimeTracking.EstimationChore.Close,
-		})
-		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Downtime Estimation", peer.DowntimeTracking.EstimationChore.Loop))
 	}
 
 	return peer, nil

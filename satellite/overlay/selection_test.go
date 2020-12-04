@@ -163,8 +163,6 @@ func TestEnsureMinimumRequested(t *testing.T) {
 		satellite.Audit.Chore.Loop.Pause()
 		satellite.Repair.Checker.Loop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()
-		satellite.DowntimeTracking.DetectionChore.Loop.Pause()
-		satellite.DowntimeTracking.EstimationChore.Loop.Pause()
 		for _, node := range planet.StorageNodes {
 			node.Contact.Chore.Pause(ctx)
 		}

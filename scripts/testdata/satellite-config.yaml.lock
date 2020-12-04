@@ -187,18 +187,6 @@ contact.external-address: ""
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
 
-# how often to run the downtime detection chore.
-# downtime.detection-interval: 1h0m0s
-
-# the downtime estimation chore should check this many offline nodes
-# downtime.estimation-batch-size: 1000
-
-# max number of concurrent connections in estimation chore
-# downtime.estimation-concurrency-limit: 10
-
-# how often to run the downtime estimation chore
-# downtime.estimation-interval: 1h0m0s
-
 # set if expired segment cleanup is enabled or not
 # expired-deletion.enabled: true
 

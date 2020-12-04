@@ -92,17 +92,21 @@ func QuerySnapshot(ctx context.Context, db dbschema.Queryer) (*dbschema.Snapshot
 }
 
 // CheckApplicationName ensures that the Connection String contains an application name.
-func CheckApplicationName(s string) (r string) {
+func CheckApplicationName(s string, app string) (string, error) {
 	if !strings.Contains(s, "application_name") {
-		if !strings.Contains(s, "?") {
-			r = s + "?application_name=Satellite"
-			return
+		if strings.TrimSpace(app) == "" {
+			return s, errs.New("application name cannot be empty")
 		}
-		r = s + "&application_name=Satellite"
-		return
+
+		if !strings.Contains(s, "?") {
+			return s + "?application_name=" + app, nil
+
+		}
+
+		return s + "&application_name=" + app, nil
 	}
 	// return source as is if application_name is set
-	return s
+	return s, nil
 }
 
 // IsConstraintError checks if given error is about constraint violation.
