@@ -63,6 +63,7 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 			FROM nodes ` + asOf + `
 			WHERE disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
+			AND offline_suspended IS NULL
 			AND exit_initiated_at IS NULL
 			AND type = $1
 			AND free_disk >= $2
@@ -313,6 +314,7 @@ func (cache *overlaycache) knownUnreliableOrOffline(ctx context.Context, criteri
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
+			AND offline_suspended IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success > $2
 		`), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-criteria.OnlineWindow),
@@ -369,6 +371,7 @@ func (cache *overlaycache) knownReliable(ctx context.Context, onlineWindow time.
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
+			AND offline_suspended IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success > $2
 		`), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-onlineWindow),
@@ -417,6 +420,7 @@ func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeC
 		SELECT id FROM nodes `+asOf+`
 		WHERE disqualified IS NULL
 		AND unknown_audit_suspended IS NULL
+		AND offline_suspended IS NULL
 		AND exit_finished_at IS NULL
 		AND last_contact_success > ?
 	`), time.Now().Add(-criteria.OnlineWindow))
@@ -735,6 +739,38 @@ func (cache *overlaycache) UnsuspendNodeUnknownAudit(ctx context.Context, nodeID
 	defer mon.Task()(&ctx)(&err)
 	updateFields := dbx.Node_Update_Fields{}
 	updateFields.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended_Null()
+
+	dbNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
+	if err != nil {
+		return err
+	}
+	if dbNode == nil {
+		return errs.New("unable to get node by ID: %v", nodeID)
+	}
+	return nil
+}
+
+// SuspendNodeOfflineAudit suspends a storage node for offline audits.
+func (cache *overlaycache) SuspendNodeOfflineAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	updateFields := dbx.Node_Update_Fields{}
+	updateFields.OfflineSuspended = dbx.Node_OfflineSuspended(suspendedAt.UTC())
+
+	dbNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
+	if err != nil {
+		return err
+	}
+	if dbNode == nil {
+		return errs.New("unable to get node by ID: %v", nodeID)
+	}
+	return nil
+}
+
+// UnsuspendNodeOfflineAudit unsuspends a storage node for offline audits.
+func (cache *overlaycache) UnsuspendNodeOfflineAudit(ctx context.Context, nodeID storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	updateFields := dbx.Node_Update_Fields{}
+	updateFields.OfflineSuspended = dbx.Node_OfflineSuspended_Null()
 
 	dbNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 	if err != nil {
