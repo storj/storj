@@ -103,7 +103,7 @@ type V0PieceInfoDBForTest interface {
 	Add(context.Context, *Info) error
 }
 
-// PieceSpaceUsedDB stores the most recent totals from the space used cache
+// PieceSpaceUsedDB stores the most recent totals from the space used cache.
 //
 // architecture: Database
 type PieceSpaceUsedDB interface {
@@ -182,7 +182,9 @@ type StoreForTest struct {
 }
 
 // NewStore creates a new piece store.
-func NewStore(log *zap.Logger, blobs storage.Blobs, v0PieceInfo V0PieceInfoDB, expirationInfo PieceExpirationDB, pieceSpaceUsedDB PieceSpaceUsedDB, config Config) *Store {
+func NewStore(log *zap.Logger, blobs storage.Blobs, v0PieceInfo V0PieceInfoDB,
+	expirationInfo PieceExpirationDB, pieceSpaceUsedDB PieceSpaceUsedDB, config Config) *Store {
+
 	return &Store{
 		log:            log,
 		config:         config,
@@ -222,7 +224,9 @@ func (store *Store) Writer(ctx context.Context, satellite storj.NodeID, pieceID 
 // WriterForFormatVersion allows opening a piece writer with a specified storage format version.
 // This is meant to be used externally only in test situations (thus the StoreForTest receiver
 // type).
-func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, formatVersion storage.FormatVersion) (_ *Writer, err error) {
+func (store StoreForTest) WriterForFormatVersion(ctx context.Context, satellite storj.NodeID,
+	pieceID storj.PieceID, formatVersion storage.FormatVersion) (_ *Writer, err error) {
+
 	defer mon.Task()(&ctx)(&err)
 
 	blobRef := storage.BlobRef{
@@ -271,7 +275,9 @@ func (store *Store) Reader(ctx context.Context, satellite storj.NodeID, pieceID 
 
 // ReaderWithStorageFormat returns a new piece reader for a located piece, which avoids the
 // potential need to check multiple storage formats to find the right blob.
-func (store *Store) ReaderWithStorageFormat(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID, formatVersion storage.FormatVersion) (_ *Reader, err error) {
+func (store *Store) ReaderWithStorageFormat(ctx context.Context, satellite storj.NodeID,
+	pieceID storj.PieceID, formatVersion storage.FormatVersion) (_ *Reader, err error) {
+
 	defer mon.Task()(&ctx)(&err)
 	ref := storage.BlobRef{Namespace: satellite.Bytes(), Key: pieceID.Bytes()}
 	blob, err := store.blobs.OpenWithStorageFormat(ctx, ref, formatVersion)
@@ -306,7 +312,8 @@ func (store *Store) Delete(ctx context.Context, satellite storj.NodeID, pieceID 
 		err = errs.Combine(err, store.v0PieceInfo.Delete(ctx, satellite, pieceID))
 	}
 
-	store.log.Debug("deleted piece", zap.String("Satellite ID", satellite.String()), zap.String("Piece ID", pieceID.String()))
+	store.log.Debug("deleted piece", zap.String("Satellite ID", satellite.String()),
+		zap.String("Piece ID", pieceID.String()))
 
 	return Error.Wrap(err)
 }
@@ -386,10 +393,10 @@ func (store *Store) RestoreTrash(ctx context.Context, satelliteID storj.NodeID) 
 // MigrateV0ToV1 will migrate a piece stored with storage format v0 to storage
 // format v1. If the piece is not stored as a v0 piece it will return an error.
 // The follow failures are possible:
-// - Fail to open or read v0 piece. In this case no artifacts remain.
-// - Fail to Write or Commit v1 piece. In this case no artifacts remain.
-// - Fail to Delete v0 piece. In this case v0 piece may remain, but v1 piece
-//   will exist and be preferred in future calls.
+//   - Fail to open or read v0 piece. In this case no artifacts remain.
+//   - Fail to Write or Commit v1 piece. In this case no artifacts remain.
+//   - Fail to Delete v0 piece. In this case v0 piece may remain,
+//     but v1 piece will exist and be preferred in future calls.
 func (store *Store) MigrateV0ToV1(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

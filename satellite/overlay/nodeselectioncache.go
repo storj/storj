@@ -15,7 +15,7 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 )
 
-// CacheDB implements the database for overlay node selection cache
+// CacheDB implements the database for overlay node selection cache.
 //
 // architecture: Database
 type CacheDB interface {

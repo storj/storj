@@ -36,7 +36,7 @@ type TransferQueueItem struct {
 	OrderLimitSendCount int
 }
 
-// DB implements CRUD operations for graceful exit service
+// DB implements CRUD operations for graceful exit service.
 //
 // architecture: Database
 type DB interface {

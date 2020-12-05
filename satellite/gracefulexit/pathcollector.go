@@ -17,7 +17,7 @@ import (
 
 var _ metainfo.Observer = (*PathCollector)(nil)
 
-// PathCollector uses the metainfo loop to add paths to node reservoirs
+// PathCollector uses the metainfo loop to add paths to node reservoirs.
 //
 // architecture: Observer
 type PathCollector struct {

@@ -36,7 +36,7 @@ var ErrNodeFinishedGE = errs.Class("node finished graceful exit")
 // ErrNotEnoughNodes is when selecting nodes failed with the given parameters.
 var ErrNotEnoughNodes = errs.Class("not enough nodes")
 
-// DB implements the database for overlay.Service
+// DB implements the database for overlay.Service.
 //
 // architecture: Database
 type DB interface {
@@ -265,7 +265,7 @@ func (node *SelectedNode) Clone() *SelectedNode {
 	}
 }
 
-// Service is used to store and handle node information
+// Service is used to store and handle node information.
 //
 // architecture: Service
 type Service struct {

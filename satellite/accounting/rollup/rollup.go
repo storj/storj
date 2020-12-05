@@ -21,7 +21,7 @@ type Config struct {
 	DeleteTallies bool          `help:"option for deleting tallies after they are rolled up" default:"true"`
 }
 
-// Service is the rollup service for totalling data on storage nodes on daily intervals
+// Service is the rollup service for totalling data on storage nodes on daily intervals.
 //
 // architecture: Chore
 type Service struct {

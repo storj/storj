@@ -33,8 +33,7 @@ import (
 //	 the numbers of nodes determined by the upload repair max threshold
 // - Shuts down several nodes, but keeping up a number equal to the minim
 //	 threshold
-// - Downloads the data from those left nodes and check that it's the same than
-//   the uploaded one
+// - Downloads the data from those left nodes and check that it's the same than the uploaded one.
 func TestDataRepairInMemory(t *testing.T) {
 	testDataRepair(t, true)
 }
@@ -894,10 +893,10 @@ func testRepairMultipleDisqualifiedAndSuspended(t *testing.T, inMemoryRepair boo
 }
 
 // TestDataRepairOverride_HigherLimit does the following:
-// - Uploads test data
-// - Kills nodes to fall to the Repair Override Value of the checker but stays above the original Repair Threshold
-// - Triggers data repair, which attempts to repair the data from the remaining nodes to
-//	 the numbers of nodes determined by the upload repair max threshold
+//   - Uploads test data
+//   - Kills nodes to fall to the Repair Override Value of the checker but stays above the original Repair Threshold
+//   - Triggers data repair, which attempts to repair the data from the remaining nodes to
+//	   the numbers of nodes determined by the upload repair max threshold
 func TestDataRepairOverride_HigherLimitInMemory(t *testing.T) {
 	testDataRepairOverrideHigherLimit(t, true)
 }
@@ -988,12 +987,12 @@ func testDataRepairOverrideHigherLimit(t *testing.T, inMemoryRepair bool) {
 }
 
 // TestDataRepairOverride_LowerLimit does the following:
-// - Uploads test data
-// - Kills nodes to fall to the Repair Threshold of the checker that should not trigger repair any longer
-// - Starts Checker and Repairer and ensures this is the case.
-// - Kills more nodes to fall to the Override Value to trigger repair
-// - Triggers data repair, which attempts to repair the data from the remaining nodes to
-//	 the numbers of nodes determined by the upload repair max threshold
+//   - Uploads test data
+//   - Kills nodes to fall to the Repair Threshold of the checker that should not trigger repair any longer
+//   - Starts Checker and Repairer and ensures this is the case.
+//   - Kills more nodes to fall to the Override Value to trigger repair
+//   - Triggers data repair, which attempts to repair the data from the remaining nodes to
+//	   the numbers of nodes determined by the upload repair max threshold
 func TestDataRepairOverride_LowerLimitInMemory(t *testing.T) {
 	testDataRepairOverrideLowerLimit(t, true)
 }
@@ -1112,12 +1111,12 @@ func testDataRepairOverrideLowerLimit(t *testing.T, inMemoryRepair bool) {
 }
 
 // TestDataRepairUploadLimits does the following:
-// - Uploads test data to nodes
-// - Get one segment of that data to check in which nodes its pieces are stored
-// - Kills as many nodes as needed which store such segment pieces
-// - Triggers data repair
-// - Verify that the number of pieces which repaired has uploaded don't overpass
-//	 the established limit (success threshold + % of excess)
+//   - Uploads test data to nodes
+//   - Get one segment of that data to check in which nodes its pieces are stored
+//   - Kills as many nodes as needed which store such segment pieces
+//   - Triggers data repair
+//   - Verify that the number of pieces which repaired has uploaded don't overpass
+//     the established limit (success threshold + % of excess)
 func TestDataRepairUploadLimitInMemory(t *testing.T) {
 	testDataRepairUploadLimit(t, true)
 }

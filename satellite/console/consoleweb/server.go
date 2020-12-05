@@ -87,7 +87,7 @@ type Config struct {
 	console.Config
 }
 
-// Server represents console web server
+// Server represents console web server.
 //
 // architecture: Endpoint
 type Server struct {

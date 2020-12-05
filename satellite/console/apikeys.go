@@ -10,7 +10,7 @@ import (
 	"storj.io/common/uuid"
 )
 
-// APIKeys is interface for working with api keys store
+// APIKeys is interface for working with api keys store.
 //
 // architecture: Database
 type APIKeys interface {

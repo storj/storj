@@ -21,7 +21,7 @@ var (
 	mon = monkit.Package()
 )
 
-// Endpoint for querying node stats for the SNO
+// Endpoint for querying node stats for the SNO.
 //
 // architecture: Endpoint
 type Endpoint struct {

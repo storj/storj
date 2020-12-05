@@ -28,7 +28,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
-// GarbageCollection is the satellite garbage collection process
+// GarbageCollection is the satellite garbage collection process.
 //
 // architecture: Peer
 type GarbageCollection struct {
