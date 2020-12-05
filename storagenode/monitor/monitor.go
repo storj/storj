@@ -37,7 +37,7 @@ type Config struct {
 	NotifyLowDiskCooldown     time.Duration `help:"minimum length of time between capacity reports" default:"10m" hidden:"true"`
 }
 
-// Service which monitors disk usage
+// Service which monitors disk usage.
 //
 // architecture: Service
 type Service struct {

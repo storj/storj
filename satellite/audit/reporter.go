@@ -13,7 +13,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
-// Reporter records audit reports in overlay and implements the reporter interface
+// Reporter records audit reports in overlay and implements the reporter interface.
 //
 // architecture: Service
 type Reporter struct {

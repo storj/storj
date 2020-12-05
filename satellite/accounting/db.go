@@ -138,7 +138,7 @@ type BucketUsageRollup struct {
 	Before time.Time
 }
 
-// StoragenodeAccounting stores information about bandwidth and storage usage for storage nodes
+// StoragenodeAccounting stores information about bandwidth and storage usage for storage nodes.
 //
 // architecture: Database
 type StoragenodeAccounting interface {
@@ -164,7 +164,7 @@ type StoragenodeAccounting interface {
 	DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) error
 }
 
-// ProjectAccounting stores information about bandwidth and storage usage for projects
+// ProjectAccounting stores information about bandwidth and storage usage for projects.
 //
 // architecture: Database
 type ProjectAccounting interface {

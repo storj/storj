@@ -15,7 +15,7 @@ import (
 	"storj.io/common/sync2"
 )
 
-// Chore is the contact chore for nodes announcing themselves to their trusted satellites
+// Chore is the contact chore for nodes announcing themselves to their trusted satellites.
 //
 // architecture: Chore
 type Chore struct {

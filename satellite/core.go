@@ -44,7 +44,7 @@ import (
 	"storj.io/storj/satellite/repair/checker"
 )
 
-// Core is the satellite core process that runs chores
+// Core is the satellite core process that runs chores.
 //
 // architecture: Peer
 type Core struct {

@@ -54,7 +54,7 @@ type PointerDB interface {
 	UnsynchronizedGetDel(ctx context.Context, keys []metabase.SegmentKey) (deletedKeys []metabase.SegmentKey, _ []*pb.Pointer, _ error)
 }
 
-// Service implements the object deletion service
+// Service implements the object deletion service.
 //
 // architecture: Service
 type Service struct {

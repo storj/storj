@@ -44,7 +44,7 @@ type Satellite struct {
 	Status      int32
 }
 
-// DB works with satellite database
+// DB works with satellite database.
 //
 // architecture: Database
 type DB interface {

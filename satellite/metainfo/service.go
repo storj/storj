@@ -24,7 +24,7 @@ var (
 	ErrBucketNotEmpty = errs.Class("bucket not empty")
 )
 
-// Service structure
+// Service provides the metainfo service dependencies.
 //
 // architecture: Service
 type Service struct {

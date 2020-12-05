@@ -31,7 +31,7 @@ type Config struct {
 	ReferralManagerURL storj.NodeURL `help:"the URL for referral manager"`
 }
 
-// Service allows communicating with the Referral Manager
+// Service allows communicating with the Referral Manager.
 //
 // architecture: Service
 type Service struct {

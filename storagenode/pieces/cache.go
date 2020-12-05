@@ -17,7 +17,7 @@ import (
 	"storj.io/storj/storage"
 )
 
-// CacheService updates the space used cache
+// CacheService updates the space used cache.
 //
 // architecture: Chore
 type CacheService struct {
@@ -146,7 +146,8 @@ func (service *CacheService) Close() (err error) {
 // - piecesTotal: the total space used by pieces, including headers
 // - piecesContentSize: the space used by piece content, not including headers
 // - trashTotal: the total space used in the trash, including headers
-// - pieceTotal and pieceContentSize are the corollary for a single file
+//
+// pieceTotal and pieceContentSize are the corollary for a single file.
 //
 // architecture: Database
 type BlobsUsageCache struct {

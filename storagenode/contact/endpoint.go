@@ -16,7 +16,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 )
 
-// Endpoint implements the contact service Endpoints
+// Endpoint implements the contact service Endpoints.
 //
 // architecture: Endpoint
 type Endpoint struct {

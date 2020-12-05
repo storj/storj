@@ -9,7 +9,7 @@ import (
 	"storj.io/common/storj"
 )
 
-// DB works with pricing database
+// DB works with pricing database.
 //
 // architecture: Database
 type DB interface {

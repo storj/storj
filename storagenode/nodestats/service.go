@@ -27,7 +27,7 @@ var (
 	mon = monkit.Package()
 )
 
-// Client encapsulates NodeStatsClient with underlying connection
+// Client encapsulates NodeStatsClient with underlying connection.
 //
 // architecture: Client
 type Client struct {
@@ -40,7 +40,7 @@ func (c *Client) Close() error {
 	return c.conn.Close()
 }
 
-// Service retrieves info from satellites using an rpc client
+// Service retrieves info from satellites using an rpc client.
 //
 // architecture: Service
 type Service struct {

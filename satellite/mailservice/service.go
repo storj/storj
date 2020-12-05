@@ -34,7 +34,7 @@ var (
 	mon = monkit.Package()
 )
 
-// Sender sends emails
+// Sender sends emails.
 //
 // architecture: Service
 type Sender interface {
@@ -48,7 +48,7 @@ type Message interface {
 	Subject() string
 }
 
-// Service sends template-backed email messages through SMTP
+// Service sends template-backed email messages through SMTP.
 //
 // architecture: Service
 type Service struct {

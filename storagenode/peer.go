@@ -66,7 +66,7 @@ var (
 	mon = monkit.Package()
 )
 
-// DB is the master database for Storage Node
+// DB is the master database for Storage Node.
 //
 // architecture: Master Database
 type DB interface {

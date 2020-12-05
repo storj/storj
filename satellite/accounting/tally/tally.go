@@ -32,7 +32,7 @@ type Config struct {
 	ReadRollupBatchSize int           `help:"how large of batches GetBandwidthSince should process at a time" default:"10000"`
 }
 
-// Service is the tally service for data stored on each storage node
+// Service is the tally service for data stored on each storage node.
 //
 // architecture: Chore
 type Service struct {

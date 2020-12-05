@@ -39,8 +39,7 @@ type CacheStorage struct {
 	Satellites   satellites.DB
 }
 
-// Cache runs cache loop and stores reputation stats
-// and storage usage into db
+// Cache runs cache loop and stores reputation stats and storage usage into db.
 //
 // architecture: Chore
 type Cache struct {
@@ -58,7 +57,9 @@ type Cache struct {
 }
 
 // NewCache creates new caching service instance.
-func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service, payoutEndpoint *payout.Endpoint, reputationService *reputation.Service, trust *trust.Pool) *Cache {
+func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service,
+	payoutEndpoint *payout.Endpoint, reputationService *reputation.Service, trust *trust.Pool) *Cache {
+
 	return &Cache{
 		log:               log,
 		db:                db,
@@ -187,7 +188,8 @@ func (cache *Cache) CacheSpaceUsage(ctx context.Context) (err error) {
 	})
 }
 
-// CacheHeldAmount queries held amount stats and payments from all the satellites known to the storagenode and stores info into db.
+// CacheHeldAmount queries held amount stats and payments from
+// all the satellites known to the storagenode and stores info into db.
 func (cache *Cache) CacheHeldAmount(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

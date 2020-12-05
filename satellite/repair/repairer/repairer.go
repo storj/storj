@@ -38,7 +38,7 @@ type Config struct {
 	InMemoryRepair                bool          `help:"whether to download pieces for repair in memory (true) or download to disk (false)" default:"false"`
 }
 
-// Service contains the information needed to run the repair service
+// Service contains the information needed to run the repair service.
 //
 // architecture: Worker
 type Service struct {

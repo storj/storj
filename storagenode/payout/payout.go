@@ -12,7 +12,7 @@ import (
 	"storj.io/common/storj"
 )
 
-// DB works with payout database
+// DB works with payout database.
 //
 // architecture: Database
 type DB interface {
