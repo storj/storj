@@ -4,7 +4,7 @@
 import Vuex from 'vuex';
 
 import { RouteConfig, router } from '@/router';
-import { makeApiKeysModule } from '@/store/modules/apiKeys';
+import { makeAccessGrantsModule } from '@/store/modules/accessGrants';
 import { appStateModule } from '@/store/modules/appState';
 import { makeBucketsModule } from '@/store/modules/buckets';
 import { makeNotificationsModule } from '@/store/modules/notifications';
@@ -12,7 +12,6 @@ import { makePaymentsModule } from '@/store/modules/payments';
 import { makeProjectMembersModule } from '@/store/modules/projectMembers';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { makeUsersModule } from '@/store/modules/users';
-import { APP_STATE_MUTATIONS } from '@/store/mutationConstants';
 import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
@@ -21,6 +20,7 @@ import { SegmentioPlugin } from '@/utils/plugins/segment';
 import DashboardArea from '@/views/DashboardArea.vue';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
+import { AccessGrantsMock } from '../mock/api/accessGrants';
 import { ApiKeysMock } from '../mock/api/apiKeys';
 import { BucketsMock } from '../mock/api/buckets';
 import { PaymentsMock } from '../mock/api/payments';
@@ -43,7 +43,7 @@ projectsApi.setMockProjects([]);
 
 const usersModule = makeUsersModule(usersApi);
 const projectsModule = makeProjectsModule(projectsApi);
-const apiKeysModule = makeApiKeysModule(new ApiKeysMock());
+const accessGrantsModule = makeAccessGrantsModule(new AccessGrantsMock());
 const teamMembersModule = makeProjectMembersModule(new ProjectMembersApiMock());
 const bucketsModule = makeBucketsModule(new BucketsMock());
 const notificationsModule = makeNotificationsModule();
@@ -53,7 +53,7 @@ const store = new Vuex.Store({
     modules: {
         notificationsModule,
         bucketsModule,
-        apiKeysModule,
+        accessGrantsModule,
         usersModule,
         projectsModule,
         appStateModule,
@@ -114,7 +114,7 @@ describe('Dashboard', () => {
 
     it('loads routes correctly when authorithed without project with unavailable routes', async () => {
         const unavailableWithoutProject = [
-            RouteConfig.ApiKeys.path,
+            RouteConfig.AccessGrants.path,
             RouteConfig.Users.path,
             RouteConfig.ProjectDashboard.path,
         ];

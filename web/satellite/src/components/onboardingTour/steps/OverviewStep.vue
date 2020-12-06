@@ -9,7 +9,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import VButton from '@/components/common/VButton.vue';
 
 import { RouteConfig } from '@/router';
-import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
@@ -81,12 +81,12 @@ export default class OverviewStep extends Vue {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, createdProjectId);
-            await this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR);
             await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
 
             this.isLoading = false;
 
-            await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).path);
+            await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).with(RouteConfig.AccessGrantName).path);
         } catch (error) {
             await this.$notify.error(error.message);
             this.isLoading = false;

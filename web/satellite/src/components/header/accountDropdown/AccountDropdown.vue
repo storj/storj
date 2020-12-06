@@ -20,7 +20,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
-import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
@@ -58,7 +58,7 @@ export default class AccountDropdown extends Vue {
         await this.$store.dispatch(PM_ACTIONS.CLEAR);
         await this.$store.dispatch(PROJECTS_ACTIONS.CLEAR);
         await this.$store.dispatch(USER_ACTIONS.CLEAR);
-        await this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
+        await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR);
         await this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR);
         await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
         await this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
