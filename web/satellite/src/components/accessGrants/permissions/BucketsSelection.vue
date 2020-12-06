@@ -5,6 +5,7 @@
     <div class="buckets-selection">
         <div
             class="buckets-selection__toggle-container"
+            :class="{ disabled: isOnboardingTour }"
             @click.stop="toggleDropdown"
         >
             <h1 class="buckets-selection__toggle-container__name">{{ selectionLabel }}</h1>
@@ -27,6 +28,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import BucketsDropdown from '@/components/accessGrants/permissions/BucketsDropdown.vue';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
+import {RouteConfig} from "@/router";
 
 @Component({
     components: {
@@ -41,6 +43,8 @@ export default class BucketsSelection extends Vue {
      * Toggles dropdown visibility.
      */
     public toggleDropdown(): void {
+        if (this.isOnboardingTour) return;
+
         this.isDropdownShown = !this.isDropdownShown;
     }
 
@@ -49,6 +53,13 @@ export default class BucketsSelection extends Vue {
      */
     public closeDropdown(): void {
         this.isDropdownShown = false;
+    }
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    public get isOnboardingTour(): boolean {
+        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 
     /**
@@ -100,5 +111,11 @@ export default class BucketsSelection extends Vue {
                 margin: 0;
             }
         }
+    }
+
+    .disabled {
+        pointer-events: none;
+        background: #f5f6fa;
+        border: 1px solid rgba(56, 75, 101, 0.4);
     }
 </style>
