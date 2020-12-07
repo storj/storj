@@ -14,7 +14,7 @@ import (
 	"storj.io/common/uuid"
 )
 
-// ResetPasswordTokens is interface for working with reset password tokens
+// ResetPasswordTokens is interface for working with reset password tokens.
 //
 // architecture: Database
 type ResetPasswordTokens interface {

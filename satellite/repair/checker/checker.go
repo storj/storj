@@ -43,7 +43,7 @@ type durabilityStats struct {
 	remoteSegmentsOverThreshold [5]int64
 }
 
-// Checker contains the information needed to do checks for missing pieces
+// Checker contains the information needed to do checks for missing pieces.
 //
 // architecture: Chore
 type Checker struct {
@@ -243,7 +243,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 
 var _ metainfo.Observer = (*checkerObserver)(nil)
 
-// checkerObserver implements the metainfo loop Observer interface
+// checkerObserver implements the metainfo loop Observer interface.
 //
 // architecture: Observer
 type checkerObserver struct {

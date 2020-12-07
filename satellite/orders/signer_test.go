@@ -42,10 +42,10 @@ func TestSigner_EncryptedMetadata(t *testing.T) {
 
 		project, err := uplink.GetProject(ctx, satellite)
 		require.NoError(t, err)
-
+		bucketName := "testbucket"
 		bucketLocation := metabase.BucketLocation{
 			ProjectID:  uplink.Projects[0].ID,
-			BucketName: "testbucket",
+			BucketName: bucketName,
 		}
 
 		_, err = project.EnsureBucket(ctx, bucketLocation.BucketName)
@@ -71,10 +71,10 @@ func TestSigner_EncryptedMetadata(t *testing.T) {
 		metadata, err := ekeys.Default.DecryptMetadata(addressedLimit.Limit.SerialNumber, addressedLimit.Limit.EncryptedMetadata)
 		require.NoError(t, err)
 
-		bucketID, err := satellite.DB.Buckets().GetBucketID(ctx, bucketLocation)
+		bucketInfo, err := metabase.ParseBucketPrefix(metabase.BucketPrefix(metadata.ProjectBucketPrefix))
 		require.NoError(t, err)
-
-		require.Equal(t, bucketID[:], metadata.BucketId)
+		require.Equal(t, bucketInfo.BucketName, bucketName)
+		require.Equal(t, bucketInfo.ProjectID, uplink.Projects[0].ID)
 	})
 }
 

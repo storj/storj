@@ -6,15 +6,17 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/fpath"
 	"storj.io/common/pb"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
@@ -24,6 +26,7 @@ import (
 type registerConfig struct {
 	AuthService string `help:"the address to the service you wish to register your access with" default:"" basic-help:"true"`
 	Public      bool   `help:"if the access should be public" default:"false" basic-help:"true"`
+	AWSProfile  string `help:"update AWS credentials file, appending the credentials using this profile name" default:"" basic-help:"true"`
 	AccessConfig
 }
 
@@ -128,7 +131,7 @@ func accessInspect(cmd *cobra.Command, args []string) (err error) {
 func parseAccess(access string) (sa string, apiKey string, ea string, err error) {
 	data, version, err := base58.CheckDecode(access)
 	if err != nil || version != 0 {
-		return "", "", "", errors.New("invalid access grant format")
+		return "", "", "", errs.New("invalid access grant format: %w", err)
 	}
 
 	p := new(pb.Scope)
@@ -138,7 +141,7 @@ func parseAccess(access string) (sa string, apiKey string, ea string, err error)
 
 	eaData, err := pb.Marshal(p.EncryptionAccess)
 	if err != nil {
-		return "", "", "", errs.New("unable to marshal encryption access: %v", err)
+		return "", "", "", errs.New("unable to marshal encryption access: %w", err)
 	}
 
 	apiKey = base58.CheckEncode(p.ApiKey, 0)
@@ -148,7 +151,7 @@ func parseAccess(access string) (sa string, apiKey string, ea string, err error)
 
 func registerAccess(cmd *cobra.Command, args []string) (err error) {
 	if len(args) == 0 {
-		return fmt.Errorf("no access specified")
+		return errs.New("no access specified")
 	}
 
 	if registerCfg.AuthService == "" {
@@ -162,7 +165,7 @@ func registerAccess(cmd *cobra.Command, args []string) (err error) {
 	if err == nil && access != nil {
 		accessRaw, err = access.Serialize()
 		if err != nil {
-			return fmt.Errorf("error serializing named access '%s'", accessRaw)
+			return errs.New("error serializing named access '%s': %w", accessRaw, err)
 		}
 	}
 
@@ -203,5 +206,52 @@ func registerAccess(cmd *cobra.Command, args []string) (err error) {
 	fmt.Println("Secret Key:    ", secretKey)
 	fmt.Println("Endpoint:      ", respBody["endpoint"])
 
+	// update AWS credential file if requested
+	if registerCfg.AWSProfile != "" {
+		credentialsPath, err := getAwsCredentialsPath()
+		if err != nil {
+			return err
+		}
+		err = writeAWSCredentials(credentialsPath, registerCfg.AWSProfile, accessKey, secretKey)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// getAwsCredentialsPath returns the expected AWS credentials path.
+func getAwsCredentialsPath() (string, error) {
+	if credentialsPath, found := os.LookupEnv("AWS_SHARED_CREDENTIALS_FILE"); found {
+		return credentialsPath, nil
+	}
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return "", errs.Wrap(err)
+	}
+	return filepath.Join(homeDir, ".aws", "credentials"), nil
+}
+
+// writeAWSCredentials appends to credentialsPath using an AWS compliant credential formatting.
+func writeAWSCredentials(credentialsPath, profileName, accessKey, secretKey string) error {
+	oldCredentials, err := ioutil.ReadFile(credentialsPath)
+	if err != nil && !os.IsNotExist(err) {
+		return errs.Wrap(err)
+	}
+	const format = "\n[%s]\naws_access_key_id = %s\naws_secret_access_key = %s\n"
+	newCredentials := fmt.Sprintf(format, profileName, accessKey, secretKey)
+
+	var fileMode os.FileMode
+	fileInfo, err := os.Stat(credentialsPath)
+	if err == nil {
+		fileMode = fileInfo.Mode()
+	} else {
+		fileMode = 0644
+	}
+	err = fpath.AtomicWriteFile(credentialsPath, append(oldCredentials, newCredentials...), fileMode)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	fmt.Printf("Updated AWS credential file %s with profile '%s'\n", credentialsPath, profileName)
 	return nil
 }

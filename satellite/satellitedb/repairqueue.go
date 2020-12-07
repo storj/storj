@@ -24,10 +24,6 @@ type repairQueue struct {
 	db *satelliteDB
 }
 
-func (r *repairQueue) TestDBAccess() *dbx.DB {
-	return r.db.DB
-}
-
 func (r *repairQueue) Insert(ctx context.Context, seg *internalpb.InjuredSegment, segmentHealth float64) (alreadyInserted bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 	// insert if not exists, or update healthy count if does exist
@@ -149,5 +145,16 @@ func (r *repairQueue) Count(ctx context.Context) (count int, err error) {
 	// Count every segment regardless of how recently repair was last attempted
 	err = r.db.QueryRowContext(ctx, r.db.Rebind(`SELECT COUNT(*) as count FROM injuredsegments`)).Scan(&count)
 
+	return count, Error.Wrap(err)
+}
+
+// TestingSetAttemptedTime sets attempted time for a repairpath.
+func (r *repairQueue) TestingSetAttemptedTime(ctx context.Context, repairpath []byte, t time.Time) (rowsAffected int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	res, err := r.db.ExecContext(ctx, r.db.Rebind(`UPDATE injuredsegments SET attempted = ? WHERE path = ?`), t, repairpath)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+	count, err := res.RowsAffected()
 	return count, Error.Wrap(err)
 }

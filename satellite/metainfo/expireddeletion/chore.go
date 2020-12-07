@@ -27,7 +27,7 @@ type Config struct {
 	Enabled  bool          `help:"set if expired segment cleanup is enabled or not" releaseDefault:"true" devDefault:"true"`
 }
 
-// Chore implements the expired segment cleanup chore
+// Chore implements the expired segment cleanup chore.
 //
 // architecture: Chore
 type Chore struct {

@@ -12,7 +12,6 @@ import (
 	"storj.io/common/identity"
 	"storj.io/private/debug"
 	"storj.io/storj/pkg/server"
-	"storj.io/storj/private/migrate"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
@@ -28,7 +27,6 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/dbcleanup"
-	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/mailservice"
@@ -48,7 +46,6 @@ import (
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/rewards"
-	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/satellite/snopayout"
 )
 
@@ -58,7 +55,7 @@ func init() {
 	hw.Register(monkit.Default)
 }
 
-// DB is the master database for the satellite
+// DB is the master database for the satellite.
 //
 // architecture: Master Database
 type DB interface {
@@ -71,12 +68,6 @@ type DB interface {
 
 	// TestingMigrateToLatest initializes the database for testplanet.
 	TestingMigrateToLatest(ctx context.Context) error
-	// MigrationTestingDefaultDB assists in testing migrations themselves
-	// against the default database.
-	MigrationTestingDefaultDB() interface {
-		TestDBAccess() *dbx.DB
-		PostgresMigration() *migrate.Migration
-	}
 
 	// PeerIdentities returns a storage for peer identities
 	PeerIdentities() overlay.PeerIdentities
@@ -106,8 +97,6 @@ type DB interface {
 	GracefulExit() gracefulexit.DB
 	// StripeCoinPayments returns stripecoinpayments database.
 	StripeCoinPayments() stripecoinpayments.DB
-	// DowntimeTracking returns database for downtime tracking
-	DowntimeTracking() downtime.DB
 	// SnoPayout returns database for payout.
 	SnoPayout() snopayout.DB
 	// Compoensation tracks storage node compensation
@@ -163,8 +152,6 @@ type Config struct {
 	GracefulExit gracefulexit.Config
 
 	Metrics metrics.Config
-
-	Downtime downtime.Config
 
 	Compensation compensation.Config
 

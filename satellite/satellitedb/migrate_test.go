@@ -25,7 +25,9 @@ import (
 	"storj.io/storj/private/dbutil/pgtest"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/dbutil/tempdb"
+	"storj.io/storj/private/migrate"
 	"storj.io/storj/satellite/satellitedb"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // loadSnapshots loads all the dbschemas from `testdata/postgres.*`.
@@ -132,6 +134,15 @@ func loadSchemaFromSQL(ctx context.Context, connstr, script string) (_ *dbschema
 func TestMigratePostgres(t *testing.T)  { migrateTest(t, pgtest.PickPostgres(t)) }
 func TestMigrateCockroach(t *testing.T) { migrateTest(t, pgtest.PickCockroachAlt(t)) }
 
+type migrationTestingAccess interface {
+	// MigrationTestingDefaultDB assists in testing migrations themselves
+	// against the default database.
+	MigrationTestingDefaultDB() interface {
+		TestDBAccess() *dbx.DB
+		PostgresMigration() *migrate.Migration
+	}
+}
+
 func migrateTest(t *testing.T, connStr string) {
 	t.Parallel()
 
@@ -146,12 +157,12 @@ func migrateTest(t *testing.T, connStr string) {
 	defer func() { require.NoError(t, tempDB.Close()) }()
 
 	// create a new satellitedb connection
-	db, err := satellitedb.Open(ctx, log, tempDB.ConnStr, satellitedb.Options{})
+	db, err := satellitedb.Open(ctx, log, tempDB.ConnStr, satellitedb.Options{ApplicationName: "satellite-migration-test"})
 	require.NoError(t, err)
 	defer func() { require.NoError(t, db.Close()) }()
 
 	// we need raw database access unfortunately
-	rawdb := db.MigrationTestingDefaultDB().TestDBAccess()
+	rawdb := db.(migrationTestingAccess).MigrationTestingDefaultDB().TestDBAccess()
 
 	snapshots, dbxschema, err := loadSnapshots(ctx, connStr, rawdb.Schema())
 	require.NoError(t, err)
@@ -159,7 +170,7 @@ func migrateTest(t *testing.T, connStr string) {
 	var finalSchema *dbschema.Schema
 
 	// get migration for this database
-	migrations := db.MigrationTestingDefaultDB().PostgresMigration()
+	migrations := db.(migrationTestingAccess).MigrationTestingDefaultDB().PostgresMigration()
 	for i, step := range migrations.Steps {
 		tag := fmt.Sprintf("#%d - v%d", i, step.Version)
 
@@ -238,7 +249,7 @@ func benchmarkSetup(b *testing.B, connStr string, merged bool) {
 			defer func() { require.NoError(b, tempDB.Close()) }()
 
 			// create a new satellitedb connection
-			db, err := satellitedb.Open(ctx, log, tempDB.ConnStr, satellitedb.Options{})
+			db, err := satellitedb.Open(ctx, log, tempDB.ConnStr, satellitedb.Options{ApplicationName: "satellite-migration-test"})
 			require.NoError(b, err)
 			defer func() { require.NoError(b, db.Close()) }()
 

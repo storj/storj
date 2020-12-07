@@ -33,7 +33,7 @@ var (
 	mon = monkit.Package()
 )
 
-// Service retrieves info from satellites using an rpc client
+// Service retrieves info from satellites using an rpc client.
 //
 // architecture: Service
 type Service struct {

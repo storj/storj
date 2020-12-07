@@ -12,7 +12,7 @@ import (
 	"storj.io/storj/satellite/metainfo/metabase"
 )
 
-// BucketsDB is the interface for the database to interact with buckets
+// BucketsDB is the interface for the database to interact with buckets.
 //
 // architecture: Database
 type BucketsDB interface {

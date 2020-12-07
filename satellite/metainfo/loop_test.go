@@ -33,7 +33,7 @@ import (
 // * upload 2 inline files
 // * connect two observers to the metainfo loop
 // * run the metainfo loop
-// * expect that each observer has seen
+// * expect that each observer has seen:
 //    - 5 remote files
 //    - 5 remote segments
 //    - 2 inline files/segments

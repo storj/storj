@@ -50,7 +50,7 @@ type Share struct {
 	Data     []byte
 }
 
-// Verifier helps verify the correctness of a given stripe
+// Verifier helps verify the correctness of a given stripe.
 //
 // architecture: Worker
 type Verifier struct {

@@ -193,7 +193,7 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return Error.New("unable to query segments: %w", err)
 		}
-		err = nil //nolint:ineffassign ignore any other err result (explicitly)
+		err = nil //nolint: ineffassign, ignore any other err result (explicitly)
 
 		return nil
 	})
