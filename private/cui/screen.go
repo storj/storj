@@ -17,7 +17,7 @@ var initialized = false
 
 const padding = 2
 
-// Point is a 2D coordinate in console
+// Point is a 2D coordinate in console.
 //   X is the column
 //   Y is the row
 type Point struct{ X, Y int }

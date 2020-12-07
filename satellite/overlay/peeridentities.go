@@ -10,7 +10,7 @@ import (
 	"storj.io/common/storj"
 )
 
-// PeerIdentities stores storagenode peer identities
+// PeerIdentities stores storagenode peer identities.
 //
 // architecture: Database
 type PeerIdentities interface {

@@ -33,6 +33,7 @@ type Config struct {
 	Enabled   bool          `help:"set if garbage collection is enabled or not" releaseDefault:"true" devDefault:"true"`
 	SkipFirst bool          `help:"if true, skip the first run of GC" releaseDefault:"true" devDefault:"false"`
 	RunInCore bool          `help:"if true, run garbage collection as part of the core" releaseDefault:"false" devDefault:"false"`
+
 	// value for InitialPieces currently based on average pieces per node
 	InitialPieces     int           `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
 	FalsePositiveRate float64       `help:"the false positive rate used for creating a garbage collection bloom filter" releaseDefault:"0.1" devDefault:"0.1"`
@@ -40,7 +41,7 @@ type Config struct {
 	RetainSendTimeout time.Duration `help:"the amount of time to allow a node to handle a retain request" default:"1m"`
 }
 
-// Service implements the garbage collection service
+// Service implements the garbage collection service.
 //
 // architecture: Chore
 type Service struct {

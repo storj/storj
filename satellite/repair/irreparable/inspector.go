@@ -15,7 +15,7 @@ var (
 	mon = monkit.Package()
 )
 
-// Inspector is a RPC service for inspecting irreparable internals
+// Inspector is a RPC service for inspecting irreparable internals.
 //
 // architecture: Endpoint
 type Inspector struct {

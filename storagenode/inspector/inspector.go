@@ -27,7 +27,7 @@ var (
 	Error = errs.Class("piecestore inspector")
 )
 
-// Endpoint does inspectory things
+// Endpoint implements the inspector endpoints.
 //
 // architecture: Endpoint
 type Endpoint struct {

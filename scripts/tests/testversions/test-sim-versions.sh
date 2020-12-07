@@ -89,15 +89,11 @@ install_sim(){
     go build -race -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
 
     if [ -d "${work_dir}/cmd/gateway" ]; then
-        pushd ${work_dir}/cmd/gateway
-            go build -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
-        popd
+        (cd ${work_dir}/cmd/gateway && go build -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1)
     else
-        rm -rf .build/gateway-tmp
-        mkdir -p .build/gateway-tmp
-        pushd .build/gateway-tmp
-            go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@latest
-        popd
+	mkdir -p ${work_dir}/build/gateway-tmp
+	(cd ${work_dir}/build/gateway-tmp && go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@latest;)
+        rm -rf ${work_dir}/build/gateway-tmp
     fi
 }
 
@@ -119,8 +115,6 @@ setup_stage(){
     ln -f $src_sat_version_dir/bin/satellite $dest_sat_cfg_dir/satellite
     cp $src_sat_cfg_dir/config.yaml $dest_sat_cfg_dir
     replace_in_file "${src_sat_version_dir}" "${test_dir}" "${dest_sat_cfg_dir}/config.yaml"
-
-
 
     counter=0
     for sn_version in ${stage_sn_versions}; do
@@ -173,7 +167,7 @@ write_exit_status(){
     local exit_status=$?
     local version=$1
     echo $exit_status > ${exit_statuses_dir}/${version} # write exit code to a file named with the current installing version
-    echo "installation for ${version} exited"
+    echo "installation for ${version} exited with status $exit_status"
 }
 # clean up git worktree
 git worktree prune

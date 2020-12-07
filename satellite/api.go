@@ -54,7 +54,7 @@ import (
 	"storj.io/storj/satellite/snopayout"
 )
 
-// API is the satellite API process
+// API is the satellite API process.
 //
 // architecture: Peer
 type API struct {

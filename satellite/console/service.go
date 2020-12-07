@@ -76,7 +76,7 @@ var (
 	ErrEmailUsed = errs.Class("email used")
 )
 
-// Service is handling accounts related logic
+// Service is handling accounts related logic.
 //
 // architecture: Service
 type Service struct {

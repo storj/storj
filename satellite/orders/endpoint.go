@@ -26,7 +26,7 @@ import (
 	"storj.io/storj/satellite/nodeapiversion"
 )
 
-// DB implements saving order after receiving from storage node
+// DB implements saving order after receiving from storage node.
 //
 // architecture: Database
 type DB interface {
@@ -200,7 +200,7 @@ type ProcessOrderResponse struct {
 	Status       pb.SettlementResponse_Status
 }
 
-// Endpoint for orders receiving
+// Endpoint for orders receiving.
 //
 // architecture: Endpoint
 type Endpoint struct {
@@ -218,7 +218,10 @@ type Endpoint struct {
 //
 // ordersSemaphoreSize controls the number of concurrent clients allowed to submit orders at once.
 // A value of zero means unlimited.
-func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB, settlementBatchSize int, windowEndpointRolloutPhase WindowEndpointRolloutPhase, ordersSemaphoreSize int, ordersService *Service) *Endpoint {
+func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB,
+	settlementBatchSize int, windowEndpointRolloutPhase WindowEndpointRolloutPhase,
+	ordersSemaphoreSize int, ordersService *Service) *Endpoint {
+
 	var ordersSemaphore chan struct{}
 	if ordersSemaphoreSize > 0 {
 		ordersSemaphore = make(chan struct{}, ordersSemaphoreSize)
@@ -737,7 +740,9 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 	})
 }
 
-func (endpoint *Endpoint) isValid(ctx context.Context, log *zap.Logger, order *pb.Order, orderLimit *pb.OrderLimit, peerID storj.NodeID, window int64) bool {
+func (endpoint *Endpoint) isValid(ctx context.Context, log *zap.Logger, order *pb.Order,
+	orderLimit *pb.OrderLimit, peerID storj.NodeID, window int64) bool {
+
 	if orderLimit.StorageNodeId != peerID {
 		log.Debug("storage node id mismatch")
 		mon.Event("order_not_valid_storagenodeid")

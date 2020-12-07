@@ -17,7 +17,7 @@ import (
 
 var _ metainfo.Observer = (*PieceTracker)(nil)
 
-// PieceTracker implements the metainfo loop observer interface for garbage collection
+// PieceTracker implements the metainfo loop observer interface for garbage collection.
 //
 // architecture: Observer
 type PieceTracker struct {

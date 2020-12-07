@@ -90,7 +90,10 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, totalNeededNo
 	return nodes, nil
 }
 
-func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputableNodeCount, newNodeCount int, criteria *overlay.NodeCriteria, excludedIDs []storj.NodeID, excludedNetworks []string) (reputableNodes, newNodes []*overlay.SelectedNode, err error) {
+func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputableNodeCount, newNodeCount int,
+	criteria *overlay.NodeCriteria, excludedIDs []storj.NodeID,
+	excludedNetworks []string) (reputableNodes, newNodes []*overlay.SelectedNode, err error) {
+
 	defer mon.Task()(&ctx)(&err)
 
 	newNodesCondition, err := nodeSelectionCondition(ctx, criteria, excludedIDs, excludedNetworks, true)
@@ -171,7 +174,9 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 }
 
 // nodeSelectionCondition creates a condition with arguments that corresponds to the arguments.
-func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria, excludedIDs []storj.NodeID, excludedNetworks []string, isNewNodeQuery bool) (condition, error) {
+func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria, excludedIDs []storj.NodeID,
+	excludedNetworks []string, isNewNodeQuery bool) (condition, error) {
+
 	var conds conditions
 	conds.add(`disqualified IS NULL`)
 	conds.add(`unknown_audit_suspended IS NULL`)
@@ -220,15 +225,15 @@ func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria,
 	return conds.combine(), nil
 }
 
-// partialQuery corresponds to a query
+// partialQuery corresponds to a query.
 //
-// distinct=false
+//   distinct=false
 //
-//    $selection WHERE $condition ORDER BY $orderBy, RANDOM() LIMIT $limit
+//      $selection WHERE $condition ORDER BY $orderBy, RANDOM() LIMIT $limit
 //
-// distinct=true
+//   distinct=true
 //
-//    SELECT * FROM ($selection WHERE $condition ORDER BY $orderBy, RANDOM()) filtered ORDER BY RANDOM() LIMIT $limit
+//      SELECT * FROM ($selection WHERE $condition ORDER BY $orderBy, RANDOM()) filtered ORDER BY RANDOM() LIMIT $limit
 //
 type partialQuery struct {
 	selection string

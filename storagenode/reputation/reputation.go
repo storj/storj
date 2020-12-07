@@ -10,7 +10,7 @@ import (
 	"storj.io/common/storj"
 )
 
-// DB works with reputation database
+// DB works with reputation database.
 //
 // architecture: Database
 type DB interface {

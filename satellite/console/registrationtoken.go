@@ -15,7 +15,7 @@ import (
 	"storj.io/common/uuid"
 )
 
-// RegistrationTokens is interface for working with registration tokens
+// RegistrationTokens is interface for working with registration tokens.
 //
 // architecture: Database
 type RegistrationTokens interface {

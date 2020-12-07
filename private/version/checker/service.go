@@ -22,7 +22,7 @@ type Config struct {
 	CheckInterval time.Duration `help:"Interval to check the version" default:"0h15m0s"`
 }
 
-// Service contains the information and variables to ensure the Software is up to date
+// Service contains the information and variables to ensure the Software is up to date.
 //
 // architecture: Service
 type Service struct {

@@ -34,7 +34,7 @@ type PendingAudit struct {
 	Path              storj.Path
 }
 
-// Containment holds information about pending audits for contained nodes
+// Containment holds information about pending audits for contained nodes.
 //
 // architecture: Database
 type Containment interface {

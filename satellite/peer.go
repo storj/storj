@@ -55,7 +55,7 @@ func init() {
 	hw.Register(monkit.Default)
 }
 
-// DB is the master database for the satellite
+// DB is the master database for the satellite.
 //
 // architecture: Master Database
 type DB interface {
