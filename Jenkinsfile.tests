@@ -39,7 +39,7 @@ node('node') {
             throw err
         }
         finally {
-          sh "docker logs $(dockerImage.id)"
+          sh "docker logs $(dockerImage.id) || true"
           sh 'docker stop postgres-ui-$BUILD_NUMBER || true'
           sh 'docker rm postgres-ui-$BUILD_NUMBER || true'
           sh 'docker stop redis-ui-$BUILD_NUMBER || true'
