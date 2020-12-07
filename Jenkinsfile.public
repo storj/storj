@@ -141,9 +141,7 @@ pipeline {
 
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj2;\''
-                        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                            sh 'make test-sim'
-                        }
+                        sh 'make test-sim'
 
                         // sh 'make test-certificates' // flaky
                     }
@@ -159,9 +157,7 @@ pipeline {
 
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach4;\''
-                        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                            sh 'make test-sim'
-                        }
+                        sh 'make test-sim'
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach4;\''
                     }
                 }
