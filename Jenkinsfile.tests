@@ -39,6 +39,7 @@ node('node') {
             throw err
         }
         finally {
+          sh 'docker logs storj-ci'
           sh 'docker stop postgres-ui-$BUILD_NUMBER || true'
           sh 'docker rm postgres-ui-$BUILD_NUMBER || true'
           sh 'docker stop redis-ui-$BUILD_NUMBER || true'
