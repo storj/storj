@@ -23,7 +23,7 @@ import (
 func openTestPostgres(ctx context.Context, t testing.TB) (store *Client, cleanup func()) {
 	connstr := pgtest.PickPostgres(t)
 
-	pgdb, err := Open(ctx, connstr)
+	pgdb, err := Open(ctx, connstr, "satellite-test-postgres")
 	if err != nil {
 		t.Fatalf("init: %v", err)
 	}

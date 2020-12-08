@@ -146,19 +146,17 @@ func (signer *Signer) Sign(ctx context.Context, node storj.NodeURL, pieceNum int
 			return nil, ErrSigner.New("default encryption key is missing")
 		}
 
-		bucketID, err := signer.Service.buckets.GetBucketID(ctx, signer.Bucket)
-		if err != nil {
-			return nil, ErrSigner.Wrap(err)
-		}
-
-		metadata, err := pb.Marshal(&pb.OrderLimitMetadata{
-			BucketId: bucketID[:],
-		})
+		encrypted, err := encryptionKey.EncryptMetadata(
+			signer.Serial,
+			&pb.OrderLimitMetadata{
+				ProjectBucketPrefix: []byte(signer.Bucket.Prefix()),
+			},
+		)
 		if err != nil {
 			return nil, ErrSigner.Wrap(err)
 		}
 		signer.EncryptedMetadataKeyID = encryptionKey.ID[:]
-		signer.EncryptedMetadata = encryptionKey.Encrypt(metadata, signer.Serial)
+		signer.EncryptedMetadata = encrypted
 	}
 
 	limit := &pb.OrderLimit{

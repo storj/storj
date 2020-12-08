@@ -404,8 +404,6 @@ func TestGetOnlineNodesForGetDelete(t *testing.T) {
 		planet.Satellites[0].Audit.Chore.Loop.Pause()
 		planet.Satellites[0].Repair.Checker.Loop.Pause()
 		planet.Satellites[0].Repair.Repairer.Loop.Pause()
-		planet.Satellites[0].DowntimeTracking.DetectionChore.Loop.Pause()
-		planet.Satellites[0].DowntimeTracking.EstimationChore.Loop.Pause()
 		for _, node := range planet.StorageNodes {
 			node.Contact.Chore.Pause(ctx)
 		}

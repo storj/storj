@@ -4,7 +4,6 @@
 package queue_test
 
 import (
-	"context"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -16,7 +15,6 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storage"
 )
@@ -68,32 +66,19 @@ func TestOrder(t *testing.T) {
 			require.False(t, alreadyInserted)
 		}
 
-		// TODO: remove dependency on *dbx.DB
-		dbAccess := db.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
-
-		err := dbAccess.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-			updateList := []struct {
-				path      []byte
-				attempted time.Time
-			}{
-				{recentRepairPath, time.Now()},
-				{oldRepairPath, time.Now().Add(-7 * time.Hour)},
-				{olderRepairPath, time.Now().Add(-8 * time.Hour)},
-			}
-			for _, item := range updateList {
-				res, err := tx.Tx.ExecContext(ctx, dbAccess.Rebind(`UPDATE injuredsegments SET attempted = ? WHERE path = ?`), item.attempted, item.path)
-				if err != nil {
-					return err
-				}
-				count, err := res.RowsAffected()
-				if err != nil {
-					return err
-				}
-				require.EqualValues(t, 1, count)
-			}
-			return nil
-		})
-		require.NoError(t, err)
+		updateList := []struct {
+			path      []byte
+			attempted time.Time
+		}{
+			{recentRepairPath, time.Now()},
+			{oldRepairPath, time.Now().Add(-7 * time.Hour)},
+			{olderRepairPath, time.Now().Add(-8 * time.Hour)},
+		}
+		for _, item := range updateList {
+			rowsAffected, err := db.RepairQueue().TestingSetAttemptedTime(ctx, item.path, item.attempted)
+			require.NoError(t, err)
+			require.EqualValues(t, 1, rowsAffected)
+		}
 
 		// path with attempted = null should be selected first
 		injuredSeg, err := repairQueue.Select(ctx)
@@ -122,7 +107,7 @@ func TestOrderHealthyPieces(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		repairQueue := db.RepairQueue()
 
-		// we insert (path, health, lastAttempted) as follows:
+		// we insert (path, segmentHealth, lastAttempted) as follows:
 		// ("path/a", 6, now-8h)
 		// ("path/b", 7, now)
 		// ("path/c", 8, null)
@@ -132,14 +117,11 @@ func TestOrderHealthyPieces(t *testing.T) {
 		// ("path/g", 10, null)
 		// ("path/h", 10, now-8h)
 
-		// TODO: remove dependency on *dbx.DB
-		dbAccess := db.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
-
 		// insert the 8 segments according to the plan above
 		injuredSegList := []struct {
-			path      []byte
-			health    int
-			attempted time.Time
+			path          []byte
+			segmentHealth float64
+			attempted     time.Time
 		}{
 			{[]byte("path/a"), 6, time.Now().Add(-8 * time.Hour)},
 			{[]byte("path/b"), 7, time.Now()},
@@ -158,17 +140,15 @@ func TestOrderHealthyPieces(t *testing.T) {
 		for _, item := range injuredSegList {
 			// first, insert the injured segment
 			injuredSeg := &internalpb.InjuredSegment{Path: item.path}
-			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, item.health)
+			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, item.segmentHealth)
 			require.NoError(t, err)
 			require.False(t, alreadyInserted)
 
 			// next, if applicable, update the "attempted at" timestamp
 			if !item.attempted.IsZero() {
-				res, err := dbAccess.ExecContext(ctx, dbAccess.Rebind(`UPDATE injuredsegments SET attempted = ? WHERE path = ?`), item.attempted, item.path)
+				rowsAffected, err := db.RepairQueue().TestingSetAttemptedTime(ctx, item.path, item.attempted)
 				require.NoError(t, err)
-				count, err := res.RowsAffected()
-				require.NoError(t, err)
-				require.EqualValues(t, 1, count)
+				require.EqualValues(t, 1, rowsAffected)
 			}
 		}
 
@@ -206,15 +186,15 @@ func TestOrderOverwrite(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		repairQueue := db.RepairQueue()
 
-		// insert "path/a" with segment health 10
-		// insert "path/b" with segment health 9
-		// re-insert "path/a" with segment health 8
+		// insert "path/a" with segment segment health 10
+		// insert "path/b" with segment segment health 9
+		// re-insert "path/a" with segment segment health 8
 		// when we select, expect "path/a" first since after the re-insert, it is the least durable segment.
 
 		// insert the 8 segments according to the plan above
 		injuredSegList := []struct {
-			path   []byte
-			health int
+			path          []byte
+			segmentHealth float64
 		}{
 			{[]byte("path/a"), 10},
 			{[]byte("path/b"), 9},
@@ -222,7 +202,7 @@ func TestOrderOverwrite(t *testing.T) {
 		}
 		for i, item := range injuredSegList {
 			injuredSeg := &internalpb.InjuredSegment{Path: item.path}
-			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, item.health)
+			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, item.segmentHealth)
 			require.NoError(t, err)
 			if i == 2 {
 				require.True(t, alreadyInserted)

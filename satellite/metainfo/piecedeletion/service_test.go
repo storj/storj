@@ -346,14 +346,13 @@ func TestService_DeletePieces_Timeout(t *testing.T) {
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
 			},
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.PieceDeletion.RequestTimeout = 200 * time.Millisecond
-				config.Metainfo.RS.MinThreshold = 2
-				config.Metainfo.RS.RepairThreshold = 2
-				config.Metainfo.RS.SuccessThreshold = 4
-				config.Metainfo.RS.TotalThreshold = 4
-				config.Metainfo.MaxSegmentSize = 15 * memory.KiB
-			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Metainfo.PieceDeletion.RequestTimeout = 200 * time.Millisecond
+					config.Metainfo.MaxSegmentSize = 15 * memory.KiB
+				},
+				testplanet.ReconfigureRS(2, 2, 4, 4),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplnk := planet.Uplinks[0]

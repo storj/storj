@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/repair"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 )
@@ -28,15 +29,6 @@ var (
 	Error = errs.Class("checker error")
 	mon   = monkit.Package()
 )
-
-// Config contains configurable values for checker.
-type Config struct {
-	Interval            time.Duration `help:"how frequently checker should check for bad segments" releaseDefault:"30s" devDefault:"0h0m10s"`
-	IrreparableInterval time.Duration `help:"how frequently irrepairable checker should check for lost pieces" releaseDefault:"30m" devDefault:"0h0m5s"`
-
-	ReliabilityCacheStaleness time.Duration `help:"how stale reliable node cache can be" releaseDefault:"5m" devDefault:"5m"`
-	RepairOverride            int           `help:"override value for repair threshold" releaseDefault:"52" devDefault:"0"`
-}
 
 // durabilityStats remote segment information.
 type durabilityStats struct {
@@ -51,7 +43,7 @@ type durabilityStats struct {
 	remoteSegmentsOverThreshold [5]int64
 }
 
-// Checker contains the information needed to do checks for missing pieces
+// Checker contains the information needed to do checks for missing pieces.
 //
 // architecture: Chore
 type Checker struct {
@@ -61,7 +53,8 @@ type Checker struct {
 	metainfo        *metainfo.Service
 	metaLoop        *metainfo.Loop
 	nodestate       *ReliabilityCache
-	repairOverride  int32
+	repairOverrides RepairOverridesMap
+	nodeFailureRate float64
 	Loop            *sync2.Cycle
 	IrreparableLoop *sync2.Cycle
 }
@@ -71,12 +64,13 @@ func NewChecker(logger *zap.Logger, repairQueue queue.RepairQueue, irrdb irrepar
 	return &Checker{
 		logger: logger,
 
-		repairQueue:    repairQueue,
-		irrdb:          irrdb,
-		metainfo:       metainfo,
-		metaLoop:       metaLoop,
-		nodestate:      NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
-		repairOverride: int32(config.RepairOverride),
+		repairQueue:     repairQueue,
+		irrdb:           irrdb,
+		metainfo:        metainfo,
+		metaLoop:        metaLoop,
+		nodestate:       NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
+		repairOverrides: config.RepairOverrides.GetMap(),
+		nodeFailureRate: config.NodeFailureRate,
 
 		Loop:            sync2.NewCycle(config.Interval),
 		IrreparableLoop: sync2.NewCycle(config.IrreparableInterval),
@@ -118,12 +112,13 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	startTime := time.Now()
 
 	observer := &checkerObserver{
-		repairQueue:    checker.repairQueue,
-		irrdb:          checker.irrdb,
-		nodestate:      checker.nodestate,
-		monStats:       durabilityStats{},
-		overrideRepair: checker.repairOverride,
-		log:            checker.logger,
+		repairQueue:     checker.repairQueue,
+		irrdb:           checker.irrdb,
+		nodestate:       checker.nodestate,
+		monStats:        durabilityStats{},
+		repairOverrides: checker.repairOverrides,
+		nodeFailureRate: checker.nodeFailureRate,
+		log:             checker.logger,
 	}
 	err = checker.metaLoop.Join(ctx, observer)
 	if err != nil {
@@ -194,8 +189,9 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	redundancy := pointer.Remote.Redundancy
 
 	repairThreshold := redundancy.RepairThreshold
-	if checker.repairOverride != 0 {
-		repairThreshold = checker.repairOverride
+	overrideValue := checker.repairOverrides.GetOverrideValuePB(redundancy)
+	if overrideValue != 0 {
+		repairThreshold = overrideValue
 	}
 
 	// we repair when the number of healthy pieces is less than or equal to the repair threshold and is greater or equal to
@@ -205,11 +201,12 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	// If the segment is suddenly entirely healthy again, we don't need to repair and we don't need to
 	// keep it in the irreparabledb queue either.
 	if numHealthy >= redundancy.MinReq && numHealthy <= repairThreshold && numHealthy < redundancy.SuccessThreshold {
+		segmentHealth := float64(numHealthy)
 		_, err = checker.repairQueue.Insert(ctx, &internalpb.InjuredSegment{
 			Path:         key,
 			LostPieces:   missingPieces,
 			InsertedTime: time.Now().UTC(),
-		}, int(numHealthy))
+		}, segmentHealth)
 		if err != nil {
 			return errs.Combine(Error.New("error adding injured segment to queue"), err)
 		}
@@ -246,16 +243,17 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 
 var _ metainfo.Observer = (*checkerObserver)(nil)
 
-// checkerObserver implements the metainfo loop Observer interface
+// checkerObserver implements the metainfo loop Observer interface.
 //
 // architecture: Observer
 type checkerObserver struct {
-	repairQueue    queue.RepairQueue
-	irrdb          irreparable.DB
-	nodestate      *ReliabilityCache
-	monStats       durabilityStats
-	overrideRepair int32
-	log            *zap.Logger
+	repairQueue     queue.RepairQueue
+	irrdb           irreparable.DB
+	nodestate       *ReliabilityCache
+	monStats        durabilityStats
+	repairOverrides RepairOverridesMap
+	nodeFailureRate float64
+	log             *zap.Logger
 }
 
 func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
@@ -267,6 +265,9 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metainfo
 	}
 
 	obs.monStats.remoteSegmentsChecked++
+
+	// ensure we get values, even if only zero values, so that redash can have an alert based on this
+	mon.Counter("checker_segments_below_min_req").Inc(0) //mon:locked
 
 	pieces := segment.Pieces
 	if len(pieces) == 0 {
@@ -296,24 +297,29 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metainfo
 	segmentAge := time.Since(segment.CreationDate)
 	mon.IntVal("checker_segment_age").Observe(int64(segmentAge.Seconds())) //mon:locked
 
-	required := int(segment.Redundancy.RequiredShares)
-	repairThreshold := int(segment.Redundancy.RepairShares)
-	if obs.overrideRepair != 0 {
-		repairThreshold = int(obs.overrideRepair)
+	redundancy := segment.Redundancy
+	required := int(redundancy.RequiredShares)
+	repairThreshold := int(redundancy.RepairShares)
+	overrideValue := obs.repairOverrides.GetOverrideValue(redundancy)
+	if overrideValue != 0 {
+		repairThreshold = int(overrideValue)
 	}
-	successThreshold := int(segment.Redundancy.OptimalShares)
+	successThreshold := int(redundancy.OptimalShares)
+	segmentHealth := repair.SegmentHealth(numHealthy, required, obs.nodeFailureRate)
+	mon.FloatVal("checker_segment_health").Observe(segmentHealth) //mon:locked
 
 	key := segment.Location.Encode()
 	// we repair when the number of healthy pieces is less than or equal to the repair threshold and is greater or equal to
 	// minimum required pieces in redundancy
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
 	if numHealthy >= required && numHealthy <= repairThreshold && numHealthy < successThreshold {
+		mon.FloatVal("checker_injured_segment_health").Observe(segmentHealth) //mon:locked
 		obs.monStats.remoteSegmentsNeedingRepair++
 		alreadyInserted, err := obs.repairQueue.Insert(ctx, &internalpb.InjuredSegment{
 			Path:         key,
 			LostPieces:   missingPieces,
 			InsertedTime: time.Now().UTC(),
-		}, numHealthy)
+		}, segmentHealth)
 		if err != nil {
 			obs.log.Error("error adding injured segment to queue", zap.Error(err))
 			return nil
@@ -344,6 +350,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metainfo
 		mon.IntVal("checker_segment_time_until_irreparable").Observe(int64(segmentAge.Seconds())) //mon:locked
 
 		obs.monStats.remoteSegmentsLost++
+		mon.Counter("checker_segments_below_min_req").Inc(1) //mon:locked
 		// make an entry into the irreparable table
 		segmentInfo := &internalpb.IrreparableSegment{
 			Path:               key,
@@ -391,7 +398,7 @@ func (obs *checkerObserver) InlineSegment(ctx context.Context, segment *metainfo
 func (checker *Checker) IrreparableProcess(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	const limit = 1000
-	var lastSeenSegmentKey metabase.SegmentKey
+	lastSeenSegmentKey := metabase.SegmentKey{}
 
 	for {
 		segments, err := checker.irrdb.GetLimited(ctx, limit, lastSeenSegmentKey)

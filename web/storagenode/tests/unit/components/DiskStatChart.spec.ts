@@ -5,16 +5,18 @@ import Vuex from 'vuex';
 
 import DiskStatChart from '@/app/components/DiskStatChart.vue';
 
-import { makeNodeModule, NODE_ACTIONS } from '@/app/store/modules/node';
-import { SNOApi } from '@/storagenode/api/storagenode';
-import { BandwidthInfo, Dashboard, DiskSpaceInfo, SatelliteInfo } from '@/storagenode/dashboard';
+import { newNodeModule, NODE_ACTIONS } from '@/app/store/modules/node';
+import { StorageNodeApi } from '@/storagenode/api/storagenode';
+import { StorageNodeService } from '@/storagenode/sno/service';
+import { Dashboard, SatelliteInfo, Traffic } from '@/storagenode/sno/sno';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
 
-const nodeApi = new SNOApi();
-const nodeModule = makeNodeModule(nodeApi);
+const nodeApi = new StorageNodeApi();
+const nodeService = new StorageNodeService(nodeApi);
+const nodeModule = newNodeModule(nodeService);
 
 const store = new Vuex.Store({ modules: { node: nodeModule }});
 
@@ -43,8 +45,8 @@ describe('DiskStatChart', (): void => {
                         new SatelliteInfo('3', 'url1', null, null),
                         new SatelliteInfo('4', 'url2', new Date(2020, 1, 1), new Date(2020, 0, 1)),
                     ],
-                    new DiskSpaceInfo(550000, 1000000, 22000),
-                    new BandwidthInfo(50),
+                    new Traffic(550000, 1000000, 22000),
+                    new Traffic(50),
                     new Date(),
                     new Date(2019, 3, 1),
                     '0.1.1',

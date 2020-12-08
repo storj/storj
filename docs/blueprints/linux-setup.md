@@ -13,7 +13,7 @@ The idea is to have two main components, like for Windows: the storage node bina
 The parts we need:
 - storagenode as a service
 - a system for updating the storagenode binary aka. the updater (with rollout versioning support)
-- a system for updating the updater 
+- a system for updating the updater
 - a way to collect the configuration data from the user during the installation
 - packaging to ship the above
 
@@ -36,20 +36,20 @@ The installer will be a debian package. We choose to auto-update the binary, eve
   - Email
   - External address/port
   - Advertised storage
-  - Identity directory 
+  - Identity directory
   - Storage directory
 - Generate `config.yaml` file with the user configuration.
 
 The default value for these directories can be defined using the [XDG Base Directory](https://wiki.archlinux.org/index.php/XDG_Base_Directory).
 
 We choose to reuse the storagenode-updater and the recovery mechanism used in windows. They will be daemonized using systemd. The storagenode updater will auto-update. A recovery will be triggered if the updated updater service fails to restart.
-We will use debconf to retrieve user data. 
+We will use debconf to retrieve user data.
 
 The debian package will NOT contain the storagenode and storagenode-updater binaries. They will be downloaded as part of the post-installation script. A separate git repository will be created for holding the debian package.
 
 Once we get a fully working debian package, we can convert it to the RPM format using the fpm tool. There are no debconf-like for RPMs, we will need to implement a post-install script to gather user inputs.
 
-The debian package will be available by direct download and on a APT repository that users can add to their package manager source list. The repository will be managed using reprepro. Each time the repository is modified, it commits the static content to a dedicated git repository. 
+The debian package will be available by direct download and on a APT repository that users can add to their package manager source list. The repository will be managed using reprepro. Each time the repository is modified, it commits the static content to a dedicated git repository.
 
 ## Rationale
 
@@ -62,7 +62,7 @@ Hence, we should use systemd for building our storagenode service.
 Packaging in its simplest form would be tar.gz with an installation binary. This solution would be simple for us, but represents an annoyance for the user as our application would not be managed by their package manager.
 
 #### Packages
-A package is an archive file containing the application and metadata for indicating to the package manager how to install it. 
+A package is an archive file containing the application and metadata for indicating to the package manager how to install it.
 Its format depends on the used package manager.
 The most common formats are:
 - deb for debian-based distributions
@@ -79,7 +79,7 @@ The process for building a package is as follows:
 - make a source package
 - compile it to get binary packages.
 
-Only the binary package is used by the user for installation. It is not a recommended pratice to directly integrate binaries.
+Only the binary package is used by the user for installation. It is not a recommended practice to directly integrate binaries.
 
 Building the source package is the most difficult part. But once it is done, we can use tools such as [fpm](https://github.com/jordansissel/fpm/wiki) to convert it to other package formats.
 
@@ -100,7 +100,7 @@ There are [3 major agnostic packaging system](https://www.ostechnix.com/linux-pa
 ##### Snap
 [Snaps](https://snapcraft.io/first-snap#go) are containerised software packages. They auto-update daily and work on a variety of Linux distributions. They also revert to the previous version if an update fails. This feature would make it necessary to find out how to implement the rollout versioning.
 
-From the [snap documentation](https://snapcraft.io/docs/go-applications), it seems pretty straightforward to package an application. Snaps are defined in a yaml file. Running an application as a service is done only by specifying "daemon: simple" in the application description. 
+From the [snap documentation](https://snapcraft.io/docs/go-applications), it seems pretty straightforward to package an application. Snaps are defined in a yaml file. Running an application as a service is done only by specifying "daemon: simple" in the application description.
 This would make us save the work of building a storage node service.
 
 Snaps can then be published in the snapcraft [app store](https://snapcraft.io/). In the store, we would able to monitor the number of installed snaps. It is possible to [host our own store](https://ubuntu.com/blog/howto-host-your-own-snap-store) but that the snap daemon only handles one repository. Therefore, the use of Canonical's store seems mandatory. Snaps integrate well with [github](https://snapcraft.io/build).
@@ -137,7 +137,7 @@ We are thinking of using native packaging for the following reasons:
 - some linux users are reluctant to use snap
 - covering deb and rpm packaging would make us cover most used distributions
 - with proper packaging, we could directly be included in the distributions
- 
+
 ## Implementation
 ### Debian package
 - create a storj debian git

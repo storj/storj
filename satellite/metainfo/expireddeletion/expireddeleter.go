@@ -17,7 +17,7 @@ import (
 
 var _ metainfo.Observer = (*expiredDeleter)(nil)
 
-// expiredDeleter implements the metainfo loop observer interface for expired segment cleanup
+// expiredDeleter implements the metainfo loop observer interface for expired segment cleanup.
 //
 // architecture: Observer
 type expiredDeleter struct {

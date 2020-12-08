@@ -31,11 +31,14 @@
 # how frequently irrepairable checker should check for lost pieces
 # checker.irreparable-interval: 30m0s
 
+# the probability of a single node going down within the next checker iteration
+# checker.node-failure-rate: 5.435e-05
+
 # how stale reliable node cache can be
 # checker.reliability-cache-staleness: 5m0s
 
-# override value for repair threshold
-# checker.repair-override: 52
+# comma-separated override values for repair threshold in the format k/o/n-override (min/optimal/total-override)
+# checker.repair-overrides: 29/80/110-52,29/80/95-52
 
 # percent of held amount disposed to node after leaving withheld
 compensation.dispose-percent: 50
@@ -84,6 +87,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # allow domains to embed the satellite in a frame, space separated
 # console.frame-ancestors: tardigrade.io
+
+# url link for gateway credentials requests
+# console.gateway-credentials-request-url: ""
 
 # url link to general request page
 # console.general-request-url: https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000379291
@@ -154,6 +160,9 @@ contact.external-address: ""
 # macaroon revocation cache expiration
 # database-options.revocations-cache.expiration: 5m0s
 
+# number of records to delete per delete execution. 0 indicates no limit. applicable to cockroach DB only.
+# db-cleanup.batch-size: 1000
+
 # how often to delete expired serial numbers
 # db-cleanup.serials-interval: 4h0m0s
 
@@ -177,18 +186,6 @@ contact.external-address: ""
 
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
-
-# how often to run the downtime detection chore.
-# downtime.detection-interval: 1h0m0s
-
-# the downtime estimation chore should check this many offline nodes
-# downtime.estimation-batch-size: 1000
-
-# max number of concurrent connections in estimation chore
-# downtime.estimation-concurrency-limit: 10
-
-# how often to run the downtime estimation chore
-# downtime.estimation-interval: 1h0m0s
 
 # set if expired segment cleanup is enabled or not
 # expired-deletion.enabled: true
@@ -400,32 +397,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # request rate per project per second.
 # metainfo.rate-limiter.rate: 1000
 
-# the size of each new erasure share in bytes
-# metainfo.rs.erasure-share-size: 256 B
-
-# maximum buffer memory to be allocated for read buffers
-# metainfo.rs.max-buffer-mem: 4.0 MiB
-
-# the largest amount of pieces to encode to. n (upper bound for validation).
-# metainfo.rs.max-total-threshold: 130
-
-# the minimum pieces required to recover a segment. k.
-# metainfo.rs.min-threshold: 29
-
-# the largest amount of pieces to encode to. n (lower bound for validation).
-# metainfo.rs.min-total-threshold: 95
-
-# the minimum safe pieces before a repair is triggered. m.
-# metainfo.rs.repair-threshold: 35
-
-# the desired total pieces for a segment. o.
-# metainfo.rs.success-threshold: 80
-
-# the largest amount of pieces to encode to. n.
-# metainfo.rs.total-threshold: 110
-
-# validate redundancy scheme configuration
-# metainfo.rs.validate: true
+# redundancy scheme configuration in the format k/m/o/n-sharesize
+# metainfo.rs: 29/35/80/110-256 B
 
 # address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
@@ -684,6 +657,12 @@ server.private-address: 127.0.0.1:7778
 
 # how frequently the tally service should run
 # tally.interval: 1h0m0s
+
+# how large of batches GetBandwidthSince should process at a time
+# tally.read-rollup-batch-size: 10000
+
+# how large of batches SaveRollup should process at a time
+# tally.save-rollup-batch-size: 1000
 
 # address for jaeger agent
 # tracing.agent-addr: agent.tracing.datasci.storj.io:5775

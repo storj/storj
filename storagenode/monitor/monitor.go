@@ -37,7 +37,7 @@ type Config struct {
 	NotifyLowDiskCooldown     time.Duration `help:"minimum length of time between capacity reports" default:"10m" hidden:"true"`
 }
 
-// Service which monitors disk usage
+// Service which monitors disk usage.
 //
 // architecture: Service
 type Service struct {
@@ -111,11 +111,6 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	if service.allocatedDiskSpace < service.Config.MinimumDiskSpace.Int64() {
 		service.log.Error("Total disk space is less than required minimum", zap.Int64("bytes", service.Config.MinimumDiskSpace.Int64()))
 		return Error.New("disk space requirement not met")
-	}
-
-	// Create file to identify the storage directory.
-	if err := service.store.CreateVerificationFile(service.contact.Local().ID); err != nil {
-		return Error.New("failed to create storage directory verification: %v", err)
 	}
 
 	group, ctx := errgroup.WithContext(ctx)

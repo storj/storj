@@ -20,8 +20,7 @@ var mon = monkit.Package()
 
 var _ mailservice.Sender = (*LinkClicker)(nil)
 
-// LinkClicker is mailservice.Sender that click all links
-// from html msg parts
+// LinkClicker is mailservice.Sender that click all links from html msg parts.
 //
 // architecture: Service
 type LinkClicker struct{}

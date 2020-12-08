@@ -24,7 +24,7 @@ import { ChartData } from '@/app/types/chartData';
 import { Tooltip, TooltipParams } from '@/app/types/tooltip';
 import { ChartUtils } from '@/app/utils/chart';
 import { formatBytes } from '@/app/utils/converter';
-import { EgressUsed } from '@/storagenode/satellite';
+import { EgressUsed } from '@/storagenode/sno/sno';
 
 /**
  * stores egress data for egress bandwidth chart's tooltip

@@ -31,7 +31,7 @@ type Config struct {
 	StaticDir string `help:"path to static resources" default:""`
 }
 
-// Server represents marketing offersweb server
+// Server represents marketing offersweb server.
 //
 // architecture: Endpoint
 type Server struct {

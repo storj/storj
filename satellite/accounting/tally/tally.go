@@ -27,10 +27,12 @@ var (
 
 // Config contains configurable values for the tally service.
 type Config struct {
-	Interval time.Duration `help:"how frequently the tally service should run" releaseDefault:"1h" devDefault:"30s"`
+	Interval            time.Duration `help:"how frequently the tally service should run" releaseDefault:"1h" devDefault:"30s"`
+	SaveRollupBatchSize int           `help:"how large of batches SaveRollup should process at a time" default:"1000"`
+	ReadRollupBatchSize int           `help:"how large of batches GetBandwidthSince should process at a time" default:"10000"`
 }
 
-// Service is the tally service for data stored on each storage node
+// Service is the tally service for data stored on each storage node.
 //
 // architecture: Chore
 type Service struct {
@@ -183,26 +185,25 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	if len(observer.Bucket) > 0 {
 		var total accounting.BucketTally
 		for _, bucket := range observer.Bucket {
-			monAccounting.IntVal("bucket.objects").Observe(bucket.ObjectCount)
+			monAccounting.IntVal("bucket_objects").Observe(bucket.ObjectCount)            //mon:locked
+			monAccounting.IntVal("bucket_segments").Observe(bucket.Segments())            //mon:locked
+			monAccounting.IntVal("bucket_inline_segments").Observe(bucket.InlineSegments) //mon:locked
+			monAccounting.IntVal("bucket_remote_segments").Observe(bucket.RemoteSegments) //mon:locked
 
-			monAccounting.IntVal("bucket.segments").Observe(bucket.Segments())
-			monAccounting.IntVal("bucket.inline_segments").Observe(bucket.InlineSegments)
-			monAccounting.IntVal("bucket.remote_segments").Observe(bucket.RemoteSegments)
-
-			monAccounting.IntVal("bucket.bytes").Observe(bucket.Bytes())
-			monAccounting.IntVal("bucket.inline_bytes").Observe(bucket.InlineBytes)
-			monAccounting.IntVal("bucket.remote_bytes").Observe(bucket.RemoteBytes)
+			monAccounting.IntVal("bucket_bytes").Observe(bucket.Bytes())            //mon:locked
+			monAccounting.IntVal("bucket_inline_bytes").Observe(bucket.InlineBytes) //mon:locked
+			monAccounting.IntVal("bucket_remote_bytes").Observe(bucket.RemoteBytes) //mon:locked
 			total.Combine(bucket)
 		}
-		monAccounting.IntVal("total.objects").Observe(total.ObjectCount) //mon:locked
+		monAccounting.IntVal("total_objects").Observe(total.ObjectCount) //mon:locked
 
-		monAccounting.IntVal("total.segments").Observe(total.Segments())            //mon:locked
-		monAccounting.IntVal("total.inline_segments").Observe(total.InlineSegments) //mon:locked
-		monAccounting.IntVal("total.remote_segments").Observe(total.RemoteSegments) //mon:locked
+		monAccounting.IntVal("total_segments").Observe(total.Segments())            //mon:locked
+		monAccounting.IntVal("total_inline_segments").Observe(total.InlineSegments) //mon:locked
+		monAccounting.IntVal("total_remote_segments").Observe(total.RemoteSegments) //mon:locked
 
-		monAccounting.IntVal("total.bytes").Observe(total.Bytes())            //mon:locked
-		monAccounting.IntVal("total.inline_bytes").Observe(total.InlineBytes) //mon:locked
-		monAccounting.IntVal("total.remote_bytes").Observe(total.RemoteBytes) //mon:locked
+		monAccounting.IntVal("total_bytes").Observe(total.Bytes())            //mon:locked
+		monAccounting.IntVal("total_inline_bytes").Observe(total.InlineBytes) //mon:locked
+		monAccounting.IntVal("total_remote_bytes").Observe(total.RemoteBytes) //mon:locked
 	}
 
 	// return errors if something went wrong.

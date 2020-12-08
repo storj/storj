@@ -138,7 +138,7 @@ type BucketUsageRollup struct {
 	Before time.Time
 }
 
-// StoragenodeAccounting stores information about bandwidth and storage usage for storage nodes
+// StoragenodeAccounting stores information about bandwidth and storage usage for storage nodes.
 //
 // architecture: Database
 type StoragenodeAccounting interface {
@@ -149,7 +149,7 @@ type StoragenodeAccounting interface {
 	// GetTalliesSince retrieves all tallies since latestRollup
 	GetTalliesSince(ctx context.Context, latestRollup time.Time) ([]*StoragenodeStorageTally, error)
 	// GetBandwidthSince retrieves all bandwidth rollup entires since latestRollup
-	GetBandwidthSince(ctx context.Context, latestRollup time.Time) ([]*StoragenodeBandwidthRollup, error)
+	GetBandwidthSince(ctx context.Context, latestRollup time.Time, cb func(context.Context, *StoragenodeBandwidthRollup) error) error
 	// SaveRollup records tally and bandwidth rollup aggregations to the database
 	SaveRollup(ctx context.Context, latestTally time.Time, stats RollupStats) error
 	// LastTimestamp records and returns the latest last tallied time.
@@ -164,7 +164,7 @@ type StoragenodeAccounting interface {
 	DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) error
 }
 
-// ProjectAccounting stores information about bandwidth and storage usage for projects
+// ProjectAccounting stores information about bandwidth and storage usage for projects.
 //
 // architecture: Database
 type ProjectAccounting interface {

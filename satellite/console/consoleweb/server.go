@@ -80,13 +80,14 @@ type Config struct {
 	GoogleTagManagerID              string `help:"id for google tag manager" default:""`
 	GeneralRequestURL               string `help:"url link to general request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
 	ProjectLimitsIncreaseRequestURL string `help:"url link to project limit increase request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
+	GatewayCredentialsRequestURL    string `help:"url link for gateway credentials requests" default:""`
 
 	RateLimit web.IPRateLimiterConfig
 
 	console.Config
 }
 
-// Server represents console web server
+// Server represents console web server.
 //
 // architecture: Endpoint
 type Server struct {
@@ -196,6 +197,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	paymentsRouter.HandleFunc("/tokens/deposit", paymentController.TokenDeposit).Methods(http.MethodPost)
 	paymentsRouter.HandleFunc("/paywall-enabled/{userId}", paymentController.PaywallEnabled).Methods(http.MethodGet)
 
+	bucketsController := consoleapi.NewBuckets(logger, service)
+	bucketsRouter := router.PathPrefix("/api/v0/buckets").Subrouter()
+	bucketsRouter.Use(server.withAuth)
+	bucketsRouter.HandleFunc("/bucket-names", bucketsController.AllBucketNames).Methods(http.MethodGet)
+
 	if server.config.StaticDir != "" {
 		router.HandleFunc("/activation/", server.accountActivationHandler)
 		router.HandleFunc("/password-recovery/", server.passwordRecoveryHandler)
@@ -261,7 +267,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 
 	cspValues := []string{
 		"default-src 'self'",
-		"connect-src 'self' api.segment.io *.google-analytics.com",
+		"connect-src 'self' api.segment.io *.google-analytics.com " + server.config.GatewayCredentialsRequestURL,
 		"frame-ancestors " + server.config.FrameAncestors,
 		"frame-src 'self' *.stripe.com *.googletagmanager.com",
 		"img-src 'self' data: *.customer.io *.googletagmanager.com *.google-analytics.com",
@@ -283,6 +289,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		DefaultProjectLimit             int
 		GeneralRequestURL               string
 		ProjectLimitsIncreaseRequestURL string
+		GatewayCredentialsRequestURL    string
 	}
 
 	data.SatelliteName = server.config.SatelliteName
@@ -294,6 +301,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.DefaultProjectLimit = server.config.DefaultProjectLimit
 	data.GeneralRequestURL = server.config.GeneralRequestURL
 	data.ProjectLimitsIncreaseRequestURL = server.config.ProjectLimitsIncreaseRequestURL
+	data.GatewayCredentialsRequestURL = server.config.GatewayCredentialsRequestURL
 
 	if server.templates.index == nil {
 		server.log.Error("index template is not set")

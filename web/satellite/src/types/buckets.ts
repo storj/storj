@@ -12,6 +12,14 @@ export interface BucketsApi {
      * @throws Error
      */
     get(projectId: string, before: Date, cursor: BucketCursor): Promise<BucketPage>;
+
+    /**
+     * Fetch all bucket names
+     *
+     * @returns string[]
+     * @throws Error
+     */
+    getAllBucketNames(projectId: string): Promise<string[]>;
 }
 
 /**

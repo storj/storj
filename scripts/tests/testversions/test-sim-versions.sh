@@ -32,7 +32,7 @@ major_release_tags=$(
     grep -v rc |                                                     # remove release candidates
     sort -n -k2,2 -t'.' --unique |                                   # only keep the largest patch version
     sort -V |                                                        # resort based using "version sort"
-    awk 'BEGIN{FS="[v.]"} $2 >= 0 && $3 >= 15 || $2 >= 1 {print $0}' # keep only >= v0.15.x and v1.0.0
+    awk 'BEGIN{FS="[v.]"} $2 >= 0 && $3 >= 35 || $2 >= 1 && $3 != 3 {print $0}' # keep only >= v0.31.x and v1.0.0 except v1.3.x
 )
 current_release_version=$(echo $major_release_tags | xargs -n 1 | tail -1)
 stage1_sat_version=$current_release_version
@@ -89,15 +89,11 @@ install_sim(){
     go build -race -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
 
     if [ -d "${work_dir}/cmd/gateway" ]; then
-        pushd ${work_dir}/cmd/gateway
-            go build -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
-        popd
+        (cd ${work_dir}/cmd/gateway && go build -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1)
     else
-        rm -rf .build/gateway-tmp
-        mkdir -p .build/gateway-tmp
-        pushd .build/gateway-tmp
-            go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@v1.0.0-rc.8
-        popd
+	mkdir -p ${work_dir}/build/gateway-tmp
+	(cd ${work_dir}/build/gateway-tmp && go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@latest;)
+        rm -rf ${work_dir}/build/gateway-tmp
     fi
 }
 
@@ -119,8 +115,6 @@ setup_stage(){
     ln -f $src_sat_version_dir/bin/satellite $dest_sat_cfg_dir/satellite
     cp $src_sat_cfg_dir/config.yaml $dest_sat_cfg_dir
     replace_in_file "${src_sat_version_dir}" "${test_dir}" "${dest_sat_cfg_dir}/config.yaml"
-
-
 
     counter=0
     for sn_version in ${stage_sn_versions}; do
@@ -165,11 +159,22 @@ fi
 
 echo "Setting up environments for versions" ${unique_versions}
 
+# create a result file for each child process' exit code
+exit_statuses_dir=${TMP}/exit_statuses
+mkdir ${exit_statuses_dir}
+write_exit_status(){
+    # we need to capture the exit status first so it won't be overwritten
+    local exit_status=$?
+    local version=$1
+    echo $exit_status > ${exit_statuses_dir}/${version} # write exit code to a file named with the current installing version
+    echo "installation for ${version} exited with status $exit_status"
+}
 # clean up git worktree
 git worktree prune
 for version in ${unique_versions}; do
     # run in parallel
     (
+        trap "write_exit_status ${version}" EXIT
         dir=$(version_dir ${version})
         bin_dir=${dir}/bin
 
@@ -180,23 +185,26 @@ for version in ${unique_versions}; do
         else
             git worktree add -f "$dir" "${version}"
         fi
-        rm -f ${dir}/private/version/release.go
+
         rm -f ${dir}/internal/version/release.go
-        if [[ $version = $current_release_version || $version = "master" ]]
-        then
+        if [ -d "${dir}/private/version/release.go" ]; then
             # clear out release information
             cat > ${dir}/private/version/release.go <<-EOF
 		// Copyright (C) 2020 Storj Labs, Inc.
 		// See LICENSE for copying information.
 		package version
 		EOF
+        fi
+
+        if [[ $version = $current_release_version || $version = "master" ]]
+        then
 
             echo "Installing storj-sim for ${version} in ${dir}."
             install_sim ${dir} ${bin_dir}
             echo "finished installing"
 
             echo "Setting up storj-sim for ${version}. Bin: ${bin_dir}, Config: ${dir}/local-network"
-            PATH=${bin_dir}:$PATH storj-sim -x --host="${STORJ_NETWORK_HOST4}" --postgres="${STORJ_SIM_POSTGRES}" --config-dir "${dir}/local-network" network setup > /dev/null 2>&1
+            PATH=${bin_dir}:$PATH storj-sim -x --host="${STORJ_NETWORK_HOST4}" --postgres="${STORJ_SIM_POSTGRES}" --config-dir "${dir}/local-network" network setup >/dev/null 2>&1
             echo "Finished setting up. ${dir}/local-network:" $(ls ${dir}/local-network)
             echo "Binary shasums:"
             shasum ${bin_dir}/satellite
@@ -218,15 +226,10 @@ for version in ${unique_versions}; do
     ) &
 done
 
-for job in `jobs -p`
-do
-    echo "wait for $job"
-    RESULT=0
-    wait $job || RESULT=1
-    if [ "$RESULT" == "1" ]; then
-           exit $?
-    fi
-done
+wait # wait for all child processes to finish
+# iterate through those result files to check their exit code
+# if there's any exit code that's non-zero, exit the test
+grep -qvwr "0" ${exit_statuses_dir} && exit 1
 
 # Use stage 1 satellite version as the starting state. Create a cp of that
 # version folder so we don't worry about dirty states. Then copy/link/mv

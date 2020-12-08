@@ -58,9 +58,47 @@ func (db *ordersDB) CreateSerialInfo(ctx context.Context, serialNumber storj.Ser
 	)
 }
 
-// DeleteExpiredSerials deletes all expired serials in serial_number and used_serials table.
-func (db *ordersDB) DeleteExpiredSerials(ctx context.Context, now time.Time) (_ int, err error) {
+// DeleteExpiredSerials deletes all expired serials in the serial_number table.
+func (db *ordersDB) DeleteExpiredSerials(ctx context.Context, now time.Time, options orders.SerialDeleteOptions) (_ int, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if db.db.implementation == dbutil.Cockroach && options.BatchSize > 0 {
+		var deleted int
+
+		for {
+			d, err := func() (_ int, err error) {
+				var r int
+				rs, err := db.db.Query(ctx, "DELETE FROM serial_numbers WHERE expires_at <= $1 ORDER BY expires_at DESC LIMIT $2 RETURNING expires_at;", now.UTC(), options.BatchSize)
+				if err != nil {
+					return 0, err
+				}
+				defer func() { err = errs.Combine(err, rs.Close()) }()
+
+				for rs.Next() {
+					err = rs.Scan(&now)
+					if err != nil {
+						return r, err
+					}
+					r++
+				}
+				if rs.Err() != nil {
+					return r, rs.Err()
+				}
+
+				return r, nil
+			}()
+			deleted += d
+			if err != nil {
+				return deleted, err
+			}
+
+			if d < options.BatchSize {
+				break
+			}
+		}
+
+		return deleted, err
+	}
 
 	count, err := db.db.Delete_SerialNumber_By_ExpiresAt_LessOrEqual(ctx, dbx.SerialNumber_ExpiresAt(now.UTC()))
 	if err != nil {
@@ -222,13 +260,31 @@ func (db *ordersDB) GetBucketBandwidth(ctx context.Context, projectID uuid.UUID,
 func (db *ordersDB) GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var sum *int64
-	query := `SELECT SUM(settled) FROM storagenode_bandwidth_rollups WHERE storagenode_id = ? AND interval_start > ? AND interval_start <= ?`
-	err = db.db.QueryRow(ctx, db.db.Rebind(query), nodeID.Bytes(), from.UTC(), to.UTC()).Scan(&sum)
-	if errors.Is(err, sql.ErrNoRows) || sum == nil {
-		return 0, nil
+	var sum1, sum2 int64
+
+	err1 := db.db.QueryRow(ctx, db.db.Rebind(`
+		SELECT COALESCE(SUM(settled), 0)
+		FROM storagenode_bandwidth_rollups
+		WHERE storagenode_id = ?
+		  AND interval_start > ?
+		  AND interval_start <= ?
+	`), nodeID.Bytes(), from.UTC(), to.UTC()).Scan(&sum1)
+
+	err2 := db.db.QueryRow(ctx, db.db.Rebind(`
+		SELECT COALESCE(SUM(settled), 0)
+		FROM storagenode_bandwidth_rollups_phase2
+		WHERE storagenode_id = ?
+		  AND interval_start > ?
+		  AND interval_start <= ?
+	`), nodeID.Bytes(), from.UTC(), to.UTC()).Scan(&sum2)
+
+	if err1 != nil && !errors.Is(err1, sql.ErrNoRows) {
+		return 0, err1
+	} else if err2 != nil && !errors.Is(err2, sql.ErrNoRows) {
+		return 0, err2
 	}
-	return *sum, err
+
+	return sum1 + sum2, nil
 }
 
 // UnuseSerialNumber removes pair serial number -> storage node id from database.
@@ -510,7 +566,7 @@ func (tx *ordersDBTx) UpdateBucketBandwidthBatch(ctx context.Context, intervalSt
 	return err
 }
 
-func (tx *ordersDBTx) UpdateStoragenodeBandwidthBatch(ctx context.Context, intervalStart time.Time, rollups []orders.StoragenodeBandwidthRollup) (err error) {
+func (tx *ordersDBTx) UpdateStoragenodeBandwidthBatchPhase2(ctx context.Context, intervalStart time.Time, rollups []orders.StoragenodeBandwidthRollup) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(rollups) == 0 {
@@ -536,7 +592,7 @@ func (tx *ordersDBTx) UpdateStoragenodeBandwidthBatch(ctx context.Context, inter
 	}
 
 	_, err = tx.tx.Tx.ExecContext(ctx, `
-		INSERT INTO storagenode_bandwidth_rollups(
+		INSERT INTO storagenode_bandwidth_rollups_phase2(
 			storagenode_id,
 			interval_start, interval_seconds,
 			action, allocated, settled)
@@ -546,8 +602,8 @@ func (tx *ordersDBTx) UpdateStoragenodeBandwidthBatch(ctx context.Context, inter
 			unnest($4::int4[]), unnest($5::bigint[]), unnest($6::bigint[])
 		ON CONFLICT(storagenode_id, interval_start, action)
 		DO UPDATE SET
-			allocated = storagenode_bandwidth_rollups.allocated + EXCLUDED.allocated,
-			settled = storagenode_bandwidth_rollups.settled + EXCLUDED.settled`,
+			allocated = storagenode_bandwidth_rollups_phase2.allocated + EXCLUDED.allocated,
+			settled = storagenode_bandwidth_rollups_phase2.settled + EXCLUDED.settled`,
 		pgutil.NodeIDArray(storageNodeIDs),
 		intervalStart, defaultIntervalSeconds,
 		pgutil.Int4Array(actionSlice), pgutil.Int8Array(allocatedSlice), pgutil.Int8Array(settledSlice))
@@ -822,7 +878,7 @@ func (db *ordersDB) UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Conte
 // SettledAmountsMatch checks if database rows match the orders. If the settled amount for
 // each action are not the same then false is returned.
 func SettledAmountsMatch(rows []*dbx.StoragenodeBandwidthRollup, orderActionAmounts map[int32]int64) bool {
-	var rowsSumByAction = map[int32]int64{}
+	rowsSumByAction := map[int32]int64{}
 	for _, row := range rows {
 		rowsSumByAction[int32(row.Action)] += int64(row.Settled)
 	}

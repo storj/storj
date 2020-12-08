@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/storage"
 )
 
@@ -32,8 +33,7 @@ import (
 //	 the numbers of nodes determined by the upload repair max threshold
 // - Shuts down several nodes, but keeping up a number equal to the minim
 //	 threshold
-// - Downloads the data from those left nodes and check that it's the same than
-//   the uploaded one
+// - Downloads the data from those left nodes and check that it's the same than the uploaded one.
 func TestDataRepairInMemory(t *testing.T) {
 	testDataRepair(t, true)
 }
@@ -53,15 +53,13 @@ func testDataRepair(t *testing.T, inMemoryRepair bool) {
 		StorageNodeCount: 14,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
-				config.Repairer.InMemoryRepair = inMemoryRepair
-
-				config.Metainfo.RS.MinThreshold = minThreshold
-				config.Metainfo.RS.RepairThreshold = 5
-				config.Metainfo.RS.SuccessThreshold = successThreshold
-				config.Metainfo.RS.TotalThreshold = 9
-			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
+					config.Repairer.InMemoryRepair = inMemoryRepair
+				},
+				testplanet.ReconfigureRS(minThreshold, 5, successThreshold, 9),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
@@ -188,15 +186,13 @@ func testCorruptDataRepairFailed(t *testing.T, inMemoryRepair bool) {
 		StorageNodeCount: 14,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
-				config.Repairer.InMemoryRepair = inMemoryRepair
-
-				config.Metainfo.RS.MinThreshold = 3
-				config.Metainfo.RS.RepairThreshold = 5
-				config.Metainfo.RS.SuccessThreshold = 7
-				config.Metainfo.RS.TotalThreshold = 9
-			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
+					config.Repairer.InMemoryRepair = inMemoryRepair
+				},
+				testplanet.ReconfigureRS(3, 5, 7, 9),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
@@ -305,15 +301,13 @@ func testCorruptDataRepairSucceed(t *testing.T, inMemoryRepair bool) {
 		StorageNodeCount: 14,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
-				config.Repairer.InMemoryRepair = inMemoryRepair
-
-				config.Metainfo.RS.MinThreshold = 3
-				config.Metainfo.RS.RepairThreshold = 5
-				config.Metainfo.RS.SuccessThreshold = 7
-				config.Metainfo.RS.TotalThreshold = 9
-			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
+					config.Repairer.InMemoryRepair = inMemoryRepair
+				},
+				testplanet.ReconfigureRS(3, 5, 7, 9),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
@@ -799,14 +793,12 @@ func testRepairMultipleDisqualifiedAndSuspended(t *testing.T, inMemoryRepair boo
 		StorageNodeCount: 12,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Repairer.InMemoryRepair = inMemoryRepair
-
-				config.Metainfo.RS.MinThreshold = 3
-				config.Metainfo.RS.RepairThreshold = 5
-				config.Metainfo.RS.SuccessThreshold = 7
-				config.Metainfo.RS.TotalThreshold = 7
-			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Repairer.InMemoryRepair = inMemoryRepair
+				},
+				testplanet.ReconfigureRS(3, 5, 7, 7),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
@@ -901,10 +893,10 @@ func testRepairMultipleDisqualifiedAndSuspended(t *testing.T, inMemoryRepair boo
 }
 
 // TestDataRepairOverride_HigherLimit does the following:
-// - Uploads test data
-// - Kills nodes to fall to the Repair Override Value of the checker but stays above the original Repair Threshold
-// - Triggers data repair, which attempts to repair the data from the remaining nodes to
-//	 the numbers of nodes determined by the upload repair max threshold
+//   - Uploads test data
+//   - Kills nodes to fall to the Repair Override Value of the checker but stays above the original Repair Threshold
+//   - Triggers data repair, which attempts to repair the data from the remaining nodes to
+//	   the numbers of nodes determined by the upload repair max threshold
 func TestDataRepairOverride_HigherLimitInMemory(t *testing.T) {
 	testDataRepairOverrideHigherLimit(t, true)
 }
@@ -920,15 +912,17 @@ func testDataRepairOverrideHigherLimit(t *testing.T, inMemoryRepair bool) {
 		StorageNodeCount: 14,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Checker.RepairOverride = repairOverride
-				config.Repairer.InMemoryRepair = inMemoryRepair
-
-				config.Metainfo.RS.MinThreshold = 3
-				config.Metainfo.RS.RepairThreshold = 4
-				config.Metainfo.RS.SuccessThreshold = 9
-				config.Metainfo.RS.TotalThreshold = 9
-			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Repairer.InMemoryRepair = inMemoryRepair
+					config.Checker.RepairOverrides = checker.RepairOverrides{
+						List: []checker.RepairOverride{
+							{Min: 3, Success: 9, Total: 9, Override: repairOverride},
+						},
+					}
+				},
+				testplanet.ReconfigureRS(3, 4, 9, 9),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
@@ -993,12 +987,12 @@ func testDataRepairOverrideHigherLimit(t *testing.T, inMemoryRepair bool) {
 }
 
 // TestDataRepairOverride_LowerLimit does the following:
-// - Uploads test data
-// - Kills nodes to fall to the Repair Threshold of the checker that should not trigger repair any longer
-// - Starts Checker and Repairer and ensures this is the case.
-// - Kills more nodes to fall to the Override Value to trigger repair
-// - Triggers data repair, which attempts to repair the data from the remaining nodes to
-//	 the numbers of nodes determined by the upload repair max threshold
+//   - Uploads test data
+//   - Kills nodes to fall to the Repair Threshold of the checker that should not trigger repair any longer
+//   - Starts Checker and Repairer and ensures this is the case.
+//   - Kills more nodes to fall to the Override Value to trigger repair
+//   - Triggers data repair, which attempts to repair the data from the remaining nodes to
+//	   the numbers of nodes determined by the upload repair max threshold
 func TestDataRepairOverride_LowerLimitInMemory(t *testing.T) {
 	testDataRepairOverrideLowerLimit(t, true)
 }
@@ -1014,15 +1008,17 @@ func testDataRepairOverrideLowerLimit(t *testing.T, inMemoryRepair bool) {
 		StorageNodeCount: 14,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Checker.RepairOverride = repairOverride
-				config.Repairer.InMemoryRepair = inMemoryRepair
-
-				config.Metainfo.RS.MinThreshold = 3
-				config.Metainfo.RS.RepairThreshold = 6
-				config.Metainfo.RS.SuccessThreshold = 9
-				config.Metainfo.RS.TotalThreshold = 9
-			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Repairer.InMemoryRepair = inMemoryRepair
+					config.Checker.RepairOverrides = checker.RepairOverrides{
+						List: []checker.RepairOverride{
+							{Min: 3, Success: 9, Total: 9, Override: repairOverride},
+						},
+					}
+				},
+				testplanet.ReconfigureRS(3, 6, 9, 9),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
@@ -1115,12 +1111,12 @@ func testDataRepairOverrideLowerLimit(t *testing.T, inMemoryRepair bool) {
 }
 
 // TestDataRepairUploadLimits does the following:
-// - Uploads test data to nodes
-// - Get one segment of that data to check in which nodes its pieces are stored
-// - Kills as many nodes as needed which store such segment pieces
-// - Triggers data repair
-// - Verify that the number of pieces which repaired has uploaded don't overpass
-//	 the established limit (success threshold + % of excess)
+//   - Uploads test data to nodes
+//   - Get one segment of that data to check in which nodes its pieces are stored
+//   - Kills as many nodes as needed which store such segment pieces
+//   - Triggers data repair
+//   - Verify that the number of pieces which repaired has uploaded don't overpass
+//     the established limit (success threshold + % of excess)
 func TestDataRepairUploadLimitInMemory(t *testing.T) {
 	testDataRepairUploadLimit(t, true)
 }
@@ -1141,15 +1137,13 @@ func testDataRepairUploadLimit(t *testing.T, inMemoryRepair bool) {
 		StorageNodeCount: 13,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
-				config.Repairer.InMemoryRepair = inMemoryRepair
-
-				config.Metainfo.RS.MinThreshold = 3
-				config.Metainfo.RS.RepairThreshold = repairThreshold
-				config.Metainfo.RS.SuccessThreshold = successThreshold
-				config.Metainfo.RS.TotalThreshold = maxThreshold
-			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Repairer.MaxExcessRateOptimalThreshold = RepairMaxExcessRateOptimalThreshold
+					config.Repairer.InMemoryRepair = inMemoryRepair
+				},
+				testplanet.ReconfigureRS(3, repairThreshold, successThreshold, maxThreshold),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
@@ -1266,14 +1260,12 @@ func testRepairGracefullyExited(t *testing.T, inMemoryRepair bool) {
 		StorageNodeCount: 12,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Repairer.InMemoryRepair = inMemoryRepair
-
-				config.Metainfo.RS.MinThreshold = 3
-				config.Metainfo.RS.RepairThreshold = 5
-				config.Metainfo.RS.SuccessThreshold = 7
-				config.Metainfo.RS.TotalThreshold = 7
-			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Repairer.InMemoryRepair = inMemoryRepair
+				},
+				testplanet.ReconfigureRS(3, 5, 7, 7),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data

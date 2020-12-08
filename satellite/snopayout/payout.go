@@ -73,7 +73,7 @@ type StoragenodePayment struct {
 	Notes   string       `json:"notes"`
 }
 
-// Service is used to store and handle node paystub information
+// Service is used to store and handle node paystub information.
 //
 // architecture: Service
 type Service struct {

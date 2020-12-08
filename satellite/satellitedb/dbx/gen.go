@@ -10,8 +10,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	// load our cockroach sql driver for anywhere that uses this dbx.Open.
-	_ "storj.io/storj/private/dbutil/cockroachutil"
+	"storj.io/storj/private/dbutil/cockroachutil"
 	"storj.io/storj/private/dbutil/txutil"
 	"storj.io/storj/private/tagsql"
 )
@@ -31,6 +30,12 @@ func init() {
 			return class.Wrap(&constraintError{e.Constraint, e.Err})
 		}
 		return class.Wrap(e)
+	}
+	ShouldRetry = func(driver string, err error) bool {
+		if driver == "pgxcockroach" || driver == "cockroach" {
+			return cockroachutil.NeedsRetry(err)
+		}
+		return false
 	}
 }
 

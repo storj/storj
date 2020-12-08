@@ -20,12 +20,14 @@ import (
 	"time"
 
 	"github.com/alessio/shellescape"
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/spf13/viper"
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/fpath"
 	"storj.io/common/identity"
+	"storj.io/common/pb"
 	"storj.io/common/processgroup"
 	"storj.io/common/storj"
 	"storj.io/storj/private/dbutil"
@@ -353,6 +355,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			apiProcess.Arguments["setup"] = append(apiProcess.Arguments["setup"],
 				"--database", masterDBURL,
 				"--metainfo.database-url", metainfoDBURL,
+				"--orders.include-encrypted-metadata=true",
+				"--orders.encryption-keys", "0100000000000000=0100000000000000000000000000000000000000000000000000000000000000",
 			)
 		}
 		apiProcess.ExecBefore["run"] = func(process *Process) error {
@@ -390,6 +394,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		coreProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"run": {
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugPeerHTTP)),
+				"--orders.include-encrypted-metadata=true",
+				"--orders.encryption-keys", "0100000000000000=0100000000000000000000000000000000000000000000000000000000000000",
 			},
 		})
 		coreProcess.WaitForExited(migrationProcess)
@@ -417,6 +423,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			"run": {
 				"repair",
 				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugRepairerHTTP)),
+				"--orders.include-encrypted-metadata=true",
+				"--orders.encryption-keys", "0100000000000000=0100000000000000000000000000000000000000000000000000000000000000",
 			},
 		})
 		repairProcess.WaitForExited(migrationProcess)
@@ -524,6 +532,10 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 			if runAccessData := vip.GetString("access"); runAccessData != accessData {
 				process.AddExtra("ACCESS", runAccessData)
+
+				if apiKey, err := getAPIKey(runAccessData); err == nil {
+					process.AddExtra("API_KEY", apiKey)
+				}
 			}
 
 			process.AddExtra("ACCESS_KEY", vip.GetString("minio.access-key"))
@@ -665,6 +677,22 @@ func identitySetup(network *Processes) (*Processes, error) {
 	}
 
 	return processes, nil
+}
+
+// getAPIKey parses an access string to return its corresponding api key.
+func getAPIKey(access string) (apiKey string, err error) {
+	data, version, err := base58.CheckDecode(access)
+	if err != nil || version != 0 {
+		return "", errors.New("invalid access grant format")
+	}
+
+	p := new(pb.Scope)
+	if err := pb.Unmarshal(data, p); err != nil {
+		return "", err
+	}
+
+	apiKey = base58.CheckEncode(p.ApiKey, 0)
+	return apiKey, nil
 }
 
 // readConfigString reads from dir/config.yaml flagName returns the value in `into`.

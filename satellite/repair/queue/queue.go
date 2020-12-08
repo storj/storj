@@ -16,7 +16,7 @@ import (
 // architecture: Database
 type RepairQueue interface {
 	// Insert adds an injured segment.
-	Insert(ctx context.Context, s *internalpb.InjuredSegment, numHealthy int) (alreadyInserted bool, err error)
+	Insert(ctx context.Context, s *internalpb.InjuredSegment, segmentHealth float64) (alreadyInserted bool, err error)
 	// Select gets an injured segment.
 	Select(ctx context.Context) (*internalpb.InjuredSegment, error)
 	// Delete removes an injured segment.
@@ -27,4 +27,7 @@ type RepairQueue interface {
 	SelectN(ctx context.Context, limit int) ([]internalpb.InjuredSegment, error)
 	// Count counts the number of segments in the repair queue.
 	Count(ctx context.Context) (count int, err error)
+
+	// TestingSetAttemptedTime sets attempted time for a repairpath.
+	TestingSetAttemptedTime(ctx context.Context, repairpath []byte, t time.Time) (rowsAffected int64, err error)
 }

@@ -44,7 +44,6 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/dbcleanup"
-	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
@@ -184,12 +183,6 @@ type Satellite struct {
 
 	Metrics struct {
 		Chore *metrics.Chore
-	}
-
-	DowntimeTracking struct {
-		DetectionChore  *downtime.DetectionChore
-		EstimationChore *downtime.EstimationChore
-		Service         *downtime.Service
 	}
 }
 
@@ -390,7 +383,13 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	if err != nil {
 		return nil, err
 	}
-	planet.databases = append(planet.databases, redis)
+	encryptionKeys, err := orders.NewEncryptionKeys(orders.EncryptionKey{
+		ID:  orders.EncryptionKeyID{1},
+		Key: storj.Key{1},
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	config := satellite.Config{
 		Server: server.Config{
@@ -454,16 +453,11 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			MaxCommitInterval:    1 * time.Hour,
 			Overlay:              true,
 			RS: metainfo.RSConfig{
-				MaxBufferMem:     memory.Size(256),
 				ErasureShareSize: memory.Size(256),
-				MinThreshold:     atLeastOne(planet.config.StorageNodeCount * 1 / 5),
-				RepairThreshold:  atLeastOne(planet.config.StorageNodeCount * 2 / 5),
-				SuccessThreshold: atLeastOne(planet.config.StorageNodeCount * 3 / 5),
-				TotalThreshold:   atLeastOne(planet.config.StorageNodeCount * 4 / 5),
-
-				MinTotalThreshold: (planet.config.StorageNodeCount * 4 / 5),
-				MaxTotalThreshold: (planet.config.StorageNodeCount * 4 / 5),
-				Validate:          false,
+				Min:              atLeastOne(planet.config.StorageNodeCount * 1 / 5),
+				Repair:           atLeastOne(planet.config.StorageNodeCount * 2 / 5),
+				Success:          atLeastOne(planet.config.StorageNodeCount * 3 / 5),
+				Total:            atLeastOne(planet.config.StorageNodeCount * 4 / 5),
 			},
 			Loop: metainfo.LoopConfig{
 				CoalesceDuration: 1 * time.Second,
@@ -504,6 +498,8 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			FlushInterval:              defaultInterval,
 			NodeStatusLogging:          true,
 			WindowEndpointRolloutPhase: orders.WindowEndpointRolloutPhase3,
+			IncludeEncryptedMetadata:   true,
+			EncryptionKeys:             *encryptionKeys,
 		},
 		Checker: checker.Config{
 			Interval:                  defaultInterval,
@@ -558,6 +554,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		},
 		DBCleanup: dbcleanup.Config{
 			SerialsInterval: defaultInterval,
+			BatchSize:       1000,
 		},
 		Tally: tally.Config{
 			Interval: defaultInterval,
@@ -619,12 +616,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		},
 		Metrics: metrics.Config{
 			ChoreInterval: defaultInterval,
-		},
-		Downtime: downtime.Config{
-			DetectionInterval:          defaultInterval,
-			EstimationInterval:         defaultInterval,
-			EstimationBatchSize:        5,
-			EstimationConcurrencyLimit: 5,
 		},
 	}
 
@@ -761,10 +752,6 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.GracefulExit.Endpoint = api.GracefulExit.Endpoint
 
 	system.Metrics.Chore = peer.Metrics.Chore
-
-	system.DowntimeTracking.DetectionChore = peer.DowntimeTracking.DetectionChore
-	system.DowntimeTracking.EstimationChore = peer.DowntimeTracking.EstimationChore
-	system.DowntimeTracking.Service = peer.DowntimeTracking.Service
 
 	return system
 }

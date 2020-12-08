@@ -19,7 +19,7 @@ var (
 	ErrOfferNotExist = errs.Class("no current offer")
 )
 
-// DB holds information about offer
+// DB holds information about offers.
 //
 // architecture: Database
 type DB interface {

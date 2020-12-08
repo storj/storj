@@ -5,7 +5,7 @@ ARG GOARCH
 ENV GOARCH ${GOARCH}
 EXPOSE 28967
 WORKDIR /app
-COPY resources/certs.pem /etc/ssl/certs/ca-certificates.crt
+RUN apk -U add ca-certificates
 COPY release/${TAG}/storagenode_linux_${GOARCH:-amd64} /app/storagenode
 COPY cmd/storagenode/entrypoint /entrypoint
 COPY cmd/storagenode/dashboard.sh /app/dashboard.sh
@@ -15,4 +15,5 @@ ENTRYPOINT ["/entrypoint"]
 ENV ADDRESS="" \
     EMAIL="" \
     WALLET="" \
-    STORAGE="2.0TB"
+    STORAGE="2.0TB" \
+    SETUP="false"

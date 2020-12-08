@@ -86,6 +86,10 @@ func (of *fileV0) ReadOne() (info *Info, err error) {
 		return nil, Error.Wrap(err)
 	}
 	limitSize := binary.LittleEndian.Uint32(sizeBytes[:])
+	if limitSize > uint32(orderLimitSizeCap) {
+		return nil, ErrEntryCorrupt.New("invalid limit size: %d is over the maximum %d", limitSize, orderLimitSizeCap)
+	}
+
 	limitSerialized := make([]byte, limitSize)
 	_, err = io.ReadFull(of.f, limitSerialized)
 	if err != nil {
@@ -103,6 +107,10 @@ func (of *fileV0) ReadOne() (info *Info, err error) {
 		return nil, Error.Wrap(err)
 	}
 	orderSize := binary.LittleEndian.Uint32(sizeBytes[:])
+	if orderSize > uint32(orderSizeCap) {
+		return nil, ErrEntryCorrupt.New("invalid order size: %d is over the maximum %d", orderSize, orderSizeCap)
+	}
+
 	orderSerialized := make([]byte, orderSize)
 	_, err = io.ReadFull(of.f, orderSerialized)
 	if err != nil {

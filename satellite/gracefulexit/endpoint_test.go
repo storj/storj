@@ -31,7 +31,6 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/gracefulexit"
 )
@@ -255,16 +254,14 @@ func TestRecvTimeout(t *testing.T) {
 			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
 				return testblobs.NewSlowDB(log.Named("slowdb"), db), nil
 			},
-			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
-				// This config value will create a very short timeframe allowed for receiving
-				// data from storage nodes. This will cause context to cancel with timeout.
-				config.GracefulExit.RecvTimeout = 10 * time.Millisecond
-
-				config.Metainfo.RS.MinThreshold = 2
-				config.Metainfo.RS.RepairThreshold = 3
-				config.Metainfo.RS.SuccessThreshold = successThreshold
-				config.Metainfo.RS.TotalThreshold = successThreshold
-			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// This config value will create a very short timeframe allowed for receiving
+					// data from storage nodes. This will cause context to cancel with timeout.
+					config.GracefulExit.RecvTimeout = 10 * time.Millisecond
+				},
+				testplanet.ReconfigureRS(2, 3, successThreshold, successThreshold),
+			),
 			StorageNode: func(index int, config *storagenode.Config) {
 				config.GracefulExit = gracefulexit.Config{
 					ChoreInterval:          2 * time.Minute,
@@ -1072,7 +1069,7 @@ func TestPointerChangedOrDeleted(t *testing.T) {
 	})
 }
 
-func TestFailureNotFoundPieceHashVerified(t *testing.T) {
+func TestFailureNotFound(t *testing.T) {
 	testTransfers(t, 1, func(t *testing.T, ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.Satellite, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		response, err := processClient.Recv()
 		require.NoError(t, err)
@@ -1140,99 +1137,6 @@ func TestFailureNotFoundPieceHashVerified(t *testing.T) {
 
 }
 
-func TestFailureNotFoundPieceHashUnverified(t *testing.T) {
-	testTransfers(t, 1, func(t *testing.T, ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.Satellite, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
-		// retrieve remote segment
-		keys, err := satellite.Metainfo.Database.List(ctx, nil, -1)
-		require.NoError(t, err)
-
-		var oldPointer *pb.Pointer
-		var path []byte
-		for _, key := range keys {
-			p, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(key))
-			require.NoError(t, err)
-
-			if p.GetRemote() != nil {
-				oldPointer = p
-				path = key
-				break
-			}
-		}
-
-		// replace pointer with non-piece-hash-verified pointer
-		require.NotNil(t, oldPointer)
-		oldPointerBytes, err := pb.Marshal(oldPointer)
-		require.NoError(t, err)
-		newPointer := &pb.Pointer{}
-		err = pb.Unmarshal(oldPointerBytes, newPointer)
-		require.NoError(t, err)
-		newPointer.PieceHashesVerified = false
-		newPointerBytes, err := pb.Marshal(newPointer)
-		require.NoError(t, err)
-		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
-		require.NoError(t, err)
-
-		// begin processing graceful exit messages
-		response, err := processClient.Recv()
-		require.NoError(t, err)
-
-		switch m := response.GetMessage().(type) {
-		case *pb.SatelliteMessage_TransferPiece:
-			require.NotNil(t, m)
-
-			message := &pb.StorageNodeMessage{
-				Message: &pb.StorageNodeMessage_Failed{
-					Failed: &pb.TransferFailed{
-						OriginalPieceId: m.TransferPiece.OriginalPieceId,
-						Error:           pb.TransferFailed_NOT_FOUND,
-					},
-				},
-			}
-			err = processClient.Send(message)
-			require.NoError(t, err)
-		default:
-			require.FailNow(t, "should not reach this case: %#v", m)
-		}
-
-		response, err = processClient.Recv()
-		require.NoError(t, err)
-
-		switch m := response.GetMessage().(type) {
-		case *pb.SatelliteMessage_ExitCompleted:
-			require.NotNil(t, m)
-		default:
-			require.FailNow(t, "should not reach this case: %#v", m)
-		}
-
-		// check that node is no longer in the pointer
-		keys, err = satellite.Metainfo.Database.List(ctx, nil, -1)
-		require.NoError(t, err)
-
-		var pointer *pb.Pointer
-		for _, key := range keys {
-			p, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(key))
-			require.NoError(t, err)
-
-			if p.GetRemote() != nil {
-				pointer = p
-				break
-			}
-		}
-		require.NotNil(t, pointer)
-		for _, piece := range pointer.GetRemote().GetRemotePieces() {
-			require.NotEqual(t, piece.NodeId, exitingNode.ID())
-		}
-
-		// check that the exit has completed and we have the correct transferred/failed values
-		progress, err := satellite.DB.GracefulExit().GetProgress(ctx, exitingNode.ID())
-		require.NoError(t, err)
-
-		require.Equal(t, int64(0), progress.PiecesTransferred)
-		require.Equal(t, int64(0), progress.PiecesFailed)
-	})
-
-}
-
 func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 	var maxOrderLimitSendCount = 3
 	testplanet.Run(t, testplanet.Config{
@@ -1240,17 +1144,15 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 		StorageNodeCount: 5,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
-				// We don't care whether a node gracefully exits or not in this test,
-				// so we set the max failures percentage extra high.
-				config.GracefulExit.OverallMaxFailuresPercentage = 101
-				config.GracefulExit.MaxOrderLimitSendCount = maxOrderLimitSendCount
-
-				config.Metainfo.RS.MinThreshold = 2
-				config.Metainfo.RS.RepairThreshold = 3
-				config.Metainfo.RS.SuccessThreshold = 4
-				config.Metainfo.RS.TotalThreshold = 4
-			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// We don't care whether a node gracefully exits or not in this test,
+					// so we set the max failures percentage extra high.
+					config.GracefulExit.OverallMaxFailuresPercentage = 101
+					config.GracefulExit.MaxOrderLimitSendCount = maxOrderLimitSendCount
+				},
+				testplanet.ReconfigureRS(2, 3, 4, 4),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
@@ -1370,15 +1272,13 @@ func TestIneligibleNodeAge(t *testing.T) {
 		StorageNodeCount: 5,
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
-				// Set the required node age to 1 month.
-				config.GracefulExit.NodeMinAgeInMonths = 1
-
-				config.Metainfo.RS.MinThreshold = 2
-				config.Metainfo.RS.RepairThreshold = 3
-				config.Metainfo.RS.SuccessThreshold = 4
-				config.Metainfo.RS.TotalThreshold = 4
-			},
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// Set the required node age to 1 month.
+					config.GracefulExit.NodeMinAgeInMonths = 1
+				},
+				testplanet.ReconfigureRS(2, 3, 4, 4),
+			),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]

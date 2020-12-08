@@ -10,7 +10,7 @@ import (
 	"storj.io/common/storj"
 )
 
-// DB works with storage usage database
+// DB works with storage usage database.
 //
 // architecture: Database
 type DB interface {

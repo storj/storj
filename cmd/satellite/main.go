@@ -326,7 +326,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	db, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
+		ApplicationName:              "satellite-core",
 		ReportedRollupsReadBatchSize: runCfg.Orders.SettlementBatchSize,
+		SaveRollupBatchSize:          runCfg.Tally.SaveRollupBatchSize,
+		ReadRollupBatchSize:          runCfg.Tally.ReadRollupBatchSize,
 	})
 	if err != nil {
 		return errs.New("Error starting master database on satellite: %+v", err)
@@ -335,7 +338,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	pointerDB, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL)
+	pointerDB, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL, "satellite-core")
 	if err != nil {
 		return errs.New("Error creating metainfodb connection: %+v", err)
 	}
@@ -399,7 +402,7 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
-	db, err := satellitedb.Open(ctx, log.Named("migration"), runCfg.Database, satellitedb.Options{})
+	db, err := satellitedb.Open(ctx, log.Named("migration"), runCfg.Database, satellitedb.Options{ApplicationName: "satellite-migration"})
 	if err != nil {
 		return errs.New("Error creating new master database connection for satellitedb migration: %+v", err)
 	}
@@ -412,7 +415,7 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}
 
-	pdb, err := metainfo.OpenStore(ctx, log.Named("migration"), runCfg.Metainfo.DatabaseURL)
+	pdb, err := metainfo.OpenStore(ctx, log.Named("migration"), runCfg.Metainfo.DatabaseURL, "satellite-migration")
 	if err != nil {
 		return errs.New("Error creating pointer database connection on satellite: %+v", err)
 	}
@@ -450,7 +453,7 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
 	// open the master db
-	database, err := satellitedb.Open(ctx, zap.L().Named("db"), qdiagCfg.Database, satellitedb.Options{})
+	database, err := satellitedb.Open(ctx, zap.L().Named("db"), qdiagCfg.Database, satellitedb.Options{ApplicationName: "satellite-qdiag"})
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
 	}

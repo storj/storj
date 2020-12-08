@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/context2"
+	"storj.io/common/errs2"
 	"storj.io/private/process"
 	"storj.io/private/version"
 	"storj.io/storj/pkg/revocation"
@@ -30,7 +31,7 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Failed to load identity: %+v", err)
 	}
 
-	db, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{})
+	db, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{ApplicationName: "satellite-repairer"})
 	if err != nil {
 		return errs.New("Error starting master database: %+v", err)
 	}
@@ -38,7 +39,7 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	pointerDB, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL)
+	pointerDB, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL, "satellite-repairer")
 	if err != nil {
 		return errs.New("Error creating metainfo database connection: %+v", err)
 	}
@@ -99,5 +100,5 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 
 	runError := peer.Run(ctx)
 	closeError := peer.Close()
-	return errs.Combine(runError, closeError)
+	return errs2.IgnoreCanceled(errs.Combine(runError, closeError))
 }

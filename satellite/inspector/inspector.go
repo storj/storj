@@ -27,7 +27,7 @@ var (
 
 const lastSegmentIndex = int64(-1)
 
-// Endpoint for checking object and segment health
+// Endpoint for checking object and segment health.
 //
 // architecture: Endpoint
 type Endpoint struct {
