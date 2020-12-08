@@ -39,7 +39,8 @@ func NewReliabilityCache(overlay *overlay.Service, staleness time.Duration) *Rel
 	}
 }
 
-// LastUpdate returns when the cache was last updated.
+// LastUpdate returns when the cache was last updated, or the zero value (time.Time{}) if it
+// has never yet been updated. LastUpdate() does not trigger an update itself.
 func (cache *ReliabilityCache) LastUpdate() time.Time {
 	if state, ok := cache.state.Load().(*reliabilityState); ok {
 		return state.created
@@ -47,8 +48,38 @@ func (cache *ReliabilityCache) LastUpdate() time.Time {
 	return time.Time{}
 }
 
+// NumNodes returns the number of online active nodes (as determined by the reliability cache).
+// This number is not guaranteed to be consistent with either the nodes database or the
+// reliability cache after returning; it is just a best-effort count and should be treated as an
+// estimate.
+func (cache *ReliabilityCache) NumNodes(ctx context.Context) (numNodes int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	state, err := cache.loadFast(ctx, time.Time{})
+	if err != nil {
+		return 0, err
+	}
+	return len(state.reliable), nil
+}
+
 // MissingPieces returns piece indices that are unreliable with the given staleness period.
 func (cache *ReliabilityCache) MissingPieces(ctx context.Context, created time.Time, pieces []*pb.RemotePiece) (_ []int32, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	state, err := cache.loadFast(ctx, created)
+	if err != nil {
+		return nil, err
+	}
+	var unreliable []int32
+	for _, piece := range pieces {
+		if _, ok := state.reliable[piece.NodeId]; !ok {
+			unreliable = append(unreliable, piece.PieceNum)
+		}
+	}
+	return unreliable, nil
+}
+
+func (cache *ReliabilityCache) loadFast(ctx context.Context, validUpTo time.Time) (_ *reliabilityState, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// This code is designed to be very fast in the case where a refresh is not needed: just an
@@ -60,10 +91,10 @@ func (cache *ReliabilityCache) MissingPieces(ctx context.Context, created time.T
 	// the acquisition. Only then do we refresh and can then proceed answering the query.
 
 	state, ok := cache.state.Load().(*reliabilityState)
-	if !ok || created.After(state.created) || time.Since(state.created) > cache.staleness {
+	if !ok || validUpTo.After(state.created) || time.Since(state.created) > cache.staleness {
 		cache.mu.Lock()
 		state, ok = cache.state.Load().(*reliabilityState)
-		if !ok || created.After(state.created) || time.Since(state.created) > cache.staleness {
+		if !ok || validUpTo.After(state.created) || time.Since(state.created) > cache.staleness {
 			state, err = cache.refreshLocked(ctx)
 		}
 		cache.mu.Unlock()
@@ -71,14 +102,7 @@ func (cache *ReliabilityCache) MissingPieces(ctx context.Context, created time.T
 			return nil, err
 		}
 	}
-
-	var unreliable []int32
-	for _, piece := range pieces {
-		if _, ok := state.reliable[piece.NodeId]; !ok {
-			unreliable = append(unreliable, piece.PieceNum)
-		}
-	}
-	return unreliable, nil
+	return state, nil
 }
 
 // Refresh refreshes the cache.
