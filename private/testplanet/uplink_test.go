@@ -173,24 +173,24 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
-		// get a remote segment from pointerdb
-		pdb := planet.Satellites[0].Metainfo.Service
-		listResponse, _, err := pdb.List(ctx, metabase.SegmentKey{}, "", true, 0, 0)
-		require.NoError(t, err)
+		projectID := planet.Uplinks[0].Projects[0].ID
 
-		var path string
-		var pointer *pb.Pointer
-		for _, v := range listResponse {
-			path = v.GetPath()
-			pointer, err = pdb.Get(ctx, metabase.SegmentKey(path))
-			require.NoError(t, err)
-			if pointer.GetType() == pb.Pointer_REMOTE {
-				break
-			}
-		}
+		// get a remote segment from metabase
+		objects, err := planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, projectID, "testbucket")
+		require.NoError(t, err)
+		require.Len(t, objects, 1)
+
+		segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllObjectSegments(ctx, metabase.ObjectLocation{
+			ProjectID:  projectID,
+			BucketName: "testbucket",
+			ObjectKey:  objects[0].ObjectKey,
+		})
+		require.NoError(t, err)
+		require.Len(t, segments, 1)
+		require.NotEmpty(t, segments[0].Pieces)
 
 		// choose used storage node and replace it with fake listener
-		storageNode := planet.FindNode(pointer.Remote.RemotePieces[0].NodeId)
+		storageNode := planet.FindNode(segments[0].Pieces[0].StorageNode)
 		require.NotNil(t, storageNode)
 
 		err = planet.StopPeer(storageNode)
