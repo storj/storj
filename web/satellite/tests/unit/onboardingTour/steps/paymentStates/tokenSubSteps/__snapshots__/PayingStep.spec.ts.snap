@@ -9,6 +9,6 @@ exports[`PayingStep.vue renders correctly 1`] = `
     <!---->
   </div>
   <tokendepositselection-stub class="paying-step__form"></tokendepositselection-stub>
-  <vbutton-stub label="Continue to Coin Payments" width="100%" height="48px" isbluewhite="true" onpress="function () { [native code] }"></vbutton-stub>
+  <vbutton-stub label="Continue to Coin Payments" width="calc(100% - 4px)" height="48px" isbluewhite="true" onpress="function () { [native code] }"></vbutton-stub>
 </div>
 `;

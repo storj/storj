@@ -9,6 +9,7 @@ ENV CONF_PATH=/root/.local/storj/uplink \
     SATELLITE_ADDR=
 WORKDIR /app
 VOLUME /root/.local/storj/uplink
+RUN apk -U add ca-certificates
 COPY release/${TAG}/uplink_linux_${GOARCH:-amd64} /app/uplink
 COPY cmd/uplink/entrypoint /entrypoint
 ENTRYPOINT ["/entrypoint"]
