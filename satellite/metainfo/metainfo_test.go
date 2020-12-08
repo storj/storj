@@ -507,6 +507,10 @@ func TestBucketNameValidation(t *testing.T) {
 				EncryptedPath: []byte("123"),
 				Version:       0,
 				ExpiresAt:     time.Now().Add(16 * 24 * time.Hour),
+				EncryptionParameters: storj.EncryptionParameters{
+					CipherSuite: storj.EncAESGCM,
+					BlockSize:   256,
+				},
 			})
 			require.NoError(t, err, "bucket name: %v", name)
 		}
@@ -524,8 +528,6 @@ func TestBucketNameValidation(t *testing.T) {
 			_, err = metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
 				Bucket:        []byte(name),
 				EncryptedPath: []byte("123"),
-				Version:       0,
-				ExpiresAt:     time.Now().Add(16 * 24 * time.Hour),
 			})
 			require.Error(t, err, "bucket name: %v", name)
 
@@ -1081,6 +1083,10 @@ func TestBatch(t *testing.T) {
 			requests = append(requests, &metainfo.BeginObjectParams{
 				Bucket:        []byte("second-test-bucket"),
 				EncryptedPath: []byte("encrypted-path"),
+				EncryptionParameters: storj.EncryptionParameters{
+					CipherSuite: storj.EncAESGCM,
+					BlockSize:   256,
+				},
 			})
 			numOfSegments := 10
 			expectedData := make([][]byte, numOfSegments)
@@ -1091,7 +1097,11 @@ func TestBatch(t *testing.T) {
 					Position: storj.SegmentPosition{
 						Index: int32(i),
 					},
+					PlainSize:           int64(len(expectedData[i])),
 					EncryptedInlineData: expectedData[i],
+					Encryption: storj.SegmentEncryption{
+						EncryptedKey: testrand.Bytes(256),
+					},
 				})
 			}
 
@@ -1144,6 +1154,10 @@ func TestBatch(t *testing.T) {
 			beginObjectResp, err := metainfoClient.BeginObject(ctx, metainfo.BeginObjectParams{
 				Bucket:        []byte("third-test-bucket"),
 				EncryptedPath: []byte("encrypted-path"),
+				EncryptionParameters: storj.EncryptionParameters{
+					CipherSuite: storj.EncAESGCM,
+					BlockSize:   256,
+				},
 			})
 			require.NoError(t, err)
 
@@ -1158,7 +1172,11 @@ func TestBatch(t *testing.T) {
 					Position: storj.SegmentPosition{
 						Index: int32(i),
 					},
+					PlainSize:           int64(len(expectedData[i])),
 					EncryptedInlineData: expectedData[i],
+					Encryption: storj.SegmentEncryption{
+						EncryptedKey: testrand.Bytes(256),
+					},
 				})
 			}
 
@@ -1324,67 +1342,6 @@ func TestRateLimit_ProjectRateLimitOverrideCachedExpired(t *testing.T) {
 		}
 		group2Errs := group2.Wait()
 		require.Len(t, group2Errs, 1)
-	})
-}
-
-func TestOverwriteZombieSegments(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
-		uplink := planet.Uplinks[0]
-		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
-		require.NoError(t, err)
-		defer ctx.Check(metainfoClient.Close)
-
-		var testCases = []struct {
-			deletedSegments []int32
-			objectSize      memory.Size
-			segmentSize     memory.Size
-			label           string
-		}{
-			{label: "inline", deletedSegments: []int32{0, -1}, objectSize: 5 * memory.KiB, segmentSize: 1 * memory.KiB},
-			{label: "remote", deletedSegments: []int32{0, -1}, objectSize: 23 * memory.KiB, segmentSize: 5 * memory.KiB},
-		}
-
-		for i, tc := range testCases {
-			i := i
-			tc := tc
-			t.Run(tc.label, func(t *testing.T) {
-				data := testrand.Bytes(tc.objectSize)
-				bucket := "testbucket" + strconv.Itoa(i)
-				objectKey := "test-path" + strconv.Itoa(i)
-				uploadCtx := testuplink.WithMaxSegmentSize(ctx, tc.segmentSize)
-				err := uplink.Upload(uploadCtx, planet.Satellites[0], bucket, objectKey, data)
-				require.NoError(t, err)
-
-				items, _, err := metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
-					Bucket: []byte(bucket),
-					Limit:  1,
-				})
-				require.NoError(t, err)
-
-				object, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
-					Bucket:        []byte(bucket),
-					EncryptedPath: items[0].EncryptedPath,
-				})
-				require.NoError(t, err)
-
-				// delete some segments to leave only zombie segments
-				project := planet.Uplinks[0].Projects[0]
-				for _, segment := range tc.deletedSegments {
-					location, err := satMetainfo.CreatePath(ctx, project.ID, int64(segment), []byte(object.Bucket), items[0].EncryptedPath)
-					require.NoError(t, err)
-
-					err = planet.Satellites[0].Metainfo.Service.UnsynchronizedDelete(ctx, location.Encode())
-					require.NoError(t, err)
-				}
-
-				err = uplink.Upload(uploadCtx, planet.Satellites[0], bucket, objectKey, data)
-				require.NoError(t, err)
-			})
-
-		}
 	})
 }
 
@@ -1584,7 +1541,7 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 			Encryption: storj.SegmentEncryption{
 				EncryptedKey: []byte{1},
 			},
-
+			PlainSize:         memory.MiB.Int64(),
 			SizeEncryptedData: memory.MiB.Int64(),
 			UploadResult: []*pb.SegmentPieceUploadResult{
 				makeResult(0),

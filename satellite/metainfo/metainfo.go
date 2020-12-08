@@ -1282,12 +1282,12 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 	}
 
 	rs := storj.RedundancyScheme{
-		Algorithm:      storj.RedundancyAlgorithm(streamID.Redundancy.Type),
-		RequiredShares: int16(streamID.Redundancy.MinReq),
-		RepairShares:   int16(streamID.Redundancy.RepairThreshold),
-		OptimalShares:  int16(streamID.Redundancy.SuccessThreshold),
-		TotalShares:    int16(streamID.Redundancy.Total),
-		ShareSize:      streamID.Redundancy.ErasureShareSize,
+		Algorithm:      storj.RedundancyAlgorithm(endpoint.defaultRS.Type),
+		RequiredShares: int16(endpoint.defaultRS.MinReq),
+		RepairShares:   int16(endpoint.defaultRS.RepairThreshold),
+		OptimalShares:  int16(endpoint.defaultRS.SuccessThreshold),
+		TotalShares:    int16(endpoint.defaultRS.Total),
+		ShareSize:      endpoint.defaultRS.ErasureShareSize,
 	}
 
 	segmentSize := req.SizeEncryptedData
