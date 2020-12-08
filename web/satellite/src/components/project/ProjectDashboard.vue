@@ -7,7 +7,7 @@
             <h1 class="dashboard-area__title">{{projectName}} Dashboard</h1>
             <VInfo
                 class="dashboard-area__tooltip__wrapper"
-                bold-text="Expect about an hour delay between network activity and the latest dashboard stats.">
+                bold-text="Expect a delay of a few hours between network activity and the latest dashboard stats.">
                 <InfoIcon class="dashboard-area__tooltip__icon"/>
             </VInfo>
         </div>
