@@ -649,7 +649,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	canDelete := err == nil
 
 	if canDelete {
-		_, err = endpoint.DeleteObjectPieces(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedPath)
+		_, err = endpoint.DeleteObjectPieces(ctx, keyInfo.ProjectID, string(req.Bucket), metabase.ObjectKey(req.EncryptedPath))
 		if err != nil {
 			return nil, err
 		}
@@ -980,7 +980,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 	})
 	canList := err == nil
 
-	deletedObjects, err := endpoint.DeleteObjectPieces(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedPath)
+	deletedObjects, err := endpoint.DeleteObjectPieces(ctx, keyInfo.ProjectID, string(req.Bucket), metabase.ObjectKey(req.EncryptedPath))
 	if err != nil {
 		if !canRead && !canList {
 			// No error info is returned if neither Read, nor List permission is granted
@@ -1773,22 +1773,22 @@ func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID s
 // NOTE: this method is exported for being able to individually test it without
 // having import cycles.
 func (endpoint *Endpoint) DeleteObjectPieces(
-	ctx context.Context, projectID uuid.UUID, bucket, encryptedPath []byte,
+	ctx context.Context, projectID uuid.UUID, bucket string, object metabase.ObjectKey,
 ) (deletedObjects []*pb.Object, err error) {
-	defer mon.Task()(&ctx, projectID.String(), bucket, encryptedPath)(&err)
+	defer mon.Task()(&ctx, projectID.String(), bucket, object)(&err)
 
 	req := metabase.ObjectLocation{
 		ProjectID:  projectID,
-		BucketName: string(bucket),
-		ObjectKey:  metabase.ObjectKey(encryptedPath),
+		BucketName: bucket,
+		ObjectKey:  object,
 	}
 
 	deletedObjects, err = endpoint.deleteObjectsPieces(ctx, req)
 	if err != nil {
 		endpoint.log.Error("failed to delete pointers",
-			zap.Stringer("project_id", projectID),
-			zap.ByteString("bucket_name", bucket),
-			zap.Binary("encrypted_path", encryptedPath),
+			zap.Stringer("project", projectID),
+			zap.String("bucket", bucket),
+			zap.Binary("object", []byte(object)),
 			zap.Error(err),
 		)
 		return deletedObjects, err
