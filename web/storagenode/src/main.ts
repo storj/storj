@@ -8,6 +8,7 @@ import { DirectiveBinding } from 'vue/types/options';
 import App from '@/app/App.vue';
 import { router } from '@/app/router';
 import { store } from '@/app/store';
+import { formatBytes } from '@/app/utils/converter';
 
 Vue.config.productionTip = false;
 VueClipboard.config.autoSetContainer = true;
@@ -22,6 +23,7 @@ let clickOutsideEvent: EventListener;
 Vue.directive('click-outside', {
     bind: function (el: HTMLElement, binding: DirectiveBinding, vnode: VNode) {
         clickOutsideEvent = function(event: Event): void {
+            // TODO: improve and test this
             if (el === event.target) {
                 return;
             }
@@ -43,6 +45,14 @@ Vue.directive('click-outside', {
  */
 Vue.filter('centsToDollars', (cents: number): string => {
     return `$${(cents / 100).toFixed(2)}`;
+});
+
+/**
+ * Converts bytes to base-10 types.
+ */
+Vue.filter('bytesToBase10String', (amountInBytes: number): string => {
+    // TODO: move to Size package
+    return `${formatBytes(amountInBytes)}`;
 });
 
 new Vue({

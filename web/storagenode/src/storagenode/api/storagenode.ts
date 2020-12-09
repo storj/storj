@@ -42,7 +42,7 @@ export class StorageNodeApi {
             return new SatelliteInfo(satellite.id, satellite.url, disqualified, suspended);
         });
 
-        const diskSpace: Traffic = new Traffic(data.diskSpace.used, data.diskSpace.available, data.diskSpace.trash);
+        const diskSpace: Traffic = new Traffic(data.diskSpace.used, data.diskSpace.available, data.diskSpace.trash, data.diskSpace.overused);
         const bandwidth: Traffic = new Traffic(data.bandwidth.used);
 
         return new Dashboard(data.nodeID, data.wallet, satellites, diskSpace, bandwidth,

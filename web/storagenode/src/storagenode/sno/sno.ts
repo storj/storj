@@ -37,6 +37,7 @@ export class Traffic {
         public used: number = 0,
         public available: number = 1,
         public trash: number = 0,
+        public overused: number = 0,
     ) {}
 }
 

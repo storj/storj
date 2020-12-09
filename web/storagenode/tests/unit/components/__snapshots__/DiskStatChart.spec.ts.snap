@@ -27,6 +27,13 @@ exports[`DiskStatChart renders correctly 1`] = `
       </div>
       <p class="disk-stat-area__info-area__item__labels-area__amount">0 Bytes</p>
     </div>
+    <div class="disk-stat-area__info-area__item">
+      <div class="disk-stat-area__info-area__item__labels-area">
+        <div class="disk-stat-area__info-area__item__labels-area__circle overused"></div>
+        <p class="disk-stat-area__info-area__item__labels-area__label">Overused</p>
+      </div>
+      <p class="disk-stat-area__info-area__item__labels-area__amount">0 Bytes</p>
+    </div>
   </div>
 </div>
 `;
@@ -57,6 +64,13 @@ exports[`DiskStatChart renders correctly with actual values 1`] = `
         <p class="disk-stat-area__info-area__item__labels-area__label">Trash</p>
       </div>
       <p class="disk-stat-area__info-area__item__labels-area__amount">22KB</p>
+    </div>
+    <div class="disk-stat-area__info-area__item">
+      <div class="disk-stat-area__info-area__item__labels-area">
+        <div class="disk-stat-area__info-area__item__labels-area__circle overused"></div>
+        <p class="disk-stat-area__info-area__item__labels-area__label">Overused</p>
+      </div>
+      <p class="disk-stat-area__info-area__item__labels-area__amount">11KB</p>
     </div>
   </div>
 </div>

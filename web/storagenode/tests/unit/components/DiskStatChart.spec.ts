@@ -6,6 +6,7 @@ import Vuex from 'vuex';
 import DiskStatChart from '@/app/components/DiskStatChart.vue';
 
 import { newNodeModule, NODE_ACTIONS } from '@/app/store/modules/node';
+import { formatBytes } from '@/app/utils/converter';
 import { StorageNodeApi } from '@/storagenode/api/storagenode';
 import { StorageNodeService } from '@/storagenode/sno/service';
 import { Dashboard, SatelliteInfo, Traffic } from '@/storagenode/sno/sno';
@@ -13,6 +14,10 @@ import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
+
+localVue.filter('bytesToBase10String', (amountInBytes: number): string => {
+    return `${formatBytes(amountInBytes)}`;
+});
 
 const nodeApi = new StorageNodeApi();
 const nodeService = new StorageNodeService(nodeApi);
@@ -45,7 +50,7 @@ describe('DiskStatChart', (): void => {
                         new SatelliteInfo('3', 'url1', null, null),
                         new SatelliteInfo('4', 'url2', new Date(2020, 1, 1), new Date(2020, 0, 1)),
                     ],
-                    new Traffic(550000, 1000000, 22000),
+                    new Traffic(550000, 1000000, 22000, 11000),
                     new Traffic(50),
                     new Date(),
                     new Date(2019, 3, 1),

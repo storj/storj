@@ -4,7 +4,7 @@
 <template>
     <div class="disk-stat-area">
         <p class="disk-stat-area__title">Total Disk Space</p>
-        <p class="disk-stat-area__amount">{{ total }}</p>
+        <p class="disk-stat-area__amount">{{ diskSpace.available | bytesToBase10String }}</p>
         <DoughnutChart class="disk-stat-area__chart" :chart-data="chartData" />
         <div class="disk-stat-area__info-area">
             <div class="disk-stat-area__info-area__item">
@@ -12,21 +12,28 @@
                     <div class="disk-stat-area__info-area__item__labels-area__circle used"></div>
                     <p class="disk-stat-area__info-area__item__labels-area__label">Used</p>
                 </div>
-                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ used }}</p>
+                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ diskSpace.used | bytesToBase10String }}</p>
             </div>
             <div class="disk-stat-area__info-area__item">
                 <div class="disk-stat-area__info-area__item__labels-area">
                     <div class="disk-stat-area__info-area__item__labels-area__circle free"></div>
                     <p class="disk-stat-area__info-area__item__labels-area__label">Free</p>
                 </div>
-                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ free }}</p>
+                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ free | bytesToBase10String }}</p>
             </div>
             <div class="disk-stat-area__info-area__item">
                 <div class="disk-stat-area__info-area__item__labels-area">
                     <div class="disk-stat-area__info-area__item__labels-area__circle trash"></div>
                     <p class="disk-stat-area__info-area__item__labels-area__label">Trash</p>
                 </div>
-                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ trash }}</p>
+                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ diskSpace.trash | bytesToBase10String }}</p>
+            </div>
+            <div class="disk-stat-area__info-area__item">
+                <div class="disk-stat-area__info-area__item__labels-area">
+                    <div class="disk-stat-area__info-area__item__labels-area__circle overused"></div>
+                    <p class="disk-stat-area__info-area__item__labels-area__label">Overused</p>
+                </div>
+                <p class="disk-stat-area__info-area__item__labels-area__amount">{{ diskSpace.overused | bytesToBase10String }}</p>
             </div>
         </div>
     </div>
@@ -41,7 +48,7 @@ import {
     DiskStatChartData,
     DiskStatDataSet,
 } from '@/app/types/chartData';
-import { formatBytes } from '@/app/utils/converter';
+import { Traffic } from '@/storagenode/sno/sno';
 
 @Component({
     components: {
@@ -53,52 +60,36 @@ export default class DiskStatChart extends Vue {
      * Holds datasets for chart.
      */
     public get chartData(): DiskStatChartData {
-        const diskSpace = this.$store.state.node.utilization.diskSpace;
-        const free = diskSpace.available - diskSpace.used - diskSpace.trash;
-
         return new DiskStatChartData([
             new DiskStatDataSet(
             '',
-                ['#D6D6D6', '#0059D0', '#8FA7C6'],
+                ['#D6D6D6', '#0059D0', '#8FA7C6', '#2582FF'],
                 [
-                    free,
-                    diskSpace.used,
-                    diskSpace.trash,
+                    this.free,
+                    this.diskSpace.used,
+                    this.diskSpace.trash,
+                    this.diskSpace.overused,
                 ],
             ),
         ]);
     }
 
     /**
-     * Returns formatted used disk space amount.
+     * Returns disk space information from store.
      */
-    public get total(): string {
-        return formatBytes(this.$store.state.node.utilization.diskSpace.available);
+    public get diskSpace(): Traffic {
+        return this.$store.state.node.utilization.diskSpace;
     }
 
     /**
-     * Returns formatted used disk space amount.
+     * Returns free disk space amount.
      */
-    public get used(): string {
-        return formatBytes(this.$store.state.node.utilization.diskSpace.used);
-    }
+    public get free(): number {
+        let free = this.diskSpace.available - this.diskSpace.used - this.diskSpace.trash;
 
-    /**
-     * Returns formatted available disk space amount.
-     */
-    public get free(): string {
-        return formatBytes(
-            this.$store.state.node.utilization.diskSpace.available -
-            this.$store.state.node.utilization.diskSpace.used -
-            this.$store.state.node.utilization.diskSpace.trash,
-        );
-    }
+        if (free < 0) free = 0;
 
-    /**
-     * Returns formatted trash disk space amount.
-     */
-    public get trash(): string {
-        return formatBytes(this.$store.state.node.utilization.diskSpace.trash);
+        return free;
     }
 }
 </script>
@@ -111,7 +102,7 @@ export default class DiskStatChart extends Vue {
         background-color: var(--block-background-color);
         border: 1px solid var(--block-border-color);
         border-radius: 11px;
-        padding: 32px 30px;
+        padding: 32px 20px;
         position: relative;
 
         &__title {
@@ -130,24 +121,25 @@ export default class DiskStatChart extends Vue {
 
         &__chart {
             position: absolute;
-            left: 30px;
-            width: calc(50% - 30px);
+            width: calc(58% - 25px);
             height: 220px;
-            margin-top: 35px;
+            top: 135px;
         }
 
         &__info-area {
             position: absolute;
             right: 30px;
-            top: 57%;
+            top: 60%;
             transform: translateY(-50%);
-            width: calc(50% - 50px);
+            width: calc(40% - 35px);
             display: flex;
             flex-direction: column;
+            box-sizing: border-box;
 
             &__item {
                 display: flex;
                 justify-content: space-between;
+                flex-direction: column;
                 margin-top: 19px;
 
                 &:first-of-type {
@@ -156,6 +148,7 @@ export default class DiskStatChart extends Vue {
 
                 &__labels-area {
                     display: flex;
+                    align-items: center;
 
                     &__circle {
                         width: 14px;
@@ -175,6 +168,8 @@ export default class DiskStatChart extends Vue {
                         font-weight: bold;
                         font-size: 14px;
                         color: var(--disk-stat-chart-text-color);
+                        margin-left: 22px;
+                        margin-top: 6px;
                     }
                 }
             }
@@ -193,6 +188,10 @@ export default class DiskStatChart extends Vue {
         background: #8fa7c6;
     }
 
+    .overused {
+        background: #2582ff;
+    }
+
     @media screen and (max-width: 1000px) {
 
         .disk-stat-area {
@@ -202,13 +201,20 @@ export default class DiskStatChart extends Vue {
                 width: 250px;
                 height: 250px;
                 margin-left: 100px;
-                margin-top: 0;
+                top: 100px;
             }
 
             &__info-area {
-                top: 60%;
                 right: 120px;
                 width: 185px;
+
+                &__item {
+                    flex-direction: row;
+
+                    &__labels-area__amount {
+                        margin: 0;
+                    }
+                }
             }
         }
     }
@@ -222,9 +228,16 @@ export default class DiskStatChart extends Vue {
             }
 
             &__info-area {
-                top: 60%;
                 right: 90px;
                 width: 140px;
+
+                &__item {
+                    flex-direction: row;
+
+                    &__labels-area__amount {
+                        margin: 0;
+                    }
+                }
             }
         }
     }
@@ -234,13 +247,14 @@ export default class DiskStatChart extends Vue {
         .disk-stat-area {
 
             &__chart {
+                top: 125px;
                 width: 200px;
                 height: 200px;
                 margin-left: 50px;
             }
 
             &__info-area {
-                top: 50%;
+                top: 55%;
                 right: 90px;
                 width: 140px;
             }
@@ -255,6 +269,7 @@ export default class DiskStatChart extends Vue {
             padding: 24px 18px;
 
             &__chart {
+                top: 100px;
                 width: 200px;
                 height: 200px;
                 left: 50%;
@@ -268,6 +283,7 @@ export default class DiskStatChart extends Vue {
                 transform: translateX(50%);
                 bottom: 10px;
                 height: 100px;
+                width: 200px;
             }
         }
     }
