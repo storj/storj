@@ -153,71 +153,74 @@ func registerAccess(cmd *cobra.Command, args []string) (err error) {
 	if len(args) == 0 {
 		return errs.New("no access specified")
 	}
+	_, err = register(args[0], registerCfg.AuthService, registerCfg.Public)
+	return err
+}
 
-	if registerCfg.AuthService == "" {
-		return errs.New("no auth service address provided")
+func register(accessRaw, authService string, public bool) (accessKey string, err error) {
+	if authService == "" {
+		return "", errs.New("no auth service address provided")
 	}
-
-	accessRaw := args[0]
 
 	// try assuming that accessRaw is a named access
 	access, err := registerCfg.GetNamedAccess(accessRaw)
 	if err == nil && access != nil {
 		accessRaw, err = access.Serialize()
 		if err != nil {
-			return errs.New("error serializing named access '%s': %w", accessRaw, err)
+			return "", errs.New("error serializing named access '%s': %w", accessRaw, err)
 		}
 	}
 
 	postData, err := json.Marshal(map[string]interface{}{
 		"access_grant": accessRaw,
-		"public":       registerCfg.Public,
+		"public":       public,
 	})
 	if err != nil {
-		return errs.Wrap(err)
+		return accessKey, errs.Wrap(err)
 	}
 
-	resp, err := http.Post(fmt.Sprintf("%s/v1/access", registerCfg.AuthService), "application/json", bytes.NewReader(postData))
+	resp, err := http.Post(fmt.Sprintf("%s/v1/access", authService), "application/json", bytes.NewReader(postData))
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	respBody := make(map[string]string)
 	if err := json.Unmarshal(body, &respBody); err != nil {
-		return errs.New("unexpected response from auth service: %s", string(body))
+		return "", errs.New("unexpected response from auth service: %s", string(body))
 	}
 
 	accessKey, ok := respBody["access_key_id"]
 	if !ok {
-		return errs.New("access_key_id missing in response")
+		return "", errs.New("access_key_id missing in response")
 	}
 	secretKey, ok := respBody["secret_key"]
 	if !ok {
-		return errs.New("secret_key missing in response")
+		return "", errs.New("secret_key missing in response")
 	}
-	fmt.Println("=========== CREDENTIALS =========================================================")
+
+	fmt.Println("========== CREDENTIALS ===================================================================")
 	fmt.Println("Access Key ID: ", accessKey)
-	fmt.Println("Secret Key:    ", secretKey)
-	fmt.Println("Endpoint:      ", respBody["endpoint"])
+	fmt.Println("Secret Key   : ", secretKey)
+	fmt.Println("Endpoint     : ", respBody["endpoint"])
 
 	// update AWS credential file if requested
 	if registerCfg.AWSProfile != "" {
 		credentialsPath, err := getAwsCredentialsPath()
 		if err != nil {
-			return err
+			return "", err
 		}
 		err = writeAWSCredentials(credentialsPath, registerCfg.AWSProfile, accessKey, secretKey)
 		if err != nil {
-			return err
+			return "", err
 		}
 	}
-	return nil
+	return accessKey, nil
 }
 
 // getAwsCredentialsPath returns the expected AWS credentials path.
