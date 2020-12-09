@@ -6,6 +6,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"math"
 	"os"
 	"time"
 
@@ -132,7 +133,7 @@ func main() {
 				target := args[0]
 
 				if *retries <= 0 {
-					*retries = 1 << 31
+					*retries = math.MaxInt32
 				}
 				for try := 0; try < *retries; try++ {
 					if tryConnect(target) {
