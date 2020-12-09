@@ -1,0 +1,56 @@
+// Copyright (C) 2020 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "storj.io/storj/multinodepb";
+
+package diskspace;
+
+import "gogo.proto";
+import "google/protobuf/timestamp.proto";
+
+service NodeDiskSpace {
+  rpc GetDiskSpace(GetDiskSpaceRequest) returns (GetDiskSpaceResponse);
+  rpc DailyStorageUsage(DailyStorageUsageRequest) returns (DailyStorageUsageResponse);
+  rpc SatelliteSummary(SatelliteSummaryRequest) returns (SatelliteSummaryResponse);
+}
+
+message GetDiskSpaceRequest {}
+
+message GetDiskSpaceResponse {
+  DiskSpace disk_space = 1;
+}
+
+// DiskSpace stores all info about storagenode disk space.
+message DiskSpace {
+  int64 used = 1;
+  int64 available = 2;
+  int64 trash = 3;
+  int64 overused = 4;
+}
+
+message DailyStorageUsageRequest {
+  google.protobuf.Timestamp from = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp to = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  bytes satellite_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message DailyStorageUsageResponse {
+  message StorageUsage {
+    double at_rest_total = 1;
+    google.protobuf.Timestamp timestamp = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  }
+
+  bytes node_id = 1;
+  repeated StorageUsage daily_storage_usage = 2;
+}
+
+message SatelliteSummaryRequest {
+  google.protobuf.Timestamp from = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp to = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  bytes satellite_id = 3 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message SatelliteSummaryResponse {
+  double storage_usage = 1;
+}
