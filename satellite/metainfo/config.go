@@ -173,6 +173,8 @@ type MetabaseDB interface {
 	DeleteObjectsAllVersions(ctx context.Context, opts metabase.DeleteObjectsAllVersions) (result metabase.DeleteObjectResult, err error)
 	// DeletePendingObject deletes a pending object.
 	DeletePendingObject(ctx context.Context, opts metabase.DeletePendingObject) (result metabase.DeleteObjectResult, err error)
+	// DeleteBucketObjects deletes all objects in the specified bucket.
+	DeleteBucketObjects(ctx context.Context, opts metabase.DeleteBucketObjects) (deletedObjectCount int64, err error)
 	// DeleteExpiredObjects deletes all objects that expired before expiredBefore.
 	DeleteExpiredObjects(ctx context.Context, expiredBefore time.Time) error
 	// DeleteObjectLatestVersion deletes latest object version.

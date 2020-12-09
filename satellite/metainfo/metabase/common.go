@@ -57,6 +57,17 @@ func ParseBucketPrefix(prefix BucketPrefix) (BucketLocation, error) {
 	}, nil
 }
 
+// Verify object location fields.
+func (loc BucketLocation) Verify() error {
+	switch {
+	case loc.ProjectID.IsZero():
+		return ErrInvalidRequest.New("ProjectID missing")
+	case loc.BucketName == "":
+		return ErrInvalidRequest.New("BucketName missing")
+	}
+	return nil
+}
+
 // Prefix converts bucket location into bucket prefix.
 func (loc BucketLocation) Prefix() BucketPrefix {
 	return BucketPrefix(loc.ProjectID.String() + "/" + loc.BucketName)

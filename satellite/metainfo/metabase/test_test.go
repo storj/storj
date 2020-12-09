@@ -112,6 +112,19 @@ func (step CommitInlineSegment) Check(ctx *testcontext.Context, t *testing.T, db
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
 
+type DeleteBucketObjects struct {
+	Opts     metabase.DeleteBucketObjects
+	Deleted  int64
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+func (step DeleteBucketObjects) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	deleted, err := db.DeleteBucketObjects(ctx, step.Opts)
+	require.Equal(t, step.Deleted, deleted)
+	checkError(t, err, step.ErrClass, step.ErrText)
+}
+
 type UpdateObjectMetadata struct {
 	Opts     metabase.UpdateObjectMetadata
 	ErrClass *errs.Class

@@ -430,32 +430,19 @@ func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uu
 }
 
 // deleteBucketObjects deletes all objects in a bucket.
-func (endpoint *Endpoint) deleteBucketObjects(ctx context.Context, projectID uuid.UUID, bucketName []byte) (deletedCount int, err error) {
+func (endpoint *Endpoint) deleteBucketObjects(ctx context.Context, projectID uuid.UUID, bucketName []byte) (_ int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO we should list pending + committed
-	err = endpoint.metainfo.metabaseDB.IterateObjectsAllVersions(ctx, metabase.IterateObjects{
-		ProjectID:  projectID,
-		BucketName: string(bucketName),
-		Status:     metabase.Committed,
-		Recursive:  true,
-	}, func(ctx context.Context, it metabase.ObjectsIterator) error {
-		// TODO we should implement custom method in metabase instead of using iterator
-		entry := metabase.ObjectEntry{}
-		for it.Next(ctx, &entry) {
-			deletedObjects, err := endpoint.DeleteCommittedObject(ctx, projectID, string(bucketName), entry.ObjectKey)
-			if err != nil {
-				return err
-			}
-			deletedCount += len(deletedObjects)
-		}
-
-		return nil
+	bucketLocation := metabase.BucketLocation{ProjectID: projectID, BucketName: string(bucketName)}
+	_, err = endpoint.metainfo.metabaseDB.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
+		Bucket: bucketLocation,
+		DeletePieces: func(ctx context.Context, deleted []metabase.DeletedSegmentInfo) error {
+			endpoint.deleteSegmentPieces(ctx, deleted)
+			return nil
+		},
 	})
-	if err != nil {
-		return deletedCount, err
-	}
-	return deletedCount, nil
+
+	return 0, Error.Wrap(err)
 }
 
 // ListBuckets returns buckets in a project where the bucket name matches the request cursor.
@@ -1819,7 +1806,6 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 // NOTE: this method is exported for being able to individually test it without
 // having import cycles.
 func (endpoint *Endpoint) DeletePendingObject(ctx context.Context, projectID uuid.UUID, bucket string, objectKey metabase.ObjectKey, version int32, streamID uuid.UUID) (deletedObjects []*pb.Object, err error) {
-
 	req := metabase.DeletePendingObject{
 		ObjectLocation: metabase.ObjectLocation{
 			ProjectID:  projectID,
@@ -1850,7 +1836,13 @@ func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, result metaba
 		deletedObjects[i] = deletedObject
 	}
 
-	nodesPieces := groupPiecesByNodeID(result.Segments)
+	endpoint.deleteSegmentPieces(ctx, result.Segments)
+
+	return deletedObjects, nil
+}
+
+func (endpoint *Endpoint) deleteSegmentPieces(ctx context.Context, segments []metabase.DeletedSegmentInfo) {
+	nodesPieces := groupPiecesByNodeID(segments)
 
 	var requests []piecedeletion.Request
 	for node, pieces := range nodesPieces {
@@ -1867,8 +1859,6 @@ func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, result metaba
 	if err := endpoint.deletePieces.Delete(ctx, requests, deleteObjectPiecesSuccessThreshold); err != nil {
 		endpoint.log.Error("failed to delete pieces", zap.Error(err))
 	}
-
-	return deletedObjects, nil
 }
 
 func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Object) (*pb.Object, error) {
