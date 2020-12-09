@@ -174,7 +174,8 @@ func (obsvr *observer) processSegment(ctx context.Context, segment *metainfo.Seg
 }
 
 func (obsvr *observer) detectZombieSegments(ctx context.Context) error {
-	err := metainfo.IterateDatabase(ctx, rateLimit, obsvr.db, obsvr)
+	// TODO set bucketsDB and metabaseDB
+	err := metainfo.IterateDatabase(ctx, rateLimit, obsvr.db, nil, nil, obsvr)
 	if err != nil {
 		return err
 	}

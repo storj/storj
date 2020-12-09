@@ -272,7 +272,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Buckets(),
 			peer.Metainfo.Metabase,
 		)
-		peer.Metainfo.Loop = metainfo.NewLoop(config.Metainfo.Loop, peer.Metainfo.Database)
+		peer.Metainfo.Loop = metainfo.NewLoop(
+			config.Metainfo.Loop,
+			peer.Metainfo.Database,
+			peer.DB.Buckets(),
+			peer.Metainfo.Metabase,
+		)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "metainfo:loop",
 			Run:   peer.Metainfo.Loop.Run,

@@ -682,7 +682,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, err
 	}
 
-	gcPeer, err := planet.newGarbageCollection(ctx, index, identity, db, pointerDB, config, versionInfo)
+	gcPeer, err := planet.newGarbageCollection(ctx, index, identity, db, pointerDB, metabaseDB, config, versionInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -821,7 +821,7 @@ func (cache rollupsWriteCacheCloser) Close() error {
 	return cache.RollupsWriteCache.CloseAndFlush(context.TODO())
 }
 
-func (planet *Planet) newGarbageCollection(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.GarbageCollection, error) {
+func (planet *Planet) newGarbageCollection(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, metabaseDB metainfo.MetabaseDB, config satellite.Config, versionInfo version.Info) (*satellite.GarbageCollection, error) {
 	prefix := "satellite-gc" + strconv.Itoa(index)
 	log := planet.log.Named(prefix)
 
@@ -830,7 +830,7 @@ func (planet *Planet) newGarbageCollection(ctx context.Context, index int, ident
 		return nil, errs.Wrap(err)
 	}
 	planet.databases = append(planet.databases, revocationDB)
-	return satellite.NewGarbageCollection(log, identity, db, pointerDB, revocationDB, versionInfo, &config, nil)
+	return satellite.NewGarbageCollection(log, identity, db, pointerDB, metabaseDB, revocationDB, versionInfo, &config, nil)
 }
 
 // atLeastOne returns 1 if value < 1, or value otherwise.

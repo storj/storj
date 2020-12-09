@@ -44,6 +44,14 @@ func cmdGCRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, pointerDB.Close())
 	}()
 
+	metabaseDB, err := metainfo.OpenMetabase(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL)
+	if err != nil {
+		return errs.New("Error creating metabase connection: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, metabaseDB.Close())
+	}()
+
 	revocationDB, err := revocation.OpenDBFromCfg(ctx, runCfg.Server.Config)
 	if err != nil {
 		return errs.New("Error creating revocation database GC: %+v", err)
@@ -52,7 +60,7 @@ func cmdGCRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	peer, err := satellite.NewGarbageCollection(log, identity, db, pointerDB, revocationDB, version.Build, &runCfg.Config, process.AtomicLevel(cmd))
+	peer, err := satellite.NewGarbageCollection(log, identity, db, pointerDB, metabaseDB, revocationDB, version.Build, &runCfg.Config, process.AtomicLevel(cmd))
 	if err != nil {
 		return err
 	}
