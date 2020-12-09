@@ -15,6 +15,7 @@ import (
 	"storj.io/private/debug"
 	"storj.io/storj/multinode/console"
 	"storj.io/storj/multinode/console/server"
+	"storj.io/storj/multinode/nodes"
 	"storj.io/storj/private/lifecycle"
 )
 
@@ -27,7 +28,7 @@ var (
 // architecture: Master Database
 type DB interface {
 	// Nodes returns nodes database.
-	Nodes() console.Nodes
+	Nodes() nodes.DB
 	// Members returns members database.
 	Members() console.Members
 
@@ -54,10 +55,14 @@ type Peer struct {
 	Identity *identity.FullIdentity
 	DB       DB
 
-	// Web server with web UI
+	// contains logic of nodes domain.
+	Nodes struct {
+		Service *nodes.Service
+	}
+
+	// Web server with web UI.
 	Console struct {
 		Listener net.Listener
-		Service  *console.Service
 		Endpoint *server.Server
 	}
 
@@ -73,12 +78,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config, db DB) (_ 
 		Servers:  lifecycle.NewGroup(log.Named("servers")),
 	}
 
-	{ // console setup
-		peer.Console.Service = console.NewService(
-			peer.Log.Named("console:service"),
+	{ // nodes setup
+		peer.Nodes.Service = nodes.NewService(
+			peer.Log.Named("nodes:service"),
 			peer.DB.Nodes(),
 		)
+	}
 
+	{ // console setup
 		peer.Console.Listener, err = net.Listen("tcp", config.Console.Address)
 		if err != nil {
 			return nil, err
@@ -87,7 +94,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config, db DB) (_ 
 		peer.Console.Endpoint, err = server.NewServer(
 			peer.Log.Named("console:endpoint"),
 			config.Console,
-			peer.Console.Service,
+			peer.Nodes.Service,
 			peer.Console.Listener,
 		)
 		if err != nil {

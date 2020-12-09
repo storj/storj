@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package console
+package nodes
 
 import (
 	"context"
@@ -14,10 +14,10 @@ import (
 
 // TODO: should this file be placed outside of console in nodes package?
 
-// Nodes exposes needed by MND NodesDB functionality.
+// DB exposes needed by MND NodesDB functionality.
 //
 // architecture: Database
-type Nodes interface {
+type DB interface {
 	// GetByID return node from NodesDB by its id.
 	GetByID(ctx context.Context, id storj.NodeID) (Node, error)
 	// GetAll returns all connected nodes.
@@ -26,6 +26,8 @@ type Nodes interface {
 	Add(ctx context.Context, id storj.NodeID, apiSecret []byte, publicAddress string) error
 	// Remove removed node from NodesDB.
 	Remove(ctx context.Context, id storj.NodeID) error
+	// UpdateName will update name of the specified node in database.
+	UpdateName(ctx context.Context, id storj.NodeID, name string) error
 }
 
 // ErrNoNode is a special error type that indicates about absence of node in NodesDB.
