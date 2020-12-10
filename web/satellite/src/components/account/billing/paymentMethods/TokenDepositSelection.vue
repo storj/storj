@@ -199,7 +199,7 @@ export default class TokenDepositSelection extends Vue {
      * Indicates if app state is in onboarding tour state.
      */
     private get isOnboardingTour(): boolean {
-        return this.$route.name === RouteConfig.OnboardingTour.name;
+        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 }
 </script>

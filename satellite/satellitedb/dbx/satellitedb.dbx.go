@@ -12747,6 +12747,56 @@ func (obj *pgxImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_OrderBy
 
 }
 
+func (obj *pgxImpl) Limited_BucketMetainfo_By_ProjectId_GreaterOrEqual_And_Name_Greater_OrderBy_Asc_ProjectId_Name(ctx context.Context,
+	bucket_metainfo_project_id_greater_or_equal BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name_greater BucketMetainfo_Name_Field,
+	limit int, offset int64) (
+	rows []*BucketMetainfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares FROM bucket_metainfos WHERE bucket_metainfos.project_id >= ? AND bucket_metainfos.name > ? ORDER BY bucket_metainfos.project_id, bucket_metainfos.name LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id_greater_or_equal.value(), bucket_metainfo_name_greater.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BucketMetainfo, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				bucket_metainfo := &BucketMetainfo{}
+				err = __rows.Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, bucket_metainfo)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxImpl) Count_BucketMetainfo_Name_By_ProjectId(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
 	count int64, err error) {
@@ -19534,6 +19584,56 @@ func (obj *pgxcockroachImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_Greate
 
 }
 
+func (obj *pgxcockroachImpl) Limited_BucketMetainfo_By_ProjectId_GreaterOrEqual_And_Name_Greater_OrderBy_Asc_ProjectId_Name(ctx context.Context,
+	bucket_metainfo_project_id_greater_or_equal BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name_greater BucketMetainfo_Name_Field,
+	limit int, offset int64) (
+	rows []*BucketMetainfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.id, bucket_metainfos.project_id, bucket_metainfos.name, bucket_metainfos.partner_id, bucket_metainfos.path_cipher, bucket_metainfos.created_at, bucket_metainfos.default_segment_size, bucket_metainfos.default_encryption_cipher_suite, bucket_metainfos.default_encryption_block_size, bucket_metainfos.default_redundancy_algorithm, bucket_metainfos.default_redundancy_share_size, bucket_metainfos.default_redundancy_required_shares, bucket_metainfos.default_redundancy_repair_shares, bucket_metainfos.default_redundancy_optimal_shares, bucket_metainfos.default_redundancy_total_shares FROM bucket_metainfos WHERE bucket_metainfos.project_id >= ? AND bucket_metainfos.name > ? ORDER BY bucket_metainfos.project_id, bucket_metainfos.name LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id_greater_or_equal.value(), bucket_metainfo_name_greater.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*BucketMetainfo, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				bucket_metainfo := &BucketMetainfo{}
+				err = __rows.Scan(&bucket_metainfo.Id, &bucket_metainfo.ProjectId, &bucket_metainfo.Name, &bucket_metainfo.PartnerId, &bucket_metainfo.PathCipher, &bucket_metainfo.CreatedAt, &bucket_metainfo.DefaultSegmentSize, &bucket_metainfo.DefaultEncryptionCipherSuite, &bucket_metainfo.DefaultEncryptionBlockSize, &bucket_metainfo.DefaultRedundancyAlgorithm, &bucket_metainfo.DefaultRedundancyShareSize, &bucket_metainfo.DefaultRedundancyRequiredShares, &bucket_metainfo.DefaultRedundancyRepairShares, &bucket_metainfo.DefaultRedundancyOptimalShares, &bucket_metainfo.DefaultRedundancyTotalShares)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, bucket_metainfo)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxcockroachImpl) Count_BucketMetainfo_Name_By_ProjectId(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
 	count int64, err error) {
@@ -24069,6 +24169,18 @@ func (rx *Rx) Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_OrderBy_Asc_N
 	return tx.Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_OrderBy_Asc_Name(ctx, bucket_metainfo_project_id, bucket_metainfo_name_greater, limit, offset)
 }
 
+func (rx *Rx) Limited_BucketMetainfo_By_ProjectId_GreaterOrEqual_And_Name_Greater_OrderBy_Asc_ProjectId_Name(ctx context.Context,
+	bucket_metainfo_project_id_greater_or_equal BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name_greater BucketMetainfo_Name_Field,
+	limit int, offset int64) (
+	rows []*BucketMetainfo, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_BucketMetainfo_By_ProjectId_GreaterOrEqual_And_Name_Greater_OrderBy_Asc_ProjectId_Name(ctx, bucket_metainfo_project_id_greater_or_equal, bucket_metainfo_name_greater, limit, offset)
+}
+
 func (rx *Rx) Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
 	coinpayments_transaction_created_at_less_or_equal CoinpaymentsTransaction_CreatedAt_Field,
 	coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
@@ -25142,6 +25254,12 @@ type Methods interface {
 
 	Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_OrderBy_Asc_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+		bucket_metainfo_name_greater BucketMetainfo_Name_Field,
+		limit int, offset int64) (
+		rows []*BucketMetainfo, err error)
+
+	Limited_BucketMetainfo_By_ProjectId_GreaterOrEqual_And_Name_Greater_OrderBy_Asc_ProjectId_Name(ctx context.Context,
+		bucket_metainfo_project_id_greater_or_equal BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name_greater BucketMetainfo_Name_Field,
 		limit int, offset int64) (
 		rows []*BucketMetainfo, err error)

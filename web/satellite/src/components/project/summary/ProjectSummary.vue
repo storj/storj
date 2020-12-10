@@ -18,8 +18,8 @@
                 background-color="#f5f6fa"
                 title-color="#1b2533"
                 value-color="#000"
-                title="API Keys"
-                :value="apiKeysAmount"
+                title="Access Grants"
+                :value="accessGrantsAmount"
             />
             <SummaryItem
                 class="right-indent"
@@ -80,10 +80,10 @@ export default class ProjectSummary extends Vue {
     }
 
     /**
-     * apiKeysAmount returns API keys amount for selected project.
+     * accessGrantsAmount returns access grants' amount for selected project.
      */
-    public get apiKeysAmount(): number {
-        return this.$store.state.apiKeysModule.page.totalCount;
+    public get accessGrantsAmount(): number {
+        return this.$store.state.accessGrantsModule.page.totalCount;
     }
 
     /**

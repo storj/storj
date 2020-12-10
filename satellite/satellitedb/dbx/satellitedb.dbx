@@ -1002,6 +1002,13 @@ read limitoffset ( // After
 	orderby asc bucket_metainfo.name
 )
 
+read limitoffset ( // After
+	select bucket_metainfo
+	where bucket_metainfo.project_id >= ?
+	where bucket_metainfo.name > ?
+	orderby asc bucket_metainfo.project_id bucket_metainfo.name
+)
+
 read count (
 	select bucket_metainfo.name
 	where bucket_metainfo.project_id = ?

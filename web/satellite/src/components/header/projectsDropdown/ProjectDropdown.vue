@@ -39,7 +39,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import SelectionIcon from '@/../static/images/header/selection.svg';
 
 import { RouteConfig } from '@/router';
-import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
@@ -68,7 +68,7 @@ export default class ProjectDropdown extends Vue {
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
             await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-            await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, this.FIRST_PAGE);
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
         } catch (error) {

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="create-passphrase">
+    <div class="create-passphrase" :class="{ 'border-radius': isOnboardingTour }">
         <BackIcon class="create-passphrase__back-icon" @click="onBackClick"/>
         <h1 class="create-passphrase__title">Encryption Passphrase</h1>
         <div class="create-passphrase__warning">
@@ -195,6 +195,18 @@ export default class CreatePassphraseStep extends Vue {
         setTimeout(() => {
             this.isLoading = false;
 
+            if (this.isOnboardingTour) {
+                this.$router.push({
+                    name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantResult)).name,
+                    params: {
+                        access: this.access,
+                        key: this.key,
+                    },
+                });
+
+                return;
+            }
+
             this.$router.push({
                 name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.ResultStep)).name,
                 params: {
@@ -210,12 +222,30 @@ export default class CreatePassphraseStep extends Vue {
      * Redirects to previous step.
      */
     public onBackClick(): void {
+        if (this.isOnboardingTour) {
+            this.$router.push({
+                name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantPermissions)).name,
+                params: {
+                    key: this.key,
+                },
+            });
+
+            return;
+        }
+
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.PermissionsStep)).name,
             params: {
                 key: this.key,
             },
         });
+    }
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    public get isOnboardingTour(): boolean {
+        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 }
 </script>
@@ -361,6 +391,10 @@ export default class CreatePassphraseStep extends Vue {
         font-family: 'font_bold', sans-serif;
         color: #0068dc;
         border-bottom: 3px solid #0068dc;
+    }
+
+    .border-radius {
+        border-radius: 6px;
     }
 
     /deep/ .label-container {

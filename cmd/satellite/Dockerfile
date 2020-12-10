@@ -8,6 +8,7 @@ COPY web/marketing/ /app/marketing
 RUN npm install
 RUN npm run build
 
+# Fetch ca-certificates file for arch independent builds below
 FROM alpine as ca-cert
 RUN apk -U add ca-certificates
 
