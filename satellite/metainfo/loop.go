@@ -384,7 +384,7 @@ func iterateObjects(ctx context.Context, projectID uuid.UUID, bucket string, met
 			default:
 			}
 
-			err = iterateSegments(ctx, entry.StreamID, projectID, bucket, entry.ObjectKey, metabaseDB, observers, limit, rateLimiter)
+			err = iterateSegments(ctx, entry.StreamID, projectID, bucket, entry.ObjectKey, metabaseDB, observers, limit, rateLimiter, entry.ExpiresAt)
 			if err != nil {
 				return err
 			}
@@ -395,7 +395,7 @@ func iterateObjects(ctx context.Context, projectID uuid.UUID, bucket string, met
 	return err
 }
 
-func iterateSegments(ctx context.Context, streamID uuid.UUID, projectID uuid.UUID, bucket string, objectKey metabase.ObjectKey, metabaseDB MetabaseDB, observers observers, limit int, rateLimiter *rate.Limiter) (err error) {
+func iterateSegments(ctx context.Context, streamID uuid.UUID, projectID uuid.UUID, bucket string, objectKey metabase.ObjectKey, metabaseDB MetabaseDB, observers observers, limit int, rateLimiter *rate.Limiter, expireAt *time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	more := true
@@ -425,7 +425,7 @@ func iterateSegments(ctx context.Context, streamID uuid.UUID, projectID uuid.UUI
 					ObjectKey:  objectKey,
 					Position:   segment.Position,
 				}
-				keepObserver := handleSegment(ctx, observer, location, segment)
+				keepObserver := handleSegment(ctx, observer, location, segment, expireAt)
 				if !keepObserver {
 					observers.Remove(observer)
 				}
@@ -478,9 +478,14 @@ func handleObject(ctx context.Context, observer *observerContext, location metab
 	return true
 }
 
-func handleSegment(ctx context.Context, observer *observerContext, location metabase.SegmentLocation, segment metabase.Segment) bool {
+func handleSegment(ctx context.Context, observer *observerContext, location metabase.SegmentLocation, segment metabase.Segment, expiresAt *time.Time) bool {
 	loopSegment := &Segment{
 		Location: location,
+		Pointer:  &pb.Pointer{},
+	}
+
+	if expiresAt != nil {
+		loopSegment.expirationDate = *expiresAt
 	}
 
 	loopSegment.StreamID = segment.StreamID

@@ -175,6 +175,8 @@ type MetabaseDB interface {
 	DeletePendingObject(ctx context.Context, opts metabase.DeletePendingObject) (result metabase.DeleteObjectResult, err error)
 	// DeleteExpiredObjects deletes all objects that expired before expiredBefore.
 	DeleteExpiredObjects(ctx context.Context, expiredBefore time.Time) error
+	// DeleteObjectLatestVersion deletes latest object version.
+	DeleteObjectLatestVersion(ctx context.Context, opts metabase.DeleteObjectLatestVersion) (result metabase.DeleteObjectResult, err error)
 	// BeginObjectExactVersion adds a pending object to the database, with specific version.
 	BeginObjectExactVersion(ctx context.Context, opts metabase.BeginObjectExactVersion) (committed metabase.Version, err error)
 	// CommitObject adds a pending object to the database.
