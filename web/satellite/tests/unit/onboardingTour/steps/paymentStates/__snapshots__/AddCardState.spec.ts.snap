@@ -11,8 +11,7 @@ exports[`AddCardState.vue renders correctly 1`] = `
             Your card is secured by 128-bit SSL and AES-256 encryption. Your information is secure.
         </span>
   </div>
-  <div class="add-card-state__button">
-    <!----> <span class="add-card-state__button__label">Add Payment</span>
-  </div>
+  <p class="add-card-state__next-label">Next</p>
+  <vbutton-stub label="Create an Access Grant" width="252px" height="48px" onpress="function () { [native code] }"></vbutton-stub>
 </div>
 `;

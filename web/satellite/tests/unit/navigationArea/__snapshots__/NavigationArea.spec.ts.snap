@@ -11,10 +11,10 @@ exports[`NavigationArea snapshot not changed with project 1`] = `
       <h1 class="navigation-area__item-container__link__title">Dashboard</h1>
     </div>
   </router-link-stub>
-  <router-link-stub to="/api-keys" tag="a" ariacurrentvalue="page" event="click" aria-label="API Keys" class="navigation-area__item-container">
+  <router-link-stub to="/access-grants" tag="a" ariacurrentvalue="page" event="click" aria-label="Access Grants" class="navigation-area__item-container">
     <div class="navigation-area__item-container__link">
       <anonymous-stub></anonymous-stub>
-      <h1 class="navigation-area__item-container__link__title">API Keys</h1>
+      <h1 class="navigation-area__item-container__link__title">Access Grants</h1>
     </div>
   </router-link-stub>
   <router-link-stub to="/project-members" tag="a" ariacurrentvalue="page" event="click" aria-label="Users" class="navigation-area__item-container">

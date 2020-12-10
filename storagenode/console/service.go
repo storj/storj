@@ -5,6 +5,7 @@ package console
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -208,6 +209,11 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 		Used:      pieceTotal,
 		Available: s.allocatedDiskSpace.Int64(),
 		Trash:     trash,
+	}
+
+	overused := s.allocatedDiskSpace.Int64() - pieceTotal - trash
+	if overused < 0 {
+		data.DiskSpace.Overused = int64(math.Abs(float64(overused)))
 	}
 
 	data.Bandwidth = BandwidthInfo{

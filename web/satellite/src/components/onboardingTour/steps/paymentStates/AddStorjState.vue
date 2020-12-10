@@ -34,11 +34,12 @@
             </div>
             <div class="add-storj-state__container__blur" v-if="isLoading"/>
         </div>
+        <p class="add-storj-state__next-label">Next</p>
         <VButton
-            width="222px"
+            width="252px"
             height="48px"
-            label="Name Your Project"
-            :on-press="createProject"
+            label="Create an Acess Grant"
+            :on-press="createAccessGrant"
             :is-disabled="isButtonDisabled"
         />
     </div>
@@ -52,6 +53,13 @@ import PayingStep from '@/components/onboardingTour/steps/paymentStates/tokenSub
 import VerifiedStep from '@/components/onboardingTour/steps/paymentStates/tokenSubSteps/VerifiedStep.vue';
 import VerifyingStep from '@/components/onboardingTour/steps/paymentStates/tokenSubSteps/VerifyingStep.vue';
 
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { ProjectFields } from '@/types/projects';
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { AddingStorjState } from '@/utils/constants/onboardingTourEnums';
 
 @Component({
@@ -64,6 +72,9 @@ import { AddingStorjState } from '@/utils/constants/onboardingTourEnums';
 })
 
 export default class AddStorjState extends Vue {
+    private readonly TOGGLE_IS_LOADING: string = 'toggleIsLoading';
+    private readonly SET_CREATE_GRANT_STEP: string = 'setCreateGrantStep';
+
     public isLoading: boolean = false;
     public addingTokenState: number = AddingStorjState.DEFAULT;
 
@@ -84,6 +95,78 @@ export default class AddStorjState extends Vue {
             default:
                 this.setDefaultState();
         }
+    }
+
+    /**
+     * Create untitled project and starts creating access grant process.
+     */
+    public async createAccessGrant(): Promise<void> {
+        if (this.isLoading) return;
+
+        this.toggleIsLoading();
+
+        try {
+            const FIRST_PAGE = 1;
+            const UNTITLED_PROJECT_NAME = 'Untitled Project';
+            const UNTITLED_PROJECT_DESCRIPTION = '___';
+            const project = new ProjectFields(
+                UNTITLED_PROJECT_NAME,
+                UNTITLED_PROJECT_DESCRIPTION,
+                this.$store.getters.user.id,
+            );
+            const createdProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
+            const createdProjectId = createdProject.id;
+
+            this.$segment.track(SegmentEvent.PROJECT_CREATED, {
+                project_id: createdProjectId,
+            });
+
+            await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, createdProjectId);
+            await this.$store.dispatch(PM_ACTIONS.CLEAR);
+            await this.$store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
+            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, createdProjectId);
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR);
+            await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
+
+            this.toggleIsLoading();
+
+            this.$emit(this.SET_CREATE_GRANT_STEP);
+        } catch (error) {
+            await this.$notify.error(error.message);
+            this.toggleIsLoading();
+        }
+    }
+
+    /**
+     * Sets area to default state.
+     */
+    public setDefaultState(): void {
+        this.addingTokenState = AddingStorjState.DEFAULT;
+    }
+
+    /**
+     * Sets area to verifying state.
+     */
+    public setVerifyingState(): void {
+        this.addingTokenState = AddingStorjState.VERIFYING;
+    }
+
+    /**
+     * Sets area to verified state.
+     */
+    public setVerifiedState(): void {
+        this.addingTokenState = AddingStorjState.VERIFIED;
+    }
+
+    /**
+     * Toggles area's loading state.
+     */
+    public toggleIsLoading(): void {
+        this.isLoading = !this.isLoading;
+        this.$emit(this.TOGGLE_IS_LOADING);
     }
 
     /**
@@ -113,42 +196,6 @@ export default class AddStorjState extends Vue {
     public get isButtonDisabled(): boolean {
         return !this.$store.getters.canUserCreateFirstProject;
     }
-
-    /**
-     * Sets area to default state.
-     */
-    public setDefaultState(): void {
-        this.addingTokenState = AddingStorjState.DEFAULT;
-    }
-
-    /**
-     * Sets area to verifying state.
-     */
-    public setVerifyingState(): void {
-        this.addingTokenState = AddingStorjState.VERIFYING;
-    }
-
-    /**
-     * Sets area to verified state.
-     */
-    public setVerifiedState(): void {
-        this.addingTokenState = AddingStorjState.VERIFIED;
-    }
-
-    /**
-     * Toggles area's loading state.
-     */
-    public toggleIsLoading(): void {
-        this.isLoading = !this.isLoading;
-        this.$emit('toggleIsLoading');
-    }
-
-    /**
-     * Starts creating project process.
-     */
-    public createProject(): void {
-        this.$emit('setProjectState');
-    }
 }
 </script>
 
@@ -172,7 +219,6 @@ export default class AddStorjState extends Vue {
             padding: 20px 45px 45px 45px;
             background-color: #fff;
             border-radius: 0 0 8px 8px;
-            margin-bottom: 35px;
             position: relative;
 
             &__bonus-info {
@@ -217,6 +263,14 @@ export default class AddStorjState extends Vue {
                 background-color: rgba(229, 229, 229, 0.2);
                 z-index: 100;
             }
+        }
+
+        &__next-label {
+            font-weight: normal;
+            font-size: 16px;
+            line-height: 26px;
+            color: #768394;
+            margin: 35px 0;
         }
     }
 </style>
