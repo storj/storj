@@ -29,7 +29,7 @@ type Config struct {
 // AsOfSystemTimeConfig is a configuration struct to enable 'AS OF SYSTEM TIME' to CRDB queries
 type AsOfSystemTimeConfig struct {
 	Enabled         bool          `help:"enables the use of the AS OF SYSTEM TIME feature in CRDB" devDefault:"true" releaseDefault:"false"`
-	DefaultDuration time.Duration `help:"default duration for AS OF SYSTEM TIME" devDefault:"1µs" releaseDefault:"10s"`
+	DefaultDuration time.Duration `help:"default duration for AS OF SYSTEM TIME" devDefault:"-1µs" releaseDefault:"-10s"`
 }
 
 // NodeSelectionConfig is a configuration struct to determine the minimum

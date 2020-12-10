@@ -442,7 +442,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 
 				AsOfSystemTime: overlay.AsOfSystemTimeConfig{
 					Enabled:         true,
-					DefaultDuration: time.Nanosecond,
+					DefaultDuration: -time.Microsecond,
 				},
 			},
 			NodeSelectionCache: overlay.CacheConfig{
