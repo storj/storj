@@ -97,7 +97,9 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 	var asOf string
 	var asOfSystemTimeDuration time.Duration
 
-	if cache.db.implementation == dbutil.Cockroach && criteria.AsOfSystemTimeDuration != 0 {
+	asOfSystemTimeEnabled := cache.db.implementation == dbutil.Cockroach && criteria.AsOfSystemTimeDuration != 0
+
+	if asOfSystemTimeEnabled {
 		asOf = fmt.Sprintf(" AS OF SYSTEM TIME '%s'", criteria.AsOfSystemTimeDuration.String())
 		asOfSystemTimeDuration = criteria.AsOfSystemTimeDuration
 	}
@@ -120,12 +122,14 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 			selection:              fmt.Sprintf(`SELECT last_net, id, address, last_ip_port, false FROM nodes %s`, asOf),
 			condition:              reputableNodesCondition,
 			limit:                  reputableNodeCount,
+			asOfSystemTimeEnabled:  asOfSystemTimeEnabled,
 			asOfSystemTimeDuration: asOfSystemTimeDuration,
 		}
 		newNodeQuery = partialQuery{
 			selection:              fmt.Sprintf(`SELECT last_net, id, address, last_ip_port, true FROM nodes %s`, asOf),
 			condition:              newNodesCondition,
 			limit:                  newNodeCount,
+			asOfSystemTimeEnabled:  asOfSystemTimeEnabled,
 			asOfSystemTimeDuration: asOfSystemTimeDuration,
 		}
 	} else {
@@ -135,6 +139,7 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 			distinct:               true,
 			limit:                  reputableNodeCount,
 			orderBy:                "last_net",
+			asOfSystemTimeEnabled:  asOfSystemTimeEnabled,
 			asOfSystemTimeDuration: asOfSystemTimeDuration,
 		}
 		newNodeQuery = partialQuery{
@@ -143,6 +148,7 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 			distinct:               true,
 			limit:                  newNodeCount,
 			orderBy:                "last_net",
+			asOfSystemTimeEnabled:  asOfSystemTimeEnabled,
 			asOfSystemTimeDuration: asOfSystemTimeDuration,
 		}
 	}
@@ -249,6 +255,7 @@ type partialQuery struct {
 	distinct               bool
 	orderBy                string
 	limit                  int
+	asOfSystemTimeEnabled  bool
 	asOfSystemTimeDuration time.Duration
 }
 
@@ -263,7 +270,7 @@ func (partial partialQuery) asQuery() query {
 	var args []interface{}
 
 	var asOf string
-	if partial.asOfSystemTimeDuration != 0 {
+	if partial.asOfSystemTimeEnabled && partial.asOfSystemTimeDuration != 0 {
 		asOf = fmt.Sprintf(" AS OF SYSTEM TIME '%s'", partial.asOfSystemTimeDuration.String())
 	}
 	if partial.distinct {

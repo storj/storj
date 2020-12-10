@@ -19,6 +19,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/private/version"
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/cockroachutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/tagsql"
@@ -57,7 +58,7 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 	defer mon.Task()(&ctx)(&err)
 
 	var asOf string
-	if selectionCfg.AsOfSystemTime.Enabled && selectionCfg.AsOfSystemTime.DefaultDuration != 0 {
+	if cache.db.implementation == dbutil.Cockroach && selectionCfg.AsOfSystemTime.Enabled && selectionCfg.AsOfSystemTime.DefaultDuration != 0 {
 		asOf = fmt.Sprintf(" AS OF SYSTEM TIME '%s'", selectionCfg.AsOfSystemTime.DefaultDuration.String())
 	}
 
@@ -259,7 +260,7 @@ func (cache *overlaycache) knownOffline(ctx context.Context, criteria *overlay.N
 	}
 
 	var asOf string
-	if criteria.AsOfSystemTimeDuration != 0 {
+	if cache.db.implementation == dbutil.Cockroach && criteria.AsOfSystemTimeDuration != 0 {
 		asOf = fmt.Sprintf(" AS OF SYSTEM TIME '%s'", criteria.AsOfSystemTimeDuration.String())
 	}
 
@@ -311,7 +312,7 @@ func (cache *overlaycache) knownUnreliableOrOffline(ctx context.Context, criteri
 	}
 
 	var asOf string
-	if criteria.AsOfSystemTimeDuration != 0 {
+	if cache.db.implementation == dbutil.Cockroach && criteria.AsOfSystemTimeDuration != 0 {
 		asOf = fmt.Sprintf(" AS OF SYSTEM TIME '%s'", criteria.AsOfSystemTimeDuration.String())
 	}
 
@@ -420,7 +421,7 @@ func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeC
 
 func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeCriteria) (nodes storj.NodeIDList, err error) {
 	var asOf string
-	if criteria.AsOfSystemTimeDuration != 0 {
+	if cache.db.implementation == dbutil.Cockroach && criteria.AsOfSystemTimeDuration != 0 {
 		asOf = fmt.Sprintf(" AS OF SYSTEM TIME '%s'", criteria.AsOfSystemTimeDuration.String())
 	}
 
