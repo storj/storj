@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.15.5
+GO_VERSION ?= 1.15.6
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
@@ -147,7 +147,7 @@ storagenode-console:
 .PHONY: satellite-wasm
 satellite-wasm:
 	docker run --rm -i -v "${PWD}":/go/src/storj.io/storj -e GO111MODULE=on \
-	-e GOOS=${GOOS} -e GOARCH=${GOARCH} -e GOARM=6 -e CGO_ENABLED=1 \
+	-e GOOS=js -e GOARCH=wasm -e GOARM=6 -e CGO_ENABLED=1 \
 	-v /tmp/go-cache:/tmp/.cache/go-build -v /tmp/go-pkg:/go/pkg \
 	-w /go/src/storj.io/storj -e GOPROXY -e TAG=${TAG} -u $(shell id -u):$(shell id -g) storjlabs/golang:${GO_VERSION} \
 	scripts/build-wasm.sh ;\
@@ -237,7 +237,7 @@ binary:
 	scripts/release.sh build $(EXTRA_ARGS) -o release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} \
 	storj.io/storj/cmd/${COMPONENT}
 
-	if [ "${COMPONENT}" = "satellite" ]; \
+	if [ "${COMPONENT}" = "satellite" ] && [ "${GOARCH}" = "amd64" ]; \
 	then \
 		echo "Building wasm code"; \
 		$(MAKE) satellite-wasm; \

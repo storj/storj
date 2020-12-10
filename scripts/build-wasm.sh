@@ -10,4 +10,4 @@ mkdir -p release/$TAG/wasm/
 cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" release/$TAG/wasm/
 
 # Build wasm code
-GOOS=js GOARCH=wasm exec go build -o release/$TAG/wasm/access.wasm satellite/console/wasm/main.go
+exec go build -o release/$TAG/wasm/access.wasm storj.io/storj/satellite/console/wasm
