@@ -439,6 +439,11 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 				AuditReputationDQ:           0.6,
 				SuspensionGracePeriod:       time.Hour,
 				SuspensionDQEnabled:         true,
+
+				AsOfSystemTime: overlay.AsOfSystemTimeConfig{
+					Enabled:         true,
+					DefaultDuration: time.Nanosecond,
+				},
 			},
 			NodeSelectionCache: overlay.CacheConfig{
 				Staleness: 3 * time.Minute,
