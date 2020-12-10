@@ -79,14 +79,14 @@ func (r *repairQueue) Insert(ctx context.Context, seg *internalpb.InjuredSegment
 
 func (r *repairQueue) Select(ctx context.Context) (seg *internalpb.InjuredSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	switch r.db.implementation {
 	case dbutil.Cockroach:
 		err = r.db.QueryRowContext(ctx, `
-				UPDATE injuredsegments SET attempted = now() WHERE path = (
-					SELECT path FROM injuredsegments
-					WHERE attempted IS NULL OR attempted < now() - interval '6 hours'
-					ORDER BY segment_health ASC, attempted LIMIT 1
-				) RETURNING data`).Scan(&seg)
+				UPDATE injuredsegments SET attempted = now()
+				WHERE attempted IS NULL OR attempted < now() - interval '6 hours'
+				LIMIT 1
+				RETURNING data`).Scan(&seg)
 	case dbutil.Postgres:
 		err = r.db.QueryRowContext(ctx, `
 				UPDATE injuredsegments SET attempted = now() WHERE path = (
