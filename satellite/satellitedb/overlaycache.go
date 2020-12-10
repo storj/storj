@@ -56,16 +56,21 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `
+	var asOf string
+	if selectionCfg.AsOfSystemTime.Enabled && selectionCfg.AsOfSystemTime.DefaultDuration != 0 {
+		asOf = fmt.Sprintf(" AS OF SYSTEM TIME '%s'", selectionCfg.AsOfSystemTime.DefaultDuration.String())
+	}
+
+	query := fmt.Sprintf(`
 		SELECT id, address, last_net, last_ip_port, vetted_at
-			FROM nodes
+			FROM nodes %s
 			WHERE disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
 			AND exit_initiated_at IS NULL
 			AND type = $1
 			AND free_disk >= $2
 			AND last_contact_success > $3
-	`
+	`, asOf)
 	args := []interface{}{
 		// $1
 		int(pb.NodeType_STORAGE),
@@ -253,13 +258,18 @@ func (cache *overlaycache) knownOffline(ctx context.Context, criteria *overlay.N
 		return nil, Error.New("no ids provided")
 	}
 
+	var asOf string
+	if criteria.AsOfSystemTimeDuration != 0 {
+		asOf = fmt.Sprintf(" AS OF SYSTEM TIME '%s'", criteria.AsOfSystemTimeDuration.String())
+	}
+
 	// get offline nodes
 	var rows tagsql.Rows
-	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT id FROM nodes
+	rows, err = cache.db.Query(ctx, cache.db.Rebind(fmt.Sprintf(`
+		SELECT id FROM nodes %s
 			WHERE id = any($1::bytea[])
 			AND last_contact_success < $2
-		`), pgutil.NodeIDArray(nodeIds), time.Now().Add(-criteria.OnlineWindow),
+		`, asOf)), pgutil.NodeIDArray(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 	)
 	if err != nil {
 		return nil, err
@@ -300,16 +310,21 @@ func (cache *overlaycache) knownUnreliableOrOffline(ctx context.Context, criteri
 		return nil, Error.New("no ids provided")
 	}
 
+	var asOf string
+	if criteria.AsOfSystemTimeDuration != 0 {
+		asOf = fmt.Sprintf(" AS OF SYSTEM TIME '%s'", criteria.AsOfSystemTimeDuration.String())
+	}
+
 	// get reliable and online nodes
 	var rows tagsql.Rows
-	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT id FROM nodes
+	rows, err = cache.db.Query(ctx, cache.db.Rebind(fmt.Sprintf(`
+		SELECT id FROM nodes %s
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success > $2
-		`), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-criteria.OnlineWindow),
+		`, asOf)), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-criteria.OnlineWindow),
 	)
 	if err != nil {
 		return nil, err
@@ -404,14 +419,19 @@ func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeC
 }
 
 func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeCriteria) (nodes storj.NodeIDList, err error) {
+	var asOf string
+	if criteria.AsOfSystemTimeDuration != 0 {
+		asOf = fmt.Sprintf(" AS OF SYSTEM TIME '%s'", criteria.AsOfSystemTimeDuration.String())
+	}
+
 	// get reliable and online nodes
-	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT id FROM nodes
+	rows, err := cache.db.Query(ctx, cache.db.Rebind(fmt.Sprintf(`
+		SELECT id FROM nodes %s
 		WHERE disqualified IS NULL
 		AND unknown_audit_suspended IS NULL
 		AND exit_finished_at IS NULL
 		AND last_contact_success > ?
-	`), time.Now().Add(-criteria.OnlineWindow))
+	`, asOf)), time.Now().Add(-criteria.OnlineWindow))
 	if err != nil {
 		return nil, err
 	}

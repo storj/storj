@@ -131,19 +131,21 @@ type InfoResponse struct {
 
 // FindStorageNodesRequest defines easy request parameters.
 type FindStorageNodesRequest struct {
-	RequestedCount int
-	ExcludedIDs    []storj.NodeID
-	MinimumVersion string // semver or empty
+	RequestedCount         int
+	ExcludedIDs            []storj.NodeID
+	MinimumVersion         string        // semver or empty
+	AsOfSystemTimeDuration time.Duration // only used by CRDB
 }
 
 // NodeCriteria are the requirements for selecting nodes.
 type NodeCriteria struct {
-	FreeDisk         int64
-	ExcludedIDs      []storj.NodeID
-	ExcludedNetworks []string // the /24 subnet IPv4 or /64 subnet IPv6 for nodes
-	MinimumVersion   string   // semver or empty
-	OnlineWindow     time.Duration
-	DistinctIP       bool
+	FreeDisk               int64
+	ExcludedIDs            []storj.NodeID
+	ExcludedNetworks       []string // the /24 subnet IPv4 or /64 subnet IPv6 for nodes
+	MinimumVersion         string   // semver or empty
+	OnlineWindow           time.Duration
+	DistinctIP             bool
+	AsOfSystemTimeDuration time.Duration // only used by CRDB
 }
 
 // AuditType is an enum representing the outcome of a particular audit reported to the overlay.
@@ -323,6 +325,9 @@ func (service *Service) IsOnline(node *NodeDossier) bool {
 // The main difference between this method and the normal FindStorageNodes is that here we avoid using the cache.
 func (service *Service) FindStorageNodesForGracefulExit(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
+	if service.config.Node.AsOfSystemTime.Enabled {
+		req.AsOfSystemTimeDuration = service.config.Node.AsOfSystemTime.DefaultDuration
+	}
 	return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
 }
 
@@ -332,6 +337,10 @@ func (service *Service) FindStorageNodesForGracefulExit(ctx context.Context, req
 // When the node selection from the cache fails, it falls back to the old implementation.
 func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
+	if service.config.Node.AsOfSystemTime.Enabled {
+		req.AsOfSystemTimeDuration = service.config.Node.AsOfSystemTime.DefaultDuration
+	}
+
 	if service.config.NodeSelectionCache.Disabled {
 		return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
 	}
@@ -340,6 +349,7 @@ func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindS
 	if err != nil {
 		service.log.Warn("error selecting from node selection cache", zap.String("err", err.Error()))
 	}
+
 	if len(selectedNodes) < req.RequestedCount {
 		mon.Event("default_node_selection")
 		return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
@@ -352,7 +362,6 @@ func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindS
 // This does not use a cache.
 func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req FindStorageNodesRequest, preferences *NodeSelectionConfig) (nodes []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	// TODO: add sanity limits to requested node count
 	// TODO: add sanity limits to excluded nodes
 	totalNeededNodes := req.RequestedCount
@@ -374,12 +383,13 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 	}
 
 	criteria := NodeCriteria{
-		FreeDisk:         preferences.MinimumDiskSpace.Int64(),
-		ExcludedIDs:      excludedIDs,
-		ExcludedNetworks: excludedNetworks,
-		MinimumVersion:   preferences.MinimumVersion,
-		OnlineWindow:     preferences.OnlineWindow,
-		DistinctIP:       preferences.DistinctIP,
+		FreeDisk:               preferences.MinimumDiskSpace.Int64(),
+		ExcludedIDs:            excludedIDs,
+		ExcludedNetworks:       excludedNetworks,
+		MinimumVersion:         preferences.MinimumVersion,
+		OnlineWindow:           preferences.OnlineWindow,
+		DistinctIP:             preferences.DistinctIP,
+		AsOfSystemTimeDuration: req.AsOfSystemTimeDuration,
 	}
 	nodes, err = service.db.SelectStorageNodes(ctx, totalNeededNodes, newNodeCount, &criteria)
 	if err != nil {

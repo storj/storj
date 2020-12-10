@@ -15,6 +15,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/private/version"
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite/overlay"
 )
@@ -93,6 +94,14 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, totalNeededNo
 func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputableNodeCount, newNodeCount int, criteria *overlay.NodeCriteria, excludedIDs []storj.NodeID, excludedNetworks []string) (reputableNodes, newNodes []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var asOf string
+	var asOfSystemTimeDuration time.Duration
+
+	if cache.db.implementation == dbutil.Cockroach && criteria.AsOfSystemTimeDuration != 0 {
+		asOf = fmt.Sprintf(" AS OF SYSTEM TIME '%s'", criteria.AsOfSystemTimeDuration.String())
+		asOfSystemTimeDuration = criteria.AsOfSystemTimeDuration
+	}
+
 	newNodesCondition, err := nodeSelectionCondition(ctx, criteria, excludedIDs, excludedNetworks, true)
 	if err != nil {
 		return nil, nil, err
@@ -108,29 +117,33 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 	// Later, the flag allows us to distinguish if a node is new when scanning the db rows.
 	if !criteria.DistinctIP {
 		reputableNodeQuery = partialQuery{
-			selection: `SELECT last_net, id, address, last_ip_port, false FROM nodes`,
-			condition: reputableNodesCondition,
-			limit:     reputableNodeCount,
+			selection:              fmt.Sprintf(`SELECT last_net, id, address, last_ip_port, false FROM nodes %s`, asOf),
+			condition:              reputableNodesCondition,
+			limit:                  reputableNodeCount,
+			asOfSystemTimeDuration: asOfSystemTimeDuration,
 		}
 		newNodeQuery = partialQuery{
-			selection: `SELECT last_net, id, address, last_ip_port, true FROM nodes`,
-			condition: newNodesCondition,
-			limit:     newNodeCount,
+			selection:              fmt.Sprintf(`SELECT last_net, id, address, last_ip_port, true FROM nodes %s`, asOf),
+			condition:              newNodesCondition,
+			limit:                  newNodeCount,
+			asOfSystemTimeDuration: asOfSystemTimeDuration,
 		}
 	} else {
 		reputableNodeQuery = partialQuery{
-			selection: `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, false FROM nodes`,
-			condition: reputableNodesCondition,
-			distinct:  true,
-			limit:     reputableNodeCount,
-			orderBy:   "last_net",
+			selection:              fmt.Sprintf(`SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, false FROM nodes %s`, asOf),
+			condition:              reputableNodesCondition,
+			distinct:               true,
+			limit:                  reputableNodeCount,
+			orderBy:                "last_net",
+			asOfSystemTimeDuration: asOfSystemTimeDuration,
 		}
 		newNodeQuery = partialQuery{
-			selection: `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, true FROM nodes`,
-			condition: newNodesCondition,
-			distinct:  true,
-			limit:     newNodeCount,
-			orderBy:   "last_net",
+			selection:              fmt.Sprintf(`SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, true FROM nodes %s`, asOf),
+			condition:              newNodesCondition,
+			distinct:               true,
+			limit:                  newNodeCount,
+			orderBy:                "last_net",
+			asOfSystemTimeDuration: asOfSystemTimeDuration,
 		}
 	}
 
@@ -231,11 +244,12 @@ func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria,
 //    SELECT * FROM ($selection WHERE $condition ORDER BY $orderBy, RANDOM()) filtered ORDER BY RANDOM() LIMIT $limit
 //
 type partialQuery struct {
-	selection string
-	condition condition
-	distinct  bool
-	orderBy   string
-	limit     int
+	selection              string
+	condition              condition
+	distinct               bool
+	orderBy                string
+	limit                  int
+	asOfSystemTimeDuration time.Duration
 }
 
 // isEmpty returns whether the result for the query is definitely empty.
@@ -248,6 +262,10 @@ func (partial partialQuery) asQuery() query {
 	var q strings.Builder
 	var args []interface{}
 
+	var asOf string
+	if partial.asOfSystemTimeDuration != 0 {
+		asOf = fmt.Sprintf(" AS OF SYSTEM TIME '%s'", partial.asOfSystemTimeDuration.String())
+	}
 	if partial.distinct {
 		// For distinct queries we need to redo randomized ordering.
 		fmt.Fprintf(&q, "SELECT * FROM (")
@@ -266,7 +284,7 @@ func (partial partialQuery) asQuery() query {
 		fmt.Fprint(&q, " LIMIT ? ")
 		args = append(args, partial.limit)
 	} else {
-		fmt.Fprint(&q, ") filtered ORDER BY RANDOM() LIMIT ?")
+		fmt.Fprintf(&q, ") %s filtered ORDER BY RANDOM() LIMIT ?", asOf)
 		args = append(args, partial.limit)
 	}
 
