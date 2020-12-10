@@ -133,7 +133,7 @@ type SegmentKey []byte
 type SegmentLocation struct {
 	ProjectID  uuid.UUID
 	BucketName string
-	Index      int64
+	Index      int64 // TODO refactor to SegmentPosition
 	ObjectKey  ObjectKey
 }
 

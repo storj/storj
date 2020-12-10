@@ -20,6 +20,11 @@ type Object RawObject
 // TODO define separated struct.
 type Segment RawSegment
 
+// Inline returns true if segment is inline.
+func (s Segment) Inline() bool {
+	return len(s.InlineData) != 0 && s.Redundancy.IsZero()
+}
+
 // GetObjectExactVersion contains arguments necessary for fetching an information
 // about exact object version.
 type GetObjectExactVersion struct {
