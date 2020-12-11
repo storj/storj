@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.15.5
+GO_VERSION ?= 1.15.6
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
@@ -144,6 +144,14 @@ storagenode-console:
 	/usr/bin/env echo -e '\nfunc init() { FileSystem = AssetFile() }' >> storagenode/console/consoleassets/bindata.resource.go
 	gofmt -w -s storagenode/console/consoleassets/bindata.resource.go
 
+.PHONY: satellite-wasm
+satellite-wasm:
+	docker run --rm -i -v "${PWD}":/go/src/storj.io/storj -e GO111MODULE=on \
+	-e GOOS=js -e GOARCH=wasm -e GOARM=6 -e CGO_ENABLED=1 \
+	-v /tmp/go-cache:/tmp/.cache/go-build -v /tmp/go-pkg:/go/pkg \
+	-w /go/src/storj.io/storj -e GOPROXY -e TAG=${TAG} -u $(shell id -u):$(shell id -g) storjlabs/golang:${GO_VERSION} \
+	scripts/build-wasm.sh ;\
+
 .PHONY: images
 images: satellite-image segment-reaper-image storagenode-image uplink-image versioncontrol-image ## Build satellite, segment-reaper, storagenode, uplink, and versioncontrol Docker images
 	echo Built version: ${TAG}
@@ -228,6 +236,13 @@ binary:
 	-w /go/src/storj.io/storj -e GOPROXY -u $(shell id -u):$(shell id -g) storjlabs/golang:${GO_VERSION} \
 	scripts/release.sh build $(EXTRA_ARGS) -o release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} \
 	storj.io/storj/cmd/${COMPONENT}
+
+	if [ "${COMPONENT}" = "satellite" ] && [ "${GOARCH}" = "amd64" ]; \
+	then \
+		echo "Building wasm code"; \
+		$(MAKE) satellite-wasm; \
+	fi
+
 	chmod 755 release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT}
 	[ "${FILEEXT}" = ".exe" ] && storj-sign release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} || echo "Skipping signing"
 	rm -f release/${TAG}/${COMPONENT}_${GOOS}_${GOARCH}.zip
@@ -307,7 +322,7 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
 	cd "release/${TAG}"; for f in *; do \
 		zipname=$$(echo $${f} | sed 's/.exe//g') && \
-		zip "$${zipname}.zip" "$${f}" \
+		zip -r "$${zipname}.zip" "$${f}" \
 	; done
 	cd "release/${TAG}"; gsutil -m cp -r *.zip "gs://storj-v3-alpha-builds/${TAG}/"
 
