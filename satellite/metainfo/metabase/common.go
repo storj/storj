@@ -4,6 +4,7 @@
 package metabase
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 
@@ -285,6 +286,37 @@ const (
 
 // Pieces defines information for pieces.
 type Pieces []Piece
+
+// Equal checks if Pieces structures are equal.
+func (p Pieces) Equal(pieces Pieces) bool {
+	if len(p) != len(pieces) {
+		return false
+	}
+
+	first := make(Pieces, len(p))
+	second := make(Pieces, len(p))
+
+	copy(first, p)
+	copy(second, pieces)
+
+	sort.Slice(first, func(i, j int) bool {
+		return first[i].Number < first[j].Number
+	})
+	sort.Slice(second, func(i, j int) bool {
+		return second[i].Number < second[j].Number
+	})
+
+	for i := range first {
+		if first[i].Number != second[i].Number {
+			return false
+		}
+		if first[i].StorageNode != second[i].StorageNode {
+			return false
+		}
+	}
+
+	return true
+}
 
 // Piece defines information for a segment piece.
 type Piece struct {

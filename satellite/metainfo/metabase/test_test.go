@@ -123,6 +123,17 @@ func (step UpdateObjectMetadata) Check(ctx *testcontext.Context, t *testing.T, d
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
 
+type UpdateSegmentPieces struct {
+	Opts     metabase.UpdateSegmentPieces
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+func (step UpdateSegmentPieces) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	err := db.UpdateSegmentPieces(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+}
+
 type GetObjectExactVersion struct {
 	Opts     metabase.GetObjectExactVersion
 	Result   metabase.Object

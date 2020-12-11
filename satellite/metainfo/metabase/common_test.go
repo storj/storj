@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metainfo/metabase"
 )
@@ -53,5 +54,75 @@ func TestParseBucketPrefixValid(t *testing.T) {
 			require.Equal(t, expectedProjectID, bucketLocation.ProjectID)
 			require.Equal(t, tt.expectedBucketName, bucketLocation.BucketName)
 		})
+	}
+}
+
+func TestPiecesEqual(t *testing.T) {
+	sn1 := testrand.NodeID()
+	sn2 := testrand.NodeID()
+
+	var testCases = []struct {
+		source metabase.Pieces
+		target metabase.Pieces
+		equal  bool
+	}{
+		{metabase.Pieces{}, metabase.Pieces{}, true},
+		{
+			metabase.Pieces{
+				{1, sn1},
+			},
+			metabase.Pieces{}, false,
+		},
+		{
+			metabase.Pieces{},
+			metabase.Pieces{
+				{1, sn1},
+			}, false,
+		},
+		{
+			metabase.Pieces{
+				{1, sn1},
+				{2, sn2},
+			},
+			metabase.Pieces{
+				{1, sn1},
+				{2, sn2},
+			}, true,
+		},
+		{
+			metabase.Pieces{
+				{2, sn2},
+				{1, sn1},
+			},
+			metabase.Pieces{
+				{1, sn1},
+				{2, sn2},
+			}, true,
+		},
+		{
+			metabase.Pieces{
+				{1, sn1},
+				{2, sn2},
+			},
+			metabase.Pieces{
+				{1, sn2},
+				{2, sn1},
+			}, false,
+		},
+		{
+			metabase.Pieces{
+				{1, sn1},
+				{3, sn2},
+				{2, sn2},
+			},
+			metabase.Pieces{
+				{3, sn2},
+				{1, sn1},
+				{2, sn2},
+			}, true,
+		},
+	}
+	for _, tt := range testCases {
+		require.Equal(t, tt.equal, tt.source.Equal(tt.target))
 	}
 }
