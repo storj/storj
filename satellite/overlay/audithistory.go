@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 )
 
@@ -51,4 +52,23 @@ func (service *Service) GetAuditHistory(ctx context.Context, nodeID storj.NodeID
 	defer mon.Task()(&ctx)(&err)
 
 	return service.db.GetAuditHistory(ctx, nodeID)
+}
+
+// AuditHistoryToPB converts an overlay.AuditHistory to a pb.AuditHistory.
+func AuditHistoryToPB(auditHistory *AuditHistory) (historyPB *pb.AuditHistory) {
+	if auditHistory == nil {
+		return nil
+	}
+	historyPB = &pb.AuditHistory{
+		Score:   auditHistory.Score,
+		Windows: make([]*pb.AuditWindow, len(auditHistory.Windows)),
+	}
+	for i, window := range auditHistory.Windows {
+		historyPB.Windows[i] = &pb.AuditWindow{
+			TotalCount:  window.TotalCount,
+			OnlineCount: window.OnlineCount,
+			WindowStart: window.WindowStart,
+		}
+	}
+	return historyPB
 }

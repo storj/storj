@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 )
 
@@ -34,6 +35,7 @@ type Stats struct {
 	SuspendedAt          *time.Time
 	OfflineSuspendedAt   *time.Time
 	OfflineUnderReviewAt *time.Time
+	AuditHistory         *pb.AuditHistory
 
 	UpdatedAt time.Time
 	JoinedAt  time.Time
