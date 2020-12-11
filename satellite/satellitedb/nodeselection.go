@@ -291,7 +291,7 @@ func (partial partialQuery) asQuery() query {
 		fmt.Fprint(&q, " LIMIT ? ")
 		args = append(args, partial.limit)
 	} else {
-		fmt.Fprintf(&q, ") %s filtered ORDER BY RANDOM() LIMIT ?", asOf)
+		fmt.Fprintf(&q, ") filtered %s ORDER BY RANDOM() LIMIT ?", asOf)
 		args = append(args, partial.limit)
 	}
 
