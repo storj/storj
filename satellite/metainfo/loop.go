@@ -40,18 +40,17 @@ func (object *Object) Expired(now time.Time) bool {
 
 // Segment is the segment info passed to Observer by metainfo loop.
 type Segment struct {
-	Location                 metabase.SegmentLocation // tally, repair, graceful exit, audit, segment reaper
-	DataSize                 int                      // tally, graceful exit
-	MetadataSize             int                      // tally
-	Inline                   bool                     //  metrics, segment reaper
-	Redundancy               storj.RedundancyScheme   // tally, graceful exit, repair
-	RootPieceID              storj.PieceID            // gc, graceful exit
-	Pieces                   metabase.Pieces          // tally, audit, gc, graceful exit, repair
-	CreationDate             time.Time                // repair, segment reaper
-	expirationDate           time.Time                // tally, repair
-	LastRepaired             time.Time                // repair
-	Pointer                  *pb.Pointer              // repair
-	MetadataNumberOfSegments int                      // segment reaper
+	Location       metabase.SegmentLocation // tally, repair, graceful exit, audit
+	DataSize       int                      // tally, graceful exit
+	MetadataSize   int                      // tally
+	Inline         bool                     // metrics
+	Redundancy     storj.RedundancyScheme   // tally, graceful exit, repair
+	RootPieceID    storj.PieceID            // gc, graceful exit
+	Pieces         metabase.Pieces          // tally, audit, gc, graceful exit, repair
+	CreationDate   time.Time                // repair
+	expirationDate time.Time                // tally, repair
+	LastRepaired   time.Time                // repair
+	Pointer        *pb.Pointer              // repair
 }
 
 // Expired checks if segment is expired relative to now.
