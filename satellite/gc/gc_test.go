@@ -58,11 +58,13 @@ func TestGarbageCollection(t *testing.T) {
 
 		err := upl.Upload(ctx, satellite, "testbucket", "test/path/1", testData1)
 		require.NoError(t, err)
-		deletedEncPath, pointerToDelete := getPointer(ctx, t, satellite, upl, "testbucket", "test/path/1")
+
+		objectLocationToDelete, segmentToDelete := getSegment(ctx, t, satellite, upl, "testbucket", "test/path/1")
+
 		var deletedPieceID storj.PieceID
-		for _, p := range pointerToDelete.GetRemote().GetRemotePieces() {
-			if p.NodeId == targetNode.ID() {
-				deletedPieceID = pointerToDelete.GetRemote().RootPieceId.Derive(p.NodeId, p.PieceNum)
+		for _, p := range segmentToDelete.Pieces {
+			if p.StorageNode == targetNode.ID() {
+				deletedPieceID = segmentToDelete.RootPieceID.Derive(p.StorageNode, int32(p.Number))
 				break
 			}
 		}
@@ -70,18 +72,20 @@ func TestGarbageCollection(t *testing.T) {
 
 		err = upl.Upload(ctx, satellite, "testbucket", "test/path/2", testData2)
 		require.NoError(t, err)
-		_, pointerToKeep := getPointer(ctx, t, satellite, upl, "testbucket", "test/path/2")
+		_, segmentToKeep := getSegment(ctx, t, satellite, upl, "testbucket", "test/path/2")
 		var keptPieceID storj.PieceID
-		for _, p := range pointerToKeep.GetRemote().GetRemotePieces() {
-			if p.NodeId == targetNode.ID() {
-				keptPieceID = pointerToKeep.GetRemote().RootPieceId.Derive(p.NodeId, p.PieceNum)
+		for _, p := range segmentToKeep.Pieces {
+			if p.StorageNode == targetNode.ID() {
+				keptPieceID = segmentToKeep.RootPieceID.Derive(p.StorageNode, int32(p.Number))
 				break
 			}
 		}
 		require.NotZero(t, keptPieceID)
 
 		// Delete one object from metainfo service on satellite
-		err = satellite.Metainfo.Service.UnsynchronizedDelete(ctx, deletedEncPath)
+		_, err = satellite.Metainfo.Metabase.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{
+			Locations: []metabase.ObjectLocation{objectLocationToDelete},
+		})
 		require.NoError(t, err)
 
 		// Check that piece of the deleted object is on the storagenode
@@ -124,7 +128,7 @@ func TestGarbageCollection(t *testing.T) {
 	})
 }
 
-func getPointer(ctx *testcontext.Context, t *testing.T, satellite *testplanet.Satellite, upl *testplanet.Uplink, bucket, path string) (_ metabase.SegmentKey, pointer *pb.Pointer) {
+func getSegment(ctx *testcontext.Context, t *testing.T, satellite *testplanet.Satellite, upl *testplanet.Uplink, bucket, path string) (_ metabase.ObjectLocation, _ metabase.Segment) {
 	access := upl.Access[satellite.ID()]
 
 	serializedAccess, err := access.Serialize()
@@ -136,18 +140,19 @@ func getPointer(ctx *testcontext.Context, t *testing.T, satellite *testplanet.Sa
 	encryptedPath, err := encryption.EncryptPathWithStoreCipher(bucket, paths.NewUnencrypted(path), store)
 	require.NoError(t, err)
 
-	segmentLocation := metabase.SegmentLocation{
-		ProjectID:  upl.Projects[0].ID,
-		BucketName: bucket,
-		Position:   metabase.SegmentPosition{Index: metabase.LastSegmentIndex},
-		ObjectKey:  metabase.ObjectKey(encryptedPath.Raw()),
-	}
+	objectLocation :=
+		metabase.ObjectLocation{
+			ProjectID:  upl.Projects[0].ID,
+			BucketName: "testbucket",
+			ObjectKey:  metabase.ObjectKey(encryptedPath.Raw()),
+		}
 
-	key := segmentLocation.Encode()
-	pointer, err = satellite.Metainfo.Service.Get(ctx, key)
+	lastSegment, err := satellite.Metainfo.Metabase.GetLatestObjectLastSegment(ctx, metabase.GetLatestObjectLastSegment{
+		ObjectLocation: objectLocation,
+	})
 	require.NoError(t, err)
 
-	return key, pointer
+	return objectLocation, lastSegment
 }
 
 func encryptionAccess(access string) (*encryption.Store, error) {
