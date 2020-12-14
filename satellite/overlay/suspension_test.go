@@ -172,7 +172,7 @@ func TestAuditSuspendExceedGracePeriod(t *testing.T) {
 			Unknown:   storj.NodeIDList{unknownNodeID},
 		}
 		auditService := planet.Satellites[0].Audit
-		_, err := auditService.Reporter.RecordAudits(ctx, report, "")
+		_, err := auditService.Reporter.RecordAudits(ctx, report)
 		require.NoError(t, err)
 
 		// success and offline nodes should not be disqualified
@@ -228,7 +228,7 @@ func TestAuditSuspendDQDisabled(t *testing.T) {
 			Unknown:   storj.NodeIDList{unknownNodeID},
 		}
 		auditService := planet.Satellites[0].Audit
-		_, err := auditService.Reporter.RecordAudits(ctx, report, "")
+		_, err := auditService.Reporter.RecordAudits(ctx, report)
 		require.NoError(t, err)
 
 		// successful node should not be suspended or disqualified

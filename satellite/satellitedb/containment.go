@@ -14,6 +14,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -51,13 +52,13 @@ func (containment *containment) IncrementPending(ctx context.Context, pendingAud
 			VALUES (?, ?, ?, ?, ?, ?, ?)`,
 			)
 			_, err = tx.Tx.ExecContext(ctx, statement, pendingAudit.NodeID.Bytes(), pendingAudit.PieceID.Bytes(), pendingAudit.StripeIndex,
-				pendingAudit.ShareSize, pendingAudit.ExpectedShareHash, pendingAudit.ReverifyCount, []byte(pendingAudit.Path))
+				pendingAudit.ShareSize, pendingAudit.ExpectedShareHash, pendingAudit.ReverifyCount, []byte(pendingAudit.Segment.Encode()))
 			if err != nil {
 				return err
 			}
 		case nil:
 			if !bytes.Equal(existingAudit.ExpectedShareHash, pendingAudit.ExpectedShareHash) {
-				containment.db.log.Info("pending audit already exists", zap.String("node id", pendingAudit.NodeID.String()), zap.Binary("segment", []byte(pendingAudit.Path)))
+				containment.db.log.Info("pending audit already exists", zap.String("node id", pendingAudit.NodeID.String()), zap.ByteString("segment", []byte(pendingAudit.Segment.Encode())))
 				return nil
 			}
 			statement := containment.db.Rebind(
@@ -119,14 +120,19 @@ func convertDBPending(ctx context.Context, info *dbx.PendingAudits) (_ *audit.Pe
 		return nil, audit.ContainError.Wrap(err)
 	}
 
+	segment, err := metabase.ParseSegmentKey(info.Path)
+	if err != nil {
+		return nil, audit.ContainError.Wrap(err)
+	}
+
 	pending := &audit.PendingAudit{
 		NodeID:            nodeID,
 		PieceID:           pieceID,
-		StripeIndex:       info.StripeIndex,
+		StripeIndex:       int32(info.StripeIndex),
 		ShareSize:         int32(info.ShareSize),
 		ExpectedShareHash: info.ExpectedShareHash,
 		ReverifyCount:     int32(info.ReverifyCount),
-		Path:              string(info.Path),
+		Segment:           segment,
 	}
 	return pending, nil
 }

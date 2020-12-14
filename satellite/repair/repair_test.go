@@ -454,15 +454,15 @@ func TestRemoveExpiredSegmentFromQueue(t *testing.T) {
 		satellite.Audit.Chore.Loop.TriggerWait()
 		queue := satellite.Audit.Queues.Fetch()
 		require.EqualValues(t, queue.Size(), 1)
-		encryptedPath, err := queue.Next()
+		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 		// replace pointer with one that is already expired
 
 		pointer := &pb.Pointer{}
 		pointer.ExpirationDate = time.Now().Add(-time.Hour)
-		err = satellite.Metainfo.Service.UnsynchronizedDelete(ctx, metabase.SegmentKey(encryptedPath))
+		err = satellite.Metainfo.Service.UnsynchronizedDelete(ctx, queueSegment.Encode())
 		require.NoError(t, err)
-		err = satellite.Metainfo.Service.UnsynchronizedPut(ctx, metabase.SegmentKey(encryptedPath), pointer)
+		err = satellite.Metainfo.Service.UnsynchronizedPut(ctx, queueSegment.Encode(), pointer)
 		require.NoError(t, err)
 
 		// Verify that the segment is on the repair queue

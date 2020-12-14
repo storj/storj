@@ -31,13 +31,14 @@ func TestOrderLimitsEncryptedMetadata(t *testing.T) {
 		)
 		// Setup: Upload an object and create order limits
 		require.NoError(t, uplinkPeer.Upload(ctx, satellitePeer, bucketName, filePath, testrand.Bytes(5*memory.KiB)))
+
 		bucket := metabase.BucketLocation{ProjectID: projectID, BucketName: bucketName}
-		items, _, err := satellitePeer.Metainfo.Service.List(ctx, metabase.SegmentKey{}, "", true, 10, ^uint32(0))
+
+		segments, err := satellitePeer.Metainfo.Metabase.TestingAllSegments(ctx)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(items))
-		pointer, err := satellitePeer.Metainfo.Service.Get(ctx, metabase.SegmentKey(items[0].Path))
-		require.NoError(t, err)
-		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucket, pointer)
+		require.Equal(t, 1, len(segments))
+
+		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucket, segments[0])
 		require.NoError(t, err)
 		require.Equal(t, 2, len(limits))
 

@@ -28,7 +28,7 @@ type Config struct {
 	ChoreInterval     time.Duration `help:"how often to run the reservoir chore" releaseDefault:"24h" devDefault:"1m"`
 	QueueInterval     time.Duration `help:"how often to recheck an empty audit queue" releaseDefault:"1h" devDefault:"1m"`
 	Slots             int           `help:"number of reservoir slots allotted for nodes, currently capped at 3" default:"3"`
-	WorkerConcurrency int           `help:"number of workers to run audits on paths" default:"2"`
+	WorkerConcurrency int           `help:"number of workers to run audits on segments" default:"2"`
 }
 
 // Worker contains information for populating audit queue and processing audits.
@@ -86,7 +86,7 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 
 	worker.limiter.Wait()
 	for {
-		path, err := queue.Next()
+		segment, err := queue.Next()
 		if err != nil {
 			if ErrEmptyQueue.Has(err) {
 				// get a new queue and return if empty; otherwise continue working.
@@ -100,27 +100,27 @@ func (worker *Worker) process(ctx context.Context) (err error) {
 		}
 
 		worker.limiter.Go(ctx, func() {
-			err := worker.work(ctx, path)
+			err := worker.work(ctx, segment)
 			if err != nil {
-				worker.log.Error("audit failed", zap.Binary("Segment", []byte(path)), zap.Error(err))
+				worker.log.Error("audit failed", zap.ByteString("Segment", []byte(segment.Encode())), zap.Error(err))
 			}
 		})
 	}
 }
 
-func (worker *Worker) work(ctx context.Context, path storj.Path) (err error) {
+func (worker *Worker) work(ctx context.Context, segment Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var errlist errs.Group
 
 	// First, attempt to reverify nodes for this segment that are in containment mode.
-	report, err := worker.verifier.Reverify(ctx, path)
+	report, err := worker.verifier.Reverify(ctx, segment)
 	if err != nil {
 		errlist.Add(err)
 	}
 
 	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
-	_, err = worker.reporter.RecordAudits(ctx, report, path)
+	_, err = worker.reporter.RecordAudits(ctx, report)
 	if err != nil {
 		errlist.Add(err)
 	}
@@ -144,13 +144,13 @@ func (worker *Worker) work(ctx context.Context, path storj.Path) (err error) {
 	}
 
 	// Next, audit the the remaining nodes that are not in containment mode.
-	report, err = worker.verifier.Verify(ctx, path, skip)
+	report, err = worker.verifier.Verify(ctx, segment, skip)
 	if err != nil {
 		errlist.Add(err)
 	}
 
 	// TODO(moby) we need to decide if we want to do something with nodes that the reporter failed to update
-	_, err = worker.reporter.RecordAudits(ctx, report, path)
+	_, err = worker.reporter.RecordAudits(ctx, report)
 	if err != nil {
 		errlist.Add(err)
 	}

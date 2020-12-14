@@ -49,14 +49,14 @@ type Segment struct {
 	RootPieceID    storj.PieceID            // gc, graceful exit
 	Pieces         metabase.Pieces          // tally, audit, gc, graceful exit, repair
 	CreationDate   time.Time                // repair
-	expirationDate time.Time                // tally, repair
+	ExpirationDate time.Time                // tally, repair
 	LastRepaired   time.Time                // repair
 	Pointer        *pb.Pointer              // repair
 }
 
 // Expired checks if segment is expired relative to now.
 func (segment *Segment) Expired(now time.Time) bool {
-	return !segment.expirationDate.IsZero() && segment.expirationDate.Before(now)
+	return !segment.ExpirationDate.IsZero() && segment.ExpirationDate.Before(now)
 }
 
 // Observer is an interface defining an observer that can subscribe to the metainfo loop.
@@ -485,7 +485,7 @@ func handleSegment(ctx context.Context, observer *observerContext, location meta
 	}
 
 	if expiresAt != nil {
-		loopSegment.expirationDate = *expiresAt
+		loopSegment.ExpirationDate = *expiresAt
 	}
 
 	loopSegment.StreamID = segment.StreamID

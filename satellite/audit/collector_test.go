@@ -13,14 +13,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/memory"
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/audit"
 )
 
-// TestAuditPathCollector does the following:
+// TestAuditCollector does the following:
 // - start testplanet with 5 nodes and a reservoir size of 3
 // - upload 5 files
 // - iterate over all the segments in satellite.Metainfo and store them in allPieces map
@@ -30,7 +29,7 @@ import (
 //    - expect that there is a reservoir for that node on the audit observer
 //    - that the reservoir size is <= 2 (the maxReservoirSize)
 //    - that every item in the reservoir is unique
-func TestAuditPathCollector(t *testing.T) {
+func TestAuditCollector(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
@@ -51,23 +50,23 @@ func TestAuditPathCollector(t *testing.T) {
 		}
 
 		r := rand.New(rand.NewSource(time.Now().Unix()))
-		observer := audit.NewPathCollector(4, r)
+		observer := audit.NewCollector(4, r)
 		err := satellite.Metainfo.Loop.Join(ctx, observer)
 		require.NoError(t, err)
 
 		for _, node := range planet.StorageNodes {
 			// expect a reservoir for every node
 			require.NotNil(t, observer.Reservoirs[node.ID()])
-			require.True(t, len(observer.Reservoirs[node.ID()].Paths) > 1)
+			require.True(t, len(observer.Reservoirs[node.ID()].Segments) > 1)
 
-			// Require that len paths are <= 3 even though the PathCollector was instantiated with 4
+			// Require that len segments are <= 3 even though the Collector was instantiated with 4
 			// because the maxReservoirSize is currently 3.
-			require.True(t, len(observer.Reservoirs[node.ID()].Paths) <= 3)
+			require.True(t, len(observer.Reservoirs[node.ID()].Segments) <= 3)
 
-			repeats := make(map[storj.Path]bool)
-			for _, path := range observer.Reservoirs[node.ID()].Paths {
-				assert.False(t, repeats[path], "expected every item in reservoir to be unique")
-				repeats[path] = true
+			repeats := make(map[audit.Segment]bool)
+			for _, segment := range observer.Reservoirs[node.ID()].Segments {
+				assert.False(t, repeats[segment], "expected every item in reservoir to be unique")
+				repeats[segment] = true
 			}
 		}
 	})

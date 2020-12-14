@@ -21,7 +21,6 @@ import (
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/uplink/private/storage/meta"
 )
 
 // TestDisqualificationTooManyFailedAudits does the following:
@@ -63,7 +62,7 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		// failed audits.
 		iterations := 1
 		for ; ; iterations++ {
-			_, err := satellitePeer.Audit.Reporter.RecordAudits(ctx, report, "")
+			_, err := satellitePeer.Audit.Reporter.RecordAudits(ctx, report)
 			require.NoError(t, err)
 
 			dossier, err := satellitePeer.Overlay.Service.Get(ctx, nodeID)
@@ -124,20 +123,19 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 
 		bucket := metabase.BucketLocation{ProjectID: uplinkPeer.Projects[0].ID, BucketName: "testbucket"}
 
-		items, _, err := satellitePeer.Metainfo.Service.List(ctx, metabase.SegmentKey{}, "", true, 10, meta.All)
+		segments, err := satellitePeer.Metainfo.Metabase.TestingAllSegments(ctx)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(items))
+		require.Equal(t, 1, len(segments))
 
-		pointer, err := satellitePeer.Metainfo.Service.Get(ctx, metabase.SegmentKey(items[0].Path))
-		require.NoError(t, err)
+		segment := segments[0]
+		disqualifiedNode := segment.Pieces[0].StorageNode
 
-		disqualifiedNode := pointer.GetRemote().GetRemotePieces()[0].NodeId
 		err = satellitePeer.DB.OverlayCache().DisqualifyNode(ctx, disqualifiedNode)
 		require.NoError(t, err)
 
-		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucket, pointer)
+		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucket, segment)
 		require.NoError(t, err)
-		assert.Len(t, limits, len(pointer.GetRemote().GetRemotePieces())-1)
+		assert.Len(t, limits, len(segment.Pieces)-1)
 
 		for _, orderLimit := range limits {
 			assert.False(t, isDisqualified(t, ctx, satellitePeer, orderLimit.Limit.StorageNodeId))

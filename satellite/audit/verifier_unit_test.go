@@ -7,16 +7,15 @@ import (
 	"context"
 	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vivint/infectious"
 
-	"storj.io/common/pb"
 	"storj.io/common/pkcrypto"
 	"storj.io/common/storj"
 	"storj.io/common/testrand"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 func TestFailingAudit(t *testing.T) {
@@ -130,28 +129,26 @@ func TestCreatePendingAudits(t *testing.T) {
 	contained := make(map[int]storj.NodeID)
 	contained[1] = testNodeID
 
-	pointer := &pb.Pointer{
-		CreationDate: time.Now(),
-		Type:         pb.Pointer_REMOTE,
-		Remote: &pb.RemoteSegment{
-			RootPieceId: storj.NewPieceID(),
-			Redundancy: &pb.RedundancyScheme{
-				MinReq:           8,
-				Total:            14,
-				ErasureShareSize: int32(len(shares[0].Data)),
-			},
+	segment := testSegment("test")
+	segmentInfo := metabase.Segment{
+		StreamID:    segment.StreamID,
+		RootPieceID: testrand.PieceID(),
+		Redundancy: storj.RedundancyScheme{
+			Algorithm:      storj.ReedSolomon,
+			RequiredShares: required,
+			TotalShares:    total,
+			ShareSize:      int32(len(shares[0].Data)),
 		},
 	}
+	randomIndex := rand.Int31n(10)
 
-	randomIndex := rand.Int63n(10)
-
-	pending, err := createPendingAudits(ctx, contained, shares, pointer, randomIndex, "")
+	pending, err := createPendingAudits(ctx, contained, shares, segment, segmentInfo, randomIndex)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(pending))
 	assert.Equal(t, testNodeID, pending[0].NodeID)
-	assert.Equal(t, pointer.Remote.RootPieceId, pending[0].PieceID)
+	assert.Equal(t, segmentInfo.RootPieceID, pending[0].PieceID)
 	assert.Equal(t, randomIndex, pending[0].StripeIndex)
-	assert.Equal(t, pointer.Remote.Redundancy.ErasureShareSize, pending[0].ShareSize)
+	assert.Equal(t, segmentInfo.Redundancy.ShareSize, pending[0].ShareSize)
 	assert.Equal(t, pkcrypto.SHA256Hash(shares[1].Data), pending[0].ExpectedShareHash)
 	assert.EqualValues(t, 0, pending[0].ReverifyCount)
 }

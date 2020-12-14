@@ -311,7 +311,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Audit.Queues = audit.NewQueues()
 
 		peer.Audit.Verifier = audit.NewVerifier(log.Named("audit:verifier"),
-			peer.Metainfo.Service,
+			peer.Metainfo.Metabase,
 			peer.Dialer,
 			peer.Overlay.Service,
 			peer.DB.Containment(),

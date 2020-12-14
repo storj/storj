@@ -11,8 +11,9 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 func TestQueues(t *testing.T) {
@@ -25,7 +26,7 @@ func TestQueues(t *testing.T) {
 	_, err := q.Next()
 	require.True(t, ErrEmptyQueue.Has(err), "required ErrEmptyQueue error")
 
-	testQueue1 := []storj.Path{"a", "b", "c"}
+	testQueue1 := []Segment{testSegment("a"), testSegment("b"), testSegment("c")}
 	err = queues.Push(testQueue1)
 	require.NoError(t, err)
 	err = queues.WaitForSwap(ctx)
@@ -47,14 +48,14 @@ func TestQueuesPush(t *testing.T) {
 
 	queues := NewQueues()
 	// when next queue is empty, WaitForSwap should return immediately
-	testQueue1 := []storj.Path{"a", "b", "c"}
+	testQueue1 := []Segment{testSegment("a"), testSegment("b"), testSegment("c")}
 	err := queues.Push(testQueue1)
 	require.NoError(t, err)
 	err = queues.WaitForSwap(ctx)
 	require.NoError(t, err)
 
 	// second call to WaitForSwap should block until Fetch is called the first time
-	testQueue2 := []storj.Path{"d", "e"}
+	testQueue2 := []Segment{testSegment("d"), testSegment("e")}
 	err = queues.Push(testQueue2)
 	require.NoError(t, err)
 	var group errgroup.Group
@@ -86,14 +87,14 @@ func TestQueuesPushCancel(t *testing.T) {
 
 	queues := NewQueues()
 	// when queue is empty, WaitForSwap should return immediately
-	testQueue1 := []storj.Path{"a", "b", "c"}
+	testQueue1 := []Segment{testSegment("a"), testSegment("b"), testSegment("c")}
 	err := queues.Push(testQueue1)
 	require.NoError(t, err)
 	err = queues.WaitForSwap(ctx)
 	require.NoError(t, err)
 
 	ctxWithCancel, cancel := context.WithCancel(ctx)
-	testQueue2 := []storj.Path{"d", "e"}
+	testQueue2 := []Segment{testSegment("d"), testSegment("e")}
 	err = queues.Push(testQueue2)
 	require.NoError(t, err)
 	var group errgroup.Group
@@ -111,4 +112,15 @@ func TestQueuesPushCancel(t *testing.T) {
 
 	err = group.Wait()
 	require.NoError(t, err)
+}
+
+func testSegment(objectKey string) Segment {
+	return Segment{
+		SegmentLocation: metabase.SegmentLocation{
+			ProjectID:  testrand.UUID(),
+			BucketName: "test",
+			ObjectKey:  metabase.ObjectKey(objectKey),
+		},
+		StreamID: testrand.UUID(),
+	}
 }

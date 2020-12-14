@@ -202,8 +202,7 @@ type MetabaseDB interface {
 	// BucketEmpty returns true if bucket does not contain objects (pending or committed).
 	// This method doesn't check bucket existence.
 	BucketEmpty(ctx context.Context, opts metabase.BucketEmpty) (empty bool, err error)
-	// UpdateSegmentPieces updates pieces for specified segment. If provided old pieces
-	// won't match current database state update will fail.
+	// UpdateSegmentPieces updates pieces for specified segment. If provided old pieces won't match current database state update will fail.
 	UpdateSegmentPieces(ctx context.Context, opts metabase.UpdateSegmentPieces) (err error)
 
 	// TestingAllCommittedObjects gets all committed objects from bucket. Use only for testing purposes.
@@ -212,7 +211,6 @@ type MetabaseDB interface {
 	TestingAllPendingObjects(ctx context.Context, projectID uuid.UUID, bucketName string) (objects []metabase.ObjectEntry, err error)
 	// TestingAllObjectSegments gets all segments for given object. Use only for testing purposes.
 	TestingAllObjectSegments(ctx context.Context, objectLocation metabase.ObjectLocation) (segments []metabase.Segment, err error)
-
 	// TestingAllObjects gets all objects. Use only for testing purposes.
 	TestingAllObjects(ctx context.Context) (segments []metabase.Object, err error)
 	// TestingAllSegments gets all segments. Use only for testing purposes.

@@ -42,7 +42,7 @@ func TestReportPendingAudits(t *testing.T) {
 		overlay := satellite.Overlay.Service
 		containment := satellite.DB.Containment()
 
-		failed, err := audits.Reporter.RecordAudits(ctx, report, "")
+		failed, err := audits.Reporter.RecordAudits(ctx, report)
 		require.NoError(t, err)
 		assert.Zero(t, failed)
 
@@ -69,7 +69,7 @@ func TestRecordAuditsAtLeastOnce(t *testing.T) {
 		report := audit.Report{Successes: []storj.NodeID{nodeID}}
 
 		// expect RecordAudits to try recording at least once (maxRetries is set to 0)
-		failed, err := audits.Reporter.RecordAudits(ctx, report, "")
+		failed, err := audits.Reporter.RecordAudits(ctx, report)
 		require.NoError(t, err)
 		require.Zero(t, failed)
 
@@ -107,13 +107,12 @@ func TestRecordAuditsCorrectOutcome(t *testing.T) {
 					ShareSize:         10,
 					ExpectedShareHash: []byte{},
 					ReverifyCount:     0,
-					Path:              "",
 				},
 			},
 			Offlines: []storj.NodeID{offlineNode},
 		}
 
-		failed, err := audits.Reporter.RecordAudits(ctx, report, "")
+		failed, err := audits.Reporter.RecordAudits(ctx, report)
 		require.NoError(t, err)
 		require.Zero(t, failed)
 
@@ -155,7 +154,7 @@ func TestSuspensionTimeNotResetBySuccessiveAudit(t *testing.T) {
 
 		suspendedNode := planet.StorageNodes[0].ID()
 
-		failed, err := audits.Reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}}, "")
+		failed, err := audits.Reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}})
 		require.NoError(t, err)
 		require.Zero(t, failed)
 
@@ -168,7 +167,7 @@ func TestSuspensionTimeNotResetBySuccessiveAudit(t *testing.T) {
 
 		suspendedAt := node.UnknownAuditSuspended
 
-		failed, err = audits.Reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}}, "")
+		failed, err = audits.Reporter.RecordAudits(ctx, audit.Report{Unknown: []storj.NodeID{suspendedNode}})
 		require.NoError(t, err)
 		require.Zero(t, failed)
 
@@ -224,7 +223,7 @@ func TestGracefullyExitedNotUpdated(t *testing.T) {
 			PendingAudits: []*audit.PendingAudit{&pending},
 			Unknown:       storj.NodeIDList{unknownNode.ID()},
 		}
-		failed, err := audits.Reporter.RecordAudits(ctx, report, "")
+		failed, err := audits.Reporter.RecordAudits(ctx, report)
 		require.NoError(t, err)
 		assert.Zero(t, failed)
 
@@ -253,7 +252,7 @@ func TestReportOfflineAudits(t *testing.T) {
 		audits.Worker.Loop.Pause()
 		cache := satellite.Overlay.DB
 
-		_, err := audits.Reporter.RecordAudits(ctx, audit.Report{Offlines: storj.NodeIDList{node.ID()}}, "")
+		_, err := audits.Reporter.RecordAudits(ctx, audit.Report{Offlines: storj.NodeIDList{node.ID()}})
 		require.NoError(t, err)
 
 		d, err := cache.Get(ctx, node.ID())
