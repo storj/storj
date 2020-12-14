@@ -36,28 +36,28 @@ export default class ProgressBar extends Vue {
      * Indicates if current route is on name step.
      */
     public get isNameStep(): boolean {
-        return this.$route.name === RouteConfig.NameStep.name || this.$route.name === RouteConfig.AccessGrantName.name;
+        return this.$route.name === RouteConfig.NameStep.name;
     }
 
     /**
      * Indicates if current route is on permissions step.
      */
     public get isPermissionsStep(): boolean {
-        return this.$route.name === RouteConfig.PermissionsStep.name || this.$route.name === RouteConfig.AccessGrantPermissions.name;
+        return this.$route.name === RouteConfig.PermissionsStep.name;
     }
 
     /**
      * Indicates if current route is on passphrase step.
      */
     public get isPassphraseStep(): boolean {
-        return this.$route.name === RouteConfig.CreatePassphraseStep.name || this.$route.name === RouteConfig.EnterPassphraseStep.name || this.$route.name === RouteConfig.AccessGrantPassphrase.name;
+        return this.$route.name === RouteConfig.CreatePassphraseStep.name || this.$route.name === RouteConfig.EnterPassphraseStep.name;
     }
 
     /**
      * Indicates if current route is on result step.
      */
     public get isResultStep(): boolean {
-        return this.$route.name === RouteConfig.ResultStep.name || this.$route.name === RouteConfig.AccessGrantResult.name;
+        return this.$route.name === RouteConfig.ResultStep.name;
     }
 }
 </script>

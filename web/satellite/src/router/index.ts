@@ -312,12 +312,6 @@ router.beforeEach((to, from, next) => {
         return;
     }
 
-    if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant))) {
-        next(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).with(RouteConfig.NameStep).path);
-
-        return;
-    }
-
     if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour)) {
         next(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
 

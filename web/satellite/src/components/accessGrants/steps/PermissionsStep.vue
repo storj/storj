@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="permissions" :class="{ 'border-radius': isOnboardingTour }">
+    <div class="permissions">
         <BackIcon class="permissions__back-icon" @click="onBackClick"/>
         <h1 class="permissions__title">Access Permissions</h1>
         <p class="permissions__sub-title">
@@ -55,7 +55,7 @@
             :on-press="onContinueInBrowserClick"
             :is-disabled="isLoading"
         />
-        <p v-if="!isOnboardingTour" class="permissions__cli-link" @click.stop="onContinueInCLIClick">
+        <p class="permissions__cli-link" @click.stop="onContinueInCLIClick">
             Continue in CLI
         </p>
     </div>
@@ -179,17 +179,6 @@ export default class PermissionsStep extends Vue {
         setTimeout(() => {
             this.isLoading = false;
 
-            if (this.isOnboardingTour) {
-                this.$router.push({
-                    name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantPassphrase)).name,
-                    params: {
-                        key: this.restrictedKey,
-                    },
-                });
-
-                return;
-            }
-
             if (this.accessGrantsAmount > 1) {
                 this.$router.push({
                     name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.EnterPassphraseStep)).name,
@@ -208,13 +197,6 @@ export default class PermissionsStep extends Vue {
                 },
             });
         }, 1000);
-    }
-
-    /**
-     * Indicates if current route is onboarding tour.
-     */
-    public get isOnboardingTour(): boolean {
-        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 
     /**
@@ -376,9 +358,5 @@ export default class PermissionsStep extends Vue {
             line-height: 23px;
             color: #0068dc;
         }
-    }
-
-    .border-radius {
-        border-radius: 6px;
     }
 </style>
