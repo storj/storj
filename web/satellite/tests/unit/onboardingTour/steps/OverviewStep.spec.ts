@@ -1,33 +1,18 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import Vuex from 'vuex';
-
 import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
 
-import { PaymentsHttpApi } from '@/api/payments';
-import { router } from '@/router';
-import { makePaymentsModule, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
 import { mount } from '@vue/test-utils';
 
-const paymentsApi = new PaymentsHttpApi();
-const paymentsModule = makePaymentsModule(paymentsApi);
-
-const store = new Vuex.Store({ modules: { paymentsModule }});
-
-describe('OverviewStep.vue', (): void => {
+describe('OverviewStep.vue', () => {
     it('renders correctly', async (): Promise<void> => {
-        const wrapper = mount(OverviewStep, {
-            router,
-            store,
-        });
-
-        await store.commit(PAYMENTS_MUTATIONS.SET_PAYWALL_ENABLED_STATUS, true);
+        const wrapper = mount(OverviewStep);
 
         expect(wrapper).toMatchSnapshot();
 
-        await store.commit(PAYMENTS_MUTATIONS.SET_PAYWALL_ENABLED_STATUS, false);
+        await wrapper.find('.get-started-button').trigger('click');
 
-        expect(wrapper).toMatchSnapshot();
+        expect(wrapper.emitted()).toHaveProperty('setAddPaymentState');
     });
 });

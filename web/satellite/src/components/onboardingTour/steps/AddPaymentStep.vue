@@ -160,12 +160,12 @@ export default class AddPaymentStep extends Vue {
 
     .payment-step {
         font-family: 'font_regular', sans-serif;
+        margin-top: 75px;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: space-between;
-        padding: 0 0 200px 0;
-        max-width: 750px;
+        padding: 0 140px 200px 140px;
         position: relative;
 
         &__title {
@@ -301,5 +301,19 @@ export default class AddPaymentStep extends Vue {
     .download-item {
         border-top: 1px solid #afb7c1;
         border-bottom: 1px solid #afb7c1;
+    }
+
+    @media screen and (max-width: 1550px) {
+
+        .payment-step {
+            padding: 0 70px 200px 70px;
+        }
+    }
+
+    @media screen and (max-width: 800px) {
+
+        .payment-step {
+            padding: 0 25px 200px 25px;
+        }
     }
 </style>
