@@ -10,7 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/satellite/console"
+	console "storj.io/storj/satellite/console/consolewasm"
 )
 
 func main() {
