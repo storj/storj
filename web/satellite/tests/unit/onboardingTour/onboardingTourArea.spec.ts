@@ -6,7 +6,6 @@ import Vuex from 'vuex';
 import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
 
 import { PaymentsHttpApi } from '@/api/payments';
-import { router } from '@/router';
 import { makePaymentsModule } from '@/store/modules/payments';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
@@ -28,7 +27,6 @@ describe('OnboardingTourArea.vue', () => {
         const wrapper = shallowMount(OnboardingTourArea, {
             store,
             localVue,
-            router,
         });
 
         expect(wrapper).toMatchSnapshot();

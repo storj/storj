@@ -77,10 +77,6 @@ export abstract class RouteConfig {
     public static OverviewStep = new NavigationLink('overview', 'Onboarding Overview');
     public static PaymentStep = new NavigationLink('payment', 'Onboarding Payment');
     public static AccessGrant = new NavigationLink('access', 'Onboarding Access Grant');
-    public static AccessGrantName = new NavigationLink('name', 'Onboarding Name Access Grant');
-    public static AccessGrantPermissions = new NavigationLink('permissions', 'Onboarding Access Grant Permissions');
-    public static AccessGrantPassphrase = new NavigationLink('create-passphrase', 'Onboarding Access Grant Create Passphrase');
-    public static AccessGrantResult = new NavigationLink('result', 'Onboarding Access Grant Result');
 
     // TODO: disabled until implementation
     // public static Referral = new NavigationLink('referral', 'Referral');
@@ -205,24 +201,24 @@ export const router = new Router({
                             component: CreateAccessGrantStep,
                             children: [
                                 {
-                                    path: RouteConfig.AccessGrantName.path,
-                                    name: RouteConfig.AccessGrantName.name,
+                                    path: RouteConfig.NameStep.path,
+                                    name: RouteConfig.NameStep.name,
                                     component: NameStep,
                                 },
                                 {
-                                    path: RouteConfig.AccessGrantPermissions.path,
-                                    name: RouteConfig.AccessGrantPermissions.name,
+                                    path: RouteConfig.PermissionsStep.path,
+                                    name: RouteConfig.PermissionsStep.name,
                                     component: PermissionsStep,
                                     props: true,
                                 },
                                 {
-                                    path: RouteConfig.AccessGrantPassphrase.path,
-                                    name: RouteConfig.AccessGrantPassphrase.name,
+                                    path: RouteConfig.CreatePassphraseStep.path,
+                                    name: RouteConfig.CreatePassphraseStep.name,
                                     component: CreatePassphraseStep,
                                 },
                                 {
-                                    path: RouteConfig.AccessGrantResult.path,
-                                    name: RouteConfig.AccessGrantResult.name,
+                                    path: RouteConfig.ResultStep.path,
+                                    name: RouteConfig.ResultStep.name,
                                     component: ResultStep,
                                 },
                             ],
