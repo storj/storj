@@ -423,7 +423,7 @@ func iterateSegments(ctx context.Context, streamID uuid.UUID, projectID uuid.UUI
 					ProjectID:  projectID,
 					BucketName: bucket,
 					ObjectKey:  objectKey,
-					Index:      int64(segment.Position.Index),
+					Position:   segment.Position,
 				}
 				keepObserver := handleSegment(ctx, observer, location, segment)
 				if !keepObserver {

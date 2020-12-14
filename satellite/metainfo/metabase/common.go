@@ -4,6 +4,7 @@
 package metabase
 
 import (
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -19,10 +20,9 @@ var Error = errs.Class("metabase")
 
 // Common constants for segment keys.
 const (
-	Delimiter         = '/'
-	LastSegmentName   = "l"
-	LastSegmentIndex  = -1
-	FirstSegmentIndex = 0
+	Delimiter        = '/'
+	LastSegmentName  = "l"
+	LastSegmentIndex = uint32(math.MaxUint32)
 )
 
 // MaxListLimit is the maximum number of items the client can request for listing.
@@ -81,39 +81,6 @@ func (obj ObjectLocation) Bucket() BucketLocation {
 	}
 }
 
-// LastSegment returns the last segment location.
-func (obj ObjectLocation) LastSegment() SegmentLocation {
-	return SegmentLocation{
-		ProjectID:  obj.ProjectID,
-		BucketName: obj.BucketName,
-		Index:      LastSegmentIndex,
-		ObjectKey:  obj.ObjectKey,
-	}
-}
-
-// FirstSegment returns the first segment location.
-func (obj ObjectLocation) FirstSegment() SegmentLocation {
-	return SegmentLocation{
-		ProjectID:  obj.ProjectID,
-		BucketName: obj.BucketName,
-		Index:      FirstSegmentIndex,
-		ObjectKey:  obj.ObjectKey,
-	}
-}
-
-// Segment returns segment location for a given index.
-func (obj ObjectLocation) Segment(index int64) (SegmentLocation, error) {
-	if index < LastSegmentIndex {
-		return SegmentLocation{}, Error.New("invalid index %v", index)
-	}
-	return SegmentLocation{
-		ProjectID:  obj.ProjectID,
-		BucketName: obj.BucketName,
-		Index:      index,
-		ObjectKey:  obj.ObjectKey,
-	}, nil
-}
-
 // Verify object location fields.
 func (obj ObjectLocation) Verify() error {
 	switch {
@@ -134,8 +101,8 @@ type SegmentKey []byte
 type SegmentLocation struct {
 	ProjectID  uuid.UUID
 	BucketName string
-	Index      int64 // TODO refactor to SegmentPosition
 	ObjectKey  ObjectKey
+	Position   SegmentPosition
 }
 
 // Bucket returns bucket location this segment belongs to.
@@ -155,12 +122,6 @@ func (seg SegmentLocation) Object() ObjectLocation {
 	}
 }
 
-// IsLast returns whether this corresponds to last segment.
-func (seg SegmentLocation) IsLast() bool { return seg.Index == LastSegmentIndex }
-
-// IsFirst returns whether this corresponds to first segment.
-func (seg SegmentLocation) IsFirst() bool { return seg.Index == FirstSegmentIndex }
-
 // ParseSegmentKey parses an segment key into segment location.
 func ParseSegmentKey(encoded SegmentKey) (SegmentLocation, error) {
 	elements := strings.SplitN(string(encoded), "/", 4)
@@ -173,22 +134,23 @@ func ParseSegmentKey(encoded SegmentKey) (SegmentLocation, error) {
 		return SegmentLocation{}, Error.New("invalid key %q", encoded)
 	}
 
-	var index int64
+	var index uint32
 	if elements[1] == LastSegmentName {
 		index = LastSegmentIndex
 	} else {
 		numstr := strings.TrimPrefix(elements[1], "s")
 		// remove prefix `s` from segment index we got
-		index, err = strconv.ParseInt(numstr, 10, 64)
+		parsed, err := strconv.ParseUint(numstr, 10, 64)
 		if err != nil {
 			return SegmentLocation{}, Error.New("invalid %q, segment number %q", string(encoded), elements[1])
 		}
+		index = uint32(parsed)
 	}
 
 	return SegmentLocation{
 		ProjectID:  projectID,
 		BucketName: elements[2],
-		Index:      index,
+		Position:   SegmentPosition{Index: index},
 		ObjectKey:  ObjectKey(elements[3]),
 	}, nil
 }
@@ -196,8 +158,8 @@ func ParseSegmentKey(encoded SegmentKey) (SegmentLocation, error) {
 // Encode converts segment location into a segment key.
 func (seg SegmentLocation) Encode() SegmentKey {
 	segment := LastSegmentName
-	if seg.Index > LastSegmentIndex {
-		segment = "s" + strconv.FormatInt(seg.Index, 10)
+	if seg.Position.Index != LastSegmentIndex {
+		segment = "s" + strconv.FormatUint(seg.Position.Encode(), 10)
 	}
 	return SegmentKey(storj.JoinPaths(
 		seg.ProjectID.String(),

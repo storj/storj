@@ -16,6 +16,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -121,7 +122,7 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *internalpb.Segm
 		return nil, Error.Wrap(err)
 	}
 
-	location, err := metainfo.CreatePath(ctx, projectID, in.GetSegmentIndex(), in.GetBucket(), in.GetEncryptedPath())
+	location, err := metainfo.CreatePath(ctx, projectID, uint32(in.GetSegmentIndex()), in.GetBucket(), in.GetEncryptedPath())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -175,10 +176,10 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *internalpb.Segm
 	health.UnhealthyIds = unhealthyNodes
 	health.OfflineIds = offlineNodes
 
-	if in.GetSegmentIndex() > -1 {
-		health.Segment = []byte("s" + strconv.FormatInt(in.GetSegmentIndex(), 10))
-	} else {
+	if uint32(in.GetSegmentIndex()) == metabase.LastSegmentIndex {
 		health.Segment = []byte("l")
+	} else {
+		health.Segment = []byte("s" + strconv.FormatInt(in.GetSegmentIndex(), 10))
 	}
 
 	return &internalpb.SegmentHealthResponse{

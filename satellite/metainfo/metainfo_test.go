@@ -920,7 +920,7 @@ func TestRemoteSegment(t *testing.T) {
 			_, limits, err := metainfoClient.DownloadSegment(ctx, metainfo.DownloadSegmentParams{
 				StreamID: object.StreamID,
 				Position: storj.SegmentPosition{
-					Index: metabase.LastSegmentIndex,
+					Index: -1,
 				},
 			})
 			require.NoError(t, err)

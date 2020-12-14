@@ -139,7 +139,7 @@ func getPointer(ctx *testcontext.Context, t *testing.T, satellite *testplanet.Sa
 	segmentLocation := metabase.SegmentLocation{
 		ProjectID:  upl.Projects[0].ID,
 		BucketName: bucket,
-		Index:      metabase.LastSegmentIndex,
+		Position:   metabase.SegmentPosition{Index: metabase.LastSegmentIndex},
 		ObjectKey:  metabase.ObjectKey(encryptedPath.Raw()),
 	}
 

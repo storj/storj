@@ -162,7 +162,7 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 	var testCases = []struct {
 		name         string
 		project      string
-		segmentIndex int64
+		segmentIndex uint32
 		bucketName   string
 		objectName   string
 		inline       bool
@@ -195,7 +195,7 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 				location := metabase.SegmentLocation{
 					ProjectID:  projectID,
 					BucketName: tt.bucketName,
-					Index:      tt.segmentIndex,
+					Position:   metabase.SegmentPosition{Index: tt.segmentIndex},
 					ObjectKey:  metabase.ObjectKey(tt.objectName),
 				}
 				err = metainfo.Put(ctx, location.Encode(), pointer)
@@ -240,7 +240,7 @@ func TestTallyIgnoresExpiredPointers(t *testing.T) {
 		location := metabase.SegmentLocation{
 			ProjectID:  projectID,
 			BucketName: bucket,
-			Index:      metabase.LastSegmentIndex,
+			Position:   metabase.SegmentPosition{Index: metabase.LastSegmentIndex},
 			ObjectKey:  metabase.ObjectKey("object/name"),
 		}
 		err = metainfo.Put(ctx, location.Encode(), pointer)

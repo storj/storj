@@ -130,7 +130,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		pointerLocation := metabase.SegmentLocation{
 			ProjectID:  projectID,
 			BucketName: "bucket",
-			Index:      metabase.LastSegmentIndex,
+			Position:   metabase.SegmentPosition{Index: metabase.LastSegmentIndex},
 			ObjectKey:  "piece",
 		}
 

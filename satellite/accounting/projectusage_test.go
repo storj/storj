@@ -579,7 +579,7 @@ func TestProjectUsage_FreeUsedStorageSpace(t *testing.T) {
 		require.NoError(t, err)
 
 		// check if usage is equal to first uploaded file
-		prefix, err := metainfo.CreatePath(ctx, project.ID, -1, []byte("testbucket"), []byte{})
+		prefix, err := metainfo.CreatePath(ctx, project.ID, metabase.LastSegmentIndex, []byte("testbucket"), []byte{})
 		require.NoError(t, err)
 		items, _, err := satMetainfo.Service.List(ctx, prefix.Encode(), "", true, 1, meta.All)
 		require.NoError(t, err)

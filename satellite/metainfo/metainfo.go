@@ -6,7 +6,6 @@ package metainfo
 import (
 	"context"
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"time"
 
@@ -2065,16 +2064,13 @@ func (endpoint *Endpoint) RevokeAPIKey(ctx context.Context, req *pb.RevokeAPIKey
 }
 
 // CreatePath creates a segment key.
-func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bucket, path []byte) (_ metabase.SegmentLocation, err error) {
+func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex uint32, bucket, path []byte) (_ metabase.SegmentLocation, err error) {
 	// TODO rename to CreateLocation
 	defer mon.Task()(&ctx)(&err)
-	if segmentIndex < metabase.LastSegmentIndex {
-		return metabase.SegmentLocation{}, errors.New("invalid segment index")
-	}
 	return metabase.SegmentLocation{
 		ProjectID:  projectID,
 		BucketName: string(bucket),
-		Index:      segmentIndex,
+		Position:   metabase.SegmentPosition{Index: segmentIndex},
 		ObjectKey:  metabase.ObjectKey(path),
 	}, nil
 }
