@@ -41,7 +41,6 @@ type irreparableError struct {
 	path            storj.Path
 	piecesAvailable int32
 	piecesRequired  int32
-	segmentInfo     *pb.Pointer
 }
 
 func (ie *irreparableError) Error() string {
@@ -51,7 +50,7 @@ func (ie *irreparableError) Error() string {
 // SegmentRepairer for segments.
 type SegmentRepairer struct {
 	log      *zap.Logger
-	metainfo *metainfo.Service
+	metabase metainfo.MetabaseDB
 	orders   *orders.Service
 	overlay  *overlay.Service
 	ec       *ECRepairer
@@ -72,7 +71,7 @@ type SegmentRepairer struct {
 // threshould to determine the maximum limit of nodes to upload repaired pieces,
 // when negative, 0 is applied.
 func NewSegmentRepairer(
-	log *zap.Logger, metainfo *metainfo.Service, orders *orders.Service,
+	log *zap.Logger, metabase metainfo.MetabaseDB, orders *orders.Service,
 	overlay *overlay.Service, dialer rpc.Dialer, timeout time.Duration,
 	excessOptimalThreshold float64, repairOverrides checker.RepairOverrides,
 	downloadTimeout time.Duration, inMemoryRepair bool,
@@ -85,7 +84,7 @@ func NewSegmentRepairer(
 
 	return &SegmentRepairer{
 		log:                        log,
-		metainfo:                   metainfo,
+		metabase:                   metabase,
 		orders:                     orders,
 		overlay:                    overlay,
 		ec:                         NewECRepairer(log.Named("ec repairer"), dialer, satelliteSignee, downloadTimeout, inMemoryRepair),
@@ -101,8 +100,15 @@ func NewSegmentRepairer(
 func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (shouldDelete bool, err error) {
 	defer mon.Task()(&ctx, path)(&err)
 
-	// Read the segment pointer from the metainfo
-	pointer, err := repairer.metainfo.Get(ctx, metabase.SegmentKey(path))
+	segmentLocation, err := metabase.ParseSegmentKey(metabase.SegmentKey(path))
+	if err != nil {
+		return false, metainfoGetError.Wrap(err)
+	}
+
+	// TODO extend InjuredSegment with StreamID/Position and replace path
+	object, err := repairer.metabase.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
+		ObjectLocation: segmentLocation.Object(),
+	})
 	if err != nil {
 		if storj.ErrObjectNotFound.Has(err) {
 			mon.Meter("repair_unnecessary").Mark(1)            //mon:locked
@@ -113,27 +119,40 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		return false, metainfoGetError.Wrap(err)
 	}
 
-	if pointer.GetType() != pb.Pointer_REMOTE {
+	segment, err := repairer.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		StreamID: object.StreamID,
+		Position: segmentLocation.Position,
+	})
+	if err != nil {
+		if storj.ErrObjectNotFound.Has(err) {
+			mon.Meter("repair_unnecessary").Mark(1)            //mon:locked
+			mon.Meter("segment_deleted_before_repair").Mark(1) //mon:locked
+			repairer.log.Debug("segment was deleted")
+			return true, nil
+		}
+		return false, metainfoGetError.Wrap(err)
+	}
+
+	if segment.Inline() {
 		return true, invalidRepairError.New("cannot repair inline segment")
 	}
 
-	if !pointer.ExpirationDate.IsZero() && pointer.ExpirationDate.Before(time.Now().UTC()) {
+	// TODO how to deal with expiration date for segment
+	if object.ExpiresAt != nil && object.ExpiresAt.Before(time.Now().UTC()) {
 		mon.Meter("repair_expired").Mark(1) //mon:locked
 		return true, nil
 	}
 
-	mon.Meter("repair_attempts").Mark(1)                                //mon:locked
-	mon.IntVal("repair_segment_size").Observe(pointer.GetSegmentSize()) //mon:locked
+	mon.Meter("repair_attempts").Mark(1)                                    //mon:locked
+	mon.IntVal("repair_segment_size").Observe(int64(segment.EncryptedSize)) //mon:locked
 
-	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 	if err != nil {
 		return true, invalidRepairError.New("invalid redundancy strategy: %w", err)
 	}
 
 	var excludeNodeIDs storj.NodeIDList
-	var healthyPieces, unhealthyPieces []*pb.RemotePiece
-	healthyMap := make(map[int32]bool)
-	pieces := pointer.GetRemote().GetRemotePieces()
+	pieces := segment.Pieces
 	missingPieces, err := repairer.overlay.GetMissingPieces(ctx, pieces)
 	if err != nil {
 		return false, overlayQueryError.New("error identifying missing pieces: %w", err)
@@ -141,69 +160,73 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 
 	numHealthy := len(pieces) - len(missingPieces)
 	// irreparable piece
-	if int32(numHealthy) < pointer.Remote.Redundancy.MinReq {
+	if numHealthy < int(segment.Redundancy.RequiredShares) {
 		mon.Counter("repairer_segments_below_min_req").Inc(1) //mon:locked
 		mon.Meter("repair_nodes_unavailable").Mark(1)         //mon:locked
 		return true, &irreparableError{
 			path:            path,
 			piecesAvailable: int32(numHealthy),
-			piecesRequired:  pointer.Remote.Redundancy.MinReq,
-			segmentInfo:     pointer,
+			piecesRequired:  int32(segment.Redundancy.RequiredShares),
 		}
 	}
 
 	// ensure we get values, even if only zero values, so that redash can have an alert based on this
 	mon.Counter("repairer_segments_below_min_req").Inc(0) //mon:locked
 
-	repairThreshold := pointer.Remote.Redundancy.RepairThreshold
-	overrideValue := repairer.repairOverrides.GetOverrideValuePB(pointer.Remote.Redundancy)
+	repairThreshold := int32(segment.Redundancy.RepairShares)
+
+	pbRedundancy := &pb.RedundancyScheme{
+		MinReq:           int32(segment.Redundancy.RequiredShares),
+		RepairThreshold:  int32(segment.Redundancy.RepairShares),
+		SuccessThreshold: int32(segment.Redundancy.OptimalShares),
+		Total:            int32(segment.Redundancy.TotalShares),
+	}
+	overrideValue := repairer.repairOverrides.GetOverrideValuePB(pbRedundancy)
 	if overrideValue != 0 {
 		repairThreshold = overrideValue
 	}
 
 	// repair not needed
-	if int32(numHealthy) > repairThreshold {
+	if numHealthy > int(repairThreshold) {
 		mon.Meter("repair_unnecessary").Mark(1) //mon:locked
 		repairer.log.Debug("segment above repair threshold", zap.Int("numHealthy", numHealthy), zap.Int32("repairThreshold", repairThreshold))
 		return true, nil
 	}
 
 	healthyRatioBeforeRepair := 0.0
-	if pointer.Remote.Redundancy.Total != 0 {
-		healthyRatioBeforeRepair = float64(numHealthy) / float64(pointer.Remote.Redundancy.Total)
+	if segment.Redundancy.TotalShares != 0 {
+		healthyRatioBeforeRepair = float64(numHealthy) / float64(segment.Redundancy.TotalShares)
 	}
 	mon.FloatVal("healthy_ratio_before_repair").Observe(healthyRatioBeforeRepair) //mon:locked
 
 	lostPiecesSet := sliceToSet(missingPieces)
 
-	// Populate healthyPieces with all pieces from the pointer except those correlating to indices in lostPieces
+	var healthyPieces, unhealthyPieces metabase.Pieces
+	healthyMap := make(map[uint16]bool)
+	// Populate healthyPieces with all pieces from the segment except those correlating to indices in lostPieces
 	for _, piece := range pieces {
-		excludeNodeIDs = append(excludeNodeIDs, piece.NodeId)
-		if !lostPiecesSet[piece.GetPieceNum()] {
+		excludeNodeIDs = append(excludeNodeIDs, piece.StorageNode)
+		if !lostPiecesSet[piece.Number] {
 			healthyPieces = append(healthyPieces, piece)
-			healthyMap[piece.GetPieceNum()] = true
+			healthyMap[piece.Number] = true
 		} else {
 			unhealthyPieces = append(unhealthyPieces, piece)
 		}
 	}
 
-	segmentLocation, err := metabase.ParseSegmentKey(metabase.SegmentKey(path))
-	if err != nil {
-		return false, invalidRepairError.New("could not parse segment key: %w", err)
-	}
 	bucket := segmentLocation.Bucket()
 
 	// Create the order limits for the GET_REPAIR action
-	getOrderLimits, getPrivateKey, err := repairer.orders.CreateGetRepairOrderLimits(ctx, bucket, pointer, healthyPieces)
+	getOrderLimits, getPrivateKey, err := repairer.orders.CreateGetRepairOrderLimits(ctx, bucket, segment, healthyPieces)
 	if err != nil {
 		return false, orderLimitFailureError.New("could not create GET_REPAIR order limits: %w", err)
 	}
 
 	// Double check for healthy pieces which became unhealthy inside CreateGetRepairOrderLimits
 	// Remove them from healthyPieces and add them to unhealthyPieces
-	var newHealthyPieces []*pb.RemotePiece
+	var newHealthyPieces metabase.Pieces
 	for _, piece := range healthyPieces {
-		if getOrderLimits[piece.GetPieceNum()] == nil {
+		if getOrderLimits[piece.Number] == nil {
 			unhealthyPieces = append(unhealthyPieces, piece)
 		} else {
 			newHealthyPieces = append(newHealthyPieces, piece)
@@ -230,18 +253,27 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	}
 
 	// Create the order limits for the PUT_REPAIR action
-	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, bucket, pointer, getOrderLimits, newNodes, repairer.multiplierOptimalThreshold)
+	putLimits, putPrivateKey, err := repairer.orders.CreatePutRepairOrderLimits(ctx, bucket, segment, getOrderLimits, newNodes, repairer.multiplierOptimalThreshold)
 	if err != nil {
 		return false, orderLimitFailureError.New("could not create PUT_REPAIR order limits: %w", err)
 	}
 
 	// Download the segment using just the healthy pieces
-	segmentReader, failedPieces, err := repairer.ec.Get(ctx, getOrderLimits, getPrivateKey, redundancy, pointer.GetSegmentSize(), path)
+	segmentReader, pbFailedPieces, err := repairer.ec.Get(ctx, getOrderLimits, getPrivateKey, redundancy, int64(segment.EncryptedSize), path)
 
 	// Populate node IDs that failed piece hashes verification
 	var failedNodeIDs storj.NodeIDList
-	for _, piece := range failedPieces {
+	for _, piece := range pbFailedPieces {
 		failedNodeIDs = append(failedNodeIDs, piece.NodeId)
+	}
+
+	// TODO refactor repairer.ec.Get?
+	failedPieces := make(metabase.Pieces, len(pbFailedPieces))
+	for i, piece := range pbFailedPieces {
+		failedPieces[i] = metabase.Piece{
+			Number:      uint16(piece.PieceNum),
+			StorageNode: piece.NodeId,
+		}
 	}
 
 	// update audit status for nodes that failed piece hash verification during downloading
@@ -262,7 +294,6 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		// to wait for nodes to come back online.
 		if irreparableErr, ok := err.(*irreparableError); ok {
 			mon.Meter("repair_too_many_nodes_failed").Mark(1) //mon:locked
-			irreparableErr.segmentInfo = pointer
 			return true, irreparableErr
 		}
 		// The segment's redundancy strategy is invalid, or else there was an internal error.
@@ -271,56 +302,55 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	defer func() { err = errs.Combine(err, segmentReader.Close()) }()
 
 	// Upload the repaired pieces
-	successfulNodes, hashes, err := repairer.ec.Repair(ctx, putLimits, putPrivateKey, redundancy, segmentReader, repairer.timeout, path, minSuccessfulNeeded)
+	successfulNodes, _, err := repairer.ec.Repair(ctx, putLimits, putPrivateKey, redundancy, segmentReader, repairer.timeout, path, minSuccessfulNeeded)
 	if err != nil {
 		return false, repairPutError.Wrap(err)
 	}
 
 	// Add the successfully uploaded pieces to repairedPieces
-	var repairedPieces []*pb.RemotePiece
-	repairedMap := make(map[int32]bool)
+	var repairedPieces metabase.Pieces
+	repairedMap := make(map[uint16]bool)
 	for i, node := range successfulNodes {
 		if node == nil {
 			continue
 		}
-		piece := pb.RemotePiece{
-			PieceNum: int32(i),
-			NodeId:   node.Id,
-			Hash:     hashes[i],
+		piece := metabase.Piece{
+			Number:      uint16(i),
+			StorageNode: node.Id,
 		}
-		repairedPieces = append(repairedPieces, &piece)
-		repairedMap[int32(i)] = true
+		repairedPieces = append(repairedPieces, piece)
+		repairedMap[uint16(i)] = true
 	}
 
-	healthyAfterRepair := int32(len(healthyPieces) + len(repairedPieces))
+	healthyAfterRepair := len(healthyPieces) + len(repairedPieces)
 	switch {
-	case healthyAfterRepair <= pointer.Remote.Redundancy.RepairThreshold:
+	case healthyAfterRepair <= int(segment.Redundancy.RepairShares):
 		// Important: this indicates a failure to PUT enough pieces to the network to pass
 		// the repair threshold, and _not_ a failure to reconstruct the segment. But we
 		// put at least one piece, else ec.Repair() would have returned an error. So the
 		// repair "succeeded" in that the segment is now healthier than it was, but it is
 		// not as healthy as we want it to be.
 		mon.Meter("repair_failed").Mark(1) //mon:locked
-	case healthyAfterRepair < pointer.Remote.Redundancy.SuccessThreshold:
+	case healthyAfterRepair < int(segment.Redundancy.OptimalShares):
 		mon.Meter("repair_partial").Mark(1) //mon:locked
 	default:
 		mon.Meter("repair_success").Mark(1) //mon:locked
 	}
 
 	healthyRatioAfterRepair := 0.0
-	if pointer.Remote.Redundancy.Total != 0 {
-		healthyRatioAfterRepair = float64(healthyAfterRepair) / float64(pointer.Remote.Redundancy.Total)
+	if segment.Redundancy.TotalShares != 0 {
+		healthyRatioAfterRepair = float64(healthyAfterRepair) / float64(segment.Redundancy.TotalShares)
 	}
 	mon.FloatVal("healthy_ratio_after_repair").Observe(healthyRatioAfterRepair) //mon:locked
 
-	var toRemove []*pb.RemotePiece
-	if healthyAfterRepair >= pointer.Remote.Redundancy.SuccessThreshold {
+	var toRemove metabase.Pieces
+	if healthyAfterRepair >= int(segment.Redundancy.OptimalShares) {
 		// if full repair, remove all unhealthy pieces
 		toRemove = unhealthyPieces
 	} else {
 		// if partial repair, leave unrepaired unhealthy pieces in the pointer
 		for _, piece := range unhealthyPieces {
-			if repairedMap[piece.GetPieceNum()] {
+			if repairedMap[piece.Number] {
 				// add only repaired pieces in the slice, unrepaired
 				// unhealthy pieces are not removed from the pointer
 				toRemove = append(toRemove, piece)
@@ -332,25 +362,74 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	toRemove = append(toRemove, failedPieces...)
 
 	var segmentAge time.Duration
-	if pointer.CreationDate.Before(pointer.LastRepaired) {
-		segmentAge = time.Since(pointer.LastRepaired)
-	} else {
-		segmentAge = time.Since(pointer.CreationDate)
+	var repairCount int64
+	// TODO what to do with segmentAge and RepairCount
+	// if pointer.CreationDate.Before(pointer.LastRepaired) {
+	// 	segmentAge = time.Since(pointer.LastRepaired)
+	// } else {
+	// 	segmentAge = time.Since(pointer.CreationDate)
+	// }
+
+	// pointer.LastRepaired = time.Now().UTC()
+	// pointer.RepairCount++
+
+	newPieces, err := updatePieces(segment.Pieces, repairedPieces, toRemove)
+	if err != nil {
+		return false, repairPutError.Wrap(err)
 	}
 
-	pointer.LastRepaired = time.Now().UTC()
-	pointer.RepairCount++
+	err = repairer.metabase.UpdateSegmentPieces(ctx, metabase.UpdateSegmentPieces{
+		StreamID: object.StreamID,
+		Position: segmentLocation.Position,
 
-	// Update the segment pointer in the metainfo
-	_, err = repairer.metainfo.UpdatePieces(ctx, metabase.SegmentKey(path), pointer, repairedPieces, toRemove)
+		OldPieces: segment.Pieces,
+		NewPieces: newPieces,
+	})
 	if err != nil {
 		return false, metainfoPutError.Wrap(err)
 	}
 
 	mon.IntVal("segment_time_until_repair").Observe(int64(segmentAge.Seconds())) //mon:locked
-	mon.IntVal("segment_repair_count").Observe(int64(pointer.RepairCount))       //mon:locked
+	mon.IntVal("segment_repair_count").Observe(repairCount)                      //mon:locked
 
 	return true, nil
+}
+
+func updatePieces(orignalPieces, toAddPieces, toRemovePieces metabase.Pieces) (metabase.Pieces, error) {
+	pieceMap := make(map[uint16]metabase.Piece)
+	for _, piece := range orignalPieces {
+		pieceMap[piece.Number] = piece
+	}
+
+	// remove the toRemove pieces from the map
+	// only if all piece number, node id match
+	for _, piece := range toRemovePieces {
+		if piece == (metabase.Piece{}) {
+			continue
+		}
+		existing := pieceMap[piece.Number]
+		if existing != (metabase.Piece{}) && existing.StorageNode == piece.StorageNode {
+			delete(pieceMap, piece.Number)
+		}
+	}
+
+	// add the pieces to the map
+	for _, piece := range toAddPieces {
+		if piece == (metabase.Piece{}) {
+			continue
+		}
+		_, exists := pieceMap[piece.Number]
+		if exists {
+			return metabase.Pieces{}, Error.New("piece to add already exists (piece no: %d)", piece.Number)
+		}
+		pieceMap[piece.Number] = piece
+	}
+
+	newPieces := make(metabase.Pieces, 0, len(pieceMap))
+	for _, piece := range pieceMap {
+		newPieces = append(newPieces, piece)
+	}
+	return newPieces, nil
 }
 
 func (repairer *SegmentRepairer) updateAuditFailStatus(ctx context.Context, failedAuditNodeIDs storj.NodeIDList) (failedNum int, err error) {
@@ -371,8 +450,8 @@ func (repairer *SegmentRepairer) updateAuditFailStatus(ctx context.Context, fail
 }
 
 // sliceToSet converts the given slice to a set.
-func sliceToSet(slice []int32) map[int32]bool {
-	set := make(map[int32]bool, len(slice))
+func sliceToSet(slice []uint16) map[uint16]bool {
+	set := make(map[uint16]bool, len(slice))
 	for _, value := range slice {
 		set[value] = true
 	}

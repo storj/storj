@@ -50,7 +50,6 @@ type Checker struct {
 	logger          *zap.Logger
 	repairQueue     queue.RepairQueue
 	irrdb           irreparable.DB
-	metainfo        *metainfo.Service
 	metaLoop        *metainfo.Loop
 	nodestate       *ReliabilityCache
 	repairOverrides RepairOverridesMap
@@ -60,13 +59,12 @@ type Checker struct {
 }
 
 // NewChecker creates a new instance of checker.
-func NewChecker(logger *zap.Logger, repairQueue queue.RepairQueue, irrdb irreparable.DB, metainfo *metainfo.Service, metaLoop *metainfo.Loop, overlay *overlay.Service, config Config) *Checker {
+func NewChecker(logger *zap.Logger, repairQueue queue.RepairQueue, irrdb irreparable.DB, metaLoop *metainfo.Loop, overlay *overlay.Service, config Config) *Checker {
 	return &Checker{
 		logger: logger,
 
 		repairQueue:     repairQueue,
 		irrdb:           irrdb,
-		metainfo:        metainfo,
 		metaLoop:        metaLoop,
 		nodestate:       NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
 		repairOverrides: config.RepairOverrides.GetMap(),

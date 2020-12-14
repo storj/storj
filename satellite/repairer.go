@@ -171,7 +171,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	{ // setup repairer
 		peer.SegmentRepairer = repairer.NewSegmentRepairer(
 			log.Named("segment-repair"),
-			peer.Metainfo,
+			metabaseDB,
 			peer.Orders.Service,
 			peer.Overlay,
 			peer.Dialer,

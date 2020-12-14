@@ -163,7 +163,6 @@ func (service *Service) worker(ctx context.Context, seg *internalpb.InjuredSegme
 				zap.Error(err))
 			segmentInfo := &internalpb.IrreparableSegment{
 				Path:               seg.GetPath(),
-				SegmentDetail:      irreparableErr.segmentInfo,
 				LostPieces:         irreparableErr.piecesRequired - irreparableErr.piecesAvailable,
 				LastRepairAttempt:  time.Now().Unix(),
 				RepairAttemptCount: int64(1),

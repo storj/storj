@@ -15,6 +15,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/internalpb"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 )
 
@@ -485,11 +486,11 @@ func (service *Service) GetSuccesfulNodesNotCheckedInSince(ctx context.Context, 
 }
 
 // GetMissingPieces returns the list of offline nodes.
-func (service *Service) GetMissingPieces(ctx context.Context, pieces []*pb.RemotePiece) (missingPieces []int32, err error) {
+func (service *Service) GetMissingPieces(ctx context.Context, pieces metabase.Pieces) (missingPieces []uint16, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var nodeIDs storj.NodeIDList
 	for _, p := range pieces {
-		nodeIDs = append(nodeIDs, p.NodeId)
+		nodeIDs = append(nodeIDs, p.StorageNode)
 	}
 	badNodeIDs, err := service.KnownUnreliableOrOffline(ctx, nodeIDs)
 	if err != nil {
@@ -498,8 +499,8 @@ func (service *Service) GetMissingPieces(ctx context.Context, pieces []*pb.Remot
 
 	for _, p := range pieces {
 		for _, nodeID := range badNodeIDs {
-			if nodeID == p.NodeId {
-				missingPieces = append(missingPieces, p.GetPieceNum())
+			if nodeID == p.StorageNode {
+				missingPieces = append(missingPieces, p.Number)
 			}
 		}
 	}
