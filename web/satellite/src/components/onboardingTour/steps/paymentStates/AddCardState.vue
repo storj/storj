@@ -35,7 +35,7 @@ import VButton from '@/components/common/VButton.vue';
 
 import LockImage from '@/../static/images/account/billing/lock.svg';
 
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
@@ -108,7 +108,7 @@ export default class AddCardState extends Vue {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, createdProjectId);
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR);
+            await this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
             await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
 
             this.setDefaultState();

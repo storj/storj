@@ -28,8 +28,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import BucketsDropdown from '@/components/accessGrants/permissions/BucketsDropdown.vue';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
-
-import { RouteConfig } from '@/router';
+import {RouteConfig} from "@/router";
 
 @Component({
     components: {
@@ -102,7 +101,6 @@ export default class BucketsSelection extends Vue {
             justify-content: space-between;
             padding: 15px 20px;
             width: calc(100% - 40px);
-            border-radius: 6px;
 
             &__name {
                 font-style: normal;

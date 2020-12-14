@@ -18,6 +18,7 @@ import AccountBilling from '@/components/account/billing/BillingArea.vue';
 import DetailedHistory from '@/components/account/billing/depositAndBillingHistory/DetailedHistory.vue';
 import CreditsHistory from '@/components/account/billing/freeCredits/CreditsHistory.vue';
 import SettingsArea from '@/components/account/SettingsArea.vue';
+import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
 import AddPaymentStep from '@/components/onboardingTour/steps/AddPaymentStep.vue';
@@ -49,6 +50,7 @@ export abstract class RouteConfig {
     public static Account = new NavigationLink('/account', 'Account');
     public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');
     public static Users = new NavigationLink('/project-members', 'Users');
+    public static ApiKeys = new NavigationLink('/api-keys', 'API Keys');
     public static OnboardingTour = new NavigationLink('/onboarding-tour', 'Onboarding Tour');
     public static CreateProject = new NavigationLink('/create-project', 'Create Project');
     public static EditProjectDetails = new NavigationLink('/edit-project-details', 'Edit Project Details');
@@ -176,6 +178,11 @@ export const router = new Router({
                     path: RouteConfig.Users.path,
                     name: RouteConfig.Users.name,
                     component: ProjectMembersArea,
+                },
+                {
+                    path: RouteConfig.ApiKeys.path,
+                    name: RouteConfig.ApiKeys.name,
+                    component: ApiKeysArea,
                 },
                 {
                     path: RouteConfig.OnboardingTour.path,

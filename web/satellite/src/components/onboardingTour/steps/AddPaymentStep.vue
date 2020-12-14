@@ -154,7 +154,7 @@ export default class AddPaymentStep extends Vue {
      * Sets tour area to creating access grant state.
      */
     public setCreateGrantStep(): void {
-        this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).with(RouteConfig.AccessGrantName).path);
+        this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).path);
     }
 
     /**

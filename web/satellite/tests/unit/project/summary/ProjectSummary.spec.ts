@@ -5,7 +5,7 @@ import Vuex from 'vuex';
 
 import ProjectSummary from '@/components/project/summary/ProjectSummary.vue';
 
-import { makeAccessGrantsModule } from '@/store/modules/accessGrants';
+import { makeApiKeysModule } from '@/store/modules/apiKeys';
 import { makeBucketsModule } from '@/store/modules/buckets';
 import { makePaymentsModule } from '@/store/modules/payments';
 import { makeProjectMembersModule } from '@/store/modules/projectMembers';
@@ -13,7 +13,7 @@ import { makeProjectsModule } from '@/store/modules/projects';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { createLocalVue, mount } from '@vue/test-utils';
 
-import { AccessGrantsMock } from '../../mock/api/accessGrants';
+import { ApiKeysMock } from '../../mock/api/apiKeys';
 import { BucketsMock } from '../../mock/api/buckets';
 import { PaymentsMock } from '../../mock/api/payments';
 import { ProjectMembersApiMock } from '../../mock/api/projectMembers';
@@ -35,12 +35,12 @@ const paymentsApi = new PaymentsMock();
 const paymentsModule = makePaymentsModule(paymentsApi);
 const bucketsApi = new BucketsMock();
 const bucketUsageModule = makeBucketsModule(bucketsApi);
-const accessGrantsApi = new AccessGrantsMock();
-const accessGrantsModule = makeAccessGrantsModule(accessGrantsApi);
+const apiKeysApi = new ApiKeysMock();
+const apiKeysModule = makeApiKeysModule(apiKeysApi);
 const projectMembersApi = new ProjectMembersApiMock();
 const projectMembersModule = makeProjectMembersModule(projectMembersApi);
 
-const store = new Vuex.Store({ modules: { projectsModule, paymentsModule, bucketUsageModule, projectMembersModule, accessGrantsModule }});
+const store = new Vuex.Store({ modules: { projectsModule, paymentsModule, bucketUsageModule, projectMembersModule, apiKeysModule }});
 
 describe('ProjectSummary.vue', (): void => {
     it('renders correctly', (): void => {
