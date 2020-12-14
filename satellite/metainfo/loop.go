@@ -41,6 +41,7 @@ func (object *Object) Expired(now time.Time) bool {
 // Segment is the segment info passed to Observer by metainfo loop.
 type Segment struct {
 	Location       metabase.SegmentLocation // tally, repair, graceful exit, audit
+	StreamID       uuid.UUID                // audit
 	DataSize       int                      // tally, graceful exit
 	MetadataSize   int                      // tally
 	Inline         bool                     // metrics
@@ -482,6 +483,7 @@ func handleSegment(ctx context.Context, observer *observerContext, location meta
 		Location: location,
 	}
 
+	loopSegment.StreamID = segment.StreamID
 	loopSegment.DataSize = int(segment.EncryptedSize) // TODO should this be plain or enrypted size
 	if segment.Inline() {
 		loopSegment.Inline = true
