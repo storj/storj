@@ -291,6 +291,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Log.Named("repair:checker"),
 			peer.DB.RepairQueue(),
 			peer.DB.Irreparable(),
+			peer.Metainfo.Metabase,
 			peer.Metainfo.Loop,
 			peer.Overlay.Service,
 			config.Checker)

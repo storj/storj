@@ -10,10 +10,10 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -27,7 +27,7 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		ctx.Go(func() error {
 			for i := 0; i < 10000; i++ {
-				pieces := []*pb.RemotePiece{{NodeId: testrand.NodeID()}}
+				pieces := []metabase.Piece{{StorageNode: testrand.NodeID()}}
 				_, err := rcache.MissingPieces(ctx, time.Now(), pieces)
 				if err != nil {
 					return err

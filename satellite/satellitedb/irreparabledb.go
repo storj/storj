@@ -22,9 +22,16 @@ type irreparableDB struct {
 func (db *irreparableDB) IncrementRepairAttempts(ctx context.Context, segmentInfo *internalpb.IrreparableSegment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
-		bytes, err := pb.Marshal(segmentInfo.SegmentDetail)
-		if err != nil {
-			return err
+		var bytes []byte
+		if segmentInfo.SegmentDetail == nil {
+			// set empty array in case of missing SegmentDetail
+			// current code is not using it
+			bytes = []byte{}
+		} else {
+			bytes, err = pb.Marshal(segmentInfo.SegmentDetail)
+			if err != nil {
+				return err
+			}
 		}
 
 		dbxInfo, err := tx.Get_Irreparabledb_By_Segmentpath(ctx, dbx.Irreparabledb_Segmentpath(segmentInfo.Path))

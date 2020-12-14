@@ -131,7 +131,6 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		expectedLocation := metabase.SegmentLocation{
 			ProjectID:  projectID,
 			BucketName: "test-bucket",
-			ObjectKey:  "piece",
 		}
 
 		// when number of healthy piece is less than minimum required number of piece in redundancy,

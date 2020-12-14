@@ -1263,25 +1263,10 @@ func testRepairGracefullyExited(t *testing.T, inMemoryRepair bool) {
 		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		// get a remote segment from metainfo
-		metainfo := satellite.Metainfo.Service
-		listResponse, _, err := metainfo.List(ctx, metabase.SegmentKey{}, "", true, 0, 0)
-		require.NoError(t, err)
-		require.NotNil(t, listResponse)
-
-		var key metabase.SegmentKey
-		var pointer *pb.Pointer
-		for _, v := range listResponse {
-			key = metabase.SegmentKey(v.GetPath())
-			pointer, err = metainfo.Get(ctx, key)
-			require.NoError(t, err)
-			if pointer.GetType() == pb.Pointer_REMOTE {
-				break
-			}
-		}
+		segment, _ := getRemoteSegment(t, ctx, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
 
 		numStorageNodes := len(planet.StorageNodes)
-		remotePieces := pointer.GetRemote().GetRemotePieces()
+		remotePieces := segment.Pieces
 		numPieces := len(remotePieces)
 		// sanity check
 		require.EqualValues(t, numPieces, 7)
@@ -1295,9 +1280,9 @@ func testRepairGracefullyExited(t *testing.T, inMemoryRepair bool) {
 
 		// exit nodes
 		for i := 0; i < toExit; i++ {
-			nodesToExit[remotePieces[i].NodeId] = true
+			nodesToExit[remotePieces[i].StorageNode] = true
 			req := &overlay.ExitStatusRequest{
-				NodeID:              remotePieces[i].NodeId,
+				NodeID:              remotePieces[i].StorageNode,
 				ExitInitiatedAt:     time.Now(),
 				ExitLoopCompletedAt: time.Now(),
 				ExitFinishedAt:      time.Now(),
@@ -1306,7 +1291,7 @@ func testRepairGracefullyExited(t *testing.T, inMemoryRepair bool) {
 			require.NoError(t, err)
 		}
 		for i := toExit; i < len(remotePieces); i++ {
-			nodesToKeepAlive[remotePieces[i].NodeId] = true
+			nodesToKeepAlive[remotePieces[i].StorageNode] = true
 		}
 
 		err = satellite.Repair.Checker.RefreshReliabilityCache(ctx)
@@ -1329,12 +1314,11 @@ func testRepairGracefullyExited(t *testing.T, inMemoryRepair bool) {
 		require.Equal(t, newData, testData)
 
 		// updated pointer should not contain any of the gracefully exited nodes
-		pointer, err = metainfo.Get(ctx, key)
-		require.NoError(t, err)
+		segmentAfter, _ := getRemoteSegment(t, ctx, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
 
-		remotePieces = pointer.GetRemote().GetRemotePieces()
+		remotePieces = segmentAfter.Pieces
 		for _, piece := range remotePieces {
-			require.False(t, nodesToExit[piece.NodeId])
+			require.False(t, nodesToExit[piece.StorageNode])
 		}
 	})
 }

@@ -12,7 +12,6 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/time/rate"
 
-	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metainfo/metabase"
@@ -51,7 +50,6 @@ type Segment struct {
 	CreationDate   time.Time                // repair
 	ExpirationDate time.Time                // tally, repair
 	LastRepaired   time.Time                // repair
-	Pointer        *pb.Pointer              // repair
 }
 
 // Expired checks if segment is expired relative to now.
@@ -481,7 +479,6 @@ func handleObject(ctx context.Context, observer *observerContext, location metab
 func handleSegment(ctx context.Context, observer *observerContext, location metabase.SegmentLocation, segment metabase.Segment, expiresAt *time.Time) bool {
 	loopSegment := &Segment{
 		Location: location,
-		Pointer:  &pb.Pointer{},
 	}
 
 	if expiresAt != nil {
