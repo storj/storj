@@ -373,7 +373,7 @@ func TestHeldAmountApi(t *testing.T) {
 					HoldForThirdPeriod:  0,
 					TotalHeld:           28,
 					TotalDisposed:       32,
-					JoinedAt:            date,
+					JoinedAt:            date.Round(time.Minute),
 				}
 
 				stefanID, err := storj.NodeIDFromString("118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW")

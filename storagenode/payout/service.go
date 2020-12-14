@@ -216,7 +216,7 @@ func (service *Service) AllHeldbackHistory(ctx context.Context) (result []Satell
 			return nil, ErrPayoutService.Wrap(err)
 		}
 
-		history.JoinedAt = stats.JoinedAt
+		history.JoinedAt = stats.JoinedAt.Round(time.Minute)
 		result = append(result, history)
 	}
 
