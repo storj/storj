@@ -26,6 +26,8 @@ COPY --from=ui /app/static /app/static
 COPY --from=ui /app/dist /app/dist
 COPY --from=ui /app/marketing /app/marketing
 COPY --from=ca-cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+COPY release/${TAG}/wasm/access.wasm /app/static/wasm/
+COPY release/${TAG}/wasm/wasm_exec.js /app/static/wasm/
 COPY release/${TAG}/satellite_linux_${GOARCH:-amd64} /app/satellite
 COPY release/${TAG}/inspector_linux_${GOARCH:-amd64} /app/inspector
 COPY cmd/satellite/entrypoint /entrypoint

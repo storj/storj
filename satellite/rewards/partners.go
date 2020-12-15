@@ -68,6 +68,10 @@ func DefaultPartners() PartnerList {
 			ID:   "53fb82d7-73ff-4a1a-ab0c-6968cffc850e",
 			UUID: parseUUID("53fb82d7-73ff-4a1a-ab0c-6968cffc850e"),
 		}, {
+			Name: "Fastly",
+			ID:   "464699ba-301a-4c92-a740-692926d57661",
+			UUID: parseUUID("464699ba-301a-4c92-a740-692926d57661"),
+		}, {
 			Name: "Fluree",
 			ID:   "86c33256-cded-434c-aaac-405343974394",
 			UUID: parseUUID("86c33256-cded-434c-aaac-405343974394"),

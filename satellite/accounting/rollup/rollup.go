@@ -147,14 +147,10 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 // RollupBW aggregates the bandwidth rollups, modifies rollupStats map.
 func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	var latestTally time.Time
 	err = r.sdb.GetBandwidthSince(ctx, lastRollup.UTC(), func(ctx context.Context, row *accounting.StoragenodeBandwidthRollup) error {
 		nodeID := row.NodeID
 		// interval is the time the bw order was saved
 		interval := row.IntervalStart.UTC()
-		if interval.After(latestTally) {
-			latestTally = interval
-		}
 		day := time.Date(interval.Year(), interval.Month(), interval.Day(), 0, 0, 0, 0, interval.Location())
 		if rollupStats[day] == nil {
 			rollupStats[day] = make(map[storj.NodeID]*accounting.Rollup)
@@ -184,6 +180,6 @@ func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStat
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	// TODO: we don't do anything with latestTally after figuring it out. should we?
+
 	return nil
 }

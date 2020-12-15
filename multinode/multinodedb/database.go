@@ -13,6 +13,7 @@ import (
 	"storj.io/storj/multinode"
 	"storj.io/storj/multinode/console"
 	"storj.io/storj/multinode/multinodedb/dbx"
+	"storj.io/storj/multinode/nodes"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
 )
@@ -79,8 +80,8 @@ func Open(ctx context.Context, log *zap.Logger, databaseURL string) (multinode.D
 }
 
 // Nodes returns nodes database.
-func (db *multinodeDB) Nodes() console.Nodes {
-	return &nodes{
+func (db *multinodeDB) Nodes() nodes.DB {
+	return &nodesdb{
 		methods: db,
 	}
 }

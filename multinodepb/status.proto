@@ -1,0 +1,21 @@
+// Copyright (C) 2020 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "storj.io/storj/multinodepb";
+
+package status;
+
+import "gogo.proto";
+import "google/protobuf/timestamp.proto";
+
+service Status {
+    rpc Get(GetRequest) returns (GetResponse);
+}
+
+message GetRequest {}
+
+message GetResponse {
+    google.protobuf.Timestamp started_at = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    string version = 2; // must be semver formatted
+}
