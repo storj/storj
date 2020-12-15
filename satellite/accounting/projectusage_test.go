@@ -362,7 +362,7 @@ func TestUsageRollups(t *testing.T) {
 		)
 
 		now := time.Now()
-		start := now.Add(tallyInterval * time.Duration(-tallyIntervals))
+		start := now.Add(tallyInterval * -tallyIntervals)
 
 		db := planet.Satellites[0].DB
 
