@@ -8,9 +8,14 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 )
+
+// ErrSegmentNotFound is an error class for non-existing segment.
+var ErrSegmentNotFound = errs.Class("segment not found")
 
 // Object object metadata.
 // TODO define separated struct.
@@ -191,7 +196,7 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return Segment{}, Error.New("segment missing")
+			return Segment{}, ErrSegmentNotFound.New("segment missing")
 		}
 		return Segment{}, Error.New("unable to query segment: %w", err)
 	}

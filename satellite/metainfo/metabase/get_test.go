@@ -351,7 +351,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 				Opts: metabase.GetSegmentByPosition{
 					StreamID: obj.StreamID,
 				},
-				ErrClass: &metabase.Error,
+				ErrClass: &metabase.ErrSegmentNotFound,
 				ErrText:  "segment missing",
 			}.Check(ctx, t, db)
 
@@ -395,7 +395,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 						Index: 2,
 					},
 				},
-				ErrClass: &metabase.Error,
+				ErrClass: &metabase.ErrSegmentNotFound,
 				ErrText:  "segment missing",
 			}.Check(ctx, t, db)
 

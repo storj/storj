@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"errors"
 
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/storage"
 )
@@ -48,8 +47,7 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 		`, opts.StreamID, opts.Position, opts.OldPieces, opts.NewPieces).Scan(&pieces)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			// TODO should we have something like ErrSegmentNotFound
-			return storj.ErrObjectNotFound.New("segment not found")
+			return ErrSegmentNotFound.New("segment missing")
 		}
 		return Error.New("unable to update segment pieces: %w", err)
 	}

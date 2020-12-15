@@ -9,7 +9,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metainfo/metabase"
@@ -64,8 +63,8 @@ func TestUpdateSegmentPieces(t *testing.T) {
 						},
 					},
 				},
-				ErrClass: &storj.ErrObjectNotFound,
-				ErrText:  "segment not found",
+				ErrClass: &metabase.ErrSegmentNotFound,
+				ErrText:  "segment missing",
 			}.Check(ctx, t, db)
 		})
 
