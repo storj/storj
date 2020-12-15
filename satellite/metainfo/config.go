@@ -208,6 +208,11 @@ type MetabaseDB interface {
 	// TestingAllObjectSegments gets all segments for given object. Use only for testing purposes.
 	TestingAllObjectSegments(ctx context.Context, objectLocation metabase.ObjectLocation) (segments []metabase.Segment, err error)
 
+	// TestingAllObjects gets all objects. Use only for testing purposes.
+	TestingAllObjects(ctx context.Context) (segments []metabase.Object, err error)
+	// TestingAllSegments gets all segments. Use only for testing purposes.
+	TestingAllSegments(ctx context.Context) (segments []metabase.Segment, err error)
+
 	// InternalImplementation returns *metabase.DB.
 	// TODO: remove.
 	InternalImplementation() interface{}

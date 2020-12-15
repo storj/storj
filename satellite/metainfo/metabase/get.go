@@ -413,3 +413,37 @@ func (db *DB) TestingAllObjectSegments(ctx context.Context, objectLocation Objec
 
 	return response.Segments, nil
 }
+
+// TestingAllObjects gets all objects.
+// Use only for testing purposes.
+func (db *DB) TestingAllObjects(ctx context.Context) (objects []Object, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rawObjects, err := db.testingGetAllObjects(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, o := range rawObjects {
+		objects = append(objects, Object(o))
+	}
+
+	return objects, nil
+}
+
+// TestingAllSegments gets all segments.
+// Use only for testing purposes.
+func (db *DB) TestingAllSegments(ctx context.Context) (segments []Segment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rawSegments, err := db.testingGetAllSegments(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, s := range rawSegments {
+		segments = append(segments, Segment(s))
+	}
+
+	return segments, nil
+}
