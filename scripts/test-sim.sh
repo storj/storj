@@ -17,7 +17,7 @@ make -C "$SCRIPTDIR"/.. install-sim
 echo "Overriding default max segment size to 6MiB"
 GOBIN=$TMP go install -v -ldflags "-X 'storj.io/uplink.maxSegmentSize=6MiB'" storj.io/storj/cmd/uplink
 
-# use modifed version of uplink
+# use modified version of uplink
 export PATH=$TMP:$PATH
 
 export STORJ_NETWORK_DIR=$TMP
