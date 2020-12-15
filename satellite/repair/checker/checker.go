@@ -332,7 +332,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metainfo
 			Path:         key,
 			LostPieces:   missingPieces,
 			InsertedTime: time.Now().UTC(),
-		}, segmentHealth)
+		}, float64(numHealthy))
 		if err != nil {
 			obs.log.Error("error adding injured segment to queue", zap.Error(err))
 			return nil
