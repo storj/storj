@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="enter-passphrase">
+    <div class="enter-passphrase" :class="{ 'border-radius': isOnboardingTour }">
         <BackIcon class="enter-passphrase__back-icon" @click="onBackClick"/>
         <h1 class="enter-passphrase__title">Enter Encryption Passphrase</h1>
         <p class="enter-passphrase__sub-title">Enter the passphrase you most recently generated for Access Grants</p>
@@ -44,6 +44,7 @@ import { MetaUtils } from '@/utils/meta';
 })
 export default class EnterPassphraseStep extends Vue {
     private key: string = '';
+    private restrictedKey: string = '';
     private access: string = '';
     private worker: Worker;
     private isLoading: boolean = true;
@@ -56,11 +57,14 @@ export default class EnterPassphraseStep extends Vue {
      * Sets local key from props value.
      */
     public async mounted(): Promise<void> {
-        if (!this.$route.params.key) {
+        if (!this.$route.params.key && !this.$route.params.restrictedKey) {
             await this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
+
+            return;
         }
 
         this.key = this.$route.params.key;
+        this.restrictedKey = this.$route.params.restrictedKey;
         this.worker = await new Worker('/static/static/wasm/webWorker.js');
         this.worker.onmessage = (event: MessageEvent) => {
             const data = event.data;
@@ -107,7 +111,7 @@ export default class EnterPassphraseStep extends Vue {
 
         this.worker.postMessage({
             'type': 'GenerateAccess',
-            'apiKey': this.key,
+            'apiKey': this.restrictedKey,
             'passphrase': this.passphrase,
             'projectID': this.$store.getters.selectedProject.id,
             'satelliteName': satelliteName,
@@ -190,6 +194,10 @@ export default class EnterPassphraseStep extends Vue {
         &__next-button {
             margin-top: 93px;
         }
+    }
+
+    .border-radius {
+        border-radius: 6px;
     }
 </style>
 
