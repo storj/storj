@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package consolewasm_test
+package console_test
 
 import (
 	"testing"
@@ -13,7 +13,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
-	console "storj.io/storj/satellite/console/consolewasm"
+	"storj.io/storj/satellite/console"
 	"storj.io/uplink"
 )
 
