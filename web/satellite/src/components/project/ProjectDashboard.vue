@@ -48,7 +48,7 @@ export default class ProjectDashboard extends Vue {
      */
     public mounted(): void {
         if (!this.$store.getters.selectedProject.id) {
-            this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+            this.$router.push(RouteConfig.OnboardingTour.path);
 
             return;
         }

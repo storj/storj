@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="generate-grant" :class="{ 'border-radius': isOnboardingTour }">
+    <div class="generate-grant">
         <BackIcon class="generate-grant__back-icon" @click="onBackClick"/>
         <h1 class="generate-grant__title">Generate Access Grant</h1>
         <div class="generate-grant__warning">
@@ -192,17 +192,6 @@ export default class ResultStep extends Vue {
      * Redirects to previous step.
      */
     public onBackClick(): void {
-        if (this.isOnboardingTour) {
-            this.$router.push({
-                name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantPassphrase)).name,
-                params: {
-                    key: this.$route.params.key,
-                },
-            });
-
-            return;
-        }
-
         if (this.accessGrantsAmount > 1) {
             this.$router.push({
                 name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.EnterPassphraseStep)).name,
@@ -227,12 +216,6 @@ export default class ResultStep extends Vue {
      * Proceed to upload data step.
      */
     public onDoneClick(): void {
-        if (this.isOnboardingTour) {
-            this.$router.push(RouteConfig.ProjectDashboard.path);
-
-            return;
-        }
-
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.UploadStep)).name,
             params: {
@@ -258,13 +241,6 @@ export default class ResultStep extends Vue {
             await this.$notify.error(error.message);
             this.isLoading = false;
         }
-    }
-
-    /**
-     * Indicates if current route is onboarding tour.
-     */
-    public get isOnboardingTour(): boolean {
-        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 
     /**
@@ -316,7 +292,7 @@ export default class ResultStep extends Vue {
 
         &__warning {
             padding: 20px;
-            width: calc(100% - 42px);
+            width: calc(100% - 40px);
             background: #fff9f7;
             border: 1px solid #f84b00;
             border-radius: 8px;
@@ -360,7 +336,7 @@ export default class ResultStep extends Vue {
                 align-items: center;
                 border-radius: 9px;
                 padding: 10px;
-                width: calc(100% - 22px);
+                width: calc(100% - 20px);
                 border: 1px solid rgba(56, 75, 101, 0.4);
 
                 &__value {
@@ -469,9 +445,5 @@ export default class ResultStep extends Vue {
         &__done-button {
             margin-top: 30px;
         }
-    }
-
-    .border-radius {
-        border-radius: 6px;
     }
 </style>

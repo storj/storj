@@ -20,8 +20,7 @@ exports[`AddStorjState.vue renders correctly 1`] = `
     </div>
     <!---->
   </div>
-  <p class="add-storj-state__next-label">Next</p>
-  <vbutton-stub label="Create an Acess Grant" width="252px" height="48px" isdisabled="true" onpress="function () { [native code] }"></vbutton-stub>
+  <vbutton-stub label="Name Your Project" width="222px" height="48px" isdisabled="true" onpress="function () { [native code] }"></vbutton-stub>
 </div>
 `;
 
@@ -45,8 +44,7 @@ exports[`AddStorjState.vue renders correctly with completed transaction 1`] = `
     </div>
     <!---->
   </div>
-  <p class="add-storj-state__next-label">Next</p>
-  <vbutton-stub label="Create an Acess Grant" width="252px" height="48px" onpress="function () { [native code] }"></vbutton-stub>
+  <vbutton-stub label="Name Your Project" width="222px" height="48px" onpress="function () { [native code] }"></vbutton-stub>
 </div>
 `;
 
@@ -70,7 +68,6 @@ exports[`AddStorjState.vue renders correctly with pending transaction 1`] = `
     </div>
     <!---->
   </div>
-  <p class="add-storj-state__next-label">Next</p>
-  <vbutton-stub label="Create an Acess Grant" width="252px" height="48px" isdisabled="true" onpress="function () { [native code] }"></vbutton-stub>
+  <vbutton-stub label="Name Your Project" width="222px" height="48px" isdisabled="true" onpress="function () { [native code] }"></vbutton-stub>
 </div>
 `;
