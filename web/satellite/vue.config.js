@@ -4,6 +4,7 @@
 const path = require('path');
 const CompressionWebpackPlugin = require('compression-webpack-plugin');
 const StyleLintPlugin = require('stylelint-webpack-plugin');
+const WorkerPlugin = require('worker-plugin');
 const productionGzipExtensions = ['js', 'css', 'ttf'];
 
 module.exports = {
@@ -21,6 +22,9 @@ module.exports = {
             new StyleLintPlugin({
                 files: ['**/*.{vue,sss,less,scss,sass}'],
                 emitWarning: true,
+            }),
+            new WorkerPlugin({
+                globalObject: 'self',
             })
         ],
     },
