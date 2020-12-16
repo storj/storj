@@ -351,7 +351,7 @@ func TestHeldAmountApi(t *testing.T) {
 			})
 
 			t.Run("test HeldbackHistory", func(t *testing.T) {
-				date := time.Now().UTC().AddDate(0, -2, 0)
+				date := time.Now().UTC().AddDate(0, -2, 0).Round(time.Minute)
 				err = reputationDB.Store(context.Background(), reputation.Stats{
 					SatelliteID: satellite.ID(),
 					JoinedAt:    date,
@@ -376,15 +376,8 @@ func TestHeldAmountApi(t *testing.T) {
 					JoinedAt:            date.Round(time.Minute),
 				}
 
-				stefanID, err := storj.NodeIDFromString("118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW")
-				require.NoError(t, err)
-
-				held2 := payout.SatelliteHeldHistory{
-					SatelliteID: stefanID,
-				}
-
 				var periods []payout.SatelliteHeldHistory
-				periods = append(periods, held, held2)
+				periods = append(periods, held)
 
 				expected, err := json.Marshal(periods)
 				require.NoError(t, err)
