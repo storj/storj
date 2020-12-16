@@ -33,6 +33,11 @@ install_sim(){
 
 pushd $SCRIPTDIR
     echo "Running test-sim"
+    
+    if [ -d "$SCRIPTDIR/storj" ]; then 
+      rm -Rf $SCRIPTDIR/storj; 
+    fi
+    
     git clone https://github.com/storj/storj.git --depth 1
 
     pushd ./storj
@@ -60,7 +65,12 @@ fi
 
 # run UI tests
 echo "section tests start"
-apt-get -y install google-chrome-stable
+apt-get -y install chromium
+export DEBIAN_FRONTEND="noninteractive"
+apt-get -y install xorg xvfb gtk2-engines-pixbuf
+apt-get -y install dbus-x11 xfonts-base xfonts-100dpi xfonts-75dpi xfonts-cyrillic xfonts-scalable
+apt-get -y install imagemagick x11-apps
+Xvfb -ac :99 -screen 0 1280x1024x16 & export DISPLAY=:99
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network run &
 go test "$SCRIPTDIR"/tests/UITests/.
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network destroy
