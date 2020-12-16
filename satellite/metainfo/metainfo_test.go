@@ -31,7 +31,6 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/internalpb"
 	satMetainfo "storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metainfo"
 	"storj.io/uplink/private/object"
@@ -1418,22 +1417,12 @@ func TestInlineSegmentThreshold(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		projectID := planet.Uplinks[0].Projects[0].ID
-
 		{ // limit is max inline segment size + encryption overhead
 			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test-bucket-inline", "inline-object", testrand.Bytes(4*memory.KiB))
 			require.NoError(t, err)
 
 			// we don't know encrypted path
-			objects, err := planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, projectID, "test-bucket-inline")
-			require.NoError(t, err)
-			require.Equal(t, 1, len(objects))
-
-			segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllObjectSegments(ctx, metabase.ObjectLocation{
-				ProjectID:  projectID,
-				BucketName: "test-bucket-inline",
-				ObjectKey:  objects[0].ObjectKey,
-			})
+			segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
 			require.NoError(t, err)
 			require.Zero(t, segments[0].Redundancy)
 			require.NotEmpty(t, segments[0].InlineData)
@@ -1444,15 +1433,7 @@ func TestInlineSegmentThreshold(t *testing.T) {
 			require.NoError(t, err)
 
 			// we don't know encrypted path
-			objects, err := planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, projectID, "test-bucket-remote")
-			require.NoError(t, err)
-			require.Equal(t, 1, len(objects))
-
-			segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllObjectSegments(ctx, metabase.ObjectLocation{
-				ProjectID:  projectID,
-				BucketName: "test-bucket-remote",
-				ObjectKey:  objects[0].ObjectKey,
-			})
+			segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
 			require.NoError(t, err)
 			require.NotZero(t, segments[0].Redundancy)
 			require.Empty(t, segments[0].InlineData)

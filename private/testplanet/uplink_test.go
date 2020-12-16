@@ -173,18 +173,8 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
-		projectID := planet.Uplinks[0].Projects[0].ID
-
 		// get a remote segment from metabase
-		objects, err := planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, projectID, "testbucket")
-		require.NoError(t, err)
-		require.Len(t, objects, 1)
-
-		segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllObjectSegments(ctx, metabase.ObjectLocation{
-			ProjectID:  projectID,
-			BucketName: "testbucket",
-			ObjectKey:  objects[0].ObjectKey,
-		})
+		segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Len(t, segments, 1)
 		require.NotEmpty(t, segments[0].Pieces)
