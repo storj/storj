@@ -48,7 +48,7 @@ func TestWorkerSuccess(t *testing.T) {
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
-		exitingNode, err := findNodeToExit(ctx, planet, 1)
+		exitingNode, err := findNodeToExit(ctx, planet)
 		require.NoError(t, err)
 		exitingNode.GracefulExit.Chore.Loop.Pause()
 
@@ -121,7 +121,7 @@ func TestWorkerTimeout(t *testing.T) {
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
-		exitingNode, err := findNodeToExit(ctx, planet, 1)
+		exitingNode, err := findNodeToExit(ctx, planet)
 		require.NoError(t, err)
 		exitingNode.GracefulExit.Chore.Loop.Pause()
 
@@ -201,7 +201,7 @@ func TestWorkerFailure_IneligibleNodeAge(t *testing.T) {
 		err := ul.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
-		exitingNode, err := findNodeToExit(ctx, planet, 1)
+		exitingNode, err := findNodeToExit(ctx, planet)
 		require.NoError(t, err)
 		exitingNode.GracefulExit.Chore.Loop.Pause()
 

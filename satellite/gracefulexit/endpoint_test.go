@@ -721,7 +721,7 @@ func TestFailureUplinkSignature(t *testing.T) {
 	})
 }
 
-func TestSuccessPointerUpdate(t *testing.T) {
+func TestSuccessSegmentUpdate(t *testing.T) {
 	testTransfers(t, 1, func(t *testing.T, ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.Satellite, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		var recNodeID storj.NodeID
 
@@ -799,18 +799,15 @@ func TestSuccessPointerUpdate(t *testing.T) {
 		// even though we failed 1, it eventually succeeded, so the count should be 0
 		require.EqualValues(t, 0, progress.PiecesFailed)
 
-		keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)
+		segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
 		require.NoError(t, err)
-
-		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(keys[0]))
-		require.NoError(t, err)
+		require.Len(t, segments, 1)
 
 		found := 0
-		require.NotNil(t, pointer.GetRemote())
-		require.True(t, len(pointer.GetRemote().GetRemotePieces()) > 0)
-		for _, piece := range pointer.GetRemote().GetRemotePieces() {
-			require.NotEqual(t, exitingNode.ID(), piece.NodeId)
-			if piece.NodeId == recNodeID {
+		require.True(t, len(segments[0].Pieces) > 0)
+		for _, piece := range segments[0].Pieces {
+			require.NotEqual(t, exitingNode.ID(), piece.StorageNode)
+			if piece.StorageNode == recNodeID {
 				found++
 			}
 		}
@@ -818,7 +815,7 @@ func TestSuccessPointerUpdate(t *testing.T) {
 	})
 }
 
-func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
+func TestUpdateSegmentFailure_DuplicatedNodeID(t *testing.T) {
 	testTransfers(t, 1, func(t *testing.T, ctx *testcontext.Context, nodeFullIDs map[storj.NodeID]*identity.FullIdentity, satellite *testplanet.Satellite, processClient exitProcessClient, exitingNode *storagenode.Peer, numPieces int) {
 		response, err := processClient.Recv()
 		require.NoError(t, err)
@@ -870,32 +867,29 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 				},
 			}
 
-			// update pointer to include the new receiving node before responding to satellite
-			keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)
+			// update segment to include the new receiving node before responding to satellite
+			segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
 			require.NoError(t, err)
+			require.Len(t, segments, 1)
+			require.True(t, len(segments[0].Pieces) > 0)
 
-			pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(keys[0]))
-			require.NoError(t, err)
-			require.NotNil(t, pointer.GetRemote())
-			require.True(t, len(pointer.GetRemote().GetRemotePieces()) > 0)
-
-			pieceToRemove := make([]*pb.RemotePiece, 1)
-			pieceToAdd := make([]*pb.RemotePiece, 1)
-			pieces := pointer.GetRemote().GetRemotePieces()
+			pieceToRemove := make(metabase.Pieces, 1)
+			pieceToAdd := make(metabase.Pieces, 1)
+			pieces := segments[0].Pieces
 
 			for _, piece := range pieces {
-				if pieceToRemove[0] == nil && piece.NodeId != exitingNode.ID() {
+				if pieceToRemove[0] == (metabase.Piece{}) && piece.StorageNode != exitingNode.ID() {
 					pieceToRemove[0] = piece
 					continue
 				}
 			}
 
-			pieceToAdd[0] = &pb.RemotePiece{
-				PieceNum: pieceToRemove[0].PieceNum,
-				NodeId:   firstRecNodeID,
+			pieceToAdd[0] = metabase.Piece{
+				Number:      pieceToRemove[0].Number,
+				StorageNode: firstRecNodeID,
 			}
 
-			_, err = satellite.Metainfo.Service.UpdatePieces(ctx, metabase.SegmentKey(keys[0]), pointer, pieceToAdd, pieceToRemove)
+			err = satellite.GracefulExit.Endpoint.UpdatePiecesCheckDuplicates(ctx, segments[0], pieceToAdd, pieceToRemove, false)
 			require.NoError(t, err)
 
 			err = processClient.Send(success)
@@ -916,20 +910,16 @@ func TestUpdatePointerFailure_DuplicatedNodeID(t *testing.T) {
 			t.FailNow()
 		}
 
-		// check exiting node is still in the pointer
-		keys, err := satellite.Metainfo.Database.List(ctx, nil, 1)
+		// check exiting node is still in the segment
+		segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
 		require.NoError(t, err)
+		require.Len(t, segments, 1)
+		require.True(t, len(segments[0].Pieces) > 0)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(keys[0]))
-		require.NoError(t, err)
-		require.NotNil(t, pointer.GetRemote())
-		require.True(t, len(pointer.GetRemote().GetRemotePieces()) > 0)
-
-		pieces := pointer.GetRemote().GetRemotePieces()
-
+		pieces := segments[0].Pieces
 		pieceMap := make(map[storj.NodeID]int)
 		for _, piece := range pieces {
-			pieceMap[piece.NodeId]++
+			pieceMap[piece.StorageNode]++
 		}
 
 		exitingNodeID := exitingNode.ID()
@@ -976,7 +966,7 @@ func TestExitDisabled(t *testing.T) {
 	})
 }
 
-func TestPointerChangedOrDeleted(t *testing.T) {
+func TestSegmentChangedOrDeleted(t *testing.T) {
 	successThreshold := 4
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -1108,23 +1098,14 @@ func TestFailureNotFound(t *testing.T) {
 			require.FailNow(t, "should not reach this case: %#v", m)
 		}
 
-		// check that node is no longer in the pointer
-		keys, err := satellite.Metainfo.Database.List(ctx, nil, -1)
+		// check that node is no longer in the segment
+
+		segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
 		require.NoError(t, err)
+		require.Len(t, segments, 1)
 
-		var pointer *pb.Pointer
-		for _, key := range keys {
-			p, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(key))
-			require.NoError(t, err)
-
-			if p.GetRemote() != nil {
-				pointer = p
-				break
-			}
-		}
-		require.NotNil(t, pointer)
-		for _, piece := range pointer.GetRemote().GetRemotePieces() {
-			require.NotEqual(t, piece.NodeId, exitingNode.ID())
+		for _, piece := range segments[0].Pieces {
+			require.NotEqual(t, piece.StorageNode, exitingNode.ID())
 		}
 
 		// check that the exit has completed and we have the correct transferred/failed values
@@ -1406,24 +1387,19 @@ func testTransfers(t *testing.T, objects int, verifier func(t *testing.T, ctx *t
 
 func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int) (*testplanet.StorageNode, error) {
 	satellite := planet.Satellites[0]
-	keys, err := satellite.Metainfo.Database.List(ctx, nil, objects)
-	if err != nil {
-		return nil, err
-	}
 
 	pieceCountMap := make(map[storj.NodeID]int, len(planet.StorageNodes))
 	for _, node := range planet.StorageNodes {
 		pieceCountMap[node.ID()] = 0
 	}
 
-	for _, key := range keys {
-		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(key))
-		if err != nil {
-			return nil, err
-		}
-		pieces := pointer.GetRemote().GetRemotePieces()
-		for _, piece := range pieces {
-			pieceCountMap[piece.NodeId]++
+	segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, segment := range segments {
+		for _, piece := range segment.Pieces {
+			pieceCountMap[piece.StorageNode]++
 		}
 	}
 

@@ -16,7 +16,6 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storage"
 )
@@ -39,7 +38,7 @@ func TestChore(t *testing.T) {
 		err := uplinkPeer.Upload(ctx, satellite1, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
-		exitingNode, err := findNodeToExit(ctx, planet, 1)
+		exitingNode, err := findNodeToExit(ctx, planet)
 		require.NoError(t, err)
 
 		nodePieceCounts, err := getNodePieceCounts(ctx, planet)
@@ -159,9 +158,10 @@ func getNodePieceCounts(ctx context.Context, planet *testplanet.Planet) (_ map[s
 }
 
 // findNodeToExit selects the node storing the most pieces as the node to graceful exit.
-func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int) (*testplanet.StorageNode, error) {
+func findNodeToExit(ctx context.Context, planet *testplanet.Planet) (*testplanet.StorageNode, error) {
 	satellite := planet.Satellites[0]
-	keys, err := satellite.Metainfo.Database.List(ctx, nil, objects)
+
+	objects, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -171,14 +171,9 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 		pieceCountMap[sn.ID()] = 0
 	}
 
-	for _, key := range keys {
-		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(key))
-		if err != nil {
-			return nil, err
-		}
-		pieces := pointer.GetRemote().GetRemotePieces()
-		for _, piece := range pieces {
-			pieceCountMap[piece.NodeId]++
+	for _, object := range objects {
+		for _, piece := range object.Pieces {
+			pieceCountMap[piece.StorageNode]++
 		}
 	}
 

@@ -29,7 +29,6 @@ func TestPendingBasic(t *testing.T) {
 		Key:              metabase.SegmentKey("testbucket/testfile"),
 		PieceSize:        10,
 		SatelliteMessage: &pb.SatelliteMessage{},
-		OriginalPointer:  &pb.Pointer{},
 		PieceNum:         1,
 	}
 
@@ -104,7 +103,6 @@ func TestPendingIsFinishedWorkAdded(t *testing.T) {
 		Key:              metabase.SegmentKey("testbucket/testfile"),
 		PieceSize:        10,
 		SatelliteMessage: &pb.SatelliteMessage{},
-		OriginalPointer:  &pb.Pointer{},
 		PieceNum:         1,
 	}
 	pieceID := testrand.PieceID()

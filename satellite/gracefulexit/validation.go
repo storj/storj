@@ -28,8 +28,8 @@ func (endpoint *Endpoint) validatePendingTransfer(ctx context.Context, transfer 
 	if transfer.Key == nil {
 		return Error.New("Transfer key cannot be nil")
 	}
-	if transfer.OriginalPointer == nil || transfer.OriginalPointer.GetRemote() == nil {
-		return Error.New("could not get remote pointer from transfer item")
+	if transfer.OriginalRootPieceID.IsZero() {
+		return Error.New("could not get original root piece ID from transfer item")
 	}
 
 	return nil
@@ -71,7 +71,7 @@ func (endpoint *Endpoint) verifyPieceTransferred(ctx context.Context, message *p
 	}
 
 	receivingNodeID := transfer.SatelliteMessage.GetTransferPiece().GetAddressedOrderLimit().GetLimit().StorageNodeId
-	calculatedNewPieceID := transfer.OriginalPointer.GetRemote().RootPieceId.Derive(receivingNodeID, transfer.PieceNum)
+	calculatedNewPieceID := transfer.OriginalRootPieceID.Derive(receivingNodeID, int32(transfer.PieceNum))
 	if calculatedNewPieceID != replacementPieceHash.PieceId {
 		return ErrInvalidArgument.New("Replacement piece ID does not match derived piece ID for receivingNodeID %s, PieceNum %d: %q != %q", receivingNodeID.String(), transfer.PieceNum, calculatedNewPieceID.String(), replacementPieceHash.PieceId.String())
 	}

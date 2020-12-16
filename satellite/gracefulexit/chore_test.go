@@ -12,7 +12,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
-	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -22,7 +21,6 @@ import (
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/storage"
 )
 
 func TestChore(t *testing.T) {
@@ -171,43 +169,27 @@ func TestDurabilityRatio(t *testing.T) {
 		require.Len(t, nodeIDs, 1)
 
 		// retrieve remote segment
-		keys, err := satellite.Metainfo.Database.List(ctx, nil, -1)
+		segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
 		require.NoError(t, err)
+		require.Len(t, segments, 1)
 
-		var oldPointer *pb.Pointer
-		var path []byte
-		for _, key := range keys {
-			p, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(key))
-			require.NoError(t, err)
-
-			if p.GetRemote() != nil {
-				oldPointer = p
-				path = key
-				break
-			}
-		}
-
-		// remove a piece from the pointer
-		require.NotNil(t, oldPointer)
-		oldPointerBytes, err := pb.Marshal(oldPointer)
-		require.NoError(t, err)
-		newPointer := &pb.Pointer{}
-		err = pb.Unmarshal(oldPointerBytes, newPointer)
-		require.NoError(t, err)
-
-		remotePieces := newPointer.GetRemote().GetRemotePieces()
-		var newPieces []*pb.RemotePiece = make([]*pb.RemotePiece, len(remotePieces)-1)
+		remotePieces := segments[0].Pieces
+		var newPieces metabase.Pieces = make(metabase.Pieces, len(remotePieces)-1)
 		idx := 0
 		for _, p := range remotePieces {
-			if p.NodeId != nodeToRemove.ID() {
+			if p.StorageNode != nodeToRemove.ID() {
 				newPieces[idx] = p
 				idx++
 			}
 		}
-		newPointer.Remote.RemotePieces = newPieces
-		newPointerBytes, err := pb.Marshal(newPointer)
-		require.NoError(t, err)
-		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
+
+		err = satellite.Metainfo.Metabase.UpdateSegmentPieces(ctx, metabase.UpdateSegmentPieces{
+			StreamID: segments[0].StreamID,
+			Position: segments[0].Position,
+
+			OldPieces: segments[0].Pieces,
+			NewPieces: newPieces,
+		})
 		require.NoError(t, err)
 
 		satellite.GracefulExit.Chore.Loop.TriggerWait()

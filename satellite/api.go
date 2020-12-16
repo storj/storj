@@ -677,7 +677,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.DB.GracefulExit(),
 				peer.Overlay.DB,
 				peer.Overlay.Service,
-				peer.Metainfo.Service,
+				peer.Metainfo.Metabase,
 				peer.Orders.Service,
 				peer.DB.PeerIdentities(),
 				config.GracefulExit)
