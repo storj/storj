@@ -19,6 +19,7 @@ export const ACCESS_GRANTS_ACTIONS = {
     DELETE: 'deleteAccessGrants',
     CLEAR: 'clearAccessGrants',
     GET_GATEWAY_CREDENTIALS: 'getGatewayCredentials',
+    SET_ACCESS_GRANTS_WEB_WORKER: 'setAccessGrantsWebWorker',
     SET_SEARCH_QUERY: 'setAccessGrantsSearchQuery',
     SET_SORT_BY: 'setAccessGrantsSortingBy',
     SET_SORT_DIRECTION: 'setAccessGrantsSortingDirection',
@@ -31,6 +32,7 @@ export const ACCESS_GRANTS_ACTIONS = {
 export const ACCESS_GRANTS_MUTATIONS = {
     SET_PAGE: 'setAccessGrants',
     SET_GATEWAY_CREDENTIALS: 'setGatewayCredentials',
+    SET_ACCESS_GRANTS_WEB_WORKER: 'setAccessGrantsWebWorker',
     TOGGLE_SELECTION: 'toggleAccessGrantsSelection',
     TOGGLE_BUCKET_SELECTION: 'toggleBucketSelection',
     CLEAR_SELECTION: 'clearAccessGrantsSelection',
@@ -54,6 +56,7 @@ const {
     SET_PAGE_NUMBER,
     SET_DURATION_PERMISSION,
     SET_GATEWAY_CREDENTIALS,
+    SET_ACCESS_GRANTS_WEB_WORKER,
 } = ACCESS_GRANTS_MUTATIONS;
 
 export class AccessGrantsState {
@@ -64,6 +67,8 @@ export class AccessGrantsState {
     public permissionNotBefore: Date = new Date();
     public permissionNotAfter: Date = new Date('2200-01-01');
     public gatewayCredentials: GatewayCredentials = new GatewayCredentials();
+    public accessGrantsWebWorker: Worker | null = null;
+    public isAccessGrantsWebWorkerReady: boolean = false;
 }
 
 /**
@@ -75,6 +80,22 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
     return {
         state: new AccessGrantsState(),
         mutations: {
+            [SET_ACCESS_GRANTS_WEB_WORKER](state: AccessGrantsState): void {
+                state.accessGrantsWebWorker = new Worker('@/../static/wasm/accessGrant.worker.js', { type: 'module' });
+                state.accessGrantsWebWorker.onmessage = (event: MessageEvent) => {
+                    const data = event.data;
+                    if (data !== 'configured') {
+                        console.error('Failed to configure access grants web worker');
+
+                        return;
+                    }
+
+                    state.isAccessGrantsWebWorkerReady = true;
+                };
+                state.accessGrantsWebWorker.onerror = (error: ErrorEvent) => {
+                    console.error(`Failed to configure access grants web worker. ${error.message}`);
+                };
+            },
             [SET_PAGE](state: AccessGrantsState, page: AccessGrantsPage) {
                 state.page = page;
                 state.page.accessGrants = state.page.accessGrants.map(accessGrant => {
@@ -155,6 +176,9 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
             },
         },
         actions: {
+            setAccessGrantsWebWorker: function({commit}: any): void {
+                commit(SET_ACCESS_GRANTS_WEB_WORKER);
+            },
             fetchAccessGrants: async function ({commit, rootGetters, state}, pageNumber: number): Promise<AccessGrantsPage> {
                 const projectId = rootGetters.selectedProject.id;
                 commit(SET_PAGE_NUMBER, pageNumber);

@@ -53,9 +53,13 @@
             width="100%"
             height="48px"
             :on-press="onContinueInBrowserClick"
-            :is-disabled="isLoading"
+            :is-disabled="isLoading || !isAccessGrantsWebWorkerReady"
         />
-        <p class="permissions__cli-link" @click.stop="onContinueInCLIClick">
+        <p
+            class="permissions__cli-link"
+            :class="{ disabled: !isAccessGrantsWebWorkerReady || isLoading }"
+            @click.stop="onContinueInCLIClick"
+        >
             Continue in CLI
         </p>
     </div>
@@ -108,22 +112,8 @@ export default class PermissionsStep extends Vue {
         }
 
         this.key = this.$route.params.key;
-        this.worker = await new Worker('/static/static/wasm/webWorker.js');
-        this.worker.onmessage = (event: MessageEvent) => {
-            const data = event.data;
-            if (data.error) {
-                this.$notify.error(data.error);
 
-                return;
-            }
-
-            this.restrictedKey = data.value;
-
-            this.$notify.success('Permissions were set successfully');
-        };
-        this.worker.onerror = (error: ErrorEvent) => {
-            this.$notify.error(error.message);
-        };
+        this.setWorker();
 
         try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
@@ -143,10 +133,33 @@ export default class PermissionsStep extends Vue {
     }
 
     /**
+     * Sets local worker with worker instantiated in store.
+     * Also sets worker's onmessage and onerror logic.
+     */
+    public setWorker(): void {
+        this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
+        this.worker.onmessage = (event: MessageEvent) => {
+            const data = event.data;
+            if (data.error) {
+                this.$notify.error(data.error);
+
+                return;
+            }
+
+            this.restrictedKey = data.value;
+
+            this.$notify.success('Permissions were set successfully');
+        };
+        this.worker.onerror = (error: ErrorEvent) => {
+            this.$notify.error(error.message);
+        };
+    }
+
+    /**
      * Holds on continue in CLI button click logic.
      */
     public onContinueInCLIClick(): void {
-        if (this.isLoading) return;
+        if (this.isLoading || !this.isAccessGrantsWebWorkerReady) return;
 
         this.isLoading = true;
 
@@ -193,7 +206,7 @@ export default class PermissionsStep extends Vue {
      * Holds on continue in browser button click logic.
      */
     public onContinueInBrowserClick(): void {
-        if (this.isLoading) return;
+        if (this.isLoading || !this.isAccessGrantsWebWorkerReady) return;
 
         this.isLoading = true;
 
@@ -246,6 +259,13 @@ export default class PermissionsStep extends Vue {
                 },
             });
         }, 1000);
+    }
+
+    /**
+     * Indicates if access grants web worker ready to use.
+     */
+    public get isAccessGrantsWebWorkerReady(): boolean {
+        return this.$store.state.accessGrantsModule.isAccessGrantsWebWorkerReady;
     }
 
     /**
@@ -418,5 +438,10 @@ export default class PermissionsStep extends Vue {
 
     .border-radius {
         border-radius: 6px;
+    }
+
+    .disabled {
+        pointer-events: none;
+        color: rgba(0, 0, 0, 0.4);
     }
 </style>

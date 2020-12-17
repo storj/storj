@@ -377,10 +377,10 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.piece-deletion.request-timeout: 1m0s
 
 # the default bandwidth usage limit
-# metainfo.project-limits.default-max-bandwidth: 50.00 GB
+# metainfo.project-limits.default-max-bandwidth: 500.00 GB
 
 # the default storage usage limit
-# metainfo.project-limits.default-max-usage: 50.00 GB
+# metainfo.project-limits.default-max-usage: 500.00 GB
 
 # max bucket count for a project.
 # metainfo.project-limits.max-buckets: 100

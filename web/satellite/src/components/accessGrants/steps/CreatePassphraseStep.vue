@@ -111,7 +111,29 @@ export default class CreatePassphraseStep extends Vue {
         this.key = this.$route.params.key;
         this.restrictedKey = this.$route.params.restrictedKey;
         this.passphrase = bip39.generateMnemonic();
-        this.worker = await new Worker('/static/static/wasm/webWorker.js');
+
+        this.setWorker();
+
+        this.isLoading = false;
+    }
+
+    /**
+     * Changes state to generate passphrase.
+     */
+    public onChooseGenerate(): void {
+        if (this.passphrase && this.isGenerateState) return;
+
+        this.passphrase = bip39.generateMnemonic();
+        this.isCreateState = false;
+        this.isGenerateState = true;
+    }
+
+    /**
+     * Sets local worker with worker instantiated in store.
+     * Also sets worker's onmessage and onerror logic.
+     */
+    public setWorker(): void {
+        this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
         this.worker.onmessage = (event: MessageEvent) => {
             const data = event.data;
             if (data.error) {
@@ -127,19 +149,6 @@ export default class CreatePassphraseStep extends Vue {
         this.worker.onerror = (error: ErrorEvent) => {
             this.$notify.error(error.message);
         };
-
-        this.isLoading = false;
-    }
-
-    /**
-     * Changes state to generate passphrase.
-     */
-    public onChooseGenerate(): void {
-        if (this.passphrase && this.isGenerateState) return;
-
-        this.passphrase = bip39.generateMnemonic();
-        this.isCreateState = false;
-        this.isGenerateState = true;
     }
 
     /**

@@ -65,22 +65,8 @@ export default class EnterPassphraseStep extends Vue {
 
         this.key = this.$route.params.key;
         this.restrictedKey = this.$route.params.restrictedKey;
-        this.worker = await new Worker('/static/static/wasm/webWorker.js');
-        this.worker.onmessage = (event: MessageEvent) => {
-            const data = event.data;
-            if (data.error) {
-                this.$notify.error(data.error);
 
-                return;
-            }
-
-            this.access = data.value;
-
-            this.$notify.success('Access Grant was generated successfully');
-        };
-        this.worker.onerror = (error: ErrorEvent) => {
-            this.$notify.error(error.message);
-        };
+        this.setWorker();
 
         this.isLoading = false;
     }
@@ -129,6 +115,29 @@ export default class EnterPassphraseStep extends Vue {
                 },
             });
         }, 1000);
+    }
+
+    /**
+     * Sets local worker with worker instantiated in store.
+     * Also sets worker's onmessage and onerror logic.
+     */
+    public setWorker(): void {
+        this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
+        this.worker.onmessage = (event: MessageEvent) => {
+            const data = event.data;
+            if (data.error) {
+                this.$notify.error(data.error);
+
+                return;
+            }
+
+            this.access = data.value;
+
+            this.$notify.success('Access Grant was generated successfully');
+        };
+        this.worker.onerror = (error: ErrorEvent) => {
+            this.$notify.error(error.message);
+        };
     }
 
     /**
