@@ -77,6 +77,7 @@ export abstract class RouteConfig {
     public static AccessGrant = new NavigationLink('access', 'Onboarding Access Grant');
     public static AccessGrantName = new NavigationLink('name', 'Onboarding Name Access Grant');
     public static AccessGrantPermissions = new NavigationLink('permissions', 'Onboarding Access Grant Permissions');
+    public static AccessGrantCLI = new NavigationLink('cli', 'Onboarding Access Grant CLI');
     public static AccessGrantPassphrase = new NavigationLink('create-passphrase', 'Onboarding Access Grant Create Passphrase');
     public static AccessGrantResult = new NavigationLink('result', 'Onboarding Access Grant Result');
 
@@ -209,14 +210,22 @@ export const router = new Router({
                                     props: true,
                                 },
                                 {
+                                    path: RouteConfig.AccessGrantCLI.path,
+                                    name: RouteConfig.AccessGrantCLI.name,
+                                    component: CLIStep,
+                                    props: true,
+                                },
+                                {
                                     path: RouteConfig.AccessGrantPassphrase.path,
                                     name: RouteConfig.AccessGrantPassphrase.name,
                                     component: CreatePassphraseStep,
+                                    props: true,
                                 },
                                 {
                                     path: RouteConfig.AccessGrantResult.path,
                                     name: RouteConfig.AccessGrantResult.name,
                                     component: ResultStep,
+                                    props: true,
                                 },
                             ],
                         },
@@ -257,21 +266,25 @@ export const router = new Router({
                                     path: RouteConfig.CreatePassphraseStep.path,
                                     name: RouteConfig.CreatePassphraseStep.name,
                                     component: CreatePassphraseStep,
+                                    props: true,
                                 },
                                 {
                                     path: RouteConfig.EnterPassphraseStep.path,
                                     name: RouteConfig.EnterPassphraseStep.name,
                                     component: EnterPassphraseStep,
+                                    props: true,
                                 },
                                 {
                                     path: RouteConfig.ResultStep.path,
                                     name: RouteConfig.ResultStep.name,
                                     component: ResultStep,
+                                    props: true,
                                 },
                                 {
                                     path: RouteConfig.CLIStep.path,
                                     name: RouteConfig.CLIStep.name,
                                     component: CLIStep,
+                                    props: true,
                                 },
                                 {
                                     path: RouteConfig.UploadStep.path,

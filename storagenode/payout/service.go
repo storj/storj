@@ -180,6 +180,10 @@ func (service *Service) AllHeldbackHistory(ctx context.Context) (result []Satell
 			return nil, ErrPayoutService.Wrap(err)
 		}
 
+		if helds == nil {
+			continue
+		}
+
 		disposed, err := service.db.SatellitesDisposedHistory(ctx, satellitesIDs[i])
 		if err != nil {
 			return nil, ErrPayoutService.Wrap(err)
@@ -202,6 +206,7 @@ func (service *Service) AllHeldbackHistory(ctx context.Context) (result []Satell
 
 		history.TotalDisposed = disposed
 		history.SatelliteID = satellitesIDs[i]
+		history.SatelliteName = "stefan-benten"
 
 		if satellitesIDs[i] != service.stefanSatellite {
 			url, err := service.trust.GetNodeURL(ctx, satellitesIDs[i])

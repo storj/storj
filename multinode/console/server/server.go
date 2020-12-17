@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/multinode/console/server/controllers"
+	"storj.io/storj/multinode/console/controllers"
 	"storj.io/storj/multinode/nodes"
 )
 
@@ -51,15 +51,16 @@ func NewServer(log *zap.Logger, config Config, nodes *nodes.Service, listener ne
 	}
 
 	router := mux.NewRouter()
-	router.StrictSlash(true)
-
 	apiRouter := router.PathPrefix("/api/v0").Subrouter()
+	apiRouter.NotFoundHandler = controllers.NewNotFound(server.log)
 
 	nodesController := controllers.NewNodes(server.log, server.nodes)
 	nodesRouter := apiRouter.PathPrefix("/nodes").Subrouter()
 	nodesRouter.HandleFunc("", nodesController.Add).Methods(http.MethodPost)
-	nodesRouter.HandleFunc("/{id}", nodesController.Delete).Methods(http.MethodDelete)
+	nodesRouter.HandleFunc("", nodesController.List).Methods(http.MethodGet)
+	nodesRouter.HandleFunc("/{id}", nodesController.Get).Methods(http.MethodGet)
 	nodesRouter.HandleFunc("/{id}", nodesController.UpdateName).Methods(http.MethodPatch)
+	nodesRouter.HandleFunc("/{id}", nodesController.Delete).Methods(http.MethodDelete)
 
 	server.http = http.Server{
 		Handler: router,
