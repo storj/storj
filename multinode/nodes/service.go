@@ -52,7 +52,7 @@ func (service *Service) UpdateName(ctx context.Context, id storj.NodeID, name st
 func (service *Service) Get(ctx context.Context, id storj.NodeID) (_ Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	node, err := service.nodes.GetByID(ctx, id)
+	node, err := service.nodes.Get(ctx, id)
 	if err != nil {
 		return Node{}, Error.Wrap(err)
 	}
@@ -65,7 +65,7 @@ func (service *Service) Get(ctx context.Context, id storj.NodeID) (_ Node, err e
 func (service *Service) List(ctx context.Context) (_ []Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	nodes, err := service.nodes.GetAll(ctx)
+	nodes, err := service.nodes.List(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

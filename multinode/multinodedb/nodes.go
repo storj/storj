@@ -29,8 +29,8 @@ type nodesdb struct {
 	methods dbx.Methods
 }
 
-// GetAll returns all connected nodes.
-func (n *nodesdb) GetAll(ctx context.Context) (allNodes []nodes.Node, err error) {
+// List returns all connected nodes.
+func (n *nodesdb) List(ctx context.Context) (allNodes []nodes.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	dbxNodes, err := n.methods.All_Node(ctx)
@@ -53,8 +53,8 @@ func (n *nodesdb) GetAll(ctx context.Context) (allNodes []nodes.Node, err error)
 	return allNodes, ErrNodesDB.Wrap(err)
 }
 
-// GetByID return node from NodesDB by its id.
-func (n *nodesdb) GetByID(ctx context.Context, id storj.NodeID) (_ nodes.Node, err error) {
+// Get return node from NodesDB by its id.
+func (n *nodesdb) Get(ctx context.Context, id storj.NodeID) (_ nodes.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	dbxNode, err := n.methods.Get_Node_By_Id(ctx, dbx.Node_Id(id.Bytes()))

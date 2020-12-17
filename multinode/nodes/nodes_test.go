@@ -26,13 +26,13 @@ func TestNodesDB(t *testing.T) {
 		err := nodesRepository.Add(ctx, nodeID, apiSecret, publicAddress)
 		assert.NoError(t, err)
 
-		node, err := nodesRepository.GetByID(ctx, nodeID)
+		node, err := nodesRepository.Get(ctx, nodeID)
 		assert.NoError(t, err)
 		assert.Equal(t, node.ID.Bytes(), nodeID.Bytes())
 		assert.Equal(t, node.APISecret, apiSecret)
 		assert.Equal(t, node.PublicAddress, publicAddress)
 
-		allNodes, err := nodesRepository.GetAll(ctx)
+		allNodes, err := nodesRepository.List(ctx)
 		assert.NoError(t, err)
 		assert.Equal(t, len(allNodes), 1)
 		assert.Equal(t, node.ID.Bytes(), allNodes[0].ID.Bytes())
@@ -43,18 +43,18 @@ func TestNodesDB(t *testing.T) {
 		err = nodesRepository.UpdateName(ctx, nodeID, newName)
 		assert.NoError(t, err)
 
-		node, err = nodesRepository.GetByID(ctx, nodeID)
+		node, err = nodesRepository.Get(ctx, nodeID)
 		assert.NoError(t, err)
 		assert.Equal(t, node.Name, newName)
 
 		err = nodesRepository.Remove(ctx, nodeID)
 		assert.NoError(t, err)
 
-		_, err = nodesRepository.GetAll(ctx)
+		_, err = nodesRepository.List(ctx)
 		assert.Error(t, err)
 		assert.True(t, nodes.ErrNoNode.Has(err))
 
-		node, err = nodesRepository.GetByID(ctx, nodeID)
+		node, err = nodesRepository.Get(ctx, nodeID)
 		assert.Error(t, err)
 		assert.True(t, nodes.ErrNoNode.Has(err))
 	})

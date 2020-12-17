@@ -18,10 +18,10 @@ import (
 //
 // architecture: Database
 type DB interface {
-	// GetByID return node from NodesDB by its id.
-	GetByID(ctx context.Context, id storj.NodeID) (Node, error)
-	// GetAll returns all connected nodes.
-	GetAll(ctx context.Context) ([]Node, error)
+	// Get return node from NodesDB by its id.
+	Get(ctx context.Context, id storj.NodeID) (Node, error)
+	// List returns all connected nodes.
+	List(ctx context.Context) ([]Node, error)
 	// Add creates new node in NodesDB.
 	Add(ctx context.Context, id storj.NodeID, apiSecret []byte, publicAddress string) error
 	// Remove removed node from NodesDB.
