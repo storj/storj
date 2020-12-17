@@ -35,7 +35,6 @@ type AsOfSystemTimeConfig struct {
 // NodeSelectionConfig is a configuration struct to determine the minimum
 // values for nodes to select.
 type NodeSelectionConfig struct {
-	UptimeCount      int64         `help:"the number of times a node's uptime has been checked to not be considered a New Node" releaseDefault:"100" devDefault:"0"`
 	AuditCount       int64         `help:"the number of times a node has been audited to not be considered a New Node" releaseDefault:"100" devDefault:"0"`
 	NewNodeFraction  float64       `help:"the fraction of new nodes allowed per request" releaseDefault:"0.05" devDefault:"1"`
 	MinimumVersion   string        `help:"the minimum node software version for node selection queries" default:""`

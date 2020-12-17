@@ -221,14 +221,6 @@ func BenchmarkOverlay(b *testing.B) {
 			}
 		})
 
-		b.Run("UpdateUptime", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				id := all[i%len(all)]
-				_, err := overlaydb.UpdateUptime(ctx, id, i&1 == 0)
-				require.NoError(b, err)
-			}
-		})
-
 		b.Run("UpdateCheckIn", func(b *testing.B) {
 			now := time.Now()
 			for i := 0; i < b.N; i++ {

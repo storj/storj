@@ -505,9 +505,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the time period that must pass before suspended nodes will be disqualified
 # overlay.node.suspension-grace-period: 168h0m0s
 
-# the number of times a node's uptime has been checked to not be considered a New Node
-# overlay.node.uptime-count: 100
-
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100
 

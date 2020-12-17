@@ -626,77 +626,6 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 	return convertDBNode(ctx, updatedDBNode)
 }
 
-// UpdateUptime updates a single storagenode's uptime stats in the db.
-func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *overlay.NodeStats, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var dbNode *dbx.Node
-	err = cache.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
-		dbNode, err = tx.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
-		if err != nil {
-			return err
-		}
-		// do not update reputation if node is disqualified
-		if dbNode.Disqualified != nil {
-			return nil
-		}
-		// do not update reputation if node has gracefully exited
-		if dbNode.ExitFinishedAt != nil {
-			return nil
-		}
-
-		updateFields := dbx.Node_Update_Fields{}
-		totalUptimeCount := dbNode.TotalUptimeCount
-
-		lastContactSuccess := dbNode.LastContactSuccess
-		lastContactFailure := dbNode.LastContactFailure
-		mon.Meter("uptime_updates").Mark(1)
-		if isUp {
-			totalUptimeCount++
-			updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(dbNode.UptimeSuccessCount + 1)
-			updateFields.LastContactSuccess = dbx.Node_LastContactSuccess(time.Now())
-
-			mon.Meter("uptime_update_successes").Mark(1)
-			// we have seen this node in the past 24 hours
-			if time.Since(lastContactFailure) > time.Hour*24 {
-				mon.Meter("uptime_seen_24h").Mark(1)
-			}
-			// we have seen this node in the past week
-			if time.Since(lastContactFailure) > time.Hour*24*7 {
-				mon.Meter("uptime_seen_week").Mark(1)
-			}
-		} else {
-			updateFields.LastContactFailure = dbx.Node_LastContactFailure(time.Now())
-
-			mon.Meter("uptime_update_failures").Mark(1)
-			// it's been over 24 hours since we've seen this node
-			if time.Since(lastContactSuccess) > time.Hour*24 {
-				mon.Meter("uptime_not_seen_24h").Mark(1)
-			}
-			// it's been over a week since we've seen this node
-			if time.Since(lastContactSuccess) > time.Hour*24*7 {
-				mon.Meter("uptime_not_seen_week").Mark(1)
-			}
-		}
-
-		updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
-		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
-		return err
-	})
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
-	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
-	// but for now we're adding a nil check to prevent a panic.
-	if dbNode == nil {
-		return nil, Error.New("unable to get node by ID: %v", nodeID)
-	}
-
-	return getNodeStats(dbNode), nil
-}
-
 // DisqualifyNode disqualifies a storage node.
 func (cache *overlaycache) DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1086,8 +1015,6 @@ func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 		VettedAt:                    dbNode.VettedAt,
 		AuditCount:                  dbNode.TotalAuditCount,
 		AuditSuccessCount:           dbNode.AuditSuccessCount,
-		UptimeCount:                 dbNode.TotalUptimeCount,
-		UptimeSuccessCount:          dbNode.UptimeSuccessCount,
 		LastContactSuccess:          dbNode.LastContactSuccess,
 		LastContactFailure:          dbNode.LastContactFailure,
 		AuditReputationAlpha:        dbNode.AuditReputationAlpha,
@@ -1134,13 +1061,6 @@ func buildUpdateStatement(update updateNodeStats) string {
 		atLeastOne = true
 		sql += fmt.Sprintf("total_audit_count = %d", update.TotalAuditCount.value)
 	}
-	if update.TotalUptimeCount.set {
-		if atLeastOne {
-			sql += ","
-		}
-		atLeastOne = true
-		sql += fmt.Sprintf("total_uptime_count = %d", update.TotalUptimeCount.value)
-	}
 	if update.AuditReputationAlpha.set {
 		if atLeastOne {
 			sql += ","
@@ -1186,13 +1106,6 @@ func buildUpdateStatement(update updateNodeStats) string {
 		} else {
 			sql += fmt.Sprintf("unknown_audit_suspended = '%s'", update.UnknownAuditSuspended.value.Format(time.RFC3339Nano))
 		}
-	}
-	if update.UptimeSuccessCount.set {
-		if atLeastOne {
-			sql += ","
-		}
-		atLeastOne = true
-		sql += fmt.Sprintf("uptime_success_count = %d", update.UptimeSuccessCount.value)
 	}
 	if update.LastContactSuccess.set {
 		if atLeastOne {
@@ -1288,14 +1201,12 @@ type updateNodeStats struct {
 	NodeID                      storj.NodeID
 	VettedAt                    timeField
 	TotalAuditCount             int64Field
-	TotalUptimeCount            int64Field
 	AuditReputationAlpha        float64Field
 	AuditReputationBeta         float64Field
 	Disqualified                timeField
 	UnknownAuditReputationAlpha float64Field
 	UnknownAuditReputationBeta  float64Field
 	UnknownAuditSuspended       timeField
-	UptimeSuccessCount          int64Field
 	LastContactSuccess          timeField
 	LastContactFailure          timeField
 	AuditSuccessCount           int64Field
@@ -1370,23 +1281,18 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	mon.FloatVal("unknown_audit_reputation_beta").Observe(unknownAuditBeta)   //mon:locked
 	mon.FloatVal("audit_online_score").Observe(auditHistoryResponse.NewScore) //mon:locked
 
-	totalUptimeCount := dbNode.TotalUptimeCount
 	isUp := updateReq.AuditOutcome != overlay.AuditOffline
-	if isUp {
-		totalUptimeCount++
-	}
 
 	updateFields := updateNodeStats{
 		NodeID:                      updateReq.NodeID,
 		TotalAuditCount:             int64Field{set: true, value: updatedTotalAuditCount},
-		TotalUptimeCount:            int64Field{set: true, value: totalUptimeCount},
 		AuditReputationAlpha:        float64Field{set: true, value: auditAlpha},
 		AuditReputationBeta:         float64Field{set: true, value: auditBeta},
 		UnknownAuditReputationAlpha: float64Field{set: true, value: unknownAuditAlpha},
 		UnknownAuditReputationBeta:  float64Field{set: true, value: unknownAuditBeta},
 	}
 
-	if vettedAt == nil && updatedTotalAuditCount >= updateReq.AuditsRequiredForVetting && totalUptimeCount >= updateReq.UptimesRequiredForVetting {
+	if vettedAt == nil && updatedTotalAuditCount >= updateReq.AuditsRequiredForVetting {
 		updateFields.VettedAt = timeField{set: true, value: now}
 	}
 
@@ -1431,7 +1337,6 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	}
 
 	if isUp {
-		updateFields.UptimeSuccessCount = int64Field{set: true, value: dbNode.UptimeSuccessCount + 1}
 		updateFields.LastContactSuccess = timeField{set: true, value: now}
 	} else {
 		updateFields.LastContactFailure = timeField{set: true, value: now}
@@ -1500,9 +1405,6 @@ func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *ove
 	if update.TotalAuditCount.set {
 		updateFields.TotalAuditCount = dbx.Node_TotalAuditCount(update.TotalAuditCount.value)
 	}
-	if update.TotalUptimeCount.set {
-		updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(update.TotalUptimeCount.value)
-	}
 	if update.AuditReputationAlpha.set {
 		updateFields.AuditReputationAlpha = dbx.Node_AuditReputationAlpha(update.AuditReputationAlpha.value)
 	}
@@ -1524,9 +1426,6 @@ func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *ove
 		} else {
 			updateFields.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended(update.UnknownAuditSuspended.value)
 		}
-	}
-	if update.UptimeSuccessCount.set {
-		updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(update.UptimeSuccessCount.value)
 	}
 	if update.LastContactSuccess.set {
 		updateFields.LastContactSuccess = dbx.Node_LastContactSuccess(update.LastContactSuccess.value)
@@ -1624,8 +1523,6 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				wallet=$7,
 				free_disk=$8,
 				major=$12, minor=$13, patch=$14, hash=$15, timestamp=$16, release=$17,
-				total_uptime_count=nodes.total_uptime_count+1,
-				uptime_success_count = nodes.uptime_success_count + $9::bool::int,
 				last_contact_success = CASE WHEN $9::bool IS TRUE
 					THEN $18::timestamptz
 					ELSE nodes.last_contact_success

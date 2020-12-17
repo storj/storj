@@ -27,7 +27,6 @@ import (
 
 var nodeSelectionConfig = overlay.NodeSelectionConfig{
 	AuditCount:       1,
-	UptimeCount:      1,
 	NewNodeFraction:  0.2,
 	MinimumVersion:   "v1.0.0",
 	OnlineWindow:     4 * time.Hour,
@@ -445,7 +444,6 @@ func TestNewNodeFraction(t *testing.T) {
 		newNodeFraction := 0.2
 		var nodeSelectionConfig = overlay.NodeSelectionConfig{
 			AuditCount:       1,
-			UptimeCount:      1,
 			NewNodeFraction:  newNodeFraction,
 			MinimumVersion:   "v1.0.0",
 			OnlineWindow:     4 * time.Hour,

@@ -416,7 +416,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		},
 		Overlay: overlay.Config{
 			Node: overlay.NodeSelectionConfig{
-				UptimeCount:      0,
 				AuditCount:       0,
 				NewNodeFraction:  1,
 				OnlineWindow:     time.Minute,
