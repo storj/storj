@@ -84,6 +84,28 @@ func (checker *Checker) Run(ctx context.Context) (err error) {
 	return group.Wait()
 }
 
+// getNodesEstimate updates the estimate of the total number of nodes. It is guaranteed
+// to return a number greater than 0 when the error is nil.
+//
+// We can't calculate this upon first starting a Checker, because there may not be any
+// nodes yet. We expect that there will be nodes before there are segments, though.
+func (checker *Checker) getNodesEstimate(ctx context.Context) (int, error) {
+	// this should be safe to call frequently; it is an efficient caching lookup.
+	totalNumNodes, err := checker.nodestate.NumNodes(ctx)
+	if err != nil {
+		// We could proceed here by returning the last good value, or by returning a fallback
+		// constant estimate, like "20000", and we'd probably be fine, but it would be better
+		// not to have that happen silently for too long. Also, if we can't get this from the
+		// database, we probably can't modify the injured segments queue, so it won't help to
+		// proceed with this repair operation.
+		return 0, err
+	}
+	if totalNumNodes == 0 {
+		return 0, Error.New("segment health is meaningless: there are no nodes")
+	}
+	return totalNumNodes, nil
+}
+
 // RefreshReliabilityCache forces refreshing node online status cache.
 func (checker *Checker) RefreshReliabilityCache(ctx context.Context) error {
 	return checker.nodestate.Refresh(ctx)
@@ -102,14 +124,15 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 	startTime := time.Now()
 
 	observer := &checkerObserver{
-		repairQueue:     checker.repairQueue,
-		irrdb:           checker.irrdb,
-		nodestate:       checker.nodestate,
-		statsCollector:  checker.statsCollector,
-		monStats:        aggregateStats{},
-		repairOverrides: checker.repairOverrides,
-		nodeFailureRate: checker.nodeFailureRate,
-		log:             checker.logger,
+		repairQueue:      checker.repairQueue,
+		irrdb:            checker.irrdb,
+		nodestate:        checker.nodestate,
+		statsCollector:   checker.statsCollector,
+		monStats:         aggregateStats{},
+		repairOverrides:  checker.repairOverrides,
+		nodeFailureRate:  checker.nodeFailureRate,
+		getNodesEstimate: checker.getNodesEstimate,
+		log:              checker.logger,
 	}
 	err = checker.metaLoop.Join(ctx, observer)
 	if err != nil {
@@ -187,6 +210,11 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 		repairThreshold = overrideValue
 	}
 
+	totalNumNodes, err := checker.getNodesEstimate(ctx)
+	if err != nil {
+		return Error.New("could not get estimate of total number of nodes: %w", err)
+	}
+
 	// we repair when the number of healthy pieces is less than or equal to the repair threshold and is greater or equal to
 	// minimum required pieces in redundancy
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
@@ -194,7 +222,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	// If the segment is suddenly entirely healthy again, we don't need to repair and we don't need to
 	// keep it in the irreparabledb queue either.
 	if numHealthy >= redundancy.MinReq && numHealthy <= repairThreshold && numHealthy < redundancy.SuccessThreshold {
-		segmentHealth := float64(numHealthy)
+		segmentHealth := repair.SegmentHealth(int(numHealthy), int(redundancy.MinReq), totalNumNodes, checker.nodeFailureRate)
 		_, err = checker.repairQueue.Insert(ctx, &internalpb.InjuredSegment{
 			Path:         key,
 			LostPieces:   missingPieces,
@@ -240,14 +268,15 @@ var _ metainfo.Observer = (*checkerObserver)(nil)
 //
 // architecture: Observer
 type checkerObserver struct {
-	repairQueue     queue.RepairQueue
-	irrdb           irreparable.DB
-	nodestate       *ReliabilityCache
-	statsCollector  *statsCollector
-	monStats        aggregateStats // TODO(cam): once we verify statsCollector reports data correctly, remove this
-	repairOverrides RepairOverridesMap
-	nodeFailureRate float64
-	log             *zap.Logger
+	repairQueue      queue.RepairQueue
+	irrdb            irreparable.DB
+	nodestate        *ReliabilityCache
+	statsCollector   *statsCollector
+	monStats         aggregateStats // TODO(cam): once we verify statsCollector reports data correctly, remove this
+	repairOverrides  RepairOverridesMap
+	nodeFailureRate  float64
+	getNodesEstimate func(ctx context.Context) (int, error)
+	log              *zap.Logger
 }
 
 func (obs *checkerObserver) getStatsByRS(redundancy storj.RedundancyScheme) *stats {
@@ -295,6 +324,11 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metainfo
 		}
 	}
 
+	totalNumNodes, err := obs.getNodesEstimate(ctx)
+	if err != nil {
+		return Error.New("could not get estimate of total number of nodes: %w", err)
+	}
+
 	// TODO: update MissingPieces to accept metabase.Pieces
 	missingPieces, err := obs.nodestate.MissingPieces(ctx, segment.CreationDate, pbPieces)
 	if err != nil {
@@ -315,7 +349,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metainfo
 
 	required, repairThreshold, successThreshold, _ := obs.loadRedundancy(segment.Redundancy)
 
-	segmentHealth := repair.SegmentHealth(numHealthy, required, obs.nodeFailureRate)
+	segmentHealth := repair.SegmentHealth(numHealthy, required, totalNumNodes, obs.nodeFailureRate)
 	mon.FloatVal("checker_segment_health").Observe(segmentHealth) //mon:locked
 	stats.segmentHealth.Observe(segmentHealth)
 
