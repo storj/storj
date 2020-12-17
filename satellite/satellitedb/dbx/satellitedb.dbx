@@ -146,7 +146,7 @@ model node (
 	field vetted_at            timestamp ( updatable, nullable )
 	field uptime_success_count int64   ( updatable, default 0 )
 	field total_uptime_count   int64   ( updatable, default 0 )
-
+	
 	field created_at           timestamp ( autoinsert, default current_timestamp )
 	field updated_at           timestamp ( autoinsert, autoupdate, default current_timestamp )
 	field last_contact_success timestamp ( updatable, default "epoch" )
@@ -171,9 +171,6 @@ model node (
 	// unknown_audit_reputation fields track information related to successful vs. unknown error audits
 	field unknown_audit_reputation_alpha  float64 ( updatable, default 1 )
 	field unknown_audit_reputation_beta   float64 ( updatable, default 0 )
-	// TODO remove uptime alpha/beta once old uptime dq code is removed
-	field uptime_reputation_alpha float64 ( updatable, default 1 )
-	field uptime_reputation_beta  float64 ( updatable, default 0 )
 
     field exit_initiated_at         timestamp ( updatable, nullable )
     field exit_loop_completed_at    timestamp ( updatable, nullable )
