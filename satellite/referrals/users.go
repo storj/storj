@@ -26,21 +26,18 @@ type CreateUser struct {
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.
 func (user *CreateUser) IsValid() error {
-	var errors []error
-
-	errors = append(errors, console.ValidateFullName(user.FullName))
-	errors = append(errors, console.ValidatePassword(user.Password))
+	var group errs.Group
+	group.Add(console.ValidateFullName(user.FullName))
+	group.Add(console.ValidatePassword(user.Password))
 
 	// validate email
 	_, err := mail.ParseAddress(user.Email)
-	errors = append(errors, err)
+	group.Add(err)
 
 	if user.ReferralToken != "" {
 		_, err := uuid.FromString(user.ReferralToken)
-		if err != nil {
-			errors = append(errors, err)
-		}
+		group.Add(err)
 	}
 
-	return errs.Combine(errors...)
+	return group.Err()
 }

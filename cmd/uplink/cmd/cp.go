@@ -185,7 +185,7 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 	}
 
 	if fileInfo, err := os.Stat(dst.Path()); err == nil && fileInfo.IsDir() {
-		dst = dst.Join((src.Base()))
+		dst = dst.Join(src.Base())
 	}
 
 	var file *os.File
