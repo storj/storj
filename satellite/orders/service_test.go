@@ -59,12 +59,5 @@ func TestOrderLimitsEncryptedMetadata(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, bucketName, actualBucketInfo.BucketName)
 		require.Equal(t, projectID, actualBucketInfo.ProjectID)
-
-		bucketPrefix, err := satellitePeer.Orders.DB.GetBucketIDFromSerialNumber(ctx, orderLimit1.SerialNumber)
-		require.NoError(t, err)
-		bucket1, err := metabase.ParseBucketPrefix(metabase.BucketPrefix(bucketPrefix))
-		require.NoError(t, err)
-		require.Equal(t, actualBucketInfo.BucketName, bucket1.BucketName)
-		require.Equal(t, actualBucketInfo.ProjectID, bucket1.ProjectID)
 	})
 }
