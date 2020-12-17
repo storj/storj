@@ -1123,6 +1123,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					return nil
 				}),
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop num_healthy_pieces column from injuredsegments",
+				Version:     134,
+				Action: migrate.SQL{
+					`ALTER TABLE injuredsegments DROP COLUMN num_healthy_pieces;`,
+				},
+			},
 		},
 	}
 }
