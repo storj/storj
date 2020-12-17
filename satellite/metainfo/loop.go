@@ -29,6 +29,7 @@ type Object struct {
 	Location       metabase.ObjectLocation // tally
 	SegmentCount   int                     // metrics
 	LastSegment    *Segment                // metrics
+	MetadataSize   int                     // tally
 	expirationDate time.Time               // tally
 }
 
@@ -42,7 +43,6 @@ type Segment struct {
 	Location       metabase.SegmentLocation // tally, repair, graceful exit, audit
 	StreamID       uuid.UUID                // audit
 	DataSize       int                      // tally, graceful exit
-	MetadataSize   int                      // tally
 	Inline         bool                     // metrics
 	Redundancy     storj.RedundancyScheme   // tally, graceful exit, repair
 	RootPieceID    storj.PieceID            // gc, graceful exit
@@ -435,6 +435,7 @@ func handleObject(ctx context.Context, observer *observerContext, location metab
 	if observer.HandleError(observer.Object(ctx, &Object{
 		Location:       location,
 		SegmentCount:   int(object.SegmentCount),
+		MetadataSize:   len(object.EncryptedMetadata),
 		expirationDate: expirationDate,
 		LastSegment:    &Segment{}, // TODO ideally would be to remove this field
 	})) {

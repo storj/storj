@@ -251,6 +251,7 @@ func (observer *Observer) Object(ctx context.Context, object *metainfo.Object) (
 	}
 
 	bucket := observer.ensureBucket(ctx, object.Location)
+	bucket.MetadataSize += int64(object.MetadataSize)
 	bucket.ObjectCount++
 
 	return nil
@@ -265,7 +266,6 @@ func (observer *Observer) InlineSegment(ctx context.Context, segment *metainfo.S
 	bucket := observer.ensureBucket(ctx, segment.Location.Object())
 	bucket.InlineSegments++
 	bucket.InlineBytes += int64(segment.DataSize)
-	bucket.MetadataSize += int64(segment.MetadataSize)
 
 	return nil
 }
@@ -279,7 +279,6 @@ func (observer *Observer) RemoteSegment(ctx context.Context, segment *metainfo.S
 	bucket := observer.ensureBucket(ctx, segment.Location.Object())
 	bucket.RemoteSegments++
 	bucket.RemoteBytes += int64(segment.DataSize)
-	bucket.MetadataSize += int64(segment.MetadataSize)
 
 	// add node info
 	minimumRequired := segment.Redundancy.RequiredShares
