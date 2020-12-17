@@ -61,7 +61,7 @@ func init() {
 	registerCmd := &cobra.Command{
 		Use:   "register [ACCESS]",
 		Short: "Register your access for use with a hosted gateway.",
-		RunE:  registerAccess,
+		RunE:  accessRegister,
 		Args:  cobra.MaximumNArgs(1),
 	}
 
@@ -90,25 +90,9 @@ func accessList(cmd *cobra.Command, args []string) (err error) {
 }
 
 func accessInspect(cmd *cobra.Command, args []string) (err error) {
-	var access *uplink.Access
-	if len(args) == 0 {
-		access, err = inspectCfg.GetAccess()
-		if err != nil {
-			return err
-		}
-	} else {
-		firstArg := args[0]
-
-		access, err = inspectCfg.GetNamedAccess(firstArg)
-		if err != nil {
-			return err
-		}
-
-		if access == nil {
-			if access, err = uplink.ParseAccess(firstArg); err != nil {
-				return err
-			}
-		}
+	access, err := getAccessFromArgZeroOrConfig(inspectCfg, args)
+	if err != nil {
+		return errs.New("no access specified: %w", err)
 	}
 
 	serializedAccesss, err := access.Serialize()
@@ -149,78 +133,92 @@ func parseAccess(access string) (sa string, apiKey string, ea string, err error)
 	return p.SatelliteAddr, apiKey, ea, nil
 }
 
-func registerAccess(cmd *cobra.Command, args []string) (err error) {
-	if len(args) == 0 {
-		return errs.New("no access specified")
-	}
-	_, err = register(args[0], registerCfg.AuthService, registerCfg.Public)
-	return err
-}
-
-func register(accessRaw, authService string, public bool) (accessKey string, err error) {
-	if authService == "" {
-		return "", errs.New("no auth service address provided")
-	}
-
-	// try assuming that accessRaw is a named access
-	access, err := registerCfg.GetNamedAccess(accessRaw)
-	if err == nil && access != nil {
-		accessRaw, err = access.Serialize()
-		if err != nil {
-			return "", errs.New("error serializing named access '%s': %w", accessRaw, err)
-		}
-	}
-
-	postData, err := json.Marshal(map[string]interface{}{
-		"access_grant": accessRaw,
-		"public":       public,
-	})
+func accessRegister(cmd *cobra.Command, args []string) (err error) {
+	access, err := getAccessFromArgZeroOrConfig(inspectCfg, args)
 	if err != nil {
-		return accessKey, errs.Wrap(err)
+		return errs.New("no access specified: %w", err)
 	}
 
-	resp, err := http.Post(fmt.Sprintf("%s/v1/access", authService), "application/json", bytes.NewReader(postData))
+	accessKey, secretKey, endpoint, err := RegisterAccess(access, registerCfg.AuthService, registerCfg.Public)
 	if err != nil {
-		return "", err
-	}
-	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-
-	respBody := make(map[string]string)
-	if err := json.Unmarshal(body, &respBody); err != nil {
-		return "", errs.New("unexpected response from auth service: %s", string(body))
-	}
-
-	accessKey, ok := respBody["access_key_id"]
-	if !ok {
-		return "", errs.New("access_key_id missing in response")
-	}
-	secretKey, ok := respBody["secret_key"]
-	if !ok {
-		return "", errs.New("secret_key missing in response")
+		return err
 	}
 
 	fmt.Println("========== CREDENTIALS ===================================================================")
 	fmt.Println("Access Key ID: ", accessKey)
 	fmt.Println("Secret Key   : ", secretKey)
-	fmt.Println("Endpoint     : ", respBody["endpoint"])
+	fmt.Println("Endpoint     : ", endpoint)
 
 	// update AWS credential file if requested
 	if registerCfg.AWSProfile != "" {
 		credentialsPath, err := getAwsCredentialsPath()
 		if err != nil {
-			return "", err
+			return err
 		}
 		err = writeAWSCredentials(credentialsPath, registerCfg.AWSProfile, accessKey, secretKey)
 		if err != nil {
-			return "", err
+			return err
 		}
 	}
-	return accessKey, nil
+	return nil
+}
+
+func getAccessFromArgZeroOrConfig(config AccessConfig, args []string) (access *uplink.Access, err error) {
+	if len(args) != 0 {
+		access, err = inspectCfg.GetNamedAccess(args[0])
+		if err != nil {
+			return nil, err
+		}
+		if access != nil {
+			return access, nil
+		}
+		return uplink.ParseAccess(args[0])
+	}
+	return inspectCfg.GetAccess()
+}
+
+// RegisterAccess registers an access grant with a Gateway Authorization Service.
+func RegisterAccess(access *uplink.Access, authService string, public bool) (accessKey, secretKey, endpoint string, err error) {
+	if authService == "" {
+		return "", "", "", errs.New("no auth service address provided")
+	}
+	accesssSerialized, err := access.Serialize()
+	if err != nil {
+		return "", "", "", errs.Wrap(err)
+	}
+	postData, err := json.Marshal(map[string]interface{}{
+		"access_grant": accesssSerialized,
+		"public":       public,
+	})
+	if err != nil {
+		return accessKey, "", "", errs.Wrap(err)
+	}
+
+	resp, err := http.Post(fmt.Sprintf("%s/v1/access", authService), "application/json", bytes.NewReader(postData))
+	if err != nil {
+		return "", "", "", err
+	}
+	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", "", "", err
+	}
+
+	respBody := make(map[string]string)
+	if err := json.Unmarshal(body, &respBody); err != nil {
+		return "", "", "", errs.New("unexpected response from auth service: %s", string(body))
+	}
+
+	accessKey, ok := respBody["access_key_id"]
+	if !ok {
+		return "", "", "", errs.New("access_key_id missing in response")
+	}
+	secretKey, ok = respBody["secret_key"]
+	if !ok {
+		return "", "", "", errs.New("secret_key missing in response")
+	}
+	return accessKey, secretKey, respBody["endpoint"], nil
 }
 
 // getAwsCredentialsPath returns the expected AWS credentials path.
