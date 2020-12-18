@@ -108,8 +108,8 @@ type RateLimiterConfig struct {
 // ProjectLimitConfig is a configuration struct for default project limits.
 type ProjectLimitConfig struct {
 	MaxBuckets          int         `help:"max bucket count for a project." default:"100"`
-	DefaultMaxUsage     memory.Size `help:"the default storage usage limit" releaseDefault:"50.00GB" devDefault:"200GB"`
-	DefaultMaxBandwidth memory.Size `help:"the default bandwidth usage limit" releaseDefault:"50.00GB" devDefault:"200GB"`
+	DefaultMaxUsage     memory.Size `help:"the default storage usage limit" default:"500.00GB"`
+	DefaultMaxBandwidth memory.Size `help:"the default bandwidth usage limit" default:"500.00GB"`
 }
 
 // Config is a configuration struct that is everything you need to start a metainfo.

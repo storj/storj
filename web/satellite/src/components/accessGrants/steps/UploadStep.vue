@@ -102,6 +102,8 @@ export default class UploadStep extends Vue {
     public mounted(): void {
         if (!this.$route.params.isUplinkSectionEnabled) {
             this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
+
+            return;
         }
 
         this.$route.params.isUplinkSectionEnabled === 'true' ? this.isUplinkSectionEnabled = true : this.isUplinkSectionEnabled = false;

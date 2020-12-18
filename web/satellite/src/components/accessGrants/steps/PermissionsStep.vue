@@ -53,9 +53,13 @@
             width="100%"
             height="48px"
             :on-press="onContinueInBrowserClick"
-            :is-disabled="isLoading"
+            :is-disabled="isLoading || !isAccessGrantsWebWorkerReady"
         />
-        <p v-if="!isOnboardingTour" class="permissions__cli-link" @click.stop="onContinueInCLIClick">
+        <p
+            class="permissions__cli-link"
+            :class="{ disabled: !isAccessGrantsWebWorkerReady || isLoading }"
+            @click.stop="onContinueInCLIClick"
+        >
             Continue in CLI
         </p>
     </div>
@@ -72,6 +76,7 @@ import VButton from '@/components/common/VButton.vue';
 import BackIcon from '@/../static/images/accessGrants/back.svg';
 
 import { RouteConfig } from '@/router';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 
 @Component({
@@ -102,25 +107,13 @@ export default class PermissionsStep extends Vue {
     public async mounted(): Promise<void> {
         if (!this.$route.params.key) {
             this.onBackClick();
+
+            return;
         }
 
         this.key = this.$route.params.key;
-        this.worker = await new Worker('/static/static/wasm/webWorker.js');
-        this.worker.onmessage = (event: MessageEvent) => {
-            const data = event.data;
-            if (data.error) {
-                this.$notify.error(data.error);
 
-                return;
-            }
-
-            this.restrictedKey = data.value;
-
-            this.$notify.success('Permissions were set successfully');
-        };
-        this.worker.onerror = (error: ErrorEvent) => {
-            this.$notify.error(error.message);
-        };
+        this.setWorker();
 
         try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
@@ -136,30 +129,37 @@ export default class PermissionsStep extends Vue {
      * Redirects to previous step.
      */
     public onBackClick(): void {
-        const PREVIOUS_ROUTE_NUMBER: number = -1;
+        this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
+    }
 
-        this.$router.go(PREVIOUS_ROUTE_NUMBER);
+    /**
+     * Sets local worker with worker instantiated in store.
+     * Also sets worker's onmessage and onerror logic.
+     */
+    public setWorker(): void {
+        this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
+        this.worker.onmessage = (event: MessageEvent) => {
+            const data = event.data;
+            if (data.error) {
+                this.$notify.error(data.error);
+
+                return;
+            }
+
+            this.restrictedKey = data.value;
+
+            this.$notify.success('Permissions were set successfully');
+        };
+        this.worker.onerror = (error: ErrorEvent) => {
+            this.$notify.error(error.message);
+        };
     }
 
     /**
      * Holds on continue in CLI button click logic.
      */
     public onContinueInCLIClick(): void {
-        if (this.isLoading) return;
-
-        this.$router.push({
-            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CLIStep)).name,
-            params: {
-                key: this.key,
-            },
-        });
-    }
-
-    /**
-     * Holds on continue in browser button click logic.
-     */
-    public onContinueInBrowserClick(): void {
-        if (this.isLoading) return;
+        if (this.isLoading || !this.isAccessGrantsWebWorkerReady) return;
 
         this.isLoading = true;
 
@@ -177,13 +177,62 @@ export default class PermissionsStep extends Vue {
 
         // Give time for web worker to return value.
         setTimeout(() => {
+            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
+            this.isLoading = false;
+
+            if (this.isOnboardingTour) {
+                this.$router.push({
+                    name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantCLI)).name,
+                    params: {
+                        key: this.key,
+                        restrictedKey: this.restrictedKey,
+                    },
+                });
+
+                return;
+            }
+
+            this.$router.push({
+                name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CLIStep)).name,
+                params: {
+                    key: this.key,
+                    restrictedKey: this.restrictedKey,
+                },
+            });
+        }, 1000);
+    }
+
+    /**
+     * Holds on continue in browser button click logic.
+     */
+    public onContinueInBrowserClick(): void {
+        if (this.isLoading || !this.isAccessGrantsWebWorkerReady) return;
+
+        this.isLoading = true;
+
+        this.worker.postMessage({
+            'type': 'SetPermission',
+            'isDownload': this.isDownload,
+            'isUpload': this.isUpload,
+            'isList': this.isList,
+            'isDelete': this.isDelete,
+            'buckets': this.selectedBucketNames,
+            'apiKey': this.key,
+            'notBefore': this.notBeforePermission,
+            'notAfter': this.notAfterPermission,
+        });
+
+        // Give time for web worker to return value.
+        setTimeout(() => {
+            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
             this.isLoading = false;
 
             if (this.isOnboardingTour) {
                 this.$router.push({
                     name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantPassphrase)).name,
                     params: {
-                        key: this.restrictedKey,
+                        key: this.key,
+                        restrictedKey: this.restrictedKey,
                     },
                 });
 
@@ -194,7 +243,8 @@ export default class PermissionsStep extends Vue {
                 this.$router.push({
                     name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.EnterPassphraseStep)).name,
                     params: {
-                        key: this.restrictedKey,
+                        key: this.key,
+                        restrictedKey: this.restrictedKey,
                     },
                 });
 
@@ -204,10 +254,18 @@ export default class PermissionsStep extends Vue {
             this.$router.push({
                 name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CreatePassphraseStep)).name,
                 params: {
-                    key: this.restrictedKey,
+                    key: this.key,
+                    restrictedKey: this.restrictedKey,
                 },
             });
         }, 1000);
+    }
+
+    /**
+     * Indicates if access grants web worker ready to use.
+     */
+    public get isAccessGrantsWebWorkerReady(): boolean {
+        return this.$store.state.accessGrantsModule.isAccessGrantsWebWorkerReady;
     }
 
     /**
@@ -380,5 +438,10 @@ export default class PermissionsStep extends Vue {
 
     .border-radius {
         border-radius: 6px;
+    }
+
+    .disabled {
+        pointer-events: none;
+        color: rgba(0, 0, 0, 0.4);
     }
 </style>

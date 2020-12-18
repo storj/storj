@@ -57,7 +57,6 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { Project } from '@/types/projects';
-import { User } from '@/types/users';
 import { Size } from '@/utils/bytesSize';
 import {
     APP_STATE_ACTIONS,
@@ -94,15 +93,25 @@ export default class DashboardArea extends Vue {
     public readonly projectDashboardPath: string = RouteConfig.ProjectDashboard.path;
 
     /**
+     * Lifecycle hook before initial render.
+     * Sets access grants web worker.
+     */
+    public beforeMount(): void {
+        try {
+            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_ACCESS_GRANTS_WEB_WORKER);
+        } catch (error) {
+            this.$notify.error(`Unable to set access grants wizard. ${error.message}`);
+        }
+    }
+
+    /**
      * Lifecycle hook after initial render.
      * Pre fetches user`s and project information.
      */
     public async mounted(): Promise<void> {
-        let user: User;
-
         // TODO: combine all project related requests in one
         try {
-            user = await this.$store.dispatch(USER_ACTIONS.GET);
+            await this.$store.dispatch(USER_ACTIONS.GET);
         } catch (error) {
             if (!(error instanceof ErrorUnauthorized)) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);

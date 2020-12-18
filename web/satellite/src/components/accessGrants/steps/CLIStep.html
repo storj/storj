@@ -1,7 +1,7 @@
 <!--Copyright (C) 2020 Storj Labs, Inc.-->
 <!--See LICENSE for copying information.-->
 
-<div class="cli-container">
+<div class="cli-container" :class="{ 'border-radius': isOnboardingTour }">
     <BackIcon class="cli-container__back-icon" @click="onBackClick"/>
     <h1 class="cli-container__title">Create Access Grant in CLI</h1>
     <p class="cli-container__sub-title">
@@ -10,7 +10,7 @@
     <div class="cli-container__token-area">
         <p class="cli-container__token-area__label">Token</p>
         <div class="cli-container__token-area__container">
-            <p class="cli-container__token-area__container__token">{{ key }}</p>
+            <p class="cli-container__token-area__container__token">{{ restrictedKey }}</p>
             <VButton
                 class="cli-container__token-area__container__button"
                 label="Copy"

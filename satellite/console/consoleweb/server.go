@@ -80,7 +80,7 @@ type Config struct {
 	GoogleTagManagerID              string `help:"id for google tag manager" default:""`
 	GeneralRequestURL               string `help:"url link to general request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
 	ProjectLimitsIncreaseRequestURL string `help:"url link to project limit increase request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
-	GatewayCredentialsRequestURL    string `help:"url link for gateway credentials requests" default:""`
+	GatewayCredentialsRequestURL    string `help:"url link for gateway credentials requests" default:"https://auth.tardigradeshare.io"`
 
 	RateLimit web.IPRateLimiterConfig
 
@@ -207,7 +207,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		router.HandleFunc("/password-recovery/", server.passwordRecoveryHandler)
 		router.HandleFunc("/cancel-password-recovery/", server.cancelPasswordRecoveryHandler)
 		router.HandleFunc("/usage-report", server.bucketUsageReportHandler)
-		router.PathPrefix("/static/").Handler(server.gzipMiddleware(http.StripPrefix("/static", fs)))
+		router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fs)))
 		router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
 	}
 
@@ -792,19 +792,19 @@ func (server *Server) seoHandler(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// gzipMiddleware is used to gzip static content to minify resources if browser support such decoding.
-func (server *Server) gzipMiddleware(fn http.Handler) http.Handler {
+// brotliMiddleware is used to compress static content using brotli to minify resources if browser support such decoding.
+func (server *Server) brotliMiddleware(fn http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=31536000")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 
-		isGzipSupported := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
-		if !isGzipSupported {
+		isBrotliSupported := strings.Contains(r.Header.Get("Accept-Encoding"), "br")
+		if !isBrotliSupported {
 			fn.ServeHTTP(w, r)
 			return
 		}
 
-		info, err := os.Stat(server.config.StaticDir + strings.TrimPrefix(r.URL.Path, "/static") + ".gz")
+		info, err := os.Stat(server.config.StaticDir + strings.TrimPrefix(r.URL.Path, "/static") + ".br")
 		if err != nil {
 			fn.ServeHTTP(w, r)
 			return
@@ -812,13 +812,13 @@ func (server *Server) gzipMiddleware(fn http.Handler) http.Handler {
 
 		extension := filepath.Ext(info.Name()[:len(info.Name())-3])
 		w.Header().Set(contentType, mime.TypeByExtension(extension))
-		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Set("Content-Encoding", "br")
 
 		newRequest := new(http.Request)
 		*newRequest = *r
 		newRequest.URL = new(url.URL)
 		*newRequest.URL = *r.URL
-		newRequest.URL.Path += ".gz"
+		newRequest.URL.Path += ".br"
 
 		fn.ServeHTTP(w, newRequest)
 	})
