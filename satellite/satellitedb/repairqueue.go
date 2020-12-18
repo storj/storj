@@ -29,7 +29,7 @@ func (r *repairQueue) Insert(ctx context.Context, seg *internalpb.InjuredSegment
 	// insert if not exists, or update healthy count if does exist
 	var query string
 
-	// we want to insert the segment if it is not in the queue, but update the number of healthy pieces if it already is in the queue
+	// we want to insert the segment if it is not in the queue, but update the segment health if it already is in the queue
 	// we also want to know if the result was an insert or an update - this is the reasoning for the xmax section of the postgres query
 	// and the separate cockroach query (which the xmax trick does not work for)
 	switch r.db.implementation {

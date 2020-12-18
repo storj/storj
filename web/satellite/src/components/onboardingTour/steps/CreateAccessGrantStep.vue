@@ -13,9 +13,10 @@
                 'permissions-margin': isPermissionsStep,
                 'passphrase-margin': isPassphraseStep,
                 'result-margin': isResultStep,
+                'cli-margin': isCLIStep,
             }"
         >
-            <ProgressBar/>
+            <ProgressBar v-if="!isCLIStep"/>
             <router-view/>
         </div>
     </div>
@@ -46,6 +47,13 @@ export default class CreateAccessGrantStep extends Vue {
      */
     public get isPassphraseStep(): boolean {
         return this.$route.name === RouteConfig.AccessGrantPassphrase.name;
+    }
+
+    /**
+     * Indicates if current route is access grant CLI step.
+     */
+    public get isCLIStep(): boolean {
+        return this.$route.name === RouteConfig.AccessGrantCLI.name;
     }
 
     /**
@@ -81,7 +89,8 @@ export default class CreateAccessGrantStep extends Vue {
         &__content {
             display: flex;
             align-items: center;
-            margin-left: -145px;
+            justify-content: center;
+            margin-left: -195px;
         }
     }
 
@@ -95,5 +104,9 @@ export default class CreateAccessGrantStep extends Vue {
 
     .result-margin {
         margin-left: -175px;
+    }
+
+    .cli-margin {
+        margin-left: 0;
     }
 </style>

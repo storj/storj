@@ -123,6 +123,8 @@ import { MetaUtils } from '@/utils/meta';
     },
 })
 export default class ResultStep extends Vue {
+    private key: string = '';
+
     public access: string = '';
     public isGatewayDropdownVisible: boolean = false;
     public areGatewayCredentialsVisible: boolean = false;
@@ -134,11 +136,14 @@ export default class ResultStep extends Vue {
      * Sets local access from props value.
      */
     public mounted(): void {
-        if (!this.$route.params.access || !this.$route.params.key) {
+        if (!this.$route.params.access && !this.$route.params.key) {
             this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
+
+            return;
         }
 
         this.access = this.$route.params.access;
+        this.key = this.$route.params.key;
 
         const requestURL = MetaUtils.getMetaContent('gateway-credentials-request-url');
         if (requestURL) this.isGatewayDropdownVisible = true;
@@ -196,7 +201,7 @@ export default class ResultStep extends Vue {
             this.$router.push({
                 name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantPassphrase)).name,
                 params: {
-                    key: this.$route.params.key,
+                    key: this.key,
                 },
             });
 
@@ -207,7 +212,7 @@ export default class ResultStep extends Vue {
             this.$router.push({
                 name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.EnterPassphraseStep)).name,
                 params: {
-                    key: this.$route.params.key,
+                    key: this.key,
                 },
             });
 
@@ -217,7 +222,7 @@ export default class ResultStep extends Vue {
         this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CreatePassphraseStep)).name,
             params: {
-                key: this.$route.params.key,
+                key: this.key,
             },
         });
     }

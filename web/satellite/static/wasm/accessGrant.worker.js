@@ -15,7 +15,10 @@ const instantiateStreaming = WebAssembly.instantiateStreaming || async function 
     return await WebAssembly.instantiate(source, importObject);
 };
 const response = fetch('/static/static/wasm/access.wasm');
-instantiateStreaming(response, go.importObject).then(result => go.run(result.instance)).catch(err => self.postMessage(new Error(err.message)));
+instantiateStreaming(response, go.importObject).then(result => {
+    go.run(result.instance)
+    self.postMessage('configured');
+}).catch(err => self.postMessage(new Error(err.message)));
 
 self.onmessage = function (event) {
     const data = event.data;

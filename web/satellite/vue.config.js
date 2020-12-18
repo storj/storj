@@ -4,7 +4,8 @@
 const path = require('path');
 const CompressionWebpackPlugin = require('compression-webpack-plugin');
 const StyleLintPlugin = require('stylelint-webpack-plugin');
-const productionGzipExtensions = ['js', 'css', 'ttf'];
+const WorkerPlugin = require('worker-plugin');
+const productionBrotliExtensions = ['js', 'css', 'ttf'];
 
 module.exports = {
     publicPath: "/static/dist",
@@ -13,14 +14,18 @@ module.exports = {
     configureWebpack: {
         plugins: [
             new CompressionWebpackPlugin({
-                algorithm: 'gzip',
-                test: new RegExp('\\.(' + productionGzipExtensions.join('|') + ')$'),
+                algorithm: 'brotliCompress',
+                filename: '[path][name].br',
+                test: new RegExp('\\.(' + productionBrotliExtensions.join('|') + ')$'),
                 threshold: 1024,
                 minRatio: 0.8
             }),
             new StyleLintPlugin({
                 files: ['**/*.{vue,sss,less,scss,sass}'],
                 emitWarning: true,
+            }),
+            new WorkerPlugin({
+                globalObject: 'self',
             })
         ],
     },

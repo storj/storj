@@ -226,7 +226,7 @@ binary:
 	scripts/release.sh build $(EXTRA_ARGS) -o release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} \
 	storj.io/storj/cmd/${COMPONENT}
 
-	if [ "${COMPONENT}" = "satellite" ] && [ "${GOARCH}" = "amd64" ]; \
+	if [ "${COMPONENT}" = "satellite" ] && [ "${GOOS}" = "linux" ] && [ "${GOARCH}" = "amd64" ]; \
 	then \
 		echo "Building wasm code"; \
 		$(MAKE) satellite-wasm; \

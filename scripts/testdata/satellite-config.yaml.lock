@@ -89,7 +89,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.frame-ancestors: tardigrade.io
 
 # url link for gateway credentials requests
-# console.gateway-credentials-request-url: ""
+# console.gateway-credentials-request-url: https://auth.tardigradeshare.io
 
 # url link to general request page
 # console.general-request-url: https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000379291
@@ -377,10 +377,10 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.piece-deletion.request-timeout: 1m0s
 
 # the default bandwidth usage limit
-# metainfo.project-limits.default-max-bandwidth: 50.00 GB
+# metainfo.project-limits.default-max-bandwidth: 500.00 GB
 
 # the default storage usage limit
-# metainfo.project-limits.default-max-usage: 50.00 GB
+# metainfo.project-limits.default-max-usage: 500.00 GB
 
 # max bucket count for a project.
 # metainfo.project-limits.max-buckets: 100

@@ -58,7 +58,8 @@
     "vue-template-compiler": "2.6.12",
     "vue-tslint": "0.3.2",
     "vue-tslint-loader": "3.5.6",
-    "webpack": "4.44.1"
+    "webpack": "4.44.1",
+    "worker-plugin": "5.0.0"
   },
   "postcss": {
     "plugins": {
