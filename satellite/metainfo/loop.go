@@ -27,8 +27,8 @@ var (
 // Object is the object info passed to Observer by metainfo loop.
 type Object struct {
 	Location       metabase.ObjectLocation // tally
+	StreamID       uuid.UUID               // metrics, repair
 	SegmentCount   int                     // metrics
-	LastSegment    *Segment                // metrics
 	MetadataSize   int                     // tally
 	expirationDate time.Time               // tally
 }
@@ -434,10 +434,10 @@ func handleObject(ctx context.Context, observer *observerContext, location metab
 
 	if observer.HandleError(observer.Object(ctx, &Object{
 		Location:       location,
+		StreamID:       object.StreamID,
 		SegmentCount:   int(object.SegmentCount),
 		MetadataSize:   len(object.EncryptedMetadata),
 		expirationDate: expirationDate,
-		LastSegment:    &Segment{}, // TODO ideally would be to remove this field
 	})) {
 		return false
 	}
