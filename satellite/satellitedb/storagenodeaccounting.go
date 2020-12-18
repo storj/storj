@@ -101,9 +101,9 @@ func (db *StoragenodeAccounting) GetTalliesSince(ctx context.Context, latestRoll
 	return out, Error.Wrap(err)
 }
 
-func (db *StoragenodeAccounting) getNodeIds(ctx context.Context) (nodeids [][]byte, err error) {
+func (db *StoragenodeAccounting) getNodeIdsSince(ctx context.Context, since time.Time) (nodeids [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
-	rows, err := db.db.QueryContext(ctx, db.db.Rebind(`select distinct storagenode_id from storagenode_bandwidth_rollups`))
+	rows, err := db.db.QueryContext(ctx, db.db.Rebind(`select distinct storagenode_id from storagenode_bandwidth_rollups where interval_start >= $1`), since)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -215,7 +215,7 @@ func (db *StoragenodeAccounting) GetBandwidthSince(ctx context.Context, latestRo
 	// going to allow us to avoid 16 minute queries.
 	var nodeids [][]byte
 	for {
-		nodeids, err = db.getNodeIds(ctx)
+		nodeids, err = db.getNodeIdsSince(ctx, latestRollup)
 		if err != nil {
 			if cockroachutil.NeedsRetry(err) {
 				continue

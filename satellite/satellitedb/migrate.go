@@ -1131,6 +1131,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE injuredsegments DROP COLUMN num_healthy_pieces;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create new index on storagenode_bandwidth_rollups to improve get nodes since query.",
+				Version:     135,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start );`,
+				},
+			},
 		},
 	}
 }
