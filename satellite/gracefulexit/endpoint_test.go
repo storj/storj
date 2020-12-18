@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/private/testblobs"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode"
@@ -1418,4 +1419,58 @@ func findNodeToExit(ctx context.Context, planet *testplanet.Planet, objects int)
 	}
 
 	return planet.FindNode(exitingNodeID), nil
+}
+
+func TestUpdatePiecesCheckDuplicates(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(1, 1, 3, 3),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		uplinkPeer := planet.Uplinks[0]
+		path := "test/path"
+
+		err := uplinkPeer.Upload(ctx, satellite, "test1", path, testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+
+		segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Len(t, segments, 1)
+
+		pieces := segments[0].Pieces
+		require.False(t, hasDuplicates(pieces))
+
+		// Remove second piece in the list and replace it with
+		// a piece on the first node.
+		// This way we can ensure that we use a valid piece num.
+		removePiece := metabase.Piece{
+			Number:      pieces[1].Number,
+			StorageNode: pieces[1].StorageNode,
+		}
+		addPiece := metabase.Piece{
+			Number:      pieces[1].Number,
+			StorageNode: pieces[0].StorageNode,
+		}
+
+		// test no duplicates
+		err = satellite.GracefulExit.Endpoint.UpdatePiecesCheckDuplicates(ctx, segments[0], metabase.Pieces{addPiece}, metabase.Pieces{removePiece}, true)
+		require.True(t, metainfo.ErrNodeAlreadyExists.Has(err))
+	})
+}
+
+func hasDuplicates(pieces metabase.Pieces) bool {
+	nodePieceCounts := make(map[storj.NodeID]int)
+	for _, piece := range pieces {
+		nodePieceCounts[piece.StorageNode]++
+	}
+
+	for _, count := range nodePieceCounts {
+		if count > 1 {
+			return true
+		}
+	}
+
+	return false
 }

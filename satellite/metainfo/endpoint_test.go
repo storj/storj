@@ -540,14 +540,9 @@ func TestDeleteBucket(t *testing.T) {
 		err = uplnk.Upload(ctx, planet.Satellites[0], expectedBucketName, "remote-segment-inline-object", testrand.Bytes(33*memory.KiB))
 		require.NoError(t, err)
 
-		listResp, err := satelliteSys.API.Metainfo.Endpoint2.ListObjects(ctx, &pb.ObjectListRequest{
-			Header: &pb.RequestHeader{
-				ApiKey: apiKey.SerializeRaw(),
-			},
-			Bucket: []byte(expectedBucketName),
-		})
+		objects, err := satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
 		require.NoError(t, err)
-		require.Len(t, listResp.GetItems(), 3)
+		require.Len(t, objects, 3)
 
 		delResp, err := satelliteSys.API.Metainfo.Endpoint2.DeleteBucket(ctx, &pb.BucketDeleteRequest{
 			Header: &pb.RequestHeader{

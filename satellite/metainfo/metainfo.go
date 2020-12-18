@@ -396,7 +396,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 				return nil, err
 			}
 
-			return &pb.BucketDeleteResponse{Bucket: convBucket, DeletedObjectsCount: int64(deletedObjCount)}, nil
+			return &pb.BucketDeleteResponse{Bucket: convBucket, DeletedObjectsCount: deletedObjCount}, nil
 		}
 		if storj.ErrBucketNotFound.Has(err) {
 			return &pb.BucketDeleteResponse{Bucket: convBucket}, nil
@@ -409,7 +409,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 
 // deleteBucketNotEmpty deletes all objects from bucket and deletes this bucket.
 // On success, it returns only the number of deleted objects.
-func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uuid.UUID, bucketName []byte) ([]byte, int, error) {
+func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uuid.UUID, bucketName []byte) ([]byte, int64, error) {
 	deletedCount, err := endpoint.deleteBucketObjects(ctx, projectID, bucketName)
 	if err != nil {
 		return nil, 0, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -430,11 +430,11 @@ func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uu
 }
 
 // deleteBucketObjects deletes all objects in a bucket.
-func (endpoint *Endpoint) deleteBucketObjects(ctx context.Context, projectID uuid.UUID, bucketName []byte) (_ int, err error) {
+func (endpoint *Endpoint) deleteBucketObjects(ctx context.Context, projectID uuid.UUID, bucketName []byte) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	bucketLocation := metabase.BucketLocation{ProjectID: projectID, BucketName: string(bucketName)}
-	_, err = endpoint.metainfo.metabaseDB.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
+	deletedObjects, err := endpoint.metainfo.metabaseDB.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
 		Bucket: bucketLocation,
 		DeletePieces: func(ctx context.Context, deleted []metabase.DeletedSegmentInfo) error {
 			endpoint.deleteSegmentPieces(ctx, deleted)
@@ -442,7 +442,7 @@ func (endpoint *Endpoint) deleteBucketObjects(ctx context.Context, projectID uui
 		},
 	})
 
-	return 0, Error.Wrap(err)
+	return deletedObjects, Error.Wrap(err)
 }
 
 // ListBuckets returns buckets in a project where the bucket name matches the request cursor.
