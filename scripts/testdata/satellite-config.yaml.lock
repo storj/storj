@@ -22,7 +22,7 @@
 # number of reservoir slots allotted for nodes, currently capped at 3
 # audit.slots: 3
 
-# number of workers to run audits on paths
+# number of workers to run audits on segments
 # audit.worker-concurrency: 2
 
 # how frequently checker should check for bad segments
@@ -342,15 +342,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # minimum remote segment size
 # metainfo.min-remote-segment-size: 1.2 KiB
-
-# maximum number of concurrent requests
-# metainfo.object-deletion.max-concurrent-requests: 10000
-
-# maximum number of requests per batch
-# metainfo.object-deletion.max-objects-per-request: 100
-
-# number of segments per request when looking for zombie segments
-# metainfo.object-deletion.zombie-segments-per-request: 3
 
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
