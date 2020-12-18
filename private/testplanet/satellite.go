@@ -43,7 +43,6 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
-	"storj.io/storj/satellite/dbcleanup"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
@@ -135,10 +134,6 @@ type Satellite struct {
 
 	ExpiredDeletion struct {
 		Chore *expireddeletion.Chore
-	}
-
-	DBCleanup struct {
-		Chore *dbcleanup.Chore
 	}
 
 	Accounting struct {
@@ -552,10 +547,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			Interval: defaultInterval,
 			Enabled:  true,
 		},
-		DBCleanup: dbcleanup.Config{
-			SerialsInterval: defaultInterval,
-			BatchSize:       1000,
-		},
 		Tally: tally.Config{
 			Interval: defaultInterval,
 		},
@@ -732,8 +723,6 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.GarbageCollection.Service = gcPeer.GarbageCollection.Service
 
 	system.ExpiredDeletion.Chore = peer.ExpiredDeletion.Chore
-
-	system.DBCleanup.Chore = peer.DBCleanup.Chore
 
 	system.Accounting.Tally = peer.Accounting.Tally
 	system.Accounting.Rollup = peer.Accounting.Rollup

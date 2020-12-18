@@ -26,7 +26,6 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
-	"storj.io/storj/satellite/dbcleanup"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/mailservice"
@@ -128,8 +127,6 @@ type Config struct {
 	GarbageCollection gc.Config
 
 	ExpiredDeletion expireddeletion.Config
-
-	DBCleanup dbcleanup.Config
 
 	Tally            tally.Config
 	Rollup           rollup.Config
