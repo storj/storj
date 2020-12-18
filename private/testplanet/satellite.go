@@ -493,7 +493,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			FlushInterval:              defaultInterval,
 			NodeStatusLogging:          true,
 			WindowEndpointRolloutPhase: orders.WindowEndpointRolloutPhase3,
-			IncludeEncryptedMetadata:   true,
 			EncryptionKeys:             *encryptionKeys,
 		},
 		Checker: checker.Config{

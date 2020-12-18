@@ -427,9 +427,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how often to flush the rollups write cache to the database
 # orders.flush-interval: 1m0s
 
-# include encrypted metadata in the order limit
-# orders.include-encrypted-metadata: true
-
 # how many concurrent orders to process at once. zero is unlimited
 # orders.orders-semaphore-size: 2
 
