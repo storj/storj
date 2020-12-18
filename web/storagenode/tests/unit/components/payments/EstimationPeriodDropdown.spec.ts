@@ -14,7 +14,7 @@ import {
     Dashboard,
     Metric,
     Satellite,
-    SatelliteInfo,
+    SatelliteInfo, SatelliteScores,
     Stamp,
     Traffic,
 } from '@/storagenode/sno/sno';
@@ -55,8 +55,7 @@ describe('EstimationPeriodDropdown', (): void => {
             222,
             50,
             70,
-            new Metric(1, 1, 1, 0, 1, 0, 0, 1),
-            new Metric(2, 1, 1, 0, 1, 0, 0, 1),
+            new SatelliteScores('', 1, 0, 0),
             new Date(),
         );
 

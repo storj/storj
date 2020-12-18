@@ -72,9 +72,6 @@ export class UINotification {
             case NotificationTypes.AuditCheckFailure:
                 this.icon = NotificationIcon.FAIL;
                 break;
-            case NotificationTypes.UptimeCheckFailure:
-                this.icon = NotificationIcon.DISQUALIFIED;
-                break;
             case NotificationTypes.Disqualification:
                 this.icon = NotificationIcon.SOFTWARE_UPDATE;
                 break;

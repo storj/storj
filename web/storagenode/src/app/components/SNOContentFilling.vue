@@ -126,12 +126,12 @@
             <div class="info-area__checks-area" v-if="selectedSatellite.id">
                 <ChecksArea
                     label="Suspension Score"
-                    :amount="checks.suspension"
+                    :amount="audits.suspensionScore.label"
                     info-text="This score shows how close your node is to getting suspended on a satellite. A score of 60% or below will result in suspension. If your node stays suspended for more than one week you will be disqualified from this satellite, so please correct the errors that lead to suspension asap."
                 />
                 <ChecksArea
                     label="Audit Score"
-                    :amount="checks.audit"
+                    :amount="audits.auditScore.label"
                     info-text="Percentage of successful pings/communication between the node & satellite."
                 />
             </div>
@@ -175,20 +175,7 @@ import LargeSuspensionIcon from '@/../static/images/largeSuspend.svg';
 import { RouteConfig } from '@/app/router';
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { formatBytes } from '@/app/utils/converter';
-import { SatelliteInfo } from '@/storagenode/sno/sno';
-
-/**
- * Checks class holds info for Checks entity.
- */
-class Checks {
-    public uptime: number;
-    public audit: number;
-
-    public constructor(uptime: number, audit: number) {
-        this.uptime = uptime;
-        this.audit = audit;
-    }
-}
+import { SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno';
 
 @Component ({
     components: {
@@ -343,11 +330,11 @@ export default class SNOContentFilling extends Vue {
     }
 
     /**
-     * checks - uptime and audit checks statuses from store.
-     * @return Checks - uptime and audit checks statuses
+     * checks - audit checks status from store.
+     * @return Checks - audit checks statuses
      */
-    public get checks(): Checks {
-        return this.$store.state.node.checks;
+    public get audits(): SatelliteScores {
+        return this.$store.state.node.audits;
     }
 
     /**

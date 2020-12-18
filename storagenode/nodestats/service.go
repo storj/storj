@@ -74,15 +74,10 @@ func (s *Service) GetReputationStats(ctx context.Context, satelliteID storj.Node
 		return nil, NodeStatsServiceErr.Wrap(err)
 	}
 
-	uptime := resp.GetUptimeCheck()
 	audit := resp.GetAuditCheck()
 
 	return &reputation.Stats{
 		SatelliteID: satelliteID,
-		Uptime: reputation.Metric{
-			TotalCount:   uptime.GetTotalCount(),
-			SuccessCount: uptime.GetSuccessCount(),
-		},
 		Audit: reputation.Metric{
 			TotalCount:   audit.GetTotalCount(),
 			SuccessCount: audit.GetSuccessCount(),

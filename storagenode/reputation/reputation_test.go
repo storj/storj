@@ -25,13 +25,6 @@ func TestReputationDBGetInsert(t *testing.T) {
 
 		stats := reputation.Stats{
 			SatelliteID: testrand.NodeID(),
-			Uptime: reputation.Metric{
-				TotalCount:   1,
-				SuccessCount: 2,
-				Alpha:        3,
-				Beta:         4,
-				Score:        5,
-			},
 			Audit: reputation.Metric{
 				TotalCount:   6,
 				SuccessCount: 7,
@@ -70,7 +63,6 @@ func TestReputationDBGetInsert(t *testing.T) {
 			assert.Equal(t, res.OnlineScore, stats.OnlineScore)
 			assert.Nil(t, res.AuditHistory)
 
-			compareReputationMetric(t, &res.Uptime, &stats.Uptime)
 			compareReputationMetric(t, &res.Audit, &stats.Audit)
 		})
 	})
@@ -87,13 +79,6 @@ func TestReputationDBGetAll(t *testing.T) {
 
 			rep := reputation.Stats{
 				SatelliteID: testrand.NodeID(),
-				Uptime: reputation.Metric{
-					TotalCount:   int64(i + 1),
-					SuccessCount: int64(i + 2),
-					Alpha:        float64(i + 3),
-					Beta:         float64(i + 4),
-					Score:        float64(i + 5),
-				},
 				Audit: reputation.Metric{
 					TotalCount:   int64(i + 6),
 					SuccessCount: int64(i + 7),
@@ -137,7 +122,6 @@ func TestReputationDBGetAll(t *testing.T) {
 				assert.Equal(t, rep.OnlineScore, stats[0].OnlineScore)
 				assert.Nil(t, rep.AuditHistory)
 
-				compareReputationMetric(t, &rep.Uptime, &stats[0].Uptime)
 				compareReputationMetric(t, &rep.Audit, &stats[0].Audit)
 			}
 		}
@@ -160,7 +144,6 @@ func TestReputationDBGetInsertAuditHistory(t *testing.T) {
 
 		stats := reputation.Stats{
 			SatelliteID: testrand.NodeID(),
-			Uptime:      reputation.Metric{},
 			Audit:       reputation.Metric{},
 			AuditHistory: &pb.AuditHistory{
 				Score: 0.5,
