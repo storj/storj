@@ -85,7 +85,7 @@ export default class CLIStep extends Vue {
      * Copies token to clipboard.
      */
     public onCopyClick(): void {
-        this.$copyText(this.key);
+        this.$copyText(this.restrictedKey);
         this.$notify.success('Token was copied successfully');
     }
 
