@@ -129,21 +129,33 @@ func newAddressedOrderLimit(ctx context.Context, action pb.PieceAction, satellit
 	serialNumber := testrand.SerialNumber()
 
 	now := time.Now()
-
-	limit := &pb.OrderLimit{
-		SerialNumber:    serialNumber,
-		SatelliteId:     satellite.ID(),
-		UplinkPublicKey: piecePublicKey,
-		StorageNodeId:   storageNode.ID(),
-		PieceId:         pieceID,
-		Action:          action,
-		Limit:           dataSize.Int64(),
-		PieceExpiration: time.Time{},
-		OrderCreation:   now,
-		OrderExpiration: now.Add(24 * time.Hour),
+	key := satellite.Config.Orders.EncryptionKeys.Default
+	encrypted, err := key.EncryptMetadata(
+		serialNumber,
+		&pb.OrderLimitMetadata{
+			ProjectBucketPrefix: []byte("testprojectid/testbucketname"),
+		},
+	)
+	if err != nil {
+		return nil, err
 	}
 
-	limit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), limit)
+	limit := &pb.OrderLimit{
+		SerialNumber:           serialNumber,
+		SatelliteId:            satellite.ID(),
+		UplinkPublicKey:        piecePublicKey,
+		StorageNodeId:          storageNode.ID(),
+		PieceId:                pieceID,
+		Action:                 action,
+		Limit:                  dataSize.Int64(),
+		PieceExpiration:        time.Time{},
+		OrderCreation:          now,
+		OrderExpiration:        now.Add(24 * time.Hour),
+		EncryptedMetadataKeyId: key.ID[:],
+		EncryptedMetadata:      encrypted,
+	}
+
+	limit, err = signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), limit)
 	if err != nil {
 		return nil, err
 	}

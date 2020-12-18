@@ -33,7 +33,6 @@ func TestSigner_EncryptedMetadata(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				testplanet.ReconfigureRS(1, 1, 1, 1)(log, index, config)
 
-				config.Orders.IncludeEncryptedMetadata = true
 				config.Orders.EncryptionKeys = *ekeys
 			},
 		},
@@ -91,7 +90,6 @@ func TestSigner_EncryptedMetadata_UploadDownload(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				testplanet.ReconfigureRS(1, 1, 1, 1)(log, index, config)
 
-				config.Orders.IncludeEncryptedMetadata = true
 				config.Orders.EncryptionKeys = *ekeys
 			},
 		},

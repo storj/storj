@@ -32,7 +32,6 @@ var (
 // Config is a configuration struct for orders Service.
 type Config struct {
 	EncryptionKeys               EncryptionKeys             `help:"encryption keys to encrypt info in orders" default:""`
-	IncludeEncryptedMetadata     bool                       `help:"include encrypted metadata in the order limit" default:"true"`
 	Expiration                   time.Duration              `help:"how long until an order expires" default:"48h"` // 2 days
 	SettlementBatchSize          int                        `help:"how many orders to batch per transaction" default:"250"`
 	FlushBatchSize               int                        `help:"how many items in the rollups write cache before they are flushed to the database" devDefault:"20" releaseDefault:"10000"`
@@ -59,8 +58,7 @@ type Service struct {
 	orders    DB
 	buckets   BucketsDB
 
-	includeEncryptedMetadata bool
-	encryptionKeys           EncryptionKeys
+	encryptionKeys EncryptionKeys
 
 	satelliteAddress *pb.NodeAddress
 	orderExpiration  time.Duration
@@ -76,7 +74,7 @@ func NewService(
 	config Config,
 	satelliteAddress *pb.NodeAddress,
 ) (*Service, error) {
-	if config.IncludeEncryptedMetadata && config.EncryptionKeys.Default.IsZero() {
+	if config.EncryptionKeys.Default.IsZero() {
 		return nil, Error.New("encryption keys must be specified to include encrypted metadata")
 	}
 
@@ -87,8 +85,7 @@ func NewService(
 		orders:    orders,
 		buckets:   buckets,
 
-		includeEncryptedMetadata: config.IncludeEncryptedMetadata,
-		encryptionKeys:           config.EncryptionKeys,
+		encryptionKeys: config.EncryptionKeys,
 
 		satelliteAddress: satelliteAddress,
 		orderExpiration:  config.Expiration,
