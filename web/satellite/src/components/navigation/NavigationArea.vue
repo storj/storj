@@ -24,7 +24,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import EditProjectDropdown from '@/components/navigation/EditProjectDropdown.vue';
 
-import ApiKeysIcon from '@/../static/images/navigation/apiKeys.svg';
+import AccessGrantsIcon from '@/../static/images/navigation/apiKeys.svg';
 import DashboardIcon from '@/../static/images/navigation/dashboard.svg';
 import TeamIcon from '@/../static/images/navigation/team.svg';
 
@@ -34,7 +34,7 @@ import { NavigationLink } from '@/types/navigation';
 @Component({
     components: {
         DashboardIcon,
-        ApiKeysIcon,
+        AccessGrantsIcon,
         TeamIcon,
         EditProjectDropdown,
     },
@@ -45,7 +45,7 @@ export default class NavigationArea extends Vue {
      */
     public readonly navigation: NavigationLink[] = [
         RouteConfig.ProjectDashboard.withIcon(DashboardIcon),
-        RouteConfig.ApiKeys.withIcon(ApiKeysIcon),
+        RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
         RouteConfig.Users.withIcon(TeamIcon),
     ];
 
@@ -67,7 +67,7 @@ export default class NavigationArea extends Vue {
      * Indicates if current route is onboarding tour.
      */
     private get isOnboardingTour(): boolean {
-        return this.$route.name === RouteConfig.OnboardingTour.name;
+        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 }
 </script>

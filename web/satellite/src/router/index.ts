@@ -18,9 +18,11 @@ import AccountBilling from '@/components/account/billing/BillingArea.vue';
 import DetailedHistory from '@/components/account/billing/depositAndBillingHistory/DetailedHistory.vue';
 import CreditsHistory from '@/components/account/billing/freeCredits/CreditsHistory.vue';
 import SettingsArea from '@/components/account/SettingsArea.vue';
-import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
+import AddPaymentStep from '@/components/onboardingTour/steps/AddPaymentStep.vue';
+import CreateAccessGrantStep from '@/components/onboardingTour/steps/CreateAccessGrantStep.vue';
+import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
 import CreateProject from '@/components/project/CreateProject.vue';
 import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
@@ -47,18 +49,19 @@ export abstract class RouteConfig {
     public static Account = new NavigationLink('/account', 'Account');
     public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');
     public static Users = new NavigationLink('/project-members', 'Users');
-    public static ApiKeys = new NavigationLink('/api-keys', 'API Keys');
     public static OnboardingTour = new NavigationLink('/onboarding-tour', 'Onboarding Tour');
     public static CreateProject = new NavigationLink('/create-project', 'Create Project');
     public static EditProjectDetails = new NavigationLink('/edit-project-details', 'Edit Project Details');
     public static AccessGrants = new NavigationLink('/access-grants', 'Access Grants');
 
-    // child paths
+    // account child paths
     public static Settings = new NavigationLink('settings', 'Settings');
     public static Billing = new NavigationLink('billing', 'Billing');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
     public static DepositHistory = new NavigationLink('deposit-history', 'Deposit History');
     public static CreditsHistory = new NavigationLink('credits-history', 'Credits History');
+
+    // access grant child paths
     public static CreateAccessGrant = new NavigationLink('create-grant', 'Create Access Grant');
     public static NameStep = new NavigationLink('name', 'Name Access Grant');
     public static PermissionsStep = new NavigationLink('permissions', 'Access Grant Permissions');
@@ -67,6 +70,15 @@ export abstract class RouteConfig {
     public static ResultStep = new NavigationLink('result', 'Access Grant Result');
     public static CLIStep = new NavigationLink('cli', 'Access Grant In CLI');
     public static UploadStep = new NavigationLink('upload', 'Access Grant Upload Data');
+
+    // onboarding tour child paths
+    public static OverviewStep = new NavigationLink('overview', 'Onboarding Overview');
+    public static PaymentStep = new NavigationLink('payment', 'Onboarding Payment');
+    public static AccessGrant = new NavigationLink('access', 'Onboarding Access Grant');
+    public static AccessGrantName = new NavigationLink('name', 'Onboarding Name Access Grant');
+    public static AccessGrantPermissions = new NavigationLink('permissions', 'Onboarding Access Grant Permissions');
+    public static AccessGrantPassphrase = new NavigationLink('create-passphrase', 'Onboarding Access Grant Create Passphrase');
+    public static AccessGrantResult = new NavigationLink('result', 'Onboarding Access Grant Result');
 
     // TODO: disabled until implementation
     // public static Referral = new NavigationLink('referral', 'Referral');
@@ -166,14 +178,49 @@ export const router = new Router({
                     component: ProjectMembersArea,
                 },
                 {
-                    path: RouteConfig.ApiKeys.path,
-                    name: RouteConfig.ApiKeys.name,
-                    component: ApiKeysArea,
-                },
-                {
                     path: RouteConfig.OnboardingTour.path,
                     name: RouteConfig.OnboardingTour.name,
                     component: OnboardingTourArea,
+                    children: [
+                        {
+                            path: RouteConfig.OverviewStep.path,
+                            name: RouteConfig.OverviewStep.name,
+                            component: OverviewStep,
+                        },
+                        {
+                            path: RouteConfig.PaymentStep.path,
+                            name: RouteConfig.PaymentStep.name,
+                            component: AddPaymentStep,
+                        },
+                        {
+                            path: RouteConfig.AccessGrant.path,
+                            name: RouteConfig.AccessGrant.name,
+                            component: CreateAccessGrantStep,
+                            children: [
+                                {
+                                    path: RouteConfig.AccessGrantName.path,
+                                    name: RouteConfig.AccessGrantName.name,
+                                    component: NameStep,
+                                },
+                                {
+                                    path: RouteConfig.AccessGrantPermissions.path,
+                                    name: RouteConfig.AccessGrantPermissions.name,
+                                    component: PermissionsStep,
+                                    props: true,
+                                },
+                                {
+                                    path: RouteConfig.AccessGrantPassphrase.path,
+                                    name: RouteConfig.AccessGrantPassphrase.name,
+                                    component: CreatePassphraseStep,
+                                },
+                                {
+                                    path: RouteConfig.AccessGrantResult.path,
+                                    name: RouteConfig.AccessGrantResult.name,
+                                    component: ResultStep,
+                                },
+                            ],
+                        },
+                    ],
                 },
                 {
                     path: RouteConfig.CreateProject.path,
@@ -254,6 +301,18 @@ router.beforeEach((to, from, next) => {
 
     if (navigateToDefaultSubTab(to.matched, RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant))) {
         next(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant).with(RouteConfig.NameStep).path);
+
+        return;
+    }
+
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant))) {
+        next(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).with(RouteConfig.NameStep).path);
+
+        return;
+    }
+
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour)) {
+        next(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
 
         return;
     }

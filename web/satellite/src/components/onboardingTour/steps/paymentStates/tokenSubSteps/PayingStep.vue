@@ -20,7 +20,7 @@
             @onChangeTokenValue="onChangeTokenValue"
         />
         <VButton
-            width="100%"
+            width="calc(100% - 4px)"
             height="48px"
             label="Continue to Coin Payments"
             :on-press="onConfirmAddSTORJ"
@@ -145,7 +145,7 @@ export default class PayingStep extends Vue {
         }
 
         &__form {
-            width: 100%;
+            width: calc(100% - 2px);
             margin-bottom: 20px;
 
             /deep/ .selected-container,

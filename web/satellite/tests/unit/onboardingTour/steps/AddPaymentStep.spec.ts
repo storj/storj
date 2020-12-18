@@ -7,14 +7,19 @@ import AddPaymentStep from '@/components/onboardingTour/steps/AddPaymentStep.vue
 
 import { PaymentsHttpApi } from '@/api/payments';
 import { makePaymentsModule } from '@/store/modules/payments';
+import { makeProjectsModule } from '@/store/modules/projects';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
+
+import { ProjectsApiMock } from '../../mock/api/projects';
 
 const localVue = createLocalVue();
 localVue.use(Vuex);
+const projectsApi = new ProjectsApiMock();
+const projectsModule = makeProjectsModule(projectsApi);
 const paymentsApi = new PaymentsHttpApi();
 const paymentsModule = makePaymentsModule(paymentsApi);
 
-const store = new Vuex.Store({ modules: { paymentsModule }});
+const store = new Vuex.Store({ modules: { projectsModule, paymentsModule }});
 
 describe('AddPaymentStep.vue', () => {
     it('renders correctly', async (): Promise<void> => {
