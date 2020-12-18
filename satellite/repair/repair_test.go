@@ -397,8 +397,6 @@ func testCorruptDataRepairSucceed(t *testing.T, inMemoryRepair bool) {
 // - Run the repairer
 // - Verify segment is no longer in the repair queue.
 func TestRemoveExpiredSegmentFromQueue(t *testing.T) {
-	t.Skip("skipped until we will figure out how handle expiration date for segments")
-
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 10,
@@ -419,7 +417,7 @@ func TestRemoveExpiredSegmentFromQueue(t *testing.T) {
 
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		err := uplinkPeer.UploadWithExpiration(ctx, satellite, "testbucket", "test/path", testData, time.Now().Add(1*time.Hour))
 		require.NoError(t, err)
 
 		segment, _ := getRemoteSegment(t, ctx, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
@@ -454,21 +452,15 @@ func TestRemoveExpiredSegmentFromQueue(t *testing.T) {
 		satellite.Audit.Chore.Loop.TriggerWait()
 		queue := satellite.Audit.Queues.Fetch()
 		require.EqualValues(t, queue.Size(), 1)
-		queueSegment, err := queue.Next()
-		require.NoError(t, err)
-		// replace pointer with one that is already expired
-
-		pointer := &pb.Pointer{}
-		pointer.ExpirationDate = time.Now().Add(-time.Hour)
-		err = satellite.Metainfo.Service.UnsynchronizedDelete(ctx, queueSegment.Encode())
-		require.NoError(t, err)
-		err = satellite.Metainfo.Service.UnsynchronizedPut(ctx, queueSegment.Encode(), pointer)
-		require.NoError(t, err)
 
 		// Verify that the segment is on the repair queue
 		count, err := satellite.DB.RepairQueue().Count(ctx)
 		require.NoError(t, err)
-		require.Equal(t, count, 1)
+		require.Equal(t, 1, count)
+
+		satellite.Repair.Repairer.SetNow(func() time.Time {
+			return time.Now().Add(2 * time.Hour)
+		})
 
 		// Run the repairer
 		satellite.Repair.Repairer.Loop.Restart()
@@ -479,7 +471,7 @@ func TestRemoveExpiredSegmentFromQueue(t *testing.T) {
 		// Verify that the segment was removed
 		count, err = satellite.DB.RepairQueue().Count(ctx)
 		require.NoError(t, err)
-		require.Equal(t, count, 0)
+		require.Equal(t, 0, count)
 	})
 }
 

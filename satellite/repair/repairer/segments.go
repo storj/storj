@@ -63,6 +63,8 @@ type SegmentRepairer struct {
 
 	// repairOverrides is the set of values configured by the checker to override the repair threshold for various RS schemes.
 	repairOverrides checker.RepairOverridesMap
+
+	nowFn func() time.Time
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer.
@@ -91,6 +93,8 @@ func NewSegmentRepairer(
 		timeout:                    timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
 		repairOverrides:            repairOverrides.GetMap(),
+
+		nowFn: time.Now,
 	}
 }
 
@@ -138,7 +142,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	}
 
 	// TODO how to deal with expiration date for segment
-	if object.ExpiresAt != nil && object.ExpiresAt.Before(time.Now().UTC()) {
+	if object.ExpiresAt != nil && object.ExpiresAt.Before(repairer.nowFn().UTC()) {
 		mon.Meter("repair_expired").Mark(1) //mon:locked
 		return true, nil
 	}
@@ -447,6 +451,11 @@ func (repairer *SegmentRepairer) updateAuditFailStatus(ctx context.Context, fail
 		}
 	}
 	return 0, nil
+}
+
+// SetNow allows tests to have the server act as if the current time is whatever they want.
+func (repairer *SegmentRepairer) SetNow(nowFn func() time.Time) {
+	repairer.nowFn = nowFn
 }
 
 // sliceToSet converts the given slice to a set.
