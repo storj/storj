@@ -606,31 +606,6 @@ func Schema() map[string]*dbschema.Schema {
 							Type:       "TIMESTAMP",
 							IsNullable: false,
 						},
-						&dbschema.Column{
-							Name:       "uptime_reputation_alpha",
-							Type:       "REAL",
-							IsNullable: false,
-						},
-						&dbschema.Column{
-							Name:       "uptime_reputation_beta",
-							Type:       "REAL",
-							IsNullable: false,
-						},
-						&dbschema.Column{
-							Name:       "uptime_reputation_score",
-							Type:       "REAL",
-							IsNullable: false,
-						},
-						&dbschema.Column{
-							Name:       "uptime_success_count",
-							Type:       "INTEGER",
-							IsNullable: false,
-						},
-						&dbschema.Column{
-							Name:       "uptime_total_count",
-							Type:       "INTEGER",
-							IsNullable: false,
-						},
 					},
 				},
 			},

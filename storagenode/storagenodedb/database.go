@@ -1838,6 +1838,61 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					`ALTER TABLE reputation ADD COLUMN audit_history BLOB`,
 				},
 			},
+			{
+				DB:          &db.reputationDB.DB,
+				Description: "drop uptime columns",
+				Version:     48,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					_, err = rtx.Exec(ctx, `
+						CREATE TABLE reputation_new (
+							satellite_id BLOB NOT NULL,
+							audit_success_count INTEGER NOT NULL,
+							audit_total_count INTEGER NOT NULL,
+							audit_reputation_alpha REAL NOT NULL,
+							audit_reputation_beta REAL NOT NULL,
+							audit_reputation_score REAL NOT NULL,
+							audit_unknown_reputation_alpha REAL NOT NULL,
+							audit_unknown_reputation_beta REAL NOT NULL,
+							audit_unknown_reputation_score REAL NOT NULL,
+							online_score REAL NOT NULL,
+							audit_history BLOB,
+							disqualified_at TIMESTAMP,
+							updated_at TIMESTAMP NOT NULL,
+							suspended_at TIMESTAMP,
+							offline_suspended_at TIMESTAMP,
+							offline_under_review_at TIMESTAMP,
+							joined_at TIMESTAMP NOT NULL,
+							PRIMARY KEY (satellite_id)
+						);
+						INSERT INTO reputation_new SELECT
+							satellite_id,
+							audit_success_count,
+							audit_total_count,
+							audit_reputation_alpha,
+							audit_reputation_beta,
+							audit_reputation_score,
+							audit_unknown_reputation_alpha,
+							audit_unknown_reputation_beta,
+							audit_unknown_reputation_score,
+							online_score,
+							audit_history,
+							disqualified_at,
+							updated_at,
+							suspended_at,
+							offline_suspended_at,
+							offline_under_review_at,
+							joined_at
+							FROM reputation;
+						DROP TABLE reputation;
+						ALTER TABLE reputation_new RENAME TO reputation;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
 		},
 	}
 }

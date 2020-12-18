@@ -55,14 +55,6 @@ export default class HeldHistoryArea extends Vue {
     public isAllStatsShown: boolean = true;
 
     /**
-     * Lifecycle hook before component render.
-     * Fetches held history information.
-     */
-    public beforeMount(): void {
-        this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_HISTORY);
-    }
-
-    /**
      * Sets held history table state to All Stats.
      */
     public showAllStats(): void {
