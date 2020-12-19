@@ -1,6 +1,6 @@
 ARG DOCKER_ARCH
 # Satellite UI static asset generation
-FROM node:10.15.1 as ui
+FROM node:14.15.3 as ui
 WORKDIR /app
 COPY web/satellite/ /app
 COPY web/marketing/ /app/marketing
