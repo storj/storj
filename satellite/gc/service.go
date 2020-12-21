@@ -114,7 +114,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		for id := range lastPieceCounts {
 			delete(lastPieceCounts, id)
 		}
-		for id, info := range pieceTracker.retainInfos {
+		for id, info := range pieceTracker.RetainInfos {
 			lastPieceCounts[id] = info.Count
 		}
 
@@ -125,14 +125,14 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		}
 
 		// monitor information
-		for _, info := range pieceTracker.retainInfos {
+		for _, info := range pieceTracker.RetainInfos {
 			mon.IntVal("node_piece_count").Observe(int64(info.Count))
 			mon.IntVal("retain_filter_size_bytes").Observe(info.Filter.Size())
 		}
 
 		// send retain requests
 		limiter := sync2.NewLimiter(service.config.ConcurrentSends)
-		for id, info := range pieceTracker.retainInfos {
+		for id, info := range pieceTracker.RetainInfos {
 			id, info := id, info
 			limiter.Go(ctx, func() {
 				err := service.sendRetainRequest(ctx, id, info)

@@ -4,6 +4,8 @@
 package gc_test
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -21,9 +23,11 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
+	"storj.io/uplink/private/testuplink"
 )
 
 // TestGarbageCollection does the following:
@@ -176,4 +180,94 @@ func encryptionAccess(access string) (*encryption.Store, error) {
 	store.SetDefaultPathCipher(storj.EncAESGCM)
 
 	return store, nil
+}
+
+func TestGarbageCollection_PendingObject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.GarbageCollection.FalsePositiveRate = 0.000000001
+					config.GarbageCollection.Interval = 500 * time.Millisecond
+				},
+				testplanet.MaxSegmentSize(20*memory.KiB),
+			),
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Retain.MaxTimeSkew = 0
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		upl := planet.Uplinks[0]
+
+		testData := testrand.Bytes(15 * memory.KiB)
+		pendingStreamID := startMultipartUpload(ctx, t, upl, satellite, "testbucket", "multi", testData)
+
+		segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Len(t, segments, 1)
+		require.Len(t, segments[0].Pieces, 1)
+
+		// The pieceInfo.GetPieceIDs query converts piece creation and the filter creation timestamps
+		// to datetime in sql. This chops off all precision beyond seconds.
+		// In this test, the amount of time that elapses between piece uploads and the gc loop is
+		// less than a second, meaning datetime(piece_creation) < datetime(filter_creation) is false unless we sleep
+		// for a second.
+
+		lastPieceCounts := map[storj.NodeID]int{}
+		pieceTracker := gc.NewPieceTracker(satellite.Log.Named("gc observer"), gc.Config{
+			FalsePositiveRate: 0.000000001,
+			InitialPieces:     10,
+		}, lastPieceCounts)
+
+		err = satellite.Metainfo.Loop.Join(ctx, pieceTracker)
+		require.NoError(t, err)
+
+		require.NotEmpty(t, pieceTracker.RetainInfos)
+		info := pieceTracker.RetainInfos[planet.StorageNodes[0].ID()]
+		require.NotNil(t, info)
+		require.Equal(t, 1, info.Count)
+
+		completeMultipartUpload(ctx, t, upl, satellite, "testbucket", "multi", pendingStreamID)
+		gotData, err := upl.Download(ctx, satellite, "testbucket", "multi")
+		require.NoError(t, err)
+		require.Equal(t, testData, gotData)
+	})
+}
+
+func startMultipartUpload(ctx context.Context, t *testing.T, uplink *testplanet.Uplink, satellite *testplanet.Satellite, bucketName string, path storj.Path, data []byte) string {
+	_, found := testuplink.GetMaxSegmentSize(ctx)
+	if !found {
+		ctx = testuplink.WithMaxSegmentSize(ctx, satellite.Config.Metainfo.MaxSegmentSize)
+	}
+
+	project, err := uplink.GetProject(ctx, satellite)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, project.Close()) }()
+
+	_, err = project.EnsureBucket(ctx, bucketName)
+	require.NoError(t, err)
+
+	info, err := project.NewMultipartUpload(ctx, bucketName, path, nil)
+	require.NoError(t, err)
+
+	_, err = project.PutObjectPart(ctx, bucketName, path, info.StreamID, 1, bytes.NewReader(data))
+	require.NoError(t, err)
+
+	return info.StreamID
+}
+
+func completeMultipartUpload(ctx context.Context, t *testing.T, uplink *testplanet.Uplink, satellite *testplanet.Satellite, bucketName string, path storj.Path, streamID string) {
+	_, found := testuplink.GetMaxSegmentSize(ctx)
+	if !found {
+		ctx = testuplink.WithMaxSegmentSize(ctx, satellite.Config.Metainfo.MaxSegmentSize)
+	}
+
+	project, err := uplink.GetProject(ctx, satellite)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, project.Close()) }()
+
+	_, err = project.CompleteMultipartUpload(ctx, bucketName, path, streamID, nil)
+	require.NoError(t, err)
 }
