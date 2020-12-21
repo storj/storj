@@ -279,14 +279,10 @@ type Service struct {
 
 // NewService returns a new Service.
 func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
-	if config.Node.AsOfSystemTime.Enabled {
-		if config.Node.AsOfSystemTime.DefaultInterval >= 0 {
-			return nil, errs.New("AS OF SYSTEM TIME interval must be a negative number")
-		}
-		if config.Node.AsOfSystemTime.DefaultInterval > -time.Microsecond {
-			return nil, errs.New("AS OF SYSTEM TIME interval cannot be in nanoseconds")
-		}
+	if err := config.Node.AsOfSystemTime.isValid(); err != nil {
+		return nil, err
 	}
+
 	return &Service{
 		log:    log,
 		db:     db,

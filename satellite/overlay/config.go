@@ -26,9 +26,9 @@ type Config struct {
 	AuditHistory         AuditHistoryConfig
 }
 
-// AsOfSystemTimeConfig is a configuration struct to enable 'AS OF SYSTEM TIME' to CRDB queries
+// AsOfSystemTimeConfig is a configuration struct to enable 'AS OF SYSTEM TIME' for CRDB queries.
 type AsOfSystemTimeConfig struct {
-	Enabled         bool          `help:"enables the use of the AS OF SYSTEM TIME feature in CRDB" devDefault:"true" releaseDefault:"false"`
+	Enabled         bool          `help:"enables the use of the AS OF SYSTEM TIME feature in CRDB" default:"true"`
 	DefaultInterval time.Duration `help:"default duration for AS OF SYSTEM TIME" devDefault:"-1µs" releaseDefault:"-10s"`
 }
 
@@ -62,4 +62,17 @@ type AuditHistoryConfig struct {
 	GracePeriod      time.Duration `help:"The length of time to give suspended SNOs to diagnose and fix issues causing downtime. Afterwards, they will have one tracking period to reach the minimum online score before disqualification" releaseDefault:"168h" devDefault:"1h"`
 	OfflineThreshold float64       `help:"The point below which a node is punished for offline audits. Determined by calculating the ratio of online/total audits within each window and finding the average across windows within the tracking period." default:"0.6"`
 	OfflineDQEnabled bool          `help:"whether nodes will be disqualified if they have low online score after a review period" releaseDefault:"false" devDefault:"true"`
+}
+
+func (aost *AsOfSystemTimeConfig) isValid() error {
+	if aost.Enabled {
+		if aost.DefaultInterval >= 0 {
+			return errs.New("AS OF SYSTEM TIME interval must be a negative number")
+		}
+		if aost.DefaultInterval > -time.Microsecond {
+			return errs.New("AS OF SYSTEM TIME interval cannot be in nanoseconds")
+		}
+	}
+
+	return nil
 }
