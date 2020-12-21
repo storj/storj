@@ -2,13 +2,18 @@
 // See LICENSE for copying information.
 
 import Vue from 'vue';
+import Router from 'vue-router';
 
 import App from '@/app/App.vue';
+import { router } from '@/app/router';
 
 Vue.config.productionTip = false;
 
-new Vue({
-    // TODO: add router,
+Vue.use(Router);
+
+const app = new Vue({
+    router,
     render: (h) => h(App),
-    // TODO: add store,
-}).$mount('#app');
+});
+
+app.$mount('#app');
