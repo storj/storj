@@ -6,6 +6,8 @@ package accounting
 import (
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/storj"
 )
 
@@ -17,6 +19,20 @@ const (
 	LastBandwidthTally = "LastBandwidthTally"
 	// LastRollup represents the accounting timestamp for rollup calculations.
 	LastRollup = "LastRollup"
+)
+
+var (
+	// ErrInvalidArgument is returned when a function argument has an invalid
+	// business domain value.
+	ErrInvalidArgument = errs.Class("invalid argument")
+	// ErrSystemOrNetError is returned when the used storage backend returns an
+	// internal system or network error.
+	ErrSystemOrNetError = errs.Class("backend system error")
+	// ErrKeyNotFound is returned when the key is not found in the cache.
+	ErrKeyNotFound = errs.Class("key not found")
+	// ErrUnexpectedValue is returned when an unexpected value according the
+	// business domain is in the cache.
+	ErrUnexpectedValue = errs.Class("unexpected value")
 )
 
 // CSVRow represents data from QueryPaymentInfo without exposing dbx.

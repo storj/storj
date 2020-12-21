@@ -28,6 +28,15 @@ type Config struct {
 
 // NewCache creates a new accounting.Cache instance using the type specified backend in
 // the provided config.
+//
+// The cache instance may be returned despite of returning the
+// accounting.ErrSystemOrNetError because some backends allows to reconnect on
+// each operation if the connection was not established or it was disconnected,
+// which is what it could happen at the moment to instance it and the cache will
+// work one the backend system will be reachable later on.
+// For this reason, the components that uses the cache should operate despite
+// the backend is not responding successfully although their service is
+// degraded.
 func NewCache(log *zap.Logger, config Config) (accounting.Cache, error) {
 	parts := strings.SplitN(config.StorageBackend, ":", 2)
 	var backendType string
@@ -38,7 +47,7 @@ func NewCache(log *zap.Logger, config Config) (accounting.Cache, error) {
 	backendType = parts[0]
 	switch backendType {
 	case "redis":
-		return newRedisLiveAccounting(log, config.StorageBackend)
+		return newRedisLiveAccounting(config.StorageBackend)
 	default:
 		return nil, Error.New("unrecognized live accounting backend specifier %q. Currently only redis is supported", backendType)
 	}
