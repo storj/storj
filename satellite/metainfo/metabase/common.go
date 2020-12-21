@@ -260,6 +260,31 @@ const (
 // Pieces defines information for pieces.
 type Pieces []Piece
 
+// Verify verifies pieces.
+func (p Pieces) Verify() error {
+	if len(p) == 0 {
+		return ErrInvalidRequest.New("pieces missing")
+	}
+
+	currentPiece := p[0]
+	if currentPiece.StorageNode == (storj.NodeID{}) {
+		return ErrInvalidRequest.New("piece number %d is missing storage node id", currentPiece.Number)
+	}
+
+	for _, piece := range p[1:] {
+		switch {
+		case piece.Number == currentPiece.Number:
+			return ErrInvalidRequest.New("duplicated piece number %d", piece.Number)
+		case piece.Number < currentPiece.Number:
+			return ErrInvalidRequest.New("pieces should be ordered")
+		case piece.StorageNode == (storj.NodeID{}):
+			return ErrInvalidRequest.New("piece number %d is missing storage node id", piece.Number)
+		}
+		currentPiece = piece
+	}
+	return nil
+}
+
 // Equal checks if Pieces structures are equal.
 func (p Pieces) Equal(pieces Pieces) bool {
 	if len(p) != len(pieces) {

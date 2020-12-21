@@ -149,14 +149,13 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 		return err
 	}
 
-	switch {
-	case opts.RootPieceID.IsZero():
-		return ErrInvalidRequest.New("RootPieceID missing")
-	case len(opts.Pieces) == 0:
-		return ErrInvalidRequest.New("Pieces missing")
+	if err := opts.Pieces.Verify(); err != nil {
+		return err
 	}
 
-	// TODO: verify opts.Pieces content.
+	if opts.RootPieceID.IsZero() {
+		return ErrInvalidRequest.New("RootPieceID missing")
+	}
 
 	// NOTE: this isn't strictly necessary, since we can also fail this in CommitSegment.
 	//       however, we should prevent creating segements for non-partial objects.
@@ -226,11 +225,13 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 		return err
 	}
 
+	if err := opts.Pieces.Verify(); err != nil {
+		return err
+	}
+
 	switch {
 	case opts.RootPieceID.IsZero():
 		return ErrInvalidRequest.New("RootPieceID missing")
-	case len(opts.Pieces) == 0:
-		return ErrInvalidRequest.New("Pieces missing")
 	case len(opts.EncryptedKey) == 0:
 		return ErrInvalidRequest.New("EncryptedKey missing")
 	case len(opts.EncryptedKeyNonce) == 0:
@@ -245,7 +246,6 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 		return ErrInvalidRequest.New("Redundancy zero")
 	}
 
-	// TODO: verify opts.Pieces content is non-zero
 	// TODO: verify opts.Pieces is compatible with opts.Redundancy
 
 	return txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {

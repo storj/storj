@@ -8,6 +8,8 @@ import (
 	"database/sql"
 	"errors"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/uuid"
 	"storj.io/storj/storage"
 )
@@ -26,11 +28,22 @@ type UpdateSegmentPieces struct {
 func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	switch {
-	case opts.StreamID.IsZero():
+	if opts.StreamID.IsZero() {
 		return ErrInvalidRequest.New("StreamID missing")
-	case len(opts.NewPieces) == 0:
-		return ErrInvalidRequest.New("NewPieces missing")
+	}
+
+	if err := opts.OldPieces.Verify(); err != nil {
+		if ErrInvalidRequest.Has(err) {
+			return ErrInvalidRequest.New("OldPieces: %v", errs.Unwrap(err))
+		}
+		return err
+	}
+
+	if err := opts.NewPieces.Verify(); err != nil {
+		if ErrInvalidRequest.Has(err) {
+			return ErrInvalidRequest.New("NewPieces: %v", errs.Unwrap(err))
+		}
+		return err
 	}
 
 	var pieces Pieces

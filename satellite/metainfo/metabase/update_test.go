@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metainfo/metabase"
@@ -21,6 +22,11 @@ func TestUpdateSegmentPieces(t *testing.T) {
 
 		now := time.Now()
 
+		validPieces := []metabase.Piece{{
+			Number:      1,
+			StorageNode: testrand.NodeID(),
+		}}
+
 		t.Run("StreamID missing", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
@@ -31,7 +37,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-		t.Run("NewPieces missing", func(t *testing.T) {
+		t.Run("OldPieces missing", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
 			UpdateSegmentPieces{
@@ -39,8 +45,153 @@ func TestUpdateSegmentPieces(t *testing.T) {
 					StreamID: obj.StreamID,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "NewPieces missing",
+				ErrText:  "OldPieces: pieces missing",
 			}.Check(ctx, t, db)
+		})
+
+		t.Run("OldPieces: piece number 1 is missing", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			UpdateSegmentPieces{
+				Opts: metabase.UpdateSegmentPieces{
+					StreamID: obj.StreamID,
+					OldPieces: []metabase.Piece{{
+						Number:      1,
+						StorageNode: storj.NodeID{},
+					}},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "OldPieces: piece number 1 is missing storage node id",
+			}.Check(ctx, t, db)
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("OldPieces: duplicated piece number 1", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			UpdateSegmentPieces{
+				Opts: metabase.UpdateSegmentPieces{
+					StreamID: obj.StreamID,
+					OldPieces: []metabase.Piece{
+						{
+							Number:      1,
+							StorageNode: testrand.NodeID(),
+						},
+						{
+							Number:      1,
+							StorageNode: testrand.NodeID(),
+						},
+					},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "OldPieces: duplicated piece number 1",
+			}.Check(ctx, t, db)
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("OldPieces: pieces should be ordered", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			UpdateSegmentPieces{
+				Opts: metabase.UpdateSegmentPieces{
+					StreamID: obj.StreamID,
+					OldPieces: []metabase.Piece{
+						{
+							Number:      2,
+							StorageNode: testrand.NodeID(),
+						},
+						{
+							Number:      1,
+							StorageNode: testrand.NodeID(),
+						},
+					},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "OldPieces: pieces should be ordered",
+			}.Check(ctx, t, db)
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("NewPieces missing", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			UpdateSegmentPieces{
+				Opts: metabase.UpdateSegmentPieces{
+					StreamID: obj.StreamID,
+					OldPieces: []metabase.Piece{{
+						Number:      1,
+						StorageNode: testrand.NodeID(),
+					}},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "NewPieces: pieces missing",
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("NewPieces: piece number 1 is missing", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			UpdateSegmentPieces{
+				Opts: metabase.UpdateSegmentPieces{
+					StreamID:  obj.StreamID,
+					OldPieces: validPieces,
+					NewPieces: []metabase.Piece{{
+						Number:      1,
+						StorageNode: storj.NodeID{},
+					}},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "NewPieces: piece number 1 is missing storage node id",
+			}.Check(ctx, t, db)
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("NewPieces: duplicated piece number 1", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			UpdateSegmentPieces{
+				Opts: metabase.UpdateSegmentPieces{
+					StreamID:  obj.StreamID,
+					OldPieces: validPieces,
+					NewPieces: []metabase.Piece{
+						{
+							Number:      1,
+							StorageNode: testrand.NodeID(),
+						},
+						{
+							Number:      1,
+							StorageNode: testrand.NodeID(),
+						},
+					},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "NewPieces: duplicated piece number 1",
+			}.Check(ctx, t, db)
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("NewPieces: pieces should be ordered", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			UpdateSegmentPieces{
+				Opts: metabase.UpdateSegmentPieces{
+					StreamID:  obj.StreamID,
+					OldPieces: validPieces,
+					NewPieces: []metabase.Piece{
+						{
+							Number:      2,
+							StorageNode: testrand.NodeID(),
+						},
+						{
+							Number:      1,
+							StorageNode: testrand.NodeID(),
+						},
+					},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "NewPieces: pieces should be ordered",
+			}.Check(ctx, t, db)
+			Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("segment not found", func(t *testing.T) {
@@ -48,20 +199,10 @@ func TestUpdateSegmentPieces(t *testing.T) {
 
 			UpdateSegmentPieces{
 				Opts: metabase.UpdateSegmentPieces{
-					StreamID: obj.StreamID,
-					Position: metabase.SegmentPosition{Index: 1},
-					OldPieces: metabase.Pieces{
-						metabase.Piece{
-							Number:      1,
-							StorageNode: testrand.NodeID(),
-						},
-					},
-					NewPieces: metabase.Pieces{
-						metabase.Piece{
-							Number:      1,
-							StorageNode: testrand.NodeID(),
-						},
-					},
+					StreamID:  obj.StreamID,
+					Position:  metabase.SegmentPosition{Index: 1},
+					OldPieces: validPieces,
+					NewPieces: validPieces,
 				},
 				ErrClass: &metabase.ErrSegmentNotFound,
 				ErrText:  "segment missing",
@@ -75,14 +216,9 @@ func TestUpdateSegmentPieces(t *testing.T) {
 
 			UpdateSegmentPieces{
 				Opts: metabase.UpdateSegmentPieces{
-					StreamID: obj.StreamID,
-					Position: metabase.SegmentPosition{Index: 1},
-					OldPieces: metabase.Pieces{
-						metabase.Piece{
-							Number:      1,
-							StorageNode: testrand.NodeID(),
-						},
-					},
+					StreamID:  obj.StreamID,
+					Position:  metabase.SegmentPosition{Index: 1},
+					OldPieces: validPieces,
 					NewPieces: metabase.Pieces{
 						metabase.Piece{
 							Number:      1,

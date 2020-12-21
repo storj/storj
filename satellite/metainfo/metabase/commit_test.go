@@ -559,6 +559,10 @@ func TestBeginSegment(t *testing.T) {
 			BeginSegment{
 				Opts: metabase.BeginSegment{
 					ObjectStream: obj,
+					Pieces: []metabase.Piece{{
+						Number:      1,
+						StorageNode: testrand.NodeID(),
+					}},
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "RootPieceID missing",
@@ -575,7 +579,70 @@ func TestBeginSegment(t *testing.T) {
 					RootPieceID:  storj.PieceID{1},
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "Pieces missing",
+				ErrText:  "pieces missing",
+			}.Check(ctx, t, db)
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("StorageNode in pieces missing", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			BeginSegment{
+				Opts: metabase.BeginSegment{
+					ObjectStream: obj,
+					Pieces: []metabase.Piece{{
+						Number:      1,
+						StorageNode: storj.NodeID{},
+					}},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "piece number 1 is missing storage node id",
+			}.Check(ctx, t, db)
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Piece number 2 is duplicated", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			BeginSegment{
+				Opts: metabase.BeginSegment{
+					ObjectStream: obj,
+					Pieces: []metabase.Piece{
+						{
+							Number:      1,
+							StorageNode: testrand.NodeID(),
+						},
+						{
+							Number:      1,
+							StorageNode: testrand.NodeID(),
+						},
+					},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "duplicated piece number 1",
+			}.Check(ctx, t, db)
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Pieces should be ordered", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			BeginSegment{
+				Opts: metabase.BeginSegment{
+					ObjectStream: obj,
+					Pieces: []metabase.Piece{
+						{
+							Number:      2,
+							StorageNode: testrand.NodeID(),
+						},
+						{
+							Number:      1,
+							StorageNode: testrand.NodeID(),
+						},
+					},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "pieces should be ordered",
 			}.Check(ctx, t, db)
 			Verify{}.Check(ctx, t, db)
 		})
@@ -752,6 +819,10 @@ func TestCommitSegment(t *testing.T) {
 			CommitSegment{
 				Opts: metabase.CommitSegment{
 					ObjectStream: obj,
+					Pieces: metabase.Pieces{{
+						Number:      1,
+						StorageNode: testrand.NodeID(),
+					}},
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "RootPieceID missing",
@@ -760,10 +831,57 @@ func TestCommitSegment(t *testing.T) {
 			CommitSegment{
 				Opts: metabase.CommitSegment{
 					ObjectStream: obj,
-					RootPieceID:  testrand.PieceID(),
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "Pieces missing",
+				ErrText:  "pieces missing",
+			}.Check(ctx, t, db)
+
+			CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+					Pieces: []metabase.Piece{{
+						Number:      1,
+						StorageNode: storj.NodeID{},
+					}},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "piece number 1 is missing storage node id",
+			}.Check(ctx, t, db)
+
+			CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+					Pieces: []metabase.Piece{
+						{
+							Number:      1,
+							StorageNode: testrand.NodeID(),
+						},
+						{
+							Number:      1,
+							StorageNode: testrand.NodeID(),
+						},
+					},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "duplicated piece number 1",
+			}.Check(ctx, t, db)
+
+			CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+					Pieces: []metabase.Piece{
+						{
+							Number:      2,
+							StorageNode: testrand.NodeID(),
+						},
+						{
+							Number:      1,
+							StorageNode: testrand.NodeID(),
+						},
+					},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "pieces should be ordered",
 			}.Check(ctx, t, db)
 
 			CommitSegment{
