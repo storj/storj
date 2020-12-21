@@ -1137,7 +1137,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Version:     135,
 				SeparateTx:  true,
 				Action: migrate.SQL{
-					`CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start );`,
+					`CREATE INDEX IF NOT EXISTS storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start );`,
 				},
 			},
 		},
