@@ -329,12 +329,10 @@ func iterateObjects(ctx context.Context, projectID uuid.UUID, bucket string, met
 
 	// TODO we should improve performance here, this is just most straightforward solution
 
-	err = metabaseDB.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
+	err = metabaseDB.IterateObjectsAllVersions(ctx, metabase.IterateObjects{
 		ProjectID:  projectID,
 		BucketName: bucket,
 		BatchSize:  limit,
-		Recursive:  true,
-		Status:     metabase.Committed, // TODO we should iterate also Pending objects
 	}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 		var entry metabase.ObjectEntry
 		for it.Next(ctx, &entry) {

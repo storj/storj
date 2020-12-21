@@ -32,6 +32,25 @@ type objectsIterator struct {
 	skipPrefix ObjectKey
 }
 
+func iterateAllVersions(ctx context.Context, db *DB, opts IterateObjects, fn func(context.Context, ObjectsIterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	it := &objectsIterator{
+		db: db,
+
+		projectID:  opts.ProjectID,
+		bucketName: opts.BucketName,
+		limitKey:   nextPrefix(opts.Prefix),
+		batchSize:  opts.BatchSize,
+		recursive:  true,
+
+		curIndex: 0,
+		cursor:   opts.Cursor,
+	}
+
+	return iterate(ctx, it, opts.Prefix, fn)
+}
+
 func iterateAllVersionsWithStatus(ctx context.Context, db *DB, opts IterateObjectsWithStatus, fn func(context.Context, ObjectsIterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -49,14 +68,18 @@ func iterateAllVersionsWithStatus(ctx context.Context, db *DB, opts IterateObjec
 		cursor:   opts.Cursor,
 	}
 
+	return iterate(ctx, it, opts.Prefix, fn)
+}
+
+func iterate(ctx context.Context, it *objectsIterator, prefix ObjectKey, fn func(context.Context, ObjectsIterator) error) (err error) {
 	// ensure batch size is reasonable
 	if it.batchSize <= 0 || it.batchSize > batchsizeLimit {
 		it.batchSize = batchsizeLimit
 	}
 
 	// start from either the cursor or prefix, depending on which is larger
-	if lessKey(it.cursor.Key, opts.Prefix) {
-		it.cursor.Key = beforeKey(opts.Prefix)
+	if lessKey(it.cursor.Key, prefix) {
+		it.cursor.Key = beforeKey(prefix)
 		it.cursor.Version = -1
 	}
 
@@ -153,8 +176,66 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 	return true
 }
 
-// doNextQuery executes query to fetch the next batch returning the rows.
 func (it *objectsIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err error) {
+	if it.status == 0 {
+		return it.doNextQueryWithoutStatus(ctx)
+	}
+	return it.doNextQueryWithStatus(ctx)
+}
+
+// doNextQuery executes query to fetch the next batch returning the rows.
+func (it *objectsIterator) doNextQueryWithoutStatus(ctx context.Context) (_ tagsql.Rows, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if it.limitKey == "" {
+		return it.db.db.Query(ctx, `
+			SELECT
+				object_key, stream_id, version, status,
+				created_at, expires_at,
+				segment_count,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				encryption
+			FROM objects
+			WHERE
+				project_id = $1 AND bucket_name = $2
+				AND (object_key, version) > ($3, $4)
+			ORDER BY object_key ASC, version ASC
+			LIMIT $5
+			`, it.projectID, it.bucketName,
+			[]byte(it.cursor.Key), int(it.cursor.Version),
+			it.batchSize,
+		)
+	}
+
+	// TODO this query should use SUBSTRING(object_key from $8) but there is a problem how it
+	// works with CRDB.
+	return it.db.db.Query(ctx, `
+		SELECT
+			object_key, stream_id, version, status,
+			created_at, expires_at,
+			segment_count,
+			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+			total_plain_size, total_encrypted_size, fixed_segment_size,
+			encryption
+		FROM objects
+		WHERE
+			project_id = $1 AND bucket_name = $2
+			AND (object_key, version) > ($3, $4)
+			AND object_key < $5
+		ORDER BY object_key ASC, version ASC
+		LIMIT $6
+	`, it.projectID, it.bucketName,
+		[]byte(it.cursor.Key), int(it.cursor.Version),
+		[]byte(it.limitKey),
+		it.batchSize,
+
+		// len(it.limitKey)+1, // TODO uncomment when CRDB issue will be fixed
+	)
+}
+
+// doNextQuery executes query to fetch the next batch returning the rows.
+func (it *objectsIterator) doNextQueryWithStatus(ctx context.Context) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if it.limitKey == "" {

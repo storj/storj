@@ -350,6 +350,28 @@ func (coll *IterateCollector) Add(ctx context.Context, it metabase.ObjectsIterat
 	return nil
 }
 
+type IterateObjects struct {
+	Opts metabase.IterateObjects
+
+	Result   []metabase.ObjectEntry
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+func (step IterateObjects) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	var collector IterateCollector
+
+	err := db.IterateObjectsAllVersions(ctx, step.Opts, collector.Add)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	result := []metabase.ObjectEntry(collector)
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].ObjectKey < result[j].ObjectKey
+	})
+	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	require.Zero(t, diff)
+}
+
 type IterateObjectsWithStatus struct {
 	Opts metabase.IterateObjectsWithStatus
 

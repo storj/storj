@@ -197,6 +197,8 @@ type MetabaseDB interface {
 	GetLatestObjectLastSegment(ctx context.Context, opts metabase.GetLatestObjectLastSegment) (segment metabase.Segment, err error)
 	// ListSegments lists specified stream segments.
 	ListSegments(ctx context.Context, opts metabase.ListSegments) (result metabase.ListSegmentsResult, err error)
+	// IterateObjectsAllVersions iterates through all versions of all objects.
+	IterateObjectsAllVersions(ctx context.Context, opts metabase.IterateObjects, fn func(context.Context, metabase.ObjectsIterator) error) (err error)
 	// IterateObjectsAllVersionsWithStatus iterates through all versions of all objects with specified status.
 	IterateObjectsAllVersionsWithStatus(ctx context.Context, opts metabase.IterateObjectsWithStatus, fn func(context.Context, metabase.ObjectsIterator) error) (err error)
 	// BucketEmpty returns true if bucket does not contain objects (pending or committed).
