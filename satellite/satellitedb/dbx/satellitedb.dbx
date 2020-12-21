@@ -641,6 +641,11 @@ read all (
 model storagenode_bandwidth_rollup (
 	key    storagenode_id interval_start action
 
+	index (
+		name storagenode_bandwidth_rollups_interval_start_index
+		fields interval_start
+	)
+
 	field storagenode_id   blob
 	field interval_start   timestamp
 	field interval_seconds uint
