@@ -1151,7 +1151,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 			},
 			{
 				DB:          &db.migrationDB,
-				Description: "create new index on nodes to improve query performance.",
+				Description: "create new index on nodes to improve queries using disqualified, unknown_audit_suspended, exit_finished_at, and last_contact_success.",
 				Version:     137,
 				SeparateTx:  true,
 				Action: migrate.SQL{
