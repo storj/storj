@@ -14,7 +14,6 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/storage"
 )
 
@@ -68,9 +67,6 @@ type DB interface {
 	// UpdateCheckIn updates a single storagenode's check-in stats.
 	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, config NodeSelectionConfig) (err error)
 
-	// UpdateAuditHistory updates a node's audit history with an online or offline audit.
-	UpdateAuditHistory(ctx context.Context, nodeID storj.NodeID, auditTime time.Time, online bool, config AuditHistoryConfig) (auditHistory *internalpb.AuditHistory, err error)
-
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
 	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
 	// UpdatePieceCounts sets the piece count field for the given node IDs.
@@ -111,6 +107,9 @@ type DB interface {
 	TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error)
 	// TestUnvetNode directly sets a node's vetted_at timestamp to null to make testing easier
 	TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error)
+
+	// AuditHistoryDB includes operations for interfacing with the audit history table.
+	AuditHistoryDB
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins.

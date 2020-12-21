@@ -22,7 +22,6 @@ import (
 	"storj.io/storj/private/dbutil/cockroachutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/tagsql"
-	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -485,13 +484,13 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 				}
 
 				isUp := updateReq.AuditOutcome != overlay.AuditOffline
-				auditHistory, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, now, isUp, updateReq.AuditHistory)
+				auditHistoryResponse, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, now, isUp, updateReq.AuditHistory)
 				if err != nil {
 					doAppendAll = false
 					return err
 				}
 
-				updateNodeStats := cache.populateUpdateNodeStats(dbNode, updateReq, auditHistory, now)
+				updateNodeStats := cache.populateUpdateNodeStats(dbNode, updateReq, auditHistoryResponse, now)
 
 				sql := buildUpdateStatement(updateNodeStats)
 
@@ -564,12 +563,12 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 		}
 
 		isUp := updateReq.AuditOutcome != overlay.AuditOffline
-		auditHistory, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, now, isUp, updateReq.AuditHistory)
+		auditHistoryResponse, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, now, isUp, updateReq.AuditHistory)
 		if err != nil {
 			return err
 		}
 
-		updateFields := cache.populateUpdateFields(dbNode, updateReq, auditHistory, now)
+		updateFields := cache.populateUpdateFields(dbNode, updateReq, auditHistoryResponse, now)
 		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 		if err != nil {
 			return err
@@ -1404,7 +1403,7 @@ type updateNodeStats struct {
 	OnlineScore                 float64Field
 }
 
-func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditHistory *internalpb.AuditHistory, now time.Time) updateNodeStats {
+func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditHistoryResponse *overlay.UpdateAuditHistoryResponse, now time.Time) updateNodeStats {
 	// there are three audit outcomes: success, failure, and unknown
 	// if a node fails enough audits, it gets disqualified
 	// if a node gets enough "unknown" audits, it gets put into suspension
@@ -1415,7 +1414,6 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	unknownAuditBeta := dbNode.UnknownAuditReputationBeta
 	totalAuditCount := dbNode.TotalAuditCount
 	vettedAt := dbNode.VettedAt
-	auditOnlineScore := auditHistory.Score
 
 	var updatedTotalAuditCount int64
 
@@ -1468,7 +1466,7 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	mon.FloatVal("audit_reputation_beta").Observe(auditBeta)                  //mon:locked
 	mon.FloatVal("unknown_audit_reputation_alpha").Observe(unknownAuditAlpha) //mon:locked
 	mon.FloatVal("unknown_audit_reputation_beta").Observe(unknownAuditBeta)   //mon:locked
-	mon.FloatVal("audit_online_score").Observe(auditOnlineScore)              //mon:locked
+	mon.FloatVal("audit_online_score").Observe(auditHistoryResponse.NewScore) //mon:locked
 
 	totalUptimeCount := dbNode.TotalUptimeCount
 	isUp := updateReq.AuditOutcome != overlay.AuditOffline
@@ -1544,17 +1542,15 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	// Updating node stats always exits it from containment mode
 	updateFields.Contained = boolField{set: true, value: false}
 
-	windowsPerTrackingPeriod := int(updateReq.AuditHistory.TrackingPeriod.Seconds() / updateReq.AuditHistory.WindowSize.Seconds())
-
 	// only penalize node if online score is below threshold and
 	// if it has enough completed windows to fill a tracking period
 	penalizeOfflineNode := false
-	if auditOnlineScore < updateReq.AuditHistory.OfflineThreshold && len(auditHistory.Windows)-1 >= windowsPerTrackingPeriod {
+	if auditHistoryResponse.NewScore < updateReq.AuditHistory.OfflineThreshold && auditHistoryResponse.TrackingPeriodFull {
 		penalizeOfflineNode = true
 	}
 
 	// always update online score
-	updateFields.OnlineScore = float64Field{set: true, value: auditOnlineScore}
+	updateFields.OnlineScore = float64Field{set: true, value: auditHistoryResponse.NewScore}
 
 	// Suspension and disqualification for offline nodes
 	if dbNode.UnderReview != nil {
@@ -1592,9 +1588,9 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	return updateFields
 }
 
-func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditHistory *internalpb.AuditHistory, now time.Time) dbx.Node_Update_Fields {
+func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditHistoryResponse *overlay.UpdateAuditHistoryResponse, now time.Time) dbx.Node_Update_Fields {
 
-	update := cache.populateUpdateNodeStats(dbNode, updateReq, auditHistory, now)
+	update := cache.populateUpdateNodeStats(dbNode, updateReq, auditHistoryResponse, now)
 	updateFields := dbx.Node_Update_Fields{}
 	if update.VettedAt.set {
 		updateFields.VettedAt = dbx.Node_VettedAt(update.VettedAt.value)

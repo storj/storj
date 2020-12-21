@@ -78,23 +78,32 @@ func addAudit(a *internalpb.AuditHistory, auditTime time.Time, online bool, conf
 }
 
 // UpdateAuditHistory updates a node's audit history with an online or offline audit.
-func (cache *overlaycache) UpdateAuditHistory(ctx context.Context, nodeID storj.NodeID, auditTime time.Time, online bool, config overlay.AuditHistoryConfig) (history *internalpb.AuditHistory, err error) {
+func (cache *overlaycache) UpdateAuditHistory(ctx context.Context, nodeID storj.NodeID, auditTime time.Time, online bool, config overlay.AuditHistoryConfig) (res *overlay.UpdateAuditHistoryResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	err = cache.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
 		_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
 		if err != nil {
 			return err
 		}
 
-		history, err = cache.updateAuditHistoryWithTx(ctx, tx, nodeID, auditTime, online, config)
+		res, err = cache.updateAuditHistoryWithTx(ctx, tx, nodeID, auditTime, online, config)
 		if err != nil {
 			return err
 		}
 		return nil
 	})
-	return history, err
+	return res, err
 }
 
-func (cache *overlaycache) updateAuditHistoryWithTx(ctx context.Context, tx *dbx.Tx, nodeID storj.NodeID, auditTime time.Time, online bool, config overlay.AuditHistoryConfig) (*internalpb.AuditHistory, error) {
+func (cache *overlaycache) updateAuditHistoryWithTx(ctx context.Context, tx *dbx.Tx, nodeID storj.NodeID, auditTime time.Time, online bool, config overlay.AuditHistoryConfig) (res *overlay.UpdateAuditHistoryResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	res = &overlay.UpdateAuditHistoryResponse{
+		NewScore:           1,
+		TrackingPeriodFull: false,
+	}
+
 	// get and deserialize node audit history
 	historyBytes := []byte{}
 	newEntry := false
@@ -106,7 +115,7 @@ func (cache *overlaycache) updateAuditHistoryWithTx(ctx context.Context, tx *dbx
 		// set flag to true so we know to create rather than update later
 		newEntry = true
 	} else if err != nil {
-		return nil, Error.Wrap(err)
+		return res, Error.Wrap(err)
 	} else {
 		historyBytes = dbAuditHistory.History
 	}
@@ -114,17 +123,17 @@ func (cache *overlaycache) updateAuditHistoryWithTx(ctx context.Context, tx *dbx
 	history := &internalpb.AuditHistory{}
 	err = pb.Unmarshal(historyBytes, history)
 	if err != nil {
-		return history, err
+		return res, err
 	}
 
 	err = addAudit(history, auditTime, online, config)
 	if err != nil {
-		return history, err
+		return res, err
 	}
 
 	historyBytes, err = pb.Marshal(history)
 	if err != nil {
-		return history, err
+		return res, err
 	}
 
 	// if the entry did not exist at the beginning, create a new one. Otherwise update
@@ -134,7 +143,7 @@ func (cache *overlaycache) updateAuditHistoryWithTx(ctx context.Context, tx *dbx
 			dbx.AuditHistory_NodeId(nodeID.Bytes()),
 			dbx.AuditHistory_History(historyBytes),
 		)
-		return history, Error.Wrap(err)
+		return res, Error.Wrap(err)
 	}
 
 	_, err = tx.Update_AuditHistory_By_NodeId(
@@ -145,5 +154,49 @@ func (cache *overlaycache) updateAuditHistoryWithTx(ctx context.Context, tx *dbx
 		},
 	)
 
-	return history, Error.Wrap(err)
+	windowsPerTrackingPeriod := int(config.TrackingPeriod.Seconds() / config.WindowSize.Seconds())
+	res.TrackingPeriodFull = len(history.Windows)-1 >= windowsPerTrackingPeriod
+	res.NewScore = history.Score
+	return res, Error.Wrap(err)
+}
+
+// GetAuditHistory gets a node's audit history.
+func (cache *overlaycache) GetAuditHistory(ctx context.Context, nodeID storj.NodeID) (auditHistory *overlay.AuditHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	dbAuditHistory, err := cache.db.Get_AuditHistory_By_NodeId(
+		ctx,
+		dbx.AuditHistory_NodeId(nodeID.Bytes()),
+	)
+	if err != nil {
+		if errs.Is(err, sql.ErrNoRows) {
+			return nil, overlay.ErrNodeNotFound.New("no audit history for node")
+		}
+		return nil, err
+	}
+	history, err := auditHistoryFromPB(dbAuditHistory.History)
+	if err != nil {
+		return nil, err
+	}
+	return history, nil
+}
+
+func auditHistoryFromPB(historyBytes []byte) (auditHistory *overlay.AuditHistory, err error) {
+	historyPB := &internalpb.AuditHistory{}
+	err = pb.Unmarshal(historyBytes, historyPB)
+	if err != nil {
+		return nil, err
+	}
+	history := &overlay.AuditHistory{
+		Score:   historyPB.Score,
+		Windows: make([]*overlay.AuditWindow, len(historyPB.Windows)),
+	}
+	for i, window := range historyPB.Windows {
+		history.Windows[i] = &overlay.AuditWindow{
+			TotalCount:  window.TotalCount,
+			OnlineCount: window.OnlineCount,
+			WindowStart: window.WindowStart,
+		}
+	}
+	return history, nil
 }
