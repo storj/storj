@@ -4,7 +4,6 @@
 package expireddeletion_test
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -16,7 +15,6 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 func TestExpiredDeletion(t *testing.T) {
@@ -49,21 +47,9 @@ func TestExpiredDeletion(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify that all four objects are in the metabase
-		count := 0
-		err = satellite.Metainfo.Metabase.IterateObjectsAllVersions(ctx,
-			metabase.IterateObjects{
-				ProjectID:  upl.Projects[0].ID,
-				BucketName: "testbucket",
-				Status:     metabase.Committed,
-			}, func(ctx context.Context, it metabase.ObjectsIterator) error {
-				for it.Next(ctx, &metabase.ObjectEntry{}) {
-					count++
-				}
-				return nil
-			},
-		)
+		objects, err := satellite.Metainfo.Metabase.TestingAllObjects(ctx)
 		require.NoError(t, err)
-		require.EqualValues(t, 4, count)
+		require.Len(t, objects, 4)
 
 		// Trigger the next iteration of expired cleanup and wait to finish
 		expiredChore.SetNow(func() time.Time {
@@ -73,20 +59,8 @@ func TestExpiredDeletion(t *testing.T) {
 		expiredChore.Loop.TriggerWait()
 
 		// Verify that only two objects remain in the metabase
-		count = 0
-		err = satellite.Metainfo.Metabase.IterateObjectsAllVersions(ctx,
-			metabase.IterateObjects{
-				ProjectID:  upl.Projects[0].ID,
-				BucketName: "testbucket",
-				Status:     metabase.Committed,
-			}, func(ctx context.Context, it metabase.ObjectsIterator) error {
-				for it.Next(ctx, &metabase.ObjectEntry{}) {
-					count++
-				}
-				return nil
-			},
-		)
+		objects, err = satellite.Metainfo.Metabase.TestingAllObjects(ctx)
 		require.NoError(t, err)
-		require.EqualValues(t, 2, count)
+		require.Len(t, objects, 2)
 	})
 }

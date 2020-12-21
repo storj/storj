@@ -885,8 +885,8 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 
 	resp = &pb.ObjectListResponse{}
 	// TODO: Replace with IterateObjectsLatestVersion when ready
-	err = endpoint.metainfo.metabaseDB.IterateObjectsAllVersions(ctx,
-		metabase.IterateObjects{
+	err = endpoint.metainfo.metabaseDB.IterateObjectsAllVersionsWithStatus(ctx,
+		metabase.IterateObjectsWithStatus{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
 			Prefix:     prefix,

@@ -20,8 +20,8 @@ func TestIterateObjects(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 			t.Run("ProjectID missing", func(t *testing.T) {
 				defer DeleteAll{}.Check(ctx, t, db)
-				IterateObjects{
-					Opts: metabase.IterateObjects{
+				IterateObjectsWithStatus{
+					Opts: metabase.IterateObjectsWithStatus{
 						ProjectID:  uuid.UUID{},
 						BucketName: "sj://mybucket",
 						Recursive:  true,
@@ -32,8 +32,8 @@ func TestIterateObjects(t *testing.T) {
 				}.Check(ctx, t, db)
 				Verify{}.Check(ctx, t, db)
 			})
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  uuid.UUID{1},
 					BucketName: "",
 					Recursive:  true,
@@ -46,8 +46,8 @@ func TestIterateObjects(t *testing.T) {
 		})
 		t.Run("Limit is negative", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  uuid.UUID{1},
 					BucketName: "mybucket",
 					BatchSize:  -1,
@@ -61,8 +61,8 @@ func TestIterateObjects(t *testing.T) {
 		})
 		t.Run("Status is invalid", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  uuid.UUID{1},
 					BucketName: "test",
 					Recursive:  true,
@@ -77,8 +77,8 @@ func TestIterateObjects(t *testing.T) {
 		t.Run("empty bucket", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 			objects := createObjects(ctx, t, db, 2, uuid.UUID{1}, "mybucket")
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  uuid.UUID{1},
 					BucketName: "myemptybucket",
 					BatchSize:  10,
@@ -131,8 +131,8 @@ func TestIterateObjects(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  projectID,
 					BucketName: bucketName,
 					Recursive:  true,
@@ -151,8 +151,8 @@ func TestIterateObjects(t *testing.T) {
 				}},
 			}.Check(ctx, t, db)
 
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  projectID,
 					BucketName: bucketName,
 					Recursive:  true,
@@ -178,8 +178,8 @@ func TestIterateObjects(t *testing.T) {
 			for i, obj := range objects {
 				expected[i] = objectEntryFromRaw(obj)
 			}
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  uuid.UUID{1},
 					BucketName: "mybucket",
 					Recursive:  true,
@@ -200,8 +200,8 @@ func TestIterateObjects(t *testing.T) {
 			for i, obj := range objects {
 				expected[i] = objectEntryFromRaw(obj)
 			}
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  uuid.UUID{1},
 					BucketName: "mybucket",
 					Recursive:  true,
@@ -222,8 +222,8 @@ func TestIterateObjects(t *testing.T) {
 			for i, obj := range objectsBucketA {
 				expected[i] = objectEntryFromRaw(obj)
 			}
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  uuid.UUID{1},
 					BucketName: "bucket-a",
 					Recursive:  true,
@@ -243,8 +243,8 @@ func TestIterateObjects(t *testing.T) {
 			for i, obj := range objectsProject1 {
 				expected[i] = objectEntryFromRaw(obj)
 			}
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  uuid.UUID{1},
 					BucketName: "mybucket",
 					Recursive:  true,
@@ -271,8 +271,8 @@ func TestIterateObjects(t *testing.T) {
 				"g",
 			})
 
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  projectID,
 					BucketName: bucketName,
 					Recursive:  true,
@@ -291,8 +291,8 @@ func TestIterateObjects(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  projectID,
 					BucketName: bucketName,
 					Recursive:  true,
@@ -312,8 +312,8 @@ func TestIterateObjects(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  projectID,
 					BucketName: bucketName,
 					Recursive:  true,
@@ -333,8 +333,8 @@ func TestIterateObjects(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  projectID,
 					BucketName: bucketName,
 					Recursive:  true,
@@ -349,8 +349,8 @@ func TestIterateObjects(t *testing.T) {
 				),
 			}.Check(ctx, t, db)
 
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  projectID,
 					BucketName: bucketName,
 					Recursive:  true,
@@ -366,8 +366,8 @@ func TestIterateObjects(t *testing.T) {
 				),
 			}.Check(ctx, t, db)
 
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  projectID,
 					BucketName: bucketName,
 					Recursive:  true,
@@ -382,8 +382,8 @@ func TestIterateObjects(t *testing.T) {
 				),
 			}.Check(ctx, t, db)
 
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  projectID,
 					BucketName: bucketName,
 					Recursive:  true,
@@ -412,8 +412,8 @@ func TestIterateObjects(t *testing.T) {
 				"g",
 			})
 
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  projectID,
 					BucketName: bucketName,
 					Status:     metabase.Committed,
@@ -427,8 +427,8 @@ func TestIterateObjects(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  projectID,
 					BucketName: bucketName,
 					Status:     metabase.Committed,
@@ -443,8 +443,8 @@ func TestIterateObjects(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  projectID,
 					BucketName: bucketName,
 					Status:     metabase.Committed,
@@ -459,8 +459,8 @@ func TestIterateObjects(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  projectID,
 					BucketName: bucketName,
 					Status:     metabase.Committed,
@@ -474,8 +474,8 @@ func TestIterateObjects(t *testing.T) {
 				),
 			}.Check(ctx, t, db)
 
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  projectID,
 					BucketName: bucketName,
 					Status:     metabase.Committed,
@@ -490,8 +490,8 @@ func TestIterateObjects(t *testing.T) {
 				),
 			}.Check(ctx, t, db)
 
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  projectID,
 					BucketName: bucketName,
 					Status:     metabase.Committed,
@@ -505,8 +505,8 @@ func TestIterateObjects(t *testing.T) {
 				),
 			}.Check(ctx, t, db)
 
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  projectID,
 					BucketName: bucketName,
 					Status:     metabase.Committed,
@@ -517,8 +517,8 @@ func TestIterateObjects(t *testing.T) {
 				Result: nil,
 			}.Check(ctx, t, db)
 
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  projectID,
 					BucketName: bucketName,
 					Status:     metabase.Committed,
@@ -533,8 +533,8 @@ func TestIterateObjects(t *testing.T) {
 				),
 			}.Check(ctx, t, db)
 
-			IterateObjects{
-				Opts: metabase.IterateObjects{
+			IterateObjectsWithStatus{
+				Opts: metabase.IterateObjectsWithStatus{
 					ProjectID:  projectID,
 					BucketName: bucketName,
 					Status:     metabase.Committed,

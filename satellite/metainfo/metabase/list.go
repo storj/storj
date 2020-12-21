@@ -52,8 +52,8 @@ type IterateCursor struct {
 	Version Version
 }
 
-// IterateObjects contains arguments necessary for listing objects in a bucket.
-type IterateObjects struct {
+// IterateObjectsWithStatus contains arguments necessary for listing objects in a bucket.
+type IterateObjectsWithStatus struct {
 	ProjectID  uuid.UUID
 	BucketName string
 	Recursive  bool
@@ -63,17 +63,17 @@ type IterateObjects struct {
 	Status     ObjectStatus
 }
 
-// IterateObjectsAllVersions iterates through all versions of all committed objects.
-func (db *DB) IterateObjectsAllVersions(ctx context.Context, opts IterateObjects, fn func(context.Context, ObjectsIterator) error) (err error) {
+// IterateObjectsAllVersionsWithStatus iterates through all versions of all objects with specified status.
+func (db *DB) IterateObjectsAllVersionsWithStatus(ctx context.Context, opts IterateObjectsWithStatus, fn func(context.Context, ObjectsIterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if err = opts.Verify(); err != nil {
 		return err
 	}
-	return iterateAllVersions(ctx, db, opts, fn)
+	return iterateAllVersionsWithStatus(ctx, db, opts, fn)
 }
 
 // Verify verifies get object request fields.
-func (opts *IterateObjects) Verify() error {
+func (opts *IterateObjectsWithStatus) Verify() error {
 	switch {
 	case opts.ProjectID.IsZero():
 		return ErrInvalidRequest.New("ProjectID missing")

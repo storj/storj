@@ -371,8 +371,8 @@ func (db *DB) TestingAllPendingObjects(ctx context.Context, projectID uuid.UUID,
 func (db *DB) testingAllObjectsByStatus(ctx context.Context, projectID uuid.UUID, bucketName string, status ObjectStatus) (objects []ObjectEntry, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = db.IterateObjectsAllVersions(ctx,
-		IterateObjects{
+	err = db.IterateObjectsAllVersionsWithStatus(ctx,
+		IterateObjectsWithStatus{
 			ProjectID:  projectID,
 			BucketName: bucketName,
 			Recursive:  true,
