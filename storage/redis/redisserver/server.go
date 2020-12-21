@@ -36,6 +36,13 @@ const (
 type Server interface {
 	Addr() string
 	Close() error
+	// TestingFastForward is a function for enforce the TTL of keys in
+	// implementations what they have not exercise the expiration by themselves
+	// (e.g. Minitredis). This method is a no-op in implementations which support
+	// the expiration as usual.
+	//
+	// All the keys whose TTL minus d become <= 0 will be removed.
+	TestingFastForward(d time.Duration)
 }
 
 func freeport() (addr string, port int) {
@@ -151,8 +158,16 @@ type process struct {
 	close func()
 }
 
-func (process *process) Addr() string { return process.addr }
-func (process *process) Close() error { process.close(); return nil }
+func (process *process) Addr() string {
+	return process.addr
+}
+
+func (process *process) Close() error {
+	process.close()
+	return nil
+}
+
+func (process *process) TestingFastForward(_ time.Duration) {}
 
 func pingServer(addr string) error {
 	client := redis.NewClient(&redis.Options{Addr: addr, DB: 1})
@@ -183,4 +198,8 @@ type miniserver struct {
 func (s *miniserver) Close() error {
 	s.Miniredis.Close()
 	return nil
+}
+
+func (s *miniserver) TestingFastForward(d time.Duration) {
+	s.FastForward(d)
 }
