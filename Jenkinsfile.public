@@ -84,13 +84,8 @@ pipeline {
                         sh 'psql -U postgres -c \'create database testmetabase;\''
                         sh 'use-ports -from 1024 -to 10000 &'
 
-                        // Run metabase tests to separately to fail the build if they fail.
-                        // TODO: remove this step when all tests are fixed.
-                        sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 20m -json -race ./satellite/metainfo/metabase/... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+                        sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 20m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
 
-                        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                            sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 20m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
-                        }
                         sh 'check-clean-directory'
                     }
 

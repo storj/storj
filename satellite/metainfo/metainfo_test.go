@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/internalpb"
 	satMetainfo "storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metainfo"
 	"storj.io/uplink/private/object"
@@ -1424,8 +1425,18 @@ func TestInlineSegmentThreshold(t *testing.T) {
 			// we don't know encrypted path
 			segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
 			require.NoError(t, err)
+			require.Len(t, segments, 1)
 			require.Zero(t, segments[0].Redundancy)
 			require.NotEmpty(t, segments[0].InlineData)
+
+			// clean up - delete the uploaded object
+			objects, err := planet.Satellites[0].Metainfo.Metabase.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Len(t, objects, 1)
+			_, err = planet.Satellites[0].Metainfo.Metabase.DeleteObjectLatestVersion(ctx, metabase.DeleteObjectLatestVersion{
+				ObjectLocation: objects[0].Location(),
+			})
+			require.NoError(t, err)
 		}
 
 		{ // one more byte over limit should enough to create remote segment
@@ -1435,8 +1446,18 @@ func TestInlineSegmentThreshold(t *testing.T) {
 			// we don't know encrypted path
 			segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
 			require.NoError(t, err)
+			require.Len(t, segments, 1)
 			require.NotZero(t, segments[0].Redundancy)
 			require.Empty(t, segments[0].InlineData)
+
+			// clean up - delete the uploaded object
+			objects, err := planet.Satellites[0].Metainfo.Metabase.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Len(t, objects, 1)
+			_, err = planet.Satellites[0].Metainfo.Metabase.DeleteObjectLatestVersion(ctx, metabase.DeleteObjectLatestVersion{
+				ObjectLocation: objects[0].Location(),
+			})
+			require.NoError(t, err)
 		}
 	})
 }

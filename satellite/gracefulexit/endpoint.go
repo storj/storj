@@ -6,6 +6,7 @@ package gracefulexit
 import (
 	"context"
 	"io"
+	"sort"
 	"sync"
 	"time"
 
@@ -988,11 +989,12 @@ func (endpoint *Endpoint) UpdatePiecesCheckDuplicates(ctx context.Context, segme
 		pieceMap[piece.Number] = piece
 	}
 
-	// copy the pieces from the map back to the segment
-	var pieces metabase.Pieces
+	// copy the pieces from the map back to the segment, sorted by piece number
+	pieces := make(metabase.Pieces, 0, len(pieceMap))
 	for _, piece := range pieceMap {
 		pieces = append(pieces, piece)
 	}
+	sort.Sort(pieces)
 
 	err = endpoint.metabase.UpdateSegmentPieces(ctx, metabase.UpdateSegmentPieces{
 		StreamID: segment.StreamID,

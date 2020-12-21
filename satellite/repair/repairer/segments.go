@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sort"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -433,6 +434,8 @@ func updatePieces(orignalPieces, toAddPieces, toRemovePieces metabase.Pieces) (m
 	for _, piece := range pieceMap {
 		newPieces = append(newPieces, piece)
 	}
+	sort.Sort(newPieces)
+
 	return newPieces, nil
 }
 
