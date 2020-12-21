@@ -19,7 +19,6 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/private/version"
-	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/cockroachutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/tagsql"
@@ -57,21 +56,23 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var asOf string
-	if cache.db.implementation == dbutil.Cockroach && selectionCfg.AsOfSystemTime.Enabled && selectionCfg.AsOfSystemTime.DefaultInterval < 0 {
-		asOf = fmt.Sprintf(" AS OF SYSTEM TIME '%s'", selectionCfg.AsOfSystemTime.DefaultInterval.String())
+	aostClause := asOfSystemTimeClause{
+		interval:       selectionCfg.AsOfSystemTime.DefaultInterval,
+		implementation: cache.db.implementation,
 	}
 
-	query := fmt.Sprintf(`
+	asOf := aostClause.getClause()
+
+	query := `
 		SELECT id, address, last_net, last_ip_port, vetted_at
-			FROM nodes %s
+			FROM nodes ` + asOf + `
 			WHERE disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
 			AND exit_initiated_at IS NULL
 			AND type = $1
 			AND free_disk >= $2
 			AND last_contact_success > $3
-	`, asOf)
+	`
 	args := []interface{}{
 		// $1
 		int(pb.NodeType_STORAGE),
@@ -259,18 +260,20 @@ func (cache *overlaycache) knownOffline(ctx context.Context, criteria *overlay.N
 		return nil, Error.New("no ids provided")
 	}
 
-	var asOf string
-	if cache.db.implementation == dbutil.Cockroach && criteria.AsOfSystemTimeInterval < 0 {
-		asOf = fmt.Sprintf(" AS OF SYSTEM TIME '%s'", criteria.AsOfSystemTimeInterval.String())
+	aostClause := asOfSystemTimeClause{
+		interval:       criteria.AsOfSystemTimeInterval,
+		implementation: cache.db.implementation,
 	}
+
+	asOf := aostClause.getClause()
 
 	// get offline nodes
 	var rows tagsql.Rows
-	rows, err = cache.db.Query(ctx, cache.db.Rebind(fmt.Sprintf(`
-		SELECT id FROM nodes %s
+	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+		SELECT id FROM nodes `+asOf+`
 			WHERE id = any($1::bytea[])
 			AND last_contact_success < $2
-		`, asOf)), pgutil.NodeIDArray(nodeIds), time.Now().Add(-criteria.OnlineWindow),
+		`), pgutil.NodeIDArray(nodeIds), time.Now().Add(-criteria.OnlineWindow),
 	)
 	if err != nil {
 		return nil, err
@@ -311,21 +314,23 @@ func (cache *overlaycache) knownUnreliableOrOffline(ctx context.Context, criteri
 		return nil, Error.New("no ids provided")
 	}
 
-	var asOf string
-	if cache.db.implementation == dbutil.Cockroach && criteria.AsOfSystemTimeInterval < 0 {
-		asOf = fmt.Sprintf(" AS OF SYSTEM TIME '%s'", criteria.AsOfSystemTimeInterval.String())
+	aostClause := asOfSystemTimeClause{
+		interval:       criteria.AsOfSystemTimeInterval,
+		implementation: cache.db.implementation,
 	}
+
+	asOf := aostClause.getClause()
 
 	// get reliable and online nodes
 	var rows tagsql.Rows
-	rows, err = cache.db.Query(ctx, cache.db.Rebind(fmt.Sprintf(`
-		SELECT id FROM nodes %s
+	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+		SELECT id FROM nodes `+asOf+`
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success > $2
-		`, asOf)), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-criteria.OnlineWindow),
+		`), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-criteria.OnlineWindow),
 	)
 	if err != nil {
 		return nil, err
@@ -420,19 +425,21 @@ func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeC
 }
 
 func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeCriteria) (nodes storj.NodeIDList, err error) {
-	var asOf string
-	if cache.db.implementation == dbutil.Cockroach && criteria.AsOfSystemTimeInterval < 0 {
-		asOf = fmt.Sprintf(" AS OF SYSTEM TIME '%s'", criteria.AsOfSystemTimeInterval.String())
+	aostClause := asOfSystemTimeClause{
+		interval:       criteria.AsOfSystemTimeInterval,
+		implementation: cache.db.implementation,
 	}
 
+	asOf := aostClause.getClause()
+
 	// get reliable and online nodes
-	rows, err := cache.db.Query(ctx, cache.db.Rebind(fmt.Sprintf(`
-		SELECT id FROM nodes %s
+	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
+		SELECT id FROM nodes `+asOf+`
 		WHERE disqualified IS NULL
 		AND unknown_audit_suspended IS NULL
 		AND exit_finished_at IS NULL
 		AND last_contact_success > ?
-	`, asOf)), time.Now().Add(-criteria.OnlineWindow))
+	`), time.Now().Add(-criteria.OnlineWindow))
 	if err != nil {
 		return nil, err
 	}
