@@ -26,6 +26,12 @@ type Config struct {
 	AuditHistory         AuditHistoryConfig
 }
 
+// AsOfSystemTimeConfig is a configuration struct to enable 'AS OF SYSTEM TIME' to CRDB queries
+type AsOfSystemTimeConfig struct {
+	Enabled         bool          `help:"enables the use of the AS OF SYSTEM TIME feature in CRDB" devDefault:"true" releaseDefault:"false"`
+	DefaultInterval time.Duration `help:"default duration for AS OF SYSTEM TIME" devDefault:"-1µs" releaseDefault:"-10s"`
+}
+
 // NodeSelectionConfig is a configuration struct to determine the minimum
 // values for nodes to select.
 type NodeSelectionConfig struct {
@@ -44,6 +50,8 @@ type NodeSelectionConfig struct {
 	AuditReputationDQ           float64       `help:"the reputation cut-off for disqualifying SNs based on audit history" default:"0.6"`
 	SuspensionGracePeriod       time.Duration `help:"the time period that must pass before suspended nodes will be disqualified" releaseDefault:"168h" devDefault:"1h"`
 	SuspensionDQEnabled         bool          `help:"whether nodes will be disqualified if they have been suspended for longer than the suspended grace period" releaseDefault:"false" devDefault:"true"`
+
+	AsOfSystemTime AsOfSystemTimeConfig
 }
 
 // AuditHistoryConfig is a configuration struct defining time periods and thresholds for penalizing nodes for being offline.

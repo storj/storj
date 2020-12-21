@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
@@ -21,7 +22,8 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	ocache := overlay.NewService(zap.NewNop(), fakeOverlayDB{}, overlay.Config{})
+	ocache, err := overlay.NewService(zap.NewNop(), fakeOverlayDB{}, overlay.Config{})
+	require.NoError(t, err)
 	rcache := NewReliabilityCache(ocache, time.Millisecond)
 
 	for i := 0; i < 10; i++ {
