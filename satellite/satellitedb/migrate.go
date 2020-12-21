@@ -1149,6 +1149,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX IF NOT EXISTS bucket_storage_tallies_project_id_index ON bucket_storage_tallies (project_id);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create new index on nodes to improve queries using disqualified, unknown_audit_suspended, exit_finished_at, and last_contact_success.",
+				Version:     137,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS nodes_dis_unk_exit_fin_last_success_index ON nodes(disqualified, unknown_audit_suspended, exit_finished_at, last_contact_success);`,
+				},
+			},
 		},
 	}
 }
