@@ -28,7 +28,7 @@ const store = new Vuex.Store({ modules: { projectsModule } });
 
 const expectedLinks: NavigationLink[] = [
     RouteConfig.ProjectDashboard,
-    RouteConfig.ApiKeys,
+    RouteConfig.AccessGrants,
     RouteConfig.Users,
 ];
 
@@ -37,11 +37,14 @@ describe('NavigationArea', () => {
         const router = new Router({
             mode: 'history',
             routes: [{
-                path: '/',
+                path: '/onboarding-tour',
                 name: RouteConfig.OnboardingTour.name,
                 component: OnboardingTourArea,
             }],
         });
+
+        router.push('/onboarding-tour');
+
         const wrapper = shallowMount(NavigationArea, {
             store,
             localVue,
@@ -66,6 +69,8 @@ describe('NavigationArea', () => {
     it('snapshot not changed with project', async () => {
         const projects = await store.dispatch('fetchProjects');
         store.commit(PROJECTS_MUTATIONS.SELECT_PROJECT, projects[0].id);
+
+        router.push('/');
 
         const wrapper = shallowMount(NavigationArea, {
             store,

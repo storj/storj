@@ -2,7 +2,7 @@
 
 dbx schema -d pgx -d pgxcockroach satellitedb.dbx .
 dbx golang -d pgx -d pgxcockroach -p dbx -t templates satellitedb.dbx .
-( echo '//lint:file-ignore * generated file'; cat satellitedb.dbx.go ) > satellitedb.dbx.go.tmp && mv satellitedb.dbx.go.tmp satellitedb.dbx.go
+( printf '%s\n' '//lint:file-ignore U1000,ST1012 generated file'; cat satellitedb.dbx.go ) > satellitedb.dbx.go.tmp && mv satellitedb.dbx.go.tmp satellitedb.dbx.go
 gofmt -r "*sql.Tx -> tagsql.Tx" -w satellitedb.dbx.go
 gofmt -r "*sql.Rows -> tagsql.Rows" -w satellitedb.dbx.go
 perl -0777 -pi \

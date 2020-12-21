@@ -52,14 +52,11 @@ import NoPaywallInfoBar from '@/components/noPaywallInfoBar/NoPaywallInfoBar.vue
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
-import { ApiKeysPage } from '@/types/apiKeys';
 import { Project } from '@/types/projects';
-import { User } from '@/types/users';
 import { Size } from '@/utils/bytesSize';
 import {
     APP_STATE_ACTIONS,
@@ -96,15 +93,25 @@ export default class DashboardArea extends Vue {
     public readonly projectDashboardPath: string = RouteConfig.ProjectDashboard.path;
 
     /**
+     * Lifecycle hook before initial render.
+     * Sets access grants web worker.
+     */
+    public beforeMount(): void {
+        try {
+            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_ACCESS_GRANTS_WEB_WORKER);
+        } catch (error) {
+            this.$notify.error(`Unable to set access grants wizard. ${error.message}`);
+        }
+    }
+
+    /**
      * Lifecycle hook after initial render.
      * Pre fetches user`s and project information.
      */
     public async mounted(): Promise<void> {
-        let user: User;
-
         // TODO: combine all project related requests in one
         try {
-            user = await this.$store.dispatch(USER_ACTIONS.GET);
+            await this.$store.dispatch(USER_ACTIONS.GET);
         } catch (error) {
             if (!(error instanceof ErrorUnauthorized)) {
                 await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.ERROR);
@@ -166,7 +173,7 @@ export default class DashboardArea extends Vue {
             await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
 
             try {
-                await this.$router.push(RouteConfig.OnboardingTour.path);
+                await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
             } catch (error) {
                 return;
             }
@@ -176,30 +183,10 @@ export default class DashboardArea extends Vue {
 
         this.selectProject(projects);
 
-        let apiKeysPage: ApiKeysPage = new ApiKeysPage();
-
         try {
-            apiKeysPage = await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, this.FIRST_PAGE);
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
         } catch (error) {
-            await this.$notify.error(`Unable to fetch api keys. ${error.message}`);
-        }
-
-        if (projects.length === 1 && projects[0].ownerId === user.id && apiKeysPage.apiKeys.length === 0) {
-            await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
-
-            try {
-                await this.$router.push(RouteConfig.OnboardingTour.path);
-            } catch (error) {
-                return;
-            }
-
-            return;
-        }
-
-        try {
-           await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch api keys. ${error.message}`);
+            await this.$notify.error(`Unable to fetch access grants. ${error.message}`);
         }
 
         try {
@@ -234,7 +221,7 @@ export default class DashboardArea extends Vue {
      * Indicates if no paywall info bar is shown.
      */
     public get isNoPaywallInfoBarShown(): boolean {
-        const isOnboardingTour: boolean = this.$route.name === RouteConfig.OnboardingTour.name;
+        const isOnboardingTour: boolean = this.$route.path.includes(RouteConfig.OnboardingTour.path);
 
         return !this.isPaywallEnabled && !isOnboardingTour &&
             this.$store.state.paymentsModule.balance.coins === 0 &&

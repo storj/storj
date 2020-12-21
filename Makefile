@@ -136,7 +136,7 @@ storagenode-console:
 		-w /go/src/storj.io/storj/web/storagenode \
 		-e HOME=/tmp \
 		-u $(shell id -u):$(shell id -g) \
-		node:10.15.1 \
+		node:14.15.3 \
 	  /bin/bash -c "npm ci && npm run build"
 	# embed web assets into go
 	go-bindata -prefix web/storagenode/ -fs -o storagenode/console/consoleassets/bindata.resource.go -pkg consoleassets web/storagenode/dist/... web/storagenode/static/...
@@ -237,7 +237,7 @@ binary:
 	scripts/release.sh build $(EXTRA_ARGS) -o release/${TAG}/$(COMPONENT)_${GOOS}_${GOARCH}${FILEEXT} \
 	storj.io/storj/cmd/${COMPONENT}
 
-	if [ "${COMPONENT}" = "satellite" ] && [ "${GOARCH}" = "amd64" ]; \
+	if [ "${COMPONENT}" = "satellite" ] && [ "${GOOS}" = "linux" ] && [ "${GOARCH}" = "amd64" ]; \
 	then \
 		echo "Building wasm code"; \
 		$(MAKE) satellite-wasm; \

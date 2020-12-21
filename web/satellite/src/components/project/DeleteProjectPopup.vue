@@ -58,7 +58,7 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import DeleteProjectIcon from '@/../static/images/project/deleteProject.svg';
 import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
 
-import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import {
@@ -146,7 +146,7 @@ export default class DeleteProjectPopup extends Vue {
     private async selectProject(): Promise<void> {
         if (this.$store.state.projectsModule.projects.length === 0) {
             await this.$store.dispatch(PM_ACTIONS.CLEAR);
-            await this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR);
             await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
 
             return;
@@ -155,7 +155,7 @@ export default class DeleteProjectPopup extends Vue {
         // TODO: reuse select project functionality
         await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.$store.state.projectsModule.projects[0].id);
         await this.$store.dispatch(PM_ACTIONS.FETCH, 1);
-        await this.$store.dispatch(API_KEYS_ACTIONS.FETCH, 1);
+        await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, 1);
         await this.$store.dispatch(BUCKET_ACTIONS.FETCH, 1);
     }
 }
