@@ -136,7 +136,7 @@ storagenode-console:
 		-w /go/src/storj.io/storj/web/storagenode \
 		-e HOME=/tmp \
 		-u $(shell id -u):$(shell id -g) \
-		node:10.15.1 \
+		node:14.15.3 \
 	  /bin/bash -c "npm ci && npm run build"
 	# embed web assets into go
 	go-bindata -prefix web/storagenode/ -fs -o storagenode/console/consoleassets/bindata.resource.go -pkg consoleassets web/storagenode/dist/... web/storagenode/static/...
@@ -163,8 +163,8 @@ satellite-image: satellite_linux_arm satellite_linux_arm64 satellite_linux_amd64
 	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG}-arm32v6 \
 		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/satellite/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG}-aarch64 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=aarch64 \
+	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG}-arm64v8 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/satellite/Dockerfile .
 
 .PHONY: segment-reaper-image
@@ -174,8 +174,8 @@ segment-reaper-image: segment-reaper_linux_amd64 segment-reaper_linux_arm segmen
 	${DOCKER_BUILD} --pull=true -t storjlabs/segment-reaper:${TAG}${CUSTOMTAG}-arm32v6 \
 		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/segment-reaper/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/segment-reaper:${TAG}${CUSTOMTAG}-aarch64 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=aarch64 \
+	${DOCKER_BUILD} --pull=true -t storjlabs/segment-reaper:${TAG}${CUSTOMTAG}-arm64v8 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/segment-reaper/Dockerfile .
 
 .PHONY: storagenode-image
@@ -185,8 +185,8 @@ storagenode-image: storagenode_linux_arm storagenode_linux_arm64 storagenode_lin
 	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v6 \
 		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/storagenode/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-aarch64 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=aarch64 \
+	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm64v8 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/storagenode/Dockerfile .
 .PHONY: uplink-image
 uplink-image: uplink_linux_arm uplink_linux_arm64 uplink_linux_amd64 ## Build uplink Docker image
@@ -195,8 +195,8 @@ uplink-image: uplink_linux_arm uplink_linux_arm64 uplink_linux_amd64 ## Build up
 	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG}-arm32v6 \
 		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/uplink/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG}-aarch64 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=aarch64 \
+	${DOCKER_BUILD} --pull=true -t storjlabs/uplink:${TAG}${CUSTOMTAG}-arm64v8 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/uplink/Dockerfile .
 .PHONY: versioncontrol-image
 versioncontrol-image: versioncontrol_linux_arm versioncontrol_linux_arm64 versioncontrol_linux_amd64 ## Build versioncontrol Docker image
@@ -205,8 +205,8 @@ versioncontrol-image: versioncontrol_linux_arm versioncontrol_linux_arm64 versio
 	${DOCKER_BUILD} --pull=true -t storjlabs/versioncontrol:${TAG}${CUSTOMTAG}-arm32v6 \
 		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/versioncontrol/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/versioncontrol:${TAG}${CUSTOMTAG}-aarch64 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=aarch64 \
+	${DOCKER_BUILD} --pull=true -t storjlabs/versioncontrol:${TAG}${CUSTOMTAG}-arm64v8 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/versioncontrol/Dockerfile .
 
 .PHONY: binary
@@ -305,15 +305,15 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 	for c in satellite segment-reaper storagenode uplink versioncontrol ; do \
 		docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
 		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v6 \
-		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-aarch64 \
+		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm64v8 \
 		&& for t in ${TAG}${CUSTOMTAG} ${LATEST_TAG}; do \
 			docker manifest create storjlabs/$$c:$$t \
 			storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
 			storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v6 \
-			storjlabs/$$c:${TAG}${CUSTOMTAG}-aarch64 \
+			storjlabs/$$c:${TAG}${CUSTOMTAG}-arm64v8 \
 			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64 \
 			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v6 --os linux --arch arm --variant v6 \
-			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-aarch64 --os linux --arch arm64 \
+			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-arm64v8 --os linux --arch arm64 --variant v8 \
 			&& docker manifest push --purge storjlabs/$$c:$$t \
 		; done \
 	; done
