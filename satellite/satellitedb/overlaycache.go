@@ -56,12 +56,7 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	aostClause := asOfSystemTimeClause{
-		interval:       selectionCfg.AsOfSystemTime.DefaultInterval,
-		implementation: cache.db.implementation,
-	}
-
-	asOf := aostClause.getClause()
+	asOf := cache.db.AsOfSystemTimeClause(selectionCfg.AsOfSystemTime.DefaultInterval)
 
 	query := `
 		SELECT id, address, last_net, last_ip_port, vetted_at
@@ -260,12 +255,7 @@ func (cache *overlaycache) knownOffline(ctx context.Context, criteria *overlay.N
 		return nil, Error.New("no ids provided")
 	}
 
-	aostClause := asOfSystemTimeClause{
-		interval:       criteria.AsOfSystemTimeInterval,
-		implementation: cache.db.implementation,
-	}
-
-	asOf := aostClause.getClause()
+	asOf := cache.db.AsOfSystemTimeClause(criteria.AsOfSystemTimeInterval)
 
 	// get offline nodes
 	var rows tagsql.Rows
@@ -314,12 +304,7 @@ func (cache *overlaycache) knownUnreliableOrOffline(ctx context.Context, criteri
 		return nil, Error.New("no ids provided")
 	}
 
-	aostClause := asOfSystemTimeClause{
-		interval:       criteria.AsOfSystemTimeInterval,
-		implementation: cache.db.implementation,
-	}
-
-	asOf := aostClause.getClause()
+	asOf := cache.db.AsOfSystemTimeClause(criteria.AsOfSystemTimeInterval)
 
 	// get reliable and online nodes
 	var rows tagsql.Rows
@@ -425,12 +410,7 @@ func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeC
 }
 
 func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeCriteria) (nodes storj.NodeIDList, err error) {
-	aostClause := asOfSystemTimeClause{
-		interval:       criteria.AsOfSystemTimeInterval,
-		implementation: cache.db.implementation,
-	}
-
-	asOf := aostClause.getClause()
+	asOf := cache.db.AsOfSystemTimeClause(criteria.AsOfSystemTimeInterval)
 
 	// get reliable and online nodes
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`

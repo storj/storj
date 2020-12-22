@@ -104,11 +104,7 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 
 	var reputableNodeQuery, newNodeQuery partialQuery
 
-	aostClause := asOfSystemTimeClause{
-		interval:       criteria.AsOfSystemTimeInterval,
-		implementation: cache.db.implementation,
-	}
-	asOf := aostClause.getClause()
+	asOf := cache.db.AsOfSystemTimeClause(criteria.AsOfSystemTimeInterval)
 
 	// Note: the true/false at the end of each selection string indicates if the selection is for new nodes or not.
 	// Later, the flag allows us to distinguish if a node is new when scanning the db rows.
@@ -117,13 +113,13 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 			selection:  `SELECT last_net, id, address, last_ip_port, false FROM nodes ` + asOf,
 			condition:  reputableNodesCondition,
 			limit:      reputableNodeCount,
-			aostClause: aostClause,
+			aostClause: asOf,
 		}
 		newNodeQuery = partialQuery{
 			selection:  `SELECT last_net, id, address, last_ip_port, true FROM nodes ` + asOf,
 			condition:  newNodesCondition,
 			limit:      newNodeCount,
-			aostClause: aostClause,
+			aostClause: asOf,
 		}
 	} else {
 		reputableNodeQuery = partialQuery{
@@ -132,7 +128,7 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 			distinct:   true,
 			limit:      reputableNodeCount,
 			orderBy:    "last_net",
-			aostClause: aostClause,
+			aostClause: asOf,
 		}
 		newNodeQuery = partialQuery{
 			selection:  `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, true FROM nodes ` + asOf,
@@ -140,7 +136,7 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 			distinct:   true,
 			limit:      newNodeCount,
 			orderBy:    "last_net",
-			aostClause: aostClause,
+			aostClause: asOf,
 		}
 	}
 
@@ -246,7 +242,7 @@ type partialQuery struct {
 	distinct   bool
 	orderBy    string
 	limit      int
-	aostClause asOfSystemTimeClause
+	aostClause string
 }
 
 // isEmpty returns whether the result for the query is definitely empty.
@@ -258,8 +254,6 @@ func (partial partialQuery) isEmpty() bool {
 func (partial partialQuery) asQuery() query {
 	var q strings.Builder
 	var args []interface{}
-
-	asOf := partial.aostClause.getClause()
 
 	if partial.distinct {
 		// For distinct queries we need to redo randomized ordering.
@@ -279,7 +273,7 @@ func (partial partialQuery) asQuery() query {
 		fmt.Fprint(&q, " LIMIT ? ")
 		args = append(args, partial.limit)
 	} else {
-		fmt.Fprint(&q, ") filtered "+asOf+" ORDER BY RANDOM() LIMIT ?")
+		fmt.Fprint(&q, ") filtered "+partial.aostClause+" ORDER BY RANDOM() LIMIT ?")
 		args = append(args, partial.limit)
 	}
 
