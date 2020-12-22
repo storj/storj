@@ -376,14 +376,6 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	pointerDB, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL, "satellite-core")
-	if err != nil {
-		return errs.New("Error creating metainfodb connection: %+v", err)
-	}
-	defer func() {
-		err = errs.Combine(err, pointerDB.Close())
-	}()
-
 	metabaseDB, err := metainfo.OpenMetabase(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL)
 	if err != nil {
 		return errs.New("Error creating metabase connection: %+v", err)
@@ -419,7 +411,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, rollupsWriteCache.CloseAndFlush(context2.WithoutCancellation(ctx)))
 	}()
 
-	peer, err := satellite.New(log, identity, db, pointerDB, metabaseDB, revocationDB, liveAccounting, rollupsWriteCache, version.Build, &runCfg.Config, process.AtomicLevel(cmd))
+	peer, err := satellite.New(log, identity, db, metabaseDB, revocationDB, liveAccounting, rollupsWriteCache, version.Build, &runCfg.Config, process.AtomicLevel(cmd))
 	if err != nil {
 		return err
 	}
@@ -434,14 +426,10 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		log.Warn("Failed to initialize telemetry batcher", zap.Error(err))
 	}
 
-	err = pointerDB.MigrateToLatest(ctx)
+	err = metabaseDB.CheckVersion(ctx)
 	if err != nil {
-		return errs.New("Error creating metainfodb tables: %+v", err)
-	}
-
-	err = metabaseDB.MigrateToLatest(ctx)
-	if err != nil {
-		return errs.New("Error creating metabase tables: %+v", err)
+		log.Error("Failed metabase database version check.", zap.Error(err))
+		return errs.New("failed metabase version check: %+v", err)
 	}
 
 	err = db.CheckVersion(ctx)
@@ -470,18 +458,6 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 	err = db.MigrateToLatest(ctx)
 	if err != nil {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
-	}
-
-	pdb, err := metainfo.OpenStore(ctx, log.Named("migration"), runCfg.Metainfo.DatabaseURL, "satellite-migration")
-	if err != nil {
-		return errs.New("Error creating pointer database connection on satellite: %+v", err)
-	}
-	defer func() {
-		err = errs.Combine(err, pdb.Close())
-	}()
-	err = pdb.MigrateToLatest(ctx)
-	if err != nil {
-		return errs.New("Error creating tables for pointer database on satellite: %+v", err)
 	}
 
 	metabaseDB, err := metainfo.OpenMetabase(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL)

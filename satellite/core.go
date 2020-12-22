@@ -81,7 +81,6 @@ type Core struct {
 	}
 
 	Metainfo struct {
-		Database metainfo.PointerDB // TODO: move into pointerDB
 		Metabase metainfo.MetabaseDB
 		Service  *metainfo.Service
 		Loop     *metaloop.Service
@@ -140,7 +139,7 @@ type Core struct {
 
 // New creates a new satellite.
 func New(log *zap.Logger, full *identity.FullIdentity, db DB,
-	pointerDB metainfo.PointerDB, metabaseDB metainfo.MetabaseDB, revocationDB extensions.RevocationDB,
+	metabaseDB metainfo.MetabaseDB, revocationDB extensions.RevocationDB,
 	liveAccounting accounting.Cache, rollupsWriteCache *orders.RollupsWriteCache,
 	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*Core, error) {
 	peer := &Core{
@@ -274,10 +273,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup metainfo
-		peer.Metainfo.Database = pointerDB // for logging: storelogger.New(peer.Log.Named("pdb"), db)
 		peer.Metainfo.Metabase = metabaseDB
 		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
-			peer.Metainfo.Database,
 			peer.DB.Buckets(),
 			peer.Metainfo.Metabase,
 		)

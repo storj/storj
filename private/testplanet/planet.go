@@ -60,8 +60,7 @@ type Config struct {
 
 // DatabaseConfig defines connection strings for database.
 type DatabaseConfig struct {
-	SatelliteDB        string
-	SatellitePointerDB string
+	SatelliteDB string
 }
 
 // Planet is a full storj system setup.

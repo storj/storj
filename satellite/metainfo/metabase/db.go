@@ -6,6 +6,7 @@ package metabase
 
 import (
 	"context"
+	"fmt"
 	"sort"
 	"strconv"
 
@@ -18,6 +19,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
+	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/private/tagsql"
 )
@@ -30,6 +32,7 @@ var (
 type DB struct {
 	log            *zap.Logger
 	db             tagsql.DB
+	connstr        string
 	implementation dbutil.Implementation
 
 	aliasCache *NodeAliasCache
@@ -43,7 +46,7 @@ func Open(ctx context.Context, log *zap.Logger, driverName, connstr string) (*DB
 	}
 	dbutil.Configure(ctx, rawdb, "metabase", mon)
 
-	db := &DB{log: log, db: postgresRebind{rawdb}}
+	db := &DB{log: log, connstr: connstr, db: postgresRebind{rawdb}}
 	db.aliasCache = NewNodeAliasCache(db)
 
 	_, _, db.implementation, err = dbutil.SplitConnStr(connstr)
@@ -88,6 +91,38 @@ func (db *DB) DestroyTables(ctx context.Context) error {
 
 // MigrateToLatest migrates database to the latest version.
 func (db *DB) MigrateToLatest(ctx context.Context) error {
+	// First handle the idiosyncrasies of postgres and cockroach migrations. Postgres
+	// will need to create any schemas specified in the search path, and cockroach
+	// will need to create the database it was told to connect to. These things should
+	// not really be here, and instead should be assumed to exist.
+	// This is tracked in jira ticket SM-200
+	switch db.implementation {
+	case dbutil.Postgres:
+		schema, err := pgutil.ParseSchemaFromConnstr(db.connstr)
+		if err != nil {
+			return errs.New("error parsing schema: %+v", err)
+		}
+
+		if schema != "" {
+			err = pgutil.CreateSchema(ctx, db.db, schema)
+			if err != nil {
+				return errs.New("error creating schema: %+v", err)
+			}
+		}
+
+	case dbutil.Cockroach:
+		var dbName string
+		if err := db.db.QueryRow(ctx, `SELECT current_database();`).Scan(&dbName); err != nil {
+			return errs.New("error querying current database: %+v", err)
+		}
+
+		_, err := db.db.Exec(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`,
+			pgutil.QuoteIdentifier(dbName)))
+		if err != nil {
+			return errs.Wrap(err)
+		}
+	}
+
 	migration := db.PostgresMigration()
 	return migration.Run(ctx, db.log.Named("migrate"))
 }

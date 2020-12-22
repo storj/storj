@@ -20,7 +20,6 @@ import (
 // Reconfigure allows to change node configurations.
 type Reconfigure struct {
 	SatelliteDB         func(log *zap.Logger, index int, db satellite.DB) (satellite.DB, error)
-	SatellitePointerDB  func(log *zap.Logger, index int, db metainfo.PointerDB) (metainfo.PointerDB, error)
 	SatelliteMetabaseDB func(log *zap.Logger, index int, db metainfo.MetabaseDB) (metainfo.MetabaseDB, error)
 	Satellite           func(log *zap.Logger, index int, config *satellite.Config)
 
