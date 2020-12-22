@@ -56,9 +56,11 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	asOf := cache.db.AsOfSystemTimeClause(selectionCfg.AsOfSystemTime.DefaultInterval)
+
 	query := `
 		SELECT id, address, last_net, last_ip_port, vetted_at
-			FROM nodes
+			FROM nodes ` + asOf + `
 			WHERE disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
 			AND exit_initiated_at IS NULL
@@ -253,10 +255,12 @@ func (cache *overlaycache) knownOffline(ctx context.Context, criteria *overlay.N
 		return nil, Error.New("no ids provided")
 	}
 
+	asOf := cache.db.AsOfSystemTimeClause(criteria.AsOfSystemTimeInterval)
+
 	// get offline nodes
 	var rows tagsql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT id FROM nodes
+		SELECT id FROM nodes `+asOf+`
 			WHERE id = any($1::bytea[])
 			AND last_contact_success < $2
 		`), pgutil.NodeIDArray(nodeIds), time.Now().Add(-criteria.OnlineWindow),
@@ -300,10 +304,12 @@ func (cache *overlaycache) knownUnreliableOrOffline(ctx context.Context, criteri
 		return nil, Error.New("no ids provided")
 	}
 
+	asOf := cache.db.AsOfSystemTimeClause(criteria.AsOfSystemTimeInterval)
+
 	// get reliable and online nodes
 	var rows tagsql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT id FROM nodes
+		SELECT id FROM nodes `+asOf+`
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
@@ -404,9 +410,11 @@ func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeC
 }
 
 func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeCriteria) (nodes storj.NodeIDList, err error) {
+	asOf := cache.db.AsOfSystemTimeClause(criteria.AsOfSystemTimeInterval)
+
 	// get reliable and online nodes
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT id FROM nodes
+		SELECT id FROM nodes `+asOf+`
 		WHERE disqualified IS NULL
 		AND unknown_audit_suspended IS NULL
 		AND exit_finished_at IS NULL

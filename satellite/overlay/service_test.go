@@ -73,8 +73,8 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 
 	nodeSelectionConfig := testNodeSelectionConfig(0, false)
 	serviceConfig := overlay.Config{Node: nodeSelectionConfig, UpdateStatsBatchSize: 100, AuditHistory: testAuditHistoryConfig()}
-	service := overlay.NewService(zaptest.NewLogger(t), store, serviceConfig)
-
+	service, err := overlay.NewService(zaptest.NewLogger(t), store, serviceConfig)
+	require.NoError(t, err)
 	d := overlay.NodeCheckInInfo{
 		Address:    address,
 		LastIPPort: address.Address,

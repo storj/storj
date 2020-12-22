@@ -132,7 +132,11 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	}
 
 	{ // setup overlay
-		peer.Overlay = overlay.NewService(log.Named("overlay"), overlayCache, config.Overlay)
+		var err error
+		peer.Overlay, err = overlay.NewService(log.Named("overlay"), overlayCache, config.Overlay)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
 			Close: peer.Overlay.Close,
