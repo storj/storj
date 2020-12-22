@@ -125,6 +125,11 @@ model node (
 		fields last_net
 	)
 
+	index (
+		name nodes_dis_unk_exit_fin_last_success_index
+		fields disqualified unknown_audit_suspended exit_finished_at last_contact_success
+	)	
+
 	field id             blob
 	// address is how to contact the node, this can be a hostname or IP and it contains the port
 	field address        text  ( updatable, default "" ) // TODO: use compressed format
