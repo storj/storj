@@ -24,11 +24,11 @@ import (
 
 var shareCfg struct {
 	DisallowReads     bool     `default:"false" help:"if true, disallow reads" basic-help:"true"`
-	DisallowWrites    bool     `default:"false" help:"if true, disallow writes. see also readonly" basic-help:"true"`
+	DisallowWrites    bool     `default:"false" help:"if true, disallow writes. see also --readonly" basic-help:"true"`
 	DisallowLists     bool     `default:"false" help:"if true, disallow lists" basic-help:"true"`
-	DisallowDeletes   bool     `default:"false" help:"if true, disallow deletes. see also readonly" basic-help:"true"`
-	Readonly          bool     `default:"true" help:"implies disallow_writes and disallow_deletes. you must specify --readonly=false if you don't want this" basic-help:"true"`
-	Writeonly         bool     `default:"false" help:"implies disallow_reads and disallow_lists" basic-help:"true"`
+	DisallowDeletes   bool     `default:"false" help:"if true, disallow deletes. see also --readonly" basic-help:"true"`
+	Readonly          bool     `default:"true" help:"implies --disallow-writes and --disallow-deletes. you must specify --readonly=false if you don't want this" basic-help:"true"`
+	Writeonly         bool     `default:"false" help:"implies --disallow-reads and --disallow-lists" basic-help:"true"`
 	NotBefore         string   `help:"disallow access before this time (e.g. '+2h', '2020-01-02T15:01:01-01:00')" basic-help:"true"`
 	NotAfter          string   `help:"disallow access after this time (e.g. '+2h', '2020-01-02T15:01:01-01:00')" basic-help:"true"`
 	AllowedPathPrefix []string `help:"whitelist of path prefixes to require, overrides the [allowed-path-prefix] arguments"`
