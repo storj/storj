@@ -1514,6 +1514,9 @@ func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID
 }
 
 // GetProjectUsageLimits returns project limits and current usage.
+//
+// Among others,it can return one of the following errors returned by
+// storj.io/storj/satellite/accounting.Service, wrapped Error.
 func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (_ *ProjectUsageLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
