@@ -315,56 +315,6 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, bucket metabas
 	return signer.RootPieceID, signer.AddressedLimits, signer.PrivateKey, nil
 }
 
-// CreateDeleteOrderLimits creates the order limits for deleting the pieces of pointer.
-func (service *Service) CreateDeleteOrderLimits(ctx context.Context, bucket metabase.BucketLocation, pointer *pb.Pointer) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	nodeIDs := make([]storj.NodeID, len(pointer.GetRemote().GetRemotePieces()))
-	for i, piece := range pointer.GetRemote().GetRemotePieces() {
-		nodeIDs[i] = piece.NodeId
-	}
-
-	nodes, err := service.overlay.GetOnlineNodesForGetDelete(ctx, nodeIDs)
-	if err != nil {
-		service.log.Debug("error getting nodes from overlay", zap.Error(err))
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
-
-	signer, err := NewSignerDelete(service, pointer.GetRemote().RootPieceId, time.Now(), bucket)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
-
-	var nodeErrors errs.Group
-	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		node, ok := nodes[piece.NodeId]
-		if !ok {
-			nodeErrors.Add(errs.New("node %q is not reliable", piece.NodeId))
-			continue
-		}
-
-		address := node.Address.Address
-		if node.LastIPPort != "" {
-			address = node.LastIPPort
-		}
-		_, err := signer.Sign(ctx, storj.NodeURL{ID: piece.NodeId, Address: address}, piece.PieceNum)
-		if err != nil {
-			return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-		}
-	}
-
-	if len(signer.AddressedLimits) == 0 {
-		return nil, storj.PiecePrivateKey{}, Error.New("failed creating order limits: %w", nodeErrors.Err())
-	}
-
-	err = service.saveSerial(ctx, signer.Serial, bucket, signer.OrderExpiration)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
-
-	return signer.AddressedLimits, signer.PrivateKey, nil
-}
-
 // CreateAuditOrderLimits creates the order limits for auditing the pieces of a segment.
 func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment, skip map[storj.NodeID]bool) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedIPsAndPorts map[storj.NodeID]string, err error) {
 	defer mon.Task()(&ctx)(&err)
