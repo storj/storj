@@ -140,7 +140,7 @@ func NewSignerGracefulExit(service *Service, rootPieceID storj.PieceID, orderCre
 func (signer *Signer) Sign(ctx context.Context, node storj.NodeURL, pieceNum int32) (_ *pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if signer.Service.includeEncryptedMetadata && len(signer.EncryptedMetadata) == 0 {
+	if len(signer.EncryptedMetadata) == 0 {
 		encryptionKey := signer.Service.encryptionKeys.Default
 		if encryptionKey.IsZero() {
 			return nil, ErrSigner.New("default encryption key is missing")

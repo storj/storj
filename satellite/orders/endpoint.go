@@ -38,10 +38,6 @@ type DB interface {
 	UseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) ([]byte, error)
 	// UnuseSerialNumber removes pair serial number -> storage node id from database
 	UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) error
-	// DeleteExpiredSerials deletes all expired serials in serial_number, used_serials, and consumed_serials table.
-	DeleteExpiredSerials(ctx context.Context, now time.Time, options SerialDeleteOptions) (_ int, err error)
-	// DeleteExpiredConsumedSerials deletes all expired serials in the consumed_serials table.
-	DeleteExpiredConsumedSerials(ctx context.Context, now time.Time) (_ int, err error)
 	// GetBucketIDFromSerialNumber returns the bucket ID associated with the serial number
 	GetBucketIDFromSerialNumber(ctx context.Context, serialNumber storj.SerialNumber) ([]byte, error)
 
@@ -647,52 +643,32 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 
 		storagenodeSettled[int32(orderLimit.Action)] += order.Amount
 
-		var bucketName string
-		var projectID uuid.UUID
-		if len(orderLimit.EncryptedMetadata) > 0 {
-			metadata, err := endpoint.ordersService.DecryptOrderMetadata(ctx, orderLimit)
-			if err != nil {
-				log.Info("decrypt order metadata err:", zap.Error(err))
-				mon.Event("bucketinfo_from_orders_metadata_error_1")
-				goto idFromSerialTable
-			}
-			bucketInfo, err := metabase.ParseBucketPrefix(
-				metabase.BucketPrefix(metadata.GetProjectBucketPrefix()),
-			)
-			if err != nil {
-				log.Info("decrypt order: ParseBucketPrefix", zap.Error(err))
-				mon.Event("bucketinfo_from_orders_metadata_error_2")
-				goto idFromSerialTable
-			}
-			bucketName = bucketInfo.BucketName
-			projectID = bucketInfo.ProjectID
-			mon.Event("bucketinfo_from_orders_metadata")
+		metadata, err := endpoint.ordersService.DecryptOrderMetadata(ctx, orderLimit)
+		if err != nil {
+			log.Debug("decrypt order metadata err:", zap.Error(err))
+			mon.Event("bucketinfo_from_orders_metadata_error_1")
+			continue
 		}
-
-		// If we cannot get the bucket name and project ID from the orderLimit metadata, then fallback
-		// to the old method of getting it from the serial_numbers table.
-		// This is only temporary to make sure the orderLimit metadata is working correctly.
-	idFromSerialTable:
-		if bucketName == "" || projectID.IsZero() {
-			bucketPrefix, err := endpoint.DB.GetBucketIDFromSerialNumber(ctx, serialNum)
-			if err != nil {
-				log.Info("get bucketPrefix from serial number table err", zap.Error(err))
-				continue
-			}
-
-			bucket, err := metabase.ParseBucketPrefix(metabase.BucketPrefix(bucketPrefix))
-			if err != nil {
-				log.Info("split bucket err", zap.Error(err), zap.String("bucketPrefix", string(bucketPrefix)))
-				continue
-			}
-			bucketName = bucket.BucketName
-			projectID = bucket.ProjectID
-			mon.Event("bucketinfo_from_serial_number")
+		bucketInfo, err := metabase.ParseBucketPrefix(
+			metabase.BucketPrefix(metadata.GetProjectBucketPrefix()),
+		)
+		if err != nil {
+			log.Debug("decrypt order: ParseBucketPrefix", zap.Error(err))
+			mon.Event("bucketinfo_from_orders_metadata_error_2")
+			continue
+		}
+		if bucketInfo.BucketName == "" || bucketInfo.ProjectID.IsZero() {
+			log.Info("decrypt order: bucketName or projectID not set",
+				zap.String("bucketName", bucketInfo.BucketName),
+				zap.String("projectID", bucketInfo.ProjectID.String()),
+			)
+			mon.Event("bucketinfo_from_orders_metadata_error_3")
+			continue
 		}
 
 		bucketSettled[bucketIDAction{
-			bucketname: bucketName,
-			projectID:  projectID,
+			bucketname: bucketInfo.BucketName,
+			projectID:  bucketInfo.ProjectID,
 			action:     orderLimit.Action,
 		}] += order.Amount
 	}

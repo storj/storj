@@ -32,7 +32,6 @@ var (
 // Config is a configuration struct for orders Service.
 type Config struct {
 	EncryptionKeys               EncryptionKeys             `help:"encryption keys to encrypt info in orders" default:""`
-	IncludeEncryptedMetadata     bool                       `help:"include encrypted metadata in the order limit" default:"false"`
 	Expiration                   time.Duration              `help:"how long until an order expires" default:"48h"` // 2 days
 	SettlementBatchSize          int                        `help:"how many orders to batch per transaction" default:"250"`
 	FlushBatchSize               int                        `help:"how many items in the rollups write cache before they are flushed to the database" devDefault:"20" releaseDefault:"10000"`
@@ -59,8 +58,7 @@ type Service struct {
 	orders    DB
 	buckets   BucketsDB
 
-	includeEncryptedMetadata bool
-	encryptionKeys           EncryptionKeys
+	encryptionKeys EncryptionKeys
 
 	satelliteAddress *pb.NodeAddress
 	orderExpiration  time.Duration
@@ -76,7 +74,7 @@ func NewService(
 	config Config,
 	satelliteAddress *pb.NodeAddress,
 ) (*Service, error) {
-	if config.IncludeEncryptedMetadata && config.EncryptionKeys.Default.IsZero() {
+	if config.EncryptionKeys.Default.IsZero() {
 		return nil, Error.New("encryption keys must be specified to include encrypted metadata")
 	}
 
@@ -87,8 +85,7 @@ func NewService(
 		orders:    orders,
 		buckets:   buckets,
 
-		includeEncryptedMetadata: config.IncludeEncryptedMetadata,
-		encryptionKeys:           config.EncryptionKeys,
+		encryptionKeys: config.EncryptionKeys,
 
 		satelliteAddress: satelliteAddress,
 		orderExpiration:  config.Expiration,
@@ -101,11 +98,6 @@ func NewService(
 func (service *Service) VerifyOrderLimitSignature(ctx context.Context, signed *pb.OrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return signing.VerifyOrderLimitSignature(ctx, service.satellite, signed)
-}
-
-func (service *Service) saveSerial(ctx context.Context, serialNumber storj.SerialNumber, bucket metabase.BucketLocation, expiresAt time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	return service.orders.CreateSerialInfo(ctx, serialNumber, []byte(bucket.Prefix()), expiresAt)
 }
 
 func (service *Service) updateBandwidth(ctx context.Context, bucket metabase.BucketLocation, addressedOrderLimits ...*pb.AddressedOrderLimit) (err error) {
@@ -195,11 +187,6 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabas
 		return nil, storj.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.New("not enough orderlimits: got %d, required %d", len(signer.AddressedLimits), redundancy.RequiredCount())
 	}
 
-	err = service.saveSerial(ctx, signer.Serial, bucket, signer.OrderExpiration)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
-
 	if err := service.updateBandwidth(ctx, bucket, signer.AddressedLimits...); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -265,11 +252,6 @@ func (service *Service) CreateGetOrderLimits2(ctx context.Context, bucket metaba
 		return nil, storj.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.New("not enough orderlimits: got %d, required %d", len(signer.AddressedLimits), redundancy.RequiredCount())
 	}
 
-	err = service.saveSerial(ctx, signer.Serial, bucket, signer.OrderExpiration)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
-
 	if err := service.updateBandwidth(ctx, bucket, signer.AddressedLimits...); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -301,11 +283,6 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, bucket metabas
 		if err != nil {
 			return storj.PieceID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 		}
-	}
-
-	err = service.saveSerial(ctx, signer.Serial, bucket, signer.OrderExpiration)
-	if err != nil {
-		return storj.PieceID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
 	if err := service.updateBandwidth(ctx, bucket, signer.AddressedLimits...); err != nil {
@@ -369,11 +346,6 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucket metab
 		err = Error.New("not enough nodes available: got %d, required %d", limitsCount, segment.Redundancy.RequiredShares)
 		return nil, storj.PiecePrivateKey{}, nil, errs.Combine(err, nodeErrors.Err())
 	}
-
-	err = service.saveSerial(ctx, signer.Serial, bucket, signer.OrderExpiration)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
-	}
 	if err := service.updateBandwidth(ctx, bucket, limits...); err != nil {
 		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
 	}
@@ -413,10 +385,6 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucket metaba
 		return nil, storj.PiecePrivateKey{}, "", Error.Wrap(err)
 	}
 
-	err = service.saveSerial(ctx, signer.Serial, bucket, signer.OrderExpiration)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, "", Error.Wrap(err)
-	}
 	if err := service.updateBandwidth(ctx, bucket, limit); err != nil {
 		return nil, storj.PiecePrivateKey{}, "", Error.Wrap(err)
 	}
@@ -483,10 +451,6 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucket m
 		return nil, storj.PiecePrivateKey{}, errs.Combine(err, nodeErrors.Err())
 	}
 
-	err = service.saveSerial(ctx, signer.Serial, bucket, signer.OrderExpiration)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
 	if err := service.updateBandwidth(ctx, bucket, limits...); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -555,10 +519,6 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucket m
 		}
 	}
 
-	err = service.saveSerial(ctx, signer.Serial, bucket, signer.OrderExpiration)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
 	if err := service.updateBandwidth(ctx, bucket, limits...); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -597,10 +557,6 @@ func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, buc
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	err = service.saveSerial(ctx, signer.Serial, bucket, signer.OrderExpiration)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
 	if err := service.updateBandwidth(ctx, bucket, limit); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}

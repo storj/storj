@@ -125,6 +125,11 @@ model node (
 		fields last_net
 	)
 
+	index (
+		name nodes_dis_unk_exit_fin_last_success_index
+		fields disqualified unknown_audit_suspended exit_finished_at last_contact_success
+	)	
+
 	field id             blob
 	// address is how to contact the node, this can be a hostname or IP and it contains the port
 	field address        text  ( updatable, default "" ) // TODO: use compressed format
@@ -600,6 +605,11 @@ read scalar (
 model bucket_storage_tally (
 	key    bucket_name project_id interval_start
 
+	index (
+		name bucket_storage_tallies_project_id_index
+		fields project_id
+	)
+
 	field bucket_name       blob
 	field project_id        blob
 
@@ -640,6 +650,11 @@ read all (
 
 model storagenode_bandwidth_rollup (
 	key    storagenode_id interval_start action
+
+	index (
+		name storagenode_bandwidth_rollups_interval_start_index
+		fields interval_start
+	)
 
 	field storagenode_id   blob
 	field interval_start   timestamp

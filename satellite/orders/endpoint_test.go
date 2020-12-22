@@ -43,7 +43,9 @@ func runTestWithPhases(t *testing.T, fn func(t *testing.T, ctx *testcontext.Cont
 }
 
 func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
-	runTestWithPhases(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		ordersDB := satellite.Orders.DB
 		storagenode := planet.StorageNodes[0]
@@ -51,6 +53,7 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 		projectID := testrand.UUID()
 		bucketname := "testbucket"
 		bucketID := storj.JoinPaths(projectID.String(), bucketname)
+		key := satellite.Config.Orders.EncryptionKeys.Default
 
 		// stop any async flushes because we want to be sure when some values are
 		// written to avoid races
@@ -79,11 +82,21 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 			func() {
 				// create serial number to use in test. must be unique for each run.
 				serialNumber1 := testrand.SerialNumber()
-				err = ordersDB.CreateSerialInfo(ctx, serialNumber1, []byte(bucketID), now.AddDate(1, 0, 10))
+				encrypted1, err := key.EncryptMetadata(
+					serialNumber1,
+					&pb.OrderLimitMetadata{
+						ProjectBucketPrefix: []byte(bucketID),
+					},
+				)
 				require.NoError(t, err)
 
 				serialNumber2 := testrand.SerialNumber()
-				err = ordersDB.CreateSerialInfo(ctx, serialNumber2, []byte(bucketID), now.AddDate(1, 0, 10))
+				encrypted2, err := key.EncryptMetadata(
+					serialNumber2,
+					&pb.OrderLimitMetadata{
+						ProjectBucketPrefix: []byte(bucketID),
+					},
+				)
 				require.NoError(t, err)
 
 				piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
@@ -91,16 +104,18 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 
 				// create signed orderlimit or order to test with
 				limit1 := &pb.OrderLimit{
-					SerialNumber:    serialNumber1,
-					SatelliteId:     satellite.ID(),
-					UplinkPublicKey: piecePublicKey,
-					StorageNodeId:   storagenode.ID(),
-					PieceId:         storj.NewPieceID(),
-					Action:          pb.PieceAction_PUT,
-					Limit:           1000,
-					PieceExpiration: time.Time{},
-					OrderCreation:   tt.orderCreation,
-					OrderExpiration: now.Add(24 * time.Hour),
+					SerialNumber:           serialNumber1,
+					SatelliteId:            satellite.ID(),
+					UplinkPublicKey:        piecePublicKey,
+					StorageNodeId:          storagenode.ID(),
+					PieceId:                storj.NewPieceID(),
+					Action:                 pb.PieceAction_PUT,
+					Limit:                  1000,
+					PieceExpiration:        time.Time{},
+					OrderCreation:          tt.orderCreation,
+					OrderExpiration:        now.Add(24 * time.Hour),
+					EncryptedMetadataKeyId: key.ID[:],
+					EncryptedMetadata:      encrypted1,
 				}
 				orderLimit1, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), limit1)
 				require.NoError(t, err)
@@ -112,16 +127,18 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 				require.NoError(t, err)
 
 				limit2 := &pb.OrderLimit{
-					SerialNumber:    serialNumber2,
-					SatelliteId:     satellite.ID(),
-					UplinkPublicKey: piecePublicKey,
-					StorageNodeId:   storagenode.ID(),
-					PieceId:         storj.NewPieceID(),
-					Action:          pb.PieceAction_PUT,
-					Limit:           1000,
-					PieceExpiration: time.Time{},
-					OrderCreation:   now,
-					OrderExpiration: now.Add(24 * time.Hour),
+					SerialNumber:           serialNumber2,
+					SatelliteId:            satellite.ID(),
+					UplinkPublicKey:        piecePublicKey,
+					StorageNodeId:          storagenode.ID(),
+					PieceId:                storj.NewPieceID(),
+					Action:                 pb.PieceAction_PUT,
+					Limit:                  1000,
+					PieceExpiration:        time.Time{},
+					OrderCreation:          now,
+					OrderExpiration:        now.Add(24 * time.Hour),
+					EncryptedMetadataKeyId: key.ID[:],
+					EncryptedMetadata:      encrypted2,
 				}
 				orderLimit2, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), limit2)
 				require.NoError(t, err)
@@ -182,7 +199,10 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 	})
 }
 func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
-	runTestWithPhases(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
 		const dataAmount int64 = 50
 		satellite := planet.Satellites[0]
 		ordersDB := satellite.Orders.DB
@@ -191,6 +211,7 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 		projectID := testrand.UUID()
 		bucketname := "testbucket"
 		bucketID := storj.JoinPaths(projectID.String(), bucketname)
+		key := satellite.Config.Orders.EncryptionKeys.Default
 
 		// stop any async flushes because we want to be sure when some values are
 		// written to avoid races
@@ -208,7 +229,12 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 
 		// create serial number to use in test
 		serialNumber := testrand.SerialNumber()
-		err = ordersDB.CreateSerialInfo(ctx, serialNumber, []byte(bucketID), now.AddDate(1, 0, 10))
+		encrypted, err := key.EncryptMetadata(
+			serialNumber,
+			&pb.OrderLimitMetadata{
+				ProjectBucketPrefix: []byte(bucketID),
+			},
+		)
 		require.NoError(t, err)
 
 		piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
@@ -228,16 +254,18 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 			func() {
 				// create signed orderlimit or order to test with
 				limit := &pb.OrderLimit{
-					SerialNumber:    serialNumber,
-					SatelliteId:     satellite.ID(),
-					UplinkPublicKey: piecePublicKey,
-					StorageNodeId:   storagenode.ID(),
-					PieceId:         storj.NewPieceID(),
-					Action:          pb.PieceAction_PUT,
-					Limit:           1000,
-					PieceExpiration: time.Time{},
-					OrderCreation:   now,
-					OrderExpiration: now.Add(24 * time.Hour),
+					SerialNumber:           serialNumber,
+					SatelliteId:            satellite.ID(),
+					UplinkPublicKey:        piecePublicKey,
+					StorageNodeId:          storagenode.ID(),
+					PieceId:                storj.NewPieceID(),
+					Action:                 pb.PieceAction_PUT,
+					Limit:                  1000,
+					PieceExpiration:        time.Time{},
+					OrderCreation:          now,
+					OrderExpiration:        now.Add(24 * time.Hour),
+					EncryptedMetadataKeyId: key.ID[:],
+					EncryptedMetadata:      encrypted,
 				}
 				orderLimit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), limit)
 				require.NoError(t, err)
@@ -335,18 +363,28 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 
 		_, piecePrivateKey2, err := storj.NewPieceKey()
 		require.NoError(t, err)
+		key := satellite.Config.Orders.EncryptionKeys.Default
+		encrypted, err := key.EncryptMetadata(
+			serialNumber1,
+			&pb.OrderLimitMetadata{
+				ProjectBucketPrefix: []byte(bucketID),
+			},
+		)
+		require.NoError(t, err)
 
 		limit := pb.OrderLimit{
-			SerialNumber:    serialNumber1,
-			SatelliteId:     satellite.ID(),
-			UplinkPublicKey: piecePublicKey1,
-			StorageNodeId:   storagenode.ID(),
-			PieceId:         storj.NewPieceID(),
-			Action:          pb.PieceAction_PUT,
-			Limit:           1000,
-			PieceExpiration: time.Time{},
-			OrderCreation:   now,
-			OrderExpiration: now.Add(24 * time.Hour),
+			SerialNumber:           serialNumber1,
+			SatelliteId:            satellite.ID(),
+			UplinkPublicKey:        piecePublicKey1,
+			StorageNodeId:          storagenode.ID(),
+			PieceId:                storj.NewPieceID(),
+			Action:                 pb.PieceAction_PUT,
+			Limit:                  1000,
+			PieceExpiration:        time.Time{},
+			OrderCreation:          now,
+			OrderExpiration:        now.Add(24 * time.Hour),
+			EncryptedMetadataKeyId: key.ID[:],
+			EncryptedMetadata:      encrypted,
 		}
 		orderLimit1, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), &limit)
 		require.NoError(t, err)
@@ -453,19 +491,29 @@ func TestSettlementEndpointSingleOrder(t *testing.T) {
 
 		piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
 		require.NoError(t, err)
+		key := satellite.Config.Orders.EncryptionKeys.Default
+		encrypted, err := key.EncryptMetadata(
+			serialNumber,
+			&pb.OrderLimitMetadata{
+				ProjectBucketPrefix: []byte(bucketID),
+			},
+		)
+		require.NoError(t, err)
 
 		// create signed orderlimit or order to test with
 		limit := &pb.OrderLimit{
-			SerialNumber:    serialNumber,
-			SatelliteId:     satellite.ID(),
-			UplinkPublicKey: piecePublicKey,
-			StorageNodeId:   storagenode.ID(),
-			PieceId:         storj.NewPieceID(),
-			Action:          pb.PieceAction_PUT,
-			Limit:           1000,
-			PieceExpiration: time.Time{},
-			OrderCreation:   now,
-			OrderExpiration: now.Add(24 * time.Hour),
+			SerialNumber:           serialNumber,
+			SatelliteId:            satellite.ID(),
+			UplinkPublicKey:        piecePublicKey,
+			StorageNodeId:          storagenode.ID(),
+			PieceId:                storj.NewPieceID(),
+			Action:                 pb.PieceAction_PUT,
+			Limit:                  1000,
+			PieceExpiration:        time.Time{},
+			OrderCreation:          now,
+			OrderExpiration:        now.Add(24 * time.Hour),
+			EncryptedMetadataKeyId: key.ID[:],
+			EncryptedMetadata:      encrypted,
 		}
 		orderLimit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), limit)
 		require.NoError(t, err)

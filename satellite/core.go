@@ -31,7 +31,6 @@ import (
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/contact"
-	"storj.io/storj/satellite/dbcleanup"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metainfo"
@@ -108,10 +107,6 @@ type Core struct {
 
 	ExpiredDeletion struct {
 		Chore *expireddeletion.Chore
-	}
-
-	DBCleanup struct {
-		Chore *dbcleanup.Chore
 	}
 
 	Accounting struct {
@@ -392,17 +387,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Expired Segments Chore", peer.ExpiredDeletion.Chore.Loop))
-	}
-
-	{ // setup db cleanup
-		peer.DBCleanup.Chore = dbcleanup.NewChore(peer.Log.Named("dbcleanup"), peer.DB.Orders(), config.DBCleanup)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "dbcleanup",
-			Run:   peer.DBCleanup.Chore.Run,
-			Close: peer.DBCleanup.Chore.Close,
-		})
-		peer.Debug.Server.Panel.Add(
-			debug.Cycle("DB Cleanup Serials", peer.DBCleanup.Chore.Serials))
 	}
 
 	{ // setup accounting

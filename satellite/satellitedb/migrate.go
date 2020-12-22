@@ -1131,6 +1131,33 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE injuredsegments DROP COLUMN num_healthy_pieces;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create new index on storagenode_bandwidth_rollups to improve get nodes since query.",
+				Version:     135,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create new index on bucket_storage_tallies to improve get tallies by project ID.",
+				Version:     136,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS bucket_storage_tallies_project_id_index ON bucket_storage_tallies (project_id);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create new index on nodes to improve queries using disqualified, unknown_audit_suspended, exit_finished_at, and last_contact_success.",
+				Version:     137,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS nodes_dis_unk_exit_fin_last_success_index ON nodes(disqualified, unknown_audit_suspended, exit_finished_at, last_contact_success);`,
+				},
+			},
 		},
 	}
 }

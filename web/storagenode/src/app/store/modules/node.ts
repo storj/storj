@@ -60,8 +60,8 @@ export function newNodeModule(service: StorageNodeService): StoreModule<StorageN
                 );
 
                 state.utilization = new Utilization(
-                    new Traffic(nodeInfo.bandwidth.used),
-                    new Traffic(nodeInfo.diskSpace.used, nodeInfo.diskSpace.available, nodeInfo.diskSpace.trash),
+                    nodeInfo.bandwidth,
+                    nodeInfo.diskSpace,
                 );
 
                 state.disqualifiedSatellites = nodeInfo.satellites.filter((satellite: SatelliteInfo) => satellite.disqualified);
