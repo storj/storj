@@ -13,6 +13,7 @@ import (
 	"storj.io/private/version"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
@@ -61,7 +62,14 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 
 	accountingCache, err := live.NewCache(log.Named("live-accounting"), runCfg.LiveAccounting)
 	if err != nil {
-		return errs.New("Error creating live accounting cache on satellite api: %+v", err)
+		if !accounting.ErrSystemOrNetError.Has(err) || accountingCache == nil {
+			return errs.New("Error instantiating live accounting cache: %w", err)
+		}
+
+		log.Warn(
+			"Impossible to verify the connection with the live accounting cache backend; it's expected to be a temporary failure, monitor the service to ensure that it's temporary",
+			zap.Error(err),
+		)
 	}
 	defer func() {
 		err = errs.Combine(err, accountingCache.Close())
