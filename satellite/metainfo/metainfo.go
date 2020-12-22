@@ -635,14 +635,13 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 			return nil, err
 		}
 	} else {
-		location, err := CreatePath(ctx, keyInfo.ProjectID, metabase.LastSegmentIndex, req.Bucket, req.EncryptedPath)
-		if err != nil {
-			endpoint.log.Error("unable to create path", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
-
-		// TODO maybe we can have different Get without pointer unmarshaling
-		_, _, err = endpoint.metainfo.GetWithBytes(ctx, location.Encode())
+		_, err = endpoint.metainfo.metabaseDB.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
+			ObjectLocation: metabase.ObjectLocation{
+				ProjectID:  keyInfo.ProjectID,
+				BucketName: string(req.Bucket),
+				ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+			},
+		})
 		if err == nil {
 			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
 		}
