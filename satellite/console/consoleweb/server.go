@@ -33,6 +33,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
@@ -607,6 +608,7 @@ func (server *Server) projectUsageLimitsHandler(w http.ResponseWriter, r *http.R
 			Error string `json:"error"`
 		}
 
+		// N.B. we are probably leaking internal details to the client
 		jsonError.Error = err.Error()
 
 		if err := json.NewEncoder(w).Encode(jsonError); err != nil {
@@ -618,6 +620,8 @@ func (server *Server) projectUsageLimitsHandler(w http.ResponseWriter, r *http.R
 		switch {
 		case console.ErrUnauthorized.Has(err):
 			handleError(http.StatusUnauthorized, err)
+		case accounting.ErrInvalidArgument.Has(err):
+			handleError(http.StatusBadRequest, err)
 		default:
 			handleError(http.StatusInternalServerError, err)
 		}
