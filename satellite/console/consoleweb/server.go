@@ -30,6 +30,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/console"
@@ -103,6 +104,7 @@ type Server struct {
 	server      http.Server
 	cookieAuth  *consolewebauth.CookieAuth
 	rateLimiter *web.IPRateLimiter
+	nodeURL     storj.NodeURL
 
 	stripePublicKey string
 
@@ -119,7 +121,7 @@ type Server struct {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, referralsService *referrals.Service, partners *rewards.PartnersService, listener net.Listener, stripePublicKey string) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, referralsService *referrals.Service, partners *rewards.PartnersService, listener net.Listener, stripePublicKey string, nodeURL storj.NodeURL) *Server {
 	server := Server{
 		log:              logger,
 		config:           config,
@@ -130,6 +132,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		partners:         partners,
 		stripePublicKey:  stripePublicKey,
 		rateLimiter:      web.NewIPRateLimiter(config.RateLimit),
+		nodeURL:          nodeURL,
 	}
 
 	logger.Debug("Starting Satellite UI.", zap.Stringer("Address", server.listener.Addr()))
@@ -281,6 +284,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 
 	var data struct {
 		SatelliteName                   string
+		SatelliteNodeURL                string
 		SegmentIOPublicKey              string
 		StripePublicKey                 string
 		VerificationPageURL             string
@@ -293,6 +297,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data.SatelliteName = server.config.SatelliteName
+	data.SatelliteNodeURL = server.nodeURL.String()
 	data.SegmentIOPublicKey = server.config.SegmentIOPublicKey
 	data.StripePublicKey = server.stripePublicKey
 	data.VerificationPageURL = server.config.VerificationPageURL

@@ -633,6 +633,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Marketing.PartnersService,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,
+			peer.URL(),
 		)
 
 		peer.Servers.Add(lifecycle.Item{
