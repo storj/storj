@@ -341,7 +341,7 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(invoices) > 0 {
 		for _, invoice := range invoices {
-			if invoice.Status != "paid" {
+			if invoice.Status == "draft" || invoice.Status == "open" {
 				httpJSONError(w, "user has unpaid/pending invoices",
 					"", http.StatusConflict)
 				return
