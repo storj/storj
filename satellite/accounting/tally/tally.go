@@ -107,10 +107,64 @@ func (service *Service) SetNow(now func() time.Time) {
 func (service *Service) Tally(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// No-op unless that there isn't an error getting the
+	// liveAccounting.GetAllProjectTotals
+	var updateLiveAccountingTotals = func(_ map[uuid.UUID]int64) {}
+
 	initialLiveTotals, err := service.liveAccounting.GetAllProjectTotals(ctx)
 	if err != nil {
-		return Error.Wrap(err)
+		service.log.Error(
+			"tally won't update the live accounting storage usages of the projects, in this cycle, because liveAccounting.GetAllProjectTotals returned and error",
+			zap.Error(err),
+		)
+	} else {
+		updateLiveAccountingTotals = func(tallyProjectTotals map[uuid.UUID]int64) {
+			latestLiveTotals, err := service.liveAccounting.GetAllProjectTotals(ctx)
+			if err != nil {
+				service.log.Error(
+					"tally isn't updating the live accounting storage usages of the projects, in this cycle, because liveAccounting.GetAllProjectTotals returned and error",
+					zap.Error(err),
+				)
+				return
+			}
+
+			// empty projects are not returned by the metainfo observer. If a project exists
+			// in live accounting, but not in tally projects, we would not update it in live accounting.
+			// Thus, we add them and set the total to 0.
+			for projectID := range latestLiveTotals {
+				if _, ok := tallyProjectTotals[projectID]; !ok {
+					tallyProjectTotals[projectID] = 0
+				}
+			}
+
+			for projectID, tallyTotal := range tallyProjectTotals {
+				delta := latestLiveTotals[projectID] - initialLiveTotals[projectID]
+				if delta < 0 {
+					delta = 0
+				}
+
+				// read the method documentation why the increase passed to this method
+				// is calculated in this way
+				err = service.liveAccounting.AddProjectStorageUsage(ctx, projectID, -latestLiveTotals[projectID]+tallyTotal+(delta/2))
+				if err != nil {
+					if accounting.ErrSystemOrNetError.Has(err) {
+						service.log.Error(
+							"tally isn't updating the live accounting storage usages of the projects, in this cycle, because liveAccounting.AddProjectStorageUsage returned and error",
+							zap.Error(err),
+						)
+						return
+					}
+
+					service.log.Error(
+						"tally isn't updating the live accounting storage usage of the project, in this cycle, because liveAccounting.AddProjectStorageUsage returned and error",
+						zap.Error(err),
+						zap.String("projectID", projectID.String()),
+					)
+				}
+			}
+		}
 	}
+
 	// Fetch when the last tally happened so we can roughly calculate the byte-hours.
 	lastTime, err := service.storagenodeAccountingDB.LastTimestamp(ctx, accounting.LastAtRestTally)
 	if err != nil {
@@ -150,35 +204,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 			errAtRest = errs.New("ProjectAccounting.SaveTallies failed: %v", err)
 		}
 
-		// update live accounting totals
-		tallyProjectTotals := projectTotalsFromBuckets(observer.Bucket)
-		latestLiveTotals, err := service.liveAccounting.GetAllProjectTotals(ctx)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		// empty projects are not returned by the metainfo observer. If a project exists
-		// in live accounting, but not in tally projects, we would not update it in live accounting.
-		// Thus, we add them and set the total to 0.
-		for projectID := range latestLiveTotals {
-			if _, ok := tallyProjectTotals[projectID]; !ok {
-				tallyProjectTotals[projectID] = 0
-			}
-		}
-
-		for projectID, tallyTotal := range tallyProjectTotals {
-			delta := latestLiveTotals[projectID] - initialLiveTotals[projectID]
-			if delta < 0 {
-				delta = 0
-			}
-
-			// read the method documentation why the increase passed to this method
-			// is calculated in this way
-			err = service.liveAccounting.AddProjectStorageUsage(ctx, projectID, -latestLiveTotals[projectID]+tallyTotal+(delta/2))
-			if err != nil {
-				return Error.Wrap(err)
-			}
-		}
+		updateLiveAccountingTotals(projectTotalsFromBuckets(observer.Bucket))
 	}
 
 	// report bucket metrics
