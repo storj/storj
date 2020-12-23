@@ -160,7 +160,7 @@ export default class AccessGrants extends Vue {
      * Resets pagination to default state.
      */
     public resetPagination(): void {
-        if (this.totalPageCount > 0) {
+        if (this.totalPageCount > 1) {
             this.$refs.pagination.resetPageIndex();
         }
     }
