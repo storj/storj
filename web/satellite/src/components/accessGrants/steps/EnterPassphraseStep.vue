@@ -112,6 +112,7 @@ export default class EnterPassphraseStep extends Vue {
                 params: {
                     access: this.access,
                     key: this.key,
+                    restrictedKey: this.restrictedKey,
                 },
             });
         }, 1000);

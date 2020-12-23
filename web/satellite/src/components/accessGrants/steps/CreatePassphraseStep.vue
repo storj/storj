@@ -214,6 +214,7 @@ export default class CreatePassphraseStep extends Vue {
                     params: {
                         access: this.access,
                         key: this.key,
+                        restrictedKey: this.restrictedKey,
                     },
                 });
 
@@ -225,6 +226,7 @@ export default class CreatePassphraseStep extends Vue {
                 params: {
                     access: this.access,
                     key: this.key,
+                    restrictedKey: this.restrictedKey,
                 },
             });
         }, 1000);
