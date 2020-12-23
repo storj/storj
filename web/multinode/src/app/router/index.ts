@@ -24,7 +24,7 @@ export class Route {
     public readonly meta?: Metadata;
 
     /**
-     * default contructor.
+     * default constructor.
      * @param path - route path.
      * @param name - name of the route, needed fot identifying route by name.
      * @param component - component mapped to route.
