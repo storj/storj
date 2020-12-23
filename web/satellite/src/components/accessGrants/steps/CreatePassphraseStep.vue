@@ -194,14 +194,14 @@ export default class CreatePassphraseStep extends Vue {
 
         this.isLoading = true;
 
-        const satelliteName = MetaUtils.getMetaContent('satellite-name');
+        const satelliteNodeURL = MetaUtils.getMetaContent('satellite-nodeurl');
 
         this.worker.postMessage({
             'type': 'GenerateAccess',
             'apiKey': this.restrictedKey,
             'passphrase': this.passphrase,
             'projectID': this.$store.getters.selectedProject.id,
-            'satelliteName': satelliteName,
+            'satelliteNodeURL': satelliteNodeURL,
         });
 
         // Give time for web worker to return value.
