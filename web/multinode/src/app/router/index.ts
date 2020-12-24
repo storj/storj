@@ -46,7 +46,7 @@ export class Route {
 export class Config {
     public static Root: Route = new Route('/', 'Root', Dashboard, undefined, {requiresAuth: true});
 
-    public mode: RouterMode = 'history';
+    public static mode: RouterMode = 'history';
     public static routes: Route[] = [
         Config.Root,
     ];

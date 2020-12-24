@@ -10,7 +10,7 @@ import { Node } from '@/nodes';
  * NodesState is a representation of nodes module state.
  */
 export class NodesState {
-    public nodes: Node[];
+    public nodes: Node[] = [];
 }
 
 /**
@@ -23,8 +23,10 @@ export class NodesModule implements Module<NodesState, RootState> {
     public readonly actions: ActionTree<NodesState, RootState>;
     public readonly mutations: MutationTree<NodesState>;
 
-    public constructor() { // here should services, apis, 3d party dependencies.
+    public constructor() { // here should be services, apis, 3d party dependencies.
         this.namespaced = true;
+
+        this.state = new NodesState();
 
         this.mutations = {
             populate: this.populate,
@@ -41,7 +43,7 @@ export class NodesModule implements Module<NodesState, RootState> {
      * @param nodes - nodes to save in state. all users nodes.
      */
     public populate(state: NodesState, nodes: Node[]): void {
-        this.state.nodes = nodes; // or nodes.map()?
+        state.nodes = nodes;
     }
 
     /**

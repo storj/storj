@@ -1,9 +1,12 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import Vue from 'vue';
 import Vuex, { ModuleTree, Store, StoreOptions } from 'vuex';
 
 import { NodesModule, NodesState } from '@/app/store/nodes';
+
+Vue.use(Vuex); // TODO: place to main.ts when initialization of everything will be there.
 
 /**
  * RootState is a representation of global state.
