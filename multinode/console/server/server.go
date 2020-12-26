@@ -58,6 +58,7 @@ func NewServer(log *zap.Logger, config Config, nodes *nodes.Service, listener ne
 	nodesRouter := apiRouter.PathPrefix("/nodes").Subrouter()
 	nodesRouter.HandleFunc("", nodesController.Add).Methods(http.MethodPost)
 	nodesRouter.HandleFunc("", nodesController.List).Methods(http.MethodGet)
+	nodesRouter.HandleFunc("/infos", nodesController.ListInfos).Methods(http.MethodGet)
 	nodesRouter.HandleFunc("/{id}", nodesController.Get).Methods(http.MethodGet)
 	nodesRouter.HandleFunc("/{id}", nodesController.UpdateName).Methods(http.MethodPatch)
 	nodesRouter.HandleFunc("/{id}", nodesController.Delete).Methods(http.MethodDelete)
