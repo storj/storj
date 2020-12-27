@@ -9,14 +9,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
-	"path/filepath"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/fpath"
 	"storj.io/common/pb"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
@@ -26,7 +23,8 @@ import (
 type registerConfig struct {
 	AuthService string `help:"the address to the service you wish to register your access with" default:"" basic-help:"true"`
 	Public      bool   `help:"if the access should be public" default:"false" basic-help:"true"`
-	AWSProfile  string `help:"update AWS credentials file, appending the credentials using this profile name" default:"" basic-help:"true"`
+	Format      string `help:"format of credentials, use 'env' or 'aws' for using in scripts" default:""`
+	AWSProfile  string `help:"if using --format=aws, output the --profile tag using this profile" default:""`
 	AccessConfig
 }
 
@@ -143,22 +141,27 @@ func accessRegister(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-
-	fmt.Println("========== CREDENTIALS ===================================================================")
-	fmt.Println("Access Key ID: ", accessKey)
-	fmt.Println("Secret Key   : ", secretKey)
-	fmt.Println("Endpoint     : ", endpoint)
-
-	// update AWS credential file if requested
-	if registerCfg.AWSProfile != "" {
-		credentialsPath, err := getAwsCredentialsPath()
-		if err != nil {
-			return err
+	switch registerCfg.Format {
+	case "env": // export / set compatible format
+		fmt.Printf("AWS_ACCESS_KEY_ID=%s\n", accessKey)
+		fmt.Printf("AWS_SECRET_ACCESS_KEY=%s\n", secretKey)
+		// note that AWS_ENDPOINT configuration is not natively utilized by the AWS CLI
+		fmt.Printf("AWS_ENDPOINT=%s\n", endpoint)
+	case "aws": // aws configuration commands
+		profile := ""
+		if registerCfg.AWSProfile != "" {
+			profile = " --profile " + registerCfg.AWSProfile
+			fmt.Printf("aws configure %s\n", profile)
 		}
-		err = writeAWSCredentials(credentialsPath, registerCfg.AWSProfile, accessKey, secretKey)
-		if err != nil {
-			return err
-		}
+		fmt.Printf("aws configure %s set aws_access_key_id %s\n", profile, accessKey)
+		fmt.Printf("aws configure %s set aws_secret_access_key %s\n", profile, secretKey)
+		// note that this configuration is not natively utilized by the AWS CLI
+		fmt.Printf("aws configure %s set s3.endpoint_url %s\n", profile, endpoint)
+	default: // plain text
+		fmt.Println("========== CREDENTIALS ===================================================================")
+		fmt.Println("Access Key ID: ", accessKey)
+		fmt.Println("Secret Key   : ", secretKey)
+		fmt.Println("Endpoint     : ", endpoint)
 	}
 	return nil
 }
@@ -219,40 +222,4 @@ func RegisterAccess(access *uplink.Access, authService string, public bool) (acc
 		return "", "", "", errs.New("secret_key missing in response")
 	}
 	return accessKey, secretKey, respBody["endpoint"], nil
-}
-
-// getAwsCredentialsPath returns the expected AWS credentials path.
-func getAwsCredentialsPath() (string, error) {
-	if credentialsPath, found := os.LookupEnv("AWS_SHARED_CREDENTIALS_FILE"); found {
-		return credentialsPath, nil
-	}
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", errs.Wrap(err)
-	}
-	return filepath.Join(homeDir, ".aws", "credentials"), nil
-}
-
-// writeAWSCredentials appends to credentialsPath using an AWS compliant credential formatting.
-func writeAWSCredentials(credentialsPath, profileName, accessKey, secretKey string) error {
-	oldCredentials, err := ioutil.ReadFile(credentialsPath)
-	if err != nil && !os.IsNotExist(err) {
-		return errs.Wrap(err)
-	}
-	const format = "\n[%s]\naws_access_key_id = %s\naws_secret_access_key = %s\n"
-	newCredentials := fmt.Sprintf(format, profileName, accessKey, secretKey)
-
-	var fileMode os.FileMode
-	fileInfo, err := os.Stat(credentialsPath)
-	if err == nil {
-		fileMode = fileInfo.Mode()
-	} else {
-		fileMode = 0644
-	}
-	err = fpath.AtomicWriteFile(credentialsPath, append(oldCredentials, newCredentials...), fileMode)
-	if err != nil {
-		return errs.Wrap(err)
-	}
-	fmt.Printf("Updated AWS credential file %s with profile '%s'\n", credentialsPath, profileName)
-	return nil
 }
