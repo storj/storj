@@ -25,7 +25,7 @@ RUN_TYPE=${RUN_TYPE:-"jenkins"}
 
 # set peers' versions
 # in stage 1: satellite and storagenode use latest release version, uplink uses all highest point release from all major releases starting from v0.15
-# in stage 2: satellite core uses latest release version and satellite api uses master. Storage nodes are split into half on latest release version and half on master. Uplink uses the all versions from stage 1 plus master
+# in stage 2: satellite core uses latest release version and satellite api uses main. Storage nodes are split into half on latest release version and half on main. Uplink uses the all versions from stage 1 plus main
 git fetch --tags
 major_release_tags=$(
     git tag -l --sort -version:refname |                             # get the tag list
@@ -38,9 +38,9 @@ current_release_version=$(echo $major_release_tags | xargs -n 1 | tail -1)
 stage1_sat_version=$current_release_version
 stage1_uplink_versions=$major_release_tags
 stage1_storagenode_versions=$(populate_sno_versions $current_release_version 10)
-stage2_sat_version="master"
-stage2_uplink_versions=$major_release_tags\ "master"
-stage2_storagenode_versions=$(populate_sno_versions $current_release_version 5)\ $(populate_sno_versions "master" 5)
+stage2_sat_version="main"
+stage2_uplink_versions=$major_release_tags\ "main"
+stage2_storagenode_versions=$(populate_sno_versions $current_release_version 5)\ $(populate_sno_versions "main" 5)
 
 echo "stage1_sat_version" $stage1_sat_version
 echo "stage1_uplink_versions" $stage1_uplink_versions
@@ -179,9 +179,9 @@ for version in ${unique_versions}; do
         bin_dir=${dir}/bin
 
         echo -e "\nAdding worktree for ${version} in ${dir}."
-        if [[ $version = "master" ]]
+        if [[ $version = "main" ]]
         then
-            git worktree add -f "$dir" "origin/master"
+            git worktree add -f "$dir" "origin/main"
         else
             git worktree add -f "$dir" "${version}"
         fi
@@ -196,7 +196,7 @@ for version in ${unique_versions}; do
 		EOF
         fi
 
-        if [[ $version = $current_release_version || $version = "master" ]]
+        if [[ $version = $current_release_version || $version = "main" ]]
         then
 
             echo "Installing storj-sim for ${version} in ${dir}."
@@ -238,7 +238,7 @@ test_dir=$(version_dir "test_dir")
 cp -r $(version_dir ${stage1_sat_version}) ${test_dir}
 echo -e "\nSetting up stage 1 in ${test_dir}"
 setup_stage "${test_dir}" "${stage1_sat_version}" "${stage1_storagenode_versions}"
-update_access_script_path="$(version_dir "master")/scripts/update-access.go"
+update_access_script_path="$(version_dir "main")/scripts/update-access.go"
 
 # Uploading files to the network using the latest release version for each uplink version
 for ul_version in ${stage1_uplink_versions}; do
@@ -254,7 +254,7 @@ echo -e "\nSetting up stage 2 in ${test_dir}"
 setup_stage "${test_dir}" "${stage2_sat_version}" "${stage2_storagenode_versions}"
 echo -e "\nRunning stage 2."
 
-# Downloading every file uploaded in stage 1 from the network using the latest commit from master branch for each uplink version
+# Downloading every file uploaded in stage 1 from the network using the latest commit from main branch for each uplink version
 for ul_version in ${stage2_uplink_versions}; do
     echo "Stage 2 Uplink version: ${ul_version}"
     src_ul_version_dir=$(version_dir ${ul_version})
