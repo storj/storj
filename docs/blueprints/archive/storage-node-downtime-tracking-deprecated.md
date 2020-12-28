@@ -47,7 +47,7 @@ The current Satellite database has the table `nodes`. For the offline time calcu
 
 ### Detecting offline nodes
 
-Per [Kademlia removal blueprint](https://github.com/storj/storj/blob/master/docs/design/kademlia-removal.md#network-refreshing), any storage node has to ping the satellite every hour. For storage nodes that have not pinged, we need to contact them directly.
+Per [Kademlia removal blueprint](https://github.com/storj/storj/blob/main/docs/design/kademlia-removal.md#network-refreshing), any storage node has to ping the satellite every hour. For storage nodes that have not pinged, we need to contact them directly.
 
 For finding the storage nodes gone offline, we run a chore, with the following query:
 
@@ -229,4 +229,4 @@ Data Science could use this approach to more nicely calculate statistics however
 * The design needs to account for potential satellite or DNS outages to ensure that we do not unfairly disqualify nodes if the satellite cannot be contacted.
 * The design indefinitely checks offline storage nodes until they are disqualified.
 * The implementation requires coordination with the team working in [Kademlia removal blueprint](kademlia-removal.md) for the "ping" functionality.
-* The implementation requires the [Kademlia removal network refreshing](https://github.com/storj/storj/blob/master/docs/design/kademlia-removal.md#network-refreshing) implemented and deployed before deploying the new chore. Use a feature flag for removing the constraint.
+* The implementation requires the [Kademlia removal network refreshing](https://github.com/storj/storj/blob/main/docs/design/kademlia-removal.md#network-refreshing) implemented and deployed before deploying the new chore. Use a feature flag for removing the constraint.
