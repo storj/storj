@@ -33,6 +33,7 @@
     "tslint-consistent-codestyle": "1.16.0",
     "tslint-loader": "3.5.4",
     "typescript": "3.7.4",
+    "vue-svg-loader": "0.16.0",
     "vue-template-compiler": "2.6.11",
     "vue-tslint": "0.3.2",
     "vue-tslint-loader": "3.5.6",
