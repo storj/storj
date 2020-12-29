@@ -24,6 +24,14 @@ export default class App extends Vue {
         overflow-y: hidden;
     }
 
+    p,
+    h1,
+    h2,
+    h3,
+    h4 {
+        margin: 0;
+    }
+
     #app {
         width: 100vw;
         height: 100vh;
