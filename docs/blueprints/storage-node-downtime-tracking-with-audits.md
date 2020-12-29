@@ -10,11 +10,11 @@ The previous implementation of uptime reputation consisted of a ratio of online 
 
 ## Design
 
-The solution proposed here is to use a series of sliding windows to indicate a general timeframe in which offline audits occur. Each window keeps two separate tallies indicating how many offline audits and total audits a particular node received within its timeframe. Once a window is complete, it is scored by calculating the percentage of total audits for which it was offline. We can average these scores over a trailing period of time, called the _tracking period_, to determine an overall "offline score" to be used for suspension and disqualification. By granting each individual window the same weight in the calculation of the overall average, the effect of any particularly unlucky period can be minimized while still allowing us to take the failures into account over a longer period.
+The solution proposed here is to use a series of sliding windows to indicate a general timeframe in which offline audits occur. Each window keeps two separate tallies indicating how many online audits and total audits a particular node received within its timeframe. Once a window is complete, it is scored by calculating the percentage of total audits for which it was online. We can average these scores over a trailing period of time, called the _tracking period_, to determine an overall "online score" to be used for suspension and disqualification. By granting each individual window the same weight in the calculation of the overall average, the effect of any particularly unlucky period can be minimized while still allowing us to take the failures into account over a longer period.
 
 Storage node downtime can have a range of causes. For those storage node operators who may have fallen victim to a temporary issue, we want to give them a chance to diagnose and fix it before disqualifying them for good. For this reason, we are introducing suspension as a component of disqualification.
 
-Once a node's offline score has risen above an _offline threshold_, it is _suspended_ and enters a period of review. A suspended node will not receive any new pieces, but can continue to receive download and audit requests for the pieces it currently holds. However, its pieces are considered to be unhealthy. We repair a segment if it contains too many unhealthy pieces, at which point we may transfer the repaired pieces from a suspended node to a more reliable node. If at any point during the review period we find that a node's score has fallen below the offline threshold, it is unsuspended, or _reinstated_, but it remains _under review_. This prevents nodes from alternating between suspension and reinstatement without consequence.
+Once a node's online score has fallen below an _offline threshold_, it is _suspended_ and enters a period of review. A suspended node will not receive any new pieces, but can continue to receive download and audit requests for the pieces it currently holds. However, its pieces are considered to be unhealthy. We repair a segment if it contains too many unhealthy pieces, at which point we may transfer the repaired pieces from a suspended node to a more reliable node. If at any point during the review period we find that a node's score has risen above the offline threshold, it is unsuspended, or _reinstated_, but it remains _under review_. This prevents nodes from alternating between suspension and reinstatement without consequence.
 
 The review period consists of one _grace period_ and one _tracking period_. The _grace period_ is given to fix whatever issue is causing the downtime. After the grace period has expired, any offline audits will fall within the scope of the tracking period, and thus will be used in the node's final evaluation. If at the end of the review period, the node is still suspended, it is disqualified. Otherwise, the node is no longer _under review_.
 
@@ -67,7 +67,7 @@ CREATE TABLE audit_history (
 
 ```
 type AuditResults struct {
-    Offline int
+    Online int
     Total   int
 }
 
@@ -83,7 +83,7 @@ type AuditHistoryConfig struct {
     WindowSize       time.Duration `help:"the length of time spanning a single audit window."`
     TrackingPeriod   time.Duration `help:"the length of time to track audit windows for node suspension and disqualification."`
     GracePeriod      time.Duration `help:"The length of time to give suspended SNOs to diagnose and fix issues causing downtime. Afterwards, they will have one tracking period to reach the minimum online score before disqualification."`
-    OfflineThreshold float64       `help:"The point above which a node is punished for offline audits. Determined by calculating the percentage of offline audits within each window and finding the average across windows within the tracking period."`
+    OfflineThreshold float64       `help:"The point below which a node is penalized for offline audits. Determined by calculating the ratio of online/total audits within each window and finding the average across windows within the tracking period."`
 }
 ```
 
@@ -95,11 +95,11 @@ Add a new argument to `BatchUpdateStats` to pass in `AuditWindowConfig`. This gi
 For each node, take the `offline_suspended` and `under_review` values from the node dossier. 
 Select and unmarshal the node's entry in the audit history table. 
 If a value does not exist in the windows map for the current window, this means that the previous window is now complete, and we need to evaluate the node and delete any windows which have fallen out of scope.
-We evaluate the node's current standing by finding what percentage of audits were offline per window, then finding the average score across all complete windows within the tracking period.
+We evaluate the node's current standing by finding what percentage of audits were online per window, then finding the average score across all complete windows within the tracking period.
 
 With this information, there are a number of conditions we need to evaluate:
 
-1) The current offline score is above the OfflineThreshold
+1) The current online score is above the OfflineThreshold
     
     1a. The node is under review
 
@@ -111,7 +111,7 @@ With this information, there are a number of conditions we need to evaluate:
 
     - The node is in good standing and does not need to be updated.
 
-2) The current offline score is below the OfflineThreshold
+2) The current online score is below the OfflineThreshold
 
     2a. The node is under review
 
