@@ -33,6 +33,12 @@ import "math"
 // days, we divide the mean of the negative binomial distribution (X, above) by
 // the number of nodes that we estimate will churn in one day.
 func SegmentHealth(numHealthy, minPieces, totalNodes int, failureRate float64) float64 {
+	if totalNodes < minTotalNodes {
+		// this model gives wonky results when there are too few nodes; pretend
+		// there are more nodes than there really are so that the model gives
+		// sane repair priorities
+		totalNodes = minTotalNodes
+	}
 	churnPerRound := float64(totalNodes) * failureRate
 	if churnPerRound < minChurnPerRound {
 		// we artificially limit churnPerRound from going too low in cases
@@ -52,4 +58,7 @@ func SegmentHealth(numHealthy, minPieces, totalNodes int, failureRate float64) f
 	return mean1 / churnPerRound
 }
 
-const minChurnPerRound = 1e-10
+const (
+	minChurnPerRound = 1e-10
+	minTotalNodes    = 100
+)
