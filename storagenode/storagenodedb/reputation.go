@@ -10,6 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/storagenode/reputation"
 )
@@ -45,13 +46,14 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 			audit_unknown_reputation_beta,
 			audit_unknown_reputation_score,
 			online_score,
+			audit_history,
 			disqualified_at,
 			suspended_at,
 			offline_suspended_at,
 			offline_under_review_at,
 			updated_at,
 			joined_at
-		) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+		) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
 
 	// ensure we insert utc
 	if stats.DisqualifiedAt != nil {
@@ -71,6 +73,14 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 		stats.OfflineUnderReviewAt = &utc
 	}
 
+	var auditHistoryBytes []byte
+	if stats.AuditHistory != nil {
+		auditHistoryBytes, err = pb.Marshal(stats.AuditHistory)
+		if err != nil {
+			return ErrReputation.Wrap(err)
+		}
+	}
+
 	_, err = db.ExecContext(ctx, query,
 		stats.SatelliteID,
 		stats.Uptime.SuccessCount,
@@ -87,6 +97,7 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 		stats.Audit.UnknownBeta,
 		stats.Audit.UnknownScore,
 		stats.OnlineScore,
+		auditHistoryBytes,
 		stats.DisqualifiedAt,
 		stats.SuspendedAt,
 		stats.OfflineSuspendedAt,
@@ -121,6 +132,7 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 			audit_unknown_reputation_beta,
 			audit_unknown_reputation_score,
 			online_score,
+			audit_history,
 			disqualified_at,
 			suspended_at,
 			offline_suspended_at,
@@ -131,6 +143,7 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 		satelliteID,
 	)
 
+	var auditHistoryBytes []byte
 	err = row.Scan(
 		&stats.Uptime.SuccessCount,
 		&stats.Uptime.TotalCount,
@@ -146,6 +159,7 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 		&stats.Audit.UnknownBeta,
 		&stats.Audit.UnknownScore,
 		&stats.OnlineScore,
+		&auditHistoryBytes,
 		&stats.DisqualifiedAt,
 		&stats.SuspendedAt,
 		&stats.OfflineSuspendedAt,
@@ -156,8 +170,16 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 
 	if errors.Is(err, sql.ErrNoRows) {
 		err = nil
+		return &stats, nil
+	}
+	if err != nil {
+		return &stats, ErrReputation.Wrap(err)
 	}
 
+	if auditHistoryBytes != nil {
+		stats.AuditHistory = &pb.AuditHistory{}
+		err = pb.Unmarshal(auditHistoryBytes, stats.AuditHistory)
+	}
 	return &stats, ErrReputation.Wrap(err)
 }
 

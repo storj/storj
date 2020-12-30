@@ -1830,6 +1830,14 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          &db.reputationDB.DB,
+				Description: "Add audit_history field to reputation db",
+				Version:     47,
+				Action: migrate.SQL{
+					`ALTER TABLE reputation ADD COLUMN audit_history BLOB`,
+				},
+			},
 		},
 	}
 }

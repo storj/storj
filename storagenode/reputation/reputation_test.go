@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/storagenode"
@@ -67,6 +68,7 @@ func TestReputationDBGetInsert(t *testing.T) {
 			assert.True(t, res.OfflineSuspendedAt.Equal(*stats.OfflineSuspendedAt))
 			assert.True(t, res.OfflineUnderReviewAt.Equal(*stats.OfflineUnderReviewAt))
 			assert.Equal(t, res.OnlineScore, stats.OnlineScore)
+			assert.Nil(t, res.AuditHistory)
 
 			compareReputationMetric(t, &res.Uptime, &stats.Uptime)
 			compareReputationMetric(t, &res.Audit, &stats.Audit)
@@ -133,6 +135,7 @@ func TestReputationDBGetAll(t *testing.T) {
 				assert.Equal(t, rep.OfflineSuspendedAt, stats[0].OfflineSuspendedAt)
 				assert.Equal(t, rep.OfflineUnderReviewAt, stats[0].OfflineUnderReviewAt)
 				assert.Equal(t, rep.OnlineScore, stats[0].OnlineScore)
+				assert.Nil(t, rep.AuditHistory)
 
 				compareReputationMetric(t, &rep.Uptime, &stats[0].Uptime)
 				compareReputationMetric(t, &rep.Audit, &stats[0].Audit)
@@ -148,4 +151,45 @@ func compareReputationMetric(t *testing.T, a, b *reputation.Metric) {
 	assert.Equal(t, a.Alpha, b.Alpha)
 	assert.Equal(t, a.Beta, b.Beta)
 	assert.Equal(t, a.Score, b.Score)
+}
+
+func TestReputationDBGetInsertAuditHistory(t *testing.T) {
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		timestamp := time.Now()
+		reputationDB := db.Reputation()
+
+		stats := reputation.Stats{
+			SatelliteID: testrand.NodeID(),
+			Uptime:      reputation.Metric{},
+			Audit:       reputation.Metric{},
+			AuditHistory: &pb.AuditHistory{
+				Score: 0.5,
+				Windows: []*pb.AuditWindow{
+					{
+						WindowStart: timestamp,
+						OnlineCount: 5,
+						TotalCount:  10,
+					},
+				},
+			},
+		}
+
+		t.Run("insert", func(t *testing.T) {
+			err := reputationDB.Store(ctx, stats)
+			assert.NoError(t, err)
+		})
+
+		t.Run("get", func(t *testing.T) {
+			res, err := reputationDB.Get(ctx, stats.SatelliteID)
+			assert.NoError(t, err)
+
+			assert.Equal(t, res.AuditHistory.Score, stats.AuditHistory.Score)
+			assert.Equal(t, len(res.AuditHistory.Windows), len(stats.AuditHistory.Windows))
+			resWindow := res.AuditHistory.Windows[0]
+			statsWindow := stats.AuditHistory.Windows[0]
+			assert.True(t, resWindow.WindowStart.Equal(statsWindow.WindowStart))
+			assert.Equal(t, resWindow.TotalCount, statsWindow.TotalCount)
+			assert.Equal(t, resWindow.OnlineCount, statsWindow.OnlineCount)
+		})
+	})
 }

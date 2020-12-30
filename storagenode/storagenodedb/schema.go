@@ -522,6 +522,11 @@ func Schema() map[string]*dbschema.Schema {
 					PrimaryKey: []string{"satellite_id"},
 					Columns: []*dbschema.Column{
 						&dbschema.Column{
+							Name:       "audit_history",
+							Type:       "BLOB",
+							IsNullable: true,
+						},
+						&dbschema.Column{
 							Name:       "audit_reputation_alpha",
 							Type:       "REAL",
 							IsNullable: false,
