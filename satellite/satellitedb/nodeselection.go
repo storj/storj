@@ -181,7 +181,6 @@ func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria,
 	var conds conditions
 	conds.add(`disqualified IS NULL`)
 	conds.add(`unknown_audit_suspended IS NULL`)
-	conds.add(`offline_suspended IS NULL`)
 	conds.add(`exit_initiated_at IS NULL`)
 
 	conds.add(`type = ?`, int(pb.NodeType_STORAGE))
