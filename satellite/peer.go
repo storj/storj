@@ -36,6 +36,7 @@ import (
 	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/referrals"
@@ -114,8 +115,9 @@ type Config struct {
 
 	Admin admin.Config
 
-	Contact contact.Config
-	Overlay overlay.Config
+	Contact    contact.Config
+	Overlay    overlay.Config
+	StrayNodes straynodes.Config
 
 	Metainfo metainfo.Config
 	Orders   orders.Config

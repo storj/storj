@@ -15,6 +15,27 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
+func TestDQNodesLastSeenBefore(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		node := planet.StorageNodes[0]
+		node.Contact.Chore.Pause(ctx)
+
+		cache := planet.Satellites[0].Overlay.DB
+
+		info, err := cache.Get(ctx, node.ID())
+		require.NoError(t, err)
+		require.Nil(t, info.Disqualified)
+
+		require.NoError(t, cache.DQNodesLastSeenBefore(ctx, time.Now()))
+
+		info, err = cache.Get(ctx, node.ID())
+		require.NoError(t, err)
+		require.NotNil(t, info.Disqualified)
+	})
+}
+
 func TestUpdateStats(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 2,

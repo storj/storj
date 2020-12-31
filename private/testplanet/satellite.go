@@ -56,6 +56,7 @@ import (
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
@@ -92,9 +93,10 @@ type Satellite struct {
 	}
 
 	Overlay struct {
-		DB        overlay.DB
-		Service   *overlay.Service
-		Inspector *overlay.Inspector
+		DB           overlay.DB
+		Service      *overlay.Service
+		Inspector    *overlay.Inspector
+		DQStrayNodes *straynodes.Chore
 	}
 
 	Metainfo struct {
@@ -120,6 +122,7 @@ type Satellite struct {
 		Repairer  *repairer.Service
 		Inspector *irreparable.Inspector
 	}
+
 	Audit struct {
 		Queues   *audit.Queues
 		Worker   *audit.Worker
@@ -439,6 +442,11 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 				OfflineThreshold: 0.6,
 			},
 		},
+		StrayNodes: straynodes.Config{
+			EnableDQ:                  true,
+			Interval:                  time.Minute,
+			MaxDurationWithoutContact: 30 * time.Second,
+		},
 		Metainfo: metainfo.Config{
 			DatabaseURL:          "", // not used
 			MinRemoteSegmentSize: 0,  // TODO: fix tests to work with 1024
@@ -696,6 +704,7 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Overlay.DB = api.Overlay.DB
 	system.Overlay.Service = api.Overlay.Service
 	system.Overlay.Inspector = api.Overlay.Inspector
+	system.Overlay.DQStrayNodes = peer.Overlay.DQStrayNodes
 
 	system.Metainfo.Database = api.Metainfo.Database
 	system.Metainfo.Service = peer.Metainfo.Service

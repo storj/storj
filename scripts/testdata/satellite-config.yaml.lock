@@ -652,6 +652,15 @@ server.private-address: 127.0.0.1:7778
 # if true, uses peer ca whitelist checking
 # server.use-peer-ca-whitelist: true
 
+# whether nodes will be disqualified if they have not been contacted in some time
+# stray-nodes.enable-dq: false
+
+# how often to check for and DQ stray nodes
+# stray-nodes.interval: 168h0m0s
+
+# length of time a node can go without contacting satellite before being disqualified
+# stray-nodes.max-duration-without-contact: 720h0m0s
+
 # how frequently the tally service should run
 # tally.interval: 1h0m0s
 

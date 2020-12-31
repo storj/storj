@@ -38,6 +38,7 @@ import (
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
@@ -73,8 +74,9 @@ type Core struct {
 	}
 
 	Overlay struct {
-		DB      overlay.DB
-		Service *overlay.Service
+		DB           overlay.DB
+		Service      *overlay.Service
+		DQStrayNodes *straynodes.Chore
 	}
 
 	Metainfo struct {
@@ -92,6 +94,7 @@ type Core struct {
 	Repair struct {
 		Checker *checker.Checker
 	}
+
 	Audit struct {
 		Queues   *audit.Queues
 		Worker   *audit.Worker
@@ -229,6 +232,17 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Name:  "overlay",
 			Close: peer.Overlay.Service.Close,
 		})
+
+		if config.StrayNodes.EnableDQ {
+			peer.Overlay.DQStrayNodes = straynodes.NewChore(peer.Log.Named("overlay:dq-stray-nodes"), peer.Overlay.DB, config.StrayNodes)
+			peer.Services.Add(lifecycle.Item{
+				Name:  "overlay:dq-stray-nodes",
+				Run:   peer.Overlay.DQStrayNodes.Run,
+				Close: peer.Overlay.DQStrayNodes.Close,
+			})
+			peer.Debug.Server.Panel.Add(
+				debug.Cycle("Overlay DQ Stray Nodes", peer.Overlay.DQStrayNodes.Loop))
+		}
 	}
 
 	{ // setup live accounting

@@ -88,6 +88,8 @@ type DB interface {
 
 	// DisqualifyNode disqualifies a storage node.
 	DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error)
+	// DQNodesLastSeenBefore disqualifies all nodes where last_contact_success < cutoff.
+	DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time) (err error)
 
 	// SuspendNodeUnknownAudit suspends a storage node for unknown audits.
 	SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
