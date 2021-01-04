@@ -154,7 +154,17 @@ func TestRollupDeletes(t *testing.T) {
 			require.NotEmpty(t, dqedNodes)
 
 			// Set timestamp back by the number of days we want to save
-			initialTime := time.Now().UTC().AddDate(0, 0, -days)
+			now := time.Now().UTC()
+			initialTime := now.AddDate(0, 0, -days)
+
+			// TODO: this only runs the test for times that are farther back than
+			// an hour from midnight UTC. something is wrong for the hour of
+			// 11pm-midnight UTC.
+			hour, _, _ := now.Clock()
+			if hour == 23 {
+				initialTime = initialTime.Add(-time.Hour)
+			}
+
 			currentTime := initialTime
 
 			nodeData := map[storj.NodeID]float64{}

@@ -130,12 +130,13 @@ func importMain(cmd *cobra.Command, args []string) (err error) {
 			}
 			accessData = newAccessData
 		}
-		accesses[name] = accessData
+
 		// There is no easy way currently to save off a "hidden" configurable into
 		// the config file without a larger refactoring. For now, just do a manual
-		// override of the accesses.
+		// override of the access.
 		// TODO: revisit when the configuration/flag code makes it easy
-		if err := saveConfig(process.SaveConfigWithOverride("accesses", accesses)); err != nil {
+		accessKey := "accesses." + name
+		if err := saveConfig(process.SaveConfigWithOverride(accessKey, accessData)); err != nil {
 			return err
 		}
 

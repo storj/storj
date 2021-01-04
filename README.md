@@ -2,10 +2,10 @@
 
 [![Go Report Card](https://goreportcard.com/badge/storj.io/storj)](https://goreportcard.com/report/storj.io/storj)
 [![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg?style=flat-square)](https://pkg.go.dev/storj.io/storj)
-[![Coverage Status](https://img.shields.io/badge/coverage-master-green.svg)](https://build.dev.storj.io/job/storj/job/master/cobertura)
+[![Coverage Status](https://img.shields.io/badge/coverage-master-green.svg)](https://build.dev.storj.io/job/storj/job/main/cobertura)
 ![Alpha](https://img.shields.io/badge/version-alpha-green.svg)
 
-<img src="https://github.com/storj/storj/raw/master/resources/logo.png" width="100">
+<img src="https://github.com/storj/storj/raw/main/resources/logo.png" width="100">
 
 Storj is building a decentralized cloud storage network.
 [Check out our white paper for more info!](https://storj.io/white-paper)
@@ -92,7 +92,7 @@ Use Git to push your changes to your fork:
 
 ```bash
 git commit -a -m 'my changes!'
-git push origin master
+git push origin main
 ```
 
 Use Github to open a pull request!

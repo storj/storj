@@ -24,11 +24,11 @@ import (
 
 var shareCfg struct {
 	DisallowReads     bool     `default:"false" help:"if true, disallow reads" basic-help:"true"`
-	DisallowWrites    bool     `default:"false" help:"if true, disallow writes. see also readonly" basic-help:"true"`
+	DisallowWrites    bool     `default:"false" help:"if true, disallow writes. see also --readonly" basic-help:"true"`
 	DisallowLists     bool     `default:"false" help:"if true, disallow lists" basic-help:"true"`
-	DisallowDeletes   bool     `default:"false" help:"if true, disallow deletes. see also readonly" basic-help:"true"`
-	Readonly          bool     `default:"true" help:"implies disallow_writes and disallow_deletes. you must specify --readonly=false if you don't want this" basic-help:"true"`
-	Writeonly         bool     `default:"false" help:"implies disallow_reads and disallow_lists" basic-help:"true"`
+	DisallowDeletes   bool     `default:"false" help:"if true, disallow deletes. see also --readonly" basic-help:"true"`
+	Readonly          bool     `default:"true" help:"implies --disallow-writes and --disallow-deletes. you must specify --readonly=false if you don't want this" basic-help:"true"`
+	Writeonly         bool     `default:"false" help:"implies --disallow-reads and --disallow-lists" basic-help:"true"`
 	NotBefore         string   `help:"disallow access before this time (e.g. '+2h', '2020-01-02T15:01:01-01:00')" basic-help:"true"`
 	NotAfter          string   `help:"disallow access after this time (e.g. '+2h', '2020-01-02T15:01:01-01:00')" basic-help:"true"`
 	AllowedPathPrefix []string `help:"whitelist of path prefixes to require, overrides the [allowed-path-prefix] arguments"`
@@ -61,7 +61,7 @@ func init() {
 }
 
 func shareMain(cmd *cobra.Command, args []string) (err error) {
-	newAccessData, sharePrefixes, permission, err := createAccessGrant(args)
+	newAccess, newAccessData, sharePrefixes, permission, err := createAccessGrant(args)
 	if err != nil {
 		return err
 	}
@@ -70,7 +70,7 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 
 	if shareCfg.Register || shareCfg.URL || shareCfg.DNS != "" {
 		isPublic := (shareCfg.Public || shareCfg.URL || shareCfg.DNS != "")
-		accessKey, err = register(newAccessData, shareCfg.AuthService, isPublic)
+		accessKey, _, _, err = RegisterAccess(newAccess, shareCfg.AuthService, isPublic)
 		if err != nil {
 			return err
 		}
@@ -105,15 +105,15 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 }
 
 // Creates access grant for allowed path prefixes.
-func createAccessGrant(args []string) (newAccessData string, sharePrefixes []sharePrefixExtension, permission uplink.Permission, err error) {
+func createAccessGrant(args []string) (newAccess *uplink.Access, newAccessData string, sharePrefixes []sharePrefixExtension, permission uplink.Permission, err error) {
 	now := time.Now()
 	notBefore, err := parseHumanDate(shareCfg.NotBefore, now)
 	if err != nil {
-		return newAccessData, sharePrefixes, permission, err
+		return newAccess, newAccessData, sharePrefixes, permission, err
 	}
 	notAfter, err := parseHumanDate(shareCfg.NotAfter, now)
 	if err != nil {
-		return newAccessData, sharePrefixes, permission, err
+		return newAccess, newAccessData, sharePrefixes, permission, err
 	}
 
 	if len(shareCfg.AllowedPathPrefix) == 0 {
@@ -128,10 +128,10 @@ func createAccessGrant(args []string) (newAccessData string, sharePrefixes []sha
 	for _, path := range shareCfg.AllowedPathPrefix {
 		p, err := fpath.New(path)
 		if err != nil {
-			return newAccessData, sharePrefixes, permission, err
+			return newAccess, newAccessData, sharePrefixes, permission, err
 		}
 		if p.IsLocal() {
-			return newAccessData, sharePrefixes, permission, errs.New("required path must be remote: %q", path)
+			return newAccess, newAccessData, sharePrefixes, permission, errs.New("required path must be remote: %q", path)
 		}
 
 		uplinkSharePrefix := uplink.SharePrefix{
@@ -147,7 +147,7 @@ func createAccessGrant(args []string) (newAccessData string, sharePrefixes []sha
 
 	access, err := shareCfg.GetAccess()
 	if err != nil {
-		return newAccessData, sharePrefixes, permission, err
+		return newAccess, newAccessData, sharePrefixes, permission, err
 	}
 
 	permission = uplink.Permission{}
@@ -158,19 +158,19 @@ func createAccessGrant(args []string) (newAccessData string, sharePrefixes []sha
 	permission.NotBefore = notBefore
 	permission.NotAfter = notAfter
 
-	newAccess, err := access.Share(permission, uplinkSharePrefixes...)
+	newAccess, err = access.Share(permission, uplinkSharePrefixes...)
 	if err != nil {
-		return newAccessData, sharePrefixes, permission, err
+		return newAccess, newAccessData, sharePrefixes, permission, err
 	}
 
 	newAccessData, err = newAccess.Serialize()
 	if err != nil {
-		return newAccessData, sharePrefixes, permission, err
+		return newAccess, newAccessData, sharePrefixes, permission, err
 	}
 
 	satelliteAddr, _, _, err := parseAccess(newAccessData)
 	if err != nil {
-		return newAccessData, sharePrefixes, permission, err
+		return newAccess, newAccessData, sharePrefixes, permission, err
 	}
 
 	fmt.Println("Sharing access to satellite", satelliteAddr)
@@ -185,7 +185,7 @@ func createAccessGrant(args []string) (newAccessData string, sharePrefixes []sha
 	fmt.Println("=========== SERIALIZED ACCESS WITH THE ABOVE RESTRICTIONS TO SHARE WITH OTHERS ===========")
 	fmt.Println("Access    :", newAccessData)
 
-	return newAccessData, sharePrefixes, permission, nil
+	return newAccess, newAccessData, sharePrefixes, permission, nil
 }
 
 // Creates linksharing url for allowed path prefixes.

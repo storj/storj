@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -162,6 +163,17 @@ func (dbc *satelliteDBCollection) getByName(name string) *satelliteDB {
 		}
 	}
 	return dbc.dbs[""]
+}
+
+// AsOfSystemTimeClause returns the "AS OF SYSTEM TIME" clause if the DB implementation
+// is CockroachDB and the interval is less than 0.
+func (db *satelliteDB) AsOfSystemTimeClause(interval time.Duration) (asOf string) {
+	if db.implementation == dbutil.Cockroach && interval < 0 {
+		asOf = " AS OF SYSTEM TIME '" + interval.String() + "' "
+	}
+
+	return asOf
+
 }
 
 // TestDBAccess for raw database access,

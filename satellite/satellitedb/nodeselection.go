@@ -90,10 +90,7 @@ func (cache *overlaycache) SelectStorageNodes(ctx context.Context, totalNeededNo
 	return nodes, nil
 }
 
-func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputableNodeCount, newNodeCount int,
-	criteria *overlay.NodeCriteria, excludedIDs []storj.NodeID,
-	excludedNetworks []string) (reputableNodes, newNodes []*overlay.SelectedNode, err error) {
-
+func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputableNodeCount, newNodeCount int, criteria *overlay.NodeCriteria, excludedIDs []storj.NodeID, excludedNetworks []string) (reputableNodes, newNodes []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	newNodesCondition, err := nodeSelectionCondition(ctx, criteria, excludedIDs, excludedNetworks, true)
@@ -107,33 +104,39 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 
 	var reputableNodeQuery, newNodeQuery partialQuery
 
+	asOf := cache.db.AsOfSystemTimeClause(criteria.AsOfSystemTimeInterval)
+
 	// Note: the true/false at the end of each selection string indicates if the selection is for new nodes or not.
 	// Later, the flag allows us to distinguish if a node is new when scanning the db rows.
 	if !criteria.DistinctIP {
 		reputableNodeQuery = partialQuery{
-			selection: `SELECT last_net, id, address, last_ip_port, false FROM nodes`,
-			condition: reputableNodesCondition,
-			limit:     reputableNodeCount,
+			selection:  `SELECT last_net, id, address, last_ip_port, false FROM nodes ` + asOf,
+			condition:  reputableNodesCondition,
+			limit:      reputableNodeCount,
+			aostClause: asOf,
 		}
 		newNodeQuery = partialQuery{
-			selection: `SELECT last_net, id, address, last_ip_port, true FROM nodes`,
-			condition: newNodesCondition,
-			limit:     newNodeCount,
+			selection:  `SELECT last_net, id, address, last_ip_port, true FROM nodes ` + asOf,
+			condition:  newNodesCondition,
+			limit:      newNodeCount,
+			aostClause: asOf,
 		}
 	} else {
 		reputableNodeQuery = partialQuery{
-			selection: `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, false FROM nodes`,
-			condition: reputableNodesCondition,
-			distinct:  true,
-			limit:     reputableNodeCount,
-			orderBy:   "last_net",
+			selection:  `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, false FROM nodes ` + asOf,
+			condition:  reputableNodesCondition,
+			distinct:   true,
+			limit:      reputableNodeCount,
+			orderBy:    "last_net",
+			aostClause: asOf,
 		}
 		newNodeQuery = partialQuery{
-			selection: `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, true FROM nodes`,
-			condition: newNodesCondition,
-			distinct:  true,
-			limit:     newNodeCount,
-			orderBy:   "last_net",
+			selection:  `SELECT DISTINCT ON (last_net) last_net, id, address, last_ip_port, true FROM nodes ` + asOf,
+			condition:  newNodesCondition,
+			distinct:   true,
+			limit:      newNodeCount,
+			orderBy:    "last_net",
+			aostClause: asOf,
 		}
 	}
 
@@ -174,12 +177,11 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 }
 
 // nodeSelectionCondition creates a condition with arguments that corresponds to the arguments.
-func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria, excludedIDs []storj.NodeID,
-	excludedNetworks []string, isNewNodeQuery bool) (condition, error) {
-
+func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria, excludedIDs []storj.NodeID, excludedNetworks []string, isNewNodeQuery bool) (condition, error) {
 	var conds conditions
 	conds.add(`disqualified IS NULL`)
 	conds.add(`unknown_audit_suspended IS NULL`)
+	conds.add(`offline_suspended IS NULL`)
 	conds.add(`exit_initiated_at IS NULL`)
 
 	conds.add(`type = ?`, int(pb.NodeType_STORAGE))
@@ -236,11 +238,12 @@ func nodeSelectionCondition(ctx context.Context, criteria *overlay.NodeCriteria,
 //      SELECT * FROM ($selection WHERE $condition ORDER BY $orderBy, RANDOM()) filtered ORDER BY RANDOM() LIMIT $limit
 //
 type partialQuery struct {
-	selection string
-	condition condition
-	distinct  bool
-	orderBy   string
-	limit     int
+	selection  string
+	condition  condition
+	distinct   bool
+	orderBy    string
+	limit      int
+	aostClause string
 }
 
 // isEmpty returns whether the result for the query is definitely empty.
@@ -271,7 +274,7 @@ func (partial partialQuery) asQuery() query {
 		fmt.Fprint(&q, " LIMIT ? ")
 		args = append(args, partial.limit)
 	} else {
-		fmt.Fprint(&q, ") filtered ORDER BY RANDOM() LIMIT ?")
+		fmt.Fprint(&q, ") filtered "+partial.aostClause+" ORDER BY RANDOM() LIMIT ?")
 		args = append(args, partial.limit)
 	}
 

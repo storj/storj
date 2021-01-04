@@ -172,12 +172,6 @@ CREATE TABLE node_api_versions (
 	updated_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
-CREATE TABLE nodes_offline_times (
-	node_id bytea NOT NULL,
-	tracked_at timestamp with time zone NOT NULL,
-	seconds integer NOT NULL,
-	PRIMARY KEY ( node_id, tracked_at )
-);
 CREATE TABLE offers (
 	id serial NOT NULL,
 	name text NOT NULL,
@@ -452,7 +446,6 @@ CREATE INDEX injuredsegments_segment_health_index ON injuredsegments ( segment_h
 CREATE INDEX injuredsegments_updated_at_index ON injuredsegments ( updated_at );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE INDEX nodes_dis_unk_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, exit_finished_at, last_contact_success );
-CREATE INDEX nodes_offline_times_node_id_index ON nodes_offline_times ( node_id );
 CREATE UNIQUE INDEX serial_number_index ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start );

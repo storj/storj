@@ -24,7 +24,7 @@ export class Route {
     public readonly meta?: Metadata;
 
     /**
-     * default contructor.
+     * default constructor.
      * @param path - route path.
      * @param name - name of the route, needed fot identifying route by name.
      * @param component - component mapped to route.
@@ -46,7 +46,7 @@ export class Route {
 export class Config {
     public static Root: Route = new Route('/', 'Root', Dashboard, undefined, {requiresAuth: true});
 
-    public mode: RouterMode = 'history';
+    public static mode: RouterMode = 'history';
     public static routes: Route[] = [
         Config.Root,
     ];

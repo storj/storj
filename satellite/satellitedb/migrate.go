@@ -1158,6 +1158,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX IF NOT EXISTS nodes_dis_unk_exit_fin_last_success_index ON nodes(disqualified, unknown_audit_suspended, exit_finished_at, last_contact_success);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop node_offline_times table",
+				Version:     138,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`DROP TABLE nodes_offline_times;`,
+				},
+			},
 		},
 	}
 }

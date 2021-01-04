@@ -73,8 +73,8 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 
 	nodeSelectionConfig := testNodeSelectionConfig(0, false)
 	serviceConfig := overlay.Config{Node: nodeSelectionConfig, UpdateStatsBatchSize: 100, AuditHistory: testAuditHistoryConfig()}
-	service := overlay.NewService(zaptest.NewLogger(t), store, serviceConfig)
-
+	service, err := overlay.NewService(zaptest.NewLogger(t), store, serviceConfig)
+	require.NoError(t, err)
 	d := overlay.NodeCheckInInfo{
 		Address:    address,
 		LastIPPort: address.Address,
@@ -463,11 +463,15 @@ func TestKnownReliable(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, service.IsOnline(node))
 
-		// Suspend storage node #2
+		// Suspend storage node #2 for unknown audits
 		err = satellite.DB.OverlayCache().SuspendNodeUnknownAudit(ctx, planet.StorageNodes[2].ID(), time.Now())
 		require.NoError(t, err)
 
-		// Check that only storage nodes #3 and #4 are reliable
+		// Suspend storage node #3 for offline audits
+		err = satellite.DB.OverlayCache().SuspendNodeOfflineAudit(ctx, planet.StorageNodes[3].ID(), time.Now())
+		require.NoError(t, err)
+
+		// Check that only storage nodes #4 is reliable
 		result, err := service.KnownReliable(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
 			planet.StorageNodes[1].ID(),
@@ -476,11 +480,10 @@ func TestKnownReliable(t *testing.T) {
 			planet.StorageNodes[4].ID(),
 		})
 		require.NoError(t, err)
-		require.Len(t, result, 2)
+		require.Len(t, result, 1)
 
 		// Sort the storage nodes for predictable checks
 		expectedReliable := []storj.NodeURL{
-			planet.StorageNodes[3].NodeURL(),
 			planet.StorageNodes[4].NodeURL(),
 		}
 		sort.Slice(expectedReliable, func(i, j int) bool { return expectedReliable[i].ID.Less(expectedReliable[j].ID) })

@@ -9,14 +9,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
-	"path/filepath"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/common/fpath"
 	"storj.io/common/pb"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
@@ -26,7 +23,8 @@ import (
 type registerConfig struct {
 	AuthService string `help:"the address to the service you wish to register your access with" default:"" basic-help:"true"`
 	Public      bool   `help:"if the access should be public" default:"false" basic-help:"true"`
-	AWSProfile  string `help:"update AWS credentials file, appending the credentials using this profile name" default:"" basic-help:"true"`
+	Format      string `help:"format of credentials, use 'env' or 'aws' for using in scripts" default:""`
+	AWSProfile  string `help:"if using --format=aws, output the --profile tag using this profile" default:""`
 	AccessConfig
 }
 
@@ -61,7 +59,7 @@ func init() {
 	registerCmd := &cobra.Command{
 		Use:   "register [ACCESS]",
 		Short: "Register your access for use with a hosted gateway.",
-		RunE:  registerAccess,
+		RunE:  accessRegister,
 		Args:  cobra.MaximumNArgs(1),
 	}
 
@@ -90,25 +88,9 @@ func accessList(cmd *cobra.Command, args []string) (err error) {
 }
 
 func accessInspect(cmd *cobra.Command, args []string) (err error) {
-	var access *uplink.Access
-	if len(args) == 0 {
-		access, err = inspectCfg.GetAccess()
-		if err != nil {
-			return err
-		}
-	} else {
-		firstArg := args[0]
-
-		access, err = inspectCfg.GetNamedAccess(firstArg)
-		if err != nil {
-			return err
-		}
-
-		if access == nil {
-			if access, err = uplink.ParseAccess(firstArg); err != nil {
-				return err
-			}
-		}
+	access, err := getAccessFromArgZeroOrConfig(inspectCfg, args)
+	if err != nil {
+		return errs.New("no access specified: %w", err)
 	}
 
 	serializedAccesss, err := access.Serialize()
@@ -149,112 +131,95 @@ func parseAccess(access string) (sa string, apiKey string, ea string, err error)
 	return p.SatelliteAddr, apiKey, ea, nil
 }
 
-func registerAccess(cmd *cobra.Command, args []string) (err error) {
-	if len(args) == 0 {
-		return errs.New("no access specified")
+func accessRegister(cmd *cobra.Command, args []string) (err error) {
+	access, err := getAccessFromArgZeroOrConfig(inspectCfg, args)
+	if err != nil {
+		return errs.New("no access specified: %w", err)
 	}
-	_, err = register(args[0], registerCfg.AuthService, registerCfg.Public)
-	return err
+
+	accessKey, secretKey, endpoint, err := RegisterAccess(access, registerCfg.AuthService, registerCfg.Public)
+	if err != nil {
+		return err
+	}
+	switch registerCfg.Format {
+	case "env": // export / set compatible format
+		fmt.Printf("AWS_ACCESS_KEY_ID=%s\n", accessKey)
+		fmt.Printf("AWS_SECRET_ACCESS_KEY=%s\n", secretKey)
+		// note that AWS_ENDPOINT configuration is not natively utilized by the AWS CLI
+		fmt.Printf("AWS_ENDPOINT=%s\n", endpoint)
+	case "aws": // aws configuration commands
+		profile := ""
+		if registerCfg.AWSProfile != "" {
+			profile = " --profile " + registerCfg.AWSProfile
+			fmt.Printf("aws configure %s\n", profile)
+		}
+		fmt.Printf("aws configure %s set aws_access_key_id %s\n", profile, accessKey)
+		fmt.Printf("aws configure %s set aws_secret_access_key %s\n", profile, secretKey)
+		// note that this configuration is not natively utilized by the AWS CLI
+		fmt.Printf("aws configure %s set s3.endpoint_url %s\n", profile, endpoint)
+	default: // plain text
+		fmt.Println("========== CREDENTIALS ===================================================================")
+		fmt.Println("Access Key ID: ", accessKey)
+		fmt.Println("Secret Key   : ", secretKey)
+		fmt.Println("Endpoint     : ", endpoint)
+	}
+	return nil
 }
 
-func register(accessRaw, authService string, public bool) (accessKey string, err error) {
-	if authService == "" {
-		return "", errs.New("no auth service address provided")
-	}
-
-	// try assuming that accessRaw is a named access
-	access, err := registerCfg.GetNamedAccess(accessRaw)
-	if err == nil && access != nil {
-		accessRaw, err = access.Serialize()
+func getAccessFromArgZeroOrConfig(config AccessConfig, args []string) (access *uplink.Access, err error) {
+	if len(args) != 0 {
+		access, err = inspectCfg.GetNamedAccess(args[0])
 		if err != nil {
-			return "", errs.New("error serializing named access '%s': %w", accessRaw, err)
+			return nil, err
 		}
+		if access != nil {
+			return access, nil
+		}
+		return uplink.ParseAccess(args[0])
 	}
+	return inspectCfg.GetAccess()
+}
 
+// RegisterAccess registers an access grant with a Gateway Authorization Service.
+func RegisterAccess(access *uplink.Access, authService string, public bool) (accessKey, secretKey, endpoint string, err error) {
+	if authService == "" {
+		return "", "", "", errs.New("no auth service address provided")
+	}
+	accesssSerialized, err := access.Serialize()
+	if err != nil {
+		return "", "", "", errs.Wrap(err)
+	}
 	postData, err := json.Marshal(map[string]interface{}{
-		"access_grant": accessRaw,
+		"access_grant": accesssSerialized,
 		"public":       public,
 	})
 	if err != nil {
-		return accessKey, errs.Wrap(err)
+		return accessKey, "", "", errs.Wrap(err)
 	}
 
 	resp, err := http.Post(fmt.Sprintf("%s/v1/access", authService), "application/json", bytes.NewReader(postData))
 	if err != nil {
-		return "", err
+		return "", "", "", err
 	}
 	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "", "", "", err
 	}
 
 	respBody := make(map[string]string)
 	if err := json.Unmarshal(body, &respBody); err != nil {
-		return "", errs.New("unexpected response from auth service: %s", string(body))
+		return "", "", "", errs.New("unexpected response from auth service: %s", string(body))
 	}
 
 	accessKey, ok := respBody["access_key_id"]
 	if !ok {
-		return "", errs.New("access_key_id missing in response")
+		return "", "", "", errs.New("access_key_id missing in response")
 	}
-	secretKey, ok := respBody["secret_key"]
+	secretKey, ok = respBody["secret_key"]
 	if !ok {
-		return "", errs.New("secret_key missing in response")
+		return "", "", "", errs.New("secret_key missing in response")
 	}
-
-	fmt.Println("========== CREDENTIALS ===================================================================")
-	fmt.Println("Access Key ID: ", accessKey)
-	fmt.Println("Secret Key   : ", secretKey)
-	fmt.Println("Endpoint     : ", respBody["endpoint"])
-
-	// update AWS credential file if requested
-	if registerCfg.AWSProfile != "" {
-		credentialsPath, err := getAwsCredentialsPath()
-		if err != nil {
-			return "", err
-		}
-		err = writeAWSCredentials(credentialsPath, registerCfg.AWSProfile, accessKey, secretKey)
-		if err != nil {
-			return "", err
-		}
-	}
-	return accessKey, nil
-}
-
-// getAwsCredentialsPath returns the expected AWS credentials path.
-func getAwsCredentialsPath() (string, error) {
-	if credentialsPath, found := os.LookupEnv("AWS_SHARED_CREDENTIALS_FILE"); found {
-		return credentialsPath, nil
-	}
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", errs.Wrap(err)
-	}
-	return filepath.Join(homeDir, ".aws", "credentials"), nil
-}
-
-// writeAWSCredentials appends to credentialsPath using an AWS compliant credential formatting.
-func writeAWSCredentials(credentialsPath, profileName, accessKey, secretKey string) error {
-	oldCredentials, err := ioutil.ReadFile(credentialsPath)
-	if err != nil && !os.IsNotExist(err) {
-		return errs.Wrap(err)
-	}
-	const format = "\n[%s]\naws_access_key_id = %s\naws_secret_access_key = %s\n"
-	newCredentials := fmt.Sprintf(format, profileName, accessKey, secretKey)
-
-	var fileMode os.FileMode
-	fileInfo, err := os.Stat(credentialsPath)
-	if err == nil {
-		fileMode = fileInfo.Mode()
-	} else {
-		fileMode = 0644
-	}
-	err = fpath.AtomicWriteFile(credentialsPath, append(oldCredentials, newCredentials...), fileMode)
-	if err != nil {
-		return errs.Wrap(err)
-	}
-	fmt.Printf("Updated AWS credential file %s with profile '%s'\n", credentialsPath, profileName)
-	return nil
+	return accessKey, secretKey, respBody["endpoint"], nil
 }

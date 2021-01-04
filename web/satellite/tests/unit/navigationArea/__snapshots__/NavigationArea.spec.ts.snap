@@ -8,19 +8,19 @@ exports[`NavigationArea snapshot not changed with project 1`] = `
   <router-link-stub to="/project-dashboard" tag="a" ariacurrentvalue="page" event="click" aria-label="Dashboard" class="navigation-area__item-container">
     <div class="navigation-area__item-container__link">
       <anonymous-stub></anonymous-stub>
-      <h1 class="navigation-area__item-container__link__title">Dashboard</h1>
+      <p class="navigation-area__item-container__link__title">Dashboard</p>
     </div>
   </router-link-stub>
   <router-link-stub to="/access-grants" tag="a" ariacurrentvalue="page" event="click" aria-label="Access Grants" class="navigation-area__item-container">
     <div class="navigation-area__item-container__link">
       <anonymous-stub></anonymous-stub>
-      <h1 class="navigation-area__item-container__link__title">Access Grants</h1>
+      <p class="navigation-area__item-container__link__title">Access Grants</p>
     </div>
   </router-link-stub>
   <router-link-stub to="/project-members" tag="a" ariacurrentvalue="page" event="click" aria-label="Users" class="navigation-area__item-container">
     <div class="navigation-area__item-container__link">
       <anonymous-stub></anonymous-stub>
-      <h1 class="navigation-area__item-container__link__title">Users</h1>
+      <p class="navigation-area__item-container__link__title">Users</p>
     </div>
   </router-link-stub>
 </div>

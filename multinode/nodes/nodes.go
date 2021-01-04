@@ -33,10 +33,10 @@ type DB interface {
 // ErrNoNode is a special error type that indicates about absence of node in NodesDB.
 var ErrNoNode = errs.Class("no such node")
 
-// Node is a representation of storeganode, that SNO could add to the Multinode Dashboard.
+// Node is a representation of storagenode, that SNO could add to the Multinode Dashboard.
 type Node struct {
 	ID storj.NodeID
-	// APISecret is a secret issued by storagenode, that will be main auth mechanism in MND <-> SNO api. is a secret issued by storagenode, that will be main auth mechanism in MND <-> SNO api.
+	// APISecret is a secret issued by storagenode, that will be main auth mechanism in MND <-> SNO api.
 	APISecret     []byte
 	PublicAddress string
 	Name          string

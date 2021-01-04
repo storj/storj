@@ -72,7 +72,7 @@ export default class HeldProgress extends Vue {
             ),
             new HeldStep(
                 '50%',
-                `Month ${this.MONTHS_BREAKPOINTS[1] + 1}-${this.MONTHS_BREAKPOINTS[4]}`,
+                `Month ${this.MONTHS_BREAKPOINTS[1] + 1}-${this.MONTHS_BREAKPOINTS[2]}`,
                 this.monthsOnNetwork > this.MONTHS_BREAKPOINTS[1] && this.monthsOnNetwork <= this.MONTHS_BREAKPOINTS[2],
                 this.monthsOnNetwork < this.MONTHS_BREAKPOINTS[1] + 1,
             ),

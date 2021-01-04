@@ -124,6 +124,7 @@ import { MetaUtils } from '@/utils/meta';
 })
 export default class ResultStep extends Vue {
     private key: string = '';
+    private restrictedKey: string = '';
 
     public access: string = '';
     public isGatewayDropdownVisible: boolean = false;
@@ -136,7 +137,7 @@ export default class ResultStep extends Vue {
      * Sets local access from props value.
      */
     public mounted(): void {
-        if (!this.$route.params.access && !this.$route.params.key) {
+        if (!this.$route.params.access && !this.$route.params.key && !this.$route.params.resctrictedKey) {
             this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
 
             return;
@@ -144,6 +145,7 @@ export default class ResultStep extends Vue {
 
         this.access = this.$route.params.access;
         this.key = this.$route.params.key;
+        this.restrictedKey = this.$route.params.restrictedKey;
 
         const requestURL = MetaUtils.getMetaContent('gateway-credentials-request-url');
         if (requestURL) this.isGatewayDropdownVisible = true;
@@ -202,6 +204,7 @@ export default class ResultStep extends Vue {
                 name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantPassphrase)).name,
                 params: {
                     key: this.key,
+                    restrictedKey: this.restrictedKey,
                 },
             });
 
@@ -213,6 +216,7 @@ export default class ResultStep extends Vue {
                 name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.EnterPassphraseStep)).name,
                 params: {
                     key: this.key,
+                    restrictedKey: this.restrictedKey,
                 },
             });
 
@@ -223,6 +227,7 @@ export default class ResultStep extends Vue {
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CreatePassphraseStep)).name,
             params: {
                 key: this.key,
+                restrictedKey: this.restrictedKey,
             },
         });
     }

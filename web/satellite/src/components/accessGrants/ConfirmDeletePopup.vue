@@ -6,7 +6,7 @@
         <div class="confirm-delete__container">
             <h1 class="confirm-delete__container__title">Are you sure?</h1>
             <p class="confirm-delete__container__info">
-                When an access grant is removed, users using it will no longer have access to the buckets or dat.
+                When an access grant is removed, users using it will no longer have access to the buckets or data.
             </p>
             <p class="confirm-delete__container__list-label">
                 The following access grant(s) will be removed from this project:
@@ -32,12 +32,14 @@
                     height="44px"
                     :on-press="onCancelClick"
                     is-white="true"
+                    :is-disabled="isLoading"
                 />
                 <VButton
                     label="Remove"
                     width="50%"
                     height="44px"
                     :on-press="onDeleteClick"
+                    :is-disabled="isLoading"
                 />
             </div>
             <div class="confirm-delete__container__close-cross-container" @click="onCancelClick">
@@ -65,11 +67,16 @@ import { AccessGrant } from '@/types/accessGrants';
 })
 export default class ConfirmDeletePopup extends Vue {
     private FIRST_PAGE: number = 1;
+    private isLoading: boolean = false;
 
     /**
      * Deletes selected access grants, fetches updated list and closes popup.
      */
     public async onDeleteClick(): Promise<void> {
+        if (this.isLoading) return;
+
+        this.isLoading = true;
+
         try {
             await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.DELETE);
             await this.$notify.success(`Access Grant deleted successfully`);
@@ -79,11 +86,13 @@ export default class ConfirmDeletePopup extends Vue {
 
         try {
             await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
         } catch (error) {
             await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`);
         }
 
         this.$emit('reset-pagination');
+        this.isLoading = false;
         this.onCancelClick();
     }
 

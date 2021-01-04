@@ -13,7 +13,7 @@
         >
             <div class="navigation-area__item-container__link">
                 <component :is="navItem.icon"></component>
-                <h1 class="navigation-area__item-container__link__title">{{navItem.name}}</h1>
+                <p class="navigation-area__item-container__link__title">{{navItem.name}}</p>
             </div>
         </router-link>
     </div>
@@ -103,10 +103,12 @@ export default class NavigationArea extends Vue {
                 align-items: center;
 
                 &__title {
+                    font-family: 'font_medium', sans-serif;
                     font-size: 16px;
                     line-height: 23px;
                     color: #1b2533;
                     margin: 0 0 0 15px;
+                    white-space: nowrap;
                 }
             }
 

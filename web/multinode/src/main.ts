@@ -6,6 +6,7 @@ import Router from 'vue-router';
 
 import App from '@/app/App.vue';
 import { router } from '@/app/router';
+import { store } from '@/app/store';
 
 Vue.config.productionTip = false;
 
@@ -13,6 +14,7 @@ Vue.use(Router);
 
 const app = new Vue({
     router,
+    store,
     render: (h) => h(App),
 });
 

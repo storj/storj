@@ -106,7 +106,6 @@ export default class ProgressBar extends Vue {
 
     .checked {
         font-family: 'font_bold', sans-serif;
-        font-weight: bold;
         color: #000;
     }
 
