@@ -71,6 +71,7 @@ export default class NavigationArea extends Vue {
         flex-direction: column;
         align-items: flex-start;
         border-right: 1px solid var(--c-gray--light);
+        background: var(--c-block-gray);
 
         &__logo {
             margin-bottom: 62px;

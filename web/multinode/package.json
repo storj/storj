@@ -64,7 +64,7 @@
       "rule-empty-line-before": "always-multi-line",
       "selector-pseudo-element-colon-notation": "single",
       "selector-pseudo-class-parentheses-space-inside": "never",
-      "selector-max-type": 1,
+      "selector-max-type": 3,
       "font-family-no-missing-generic-family-keyword": true,
       "at-rule-no-unknown": null,
       "scss/at-rule-no-unknown": true,
