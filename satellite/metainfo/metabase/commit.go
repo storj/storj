@@ -18,6 +18,9 @@ import (
 	"storj.io/storj/private/tagsql"
 )
 
+// we need to disable PlainSize validation for old uplinks.
+const validatePlainSize = false
+
 var (
 	// ErrInvalidRequest is used to indicate invalid requests.
 	ErrInvalidRequest = errs.Class("metabase: invalid request")
@@ -238,7 +241,7 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 		return ErrInvalidRequest.New("EncryptedKeyNonce missing")
 	case opts.EncryptedSize <= 0:
 		return ErrInvalidRequest.New("EncryptedSize negative or zero")
-	case opts.PlainSize <= 0:
+	case opts.PlainSize <= 0 && validatePlainSize:
 		return ErrInvalidRequest.New("PlainSize negative or zero")
 	case opts.PlainOffset < 0:
 		return ErrInvalidRequest.New("PlainOffset negative")
@@ -332,7 +335,7 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 		return ErrInvalidRequest.New("EncryptedKey missing")
 	case len(opts.EncryptedKeyNonce) == 0:
 		return ErrInvalidRequest.New("EncryptedKeyNonce missing")
-	case opts.PlainSize <= 0:
+	case opts.PlainSize <= 0 && validatePlainSize:
 		return ErrInvalidRequest.New("PlainSize negative or zero")
 	case opts.PlainOffset < 0:
 		return ErrInvalidRequest.New("PlainOffset negative")

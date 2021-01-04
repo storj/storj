@@ -933,25 +933,27 @@ func TestCommitSegment(t *testing.T) {
 				ErrText:  "EncryptedSize negative or zero",
 			}.Check(ctx, t, db)
 
-			CommitSegment{
-				Opts: metabase.CommitSegment{
-					ObjectStream: obj,
-					RootPieceID:  testrand.PieceID(),
+			if metabase.ValidatePlainSize {
+				CommitSegment{
+					Opts: metabase.CommitSegment{
+						ObjectStream: obj,
+						RootPieceID:  testrand.PieceID(),
 
-					Pieces: metabase.Pieces{{
-						Number:      1,
-						StorageNode: testrand.NodeID(),
-					}},
+						Pieces: metabase.Pieces{{
+							Number:      1,
+							StorageNode: testrand.NodeID(),
+						}},
 
-					EncryptedKey:      testrand.Bytes(32),
-					EncryptedKeyNonce: testrand.Bytes(32),
+						EncryptedKey:      testrand.Bytes(32),
+						EncryptedKeyNonce: testrand.Bytes(32),
 
-					EncryptedSize: 1024,
-					PlainSize:     -1,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "PlainSize negative or zero",
-			}.Check(ctx, t, db)
+						EncryptedSize: 1024,
+						PlainSize:     -1,
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "PlainSize negative or zero",
+				}.Check(ctx, t, db)
+			}
 
 			CommitSegment{
 				Opts: metabase.CommitSegment{
@@ -1307,20 +1309,22 @@ func TestCommitInlineSegment(t *testing.T) {
 				ErrText:  "EncryptedKeyNonce missing",
 			}.Check(ctx, t, db)
 
-			CommitInlineSegment{
-				Opts: metabase.CommitInlineSegment{
-					ObjectStream: obj,
+			if metabase.ValidatePlainSize {
+				CommitInlineSegment{
+					Opts: metabase.CommitInlineSegment{
+						ObjectStream: obj,
 
-					InlineData: []byte{1, 2, 3},
+						InlineData: []byte{1, 2, 3},
 
-					EncryptedKey:      testrand.Bytes(32),
-					EncryptedKeyNonce: testrand.Bytes(32),
+						EncryptedKey:      testrand.Bytes(32),
+						EncryptedKeyNonce: testrand.Bytes(32),
 
-					PlainSize: -1,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "PlainSize negative or zero",
-			}.Check(ctx, t, db)
+						PlainSize: -1,
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "PlainSize negative or zero",
+				}.Check(ctx, t, db)
+			}
 
 			CommitInlineSegment{
 				Opts: metabase.CommitInlineSegment{
