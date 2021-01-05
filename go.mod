@@ -42,9 +42,9 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	google.golang.org/api v0.20.0 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
-	storj.io/common v0.0.0-20201210184814-6206aefd1d48
+	storj.io/common v0.0.0-20210104180112-e8500e1c37a0
 	storj.io/drpc v0.0.16
 	storj.io/monkit-jaeger v0.0.0-20200518165323-80778fc3f91b
-	storj.io/private v0.0.0-20201126162939-6fbb1e924f51
-	storj.io/uplink v1.4.3
+	storj.io/private v0.0.0-20201228213754-8d9c4e216479
+	storj.io/uplink v1.4.4
 )
