@@ -218,9 +218,14 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		common := []string{"--metrics.app-suffix", "sim", "--log.level", "debug", "--config-dir", dir}
 		if flags.IsDev {
 			common = append(common, "--defaults", "dev")
+		} else {
+			common = append(common, "--defaults", "release")
 		}
 		for command, args := range all {
-			all[command] = append(append(common, command), args...)
+			full := append([]string{}, common...)
+			full = append(full, command)
+			full = append(full, args...)
+			all[command] = full
 		}
 		return all
 	}
@@ -315,13 +320,17 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		apiProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"setup": {
 				"--identity-dir", apiProcess.Directory,
+
 				"--console.address", net.JoinHostPort(host, port(satellitePeer, i, publicHTTP)),
 				"--console.static-dir", filepath.Join(storjRoot, "web/satellite/"),
+				"--console.auth-token-secret", "my-suppa-secret-key",
 				"--console.open-registration-enabled",
 				"--console.rate-limit.burst", "100",
+
 				"--marketing.base-url", "",
 				"--marketing.address", net.JoinHostPort(host, port(satellitePeer, i, privateHTTP)),
 				"--marketing.static-dir", filepath.Join(storjRoot, "web/marketing/"),
+
 				"--server.address", apiProcess.Address,
 				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateRPC)),
 
