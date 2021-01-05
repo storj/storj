@@ -1291,6 +1291,18 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`DROP TABLE consumed_serials;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create new index on bucket_storage_tallies to improve get tallies by project ID and bucket name lookups by time interval. This replaces bucket_storage_tallies_project_id_index.",
+				Version:     145,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`
+					CREATE INDEX IF NOT EXISTS bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start );
+					DROP INDEX IF EXISTS bucket_storage_tallies_project_id_index;
+					`,
+				},
+			},
 		},
 	}
 }
