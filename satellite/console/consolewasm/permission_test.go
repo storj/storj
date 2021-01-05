@@ -97,3 +97,53 @@ func TestSetPermissionWithBuckets(t *testing.T) {
 		require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 	})
 }
+
+func TestSetPermissionUplinkOperations(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 10, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellitePeer := planet.Satellites[0]
+		satelliteNodeURL := satellitePeer.NodeURL().String()
+		uplinkPeer := planet.Uplinks[0]
+		APIKey := uplinkPeer.APIKey[satellitePeer.ID()]
+		apiKeyString := APIKey.Serialize()
+		projectID := uplinkPeer.Projects[0].ID.String()
+		require.Equal(t, 1, len(uplinkPeer.Projects))
+
+		allPermission := console.Permission{
+			AllowDownload: true,
+			AllowUpload:   true,
+			AllowList:     true,
+			AllowDelete:   true,
+			NotBefore:     time.Now().Add(-24 * time.Hour),
+			NotAfter:      time.Now().Add(48 * time.Hour),
+		}
+		restrictedKey, err := console.SetPermission(apiKeyString, []string{}, allPermission)
+		require.NoError(t, err)
+		passphrase := "supersecretpassphrase"
+		restrictedAccessGrant, err := console.GenAccessGrant(satelliteNodeURL, restrictedKey.Serialize(), passphrase, projectID)
+		require.NoError(t, err)
+		restrictedAccess, err := uplink.ParseAccess(restrictedAccessGrant)
+		require.NoError(t, err)
+
+		uplinkPeer.APIKey[satellitePeer.ID()] = restrictedKey
+		uplinkPeer.Access[satellitePeer.ID()] = restrictedAccess
+		testbucket1 := "buckettest1"
+		testfilename := "file.txt"
+		testdata := []byte("fun data")
+
+		// Confirm that we can create a bucket, upload/download/delete an object, and delete the bucket with the new restricted access.
+		require.NoError(t, uplinkPeer.CreateBucket(ctx, satellitePeer, testbucket1))
+		err = uplinkPeer.Upload(ctx, satellitePeer, testbucket1, testfilename, testdata)
+		require.NoError(t, err)
+		data, err := uplinkPeer.Download(ctx, satellitePeer, testbucket1, testfilename)
+		require.NoError(t, err)
+		require.Equal(t, data, testdata)
+		buckets, err := uplinkPeer.ListBuckets(ctx, satellitePeer)
+		require.NoError(t, err)
+		require.Equal(t, len(buckets), 1)
+		err = uplinkPeer.DeleteObject(ctx, satellitePeer, testbucket1, testfilename)
+		require.NoError(t, err)
+		require.NoError(t, uplinkPeer.DeleteBucket(ctx, satellitePeer, testbucket1))
+	})
+}
