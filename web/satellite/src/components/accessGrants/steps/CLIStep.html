@@ -8,6 +8,17 @@
         Use this token to create your access grant in the CLI tool.
     </p>
     <div class="cli-container__token-area">
+        <p class="cli-container__token-area__label">Satellite Address</p>
+        <div class="cli-container__token-area__container">
+            <p ref="addressContainer" class="cli-container__token-area__container__token" @click="selectAddress">{{ satelliteAddress }}</p>
+            <VButton
+                class="cli-container__token-area__container__button"
+                label="Copy"
+                width="66px"
+                height="30px"
+                :on-press="onCopyAddressClick"
+            />
+        </div>
         <p class="cli-container__token-area__label">Token</p>
         <div class="cli-container__token-area__container">
             <p class="cli-container__token-area__container__token">{{ restrictedKey }}</p>
@@ -16,7 +27,7 @@
                 label="Copy"
                 width="66px"
                 height="30px"
-                :on-press="onCopyClick"
+                :on-press="onCopyTokenClick"
             />
         </div>
     </div>
