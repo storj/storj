@@ -39,7 +39,7 @@
                 <div class="permissions__content__right__bucket-bullets">
                     <div
                         class="permissions__content__right__bucket-bullets__container"
-                        v-for="(name, index) in storedBucketNames"
+                        v-for="(name, index) in selectedBucketNames"
                         :key="index"
                     >
                         <BucketNameBullet :name="name"/>
@@ -276,17 +276,10 @@ export default class PermissionsStep extends Vue {
     }
 
     /**
-     * Returns stored selected bucket names.
+     * Returns selected bucket names.
      */
-    public get storedBucketNames(): string[] {
+    public get selectedBucketNames(): string[] {
         return this.$store.state.accessGrantsModule.selectedBucketNames;
-    }
-
-    /**
-     * Returns selected bucket names from store or all bucket names.
-     */
-    private get selectedBucketNames(): string[] {
-        return this.storedBucketNames.length ? this.storedBucketNames : this.allBucketNames;
     }
 
     /**
@@ -294,13 +287,6 @@ export default class PermissionsStep extends Vue {
      */
     private get accessGrantsAmount(): number {
         return this.$store.state.accessGrantsModule.page.accessGrants.length;
-    }
-
-    /**
-     * Returns all bucket names.
-     */
-    private get allBucketNames(): string[] {
-        return this.$store.state.bucketUsageModule.allBucketNames;
     }
 
     /**
