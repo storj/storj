@@ -45,6 +45,7 @@ message BandwidthMonthSummaryResponse {
 service Node {
   rpc Version(VersionRequest) returns (VersionResponse);
   rpc LastContact(LastContactRequest) returns (LastContactResponse);
+  rpc Reputation(ReputationRequest) returns (ReputationResponse);
 }
 
 message VersionRequest {
@@ -61,4 +62,22 @@ message LastContactRequest {
 
 message LastContactResponse {
   google.protobuf.Timestamp last_contact = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message ReputationRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message ReputationResponse {
+  message Online {
+    double score = 1;
+  }
+  message Audit {
+    double score = 1;
+    double suspension_score = 2;
+  }
+
+  Online online = 1;
+  Audit audit = 2;
 }

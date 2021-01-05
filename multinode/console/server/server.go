@@ -59,6 +59,7 @@ func NewServer(log *zap.Logger, config Config, nodes *nodes.Service, listener ne
 	nodesRouter.HandleFunc("", nodesController.Add).Methods(http.MethodPost)
 	nodesRouter.HandleFunc("", nodesController.List).Methods(http.MethodGet)
 	nodesRouter.HandleFunc("/infos", nodesController.ListInfos).Methods(http.MethodGet)
+	nodesRouter.HandleFunc("/infos/{satelliteID}", nodesController.ListInfosSatellite).Methods(http.MethodGet)
 	nodesRouter.HandleFunc("/{id}", nodesController.Get).Methods(http.MethodGet)
 	nodesRouter.HandleFunc("/{id}", nodesController.UpdateName).Methods(http.MethodPatch)
 	nodesRouter.HandleFunc("/{id}", nodesController.Delete).Methods(http.MethodDelete)

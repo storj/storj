@@ -194,7 +194,7 @@ func (controller *Nodes) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// ListInfos handles node info list retrieval.
+// ListInfos handles node basic info list retrieval.
 func (controller *Nodes) ListInfos(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -205,6 +205,35 @@ func (controller *Nodes) ListInfos(w http.ResponseWriter, r *http.Request) {
 	infos, err := controller.service.ListInfos(ctx)
 	if err != nil {
 		controller.log.Error("list node infos internal error", zap.Error(err))
+		controller.serveError(w, http.StatusInternalServerError, ErrNodes.Wrap(err))
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(infos); err != nil {
+		controller.log.Error("failed to write json response", zap.Error(err))
+		return
+	}
+}
+
+// ListInfosSatellite handles node satellite specific info list retrieval.
+func (controller *Nodes) ListInfosSatellite(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Add("Content-Type", "application/json")
+
+	vars := mux.Vars(r)
+
+	satelliteID, err := storj.NodeIDFromString(vars["satelliteID"])
+	if err != nil {
+		controller.serveError(w, http.StatusBadRequest, ErrNodes.Wrap(err))
+		return
+	}
+
+	infos, err := controller.service.ListInfosSatellite(ctx, satelliteID)
+	if err != nil {
+		controller.log.Error("list node satellite infos internal error", zap.Error(err))
 		controller.serveError(w, http.StatusInternalServerError, ErrNodes.Wrap(err))
 		return
 	}

@@ -50,3 +50,14 @@ type NodeInfo struct {
 	DiskSpaceLeft int64
 	BandwidthUsed int64
 }
+
+// NodeInfoSatellite contains satellite specific node internal state.
+type NodeInfoSatellite struct {
+	ID              storj.NodeID
+	Name            string
+	Version         string
+	LastContact     time.Time
+	OnlineScore     float64
+	AuditScore      float64
+	SuspensionScore float64
+}

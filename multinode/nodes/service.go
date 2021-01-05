@@ -115,10 +115,12 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 				ApiKey: node.APISecret,
 			}
 
-			bandwidthSummaryRequest := &multinodepb.BandwidthMonthSummaryRequest{
-				Header: header,
+			nodeVersion, err := nodeClient.Version(ctx, &multinodepb.VersionRequest{Header: header})
+			if err != nil {
+				return NodeInfo{}, Error.Wrap(err)
 			}
-			bandwidthSummary, err := bandwidthClient.MonthSummary(ctx, bandwidthSummaryRequest)
+
+			lastContact, err := nodeClient.LastContact(ctx, &multinodepb.LastContactRequest{Header: header})
 			if err != nil {
 				return NodeInfo{}, Error.Wrap(err)
 			}
@@ -128,12 +130,10 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 				return NodeInfo{}, Error.Wrap(err)
 			}
 
-			nodeVersion, err := nodeClient.Version(ctx, &multinodepb.VersionRequest{Header: header})
-			if err != nil {
-				return NodeInfo{}, Error.Wrap(err)
+			bandwidthSummaryRequest := &multinodepb.BandwidthMonthSummaryRequest{
+				Header: header,
 			}
-
-			lastContact, err := nodeClient.LastContact(ctx, &multinodepb.LastContactRequest{Header: header})
+			bandwidthSummary, err := bandwidthClient.MonthSummary(ctx, bandwidthSummaryRequest)
 			if err != nil {
 				return NodeInfo{}, Error.Wrap(err)
 			}
@@ -146,6 +146,74 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 				DiskSpaceUsed: diskSpace.GetUsedPieces() + diskSpace.GetUsedTrash(),
 				DiskSpaceLeft: diskSpace.GetAvailable(),
 				BandwidthUsed: bandwidthSummary.GetUsed(),
+			}, nil
+		}()
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		infos = append(infos, info)
+	}
+
+	return infos, nil
+}
+
+// ListInfosSatellite queries node satellite specific info from all nodes via rpc.
+func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID storj.NodeID) (_ []NodeInfoSatellite, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	nodes, err := service.nodes.List(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	var infos []NodeInfoSatellite
+	for _, node := range nodes {
+		info, err := func() (_ NodeInfoSatellite, err error) {
+			conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+				ID:      node.ID,
+				Address: node.PublicAddress,
+			})
+			if err != nil {
+				return NodeInfoSatellite{}, Error.Wrap(err)
+			}
+
+			defer func() {
+				err = errs.Combine(err, conn.Close())
+			}()
+
+			nodeClient := multinodepb.NewDRPCNodeClient(conn)
+
+			header := &multinodepb.RequestHeader{
+				ApiKey: node.APISecret,
+			}
+
+			nodeVersion, err := nodeClient.Version(ctx, &multinodepb.VersionRequest{Header: header})
+			if err != nil {
+				return NodeInfoSatellite{}, Error.Wrap(err)
+			}
+
+			lastContact, err := nodeClient.LastContact(ctx, &multinodepb.LastContactRequest{Header: header})
+			if err != nil {
+				return NodeInfoSatellite{}, Error.Wrap(err)
+			}
+
+			rep, err := nodeClient.Reputation(ctx, &multinodepb.ReputationRequest{
+				Header:      header,
+				SatelliteId: satelliteID,
+			})
+			if err != nil {
+				return NodeInfoSatellite{}, Error.Wrap(err)
+			}
+
+			return NodeInfoSatellite{
+				ID:              node.ID,
+				Name:            node.Name,
+				Version:         nodeVersion.Version,
+				LastContact:     lastContact.LastContact,
+				OnlineScore:     rep.Online.Score,
+				AuditScore:      rep.Audit.Score,
+				SuspensionScore: rep.Audit.SuspensionScore,
 			}, nil
 		}()
 		if err != nil {
