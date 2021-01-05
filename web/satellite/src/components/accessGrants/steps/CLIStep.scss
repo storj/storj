@@ -44,7 +44,7 @@
         flex-direction: column;
         align-items: flex-start;
         width: 100%;
-        margin-bottom: 50px;
+        margin-bottom: 30px;
 
         &__label {
             font-family: 'font_bold', sans-serif;
@@ -61,6 +61,7 @@
             width: calc(100% - 30px);
             border: 1px solid rgba(56, 75, 101, 0.4);
             border-radius: 6px;
+            margin-bottom: 20px;
 
             &__token {
                 font-size: 16px;

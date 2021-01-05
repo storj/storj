@@ -11,6 +11,7 @@ import VButton from '@/components/common/VButton.vue';
 import BackIcon from '@/../static/images/accessGrants/back.svg';
 
 import { RouteConfig } from '@/router';
+import { MetaUtils } from '@/utils/meta';
 
 @Component({
     components: {
@@ -21,6 +22,11 @@ import { RouteConfig } from '@/router';
 export default class CLIStep extends Vue {
     public key: string = '';
     public restrictedKey: string = '';
+    public satelliteAddress: string = MetaUtils.getMetaContent('satellite-nodeurl');
+
+    public $refs!: {
+        addressContainer: HTMLElement;
+    };
 
     /**
      * Lifecycle hook after initial render.
@@ -81,10 +87,34 @@ export default class CLIStep extends Vue {
     }
 
     /**
+     * Holds selecting address logic for click event.
+     */
+    public selectAddress(): void {
+        const range: Range = document.createRange();
+        const selection: Selection | null = window.getSelection();
+
+        range.selectNodeContents(this.$refs.addressContainer);
+
+        if (selection) {
+            selection.removeAllRanges();
+            selection.addRange(range);
+        }
+    }
+
+    /**
+     * Holds on copy button click logic.
+     * Copies satellite address to clipboard.
+     */
+    public onCopyAddressClick(): void {
+        this.$copyText(this.satelliteAddress);
+        this.$notify.success('Satellite address was copied successfully');
+    }
+
+    /**
      * Holds on copy button click logic.
      * Copies token to clipboard.
      */
-    public onCopyClick(): void {
+    public onCopyTokenClick(): void {
         this.$copyText(this.restrictedKey);
         this.$notify.success('Token was copied successfully');
     }
