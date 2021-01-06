@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -229,7 +230,7 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	executable := process.Executable
 
 	// use executable inside the directory, if it exists
-	localExecutable := filepath.Join(process.Directory, executable)
+	localExecutable := exe(filepath.Join(process.Directory, executable))
 	if _, err := os.Lstat(localExecutable); !os.IsNotExist(err) {
 		executable = localExecutable
 	}
@@ -343,3 +344,10 @@ func tryConnect(address string) bool {
 
 // Close closes process resources.
 func (process *Process) Close() error { return nil }
+
+func exe(name string) string {
+	if runtime.GOOS == "windows" {
+		return name + ".exe"
+	}
+	return name
+}
