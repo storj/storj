@@ -4,6 +4,7 @@
 package metabase_test
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -1633,6 +1634,111 @@ func TestCommitObject(t *testing.T) {
 						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 						EncryptedMetadata:             encryptedMetadata,
 						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+
+						Encryption: defaultTestEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("large object over 2 GB", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+			now := time.Now()
+
+			rootPieceID := testrand.PieceID()
+			pieces := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
+			encryptedKey := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Bytes(32)
+
+			CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+					Position:     metabase.SegmentPosition{Index: 0},
+					RootPieceID:  rootPieceID,
+					Pieces:       pieces,
+
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce,
+
+					EncryptedSize: math.MaxInt32,
+					PlainSize:     math.MaxInt32,
+					Redundancy:    defaultTestRedundancy,
+				},
+			}.Check(ctx, t, db)
+
+			CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+					Position:     metabase.SegmentPosition{Index: 1},
+					RootPieceID:  rootPieceID,
+					Pieces:       pieces,
+
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce,
+
+					EncryptedSize: math.MaxInt32,
+					PlainSize:     math.MaxInt32,
+					Redundancy:    defaultTestRedundancy,
+				},
+			}.Check(ctx, t, db)
+
+			CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+				},
+			}.Check(ctx, t, db)
+
+			Verify{
+				Segments: []metabase.RawSegment{
+					{
+						StreamID: obj.StreamID,
+						Position: metabase.SegmentPosition{Index: 0},
+
+						RootPieceID:       rootPieceID,
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce,
+
+						EncryptedSize: math.MaxInt32,
+						PlainSize:     math.MaxInt32,
+
+						Redundancy: defaultTestRedundancy,
+
+						Pieces: pieces,
+					},
+					{
+						StreamID: obj.StreamID,
+						Position: metabase.SegmentPosition{Index: 1},
+
+						RootPieceID:       rootPieceID,
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce,
+
+						EncryptedSize: math.MaxInt32,
+						PlainSize:     math.MaxInt32,
+
+						Redundancy: defaultTestRedundancy,
+
+						Pieces: pieces,
+					},
+				},
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Committed,
+
+						SegmentCount:       2,
+						FixedSegmentSize:   math.MaxInt32,
+						TotalPlainSize:     2 * math.MaxInt32,
+						TotalEncryptedSize: 2 * math.MaxInt32,
 
 						Encryption: defaultTestEncryption,
 					},

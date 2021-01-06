@@ -131,6 +131,15 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					)`,
 				},
 			},
+			{
+				DB:          &db.db,
+				Description: "change total_plain_size and total_encrypted_size to INT8",
+				Version:     2,
+				Action: migrate.SQL{
+					`ALTER TABLE objects ALTER COLUMN total_plain_size TYPE INT8;`,
+					`ALTER TABLE objects ALTER COLUMN total_encrypted_size TYPE INT8;`,
+				},
+			},
 		},
 	}
 }
