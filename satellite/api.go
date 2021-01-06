@@ -266,7 +266,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup contact service
 		c := config.Contact
 		if c.ExternalAddress == "" {
-			c.ExternalAddress = peer.Addr()
+			c.ExternalAddress = peer.Server.Addr().String()
 		}
 
 		pbVersion, err := versionInfo.Proto()
@@ -718,7 +718,9 @@ func (peer *API) Close() error {
 func (peer *API) ID() storj.NodeID { return peer.Identity.ID }
 
 // Addr returns the public address.
-func (peer *API) Addr() string { return peer.Server.Addr().String() }
+func (peer *API) Addr() string {
+	return peer.Contact.Service.Local().Node.Address.Address
+}
 
 // URL returns the storj.NodeURL.
 func (peer *API) URL() storj.NodeURL {
