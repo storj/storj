@@ -169,8 +169,14 @@ func networkTest(flags *Flags, command string, args []string) error {
 
 	ctx, cancel := NewCLIContext(context.Background())
 
-	var group errgroup.Group
-	processes.Start(ctx, &group, "run")
+	var group *errgroup.Group
+	if processes.FailFast {
+		group, ctx = errgroup.WithContext(ctx)
+	} else {
+		group = &errgroup.Group{}
+	}
+
+	processes.Start(ctx, group, "run")
 
 	for _, process := range processes.List {
 		process.Status.Started.Wait(ctx)
@@ -230,7 +236,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		return all
 	}
 
-	processes := NewProcesses(flags.Directory)
+	processes := NewProcesses(flags.Directory, flags.FailFast)
 
 	var host = flags.Host
 	versioncontrol := processes.New(Info{
@@ -644,7 +650,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 }
 
 func identitySetup(network *Processes) (*Processes, error) {
-	processes := NewProcesses(network.Directory)
+	processes := NewProcesses(network.Directory, network.FailFast)
 
 	for _, process := range network.List {
 		if process.Info.Executable == "gateway" || process.Info.Executable == "redis-server" {
