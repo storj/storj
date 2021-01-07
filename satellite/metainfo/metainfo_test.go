@@ -4,6 +4,7 @@
 package metainfo_test
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net"
@@ -1684,5 +1685,98 @@ func TestGetObjectIPs(t *testing.T) {
 			_, err = strconv.Atoi(port)
 			require.NoError(t, err)
 		}
+	})
+}
+
+func TestMultipartObjectDownloadRejection(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		data := testrand.Bytes(20 * memory.KB)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "pip-first", "non-multipart-object", data)
+		require.NoError(t, err)
+
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+		require.NoError(t, err)
+
+		_, err = project.EnsureBucket(ctx, "pip-second")
+		require.NoError(t, err)
+		info, err := project.NewMultipartUpload(ctx, "pip-second", "multipart-object", nil)
+		require.NoError(t, err)
+		_, err = project.PutObjectPart(ctx, "pip-second", "multipart-object", info.StreamID, 1, bytes.NewReader(data))
+		require.NoError(t, err)
+		_, err = project.CompleteMultipartUpload(ctx, "pip-second", "multipart-object", info.StreamID, nil)
+		require.NoError(t, err)
+
+		_, err = project.EnsureBucket(ctx, "pip-third")
+		require.NoError(t, err)
+		info, err = project.NewMultipartUpload(ctx, "pip-third", "multipart-object-third", nil)
+		require.NoError(t, err)
+		for i := 0; i < 4; i++ {
+			_, err = project.PutObjectPart(ctx, "pip-third", "multipart-object-third", info.StreamID, i+1, bytes.NewReader(data))
+			require.NoError(t, err)
+		}
+		_, err = project.CompleteMultipartUpload(ctx, "pip-third", "multipart-object-third", info.StreamID, nil)
+		require.NoError(t, err)
+
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		objects, err := planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, planet.Uplinks[0].Projects[0].ID, "pip-first")
+		require.NoError(t, err)
+		require.Len(t, objects, 1)
+
+		// verify that standard objects can be downloaded in an old way (index = -1 as last segment)
+		object, err := metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
+			Bucket:        []byte("pip-first"),
+			EncryptedPath: []byte(objects[0].ObjectKey),
+		})
+		require.NoError(t, err)
+		_, _, err = metainfoClient.DownloadSegment(ctx, metainfo.DownloadSegmentParams{
+			StreamID: object.StreamID,
+			Position: storj.SegmentPosition{
+				Index: -1,
+			},
+		})
+		require.NoError(t, err)
+
+		objects, err = planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, planet.Uplinks[0].Projects[0].ID, "pip-second")
+		require.NoError(t, err)
+		require.Len(t, objects, 1)
+
+		// verify that multipart objects (single segment) CANNOT be downloaded in an old way (index = -1 as last segment)
+		object, err = metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
+			Bucket:        []byte("pip-second"),
+			EncryptedPath: []byte(objects[0].ObjectKey),
+		})
+		require.NoError(t, err)
+		_, _, err = metainfoClient.DownloadSegment(ctx, metainfo.DownloadSegmentParams{
+			StreamID: object.StreamID,
+			Position: storj.SegmentPosition{
+				Index: -1,
+			},
+		})
+		require.EqualError(t, err, "metainfo error: Used uplink version cannot download multipart objects.")
+
+		objects, err = planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, planet.Uplinks[0].Projects[0].ID, "pip-third")
+		require.NoError(t, err)
+		require.Len(t, objects, 1)
+
+		// verify that multipart objects (multiple segments) CANNOT be downloaded in an old way (index = -1 as last segment)
+		object, err = metainfoClient.GetObject(ctx, metainfo.GetObjectParams{
+			Bucket:        []byte("pip-third"),
+			EncryptedPath: []byte(objects[0].ObjectKey),
+		})
+		require.NoError(t, err)
+		_, _, err = metainfoClient.DownloadSegment(ctx, metainfo.DownloadSegmentParams{
+			StreamID: object.StreamID,
+			Position: storj.SegmentPosition{
+				Index: -1,
+			},
+		})
+		require.EqualError(t, err, "metainfo error: Used uplink version cannot download multipart objects.")
 	})
 }

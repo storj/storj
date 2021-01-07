@@ -21,6 +21,8 @@ message StreamID {
     google.protobuf.Timestamp creation_date = 5  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
     google.protobuf.Timestamp expiration_date = 6  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 
+    bool multipart_object = 11;
+
     bytes satellite_signature = 9;
 
     bytes stream_id = 10;

@@ -1572,6 +1572,10 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 	var segment metabase.Segment
 	if req.CursorPosition.PartNumber == 0 && req.CursorPosition.Index == -1 {
+		if streamID.MultipartObject {
+			return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Used uplink version cannot download multipart objects.")
+		}
+
 		segment, err = endpoint.metainfo.metabaseDB.GetLatestObjectLastSegment(ctx, metabase.GetLatestObjectLastSegment{
 			ObjectLocation: metabase.ObjectLocation{
 				ProjectID:  keyInfo.ProjectID,
@@ -1867,11 +1871,12 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 	}
 
 	streamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
-		Bucket:        []byte(object.BucketName),
-		EncryptedPath: []byte(object.ObjectKey),
-		Version:       int32(object.Version), // TODO incomatible types
-		CreationDate:  time.Now(),
-		StreamId:      object.StreamID[:],
+		Bucket:          []byte(object.BucketName),
+		EncryptedPath:   []byte(object.ObjectKey),
+		Version:         int32(object.Version), // TODO incomatible types
+		CreationDate:    time.Now(),
+		StreamId:        object.StreamID[:],
+		MultipartObject: object.FixedSegmentSize <= 0,
 		// TODO: defaultRS may change while the upload is pending.
 		// Ideally, we should remove redundancy from satStreamID.
 		Redundancy: endpoint.defaultRS,

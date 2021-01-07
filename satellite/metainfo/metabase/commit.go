@@ -458,9 +458,13 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 
 		// TODO: would we even need this when we make main index plain_offset?
 		fixedSegmentSize := int32(0)
-		if len(segments) > 0 {
+		if len(segments) > 0 && segments[0].Position.Part == 0 {
 			fixedSegmentSize = segments[0].EncryptedSize
 			for _, seg := range segments[:len(segments)-1] {
+				if seg.Position.Part != 0 {
+					fixedSegmentSize = -1
+					break
+				}
 				if seg.EncryptedSize != fixedSegmentSize {
 					fixedSegmentSize = -1
 					break
