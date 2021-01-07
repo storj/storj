@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/storagenode/apikeys"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/reputation"
+	"storj.io/storj/storagenode/trust"
 )
 
 var _ multinodepb.DRPCNodeServer = (*NodeEndpoint)(nil)
@@ -27,16 +28,18 @@ type NodeEndpoint struct {
 	version    version.Info
 	contact    *contact.PingStats
 	reputation reputation.DB
+	trust      *trust.Pool
 }
 
 // NewNodeEndpoint creates new multinode node endpoint.
-func NewNodeEndpoint(log *zap.Logger, apiKeys *apikeys.Service, version version.Info, contact *contact.PingStats, reputation reputation.DB) *NodeEndpoint {
+func NewNodeEndpoint(log *zap.Logger, apiKeys *apikeys.Service, version version.Info, contact *contact.PingStats, reputation reputation.DB, trust *trust.Pool) *NodeEndpoint {
 	return &NodeEndpoint{
 		log:        log,
 		apiKeys:    apiKeys,
 		version:    version,
 		contact:    contact,
 		reputation: reputation,
+		trust:      trust,
 	}
 }
 
@@ -88,4 +91,30 @@ func (node *NodeEndpoint) Reputation(ctx context.Context, req *multinodepb.Reput
 			SuspensionScore: rep.Audit.UnknownScore,
 		},
 	}, nil
+}
+
+// TrustedSatellites returns list of trusted satellites node urls.
+func (node *NodeEndpoint) TrustedSatellites(ctx context.Context, req *multinodepb.TrustedSatellitesRequest) (_ *multinodepb.TrustedSatellitesResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err = authenticate(ctx, node.apiKeys, req.GetHeader()); err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+	}
+
+	response := new(multinodepb.TrustedSatellitesResponse)
+
+	satellites := node.trust.GetSatellites(ctx)
+	for _, satellite := range satellites {
+		nodeURL, err := node.trust.GetNodeURL(ctx, satellite)
+		if err != nil {
+			return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
+		}
+
+		response.TrustedSatellites = append(response.TrustedSatellites, &multinodepb.TrustedSatellitesResponse_NodeURL{
+			NodeId:  nodeURL.ID,
+			Address: nodeURL.Address,
+		})
+	}
+
+	return response, nil
 }

@@ -4,6 +4,7 @@
 package nodes
 
 import (
+	"bytes"
 	"context"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -224,4 +225,85 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 	}
 
 	return infos, nil
+}
+
+// TrustedSatellites returns list of unique trusted satellites node urls.
+func (service *Service) TrustedSatellites(ctx context.Context) (_ storj.NodeURLs, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	nodes, err := service.nodes.List(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	var trustedSatellites storj.NodeURLs
+	for _, node := range nodes {
+		nodeURLs, err := service.trustedSatellites(ctx, node)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		trustedSatellites = appendUniqueNodeURLs(trustedSatellites, nodeURLs)
+	}
+
+	return trustedSatellites, nil
+}
+
+// trustedSatellites retrieves list of trusted satellites node urls for a node.
+func (service *Service) trustedSatellites(ctx context.Context, node Node) (_ storj.NodeURLs, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+		ID:      node.ID,
+		Address: node.PublicAddress,
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	defer func() {
+		err = errs.Combine(err, conn.Close())
+	}()
+
+	nodeClient := multinodepb.NewDRPCNodeClient(conn)
+
+	header := &multinodepb.RequestHeader{
+		ApiKey: node.APISecret,
+	}
+
+	resp, err := nodeClient.TrustedSatellites(ctx, &multinodepb.TrustedSatellitesRequest{Header: header})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	var nodeURLs storj.NodeURLs
+	for _, url := range resp.TrustedSatellites {
+		nodeURLs = append(nodeURLs, storj.NodeURL{
+			ID:      url.NodeId,
+			Address: url.GetAddress(),
+		})
+	}
+
+	return nodeURLs, nil
+}
+
+// appendUniqueNodeURLs appends unique node urls from incoming slice.
+func appendUniqueNodeURLs(slice storj.NodeURLs, nodeURLs storj.NodeURLs) storj.NodeURLs {
+	for _, nodeURL := range nodeURLs {
+		slice = appendUniqueNodeURL(slice, nodeURL)
+	}
+
+	return slice
+}
+
+// appendUniqueNodeURL appends node url if it is unique.
+func appendUniqueNodeURL(slice storj.NodeURLs, nodeURL storj.NodeURL) storj.NodeURLs {
+	for _, existing := range slice {
+		if bytes.Equal(existing.ID.Bytes(), nodeURL.ID.Bytes()) {
+			return slice
+		}
+	}
+
+	slice = append(slice, nodeURL)
+	return slice
 }

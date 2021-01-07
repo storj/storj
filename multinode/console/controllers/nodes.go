@@ -244,6 +244,25 @@ func (controller *Nodes) ListInfosSatellite(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// TrustedSatellites handles retrieval of unique trusted satellites node urls list.
+func (controller *Nodes) TrustedSatellites(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	nodeURLs, err := controller.service.TrustedSatellites(ctx)
+	if err != nil {
+		controller.log.Error("list node trusted satellites internal error", zap.Error(err))
+		controller.serveError(w, http.StatusInternalServerError, ErrNodes.Wrap(err))
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(nodeURLs); err != nil {
+		controller.log.Error("failed to write json response", zap.Error(err))
+		return
+	}
+}
+
 // serveError set http statuses and send json error.
 func (controller *Nodes) serveError(w http.ResponseWriter, status int, err error) {
 	w.WriteHeader(status)

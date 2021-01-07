@@ -46,6 +46,7 @@ service Node {
   rpc Version(VersionRequest) returns (VersionResponse);
   rpc LastContact(LastContactRequest) returns (LastContactResponse);
   rpc Reputation(ReputationRequest) returns (ReputationResponse);
+  rpc TrustedSatellites(TrustedSatellitesRequest) returns (TrustedSatellitesResponse);
 }
 
 message VersionRequest {
@@ -80,4 +81,17 @@ message ReputationResponse {
 
   Online online = 1;
   Audit audit = 2;
+}
+
+message TrustedSatellitesRequest {
+  RequestHeader header = 1;
+}
+
+message TrustedSatellitesResponse {
+  message NodeURL {
+    bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    string address = 2;
+  }
+
+  repeated NodeURL trusted_satellites = 1;
 }

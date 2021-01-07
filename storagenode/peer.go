@@ -796,7 +796,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			apiKeys,
 			peer.Version.Service.Info,
 			peer.Contact.PingStats,
-			peer.DB.Reputation())
+			peer.DB.Reputation(),
+			peer.Storage2.Trust)
 
 		if err = multinodepb.DRPCRegisterStorage(peer.Server.DRPC(), peer.Multinode.Storage); err != nil {
 			return nil, errs.Combine(err, peer.Close())
