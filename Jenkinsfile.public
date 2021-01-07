@@ -119,9 +119,7 @@ pipeline {
                         sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database benchcockroach;\''
 
                         sh 'psql -U postgres -c \'create database benchstorj;\''
-                        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                            sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
-                        }
+                        sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
                     }
                 }
 
@@ -163,13 +161,12 @@ pipeline {
                         STORJ_NETWORK_HOST6 = '127.0.0.3'
 
                         STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj3?sslmode=disable'
+                        STORJ_MIGRATION_DB = 'postgres://postgres@localhost/teststorj3?sslmode=disable&options=--search_path=satellite/0/meta'
                     }
 
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj3;\''
-                        catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                            sh 'make test-sim-backwards-compatible'
-                        }
+                        sh 'make test-sim-backwards-compatible'
                     }
                 }
 
@@ -179,15 +176,12 @@ pipeline {
                         STORJ_NETWORK_HOST6 = '127.0.0.5'
 
                         STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach5?sslmode=disable'
+                        STORJ_MIGRATION_DB = 'postgres://root@localhost:26257/testcockroach5/satellite/0/meta?sslmode=disable'
                     }
 
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach5;\''
-                        script{
-                            catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
-                                sh 'make test-sim-backwards-compatible'
-                            }
-                        }
+                        sh 'make test-sim-backwards-compatible'
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach5;\''
                     }
                 }

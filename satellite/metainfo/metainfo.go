@@ -1608,8 +1608,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	if segment.Redundancy.IsZero() { // TODO maybe add method Segment.Inline() bool
-		// Inline segment
+	if segment.Inline() {
 		err := endpoint.orders.UpdateGetInlineOrder(ctx, bucket, int64(len(segment.InlineData)))
 		if err != nil {
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
