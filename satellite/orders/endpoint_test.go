@@ -20,6 +20,8 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/internalpb"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/orders"
 )
 
@@ -52,7 +54,10 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 		now := time.Now()
 		projectID := testrand.UUID()
 		bucketname := "testbucket"
-		bucketID := storj.JoinPaths(projectID.String(), bucketname)
+		bucketLocation := metabase.BucketLocation{
+			ProjectID:  projectID,
+			BucketName: bucketname,
+		}
 		key := satellite.Config.Orders.EncryptionKeys.Default
 
 		// stop any async flushes because we want to be sure when some values are
@@ -84,8 +89,8 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 				serialNumber1 := testrand.SerialNumber()
 				encrypted1, err := key.EncryptMetadata(
 					serialNumber1,
-					&pb.OrderLimitMetadata{
-						ProjectBucketPrefix: []byte(bucketID),
+					&internalpb.OrderLimitMetadata{
+						CompactProjectBucketPrefix: bucketLocation.CompactPrefix(),
 					},
 				)
 				require.NoError(t, err)
@@ -93,8 +98,8 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 				serialNumber2 := testrand.SerialNumber()
 				encrypted2, err := key.EncryptMetadata(
 					serialNumber2,
-					&pb.OrderLimitMetadata{
-						ProjectBucketPrefix: []byte(bucketID),
+					&internalpb.OrderLimitMetadata{
+						CompactProjectBucketPrefix: bucketLocation.CompactPrefix(),
 					},
 				)
 				require.NoError(t, err)
@@ -210,7 +215,10 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 		now := time.Now()
 		projectID := testrand.UUID()
 		bucketname := "testbucket"
-		bucketID := storj.JoinPaths(projectID.String(), bucketname)
+		bucketLocation := metabase.BucketLocation{
+			ProjectID:  projectID,
+			BucketName: bucketname,
+		}
 		key := satellite.Config.Orders.EncryptionKeys.Default
 
 		// stop any async flushes because we want to be sure when some values are
@@ -231,8 +239,8 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 		serialNumber := testrand.SerialNumber()
 		encrypted, err := key.EncryptMetadata(
 			serialNumber,
-			&pb.OrderLimitMetadata{
-				ProjectBucketPrefix: []byte(bucketID),
+			&internalpb.OrderLimitMetadata{
+				CompactProjectBucketPrefix: bucketLocation.CompactPrefix(),
 			},
 		)
 		require.NoError(t, err)
@@ -333,7 +341,10 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 		now := time.Now()
 		projectID := testrand.UUID()
 		bucketname := "testbucket"
-		bucketID := storj.JoinPaths(projectID.String(), bucketname)
+		bucketLocation := metabase.BucketLocation{
+			ProjectID:  projectID,
+			BucketName: bucketname,
+		}
 
 		// stop any async flushes because we want to be sure when some values are
 		// written to avoid races
@@ -351,11 +362,11 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 
 		// create serial number to use in test
 		serialNumber1 := testrand.SerialNumber()
-		err = ordersDB.CreateSerialInfo(ctx, serialNumber1, []byte(bucketID), now.AddDate(1, 0, 10))
+		err = ordersDB.CreateSerialInfo(ctx, serialNumber1, []byte(bucketLocation.Prefix()), now.AddDate(1, 0, 10))
 		require.NoError(t, err)
 
 		serialNumber2 := testrand.SerialNumber()
-		err = ordersDB.CreateSerialInfo(ctx, serialNumber2, []byte(bucketID), now.AddDate(1, 0, 10))
+		err = ordersDB.CreateSerialInfo(ctx, serialNumber2, []byte(bucketLocation.Prefix()), now.AddDate(1, 0, 10))
 		require.NoError(t, err)
 
 		piecePublicKey1, piecePrivateKey1, err := storj.NewPieceKey()
@@ -366,8 +377,8 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 		key := satellite.Config.Orders.EncryptionKeys.Default
 		encrypted, err := key.EncryptMetadata(
 			serialNumber1,
-			&pb.OrderLimitMetadata{
-				ProjectBucketPrefix: []byte(bucketID),
+			&internalpb.OrderLimitMetadata{
+				CompactProjectBucketPrefix: bucketLocation.CompactPrefix(),
 			},
 		)
 		require.NoError(t, err)
@@ -468,8 +479,10 @@ func TestSettlementEndpointSingleOrder(t *testing.T) {
 		now := time.Now()
 		projectID := testrand.UUID()
 		bucketname := "testbucket"
-		bucketID := storj.JoinPaths(projectID.String(), bucketname)
-
+		bucketLocation := metabase.BucketLocation{
+			ProjectID:  projectID,
+			BucketName: bucketname,
+		}
 		// stop any async flushes because we want to be sure when some values are
 		// written to avoid races
 		satellite.Orders.Chore.Loop.Pause()
@@ -486,7 +499,7 @@ func TestSettlementEndpointSingleOrder(t *testing.T) {
 
 		// create serial number to use in test
 		serialNumber := testrand.SerialNumber()
-		err = ordersDB.CreateSerialInfo(ctx, serialNumber, []byte(bucketID), now.AddDate(1, 0, 10))
+		err = ordersDB.CreateSerialInfo(ctx, serialNumber, []byte(bucketLocation.Prefix()), now.AddDate(1, 0, 10))
 		require.NoError(t, err)
 
 		piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
@@ -494,8 +507,8 @@ func TestSettlementEndpointSingleOrder(t *testing.T) {
 		key := satellite.Config.Orders.EncryptionKeys.Default
 		encrypted, err := key.EncryptMetadata(
 			serialNumber,
-			&pb.OrderLimitMetadata{
-				ProjectBucketPrefix: []byte(bucketID),
+			&internalpb.OrderLimitMetadata{
+				CompactProjectBucketPrefix: bucketLocation.CompactPrefix(),
 			},
 		)
 		require.NoError(t, err)

@@ -41,7 +41,7 @@ func TestSigner_EncryptedMetadata(t *testing.T) {
 
 		project, err := uplink.GetProject(ctx, satellite)
 		require.NoError(t, err)
-		bucketName := "testbucket"
+		bucketName := "123456789012345678901234567890123456789012345678901234567890123"
 		bucketLocation := metabase.BucketLocation{
 			ProjectID:  uplink.Projects[0].ID,
 			BucketName: bucketName,
@@ -70,7 +70,7 @@ func TestSigner_EncryptedMetadata(t *testing.T) {
 		metadata, err := ekeys.Default.DecryptMetadata(addressedLimit.Limit.SerialNumber, addressedLimit.Limit.EncryptedMetadata)
 		require.NoError(t, err)
 
-		bucketInfo, err := metabase.ParseBucketPrefix(metabase.BucketPrefix(metadata.ProjectBucketPrefix))
+		bucketInfo, err := metabase.ParseCompactBucketPrefix(metadata.CompactProjectBucketPrefix)
 		require.NoError(t, err)
 		require.Equal(t, bucketInfo.BucketName, bucketName)
 		require.Equal(t, bucketInfo.ProjectID, uplink.Projects[0].ID)
@@ -96,11 +96,13 @@ func TestSigner_EncryptedMetadata_UploadDownload(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite, uplink := planet.Satellites[0], planet.Uplinks[0]
 
+		const bucket = "123456789012345678901234567890123456789012345678901234567890123"
+
 		testdata := testrand.Bytes(8 * memory.KiB)
-		err := uplink.Upload(ctx, satellite, "testbucket", "data", testdata)
+		err := uplink.Upload(ctx, satellite, bucket, "data", testdata)
 		require.NoError(t, err)
 
-		downdata, err := uplink.Download(ctx, satellite, "testbucket", "data")
+		downdata, err := uplink.Download(ctx, satellite, bucket, "data")
 		require.NoError(t, err)
 
 		require.Equal(t, testdata, downdata)
