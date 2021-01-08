@@ -14,7 +14,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/identity"
-	"storj.io/common/pb"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
@@ -162,10 +161,6 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			peer.Orders.DB,
 			bucketsDB,
 			config.Orders,
-			&pb.NodeAddress{
-				Transport: pb.NodeTransport_TCP_TLS_GRPC,
-				Address:   config.Contact.ExternalAddress,
-			},
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
