@@ -190,6 +190,16 @@ pipeline {
                     }
                 }
 
+                stage('wasm npm') {
+                    steps {
+                        dir(".build") {
+                            sh 'cp -r ../satellite/console/wasm/tests/ .'
+                            sh 'cd tests && cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" .'
+                            sh 'cd tests && npm install && npm run test'
+                        }
+                    }
+                }
+
                 stage('storagenode npm') {
                     steps {
                         dir("web/storagenode") {
