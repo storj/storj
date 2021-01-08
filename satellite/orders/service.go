@@ -61,8 +61,7 @@ type Service struct {
 
 	encryptionKeys EncryptionKeys
 
-	satelliteAddress *pb.NodeAddress
-	orderExpiration  time.Duration
+	orderExpiration time.Duration
 
 	rngMu sync.Mutex
 	rng   *mathrand.Rand
@@ -73,7 +72,6 @@ func NewService(
 	log *zap.Logger, satellite signing.Signer, overlay *overlay.Service,
 	orders DB, buckets BucketsDB,
 	config Config,
-	satelliteAddress *pb.NodeAddress,
 ) (*Service, error) {
 	if config.EncryptionKeys.Default.IsZero() {
 		return nil, Error.New("encryption keys must be specified to include encrypted metadata")
@@ -88,8 +86,7 @@ func NewService(
 
 		encryptionKeys: config.EncryptionKeys,
 
-		satelliteAddress: satelliteAddress,
-		orderExpiration:  config.Expiration,
+		orderExpiration: config.Expiration,
 
 		rng: mathrand.New(mathrand.NewSource(time.Now().UnixNano())),
 	}, nil
