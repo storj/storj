@@ -14,6 +14,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metainfo/metabase"
 )
 
@@ -148,8 +149,8 @@ func (signer *Signer) Sign(ctx context.Context, node storj.NodeURL, pieceNum int
 
 		encrypted, err := encryptionKey.EncryptMetadata(
 			signer.Serial,
-			&pb.OrderLimitMetadata{
-				ProjectBucketPrefix: []byte(signer.Bucket.Prefix()),
+			&internalpb.OrderLimitMetadata{
+				CompactProjectBucketPrefix: signer.Bucket.CompactPrefix(),
 			},
 		)
 		if err != nil {
