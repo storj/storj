@@ -23,6 +23,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/uplink/private/ecclient"
 	"storj.io/uplink/private/eestream"
 )
@@ -132,8 +133,8 @@ func newAddressedOrderLimit(ctx context.Context, action pb.PieceAction, satellit
 	key := satellite.Config.Orders.EncryptionKeys.Default
 	encrypted, err := key.EncryptMetadata(
 		serialNumber,
-		&pb.OrderLimitMetadata{
-			ProjectBucketPrefix: []byte("testprojectid/testbucketname"),
+		&internalpb.OrderLimitMetadata{
+			CompactProjectBucketPrefix: []byte("0000111122223333testbucketname"),
 		},
 	)
 	if err != nil {
