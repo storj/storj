@@ -17,6 +17,7 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/uplink/private/eestream"
@@ -566,7 +567,7 @@ func (service *Service) UpdatePutInlineOrder(ctx context.Context, bucket metabas
 }
 
 // DecryptOrderMetadata decrypts the order metadata.
-func (service *Service) DecryptOrderMetadata(ctx context.Context, order *pb.OrderLimit) (_ *pb.OrderLimitMetadata, err error) {
+func (service *Service) DecryptOrderMetadata(ctx context.Context, order *pb.OrderLimit) (_ *internalpb.OrderLimitMetadata, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var orderKeyID EncryptionKeyID

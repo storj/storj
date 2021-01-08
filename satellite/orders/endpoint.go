@@ -649,14 +649,29 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 			mon.Event("bucketinfo_from_orders_metadata_error_1")
 			continue
 		}
-		bucketInfo, err := metabase.ParseBucketPrefix(
-			metabase.BucketPrefix(metadata.GetProjectBucketPrefix()),
-		)
-		if err != nil {
-			log.Debug("decrypt order: ParseBucketPrefix", zap.Error(err))
-			mon.Event("bucketinfo_from_orders_metadata_error_2")
+
+		var bucketInfo metabase.BucketLocation
+		switch {
+		case len(metadata.CompactProjectBucketPrefix) > 0:
+			bucketInfo, err = metabase.ParseCompactBucketPrefix(metadata.GetCompactProjectBucketPrefix())
+			if err != nil {
+				log.Debug("decrypt order: ParseCompactBucketPrefix", zap.Error(err))
+				mon.Event("bucketinfo_from_orders_metadata_error_compact")
+				continue
+			}
+		case len(metadata.ProjectBucketPrefix) > 0:
+			bucketInfo, err = metabase.ParseBucketPrefix(metabase.BucketPrefix(metadata.GetProjectBucketPrefix()))
+			if err != nil {
+				log.Debug("decrypt order: ParseBucketPrefix", zap.Error(err))
+				mon.Event("bucketinfo_from_orders_metadata_error_uncompact")
+				continue
+			}
+		default:
+			log.Debug("decrypt order: project bucket prefix missing", zap.Error(err))
+			mon.Event("bucketinfo_from_orders_metadata_error_default")
 			continue
 		}
+
 		if bucketInfo.BucketName == "" || bucketInfo.ProjectID.IsZero() {
 			log.Info("decrypt order: bucketName or projectID not set",
 				zap.String("bucketName", bucketInfo.BucketName),
