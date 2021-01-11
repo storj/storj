@@ -1780,3 +1780,47 @@ func TestMultipartObjectDownloadRejection(t *testing.T) {
 		require.EqualError(t, err, "metainfo error: Used uplink version cannot download multipart objects.")
 	})
 }
+
+func TestObjectOverrideOnUpload(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		initialData := testrand.Bytes(20 * memory.KB)
+		overrideData := testrand.Bytes(25 * memory.KB)
+
+		{ // committed object
+
+			// upload committed object
+			err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "pip-first", "committed-object", initialData)
+			require.NoError(t, err)
+
+			// upload once again to override
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "pip-first", "committed-object", overrideData)
+			require.NoError(t, err)
+
+			data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "pip-first", "committed-object")
+			require.NoError(t, err)
+			require.Equal(t, overrideData, data)
+		}
+
+		{ // pending object
+			project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+			require.NoError(t, err)
+
+			// upload pending object
+			info, err := project.NewMultipartUpload(ctx, "pip-first", "pending-object", nil)
+			require.NoError(t, err)
+			_, err = project.PutObjectPart(ctx, "pip-first", "pending-object", info.StreamID, 1, bytes.NewReader(initialData))
+			require.NoError(t, err)
+
+			// upload once again to override
+			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "pip-first", "pending-object", overrideData)
+			require.NoError(t, err)
+
+			data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "pip-first", "pending-object")
+			require.NoError(t, err)
+			require.Equal(t, overrideData, data)
+		}
+	})
+}

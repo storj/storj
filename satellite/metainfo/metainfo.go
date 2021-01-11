@@ -630,8 +630,12 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	canDelete := err == nil
 
 	if canDelete {
-		_, err = endpoint.DeleteCommittedObject(ctx, keyInfo.ProjectID, string(req.Bucket), metabase.ObjectKey(req.EncryptedPath))
-		if err != nil {
+		_, err = endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(req.Bucket),
+			ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+		})
+		if err != nil && !storj.ErrObjectNotFound.Has(err) {
 			return nil, err
 		}
 	} else {
@@ -1799,6 +1803,36 @@ func (endpoint *Endpoint) DeleteCommittedObject(
 			zap.Stringer("project", projectID),
 			zap.String("bucket", bucket),
 			zap.Binary("object", []byte(object)),
+			zap.Error(err),
+		)
+		return deletedObjects, err
+	}
+
+	return deletedObjects, nil
+}
+
+// DeleteObjectAnyStatus deletes all the pieces of the storage nodes that belongs
+// to the specified object.
+//
+// NOTE: this method is exported for being able to individually test it without
+// having import cycles.
+func (endpoint *Endpoint) DeleteObjectAnyStatus(ctx context.Context, location metabase.ObjectLocation,
+) (deletedObjects []*pb.Object, err error) {
+	defer mon.Task()(&ctx, location.ProjectID.String(), location.BucketName, location.ObjectKey)(&err)
+
+	result, err := endpoint.metainfo.metabaseDB.DeleteObjectAnyStatusAllVersions(ctx, metabase.DeleteObjectAnyStatusAllVersions{
+		ObjectLocation: location,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	deletedObjects, err = endpoint.deleteObjectsPieces(ctx, result)
+	if err != nil {
+		endpoint.log.Error("failed to delete pointers",
+			zap.Stringer("project", location.ProjectID),
+			zap.String("bucket", location.BucketName),
+			zap.Binary("object", []byte(location.ObjectKey)),
 			zap.Error(err),
 		)
 		return deletedObjects, err

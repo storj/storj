@@ -169,6 +169,8 @@ type MetabaseDB interface {
 	io.Closer
 	// MigrateToLatest migrates to latest schema version.
 	MigrateToLatest(ctx context.Context) error
+	// DeleteObjectAnyStatusAllVersions deletes all object versions.
+	DeleteObjectAnyStatusAllVersions(ctx context.Context, opts metabase.DeleteObjectAnyStatusAllVersions) (result metabase.DeleteObjectResult, err error)
 	// DeleteObjectsAllVersions deletes all versions of multiple objects from the same bucket.
 	DeleteObjectsAllVersions(ctx context.Context, opts metabase.DeleteObjectsAllVersions) (result metabase.DeleteObjectResult, err error)
 	// DeletePendingObject deletes a pending object.

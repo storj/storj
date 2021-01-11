@@ -48,8 +48,8 @@ type DeletedSegmentInfo struct {
 	Pieces      Pieces
 }
 
-// DeleteObjectAllVersions contains arguments necessary for deleting all object versions.
-type DeleteObjectAllVersions struct {
+// DeleteObjectAnyStatusAllVersions contains arguments necessary for deleting all object versions.
+type DeleteObjectAnyStatusAllVersions struct {
 	ObjectLocation
 }
 
@@ -311,8 +311,8 @@ func (db *DB) DeleteObjectLatestVersion(ctx context.Context, opts DeleteObjectLa
 	return result, nil
 }
 
-// DeleteObjectAllVersions deletes all object versions.
-func (db *DB) DeleteObjectAllVersions(ctx context.Context, opts DeleteObjectAllVersions) (result DeleteObjectResult, err error) {
+// DeleteObjectAnyStatusAllVersions deletes all object versions.
+func (db *DB) DeleteObjectAnyStatusAllVersions(ctx context.Context, opts DeleteObjectAnyStatusAllVersions) (result DeleteObjectResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Verify(); err != nil {
@@ -324,8 +324,7 @@ func (db *DB) DeleteObjectAllVersions(ctx context.Context, opts DeleteObjectAllV
 			WHERE
 				project_id   = $1 AND
 				bucket_name  = $2 AND
-				object_key   = $3 AND
-				status       = `+committedStatus+`
+				object_key   = $3
 			RETURNING
 				version, stream_id,
 				created_at, expires_at,

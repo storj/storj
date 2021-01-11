@@ -296,15 +296,15 @@ func (step DeleteObjectLatestVersion) Check(ctx *testcontext.Context, t *testing
 	require.Zero(t, diff)
 }
 
-type DeleteObjectAllVersions struct {
-	Opts     metabase.DeleteObjectAllVersions
+type DeleteObjectAnyStatusAllVersions struct {
+	Opts     metabase.DeleteObjectAnyStatusAllVersions
 	Result   metabase.DeleteObjectResult
 	ErrClass *errs.Class
 	ErrText  string
 }
 
-func (step DeleteObjectAllVersions) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-	result, err := db.DeleteObjectAllVersions(ctx, step.Opts)
+func (step DeleteObjectAnyStatusAllVersions) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	result, err := db.DeleteObjectAnyStatusAllVersions(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
 	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))

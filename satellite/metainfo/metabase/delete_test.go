@@ -776,7 +776,7 @@ func TestDeleteObjectLatestVersion(t *testing.T) {
 	})
 }
 
-func TestDeleteObjectAllVersions(t *testing.T) {
+func TestDeleteObjectAnyStatusAllVersions(t *testing.T) {
 	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := randObjectStream()
 
@@ -788,8 +788,8 @@ func TestDeleteObjectAllVersions(t *testing.T) {
 			test := test
 			t.Run(test.Name, func(t *testing.T) {
 				defer DeleteAll{}.Check(ctx, t, db)
-				DeleteObjectAllVersions{
-					Opts:     metabase.DeleteObjectAllVersions{ObjectLocation: test.ObjectLocation},
+				DeleteObjectAnyStatusAllVersions{
+					Opts:     metabase.DeleteObjectAnyStatusAllVersions{ObjectLocation: test.ObjectLocation},
 					ErrClass: test.ErrClass,
 					ErrText:  test.ErrText,
 				}.Check(ctx, t, db)
@@ -800,8 +800,8 @@ func TestDeleteObjectAllVersions(t *testing.T) {
 		t.Run("Object missing", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
-			DeleteObjectAllVersions{
-				Opts:     metabase.DeleteObjectAllVersions{ObjectLocation: obj.Location()},
+			DeleteObjectAnyStatusAllVersions{
+				Opts:     metabase.DeleteObjectAnyStatusAllVersions{ObjectLocation: obj.Location()},
 				ErrClass: &storj.ErrObjectNotFound,
 				ErrText:  "metabase: no rows deleted",
 			}.Check(ctx, t, db)
@@ -811,8 +811,8 @@ func TestDeleteObjectAllVersions(t *testing.T) {
 		t.Run("Delete non existing object version", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
-			DeleteObjectAllVersions{
-				Opts:     metabase.DeleteObjectAllVersions{ObjectLocation: obj.Location()},
+			DeleteObjectAnyStatusAllVersions{
+				Opts:     metabase.DeleteObjectAnyStatusAllVersions{ObjectLocation: obj.Location()},
 				ErrClass: &storj.ErrObjectNotFound,
 				ErrText:  "metabase: no rows deleted",
 			}.Check(ctx, t, db)
@@ -830,23 +830,20 @@ func TestDeleteObjectAllVersions(t *testing.T) {
 				Version: 1,
 			}.Check(ctx, t, db)
 
-			DeleteObjectAllVersions{
-				Opts:     metabase.DeleteObjectAllVersions{ObjectLocation: obj.Location()},
-				ErrClass: &storj.ErrObjectNotFound,
-				ErrText:  "metabase: no rows deleted",
-			}.Check(ctx, t, db)
-
-			Verify{
-				Objects: []metabase.RawObject{
-					{
+			DeleteObjectAnyStatusAllVersions{
+				Opts: metabase.DeleteObjectAnyStatusAllVersions{ObjectLocation: obj.Location()},
+				Result: metabase.DeleteObjectResult{
+					Objects: []metabase.Object{{
 						ObjectStream: obj,
 						CreatedAt:    now,
 						Status:       metabase.Pending,
 
 						Encryption: defaultTestEncryption,
-					},
+					}},
 				},
 			}.Check(ctx, t, db)
+
+			Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("Delete object without segments", func(t *testing.T) {
@@ -865,8 +862,8 @@ func TestDeleteObjectAllVersions(t *testing.T) {
 				},
 			}.Run(ctx, t, db, obj, 0)
 
-			DeleteObjectAllVersions{
-				Opts: metabase.DeleteObjectAllVersions{ObjectLocation: obj.Location()},
+			DeleteObjectAnyStatusAllVersions{
+				Opts: metabase.DeleteObjectAnyStatusAllVersions{ObjectLocation: obj.Location()},
 				Result: metabase.DeleteObjectResult{
 					Objects: []metabase.Object{object},
 				},
@@ -885,8 +882,8 @@ func TestDeleteObjectAllVersions(t *testing.T) {
 				Pieces:      metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
 			}
 
-			DeleteObjectAllVersions{
-				Opts: metabase.DeleteObjectAllVersions{
+			DeleteObjectAnyStatusAllVersions{
+				Opts: metabase.DeleteObjectAnyStatusAllVersions{
 					ObjectLocation: location,
 				},
 				Result: metabase.DeleteObjectResult{
@@ -930,8 +927,8 @@ func TestDeleteObjectAllVersions(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			DeleteObjectAllVersions{
-				Opts: metabase.DeleteObjectAllVersions{ObjectLocation: obj.Location()},
+			DeleteObjectAnyStatusAllVersions{
+				Opts: metabase.DeleteObjectAnyStatusAllVersions{ObjectLocation: obj.Location()},
 				Result: metabase.DeleteObjectResult{
 					Objects: []metabase.Object{object},
 				},
@@ -956,8 +953,8 @@ func TestDeleteObjectAllVersions(t *testing.T) {
 				})
 			}
 
-			DeleteObjectAllVersions{
-				Opts:   metabase.DeleteObjectAllVersions{ObjectLocation: obj.Location()},
+			DeleteObjectAnyStatusAllVersions{
+				Opts:   metabase.DeleteObjectAnyStatusAllVersions{ObjectLocation: obj.Location()},
 				Result: expected,
 			}.Check(ctx, t, db)
 

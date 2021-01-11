@@ -16,6 +16,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/uplink"
 )
 
@@ -72,6 +73,69 @@ func TestEndpoint_DeletePendingObject(t *testing.T) {
 		require.Len(t, items, 0)
 	}
 	testDeleteObject(t, createObject, deleteObject)
+}
+
+func TestEndpoint_DeleteObjectAnyStatus(t *testing.T) {
+	bucketName := "a-bucket"
+	createCommittedObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, data []byte) {
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucketName, "object-filename", data)
+		require.NoError(t, err)
+	}
+	deleteCommittedObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
+		projectID := planet.Uplinks[0].Projects[0].ID
+		items, err := planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, projectID, bucketName)
+		require.NoError(t, err)
+		require.Len(t, items, 1)
+
+		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint2.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
+			ProjectID:  projectID,
+			BucketName: bucketName,
+			ObjectKey:  items[0].ObjectKey,
+		})
+		require.NoError(t, err)
+		require.Len(t, deletedObjects, 1)
+
+		items, err = planet.Satellites[0].Metainfo.Metabase.TestingAllPendingObjects(ctx, projectID, bucketName)
+		require.NoError(t, err)
+		require.Len(t, items, 0)
+	}
+	testDeleteObject(t, createCommittedObject, deleteCommittedObject)
+
+	createPendingObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, data []byte) {
+		// TODO This should be replaced by a call to testplanet.Uplink.MultipartUpload when available.
+		project, err := planet.Uplinks[0].GetProject(ctx, planet.Satellites[0])
+		require.NoError(t, err, "failed to retrieve project")
+
+		_, err = project.CreateBucket(ctx, bucketName)
+		require.NoError(t, err, "failed to create bucket")
+
+		info, err := project.NewMultipartUpload(ctx, bucketName, "object-filename", &uplink.MultipartUploadOptions{})
+		require.NoError(t, err, "failed to start multipart upload")
+
+		_, err = project.PutObjectPart(ctx, bucketName, bucketName, info.StreamID, 1, bytes.NewReader(data))
+		require.NoError(t, err, "failed to put object part")
+	}
+
+	deletePendingObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
+		projectID := planet.Uplinks[0].Projects[0].ID
+		items, err := planet.Satellites[0].Metainfo.Metabase.TestingAllPendingObjects(ctx, projectID, bucketName)
+		require.NoError(t, err)
+		require.Len(t, items, 1)
+
+		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint2.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
+			ProjectID:  projectID,
+			BucketName: bucketName,
+			ObjectKey:  items[0].ObjectKey,
+		})
+		require.NoError(t, err)
+		require.Len(t, deletedObjects, 1)
+
+		items, err = planet.Satellites[0].Metainfo.Metabase.TestingAllPendingObjects(ctx, projectID, bucketName)
+		require.NoError(t, err)
+		require.Len(t, items, 0)
+	}
+
+	testDeleteObject(t, createPendingObject, deletePendingObject)
 }
 
 func testDeleteObject(t *testing.T, createObject func(ctx context.Context, t *testing.T, planet *testplanet.Planet,
