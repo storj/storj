@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	mainpkg = flag.String("pkg", "storj.io/storj/multinodepb", "main package name")
+	mainpkg = flag.String("pkg", "storj.io/storj/private/multinodepb", "main package name")
 	protoc  = flag.String("protoc", "protoc", "protoc compiler")
 )
 
@@ -63,7 +63,7 @@ func main() {
 
 		protofiles = ignore(protofiles)
 
-		overrideImports := ",Mgoogle/protobuf/timestamp.proto=storj.io/storj/multinodepb"
+		overrideImports := ",Mgoogle/protobuf/timestamp.proto=" + *mainpkg
 		args := []string{
 			"--lint_out=.",
 			"--drpc_out=plugins=drpc,paths=source_relative" + overrideImports + ":.",
@@ -75,7 +75,9 @@ func main() {
 		cmd := exec.Command(*protoc, args...)
 		fmt.Println(strings.Join(cmd.Args, " "))
 		out, err := cmd.CombinedOutput()
-		fmt.Println(string(out))
+		if len(out) > 0 {
+			fmt.Println(string(out))
+		}
 		check(err)
 	}
 
@@ -90,7 +92,9 @@ func main() {
 	{
 		// format code to get rid of extra imports
 		out, err := exec.Command("goimports", "-local", "storj.io", "-w", ".").CombinedOutput()
-		fmt.Println(string(out))
+		if len(out) > 0 {
+			fmt.Println(string(out))
+		}
 		check(err)
 	}
 }

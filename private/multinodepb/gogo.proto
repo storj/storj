@@ -78,8 +78,8 @@ extend google.protobuf.FileOptions {
 	optional bool gogoproto_import = 63027;
 	optional bool protosizer_all = 63028;
 	optional bool compare_all = 63029;
-    optional bool typedecl_all = 63030;
-    optional bool enumdecl_all = 63031;
+	optional bool typedecl_all = 63030;
+	optional bool enumdecl_all = 63031;
 
 	optional bool goproto_registration = 63032;
 	optional bool messagename_all = 63033;
@@ -139,5 +139,4 @@ extend google.protobuf.FieldOptions {
 	optional bool stdduration = 65011;
 	optional bool wktpointer = 65012;
 	optional bool compare = 65013;
-
 }

@@ -2,14 +2,68 @@
 // See LICENSE for copying information.
 
 <template>
-  <div>
+  <div class="dashboard-area">
+      <div class="dashboard-area__navigation-area">
+          <navigation-area />
+      </div>
+      <div class="dashboard-area__right-area">
+          <div class="dashboard-area__right-area__header">
+              <add-new-node />
+          </div>
+          <div class="dashboard-area__right-area__content">
+              <router-view />
+          </div>
+      </div>
   </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-@Component
+import AddNewNode from '@/app/components/modals/AddNewNode.vue';
+import NavigationArea from '@/app/components/navigation/NavigationArea.vue';
+
+@Component({
+    components: {
+        AddNewNode,
+        NavigationArea,
+    },
+})
 export default class Dashboard extends Vue {}
 </script>
 
+<style lang="scss" scoped>
+    .dashboard-area {
+        display: flex;
+
+        &__navigation-area {
+            width: 280px;
+        }
+
+        &__right-area {
+            position: relative;
+            flex: 1;
+
+            &__header {
+                width: 100%;
+                height: 80px;
+                padding: 0 60px;
+                box-sizing: border-box;
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+                border: 1px solid var(--c-gray--light);
+                background: var(--c-block-gray);
+            }
+
+            &__content {
+                position: absolute;
+                box-sizing: border-box;
+                height: calc(100vh - 80px);
+                top: 80px;
+                left: 0;
+                width: 100%;
+            }
+        }
+    }
+</style>

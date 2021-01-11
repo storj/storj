@@ -73,6 +73,11 @@ build-storagenode-npm:
 
 ##@ Simulator
 
+# Allow the caller to set GATEWAYPATH if desired. This controls where the new
+# go module is created to install the specific gateway version.
+ifndef GATEWAYPATH
+GATEWAYPATH=.build/gateway-tmp
+endif
 .PHONY: install-sim
 install-sim: ## install storj-sim
 	@echo "Running ${@}"
@@ -86,9 +91,9 @@ install-sim: ## install storj-sim
 		storj.io/storj/cmd/certificates
 
 	## install exact version of storj/gateway
-	mkdir -p .build/gateway-tmp
-	-cd .build/gateway-tmp && go mod init gatewaybuild
-	cd .build/gateway-tmp && GO111MODULE=on go get storj.io/gateway@multipart-upload
+	mkdir -p ${GATEWAYPATH}
+	-cd ${GATEWAYPATH} && go mod init gatewaybuild
+	cd ${GATEWAYPATH} && GO111MODULE=on go get storj.io/gateway@multipart-upload
 
 ##@ Test
 

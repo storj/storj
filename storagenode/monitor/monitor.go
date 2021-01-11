@@ -27,6 +27,16 @@ var (
 	Error = errs.Class("piecestore monitor")
 )
 
+// DiskSpace consolidates monitored disk space statistics.
+type DiskSpace struct {
+	Allocated     int64
+	UsedForPieces int64
+	UsedForTrash  int64
+	Free          int64
+	Available     int64
+	Overused      int64
+}
+
 // Config defines parameters for storage node disk and bandwidth usage monitoring.
 type Config struct {
 	Interval                  time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
@@ -81,9 +91,9 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	}
 	freeDiskSpace := storageStatus.DiskFree
 
-	totalUsed, err := service.usedSpace(ctx)
+	totalUsed, err := service.store.SpaceUsedForPiecesAndTrash(ctx)
 	if err != nil {
-		return err
+		return Error.Wrap(err)
 	}
 
 	// check your hard drive is big enough
@@ -184,21 +194,13 @@ func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
 	return nil
 }
 
-func (service *Service) usedSpace(ctx context.Context) (_ int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	usedSpace, err := service.store.SpaceUsedForPiecesAndTrash(ctx)
-	if err != nil {
-		return 0, err
-	}
-	return usedSpace, nil
-}
-
 // AvailableSpace returns available disk space for upload.
 func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	usedSpace, err := service.usedSpace(ctx)
+
+	usedSpace, err := service.store.SpaceUsedForPiecesAndTrash(ctx)
 	if err != nil {
-		return 0, Error.Wrap(err)
+		return 0, err
 	}
 
 	freeSpaceForStorj := service.allocatedDiskSpace - usedSpace
@@ -216,4 +218,42 @@ func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error)
 	mon.IntVal("available_space").Observe(freeSpaceForStorj)
 
 	return freeSpaceForStorj, nil
+}
+
+// DiskSpace returns consolidated disk space state info.
+func (service *Service) DiskSpace(ctx context.Context) (_ DiskSpace, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	usedForPieces, _, err := service.store.SpaceUsedForPieces(ctx)
+	if err != nil {
+		return DiskSpace{}, Error.Wrap(err)
+	}
+	usedForTrash, err := service.store.SpaceUsedForTrash(ctx)
+	if err != nil {
+		return DiskSpace{}, Error.Wrap(err)
+	}
+
+	storageStatus, err := service.store.StorageStatus(ctx)
+	if err != nil {
+		return DiskSpace{}, Error.Wrap(err)
+	}
+
+	overused := int64(0)
+
+	available := service.allocatedDiskSpace - (usedForPieces + usedForTrash)
+	if available < 0 {
+		overused = -available
+	}
+	if storageStatus.DiskFree < available {
+		available = storageStatus.DiskFree
+	}
+
+	return DiskSpace{
+		Allocated:     service.allocatedDiskSpace,
+		UsedForPieces: usedForPieces,
+		UsedForTrash:  usedForTrash,
+		Free:          storageStatus.DiskFree,
+		Available:     available,
+		Overused:      overused,
+	}, nil
 }

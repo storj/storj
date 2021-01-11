@@ -335,6 +335,22 @@ func (client *Uplink) DeleteBucket(ctx context.Context, satellite *Satellite, bu
 	return nil
 }
 
+// ListBuckets returns a list of all buckets in a project.
+func (client *Uplink) ListBuckets(ctx context.Context, satellite *Satellite) ([]*uplink.Bucket, error) {
+	var buckets = []*uplink.Bucket{}
+	project, err := client.GetProject(ctx, satellite)
+	if err != nil {
+		return buckets, err
+	}
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	iter := project.ListBuckets(ctx, &uplink.ListBucketsOptions{})
+	for iter.Next() {
+		buckets = append(buckets, iter.Item())
+	}
+	return buckets, iter.Err()
+}
+
 // GetProject returns a uplink.Project which allows interactions with a specific project.
 func (client *Uplink) GetProject(ctx context.Context, satellite *Satellite) (*uplink.Project, error) {
 	access := client.Access[satellite.ID()]

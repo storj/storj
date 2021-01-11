@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/internalpb"
 )
 
 // ErrEncryptionKey is error class used for keys.
@@ -82,7 +83,7 @@ func (key *EncryptionKey) Decrypt(ciphertext []byte, nonce storj.SerialNumber) (
 }
 
 // EncryptMetadata encrypts order limit metadata.
-func (key *EncryptionKey) EncryptMetadata(serial storj.SerialNumber, metadata *pb.OrderLimitMetadata) ([]byte, error) {
+func (key *EncryptionKey) EncryptMetadata(serial storj.SerialNumber, metadata *internalpb.OrderLimitMetadata) ([]byte, error) {
 	marshaled, err := pb.Marshal(metadata)
 	if err != nil {
 		return nil, ErrEncryptionKey.Wrap(err)
@@ -91,13 +92,13 @@ func (key *EncryptionKey) EncryptMetadata(serial storj.SerialNumber, metadata *p
 }
 
 // DecryptMetadata decrypts order limit metadata.
-func (key *EncryptionKey) DecryptMetadata(serial storj.SerialNumber, encrypted []byte) (*pb.OrderLimitMetadata, error) {
+func (key *EncryptionKey) DecryptMetadata(serial storj.SerialNumber, encrypted []byte) (*internalpb.OrderLimitMetadata, error) {
 	decrypted, err := key.Decrypt(encrypted, serial)
 	if err != nil {
 		return nil, ErrEncryptionKey.Wrap(err)
 	}
 
-	metadata := &pb.OrderLimitMetadata{}
+	metadata := &internalpb.OrderLimitMetadata{}
 	err = pb.Unmarshal(decrypted, metadata)
 	if err != nil {
 		return nil, ErrEncryptionKey.Wrap(err)

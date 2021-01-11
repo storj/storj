@@ -10,25 +10,26 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/private/multinodeauth"
 	"storj.io/storj/storagenode/apikeys"
 )
 
-// ensures that secretDB implements apikeys.DB interface.
-var _ apikeys.DB = (*secretDB)(nil)
+// ensures that apiKeysDB implements apikeys.DB interface.
+var _ apikeys.DB = (*apiKeysDB)(nil)
 
-// ErrSecret represents errors from the apikey database.
-var ErrSecret = errs.Class("apikey db error")
+// ErrAPIKeysDB represents errors from the api keys database.
+var ErrAPIKeysDB = errs.Class("apikeys db error")
 
-// SecretDBName represents the database name.
-const SecretDBName = "secret"
+// APIKeysDBName represents the database name.
+const APIKeysDBName = "secret"
 
-// secretDB works with node apikey DB.
-type secretDB struct {
+// apiKeysDB works with node api keys DB.
+type apiKeysDB struct {
 	dbContainerImpl
 }
 
-// Store stores apikey into database.
-func (db *secretDB) Store(ctx context.Context, secret apikeys.APIKey) (err error) {
+// Store stores api key into database.
+func (db *apiKeysDB) Store(ctx context.Context, apiKey apikeys.APIKey) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `INSERT INTO secret (
@@ -37,15 +38,15 @@ func (db *secretDB) Store(ctx context.Context, secret apikeys.APIKey) (err error
 		) VALUES(?,?)`
 
 	_, err = db.ExecContext(ctx, query,
-		secret.Secret[:],
-		secret.CreatedAt,
+		apiKey.Secret[:],
+		apiKey.CreatedAt,
 	)
 
-	return ErrSecret.Wrap(err)
+	return ErrAPIKeysDB.Wrap(err)
 }
 
-// Check checks if apikey exists in db by token.
-func (db *secretDB) Check(ctx context.Context, token apikeys.Secret) (err error) {
+// Check checks if api key exists in db by secret.
+func (db *apiKeysDB) Check(ctx context.Context, secret multinodeauth.Secret) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var bytes []uint8
@@ -53,7 +54,7 @@ func (db *secretDB) Check(ctx context.Context, token apikeys.Secret) (err error)
 
 	rowStub := db.QueryRowContext(ctx,
 		`SELECT token, created_at FROM secret WHERE token = ?`,
-		token[:],
+		secret[:],
 	)
 
 	err = rowStub.Scan(
@@ -62,21 +63,21 @@ func (db *secretDB) Check(ctx context.Context, token apikeys.Secret) (err error)
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return apikeys.ErrNoSecret.Wrap(err)
+			return apikeys.ErrNoAPIKey.Wrap(err)
 		}
-		return ErrSecret.Wrap(err)
+		return ErrAPIKeysDB.Wrap(err)
 	}
 
 	return nil
 }
 
-// Revoke removes apikey from db.
-func (db *secretDB) Revoke(ctx context.Context, secret apikeys.Secret) (err error) {
+// Revoke removes api key from db.
+func (db *apiKeysDB) Revoke(ctx context.Context, secret multinodeauth.Secret) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `DELETE FROM secret WHERE token = ?`
 
 	_, err = db.ExecContext(ctx, query, secret[:])
 
-	return ErrSecret.Wrap(err)
+	return ErrAPIKeysDB.Wrap(err)
 }

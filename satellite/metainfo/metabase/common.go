@@ -68,9 +68,29 @@ func (loc BucketLocation) Verify() error {
 	return nil
 }
 
+// ParseCompactBucketPrefix parses BucketPrefix.
+func ParseCompactBucketPrefix(compactPrefix []byte) (BucketLocation, error) {
+	if len(compactPrefix) < 16 {
+		return BucketLocation{}, Error.New("invalid prefix %q", compactPrefix)
+	}
+
+	var loc BucketLocation
+	copy(loc.ProjectID[:], compactPrefix)
+	loc.BucketName = string(compactPrefix[16:])
+	return loc, nil
+}
+
 // Prefix converts bucket location into bucket prefix.
 func (loc BucketLocation) Prefix() BucketPrefix {
 	return BucketPrefix(loc.ProjectID.String() + "/" + loc.BucketName)
+}
+
+// CompactPrefix converts bucket location into bucket prefix with compact project ID.
+func (loc BucketLocation) CompactPrefix() []byte {
+	xs := make([]byte, 0, 16+len(loc.BucketName))
+	xs = append(xs, loc.ProjectID[:]...)
+	xs = append(xs, []byte(loc.BucketName)...)
+	return xs
 }
 
 // ObjectKey is an encrypted object key encoded using Path Component Encoding.

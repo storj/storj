@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/storj/multinode/nodes"
+	"storj.io/storj/private/multinodeauth"
 )
 
 var (
@@ -59,13 +60,13 @@ func (controller *Nodes) Add(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	apiSecret, err := nodes.APISecretFromBase64(payload.APISecret)
+	apiSecret, err := multinodeauth.SecretFromBase64(payload.APISecret)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrNodes.Wrap(err))
 		return
 	}
 
-	if err = controller.service.Add(ctx, id, apiSecret, payload.PublicAddress); err != nil {
+	if err = controller.service.Add(ctx, id, apiSecret[:], payload.PublicAddress); err != nil {
 		// TODO: add more error checks in future, like bad payload if address is invalid or unauthorized if secret invalid.
 		controller.log.Error("add node internal error", zap.Error(err))
 		controller.serveError(w, http.StatusInternalServerError, ErrNodes.Wrap(err))
@@ -150,14 +151,14 @@ func (controller *Nodes) List(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("Content-Type", "application/json")
 
-	nodes, err := controller.service.List(ctx)
+	list, err := controller.service.List(ctx)
 	if err != nil {
 		controller.log.Error("list nodes internal error", zap.Error(err))
 		controller.serveError(w, http.StatusInternalServerError, ErrNodes.Wrap(err))
 		return
 	}
 
-	if err = json.NewEncoder(w).Encode(nodes); err != nil {
+	if err = json.NewEncoder(w).Encode(list); err != nil {
 		controller.log.Error("failed to write json response", zap.Error(err))
 		return
 	}
@@ -189,6 +190,75 @@ func (controller *Nodes) Delete(w http.ResponseWriter, r *http.Request) {
 		// TODO: add more error checks in future, like not found if node is missing.
 		controller.log.Error("delete node internal error", zap.Error(err))
 		controller.serveError(w, http.StatusInternalServerError, ErrNodes.Wrap(err))
+		return
+	}
+}
+
+// ListInfos handles node basic info list retrieval.
+func (controller *Nodes) ListInfos(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Add("Content-Type", "application/json")
+
+	infos, err := controller.service.ListInfos(ctx)
+	if err != nil {
+		controller.log.Error("list node infos internal error", zap.Error(err))
+		controller.serveError(w, http.StatusInternalServerError, ErrNodes.Wrap(err))
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(infos); err != nil {
+		controller.log.Error("failed to write json response", zap.Error(err))
+		return
+	}
+}
+
+// ListInfosSatellite handles node satellite specific info list retrieval.
+func (controller *Nodes) ListInfosSatellite(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Add("Content-Type", "application/json")
+
+	vars := mux.Vars(r)
+
+	satelliteID, err := storj.NodeIDFromString(vars["satelliteID"])
+	if err != nil {
+		controller.serveError(w, http.StatusBadRequest, ErrNodes.Wrap(err))
+		return
+	}
+
+	infos, err := controller.service.ListInfosSatellite(ctx, satelliteID)
+	if err != nil {
+		controller.log.Error("list node satellite infos internal error", zap.Error(err))
+		controller.serveError(w, http.StatusInternalServerError, ErrNodes.Wrap(err))
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(infos); err != nil {
+		controller.log.Error("failed to write json response", zap.Error(err))
+		return
+	}
+}
+
+// TrustedSatellites handles retrieval of unique trusted satellites node urls list.
+func (controller *Nodes) TrustedSatellites(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	nodeURLs, err := controller.service.TrustedSatellites(ctx)
+	if err != nil {
+		controller.log.Error("list node trusted satellites internal error", zap.Error(err))
+		controller.serveError(w, http.StatusInternalServerError, ErrNodes.Wrap(err))
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(nodeURLs); err != nil {
+		controller.log.Error("failed to write json response", zap.Error(err))
 		return
 	}
 }

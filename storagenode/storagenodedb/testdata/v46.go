@@ -21,7 +21,7 @@ var v46 = MultiDBState{
 		storagenodedb.NotificationsDBName:   v43.DBStates[storagenodedb.NotificationsDBName],
 		storagenodedb.HeldAmountDBName:      v43.DBStates[storagenodedb.HeldAmountDBName],
 		storagenodedb.PricingDBName:         v43.DBStates[storagenodedb.PricingDBName],
-		storagenodedb.SecretDBName: &DBState{
+		storagenodedb.APIKeysDBName: &DBState{
 			SQL: `
 				-- table to hold storagenode secret token
 				CREATE TABLE secret (
