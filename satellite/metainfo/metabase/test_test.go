@@ -395,6 +395,26 @@ func (step IterateObjects) Check(ctx *testcontext.Context, t testing.TB, db *met
 	require.Zero(t, diff)
 }
 
+type IteratePendingObjectsByKey struct {
+	Opts metabase.IteratePendingObjectsByKey
+
+	Result   []metabase.ObjectEntry
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+func (step IteratePendingObjectsByKey) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	var collector IterateCollector
+
+	err := db.IteratePendingObjectsByKey(ctx, step.Opts, collector.Add)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	result := []metabase.ObjectEntry(collector)
+
+	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	require.Zero(t, diff)
+}
+
 type IterateObjectsWithStatus struct {
 	Opts metabase.IterateObjectsWithStatus
 
@@ -423,6 +443,18 @@ func checkError(t testing.TB, err error, errClass *errs.Class, errText string) {
 	if errClass == nil && errText == "" {
 		require.NoError(t, err)
 	}
+}
+
+// less returns true if uuid 'id' is less than uuid 'other'.
+func less(id uuid.UUID, other uuid.UUID) bool {
+	for k, v := range id {
+		if v < other[k] {
+			return true
+		} else if v > other[k] {
+			return false
+		}
+	}
+	return false
 }
 
 func sortObjects(objects []metabase.Object) {

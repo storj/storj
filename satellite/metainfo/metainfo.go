@@ -928,6 +928,103 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	return resp, nil
 }
 
+// GetPendingObjects get pending objects according to specific parameters.
+func (endpoint *Endpoint) GetPendingObjects(ctx context.Context, req *pb.GetPendingObjectsRequest) (resp *pb.GetPendingObjectsResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Not Implemented")
+}
+
+// ListPendingObjectStreams list pending objects according to specific parameters.
+func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.ObjectListPendingStreamsRequest) (resp *pb.ObjectListPendingStreamsResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:            macaroon.ActionList,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.EncryptedPath,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	err = endpoint.validateBucket(ctx, req.Bucket)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	// TODO this needs to be optimized to avoid DB call on each request
+	_, err = endpoint.metainfo.GetBucket(ctx, req.Bucket, keyInfo.ProjectID)
+	if err != nil {
+		if storj.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+		endpoint.log.Error("unable to check bucket", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	cursor := metabase.StreamIDCursor{}
+	if req.StreamIdCursor != nil {
+		streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamIdCursor)
+		if err != nil {
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		}
+		cursor.StreamID, err = uuid.FromBytes(streamID.StreamId)
+		if err != nil {
+			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
+	}
+
+	limit := int(req.Limit)
+	if limit < 0 {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "limit is negative")
+	}
+
+	if limit == 0 {
+		limit = metabase.MaxListLimit
+	}
+
+	resp = &pb.ObjectListPendingStreamsResponse{}
+	resp.Items = []*pb.ObjectListItem{}
+	err = endpoint.metainfo.metabaseDB.IteratePendingObjectsByKey(ctx,
+		metabase.IteratePendingObjectsByKey{
+			ObjectLocation: metabase.ObjectLocation{
+				ProjectID:  keyInfo.ProjectID,
+				BucketName: string(req.Bucket),
+				ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+			},
+			BatchSize: limit + 1,
+			Cursor:    cursor,
+		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
+			entry := metabase.ObjectEntry{}
+			for len(resp.Items) < limit && it.Next(ctx, &entry) {
+				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry)
+				if err != nil {
+					return err
+				}
+				resp.Items = append(resp.Items, item)
+			}
+			resp.More = it.Next(ctx, &entry)
+			return nil
+		},
+	)
+
+	if err != nil {
+		if metabase.ErrInvalidRequest.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		}
+		endpoint.log.Error("unable to list pending object streams", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	endpoint.log.Info("List pending object streams", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "list"), zap.String("type", "object"))
+
+	mon.Meter("req_list_pending_object_streams").Mark(1)
+
+	return resp, nil
+}
+
 // BeginDeleteObject begins object deletion process.
 func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectBeginDeleteRequest) (resp *pb.ObjectBeginDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1531,17 +1628,6 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		Items: items,
 		More:  result.More,
 	}, nil
-}
-
-// GetPendingObjects returns pending objects.
-func (endpoint *Endpoint) GetPendingObjects(ctx context.Context, req *pb.GetPendingObjectsRequest) (resp *pb.GetPendingObjectsResponse, err error) {
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "not implemented")
-}
-
-// ListPendingObjectStreams list pending objects according to specific parameters.
-func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.ObjectListPendingStreamsRequest) (resp *pb.ObjectListPendingStreamsResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Not Implemented")
 }
 
 // DownloadSegment returns data necessary to download segment.

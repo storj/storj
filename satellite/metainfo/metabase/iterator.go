@@ -18,18 +18,26 @@ import (
 type objectsIterator struct {
 	db *DB
 
-	projectID  uuid.UUID
-	bucketName string
-	status     ObjectStatus
-	limitKey   ObjectKey
-	batchSize  int
-	recursive  bool
+	projectID       uuid.UUID
+	bucketName      string
+	status          ObjectStatus
+	limitKey        ObjectKey
+	batchSize       int
+	recursive       bool
+	includePrefixes bool
 
 	curIndex int
 	curRows  tagsql.Rows
-	cursor   IterateCursor
+	cursor   iterateCursor
 
-	skipPrefix ObjectKey
+	skipPrefix  ObjectKey
+	doNextQuery func(context.Context, *objectsIterator) (_ tagsql.Rows, err error)
+}
+
+type iterateCursor struct {
+	Key      ObjectKey
+	Version  Version
+	StreamID uuid.UUID
 }
 
 func iterateAllVersions(ctx context.Context, db *DB, opts IterateObjects, fn func(context.Context, ObjectsIterator) error) (err error) {
@@ -38,17 +46,28 @@ func iterateAllVersions(ctx context.Context, db *DB, opts IterateObjects, fn fun
 	it := &objectsIterator{
 		db: db,
 
-		projectID:  opts.ProjectID,
-		bucketName: opts.BucketName,
-		limitKey:   nextPrefix(opts.Prefix),
-		batchSize:  opts.BatchSize,
-		recursive:  true,
+		projectID:       opts.ProjectID,
+		bucketName:      opts.BucketName,
+		limitKey:        nextPrefix(opts.Prefix),
+		batchSize:       opts.BatchSize,
+		recursive:       true,
+		includePrefixes: true,
 
 		curIndex: 0,
-		cursor:   opts.Cursor,
+		cursor: iterateCursor{
+			Key:     opts.Cursor.Key,
+			Version: opts.Cursor.Version,
+		},
+		doNextQuery: doNextQueryAllVersionsWithoutStatus,
 	}
 
-	return iterate(ctx, it, opts.Prefix, fn)
+	// start from either the cursor or prefix, depending on which is larger
+	if lessKey(it.cursor.Key, opts.Prefix) {
+		it.cursor.Key = beforeKey(opts.Prefix)
+		it.cursor.Version = -1
+	}
+
+	return iterate(ctx, it, fn)
 }
 
 func iterateAllVersionsWithStatus(ctx context.Context, db *DB, opts IterateObjectsWithStatus, fn func(context.Context, ObjectsIterator) error) (err error) {
@@ -57,33 +76,70 @@ func iterateAllVersionsWithStatus(ctx context.Context, db *DB, opts IterateObjec
 	it := &objectsIterator{
 		db: db,
 
-		projectID:  opts.ProjectID,
-		bucketName: opts.BucketName,
-		status:     opts.Status,
-		limitKey:   nextPrefix(opts.Prefix),
-		batchSize:  opts.BatchSize,
-		recursive:  opts.Recursive,
+		projectID:       opts.ProjectID,
+		bucketName:      opts.BucketName,
+		status:          opts.Status,
+		limitKey:        nextPrefix(opts.Prefix),
+		batchSize:       opts.BatchSize,
+		recursive:       opts.Recursive,
+		includePrefixes: true,
 
 		curIndex: 0,
-		cursor:   opts.Cursor,
+		cursor: iterateCursor{
+			Key:     opts.Cursor.Key,
+			Version: opts.Cursor.Version,
+		},
+		doNextQuery: doNextQueryAllVersionsWithStatus,
 	}
 
-	return iterate(ctx, it, opts.Prefix, fn)
+	// start from either the cursor or prefix, depending on which is larger
+	if lessKey(it.cursor.Key, opts.Prefix) {
+		it.cursor.Key = beforeKey(opts.Prefix)
+		it.cursor.Version = -1
+	}
+
+	return iterate(ctx, it, fn)
 }
 
-func iterate(ctx context.Context, it *objectsIterator, prefix ObjectKey, fn func(context.Context, ObjectsIterator) error) (err error) {
+func iteratePendingObjectsByKey(ctx context.Context, db *DB, opts IteratePendingObjectsByKey, fn func(context.Context, ObjectsIterator) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	cursor := opts.Cursor
+
+	if cursor.StreamID.IsZero() {
+		cursor.StreamID = uuid.UUID{}
+	}
+
+	it := &objectsIterator{
+		db: db,
+
+		projectID:       opts.ProjectID,
+		bucketName:      opts.BucketName,
+		limitKey:        "",
+		batchSize:       opts.BatchSize,
+		recursive:       false,
+		includePrefixes: false,
+
+		curIndex: 0,
+		cursor: iterateCursor{
+			Key:      opts.ObjectKey,
+			Version:  0,
+			StreamID: opts.Cursor.StreamID,
+		},
+		doNextQuery: doNextQueryStreamsByKey,
+	}
+
+	return iterate(ctx, it, fn)
+
+}
+
+func iterate(ctx context.Context, it *objectsIterator, fn func(context.Context, ObjectsIterator) error) (err error) {
 	// ensure batch size is reasonable
 	if it.batchSize <= 0 || it.batchSize > batchsizeLimit {
 		it.batchSize = batchsizeLimit
 	}
 
-	// start from either the cursor or prefix, depending on which is larger
-	if lessKey(it.cursor.Key, prefix) {
-		it.cursor.Key = beforeKey(prefix)
-		it.cursor.Version = -1
-	}
-
-	it.curRows, err = it.doNextQuery(ctx)
+	it.curRows, err = it.doNextQuery(ctx, it)
 	if err != nil {
 		return err
 	}
@@ -121,17 +177,18 @@ func (it *objectsIterator) Next(ctx context.Context, item *ObjectEntry) bool {
 		it.skipPrefix = ""
 	}
 
-	// should this be treated as a prefix?
-	p := strings.IndexByte(string(item.ObjectKey), Delimiter)
-	if p >= 0 {
-		it.skipPrefix = item.ObjectKey[:p+1]
-		*item = ObjectEntry{
-			IsPrefix:  true,
-			ObjectKey: item.ObjectKey[:p+1],
-			Status:    it.status,
+	if it.includePrefixes {
+		// should this be treated as a prefix?
+		p := strings.IndexByte(string(item.ObjectKey), Delimiter)
+		if p >= 0 {
+			it.skipPrefix = item.ObjectKey[:p+1]
+			*item = ObjectEntry{
+				IsPrefix:  true,
+				ObjectKey: item.ObjectKey[:p+1],
+				Status:    it.status,
+			}
 		}
 	}
-
 	return true
 }
 
@@ -147,7 +204,7 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 			return false
 		}
 
-		rows, err := it.doNextQuery(ctx)
+		rows, err := it.doNextQuery(ctx, it)
 		if err != nil {
 			return false
 		}
@@ -172,19 +229,12 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 	it.curIndex++
 	it.cursor.Key = item.ObjectKey
 	it.cursor.Version = item.Version
+	it.cursor.StreamID = item.StreamID
 
 	return true
 }
 
-func (it *objectsIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err error) {
-	if it.status == 0 {
-		return it.doNextQueryWithoutStatus(ctx)
-	}
-	return it.doNextQueryWithStatus(ctx)
-}
-
-// doNextQuery executes query to fetch the next batch returning the rows.
-func (it *objectsIterator) doNextQueryWithoutStatus(ctx context.Context) (_ tagsql.Rows, err error) {
+func doNextQueryAllVersionsWithoutStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if it.limitKey == "" {
@@ -234,8 +284,8 @@ func (it *objectsIterator) doNextQueryWithoutStatus(ctx context.Context) (_ tags
 	)
 }
 
-// doNextQuery executes query to fetch the next batch returning the rows.
-func (it *objectsIterator) doNextQueryWithStatus(ctx context.Context) (_ tagsql.Rows, err error) {
+func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+
 	defer mon.Task()(&ctx)(&err)
 
 	if it.limitKey == "" {
@@ -286,6 +336,33 @@ func (it *objectsIterator) doNextQueryWithStatus(ctx context.Context) (_ tagsql.
 		it.batchSize,
 
 		// len(it.limitKey)+1, // TODO uncomment when CRDB issue will be fixed
+	)
+}
+
+// doNextQuery executes query to fetch the next batch returning the rows.
+func doNextQueryStreamsByKey(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return it.db.db.Query(ctx, `
+			SELECT
+				object_key, stream_id, version, status,
+				created_at, expires_at,
+				segment_count,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				encryption
+			FROM objects
+			WHERE
+				project_id = $1 AND bucket_name = $2
+				AND object_key = $3
+				AND status = `+pendingStatus+`
+				AND stream_id > $4::BYTEA
+			ORDER BY stream_id ASC
+			LIMIT $5
+			`, it.projectID, it.bucketName,
+		[]byte(it.cursor.Key),
+		it.cursor.StreamID,
+		it.batchSize,
 	)
 }
 
