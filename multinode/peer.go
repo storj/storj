@@ -12,6 +12,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/identity"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/rpc"
 	"storj.io/private/debug"
 	"storj.io/storj/multinode/console"
 	"storj.io/storj/multinode/console/server"
@@ -55,6 +57,8 @@ type Peer struct {
 	Identity *identity.FullIdentity
 	DB       DB
 
+	Dialer rpc.Dialer
+
 	// contains logic of nodes domain.
 	Nodes struct {
 		Service *nodes.Service
@@ -78,9 +82,22 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config, db DB) (_ 
 		Servers:  lifecycle.NewGroup(log.Named("servers")),
 	}
 
+	tlsConfig := tlsopts.Config{
+		UsePeerCAWhitelist: false,
+		PeerIDVersions:     "0",
+	}
+
+	tlsOptions, err := tlsopts.NewOptions(peer.Identity, tlsConfig, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
+
 	{ // nodes setup
 		peer.Nodes.Service = nodes.NewService(
 			peer.Log.Named("nodes:service"),
+			peer.Dialer,
 			peer.DB.Nodes(),
 		)
 	}

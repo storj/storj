@@ -133,7 +133,7 @@ func init() {
 	process.Bind(dashboardCmd, &dashboardCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 	process.Bind(gracefulExitInitCmd, &diagCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 	process.Bind(gracefulExitStatusCmd, &diagCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
-	process.Bind(issueAPITokenCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(issueAPITokenCmd, &diagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -312,14 +312,14 @@ func cmdIssue(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	service := apikeys.NewService(db.Secret())
+	service := apikeys.NewService(db.APIKeys())
 
 	apiKey, err := service.Issue(ctx)
 	if err != nil {
 		return errs.New("Error while trying to issue new api key: %v", err)
 	}
 
-	fmt.Print(apiKey.Secret.String())
+	fmt.Println(apiKey.Secret.String())
 
 	return
 }

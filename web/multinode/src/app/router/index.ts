@@ -4,7 +4,10 @@
 import Router, { RouterMode } from 'vue-router';
 import { Component } from 'vue-router/types/router';
 
+import AddFirstNode from '@/app/views/AddFirstNode.vue';
 import Dashboard from '@/app/views/Dashboard.vue';
+import MyNodes from '@/app/views/MyNodes.vue';
+import WelcomeScreen from '@/app/views/WelcomeScreen.vue';
 
 /**
  * Metadata holds arbitrary information to routes like transition names, who can access the route, etc.
@@ -20,7 +23,7 @@ export class Route {
     public readonly path: string;
     public readonly name: string;
     public readonly component: Component;
-    public readonly children?: Route[];
+    public children?: Route[];
     public readonly meta?: Metadata;
 
     /**
@@ -31,12 +34,20 @@ export class Route {
      * @param children - all nested components of current route.
      * @param meta - arbitrary information to routes like transition names, who can access the route, etc.
      */
-    public constructor(path: string, name: string, component: Component, children: Route[] | undefined = undefined, meta: Metadata | undefined = undefined) {
+    public constructor(path: string, name: string, component: Component, meta: Metadata | undefined = undefined) {
         this.path = path;
         this.name = name;
         this.component = component;
-        this.children = children;
         this.meta = meta;
+    }
+
+    /**
+     * Adds children routes to route.
+     */
+    public addChildren(children: Route[]): Route {
+        this.children = children;
+
+        return this;
     }
 }
 
@@ -44,11 +55,18 @@ export class Route {
  * Config contains configuration of all available routes for a Multinode Dashboard router.
  */
 export class Config {
-    public static Root: Route = new Route('/', 'Root', Dashboard, undefined, {requiresAuth: true});
+    public static Root: Route = new Route('/', 'Root', Dashboard, {requiresAuth: true});
+    public static Welcome: Route = new Route('/welcome', 'Welcome', WelcomeScreen);
+    public static AddFirstNode: Route = new Route('/add-first-node', 'AddFirstNode', AddFirstNode);
+    public static MyNodes: Route = new Route('/my-nodes', 'MyNodes', MyNodes);
 
     public static mode: RouterMode = 'history';
     public static routes: Route[] = [
-        Config.Root,
+        Config.Root.addChildren([
+            Config.MyNodes,
+        ]),
+        Config.Welcome,
+        Config.AddFirstNode,
     ];
 }
 

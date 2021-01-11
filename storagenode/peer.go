@@ -28,6 +28,7 @@ import (
 	"storj.io/private/version"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/private/lifecycle"
+	"storj.io/storj/private/multinodepb"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
@@ -42,6 +43,7 @@ import (
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/internalpb"
 	"storj.io/storj/storagenode/monitor"
+	"storj.io/storj/storagenode/multinode"
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
@@ -88,7 +90,7 @@ type DB interface {
 	Notifications() notifications.DB
 	Payout() payout.DB
 	Pricing() pricing.DB
-	Secret() apikeys.DB
+	APIKeys() apikeys.DB
 
 	Preflight(ctx context.Context) error
 }
@@ -279,6 +281,12 @@ type Peer struct {
 	Bandwidth *bandwidth.Service
 
 	Reputation *reputation.Service
+
+	Multinode struct {
+		Storage   *multinode.StorageEndpoint
+		Bandwidth *multinode.BandwidthEndpoint
+		Node      *multinode.NodeEndpoint
+	}
 }
 
 // New creates a new Storage Node.
@@ -768,6 +776,38 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	})
 	peer.Debug.Server.Panel.Add(
 		debug.Cycle("Bandwidth", peer.Bandwidth.Loop))
+
+	{ // setup multinode endpoints
+		// TODO: add to peer?
+		apiKeys := apikeys.NewService(peer.DB.APIKeys())
+
+		peer.Multinode.Storage = multinode.NewStorageEndpoint(
+			peer.Log.Named("multinode:storage-endpoint"),
+			apiKeys,
+			peer.Storage2.Monitor)
+
+		peer.Multinode.Bandwidth = multinode.NewBandwidthEndpoint(
+			peer.Log.Named("multinode:bandwidth-endpoint"),
+			apiKeys,
+			peer.DB.Bandwidth())
+
+		peer.Multinode.Node = multinode.NewNodeEndpoint(
+			peer.Log.Named("multinode:node-endpoint"),
+			apiKeys,
+			peer.Version.Service.Info,
+			peer.Contact.PingStats,
+			peer.DB.Reputation())
+
+		if err = multinodepb.DRPCRegisterStorage(peer.Server.DRPC(), peer.Multinode.Storage); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		if err = multinodepb.DRPCRegisterBandwidth(peer.Server.DRPC(), peer.Multinode.Bandwidth); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		if err = multinodepb.DRPCRegisterNode(peer.Server.DRPC(), peer.Multinode.Node); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+	}
 
 	return peer, nil
 }

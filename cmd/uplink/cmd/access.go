@@ -132,7 +132,7 @@ func parseAccess(access string) (sa string, apiKey string, ea string, err error)
 }
 
 func accessRegister(cmd *cobra.Command, args []string) (err error) {
-	access, err := getAccessFromArgZeroOrConfig(inspectCfg, args)
+	access, err := getAccessFromArgZeroOrConfig(registerCfg.AccessConfig, args)
 	if err != nil {
 		return errs.New("no access specified: %w", err)
 	}
@@ -168,7 +168,7 @@ func accessRegister(cmd *cobra.Command, args []string) (err error) {
 
 func getAccessFromArgZeroOrConfig(config AccessConfig, args []string) (access *uplink.Access, err error) {
 	if len(args) != 0 {
-		access, err = inspectCfg.GetNamedAccess(args[0])
+		access, err = config.GetNamedAccess(args[0])
 		if err != nil {
 			return nil, err
 		}
@@ -177,7 +177,7 @@ func getAccessFromArgZeroOrConfig(config AccessConfig, args []string) (access *u
 		}
 		return uplink.ParseAccess(args[0])
 	}
-	return inspectCfg.GetAccess()
+	return config.GetAccess()
 }
 
 // RegisterAccess registers an access grant with a Gateway Authorization Service.

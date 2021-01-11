@@ -169,8 +169,14 @@ func networkTest(flags *Flags, command string, args []string) error {
 
 	ctx, cancel := NewCLIContext(context.Background())
 
-	var group errgroup.Group
-	processes.Start(ctx, &group, "run")
+	var group *errgroup.Group
+	if processes.FailFast {
+		group, ctx = errgroup.WithContext(ctx)
+	} else {
+		group = &errgroup.Group{}
+	}
+
+	processes.Start(ctx, group, "run")
 
 	for _, process := range processes.List {
 		process.Status.Started.Wait(ctx)
@@ -218,14 +224,19 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		common := []string{"--metrics.app-suffix", "sim", "--log.level", "debug", "--config-dir", dir}
 		if flags.IsDev {
 			common = append(common, "--defaults", "dev")
+		} else {
+			common = append(common, "--defaults", "release")
 		}
 		for command, args := range all {
-			all[command] = append(append(common, command), args...)
+			full := append([]string{}, common...)
+			full = append(full, command)
+			full = append(full, args...)
+			all[command] = full
 		}
 		return all
 	}
 
-	processes := NewProcesses(flags.Directory)
+	processes := NewProcesses(flags.Directory, flags.FailFast)
 
 	var host = flags.Host
 	versioncontrol := processes.New(Info{
@@ -315,13 +326,17 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		apiProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"setup": {
 				"--identity-dir", apiProcess.Directory,
+
 				"--console.address", net.JoinHostPort(host, port(satellitePeer, i, publicHTTP)),
 				"--console.static-dir", filepath.Join(storjRoot, "web/satellite/"),
+				"--console.auth-token-secret", "my-suppa-secret-key",
 				"--console.open-registration-enabled",
 				"--console.rate-limit.burst", "100",
+
 				"--marketing.base-url", "",
 				"--marketing.address", net.JoinHostPort(host, port(satellitePeer, i, privateHTTP)),
 				"--marketing.static-dir", filepath.Join(storjRoot, "web/marketing/"),
+
 				"--server.address", apiProcess.Address,
 				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateRPC)),
 
@@ -635,7 +650,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 }
 
 func identitySetup(network *Processes) (*Processes, error) {
-	processes := NewProcesses(network.Directory)
+	processes := NewProcesses(network.Directory, network.FailFast)
 
 	for _, process := range network.List {
 		if process.Info.Executable == "gateway" || process.Info.Executable == "redis-server" {

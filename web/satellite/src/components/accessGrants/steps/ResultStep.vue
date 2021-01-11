@@ -29,7 +29,7 @@
         </div>
         <div class="generate-grant__gateway-area" v-if="isGatewayDropdownVisible">
             <div class="generate-grant__gateway-area__toggle" @click="toggleCredentialsVisibility">
-                <h3 class="generate-grant__gateway-area__toggle__label">Gateway Credentials</h3>
+                <h3 class="generate-grant__gateway-area__toggle__label">Gateway Credentials (beta)</h3>
                 <ExpandIcon v-if="!areGatewayCredentialsVisible"/>
                 <HideIcon v-else/>
             </div>
