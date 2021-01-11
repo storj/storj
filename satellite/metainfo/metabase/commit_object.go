@@ -69,8 +69,12 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 		fixedSegmentSize := int32(0)
 		if len(finalSegments) > 0 {
 			fixedSegmentSize = finalSegments[0].EncryptedSize
-			for _, seg := range finalSegments[:len(finalSegments)-1] {
-				if seg.EncryptedSize != fixedSegmentSize {
+			for i, seg := range finalSegments {
+				if seg.Position.Part != 0 {
+					fixedSegmentSize = -1
+					break
+				}
+				if i < len(finalSegments)-1 && seg.EncryptedSize != fixedSegmentSize {
 					fixedSegmentSize = -1
 					break
 				}

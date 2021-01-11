@@ -534,6 +534,128 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
+		t.Run("fixed segment size", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+			now := time.Now()
+
+			pos00 := metabase.SegmentPosition{Part: 0, Index: 0}
+			rootPieceID00 := testrand.PieceID()
+			pieces00 := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
+			encryptedKey00 := testrand.Bytes(32)
+			encryptedKeyNonce00 := testrand.Bytes(32)
+
+			pos10 := metabase.SegmentPosition{Part: 1, Index: 0}
+			rootPieceID10 := testrand.PieceID()
+			pieces10 := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
+			encryptedKey10 := testrand.Bytes(32)
+			encryptedKeyNonce10 := testrand.Bytes(32)
+
+			CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+
+					Position:    pos00,
+					RootPieceID: rootPieceID00,
+					Pieces:      pieces00,
+
+					EncryptedKey:      encryptedKey00,
+					EncryptedKeyNonce: encryptedKeyNonce00,
+
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
+					Redundancy:    defaultTestRedundancy,
+				},
+			}.Check(ctx, t, db)
+
+			CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+
+					Position:    pos10,
+					RootPieceID: rootPieceID10,
+					Pieces:      pieces10,
+
+					EncryptedKey:      encryptedKey10,
+					EncryptedKeyNonce: encryptedKeyNonce10,
+
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
+					Redundancy:    defaultTestRedundancy,
+				},
+			}.Check(ctx, t, db)
+
+			CommitObjectWithSegments{
+				Opts: metabase.CommitObjectWithSegments{
+					ObjectStream: obj,
+					Segments: []metabase.SegmentPosition{
+						pos00,
+						pos10,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Committed,
+						SegmentCount: 2,
+
+						TotalPlainSize:     1024,
+						TotalEncryptedSize: 2048,
+						FixedSegmentSize:   -1,
+
+						Encryption: defaultTestEncryption,
+					},
+				},
+				Segments: []metabase.RawSegment{
+					{
+						StreamID: obj.StreamID,
+						Position: pos00,
+
+						RootPieceID:       rootPieceID00,
+						EncryptedKey:      encryptedKey00,
+						EncryptedKeyNonce: encryptedKeyNonce00,
+
+						EncryptedSize: 1024,
+						PlainOffset:   0,
+						PlainSize:     512,
+
+						Redundancy: defaultTestRedundancy,
+
+						Pieces: pieces00,
+					},
+					{
+						StreamID: obj.StreamID,
+						Position: pos10,
+
+						RootPieceID:       rootPieceID10,
+						EncryptedKey:      encryptedKey10,
+						EncryptedKeyNonce: encryptedKeyNonce10,
+
+						EncryptedSize: 1024,
+						PlainOffset:   512,
+						PlainSize:     512,
+
+						Redundancy: defaultTestRedundancy,
+
+						Pieces: pieces10,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
 		t.Run("no segments", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
