@@ -4,78 +4,35 @@
 package apikeys
 
 import (
-	"bytes"
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"time"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/private/multinodeauth"
 )
 
-// ErrNoSecret represents errors from the apikey database.
-var ErrNoSecret = errs.Class("no apikey error")
+// ErrNoAPIKey represents no api key error.
+var ErrNoAPIKey = errs.Class("no api key error")
 
-// DB is interface for working with apikey tokens.
+// DB is interface for working with api keys.
 //
 // architecture: Database
 type DB interface {
-	// Store stores apikey token into db.
-	Store(ctx context.Context, secret APIKey) error
+	// Store stores api key into db.
+	Store(ctx context.Context, apiKey APIKey) error
 
-	// Check checks if unique apikey exists in db by token.
-	Check(ctx context.Context, token Secret) error
+	// Check checks if api key exists in db by secret.
+	Check(ctx context.Context, secret multinodeauth.Secret) error
 
-	// Revoke removes token from db.
-	Revoke(ctx context.Context, token Secret) error
+	// Revoke removes api key from db.
+	Revoke(ctx context.Context, secret multinodeauth.Secret) error
 }
 
-// Secret stores token of storagenode APIkey.
-type Secret [32]byte
-
-// APIKey describing apikey model in the database.
+// APIKey describing api key in the database.
 type APIKey struct {
-	// Secret is PK of the table and keeps unique value sno apikey token
-	Secret Secret
+	// APIKeys is PK of the table and keeps unique value sno api key.
+	Secret multinodeauth.Secret
 
 	CreatedAt time.Time `json:"createdAt"`
-}
-
-// NewSecret creates new apikey secret.
-func NewSecret() (Secret, error) {
-	var b [32]byte
-
-	_, err := rand.Read(b[:])
-	if err != nil {
-		return b, errs.New("error creating apikey token")
-	}
-
-	return b, nil
-}
-
-// String implements Stringer.
-func (secret Secret) String() string {
-	return base64.URLEncoding.EncodeToString(secret[:])
-}
-
-// IsZero returns if the apikey token is not set.
-func (secret Secret) IsZero() bool {
-	var zero Secret
-	// this doesn't need to be constant-time, because we're explicitly testing
-	// against a hardcoded, well-known value
-	return bytes.Equal(secret[:], zero[:])
-}
-
-// TokenSecretFromBase64 creates new apikey token from base64 string.
-func TokenSecretFromBase64(s string) (Secret, error) {
-	var token Secret
-
-	b, err := base64.URLEncoding.DecodeString(s)
-	if err != nil {
-		return token, err
-	}
-
-	copy(token[:], b)
-
-	return token, nil
 }

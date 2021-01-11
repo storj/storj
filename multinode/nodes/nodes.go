@@ -5,14 +5,12 @@ package nodes
 
 import (
 	"context"
-	"encoding/base64"
+	"time"
 
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
 )
-
-// TODO: should this file be placed outside of console in nodes package?
 
 // DB exposes needed by MND NodesDB functionality.
 //
@@ -42,7 +40,24 @@ type Node struct {
 	Name          string
 }
 
-// APISecretFromBase64 decodes API secret from base 64 string.
-func APISecretFromBase64(s string) ([]byte, error) {
-	return base64.URLEncoding.DecodeString(s)
+// NodeInfo contains basic node internal state.
+type NodeInfo struct {
+	ID            storj.NodeID
+	Name          string
+	Version       string
+	LastContact   time.Time
+	DiskSpaceUsed int64
+	DiskSpaceLeft int64
+	BandwidthUsed int64
+}
+
+// NodeInfoSatellite contains satellite specific node internal state.
+type NodeInfoSatellite struct {
+	ID              storj.NodeID
+	Name            string
+	Version         string
+	LastContact     time.Time
+	OnlineScore     float64
+	AuditScore      float64
+	SuspensionScore float64
 }

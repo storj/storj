@@ -51,6 +51,6 @@ var v47 = MultiDBState{
 		storagenodedb.NotificationsDBName:   v46.DBStates[storagenodedb.NotificationsDBName],
 		storagenodedb.HeldAmountDBName:      v46.DBStates[storagenodedb.HeldAmountDBName],
 		storagenodedb.PricingDBName:         v46.DBStates[storagenodedb.PricingDBName],
-		storagenodedb.SecretDBName:          v46.DBStates[storagenodedb.SecretDBName],
+		storagenodedb.APIKeysDBName:         v46.DBStates[storagenodedb.APIKeysDBName],
 	},
 }

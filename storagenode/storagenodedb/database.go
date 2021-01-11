@@ -107,7 +107,7 @@ type DB struct {
 	notificationsDB   *notificationDB
 	payoutDB          *payoutDB
 	pricingDB         *pricingDB
-	secretDB          *secretDB
+	apiKeysDB         *apiKeysDB
 
 	SQLDBs map[string]DBContainer
 }
@@ -134,7 +134,7 @@ func OpenNew(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
 	notificationsDB := &notificationDB{}
 	payoutDB := &payoutDB{}
 	pricingDB := &pricingDB{}
-	secretDB := &secretDB{}
+	apiKeysDB := &apiKeysDB{}
 
 	db := &DB{
 		log:    log,
@@ -157,7 +157,7 @@ func OpenNew(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
 		notificationsDB:   notificationsDB,
 		payoutDB:          payoutDB,
 		pricingDB:         pricingDB,
-		secretDB:          secretDB,
+		apiKeysDB:         apiKeysDB,
 
 		SQLDBs: map[string]DBContainer{
 			DeprecatedInfoDBName:  deprecatedInfoDB,
@@ -173,7 +173,7 @@ func OpenNew(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
 			NotificationsDBName:   notificationsDB,
 			HeldAmountDBName:      payoutDB,
 			PricingDBName:         pricingDB,
-			SecretDBName:          secretDB,
+			APIKeysDBName:         apiKeysDB,
 		},
 	}
 
@@ -202,7 +202,7 @@ func OpenExisting(ctx context.Context, log *zap.Logger, config Config) (*DB, err
 	notificationsDB := &notificationDB{}
 	payoutDB := &payoutDB{}
 	pricingDB := &pricingDB{}
-	secretDB := &secretDB{}
+	apiKeysDB := &apiKeysDB{}
 
 	db := &DB{
 		log:    log,
@@ -225,7 +225,7 @@ func OpenExisting(ctx context.Context, log *zap.Logger, config Config) (*DB, err
 		notificationsDB:   notificationsDB,
 		payoutDB:          payoutDB,
 		pricingDB:         pricingDB,
-		secretDB:          secretDB,
+		apiKeysDB:         apiKeysDB,
 
 		SQLDBs: map[string]DBContainer{
 			DeprecatedInfoDBName:  deprecatedInfoDB,
@@ -241,7 +241,7 @@ func OpenExisting(ctx context.Context, log *zap.Logger, config Config) (*DB, err
 			NotificationsDBName:   notificationsDB,
 			HeldAmountDBName:      payoutDB,
 			PricingDBName:         pricingDB,
-			SecretDBName:          secretDB,
+			APIKeysDBName:         apiKeysDB,
 		},
 	}
 
@@ -274,7 +274,7 @@ func (db *DB) openDatabases(ctx context.Context) error {
 		NotificationsDBName,
 		HeldAmountDBName,
 		PricingDBName,
-		SecretDBName,
+		APIKeysDBName,
 	}
 
 	for _, dbName := range dbs {
@@ -543,9 +543,9 @@ func (db *DB) Pricing() pricing.DB {
 	return db.pricingDB
 }
 
-// Secret returns instance of the Secret database.
-func (db *DB) Secret() apikeys.DB {
-	return db.secretDB
+// APIKeys returns instance of the APIKeys database.
+func (db *DB) APIKeys() apikeys.DB {
+	return db.apiKeysDB
 }
 
 // RawDatabases are required for testing purposes.
@@ -1812,11 +1812,11 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				}),
 			},
 			{
-				DB:          &db.secretDB.DB,
+				DB:          &db.apiKeysDB.DB,
 				Description: "Create secret table",
 				Version:     46,
 				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(ctx, SecretDBName); err != nil {
+					if err := db.openDatabase(ctx, APIKeysDBName); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 

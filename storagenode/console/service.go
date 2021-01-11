@@ -244,6 +244,7 @@ type Satellite struct {
 	Audit              reputation.Metric       `json:"audit"`
 	Uptime             reputation.Metric       `json:"uptime"`
 	OnlineScore        float64                 `json:"onlineScore"`
+	AuditHistory       reputation.AuditHistory `json:"auditHistory"`
 	PriceModel         PriceModel              `json:"priceModel"`
 	NodeJoinedAt       time.Time               `json:"nodeJoinedAt"`
 }
@@ -317,6 +318,7 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 		Audit:              rep.Audit,
 		Uptime:             rep.Uptime,
 		OnlineScore:        rep.OnlineScore,
+		AuditHistory:       reputation.GetAuditHistoryFromPB(rep.AuditHistory),
 		PriceModel:         satellitePricing,
 		NodeJoinedAt:       rep.JoinedAt,
 	}, nil

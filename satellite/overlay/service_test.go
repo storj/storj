@@ -463,15 +463,11 @@ func TestKnownReliable(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, service.IsOnline(node))
 
-		// Suspend storage node #2 for unknown audits
+		// Suspend storage node #2
 		err = satellite.DB.OverlayCache().SuspendNodeUnknownAudit(ctx, planet.StorageNodes[2].ID(), time.Now())
 		require.NoError(t, err)
 
-		// Suspend storage node #3 for offline audits
-		err = satellite.DB.OverlayCache().SuspendNodeOfflineAudit(ctx, planet.StorageNodes[3].ID(), time.Now())
-		require.NoError(t, err)
-
-		// Check that only storage nodes #4 is reliable
+		// Check that only storage nodes #3 and #4 are reliable
 		result, err := service.KnownReliable(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
 			planet.StorageNodes[1].ID(),
@@ -480,10 +476,11 @@ func TestKnownReliable(t *testing.T) {
 			planet.StorageNodes[4].ID(),
 		})
 		require.NoError(t, err)
-		require.Len(t, result, 1)
+		require.Len(t, result, 2)
 
 		// Sort the storage nodes for predictable checks
 		expectedReliable := []storj.NodeURL{
+			planet.StorageNodes[3].NodeURL(),
 			planet.StorageNodes[4].NodeURL(),
 		}
 		sort.Slice(expectedReliable, func(i, j int) bool { return expectedReliable[i].ID.Less(expectedReliable[j].ID) })
