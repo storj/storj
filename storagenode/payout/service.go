@@ -250,7 +250,6 @@ func (service *Service) AllSatellitesPayoutPeriod(ctx context.Context, period st
 			if !ErrNoPayStubForPeriod.Has(err) {
 				return nil, ErrPayoutService.Wrap(err)
 			}
-			receipt = "no receipt for this period"
 		}
 
 		stats, err := service.reputationDB.Get(ctx, satelliteIDs[i])
