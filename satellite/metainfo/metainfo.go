@@ -676,7 +676,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		expiresAt = &req.ExpiresAt
 	}
 
-	_, err = endpoint.metainfo.metabaseDB.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+	object, err := endpoint.metainfo.metabaseDB.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
@@ -693,13 +693,14 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
-		Bucket:         req.Bucket,
-		EncryptedPath:  req.EncryptedPath,
-		Version:        req.Version,
-		Redundancy:     pbRS,
-		CreationDate:   time.Now(),
-		ExpirationDate: req.ExpiresAt,
-		StreamId:       streamID[:],
+		Bucket:          req.Bucket,
+		EncryptedPath:   req.EncryptedPath,
+		Version:         int32(object.Version),
+		Redundancy:      pbRS,
+		CreationDate:    object.CreatedAt,
+		ExpirationDate:  req.ExpiresAt,
+		StreamId:        streamID[:],
+		MultipartObject: object.FixedSegmentSize <= 0,
 	})
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -1912,7 +1913,8 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		Bucket:          []byte(object.BucketName),
 		EncryptedPath:   []byte(object.ObjectKey),
 		Version:         int32(object.Version), // TODO incomatible types
-		CreationDate:    time.Now(),
+		CreationDate:    object.CreatedAt,
+		ExpirationDate:  expires,
 		StreamId:        object.StreamID[:],
 		MultipartObject: object.FixedSegmentSize <= 0,
 		// TODO: defaultRS may change while the upload is pending.
@@ -2042,11 +2044,13 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 	// The client requires the Stream ID to use in the MultipartInfo.
 	if entry.Status == metabase.Pending {
 		satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
-			Bucket:        bucket,
-			EncryptedPath: item.EncryptedPath,
-			Version:       item.Version,
-			CreationDate:  item.CreatedAt,
-			StreamId:      entry.StreamID[:],
+			Bucket:          bucket,
+			EncryptedPath:   item.EncryptedPath,
+			Version:         item.Version,
+			CreationDate:    item.CreatedAt,
+			ExpirationDate:  item.ExpiresAt,
+			StreamId:        entry.StreamID[:],
+			MultipartObject: entry.FixedSegmentSize <= 0,
 			// TODO: defaultRS may change while the upload is pending.
 			// Ideally, we should remove redundancy from satStreamID.
 			Redundancy: endpoint.defaultRS,

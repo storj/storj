@@ -44,7 +44,14 @@ type BeginObjectExactVersion struct {
 func (step BeginObjectExactVersion) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 	got, err := db.BeginObjectExactVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
-	require.Equal(t, step.Version, got)
+	if step.ErrClass == nil {
+		require.Equal(t, step.Version, got.Version)
+		require.WithinDuration(t, time.Now(), got.CreatedAt, 5*time.Second)
+		require.Equal(t, step.Opts.ObjectStream, got.ObjectStream)
+		require.Equal(t, step.Opts.ExpiresAt, got.ExpiresAt)
+		require.Equal(t, step.Opts.ZombieDeletionDeadline, got.ZombieDeletionDeadline)
+		require.Equal(t, step.Opts.Encryption, got.Encryption)
+	}
 }
 
 type CommitObject struct {

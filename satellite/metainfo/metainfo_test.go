@@ -1825,3 +1825,45 @@ func TestObjectOverrideOnUpload(t *testing.T) {
 		}
 	})
 }
+
+func TestStableUploadID(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		client, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(client.Close)
+
+		err = planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket")
+		require.NoError(t, err)
+
+		beginResp, err := client.BeginObject(ctx, metainfo.BeginObjectParams{
+			Bucket:        []byte("testbucket"),
+			EncryptedPath: []byte("testobject"),
+			EncryptionParameters: storj.EncryptionParameters{
+				CipherSuite: storj.EncAESGCM,
+				BlockSize:   256,
+			},
+		})
+		require.NoError(t, err)
+
+		listResp, _, err := client.ListObjects(ctx, metainfo.ListObjectsParams{
+			Bucket: []byte("testbucket"),
+			Status: int32(metabase.Pending),
+		})
+		require.NoError(t, err)
+		require.Len(t, listResp, 1)
+		// check that BeginObject and ListObjects return the same StreamID.
+		assert.Equal(t, beginResp.StreamID, listResp[0].StreamID)
+
+		listResp2, _, err := client.ListObjects(ctx, metainfo.ListObjectsParams{
+			Bucket: []byte("testbucket"),
+			Status: int32(metabase.Pending),
+		})
+		require.NoError(t, err)
+		require.Len(t, listResp2, 1)
+		// check that the two list results return the same StreamID.
+		assert.Equal(t, listResp[0].StreamID, listResp2[0].StreamID)
+	})
+}

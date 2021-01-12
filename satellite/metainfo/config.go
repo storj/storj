@@ -182,7 +182,7 @@ type MetabaseDB interface {
 	// DeleteObjectLatestVersion deletes latest object version.
 	DeleteObjectLatestVersion(ctx context.Context, opts metabase.DeleteObjectLatestVersion) (result metabase.DeleteObjectResult, err error)
 	// BeginObjectExactVersion adds a pending object to the database, with specific version.
-	BeginObjectExactVersion(ctx context.Context, opts metabase.BeginObjectExactVersion) (committed metabase.Version, err error)
+	BeginObjectExactVersion(ctx context.Context, opts metabase.BeginObjectExactVersion) (committed metabase.Object, err error)
 	// CommitObject adds a pending object to the database.
 	CommitObject(ctx context.Context, opts metabase.CommitObject) (object metabase.Object, err error)
 	// BeginSegment verifies whether a new segment upload can be started.

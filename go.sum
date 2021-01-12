@@ -59,8 +59,6 @@ github.com/btcsuite/btcd v0.20.1-beta/go.mod h1:wVuoA8VJLEcwgqHBwHmzLRazpKxTv13P
 github.com/btcsuite/btclog v0.0.0-20170628155309-84c8d2346e9f/go.mod h1:TdznJufoqS23FtqVCzL0ZqgP5MqXbb4fg/WgDys70nA=
 github.com/btcsuite/btcutil v0.0.0-20190425235716-9e5f4b9a998d/go.mod h1:+5NJ2+qvTyV9exUAL/rxXi3DcLg2Ts+ymUAY5y4NvMg=
 github.com/btcsuite/btcutil v1.0.1/go.mod h1:j9HUFwoQRsZL3V4n+qG+CUnEGHOarIxfC3Le2Yhbcts=
-github.com/btcsuite/btcutil v1.0.3-0.20201124182144-4031bdc69ded h1:WcPFZzCIqGt/TdFJHsOiX5dIlB/MUzrftltMhpjzfA8=
-github.com/btcsuite/btcutil v1.0.3-0.20201124182144-4031bdc69ded/go.mod h1:0DVlHczLPewLcPGEIeUEzfOJhqGPQ0mJJRDBtD307+o=
 github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce h1:YtWJF7RHm2pYCvA5t0RPmAaLUhREsKuKd+SLhxFbFeQ=
 github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce/go.mod h1:0DVlHczLPewLcPGEIeUEzfOJhqGPQ0mJJRDBtD307+o=
 github.com/btcsuite/go-socks v0.0.0-20170105172521-4720035b7bfd/go.mod h1:HHNXQzUsZCxOoE+CPiyCTO6x34Zs86zZUiwtpXoGdtg=
@@ -512,7 +510,6 @@ github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:
 github.com/yuin/gopher-lua v0.0.0-20191220021717-ab39c6098bdb h1:ZkM6LRnq40pR1Ox0hTHlnpkcOTuFIDQpZ1IN8rKKhX0=
 github.com/yuin/gopher-lua v0.0.0-20191220021717-ab39c6098bdb/go.mod h1:gqRgreBUhTSL0GeU64rtZ3Uq3wtjOa/TB2YfrtkCbVQ=
 github.com/zeebo/admission/v2 v2.0.0/go.mod h1:gSeHGelDHW7Vq6UyJo2boeSt/6Dsnqpisv0i4YZSOyM=
-github.com/zeebo/admission/v3 v3.0.1 h1:/IWg2jLhfjBOUhhdKcbweSzcY3QlbbE57sqvU72EpqA=
 github.com/zeebo/admission/v3 v3.0.1/go.mod h1:BP3isIv9qa2A7ugEratNq1dnl2oZRXaQUGdU7WXKtbw=
 github.com/zeebo/admission/v3 v3.0.2 h1:nI9rBKR97NS42JZ1o0Ki2NsF5DRq+7udnbVXYt3tRPI=
 github.com/zeebo/admission/v3 v3.0.2/go.mod h1:BP3isIv9qa2A7ugEratNq1dnl2oZRXaQUGdU7WXKtbw=
@@ -763,6 +760,7 @@ google.golang.org/grpc v1.21.0/go.mod h1:oYelfM1adQP15Ek0mdvEgi9Df8B9CZIaU1084ij
 google.golang.org/grpc v1.21.1/go.mod h1:oYelfM1adQP15Ek0mdvEgi9Df8B9CZIaU1084ijfRaM=
 google.golang.org/grpc v1.23.0/go.mod h1:Y5yQAOtifL1yxbo5wqy6BxZv8vAUGQwXBOALyacEbxg=
 google.golang.org/grpc v1.26.0/go.mod h1:qbnxyOmOxrQa7FizSgH+ReBfzJrCY1pSN7KXBS8abTk=
+google.golang.org/grpc v1.27.0 h1:rRYRFMVgRv6E0D70Skyfsr28tDXIuuPZyWGMPdMcnXg=
 google.golang.org/grpc v1.27.0/go.mod h1:qbnxyOmOxrQa7FizSgH+ReBfzJrCY1pSN7KXBS8abTk=
 google.golang.org/grpc v1.27.1 h1:zvIju4sqAGvwKspUQOhwnpcqSbzi7/H6QomNNjTL4sk=
 google.golang.org/grpc v1.27.1/go.mod h1:qbnxyOmOxrQa7FizSgH+ReBfzJrCY1pSN7KXBS8abTk=
@@ -812,9 +810,9 @@ honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 storj.io/common v0.0.0-20200424175742-65ac59022f4f/go.mod h1:pZyXiIE7bGETIRXtfs0nICqMwp7PM8HqnDuyUeldNA0=
 storj.io/common v0.0.0-20201026135900-1aaeec90670b/go.mod h1:GqdmNf3fLm2UZX/7Zr0BLFCJ4gFjgm6eHrk/fnmr5jQ=
-storj.io/common v0.0.0-20201210184814-6206aefd1d48/go.mod h1:6sepaQTRLuygvA+GNPzdgRPOB1+wFfjde76KBWofbMY=
-storj.io/common v0.0.0-20210113135631-07a5dc68dc1c h1:07A5QJMYYYQrOQv51j6RiOTstzMh7OnbqTZGZljp9/M=
 storj.io/common v0.0.0-20210113135631-07a5dc68dc1c/go.mod h1:KhVByBTvjV2rsaUQsft0pKgBRRMvCcY1JsDqt6BWr3I=
+storj.io/common v0.0.0-20210115161819-ee11aaf35a7f h1:VmLstwTDGwrbn/jrdQ33fotRiOI4q8Swjl7W9Mt7qdY=
+storj.io/common v0.0.0-20210115161819-ee11aaf35a7f/go.mod h1:KhVByBTvjV2rsaUQsft0pKgBRRMvCcY1JsDqt6BWr3I=
 storj.io/drpc v0.0.11/go.mod h1:TiFc2obNjL9/3isMW1Rpxjy8V9uE0B2HMeMFGiiI7Iw=
 storj.io/drpc v0.0.14/go.mod h1:82nfl+6YwRwF6UG31cEWWUqv/FaKvP5SGqUvoqTxCMA=
 storj.io/drpc v0.0.16 h1:9sxypc5lKi/0D69cR21BR0S21+IvXfON8L5nXMVNTwQ=
@@ -823,5 +821,5 @@ storj.io/monkit-jaeger v0.0.0-20200518165323-80778fc3f91b h1:Bbg9JCtY6l3HrDxs3BX
 storj.io/monkit-jaeger v0.0.0-20200518165323-80778fc3f91b/go.mod h1:gj4vuCeyCRjRmH8LIrgoyU9Dc9uR6H+/GcDUXmTbf80=
 storj.io/private v0.0.0-20210108233641-2ba1ef686d1f h1:ctEwD9AsWR8MGv+hKxATjsu114lOPuL2wL7fqO2qusg=
 storj.io/private v0.0.0-20210108233641-2ba1ef686d1f/go.mod h1:3KcGiA7phL3a0HUCe5ar90SlIU3iFb8hKInaEZQ5P7o=
-storj.io/uplink v1.4.5-0.20210114104337-ce4ca047ab1f h1:jp17GoEKBmo/JvLUQHAbO8E9AjMEfwuabYoUrYI33us=
-storj.io/uplink v1.4.5-0.20210114104337-ce4ca047ab1f/go.mod h1:raBVCBf1/DwfkFNzKqjSKLPysk9+o8Ubt/LJIO9TVBw=
+storj.io/uplink v1.4.6-0.20210115090500-10cfa3d1c277 h1:H+YVCCYBgk3xRda52MwQO3svpQvqE6P/bjccVLyvROs=
+storj.io/uplink v1.4.6-0.20210115090500-10cfa3d1c277/go.mod h1:lpQO2Smf6gpOl7hkB/IEKdrMMdbIHeRF1QKhyZCoD5w=

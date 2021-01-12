@@ -21,7 +21,7 @@ func SignStreamID(ctx context.Context, signer signing.Signer, unsigned *internal
 	}
 
 	signed := *unsigned
-	signed.SatelliteSignature, err = signer.HashAndSign(ctx, bytes)
+	signed.SatelliteSignature, err = signer.SignHMACSHA256(ctx, bytes)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -68,14 +68,14 @@ func EncodeSegmentID(ctx context.Context, segmentID *internalpb.SegmentID) (_ []
 }
 
 // VerifyStreamID verifies that the signature inside stream ID belongs to the satellite.
-func VerifyStreamID(ctx context.Context, satellite signing.Signee, signed *internalpb.StreamID) (err error) {
+func VerifyStreamID(ctx context.Context, satellite signing.Signer, signed *internalpb.StreamID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	bytes, err := EncodeStreamID(ctx, signed)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	return satellite.HashAndVerifySignature(ctx, bytes, signed.SatelliteSignature)
+	return satellite.VerifyHMACSHA256(ctx, bytes, signed.SatelliteSignature)
 }
 
 // VerifySegmentID verifies that the signature inside segment ID belongs to the satellite.

@@ -95,23 +95,36 @@ type BeginObjectExactVersion struct {
 }
 
 // BeginObjectExactVersion adds a pending object to the database, with specific version.
-func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion) (committed Version, err error) {
+func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion) (committed Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.ObjectStream.Verify(); err != nil {
-		return -1, err
+		return Object{}, err
 	}
 
 	switch {
 	case opts.Encryption.IsZero() || opts.Encryption.CipherSuite == storj.EncUnspecified:
-		return -1, ErrInvalidRequest.New("Encryption is missing")
+		return Object{}, ErrInvalidRequest.New("Encryption is missing")
 	case opts.Encryption.BlockSize <= 0:
-		return -1, ErrInvalidRequest.New("Encryption.BlockSize is negative or zero")
+		return Object{}, ErrInvalidRequest.New("Encryption.BlockSize is negative or zero")
 	case opts.Version == NextVersion:
-		return -1, ErrInvalidRequest.New("Version should not be metabase.NextVersion")
+		return Object{}, ErrInvalidRequest.New("Version should not be metabase.NextVersion")
 	}
 
-	_, err = db.db.ExecContext(ctx, `
+	object := Object{
+		ObjectStream: ObjectStream{
+			ProjectID:  opts.ProjectID,
+			BucketName: opts.BucketName,
+			ObjectKey:  opts.ObjectKey,
+			Version:    opts.Version,
+			StreamID:   opts.StreamID,
+		},
+		ExpiresAt:              opts.ExpiresAt,
+		Encryption:             opts.Encryption,
+		ZombieDeletionDeadline: opts.ZombieDeletionDeadline,
+	}
+
+	err = db.db.QueryRow(ctx, `
 		INSERT INTO objects (
 			project_id, bucket_name, object_key, version, stream_id,
 			expires_at, encryption,
@@ -121,18 +134,21 @@ func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExact
 			$6, $7,
 			$8
 		)
-	`,
-		opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID,
+		RETURNING status, created_at
+	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID,
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
-		opts.ZombieDeletionDeadline)
+		opts.ZombieDeletionDeadline).
+		Scan(
+			&object.Status, &object.CreatedAt,
+		)
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
-			return -1, ErrConflict.New("object already exists")
+			return Object{}, ErrConflict.New("object already exists")
 		}
-		return -1, Error.New("unable to insert object: %w", err)
+		return Object{}, Error.New("unable to insert object: %w", err)
 	}
 
-	return opts.Version, nil
+	return object, nil
 }
 
 // BeginSegment contains options to verify, whether a new segment upload can be started.
