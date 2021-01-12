@@ -108,10 +108,10 @@ export default class ProjectMembersArea extends Vue {
      */
     public get projectMembers(): ProjectMember[] {
         const projectMembers = this.$store.state.projectMembersModule.page.projectMembers;
-        const projectOwner = projectMembers.filter((member) => member.user.id === this.$store.getters.selectedProject.ownerId);
+        const projectOwner = projectMembers.find((member) => member.user.id === this.$store.getters.selectedProject.ownerId);
         const nonOwners = projectMembers.filter((member) => member.user.id !== this.$store.getters.selectedProject.ownerId);
 
-        nonOwners.unshift(projectOwner[0]);
+        projectOwner && nonOwners.unshift(projectOwner);
 
         return nonOwners;
     }
