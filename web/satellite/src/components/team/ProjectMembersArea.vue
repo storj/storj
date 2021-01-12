@@ -113,7 +113,7 @@ export default class ProjectMembersArea extends Vue {
 
         nonOwners.unshift(projectOwner[0]);
 
-        return nonOwners
+        return nonOwners;
     }
 
     public get getItemComponent() {
