@@ -1462,6 +1462,11 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "not implemented")
 }
 
+// GetPendingObjects returns pending objects.
+func (endpoint *Endpoint) GetPendingObjects(ctx context.Context, req *pb.GetPendingObjectsRequest) (resp *pb.GetPendingObjectsResponse, err error) {
+	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "not implemented")
+}
+
 // DownloadSegment returns data necessary to download segment.
 func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDownloadRequest) (resp *pb.SegmentDownloadResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
