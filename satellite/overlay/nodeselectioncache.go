@@ -118,6 +118,26 @@ func (cache *NodeSelectionCache) GetNodes(ctx context.Context, req FindStorageNo
 	return convNodesToSelectedNodes(selected), err
 }
 
+// GetNodeIPs gets the last node ip:port from the cache, refreshing when needed.
+func (cache *NodeSelectionCache) GetNodeIPs(ctx context.Context, nodes []storj.NodeID) (_ map[storj.NodeID]string, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	cache.mu.RLock()
+	lastRefresh := cache.lastRefresh
+	state := cache.state
+	cache.mu.RUnlock()
+
+	// if the cache is stale, then refresh it before we get nodes
+	if state == nil || time.Since(lastRefresh) > cache.staleness {
+		state, err = cache.refresh(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return state.IPs(ctx, nodes), nil
+}
+
 // Size returns how many reputable nodes and new nodes are in the cache.
 func (cache *NodeSelectionCache) Size() (reputableNodeCount int, newNodeCount int) {
 	cache.mu.RLock()

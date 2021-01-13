@@ -313,6 +313,12 @@ func (service *Service) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs 
 	return service.db.GetOnlineNodesForGetDelete(ctx, nodeIDs, service.config.Node.OnlineWindow)
 }
 
+// GetNodeIPs returns a map of node ip:port for the supplied nodeIDs.
+func (service *Service) GetNodeIPs(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]string, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.SelectionCache.GetNodeIPs(ctx, nodeIDs)
+}
+
 // IsOnline checks if a node is 'online' based on the collected statistics.
 func (service *Service) IsOnline(node *NodeDossier) bool {
 	return time.Since(node.Reputation.LastContactSuccess) < service.config.Node.OnlineWindow

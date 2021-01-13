@@ -1086,11 +1086,11 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		return nil, err
 	}
 
-	var nodeIDs []storj.NodeID
+	pieceCountByNodeID := map[storj.NodeID]int64{}
 	addPointerToNodeIDs := func(pointer *pb.Pointer) {
 		if pointer.Remote != nil {
 			for _, piece := range pointer.Remote.RemotePieces {
-				nodeIDs = append(nodeIDs, piece.NodeId)
+				pieceCountByNodeID[piece.NodeId]++
 			}
 		}
 	}
@@ -1129,20 +1129,36 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		addPointerToNodeIDs(pointer)
 	}
 
-	nodes, err := endpoint.overlay.GetOnlineNodesForGetDelete(ctx, nodeIDs)
+	nodeIDs := make([]storj.NodeID, 0, len(pieceCountByNodeID))
+	for nodeID := range pieceCountByNodeID {
+		nodeIDs = append(nodeIDs, nodeID)
+	}
+
+	nodeIPMap, err := endpoint.overlay.GetNodeIPs(ctx, nodeIDs)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	resp = &pb.ObjectGetIPsResponse{}
-	for _, node := range nodes {
-		address := node.Address.GetAddress()
-		if address != "" {
-			resp.Ips = append(resp.Ips, []byte(address))
+	nodeIPs := make([][]byte, 0, len(nodeIPMap))
+	pieceCount := int64(0)
+	reliablePieceCount := int64(0)
+	for nodeID, count := range pieceCountByNodeID {
+		pieceCount += count
+
+		ip, reliable := nodeIPMap[nodeID]
+		if !reliable {
+			continue
 		}
+		nodeIPs = append(nodeIPs, []byte(ip))
+		reliablePieceCount += count
 	}
 
-	return resp, nil
+	return &pb.ObjectGetIPsResponse{
+		Ips:                nodeIPs,
+		SegmentCount:       streamMeta.NumberOfSegments,
+		ReliablePieceCount: reliablePieceCount,
+		PieceCount:         pieceCount,
+	}, nil
 }
 
 // BeginSegment begins segment uploading.
