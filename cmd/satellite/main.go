@@ -137,19 +137,19 @@ var (
 		Args:  cobra.MinimumNArgs(3),
 		RunE:  cmdValueAttribution,
 	}
-	gracefulExitCmd = &cobra.Command{
+	reportsGracefulExitCmd = &cobra.Command{
 		Use:   "graceful-exit [start] [end]",
 		Short: "Generate a graceful exit report",
 		Long:  "Generate a node usage report for a given period to use for payments. Format dates using YYYY-MM-DD. The end date is exclusive.",
 		Args:  cobra.MinimumNArgs(2),
-		RunE:  cmdGracefulExit,
+		RunE:  cmdReportsGracefulExit,
 	}
-	verifyGracefulExitReceiptCmd = &cobra.Command{
+	reportsVerifyGEReceiptCmd = &cobra.Command{
 		Use:   "verify-exit-receipt [storage node ID] [receipt]",
 		Short: "Verify a graceful exit receipt",
 		Long:  "Verify a graceful exit receipt is valid.",
 		Args:  cobra.MinimumNArgs(2),
-		RunE:  cmdVerifyGracefulExitReceipt,
+		RunE:  reportsVerifyGEReceipt,
 	}
 	compensationCmd = &cobra.Command{
 		Use:   "compensation",
@@ -220,6 +220,17 @@ var (
 		Long:  "Ensures that we have a stripe customer for every satellite user.",
 		RunE:  cmdStripeCustomer,
 	}
+	consistencyCmd = &cobra.Command{
+		Use:   "consistency",
+		Short: "Readdress DB consistency issues",
+		Long:  "Readdress DB consistency issues and perform data cleanups for improving the DB performance.",
+	}
+	consistencyGECleanupCmd = &cobra.Command{
+		Use:   "ge-cleanup-orphaned-data",
+		Short: "Cleanup Graceful Exit orphaned data",
+		Long:  "Cleanup Graceful Exit data which is lingering in the transfer queue DB table on nodes which has finished the exit.",
+		RunE:  cmdConsistencyGECleanup,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -248,13 +259,18 @@ var (
 		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		Output   string `help:"destination of report output" default:""`
 	}
-	gracefulExitCfg struct {
+	reportsGracefulExitCfg struct {
 		Database  string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		Output    string `help:"destination of report output" default:""`
 		Completed bool   `help:"whether to output (initiated and completed) or (initiated and not completed)" default:"false"`
 	}
-	verifyGracefulExitReceiptCfg struct {
+	reportsVerifyGracefulExitReceiptCfg struct {
 	}
+	consistencyGECleanupCfg struct {
+		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
+		Before   string `help:"select only exited nodes before this UTC date formatted like YYYY-MM. Date cannot be newer than the current time (required)"`
+	}
+
 	confDir     string
 	identityDir string
 )
@@ -276,10 +292,11 @@ func init() {
 	rootCmd.AddCommand(reportsCmd)
 	rootCmd.AddCommand(compensationCmd)
 	rootCmd.AddCommand(billingCmd)
+	rootCmd.AddCommand(consistencyCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
-	reportsCmd.AddCommand(gracefulExitCmd)
-	reportsCmd.AddCommand(verifyGracefulExitReceiptCmd)
+	reportsCmd.AddCommand(reportsGracefulExitCmd)
+	reportsCmd.AddCommand(reportsVerifyGEReceiptCmd)
 	compensationCmd.AddCommand(generateInvoicesCmd)
 	compensationCmd.AddCommand(recordPeriodCmd)
 	compensationCmd.AddCommand(recordOneOffPaymentsCmd)
@@ -289,6 +306,7 @@ func init() {
 	billingCmd.AddCommand(createCustomerInvoicesCmd)
 	billingCmd.AddCommand(finalizeCustomerInvoicesCmd)
 	billingCmd.AddCommand(stripeCustomerCmd)
+	consistencyCmd.AddCommand(consistencyGECleanupCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -301,8 +319,8 @@ func init() {
 	process.Bind(generateInvoicesCmd, &generateInvoicesCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(recordPeriodCmd, &recordPeriodCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(recordOneOffPaymentsCmd, &recordOneOffPaymentsCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(gracefulExitCmd, &gracefulExitCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(verifyGracefulExitReceiptCmd, &verifyGracefulExitReceiptCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(reportsGracefulExitCmd, &reportsGracefulExitCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(reportsVerifyGEReceiptCmd, &reportsVerifyGracefulExitReceiptCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(partnerAttributionCmd, &partnerAttribtionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(prepareCustomerInvoiceRecordsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -310,6 +328,11 @@ func init() {
 	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(finalizeCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(consistencyGECleanupCmd, &consistencyGECleanupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+
+	if err := consistencyGECleanupCmd.MarkFlagRequired("before"); err != nil {
+		panic(err)
+	}
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -490,7 +513,7 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 	return w.Flush()
 }
 
-func cmdVerifyGracefulExitReceipt(cmd *cobra.Command, args []string) (err error) {
+func reportsVerifyGEReceipt(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
 	identity, err := runCfg.Identity.Load()
@@ -507,7 +530,7 @@ func cmdVerifyGracefulExitReceipt(cmd *cobra.Command, args []string) (err error)
 	return verifyGracefulExitReceipt(ctx, identity, nodeID, args[1])
 }
 
-func cmdGracefulExit(cmd *cobra.Command, args []string) (err error) {
+func cmdReportsGracefulExit(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
 	start, end, err := reports.ParseRange(args[0], args[1])
@@ -516,12 +539,12 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// send output to stdout
-	if gracefulExitCfg.Output == "" {
-		return generateGracefulExitCSV(ctx, gracefulExitCfg.Completed, start, end, os.Stdout)
+	if reportsGracefulExitCfg.Output == "" {
+		return generateGracefulExitCSV(ctx, reportsGracefulExitCfg.Completed, start, end, os.Stdout)
 	}
 
 	// send output to file
-	file, err := os.Create(gracefulExitCfg.Output)
+	file, err := os.Create(reportsGracefulExitCfg.Output)
 	if err != nil {
 		return err
 	}
@@ -530,7 +553,7 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, file.Close())
 	}()
 
-	return generateGracefulExitCSV(ctx, gracefulExitCfg.Completed, start, end, file)
+	return generateGracefulExitCSV(ctx, reportsGracefulExitCfg.Completed, start, end, file)
 }
 
 func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
@@ -704,6 +727,21 @@ func cmdStripeCustomer(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
 	return generateStripeCustomers(ctx)
+}
+
+func cmdConsistencyGECleanup(cmd *cobra.Command, args []string) error {
+	ctx, _ := process.Ctx(cmd)
+
+	before, err := time.Parse("2006-01-02", consistencyGECleanupCfg.Before)
+	if err != nil {
+		return errs.New("before flag value isn't of the expected format. %+v", err)
+	}
+
+	if before.After(time.Now()) {
+		return errs.New("before flag value cannot be newer than the current time.")
+	}
+
+	return cleanupGEOrphanedData(ctx, before.UTC())
 }
 
 func main() {
