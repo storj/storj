@@ -409,7 +409,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 
 						TotalPlainSize:     512,
 						TotalEncryptedSize: 1024,
-						FixedSegmentSize:   1024,
+						FixedSegmentSize:   512,
 
 						Encryption: defaultTestEncryption,
 					},
@@ -497,7 +497,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 
 						TotalPlainSize:     1024,
 						TotalEncryptedSize: 2048,
-						FixedSegmentSize:   1024,
+						FixedSegmentSize:   512,
 
 						Encryption: defaultTestEncryption,
 					},
@@ -624,7 +624,7 @@ func TestGetSegmentByOffset(t *testing.T) {
 
 						TotalPlainSize:     2048,
 						TotalEncryptedSize: 4240,
-						FixedSegmentSize:   1060,
+						FixedSegmentSize:   512,
 
 						Encryption: defaultTestEncryption,
 					},

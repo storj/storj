@@ -1909,6 +1909,8 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		expires = *object.ExpiresAt
 	}
 
+	// TotalPlainSize != 0 means object was uploaded with newer uplink
+	multipartObject := object.TotalPlainSize != 0 && object.FixedSegmentSize <= 0
 	streamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
 		Bucket:          []byte(object.BucketName),
 		EncryptedPath:   []byte(object.ObjectKey),
@@ -1916,7 +1918,7 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		CreationDate:    object.CreatedAt,
 		ExpirationDate:  expires,
 		StreamId:        object.StreamID[:],
-		MultipartObject: object.FixedSegmentSize <= 0,
+		MultipartObject: multipartObject,
 		// TODO: defaultRS may change while the upload is pending.
 		// Ideally, we should remove redundancy from satStreamID.
 		Redundancy: endpoint.defaultRS,

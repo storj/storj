@@ -104,7 +104,6 @@ func (m *Migrator) Migrate(ctx context.Context) (err error) {
 			}
 
 			totalEncryptedSize := pointer.SegmentSize
-			fixedSegmentSize := pointer.SegmentSize
 
 			// skip inline segment as with metabase implementation we are not storing empty inline segments
 			if !(pointer.Type == pb.Pointer_INLINE && len(pointer.InlineSegment) == 0) {
@@ -134,7 +133,6 @@ func (m *Migrator) Migrate(ctx context.Context) (err error) {
 				}
 
 				totalEncryptedSize += pointer.SegmentSize
-				fixedSegmentSize = pointer.SegmentSize
 
 				segmentMeta := &pb.SegmentMeta{}
 				err = pb.Unmarshal(pointer.Metadata, segmentMeta)
@@ -181,7 +179,7 @@ func (m *Migrator) Migrate(ctx context.Context) (err error) {
 				pointer.CreationDate, expireAt,
 				metabase.Committed, segmentsCount,
 				[]byte{}, pointer.Metadata, streamMeta.LastSegmentMeta.EncryptedKey,
-				0, totalEncryptedSize, fixedSegmentSize,
+				0, totalEncryptedSize, 0,
 				encryption,
 			)
 			if err != nil {

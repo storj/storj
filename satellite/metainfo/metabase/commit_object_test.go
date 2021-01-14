@@ -291,7 +291,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 
 						TotalPlainSize:     512,
 						TotalEncryptedSize: 1024,
-						FixedSegmentSize:   1024,
+						FixedSegmentSize:   512,
 
 						Encryption: defaultTestEncryption,
 					},
@@ -389,7 +389,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 
 						TotalPlainSize:     512,
 						TotalEncryptedSize: 1024,
-						FixedSegmentSize:   1024,
+						FixedSegmentSize:   512,
 
 						Encryption: defaultTestEncryption,
 					},
@@ -492,7 +492,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 
 						TotalPlainSize:     1024,
 						TotalEncryptedSize: 2048,
-						FixedSegmentSize:   1024,
+						FixedSegmentSize:   512,
 
 						Encryption: defaultTestEncryption,
 					},

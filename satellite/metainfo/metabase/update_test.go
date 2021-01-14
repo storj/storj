@@ -274,7 +274,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 
 						TotalPlainSize:     512,
 						TotalEncryptedSize: 1024,
-						FixedSegmentSize:   1024,
+						FixedSegmentSize:   512,
 
 						Encryption: defaultTestEncryption,
 					},

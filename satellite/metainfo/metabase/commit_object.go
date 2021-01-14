@@ -68,13 +68,13 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 		// TODO: would we even need this when we make main index plain_offset?
 		fixedSegmentSize := int32(0)
 		if len(finalSegments) > 0 {
-			fixedSegmentSize = finalSegments[0].EncryptedSize
+			fixedSegmentSize = finalSegments[0].PlainSize
 			for i, seg := range finalSegments {
 				if seg.Position.Part != 0 {
 					fixedSegmentSize = -1
 					break
 				}
-				if i < len(finalSegments)-1 && seg.EncryptedSize != fixedSegmentSize {
+				if i < len(finalSegments)-1 && seg.PlainSize != fixedSegmentSize {
 					fixedSegmentSize = -1
 					break
 				}
