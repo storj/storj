@@ -11,22 +11,22 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/storj/private/multinodepb"
 	"storj.io/storj/storagenode/apikeys"
-	"storj.io/storj/storagenode/payout"
+	"storj.io/storj/storagenode/payouts"
 )
 
 var _ multinodepb.DRPCPayoutServer = (*PayoutEndpoint)(nil)
 
-// PayoutEndpoint implements multinode payout endpoint.
+// PayoutEndpoint implements multinode payouts endpoint.
 //
 // architecture: Endpoint
 type PayoutEndpoint struct {
 	log     *zap.Logger
 	apiKeys *apikeys.Service
-	db      payout.DB
+	db      payouts.DB
 }
 
-// NewPayoutEndpoint creates new multinode payout endpoint.
-func NewPayoutEndpoint(log *zap.Logger, apiKeys *apikeys.Service, db payout.DB) *PayoutEndpoint {
+// NewPayoutEndpoint creates new multinode payouts endpoint.
+func NewPayoutEndpoint(log *zap.Logger, apiKeys *apikeys.Service, db payouts.DB) *PayoutEndpoint {
 	return &PayoutEndpoint{
 		log:     log,
 		apiKeys: apiKeys,

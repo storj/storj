@@ -19,7 +19,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
-	"storj.io/storj/storagenode/payout/estimatedpayout"
+	"storj.io/storj/storagenode/payouts/estimatedpayouts"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/storageusage"
@@ -117,9 +117,10 @@ func TestStorageNodeApi(t *testing.T) {
 
 				estimation, err := sno.Console.Service.GetAllSatellitesEstimatedPayout(ctx)
 				require.NoError(t, err)
-				expected, err := json.Marshal(estimatedpayout.EstimatedPayout{
-					CurrentMonth:  estimation.CurrentMonth,
-					PreviousMonth: estimation.PreviousMonth,
+				expected, err := json.Marshal(estimatedpayouts.EstimatedPayout{
+					CurrentMonth:             estimation.CurrentMonth,
+					PreviousMonth:            estimation.PreviousMonth,
+					CurrentMonthExpectations: estimation.CurrentMonthExpectations,
 				})
 
 				require.NoError(t, err)

@@ -15,7 +15,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/storj/private/date"
-	"storj.io/storj/storagenode/payout"
+	"storj.io/storj/storagenode/payouts"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/satellites"
@@ -34,7 +34,7 @@ type Config struct {
 type CacheStorage struct {
 	Reputation   reputation.DB
 	StorageUsage storageusage.DB
-	Payout       payout.DB
+	Payout       payouts.DB
 	Pricing      pricing.DB
 	Satellites   satellites.DB
 }
@@ -47,7 +47,7 @@ type Cache struct {
 
 	db                CacheStorage
 	service           *Service
-	payoutEndpoint    *payout.Endpoint
+	payoutEndpoint    *payouts.Endpoint
 	reputationService *reputation.Service
 	trust             *trust.Pool
 
@@ -58,7 +58,7 @@ type Cache struct {
 
 // NewCache creates new caching service instance.
 func NewCache(log *zap.Logger, config Config, db CacheStorage, service *Service,
-	payoutEndpoint *payout.Endpoint, reputationService *reputation.Service, trust *trust.Pool) *Cache {
+	payoutEndpoint *payouts.Endpoint, reputationService *reputation.Service, trust *trust.Pool) *Cache {
 
 	return &Cache{
 		log:               log,
@@ -203,11 +203,11 @@ func (cache *Cache) CacheHeldAmount(ctx context.Context) (err error) {
 		previousMonth := yearAndMonth.AddDate(0, -1, 0).String()
 		payStub, err := cache.payoutEndpoint.GetPaystub(ctx, satellite, previousMonth)
 		if err != nil {
-			if payout.ErrNoPayStubForPeriod.Has(err) {
+			if payouts.ErrNoPayStubForPeriod.Has(err) {
 				return nil
 			}
 
-			cache.log.Error("payout err", zap.String("satellite", satellite.String()))
+			cache.log.Error("payouts err", zap.String("satellite", satellite.String()))
 			return err
 		}
 

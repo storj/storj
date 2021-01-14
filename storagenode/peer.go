@@ -47,8 +47,8 @@ import (
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
-	"storj.io/storj/storagenode/payout"
-	"storj.io/storj/storagenode/payout/estimatedpayout"
+	"storj.io/storj/storagenode/payouts"
+	"storj.io/storj/storagenode/payouts/estimatedpayouts"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/piecestore/usedserials"
@@ -88,7 +88,7 @@ type DB interface {
 	StorageUsage() storageusage.DB
 	Satellites() satellites.DB
 	Notifications() notifications.DB
-	Payout() payout.DB
+	Payout() payouts.DB
 	Pricing() pricing.DB
 	APIKeys() apikeys.DB
 
@@ -226,7 +226,7 @@ type Peer struct {
 	}
 
 	Estimation struct {
-		Service *estimatedpayout.Service
+		Service *estimatedpayouts.Service
 	}
 
 	Storage2 struct {
@@ -274,8 +274,8 @@ type Peer struct {
 	}
 
 	Payout struct {
-		Service  *payout.Service
-		Endpoint *payout.Endpoint
+		Service  *payouts.Service
+		Endpoint *payouts.Endpoint
 	}
 
 	Bandwidth *bandwidth.Service
@@ -562,9 +562,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			debug.Cycle("Orders Cleanup", peer.Storage2.Orders.Cleanup))
 	}
 
-	{ // setup payout service.
-		service, err := payout.NewService(
-			peer.Log.Named("payout:service"),
+	{ // setup payouts service.
+		service, err := payouts.NewService(
+			peer.Log.Named("payouts:service"),
 			peer.DB.Payout(),
 			peer.DB.Reputation(),
 			peer.DB.Satellites(),
@@ -574,8 +574,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			return nil, errs.Combine(err, peer.Close())
 		}
 		peer.Payout.Service = service
-		peer.Payout.Endpoint = payout.NewEndpoint(
-			peer.Log.Named("payout:endpoint"),
+		peer.Payout.Endpoint = payouts.NewEndpoint(
+			peer.Log.Named("payouts:endpoint"),
 			peer.Dialer,
 			peer.Storage2.Trust,
 		)
@@ -624,7 +624,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup estimation service
-		peer.Estimation.Service = estimatedpayout.NewService(
+		peer.Estimation.Service = estimatedpayouts.NewService(
 			peer.DB.Bandwidth(),
 			peer.DB.Reputation(),
 			peer.DB.StorageUsage(),

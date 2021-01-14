@@ -51,7 +51,7 @@ import (
 	"storj.io/storj/satellite/referrals"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/rewards"
-	"storj.io/storj/satellite/snopayout"
+	"storj.io/storj/satellite/snopayouts"
 )
 
 // API is the satellite API process.
@@ -157,9 +157,9 @@ type API struct {
 	}
 
 	SnoPayout struct {
-		Endpoint *snopayout.Endpoint
-		Service  *snopayout.Service
-		DB       snopayout.DB
+		Endpoint *snopayouts.Endpoint
+		Service  *snopayouts.Service
+		DB       snopayouts.DB
 	}
 
 	GracefulExit struct {
@@ -655,11 +655,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup SnoPayout endpoint
 		peer.SnoPayout.DB = peer.DB.SnoPayout()
-		peer.SnoPayout.Service = snopayout.NewService(
-			peer.Log.Named("payout:service"),
+		peer.SnoPayout.Service = snopayouts.NewService(
+			peer.Log.Named("payouts:service"),
 			peer.SnoPayout.DB)
-		peer.SnoPayout.Endpoint = snopayout.NewEndpoint(
-			peer.Log.Named("payout:endpoint"),
+		peer.SnoPayout.Endpoint = snopayouts.NewEndpoint(
+			peer.Log.Named("payouts:endpoint"),
 			peer.DB.StoragenodeAccounting(),
 			peer.Overlay.DB,
 			peer.SnoPayout.Service)

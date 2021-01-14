@@ -111,7 +111,7 @@ func (dashboard *StorageNode) Satellite(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// EstimatedPayout returns estimated payout from specific satellite or all satellites if current traffic level remains same.
+// EstimatedPayout returns estimated payouts from specific satellite or all satellites if current traffic level remains same.
 func (dashboard *StorageNode) EstimatedPayout(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error

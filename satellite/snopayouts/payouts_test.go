@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package snopayout_test
+package snopayouts_test
 
 import (
 	"testing"
@@ -14,7 +14,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/satellite/snopayout"
+	"storj.io/storj/satellite/snopayouts"
 )
 
 func TestPayoutDB(t *testing.T) {
@@ -22,7 +22,7 @@ func TestPayoutDB(t *testing.T) {
 		snoPayout := db.SnoPayout()
 		NodeID := storj.NodeID{}
 		period := "2020-01"
-		paystub := snopayout.PayStub{
+		paystub := snopayouts.PayStub{
 			Period:         "2020-01",
 			NodeID:         NodeID,
 			Created:        time.Now().UTC(),
@@ -46,7 +46,7 @@ func TestPayoutDB(t *testing.T) {
 			Paid:           17,
 		}
 
-		paystub2 := snopayout.PayStub{
+		paystub2 := snopayouts.PayStub{
 			Period:         "2020-02",
 			NodeID:         NodeID,
 			Created:        time.Now().UTC(),
@@ -70,7 +70,7 @@ func TestPayoutDB(t *testing.T) {
 			Paid:           20,
 		}
 
-		paystub3 := snopayout.PayStub{
+		paystub3 := snopayouts.PayStub{
 			Period:         "2020-03",
 			NodeID:         NodeID,
 			Created:        time.Now().UTC(),
@@ -207,7 +207,7 @@ func TestPayoutDB(t *testing.T) {
 			}
 		})
 
-		payment := snopayout.StoragenodePayment{
+		payment := snopayouts.StoragenodePayment{
 			ID:      1,
 			Created: time.Now().UTC(),
 			NodeID:  NodeID,

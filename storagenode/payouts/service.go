@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package payout
+package payouts
 
 import (
 	"context"
@@ -25,7 +25,7 @@ import (
 
 var (
 	// ErrPayoutService defines payout service error.
-	ErrPayoutService = errs.Class("payout service error")
+	ErrPayoutService = errs.Class("payouts service error")
 
 	// ErrBadPeriod defines that period has wrong format.
 	ErrBadPeriod = errs.Class("wrong period format")
@@ -152,14 +152,14 @@ func (service *Service) AllPayStubsPeriod(ctx context.Context, periodStart, peri
 	return payStubs, nil
 }
 
-// SatellitePeriods retrieves all periods for concrete satellite in which we have some payout data.
+// SatellitePeriods retrieves all periods for concrete satellite in which we have some payouts data.
 func (service *Service) SatellitePeriods(ctx context.Context, satelliteID storj.NodeID) (_ []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return service.db.SatellitePeriods(ctx, satelliteID)
 }
 
-// AllPeriods retrieves all periods in which we have some payout data.
+// AllPeriods retrieves all periods in which we have some payouts data.
 func (service *Service) AllPeriods(ctx context.Context) (_ []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 

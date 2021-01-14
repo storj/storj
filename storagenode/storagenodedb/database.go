@@ -29,7 +29,7 @@ import (
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
-	"storj.io/storj/storagenode/payout"
+	"storj.io/storj/storagenode/payouts"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
@@ -534,7 +534,7 @@ func (db *DB) Notifications() notifications.DB {
 }
 
 // Payout returns instance of the SnoPayout database.
-func (db *DB) Payout() payout.DB {
+func (db *DB) Payout() payouts.DB {
 	return db.payoutDB
 }
 

@@ -45,7 +45,7 @@ import (
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/rewards"
-	"storj.io/storj/satellite/snopayout"
+	"storj.io/storj/satellite/snopayouts"
 )
 
 var mon = monkit.Package()
@@ -96,8 +96,8 @@ type DB interface {
 	GracefulExit() gracefulexit.DB
 	// StripeCoinPayments returns stripecoinpayments database.
 	StripeCoinPayments() stripecoinpayments.DB
-	// SnoPayout returns database for payout.
-	SnoPayout() snopayout.DB
+	// SnoPayout returns database for payouts.
+	SnoPayout() snopayouts.DB
 	// Compoensation tracks storage node compensation
 	Compensation() compensation.DB
 	// Revocation tracks revoked macaroons

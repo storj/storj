@@ -1,19 +1,20 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package estimatedpayout
+package estimatedpayouts
 
 import (
 	"math"
 )
 
-// EstimatedPayout contains usage and estimated payout data for current and previous months.
+// EstimatedPayout contains usage and estimated payouts data for current and previous months.
 type EstimatedPayout struct {
-	CurrentMonth  PayoutMonthly `json:"currentMonth"`
-	PreviousMonth PayoutMonthly `json:"previousMonth"`
+	CurrentMonth             PayoutMonthly `json:"currentMonth"`
+	PreviousMonth            PayoutMonthly `json:"previousMonth"`
+	CurrentMonthExpectations float64       `json:"currentMonthExpectations"`
 }
 
-// PayoutMonthly contains usage and estimated payout date.
+// PayoutMonthly contains usage and estimated payouts date.
 type PayoutMonthly struct {
 	EgressBandwidth         int64   `json:"egressBandwidth"`
 	EgressBandwidthPayout   float64 `json:"egressBandwidthPayout"`
@@ -26,19 +27,19 @@ type PayoutMonthly struct {
 	Held                    float64 `json:"held"`
 }
 
-// SetEgressBandwidthPayout counts egress bandwidth payout for PayoutMonthly object.
+// SetEgressBandwidthPayout counts egress bandwidth payouts for PayoutMonthly object.
 func (pm *PayoutMonthly) SetEgressBandwidthPayout(egressPrice int64) {
 	amount := float64(pm.EgressBandwidth*egressPrice) / math.Pow10(12)
 	pm.EgressBandwidthPayout += RoundFloat(amount)
 }
 
-// SetEgressRepairAuditPayout counts audit and repair payout for PayoutMonthly object.
+// SetEgressRepairAuditPayout counts audit and repair payouts for PayoutMonthly object.
 func (pm *PayoutMonthly) SetEgressRepairAuditPayout(auditRepairPrice int64) {
 	amount := float64(pm.EgressRepairAudit*auditRepairPrice) / math.Pow10(12)
 	pm.EgressRepairAuditPayout += RoundFloat(amount)
 }
 
-// SetDiskSpacePayout counts disk space payout for PayoutMonthly object.
+// SetDiskSpacePayout counts disk space payouts for PayoutMonthly object.
 func (pm *PayoutMonthly) SetDiskSpacePayout(diskSpacePrice int64) {
 	amount := pm.DiskSpace * float64(diskSpacePrice) / math.Pow10(12)
 	pm.DiskSpacePayout += RoundFloat(amount)
@@ -50,7 +51,7 @@ func (pm *PayoutMonthly) SetHeldAmount() {
 	pm.Held = amount
 }
 
-// SetPayout counts payout amount for PayoutMonthly object.
+// SetPayout counts payouts amount for PayoutMonthly object.
 func (pm *PayoutMonthly) SetPayout() {
 	amount := pm.DiskSpacePayout + pm.EgressBandwidthPayout + pm.EgressRepairAuditPayout - pm.Held
 	pm.Payout = RoundFloat(amount)

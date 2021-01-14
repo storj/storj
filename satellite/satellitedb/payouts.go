@@ -12,7 +12,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/satellite/snopayout"
+	"storj.io/storj/satellite/snopayouts"
 )
 
 // paymentStubs is payment data for specific storagenode for some specific period by working with satellite.
@@ -23,7 +23,7 @@ type paymentStubs struct {
 }
 
 // GetPaystub returns payStub by nodeID and period.
-func (paystubs *paymentStubs) GetPaystub(ctx context.Context, nodeID storj.NodeID, period string) (payStub snopayout.PayStub, err error) {
+func (paystubs *paymentStubs) GetPaystub(ctx context.Context, nodeID storj.NodeID, period string) (payStub snopayouts.PayStub, err error) {
 	query := `SELECT * FROM storagenode_paystubs WHERE node_id = $1 AND period = $2;`
 
 	row := paystubs.db.QueryRowContext(ctx, query, nodeID, period)
@@ -52,22 +52,22 @@ func (paystubs *paymentStubs) GetPaystub(ctx context.Context, nodeID storj.NodeI
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return snopayout.PayStub{}, snopayout.ErrNoDataForPeriod.Wrap(err)
+			return snopayouts.PayStub{}, snopayouts.ErrNoDataForPeriod.Wrap(err)
 		}
 
-		return snopayout.PayStub{}, Error.Wrap(err)
+		return snopayouts.PayStub{}, Error.Wrap(err)
 	}
 
 	return payStub, nil
 }
 
 // GetAllPaystubs return all payStubs by nodeID.
-func (paystubs *paymentStubs) GetAllPaystubs(ctx context.Context, nodeID storj.NodeID) (payStubs []snopayout.PayStub, err error) {
+func (paystubs *paymentStubs) GetAllPaystubs(ctx context.Context, nodeID storj.NodeID) (payStubs []snopayouts.PayStub, err error) {
 	query := `SELECT * FROM storagenode_paystubs WHERE node_id = $1;`
 
 	rows, err := paystubs.db.QueryContext(ctx, query, nodeID)
 	if err != nil {
-		return []snopayout.PayStub{}, Error.Wrap(err)
+		return []snopayouts.PayStub{}, Error.Wrap(err)
 	}
 
 	defer func() {
@@ -75,7 +75,7 @@ func (paystubs *paymentStubs) GetAllPaystubs(ctx context.Context, nodeID storj.N
 	}()
 
 	for rows.Next() {
-		paystub := snopayout.PayStub{}
+		paystub := snopayouts.PayStub{}
 
 		err = rows.Scan(
 			&paystub.Period,
@@ -101,7 +101,7 @@ func (paystubs *paymentStubs) GetAllPaystubs(ctx context.Context, nodeID storj.N
 			&paystub.Paid,
 		)
 		if err = rows.Err(); err != nil {
-			return []snopayout.PayStub{}, Error.Wrap(err)
+			return []snopayouts.PayStub{}, Error.Wrap(err)
 		}
 
 		payStubs = append(payStubs, paystub)
@@ -111,7 +111,7 @@ func (paystubs *paymentStubs) GetAllPaystubs(ctx context.Context, nodeID storj.N
 }
 
 // CreatePaystub inserts storagenode_paystub into database.
-func (paystubs *paymentStubs) CreatePaystub(ctx context.Context, stub snopayout.PayStub) (err error) {
+func (paystubs *paymentStubs) CreatePaystub(ctx context.Context, stub snopayouts.PayStub) (err error) {
 	return paystubs.db.CreateNoReturn_StoragenodePaystub(
 		ctx,
 		dbx.StoragenodePaystub_Period(stub.Period),
@@ -138,7 +138,7 @@ func (paystubs *paymentStubs) CreatePaystub(ctx context.Context, stub snopayout.
 }
 
 // GetPayment returns payment by nodeID and period.
-func (paystubs *paymentStubs) GetPayment(ctx context.Context, nodeID storj.NodeID, period string) (payment snopayout.StoragenodePayment, err error) {
+func (paystubs *paymentStubs) GetPayment(ctx context.Context, nodeID storj.NodeID, period string) (payment snopayouts.StoragenodePayment, err error) {
 	query := `SELECT * FROM storagenode_payments WHERE node_id = $1 AND period = $2;`
 
 	row := paystubs.db.QueryRowContext(ctx, query, nodeID, period)
@@ -153,17 +153,17 @@ func (paystubs *paymentStubs) GetPayment(ctx context.Context, nodeID storj.NodeI
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return snopayout.StoragenodePayment{}, snopayout.ErrNoDataForPeriod.Wrap(err)
+			return snopayouts.StoragenodePayment{}, snopayouts.ErrNoDataForPeriod.Wrap(err)
 		}
 
-		return snopayout.StoragenodePayment{}, Error.Wrap(err)
+		return snopayouts.StoragenodePayment{}, Error.Wrap(err)
 	}
 
 	return payment, nil
 }
 
 // CreatePayment inserts storagenode_payment into database.
-func (paystubs *paymentStubs) CreatePayment(ctx context.Context, payment snopayout.StoragenodePayment) (err error) {
+func (paystubs *paymentStubs) CreatePayment(ctx context.Context, payment snopayouts.StoragenodePayment) (err error) {
 	return paystubs.db.CreateNoReturn_StoragenodePayment(
 		ctx,
 		dbx.StoragenodePayment_NodeId(payment.NodeID[:]),
@@ -177,7 +177,7 @@ func (paystubs *paymentStubs) CreatePayment(ctx context.Context, payment snopayo
 }
 
 // GetAllPayments return all payments by nodeID.
-func (paystubs *paymentStubs) GetAllPayments(ctx context.Context, nodeID storj.NodeID) (payments []snopayout.StoragenodePayment, err error) {
+func (paystubs *paymentStubs) GetAllPayments(ctx context.Context, nodeID storj.NodeID) (payments []snopayouts.StoragenodePayment, err error) {
 	query := `SELECT * FROM storagenode_payments WHERE node_id = $1;`
 
 	rows, err := paystubs.db.QueryContext(ctx, query, nodeID)
@@ -190,7 +190,7 @@ func (paystubs *paymentStubs) GetAllPayments(ctx context.Context, nodeID storj.N
 	}()
 
 	for rows.Next() {
-		payment := snopayout.StoragenodePayment{}
+		payment := snopayouts.StoragenodePayment{}
 
 		err = rows.Scan(
 			&payment.ID,

@@ -33,7 +33,7 @@ import (
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/satellite/snopayout"
+	"storj.io/storj/satellite/snopayouts"
 )
 
 // Error is the default satellitedb errs class.
@@ -278,8 +278,8 @@ func (dbc *satelliteDBCollection) StripeCoinPayments() stripecoinpayments.DB {
 }
 
 // SnoPayout returns database for storagenode payStubs and payments info.
-func (dbc *satelliteDBCollection) SnoPayout() snopayout.DB {
-	return &paymentStubs{db: dbc.getByName("snopayout")}
+func (dbc *satelliteDBCollection) SnoPayout() snopayouts.DB {
+	return &paymentStubs{db: dbc.getByName("snopayouts")}
 }
 
 // Compenstation returns database for storage node compensation.
