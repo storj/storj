@@ -40,7 +40,7 @@ type Invoice struct {
 	Disposed         currency.MicroUnit `csv:"disposed"`          // Amount of owed that is due to graceful-exit or held period ending
 	TotalHeld        currency.MicroUnit `csv:"total-held"`        // Total amount ever held from the node
 	TotalDisposed    currency.MicroUnit `csv:"total-disposed"`    // Total amount ever disposed to the node
-	PaidYTD          currency.MicroUnit `csv:"paid-ytd"`          // Total amount paid so far this year (not including this period)
+	PaidYTD          currency.MicroUnit `csv:"paid-ytd"`          // Deprecated
 }
 
 // MergeNodeInfo updates the fields representing the node information into the invoice.
