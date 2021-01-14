@@ -5,7 +5,6 @@ package satellitedb
 
 import (
 	"context"
-	"fmt"
 
 	"storj.io/common/storj"
 	"storj.io/storj/private/currency"
@@ -15,31 +14,6 @@ import (
 
 type compensationDB struct {
 	db *satelliteDB
-}
-
-func (comp *compensationDB) QueryPaidInYear(ctx context.Context, nodeID storj.NodeID, year int) (totalPaid currency.MicroUnit, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	start := fmt.Sprintf("%04d-01", year)
-	endExclusive := fmt.Sprintf("%04d-01", year+1)
-
-	stmt := comp.db.Rebind(`
-		SELECT
-			coalesce(SUM(amount), 0) AS sum_paid
-		FROM
-			storagenode_payments
-		WHERE
-			node_id = ?
-		AND
-			period >= ? AND period < ?
-	`)
-
-	var sumPaid int64
-	if err := comp.db.DB.QueryRow(ctx, stmt, nodeID, start, endExclusive).Scan(&sumPaid); err != nil {
-		return currency.Zero, Error.Wrap(err)
-	}
-
-	return currency.NewMicroUnit(sumPaid), nil
 }
 
 // QueryWithheldAmounts returns withheld data for the given node.
