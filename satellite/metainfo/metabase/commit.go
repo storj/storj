@@ -46,12 +46,7 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 		return -1, err
 	}
 
-	switch {
-	case opts.Encryption.IsZero() || opts.Encryption.CipherSuite == storj.EncUnspecified:
-		return -1, ErrInvalidRequest.New("Encryption is missing")
-	case opts.Encryption.BlockSize <= 0:
-		return -1, ErrInvalidRequest.New("Encryption.BlockSize is negative or zero")
-	case opts.Version != NextVersion:
+	if opts.Version != NextVersion {
 		return -1, ErrInvalidRequest.New("Version should be metabase.NextVersion")
 	}
 
@@ -102,12 +97,7 @@ func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExact
 		return Object{}, err
 	}
 
-	switch {
-	case opts.Encryption.IsZero() || opts.Encryption.CipherSuite == storj.EncUnspecified:
-		return Object{}, ErrInvalidRequest.New("Encryption is missing")
-	case opts.Encryption.BlockSize <= 0:
-		return Object{}, ErrInvalidRequest.New("Encryption.BlockSize is negative or zero")
-	case opts.Version == NextVersion:
+	if opts.Version == NextVersion {
 		return Object{}, ErrInvalidRequest.New("Version should not be metabase.NextVersion")
 	}
 
@@ -410,6 +400,8 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 type CommitObject struct {
 	ObjectStream
 
+	Encryption storj.EncryptionParameters
+
 	EncryptedMetadata             []byte
 	EncryptedMetadataNonce        []byte
 	EncryptedMetadataEncryptedKey []byte
@@ -421,6 +413,10 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 
 	if err := opts.ObjectStream.Verify(); err != nil {
 		return Object{}, err
+	}
+
+	if opts.Encryption.CipherSuite != storj.EncUnspecified && opts.Encryption.BlockSize <= 0 {
+		return Object{}, ErrInvalidRequest.New("Encryption.BlockSize is negative or zero")
 	}
 
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
@@ -506,7 +502,14 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 				total_plain_size     = $10,
 				total_encrypted_size = $11,
 				fixed_segment_size   = $12,
-				zombie_deletion_deadline = NULL
+				zombie_deletion_deadline = NULL,
+
+				-- TODO should we allow to override existing encryption parameters or return error if don't match with opts?
+				encryption = CASE
+					WHEN objects.encryption = 0 AND $13 <> 0 THEN $13
+					WHEN objects.encryption = 0 AND $13 = 0 THEN NULL
+					ELSE objects.encryption
+				END
 			WHERE
 				project_id   = $1 AND
 				bucket_name  = $2 AND
@@ -523,6 +526,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			totalPlainSize,
 			totalEncryptedSize,
 			fixedSegmentSize,
+			encryptionParameters{&opts.Encryption},
 		).
 			Scan(
 				&object.CreatedAt, &object.ExpiresAt,
@@ -531,6 +535,9 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return storj.ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+			} else if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
+				// TODO maybe we should check message if 'encryption' label is there
+				return ErrInvalidRequest.New("Encryption is missing")
 			}
 			return Error.New("failed to update object: %w", err)
 		}

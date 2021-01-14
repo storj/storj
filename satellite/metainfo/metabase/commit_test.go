@@ -145,63 +145,6 @@ func TestBeginObjectNextVersion(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-		t.Run("Encryption invalid", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
-
-			BeginObjectNextVersion{
-				Opts: metabase.BeginObjectNextVersion{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-					Encryption: storj.EncryptionParameters{},
-				},
-				Version:  -1,
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "Encryption is missing",
-			}.Check(ctx, t, db)
-
-			BeginObjectNextVersion{
-				Opts: metabase.BeginObjectNextVersion{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-					Encryption: storj.EncryptionParameters{
-						BlockSize: 123,
-					},
-				},
-				Version:  -1,
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "Encryption is missing",
-			}.Check(ctx, t, db)
-
-			BeginObjectNextVersion{
-				Opts: metabase.BeginObjectNextVersion{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-					Encryption: storj.EncryptionParameters{
-						CipherSuite: storj.EncAESGCM,
-						BlockSize:   -123,
-					},
-				},
-				Version:  -1,
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "Encryption.BlockSize is negative or zero",
-			}.Check(ctx, t, db)
-		})
-
 		t.Run("NextVersion", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
@@ -313,63 +256,6 @@ func TestBeginObjectExactVersion(t *testing.T) {
 				Version:  -1,
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "Version should not be metabase.NextVersion",
-			}.Check(ctx, t, db)
-		})
-
-		t.Run("Encryption invalid", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
-
-			BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    metabase.NextVersion,
-						StreamID:   obj.StreamID,
-					},
-					Encryption: storj.EncryptionParameters{},
-				},
-				Version:  -1,
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "Encryption is missing",
-			}.Check(ctx, t, db)
-
-			BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    metabase.NextVersion,
-						StreamID:   obj.StreamID,
-					},
-					Encryption: storj.EncryptionParameters{
-						BlockSize: 123,
-					},
-				},
-				Version:  -1,
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "Encryption is missing",
-			}.Check(ctx, t, db)
-
-			BeginObjectExactVersion{
-				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    metabase.NextVersion,
-						StreamID:   obj.StreamID,
-					},
-					Encryption: storj.EncryptionParameters{
-						CipherSuite: storj.EncAESGCM,
-						BlockSize:   -123,
-					},
-				},
-				Version:  -1,
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "Encryption.BlockSize is negative or zero",
 			}.Check(ctx, t, db)
 		})
 
@@ -1745,6 +1631,116 @@ func TestCommitObject(t *testing.T) {
 						TotalEncryptedSize: 2 * math.MaxInt32,
 
 						Encryption: defaultTestEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("commit with encryption", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			now := time.Now()
+
+			CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+					Encryption:   storj.EncryptionParameters{},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "Encryption is missing",
+			}.Check(ctx, t, db)
+
+			CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+					Encryption: storj.EncryptionParameters{
+						CipherSuite: storj.EncAESGCM,
+					},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "Encryption.BlockSize is negative or zero",
+			}.Check(ctx, t, db)
+
+			CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+					Encryption: storj.EncryptionParameters{
+						CipherSuite: storj.EncAESGCM,
+						BlockSize:   -1,
+					},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "Encryption.BlockSize is negative or zero",
+			}.Check(ctx, t, db)
+
+			CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+					Encryption: storj.EncryptionParameters{
+						CipherSuite: storj.EncAESGCM,
+						BlockSize:   512,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Committed,
+
+						SegmentCount: 0,
+
+						Encryption: storj.EncryptionParameters{
+							CipherSuite: storj.EncAESGCM,
+							BlockSize:   512,
+						},
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("commit with encryption (no override)", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			now := time.Now()
+
+			CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+					// set different encryption than with BeginObjectExactVersion
+					Encryption: storj.EncryptionParameters{
+						CipherSuite: storj.EncNull,
+						BlockSize:   512,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Committed,
+
+						SegmentCount: 0,
+						Encryption:   defaultTestEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
