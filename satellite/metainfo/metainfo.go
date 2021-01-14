@@ -1054,8 +1054,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 
 	more := true
 	cursor := metabase.SegmentPosition{}
-
-	var nodeIDs []storj.NodeID
+	pieceCountByNodeID := map[storj.NodeID]int64{}
 	for more {
 		list, err := endpoint.metainfo.metabaseDB.ListSegments(ctx, metabase.ListSegments{
 			StreamID: object.StreamID,
@@ -1068,27 +1067,43 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 
 		for _, segment := range list.Segments {
 			for _, piece := range segment.Pieces {
-				nodeIDs = append(nodeIDs, piece.StorageNode)
+				pieceCountByNodeID[piece.StorageNode]++
 			}
 			cursor = segment.Position
 		}
 		more = list.More
 	}
 
-	nodes, err := endpoint.overlay.GetOnlineNodesForGetDelete(ctx, nodeIDs)
+	nodeIDs := make([]storj.NodeID, 0, len(pieceCountByNodeID))
+	for nodeID := range pieceCountByNodeID {
+		nodeIDs = append(nodeIDs, nodeID)
+	}
+
+	nodeIPMap, err := endpoint.overlay.GetNodeIPs(ctx, nodeIDs)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	resp = &pb.ObjectGetIPsResponse{}
-	for _, node := range nodes {
-		address := node.Address.GetAddress()
-		if address != "" {
-			resp.Ips = append(resp.Ips, []byte(address))
+	nodeIPs := make([][]byte, 0, len(nodeIPMap))
+	pieceCount := int64(0)
+	reliablePieceCount := int64(0)
+	for nodeID, count := range pieceCountByNodeID {
+		pieceCount += count
+
+		ip, reliable := nodeIPMap[nodeID]
+		if !reliable {
+			continue
 		}
+		nodeIPs = append(nodeIPs, []byte(ip))
+		reliablePieceCount += count
 	}
 
-	return resp, nil
+	return &pb.ObjectGetIPsResponse{
+		Ips:                nodeIPs,
+		SegmentCount:       int64(object.SegmentCount),
+		ReliablePieceCount: reliablePieceCount,
+		PieceCount:         pieceCount,
+	}, nil
 }
 
 // BeginSegment begins segment uploading.
@@ -1116,16 +1131,8 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "segment index must be greater then 0")
 	}
 
-	exceeded, limit, err := endpoint.projectUsage.ExceedsStorageUsage(ctx, keyInfo.ProjectID)
-	if err != nil {
-		endpoint.log.Error("Retrieving project storage totals failed.", zap.Error(err))
-	}
-	if exceeded {
-		endpoint.log.Error("Monthly storage limit exceeded.",
-			zap.Stringer("Limit", limit),
-			zap.Stringer("Project ID", keyInfo.ProjectID),
-		)
-		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
+	if err := endpoint.checkExceedsStorageUsage(ctx, keyInfo.ProjectID); err != nil {
+		return nil, err
 	}
 
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(streamID.Redundancy)
@@ -1258,16 +1265,8 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 	// 	return nil, nil, err
 	// }
 
-	exceeded, limit, err := endpoint.projectUsage.ExceedsStorageUsage(ctx, keyInfo.ProjectID)
-	if err != nil {
-		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-	if exceeded {
-		endpoint.log.Error("The project limit of storage and bandwidth has been exceeded",
-			zap.Int64("limit", limit.Int64()),
-			zap.Stringer("Project ID", keyInfo.ProjectID),
-		)
-		return nil, nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
+	if err := endpoint.checkExceedsStorageUsage(ctx, keyInfo.ProjectID); err != nil {
+		return nil, nil, err
 	}
 
 	pieces := metabase.Pieces{}
@@ -1305,12 +1304,13 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 	}
 
 	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, segmentSize); err != nil {
-		endpoint.log.Error("Could not track new storage usage by project",
+		// log it and continue. it's most likely our own fault that we couldn't
+		// track it, and the only thing that will be affected is our per-project
+		// storage limits.
+		endpoint.log.Error("Could not track new project's storage usage",
 			zap.Stringer("Project ID", keyInfo.ProjectID),
 			zap.Error(err),
 		)
-		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
-		// that will be affected is our per-project bandwidth and storage limits.
 	}
 
 	id, err := uuid.FromBytes(streamID.StreamId)
@@ -1394,22 +1394,18 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, fmt.Sprintf("inline segment size cannot be larger than %s", endpoint.config.MaxInlineSegmentSize))
 	}
 
-	exceeded, limit, err := endpoint.projectUsage.ExceedsStorageUsage(ctx, keyInfo.ProjectID)
-	if err != nil {
-		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-	if exceeded {
-		endpoint.log.Error("Monthly storage limit exceeded.",
-			zap.Stringer("Limit", limit),
-			zap.Stringer("Project ID", keyInfo.ProjectID),
-		)
-		return nil, nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
+	if err := endpoint.checkExceedsStorageUsage(ctx, keyInfo.ProjectID); err != nil {
+		return nil, nil, err
 	}
 
 	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed); err != nil {
-		endpoint.log.Error("Could not track new storage usage.", zap.Stringer("Project ID", keyInfo.ProjectID), zap.Error(err))
-		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
-		// that will be affected is our per-project bandwidth and storage limits.
+		// log it and continue. it's most likely our own fault that we couldn't
+		// track it, and the only thing that will be affected is our per-project
+		// bandwidth and storage limits.
+		endpoint.log.Error("Could not track new project's storage usage",
+			zap.Stringer("Project ID", keyInfo.ProjectID),
+			zap.Error(err),
+		)
 	}
 
 	id, err := uuid.FromBytes(streamID.StreamId)
@@ -1532,6 +1528,11 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 	}, nil
 }
 
+// GetPendingObjects returns pending objects.
+func (endpoint *Endpoint) GetPendingObjects(ctx context.Context, req *pb.GetPendingObjectsRequest) (resp *pb.GetPendingObjectsResponse, err error) {
+	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "not implemented")
+}
+
 // DownloadSegment returns data necessary to download segment.
 func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDownloadRequest) (resp *pb.SegmentDownloadResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1553,12 +1554,10 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
 
-	exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID)
-	if err != nil {
-		endpoint.log.Error("Retrieving project bandwidth total failed.", zap.Error(err))
-	}
-	if exceeded {
-		endpoint.log.Error("Monthly bandwidth limit exceeded.",
+	if exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID); err != nil {
+		endpoint.log.Error("Retrieving project bandwidth total failed; bandwidth limit won't be enforced", zap.Error(err))
+	} else if exceeded {
+		endpoint.log.Error("Monthly bandwidth limit exceeded",
 			zap.Stringer("Limit", limit),
 			zap.Stringer("Project ID", keyInfo.ProjectID),
 		)
@@ -1599,7 +1598,13 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	// Update the current bandwidth cache value incrementing the SegmentSize.
 	err = endpoint.projectUsage.UpdateProjectBandwidthUsage(ctx, keyInfo.ProjectID, int64(segment.EncryptedSize))
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		// log it and continue. it's most likely our own fault that we couldn't
+		// track it, and the only thing that will be affected is our per-project
+		// bandwidth limits.
+		endpoint.log.Error("Could not track the new project's bandwidth usage",
+			zap.Stringer("Project ID", keyInfo.ProjectID),
+			zap.Error(err),
+		)
 	}
 
 	encryptedKeyNonce, err := storj.NonceFromBytes(segment.EncryptedKeyNonce)
@@ -2054,6 +2059,26 @@ func (endpoint *Endpoint) RevokeAPIKey(ctx context.Context, req *pb.RevokeAPIKey
 	}
 
 	return &pb.RevokeAPIKeyResponse{}, nil
+}
+
+func (endpoint *Endpoint) checkExceedsStorageUsage(ctx context.Context, projectID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	exceeded, limit, err := endpoint.projectUsage.ExceedsStorageUsage(ctx, projectID)
+	if err != nil {
+		endpoint.log.Error(
+			"Retrieving project storage totals failed; storage usage limit won't be enforced",
+			zap.Error(err),
+		)
+	} else if exceeded {
+		endpoint.log.Error("Monthly storage limit exceeded",
+			zap.Stringer("Limit", limit),
+			zap.Stringer("Project ID", projectID),
+		)
+		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
+	}
+
+	return nil
 }
 
 // CreatePath creates a segment key.

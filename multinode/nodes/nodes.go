@@ -49,6 +49,7 @@ type NodeInfo struct {
 	DiskSpaceUsed int64
 	DiskSpaceLeft int64
 	BandwidthUsed int64
+	TotalEarned   int64
 }
 
 // NodeInfoSatellite contains satellite specific node internal state.

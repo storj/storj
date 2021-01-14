@@ -5,7 +5,7 @@ go 1.13
 require (
 	github.com/alessio/shellescape v1.2.2
 	github.com/alicebob/miniredis/v2 v2.13.3
-	github.com/btcsuite/btcutil v1.0.3-0.20201124182144-4031bdc69ded
+	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/calebcase/tmpfile v1.0.2
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/fatih/color v1.9.0
@@ -39,16 +39,17 @@ require (
 	github.com/zeebo/errs v1.2.2
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/zap v1.16.0
-	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
+	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/net v0.0.0-20200707034311-ab3426394381 // indirect
-	golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208
-	golang.org/x/sys v0.0.0-20200929083018-4d22bbb62b3c
+	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
+	golang.org/x/sys v0.0.0-20210112091331-59c308dcf3cc
+	golang.org/x/term v0.0.0-20201117132131-f5c789dd3221
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	google.golang.org/api v0.20.0 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
-	storj.io/common v0.0.0-20210104180112-e8500e1c37a0
+	storj.io/common v0.0.0-20210113135631-07a5dc68dc1c
 	storj.io/drpc v0.0.16
 	storj.io/monkit-jaeger v0.0.0-20200518165323-80778fc3f91b
-	storj.io/private v0.0.0-20201126162939-6fbb1e924f51
-	storj.io/uplink v1.4.4-0.20210104090336-abe239c20ec8
+	storj.io/private v0.0.0-20210108233641-2ba1ef686d1f
+	storj.io/uplink v1.4.5-0.20210114104337-ce4ca047ab1f
 )

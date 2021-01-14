@@ -203,12 +203,40 @@ type ProjectAccounting interface {
 
 // Cache stores live information about project storage which has not yet been synced to ProjectAccounting.
 //
+// All the implementations must follow the convention of returning errors of one
+// of the classes defined in this package.
+//
+// All the methods return:
+//
+// ErrInvalidArgument: an implementation may return if some parameter contain a
+// value which isn't accepted, nonetheless, not all the implementations impose
+// the same constraints on them.
+//
+// ErrSystemOrNetError: any method will return this if there is an error with
+// the underlining system or the network.
+//
+// ErrKeyNotFound: returned when a key is not found.
+//
+// ErrUnexpectedValue: returned when a key or value stored in the underlying
+// system isn't of the expected format or type according the business domain.
+//
 // architecture: Database
 type Cache interface {
+	// GetProjectStorageUsage  returns the project's storage usage.
 	GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (totalUsed int64, err error)
+	// GetProjectBandwidthUsage  returns the project's bandwidth usage.
 	GetProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, now time.Time) (currentUsed int64, err error)
+	// UpdateProjectBandthUsage updates the project's bandwidth usage increasing
+	// it. The projectID is inserted to the increment when it doesn't exists,
+	// hence this method will never return ErrKeyNotFound error's class.
 	UpdateProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, increment int64, ttl time.Duration, now time.Time) error
+	// AddProjectStorageUsage adds to the projects storage usage the spacedUsed.
+	// The projectID is inserted to the spaceUsed when it doesn't exists, hence
+	// this method will never return ErrKeyNotFound.
 	AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) error
+	// GetAllProjectTotals return the total projects' storage used space.
 	GetAllProjectTotals(ctx context.Context) (map[uuid.UUID]int64, error)
+	// Close the client, releasing any open resources. Once it's called any other
+	// method must be called.
 	Close() error
 }

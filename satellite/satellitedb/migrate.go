@@ -1167,6 +1167,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`DROP TABLE nodes_offline_times;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "set default on uptime count columns",
+				Version:     139,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ALTER COLUMN uptime_success_count SET DEFAULT 0;`,
+					`ALTER TABLE nodes ALTER COLUMN total_uptime_count SET DEFAULT 0;`,
+				},
+			},
 		},
 	}
 }

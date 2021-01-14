@@ -65,8 +65,9 @@ type API struct {
 	Servers  *lifecycle.Group
 	Services *lifecycle.Group
 
-	Dialer rpc.Dialer
-	Server *server.Server
+	Dialer          rpc.Dialer
+	Server          *server.Server
+	ExternalAddress string
 
 	Version struct {
 		Chore   *checker.Chore
@@ -172,10 +173,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	pointerDB metainfo.PointerDB, metabaseDB metainfo.MetabaseDB, revocationDB extensions.RevocationDB,
 	liveAccounting accounting.Cache, rollupsWriteCache *orders.RollupsWriteCache,
 	config *Config, versionInfo version.Info, atomicLogLevel *zap.AtomicLevel) (*API, error) {
+
 	peer := &API{
-		Log:      log,
-		Identity: full,
-		DB:       db,
+		Log:             log,
+		Identity:        full,
+		DB:              db,
+		ExternalAddress: config.Contact.ExternalAddress,
 
 		Servers:  lifecycle.NewGroup(log.Named("servers")),
 		Services: lifecycle.NewGroup(log.Named("services")),
@@ -235,6 +238,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		if peer.ExternalAddress == "" {
+			// not ideal, but better than nothing
+			peer.ExternalAddress = peer.Server.Addr().String()
+		}
+
 		peer.Servers.Add(lifecycle.Item{
 			Name: "server",
 			Run: func(ctx context.Context) error {
@@ -267,11 +275,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup contact service
-		c := config.Contact
-		if c.ExternalAddress == "" {
-			c.ExternalAddress = peer.Server.Addr().String()
-		}
-
 		pbVersion, err := versionInfo.Proto()
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -281,7 +284,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Node: pb.Node{
 				Id: peer.ID(),
 				Address: &pb.NodeAddress{
-					Address: c.ExternalAddress,
+					Address: peer.Addr(),
 				},
 			},
 			Type:    pb.NodeType_SATELLITE,
@@ -718,7 +721,7 @@ func (peer *API) ID() storj.NodeID { return peer.Identity.ID }
 
 // Addr returns the public address.
 func (peer *API) Addr() string {
-	return peer.Contact.Service.Local().Node.Address.Address
+	return peer.ExternalAddress
 }
 
 // URL returns the storj.NodeURL.

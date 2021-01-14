@@ -111,6 +111,7 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 			nodeClient := multinodepb.NewDRPCNodeClient(conn)
 			storageClient := multinodepb.NewDRPCStorageClient(conn)
 			bandwidthClient := multinodepb.NewDRPCBandwidthClient(conn)
+			payoutClient := multinodepb.NewDRPCPayoutClient(conn)
 
 			header := &multinodepb.RequestHeader{
 				ApiKey: node.APISecret,
@@ -131,6 +132,11 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 				return NodeInfo{}, Error.Wrap(err)
 			}
 
+			earned, err := payoutClient.Earned(ctx, &multinodepb.EarnedRequest{Header: header})
+			if err != nil {
+				return NodeInfo{}, Error.Wrap(err)
+			}
+
 			bandwidthSummaryRequest := &multinodepb.BandwidthMonthSummaryRequest{
 				Header: header,
 			}
@@ -147,6 +153,7 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 				DiskSpaceUsed: diskSpace.GetUsedPieces() + diskSpace.GetUsedTrash(),
 				DiskSpaceLeft: diskSpace.GetAvailable(),
 				BandwidthUsed: bandwidthSummary.GetUsed(),
+				TotalEarned:   earned.Total,
 			}, nil
 		}()
 		if err != nil {

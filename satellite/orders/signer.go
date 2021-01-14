@@ -174,8 +174,6 @@ func (signer *Signer) Sign(ctx context.Context, node storj.NodeURL, pieceNum int
 		OrderCreation:   signer.OrderCreation,
 		OrderExpiration: signer.OrderExpiration,
 
-		SatelliteAddress: nil,
-
 		EncryptedMetadataKeyId: signer.EncryptedMetadataKeyID,
 		EncryptedMetadata:      signer.EncryptedMetadata,
 	}

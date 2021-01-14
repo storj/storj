@@ -393,3 +393,34 @@ func (db *payoutDB) GetReceipt(ctx context.Context, satelliteID storj.NodeID, pe
 
 	return receipt, nil
 }
+
+// GetTotalEarned returns total earned value for node from all paystubs.
+func (db *payoutDB) GetTotalEarned(ctx context.Context) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := `SELECT comp_at_rest, comp_get, comp_get_repair, comp_get_audit FROM paystubs`
+
+	rows, err := db.QueryContext(ctx, query)
+	if err != nil {
+		return 0, err
+	}
+
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var totalEarned int64
+	for rows.Next() {
+		var compAtRest, compGet, compGetRepair, compGetAudit int64
+
+		err := rows.Scan(&compAtRest, &compGet, &compGetRepair, &compGetAudit)
+		if err != nil {
+			return 0, ErrPayout.Wrap(err)
+		}
+
+		totalEarned += compGetAudit + compGet + compGetRepair + compAtRest
+	}
+	if err = rows.Err(); err != nil {
+		return 0, ErrPayout.Wrap(err)
+	}
+
+	return totalEarned, nil
+}

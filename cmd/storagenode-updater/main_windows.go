@@ -27,12 +27,12 @@ func isRunCmd() bool {
 }
 
 func main() {
-	isInteractive, err := svc.IsAnInteractiveSession()
+	isService, err := svc.IsWindowsService()
 	if err != nil {
 		zap.L().Fatal("Failed to determine if session is interactive.", zap.Error(err))
 	}
 
-	if isInteractive || !isRunCmd() {
+	if !isService || !isRunCmd() {
 		process.Exec(rootCmd)
 		return
 	}

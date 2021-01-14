@@ -70,13 +70,13 @@ func (loc BucketLocation) Verify() error {
 
 // ParseCompactBucketPrefix parses BucketPrefix.
 func ParseCompactBucketPrefix(compactPrefix []byte) (BucketLocation, error) {
-	if len(compactPrefix) < 16 {
+	if len(compactPrefix) < len(uuid.UUID{}) {
 		return BucketLocation{}, Error.New("invalid prefix %q", compactPrefix)
 	}
 
 	var loc BucketLocation
 	copy(loc.ProjectID[:], compactPrefix)
-	loc.BucketName = string(compactPrefix[16:])
+	loc.BucketName = string(compactPrefix[len(loc.ProjectID):])
 	return loc, nil
 }
 
@@ -87,7 +87,7 @@ func (loc BucketLocation) Prefix() BucketPrefix {
 
 // CompactPrefix converts bucket location into bucket prefix with compact project ID.
 func (loc BucketLocation) CompactPrefix() []byte {
-	xs := make([]byte, 0, 16+len(loc.BucketName))
+	xs := make([]byte, 0, len(loc.ProjectID)+len(loc.BucketName))
 	xs = append(xs, loc.ProjectID[:]...)
 	xs = append(xs, []byte(loc.BucketName)...)
 	return xs

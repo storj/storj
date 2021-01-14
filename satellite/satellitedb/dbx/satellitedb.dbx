@@ -154,8 +154,8 @@ model node (
 	field audit_success_count  int64   ( updatable, default 0 )
 	field total_audit_count    int64   ( updatable, default 0 )
 	field vetted_at            timestamp ( updatable, nullable )
-	field uptime_success_count int64   ( updatable )
-	field total_uptime_count   int64   ( updatable )
+	field uptime_success_count int64   ( updatable, default 0 )
+	field total_uptime_count   int64   ( updatable, default 0 )
 
 	field created_at           timestamp ( autoinsert, default current_timestamp )
 	field updated_at           timestamp ( autoinsert, autoupdate, default current_timestamp )

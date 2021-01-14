@@ -87,11 +87,6 @@ type DB interface {
 	// GetNodesNetwork returns the /24 subnet for each storage node, order is not guaranteed.
 	GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error)
 
-	// GetSuccesfulNodesNotCheckedInSince returns all nodes that last check-in was successful, but haven't checked-in within a given duration.
-	GetSuccesfulNodesNotCheckedInSince(ctx context.Context, duration time.Duration) (nodeAddresses []NodeLastContact, err error)
-	// GetOfflineNodesLimited returns a list of the first N offline nodes ordered by least recently contacted.
-	GetOfflineNodesLimited(ctx context.Context, limit int) ([]NodeLastContact, error)
-
 	// DisqualifyNode disqualifies a storage node.
 	DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error)
 
@@ -319,6 +314,12 @@ func (service *Service) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs 
 	return service.db.GetOnlineNodesForGetDelete(ctx, nodeIDs, service.config.Node.OnlineWindow)
 }
 
+// GetNodeIPs returns a map of node ip:port for the supplied nodeIDs.
+func (service *Service) GetNodeIPs(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]string, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.SelectionCache.GetNodeIPs(ctx, nodeIDs)
+}
+
 // IsOnline checks if a node is 'online' based on the collected statistics.
 func (service *Service) IsOnline(node *NodeDossier) bool {
 	return time.Since(node.Reputation.LastContactSuccess) < service.config.Node.OnlineWindow
@@ -491,13 +492,6 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 	return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
 }
 
-// GetSuccesfulNodesNotCheckedInSince returns all nodes that last check-in was successful, but haven't checked-in within a given duration.
-func (service *Service) GetSuccesfulNodesNotCheckedInSince(ctx context.Context, duration time.Duration) (nodeLastContacts []NodeLastContact, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return service.db.GetSuccesfulNodesNotCheckedInSince(ctx, duration)
-}
-
 // GetMissingPieces returns the list of offline nodes.
 func (service *Service) GetMissingPieces(ctx context.Context, pieces metabase.Pieces) (missingPieces []uint16, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -524,12 +518,6 @@ func (service *Service) GetMissingPieces(ctx context.Context, pieces metabase.Pi
 func (service *Service) DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.db.DisqualifyNode(ctx, nodeID)
-}
-
-// GetOfflineNodesLimited returns a list of the first N offline nodes ordered by least recently contacted.
-func (service *Service) GetOfflineNodesLimited(ctx context.Context, limit int) (offlineNodes []NodeLastContact, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return service.db.GetOfflineNodesLimited(ctx, limit)
 }
 
 // ResolveIPAndNetwork resolves the target address and determines its IP and /24 subnet IPv4 or /64 subnet IPv6.

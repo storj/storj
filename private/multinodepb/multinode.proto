@@ -95,3 +95,15 @@ message TrustedSatellitesResponse {
 
   repeated NodeURL trusted_satellites = 1;
 }
+
+service Payout {
+  rpc Earned(EarnedRequest) returns (EarnedResponse);
+}
+
+message EarnedRequest {
+  RequestHeader header = 1;
+}
+
+message EarnedResponse {
+  int64 total = 1;
+}

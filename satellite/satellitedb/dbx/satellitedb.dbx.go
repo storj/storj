@@ -460,8 +460,8 @@ CREATE TABLE nodes (
 	audit_success_count bigint NOT NULL DEFAULT 0,
 	total_audit_count bigint NOT NULL DEFAULT 0,
 	vetted_at timestamp with time zone,
-	uptime_success_count bigint NOT NULL,
-	total_uptime_count bigint NOT NULL,
+	uptime_success_count bigint NOT NULL DEFAULT 0,
+	total_uptime_count bigint NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	last_contact_success timestamp with time zone NOT NULL DEFAULT 'epoch',
@@ -1012,8 +1012,8 @@ CREATE TABLE nodes (
 	audit_success_count bigint NOT NULL DEFAULT 0,
 	total_audit_count bigint NOT NULL DEFAULT 0,
 	vetted_at timestamp with time zone,
-	uptime_success_count bigint NOT NULL,
-	total_uptime_count bigint NOT NULL,
+	uptime_success_count bigint NOT NULL DEFAULT 0,
+	total_uptime_count bigint NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	last_contact_success timestamp with time zone NOT NULL DEFAULT 'epoch',
@@ -3302,6 +3302,8 @@ type Node_Create_Fields struct {
 	AuditSuccessCount           Node_AuditSuccessCount_Field
 	TotalAuditCount             Node_TotalAuditCount_Field
 	VettedAt                    Node_VettedAt_Field
+	UptimeSuccessCount          Node_UptimeSuccessCount_Field
+	TotalUptimeCount            Node_TotalUptimeCount_Field
 	LastContactSuccess          Node_LastContactSuccess_Field
 	LastContactFailure          Node_LastContactFailure_Field
 	Contained                   Node_Contained_Field
@@ -9105,8 +9107,6 @@ func (obj *pgxImpl) CreateNoReturn_Node(ctx context.Context,
 	node_last_net Node_LastNet_Field,
 	node_email Node_Email_Field,
 	node_wallet Node_Wallet_Field,
-	node_uptime_success_count Node_UptimeSuccessCount_Field,
-	node_total_uptime_count Node_TotalUptimeCount_Field,
 	optional Node_Create_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -9116,8 +9116,6 @@ func (obj *pgxImpl) CreateNoReturn_Node(ctx context.Context,
 	__email_val := node_email.value()
 	__wallet_val := node_wallet.value()
 	__vetted_at_val := optional.VettedAt.value()
-	__uptime_success_count_val := node_uptime_success_count.value()
-	__total_uptime_count_val := node_total_uptime_count.value()
 	__disqualified_val := optional.Disqualified.value()
 	__suspended_val := optional.Suspended.value()
 	__unknown_audit_suspended_val := optional.UnknownAuditSuspended.value()
@@ -9127,14 +9125,14 @@ func (obj *pgxImpl) CreateNoReturn_Node(ctx context.Context,
 	__exit_loop_completed_at_val := optional.ExitLoopCompletedAt.value()
 	__exit_finished_at_val := optional.ExitFinishedAt.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, last_net, last_ip_port, email, wallet, vetted_at, uptime_success_count, total_uptime_count, disqualified, suspended, unknown_audit_suspended, offline_suspended, under_review, exit_initiated_at, exit_loop_completed_at, exit_finished_at")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, last_net, last_ip_port, email, wallet, vetted_at, disqualified, suspended, unknown_audit_suspended, offline_suspended, under_review, exit_initiated_at, exit_loop_completed_at, exit_finished_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO nodes "), __clause}}
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __last_net_val, __last_ip_port_val, __email_val, __wallet_val, __vetted_at_val, __uptime_success_count_val, __total_uptime_count_val, __disqualified_val, __suspended_val, __unknown_audit_suspended_val, __offline_suspended_val, __under_review_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val)
+	__values = append(__values, __id_val, __last_net_val, __last_ip_port_val, __email_val, __wallet_val, __vetted_at_val, __disqualified_val, __suspended_val, __unknown_audit_suspended_val, __offline_suspended_val, __under_review_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -9214,6 +9212,18 @@ func (obj *pgxImpl) CreateNoReturn_Node(ctx context.Context,
 	if optional.TotalAuditCount._set {
 		__values = append(__values, optional.TotalAuditCount.value())
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("total_audit_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.UptimeSuccessCount._set {
+		__values = append(__values, optional.UptimeSuccessCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("uptime_success_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.TotalUptimeCount._set {
+		__values = append(__values, optional.TotalUptimeCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("total_uptime_count"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
@@ -15858,8 +15868,6 @@ func (obj *pgxcockroachImpl) CreateNoReturn_Node(ctx context.Context,
 	node_last_net Node_LastNet_Field,
 	node_email Node_Email_Field,
 	node_wallet Node_Wallet_Field,
-	node_uptime_success_count Node_UptimeSuccessCount_Field,
-	node_total_uptime_count Node_TotalUptimeCount_Field,
 	optional Node_Create_Fields) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -15869,8 +15877,6 @@ func (obj *pgxcockroachImpl) CreateNoReturn_Node(ctx context.Context,
 	__email_val := node_email.value()
 	__wallet_val := node_wallet.value()
 	__vetted_at_val := optional.VettedAt.value()
-	__uptime_success_count_val := node_uptime_success_count.value()
-	__total_uptime_count_val := node_total_uptime_count.value()
 	__disqualified_val := optional.Disqualified.value()
 	__suspended_val := optional.Suspended.value()
 	__unknown_audit_suspended_val := optional.UnknownAuditSuspended.value()
@@ -15880,14 +15886,14 @@ func (obj *pgxcockroachImpl) CreateNoReturn_Node(ctx context.Context,
 	__exit_loop_completed_at_val := optional.ExitLoopCompletedAt.value()
 	__exit_finished_at_val := optional.ExitFinishedAt.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, last_net, last_ip_port, email, wallet, vetted_at, uptime_success_count, total_uptime_count, disqualified, suspended, unknown_audit_suspended, offline_suspended, under_review, exit_initiated_at, exit_loop_completed_at, exit_finished_at")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, last_net, last_ip_port, email, wallet, vetted_at, disqualified, suspended, unknown_audit_suspended, offline_suspended, under_review, exit_initiated_at, exit_loop_completed_at, exit_finished_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO nodes "), __clause}}
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __last_net_val, __last_ip_port_val, __email_val, __wallet_val, __vetted_at_val, __uptime_success_count_val, __total_uptime_count_val, __disqualified_val, __suspended_val, __unknown_audit_suspended_val, __offline_suspended_val, __under_review_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val)
+	__values = append(__values, __id_val, __last_net_val, __last_ip_port_val, __email_val, __wallet_val, __vetted_at_val, __disqualified_val, __suspended_val, __unknown_audit_suspended_val, __offline_suspended_val, __under_review_val, __exit_initiated_at_val, __exit_loop_completed_at_val, __exit_finished_at_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -15967,6 +15973,18 @@ func (obj *pgxcockroachImpl) CreateNoReturn_Node(ctx context.Context,
 	if optional.TotalAuditCount._set {
 		__values = append(__values, optional.TotalAuditCount.value())
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("total_audit_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.UptimeSuccessCount._set {
+		__values = append(__values, optional.UptimeSuccessCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("uptime_success_count"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.TotalUptimeCount._set {
+		__values = append(__values, optional.TotalUptimeCount.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("total_uptime_count"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
@@ -22814,15 +22832,13 @@ func (rx *Rx) CreateNoReturn_Node(ctx context.Context,
 	node_last_net Node_LastNet_Field,
 	node_email Node_Email_Field,
 	node_wallet Node_Wallet_Field,
-	node_uptime_success_count Node_UptimeSuccessCount_Field,
-	node_total_uptime_count Node_TotalUptimeCount_Field,
 	optional Node_Create_Fields) (
 	err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.CreateNoReturn_Node(ctx, node_id, node_last_net, node_email, node_wallet, node_uptime_success_count, node_total_uptime_count, optional)
+	return tx.CreateNoReturn_Node(ctx, node_id, node_last_net, node_email, node_wallet, optional)
 
 }
 
@@ -24458,8 +24474,6 @@ type Methods interface {
 		node_last_net Node_LastNet_Field,
 		node_email Node_Email_Field,
 		node_wallet Node_Wallet_Field,
-		node_uptime_success_count Node_UptimeSuccessCount_Field,
-		node_total_uptime_count Node_TotalUptimeCount_Field,
 		optional Node_Create_Fields) (
 		err error)
 

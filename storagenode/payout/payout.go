@@ -34,6 +34,8 @@ type DB interface {
 	StorePayment(ctx context.Context, payment Payment) error
 	// GetReceipt retrieves receipt for specific satellite and period.
 	GetReceipt(ctx context.Context, satelliteID storj.NodeID, period string) (string, error)
+	// GetTotalEarned returns total earned amount of node from all paystubs.
+	GetTotalEarned(ctx context.Context) (_ int64, err error)
 }
 
 // ErrNoPayStubForPeriod represents errors from the payout database.
