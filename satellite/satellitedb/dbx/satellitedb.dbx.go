@@ -12208,6 +12208,169 @@ func (obj *pgxImpl) All_StoragenodeStorageTally_By_IntervalEndTime_GreaterOrEqua
 
 }
 
+func (obj *pgxImpl) Get_StoragenodePaystub_By_NodeId_And_Period(ctx context.Context,
+	storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,
+	storagenode_paystub_period StoragenodePaystub_Period_Field) (
+	storagenode_paystub *StoragenodePaystub, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_paystubs.period, storagenode_paystubs.node_id, storagenode_paystubs.created_at, storagenode_paystubs.codes, storagenode_paystubs.usage_at_rest, storagenode_paystubs.usage_get, storagenode_paystubs.usage_put, storagenode_paystubs.usage_get_repair, storagenode_paystubs.usage_put_repair, storagenode_paystubs.usage_get_audit, storagenode_paystubs.comp_at_rest, storagenode_paystubs.comp_get, storagenode_paystubs.comp_put, storagenode_paystubs.comp_get_repair, storagenode_paystubs.comp_put_repair, storagenode_paystubs.comp_get_audit, storagenode_paystubs.surge_percent, storagenode_paystubs.held, storagenode_paystubs.owed, storagenode_paystubs.disposed, storagenode_paystubs.paid FROM storagenode_paystubs WHERE storagenode_paystubs.node_id = ? AND storagenode_paystubs.period = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_paystub_node_id.value(), storagenode_paystub_period.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	storagenode_paystub = &StoragenodePaystub{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&storagenode_paystub.Period, &storagenode_paystub.NodeId, &storagenode_paystub.CreatedAt, &storagenode_paystub.Codes, &storagenode_paystub.UsageAtRest, &storagenode_paystub.UsageGet, &storagenode_paystub.UsagePut, &storagenode_paystub.UsageGetRepair, &storagenode_paystub.UsagePutRepair, &storagenode_paystub.UsageGetAudit, &storagenode_paystub.CompAtRest, &storagenode_paystub.CompGet, &storagenode_paystub.CompPut, &storagenode_paystub.CompGetRepair, &storagenode_paystub.CompPutRepair, &storagenode_paystub.CompGetAudit, &storagenode_paystub.SurgePercent, &storagenode_paystub.Held, &storagenode_paystub.Owed, &storagenode_paystub.Disposed, &storagenode_paystub.Paid)
+	if err != nil {
+		return (*StoragenodePaystub)(nil), obj.makeErr(err)
+	}
+	return storagenode_paystub, nil
+
+}
+
+func (obj *pgxImpl) All_StoragenodePaystub_By_NodeId(ctx context.Context,
+	storagenode_paystub_node_id StoragenodePaystub_NodeId_Field) (
+	rows []*StoragenodePaystub, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_paystubs.period, storagenode_paystubs.node_id, storagenode_paystubs.created_at, storagenode_paystubs.codes, storagenode_paystubs.usage_at_rest, storagenode_paystubs.usage_get, storagenode_paystubs.usage_put, storagenode_paystubs.usage_get_repair, storagenode_paystubs.usage_put_repair, storagenode_paystubs.usage_get_audit, storagenode_paystubs.comp_at_rest, storagenode_paystubs.comp_get, storagenode_paystubs.comp_put, storagenode_paystubs.comp_get_repair, storagenode_paystubs.comp_put_repair, storagenode_paystubs.comp_get_audit, storagenode_paystubs.surge_percent, storagenode_paystubs.held, storagenode_paystubs.owed, storagenode_paystubs.disposed, storagenode_paystubs.paid FROM storagenode_paystubs WHERE storagenode_paystubs.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_paystub_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StoragenodePaystub, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				storagenode_paystub := &StoragenodePaystub{}
+				err = __rows.Scan(&storagenode_paystub.Period, &storagenode_paystub.NodeId, &storagenode_paystub.CreatedAt, &storagenode_paystub.Codes, &storagenode_paystub.UsageAtRest, &storagenode_paystub.UsageGet, &storagenode_paystub.UsagePut, &storagenode_paystub.UsageGetRepair, &storagenode_paystub.UsagePutRepair, &storagenode_paystub.UsageGetAudit, &storagenode_paystub.CompAtRest, &storagenode_paystub.CompGet, &storagenode_paystub.CompPut, &storagenode_paystub.CompGetRepair, &storagenode_paystub.CompPutRepair, &storagenode_paystub.CompGetAudit, &storagenode_paystub.SurgePercent, &storagenode_paystub.Held, &storagenode_paystub.Owed, &storagenode_paystub.Disposed, &storagenode_paystub.Paid)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, storagenode_paystub)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Limited_StoragenodePayment_By_NodeId_And_Period_OrderBy_Desc_Id(ctx context.Context,
+	storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+	storagenode_payment_period StoragenodePayment_Period_Field,
+	limit int, offset int64) (
+	rows []*StoragenodePayment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_payments.id, storagenode_payments.created_at, storagenode_payments.node_id, storagenode_payments.period, storagenode_payments.amount, storagenode_payments.receipt, storagenode_payments.notes FROM storagenode_payments WHERE storagenode_payments.node_id = ? AND storagenode_payments.period = ? ORDER BY storagenode_payments.id DESC LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_payment_node_id.value(), storagenode_payment_period.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StoragenodePayment, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				storagenode_payment := &StoragenodePayment{}
+				err = __rows.Scan(&storagenode_payment.Id, &storagenode_payment.CreatedAt, &storagenode_payment.NodeId, &storagenode_payment.Period, &storagenode_payment.Amount, &storagenode_payment.Receipt, &storagenode_payment.Notes)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, storagenode_payment)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_StoragenodePayment_By_NodeId(ctx context.Context,
+	storagenode_payment_node_id StoragenodePayment_NodeId_Field) (
+	rows []*StoragenodePayment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_payments.id, storagenode_payments.created_at, storagenode_payments.node_id, storagenode_payments.period, storagenode_payments.amount, storagenode_payments.receipt, storagenode_payments.notes FROM storagenode_payments WHERE storagenode_payments.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_payment_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StoragenodePayment, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				storagenode_payment := &StoragenodePayment{}
+				err = __rows.Scan(&storagenode_payment.Id, &storagenode_payment.CreatedAt, &storagenode_payment.NodeId, &storagenode_payment.Period, &storagenode_payment.Amount, &storagenode_payment.Receipt, &storagenode_payment.Notes)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, storagenode_payment)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxImpl) Get_PeerIdentity_By_NodeId(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field) (
 	peer_identity *PeerIdentity, err error) {
@@ -18969,6 +19132,169 @@ func (obj *pgxcockroachImpl) All_StoragenodeStorageTally_By_IntervalEndTime_Grea
 
 }
 
+func (obj *pgxcockroachImpl) Get_StoragenodePaystub_By_NodeId_And_Period(ctx context.Context,
+	storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,
+	storagenode_paystub_period StoragenodePaystub_Period_Field) (
+	storagenode_paystub *StoragenodePaystub, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_paystubs.period, storagenode_paystubs.node_id, storagenode_paystubs.created_at, storagenode_paystubs.codes, storagenode_paystubs.usage_at_rest, storagenode_paystubs.usage_get, storagenode_paystubs.usage_put, storagenode_paystubs.usage_get_repair, storagenode_paystubs.usage_put_repair, storagenode_paystubs.usage_get_audit, storagenode_paystubs.comp_at_rest, storagenode_paystubs.comp_get, storagenode_paystubs.comp_put, storagenode_paystubs.comp_get_repair, storagenode_paystubs.comp_put_repair, storagenode_paystubs.comp_get_audit, storagenode_paystubs.surge_percent, storagenode_paystubs.held, storagenode_paystubs.owed, storagenode_paystubs.disposed, storagenode_paystubs.paid FROM storagenode_paystubs WHERE storagenode_paystubs.node_id = ? AND storagenode_paystubs.period = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_paystub_node_id.value(), storagenode_paystub_period.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	storagenode_paystub = &StoragenodePaystub{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&storagenode_paystub.Period, &storagenode_paystub.NodeId, &storagenode_paystub.CreatedAt, &storagenode_paystub.Codes, &storagenode_paystub.UsageAtRest, &storagenode_paystub.UsageGet, &storagenode_paystub.UsagePut, &storagenode_paystub.UsageGetRepair, &storagenode_paystub.UsagePutRepair, &storagenode_paystub.UsageGetAudit, &storagenode_paystub.CompAtRest, &storagenode_paystub.CompGet, &storagenode_paystub.CompPut, &storagenode_paystub.CompGetRepair, &storagenode_paystub.CompPutRepair, &storagenode_paystub.CompGetAudit, &storagenode_paystub.SurgePercent, &storagenode_paystub.Held, &storagenode_paystub.Owed, &storagenode_paystub.Disposed, &storagenode_paystub.Paid)
+	if err != nil {
+		return (*StoragenodePaystub)(nil), obj.makeErr(err)
+	}
+	return storagenode_paystub, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_StoragenodePaystub_By_NodeId(ctx context.Context,
+	storagenode_paystub_node_id StoragenodePaystub_NodeId_Field) (
+	rows []*StoragenodePaystub, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_paystubs.period, storagenode_paystubs.node_id, storagenode_paystubs.created_at, storagenode_paystubs.codes, storagenode_paystubs.usage_at_rest, storagenode_paystubs.usage_get, storagenode_paystubs.usage_put, storagenode_paystubs.usage_get_repair, storagenode_paystubs.usage_put_repair, storagenode_paystubs.usage_get_audit, storagenode_paystubs.comp_at_rest, storagenode_paystubs.comp_get, storagenode_paystubs.comp_put, storagenode_paystubs.comp_get_repair, storagenode_paystubs.comp_put_repair, storagenode_paystubs.comp_get_audit, storagenode_paystubs.surge_percent, storagenode_paystubs.held, storagenode_paystubs.owed, storagenode_paystubs.disposed, storagenode_paystubs.paid FROM storagenode_paystubs WHERE storagenode_paystubs.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_paystub_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StoragenodePaystub, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				storagenode_paystub := &StoragenodePaystub{}
+				err = __rows.Scan(&storagenode_paystub.Period, &storagenode_paystub.NodeId, &storagenode_paystub.CreatedAt, &storagenode_paystub.Codes, &storagenode_paystub.UsageAtRest, &storagenode_paystub.UsageGet, &storagenode_paystub.UsagePut, &storagenode_paystub.UsageGetRepair, &storagenode_paystub.UsagePutRepair, &storagenode_paystub.UsageGetAudit, &storagenode_paystub.CompAtRest, &storagenode_paystub.CompGet, &storagenode_paystub.CompPut, &storagenode_paystub.CompGetRepair, &storagenode_paystub.CompPutRepair, &storagenode_paystub.CompGetAudit, &storagenode_paystub.SurgePercent, &storagenode_paystub.Held, &storagenode_paystub.Owed, &storagenode_paystub.Disposed, &storagenode_paystub.Paid)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, storagenode_paystub)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Limited_StoragenodePayment_By_NodeId_And_Period_OrderBy_Desc_Id(ctx context.Context,
+	storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+	storagenode_payment_period StoragenodePayment_Period_Field,
+	limit int, offset int64) (
+	rows []*StoragenodePayment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_payments.id, storagenode_payments.created_at, storagenode_payments.node_id, storagenode_payments.period, storagenode_payments.amount, storagenode_payments.receipt, storagenode_payments.notes FROM storagenode_payments WHERE storagenode_payments.node_id = ? AND storagenode_payments.period = ? ORDER BY storagenode_payments.id DESC LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_payment_node_id.value(), storagenode_payment_period.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StoragenodePayment, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				storagenode_payment := &StoragenodePayment{}
+				err = __rows.Scan(&storagenode_payment.Id, &storagenode_payment.CreatedAt, &storagenode_payment.NodeId, &storagenode_payment.Period, &storagenode_payment.Amount, &storagenode_payment.Receipt, &storagenode_payment.Notes)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, storagenode_payment)
+			}
+			err = __rows.Err()
+			if err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_StoragenodePayment_By_NodeId(ctx context.Context,
+	storagenode_payment_node_id StoragenodePayment_NodeId_Field) (
+	rows []*StoragenodePayment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_payments.id, storagenode_payments.created_at, storagenode_payments.node_id, storagenode_payments.period, storagenode_payments.amount, storagenode_payments.receipt, storagenode_payments.notes FROM storagenode_payments WHERE storagenode_payments.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, storagenode_payment_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StoragenodePayment, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer __rows.Close()
+
+			for __rows.Next() {
+				storagenode_payment := &StoragenodePayment{}
+				err = __rows.Scan(&storagenode_payment.Id, &storagenode_payment.CreatedAt, &storagenode_payment.NodeId, &storagenode_payment.Period, &storagenode_payment.Amount, &storagenode_payment.Receipt, &storagenode_payment.Notes)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, storagenode_payment)
+			}
+			if err := __rows.Err(); err != nil {
+				return nil, err
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxcockroachImpl) Get_PeerIdentity_By_NodeId(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field) (
 	peer_identity *PeerIdentity, err error) {
@@ -22691,6 +23017,26 @@ func (rx *Rx) All_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart(
 	return tx.All_StoragenodeBandwidthRollup_By_StoragenodeId_And_IntervalStart(ctx, storagenode_bandwidth_rollup_storagenode_id, storagenode_bandwidth_rollup_interval_start)
 }
 
+func (rx *Rx) All_StoragenodePayment_By_NodeId(ctx context.Context,
+	storagenode_payment_node_id StoragenodePayment_NodeId_Field) (
+	rows []*StoragenodePayment, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_StoragenodePayment_By_NodeId(ctx, storagenode_payment_node_id)
+}
+
+func (rx *Rx) All_StoragenodePaystub_By_NodeId(ctx context.Context,
+	storagenode_paystub_node_id StoragenodePaystub_NodeId_Field) (
+	rows []*StoragenodePaystub, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.All_StoragenodePaystub_By_NodeId(ctx, storagenode_paystub_node_id)
+}
+
 func (rx *Rx) All_StoragenodeStorageTally(ctx context.Context) (
 	rows []*StoragenodeStorageTally, err error) {
 	var tx *Tx
@@ -23772,6 +24118,17 @@ func (rx *Rx) Get_SerialNumber_BucketId_By_SerialNumber(ctx context.Context,
 	return tx.Get_SerialNumber_BucketId_By_SerialNumber(ctx, serial_number_serial_number)
 }
 
+func (rx *Rx) Get_StoragenodePaystub_By_NodeId_And_Period(ctx context.Context,
+	storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,
+	storagenode_paystub_period StoragenodePaystub_Period_Field) (
+	storagenode_paystub *StoragenodePaystub, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_StoragenodePaystub_By_NodeId_And_Period(ctx, storagenode_paystub_node_id, storagenode_paystub_period)
+}
+
 func (rx *Rx) Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
 	stripe_customer_user_id StripeCustomer_UserId_Field) (
 	row *CustomerId_Row, err error) {
@@ -23990,6 +24347,18 @@ func (rx *Rx) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx contex
 		return
 	}
 	return tx.Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx, project_created_at_less, limit, offset)
+}
+
+func (rx *Rx) Limited_StoragenodePayment_By_NodeId_And_Period_OrderBy_Desc_Id(ctx context.Context,
+	storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+	storagenode_payment_period StoragenodePayment_Period_Field,
+	limit int, offset int64) (
+	rows []*StoragenodePayment, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_StoragenodePayment_By_NodeId_And_Period_OrderBy_Desc_Id(ctx, storagenode_payment_node_id, storagenode_payment_period, limit, offset)
 }
 
 func (rx *Rx) Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx context.Context,
@@ -24404,6 +24773,14 @@ type Methods interface {
 		storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
 		storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field) (
 		rows []*StoragenodeBandwidthRollup, err error)
+
+	All_StoragenodePayment_By_NodeId(ctx context.Context,
+		storagenode_payment_node_id StoragenodePayment_NodeId_Field) (
+		rows []*StoragenodePayment, err error)
+
+	All_StoragenodePaystub_By_NodeId(ctx context.Context,
+		storagenode_paystub_node_id StoragenodePaystub_NodeId_Field) (
+		rows []*StoragenodePaystub, err error)
 
 	All_StoragenodeStorageTally(ctx context.Context) (
 		rows []*StoragenodeStorageTally, err error)
@@ -24913,6 +25290,11 @@ type Methods interface {
 		serial_number_serial_number SerialNumber_SerialNumber_Field) (
 		row *BucketId_Row, err error)
 
+	Get_StoragenodePaystub_By_NodeId_And_Period(ctx context.Context,
+		storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,
+		storagenode_paystub_period StoragenodePaystub_Period_Field) (
+		storagenode_paystub *StoragenodePaystub, err error)
+
 	Get_StripeCustomer_CustomerId_By_UserId(ctx context.Context,
 		stripe_customer_user_id StripeCustomer_UserId_Field) (
 		row *CustomerId_Row, err error)
@@ -25012,6 +25394,12 @@ type Methods interface {
 		project_created_at_less Project_CreatedAt_Field,
 		limit int, offset int64) (
 		rows []*Project, err error)
+
+	Limited_StoragenodePayment_By_NodeId_And_Period_OrderBy_Desc_Id(ctx context.Context,
+		storagenode_payment_node_id StoragenodePayment_NodeId_Field,
+		storagenode_payment_period StoragenodePayment_Period_Field,
+		limit int, offset int64) (
+		rows []*StoragenodePayment, err error)
 
 	Limited_StripeCustomer_By_CreatedAt_LessOrEqual_OrderBy_Desc_CreatedAt(ctx context.Context,
 		stripe_customer_created_at_less_or_equal StripeCustomer_CreatedAt_Field,
