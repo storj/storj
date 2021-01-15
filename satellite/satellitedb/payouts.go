@@ -8,114 +8,155 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/zeebo/errs"
-
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/satellite/snopayouts"
 )
 
-// paymentStubs is payment data for specific storagenode for some specific period by working with satellite.
+// snopayoutsDB is payment data for specific storagenode for some specific period by working with satellite.
 //
 // architecture: Database
-type paymentStubs struct {
+type snopayoutsDB struct {
 	db *satelliteDB
 }
 
 // GetPaystub returns payStub by nodeID and period.
-func (paystubs *paymentStubs) GetPaystub(ctx context.Context, nodeID storj.NodeID, period string) (payStub snopayouts.PayStub, err error) {
-	query := `SELECT * FROM storagenode_paystubs WHERE node_id = $1 AND period = $2;`
-
-	row := paystubs.db.QueryRowContext(ctx, query, nodeID, period)
-	err = row.Scan(
-		&payStub.Period,
-		&payStub.NodeID,
-		&payStub.Created,
-		&payStub.Codes,
-		&payStub.UsageAtRest,
-		&payStub.UsageGet,
-		&payStub.UsagePut,
-		&payStub.UsageGetRepair,
-		&payStub.UsagePutRepair,
-		&payStub.UsageGetAudit,
-		&payStub.CompAtRest,
-		&payStub.CompGet,
-		&payStub.CompPut,
-		&payStub.CompGetRepair,
-		&payStub.CompPutRepair,
-		&payStub.CompGetAudit,
-		&payStub.SurgePercent,
-		&payStub.Held,
-		&payStub.Owed,
-		&payStub.Disposed,
-		&payStub.Paid,
-	)
+func (db *snopayoutsDB) GetPaystub(ctx context.Context, nodeID storj.NodeID, period string) (paystub snopayouts.Paystub, err error) {
+	dbxPaystub, err := db.db.Get_StoragenodePaystub_By_NodeId_And_Period(ctx,
+		dbx.StoragenodePaystub_NodeId(nodeID.Bytes()),
+		dbx.StoragenodePaystub_Period(period))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return snopayouts.PayStub{}, snopayouts.ErrNoDataForPeriod.Wrap(err)
+			return snopayouts.Paystub{}, snopayouts.ErrNoDataForPeriod.Wrap(err)
 		}
-
-		return snopayouts.PayStub{}, Error.Wrap(err)
+		return snopayouts.Paystub{}, Error.Wrap(err)
 	}
-
-	return payStub, nil
+	return convertDBXPaystub(dbxPaystub)
 }
 
 // GetAllPaystubs return all payStubs by nodeID.
-func (paystubs *paymentStubs) GetAllPaystubs(ctx context.Context, nodeID storj.NodeID) (payStubs []snopayouts.PayStub, err error) {
-	query := `SELECT * FROM storagenode_paystubs WHERE node_id = $1;`
-
-	rows, err := paystubs.db.QueryContext(ctx, query, nodeID)
+func (db *snopayoutsDB) GetAllPaystubs(ctx context.Context, nodeID storj.NodeID) (paystubs []snopayouts.Paystub, err error) {
+	dbxPaystubs, err := db.db.All_StoragenodePaystub_By_NodeId(ctx,
+		dbx.StoragenodePaystub_NodeId(nodeID.Bytes()))
 	if err != nil {
-		return []snopayouts.PayStub{}, Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
-
-	defer func() {
-		err = errs.Combine(err, Error.Wrap(rows.Close()))
-	}()
-
-	for rows.Next() {
-		paystub := snopayouts.PayStub{}
-
-		err = rows.Scan(
-			&paystub.Period,
-			&paystub.NodeID,
-			&paystub.Created,
-			&paystub.Codes,
-			&paystub.UsageAtRest,
-			&paystub.UsageGet,
-			&paystub.UsagePut,
-			&paystub.UsageGetRepair,
-			&paystub.UsagePutRepair,
-			&paystub.UsageGetAudit,
-			&paystub.CompAtRest,
-			&paystub.CompGet,
-			&paystub.CompPut,
-			&paystub.CompGetRepair,
-			&paystub.CompPutRepair,
-			&paystub.CompGetAudit,
-			&paystub.SurgePercent,
-			&paystub.Held,
-			&paystub.Owed,
-			&paystub.Disposed,
-			&paystub.Paid,
-		)
-		if err = rows.Err(); err != nil {
-			return []snopayouts.PayStub{}, Error.Wrap(err)
+	for _, dbxPaystub := range dbxPaystubs {
+		payStub, err := convertDBXPaystub(dbxPaystub)
+		if err != nil {
+			return nil, Error.Wrap(err)
 		}
-
-		payStubs = append(payStubs, paystub)
+		paystubs = append(paystubs, payStub)
 	}
-
-	return payStubs, Error.Wrap(rows.Err())
+	return paystubs, nil
 }
 
-// CreatePaystub inserts storagenode_paystub into database.
-func (paystubs *paymentStubs) CreatePaystub(ctx context.Context, stub snopayouts.PayStub) (err error) {
-	return paystubs.db.CreateNoReturn_StoragenodePaystub(
-		ctx,
+func convertDBXPaystub(dbxPaystub *dbx.StoragenodePaystub) (snopayouts.Paystub, error) {
+	nodeID, err := storj.NodeIDFromBytes(dbxPaystub.NodeId)
+	if err != nil {
+		return snopayouts.Paystub{}, Error.Wrap(err)
+	}
+	return snopayouts.Paystub{
+		Period:         dbxPaystub.Period,
+		NodeID:         nodeID,
+		Created:        dbxPaystub.CreatedAt,
+		Codes:          dbxPaystub.Codes,
+		UsageAtRest:    dbxPaystub.UsageAtRest,
+		UsageGet:       dbxPaystub.UsageGet,
+		UsagePut:       dbxPaystub.UsagePut,
+		UsageGetRepair: dbxPaystub.UsageGetRepair,
+		UsagePutRepair: dbxPaystub.UsagePutRepair,
+		UsageGetAudit:  dbxPaystub.UsageGetAudit,
+		CompAtRest:     dbxPaystub.CompAtRest,
+		CompGet:        dbxPaystub.CompGet,
+		CompPut:        dbxPaystub.CompPut,
+		CompGetRepair:  dbxPaystub.CompGetRepair,
+		CompPutRepair:  dbxPaystub.CompPutRepair,
+		CompGetAudit:   dbxPaystub.CompGetAudit,
+		SurgePercent:   dbxPaystub.SurgePercent,
+		Held:           dbxPaystub.Held,
+		Owed:           dbxPaystub.Owed,
+		Disposed:       dbxPaystub.Disposed,
+		Paid:           dbxPaystub.Paid,
+	}, nil
+}
+
+// GetPayment returns payment by nodeID and period.
+func (db *snopayoutsDB) GetPayment(ctx context.Context, nodeID storj.NodeID, period string) (payment snopayouts.Payment, err error) {
+	// N.B. There can be multiple payments for a single node id and period, but the old query
+	// here did not take that into account. Indeed, all above layers do not take it into account
+	// from the service endpoints to the protobuf rpcs to the node client side. Instead of fixing
+	// all of those things now, emulate the behavior with dbx as much as possible.
+
+	dbxPayments, err := db.db.Limited_StoragenodePayment_By_NodeId_And_Period_OrderBy_Desc_Id(ctx,
+		dbx.StoragenodePayment_NodeId(nodeID.Bytes()),
+		dbx.StoragenodePayment_Period(period),
+		1, 0)
+	if err != nil {
+		return snopayouts.Payment{}, Error.Wrap(err)
+	}
+
+	switch len(dbxPayments) {
+	case 0:
+		return snopayouts.Payment{}, snopayouts.ErrNoDataForPeriod.Wrap(sql.ErrNoRows)
+	case 1:
+		return convertDBXPayment(dbxPayments[0])
+	default:
+		return snopayouts.Payment{}, Error.New("impossible number of rows returned: %d", len(dbxPayments))
+	}
+}
+
+// GetAllPayments return all payments by nodeID.
+func (db *snopayoutsDB) GetAllPayments(ctx context.Context, nodeID storj.NodeID) (payments []snopayouts.Payment, err error) {
+	dbxPayments, err := db.db.All_StoragenodePayment_By_NodeId(ctx,
+		dbx.StoragenodePayment_NodeId(nodeID.Bytes()))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, dbxPayment := range dbxPayments {
+		payment, err := convertDBXPayment(dbxPayment)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		payments = append(payments, payment)
+	}
+
+	return payments, nil
+}
+
+func convertDBXPayment(dbxPayment *dbx.StoragenodePayment) (snopayouts.Payment, error) {
+	nodeID, err := storj.NodeIDFromBytes(dbxPayment.NodeId)
+	if err != nil {
+		return snopayouts.Payment{}, Error.Wrap(err)
+	}
+	return snopayouts.Payment{
+		ID:      dbxPayment.Id,
+		Created: dbxPayment.CreatedAt,
+		NodeID:  nodeID,
+		Period:  dbxPayment.Period,
+		Amount:  dbxPayment.Amount,
+		Receipt: derefStringOr(dbxPayment.Receipt, ""),
+		Notes:   derefStringOr(dbxPayment.Notes, ""),
+	}, nil
+}
+
+func derefStringOr(v *string, def string) string {
+	if v != nil {
+		return *v
+	}
+	return def
+}
+
+//
+// test helpers
+//
+
+// TestCreatePaystub inserts storagenode_paystub into database. Only used for tests.
+func (db *snopayoutsDB) TestCreatePaystub(ctx context.Context, stub snopayouts.Paystub) (err error) {
+	return db.db.CreateNoReturn_StoragenodePaystub(ctx,
 		dbx.StoragenodePaystub_Period(stub.Period),
-		dbx.StoragenodePaystub_NodeId(stub.NodeID[:]),
+		dbx.StoragenodePaystub_NodeId(stub.NodeID.Bytes()),
 		dbx.StoragenodePaystub_Codes(stub.Codes),
 		dbx.StoragenodePaystub_UsageAtRest(stub.UsageAtRest),
 		dbx.StoragenodePaystub_UsageGet(stub.UsageGet),
@@ -137,36 +178,10 @@ func (paystubs *paymentStubs) CreatePaystub(ctx context.Context, stub snopayouts
 	)
 }
 
-// GetPayment returns payment by nodeID and period.
-func (paystubs *paymentStubs) GetPayment(ctx context.Context, nodeID storj.NodeID, period string) (payment snopayouts.StoragenodePayment, err error) {
-	query := `SELECT * FROM storagenode_payments WHERE node_id = $1 AND period = $2;`
-
-	row := paystubs.db.QueryRowContext(ctx, query, nodeID, period)
-	err = row.Scan(
-		&payment.ID,
-		&payment.Created,
-		&payment.NodeID,
-		&payment.Period,
-		&payment.Amount,
-		&payment.Receipt,
-		&payment.Notes,
-	)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return snopayouts.StoragenodePayment{}, snopayouts.ErrNoDataForPeriod.Wrap(err)
-		}
-
-		return snopayouts.StoragenodePayment{}, Error.Wrap(err)
-	}
-
-	return payment, nil
-}
-
-// CreatePayment inserts storagenode_payment into database.
-func (paystubs *paymentStubs) CreatePayment(ctx context.Context, payment snopayouts.StoragenodePayment) (err error) {
-	return paystubs.db.CreateNoReturn_StoragenodePayment(
-		ctx,
-		dbx.StoragenodePayment_NodeId(payment.NodeID[:]),
+// TestCreatePayment inserts storagenode_payment into database. Only used for tests.
+func (db *snopayoutsDB) TestCreatePayment(ctx context.Context, payment snopayouts.Payment) (err error) {
+	return db.db.CreateNoReturn_StoragenodePayment(ctx,
+		dbx.StoragenodePayment_NodeId(payment.NodeID.Bytes()),
 		dbx.StoragenodePayment_Period(payment.Period),
 		dbx.StoragenodePayment_Amount(payment.Amount),
 		dbx.StoragenodePayment_Create_Fields{
@@ -174,40 +189,4 @@ func (paystubs *paymentStubs) CreatePayment(ctx context.Context, payment snopayo
 			Notes:   dbx.StoragenodePayment_Notes(payment.Notes),
 		},
 	)
-}
-
-// GetAllPayments return all payments by nodeID.
-func (paystubs *paymentStubs) GetAllPayments(ctx context.Context, nodeID storj.NodeID) (payments []snopayouts.StoragenodePayment, err error) {
-	query := `SELECT * FROM storagenode_payments WHERE node_id = $1;`
-
-	rows, err := paystubs.db.QueryContext(ctx, query, nodeID)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	defer func() {
-		err = errs.Combine(err, Error.Wrap(rows.Close()))
-	}()
-
-	for rows.Next() {
-		payment := snopayouts.StoragenodePayment{}
-
-		err = rows.Scan(
-			&payment.ID,
-			&payment.Created,
-			&payment.NodeID,
-			&payment.Period,
-			&payment.Amount,
-			&payment.Receipt,
-			&payment.Notes,
-		)
-
-		if err = rows.Err(); err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		payments = append(payments, payment)
-	}
-
-	return payments, Error.Wrap(rows.Err())
 }
