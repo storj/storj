@@ -36,10 +36,8 @@ import (
 	"storj.io/storj/satellite/snopayout"
 )
 
-var (
-	// Error is the default satellitedb errs class.
-	Error = errs.Class("satellitedb")
-)
+// Error is the default satellitedb errs class.
+var Error = errs.Class("satellitedb")
 
 type satelliteDBCollection struct {
 	dbs map[string]*satelliteDB
@@ -173,7 +171,6 @@ func (db *satelliteDB) AsOfSystemTimeClause(interval time.Duration) (asOf string
 	}
 
 	return asOf
-
 }
 
 // TestDBAccess for raw database access,

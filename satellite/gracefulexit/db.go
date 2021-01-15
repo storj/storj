@@ -53,7 +53,7 @@ type DB interface {
 	DeleteTransferQueueItem(ctx context.Context, nodeID storj.NodeID, key metabase.SegmentKey, pieceNum int32) error
 	// DeleteTransferQueueItem deletes a graceful exit transfer queue entries by nodeID.
 	DeleteTransferQueueItems(ctx context.Context, nodeID storj.NodeID) error
-	// DeleteFinishedTransferQueueItem deletes finiahed graceful exit transfer queue entries.
+	// DeleteFinishedTransferQueueItem deletes finished graceful exit transfer queue entries.
 	DeleteFinishedTransferQueueItems(ctx context.Context, nodeID storj.NodeID) error
 	// GetTransferQueueItem gets a graceful exit transfer queue entry.
 	GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, key metabase.SegmentKey, pieceNum int32) (*TransferQueueItem, error)
