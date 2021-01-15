@@ -228,7 +228,7 @@ func TestProjectsList(t *testing.T) {
 		}
 
 		require.False(t, projsPage.Next)
-		require.Equal(t, int64(0), projsPage.NextOffset)
+		require.EqualValues(t, 0, projsPage.NextOffset)
 		require.Equal(t, length, len(projectsList))
 		require.Empty(t, cmp.Diff(projects[0], projectsList[0],
 			cmp.Transformer("Sort", func(xs []console.Project) []console.Project {
@@ -243,8 +243,9 @@ func TestProjectsList(t *testing.T) {
 
 func TestProjectsListByOwner(t *testing.T) {
 	const (
-		limit  = 5
-		length = limit*4 - 1 // make length offset from page size so we can test incomplete page at end
+		limit      = 5
+		length     = limit*4 - 1 // make length offset from page size so we can test incomplete page at end
+		totalPages = 4
 	)
 
 	rateLimit := 100
@@ -333,23 +334,34 @@ func TestProjectsListByOwner(t *testing.T) {
 			{id: owner2.ID, originalProjects: owner2Projects},
 		}
 		for _, tt := range testCases {
-			projsPage, err := projectsDB.ListByOwnerID(ctx, tt.id, limit, 0)
+			cursor := &console.ProjectsCursor{
+				Limit: limit,
+				Page:  1,
+			}
+			projsPage, err := projectsDB.ListByOwnerID(ctx, tt.id, *cursor)
 			require.NoError(t, err)
 			require.Len(t, projsPage.Projects, limit)
+			require.EqualValues(t, 1, projsPage.CurrentPage)
+			require.EqualValues(t, totalPages, projsPage.PageCount)
+			require.EqualValues(t, length, projsPage.TotalCount)
 
 			ownerProjectsDB := projsPage.Projects
 
 			for projsPage.Next {
-				projsPage, err = projectsDB.ListByOwnerID(ctx, tt.id, limit, projsPage.NextOffset)
+				cursor.Page++
+				projsPage, err = projectsDB.ListByOwnerID(ctx, tt.id, *cursor)
 				require.NoError(t, err)
 				// number of projects should not exceed page limit
 				require.True(t, len(projsPage.Projects) > 0 && len(projsPage.Projects) <= limit)
+				require.EqualValues(t, cursor.Page, projsPage.CurrentPage)
+				require.EqualValues(t, totalPages, projsPage.PageCount)
+				require.EqualValues(t, length, projsPage.TotalCount)
 
 				ownerProjectsDB = append(ownerProjectsDB, projsPage.Projects...)
 			}
 
 			require.False(t, projsPage.Next)
-			require.Equal(t, int64(0), projsPage.NextOffset)
+			require.EqualValues(t, 0, projsPage.NextOffset)
 			require.Equal(t, length, len(ownerProjectsDB))
 			// sort originalProjects by Name in alphabetical order
 			originalProjects := tt.originalProjects
