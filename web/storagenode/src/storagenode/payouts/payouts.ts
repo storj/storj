@@ -101,6 +101,7 @@ export class Paystub {
         public owed: number = 0,
         public disposed: number = 0,
         public paid: number = 0,
+        public distributed: number = 0,
     ) {}
 
     /**
@@ -171,12 +172,13 @@ export class TotalPaystubForPeriod {
 /**
  * Holds accumulated held and earned payouts.
  */
-export class TotalHeldAndPaid {
+export class TotalPayments {
     public held: number = 0;
     public paid: number = 0;
     public disposed: number = 0;
     // TODO: remove
     public currentMonthEarnings: number = 0;
+    public balance: number = 0;
 
     public constructor(
         paystubs: Paystub[] = [],
@@ -185,6 +187,7 @@ export class TotalHeldAndPaid {
             this.paid += this.convertToCents(paystub.paid);
             this.disposed += this.convertToCents(paystub.disposed);
             this.held += this.convertToCents(paystub.held - paystub.disposed);
+            this.balance += this.convertToCents(paystub.paid - paystub.distributed);
         });
     }
 
@@ -234,6 +237,7 @@ export class EstimatedPayout {
     public constructor(
         public currentMonth: PreviousMonthEstimatedPayout = new PreviousMonthEstimatedPayout(),
         public previousMonth: PreviousMonthEstimatedPayout = new PreviousMonthEstimatedPayout(),
+        public currentMonthExpectations: number = 0,
     ) {}
 }
 

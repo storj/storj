@@ -67,6 +67,7 @@ export class PayoutHttpApi implements PayoutApi {
                 paystubJson.owed,
                 paystubJson.disposed,
                 paystubJson.paid,
+                paystubJson.distributed,
             );
         });
     }
@@ -208,6 +209,7 @@ export class PayoutHttpApi implements PayoutApi {
                 data.previousMonth.payout,
                 data.previousMonth.held,
             ),
+            data.currentMonthExpectations,
         );
     }
 }
