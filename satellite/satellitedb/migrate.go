@@ -1302,6 +1302,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "nodes add wallet_features column",
+				Version:     146,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN wallet_features text NOT NULL DEFAULT '';`,
+				},
+			},
 		},
 	}
 }

@@ -4,6 +4,7 @@
 package satellitedb_test
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/storagenode"
 )
 
 func TestDQNodesLastSeenBefore(t *testing.T) {
@@ -156,6 +158,32 @@ func TestBatchUpdateStats(t *testing.T) {
 		assert.NotNil(t, nB2.Reputation.VettedAt)
 		assert.Equal(t, nB.Reputation.VettedAt, nB2.Reputation.VettedAt)
 		assert.EqualValues(t, 3, nB2.Reputation.AuditCount)
+	})
+}
+
+func TestOperatorConfig(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 2, Reconfigure: testplanet.Reconfigure{
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Operator.Wallet = fmt.Sprintf("0x%d123456789012345678901234567890123456789", index)
+				config.Operator.WalletFeatures = []string{fmt.Sprintf("test_%d", index)}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		nodeA := planet.StorageNodes[0]
+		nodeB := planet.StorageNodes[1]
+		nodeA.Contact.Chore.Pause(ctx)
+		nodeB.Contact.Chore.Pause(ctx)
+
+		cache := planet.Satellites[0].DB.OverlayCache()
+
+		for _, node := range []*testplanet.StorageNode{nodeA, nodeB} {
+			nodeInfo, err := cache.Get(ctx, node.ID())
+			require.NoError(t, err)
+			require.Equal(t, node.Config.Operator.Email, nodeInfo.Operator.Email)
+			require.Equal(t, node.Config.Operator.Wallet, nodeInfo.Operator.Wallet)
+			require.Equal(t, []string(node.Config.Operator.WalletFeatures), nodeInfo.Operator.WalletFeatures)
+		}
 	})
 }
 
