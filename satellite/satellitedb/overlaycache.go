@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -654,8 +655,14 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 			updateFields.Type = dbx.Node_Type(int(nodeInfo.Type))
 		}
 		if nodeInfo.Operator != nil {
+			walletFeatures, err := encodeWalletFeatures(nodeInfo.Operator.GetWalletFeatures())
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+
 			updateFields.Wallet = dbx.Node_Wallet(nodeInfo.Operator.GetWallet())
 			updateFields.Email = dbx.Node_Email(nodeInfo.Operator.GetEmail())
+			updateFields.WalletFeatures = dbx.Node_WalletFeatures(walletFeatures)
 		}
 		if nodeInfo.Capacity != nil {
 			updateFields.FreeDisk = dbx.Node_FreeDisk(nodeInfo.Capacity.GetFreeDisk())
@@ -1035,8 +1042,9 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		},
 		Type: pb.NodeType(info.Type),
 		Operator: pb.NodeOperator{
-			Email:  info.Email,
-			Wallet: info.Wallet,
+			Email:          info.Email,
+			Wallet:         info.Wallet,
+			WalletFeatures: decodeWalletFeatures(info.WalletFeatures),
 		},
 		Capacity: pb.NodeCapacity{
 			FreeDisk: info.FreeDisk,
@@ -1063,6 +1071,31 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 	}
 
 	return node, nil
+}
+
+// encodeWalletFeatures encodes wallet features into comma separated list string.
+func encodeWalletFeatures(features []string) (string, error) {
+	var errGroup errs.Group
+
+	for _, feature := range features {
+		if strings.Contains(feature, ",") {
+			errGroup.Add(errs.New("error encoding %s, can not contain separator \",\"", feature))
+		}
+	}
+	if err := errGroup.Err(); err != nil {
+		return "", Error.Wrap(err)
+	}
+
+	return strings.Join(features, ","), nil
+}
+
+// decodeWalletFeatures decodes comma separated wallet features list string.
+func decodeWalletFeatures(encoded string) []string {
+	if encoded == "" {
+		return nil
+	}
+
+	return strings.Split(encoded, ",")
 }
 
 func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
@@ -1541,6 +1574,11 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		return Error.New("unable to convert version to semVer")
 	}
 
+	walletFeatures, err := encodeWalletFeatures(node.Operator.GetWalletFeatures())
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	query := `
 			INSERT INTO nodes
 			(
@@ -1551,7 +1589,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				audit_reputation_alpha, audit_reputation_beta,
 				unknown_audit_reputation_alpha, unknown_audit_reputation_beta,
 				major, minor, patch, hash, timestamp, release,
-				last_ip_port
+				last_ip_port, 
+				wallet_features
 			)
 			VALUES (
 				$1, $2, $3, $4, $5,
@@ -1565,7 +1604,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				$10, $11,
 				$10, $11,
 				$12, $13, $14, $15, $16, $17,
-				$19
+				$19,
+				$20
 			)
 			ON CONFLICT (id)
 			DO UPDATE
@@ -1585,7 +1625,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 					THEN $18::timestamptz
 					ELSE nodes.last_contact_failure
 				END,
-				last_ip_port=$19;
+				last_ip_port=$19,
+				wallet_features=$20;
 			`
 	_, err = cache.db.ExecContext(ctx, query,
 		// args $1 - $5
@@ -1602,6 +1643,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		timestamp,
 		// args $19
 		node.LastIPPort,
+		// args $20,
+		walletFeatures,
 	)
 	if err != nil {
 		return Error.Wrap(err)

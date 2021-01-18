@@ -133,6 +133,7 @@ CREATE TABLE nodes (
 	type integer NOT NULL DEFAULT 0,
 	email text NOT NULL,
 	wallet text NOT NULL,
+	wallet_features text NOT NULL DEFAULT '',
 	free_disk bigint NOT NULL DEFAULT -1,
 	piece_count bigint NOT NULL DEFAULT 0,
 	major bigint NOT NULL DEFAULT 0,

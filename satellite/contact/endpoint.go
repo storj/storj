@@ -14,6 +14,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
+	"storj.io/storj/private/nodeoperator"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -78,6 +79,19 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		err = errCheckInNetwork.New("failed to ping node (ID: %s) at address: %s, err: %v", nodeID, req.Address, err)
 		return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 	}
+
+	// check wallet features
+	if req.Operator != nil {
+		if err := nodeoperator.DefaultWalletFeaturesValidation.Validate(req.Operator.WalletFeatures); err != nil {
+			endpoint.log.Debug("ignoring invalid wallet features",
+				zap.Stringer("Node ID", nodeID),
+				zap.Strings("Wallet Features", req.Operator.WalletFeatures))
+
+			// TODO: Update CheckInResponse to include wallet feature validation error
+			req.Operator.WalletFeatures = nil
+		}
+	}
+
 	nodeInfo := overlay.NodeCheckInInfo{
 		NodeID: peerID.ID,
 		Address: &pb.NodeAddress{
@@ -91,6 +105,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		Operator:   req.Operator,
 		Version:    req.Version,
 	}
+
 	err = endpoint.service.overlay.UpdateCheckIn(ctx, nodeInfo, time.Now().UTC())
 	if err != nil {
 		endpoint.log.Info("failed to update check in", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))

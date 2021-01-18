@@ -130,18 +130,19 @@ model node (
 		fields disqualified unknown_audit_suspended exit_finished_at last_contact_success
 	)
 
-	field id             blob
+	field id              blob
 	// address is how to contact the node, this can be a hostname or IP and it contains the port
-	field address        text  ( updatable, default "" ) // TODO: use compressed format
+	field address         text  ( updatable, default "" ) // TODO: use compressed format
 	// last_net is the /24 subnet of the IP
-	field last_net       text  ( updatable )
-	field last_ip_port   text  ( updatable, nullable )
-	field protocol       int   ( updatable, default 0 )
-	field type           int   ( updatable, default 0 )
-	field email          text  ( updatable )
-	field wallet         text  ( updatable ) // TODO: use compressed format
-	field free_disk      int64 ( updatable, default -1 )
-	field piece_count    int64 ( autoinsert, updatable, default 0 )
+	field last_net        text  ( updatable )
+	field last_ip_port    text  ( updatable, nullable )
+	field protocol        int   ( updatable, default 0 )
+	field type            int   ( updatable, default 0 )
+	field email           text  ( updatable )
+	field wallet          text  ( updatable ) // TODO: use compressed format
+	field wallet_features text  ( updatable, default "" )
+	field free_disk       int64 ( updatable, default -1 )
+	field piece_count     int64 ( autoinsert, updatable, default 0 )
 
  	field major             int64 ( updatable, default 0 )
 	field minor             int64 ( updatable, default 0 )

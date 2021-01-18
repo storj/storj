@@ -507,8 +507,9 @@ func TestUpdateCheckIn(t *testing.T) {
 				FreeDisk: int64(5678),
 			},
 			Operator: &pb.NodeOperator{
-				Email:  expectedEmail,
-				Wallet: "0x123",
+				Email:          expectedEmail,
+				Wallet:         "0x123",
+				WalletFeatures: []string{"example"},
 			},
 			Version: &pb.NodeVersion{
 				Version:    "v0.0.0",
@@ -529,8 +530,9 @@ func TestUpdateCheckIn(t *testing.T) {
 			},
 			Type: pb.NodeType_STORAGE,
 			Operator: pb.NodeOperator{
-				Email:  info.Operator.GetEmail(),
-				Wallet: info.Operator.GetWallet(),
+				Email:          info.Operator.GetEmail(),
+				Wallet:         info.Operator.GetWallet(),
+				WalletFeatures: info.Operator.GetWalletFeatures(),
 			},
 			Capacity: pb.NodeCapacity{
 				FreeDisk: info.Capacity.GetFreeDisk(),
