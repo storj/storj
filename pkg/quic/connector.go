@@ -61,7 +61,7 @@ func (c Connector) DialContext(ctx context.Context, tlsConfig *tls.Config, addre
 	}
 
 	return &timedConn{
-		ConnectorConn: trackClose(conn),
+		ConnectorConn: TrackClose(conn),
 		rate:          c.transferRate,
 	}, nil
 }
