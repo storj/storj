@@ -830,10 +830,11 @@ model storagenode_paystub (
 
 	field surge_percent int64                 // percentage
 
-	field held     int64                      // in micro-units of currency
-	field owed     int64                      // in micro-units of currency
-	field disposed int64                      // in micro-units of currency
-	field paid     int64                      // in micro-units of currency
+	field held        int64                   // in micro-units of currency
+	field owed        int64                   // in micro-units of currency
+	field disposed    int64                   // in micro-units of currency
+	field paid        int64                   // in micro-units of currency
+	field distributed int64                   // in micro-units of currency
 )
 
 create storagenode_paystub ( noreturn )

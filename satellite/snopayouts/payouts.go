@@ -62,6 +62,7 @@ type Paystub struct {
 	Owed           int64        `json:"owed"`
 	Disposed       int64        `json:"disposed"`
 	Paid           int64        `json:"paid"`
+	Distributed    int64        `json:"distributed"`
 }
 
 // Payment is an entity that holds payment to storagenode operator parameters.

@@ -339,6 +339,7 @@ CREATE TABLE storagenode_paystubs (
 	owed bigint NOT NULL,
 	disposed bigint NOT NULL,
 	paid bigint NOT NULL,
+	distributed bigint NOT NULL,
 	PRIMARY KEY ( period, node_id )
 );
 CREATE TABLE storagenode_storage_tallies (
