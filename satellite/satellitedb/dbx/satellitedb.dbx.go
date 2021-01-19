@@ -639,6 +639,7 @@ CREATE TABLE storagenode_paystubs (
 	owed bigint NOT NULL,
 	disposed bigint NOT NULL,
 	paid bigint NOT NULL,
+	distributed bigint NOT NULL,
 	PRIMARY KEY ( period, node_id )
 );
 CREATE TABLE storagenode_storage_tallies (
@@ -1191,6 +1192,7 @@ CREATE TABLE storagenode_paystubs (
 	owed bigint NOT NULL,
 	disposed bigint NOT NULL,
 	paid bigint NOT NULL,
+	distributed bigint NOT NULL,
 	PRIMARY KEY ( period, node_id )
 );
 CREATE TABLE storagenode_storage_tallies (
@@ -6401,6 +6403,7 @@ type StoragenodePaystub struct {
 	Owed           int64
 	Disposed       int64
 	Paid           int64
+	Distributed    int64
 }
 
 func (StoragenodePaystub) _Table() string { return "storagenode_paystubs" }
@@ -6806,6 +6809,25 @@ func (f StoragenodePaystub_Paid_Field) value() interface{} {
 }
 
 func (StoragenodePaystub_Paid_Field) _Column() string { return "paid" }
+
+type StoragenodePaystub_Distributed_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StoragenodePaystub_Distributed(v int64) StoragenodePaystub_Distributed_Field {
+	return StoragenodePaystub_Distributed_Field{_set: true, _value: v}
+}
+
+func (f StoragenodePaystub_Distributed_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (StoragenodePaystub_Distributed_Field) _Column() string { return "distributed" }
 
 type StoragenodeStorageTally struct {
 	NodeId          []byte
@@ -9794,7 +9816,8 @@ func (obj *pgxImpl) CreateNoReturn_StoragenodePaystub(ctx context.Context,
 	storagenode_paystub_held StoragenodePaystub_Held_Field,
 	storagenode_paystub_owed StoragenodePaystub_Owed_Field,
 	storagenode_paystub_disposed StoragenodePaystub_Disposed_Field,
-	storagenode_paystub_paid StoragenodePaystub_Paid_Field) (
+	storagenode_paystub_paid StoragenodePaystub_Paid_Field,
+	storagenode_paystub_distributed StoragenodePaystub_Distributed_Field) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -9820,11 +9843,12 @@ func (obj *pgxImpl) CreateNoReturn_StoragenodePaystub(ctx context.Context,
 	__owed_val := storagenode_paystub_owed.value()
 	__disposed_val := storagenode_paystub_disposed.value()
 	__paid_val := storagenode_paystub_paid.value()
+	__distributed_val := storagenode_paystub_distributed.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storagenode_paystubs ( period, node_id, created_at, codes, usage_at_rest, usage_get, usage_put, usage_get_repair, usage_put_repair, usage_get_audit, comp_at_rest, comp_get, comp_put, comp_get_repair, comp_put_repair, comp_get_audit, surge_percent, held, owed, disposed, paid ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storagenode_paystubs ( period, node_id, created_at, codes, usage_at_rest, usage_get, usage_put, usage_get_repair, usage_put_repair, usage_get_audit, comp_at_rest, comp_get, comp_put, comp_get_repair, comp_put_repair, comp_get_audit, surge_percent, held, owed, disposed, paid, distributed ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __values []interface{}
-	__values = append(__values, __period_val, __node_id_val, __created_at_val, __codes_val, __usage_at_rest_val, __usage_get_val, __usage_put_val, __usage_get_repair_val, __usage_put_repair_val, __usage_get_audit_val, __comp_at_rest_val, __comp_get_val, __comp_put_val, __comp_get_repair_val, __comp_put_repair_val, __comp_get_audit_val, __surge_percent_val, __held_val, __owed_val, __disposed_val, __paid_val)
+	__values = append(__values, __period_val, __node_id_val, __created_at_val, __codes_val, __usage_at_rest_val, __usage_get_val, __usage_put_val, __usage_get_repair_val, __usage_put_repair_val, __usage_get_audit_val, __comp_at_rest_val, __comp_get_val, __comp_put_val, __comp_get_repair_val, __comp_put_repair_val, __comp_get_audit_val, __surge_percent_val, __held_val, __owed_val, __disposed_val, __paid_val, __distributed_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -12214,7 +12238,7 @@ func (obj *pgxImpl) Get_StoragenodePaystub_By_NodeId_And_Period(ctx context.Cont
 	storagenode_paystub *StoragenodePaystub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_paystubs.period, storagenode_paystubs.node_id, storagenode_paystubs.created_at, storagenode_paystubs.codes, storagenode_paystubs.usage_at_rest, storagenode_paystubs.usage_get, storagenode_paystubs.usage_put, storagenode_paystubs.usage_get_repair, storagenode_paystubs.usage_put_repair, storagenode_paystubs.usage_get_audit, storagenode_paystubs.comp_at_rest, storagenode_paystubs.comp_get, storagenode_paystubs.comp_put, storagenode_paystubs.comp_get_repair, storagenode_paystubs.comp_put_repair, storagenode_paystubs.comp_get_audit, storagenode_paystubs.surge_percent, storagenode_paystubs.held, storagenode_paystubs.owed, storagenode_paystubs.disposed, storagenode_paystubs.paid FROM storagenode_paystubs WHERE storagenode_paystubs.node_id = ? AND storagenode_paystubs.period = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_paystubs.period, storagenode_paystubs.node_id, storagenode_paystubs.created_at, storagenode_paystubs.codes, storagenode_paystubs.usage_at_rest, storagenode_paystubs.usage_get, storagenode_paystubs.usage_put, storagenode_paystubs.usage_get_repair, storagenode_paystubs.usage_put_repair, storagenode_paystubs.usage_get_audit, storagenode_paystubs.comp_at_rest, storagenode_paystubs.comp_get, storagenode_paystubs.comp_put, storagenode_paystubs.comp_get_repair, storagenode_paystubs.comp_put_repair, storagenode_paystubs.comp_get_audit, storagenode_paystubs.surge_percent, storagenode_paystubs.held, storagenode_paystubs.owed, storagenode_paystubs.disposed, storagenode_paystubs.paid, storagenode_paystubs.distributed FROM storagenode_paystubs WHERE storagenode_paystubs.node_id = ? AND storagenode_paystubs.period = ?")
 
 	var __values []interface{}
 	__values = append(__values, storagenode_paystub_node_id.value(), storagenode_paystub_period.value())
@@ -12223,7 +12247,7 @@ func (obj *pgxImpl) Get_StoragenodePaystub_By_NodeId_And_Period(ctx context.Cont
 	obj.logStmt(__stmt, __values...)
 
 	storagenode_paystub = &StoragenodePaystub{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&storagenode_paystub.Period, &storagenode_paystub.NodeId, &storagenode_paystub.CreatedAt, &storagenode_paystub.Codes, &storagenode_paystub.UsageAtRest, &storagenode_paystub.UsageGet, &storagenode_paystub.UsagePut, &storagenode_paystub.UsageGetRepair, &storagenode_paystub.UsagePutRepair, &storagenode_paystub.UsageGetAudit, &storagenode_paystub.CompAtRest, &storagenode_paystub.CompGet, &storagenode_paystub.CompPut, &storagenode_paystub.CompGetRepair, &storagenode_paystub.CompPutRepair, &storagenode_paystub.CompGetAudit, &storagenode_paystub.SurgePercent, &storagenode_paystub.Held, &storagenode_paystub.Owed, &storagenode_paystub.Disposed, &storagenode_paystub.Paid)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&storagenode_paystub.Period, &storagenode_paystub.NodeId, &storagenode_paystub.CreatedAt, &storagenode_paystub.Codes, &storagenode_paystub.UsageAtRest, &storagenode_paystub.UsageGet, &storagenode_paystub.UsagePut, &storagenode_paystub.UsageGetRepair, &storagenode_paystub.UsagePutRepair, &storagenode_paystub.UsageGetAudit, &storagenode_paystub.CompAtRest, &storagenode_paystub.CompGet, &storagenode_paystub.CompPut, &storagenode_paystub.CompGetRepair, &storagenode_paystub.CompPutRepair, &storagenode_paystub.CompGetAudit, &storagenode_paystub.SurgePercent, &storagenode_paystub.Held, &storagenode_paystub.Owed, &storagenode_paystub.Disposed, &storagenode_paystub.Paid, &storagenode_paystub.Distributed)
 	if err != nil {
 		return (*StoragenodePaystub)(nil), obj.makeErr(err)
 	}
@@ -12236,7 +12260,7 @@ func (obj *pgxImpl) All_StoragenodePaystub_By_NodeId(ctx context.Context,
 	rows []*StoragenodePaystub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_paystubs.period, storagenode_paystubs.node_id, storagenode_paystubs.created_at, storagenode_paystubs.codes, storagenode_paystubs.usage_at_rest, storagenode_paystubs.usage_get, storagenode_paystubs.usage_put, storagenode_paystubs.usage_get_repair, storagenode_paystubs.usage_put_repair, storagenode_paystubs.usage_get_audit, storagenode_paystubs.comp_at_rest, storagenode_paystubs.comp_get, storagenode_paystubs.comp_put, storagenode_paystubs.comp_get_repair, storagenode_paystubs.comp_put_repair, storagenode_paystubs.comp_get_audit, storagenode_paystubs.surge_percent, storagenode_paystubs.held, storagenode_paystubs.owed, storagenode_paystubs.disposed, storagenode_paystubs.paid FROM storagenode_paystubs WHERE storagenode_paystubs.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_paystubs.period, storagenode_paystubs.node_id, storagenode_paystubs.created_at, storagenode_paystubs.codes, storagenode_paystubs.usage_at_rest, storagenode_paystubs.usage_get, storagenode_paystubs.usage_put, storagenode_paystubs.usage_get_repair, storagenode_paystubs.usage_put_repair, storagenode_paystubs.usage_get_audit, storagenode_paystubs.comp_at_rest, storagenode_paystubs.comp_get, storagenode_paystubs.comp_put, storagenode_paystubs.comp_get_repair, storagenode_paystubs.comp_put_repair, storagenode_paystubs.comp_get_audit, storagenode_paystubs.surge_percent, storagenode_paystubs.held, storagenode_paystubs.owed, storagenode_paystubs.disposed, storagenode_paystubs.paid, storagenode_paystubs.distributed FROM storagenode_paystubs WHERE storagenode_paystubs.node_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, storagenode_paystub_node_id.value())
@@ -12254,7 +12278,7 @@ func (obj *pgxImpl) All_StoragenodePaystub_By_NodeId(ctx context.Context,
 
 			for __rows.Next() {
 				storagenode_paystub := &StoragenodePaystub{}
-				err = __rows.Scan(&storagenode_paystub.Period, &storagenode_paystub.NodeId, &storagenode_paystub.CreatedAt, &storagenode_paystub.Codes, &storagenode_paystub.UsageAtRest, &storagenode_paystub.UsageGet, &storagenode_paystub.UsagePut, &storagenode_paystub.UsageGetRepair, &storagenode_paystub.UsagePutRepair, &storagenode_paystub.UsageGetAudit, &storagenode_paystub.CompAtRest, &storagenode_paystub.CompGet, &storagenode_paystub.CompPut, &storagenode_paystub.CompGetRepair, &storagenode_paystub.CompPutRepair, &storagenode_paystub.CompGetAudit, &storagenode_paystub.SurgePercent, &storagenode_paystub.Held, &storagenode_paystub.Owed, &storagenode_paystub.Disposed, &storagenode_paystub.Paid)
+				err = __rows.Scan(&storagenode_paystub.Period, &storagenode_paystub.NodeId, &storagenode_paystub.CreatedAt, &storagenode_paystub.Codes, &storagenode_paystub.UsageAtRest, &storagenode_paystub.UsageGet, &storagenode_paystub.UsagePut, &storagenode_paystub.UsageGetRepair, &storagenode_paystub.UsagePutRepair, &storagenode_paystub.UsageGetAudit, &storagenode_paystub.CompAtRest, &storagenode_paystub.CompGet, &storagenode_paystub.CompPut, &storagenode_paystub.CompGetRepair, &storagenode_paystub.CompPutRepair, &storagenode_paystub.CompGetAudit, &storagenode_paystub.SurgePercent, &storagenode_paystub.Held, &storagenode_paystub.Owed, &storagenode_paystub.Disposed, &storagenode_paystub.Paid, &storagenode_paystub.Distributed)
 				if err != nil {
 					return nil, err
 				}
@@ -16718,7 +16742,8 @@ func (obj *pgxcockroachImpl) CreateNoReturn_StoragenodePaystub(ctx context.Conte
 	storagenode_paystub_held StoragenodePaystub_Held_Field,
 	storagenode_paystub_owed StoragenodePaystub_Owed_Field,
 	storagenode_paystub_disposed StoragenodePaystub_Disposed_Field,
-	storagenode_paystub_paid StoragenodePaystub_Paid_Field) (
+	storagenode_paystub_paid StoragenodePaystub_Paid_Field,
+	storagenode_paystub_distributed StoragenodePaystub_Distributed_Field) (
 	err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -16744,11 +16769,12 @@ func (obj *pgxcockroachImpl) CreateNoReturn_StoragenodePaystub(ctx context.Conte
 	__owed_val := storagenode_paystub_owed.value()
 	__disposed_val := storagenode_paystub_disposed.value()
 	__paid_val := storagenode_paystub_paid.value()
+	__distributed_val := storagenode_paystub_distributed.value()
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storagenode_paystubs ( period, node_id, created_at, codes, usage_at_rest, usage_get, usage_put, usage_get_repair, usage_put_repair, usage_get_audit, comp_at_rest, comp_get, comp_put, comp_get_repair, comp_put_repair, comp_get_audit, surge_percent, held, owed, disposed, paid ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO storagenode_paystubs ( period, node_id, created_at, codes, usage_at_rest, usage_get, usage_put, usage_get_repair, usage_put_repair, usage_get_audit, comp_at_rest, comp_get, comp_put, comp_get_repair, comp_put_repair, comp_get_audit, surge_percent, held, owed, disposed, paid, distributed ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )")
 
 	var __values []interface{}
-	__values = append(__values, __period_val, __node_id_val, __created_at_val, __codes_val, __usage_at_rest_val, __usage_get_val, __usage_put_val, __usage_get_repair_val, __usage_put_repair_val, __usage_get_audit_val, __comp_at_rest_val, __comp_get_val, __comp_put_val, __comp_get_repair_val, __comp_put_repair_val, __comp_get_audit_val, __surge_percent_val, __held_val, __owed_val, __disposed_val, __paid_val)
+	__values = append(__values, __period_val, __node_id_val, __created_at_val, __codes_val, __usage_at_rest_val, __usage_get_val, __usage_put_val, __usage_get_repair_val, __usage_put_repair_val, __usage_get_audit_val, __comp_at_rest_val, __comp_get_val, __comp_put_val, __comp_get_repair_val, __comp_put_repair_val, __comp_get_audit_val, __surge_percent_val, __held_val, __owed_val, __disposed_val, __paid_val, __distributed_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -19138,7 +19164,7 @@ func (obj *pgxcockroachImpl) Get_StoragenodePaystub_By_NodeId_And_Period(ctx con
 	storagenode_paystub *StoragenodePaystub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_paystubs.period, storagenode_paystubs.node_id, storagenode_paystubs.created_at, storagenode_paystubs.codes, storagenode_paystubs.usage_at_rest, storagenode_paystubs.usage_get, storagenode_paystubs.usage_put, storagenode_paystubs.usage_get_repair, storagenode_paystubs.usage_put_repair, storagenode_paystubs.usage_get_audit, storagenode_paystubs.comp_at_rest, storagenode_paystubs.comp_get, storagenode_paystubs.comp_put, storagenode_paystubs.comp_get_repair, storagenode_paystubs.comp_put_repair, storagenode_paystubs.comp_get_audit, storagenode_paystubs.surge_percent, storagenode_paystubs.held, storagenode_paystubs.owed, storagenode_paystubs.disposed, storagenode_paystubs.paid FROM storagenode_paystubs WHERE storagenode_paystubs.node_id = ? AND storagenode_paystubs.period = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_paystubs.period, storagenode_paystubs.node_id, storagenode_paystubs.created_at, storagenode_paystubs.codes, storagenode_paystubs.usage_at_rest, storagenode_paystubs.usage_get, storagenode_paystubs.usage_put, storagenode_paystubs.usage_get_repair, storagenode_paystubs.usage_put_repair, storagenode_paystubs.usage_get_audit, storagenode_paystubs.comp_at_rest, storagenode_paystubs.comp_get, storagenode_paystubs.comp_put, storagenode_paystubs.comp_get_repair, storagenode_paystubs.comp_put_repair, storagenode_paystubs.comp_get_audit, storagenode_paystubs.surge_percent, storagenode_paystubs.held, storagenode_paystubs.owed, storagenode_paystubs.disposed, storagenode_paystubs.paid, storagenode_paystubs.distributed FROM storagenode_paystubs WHERE storagenode_paystubs.node_id = ? AND storagenode_paystubs.period = ?")
 
 	var __values []interface{}
 	__values = append(__values, storagenode_paystub_node_id.value(), storagenode_paystub_period.value())
@@ -19147,7 +19173,7 @@ func (obj *pgxcockroachImpl) Get_StoragenodePaystub_By_NodeId_And_Period(ctx con
 	obj.logStmt(__stmt, __values...)
 
 	storagenode_paystub = &StoragenodePaystub{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&storagenode_paystub.Period, &storagenode_paystub.NodeId, &storagenode_paystub.CreatedAt, &storagenode_paystub.Codes, &storagenode_paystub.UsageAtRest, &storagenode_paystub.UsageGet, &storagenode_paystub.UsagePut, &storagenode_paystub.UsageGetRepair, &storagenode_paystub.UsagePutRepair, &storagenode_paystub.UsageGetAudit, &storagenode_paystub.CompAtRest, &storagenode_paystub.CompGet, &storagenode_paystub.CompPut, &storagenode_paystub.CompGetRepair, &storagenode_paystub.CompPutRepair, &storagenode_paystub.CompGetAudit, &storagenode_paystub.SurgePercent, &storagenode_paystub.Held, &storagenode_paystub.Owed, &storagenode_paystub.Disposed, &storagenode_paystub.Paid)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&storagenode_paystub.Period, &storagenode_paystub.NodeId, &storagenode_paystub.CreatedAt, &storagenode_paystub.Codes, &storagenode_paystub.UsageAtRest, &storagenode_paystub.UsageGet, &storagenode_paystub.UsagePut, &storagenode_paystub.UsageGetRepair, &storagenode_paystub.UsagePutRepair, &storagenode_paystub.UsageGetAudit, &storagenode_paystub.CompAtRest, &storagenode_paystub.CompGet, &storagenode_paystub.CompPut, &storagenode_paystub.CompGetRepair, &storagenode_paystub.CompPutRepair, &storagenode_paystub.CompGetAudit, &storagenode_paystub.SurgePercent, &storagenode_paystub.Held, &storagenode_paystub.Owed, &storagenode_paystub.Disposed, &storagenode_paystub.Paid, &storagenode_paystub.Distributed)
 	if err != nil {
 		return (*StoragenodePaystub)(nil), obj.makeErr(err)
 	}
@@ -19160,7 +19186,7 @@ func (obj *pgxcockroachImpl) All_StoragenodePaystub_By_NodeId(ctx context.Contex
 	rows []*StoragenodePaystub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_paystubs.period, storagenode_paystubs.node_id, storagenode_paystubs.created_at, storagenode_paystubs.codes, storagenode_paystubs.usage_at_rest, storagenode_paystubs.usage_get, storagenode_paystubs.usage_put, storagenode_paystubs.usage_get_repair, storagenode_paystubs.usage_put_repair, storagenode_paystubs.usage_get_audit, storagenode_paystubs.comp_at_rest, storagenode_paystubs.comp_get, storagenode_paystubs.comp_put, storagenode_paystubs.comp_get_repair, storagenode_paystubs.comp_put_repair, storagenode_paystubs.comp_get_audit, storagenode_paystubs.surge_percent, storagenode_paystubs.held, storagenode_paystubs.owed, storagenode_paystubs.disposed, storagenode_paystubs.paid FROM storagenode_paystubs WHERE storagenode_paystubs.node_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT storagenode_paystubs.period, storagenode_paystubs.node_id, storagenode_paystubs.created_at, storagenode_paystubs.codes, storagenode_paystubs.usage_at_rest, storagenode_paystubs.usage_get, storagenode_paystubs.usage_put, storagenode_paystubs.usage_get_repair, storagenode_paystubs.usage_put_repair, storagenode_paystubs.usage_get_audit, storagenode_paystubs.comp_at_rest, storagenode_paystubs.comp_get, storagenode_paystubs.comp_put, storagenode_paystubs.comp_get_repair, storagenode_paystubs.comp_put_repair, storagenode_paystubs.comp_get_audit, storagenode_paystubs.surge_percent, storagenode_paystubs.held, storagenode_paystubs.owed, storagenode_paystubs.disposed, storagenode_paystubs.paid, storagenode_paystubs.distributed FROM storagenode_paystubs WHERE storagenode_paystubs.node_id = ?")
 
 	var __values []interface{}
 	__values = append(__values, storagenode_paystub_node_id.value())
@@ -19178,7 +19204,7 @@ func (obj *pgxcockroachImpl) All_StoragenodePaystub_By_NodeId(ctx context.Contex
 
 			for __rows.Next() {
 				storagenode_paystub := &StoragenodePaystub{}
-				err = __rows.Scan(&storagenode_paystub.Period, &storagenode_paystub.NodeId, &storagenode_paystub.CreatedAt, &storagenode_paystub.Codes, &storagenode_paystub.UsageAtRest, &storagenode_paystub.UsageGet, &storagenode_paystub.UsagePut, &storagenode_paystub.UsageGetRepair, &storagenode_paystub.UsagePutRepair, &storagenode_paystub.UsageGetAudit, &storagenode_paystub.CompAtRest, &storagenode_paystub.CompGet, &storagenode_paystub.CompPut, &storagenode_paystub.CompGetRepair, &storagenode_paystub.CompPutRepair, &storagenode_paystub.CompGetAudit, &storagenode_paystub.SurgePercent, &storagenode_paystub.Held, &storagenode_paystub.Owed, &storagenode_paystub.Disposed, &storagenode_paystub.Paid)
+				err = __rows.Scan(&storagenode_paystub.Period, &storagenode_paystub.NodeId, &storagenode_paystub.CreatedAt, &storagenode_paystub.Codes, &storagenode_paystub.UsageAtRest, &storagenode_paystub.UsageGet, &storagenode_paystub.UsagePut, &storagenode_paystub.UsageGetRepair, &storagenode_paystub.UsagePutRepair, &storagenode_paystub.UsageGetAudit, &storagenode_paystub.CompAtRest, &storagenode_paystub.CompGet, &storagenode_paystub.CompPut, &storagenode_paystub.CompGetRepair, &storagenode_paystub.CompPutRepair, &storagenode_paystub.CompGetAudit, &storagenode_paystub.SurgePercent, &storagenode_paystub.Held, &storagenode_paystub.Owed, &storagenode_paystub.Disposed, &storagenode_paystub.Paid, &storagenode_paystub.Distributed)
 				if err != nil {
 					return nil, err
 				}
@@ -23260,13 +23286,14 @@ func (rx *Rx) CreateNoReturn_StoragenodePaystub(ctx context.Context,
 	storagenode_paystub_held StoragenodePaystub_Held_Field,
 	storagenode_paystub_owed StoragenodePaystub_Owed_Field,
 	storagenode_paystub_disposed StoragenodePaystub_Disposed_Field,
-	storagenode_paystub_paid StoragenodePaystub_Paid_Field) (
+	storagenode_paystub_paid StoragenodePaystub_Paid_Field,
+	storagenode_paystub_distributed StoragenodePaystub_Distributed_Field) (
 	err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.CreateNoReturn_StoragenodePaystub(ctx, storagenode_paystub_period, storagenode_paystub_node_id, storagenode_paystub_codes, storagenode_paystub_usage_at_rest, storagenode_paystub_usage_get, storagenode_paystub_usage_put, storagenode_paystub_usage_get_repair, storagenode_paystub_usage_put_repair, storagenode_paystub_usage_get_audit, storagenode_paystub_comp_at_rest, storagenode_paystub_comp_get, storagenode_paystub_comp_put, storagenode_paystub_comp_get_repair, storagenode_paystub_comp_put_repair, storagenode_paystub_comp_get_audit, storagenode_paystub_surge_percent, storagenode_paystub_held, storagenode_paystub_owed, storagenode_paystub_disposed, storagenode_paystub_paid)
+	return tx.CreateNoReturn_StoragenodePaystub(ctx, storagenode_paystub_period, storagenode_paystub_node_id, storagenode_paystub_codes, storagenode_paystub_usage_at_rest, storagenode_paystub_usage_get, storagenode_paystub_usage_put, storagenode_paystub_usage_get_repair, storagenode_paystub_usage_put_repair, storagenode_paystub_usage_get_audit, storagenode_paystub_comp_at_rest, storagenode_paystub_comp_get, storagenode_paystub_comp_put, storagenode_paystub_comp_get_repair, storagenode_paystub_comp_put_repair, storagenode_paystub_comp_get_audit, storagenode_paystub_surge_percent, storagenode_paystub_held, storagenode_paystub_owed, storagenode_paystub_disposed, storagenode_paystub_paid, storagenode_paystub_distributed)
 
 }
 
@@ -24898,7 +24925,8 @@ type Methods interface {
 		storagenode_paystub_held StoragenodePaystub_Held_Field,
 		storagenode_paystub_owed StoragenodePaystub_Owed_Field,
 		storagenode_paystub_disposed StoragenodePaystub_Disposed_Field,
-		storagenode_paystub_paid StoragenodePaystub_Paid_Field) (
+		storagenode_paystub_paid StoragenodePaystub_Paid_Field,
+		storagenode_paystub_distributed StoragenodePaystub_Distributed_Field) (
 		err error)
 
 	CreateNoReturn_UsedSerial(ctx context.Context,

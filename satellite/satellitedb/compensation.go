@@ -84,6 +84,7 @@ func recordPaystubs(ctx context.Context, tx *dbx.Tx, paystubs []compensation.Pay
 			dbx.StoragenodePaystub_Owed(paystub.Owed.Value()),
 			dbx.StoragenodePaystub_Disposed(paystub.Disposed.Value()),
 			dbx.StoragenodePaystub_Paid(paystub.Paid.Value()),
+			dbx.StoragenodePaystub_Distributed(paystub.Distributed.Value()),
 		)
 		if err != nil {
 			return err
