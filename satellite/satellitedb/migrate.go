@@ -1176,6 +1176,41 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes ALTER COLUMN total_uptime_count SET DEFAULT 0;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add distributed column to storagenode_paystubs table",
+				Version:     140,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+					_, err := db.Exec(ctx, `
+							ALTER TABLE storagenode_paystubs ADD COLUMN distributed BIGINT;
+						`)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+
+					_, err = db.Exec(ctx, `
+							UPDATE storagenode_paystubs ps
+							SET distributed = coalesce((
+								SELECT sum(amount)::bigint
+								FROM storagenode_payments pm
+								WHERE pm.period = ps.period
+								  AND pm.node_id = ps.node_id
+							), 0);
+						`)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+
+					_, err = db.Exec(ctx, `
+							ALTER TABLE storagenode_paystubs ALTER COLUMN distributed SET NOT NULL;
+						`)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
 		},
 	}
 }

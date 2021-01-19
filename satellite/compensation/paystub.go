@@ -33,6 +33,7 @@ type Paystub struct {
 	Held           currency.MicroUnit `csv:"held"`
 	Disposed       currency.MicroUnit `csv:"disposed"`
 	Paid           currency.MicroUnit `csv:"paid"`
+	Distributed    currency.MicroUnit `csv:"distributed"`
 }
 
 // LoadPaystubs loads a collection of Paystubs in CSV form from the provided file.
