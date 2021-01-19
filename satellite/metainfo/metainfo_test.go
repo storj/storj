@@ -1807,6 +1807,7 @@ func TestObjectOverrideOnUpload(t *testing.T) {
 		{ // pending object
 			project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
 			require.NoError(t, err)
+			defer ctx.Check(project.Close)
 
 			// upload pending object
 			info, err := project.NewMultipartUpload(ctx, "pip-first", "pending-object", nil)
