@@ -78,6 +78,7 @@ func convertDBXPaystub(dbxPaystub *dbx.StoragenodePaystub) (snopayouts.Paystub, 
 		Owed:           dbxPaystub.Owed,
 		Disposed:       dbxPaystub.Disposed,
 		Paid:           dbxPaystub.Paid,
+		Distributed:    dbxPaystub.Distributed,
 	}, nil
 }
 
@@ -175,6 +176,7 @@ func (db *snopayoutsDB) TestCreatePaystub(ctx context.Context, stub snopayouts.P
 		dbx.StoragenodePaystub_Owed(stub.Owed),
 		dbx.StoragenodePaystub_Disposed(stub.Disposed),
 		dbx.StoragenodePaystub_Paid(stub.Paid),
+		dbx.StoragenodePaystub_Distributed(stub.Distributed),
 	)
 }
 

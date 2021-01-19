@@ -9,7 +9,7 @@ This document is best read in the voice of one of those 50s instructional videos
 In order to understand the right way to add a new migration with associated tests, a basic understanding of how the tests run and what they check is required. The migration tests work by having
 
 1. A single database kept for the duration of the test that the individual migrations are run on one at a time in order
-2. An expected snapshot for the databse for every single step
+2. An expected snapshot for the database for every single step
 3. A sql file for each snapshot to generate it
 
 For a given step, what happens is
@@ -26,7 +26,7 @@ Then, the snapshot and current database state are compared for schema and data d
 With that basic overview out of the way, the steps to create a new migration are
 
 1. Create an empty `postgres.vN.sql` file in this folder.
-2. Copy the `satellitedb.dbx.postgres.sql` file from the `satellitedb/dbx` folder. This ensures that the snapshot does not drift from the dbx sql file. We bootstrap tests from the dbx output, so the correctness of our tests depends on them matching.
+2. Copy the `satellitedb.dbx.pgx.sql` file from the `satellitedb/dbx` folder. This ensures that the snapshot does not drift from the dbx sql file. We bootstrap tests from the dbx output, so the correctness of our tests depends on them matching.
 3. Copy the `INSERT` statements from the end of the previous migration. These lines are after the `CREATE INDEX` lines but before any `-- NEW DATA --` or `-- OLD DATA --` section.
 4. Copy the `-- NEW DATA --` statements from the end of the previous migration into the main section. They are no longer `-- NEW DATA --`. You should only need to copy `INSERT` statements.
 
@@ -94,6 +94,3 @@ Depending on what your migration is doing, you should then do one of these:
 
 4. Removing a DEFAULT value for a column can be tricky. Old values inserted in the snapshot files may not specify every column and relying on those defaults. In the migration that removes the DEFAULT value, you must also change any INSERT statements to include any unspecified columns, setting them to the dropped DEFAULT. This is because the main database will have inserted them while they had the DEFAULT, but the new snapshot will not be inserting while the columns have the DEFAULT.
 
-## FAQ
-
-As questions are asked and answered, and knowledge is gained, this section will include that knowledge so that we can keep it in a spot people can easily find and refer to when adding new migrations.
