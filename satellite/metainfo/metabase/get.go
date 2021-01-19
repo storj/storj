@@ -183,10 +183,10 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 			encrypted_size, plain_offset, plain_size,
 			redundancy,
 			inline_data, remote_pieces
-		FROM objects, segments
+		FROM segments
 		WHERE
-			segments.stream_id = $1 AND
-			segments.position  = $2
+			stream_id = $1 AND
+			position  = $2
 	`, opts.StreamID, opts.Position.Encode()).
 		Scan(
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
