@@ -84,6 +84,10 @@ func DefaultPartners() PartnerList {
 			ID:   "706011f3-400e-45eb-a796-90cce2a7d67e",
 			UUID: parseUUID("706011f3-400e-45eb-a796-90cce2a7d67e"),
 		}, {
+			Name: "Hypernet",
+			ID:   "5abfc372-1d59-44fa-bbcc-bc3aa03a9542",
+			UUID: parseUUID("5abfc372-1d59-44fa-bbcc-bc3aa03a9542"),
+		}, {
 			Name: "Infura",
 			ID:   "1519bdee-ed18-45fe-86c6-4c7fa9668a14",
 			UUID: parseUUID("1519bdee-ed18-45fe-86c6-4c7fa9668a14"),
