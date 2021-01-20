@@ -39,7 +39,6 @@ func TestCache_Database(t *testing.T) {
 // returns a NodeSelectionConfig with sensible test values.
 func testNodeSelectionConfig(newNodeFraction float64, distinctIP bool) overlay.NodeSelectionConfig {
 	return overlay.NodeSelectionConfig{
-		UptimeCount:     0,
 		AuditCount:      0,
 		NewNodeFraction: newNodeFraction,
 		OnlineWindow:    time.Hour,
@@ -270,7 +269,6 @@ func TestRandomizedSelectionCache(t *testing.T) {
 				config.Overlay.NodeSelectionCache.Staleness = -time.Hour
 				config.Overlay.Node.NewNodeFraction = 0.5 // select 50% new nodes
 				config.Overlay.Node.AuditCount = 1
-				config.Overlay.Node.UptimeCount = 1
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -537,10 +535,6 @@ func TestUpdateCheckIn(t *testing.T) {
 			Capacity: pb.NodeCapacity{
 				FreeDisk: info.Capacity.GetFreeDisk(),
 			},
-			Reputation: overlay.NodeStats{
-				UptimeCount:        1,
-				UptimeSuccessCount: 1,
-			},
 			Version: pb.NodeVersion{
 				Version:    "v0.0.0",
 				CommitHash: "",
@@ -613,7 +607,6 @@ func TestUpdateCheckIn(t *testing.T) {
 		require.True(t, updatedNode.Reputation.LastContactSuccess.After(startOfUpdateTest))
 		require.True(t, updatedNode.Reputation.LastContactFailure.Equal(time.Time{}))
 		require.Equal(t, updatedNode.Address.GetAddress(), expectedAddress)
-		require.Equal(t, updatedNode.Reputation.UptimeSuccessCount, actualNode.Reputation.UptimeSuccessCount+1)
 		require.Equal(t, updatedInfo.Version.GetVersion(), updatedNode.Version.GetVersion())
 		require.Equal(t, updatedInfo.Version.GetCommitHash(), updatedNode.Version.GetCommitHash())
 		require.Equal(t, updatedInfo.Version.GetRelease(), updatedNode.Version.GetRelease())
@@ -640,7 +633,6 @@ func TestUpdateCheckIn(t *testing.T) {
 		updated2Node, err := db.OverlayCache().Get(ctx, nodeID)
 		require.NoError(t, err)
 		require.True(t, updated2Node.Reputation.LastContactSuccess.Equal(updatedNode.Reputation.LastContactSuccess))
-		require.Equal(t, updated2Node.Reputation.UptimeSuccessCount, updatedNode.Reputation.UptimeSuccessCount)
 		require.True(t, updated2Node.Reputation.LastContactFailure.After(startOfUpdateTest2))
 	})
 }

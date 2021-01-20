@@ -63,8 +63,6 @@ type DB interface {
 	UpdateStats(ctx context.Context, request *UpdateRequest, now time.Time) (stats *NodeStats, err error)
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error)
-	// UpdateUptime updates a single storagenode's uptime stats.
-	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
 	// UpdateCheckIn updates a single storagenode's check-in stats.
 	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, config NodeSelectionConfig) (err error)
 
@@ -89,6 +87,8 @@ type DB interface {
 
 	// DisqualifyNode disqualifies a storage node.
 	DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error)
+	// DQNodesLastSeenBefore disqualifies all nodes where last_contact_success < cutoff.
+	DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time) (err error)
 
 	// SuspendNodeUnknownAudit suspends a storage node for unknown audits.
 	SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
@@ -164,14 +164,13 @@ type UpdateRequest struct {
 	// n.b. these are set values from the satellite.
 	// They are part of the UpdateRequest struct in order to be
 	// more easily accessible in satellite/satellitedb/overlaycache.go.
-	AuditLambda               float64
-	AuditWeight               float64
-	AuditDQ                   float64
-	SuspensionGracePeriod     time.Duration
-	SuspensionDQEnabled       bool
-	AuditsRequiredForVetting  int64
-	UptimesRequiredForVetting int64
-	AuditHistory              AuditHistoryConfig
+	AuditLambda              float64
+	AuditWeight              float64
+	AuditDQ                  float64
+	SuspensionGracePeriod    time.Duration
+	SuspensionDQEnabled      bool
+	AuditsRequiredForVetting int64
+	AuditHistory             AuditHistoryConfig
 }
 
 // ExitStatus is used for reading graceful exit status.
@@ -218,8 +217,6 @@ type NodeStats struct {
 	VettedAt                    *time.Time
 	AuditSuccessCount           int64
 	AuditCount                  int64
-	UptimeSuccessCount          int64
-	UptimeCount                 int64
 	LastContactSuccess          time.Time
 	LastContactFailure          time.Time
 	AuditReputationAlpha        float64
@@ -452,7 +449,6 @@ func (service *Service) BatchUpdateStats(ctx context.Context, requests []*Update
 		request.SuspensionGracePeriod = service.config.Node.SuspensionGracePeriod
 		request.SuspensionDQEnabled = service.config.Node.SuspensionDQEnabled
 		request.AuditsRequiredForVetting = service.config.Node.AuditCount
-		request.UptimesRequiredForVetting = service.config.Node.UptimeCount
 		request.AuditHistory = service.config.AuditHistory
 	}
 	return service.db.BatchUpdateStats(ctx, requests, service.config.UpdateStatsBatchSize, time.Now())
@@ -468,7 +464,6 @@ func (service *Service) UpdateStats(ctx context.Context, request *UpdateRequest)
 	request.SuspensionGracePeriod = service.config.Node.SuspensionGracePeriod
 	request.SuspensionDQEnabled = service.config.Node.SuspensionDQEnabled
 	request.AuditsRequiredForVetting = service.config.Node.AuditCount
-	request.UptimesRequiredForVetting = service.config.Node.UptimeCount
 	request.AuditHistory = service.config.AuditHistory
 
 	return service.db.UpdateStats(ctx, request, time.Now())
@@ -478,12 +473,6 @@ func (service *Service) UpdateStats(ctx context.Context, request *UpdateRequest)
 func (service *Service) UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.db.UpdateNodeInfo(ctx, node, nodeInfo)
-}
-
-// UpdateUptime updates a single storagenode's uptime stats.
-func (service *Service) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return service.db.UpdateUptime(ctx, nodeID, isUp)
 }
 
 // UpdateCheckIn updates a single storagenode's check-in info.

@@ -496,9 +496,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the time period that must pass before suspended nodes will be disqualified
 # overlay.node.suspension-grace-period: 168h0m0s
 
-# the number of times a node's uptime has been checked to not be considered a New Node
-# overlay.node.uptime-count: 100
-
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100
 
@@ -642,6 +639,15 @@ server.private-address: 127.0.0.1:7778
 
 # if true, uses peer ca whitelist checking
 # server.use-peer-ca-whitelist: true
+
+# whether nodes will be disqualified if they have not been contacted in some time
+# stray-nodes.enable-dq: false
+
+# how often to check for and DQ stray nodes
+# stray-nodes.interval: 168h0m0s
+
+# length of time a node can go without contacting satellite before being disqualified
+# stray-nodes.max-duration-without-contact: 720h0m0s
 
 # how frequently the tally service should run
 # tally.interval: 1h0m0s

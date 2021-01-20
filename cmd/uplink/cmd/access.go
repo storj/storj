@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 
 	"github.com/btcsuite/btcutil/base58"
 	"github.com/spf13/cobra"
@@ -19,6 +20,8 @@ import (
 	"storj.io/private/process"
 	"storj.io/uplink"
 )
+
+const defaultAccessRegisterTimeout = 15 * time.Second
 
 type registerConfig struct {
 	AuthService string `help:"the address to the service you wish to register your access with" default:"" basic-help:"true"`
@@ -137,7 +140,7 @@ func accessRegister(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("no access specified: %w", err)
 	}
 
-	accessKey, secretKey, endpoint, err := RegisterAccess(access, registerCfg.AuthService, registerCfg.Public)
+	accessKey, secretKey, endpoint, err := RegisterAccess(access, registerCfg.AuthService, registerCfg.Public, defaultAccessRegisterTimeout)
 	if err != nil {
 		return err
 	}
@@ -181,7 +184,7 @@ func getAccessFromArgZeroOrConfig(config AccessConfig, args []string) (access *u
 }
 
 // RegisterAccess registers an access grant with a Gateway Authorization Service.
-func RegisterAccess(access *uplink.Access, authService string, public bool) (accessKey, secretKey, endpoint string, err error) {
+func RegisterAccess(access *uplink.Access, authService string, public bool, timeout time.Duration) (accessKey, secretKey, endpoint string, err error) {
 	if authService == "" {
 		return "", "", "", errs.New("no auth service address provided")
 	}
@@ -197,7 +200,11 @@ func RegisterAccess(access *uplink.Access, authService string, public bool) (acc
 		return accessKey, "", "", errs.Wrap(err)
 	}
 
-	resp, err := http.Post(fmt.Sprintf("%s/v1/access", authService), "application/json", bytes.NewReader(postData))
+	client := &http.Client{
+		Timeout: timeout,
+	}
+
+	resp, err := client.Post(fmt.Sprintf("%s/v1/access", authService), "application/json", bytes.NewReader(postData))
 	if err != nil {
 		return "", "", "", err
 	}

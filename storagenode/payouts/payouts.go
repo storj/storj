@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package payout
+package payouts
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"storj.io/common/storj"
 )
 
-// DB works with payout database.
+// DB works with payouts database.
 //
 // architecture: Database
 type DB interface {
@@ -26,9 +26,9 @@ type DB interface {
 	SatellitesHeldbackHistory(ctx context.Context, satelliteID storj.NodeID) ([]HoldForPeriod, error)
 	// SatellitesDisposedHistory returns all disposed amount for specific satellite from DB.
 	SatellitesDisposedHistory(ctx context.Context, satelliteID storj.NodeID) (int64, error)
-	// SatellitePeriods retrieves all periods for concrete satellite in which we have some payout data.
+	// SatellitePeriods retrieves all periods for concrete satellite in which we have some payouts data.
 	SatellitePeriods(ctx context.Context, satelliteID storj.NodeID) ([]string, error)
-	// AllPeriods retrieves all periods in which we have some payout data.
+	// AllPeriods retrieves all periods in which we have some payouts data.
 	AllPeriods(ctx context.Context) ([]string, error)
 	// StorePayment inserts or updates payment into the DB
 	StorePayment(ctx context.Context, payment Payment) error
@@ -38,10 +38,10 @@ type DB interface {
 	GetTotalEarned(ctx context.Context) (_ int64, err error)
 }
 
-// ErrNoPayStubForPeriod represents errors from the payout database.
+// ErrNoPayStubForPeriod represents errors from the payouts database.
 var ErrNoPayStubForPeriod = errs.Class("no payStub for period error")
 
-// PayStub is node payout data for satellite by specific period.
+// PayStub is node payouts data for satellite by specific period.
 type PayStub struct {
 	SatelliteID    storj.NodeID `json:"satelliteId"`
 	Period         string       `json:"period"`
@@ -95,7 +95,7 @@ type SatelliteHeldHistory struct {
 	JoinedAt            time.Time    `json:"joinedAt"`
 }
 
-// SatellitePayoutForPeriod contains payout information for specific period for specific satellite.
+// SatellitePayoutForPeriod contains payouts information for specific period for specific satellite.
 type SatellitePayoutForPeriod struct {
 	SatelliteID    string  `json:"satelliteID"`
 	SatelliteURL   string  `json:"satelliteURL"`

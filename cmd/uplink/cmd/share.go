@@ -70,7 +70,7 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 
 	if shareCfg.Register || shareCfg.URL || shareCfg.DNS != "" {
 		isPublic := (shareCfg.Public || shareCfg.URL || shareCfg.DNS != "")
-		accessKey, _, _, err = RegisterAccess(newAccess, shareCfg.AuthService, isPublic)
+		accessKey, _, _, err = RegisterAccess(newAccess, shareCfg.AuthService, isPublic, defaultAccessRegisterTimeout)
 		if err != nil {
 			return err
 		}

@@ -11,14 +11,14 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
-	"storj.io/storj/storagenode/payout"
+	"storj.io/storj/storagenode/payouts"
 )
 
-// ensures that payoutDB implements payout.DB interface.
-var _ payout.DB = (*payoutDB)(nil)
+// ensures that payoutDB implements payouts.DB interface.
+var _ payouts.DB = (*payoutDB)(nil)
 
 // ErrPayout represents errors from the payouts database.
-var ErrPayout = errs.Class("payout error")
+var ErrPayout = errs.Class("payouts error")
 
 // HeldAmountDBName represents the database name.
 const HeldAmountDBName = "heldamount"
@@ -29,7 +29,7 @@ type payoutDB struct {
 }
 
 // StorePayStub inserts or updates paystub data into the db.
-func (db *payoutDB) StorePayStub(ctx context.Context, paystub payout.PayStub) (err error) {
+func (db *payoutDB) StorePayStub(ctx context.Context, paystub payouts.PayStub) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `INSERT OR REPLACE INTO paystubs (
@@ -84,10 +84,10 @@ func (db *payoutDB) StorePayStub(ctx context.Context, paystub payout.PayStub) (e
 }
 
 // GetPayStub retrieves paystub data for a specific satellite and period.
-func (db *payoutDB) GetPayStub(ctx context.Context, satelliteID storj.NodeID, period string) (_ *payout.PayStub, err error) {
+func (db *payoutDB) GetPayStub(ctx context.Context, satelliteID storj.NodeID, period string) (_ *payouts.PayStub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	result := payout.PayStub{
+	result := payouts.PayStub{
 		SatelliteID: satelliteID,
 		Period:      period,
 	}
@@ -139,7 +139,7 @@ func (db *payoutDB) GetPayStub(ctx context.Context, satelliteID storj.NodeID, pe
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, payout.ErrNoPayStubForPeriod.Wrap(err)
+			return nil, payouts.ErrNoPayStubForPeriod.Wrap(err)
 		}
 		return nil, ErrPayout.Wrap(err)
 	}
@@ -148,7 +148,7 @@ func (db *payoutDB) GetPayStub(ctx context.Context, satelliteID storj.NodeID, pe
 }
 
 // AllPayStubs retrieves all paystub stats from DB for specific period.
-func (db *payoutDB) AllPayStubs(ctx context.Context, period string) (_ []payout.PayStub, err error) {
+func (db *payoutDB) AllPayStubs(ctx context.Context, period string) (_ []payouts.PayStub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT 
@@ -181,9 +181,9 @@ func (db *payoutDB) AllPayStubs(ctx context.Context, period string) (_ []payout.
 
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	var paystubList []payout.PayStub
+	var paystubList []payouts.PayStub
 	for rows.Next() {
-		var paystub payout.PayStub
+		var paystub payouts.PayStub
 		paystub.Period = period
 
 		err := rows.Scan(&paystub.SatelliteID,
@@ -221,7 +221,7 @@ func (db *payoutDB) AllPayStubs(ctx context.Context, period string) (_ []payout.
 }
 
 // SatellitesHeldbackHistory retrieves heldback history for specific satellite.
-func (db *payoutDB) SatellitesHeldbackHistory(ctx context.Context, id storj.NodeID) (_ []payout.HoldForPeriod, err error) {
+func (db *payoutDB) SatellitesHeldbackHistory(ctx context.Context, id storj.NodeID) (_ []payouts.HoldForPeriod, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT 
@@ -236,9 +236,9 @@ func (db *payoutDB) SatellitesHeldbackHistory(ctx context.Context, id storj.Node
 
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	var heldback []payout.HoldForPeriod
+	var heldback []payouts.HoldForPeriod
 	for rows.Next() {
-		var held payout.HoldForPeriod
+		var held payouts.HoldForPeriod
 
 		err := rows.Scan(&held.Period, &held.Amount)
 		if err != nil {
@@ -315,7 +315,7 @@ func (db *payoutDB) AllPeriods(ctx context.Context) (_ []string, err error) {
 }
 
 // StorePayment inserts or updates payment data into the db.
-func (db *payoutDB) StorePayment(ctx context.Context, payment payout.Payment) (err error) {
+func (db *payoutDB) StorePayment(ctx context.Context, payment payouts.Payment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `INSERT OR REPLACE INTO payments (
@@ -386,7 +386,7 @@ func (db *payoutDB) GetReceipt(ctx context.Context, satelliteID storj.NodeID, pe
 	err = rowPayment.Scan(&receipt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", payout.ErrNoPayStubForPeriod.Wrap(err)
+			return "", payouts.ErrNoPayStubForPeriod.Wrap(err)
 		}
 		return "", ErrPayout.Wrap(err)
 	}

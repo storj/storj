@@ -17,7 +17,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/storagenode/payout"
+	"storj.io/storj/storagenode/payouts"
 	"storj.io/storj/storagenode/reputation"
 )
 
@@ -36,7 +36,7 @@ func TestHeldAmountApi(t *testing.T) {
 			baseURL := fmt.Sprintf("http://%s/api/heldamount", console.Listener.Addr())
 
 			period := "2020-03"
-			paystub := payout.PayStub{
+			paystub := payouts.PayStub{
 				SatelliteID:    satellite.ID(),
 				Period:         period,
 				Created:        time.Now().UTC(),
@@ -72,7 +72,7 @@ func TestHeldAmountApi(t *testing.T) {
 
 				paystub.UsageAtRest /= 720
 
-				expected, err := json.Marshal([]payout.PayStub{paystub})
+				expected, err := json.Marshal([]payouts.PayStub{paystub})
 				require.NoError(t, err)
 
 				defer func() {
@@ -84,7 +84,7 @@ func TestHeldAmountApi(t *testing.T) {
 
 				require.Equal(t, string(expected)+"\n", string(body))
 
-				// should return 404 cause no payout for the period.
+				// should return 404 cause no payouts for the period.
 				url = fmt.Sprintf("%s/paystubs/%s?id=%s", baseURL, "2020-01", satellite.ID().String())
 				res2, err := http.Get(url)
 				require.NoError(t, err)
@@ -98,7 +98,7 @@ func TestHeldAmountApi(t *testing.T) {
 				body2, err := ioutil.ReadAll(res2.Body)
 				require.NoError(t, err)
 
-				expected = []byte("{\"error\":\"payout console web error: payout service error: no payStub for period error: sql: no rows in result set\"}\n")
+				expected = []byte("{\"error\":\"payouts console web error: payouts service error: no payStub for period error: sql: no rows in result set\"}\n")
 				require.Equal(t, expected, body2)
 
 				// should return 400 cause of wrong satellite id.
@@ -114,7 +114,7 @@ func TestHeldAmountApi(t *testing.T) {
 				}()
 			})
 
-			paystub2 := payout.PayStub{
+			paystub2 := payouts.PayStub{
 				SatelliteID:    storj.NodeID{1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 4, 1, 2, 3, 0},
 				Period:         period,
 				Created:        time.Now().UTC(),
@@ -150,7 +150,7 @@ func TestHeldAmountApi(t *testing.T) {
 
 				paystub2.UsageAtRest /= 720
 
-				expected, err := json.Marshal([]payout.PayStub{paystub2, paystub})
+				expected, err := json.Marshal([]payouts.PayStub{paystub2, paystub})
 				require.NoError(t, err)
 
 				defer func() {
@@ -180,7 +180,7 @@ func TestHeldAmountApi(t *testing.T) {
 			})
 
 			period2 := "2020-02"
-			paystub3 := payout.PayStub{
+			paystub3 := payouts.PayStub{
 				SatelliteID:    satellite.ID(),
 				Period:         period2,
 				Created:        time.Now().UTC(),
@@ -216,7 +216,7 @@ func TestHeldAmountApi(t *testing.T) {
 
 				paystub3.UsageAtRest /= 720
 
-				expected, err := json.Marshal([]payout.PayStub{paystub3, paystub})
+				expected, err := json.Marshal([]payouts.PayStub{paystub3, paystub})
 				require.NoError(t, err)
 
 				defer func() {
@@ -234,7 +234,7 @@ func TestHeldAmountApi(t *testing.T) {
 				require.NotNil(t, res2)
 				require.Equal(t, http.StatusOK, res2.StatusCode)
 
-				expected, err = json.Marshal([]payout.PayStub{paystub})
+				expected, err = json.Marshal([]payouts.PayStub{paystub})
 				require.NoError(t, err)
 
 				defer func() {
@@ -252,7 +252,7 @@ func TestHeldAmountApi(t *testing.T) {
 				require.NotNil(t, res3)
 				require.Equal(t, http.StatusOK, res3.StatusCode)
 
-				expected, err = json.Marshal([]payout.PayStub{paystub2})
+				expected, err = json.Marshal([]payouts.PayStub{paystub2})
 				require.NoError(t, err)
 
 				defer func() {
@@ -291,7 +291,7 @@ func TestHeldAmountApi(t *testing.T) {
 				body5, err := ioutil.ReadAll(res5.Body)
 				require.NoError(t, err)
 
-				require.Equal(t, "{\"error\":\"payout console web error: wrong period format: period has wrong format\"}\n", string(body5))
+				require.Equal(t, "{\"error\":\"payouts console web error: wrong period format: period has wrong format\"}\n", string(body5))
 			})
 
 			t.Run("test AllPayStubsPeriod", func(t *testing.T) {
@@ -302,7 +302,7 @@ func TestHeldAmountApi(t *testing.T) {
 				require.NotNil(t, res)
 				require.Equal(t, http.StatusOK, res.StatusCode)
 
-				expected, err := json.Marshal([]payout.PayStub{paystub3, paystub2, paystub})
+				expected, err := json.Marshal([]payouts.PayStub{paystub3, paystub2, paystub})
 				require.NoError(t, err)
 
 				defer func() {
@@ -320,7 +320,7 @@ func TestHeldAmountApi(t *testing.T) {
 				require.NotNil(t, res2)
 				require.Equal(t, http.StatusOK, res2.StatusCode)
 
-				expected, err = json.Marshal([]payout.PayStub{paystub2, paystub})
+				expected, err = json.Marshal([]payouts.PayStub{paystub2, paystub})
 				require.NoError(t, err)
 
 				defer func() {
@@ -347,7 +347,7 @@ func TestHeldAmountApi(t *testing.T) {
 				body5, err := ioutil.ReadAll(res5.Body)
 				require.NoError(t, err)
 
-				require.Equal(t, "{\"error\":\"payout console web error: wrong period format: period has wrong format\"}\n", string(body5))
+				require.Equal(t, "{\"error\":\"payouts console web error: wrong period format: period has wrong format\"}\n", string(body5))
 			})
 
 			t.Run("test HeldbackHistory", func(t *testing.T) {
@@ -365,7 +365,7 @@ func TestHeldAmountApi(t *testing.T) {
 				require.NotNil(t, res)
 				require.Equal(t, http.StatusOK, res.StatusCode)
 
-				held := payout.SatelliteHeldHistory{
+				held := payouts.SatelliteHeldHistory{
 					SatelliteID:         satellite.ID(),
 					SatelliteName:       satellite.Addr(),
 					HoldForFirstPeriod:  28,
@@ -376,7 +376,7 @@ func TestHeldAmountApi(t *testing.T) {
 					JoinedAt:            date.Round(time.Minute),
 				}
 
-				var periods []payout.SatelliteHeldHistory
+				var periods []payouts.SatelliteHeldHistory
 				periods = append(periods, held)
 
 				expected, err := json.Marshal(periods)

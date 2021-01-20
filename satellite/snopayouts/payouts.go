@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package snopayout
+package snopayouts
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"storj.io/common/storj"
 )
 
-// DB exposes all needed functionality to manage payout.
+// DB exposes all needed functionality to manage payouts.
 //
 // architecture: Service
 type DB interface {
@@ -31,11 +31,11 @@ type DB interface {
 	GetAllPayments(ctx context.Context, nodeID storj.NodeID) ([]StoragenodePayment, error)
 }
 
-// ErrNoDataForPeriod represents errors from the payout database.
+// ErrNoDataForPeriod represents errors from the payouts database.
 var ErrNoDataForPeriod = errs.Class("no payStub/payments for period error")
 
-// Error is the default error class for payout package.
-var Error = errs.Class("payout db error")
+// Error is the default error class for payouts package.
+var Error = errs.Class("payouts db error")
 
 // PayStub is an entity that holds held amount of cash that will be paid to storagenode operator after some period.
 type PayStub struct {

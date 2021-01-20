@@ -8,10 +8,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"reflect"
+	"strings"
 
+	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -90,25 +93,11 @@ type Peer struct {
 		Endpoint http.Server
 		Listener net.Listener
 	}
+
 	Versions version.AllowedVersions
 
 	// response contains the byte version of current allowed versions
 	response []byte
-}
-
-// HandleGet contains the request handler for the version control web server.
-func (peer *Peer) HandleGet(w http.ResponseWriter, r *http.Request) {
-	// Only handle GET Requests
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_, err := w.Write(peer.response)
-	if err != nil {
-		peer.Log.Error("Error writing response to client.", zap.Error(err))
-	}
 }
 
 // New creates a new VersionControl Server.
@@ -147,7 +136,6 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 		return &Peer{}, err
 	}
 
-	peer.Versions.Processes = version.Processes{}
 	peer.Versions.Processes.Satellite, err = configToProcess(config.Binary.Satellite)
 	if err != nil {
 		return nil, RolloutErr.Wrap(err)
@@ -186,22 +174,101 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 
 	peer.Log.Debug("Setting version info.", zap.ByteString("Value", peer.response))
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", peer.HandleGet)
-	peer.Server.Endpoint = http.Server{
-		Handler: mux,
+	{
+		router := mux.NewRouter()
+		router.HandleFunc("/", peer.versionHandle).Methods(http.MethodGet)
+		router.HandleFunc("/processes/{service}/{version}/url", peer.processURLHandle).Methods(http.MethodGet)
+
+		peer.Server.Endpoint = http.Server{
+			Handler: router,
+		}
+
+		peer.Server.Listener, err = net.Listen("tcp", config.Address)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 	}
 
-	peer.Server.Listener, err = net.Listen("tcp", config.Address)
-	if err != nil {
-		return nil, errs.Combine(err, peer.Close())
-	}
 	return peer, nil
+}
+
+// versionHandle handles all process versions request.
+func (peer *Peer) versionHandle(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	_, err := w.Write(peer.response)
+	if err != nil {
+		peer.Log.Error("Error writing response to client.", zap.Error(err))
+	}
+}
+
+// processURLHandle handles process binary url resolving.
+func (peer *Peer) processURLHandle(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	service := params["service"]
+	versionType := params["version"]
+
+	var process version.Process
+	switch service {
+	case "satellite":
+		process = peer.Versions.Processes.Satellite
+	case "storagenode":
+		process = peer.Versions.Processes.Storagenode
+	case "storagenode-updater":
+		process = peer.Versions.Processes.StoragenodeUpdater
+	case "uplink":
+		process = peer.Versions.Processes.Uplink
+	case "gateway":
+		process = peer.Versions.Processes.Gateway
+	case "identity":
+		process = peer.Versions.Processes.Identity
+	default:
+		http.Error(w, "service does not exists", http.StatusNotFound)
+		return
+	}
+
+	var url string
+	switch versionType {
+	case "minimum":
+		url = process.Minimum.URL
+	case "suggested":
+		url = process.Suggested.URL
+	default:
+		http.Error(w, "invalid version, should be minimum or suggested", http.StatusBadRequest)
+		return
+	}
+
+	query := r.URL.Query()
+
+	os := query.Get("os")
+	if os == "" {
+		http.Error(w, "goos is not specified", http.StatusBadRequest)
+		return
+	}
+
+	arch := query.Get("arch")
+	if arch == "" {
+		http.Error(w, "goarch is not specified", http.StatusBadRequest)
+		return
+	}
+
+	if scheme, ok := isBinarySupported(service, os, arch); !ok {
+		http.Error(w, fmt.Sprintf("binary scheme %s is not supported", scheme), http.StatusNotFound)
+		return
+	}
+
+	url = strings.Replace(url, "{os}", os, 1)
+	url = strings.Replace(url, "{arch}", arch, 1)
+
+	w.Header().Set("Content-Type", "text/plain")
+	_, err := w.Write([]byte(url))
+	if err != nil {
+		peer.Log.Error("Error writing response to client.", zap.Error(err))
+	}
 }
 
 // Run runs versioncontrol server until it's either closed or it errors.
 func (peer *Peer) Run(ctx context.Context) (err error) {
-
 	ctx, cancel := context.WithCancel(ctx)
 	var group errgroup.Group
 
