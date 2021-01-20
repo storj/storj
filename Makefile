@@ -129,6 +129,11 @@ check-monitoring: ## Check for locked monkit calls that have changed
 	|| (echo "Locked monkit metrics have been changed. Notify #data-science and run \`go run github.com/storj/ci/check-monitoring -out monkit.lock ./...\` to update monkit.lock file." \
 	&& exit 1)
 
+.PHONY: test-wasm-size
+test-wasm-size: ## Test that the built .wasm code has not increased in size
+	@echo "Running ${@}"
+	@./scripts/test-wasm-size.sh
+
 ##@ Build
 
 .PHONY: storagenode-console
