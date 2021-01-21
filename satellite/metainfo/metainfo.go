@@ -1636,7 +1636,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 
 	// Remote segment
-	limits, privateKey, err := endpoint.orders.CreateGetOrderLimits2(ctx, bucket, segment)
+	limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, bucket, segment)
 	if err != nil {
 		if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
 			endpoint.log.Error("Unable to create order limits.",
