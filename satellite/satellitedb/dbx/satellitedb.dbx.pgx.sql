@@ -364,6 +364,11 @@ CREATE TABLE users (
 	partner_id bytea,
 	created_at timestamp with time zone NOT NULL,
 	project_limit integer NOT NULL DEFAULT 0,
+	position text,
+	company_name text,
+	company_size integer,
+	working_on text,
+	is_professional boolean NOT NULL DEFAULT false,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (
