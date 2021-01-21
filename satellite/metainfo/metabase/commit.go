@@ -257,56 +257,45 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 
 	// TODO: verify opts.Pieces is compatible with opts.Redundancy
 
-	return txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
-		// Verify that object exists and is partial.
-		var value int
-		err = tx.QueryRowContext(ctx, `
-			SELECT 1
-			FROM objects WHERE
-				project_id   = $1 AND
-				bucket_name  = $2 AND
-				object_key   = $3 AND
-				version      = $4 AND
-				stream_id    = $5 AND
-				status       = `+pendingStatus,
-			opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID).Scan(&value)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return Error.New("pending object missing")
-			}
-			return Error.New("unable to query object status: %w", err)
+	// Verify that object exists and is partial.
+	_, err = db.db.ExecContext(ctx, `
+		INSERT INTO segments (
+			stream_id, position,
+			root_piece_id, encrypted_key_nonce, encrypted_key,
+			encrypted_size, plain_offset, plain_size,
+			redundancy,
+			remote_pieces
+		) VALUES (
+			(SELECT stream_id
+				FROM objects WHERE
+					project_id   = $10 AND
+					bucket_name  = $11 AND
+					object_key   = $12 AND
+					version      = $13 AND
+					stream_id    = $14 AND
+					status       = `+pendingStatus+
+		`	), $1,
+			$2, $3, $4,
+			$5, $6, $7,
+			$8,
+			$9
+		)`, opts.Position,
+		opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
+		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize,
+		redundancyScheme{&opts.Redundancy},
+		opts.Pieces,
+		opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID,
+	)
+	if err != nil {
+		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
+			return Error.New("pending object missing")
 		}
-
-		// Insert into segments.
-		_, err = tx.ExecContext(ctx, `
-			INSERT INTO segments (
-				stream_id, position,
-				root_piece_id, encrypted_key_nonce, encrypted_key,
-				encrypted_size, plain_offset, plain_size,
-				redundancy,
-				remote_pieces
-			) VALUES (
-				$1, $2,
-				$3, $4, $5,
-				$6, $7, $8,
-				$9,
-				$10
-			)`,
-			opts.StreamID, opts.Position,
-			opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
-			opts.EncryptedSize, opts.PlainOffset, opts.PlainSize,
-			redundancyScheme{&opts.Redundancy},
-			opts.Pieces,
-		)
-		if err != nil {
-			if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
-				return ErrConflict.New("segment already exists")
-			}
-			return Error.New("unable to insert segment: %w", err)
+		if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
+			return ErrConflict.New("segment already exists")
 		}
-
-		return nil
-	})
+		return Error.New("unable to insert segment: %w", err)
+	}
+	return nil
 }
 
 // CommitInlineSegment contains all necessary information about the segment.
@@ -347,53 +336,42 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 		return ErrInvalidRequest.New("PlainOffset negative")
 	}
 
-	return txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
-		// Verify that object exists and is partial.
-		var value int
-		err = tx.QueryRowContext(ctx, `
-			SELECT 1
-			FROM objects WHERE
-				project_id   = $1 AND
-				bucket_name  = $2 AND
-				object_key   = $3 AND
-				version      = $4 AND
-				stream_id    = $5 AND
-				status       = `+pendingStatus,
-			opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID).Scan(&value)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return Error.New("pending object missing")
-			}
-			return Error.New("unable to query object status: %w", err)
+	// Verify that object exists and is partial.
+	_, err = db.db.ExecContext(ctx, `
+		INSERT INTO segments (
+			stream_id, position,
+			root_piece_id, encrypted_key_nonce, encrypted_key,
+			encrypted_size, plain_offset, plain_size,
+			inline_data
+		) VALUES (
+			(SELECT stream_id
+				FROM objects WHERE
+					project_id   = $9 AND
+					bucket_name  = $10 AND
+					object_key   = $11 AND
+					version      = $12 AND
+					stream_id    = $13 AND
+					status       = `+pendingStatus+
+		`	), $1,
+			$2, $3, $4,
+			$5, $6, $7,
+			$8
+		)`, opts.Position,
+		storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
+		len(opts.InlineData), opts.PlainOffset, opts.PlainSize,
+		opts.InlineData,
+		opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID,
+	)
+	if err != nil {
+		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
+			return Error.New("pending object missing")
 		}
-
-		// Insert into segments.
-		_, err = tx.ExecContext(ctx, `
-			INSERT INTO segments (
-				stream_id, position,
-				root_piece_id, encrypted_key_nonce, encrypted_key,
-				encrypted_size, plain_offset, plain_size,
-				inline_data
-			) VALUES (
-				$1, $2,
-				$3, $4, $5,
-				$6, $7, $8,
-				$9
-			)`,
-			opts.StreamID, opts.Position,
-			storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
-			len(opts.InlineData), opts.PlainOffset, opts.PlainSize,
-			opts.InlineData,
-		)
-		if err != nil {
-			if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
-				return ErrConflict.New("segment already exists")
-			}
-			return Error.New("unable to insert segment: %w", err)
+		if code := pgerrcode.FromError(err); code == pgxerrcode.UniqueViolation {
+			return ErrConflict.New("segment already exists")
 		}
-
-		return nil
-	})
+		return Error.New("unable to insert segment: %w", err)
+	}
+	return nil
 }
 
 // CommitObject contains arguments necessary for committing an object.
