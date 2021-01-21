@@ -5,8 +5,10 @@ package server
 
 import (
 	"context"
+	"html/template"
 	"net"
 	"net/http"
+	"path/filepath"
 
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
@@ -39,6 +41,8 @@ type Server struct {
 
 	listener net.Listener
 	http     http.Server
+
+	index *template.Template
 }
 
 // NewServer returns new instance of Multinode Dashboard http server.
@@ -51,19 +55,25 @@ func NewServer(log *zap.Logger, config Config, nodes *nodes.Service, listener ne
 	}
 
 	router := mux.NewRouter()
+	fs := http.FileServer(http.Dir(server.config.StaticDir))
+
 	apiRouter := router.PathPrefix("/api/v0").Subrouter()
 	apiRouter.NotFoundHandler = controllers.NewNotFound(server.log)
 
 	nodesController := controllers.NewNodes(server.log, server.nodes)
 	nodesRouter := apiRouter.PathPrefix("/nodes").Subrouter()
 	nodesRouter.HandleFunc("", nodesController.Add).Methods(http.MethodPost)
-	nodesRouter.HandleFunc("", nodesController.List).Methods(http.MethodGet)
 	nodesRouter.HandleFunc("/infos", nodesController.ListInfos).Methods(http.MethodGet)
 	nodesRouter.HandleFunc("/infos/{satelliteID}", nodesController.ListInfosSatellite).Methods(http.MethodGet)
 	nodesRouter.HandleFunc("/trusted-satellites", nodesController.TrustedSatellites).Methods(http.MethodGet)
 	nodesRouter.HandleFunc("/{id}", nodesController.Get).Methods(http.MethodGet)
 	nodesRouter.HandleFunc("/{id}", nodesController.UpdateName).Methods(http.MethodPatch)
 	nodesRouter.HandleFunc("/{id}", nodesController.Delete).Methods(http.MethodDelete)
+
+	if server.config.StaticDir != "" {
+		router.PathPrefix("/static/").Handler(http.StripPrefix("/static", fs))
+		router.PathPrefix("/").HandlerFunc(server.appHandler)
+	}
 
 	server.http = http.Server{
 		Handler: router,
@@ -72,10 +82,33 @@ func NewServer(log *zap.Logger, config Config, nodes *nodes.Service, listener ne
 	return &server, nil
 }
 
+// appHandler is web app http handler function.
+func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
+	header := w.Header()
+
+	header.Set("Content-Type", "text/html; charset=UTF-8")
+	header.Set("X-Content-Type-Options", "nosniff")
+	header.Set("Referrer-Policy", "same-origin")
+
+	if server.index == nil {
+		server.log.Error("index template is not set")
+		return
+	}
+
+	if err := server.index.Execute(w, nil); err != nil {
+		server.log.Error("index template could not be executed", zap.Error(Error.Wrap(err)))
+		return
+	}
+}
+
 // Run starts the server that host webapp and api endpoints.
 func (server *Server) Run(ctx context.Context) (err error) {
-	ctx, cancel := context.WithCancel(ctx)
+	err = server.initializeTemplates()
+	if err != nil {
+		return Error.Wrap(err)
+	}
 
+	ctx, cancel := context.WithCancel(ctx)
 	var group errgroup.Group
 
 	group.Go(func() error {
@@ -93,4 +126,14 @@ func (server *Server) Run(ctx context.Context) (err error) {
 // Close closes server and underlying listener.
 func (server *Server) Close() error {
 	return Error.Wrap(server.http.Close())
+}
+
+// initializeTemplates is used to initialize all templates.
+func (server *Server) initializeTemplates() (err error) {
+	server.index, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "dist", "index.html"))
+	if err != nil {
+		server.log.Error("dist folder is not generated. use 'npm run build' command", zap.Error(err))
+	}
+
+	return err
 }

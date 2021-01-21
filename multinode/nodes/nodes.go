@@ -33,32 +33,33 @@ var ErrNoNode = errs.Class("no such node")
 
 // Node is a representation of storagenode, that SNO could add to the Multinode Dashboard.
 type Node struct {
-	ID storj.NodeID
+	ID storj.NodeID `json:"id"`
 	// APISecret is a secret issued by storagenode, that will be main auth mechanism in MND <-> SNO api.
-	APISecret     []byte
-	PublicAddress string
-	Name          string
+	APISecret     []byte `json:"apiSecret"`
+	PublicAddress string `json:"publicAddress"`
+	Name          string `json:"name"`
 }
 
 // NodeInfo contains basic node internal state.
 type NodeInfo struct {
-	ID            storj.NodeID
-	Name          string
-	Version       string
-	LastContact   time.Time
-	DiskSpaceUsed int64
-	DiskSpaceLeft int64
-	BandwidthUsed int64
-	TotalEarned   int64
+	ID            storj.NodeID `json:"id"`
+	Name          string       `json:"name"`
+	Version       string       `json:"version"`
+	LastContact   time.Time    `json:"lastContact"`
+	DiskSpaceUsed int64        `json:"diskSpaceUsed"`
+	DiskSpaceLeft int64        `json:"diskSpaceLeft"`
+	BandwidthUsed int64        `json:"bandwidthUsed"`
+	TotalEarned   int64        `json:"totalEarned"`
 }
 
 // NodeInfoSatellite contains satellite specific node internal state.
 type NodeInfoSatellite struct {
-	ID              storj.NodeID
-	Name            string
-	Version         string
-	LastContact     time.Time
-	OnlineScore     float64
-	AuditScore      float64
-	SuspensionScore float64
+	ID              storj.NodeID `json:"id"`
+	Name            string       `json:"name"`
+	Version         string       `json:"version"`
+	LastContact     time.Time    `json:"lastContact"`
+	OnlineScore     float64      `json:"onlineScore"`
+	AuditScore      float64      `json:"auditScore"`
+	SuspensionScore float64      `json:"suspensionScore"`
+	TotalEarned     int64        `json:"totalEarned"`
 }

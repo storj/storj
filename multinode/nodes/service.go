@@ -66,18 +66,6 @@ func (service *Service) Get(ctx context.Context, id storj.NodeID) (_ Node, err e
 
 }
 
-// List retrieves list of all added nodes.
-func (service *Service) List(ctx context.Context) (_ []Node, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	nodes, err := service.nodes.List(ctx)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	return nodes, nil
-}
-
 // Remove removes node from the system.
 func (service *Service) Remove(ctx context.Context, id storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -90,6 +78,9 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 
 	nodes, err := service.nodes.List(ctx)
 	if err != nil {
+		if ErrNoNode.Has(err) {
+			return []NodeInfo{}, nil
+		}
 		return nil, Error.Wrap(err)
 	}
 
@@ -172,6 +163,9 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 
 	nodes, err := service.nodes.List(ctx)
 	if err != nil {
+		if ErrNoNode.Has(err) {
+			return []NodeInfoSatellite{}, nil
+		}
 		return nil, Error.Wrap(err)
 	}
 
@@ -191,6 +185,7 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 			}()
 
 			nodeClient := multinodepb.NewDRPCNodeClient(conn)
+			payoutClient := multinodepb.NewDRPCPayoutClient(conn)
 
 			header := &multinodepb.RequestHeader{
 				ApiKey: node.APISecret,
@@ -214,6 +209,11 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 				return NodeInfoSatellite{}, Error.Wrap(err)
 			}
 
+			earned, err := payoutClient.Earned(ctx, &multinodepb.EarnedRequest{Header: header})
+			if err != nil {
+				return NodeInfoSatellite{}, Error.Wrap(err)
+			}
+
 			return NodeInfoSatellite{
 				ID:              node.ID,
 				Name:            node.Name,
@@ -222,6 +222,7 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 				OnlineScore:     rep.Online.Score,
 				AuditScore:      rep.Audit.Score,
 				SuspensionScore: rep.Audit.SuspensionScore,
+				TotalEarned:     earned.Total,
 			}, nil
 		}()
 		if err != nil {
