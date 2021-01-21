@@ -6,9 +6,16 @@
         <thead>
             <tr>
                 <th class="align-left">NODE</th>
-                <th>DISK SPACE USED</th>
-                <th>DISK SPACE LEFT</th>
-                <th>BANDWIDTH USED</th>
+                <template v-if="isSatelliteSelected">
+                    <th>SUSPENSION</th>
+                    <th>AUDIT</th>
+                    <th>UPTIME</th>
+                </template>
+                <template v-else>
+                    <th>DISK SPACE USED</th>
+                    <th>DISK SPACE LEFT</th>
+                    <th>BANDWIDTH USED</th>
+                </template>
                 <th>EARNED</th>
                 <th>VERSION</th>
                 <th>STATUS</th>
@@ -16,10 +23,17 @@
         </thead>
         <tbody>
             <tr v-for="node in nodes" :key="node.id">
-                <th class="align-left">{{ node.name }}</th>
-                <th>{{ node.diskSpaceUsed | bytesToBase10String }}</th>
-                <th>{{ node.diskSpaceLeft | bytesToBase10String }}</th>
-                <th>{{ node.bandwidthUsed | bytesToBase10String }}</th>
+                <th class="align-left">{{ node.displayedName }}</th>
+                <template v-if="isSatelliteSelected">
+                    <th>{{ node.suspensionScore | floatToPercentage }}</th>
+                    <th>{{ node.auditScore | floatToPercentage }}</th>
+                    <th>{{ node.onlineScore | floatToPercentage }}</th>
+                </template>
+                <template v-else>
+                    <th>{{ node.diskSpaceUsed | bytesToBase10String }}</th>
+                    <th>{{ node.diskSpaceLeft | bytesToBase10String }}</th>
+                    <th>{{ node.bandwidthUsed | bytesToBase10String }}</th>
+                </template>
                 <th>{{ node.earned | centsToDollars }}</th>
                 <th>{{ node.version }}</th>
                 <th :class="node.status">{{ node.status }}</th>
@@ -35,7 +49,13 @@ import { Node } from '@/nodes';
 
 @Component
 export default class NodesTable extends Vue {
-    public nodes: Node[] = [];
+    public get nodes(): Node[] {
+        return this.$store.state.nodes.nodes;
+    }
+
+    public get isSatelliteSelected(): boolean {
+        return !!this.$store.state.nodes.selectedSatellite;
+    }
 }
 </script>
 

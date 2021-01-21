@@ -4,14 +4,15 @@
 <template>
     <div
         class="dropdown"
-        @click.self="toggleOptions"
+        @click.stop="toggleOptions"
         :class="{ active: areOptionsShown }"
+        v-if="options.length"
     >
         <span class="label">{{ selectedOption.label }}</span>
-        <div class="dropdown__selection" v-show="areOptionsShown">
+        <div class="dropdown__selection" v-if="areOptionsShown" v-click-outside="closeOptions">
             <div class="dropdown__selection__overflow-container">
-                <div v-for="option in allOptions" :key="option.label" class="dropdown__selection__option" @click="onOptionClick(option)">
-                    <span class="dropdown__selection__option__label">{{ option.label }}</span>
+                <div v-for="option in options" :key="option.label" class="dropdown__selection__option" @click="onOptionClick(option)">
+                    <span class="label">{{ option.label }}</span>
                 </div>
             </div>
         </div>
@@ -19,37 +20,43 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
+/**
+ * OptionClick defines on click callback type for VDropdown Option.
+ */
+export type OptionClick = (id?: string) => Promise<void>;
+
+/**
+ * Option is a representation of VDropdown item.
+ */
 export class Option {
     public constructor(
-        public label: string = '',
-        public onClick: Function = () => { return; },
+        public label: string = 'no options',
+        public onClick: OptionClick = async (id) => Promise.resolve(),
     ) {}
 }
 
 @Component
 export default class VDropdown extends Vue {
-    @Prop({default: 'All'})
-    private readonly allLabel: string;
-    @Prop({default: () => { return; }})
-    private readonly onAllClick: Function;
     @Prop({default: []})
     private readonly options: Option[];
 
     public areOptionsShown: boolean = false;
 
-    @Watch('options')
-    public allOptions: Option[] = [ new Option(this.allLabel, this.onAllClick), ...this.options ];
+    public selectedOption: Option;
 
-    @Watch('options')
-    public selectedOption: Option = this.allOptions[0];
+    public created(): void {
+        this.selectedOption = this.options[0];
+    }
 
     public toggleOptions(): void {
         this.areOptionsShown = !this.areOptionsShown;
     }
 
     public closeOptions(): void {
+        if (!this.areOptionsShown) return;
+
         this.areOptionsShown = false;
     }
 
@@ -59,8 +66,8 @@ export default class VDropdown extends Vue {
      * @param option
      */
     public async onOptionClick(option: Option): Promise<void> {
-        await option.onClick();
         this.selectedOption = option;
+        await option.onClick();
         this.closeOptions();
     }
 }
@@ -68,6 +75,7 @@ export default class VDropdown extends Vue {
 
 <style lang="scss">
     .dropdown {
+        position: relative;
         box-sizing: border-box;
         width: 300px;
         height: 40px;
@@ -85,6 +93,7 @@ export default class VDropdown extends Vue {
 
         &:hover {
             border-color: var(--c-gray);
+            color: var(--c-title);
         }
 
         &.active {
@@ -99,6 +108,8 @@ export default class VDropdown extends Vue {
             border: 1px solid var(--c-gray--light);
             border-radius: 6px;
             overflow: hidden;
+            background: white;
+            z-index: 999;
 
             &__overflow-container {
                 overflow: overlay;
@@ -112,9 +123,6 @@ export default class VDropdown extends Vue {
                 justify-content: flex-start;
                 padding: 0 16px;
                 height: 40px;
-                white-space: nowrap;
-                text-overflow: ellipsis;
-                overflow: hidden;
                 width: 100% !important;
                 cursor: pointer;
                 border-bottom: 1px solid var(--c-gray--light);
@@ -124,6 +132,12 @@ export default class VDropdown extends Vue {
                 }
             }
         }
+    }
+
+    .label {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     ::-webkit-scrollbar {

@@ -23,6 +23,7 @@
                 :class="{'inputError' : error, 'password': isPassword}"
                 @input="onInput"
                 @change="onInput"
+                @paste.prevent="onPaste"
                 v-model="value"
                 :placeholder="placeholder"
                 :type="type"
@@ -128,6 +129,18 @@ export default class HeaderlessInput extends Vue {
             this.value = target.value.slice(0, this.maxSymbols);
         } else {
             this.value = target.value;
+        }
+
+        this.$emit('setData', this.value);
+    }
+
+    public onPaste(event): void {
+        const clipped: string = event.clipboardData.getData('text');
+
+        if (clipped.length > this.maxSymbols) {
+            this.value = clipped.slice(0, this.maxSymbols);
+        } else {
+            this.value = clipped;
         }
 
         this.$emit('setData', this.value);
