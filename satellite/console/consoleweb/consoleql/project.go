@@ -19,6 +19,10 @@ const (
 	ProjectInputType = "projectInput"
 	// ProjectUsageType is a graphql type name for project usage.
 	ProjectUsageType = "projectUsage"
+	// ProjectsCursorInputType is a graphql input type name for projects cursor.
+	ProjectsCursorInputType = "projectsCursor"
+	// ProjectsPageType is a graphql type name for projects page.
+	ProjectsPageType = "projectsPage"
 	// BucketUsageCursorInputType is a graphql input
 	// type name for bucket usage cursor.
 	BucketUsageCursorInputType = "bucketUsageCursor"
@@ -62,6 +66,10 @@ const (
 	FieldCurrentPage = "currentPage"
 	// FieldTotalCount is a field name for bucket usage count total.
 	FieldTotalCount = "totalCount"
+	// FieldMemberCount is a field name for number of project members.
+	FieldMemberCount = "memberCount"
+	// FieldProjects is a field name for projects.
+	FieldProjects = "projects"
 	// FieldProjectMembers is a field name for project members.
 	FieldProjectMembers = "projectMembers"
 	// CursorArg is an argument name for cursor.
@@ -103,6 +111,9 @@ func graphqlProject(service *console.Service, types *TypeCreator) *graphql.Objec
 			},
 			FieldCreatedAt: &graphql.Field{
 				Type: graphql.DateTime,
+			},
+			FieldMemberCount: &graphql.Field{
+				Type: graphql.Int,
 			},
 			FieldMembers: &graphql.Field{
 				Type: types.projectMemberPage,
@@ -256,6 +267,21 @@ func graphqlProjectInput() *graphql.InputObject {
 }
 
 // graphqlBucketUsageCursor creates bucket usage cursor graphql input type.
+func graphqlProjectsCursor() *graphql.InputObject {
+	return graphql.NewInputObject(graphql.InputObjectConfig{
+		Name: ProjectsCursorInputType,
+		Fields: graphql.InputObjectConfigFieldMap{
+			LimitArg: &graphql.InputObjectFieldConfig{
+				Type: graphql.NewNonNull(graphql.Int),
+			},
+			PageArg: &graphql.InputObjectFieldConfig{
+				Type: graphql.NewNonNull(graphql.Int),
+			},
+		},
+	})
+}
+
+// graphqlBucketUsageCursor creates bucket usage cursor graphql input type.
 func graphqlBucketUsageCursor() *graphql.InputObject {
 	return graphql.NewInputObject(graphql.InputObjectConfig{
 		Name: BucketUsageCursorInputType,
@@ -295,6 +321,33 @@ func graphqlBucketUsage() *graphql.Object {
 			},
 			BeforeArg: &graphql.Field{
 				Type: graphql.DateTime,
+			},
+		},
+	})
+}
+
+// graphqlProjectsPage creates a projects page graphql object.
+func graphqlProjectsPage(types *TypeCreator) *graphql.Object {
+	return graphql.NewObject(graphql.ObjectConfig{
+		Name: ProjectsPageType,
+		Fields: graphql.Fields{
+			FieldProjects: &graphql.Field{
+				Type: graphql.NewList(types.project),
+			},
+			LimitArg: &graphql.Field{
+				Type: graphql.Int,
+			},
+			OffsetArg: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldPageCount: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldCurrentPage: &graphql.Field{
+				Type: graphql.Int,
+			},
+			FieldTotalCount: &graphql.Field{
+				Type: graphql.Int,
 			},
 		},
 	})
@@ -362,7 +415,14 @@ func fromMapProjectInfo(args map[string]interface{}) (project console.ProjectInf
 	return
 }
 
-// fromMapBucketUsageCursor creates console.BucketUsageCursor from input args.
+// fromMapProjectsCursor creates console.ProjectsCursor from input args.
+func fromMapProjectsCursor(args map[string]interface{}) (cursor console.ProjectsCursor) {
+	cursor.Limit = args[LimitArg].(int)
+	cursor.Page = args[PageArg].(int)
+	return
+}
+
+// fromMapBucketUsageCursor creates accounting.BucketUsageCursor from input args.
 func fromMapBucketUsageCursor(args map[string]interface{}) (cursor accounting.BucketUsageCursor) {
 	limit, _ := args[LimitArg].(int)
 	page, _ := args[PageArg].(int)

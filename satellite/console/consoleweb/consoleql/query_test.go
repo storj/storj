@@ -412,5 +412,58 @@ func TestGraphqlQuery(t *testing.T) {
 			assert.True(t, foundProj1)
 			assert.True(t, foundProj2)
 		})
+		t.Run("OwnedProjects query", func(t *testing.T) {
+			query := fmt.Sprintf(
+				"query {ownedProjects( cursor: { limit: %d, page: %d } ) {projects{id, name, ownerId, description, createdAt, memberCount}, limit, offset, pageCount, currentPage, totalCount } }",
+				5,
+				1,
+			)
+
+			result := testQuery(t, query)
+
+			data := result.(map[string]interface{})
+			projectsPage := data[consoleql.OwnedProjectsQuery].(map[string]interface{})
+
+			projectsList := projectsPage[consoleql.FieldProjects].([]interface{})
+			assert.Len(t, projectsList, 2)
+
+			assert.EqualValues(t, 1, projectsPage[consoleql.FieldCurrentPage])
+			assert.EqualValues(t, 0, projectsPage[consoleql.OffsetArg])
+			assert.EqualValues(t, 5, projectsPage[consoleql.LimitArg])
+			assert.EqualValues(t, 1, projectsPage[consoleql.FieldPageCount])
+			assert.EqualValues(t, 2, projectsPage[consoleql.FieldTotalCount])
+
+			testProject := func(t *testing.T, actual map[string]interface{}, expected *console.Project, expectedNumMembers int) {
+				assert.Equal(t, expected.Name, actual[consoleql.FieldName])
+				assert.Equal(t, expected.Description, actual[consoleql.FieldDescription])
+
+				createdAt := time.Time{}
+				err := createdAt.UnmarshalText([]byte(actual[consoleql.FieldCreatedAt].(string)))
+
+				assert.NoError(t, err)
+				assert.True(t, expected.CreatedAt.Equal(createdAt))
+
+				assert.EqualValues(t, expectedNumMembers, actual[consoleql.FieldMemberCount])
+			}
+
+			var foundProj1, foundProj2 bool
+
+			for _, entry := range projectsList {
+				project := entry.(map[string]interface{})
+
+				id := project[consoleql.FieldID].(string)
+				switch id {
+				case createdProject.ID.String():
+					foundProj1 = true
+					testProject(t, project, createdProject, 3)
+				case project2.ID.String():
+					foundProj2 = true
+					testProject(t, project, project2, 1)
+				}
+			}
+
+			assert.True(t, foundProj1)
+			assert.True(t, foundProj2)
+		})
 	})
 }

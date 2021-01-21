@@ -21,6 +21,7 @@ type TypeCreator struct {
 	creditUsage       *graphql.Object
 	project           *graphql.Object
 	projectUsage      *graphql.Object
+	projectsPage      *graphql.Object
 	bucketUsage       *graphql.Object
 	bucketUsagePage   *graphql.Object
 	projectMember     *graphql.Object
@@ -31,6 +32,7 @@ type TypeCreator struct {
 
 	userInput            *graphql.InputObject
 	projectInput         *graphql.InputObject
+	projectsCursor       *graphql.InputObject
 	bucketUsageCursor    *graphql.InputObject
 	projectMembersCursor *graphql.InputObject
 	apiKeysCursor        *graphql.InputObject
@@ -122,6 +124,16 @@ func (c *TypeCreator) Create(log *zap.Logger, service *console.Service, mailServ
 
 	c.project = graphqlProject(service, c)
 	if err := c.project.Error(); err != nil {
+		return err
+	}
+
+	c.projectsCursor = graphqlProjectsCursor()
+	if err := c.projectsCursor.Error(); err != nil {
+		return err
+	}
+
+	c.projectsPage = graphqlProjectsPage(c)
+	if err := c.projectsPage.Error(); err != nil {
 		return err
 	}
 
