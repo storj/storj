@@ -104,9 +104,17 @@ export default class ProjectMembersArea extends Vue {
 
     /**
      * Returns team members of current page from store.
+     * With project owner pinned to top
      */
     public get projectMembers(): ProjectMember[] {
-        return this.$store.state.projectMembersModule.page.projectMembers;
+        const projectMembers = this.$store.state.projectMembersModule.page.projectMembers;
+        const projectOwner = projectMembers.find((member) => member.user.id === this.$store.getters.selectedProject.ownerId);
+        const projectMembersToReturn = projectMembers.filter((member) => member.user.id !== this.$store.getters.selectedProject.ownerId);
+
+        // if the project owner exists, place at the front of the members list
+        projectOwner && projectMembersToReturn.unshift(projectOwner);
+
+        return projectMembersToReturn;
     }
 
     public get getItemComponent() {
