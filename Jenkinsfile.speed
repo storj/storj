@@ -39,7 +39,7 @@
               sh 'docker exec postgres-ui-$BUILD_NUMBER createdb -U postgres teststorj'
               def dockerImage = docker.build("storj-ci", "--pull https://github.com/storj/ci.git#main")
               sh 'chmod +x $PWD/scripts/test-sim-SpeedTests.sh'
-              sh 'docker run -u $(id -u):$(id -g) --rm -p 10000:10000 -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/test-sim-SpeedTests.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-ui-$BUILD_NUMBER:redis --link postgres-ui-$BUILD_NUMBER:postgres -e CC=gcc storj-ci'
+              sh 'docker run -u $(id -u):$(id -g) --rm -p 10000:10000 -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/test-sim-speedtests.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-ui-$BUILD_NUMBER:redis --link postgres-ui-$BUILD_NUMBER:postgres -e CC=gcc storj-ci'
               // alternative for access from outside jenkins/docker/localhost
 			  //sh 'docker run -u $(id -u):$(id -g) --rm --net=host -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/test-sim-speedtests.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS -e CC=gcc storj-ci'
             }
