@@ -1,0 +1,67 @@
+    def lastStage = ''
+    node('node') {
+      properties([disableConcurrentBuilds()])
+      try {
+        currentBuild.result = "SUCCESS"
+
+        stage('Checkout') {
+          lastStage = env.STAGE_NAME
+          checkout scm
+
+          echo "Current build result: ${currentBuild.result}"
+        }
+
+        stage('Run UITests') {
+            lastStage = env.STAGE_NAME
+            try {
+              echo "Running SpeedTests"
+
+              env.STORJ_SIM_POSTGRES = 'postgres://postgres@postgres:5432/teststorj?sslmode=disable'
+              env.STORJ_SIM_REDIS = 'redis:6379'
+
+			  // alternative for access from outside jenkins/docker/localhost
+              //env.STORJ_SIM_POSTGRES = 'postgres://postgres@localhost:5432/teststorj?sslmode=disable'
+              //env.STORJ_SIM_REDIS = 'localhost:6379'
+
+              echo "STORJ_SIM_POSTGRES: $STORJ_SIM_POSTGRES"
+              echo "STORJ_SIM_REDIS: $STORJ_SIM_REDIS"
+              sh 'docker run --rm -d -e POSTGRES_HOST_AUTH_METHOD=trust --name postgres-ui-$BUILD_NUMBER postgres:12.3'
+              sh 'docker run --rm -d --name redis-ui-$BUILD_NUMBER redis:latest'
+			  // alternative for access from outside jenkins/docker/localhost
+              //sh 'docker run --rm -d --net=host -e POSTGRES_HOST_AUTH_METHOD=trust --name postgres-ui-$BUILD_NUMBER postgres:12.3'
+              //sh 'docker run --rm -d --net=host --name redis-ui-$BUILD_NUMBER redis:latest'
+
+              sh '''until $(docker logs postgres-ui-$BUILD_NUMBER | grep "database system is ready to accept connections" > /dev/null)
+                    do printf '.'
+                    sleep 5
+                    done
+                '''
+              sh 'docker exec postgres-ui-$BUILD_NUMBER createdb -U postgres teststorj'
+              def dockerImage = docker.build("storj-ci", "--pull https://github.com/storj/ci.git#main")
+              sh 'chmod +x $PWD/scripts/test-sim-SpeedTests.sh'
+              sh 'docker run -u $(id -u):$(id -g) --rm -p 10000:10000 -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/test-sim-SpeedTests.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS --link redis-ui-$BUILD_NUMBER:redis --link postgres-ui-$BUILD_NUMBER:postgres -e CC=gcc storj-ci'
+              // alternative for access from outside jenkins/docker/localhost
+			  //sh 'docker run -u $(id -u):$(id -g) --rm --net=host -i -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/test-sim-speedtests.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS -e CC=gcc storj-ci'
+            }
+            catch(err){
+                throw err
+            }
+            finally {
+              sh 'docker stop postgres-ui-$BUILD_NUMBER || true'
+              sh 'docker stop redis-ui-$BUILD_NUMBER || true'
+            }
+        }
+      }
+      catch (err) {
+        echo "Caught errors! ${err}"
+        echo "Setting build result to FAILURE"
+        currentBuild.result = "FAILURE"
+        throw err
+      }
+      finally {
+        stage('Cleanup') {
+          sh 'make clean-images'
+          deleteDir()
+        }
+      }
+    }
