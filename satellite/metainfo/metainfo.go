@@ -1746,10 +1746,6 @@ func (endpoint *Endpoint) unmarshalSatStreamID(ctx context.Context, streamID sto
 		return nil, err
 	}
 
-	if satStreamID.CreationDate.Before(time.Now().Add(-satIDExpiration)) {
-		return nil, errs.New("stream ID expired")
-	}
-
 	return satStreamID, nil
 }
 
