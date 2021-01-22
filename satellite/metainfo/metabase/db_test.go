@@ -20,13 +20,13 @@ import (
 
 var databases = flag.String("databases", os.Getenv("STORJ_TEST_DATABASES"), "databases to use for testing")
 
-func All(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB)) {
-	type dbinfo struct {
-		name    string
-		driver  string
-		connstr string
-	}
+type dbinfo struct {
+	name    string
+	driver  string
+	connstr string
+}
 
+func databaseInfos() []dbinfo {
 	infos := []dbinfo{
 		{"pg", "pgx", "postgres://storj:storj-pass@localhost/metabase?sslmode=disable"},
 		{"crdb", "pgx", "cockroach://root@localhost:26257/metabase?sslmode=disable"},
@@ -38,8 +38,11 @@ func All(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 			infos = append(infos, dbinfo{toks[0], toks[1], toks[2]})
 		}
 	}
+	return infos
+}
 
-	for _, info := range infos {
+func All(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB)) {
+	for _, info := range databaseInfos() {
 		info := info
 		t.Run(info.name, func(t *testing.T) {
 			t.Parallel()
@@ -66,6 +69,37 @@ func All(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 			}
 
 			fn(ctx, t, db.InternalImplementation().(*metabase.DB))
+		})
+	}
+}
+
+func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *metabase.DB)) {
+	for _, info := range databaseInfos() {
+		info := info
+		b.Run(info.name, func(b *testing.B) {
+			ctx := testcontext.New(b)
+			defer ctx.Cleanup()
+
+			db, err := satellitedbtest.CreateMetabaseDB(ctx, zaptest.NewLogger(b), b.Name(), "M", 0, satellitedbtest.Database{
+				Name:    info.name,
+				URL:     info.connstr,
+				Message: "",
+			})
+			if err != nil {
+				b.Fatal(err)
+			}
+			defer func() {
+				if err := db.Close(); err != nil {
+					b.Error(err)
+				}
+			}()
+
+			if err := db.MigrateToLatest(ctx); err != nil {
+				b.Fatal(err)
+			}
+
+			b.ResetTimer()
+			fn(ctx, b, db.InternalImplementation().(*metabase.DB))
 		})
 	}
 }

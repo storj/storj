@@ -28,7 +28,7 @@ type BeginObjectNextVersion struct {
 	ErrText  string
 }
 
-func (step BeginObjectNextVersion) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step BeginObjectNextVersion) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	got, err := db.BeginObjectNextVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 	require.Equal(t, step.Version, got)
@@ -41,7 +41,7 @@ type BeginObjectExactVersion struct {
 	ErrText  string
 }
 
-func (step BeginObjectExactVersion) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step BeginObjectExactVersion) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	got, err := db.BeginObjectExactVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 	if step.ErrClass == nil {
@@ -60,7 +60,7 @@ type CommitObject struct {
 	ErrText  string
 }
 
-func (step CommitObject) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) metabase.Object {
+func (step CommitObject) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) metabase.Object {
 	object, err := db.CommitObject(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 	if err == nil {
@@ -76,7 +76,7 @@ type CommitObjectWithSegments struct {
 	ErrText  string
 }
 
-func (step CommitObjectWithSegments) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) metabase.Object {
+func (step CommitObjectWithSegments) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) metabase.Object {
 	object, deleted, err := db.CommitObjectWithSegments(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 	if err == nil {
@@ -92,7 +92,7 @@ type BeginSegment struct {
 	ErrText  string
 }
 
-func (step BeginSegment) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step BeginSegment) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	err := db.BeginSegment(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
@@ -103,7 +103,7 @@ type CommitSegment struct {
 	ErrText  string
 }
 
-func (step CommitSegment) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step CommitSegment) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	err := db.CommitSegment(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
@@ -114,7 +114,7 @@ type CommitInlineSegment struct {
 	ErrText  string
 }
 
-func (step CommitInlineSegment) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step CommitInlineSegment) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	err := db.CommitInlineSegment(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
@@ -126,7 +126,7 @@ type DeleteBucketObjects struct {
 	ErrText  string
 }
 
-func (step DeleteBucketObjects) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step DeleteBucketObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	deleted, err := db.DeleteBucketObjects(ctx, step.Opts)
 	require.Equal(t, step.Deleted, deleted)
 	checkError(t, err, step.ErrClass, step.ErrText)
@@ -138,7 +138,7 @@ type UpdateObjectMetadata struct {
 	ErrText  string
 }
 
-func (step UpdateObjectMetadata) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step UpdateObjectMetadata) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	err := db.UpdateObjectMetadata(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
@@ -149,7 +149,7 @@ type UpdateSegmentPieces struct {
 	ErrText  string
 }
 
-func (step UpdateSegmentPieces) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step UpdateSegmentPieces) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	err := db.UpdateSegmentPieces(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
@@ -161,7 +161,7 @@ type GetObjectExactVersion struct {
 	ErrText  string
 }
 
-func (step GetObjectExactVersion) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step GetObjectExactVersion) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.GetObjectExactVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
@@ -176,7 +176,7 @@ type GetObjectLatestVersion struct {
 	ErrText  string
 }
 
-func (step GetObjectLatestVersion) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step GetObjectLatestVersion) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.GetObjectLatestVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
@@ -191,7 +191,7 @@ type GetSegmentByPosition struct {
 	ErrText  string
 }
 
-func (step GetSegmentByPosition) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step GetSegmentByPosition) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.GetSegmentByPosition(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
@@ -206,7 +206,7 @@ type GetLatestObjectLastSegment struct {
 	ErrText  string
 }
 
-func (step GetLatestObjectLastSegment) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step GetLatestObjectLastSegment) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.GetLatestObjectLastSegment(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
@@ -221,7 +221,7 @@ type GetSegmentByOffset struct {
 	ErrText  string
 }
 
-func (step GetSegmentByOffset) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step GetSegmentByOffset) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.GetSegmentByOffset(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
@@ -236,7 +236,7 @@ type BucketEmpty struct {
 	ErrText  string
 }
 
-func (step BucketEmpty) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step BucketEmpty) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.BucketEmpty(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
@@ -250,7 +250,7 @@ type ListSegments struct {
 	ErrText  string
 }
 
-func (step ListSegments) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step ListSegments) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.ListSegments(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
@@ -265,7 +265,7 @@ type DeleteObjectExactVersion struct {
 	ErrText  string
 }
 
-func (step DeleteObjectExactVersion) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step DeleteObjectExactVersion) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.DeleteObjectExactVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
@@ -280,7 +280,7 @@ type DeletePendingObject struct {
 	ErrText  string
 }
 
-func (step DeletePendingObject) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step DeletePendingObject) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.DeletePendingObject(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
@@ -295,7 +295,7 @@ type DeleteObjectLatestVersion struct {
 	ErrText  string
 }
 
-func (step DeleteObjectLatestVersion) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step DeleteObjectLatestVersion) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.DeleteObjectLatestVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
@@ -310,7 +310,7 @@ type DeleteObjectAnyStatusAllVersions struct {
 	ErrText  string
 }
 
-func (step DeleteObjectAnyStatusAllVersions) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step DeleteObjectAnyStatusAllVersions) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.DeleteObjectAnyStatusAllVersions(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
@@ -325,7 +325,7 @@ type DeleteObjectsAllVersions struct {
 	ErrText  string
 }
 
-func (step DeleteObjectsAllVersions) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step DeleteObjectsAllVersions) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.DeleteObjectsAllVersions(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
@@ -341,7 +341,7 @@ type DeleteExpiredObjects struct {
 	ErrText  string
 }
 
-func (step DeleteExpiredObjects) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step DeleteExpiredObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	err := db.DeleteExpiredObjects(ctx, time.Now())
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
@@ -365,7 +365,7 @@ type IterateObjects struct {
 	ErrText  string
 }
 
-func (step IterateObjects) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step IterateObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	var collector IterateCollector
 
 	err := db.IterateObjectsAllVersions(ctx, step.Opts, collector.Add)
@@ -387,7 +387,7 @@ type IterateObjectsWithStatus struct {
 	ErrText  string
 }
 
-func (step IterateObjectsWithStatus) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step IterateObjectsWithStatus) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	var result IterateCollector
 
 	err := db.IterateObjectsAllVersionsWithStatus(ctx, step.Opts, result.Add)
@@ -397,7 +397,7 @@ func (step IterateObjectsWithStatus) Check(ctx *testcontext.Context, t *testing.
 	require.Zero(t, diff)
 }
 
-func checkError(t *testing.T, err error, errClass *errs.Class, errText string) {
+func checkError(t testing.TB, err error, errClass *errs.Class, errText string) {
 	if errClass != nil {
 		require.True(t, errClass.Has(err), "expected an error %v got %v", *errClass, err)
 	}
@@ -429,14 +429,14 @@ func sortRawSegments(segments []metabase.RawSegment) {
 
 type DeleteAll struct{}
 
-func (step DeleteAll) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step DeleteAll) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	err := db.TestingDeleteAll(ctx)
 	require.NoError(t, err)
 }
 
 type Verify metabase.RawState
 
-func (step Verify) Check(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+func (step Verify) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	state, err := db.TestingGetState(ctx)
 	require.NoError(t, err)
 
@@ -456,7 +456,7 @@ type CreateTestObject struct {
 	// TODO add BeginSegment, CommitSegment
 }
 
-func (co CreateTestObject) Run(ctx *testcontext.Context, t *testing.T, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte) metabase.Object {
+func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte) metabase.Object {
 	boeOpts := metabase.BeginObjectExactVersion{
 		ObjectStream: obj,
 		Encryption:   defaultTestEncryption,

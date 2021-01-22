@@ -114,10 +114,10 @@ pipeline {
                     environment {
                         STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/benchcockroach?sslmode=disable'
                         STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
+                        STORJ_TEST_DATABASES = 'crdb|pgx|cockroach://root@localhost:26256/benchcockroach?sslmode=disable;pg|pgx|postgres://postgres@localhost/benchstorj?sslmode=disable'
                     }
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database benchcockroach;\''
-
                         sh 'psql -U postgres -c \'create database benchstorj;\''
                         sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
                     }
