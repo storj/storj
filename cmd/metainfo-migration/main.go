@@ -5,27 +5,77 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+)
+
+const (
+	defaultReadBatchSize         = 3000000
+	defaultWriteBatchSize        = 100
+	defaultWriteParallelLimit    = 6
+	defaultPreGeneratedStreamIDs = 100
+)
+
+var (
+	cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
+
+	readBatchSize         = flag.Int("readBatchSize", defaultReadBatchSize, "batch size for selecting pointers from DB")
+	writeBatchSize        = flag.Int("writeBatchSize", defaultWriteBatchSize, "batch size for inserting objects and segments")
+	writeParallelLimit    = flag.Int("writeParallelLimit", defaultWriteParallelLimit, "limit of parallel batch writes")
+	preGeneratedStreamIDs = flag.Int("preGeneratedStreamIDs", defaultPreGeneratedStreamIDs, "number of pre generated stream ids for segment")
+
+	pointerdb  = flag.String("pointerdb", "", "connection URL for PointerDB")
+	metabasedb = flag.String("metabasedb", "", "connection URL for MetabaseDB")
 )
 
 func main() {
-	if len(os.Args) != 3 {
-		fmt.Println("usage: metainfo-migration pointerdb-conn-url metabase-conn-url")
+	flag.Parse()
+
+	if *pointerdb == "" {
+		fmt.Println("Flag '--pointerdb' is not set")
+		os.Exit(1)
+	}
+	if *metabasedb == "" {
+		fmt.Println("Flag '--metabasedb' is not set")
 		os.Exit(1)
 	}
 
-	pointerDBStr := os.Args[1]
-	metabaseDBStr := os.Args[2]
-
-	fmt.Println("Migrating metainfo:", pointerDBStr, "->", metabaseDBStr)
-
 	ctx := context.Background()
-	log := zap.L()
-	migrator := NewMigrator(log, pointerDBStr, metabaseDBStr)
-	err := migrator.Migrate(ctx)
+	log, err := zap.Config{
+		Encoding:         "console",
+		Level:            zap.NewAtomicLevelAt(zapcore.DebugLevel),
+		OutputPaths:      []string{"stdout"},
+		ErrorOutputPaths: []string{"stdout"},
+		EncoderConfig: zapcore.EncoderConfig{
+			LevelKey:       "L",
+			NameKey:        "N",
+			CallerKey:      "C",
+			MessageKey:     "M",
+			StacktraceKey:  "S",
+			LineEnding:     zapcore.DefaultLineEnding,
+			EncodeLevel:    zapcore.CapitalLevelEncoder,
+			EncodeTime:     zapcore.ISO8601TimeEncoder,
+			EncodeDuration: zapcore.StringDurationEncoder,
+			EncodeCaller:   zapcore.ShortCallerEncoder,
+		},
+	}.Build()
+	if err != nil {
+		panic(err)
+	}
+	defer func() { _ = log.Sync() }()
+
+	config := Config{
+		PreGeneratedStreamIDs: *preGeneratedStreamIDs,
+		ReadBatchSize:         *readBatchSize,
+		WriteBatchSize:        *writeBatchSize,
+		WriteParallelLimit:    *writeParallelLimit,
+	}
+	migrator := NewMigrator(log, *pointerdb, *metabasedb, config)
+	err = migrator.MigrateProjects(ctx)
 	if err != nil {
 		panic(err)
 	}
