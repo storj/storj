@@ -57,6 +57,7 @@ pipeline {
                         sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
                         sh 'check-mod-tidy -mod .build/go.mod.orig'
                         sh 'make check-monitoring'
+                        sh 'make test-wasm-size'
                     }
                 }
 
@@ -185,6 +186,16 @@ pipeline {
                             sh 'npm run lint'
                             sh script: 'npm audit', returnStatus: true
                             sh 'npm run test'
+                        }
+                    }
+                }
+
+                stage('wasm npm') {
+                    steps {
+                        dir(".build") {
+                            sh 'cp -r ../satellite/console/wasm/tests/ .'
+                            sh 'cd tests && cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" .'
+                            sh 'cd tests && npm install && npm run test'
                         }
                     }
                 }
