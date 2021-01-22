@@ -286,6 +286,7 @@ type Peer struct {
 		Storage   *multinode.StorageEndpoint
 		Bandwidth *multinode.BandwidthEndpoint
 		Node      *multinode.NodeEndpoint
+		Payout    *multinode.PayoutEndpoint
 	}
 }
 
@@ -799,6 +800,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.Reputation(),
 			peer.Storage2.Trust)
 
+		peer.Multinode.Payout = multinode.NewPayoutEndpoint(
+			peer.Log.Named("multinode:payout-endpoint"),
+			apiKeys,
+			peer.DB.Payout())
+
 		if err = multinodepb.DRPCRegisterStorage(peer.Server.DRPC(), peer.Multinode.Storage); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -806,6 +812,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			return nil, errs.Combine(err, peer.Close())
 		}
 		if err = multinodepb.DRPCRegisterNode(peer.Server.DRPC(), peer.Multinode.Node); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		if err = multinodepb.DRPCRegisterPayout(peer.Server.DRPC(), peer.Multinode.Payout); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 	}
