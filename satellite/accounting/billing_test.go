@@ -366,6 +366,7 @@ func TestBilling_DownloadTraffic(t *testing.T) {
 		require.NotZero(t, usage.Egress, "billed usage")
 	})
 }
+
 func TestBilling_ExpiredFiles(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -417,7 +418,6 @@ func getTallies(ctx context.Context, t *testing.T, planet *testplanet.Planet, sa
 	tallies, err := sat.DB.ProjectAccounting().GetTallies(ctx)
 	require.NoError(t, err)
 	return tallies
-
 }
 
 func TestBilling_ZombieSegments(t *testing.T) {
@@ -505,11 +505,6 @@ func getProjectTotalFromStorageNodes(
 	}
 
 	sat := planet.Satellites[satelliteIdx]
-	{
-		rollout := sat.Core.Accounting.ReportedRollupChore
-		require.NoError(t, rollout.RunOnce(ctx, since))
-	}
-
 	sat.Accounting.Tally.Loop.TriggerWait()
 
 	// flush rollups write cache

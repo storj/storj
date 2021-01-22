@@ -32,15 +32,12 @@ var (
 
 // Config is a configuration struct for orders Service.
 type Config struct {
-	EncryptionKeys               EncryptionKeys             `help:"encryption keys to encrypt info in orders" default:""`
-	Expiration                   time.Duration              `help:"how long until an order expires" default:"48h"` // 2 days
-	SettlementBatchSize          int                        `help:"how many orders to batch per transaction" default:"250"`
-	FlushBatchSize               int                        `help:"how many items in the rollups write cache before they are flushed to the database" devDefault:"20" releaseDefault:"10000"`
-	FlushInterval                time.Duration              `help:"how often to flush the rollups write cache to the database" devDefault:"30s" releaseDefault:"1m"`
-	ReportedRollupsReadBatchSize int                        `help:"how many records to read in a single transaction when calculating billable bandwidth" default:"1000"`
-	NodeStatusLogging            bool                       `hidden:"true" help:"deprecated, log the offline/disqualification status of nodes" default:"false"`
-	WindowEndpointRolloutPhase   WindowEndpointRolloutPhase `help:"rollout phase for the windowed endpoint" default:"phase3"`
-	OrdersSemaphoreSize          int                        `help:"how many concurrent orders to process at once. zero is unlimited" default:"2"`
+	EncryptionKeys      EncryptionKeys `help:"encryption keys to encrypt info in orders" default:""`
+	Expiration          time.Duration  `help:"how long until an order expires" default:"48h"` // 2 days
+	FlushBatchSize      int            `help:"how many items in the rollups write cache before they are flushed to the database" devDefault:"20" releaseDefault:"10000"`
+	FlushInterval       time.Duration  `help:"how often to flush the rollups write cache to the database" devDefault:"30s" releaseDefault:"1m"`
+	NodeStatusLogging   bool           `hidden:"true" help:"deprecated, log the offline/disqualification status of nodes" default:"false"`
+	OrdersSemaphoreSize int            `help:"how many concurrent orders to process at once. zero is unlimited" default:"2"`
 }
 
 // BucketsDB returns information about buckets.
@@ -570,7 +567,7 @@ func (service *Service) DecryptOrderMetadata(ctx context.Context, order *pb.Orde
 	var orderKeyID EncryptionKeyID
 	copy(orderKeyID[:], order.EncryptedMetadataKeyId)
 
-	var key = service.encryptionKeys.Default
+	key := service.encryptionKeys.Default
 	if key.ID != orderKeyID {
 		val, ok := service.encryptionKeys.KeyByID[orderKeyID]
 		if !ok {
