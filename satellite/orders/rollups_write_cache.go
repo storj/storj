@@ -124,9 +124,7 @@ func (cache *RollupsWriteCache) flush(ctx context.Context, pendingRollups Rollup
 		})
 	}
 
-	err := cache.DB.WithTransaction(ctx, func(ctx context.Context, tx Transaction) error {
-		return tx.UpdateBucketBandwidthBatch(ctx, latestTime, rollups)
-	})
+	err := cache.DB.UpdateBucketBandwidthBatch(ctx, latestTime, rollups)
 	if err != nil {
 		cache.log.Error("MONEY LOST! Bucket bandwidth rollup batch flush failed.", zap.Error(err))
 	}

@@ -1278,6 +1278,18 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives (interval_start);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "delete deprecated and unused serial tables",
+				Version:     144,
+				Action: migrate.SQL{
+					`DROP TABLE used_serials;`,
+					`DROP TABLE reported_serials;`,
+					`DROP TABLE pending_serial_queue;`,
+					`DROP TABLE serial_numbers;`,
+					`DROP TABLE consumed_serials;`,
+				},
+			},
 		},
 	}
 }

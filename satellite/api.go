@@ -171,7 +171,6 @@ type API struct {
 func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache, rollupsWriteCache *orders.RollupsWriteCache,
 	config *Config, versionInfo version.Info, atomicLogLevel *zap.AtomicLevel) (*API, error) {
-
 	peer := &API{
 		Log:             log,
 		Identity:        full,
@@ -350,8 +349,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			satelliteSignee,
 			peer.Orders.DB,
 			peer.DB.NodeAPIVersion(),
-			config.Orders.SettlementBatchSize,
-			config.Orders.WindowEndpointRolloutPhase,
 			config.Orders.OrdersSemaphoreSize,
 			peer.Orders.Service,
 		)
