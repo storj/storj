@@ -757,7 +757,7 @@ func TestDeleteObjectLatestVersion(t *testing.T) {
 				Segments: []metabase.RawSegment{
 					{
 						StreamID: obj.StreamID,
-						Position: metabase.SegmentPosition{Part: 0, Index: 1},
+						Position: metabase.SegmentPosition{Part: 0, Index: 0},
 
 						RootPieceID:       storj.PieceID{1},
 						Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
@@ -1271,12 +1271,12 @@ func createPendingObject(ctx *testcontext.Context, t *testing.T, db *metabase.DB
 		Version: obj.Version,
 	}.Check(ctx, t, db)
 
-	for i := byte(1); i <= numberOfSegments; i++ {
+	for i := byte(0); i < numberOfSegments; i++ {
 		BeginSegment{
 			Opts: metabase.BeginSegment{
 				ObjectStream: obj,
 				Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
-				RootPieceID:  storj.PieceID{i},
+				RootPieceID:  storj.PieceID{i + 1},
 				Pieces: []metabase.Piece{{
 					Number:      1,
 					StorageNode: testrand.NodeID(),
@@ -1312,12 +1312,12 @@ func createObject(ctx *testcontext.Context, t *testing.T, db *metabase.DB, obj m
 		Version: obj.Version,
 	}.Check(ctx, t, db)
 
-	for i := byte(1); i <= numberOfSegments; i++ {
+	for i := byte(0); i < numberOfSegments; i++ {
 		BeginSegment{
 			Opts: metabase.BeginSegment{
 				ObjectStream: obj,
 				Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
-				RootPieceID:  storj.PieceID{i},
+				RootPieceID:  storj.PieceID{i + 1},
 				Pieces: []metabase.Piece{{
 					Number:      1,
 					StorageNode: testrand.NodeID(),

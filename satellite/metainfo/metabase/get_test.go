@@ -366,7 +366,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 			expectedSegment := metabase.Segment{
 				StreamID: obj.StreamID,
 				Position: metabase.SegmentPosition{
-					Index: 1,
+					Index: 0,
 				},
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
@@ -381,7 +381,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 				Opts: metabase.GetSegmentByPosition{
 					StreamID: obj.StreamID,
 					Position: metabase.SegmentPosition{
-						Index: 1,
+						Index: 0,
 					},
 				},
 				Result: expectedSegment,
@@ -392,7 +392,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 				Opts: metabase.GetSegmentByPosition{
 					StreamID: obj.StreamID,
 					Position: metabase.SegmentPosition{
-						Index: 2,
+						Index: 1,
 					},
 				},
 				ErrClass: &metabase.ErrSegmentNotFound,
@@ -466,7 +466,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 			expectedSegmentSecond := metabase.Segment{
 				StreamID: obj.StreamID,
 				Position: metabase.SegmentPosition{
-					Index: 2,
+					Index: 1,
 				},
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
@@ -478,7 +478,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 			}
 
 			expectedSegmentFirst := expectedSegmentSecond
-			expectedSegmentFirst.Position.Index = 1
+			expectedSegmentFirst.Position.Index = 0
 
 			GetLatestObjectLastSegment{
 				Opts: metabase.GetLatestObjectLastSegment{

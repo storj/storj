@@ -65,7 +65,7 @@ func TestListSegments(t *testing.T) {
 			expectedSegment := metabase.Segment{
 				StreamID: obj.StreamID,
 				Position: metabase.SegmentPosition{
-					Index: 1,
+					Index: 0,
 				},
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
@@ -79,7 +79,7 @@ func TestListSegments(t *testing.T) {
 			expectedRawSegments := make([]metabase.RawSegment, 10)
 			expectedSegments := make([]metabase.Segment, 10)
 			for i := range expectedSegments {
-				expectedSegment.Position.Index = uint32(i + 1)
+				expectedSegment.Position.Index = uint32(i)
 				expectedSegments[i] = expectedSegment
 				expectedRawSegments[i] = metabase.RawSegment(expectedSegment)
 			}
@@ -110,7 +110,7 @@ func TestListSegments(t *testing.T) {
 					StreamID: obj.StreamID,
 					Limit:    2,
 					Cursor: metabase.SegmentPosition{
-						Index: 2,
+						Index: 1,
 					},
 				},
 				Result: metabase.ListSegmentsResult{

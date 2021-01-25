@@ -217,7 +217,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 			UpdateSegmentPieces{
 				Opts: metabase.UpdateSegmentPieces{
 					StreamID:  obj.StreamID,
-					Position:  metabase.SegmentPosition{Index: 1},
+					Position:  metabase.SegmentPosition{Index: 0},
 					OldPieces: validPieces,
 					NewPieces: metabase.Pieces{
 						metabase.Piece{
@@ -238,7 +238,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 
 			segment, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 				StreamID: object.StreamID,
-				Position: metabase.SegmentPosition{Index: 1},
+				Position: metabase.SegmentPosition{Index: 0},
 			})
 			require.NoError(t, err)
 
@@ -256,7 +256,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 			UpdateSegmentPieces{
 				Opts: metabase.UpdateSegmentPieces{
 					StreamID:  obj.StreamID,
-					Position:  metabase.SegmentPosition{Index: 1},
+					Position:  metabase.SegmentPosition{Index: 0},
 					OldPieces: segment.Pieces,
 					NewPieces: expectedPieces,
 				},
