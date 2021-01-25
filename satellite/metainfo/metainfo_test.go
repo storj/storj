@@ -179,7 +179,7 @@ func TestRevokeMacaroon(t *testing.T) {
 		err = client.CommitObject(ctx, metainfo.CommitObjectParams{StreamID: encodedStreamID})
 		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
-		_, _, _, err = client.BeginSegment(ctx, metainfo.BeginSegmentParams{StreamID: encodedStreamID})
+		_, err = client.BeginSegment(ctx, metainfo.BeginSegmentParams{StreamID: encodedStreamID})
 		assert.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 
 		err = client.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{StreamID: encodedStreamID})
@@ -270,7 +270,7 @@ func TestInvalidAPIKey(t *testing.T) {
 				err = client.CommitObject(ctx, metainfo.CommitObjectParams{StreamID: streamID})
 				assertInvalidArgument(t, err, false)
 
-				_, _, _, err = client.BeginSegment(ctx, metainfo.BeginSegmentParams{StreamID: streamID})
+				_, err = client.BeginSegment(ctx, metainfo.BeginSegmentParams{StreamID: streamID})
 				assertInvalidArgument(t, err, false)
 
 				err = client.MakeInlineSegment(ctx, metainfo.MakeInlineSegmentParams{StreamID: streamID})
@@ -639,7 +639,7 @@ func TestBeginCommit(t *testing.T) {
 		beginObjectResponse, err := metainfoClient.BeginObject(ctx, params)
 		require.NoError(t, err)
 
-		segmentID, limits, _, err := metainfoClient.BeginSegment(ctx, metainfo.BeginSegmentParams{
+		response, err := metainfoClient.BeginSegment(ctx, metainfo.BeginSegmentParams{
 			StreamID: beginObjectResponse.StreamID,
 			Position: storj.SegmentPosition{
 				Index: 0,
@@ -654,9 +654,9 @@ func TestBeginCommit(t *testing.T) {
 		}
 
 		makeResult := func(num int32) *pb.SegmentPieceUploadResult {
-			nodeID := limits[num].Limit.StorageNodeId
+			nodeID := response.Limits[num].Limit.StorageNodeId
 			hash := &pb.PieceHash{
-				PieceId:   limits[num].Limit.PieceId,
+				PieceId:   response.Limits[num].Limit.PieceId,
 				PieceSize: 1048832,
 				Timestamp: time.Now(),
 			}
@@ -674,7 +674,7 @@ func TestBeginCommit(t *testing.T) {
 			}
 		}
 		err = metainfoClient.CommitSegment(ctx, metainfo.CommitSegmentParams{
-			SegmentID: segmentID,
+			SegmentID: response.SegmentID,
 
 			SizeEncryptedData: memory.MiB.Int64(),
 			UploadResult: []*pb.SegmentPieceUploadResult{
@@ -1518,7 +1518,7 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 		beginObjectResponse, err := metainfoClient.BeginObject(ctx, params)
 		require.NoError(t, err)
 
-		segmentID, limits, _, err := metainfoClient.BeginSegment(ctx, metainfo.BeginSegmentParams{
+		response, err := metainfoClient.BeginSegment(ctx, metainfo.BeginSegmentParams{
 			StreamID: beginObjectResponse.StreamID,
 			Position: storj.SegmentPosition{
 				Index: 0,
@@ -1533,9 +1533,9 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 		}
 
 		makeResult := func(num int32) *pb.SegmentPieceUploadResult {
-			nodeID := limits[num].Limit.StorageNodeId
+			nodeID := response.Limits[num].Limit.StorageNodeId
 			hash := &pb.PieceHash{
-				PieceId:   limits[num].Limit.PieceId,
+				PieceId:   response.Limits[num].Limit.PieceId,
 				PieceSize: 1048832,
 				Timestamp: time.Now(),
 			}
@@ -1553,7 +1553,7 @@ func TestCommitObjectMetadataSize(t *testing.T) {
 			}
 		}
 		err = metainfoClient.CommitSegment(ctx, metainfo.CommitSegmentParams{
-			SegmentID: segmentID,
+			SegmentID: response.SegmentID,
 
 			SizeEncryptedData: memory.MiB.Int64(),
 			UploadResult: []*pb.SegmentPieceUploadResult{
