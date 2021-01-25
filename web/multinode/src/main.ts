@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import Vue, { VNode } from 'vue';
+import VueClipboard from 'vue-clipboard2';
 import Router from 'vue-router';
 import { DirectiveBinding } from 'vue/types/options';
 
@@ -13,6 +14,8 @@ import { Percentage } from '@/app/utils/percentage';
 import { Size } from '@/private/memory/size';
 
 Vue.config.productionTip = false;
+
+Vue.use(VueClipboard);
 
 Vue.use(Router);
 

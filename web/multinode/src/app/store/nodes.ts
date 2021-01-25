@@ -41,6 +41,7 @@ export class NodesModule implements Module<NodesState, RootState> {
         this.actions = {
             fetch: this.fetch.bind(this),
             add: this.add.bind(this),
+            delete: this.delete.bind(this),
             trustedSatellites: this.trustedSatellites.bind(this),
             selectSatellite: this.selectSatellite.bind(this),
         };
@@ -89,6 +90,16 @@ export class NodesModule implements Module<NodesState, RootState> {
      */
     public async add(ctx: ActionContext<NodesState, RootState>, node: CreateNodeFields): Promise<void> {
         await this.nodes.add(node);
+        await this.fetch(ctx);
+    }
+
+    /**
+     * Deletes node from multinode list.
+     * @param ctx - context of the Vuex action.
+     * @param nodeId - node id to delete.
+     */
+    public async delete(ctx: ActionContext<NodesState, RootState>, nodeId: string): Promise<void> {
+        await this.nodes.delete(nodeId);
         await this.fetch(ctx);
     }
 
