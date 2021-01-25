@@ -6,6 +6,7 @@ storj.io/storj/satellite/accounting/tally."bucket_objects" IntVal
 storj.io/storj/satellite/accounting/tally."bucket_remote_bytes" IntVal
 storj.io/storj/satellite/accounting/tally."bucket_remote_segments" IntVal
 storj.io/storj/satellite/accounting/tally."bucket_segments" IntVal
+storj.io/storj/satellite/accounting/tally."nodetallies.totalsum" IntVal
 storj.io/storj/satellite/accounting/tally."total_bytes" IntVal
 storj.io/storj/satellite/accounting/tally."total_inline_bytes" IntVal
 storj.io/storj/satellite/accounting/tally."total_inline_segments" IntVal
@@ -112,7 +113,6 @@ storj.io/storj/satellite/satellitedb."audit_online_score" FloatVal
 storj.io/storj/satellite/satellitedb."audit_reputation_alpha" FloatVal
 storj.io/storj/satellite/satellitedb."audit_reputation_beta" FloatVal
 storj.io/storj/satellite/satellitedb."bad_audit_dqs" Meter
-storj.io/storj/satellite/satellitedb."nodetallies.totalsum" IntVal
 storj.io/storj/satellite/satellitedb."offline_dqs" Meter
 storj.io/storj/satellite/satellitedb."unknown_audit_reputation_alpha" FloatVal
 storj.io/storj/satellite/satellitedb."unknown_audit_reputation_beta" FloatVal
