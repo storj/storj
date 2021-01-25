@@ -451,7 +451,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		if len(segments) > 0 {
 			fixedSegmentSize = segments[0].PlainSize
 			for i, seg := range segments {
-				if seg.Position.Part != 0 {
+				if seg.Position.Part != 0 || seg.Position.Index != uint32(i) {
 					fixedSegmentSize = -1
 					break
 				}

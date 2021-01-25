@@ -291,7 +291,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 
 						TotalPlainSize:     512,
 						TotalEncryptedSize: 1024,
-						FixedSegmentSize:   512,
+						FixedSegmentSize:   -1,
 
 						Encryption: defaultTestEncryption,
 					},
@@ -389,7 +389,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 
 						TotalPlainSize:     512,
 						TotalEncryptedSize: 1024,
-						FixedSegmentSize:   512,
+						FixedSegmentSize:   -1,
 
 						Encryption: defaultTestEncryption,
 					},
@@ -651,6 +651,128 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						Redundancy: defaultTestRedundancy,
 
 						Pieces: pieces10,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("skipped fixed segment size", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+			now := time.Now()
+
+			pos00 := metabase.SegmentPosition{Part: 0, Index: 0}
+			rootPieceID00 := testrand.PieceID()
+			pieces00 := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
+			encryptedKey00 := testrand.Bytes(32)
+			encryptedKeyNonce00 := testrand.Bytes(32)
+
+			pos02 := metabase.SegmentPosition{Part: 0, Index: 2}
+			rootPieceID02 := testrand.PieceID()
+			pieces02 := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
+			encryptedKey02 := testrand.Bytes(32)
+			encryptedKeyNonce02 := testrand.Bytes(32)
+
+			CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+
+					Position:    pos00,
+					RootPieceID: rootPieceID00,
+					Pieces:      pieces00,
+
+					EncryptedKey:      encryptedKey00,
+					EncryptedKeyNonce: encryptedKeyNonce00,
+
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
+					Redundancy:    defaultTestRedundancy,
+				},
+			}.Check(ctx, t, db)
+
+			CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+
+					Position:    pos02,
+					RootPieceID: rootPieceID02,
+					Pieces:      pieces02,
+
+					EncryptedKey:      encryptedKey02,
+					EncryptedKeyNonce: encryptedKeyNonce02,
+
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
+					Redundancy:    defaultTestRedundancy,
+				},
+			}.Check(ctx, t, db)
+
+			CommitObjectWithSegments{
+				Opts: metabase.CommitObjectWithSegments{
+					ObjectStream: obj,
+					Segments: []metabase.SegmentPosition{
+						pos00,
+						pos02,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Committed,
+						SegmentCount: 2,
+
+						TotalPlainSize:     1024,
+						TotalEncryptedSize: 2048,
+						FixedSegmentSize:   -1,
+
+						Encryption: defaultTestEncryption,
+					},
+				},
+				Segments: []metabase.RawSegment{
+					{
+						StreamID: obj.StreamID,
+						Position: pos00,
+
+						RootPieceID:       rootPieceID00,
+						EncryptedKey:      encryptedKey00,
+						EncryptedKeyNonce: encryptedKeyNonce00,
+
+						EncryptedSize: 1024,
+						PlainOffset:   0,
+						PlainSize:     512,
+
+						Redundancy: defaultTestRedundancy,
+
+						Pieces: pieces00,
+					},
+					{
+						StreamID: obj.StreamID,
+						Position: pos02,
+
+						RootPieceID:       rootPieceID02,
+						EncryptedKey:      encryptedKey02,
+						EncryptedKeyNonce: encryptedKeyNonce02,
+
+						EncryptedSize: 1024,
+						PlainOffset:   512,
+						PlainSize:     512,
+
+						Redundancy: defaultTestRedundancy,
+
+						Pieces: pieces02,
 					},
 				},
 			}.Check(ctx, t, db)

@@ -70,7 +70,7 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 		if len(finalSegments) > 0 {
 			fixedSegmentSize = finalSegments[0].PlainSize
 			for i, seg := range finalSegments {
-				if seg.Position.Part != 0 {
+				if seg.Position.Part != 0 || seg.Position.Index != uint32(i) {
 					fixedSegmentSize = -1
 					break
 				}
