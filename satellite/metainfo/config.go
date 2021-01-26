@@ -13,12 +13,17 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/metainfo/objectdeletion"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/cockroachkv"
 	"storj.io/storj/storage/postgreskv"
+	"storj.io/uplink/private/storage/meta"
 )
 
 const (
@@ -161,4 +166,79 @@ func OpenStore(ctx context.Context, logger *zap.Logger, dbURLString string, app 
 
 	logger.Debug("Connected to:", zap.String("db source", source))
 	return db, nil
+}
+
+// PointerDBMetabase this is wrapper struct that translates pointerDB to metabase.
+// Use only for testing purposes.
+type PointerDBMetabase struct {
+	metainfo *Service
+}
+
+// NewPointerDBMetabase creates new NewPointerDBMetabase instance.
+func NewPointerDBMetabase(service *Service) *PointerDBMetabase {
+	return &PointerDBMetabase{
+		metainfo: service,
+	}
+}
+
+// TestingAllCommittedObjects gets all committed objects from bucket. Use only for testing purposes.
+func (m *PointerDBMetabase) TestingAllCommittedObjects(ctx context.Context, projectID uuid.UUID, bucketName string) (objects []metabase.ObjectEntry, err error) {
+	location, err := CreatePath(ctx, projectID, -1, []byte(bucketName), []byte{})
+	if err != nil {
+		return nil, err
+	}
+	items, _, err := m.metainfo.List(ctx, location.Encode(), "", true, -1, meta.All)
+	if err != nil {
+		return nil, err
+	}
+	entries := make([]metabase.ObjectEntry, len(items))
+	for i, item := range items {
+		entries[i] = metabase.ObjectEntry{
+			ObjectKey: metabase.ObjectKey(item.Path),
+		}
+	}
+	return entries, nil
+}
+
+// TestingAllObjectSegments gets all segments for given object. Use only for testing purposes.
+func (m *PointerDBMetabase) TestingAllObjectSegments(ctx context.Context, objectLocation metabase.ObjectLocation) (segments []metabase.Segment, err error) {
+	location, err := CreatePath(ctx, objectLocation.ProjectID, -1, []byte(objectLocation.BucketName), []byte(objectLocation.ObjectKey))
+	if err != nil {
+		return nil, err
+	}
+
+	pointer, err := m.metainfo.Get(ctx, location.Encode())
+	if err != nil {
+		return nil, err
+	}
+
+	streamMeta := &pb.StreamMeta{}
+	err = pb.Unmarshal(pointer.Metadata, streamMeta)
+	if err != nil {
+		return nil, err
+	}
+
+	segments = make([]metabase.Segment, 0)
+	for i := int64(0); i < streamMeta.NumberOfSegments-1; i++ {
+		location.Index = i
+		_, err = m.metainfo.Get(ctx, location.Encode())
+		if err != nil {
+			if storj.ErrObjectNotFound.Has(err) {
+				continue
+			}
+			return nil, err
+		}
+		segments = append(segments, metabase.Segment{
+			Position: metabase.SegmentPosition{
+				Index: uint32(i),
+			},
+		})
+	}
+
+	segments = append(segments, metabase.Segment{
+		Position: metabase.SegmentPosition{
+			Index: uint32(streamMeta.NumberOfSegments - 1),
+		},
+	})
+	return segments, nil
 }

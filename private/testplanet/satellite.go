@@ -104,6 +104,7 @@ type Satellite struct {
 		Service   *metainfo.Service
 		Endpoint2 *metainfo.Endpoint
 		Loop      *metainfo.Loop
+		Metabase  *metainfo.PointerDBMetabase
 	}
 
 	Inspector struct {
@@ -709,6 +710,7 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Metainfo.Service = peer.Metainfo.Service
 	system.Metainfo.Endpoint2 = api.Metainfo.Endpoint2
 	system.Metainfo.Loop = peer.Metainfo.Loop
+	system.Metainfo.Metabase = metainfo.NewPointerDBMetabase(system.Metainfo.Service)
 
 	system.Inspector.Endpoint = api.Inspector.Endpoint
 

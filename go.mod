@@ -20,7 +20,6 @@ require (
 	github.com/jackc/pgconn v1.7.0
 	github.com/jackc/pgtype v1.5.0
 	github.com/jackc/pgx/v4 v4.9.0
-	github.com/jinzhu/now v1.1.1
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
 	github.com/lucas-clemente/quic-go v0.19.3
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
@@ -45,9 +44,9 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	google.golang.org/api v0.20.0 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
-	storj.io/common v0.0.0-20210113135631-07a5dc68dc1c
+	storj.io/common v0.0.0-20210119231202-8321551aa24d
 	storj.io/drpc v0.0.16
 	storj.io/monkit-jaeger v0.0.0-20200518165323-80778fc3f91b
 	storj.io/private v0.0.0-20210108233641-2ba1ef686d1f
-	storj.io/uplink v1.4.5
+	storj.io/uplink v1.4.6-0.20210125122828-3cf0f8cae40f
 )

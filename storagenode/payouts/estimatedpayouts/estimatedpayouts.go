@@ -5,6 +5,9 @@ package estimatedpayouts
 
 import (
 	"math"
+	"time"
+
+	"storj.io/storj/private/date"
 )
 
 // EstimatedPayout contains usage and estimated payouts data for current and previous months.
@@ -60,4 +63,11 @@ func (pm *PayoutMonthly) SetPayout() {
 // RoundFloat rounds float value till 2 signs after dot.
 func RoundFloat(value float64) float64 {
 	return math.Round(value*100) / 100
+}
+
+// SetExpectedMonth set current month expectations.
+func (estimatedPayout *EstimatedPayout) SetExpectedMonth(now time.Time) {
+	daysPaste := float64(now.Day() - 1)
+	timeInMonth := date.UTCEndOfMonth(now)
+	estimatedPayout.CurrentMonthExpectations = (estimatedPayout.CurrentMonth.Payout / daysPaste) * float64(timeInMonth.Day())
 }
