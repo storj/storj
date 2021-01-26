@@ -20,7 +20,7 @@ var mon = monkit.Package()
 type Config struct {
 	EnableDQ                  bool          `help:"whether nodes will be disqualified if they have not been contacted in some time" releaseDefault:"false" devDefault:"true"`
 	Interval                  time.Duration `help:"how often to check for and DQ stray nodes" releaseDefault:"168h" devDefault:"5m"`
-	MaxDurationWithoutContact time.Duration `help:"length of time a node can go without contacting satellite before being disqualified" releaseDefault:"720h" devDefault:"5m"`
+	MaxDurationWithoutContact time.Duration `help:"length of time a node can go without contacting satellite before being disqualified" releaseDefault:"720h" devDefault:"7200h"`
 }
 
 // Chore disqualifies stray nodes.
