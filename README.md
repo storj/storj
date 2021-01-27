@@ -103,7 +103,7 @@ While we are practicing [semantic versioning](https://semver.org/) for our clien
 libraries such as [uplink](https://github.com/storj/uplink), we are *not* practicing 
 semantic versioning in this repo, as we do not intend for it to be used via 
 [Go modules](https://blog.golang.org/using-go-modules). We may have 
-backwards-incompatible changes between minor and patch releases in this repo.
+backwards-incompatible changes between minor and patch releases in this repository.
 
 # Start using Storj
 
