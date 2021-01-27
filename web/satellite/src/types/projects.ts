@@ -66,6 +66,7 @@ export class Project {
         public description: string = '',
         public createdAt: string = '',
         public ownerId: string = '',
+        public memberCount: number = 0,
         public isSelected: boolean = false,
     ) {}
 }
@@ -116,5 +117,38 @@ export class ProjectLimits {
         public bandwidthUsed: number = 0,
         public storageLimit: number = 0,
         public storageUsed: number = 0,
+    ) {}
+}
+
+export class ProjectPage {
+    public constructor(
+        public projects: Project[] = [],
+        public pageCount: number = 0,
+        public currentPage: number = 0,
+        public totalCount: number = 0,
+    )
+}
+
+/**
+ * BucketPage class holds bucket total usages and flag whether more usages available.
+ */
+export class ProjectsPage {
+    public constructor(
+        public projects: Project[] = [],
+        public limit: number = 0,
+        public offset: number = 0,
+        public pageCount: number = 0,
+        public currentPage: number = 0,
+        public totalCount: number = 0,
+    ) {}
+}
+
+/**
+ * BucketCursor class holds cursor for bucket name and limit.
+ */
+export class ProjectsCursor {
+    public constructor(
+        public limit: number = 0,
+        public page: number = 0,
     ) {}
 }

@@ -11,12 +11,28 @@
 
 <script>
 import { Component, Vue } from 'vue-property-decorator';
+import { ProjectsApiGql } from '@api/projects';
+import { ProjectsCursor } from '@types/projects';
 
-@Component({
-    components:{}
-})
-
+@Component
 export default class Projects extends Vue {
+
+    private projects: ProjectsApiGql = new ProjectsApiGql();
+
+    /**
+    * Component initialization.
+    */
+    public mounted() {
+        this.queryProjectsApi();
+    }
+
+    /**
+    * Determines whether test banner should be displayed.
+    */
+    public async queryProjectsApi(): Promise<void> {
+        const response = await this.projects.getOwnedProjects(new ProjectsCursor(5, 1));
+        console.log("RESP:", response)
+    }
 
 }
 </script>
