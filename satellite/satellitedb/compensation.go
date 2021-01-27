@@ -16,28 +16,32 @@ type compensationDB struct {
 	db *satelliteDB
 }
 
-// QueryWithheldAmounts returns withheld data for the given node.
-func (comp *compensationDB) QueryWithheldAmounts(ctx context.Context, nodeID storj.NodeID) (_ compensation.WithheldAmounts, err error) {
+// QueryTotalAmounts returns withheld data for the given node.
+func (comp *compensationDB) QueryTotalAmounts(ctx context.Context, nodeID storj.NodeID) (_ compensation.TotalAmounts, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	stmt := comp.db.Rebind(`
 		SELECT
 			coalesce(SUM(held), 0) AS total_held,
 			coalesce(SUM(disposed), 0) AS total_disposed
+			coalesce(SUM(paid), 0) AS total_paid,
+			coalesce(SUM(distributed), 0) AS total_distributed
 		FROM
 			storagenode_paystubs
 		WHERE
 			node_id = ?
 	`)
 
-	var totalHeld, totalDisposed int64
-	if err := comp.db.DB.QueryRow(ctx, stmt, nodeID).Scan(&totalHeld, &totalDisposed); err != nil {
-		return compensation.WithheldAmounts{}, Error.Wrap(err)
+	var totalHeld, totalDisposed, totalPaid, totalDistributed int64
+	if err := comp.db.DB.QueryRow(ctx, stmt, nodeID).Scan(&totalHeld, &totalDisposed, &totalPaid, &totalDistributed); err != nil {
+		return compensation.TotalAmounts{}, Error.Wrap(err)
 	}
 
-	return compensation.WithheldAmounts{
-		TotalHeld:     currency.NewMicroUnit(totalHeld),
-		TotalDisposed: currency.NewMicroUnit(totalDisposed),
+	return compensation.TotalAmounts{
+		TotalHeld:        currency.NewMicroUnit(totalHeld),
+		TotalDisposed:    currency.NewMicroUnit(totalDisposed),
+		TotalPaid:        currency.NewMicroUnit(totalPaid),
+		TotalDistributed: currency.NewMicroUnit(totalDistributed),
 	}, nil
 }
 
