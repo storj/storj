@@ -10,16 +10,23 @@ import (
 	"storj.io/storj/private/currency"
 )
 
-// WithheldAmounts holds the amounts held and disposed.
-type WithheldAmounts struct {
-	TotalHeld     currency.MicroUnit
-	TotalDisposed currency.MicroUnit
+// TotalAmounts holds the amounts held and disposed.
+//
+// Invariants:
+//   TotalHeld >= TotalDisposed
+//   TotalPaid >= TotalDisposed
+//   TotalPaid >= TotalDistributed (we may distribute less due to minimum payout threshold)
+type TotalAmounts struct {
+	TotalHeld        currency.MicroUnit // portion from owed that was held back
+	TotalDisposed    currency.MicroUnit // portion from held back that went into paid
+	TotalPaid        currency.MicroUnit // earned amount that is available to be distributed
+	TotalDistributed currency.MicroUnit // amount actually transferred to the operator
 }
 
 // DB is the interface we need to source the data to calculate compensation.
 type DB interface {
-	// QueryWithheldAmounts queries the WithheldAmounts for the given nodeID.
-	QueryWithheldAmounts(ctx context.Context, nodeID storj.NodeID) (WithheldAmounts, error)
+	// QueryTotalAmounts queries the WithheldAmounts for the given nodeID.
+	QueryTotalAmounts(ctx context.Context, nodeID storj.NodeID) (TotalAmounts, error)
 
 	// RecordPeriod records a set of paystubs and payments for some time period.
 	RecordPeriod(ctx context.Context, paystubs []Paystub, payments []Payment) error
