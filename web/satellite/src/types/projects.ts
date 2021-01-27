@@ -66,8 +66,8 @@ export class Project {
         public description: string = '',
         public createdAt: string = '',
         public ownerId: string = '',
-        public memberCount: number = 0,
         public isSelected: boolean = false,
+        public memberCount: number = 0,
     ) {}
 }
 
@@ -126,7 +126,7 @@ export class ProjectPage {
         public pageCount: number = 0,
         public currentPage: number = 0,
         public totalCount: number = 0,
-    )
+    ){}
 }
 
 /**

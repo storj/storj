@@ -9,12 +9,12 @@
     </div>
 </template>
 
-<script>
+<script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import { ProjectsApiGql } from '@api/projects';
-import { ProjectsCursor } from '@types/projects';
+import { ProjectsApiGql } from '@/api/projects';
+import { ProjectsCursor } from '@/types/projects';
 
-@Component
+@Component({})
 export default class Projects extends Vue {
 
     private projects: ProjectsApiGql = new ProjectsApiGql();

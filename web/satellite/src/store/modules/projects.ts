@@ -31,7 +31,7 @@ export const PROJECTS_MUTATIONS = {
     SET_LIMITS: 'SET_PROJECT_LIMITS',
 };
 
-const defaultSelectedProject = new Project('', '', '', '', '', true);
+const defaultSelectedProject = new Project('', '', '', '', '', true, 0);
 
 export class ProjectsState {
     public projects: Project[] = [];
