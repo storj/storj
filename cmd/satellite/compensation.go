@@ -12,7 +12,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/private/currency"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -51,7 +50,7 @@ func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io
 
 	invoices := make([]compensation.Invoice, 0, len(periodUsage))
 	for _, usage := range periodUsage {
-		withheldAmounts, err := db.Compensation().QueryWithheldAmounts(ctx, usage.NodeID)
+		totalAmounts, err := db.Compensation().QueryTotalAmounts(ctx, usage.NodeID)
 		if err != nil {
 			return err
 		}
@@ -89,8 +88,10 @@ func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io
 			UsageGetRepair:     usage.GetRepairTotal,
 			UsagePutRepair:     usage.PutRepairTotal,
 			UsageGetAudit:      usage.GetAuditTotal,
-			TotalHeld:          withheldAmounts.TotalHeld,
-			TotalDisposed:      withheldAmounts.TotalDisposed,
+			TotalHeld:          totalAmounts.TotalHeld,
+			TotalDisposed:      totalAmounts.TotalDisposed,
+			TotalPaid:          totalAmounts.TotalPaid,
+			TotalDistributed:   totalAmounts.TotalDistributed,
 		}
 
 		invoice := compensation.Invoice{
@@ -99,7 +100,6 @@ func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io
 			NodeWallet:  node.Operator.Wallet,
 			NodeAddress: nodeAddress,
 			NodeLastIP:  nodeLastIP,
-			PaidYTD:     currency.Zero, // deprecated
 		}
 
 		if err := invoice.MergeNodeInfo(nodeInfo); err != nil {
