@@ -9,6 +9,7 @@ import (
 	"net"
 	"sync"
 
+	quicgo "github.com/lucas-clemente/quic-go"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -21,6 +22,7 @@ import (
 	"storj.io/drpc/drpcserver"
 	jaeger "storj.io/monkit-jaeger"
 	"storj.io/storj/pkg/listenmux"
+	"storj.io/storj/pkg/quic"
 )
 
 // Config holds server specific configuration parameters.
@@ -33,9 +35,10 @@ type Config struct {
 }
 
 type public struct {
-	listener net.Listener
-	drpc     *drpcserver.Server
-	mux      *drpcmux.Mux
+	tcpListener  net.Listener
+	quicListener net.Listener
+	drpc         *drpcserver.Server
+	mux          *drpcmux.Mux
 }
 
 type private struct {
@@ -71,22 +74,28 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 		Manager: rpc.NewDefaultManagerOptions(),
 	}
 
-	publicListener, err := net.Listen("tcp", publicAddr)
+	publicTCPListener, err := net.Listen("tcp", publicAddr)
 	if err != nil {
 		return nil, err
+	}
+
+	publicQUICListener, err := quic.NewListener(tlsOptions.ServerTLSConfig(), publicTCPListener.Addr().String(), &quicgo.Config{MaxIdleTimeout: defaultUserTimeout})
+	if err != nil {
+		return nil, errs.Combine(err, publicTCPListener.Close())
 	}
 
 	publicMux := drpcmux.New()
 	publicTracingHandler := rpctracing.NewHandler(publicMux, jaeger.RemoteTraceHandler)
 	server.public = public{
-		listener: wrapListener(publicListener),
-		drpc:     drpcserver.NewWithOptions(publicTracingHandler, serverOptions),
-		mux:      publicMux,
+		tcpListener:  wrapListener(publicTCPListener),
+		quicListener: wrapListener(publicQUICListener),
+		drpc:         drpcserver.NewWithOptions(publicTracingHandler, serverOptions),
+		mux:          publicMux,
 	}
 
 	privateListener, err := net.Listen("tcp", privateAddr)
 	if err != nil {
-		return nil, errs.Combine(err, publicListener.Close())
+		return nil, errs.Combine(err, publicTCPListener.Close(), publicQUICListener.Close())
 	}
 	privateMux := drpcmux.New()
 	privateTracingHandler := rpctracing.NewHandler(privateMux, jaeger.RemoteTraceHandler)
@@ -103,7 +112,7 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 func (p *Server) Identity() *identity.FullIdentity { return p.tlsOptions.Ident }
 
 // Addr returns the server's public listener address.
-func (p *Server) Addr() net.Addr { return p.public.listener.Addr() }
+func (p *Server) Addr() net.Addr { return p.public.tcpListener.Addr() }
 
 // PrivateAddr returns the server's private listener address.
 func (p *Server) PrivateAddr() net.Addr { return p.private.listener.Addr() }
@@ -127,7 +136,8 @@ func (p *Server) Close() error {
 	// We ignore these errors because there's not really anything to do
 	// even if they happen, and they'll just be errors due to duplicate
 	// closes anyway.
-	_ = p.public.listener.Close()
+	_ = p.public.quicListener.Close()
+	_ = p.public.tcpListener.Close()
 	_ = p.private.listener.Close()
 	return nil
 }
@@ -156,7 +166,7 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	// a chance to be notified that they're done running.
 	const drpcHeader = "DRPC!!!1"
 
-	publicMux := listenmux.New(p.public.listener, len(drpcHeader))
+	publicMux := listenmux.New(p.public.tcpListener, len(drpcHeader))
 	publicDRPCListener := tls.NewListener(publicMux.Route(drpcHeader), p.tlsOptions.ServerTLSConfig())
 
 	privateMux := listenmux.New(p.private.listener, len(drpcHeader))
@@ -196,6 +206,10 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	group.Go(func() error {
 		defer cancel()
 		return p.public.drpc.Serve(ctx, publicDRPCListener)
+	})
+	group.Go(func() error {
+		defer cancel()
+		return p.public.drpc.Serve(ctx, p.public.quicListener)
 	})
 	group.Go(func() error {
 		defer cancel()

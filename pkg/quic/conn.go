@@ -174,9 +174,9 @@ type closeTrackingConn struct {
 	rpc.ConnectorConn
 }
 
-// trackClose wraps the conn and sets a  finalizer on the returned value to
+// TrackClose wraps the conn and sets a  finalizer on the returned value to
 // close the conn and monitor that it was leaked.
-func trackClose(conn rpc.ConnectorConn) rpc.ConnectorConn {
+func TrackClose(conn rpc.ConnectorConn) rpc.ConnectorConn {
 	tracked := &closeTrackingConn{ConnectorConn: conn}
 	runtime.SetFinalizer(tracked, (*closeTrackingConn).finalize)
 	return tracked
