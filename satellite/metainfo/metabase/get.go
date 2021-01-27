@@ -229,7 +229,7 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 			inline_data, remote_pieces
 		FROM segments
 		WHERE
-			stream_id = (SELECT stream_id FROM objects WHERE
+			stream_id IN (SELECT stream_id FROM objects WHERE
 				project_id   = $1 AND
 				bucket_name  = $2 AND
 				object_key   = $3 AND
@@ -284,7 +284,7 @@ func (db *DB) GetSegmentByOffset(ctx context.Context, opts GetSegmentByOffset) (
 			inline_data, remote_pieces
 		FROM segments
 		WHERE
-			stream_id = (SELECT stream_id FROM objects WHERE
+			stream_id IN (SELECT stream_id FROM objects WHERE
 				project_id   = $1 AND
 				bucket_name  = $2 AND
 				object_key   = $3 AND

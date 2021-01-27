@@ -262,7 +262,7 @@ func (db *DB) DeleteObjectLatestVersion(ctx context.Context, opts DeleteObjectLa
 				project_id   = $1 AND
 				bucket_name  = $2 AND
 				object_key   = $3 AND
-				version      = (SELECT version FROM objects WHERE
+				version      IN (SELECT version FROM objects WHERE
 					project_id   = $1 AND
 					bucket_name  = $2 AND
 					object_key   = $3 AND
