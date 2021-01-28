@@ -6,8 +6,12 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"net"
+	"os"
+	"runtime"
 	"sync"
+	"syscall"
 
 	quicgo "github.com/lucas-clemente/quic-go"
 	"github.com/zeebo/errs"
@@ -74,14 +78,30 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 		Manager: rpc.NewDefaultManagerOptions(),
 	}
 
-	publicTCPListener, err := net.Listen("tcp", publicAddr)
-	if err != nil {
-		return nil, err
-	}
+	var err error
+	var publicTCPListener, publicQUICListener net.Listener
+	for retry := 0; ; retry++ {
+		publicTCPListener, err = net.Listen("tcp", publicAddr)
+		if err != nil {
+			return nil, err
+		}
 
-	publicQUICListener, err := quic.NewListener(tlsOptions.ServerTLSConfig(), publicTCPListener.Addr().String(), &quicgo.Config{MaxIdleTimeout: defaultUserTimeout})
-	if err != nil {
-		return nil, errs.Combine(err, publicTCPListener.Close())
+		publicQUICListener, err = quic.NewListener(tlsOptions.ServerTLSConfig(), publicTCPListener.Addr().String(), &quicgo.Config{MaxIdleTimeout: defaultUserTimeout})
+		if err != nil {
+			_, port, _ := net.SplitHostPort(publicAddr)
+			if port == "0" && retry < 10 && isErrorAddressAlreadyInUse(err) {
+				// from here, we know for sure that the tcp port chosen by the
+				// os is available, but we don't know if the same port number
+				// for udp is also available.
+				// if a udp port is already in use, we will close the tcp port and retry
+				// to find one that is available for both udp and tcp.
+				_ = publicTCPListener.Close()
+				continue
+			}
+			return nil, errs.Combine(err, publicTCPListener.Close())
+		}
+
+		break
 	}
 
 	publicMux := drpcmux.New()
@@ -222,4 +242,25 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	// Now we close down our listeners.
 	muxCancel()
 	return errs.Combine(err, muxGroup.Wait())
+}
+
+// isErrorAddressAlreadyInUse checks whether the error is corresponding to
+// EADDRINUSE. Taken from https://stackoverflow.com/a/65865898.
+func isErrorAddressAlreadyInUse(err error) bool {
+	var eOsSyscall *os.SyscallError
+	if !errors.As(err, &eOsSyscall) {
+		return false
+	}
+	var errErrno syscall.Errno
+	if !errors.As(eOsSyscall.Err, &errErrno) {
+		return false
+	}
+	if errErrno == syscall.EADDRINUSE {
+		return true
+	}
+	const WSAEADDRINUSE = 10048
+	if runtime.GOOS == "windows" && errErrno == WSAEADDRINUSE {
+		return true
+	}
+	return false
 }
