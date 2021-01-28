@@ -156,7 +156,7 @@ type API struct {
 		Endpoint *nodestats.Endpoint
 	}
 
-	SnoPayout struct {
+	SNOPayouts struct {
 		Endpoint *snopayouts.Endpoint
 		Service  *snopayouts.Service
 		DB       snopayouts.DB
@@ -654,16 +654,16 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup SnoPayout endpoint
-		peer.SnoPayout.DB = peer.DB.SnoPayout()
-		peer.SnoPayout.Service = snopayouts.NewService(
+		peer.SNOPayouts.DB = peer.DB.SNOPayouts()
+		peer.SNOPayouts.Service = snopayouts.NewService(
 			peer.Log.Named("payouts:service"),
-			peer.SnoPayout.DB)
-		peer.SnoPayout.Endpoint = snopayouts.NewEndpoint(
+			peer.SNOPayouts.DB)
+		peer.SNOPayouts.Endpoint = snopayouts.NewEndpoint(
 			peer.Log.Named("payouts:endpoint"),
 			peer.DB.StoragenodeAccounting(),
 			peer.Overlay.DB,
-			peer.SnoPayout.Service)
-		if err := pb.DRPCRegisterHeldAmount(peer.Server.DRPC(), peer.SnoPayout.Endpoint); err != nil {
+			peer.SNOPayouts.Service)
+		if err := pb.DRPCRegisterHeldAmount(peer.Server.DRPC(), peer.SNOPayouts.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 	}

@@ -98,7 +98,7 @@ type DB interface {
 	// StripeCoinPayments returns stripecoinpayments database.
 	StripeCoinPayments() stripecoinpayments.DB
 	// SnoPayout returns database for payouts.
-	SnoPayout() snopayouts.DB
+	SNOPayouts() snopayouts.DB
 	// Compoensation tracks storage node compensation
 	Compensation() compensation.DB
 	// Revocation tracks revoked macaroons

@@ -277,9 +277,9 @@ func (dbc *satelliteDBCollection) StripeCoinPayments() stripecoinpayments.DB {
 	return &stripeCoinPaymentsDB{db: dbc.getByName("stripecoinpayments")}
 }
 
-// SnoPayout returns database for storagenode payStubs and payments info.
-func (dbc *satelliteDBCollection) SnoPayout() snopayouts.DB {
-	return &paymentStubs{db: dbc.getByName("snopayouts")}
+// SNOPayouts returns database for storagenode payStubs and payments info.
+func (dbc *satelliteDBCollection) SNOPayouts() snopayouts.DB {
+	return &snopayoutsDB{db: dbc.getByName("snopayouts")}
 }
 
 // Compenstation returns database for storage node compensation.

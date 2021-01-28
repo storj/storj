@@ -21,9 +21,6 @@ type DB interface {
 	// QueryWithheldAmounts queries the WithheldAmounts for the given nodeID.
 	QueryWithheldAmounts(ctx context.Context, nodeID storj.NodeID) (WithheldAmounts, error)
 
-	// QueryPaidInYear returns the total amount paid to the nodeID in the provided year.
-	QueryPaidInYear(ctx context.Context, nodeID storj.NodeID, year int) (currency.MicroUnit, error)
-
 	// RecordPeriod records a set of paystubs and payments for some time period.
 	RecordPeriod(ctx context.Context, paystubs []Paystub, payments []Payment) error
 

@@ -48,7 +48,7 @@ const (
 
 func TestRefresh(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
-		cache := overlay.NewNodeSelectionCache(zap.NewNop(),
+		cache := overlay.NewUploadSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
 			lowStaleness,
 			nodeSelectionConfig,
@@ -147,7 +147,7 @@ func TestRefreshConcurrent(t *testing.T) {
 	// concurrent cache.Refresh with high staleness, where high staleness means the
 	// cache should only be refreshed the first time we call cache.Refresh
 	mockDB := mockdb{}
-	cache := overlay.NewNodeSelectionCache(zap.NewNop(),
+	cache := overlay.NewUploadSelectionCache(zap.NewNop(),
 		&mockDB,
 		highStaleness,
 		nodeSelectionConfig,
@@ -168,7 +168,7 @@ func TestRefreshConcurrent(t *testing.T) {
 	// concurrent cache.Refresh with low staleness, where low staleness
 	// means that the cache will refresh *every time* cache.Refresh is called
 	mockDB = mockdb{}
-	cache = overlay.NewNodeSelectionCache(zap.NewNop(),
+	cache = overlay.NewUploadSelectionCache(zap.NewNop(),
 		&mockDB,
 		lowStaleness,
 		nodeSelectionConfig,
@@ -194,7 +194,7 @@ func TestGetNodes(t *testing.T) {
 			DistinctIP:       true,
 			MinimumDiskSpace: 100 * memory.MiB,
 		}
-		cache := overlay.NewNodeSelectionCache(zap.NewNop(),
+		cache := overlay.NewUploadSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
 			lowStaleness,
 			nodeSelectionConfig,
@@ -249,7 +249,7 @@ func TestGetNodesConcurrent(t *testing.T) {
 		reputable: reputableNodes,
 		new:       newNodes,
 	}
-	cache := overlay.NewNodeSelectionCache(zap.NewNop(),
+	cache := overlay.NewUploadSelectionCache(zap.NewNop(),
 		&mockDB,
 		highStaleness,
 		nodeSelectionConfig,
@@ -289,7 +289,7 @@ func TestGetNodesConcurrent(t *testing.T) {
 		reputable: reputableNodes,
 		new:       newNodes,
 	}
-	cache = overlay.NewNodeSelectionCache(zap.NewNop(),
+	cache = overlay.NewUploadSelectionCache(zap.NewNop(),
 		&mockDB,
 		lowStaleness,
 		nodeSelectionConfig,
@@ -376,7 +376,7 @@ func TestGetNodesDistinct(t *testing.T) {
 		config := nodeSelectionConfig
 		config.NewNodeFraction = 0.5
 		config.DistinctIP = true
-		cache := overlay.NewNodeSelectionCache(zap.NewNop(),
+		cache := overlay.NewUploadSelectionCache(zap.NewNop(),
 			&mockDB,
 			highStaleness,
 			config,
@@ -404,7 +404,7 @@ func TestGetNodesDistinct(t *testing.T) {
 		config := nodeSelectionConfig
 		config.NewNodeFraction = 0.5
 		config.DistinctIP = false
-		cache := overlay.NewNodeSelectionCache(zap.NewNop(),
+		cache := overlay.NewUploadSelectionCache(zap.NewNop(),
 			&mockDB,
 			highStaleness,
 			config,
@@ -422,7 +422,7 @@ func TestGetNodesError(t *testing.T) {
 	defer ctx.Cleanup()
 
 	mockDB := mockdb{}
-	cache := overlay.NewNodeSelectionCache(zap.NewNop(),
+	cache := overlay.NewUploadSelectionCache(zap.NewNop(),
 		&mockDB,
 		highStaleness,
 		nodeSelectionConfig,
@@ -450,7 +450,7 @@ func TestNewNodeFraction(t *testing.T) {
 			DistinctIP:       true,
 			MinimumDiskSpace: 10 * memory.MiB,
 		}
-		cache := overlay.NewNodeSelectionCache(zap.NewNop(),
+		cache := overlay.NewUploadSelectionCache(zap.NewNop(),
 			db.OverlayCache(),
 			lowStaleness,
 			nodeSelectionConfig,
