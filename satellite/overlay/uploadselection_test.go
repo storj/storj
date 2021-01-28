@@ -73,7 +73,7 @@ func TestRefresh(t *testing.T) {
 	})
 }
 
-func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, count, makeReputable int) (reputableIds []storj.NodeID) {
+func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, count, makeReputable int) (ids []storj.NodeID) {
 	for i := 0; i < count; i++ {
 		subnet := strconv.Itoa(i) + ".1.2"
 		addr := subnet + ".3:8080"
@@ -109,10 +109,10 @@ func addNodesToNodesTable(ctx context.Context, t *testing.T, db overlay.DB, coun
 			}, time.Now())
 			require.NoError(t, err)
 			require.NotNil(t, stats.VettedAt)
-			reputableIds = append(reputableIds, storj.NodeID{byte(i)})
+			ids = append(ids, storj.NodeID{byte(i)})
 		}
 	}
-	return reputableIds
+	return ids
 }
 
 type mockdb struct {

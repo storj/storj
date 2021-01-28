@@ -118,6 +118,62 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 	return reputableNodes, newNodes, Error.Wrap(rows.Err())
 }
 
+// SelectAllStorageNodesDownload returns all nodes that qualify to store data, organized as reputable nodes and new nodes.
+func (cache *overlaycache) SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) (nodes []*overlay.SelectedNode, err error) {
+	for {
+		nodes, err = cache.selectAllStorageNodesDownload(ctx, onlineWindow, asOf)
+		if err != nil {
+			if cockroachutil.NeedsRetry(err) {
+				continue
+			}
+			return nodes, err
+		}
+		break
+	}
+
+	return nodes, err
+}
+
+func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOfConfig overlay.AsOfSystemTimeConfig) (_ []*overlay.SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	asOf := cache.db.AsOfSystemTimeClause(asOfConfig.DefaultInterval)
+
+	query := `
+		SELECT id, address, last_net, last_ip_port
+			FROM nodes ` + asOf + `
+			WHERE disqualified IS NULL
+			AND exit_finished_at IS NULL
+			AND last_contact_success > $1
+	`
+	args := []interface{}{
+		// $1
+		time.Now().Add(-onlineWindow),
+	}
+
+	rows, err := cache.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var nodes []*overlay.SelectedNode
+	for rows.Next() {
+		var node overlay.SelectedNode
+		node.Address = &pb.NodeAddress{}
+		var lastIPPort sql.NullString
+		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort)
+		if err != nil {
+			return nil, err
+		}
+		if lastIPPort.Valid {
+			node.LastIPPort = lastIPPort.String
+		}
+		nodes = append(nodes, &node)
+	}
+	return nodes, Error.Wrap(rows.Err())
+}
+
 // GetNodesNetwork returns the /24 subnet for each storage node, order is not guaranteed.
 func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error) {
 	for {

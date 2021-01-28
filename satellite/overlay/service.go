@@ -45,6 +45,8 @@ type DB interface {
 	SelectStorageNodes(ctx context.Context, totalNeededNodes, newNodeCount int, criteria *NodeCriteria) ([]*SelectedNode, error)
 	// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
 	SelectAllStorageNodesUpload(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []*SelectedNode, err error)
+	// SelectAllStorageNodesDownload returns a nodes that are ready for downloading
+	SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf AsOfSystemTimeConfig) ([]*SelectedNode, error)
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
@@ -262,10 +264,12 @@ func (node *SelectedNode) Clone() *SelectedNode {
 //
 // architecture: Service
 type Service struct {
-	log                  *zap.Logger
-	db                   DB
-	config               Config
-	UploadSelectionCache *UploadSelectionCache
+	log    *zap.Logger
+	db     DB
+	config Config
+
+	UploadSelectionCache   *UploadSelectionCache
+	DownloadSelectionCache *DownloadSelectionCache
 }
 
 // NewService returns a new Service.
@@ -278,9 +282,16 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 		log:    log,
 		db:     db,
 		config: config,
+
 		UploadSelectionCache: NewUploadSelectionCache(log, db,
 			config.NodeSelectionCache.Staleness, config.Node,
 		),
+
+		DownloadSelectionCache: NewDownloadSelectionCache(log, db, DownloadSelectionCacheConfig{
+			Staleness:      config.NodeSelectionCache.Staleness,
+			OnlineWindow:   config.Node.OnlineWindow,
+			AsOfSystemTime: config.Node.AsOfSystemTime,
+		}),
 	}, nil
 }
 
