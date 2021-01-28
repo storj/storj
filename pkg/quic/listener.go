@@ -9,6 +9,7 @@ import (
 	"net"
 
 	"github.com/lucas-clemente/quic-go"
+	"github.com/zeebo/errs"
 
 	"storj.io/common/peertls/tlsopts"
 )
@@ -16,25 +17,30 @@ import (
 // Listener implements listener for QUIC.
 type Listener struct {
 	listener quic.Listener
+	conn     *net.UDPConn
 }
 
 // NewListener returns a new listener instance for QUIC.
 // The quic.Config may be nil, in that case the default values will be used.
 // if the provided context is closed, all existing or following Accept calls will return an error.
-func NewListener(tlsConfig *tls.Config, address string, quicConfig *quic.Config) (net.Listener, error) {
+func NewListener(conn *net.UDPConn, tlsConfig *tls.Config, quicConfig *quic.Config) (net.Listener, error) {
+	if conn == nil {
+		return nil, Error.New("underlying udp connection can't be nil")
+	}
 	if tlsConfig == nil {
 		return nil, Error.New("tls config is not set")
 	}
 	tlsConfigCopy := tlsConfig.Clone()
 	tlsConfigCopy.NextProtos = []string{tlsopts.StorjApplicationProtocol}
 
-	listener, err := quic.ListenAddr(address, tlsConfigCopy, quicConfig)
+	listener, err := quic.Listen(conn, tlsConfigCopy, quicConfig)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Listener{
 		listener: listener,
+		conn:     conn,
 	}, nil
 }
 
@@ -52,8 +58,8 @@ func (l *Listener) Accept() (net.Conn, error) {
 }
 
 // Close closes the QUIC listener.
-func (l *Listener) Close() error {
-	return l.listener.Close()
+func (l *Listener) Close() (err error) {
+	return errs.Combine(l.listener.Close(), l.conn.Close())
 }
 
 // Addr returns the local network addr that the server is listening on.
