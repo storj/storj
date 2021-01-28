@@ -34,7 +34,7 @@
                 </div>
             </section>
             <HeldProgress v-if="isSatelliteSelected" class="payout-area-container__process-area" />
-            <HeldHistoryArea />
+            <HeldHistoryArea v-if="heldHistory.length" />
         </div>
     </div>
 </template>
@@ -57,7 +57,7 @@ import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
-import { PayoutPeriod, TotalHeldAndPaid } from '@/storagenode/payouts/payouts';
+import { PayoutPeriod, SatelliteHeldHistory, TotalHeldAndPaid } from '@/storagenode/payouts/payouts';
 
 @Component ({
     components: {
@@ -126,6 +126,10 @@ export default class PayoutArea extends Vue {
 
     public get payoutPeriods(): PayoutPeriod[] {
         return this.$store.state.payoutModule.payoutPeriods;
+    }
+
+    public get heldHistory(): SatelliteHeldHistory[] {
+        return this.$store.state.payoutModule.heldHistory;
     }
 }
 </script>

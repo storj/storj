@@ -8,7 +8,7 @@ import { DirectiveBinding } from 'vue/types/options';
 import App from '@/app/App.vue';
 import { router } from '@/app/router';
 import { store } from '@/app/store';
-import { formatBytes } from '@/app/utils/converter';
+import { Size } from '@/private/memory/size';
 
 Vue.config.productionTip = false;
 VueClipboard.config.autoSetContainer = true;
@@ -51,8 +51,7 @@ Vue.filter('centsToDollars', (cents: number): string => {
  * Converts bytes to base-10 types.
  */
 Vue.filter('bytesToBase10String', (amountInBytes: number): string => {
-    // TODO: move to Size package
-    return `${formatBytes(amountInBytes)}`;
+    return `${Size.toBase10String(amountInBytes)}`;
 });
 
 new Vue({

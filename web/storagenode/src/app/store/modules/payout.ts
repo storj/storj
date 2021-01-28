@@ -6,8 +6,8 @@ import {
     PayoutInfoRange,
     PayoutState,
 } from '@/app/types/payout';
-import { TB } from '@/app/utils/converter';
 import { getHeldPercentage } from '@/app/utils/payout';
+import { SizeBreakpoints } from '@/private/memory/size';
 import {
     EstimatedPayout,
     PayoutPeriod,
@@ -122,7 +122,7 @@ export function newPayoutModule(service: PayoutService): StoreModule<PayoutState
 
                 const thisMonthEarnings = (currentBandwidthDownload * BANDWIDTH_DOWNLOAD_PRICE_PER_TB
                     + currentBandwidthAuditAndRepair * BANDWIDTH_REPAIR_PRICE_PER_TB
-                    + currentDiskSpace * DISK_SPACE_PRICE_PER_TB) / TB;
+                    + currentDiskSpace * DISK_SPACE_PRICE_PER_TB) / SizeBreakpoints.TB;
 
                 totalHeldAndPaid.setCurrentMonthEarnings(thisMonthEarnings);
 
