@@ -22,8 +22,6 @@ type State struct {
 	stats Stats
 	// netByID returns subnet based on storj.NodeID
 	netByID map[storj.NodeID]string
-	// ipPortByID returns IP based on storj.NodeID
-	ipPortByID map[storj.NodeID]string
 	// nonDistinct contains selectors for non-distinct selection.
 	nonDistinct struct {
 		Reputable SelectByID
@@ -59,14 +57,11 @@ func NewState(reputableNodes, newNodes []*Node) *State {
 	state := &State{}
 
 	state.netByID = map[storj.NodeID]string{}
-	state.ipPortByID = map[storj.NodeID]string{}
 	for _, node := range reputableNodes {
 		state.netByID[node.ID] = node.LastNet
-		state.ipPortByID[node.ID] = node.LastIPPort
 	}
 	for _, node := range newNodes {
 		state.netByID[node.ID] = node.LastNet
-		state.ipPortByID[node.ID] = node.LastIPPort
 	}
 
 	state.nonDistinct.Reputable = SelectByID(reputableNodes)
@@ -138,18 +133,6 @@ func (state *State) Select(ctx context.Context, request Request) (_ []*Node, err
 		return selected, ErrNotEnoughNodes.New("requested from cache %d, found %d", totalCount, len(selected))
 	}
 	return selected, nil
-}
-
-// IPs returns node ip:port for nodes that are in state.
-func (state *State) IPs(ctx context.Context, nodes []storj.NodeID) map[storj.NodeID]string {
-	defer mon.Task()(&ctx)(nil)
-	xs := make(map[storj.NodeID]string, len(nodes))
-	for _, nodeID := range nodes {
-		if ip, exists := state.ipPortByID[nodeID]; exists {
-			xs[nodeID] = ip
-		}
-	}
-	return xs
 }
 
 // Stats returns state information.

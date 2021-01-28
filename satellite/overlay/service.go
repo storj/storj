@@ -324,7 +324,7 @@ func (service *Service) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs 
 // GetNodeIPs returns a map of node ip:port for the supplied nodeIDs.
 func (service *Service) GetNodeIPs(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]string, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.UploadSelectionCache.GetNodeIPs(ctx, nodeIDs)
+	return service.DownloadSelectionCache.GetNodeIPs(ctx, nodeIDs)
 }
 
 // IsOnline checks if a node is 'online' based on the collected statistics.
