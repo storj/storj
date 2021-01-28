@@ -431,7 +431,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 				SuspensionGracePeriod:       time.Hour,
 				SuspensionDQEnabled:         true,
 			},
-			NodeSelectionCache: overlay.CacheConfig{
+			NodeSelectionCache: overlay.UploadSelectionCacheConfig{
 				Staleness: 3 * time.Minute,
 			},
 			UpdateStatsBatchSize: 100,

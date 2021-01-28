@@ -15,26 +15,26 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 )
 
-// CacheDB implements the database for overlay node selection cache.
+// UploadSelectionDB implements the database for upload selection cache.
 //
 // architecture: Database
-type CacheDB interface {
+type UploadSelectionDB interface {
 	// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
 	SelectAllStorageNodesUpload(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []*SelectedNode, err error)
 }
 
-// CacheConfig is a configuration for overlay node selection cache.
-type CacheConfig struct {
+// UploadSelectionCacheConfig is a configuration for upload selection cache.
+type UploadSelectionCacheConfig struct {
 	Disabled  bool          `help:"disable node cache" default:"false"`
 	Staleness time.Duration `help:"how stale the node selection cache can be" releaseDefault:"3m" devDefault:"5m"`
 }
 
-// NodeSelectionCache keeps a list of all the storage nodes that are qualified to store data
+// UploadSelectionCache keeps a list of all the storage nodes that are qualified to store data
 // We organize the nodes by if they are reputable or a new node on the network.
 // The cache will sync with the nodes table in the database and get refreshed once the staleness time has past.
-type NodeSelectionCache struct {
+type UploadSelectionCache struct {
 	log             *zap.Logger
-	db              CacheDB
+	db              UploadSelectionDB
 	selectionConfig NodeSelectionConfig
 	staleness       time.Duration
 
@@ -43,9 +43,9 @@ type NodeSelectionCache struct {
 	state       *nodeselection.State
 }
 
-// NewNodeSelectionCache creates a new cache that keeps a list of all the storage nodes that are qualified to store data.
-func NewNodeSelectionCache(log *zap.Logger, db CacheDB, staleness time.Duration, config NodeSelectionConfig) *NodeSelectionCache {
-	return &NodeSelectionCache{
+// NewUploadSelectionCache creates a new cache that keeps a list of all the storage nodes that are qualified to store data.
+func NewUploadSelectionCache(log *zap.Logger, db UploadSelectionDB, staleness time.Duration, config NodeSelectionConfig) *UploadSelectionCache {
+	return &UploadSelectionCache{
 		log:             log,
 		db:              db,
 		staleness:       staleness,
@@ -55,7 +55,7 @@ func NewNodeSelectionCache(log *zap.Logger, db CacheDB, staleness time.Duration,
 
 // Refresh populates the cache with all of the reputableNodes and newNode nodes
 // This method is useful for tests.
-func (cache *NodeSelectionCache) Refresh(ctx context.Context) (err error) {
+func (cache *UploadSelectionCache) Refresh(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = cache.refresh(ctx)
 	return err
@@ -64,7 +64,7 @@ func (cache *NodeSelectionCache) Refresh(ctx context.Context) (err error) {
 // refresh calls out to the database and refreshes the cache with the most up-to-date
 // data from the nodes table, then sets time that the last refresh occurred so we know when
 // to refresh again in the future.
-func (cache *NodeSelectionCache) refresh(ctx context.Context) (state *nodeselection.State, err error) {
+func (cache *UploadSelectionCache) refresh(ctx context.Context) (state *nodeselection.State, err error) {
 	defer mon.Task()(&ctx)(&err)
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
@@ -89,7 +89,7 @@ func (cache *NodeSelectionCache) refresh(ctx context.Context) (state *nodeselect
 // GetNodes selects nodes from the cache that will be used to upload a file.
 // Every node selected will be from a distinct network.
 // If the cache hasn't been refreshed recently it will do so first.
-func (cache *NodeSelectionCache) GetNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
+func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	cache.mu.RLock()
@@ -119,7 +119,7 @@ func (cache *NodeSelectionCache) GetNodes(ctx context.Context, req FindStorageNo
 }
 
 // GetNodeIPs gets the last node ip:port from the cache, refreshing when needed.
-func (cache *NodeSelectionCache) GetNodeIPs(ctx context.Context, nodes []storj.NodeID) (_ map[storj.NodeID]string, err error) {
+func (cache *UploadSelectionCache) GetNodeIPs(ctx context.Context, nodes []storj.NodeID) (_ map[storj.NodeID]string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	cache.mu.RLock()
@@ -139,7 +139,7 @@ func (cache *NodeSelectionCache) GetNodeIPs(ctx context.Context, nodes []storj.N
 }
 
 // Size returns how many reputable nodes and new nodes are in the cache.
-func (cache *NodeSelectionCache) Size() (reputableNodeCount int, newNodeCount int) {
+func (cache *UploadSelectionCache) Size() (reputableNodeCount int, newNodeCount int) {
 	cache.mu.RLock()
 	state := cache.state
 	cache.mu.RUnlock()

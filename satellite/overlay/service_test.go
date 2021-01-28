@@ -274,7 +274,7 @@ func TestRandomizedSelectionCache(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		overlaydb := satellite.Overlay.DB
-		nodeSelectionCache := satellite.Overlay.Service.SelectionCache
+		uploadSelectionCache := satellite.Overlay.Service.UploadSelectionCache
 		allIDs := make(storj.NodeIDList, totalNodes)
 		nodeCounts := make(map[storj.NodeID]int)
 		expectedNewCount := int(float64(totalNodes) * satellite.Config.Overlay.Node.NewNodeFraction)
@@ -324,9 +324,9 @@ func TestRandomizedSelectionCache(t *testing.T) {
 			nodeCounts[newID] = 0
 		}
 
-		err := nodeSelectionCache.Refresh(ctx)
+		err := uploadSelectionCache.Refresh(ctx)
 		require.NoError(t, err)
-		reputable, new := nodeSelectionCache.Size()
+		reputable, new := uploadSelectionCache.Size()
 		require.Equal(t, totalNodes-expectedNewCount, reputable)
 		require.Equal(t, expectedNewCount, new)
 
@@ -338,7 +338,7 @@ func TestRandomizedSelectionCache(t *testing.T) {
 				RequestedCount: numNodesToSelect,
 			}
 
-			nodes, err = nodeSelectionCache.GetNodes(ctx, req)
+			nodes, err = uploadSelectionCache.GetNodes(ctx, req)
 			require.NoError(t, err)
 			require.Len(t, nodes, numNodesToSelect)
 

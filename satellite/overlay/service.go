@@ -262,10 +262,10 @@ func (node *SelectedNode) Clone() *SelectedNode {
 //
 // architecture: Service
 type Service struct {
-	log            *zap.Logger
-	db             DB
-	config         Config
-	SelectionCache *NodeSelectionCache
+	log                  *zap.Logger
+	db                   DB
+	config               Config
+	UploadSelectionCache *UploadSelectionCache
 }
 
 // NewService returns a new Service.
@@ -278,7 +278,7 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 		log:    log,
 		db:     db,
 		config: config,
-		SelectionCache: NewNodeSelectionCache(log, db,
+		UploadSelectionCache: NewUploadSelectionCache(log, db,
 			config.NodeSelectionCache.Staleness, config.Node,
 		),
 	}, nil
@@ -313,7 +313,7 @@ func (service *Service) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs 
 // GetNodeIPs returns a map of node ip:port for the supplied nodeIDs.
 func (service *Service) GetNodeIPs(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]string, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.SelectionCache.GetNodeIPs(ctx, nodeIDs)
+	return service.UploadSelectionCache.GetNodeIPs(ctx, nodeIDs)
 }
 
 // IsOnline checks if a node is 'online' based on the collected statistics.
@@ -346,7 +346,7 @@ func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindS
 		return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
 	}
 
-	selectedNodes, err := service.SelectionCache.GetNodes(ctx, req)
+	selectedNodes, err := service.UploadSelectionCache.GetNodes(ctx, req)
 	if err != nil {
 		service.log.Warn("error selecting from node selection cache", zap.String("err", err.Error()))
 	}
@@ -544,7 +544,7 @@ func (service *Service) TestVetNode(ctx context.Context, nodeID storj.NodeID) (v
 		service.log.Warn("error vetting node", zap.Stringer("node ID", nodeID))
 		return nil, err
 	}
-	err = service.SelectionCache.Refresh(ctx)
+	err = service.UploadSelectionCache.Refresh(ctx)
 	service.log.Warn("nodecache refresh err", zap.Error(err))
 	return vettedTime, err
 }
@@ -556,7 +556,7 @@ func (service *Service) TestUnvetNode(ctx context.Context, nodeID storj.NodeID) 
 		service.log.Warn("error unvetting node", zap.Stringer("node ID", nodeID), zap.Error(err))
 		return err
 	}
-	err = service.SelectionCache.Refresh(ctx)
+	err = service.UploadSelectionCache.Refresh(ctx)
 	service.log.Warn("nodecache refresh err", zap.Error(err))
 	return err
 }
