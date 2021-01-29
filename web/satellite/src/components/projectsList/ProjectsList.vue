@@ -6,7 +6,16 @@
         <div class="projects-list__title-area">
             <h2 class="projects-list__title-area__title">Projects</h2>
         </div>
+        <div class="projects-list__title-area__right" v-if="currentProjectsPage.projects">
+            <VButton
+                label="Create Project +"
+                width="203px"
+                height="44px"
+                :on-press="onCreateClick"
+            />
+        </div>
         <div class="projects-list-items" v-if="currentProjectsPage.projects">
+            <SortProjectsListHeader />
             <div class="projects-list-items__content">
                 <VList
                     :data-set="projects"
@@ -27,18 +36,25 @@
 import { Component, Vue } from 'vue-property-decorator';
 import { ProjectsApiGql } from '@/api/projects';
 import { ProjectsCursor, ProjectsPage, Project } from '@/types/projects';
+import { RouteConfig } from '@/router';
 
-import ProjectsListItem from "@/components/projectsList/ProjectsListItem.vue"
+import ProjectsListItem from '@/components/projectsList/ProjectsListItem.vue'
+import SortProjectsListHeader from '@/components/projectsList/SortProjectsListHeader.vue'
+import VButton from '@/components/common/VButton.vue';
 import VList from '@/components/common/VList.vue';
 import VPagination from '@/components/common/VPagination.vue';
 
 @Component({
     components: {
+        SortProjectsListHeader,
+        VButton,
         VList,
         VPagination,
     },
 })
 export default class Projects extends Vue {
+
+    private currentPageNumber: number = 1;
 
     private projectsApi: ProjectsApiGql = new ProjectsApiGql();
 
@@ -55,7 +71,7 @@ export default class Projects extends Vue {
     her test banner should be displayed.
     */
     public async queryProjectsApi(): Promise<void> {
-        const response = await this.projectsApi.getOwnedProjects(new ProjectsCursor(5, 1));
+        const response = await this.projectsApi.getOwnedProjects(new ProjectsCursor(2, this.currentPageNumber));
         console.log("RESPN:", response);
         this.currentProjectsPage = response;
     }
@@ -66,7 +82,9 @@ export default class Projects extends Vue {
         // } catch (error) {
         //     await this.$notify.error(`Unable to fetch buckets: ${error.message}`);
         // }
-        console.log("PAGE CLICK")
+        this.currentPageNumber = page;
+        this.queryProjectsApi();
+        console.log("PAGE CLICK");
     }
 
     public get itemComponent() {
@@ -76,6 +94,10 @@ export default class Projects extends Vue {
     public get projects(): Project[] {
         console.log("PROJETS:", this.currentProjectsPage.projects)
         return this.currentProjectsPage.projects;
+    }
+
+    public onCreateClick(): void {
+        this.$router.push(RouteConfig.CreateProject.path);
     }
 
 
@@ -92,6 +114,9 @@ export default class Projects extends Vue {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            float: left;
+            position: relative;
+            top: 10px;
 
             &__title {
                 font-family: 'font_bold', sans-serif;
@@ -99,6 +124,29 @@ export default class Projects extends Vue {
                 line-height: 27px;
                 color: #263549;
                 margin: 0;
+            }
+
+            &__right {
+                float: right;
+                margin: 0 0 20px 0;
+
+                .container {
+                    background: #BBBEC2;
+                }
+            }
+        }
+
+        .projects-list-items {
+            position: relative;
+
+            &__content {
+                background-color: #fff;
+                display: flex;
+                flex-direction: column;
+                width: calc(100% - 32px);
+                justify-content: flex-start;
+                padding: 16px;
+                border-radius: 0 0 8px 8px;
             }
         }
     }

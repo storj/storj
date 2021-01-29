@@ -3,28 +3,28 @@
 
 <template>
     <div class="sort-header-container">
-        <div class="sort-header-container__name-item" @click="onHeaderItemClick(AccessGrantsOrderBy.NAME)">
+        <div class="sort-header-container__name-item">
             <p class="sort-header-container__name-item__title">NAME</p>
             <VerticalArrows
                 :is-active="areAccessGrantsSortedByName"
                 :direction="getSortDirection"
             />
         </div>
-        <div class="sort-header-container__data-item" @click="onHeaderItemClick(AccessGrantsOrderBy.CREATED_AT)">
-            <p class="sort-header-container__data-item__title">DATA STORED</p>
+        <div class="sort-header-container__data-item">
+            <p class="sort-header-container__data-item__title">DESCRIPTION</p>
             <VerticalArrows
                 :is-active="!areAccessGrantsSortedByName"
                 :direction="getSortDirection"
             />
         </div>
-        <div class="sort-header-container__users-item" @click="onHeaderItemClick(AccessGrantsOrderBy.CREATED_AT)">
+        <div class="sort-header-container__users-item" >
             <p class="sort-header-container__users-item__title">USERS</p>
             <VerticalArrows
                 :is-active="!areAccessGrantsSortedByName"
                 :direction="getSortDirection"
             />
         </div>
-        <div class="sort-header-container__date-item" @click="onHeaderItemClick(AccessGrantsOrderBy.CREATED_AT)">
+        <div class="sort-header-container__date-item">
             <p class="sort-header-container__date-item__title">DATE ADDED</p>
             <VerticalArrows
                 :is-active="!areAccessGrantsSortedByName"
@@ -48,46 +48,46 @@ import { SortDirection } from '@/types/common';
     },
 })
 export default class SortAccessGrantsHeader extends Vue {
-    @Prop({default: () => new Promise(() => false)})
-    private readonly onHeaderClickCallback: OnHeaderClickCallback;
-
-    public AccessGrantsOrderBy = AccessGrantsOrderBy;
-
-    public sortBy: AccessGrantsOrderBy = AccessGrantsOrderBy.NAME;
-    public sortDirection: SortDirection = SortDirection.ASCENDING;
-
-    /**
-     * Used for arrow styling.
-     */
-    public get getSortDirection(): SortDirection {
-        return this.sortDirection === SortDirection.DESCENDING ? SortDirection.ASCENDING : SortDirection.DESCENDING;
-    }
-
-    public get areAccessGrantsSortedByName(): boolean {
-        return this.sortBy === AccessGrantsOrderBy.NAME;
-    }
-
-    /**
-     * Sets sorting kind if different from current.
-     * If same, changes sort direction.
-     * @param sortBy
-     */
-    public async onHeaderItemClick(sortBy: AccessGrantsOrderBy): Promise<void> {
-        if (this.sortBy !== sortBy) {
-            this.sortBy = sortBy;
-            this.sortDirection = SortDirection.ASCENDING;
-
-            await this.onHeaderClickCallback(this.sortBy, this.sortDirection);
-
-            return;
-        }
-
-        this.sortDirection = this.sortDirection === SortDirection.DESCENDING ?
-            SortDirection.ASCENDING
-            : SortDirection.DESCENDING;
-
-        await this.onHeaderClickCallback(this.sortBy, this.sortDirection);
-    }
+    // @Prop({default: () => new Promise(() => false)})
+    // private readonly onHeaderClickCallback: OnHeaderClickCallback;
+    //
+    // public AccessGrantsOrderBy = AccessGrantsOrderBy;
+    //
+    // public sortBy: AccessGrantsOrderBy = AccessGrantsOrderBy.NAME;
+    // public sortDirection: SortDirection = SortDirection.ASCENDING;
+    //
+    // /**
+    //  * Used for arrow styling.
+    //  */
+    // public get getSortDirection(): SortDirection {
+    //     return this.sortDirection === SortDirection.DESCENDING ? SortDirection.ASCENDING : SortDirection.DESCENDING;
+    // }
+    //
+    // public get areAccessGrantsSortedByName(): boolean {
+    //     return this.sortBy === AccessGrantsOrderBy.NAME;
+    // }
+    //
+    // /**
+    //  * Sets sorting kind if different from current.
+    //  * If same, changes sort direction.
+    //  * @param sortBy
+    //  */
+    // public async onHeaderItemClick(sortBy: AccessGrantsOrderBy): Promise<void> {
+    //     if (this.sortBy !== sortBy) {
+    //         this.sortBy = sortBy;
+    //         this.sortDirection = SortDirection.ASCENDING;
+    //
+    //         await this.onHeaderClickCallback(this.sortBy, this.sortDirection);
+    //
+    //         return;
+    //     }
+    //
+    //     this.sortDirection = this.sortDirection === SortDirection.DESCENDING ?
+    //         SortDirection.ASCENDING
+    //         : SortDirection.DESCENDING;
+    //
+    //     await this.onHeaderClickCallback(this.sortBy, this.sortDirection);
+    // }
 }
 </script>
 
@@ -102,8 +102,10 @@ export default class SortAccessGrantsHeader extends Vue {
         border-radius: 8px 8px 0 0;
 
         &__name-item,
+        &__data-item,
+        &__users-item,
         &__date-item {
-            width: 60%;
+            width: 25%;
             display: flex;
             align-items: center;
             margin: 0;
@@ -122,7 +124,7 @@ export default class SortAccessGrantsHeader extends Vue {
         }
 
         &__date-item {
-            width: 40%;
+            width: 25%;
 
             &__title {
                 margin: 0;

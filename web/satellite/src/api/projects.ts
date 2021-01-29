@@ -190,6 +190,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
                 key.description,
                 key.createdAt,
                 key.ownerId,
+                false,
                 key.memberCount));
 
         return new ProjectsPage(projects, page.limit, page.offset, page.pageCount, page.currentPage, page.totalCount);

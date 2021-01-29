@@ -69,6 +69,14 @@ export class Project {
         public isSelected: boolean = false,
         public memberCount: number = 0,
     ) {}
+
+    /**
+     * Returns created date as a local string.
+     */
+    public createdDate(): string {
+        const createdAt = new Date(this.createdAt);
+        return createdAt.toLocaleString('en-US', {timeZone: 'UTC', timeZoneName: 'short'});
+    }
 }
 
 /**

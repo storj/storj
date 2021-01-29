@@ -5,6 +5,8 @@
     <div class="container">
         <p class="container__item name" :title="itemData.name">{{ itemData.name }}</p>
         <p class="container__item">{{ itemData.description }}</p>
+        <p class="container__item">{{ itemData.memberCount }}</p>
+        <p class="container__item">{{ itemData.createdDate() }}</p>
     </div>
 </template>
 
@@ -34,7 +36,7 @@ export default class ProjectsListItem extends Vue {
         width: calc(100% - 80px);
 
         &__item {
-            width: 20%;
+            width: 25%;
             font-family: 'font_medium', sans-serif;
             font-size: 16px;
             margin: 0;
@@ -42,7 +44,7 @@ export default class ProjectsListItem extends Vue {
     }
 
     .name {
-        width: 40%;
+        width: 25%;
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
