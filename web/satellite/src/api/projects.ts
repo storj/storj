@@ -170,7 +170,6 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
         };
 
         const response = await this.query(query, variables);
-
         return this.getProjectsPage(response.data.ownedProjects);
     }
 

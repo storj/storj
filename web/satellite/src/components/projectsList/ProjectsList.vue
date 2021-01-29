@@ -6,19 +6,34 @@
         <div class="projects-list__title-area">
             <h2 class="projects-list__title-area__title">Projects</h2>
         </div>
+        <div v-if="currentProjectsPage.projects">
+            <VList
+                :data-set="projects"
+                :item-component="itemComponent"
+            />
+        </div>
+        <div class="buckets-area__pagination-area">
+            <VPagination
+                :total-page-count="currentProjectsPage.pageCount"
+                :on-page-click-callback="onPageClick"
+            />
+        </div>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 import { ProjectsApiGql } from '@/api/projects';
-import { ProjectsCursor } from '@/types/projects';
+import { ProjectsCursor, ProjectsPage, Project } from '@/types/projects';
+// import { ProjectsListItem } from '@/components/projectsList/ProjectsListItem.vue';
+import ProjectsListItem from "./ProjectsListItem.vue"
 
 @Component({})
 export default class Projects extends Vue {
 
-    private projects: ProjectsApiGql = new ProjectsApiGql();
+    private projectsApi: ProjectsApiGql = new ProjectsApiGql();
 
+    private currentProjectsPage: ProjectsPage = new ProjectsPage();
     /**
     * Component initialization.
     */
@@ -27,12 +42,33 @@ export default class Projects extends Vue {
     }
 
     /**
-    * Determines whether test banner should be displayed.
+    * Determines whet
+    her test banner should be displayed.
     */
     public async queryProjectsApi(): Promise<void> {
-        const response = await this.projects.getOwnedProjects(new ProjectsCursor(5, 1));
-        console.log("RESP:", response)
+        const response = await this.projectsApi.getOwnedProjects(new ProjectsCursor(5, 1));
+        console.log("RESPN:", response);
+        this.currentProjectsPage = response;
     }
+
+    public async onPageClick(page: number): Promise<void> {
+        // try {
+        //     await this.$store.dispatch(FETCH, page);
+        // } catch (error) {
+        //     await this.$notify.error(`Unable to fetch buckets: ${error.message}`);
+        // }
+        console.log("PAGE CLICK")
+    }
+
+    public get itemComponent() {
+        return ProjectsListItem;
+    }
+
+    public get projects(): Project[] {
+        console.log("PROJETS:", this.currentProjectsPage.projects)
+        return this.currentProjectsPage.projects;
+    }
+
 
 }
 </script>
