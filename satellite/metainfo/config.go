@@ -193,6 +193,8 @@ type MetabaseDB interface {
 	CommitInlineSegment(ctx context.Context, opts metabase.CommitInlineSegment) (err error)
 	// GetObjectLatestVersion returns object information for latest version.
 	GetObjectLatestVersion(ctx context.Context, opts metabase.GetObjectLatestVersion) (_ metabase.Object, err error)
+	// GetSegmentByLocation returns a information about segment on the specified location.
+	GetSegmentByLocation(ctx context.Context, opts metabase.GetSegmentByLocation) (segment metabase.Segment, err error)
 	// GetSegmentByPosition returns a information about segment which covers specified offset.
 	GetSegmentByPosition(ctx context.Context, opts metabase.GetSegmentByPosition) (segment metabase.Segment, err error)
 	// GetLatestObjectLastSegment returns an object last segment information.

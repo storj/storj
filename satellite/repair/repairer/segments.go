@@ -105,28 +105,16 @@ func NewSegmentRepairer(
 func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (shouldDelete bool, err error) {
 	defer mon.Task()(&ctx, path)(&err)
 
+	// TODO extend InjuredSegment with StreamID/Position and replace path
 	segmentLocation, err := metabase.ParseSegmentKey(metabase.SegmentKey(path))
 	if err != nil {
 		return false, metainfoGetError.Wrap(err)
 	}
 
-	// TODO extend InjuredSegment with StreamID/Position and replace path
-	object, err := repairer.metabase.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
-		ObjectLocation: segmentLocation.Object(),
-	})
-	if err != nil {
-		if storj.ErrObjectNotFound.Has(err) {
-			mon.Meter("repair_unnecessary").Mark(1)            //mon:locked
-			mon.Meter("segment_deleted_before_repair").Mark(1) //mon:locked
-			repairer.log.Debug("segment was deleted")
-			return true, nil
-		}
-		return false, metainfoGetError.Wrap(err)
-	}
-
-	segment, err := repairer.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
-		StreamID: object.StreamID,
-		Position: segmentLocation.Position,
+	// TODO we should replace GetSegmentByLocation with GetSegmentByPosition when
+	// we refactor the repair queue to store metabase.SegmentPosition instead of storj.Path.
+	segment, err := repairer.metabase.GetSegmentByLocation(ctx, metabase.GetSegmentByLocation{
+		SegmentLocation: segmentLocation,
 	})
 	if err != nil {
 		if storj.ErrObjectNotFound.Has(err) {
@@ -378,7 +366,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	}
 
 	err = repairer.metabase.UpdateSegmentPieces(ctx, metabase.UpdateSegmentPieces{
-		StreamID: object.StreamID,
+		StreamID: segment.StreamID,
 		Position: segmentLocation.Position,
 
 		OldPieces: segment.Pieces,
