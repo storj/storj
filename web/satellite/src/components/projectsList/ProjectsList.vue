@@ -6,17 +6,19 @@
         <div class="projects-list__title-area">
             <h2 class="projects-list__title-area__title">Projects</h2>
         </div>
-        <div v-if="currentProjectsPage.projects">
-            <VList
-                :data-set="projects"
-                :item-component="itemComponent"
-            />
-        </div>
-        <div class="buckets-area__pagination-area">
-            <VPagination
-                :total-page-count="currentProjectsPage.pageCount"
-                :on-page-click-callback="onPageClick"
-            />
+        <div class="projects-list-items" v-if="currentProjectsPage.projects">
+            <div class="projects-list-items__content">
+                <VList
+                    :data-set="projects"
+                    :item-component="itemComponent"
+                />
+            </div>
+            <div class="projects-list-items__pagination-area">
+                <VPagination
+                    :total-page-count="currentProjectsPage.pageCount"
+                    :on-page-click-callback="onPageClick"
+                />
+            </div>
         </div>
     </div>
 </template>
@@ -25,10 +27,17 @@
 import { Component, Vue } from 'vue-property-decorator';
 import { ProjectsApiGql } from '@/api/projects';
 import { ProjectsCursor, ProjectsPage, Project } from '@/types/projects';
-// import { ProjectsListItem } from '@/components/projectsList/ProjectsListItem.vue';
-import ProjectsListItem from "./ProjectsListItem.vue"
 
-@Component({})
+import ProjectsListItem from "@/components/projectsList/ProjectsListItem.vue"
+import VList from '@/components/common/VList.vue';
+import VPagination from '@/components/common/VPagination.vue';
+
+@Component({
+    components: {
+        VList,
+        VPagination,
+    },
+})
 export default class Projects extends Vue {
 
     private projectsApi: ProjectsApiGql = new ProjectsApiGql();
