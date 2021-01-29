@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -15,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/macaroon"
 	"storj.io/common/pb"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
@@ -90,7 +92,27 @@ func accessList(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
+type base64url []byte
+
+func (b base64url) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + base64.URLEncoding.EncodeToString(b) + `"`), nil
+}
+
+type accessInfo struct {
+	SatelliteAddr    string               `json:"satellite_addr,omitempty"`
+	EncryptionAccess *pb.EncryptionAccess `json:"encryption_access,omitempty"`
+	Macaroon         accessInfoMacaroon   `json:"macaroon"`
+}
+
+type accessInfoMacaroon struct {
+	Head    base64url         `json:"head"`
+	Caveats []macaroon.Caveat `json:"caveats"`
+	Tail    base64url         `json:"tail"`
+}
+
 func accessInspect(cmd *cobra.Command, args []string) (err error) {
+	// FIXME: This is inefficient. We end up parsing, serializing, parsing
+	// again. It can get particularly bad with large access grants.
 	access, err := getAccessFromArgZeroOrConfig(inspectCfg, args)
 	if err != nil {
 		return errs.New("no access specified: %w", err)
@@ -101,26 +123,64 @@ func accessInspect(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	satAddr, apiKey, ea, err := parseAccess(serializedAccesss)
+	p, err := parseAccessRaw(serializedAccesss)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println("=========== ACCESS INFO ==================================================================")
-	fmt.Println("Satellite        :", satAddr)
-	fmt.Println("API Key          :", apiKey)
-	fmt.Println("Encryption Access:", ea)
+	m, err := macaroon.ParseMacaroon(p.ApiKey)
+	if err != nil {
+		return err
+	}
+
+	ai := accessInfo{
+		SatelliteAddr:    p.SatelliteAddr,
+		EncryptionAccess: p.EncryptionAccess,
+		Macaroon: accessInfoMacaroon{
+			Head:    m.Head(),
+			Caveats: []macaroon.Caveat{},
+			Tail:    m.Tail(),
+		},
+	}
+
+	for _, cb := range m.Caveats() {
+		var c macaroon.Caveat
+
+		err := pb.Unmarshal(cb, &c)
+		if err != nil {
+			return err
+		}
+
+		ai.Macaroon.Caveats = append(ai.Macaroon.Caveats, c)
+	}
+
+	bs, err := json.MarshalIndent(ai, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(string(bs))
+
 	return nil
 }
 
-func parseAccess(access string) (sa string, apiKey string, ea string, err error) {
+func parseAccessRaw(access string) (_ *pb.Scope, err error) {
 	data, version, err := base58.CheckDecode(access)
 	if err != nil || version != 0 {
-		return "", "", "", errs.New("invalid access grant format: %w", err)
+		return nil, errs.New("invalid access grant format: %w", err)
 	}
 
 	p := new(pb.Scope)
 	if err := pb.Unmarshal(data, p); err != nil {
+		return nil, err
+	}
+
+	return p, nil
+}
+
+func parseAccess(access string) (sa string, apiKey string, ea string, err error) {
+	p, err := parseAccessRaw(access)
+	if err != nil {
 		return "", "", "", err
 	}
 
