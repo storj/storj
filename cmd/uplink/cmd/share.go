@@ -66,15 +66,20 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	var accessKey string
-
 	if shareCfg.Register || shareCfg.URL || shareCfg.DNS != "" {
 		isPublic := (shareCfg.Public || shareCfg.URL || shareCfg.DNS != "")
-		accessKey, _, _, err = RegisterAccess(newAccess, shareCfg.AuthService, isPublic, defaultAccessRegisterTimeout)
+		accessKey, secretKey, endpoint, err := RegisterAccess(newAccess, shareCfg.AuthService, isPublic, defaultAccessRegisterTimeout)
 		if err != nil {
 			return err
 		}
-		fmt.Println("Public Access: ", isPublic)
+		err = DisplayGatewayCredentials(accessKey, secretKey, endpoint, "", "")
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Println("Public Access: ", isPublic)
+		if err != nil {
+			return err
+		}
 
 		if len(shareCfg.AllowedPathPrefix) == 1 && !permission.AllowUpload && !permission.AllowDelete {
 			if shareCfg.URL {

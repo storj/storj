@@ -144,29 +144,8 @@ func accessRegister(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return err
 	}
-	switch registerCfg.Format {
-	case "env": // export / set compatible format
-		fmt.Printf("AWS_ACCESS_KEY_ID=%s\n", accessKey)
-		fmt.Printf("AWS_SECRET_ACCESS_KEY=%s\n", secretKey)
-		// note that AWS_ENDPOINT configuration is not natively utilized by the AWS CLI
-		fmt.Printf("AWS_ENDPOINT=%s\n", endpoint)
-	case "aws": // aws configuration commands
-		profile := ""
-		if registerCfg.AWSProfile != "" {
-			profile = " --profile " + registerCfg.AWSProfile
-			fmt.Printf("aws configure %s\n", profile)
-		}
-		fmt.Printf("aws configure %s set aws_access_key_id %s\n", profile, accessKey)
-		fmt.Printf("aws configure %s set aws_secret_access_key %s\n", profile, secretKey)
-		// note that this configuration is not natively utilized by the AWS CLI
-		fmt.Printf("aws configure %s set s3.endpoint_url %s\n", profile, endpoint)
-	default: // plain text
-		fmt.Println("========== CREDENTIALS ===================================================================")
-		fmt.Println("Access Key ID: ", accessKey)
-		fmt.Println("Secret Key   : ", secretKey)
-		fmt.Println("Endpoint     : ", endpoint)
-	}
-	return nil
+
+	return DisplayGatewayCredentials(accessKey, secretKey, endpoint, registerCfg.Format, registerCfg.AWSProfile)
 }
 
 func getAccessFromArgZeroOrConfig(config AccessConfig, args []string) (access *uplink.Access, err error) {
@@ -181,6 +160,48 @@ func getAccessFromArgZeroOrConfig(config AccessConfig, args []string) (access *u
 		return uplink.ParseAccess(args[0])
 	}
 	return config.GetAccess()
+}
+
+// DisplayGatewayCredentials formats and writes credentials to stdout.
+func DisplayGatewayCredentials(accessKey, secretKey, endpoint, format, awsProfile string) (err error) {
+	switch format {
+	case "env": // export / set compatible format
+		// note that AWS_ENDPOINT configuration is not natively utilized by the AWS CLI
+		_, err = fmt.Printf("AWS_ACCESS_KEY_ID=%s\n"+
+			"AWS_SECRET_ACCESS_KEY=%s\n"+
+			"AWS_ENDPOINT=%s\n",
+			accessKey, secretKey, endpoint)
+		if err != nil {
+			return err
+		}
+	case "aws": // aws configuration commands
+		profile := ""
+		if awsProfile != "" {
+			profile = " --profile " + awsProfile
+			_, err = fmt.Printf("aws configure %s\n", profile)
+			if err != nil {
+				return err
+			}
+		}
+		// note that the endpoint_url configuration is not natively utilized by the AWS CLI
+		_, err = fmt.Printf("aws configure %s set aws_access_key_id %s\n"+
+			"aws configure %s set aws_secret_access_key %s\n"+
+			"aws configure %s set s3.endpoint_url %s\n",
+			profile, accessKey, profile, secretKey, profile, endpoint)
+		if err != nil {
+			return err
+		}
+	default: // plain text
+		_, err = fmt.Printf("========== CREDENTIALS ===================================================================\n"+
+			"Access Key ID: %s\n"+
+			"Secret Key   : %s\n"+
+			"Endpoint     : %s\n",
+			accessKey, secretKey, endpoint)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // RegisterAccess registers an access grant with a Gateway Authorization Service.
