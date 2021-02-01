@@ -165,23 +165,25 @@ func ParseSegmentKey(encoded SegmentKey) (SegmentLocation, error) {
 		return SegmentLocation{}, Error.New("invalid key %q", encoded)
 	}
 
-	var index uint32
+	var position SegmentPosition
 	if elements[1] == LastSegmentName {
-		index = LastSegmentIndex
+		position.Index = LastSegmentIndex
 	} else {
-		numstr := strings.TrimPrefix(elements[1], "s")
-		// remove prefix `s` from segment index we got
-		parsed, err := strconv.ParseUint(numstr, 10, 64)
+		if !strings.HasPrefix(elements[1], "s") {
+			return SegmentLocation{}, Error.New("invalid %q, missing segment prefix in %q", string(encoded), elements[1])
+		}
+		// skip 's' prefix from segment index we got
+		parsed, err := strconv.ParseUint(elements[1][1:], 10, 64)
 		if err != nil {
 			return SegmentLocation{}, Error.New("invalid %q, segment number %q", string(encoded), elements[1])
 		}
-		index = uint32(parsed)
+		position = SegmentPositionFromEncoded(parsed)
 	}
 
 	return SegmentLocation{
 		ProjectID:  projectID,
 		BucketName: elements[2],
-		Position:   SegmentPosition{Index: index},
+		Position:   position,
 		ObjectKey:  ObjectKey(elements[3]),
 	}, nil
 }
