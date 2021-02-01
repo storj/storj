@@ -326,6 +326,113 @@ func TestGetObjectLatestVersion(t *testing.T) {
 	})
 }
 
+func TestGetSegmentByLocation(t *testing.T) {
+	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := randObjectStream()
+
+		now := time.Now()
+
+		location := metabase.SegmentLocation{
+			ProjectID:  obj.ProjectID,
+			BucketName: obj.BucketName,
+			ObjectKey:  obj.ObjectKey,
+		}
+
+		for _, test := range invalidSegmentLocations(location) {
+			test := test
+			t.Run(test.Name, func(t *testing.T) {
+				defer DeleteAll{}.Check(ctx, t, db)
+				GetSegmentByLocation{
+					Opts: metabase.GetSegmentByLocation{
+						SegmentLocation: test.SegmentLocation,
+					},
+					ErrClass: test.ErrClass,
+					ErrText:  test.ErrText,
+				}.Check(ctx, t, db)
+
+				Verify{}.Check(ctx, t, db)
+			})
+		}
+
+		t.Run("Object missing", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			GetSegmentByLocation{
+				Opts: metabase.GetSegmentByLocation{
+					SegmentLocation: location,
+				},
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: object or segment missing",
+			}.Check(ctx, t, db)
+
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Get segment", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			createObject(ctx, t, db, obj, 1)
+
+			expectedSegment := metabase.Segment{
+				StreamID: obj.StreamID,
+				Position: metabase.SegmentPosition{
+					Index: 0,
+				},
+				RootPieceID:       storj.PieceID{1},
+				EncryptedKey:      []byte{3},
+				EncryptedKeyNonce: []byte{4},
+				EncryptedSize:     1024,
+				PlainSize:         512,
+				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+				Redundancy:        defaultTestRedundancy,
+			}
+
+			GetSegmentByLocation{
+				Opts: metabase.GetSegmentByLocation{
+					SegmentLocation: location,
+				},
+				Result: expectedSegment,
+			}.Check(ctx, t, db)
+
+			// check non existing segment in existing object
+			GetSegmentByLocation{
+				Opts: metabase.GetSegmentByLocation{
+					SegmentLocation: metabase.SegmentLocation{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Position: metabase.SegmentPosition{
+							Index: 1,
+						},
+					},
+				},
+				ErrClass: &storj.ErrObjectNotFound,
+				ErrText:  "metabase: object or segment missing",
+			}.Check(ctx, t, db)
+
+			Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Committed,
+						SegmentCount: 1,
+
+						TotalPlainSize:     512,
+						TotalEncryptedSize: 1024,
+						FixedSegmentSize:   512,
+
+						Encryption: defaultTestEncryption,
+					},
+				},
+				Segments: []metabase.RawSegment{
+					metabase.RawSegment(expectedSegment),
+				},
+			}.Check(ctx, t, db)
+		})
+	})
+}
+
 func TestGetSegmentByPosition(t *testing.T) {
 	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := randObjectStream()

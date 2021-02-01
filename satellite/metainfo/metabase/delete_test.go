@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/zeebo/errs"
-
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -16,48 +14,6 @@ import (
 	"storj.io/storj/satellite/metainfo/metabase"
 )
 
-type invalidObjectLocation struct {
-	Name           string
-	ObjectLocation metabase.ObjectLocation
-	ErrClass       *errs.Class
-	ErrText        string
-}
-
-func invalidObjectLocations(base metabase.ObjectLocation) []invalidObjectLocation {
-	var tests []invalidObjectLocation
-	{
-		location := base
-		location.ProjectID = uuid.UUID{}
-		tests = append(tests, invalidObjectLocation{
-			Name:           "ProjectID missing",
-			ObjectLocation: location,
-			ErrClass:       &metabase.ErrInvalidRequest,
-			ErrText:        "ProjectID missing",
-		})
-	}
-	{
-		location := base
-		location.BucketName = ""
-		tests = append(tests, invalidObjectLocation{
-			Name:           "BucketName missing",
-			ObjectLocation: location,
-			ErrClass:       &metabase.ErrInvalidRequest,
-			ErrText:        "BucketName missing",
-		})
-	}
-	{
-		location := base
-		location.ObjectKey = ""
-		tests = append(tests, invalidObjectLocation{
-			Name:           "ObjectKey missing",
-			ObjectLocation: location,
-			ErrClass:       &metabase.ErrInvalidRequest,
-			ErrText:        "ObjectKey missing",
-		})
-	}
-
-	return tests
-}
 func TestDeletePendingObject(t *testing.T) {
 	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := randObjectStream()

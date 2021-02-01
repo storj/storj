@@ -155,6 +155,56 @@ func (db *DB) GetObjectLatestVersion(ctx context.Context, opts GetObjectLatestVe
 	return object, nil
 }
 
+// GetSegmentByLocation contains arguments necessary for fetching a segment on specific segment location.
+type GetSegmentByLocation struct {
+	SegmentLocation
+}
+
+// GetSegmentByLocation returns information about segment on the specified location.
+func (db *DB) GetSegmentByLocation(ctx context.Context, opts GetSegmentByLocation) (segment Segment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return Segment{}, err
+	}
+
+	err = db.db.QueryRow(ctx, `
+			SELECT
+				stream_id,
+				root_piece_id, encrypted_key_nonce, encrypted_key,
+				encrypted_size, plain_offset, plain_size,
+				redundancy,
+				inline_data, remote_pieces
+			FROM segments
+			WHERE
+				stream_id IN (SELECT stream_id FROM objects WHERE
+					project_id  = $1 AND
+					bucket_name = $2 AND
+					object_key  = $3
+					ORDER BY version DESC
+					LIMIT 1
+				) AND
+				position = $4
+		`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Position.Encode()).
+		Scan(
+			&segment.StreamID,
+			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
+			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
+			redundancyScheme{&segment.Redundancy},
+			&segment.InlineData, &segment.Pieces,
+		)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Segment{}, storj.ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
+		}
+		return Segment{}, Error.New("unable to query segment: %w", err)
+	}
+
+	segment.Position = opts.Position
+
+	return segment, nil
+}
+
 // GetSegmentByPosition contains arguments necessary for fetching a segment on specific position.
 type GetSegmentByPosition struct {
 	StreamID uuid.UUID
@@ -169,7 +219,7 @@ func (seg *GetSegmentByPosition) Verify() error {
 	return nil
 }
 
-// GetSegmentByPosition returns a information about segment which covers specified offset.
+// GetSegmentByPosition returns information about segment on the specified position.
 func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPosition) (segment Segment, err error) {
 	defer mon.Task()(&ctx)(&err)
 

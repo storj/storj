@@ -18,6 +18,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metainfo/metabase"
 )
 
@@ -178,6 +179,21 @@ type GetObjectLatestVersion struct {
 
 func (step GetObjectLatestVersion) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.GetObjectLatestVersion(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	require.Zero(t, diff)
+}
+
+type GetSegmentByLocation struct {
+	Opts     metabase.GetSegmentByLocation
+	Result   metabase.Segment
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+func (step GetSegmentByLocation) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.GetSegmentByLocation(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
 	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
@@ -511,4 +527,90 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 	return CommitObject{
 		Opts: coOpts,
 	}.Check(ctx, t, db)
+}
+
+type invalidObjectLocation struct {
+	Name           string
+	ObjectLocation metabase.ObjectLocation
+	ErrClass       *errs.Class
+	ErrText        string
+}
+
+func invalidObjectLocations(base metabase.ObjectLocation) []invalidObjectLocation {
+	var tests []invalidObjectLocation
+	{
+		location := base
+		location.ProjectID = uuid.UUID{}
+		tests = append(tests, invalidObjectLocation{
+			Name:           "ProjectID missing",
+			ObjectLocation: location,
+			ErrClass:       &metabase.ErrInvalidRequest,
+			ErrText:        "ProjectID missing",
+		})
+	}
+	{
+		location := base
+		location.BucketName = ""
+		tests = append(tests, invalidObjectLocation{
+			Name:           "BucketName missing",
+			ObjectLocation: location,
+			ErrClass:       &metabase.ErrInvalidRequest,
+			ErrText:        "BucketName missing",
+		})
+	}
+	{
+		location := base
+		location.ObjectKey = ""
+		tests = append(tests, invalidObjectLocation{
+			Name:           "ObjectKey missing",
+			ObjectLocation: location,
+			ErrClass:       &metabase.ErrInvalidRequest,
+			ErrText:        "ObjectKey missing",
+		})
+	}
+
+	return tests
+}
+
+type invalidSegmentLocation struct {
+	Name            string
+	SegmentLocation metabase.SegmentLocation
+	ErrClass        *errs.Class
+	ErrText         string
+}
+
+func invalidSegmentLocations(base metabase.SegmentLocation) []invalidSegmentLocation {
+	var tests []invalidSegmentLocation
+	{
+		location := base
+		location.ProjectID = uuid.UUID{}
+		tests = append(tests, invalidSegmentLocation{
+			Name:            "ProjectID missing",
+			SegmentLocation: location,
+			ErrClass:        &metabase.ErrInvalidRequest,
+			ErrText:         "ProjectID missing",
+		})
+	}
+	{
+		location := base
+		location.BucketName = ""
+		tests = append(tests, invalidSegmentLocation{
+			Name:            "BucketName missing",
+			SegmentLocation: location,
+			ErrClass:        &metabase.ErrInvalidRequest,
+			ErrText:         "BucketName missing",
+		})
+	}
+	{
+		location := base
+		location.ObjectKey = ""
+		tests = append(tests, invalidSegmentLocation{
+			Name:            "ObjectKey missing",
+			SegmentLocation: location,
+			ErrClass:        &metabase.ErrInvalidRequest,
+			ErrText:         "ObjectKey missing",
+		})
+	}
+
+	return tests
 }

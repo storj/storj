@@ -202,6 +202,19 @@ func (seg SegmentLocation) Encode() SegmentKey {
 	))
 }
 
+// Verify segment location fields.
+func (seg SegmentLocation) Verify() error {
+	switch {
+	case seg.ProjectID.IsZero():
+		return ErrInvalidRequest.New("ProjectID missing")
+	case seg.BucketName == "":
+		return ErrInvalidRequest.New("BucketName missing")
+	case len(seg.ObjectKey) == 0:
+		return ErrInvalidRequest.New("ObjectKey missing")
+	}
+	return nil
+}
+
 // ObjectStream uniquely defines an object and stream.
 //
 // TODO: figure out whether ther's a better name.
