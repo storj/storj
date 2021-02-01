@@ -117,11 +117,6 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		return true, invalidRepairError.New("cannot repair inline segment")
 	}
 
-	if !pointer.ExpirationDate.IsZero() && pointer.ExpirationDate.Before(time.Now().UTC()) {
-		mon.Meter("repair_expired").Mark(1) //mon:locked
-		return true, nil
-	}
-
 	mon.Meter("repair_attempts").Mark(1)                                //mon:locked
 	mon.IntVal("repair_segment_size").Observe(pointer.GetSegmentSize()) //mon:locked
 
