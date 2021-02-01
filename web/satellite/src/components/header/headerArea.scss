@@ -66,6 +66,15 @@
     margin-right: 35px;
 }
 
+.projects-route {
+    cursor: pointer;
+    min-width: 130px;
+    font-family: font_medium,sans-serif;
+    font-size: 16px;
+    line-height: 23px;
+    color: #354049;
+}
+
 @media screen and (min-width: 1281px) {
 
     .adapted-navigation,

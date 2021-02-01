@@ -232,16 +232,16 @@ export default class DashboardArea extends Vue {
      * Indicates if billing info bar is shown.
      */
     public get isBillingInfoBarShown(): boolean {
-        const isBillingPage = this.$route.name === RouteConfig.Billing.name;
+        const showBillingInfoBar = (this.$route.name === RouteConfig.Billing.name) || (this.$route.name === RouteConfig.ProjectDashboard.name);
 
-        return isBillingPage && this.projectsCount > 0;
+        return showBillingInfoBar && this.projectsCount > 0;
     }
 
     /**
      * Indicates if project limit info bar is shown.
      */
     public get isProjectLimitInfoBarShown(): boolean {
-        return this.$route.name === RouteConfig.ProjectDashboard.name;
+        return this.$route.name === RouteConfig.ProjectsList.name;
     }
 
     /**
