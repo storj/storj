@@ -29,11 +29,22 @@
         </div>
         <div class="generate-grant__gateway-area" v-if="isGatewayDropdownVisible">
             <div class="generate-grant__gateway-area__toggle" @click="toggleCredentialsVisibility">
-                <h3 class="generate-grant__gateway-area__toggle__label">Gateway Credentials (beta)</h3>
+                <h3 class="generate-grant__gateway-area__toggle__label">Gateway Credentials</h3>
                 <ExpandIcon v-if="!areGatewayCredentialsVisible"/>
                 <HideIcon v-else/>
             </div>
             <div class="generate-grant__gateway-area__container" v-if="areGatewayCredentialsVisible">
+                <div class="generate-grant__gateway-area__container__beta">
+                    <p class="generate-grant__gateway-area__container__beta__message">Gateway MT is currently in Beta</p>
+                    <a
+                        class="generate-grant__gateway-area__container__beta__link"
+                        href="https://forum.storj.io/t/gateway-mt-beta-looking-for-testers/11324"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        Learn More >
+                    </a>
+                </div>
                 <div class="generate-grant__gateway-area__container__warning" v-if="!areKeysVisible">
                     <h3 class="generate-grant__gateway-area__container__warning__title">
                         Using Gateway Credentials Enables Server-Side Encryption.
@@ -325,8 +336,8 @@ export default class ResultStep extends Vue {
         }
 
         &__warning {
-            padding: 20px;
-            width: calc(100% - 42px);
+            padding: 15px;
+            width: calc(100% - 32px);
             background: #fff9f7;
             border: 1px solid #f84b00;
             border-radius: 8px;
@@ -354,7 +365,7 @@ export default class ResultStep extends Vue {
         }
 
         &__grant-area {
-            margin: 40px 0;
+            margin: 20px;
             width: 100%;
 
             &__label {
@@ -412,8 +423,34 @@ export default class ResultStep extends Vue {
             &__container {
                 width: 100%;
 
+                &__beta {
+                    background-color: #effff9;
+                    border: 1px solid #1a9666;
+                    border-radius: 6px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 12px 20px;
+                    margin-top: 20px;
+
+                    &__message {
+                        font-weight: bold;
+                        font-size: 14px;
+                        line-height: 19px;
+                        color: #000;
+                        margin: 0;
+                    }
+
+                    &__link {
+                        font-weight: bold;
+                        font-size: 14px;
+                        line-height: 19px;
+                        color: #1a9666;
+                    }
+                }
+
                 &__warning {
-                    margin-top: 30px;
+                    margin-top: 20px;
                     background: #f5f6fa;
                     border-radius: 6px;
                     padding: 40px 50px;
@@ -477,7 +514,7 @@ export default class ResultStep extends Vue {
         }
 
         &__done-button {
-            margin-top: 30px;
+            margin-top: 20px;
         }
     }
 

@@ -51,10 +51,11 @@ const (
 	// to create a port with a consistent format for storj-sim services.
 
 	// Peer classes.
-	satellitePeer      = 0
-	gatewayPeer        = 1
-	versioncontrolPeer = 2
-	storagenodePeer    = 3
+	satellitePeer       = 0
+	satellitePeerWorker = 4
+	gatewayPeer         = 1
+	versioncontrolPeer  = 2
+	storagenodePeer     = 3
 
 	// Endpoints.
 	publicRPC   = 0
@@ -64,12 +65,15 @@ const (
 	debugHTTP   = 9
 
 	// Satellite specific constants.
-	redisPort         = 4
-	adminHTTP         = 5
-	debugAdminHTTP    = 6
-	debugPeerHTTP     = 7
-	debugRepairerHTTP = 8
-	debugGCHTTP       = 10
+	redisPort      = 4
+	adminHTTP      = 5
+	debugAdminHTTP = 6
+	debugCoreHTTP  = 7
+
+	// Satellite worker specific constants.
+	debugMigrationHTTP = 0
+	debugRepairerHTTP  = 1
+	debugGCHTTP        = 2
 )
 
 // port creates a port with a consistent format for storj-sim services.
@@ -394,7 +398,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		migrationProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"run": {
 				"migration",
-				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugPeerHTTP)),
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeerWorker, i, debugMigrationHTTP)),
 			},
 		})
 		apiProcess.WaitForExited(migrationProcess)
@@ -407,7 +411,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		})
 		coreProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"run": {
-				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugPeerHTTP)),
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugCoreHTTP)),
 				"--orders.encryption-keys", "0100000000000000=0100000000000000000000000000000000000000000000000000000000000000",
 			},
 		})
@@ -435,7 +439,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		repairProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"run": {
 				"repair",
-				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugRepairerHTTP)),
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeerWorker, i, debugRepairerHTTP)),
 				"--orders.encryption-keys", "0100000000000000=0100000000000000000000000000000000000000000000000000000000000000",
 			},
 		})
@@ -449,7 +453,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		garbageCollectionProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"run": {
 				"garbage-collection",
-				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugGCHTTP)),
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeerWorker, i, debugGCHTTP)),
 			},
 		})
 		garbageCollectionProcess.WaitForExited(migrationProcess)

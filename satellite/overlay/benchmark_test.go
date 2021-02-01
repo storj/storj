@@ -442,7 +442,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 
 		service, err := overlay.NewService(zap.NewNop(), overlaydb, overlay.Config{
 			Node: nodeSelectionConfig,
-			NodeSelectionCache: overlay.CacheConfig{
+			NodeSelectionCache: overlay.UploadSelectionCacheConfig{
 				Staleness: time.Hour,
 			},
 		})
@@ -496,9 +496,9 @@ func BenchmarkNodeSelection(b *testing.B) {
 			}
 		})
 
-		b.Run("NodeSelectionCacheGetNodes", func(b *testing.B) {
+		b.Run("UploadSelectionCacheGetNodes", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				selected, err := service.SelectionCache.GetNodes(ctx, overlay.FindStorageNodesRequest{
+				selected, err := service.UploadSelectionCache.GetNodes(ctx, overlay.FindStorageNodesRequest{
 					RequestedCount: SelectCount,
 					ExcludedIDs:    nil,
 					MinimumVersion: "v1.0.0",
@@ -508,9 +508,9 @@ func BenchmarkNodeSelection(b *testing.B) {
 			}
 		})
 
-		b.Run("NodeSelectionCacheGetNodesExclusion", func(b *testing.B) {
+		b.Run("UploadSelectionCacheGetNodesExclusion", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				selected, err := service.SelectionCache.GetNodes(ctx, overlay.FindStorageNodesRequest{
+				selected, err := service.UploadSelectionCache.GetNodes(ctx, overlay.FindStorageNodesRequest{
 					RequestedCount: SelectCount,
 					ExcludedIDs:    excludedIDs,
 					MinimumVersion: "v1.0.0",

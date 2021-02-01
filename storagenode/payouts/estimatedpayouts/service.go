@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/jinzhu/now"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
@@ -54,28 +53,40 @@ func NewService(bandwidthDB bandwidth.DB, reputationDB reputation.DB, storageUsa
 }
 
 // GetSatelliteEstimatedPayout returns estimated payouts for current and previous months from specific satellite with current level of load.
-func (s *Service) GetSatelliteEstimatedPayout(ctx context.Context, satelliteID storj.NodeID) (payout EstimatedPayout, err error) {
+func (s *Service) GetSatelliteEstimatedPayout(ctx context.Context, satelliteID storj.NodeID, now time.Time) (payout EstimatedPayout, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	currentMonthPayout, previousMonthPayout, err := s.estimatedPayout(ctx, satelliteID)
+	currentMonthPayout, previousMonthPayout, err := s.estimatedPayout(ctx, satelliteID, now)
 	if err != nil {
 		return EstimatedPayout{}, EstimationServiceErr.Wrap(err)
 	}
 
 	payout.CurrentMonth = currentMonthPayout
 	payout.PreviousMonth = previousMonthPayout
-	payout.setExpectations(ctx)
 
+	stats, err := s.reputationDB.Get(ctx, satelliteID)
+	if err != nil {
+		return EstimatedPayout{}, EstimationServiceErr.Wrap(err)
+	}
+
+	daysSinceJoined := stats.JoinedAt.Sub(now).Hours() / 24
+	if daysSinceJoined >= float64(now.Day()) {
+		payout.SetExpectedMonth(now)
+
+		return payout, nil
+	}
+
+	payout.CurrentMonthExpectations = (payout.CurrentMonth.Payout / daysSinceJoined) * float64(date.UTCEndOfMonth(now).Day())
 	return payout, nil
 }
 
 // GetAllSatellitesEstimatedPayout returns estimated payouts for current and previous months from all satellites with current level of load.
-func (s *Service) GetAllSatellitesEstimatedPayout(ctx context.Context) (payout EstimatedPayout, err error) {
+func (s *Service) GetAllSatellitesEstimatedPayout(ctx context.Context, now time.Time) (payout EstimatedPayout, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	satelliteIDs := s.trust.GetSatellites(ctx)
 	for i := 0; i < len(satelliteIDs); i++ {
-		current, previous, err := s.estimatedPayout(ctx, satelliteIDs[i])
+		current, previous, err := s.estimatedPayout(ctx, satelliteIDs[i], now)
 		if err != nil {
 			return EstimatedPayout{}, EstimationServiceErr.Wrap(err)
 		}
@@ -97,20 +108,14 @@ func (s *Service) GetAllSatellitesEstimatedPayout(ctx context.Context) (payout E
 		payout.PreviousMonth.EgressRepairAudit += previous.EgressRepairAudit
 		payout.PreviousMonth.Held += previous.Held
 	}
-	payout.setExpectations(ctx)
+
+	payout.SetExpectedMonth(now)
 
 	return payout, nil
 }
 
-// setExpectations set current month expectations.
-func (estimatedPayout *EstimatedPayout) setExpectations(ctx context.Context) {
-	daysPaste := float64(time.Now().Day() - 1)
-	DaysInMonth := float64(now.EndOfMonth().Day())
-	estimatedPayout.CurrentMonthExpectations = (estimatedPayout.CurrentMonth.Payout / daysPaste) * DaysInMonth
-}
-
 // estimatedPayout returns estimated payouts data for current and previous months from specific satellite.
-func (s *Service) estimatedPayout(ctx context.Context, satelliteID storj.NodeID) (currentMonthPayout PayoutMonthly, previousMonthPayout PayoutMonthly, err error) {
+func (s *Service) estimatedPayout(ctx context.Context, satelliteID storj.NodeID, now time.Time) (currentMonthPayout PayoutMonthly, previousMonthPayout PayoutMonthly, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	priceModel, err := s.pricingDB.Get(ctx, satelliteID)
@@ -123,8 +128,8 @@ func (s *Service) estimatedPayout(ctx context.Context, satelliteID storj.NodeID)
 		return PayoutMonthly{}, PayoutMonthly{}, EstimationServiceErr.Wrap(err)
 	}
 
-	currentMonthPayout, err = s.estimationUsagePeriod(ctx, time.Now().UTC(), stats.JoinedAt, priceModel)
-	previousMonthPayout, err = s.estimationUsagePeriod(ctx, time.Now().UTC().AddDate(0, -1, 0), stats.JoinedAt, priceModel)
+	currentMonthPayout, err = s.estimationUsagePeriod(ctx, now.UTC(), stats.JoinedAt, priceModel)
+	previousMonthPayout, err = s.estimationUsagePeriod(ctx, now.UTC().AddDate(0, -1, 0), stats.JoinedAt, priceModel)
 
 	return currentMonthPayout, previousMonthPayout, nil
 }

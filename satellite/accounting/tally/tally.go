@@ -184,9 +184,12 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 
 	// calculate byte hours, not just bytes
 	hours := time.Since(lastTime).Hours()
-	for id := range observer.Node {
-		observer.Node[id] *= hours
+	var totalSum float64
+	for id, pieceSize := range observer.Node {
+		totalSum += pieceSize
+		observer.Node[id] = pieceSize * hours
 	}
+	mon.IntVal("nodetallies.totalsum").Observe(int64(totalSum)) //mon:locked
 
 	// save the new results
 	var errAtRest, errBucketInfo error

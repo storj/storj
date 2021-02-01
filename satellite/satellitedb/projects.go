@@ -203,10 +203,34 @@ func (projects *projects) List(ctx context.Context, offset int64, limit int, bef
 }
 
 // ListByOwnerID is a method for querying all projects from the database by ownerID. It also includes the number of members for each project.
-func (projects *projects) ListByOwnerID(ctx context.Context, ownerID uuid.UUID, limit int, offset int64) (_ console.ProjectsPage, err error) {
+// cursor.Limit is set to 50 if it exceeds 50.
+func (projects *projects) ListByOwnerID(ctx context.Context, ownerID uuid.UUID, cursor console.ProjectsCursor) (_ console.ProjectsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var page console.ProjectsPage
+	if cursor.Limit > 50 {
+		cursor.Limit = 50
+	}
+	if cursor.Page == 0 {
+		return console.ProjectsPage{}, errs.New("page can not be 0")
+	}
+
+	page := console.ProjectsPage{
+		CurrentPage: cursor.Page,
+		Limit:       cursor.Limit,
+		Offset:      int64((cursor.Page - 1) * cursor.Limit),
+	}
+
+	countRow := projects.sdb.QueryRowContext(ctx, projects.sdb.Rebind(`
+		SELECT COUNT(*) FROM projects WHERE owner_id = ?
+	`), ownerID)
+	err = countRow.Scan(&page.TotalCount)
+	if err != nil {
+		return console.ProjectsPage{}, err
+	}
+	page.PageCount = int(page.TotalCount / int64(cursor.Limit))
+	if page.TotalCount%int64(cursor.Limit) != 0 {
+		page.PageCount++
+	}
 
 	rows, err := projects.sdb.Query(ctx, projects.sdb.Rebind(`
 		SELECT id, name, description, owner_id, rate_limit, max_buckets, created_at,
@@ -216,20 +240,20 @@ func (projects *projects) ListByOwnerID(ctx context.Context, ownerID uuid.UUID, 
 			ORDER BY name ASC
 			OFFSET ? ROWS
 			LIMIT ?
-		`), ownerID, offset, limit+1) // add 1 to limit to see if there is another page
+		`), ownerID, page.Offset, page.Limit+1) // add 1 to limit to see if there is another page
 	if err != nil {
 		return console.ProjectsPage{}, err
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	count := 0
-	projectsToSend := make([]console.Project, 0, limit)
+	projectsToSend := make([]console.Project, 0, page.Limit)
 	for rows.Next() {
 		count++
-		if count == limit+1 {
+		if count == page.Limit+1 {
 			// we are done with this page; do not include this project
 			page.Next = true
-			page.NextOffset = offset + int64(limit)
+			page.NextOffset = page.Offset + int64(page.Limit)
 			break
 		}
 		var rateLimit, maxBuckets sql.NullInt32

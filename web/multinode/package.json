@@ -5,7 +5,7 @@
     "serve": "vue-cli-service serve",
     "lint": "vue-cli-service lint && stylelint '**/*.{vue,scss}' --fix",
     "build": "vue-cli-service build",
-    "debug": "vue-cli-service build --mode development",
+    "dev": "vue-cli-service build --mode development",
     "test": "vue-cli-service test:unit"
   },
   "dependencies": {
@@ -23,7 +23,7 @@
     "@vue/cli-service": "4.5.9",
     "babel-core": "6.26.3",
     "core-js": "3.8.1",
-    "node-sass": "4.14.1",
+    "sass": "^1.32.0",
     "sass-loader": "8.0.0",
     "stylelint": "13.8.0",
     "stylelint-config-standard": "20.0.0",

@@ -988,6 +988,22 @@ func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error
 	return
 }
 
+// GetUsersOwnedProjectsPage is a method for querying paged projects.
+func (s *Service) GetUsersOwnedProjectsPage(ctx context.Context, cursor ProjectsCursor) (_ ProjectsPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+	auth, err := s.getAuthAndAuditLog(ctx, "get user's owned projects page")
+	if err != nil {
+		return ProjectsPage{}, Error.Wrap(err)
+	}
+
+	projects, err := s.store.Projects().ListByOwnerID(ctx, auth.User.ID, cursor)
+	if err != nil {
+		return ProjectsPage{}, Error.Wrap(err)
+	}
+
+	return projects, nil
+}
+
 // GetCurrentRewardByType is a method for querying current active reward offer based on its type.
 func (s *Service) GetCurrentRewardByType(ctx context.Context, offerType rewards.OfferType) (offer *rewards.Offer, err error) {
 	defer mon.Task()(&ctx)(&err)

@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.15.6
+GO_VERSION ?= 1.15.7
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
@@ -128,6 +128,11 @@ check-monitoring: ## Check for locked monkit calls that have changed
 	@check-monitoring ./... | diff -U0 ./monkit.lock - \
 	|| (echo "Locked monkit metrics have been changed. Notify #data-science and run \`go run github.com/storj/ci/check-monitoring -out monkit.lock ./...\` to update monkit.lock file." \
 	&& exit 1)
+
+.PHONY: test-wasm-size
+test-wasm-size: ## Test that the built .wasm code has not increased in size
+	@echo "Running ${@}"
+	@./scripts/test-wasm-size.sh
 
 ##@ Build
 

@@ -5,7 +5,7 @@
     <div class="input-container">
         <div v-if="!isOptional" class="label-container">
             <div class="label-container__main">
-                <div v-if="error">
+                <div v-if="error" class="label-container__main__error-icon-container">
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <rect width="20" height="20" rx="10" fill="#EB5757"/>
                         <path d="M10.0012 11.7364C10.612 11.7364 11.1117 11.204 11.1117 10.5532V5.81218C11.1117 5.75302 11.108 5.68991 11.1006 5.63074C11.0192 5.06672 10.5565 4.62891 10.0012 4.62891C9.39037 4.62891 8.89062 5.16138 8.89062 5.81218V10.5492C8.89062 11.204 9.39037 11.7364 10.0012 11.7364Z" fill="white"/>
@@ -33,6 +33,8 @@
             wrap="hard"
             @input="onInput"
             @change="onInput"
+            @paste.prevent="onPaste"
+            autocomplete="off"
             v-model="value">
         </textarea>
         <input
@@ -43,7 +45,9 @@
             :type="[isPassword ? 'password': 'text']"
             @input="onInput"
             @change="onInput"
+            @paste.prevent="onPaste"
             v-model="value"
+            autocomplete="off"
             :style="style.inputStyle"
         />
     </div>
@@ -99,13 +103,13 @@ export default class HeaderedInput extends HeaderlessInput {
             display: flex;
             justify-content: flex-start;
             align-items: center;
+            margin-bottom: 8px;
 
             &__label {
                 font-family: 'font_regular', sans-serif;
                 font-size: 16px;
                 line-height: 21px;
                 color: var(--c-gray);
-                margin-bottom: 8px;
             }
 
             &__error {
@@ -113,6 +117,14 @@ export default class HeaderedInput extends HeaderlessInput {
                 line-height: 21px;
                 color: var(--c-error);
                 margin-left: 10px;
+            }
+
+            &__error-icon-container {
+                width: 20px;
+                height: 20px;
+                max-width: 20px;
+                max-height: 20px;
+                display: flex;
             }
         }
 

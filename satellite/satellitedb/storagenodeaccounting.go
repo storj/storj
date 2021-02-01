@@ -32,13 +32,10 @@ func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally ti
 	}
 	var nodeIDs []storj.NodeID
 	var totals []float64
-	var totalSum float64
 	for id, total := range nodeData {
 		nodeIDs = append(nodeIDs, id)
 		totals = append(totals, total)
-		totalSum += total
 	}
-	mon.IntVal("nodetallies.totalsum").Observe(int64(totalSum)) //mon:locked
 
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
 		_, err = tx.Tx.ExecContext(ctx, db.db.Rebind(`

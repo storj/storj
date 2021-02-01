@@ -1176,6 +1176,42 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes ALTER COLUMN total_uptime_count SET DEFAULT 0;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add columns for professional users",
+				Version:     140,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN position text;`,
+					`ALTER TABLE users ADD COLUMN company_name text;`,
+					`ALTER TABLE users ADD COLUMN working_on text;`,
+					`ALTER TABLE users ADD COLUMN company_size int;`,
+					`ALTER TABLE users ADD COLUMN is_professional boolean NOT NULL DEFAULT false;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop the obsolete (name, project_id) index from bucket_metainfos table.",
+				Version:     141,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+						_, err := db.Exec(ctx,
+							`DROP INDEX bucket_metainfos_name_project_id_key CASCADE;`,
+						)
+						if err != nil {
+							return ErrMigrate.Wrap(err)
+						}
+						return nil
+					}
+
+					_, err := db.Exec(ctx,
+						`ALTER TABLE bucket_metainfos DROP CONSTRAINT bucket_metainfos_name_project_id_key;`,
+					)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+					return nil
+				}),
+			},
 		},
 	}
 }

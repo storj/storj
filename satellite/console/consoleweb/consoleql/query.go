@@ -17,6 +17,8 @@ const (
 	Query = "query"
 	// ProjectQuery is a query name for project.
 	ProjectQuery = "project"
+	// OwnedProjectsQuery is a query name for projects owned by an account.
+	OwnedProjectsQuery = "ownedProjects"
 	// MyProjectsQuery is a query name for projects related to account.
 	MyProjectsQuery = "myProjects"
 	// ActiveRewardQuery is a query name for current active reward offer.
@@ -51,6 +53,19 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 					}
 
 					return project, nil
+				},
+			},
+			OwnedProjectsQuery: &graphql.Field{
+				Type: types.projectsPage,
+				Args: graphql.FieldConfigArgument{
+					CursorArg: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(types.projectsCursor),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					cursor := fromMapProjectsCursor(p.Args[CursorArg].(map[string]interface{}))
+					page, err := service.GetUsersOwnedProjectsPage(p.Context, cursor)
+					return page, err
 				},
 			},
 			MyProjectsQuery: &graphql.Field{

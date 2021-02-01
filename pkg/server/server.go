@@ -6,9 +6,14 @@ package server
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"net"
+	"os"
+	"runtime"
 	"sync"
+	"syscall"
 
+	quicgo "github.com/lucas-clemente/quic-go"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -21,6 +26,7 @@ import (
 	"storj.io/drpc/drpcserver"
 	jaeger "storj.io/monkit-jaeger"
 	"storj.io/storj/pkg/listenmux"
+	"storj.io/storj/pkg/quic"
 )
 
 // Config holds server specific configuration parameters.
@@ -33,9 +39,10 @@ type Config struct {
 }
 
 type public struct {
-	listener net.Listener
-	drpc     *drpcserver.Server
-	mux      *drpcmux.Mux
+	tcpListener  net.Listener
+	quicListener net.Listener
+	drpc         *drpcserver.Server
+	mux          *drpcmux.Mux
 }
 
 type private struct {
@@ -71,22 +78,44 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 		Manager: rpc.NewDefaultManagerOptions(),
 	}
 
-	publicListener, err := net.Listen("tcp", publicAddr)
-	if err != nil {
-		return nil, err
+	var err error
+	var publicTCPListener, publicQUICListener net.Listener
+	for retry := 0; ; retry++ {
+		publicTCPListener, err = net.Listen("tcp", publicAddr)
+		if err != nil {
+			return nil, err
+		}
+
+		publicQUICListener, err = quic.NewListener(tlsOptions.ServerTLSConfig(), publicTCPListener.Addr().String(), &quicgo.Config{MaxIdleTimeout: defaultUserTimeout})
+		if err != nil {
+			_, port, _ := net.SplitHostPort(publicAddr)
+			if port == "0" && retry < 10 && isErrorAddressAlreadyInUse(err) {
+				// from here, we know for sure that the tcp port chosen by the
+				// os is available, but we don't know if the same port number
+				// for udp is also available.
+				// if a udp port is already in use, we will close the tcp port and retry
+				// to find one that is available for both udp and tcp.
+				_ = publicTCPListener.Close()
+				continue
+			}
+			return nil, errs.Combine(err, publicTCPListener.Close())
+		}
+
+		break
 	}
 
 	publicMux := drpcmux.New()
 	publicTracingHandler := rpctracing.NewHandler(publicMux, jaeger.RemoteTraceHandler)
 	server.public = public{
-		listener: wrapListener(publicListener),
-		drpc:     drpcserver.NewWithOptions(publicTracingHandler, serverOptions),
-		mux:      publicMux,
+		tcpListener:  wrapListener(publicTCPListener),
+		quicListener: wrapListener(publicQUICListener),
+		drpc:         drpcserver.NewWithOptions(publicTracingHandler, serverOptions),
+		mux:          publicMux,
 	}
 
 	privateListener, err := net.Listen("tcp", privateAddr)
 	if err != nil {
-		return nil, errs.Combine(err, publicListener.Close())
+		return nil, errs.Combine(err, publicTCPListener.Close(), publicQUICListener.Close())
 	}
 	privateMux := drpcmux.New()
 	privateTracingHandler := rpctracing.NewHandler(privateMux, jaeger.RemoteTraceHandler)
@@ -103,7 +132,7 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 func (p *Server) Identity() *identity.FullIdentity { return p.tlsOptions.Ident }
 
 // Addr returns the server's public listener address.
-func (p *Server) Addr() net.Addr { return p.public.listener.Addr() }
+func (p *Server) Addr() net.Addr { return p.public.tcpListener.Addr() }
 
 // PrivateAddr returns the server's private listener address.
 func (p *Server) PrivateAddr() net.Addr { return p.private.listener.Addr() }
@@ -127,7 +156,8 @@ func (p *Server) Close() error {
 	// We ignore these errors because there's not really anything to do
 	// even if they happen, and they'll just be errors due to duplicate
 	// closes anyway.
-	_ = p.public.listener.Close()
+	_ = p.public.quicListener.Close()
+	_ = p.public.tcpListener.Close()
 	_ = p.private.listener.Close()
 	return nil
 }
@@ -156,7 +186,7 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	// a chance to be notified that they're done running.
 	const drpcHeader = "DRPC!!!1"
 
-	publicMux := listenmux.New(p.public.listener, len(drpcHeader))
+	publicMux := listenmux.New(p.public.tcpListener, len(drpcHeader))
 	publicDRPCListener := tls.NewListener(publicMux.Route(drpcHeader), p.tlsOptions.ServerTLSConfig())
 
 	privateMux := listenmux.New(p.private.listener, len(drpcHeader))
@@ -199,6 +229,10 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		defer cancel()
+		return p.public.drpc.Serve(ctx, p.public.quicListener)
+	})
+	group.Go(func() error {
+		defer cancel()
 		return p.private.drpc.Serve(ctx, privateDRPCListener)
 	})
 
@@ -208,4 +242,25 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	// Now we close down our listeners.
 	muxCancel()
 	return errs.Combine(err, muxGroup.Wait())
+}
+
+// isErrorAddressAlreadyInUse checks whether the error is corresponding to
+// EADDRINUSE. Taken from https://stackoverflow.com/a/65865898.
+func isErrorAddressAlreadyInUse(err error) bool {
+	var eOsSyscall *os.SyscallError
+	if !errors.As(err, &eOsSyscall) {
+		return false
+	}
+	var errErrno syscall.Errno
+	if !errors.As(eOsSyscall.Err, &errErrno) {
+		return false
+	}
+	if errErrno == syscall.EADDRINUSE {
+		return true
+	}
+	const WSAEADDRINUSE = 10048
+	if runtime.GOOS == "windows" && errErrno == WSAEADDRINUSE {
+		return true
+	}
+	return false
 }

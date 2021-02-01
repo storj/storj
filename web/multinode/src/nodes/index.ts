@@ -2,19 +2,6 @@
 // See LICENSE for copying information.
 
 /**
- * NodeToAdd is a representation of storagenode, that SNO could add to the Multinode Dashboard.
- */
-export class NodeToAdd {
-    public id: string; // TODO: create ts analog of storj.NodeID;
-    /**
-     * apiSecret is a secret issued by storagenode, that will be main auth mechanism in MND <-> SNO api.
-     */
-    public apiSecret: string; // TODO: change to Uint8Array[];
-    public publicAddress: string;
-    public name: string;
-}
-
-/**
  * Describes node online statuses.
  */
 export enum NodeStatus {
@@ -22,19 +9,54 @@ export enum NodeStatus {
     Offline = 'offline',
 }
 
-// TODO: refactor this
 /**
- * Node holds all information of node for the Multinode Dashboard.
+ * NodeInfo contains basic node internal state.
  */
 export class Node {
+    public status: NodeStatus = NodeStatus.Offline;
+    private readonly STATUS_TRESHHOLD_MILISECONDS: number = 10.8e6;
+
+    public constructor(
+        public id: string,
+        public name: string,
+        public version: string,
+        public lastContact: Date,
+        public diskSpaceUsed: number,
+        public diskSpaceLeft: number,
+        public bandwidthUsed: number,
+        public onlineScore: number,
+        public auditScore: number,
+        public suspensionScore: number,
+        public earned: number,
+    ) {
+        const now = new Date();
+        if (now.getTime() - this.lastContact.getTime() < this.STATUS_TRESHHOLD_MILISECONDS) {
+            this.status = NodeStatus.Online;
+        }
+    }
+
+    public get displayedName(): string {
+        return this.name || this.id;
+    }
+}
+
+/**
+ * CreateNodeFields is a representation of storagenode, that SNO could add to the Multinode Dashboard.
+ */
+export class CreateNodeFields {
     public constructor(
         public id: string = '',
-        public name: string = '',
-        public diskSpaceUsed: number = 0,
-        public diskSpaceLeft: number = 0,
-        public bandwidthUsed: number = 0,
-        public earned: number = 0,
-        public version: string = '',
-        public status: NodeStatus = NodeStatus.Offline,
+        public apiSecret: string = '',
+        public publicAddress: string = '',
+    ) {}
+}
+
+/**
+ * NodeURL defines a structure for connecting to a node.
+ */
+export class NodeURL {
+    public constructor(
+        public id: string,
+        public address: string,
     ) {}
 }

@@ -429,8 +429,8 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 }
 
 // GetSatelliteEstimatedPayout returns estimated payouts for current and previous months for selected satellite.
-func (s *Service) GetSatelliteEstimatedPayout(ctx context.Context, satelliteID storj.NodeID) (estimatedPayout estimatedpayouts.EstimatedPayout, err error) {
-	estimatedPayout, err = s.estimation.GetSatelliteEstimatedPayout(ctx, satelliteID)
+func (s *Service) GetSatelliteEstimatedPayout(ctx context.Context, satelliteID storj.NodeID, now time.Time) (estimatedPayout estimatedpayouts.EstimatedPayout, err error) {
+	estimatedPayout, err = s.estimation.GetSatelliteEstimatedPayout(ctx, satelliteID, now)
 	if err != nil {
 		return estimatedpayouts.EstimatedPayout{}, SNOServiceErr.Wrap(err)
 	}
@@ -439,8 +439,8 @@ func (s *Service) GetSatelliteEstimatedPayout(ctx context.Context, satelliteID s
 }
 
 // GetAllSatellitesEstimatedPayout returns estimated payouts for current and previous months for all satellites.
-func (s *Service) GetAllSatellitesEstimatedPayout(ctx context.Context) (estimatedPayout estimatedpayouts.EstimatedPayout, err error) {
-	estimatedPayout, err = s.estimation.GetAllSatellitesEstimatedPayout(ctx)
+func (s *Service) GetAllSatellitesEstimatedPayout(ctx context.Context, now time.Time) (estimatedPayout estimatedpayouts.EstimatedPayout, err error) {
+	estimatedPayout, err = s.estimation.GetAllSatellitesEstimatedPayout(ctx, now)
 	if err != nil {
 		return estimatedpayouts.EstimatedPayout{}, SNOServiceErr.Wrap(err)
 	}

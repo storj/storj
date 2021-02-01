@@ -31,12 +31,10 @@ const (
 	TypeCustom Type = 0
 	// TypeAuditCheckFailure is a notification type which describes node's audit check failure.
 	TypeAuditCheckFailure Type = 1
-	// TypeUptimeCheckFailure is a notification type which describes node's uptime check failure.
-	TypeUptimeCheckFailure Type = 2
 	// TypeDisqualification is a notification type which describes node's disqualification status.
-	TypeDisqualification Type = 3
+	TypeDisqualification Type = 2
 	// TypeSuspension is a notification type which describes node's suspension status.
-	TypeSuspension Type = 4
+	TypeSuspension Type = 3
 )
 
 // NewNotification holds notification entity info which is being received from satellite or local client.

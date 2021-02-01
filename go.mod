@@ -12,23 +12,21 @@ require (
 	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang-migrate/migrate/v4 v4.7.0
-	github.com/golang/mock v1.4.4 // indirect
 	github.com/google/go-cmp v0.5.2
 	github.com/google/pprof v0.0.0-20200229191704-1ebb73c60ed3 // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/schema v1.2.0
 	github.com/graphql-go/graphql v0.7.9
-	github.com/jackc/pgconn v1.7.0
+	github.com/jackc/pgconn v1.8.0
 	github.com/jackc/pgerrcode v0.0.0-20201024163028-a0d42d470451
-	github.com/jackc/pgtype v1.5.0
-	github.com/jackc/pgx/v4 v4.9.0
-	github.com/jinzhu/now v1.1.1
+	github.com/jackc/pgtype v1.6.2
+	github.com/jackc/pgx/v4 v4.10.1
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
 	github.com/loov/hrtime v1.0.3
+	github.com/lucas-clemente/quic-go v0.7.1-0.20210131023823-622ca23d4eb4
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/nsf/jsondiff v0.0.0-20200515183724-f29ed568f4ce
 	github.com/nsf/termbox-go v0.0.0-20200418040025-38ba6e5628f1
-	github.com/onsi/ginkgo v1.14.0 // indirect
 	github.com/shopspring/decimal v1.2.0
 	github.com/spacemonkeygo/monkit/v3 v3.0.7
 	github.com/spf13/cobra v1.0.0
@@ -42,16 +40,15 @@ require (
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
-	golang.org/x/net v0.0.0-20200707034311-ab3426394381 // indirect
 	golang.org/x/sync v0.0.0-20201207232520-09787c993a3a
-	golang.org/x/sys v0.0.0-20210112091331-59c308dcf3cc
+	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c
 	golang.org/x/term v0.0.0-20201117132131-f5c789dd3221
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	google.golang.org/api v0.20.0 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
-	storj.io/common v0.0.0-20210115161819-ee11aaf35a7f
+	storj.io/common v0.0.0-20210119231202-8321551aa24d
 	storj.io/drpc v0.0.16
 	storj.io/monkit-jaeger v0.0.0-20200518165323-80778fc3f91b
-	storj.io/private v0.0.0-20210108233641-2ba1ef686d1f
+	storj.io/private v0.0.0-20210120150301-bd3ac3e989f0
 	storj.io/uplink v1.4.6-0.20210115090500-10cfa3d1c277
 )

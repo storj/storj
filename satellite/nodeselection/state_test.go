@@ -203,27 +203,3 @@ next:
 
 	return xs
 }
-
-func TestState_IPs(t *testing.T) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	reputableNodes := createRandomNodes(2, "1.0.1")
-	newNodes := createRandomNodes(2, "1.0.3")
-
-	state := nodeselection.NewState(reputableNodes, newNodes)
-
-	nodeIPs := state.IPs(ctx, nil)
-	require.Equal(t, map[storj.NodeID]string{}, nodeIPs)
-
-	missing := storj.NodeID{}
-	nodeIPs = state.IPs(ctx, []storj.NodeID{
-		reputableNodes[0].ID,
-		newNodes[1].ID,
-		missing,
-	})
-	require.Equal(t, map[storj.NodeID]string{
-		reputableNodes[0].ID: "1.0.1.0:8080",
-		newNodes[1].ID:       "1.0.3.1:8080",
-	}, nodeIPs)
-}

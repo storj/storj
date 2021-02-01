@@ -12,6 +12,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/private/currency"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -76,11 +77,6 @@ func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io
 			}
 		}
 
-		paidYTD, err := db.Compensation().QueryPaidInYear(ctx, usage.NodeID, period.Year)
-		if err != nil {
-			return err
-		}
-
 		nodeInfo := compensation.NodeInfo{
 			ID:                 usage.NodeID,
 			CreatedAt:          node.CreatedAt,
@@ -103,7 +99,7 @@ func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io
 			NodeWallet:  node.Operator.Wallet,
 			NodeAddress: nodeAddress,
 			NodeLastIP:  nodeLastIP,
-			PaidYTD:     paidYTD,
+			PaidYTD:     currency.Zero, // deprecated
 		}
 
 		if err := invoice.MergeNodeInfo(nodeInfo); err != nil {
