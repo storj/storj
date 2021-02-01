@@ -392,7 +392,7 @@ var login string = "test1@g.com"
 			Timeout(time.Minute).
 			ControlURL(url).
 			Trace(true).
-			SlowMotion(300 * time.Millisecond).
+			SlowMotion(3300 * time.Millisecond).
 			MustConnect()
 
 		// Even you forget to close, rod will close it after main process ends.
@@ -404,7 +404,7 @@ var login string = "test1@g.com"
 
 		// Make sure viewport is always consistent.
 		page.MustSetViewport(screenWidth, screenHeigth, 1, false)
-		fmt.Println(page.MustElement("svg.login-container__logo").MustVisible())
+//		fmt.Println(page.MustElement("svg.login-container__logo").MustVisible())
 		header:= page.MustElement("h1.login-area__title-container__title").MustText()
 		fmt.Println(header)
 		forgotText:= page.MustElement("h3.login-area__navigation-area__nav-link__link").MustText()
@@ -426,8 +426,7 @@ var login string = "test1@g.com"
 		supportLink:= page.MustElement("a.login-area__info-area__help").MustAttribute("href")
 		fmt.Println(*supportLink)
 
-		// Output: true
-		// Login to Storj
+		// Output: Login to Storj
 		// Forgot password?
 		// /forgot-password
 		// Create Account
