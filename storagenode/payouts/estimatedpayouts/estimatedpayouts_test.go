@@ -4,6 +4,7 @@
 package estimatedpayouts_test
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -19,19 +20,31 @@ func TestCurrentMonthExpectations(t *testing.T) {
 		StorageNodeCount: 1,
 		SatelliteCount:   2,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		estimatedPayout := estimatedpayouts.EstimatedPayout{
-			CurrentMonth: estimatedpayouts.PayoutMonthly{
-				Payout: 100,
-			},
+		const payout = 100.0
+
+		type test struct {
+			time     time.Time
+			expected float64
+		}
+		tests := []test{
+			// 28 days in month
+			{time.Date(2021, 2, 1, 16, 0, 0, 0, time.UTC), 2800.00},
+			{time.Date(2021, 2, 28, 10, 0, 0, 0, time.UTC), 103.70},
+			// 31 days in month
+			{time.Date(2021, 3, 1, 19, 0, 0, 0, time.UTC), 3100.0},
+			{time.Date(2021, 3, 31, 21, 0, 0, 0, time.UTC), 103.33},
 		}
 
-		currentDay := time.Now().Day() - 1
-		now := time.Now().UTC()
-		y, m, _ := now.Date()
-		daysInMonth := time.Date(y, m+1, 1, 0, 0, 0, -1, &time.Location{}).Day()
+		for _, test := range tests {
+			estimates := estimatedpayouts.EstimatedPayout{
+				CurrentMonth: estimatedpayouts.PayoutMonthly{
+					Payout: payout,
+				},
+			}
 
-		expectations := (estimatedPayout.CurrentMonth.Payout / float64(currentDay)) * float64(daysInMonth)
-		estimatedPayout.SetExpectedMonth(now)
-		require.Equal(t, estimatedPayout.CurrentMonthExpectations, expectations)
+			estimates.SetExpectedMonth(test.time)
+			require.False(t, math.IsNaN(estimates.CurrentMonthExpectations))
+			require.InDelta(t, test.expected, estimates.CurrentMonthExpectations, 0.01)
+		}
 	})
 }

@@ -67,7 +67,13 @@ func RoundFloat(value float64) float64 {
 
 // SetExpectedMonth set current month expectations.
 func (estimatedPayout *EstimatedPayout) SetExpectedMonth(now time.Time) {
-	daysPaste := float64(now.Day() - 1)
-	timeInMonth := date.UTCEndOfMonth(now)
-	estimatedPayout.CurrentMonthExpectations = (estimatedPayout.CurrentMonth.Payout / daysPaste) * float64(timeInMonth.Day())
+	daysPast := float64(now.Day()) - 1
+	if daysPast < 1 {
+		daysPast = 1
+	}
+
+	daysPerMonth := float64(date.UTCEndOfMonth(now).Day())
+	payoutPerDay := estimatedPayout.CurrentMonth.Payout / daysPast
+
+	estimatedPayout.CurrentMonthExpectations = payoutPerDay * daysPerMonth
 }
