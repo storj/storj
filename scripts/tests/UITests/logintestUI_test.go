@@ -383,7 +383,7 @@ var login string = "test1@g.com"
 	func Example_LoginScreen() {
 
 		l := launcher.New().
-			Headless(false).
+			Headless(true).
 			Devtools(false)
 		defer l.Cleanup()
 		url := l.MustLaunch()
