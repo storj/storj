@@ -53,11 +53,10 @@ func NewService(bandwidthDB bandwidth.DB, reputationDB reputation.DB, storageUsa
 }
 
 // GetSatelliteEstimatedPayout returns estimated payouts for current and previous months from specific satellite with current level of load.
-func (s *Service) GetSatelliteEstimatedPayout(ctx context.Context, satelliteID storj.NodeID) (payout EstimatedPayout, err error) {
+func (s *Service) GetSatelliteEstimatedPayout(ctx context.Context, satelliteID storj.NodeID, now time.Time) (payout EstimatedPayout, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	now := time.Now()
-	currentMonthPayout, previousMonthPayout, err := s.estimatedPayout(ctx, satelliteID)
+	currentMonthPayout, previousMonthPayout, err := s.estimatedPayout(ctx, satelliteID, now)
 	if err != nil {
 		return EstimatedPayout{}, EstimationServiceErr.Wrap(err)
 	}
@@ -70,7 +69,7 @@ func (s *Service) GetSatelliteEstimatedPayout(ctx context.Context, satelliteID s
 		return EstimatedPayout{}, EstimationServiceErr.Wrap(err)
 	}
 
-	daysSinceJoined := time.Since(stats.JoinedAt).Hours() / 24
+	daysSinceJoined := stats.JoinedAt.Sub(now).Hours() / 24
 	if daysSinceJoined >= float64(now.Day()) {
 		payout.SetExpectedMonth(now)
 
@@ -82,13 +81,12 @@ func (s *Service) GetSatelliteEstimatedPayout(ctx context.Context, satelliteID s
 }
 
 // GetAllSatellitesEstimatedPayout returns estimated payouts for current and previous months from all satellites with current level of load.
-func (s *Service) GetAllSatellitesEstimatedPayout(ctx context.Context) (payout EstimatedPayout, err error) {
+func (s *Service) GetAllSatellitesEstimatedPayout(ctx context.Context, now time.Time) (payout EstimatedPayout, err error) {
 	defer mon.Task()(&ctx)(&err)
-	now := time.Now()
 
 	satelliteIDs := s.trust.GetSatellites(ctx)
 	for i := 0; i < len(satelliteIDs); i++ {
-		current, previous, err := s.estimatedPayout(ctx, satelliteIDs[i])
+		current, previous, err := s.estimatedPayout(ctx, satelliteIDs[i], now)
 		if err != nil {
 			return EstimatedPayout{}, EstimationServiceErr.Wrap(err)
 		}
@@ -117,7 +115,7 @@ func (s *Service) GetAllSatellitesEstimatedPayout(ctx context.Context) (payout E
 }
 
 // estimatedPayout returns estimated payouts data for current and previous months from specific satellite.
-func (s *Service) estimatedPayout(ctx context.Context, satelliteID storj.NodeID) (currentMonthPayout PayoutMonthly, previousMonthPayout PayoutMonthly, err error) {
+func (s *Service) estimatedPayout(ctx context.Context, satelliteID storj.NodeID, now time.Time) (currentMonthPayout PayoutMonthly, previousMonthPayout PayoutMonthly, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	priceModel, err := s.pricingDB.Get(ctx, satelliteID)
@@ -130,8 +128,8 @@ func (s *Service) estimatedPayout(ctx context.Context, satelliteID storj.NodeID)
 		return PayoutMonthly{}, PayoutMonthly{}, EstimationServiceErr.Wrap(err)
 	}
 
-	currentMonthPayout, err = s.estimationUsagePeriod(ctx, time.Now().UTC(), stats.JoinedAt, priceModel)
-	previousMonthPayout, err = s.estimationUsagePeriod(ctx, time.Now().UTC().AddDate(0, -1, 0), stats.JoinedAt, priceModel)
+	currentMonthPayout, err = s.estimationUsagePeriod(ctx, now.UTC(), stats.JoinedAt, priceModel)
+	previousMonthPayout, err = s.estimationUsagePeriod(ctx, now.UTC().AddDate(0, -1, 0), stats.JoinedAt, priceModel)
 
 	return currentMonthPayout, previousMonthPayout, nil
 }

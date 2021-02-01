@@ -6,6 +6,7 @@ package consoleapi
 import (
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
@@ -119,10 +120,12 @@ func (dashboard *StorageNode) EstimatedPayout(w http.ResponseWriter, r *http.Req
 
 	w.Header().Set(contentType, applicationJSON)
 
+	now := time.Now()
+
 	queryParams := r.URL.Query()
 	id := queryParams.Get("id")
 	if id == "" {
-		data, err := dashboard.service.GetAllSatellitesEstimatedPayout(ctx)
+		data, err := dashboard.service.GetAllSatellitesEstimatedPayout(ctx, now)
 		if err != nil {
 			dashboard.serveJSONError(w, http.StatusInternalServerError, ErrStorageNodeAPI.Wrap(err))
 			return
@@ -139,7 +142,7 @@ func (dashboard *StorageNode) EstimatedPayout(w http.ResponseWriter, r *http.Req
 			return
 		}
 
-		data, err := dashboard.service.GetSatelliteEstimatedPayout(ctx, satelliteID)
+		data, err := dashboard.service.GetSatelliteEstimatedPayout(ctx, satelliteID, now)
 		if err != nil {
 			dashboard.serveJSONError(w, http.StatusInternalServerError, ErrStorageNodeAPI.Wrap(err))
 			return

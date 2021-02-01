@@ -115,7 +115,7 @@ func TestStorageNodeApi(t *testing.T) {
 				body, err := ioutil.ReadAll(res.Body)
 				require.NoError(t, err)
 
-				estimation, err := sno.Console.Service.GetAllSatellitesEstimatedPayout(ctx)
+				estimation, err := sno.Console.Service.GetAllSatellitesEstimatedPayout(ctx, time.Now())
 				require.NoError(t, err)
 				expected, err := json.Marshal(estimatedpayouts.EstimatedPayout{
 					CurrentMonth:             estimation.CurrentMonth,
