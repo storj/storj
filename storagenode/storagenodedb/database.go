@@ -1893,6 +1893,14 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					return nil
 				}),
 			},
+			{
+				DB:          &db.payoutDB.DB,
+				Description: "Add distributed field to paystubs table",
+				Version:     49,
+				Action: migrate.SQL{
+					`ALTER TABLE paystubs ADD COLUMN distributed bigint`,
+				},
+			},
 		},
 	}
 }

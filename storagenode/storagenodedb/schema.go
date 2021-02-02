@@ -160,6 +160,11 @@ func Schema() map[string]*dbschema.Schema {
 							IsNullable: false,
 						},
 						&dbschema.Column{
+							Name:       "distributed",
+							Type:       "bigint",
+							IsNullable: true,
+						},
+						&dbschema.Column{
 							Name:       "held",
 							Type:       "bigint",
 							IsNullable: false,
@@ -719,3 +724,4 @@ func Schema() map[string]*dbschema.Schema {
 		"used_serial": &dbschema.Schema{},
 	}
 }
+
