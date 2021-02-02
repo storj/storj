@@ -1392,10 +1392,10 @@ func TestDeleteBatchWithoutPermission(t *testing.T) {
 		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test-bucket")
 		require.NoError(t, err)
 
-		apiKey, err = apiKey.Restrict(macaroon.Caveat{
+		apiKey, err = apiKey.Restrict(macaroon.WithNonce(macaroon.Caveat{
 			DisallowLists: true,
 			DisallowReads: true,
-		})
+		}))
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
