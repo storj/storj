@@ -3,11 +3,7 @@ node('node') {
   properties([disableConcurrentBuilds()])
   try {
     currentBuild.result = "SUCCESS"
-    agent {
-      docker {
-        image 'maven:3.5.0-jdk-8'
-      }
-    }
+
     stage('Checkout') {
       lastStage = env.STAGE_NAME
       checkout scm
