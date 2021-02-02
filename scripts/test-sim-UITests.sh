@@ -70,7 +70,7 @@ export DEBIAN_FRONTEND="noninteractive"
 apt-get -y install xorg xvfb gtk2-engines-pixbuf
 apt-get -y install dbus-x11 xfonts-base xfonts-100dpi xfonts-75dpi xfonts-cyrillic xfonts-scalable
 apt-get -y install imagemagick x11-apps
-apt-get -y install npm nodejs
+apt-get -y install nodejs
 npm install --prefix "$SCRIPTDIR"/../web/satellite
 npm run build --prefix "$SCRIPTDIR"/../web/satellite
 Xvfb -ac :99 -screen 0 1280x1024x16 & export DISPLAY=:99
