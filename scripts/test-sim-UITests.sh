@@ -70,8 +70,8 @@ export DEBIAN_FRONTEND="noninteractive"
 apt-get -y install xorg xvfb gtk2-engines-pixbuf
 apt-get -y install dbus-x11 xfonts-base xfonts-100dpi xfonts-75dpi xfonts-cyrillic xfonts-scalable
 apt-get -y install imagemagick x11-apps
-#apt-get -y install npm
-#npm install & npm run build "$SCRIPTDIR"/../web/satellite
+apt-get -y install npm
+npm install --prefix "$SCRIPTDIR"/../web/satellite & npm run build --prefix "$SCRIPTDIR"/../web/satellite
 Xvfb -ac :99 -screen 0 1280x1024x16 & export DISPLAY=:99
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network run &
 go test "$SCRIPTDIR"/tests/UITests/.
