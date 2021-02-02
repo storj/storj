@@ -5,8 +5,6 @@
     <div class="projects-list">
         <div class="projects-list__title-area">
             <h2 class="projects-list__title-area__title">Projects</h2>
-        </div>
-        <div class="projects-list__title-area__right" v-if="currentProjectsPage.projects">
             <VButton
                 label="Create Project +"
                 width="203px"
@@ -14,17 +12,21 @@
                 :on-press="onCreateClick"
             />
         </div>
-        <div class="projects-list-items" v-if="currentProjectsPage.projects">
+
+        <div class="projects-list__title-area__right">
+
+        </div>
+        <div class="projects-list-items" v-if="projectsPage.projects.length">
             <SortProjectsListHeader />
             <div class="projects-list-items__content">
                 <VList
-                    :data-set="projects"
+                    :data-set="projectsPage.projects"
                     :item-component="itemComponent"
                 />
             </div>
             <div class="projects-list-items__pagination-area">
                 <VPagination
-                    :total-page-count="currentProjectsPage.pageCount"
+                    :total-page-count="projectsPage.pageCount"
                     :on-page-click-callback="onPageClick"
                 />
             </div>
@@ -36,6 +38,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 import { ProjectsApiGql } from '@/api/projects';
 import { ProjectsCursor, ProjectsPage, Project } from '@/types/projects';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { RouteConfig } from '@/router';
 
 import ProjectsListItem from '@/components/projectsList/ProjectsListItem.vue'
@@ -43,6 +46,10 @@ import SortProjectsListHeader from '@/components/projectsList/SortProjectsListHe
 import VButton from '@/components/common/VButton.vue';
 import VList from '@/components/common/VList.vue';
 import VPagination from '@/components/common/VPagination.vue';
+
+const {
+    FETCH_OWNED,
+} = PROJECTS_ACTIONS;
 
 @Component({
     components: {
@@ -59,46 +66,39 @@ export default class Projects extends Vue {
     private projectsApi: ProjectsApiGql = new ProjectsApiGql();
 
     private currentProjectsPage: ProjectsPage = new ProjectsPage();
-    /**
-    * Component initialization.
-    */
-    public mounted() {
-        this.queryProjectsApi();
-    }
 
     /**
-    * Determines whet
-    her test banner should be displayed.
-    */
-    public async queryProjectsApi(): Promise<void> {
-        const response = await this.projectsApi.getOwnedProjects(new ProjectsCursor(2, this.currentPageNumber));
-        console.log("RESPN:", response);
-        this.currentProjectsPage = response;
+     * Lifecycle hook after initial render where list of existing access grants is fetched.
+     */
+    public async mounted(): Promise<void> {
+        try {
+            await this.$store.dispatch(FETCH_OWNED, this.currentPageNumber);
+        } catch(error) {
+            await this.$notify.error(`Unable to fetch owned projects. ${error.message}`);
+        }
     }
 
     public async onPageClick(page: number): Promise<void> {
-        // try {
-        //     await this.$store.dispatch(FETCH, page);
-        // } catch (error) {
-        //     await this.$notify.error(`Unable to fetch buckets: ${error.message}`);
-        // }
         this.currentPageNumber = page;
-        this.queryProjectsApi();
-        console.log("PAGE CLICK");
+        try {
+            await this.$store.dispatch(FETCH_OWNED, this.currentPageNumber);
+        } catch(error) {
+            await this.$notify.error(`Unable to fetch owned projects. ${error.message}`);
+        }
     }
 
     public get itemComponent() {
         return ProjectsListItem;
     }
 
-    public get projects(): Project[] {
-        console.log("PROJETS:", this.currentProjectsPage.projects)
-        return this.currentProjectsPage.projects;
-    }
-
     public onCreateClick(): void {
         this.$router.push(RouteConfig.CreateProject.path);
     }
+
+    public get projectsPage(): ProjectsPage {
+        return this.$store.state.projectsModule.page;
+    }
+
 
 
 }
@@ -114,9 +114,7 @@ export default class Projects extends Vue {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            float: left;
-            position: relative;
-            top: 10px;
+            margin-top: 10px;
 
             &__title {
                 font-family: 'font_bold', sans-serif;
@@ -124,15 +122,6 @@ export default class Projects extends Vue {
                 line-height: 27px;
                 color: #263549;
                 margin: 0;
-            }
-
-            &__right {
-                float: right;
-                margin: 0 0 20px 0;
-
-                .container {
-                    background: #BBBEC2;
-                }
             }
         }
 

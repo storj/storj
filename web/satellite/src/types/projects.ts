@@ -44,6 +44,14 @@ export interface ProjectsApi {
      * throws Error
      */
     getLimits(projectId: string): Promise<ProjectLimits>;
+
+    /**
+     * Fetch owned projects.
+     *
+     * @returns ProjectsPage
+     * @throws Error
+     */
+    getOwnedProjects(cursor: ProjectsCursor): Promise<ProjectsPage>;
 }
 
 /**
