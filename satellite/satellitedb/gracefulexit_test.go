@@ -73,9 +73,9 @@ func TestGracefulExit_DeleteAllFinishedTransferQueueItems(t *testing.T) {
 		nodeFailed2 := planet.StorageNodes[5]
 		_, err = cache.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
 			NodeID:              nodeFailed2.ID(),
-			ExitInitiatedAt:     time.Now().Add(-time.Hour),
-			ExitLoopCompletedAt: time.Now().Add(-17 * time.Minute),
-			ExitFinishedAt:      time.Now().Add(-15 * time.Minute),
+			ExitInitiatedAt:     currentTime.Add(-time.Hour),
+			ExitLoopCompletedAt: currentTime.Add(-17 * time.Minute),
+			ExitFinishedAt:      currentTime.Add(-15 * time.Minute),
 			ExitSuccess:         true,
 		})
 		require.NoError(t, err)
@@ -83,9 +83,9 @@ func TestGracefulExit_DeleteAllFinishedTransferQueueItems(t *testing.T) {
 		nodeWithoutItems := planet.StorageNodes[6]
 		_, err = cache.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
 			NodeID:              nodeWithoutItems.ID(),
-			ExitInitiatedAt:     time.Now().Add(-time.Hour),
-			ExitLoopCompletedAt: time.Now().Add(-35 * time.Minute),
-			ExitFinishedAt:      time.Now().Add(-32 * time.Minute),
+			ExitInitiatedAt:     currentTime.Add(-time.Hour),
+			ExitLoopCompletedAt: currentTime.Add(-35 * time.Minute),
+			ExitFinishedAt:      currentTime.Add(-32 * time.Minute),
 			ExitSuccess:         false,
 		})
 		require.NoError(t, err)
