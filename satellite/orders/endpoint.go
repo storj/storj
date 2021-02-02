@@ -175,16 +175,6 @@ func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPI
 	}
 }
 
-// Settlement receives orders and handles them in batches.
-//
-// Deprecated: an error is always returned to the client.
-func (endpoint *Endpoint) Settlement(stream pb.DRPCOrders_SettlementStream) (err error) {
-	ctx := stream.Context()
-	defer mon.Task()(&ctx)(&err)
-
-	return rpcstatus.Error(rpcstatus.Unavailable, "deprecated endpoint")
-}
-
 type bucketIDAction struct {
 	bucketname string
 	projectID  uuid.UUID
