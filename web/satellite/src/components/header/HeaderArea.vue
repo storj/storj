@@ -5,7 +5,6 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import { RouteConfig } from '@/router';
 
 import ProjectSelection from '@/components/header/projectsDropdown/ProjectSelection.vue';
 import ResourcesSelection from '@/components/header/resourcesDropdown/ResourcesSelection.vue';
@@ -15,6 +14,8 @@ import NavigationArea from '@/components/navigation/NavigationArea.vue';
 import LogoIcon from '@/../static/images/header/logo.svg';
 import NavigationCloseIcon from '@/../static/images/header/navigationClose.svg';
 import NavigationMenuIcon from '@/../static/images/header/navigationMenu.svg';
+
+import { RouteConfig } from '@/router';
 
 import AccountButton from './accountDropdown/AccountButton.vue';
 
@@ -48,13 +49,6 @@ export default class HeaderArea extends Vue {
      */
     public onLogoClick(): void {
         location.reload();
-    }
-
-    /**
-     * Route to projects list page.
-     */
-    public onProjectsLinkClick(): void {
-        this.$router.push(RouteConfig.ProjectsList.path);
     }
 }
 </script>

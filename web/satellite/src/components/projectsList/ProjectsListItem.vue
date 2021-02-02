@@ -1,12 +1,11 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
     <div class="container">
         <p class="container__item name" :title="itemData.name">{{ itemData.name }}</p>
-        <p class="container__item">{{ itemData.description }}</p>
-        <p class="container__item">{{ itemData.memberCount }}</p>
-        <p class="container__item">{{ itemData.createdDate() }}</p>
+        <p class="container__item member-count">{{ itemData.memberCount }}</p>
+        <p class="container__item date">{{ itemData.createdDate() }}</p>
     </div>
 </template>
 
@@ -19,10 +18,6 @@ import { Project } from '@/types/projects';
 export default class ProjectsListItem extends Vue {
     @Prop({default: () => new Project('123', 'name', 'desc')})
     private readonly itemData: Project;
-
-    public mounted() {
-        console.log("LISTITEM:", this.itemData)
-    }
 }
 </script>
 
@@ -34,19 +29,45 @@ export default class ProjectsListItem extends Vue {
         background: #fff;
         margin-bottom: 1px;
         width: calc(100% - 80px);
+        cursor: pointer;
 
         &__item {
-            width: 25%;
-            font-family: 'font_medium', sans-serif;
+            width: 33%;
+            font-family: 'font_regular', sans-serif;
             font-size: 16px;
             margin: 0;
         }
+
+        .name {
+            width: 33%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-family: 'font_bold', sans-serif;
+        }
+
+        .description {
+            margin-left: 14px;
+        }
+
+        .member-count {
+            position: relative;
+            left: 12px;
+        }
+
+        .date {
+            position: relative;
+            left: 14px;
+            text-transform: uppercase;
+        }
+
+        &:hover {
+            background-color: rgba(242, 244, 247, 0.6);
+
+            .name {
+                text-decoration: underline;
+            }
+        }
     }
 
-    .name {
-        width: 25%;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
 </style>

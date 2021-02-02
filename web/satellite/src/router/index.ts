@@ -26,8 +26,8 @@ import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
 import CreateProject from '@/components/project/CreateProject.vue';
 import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
-import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 import ProjectsList from '@/components/projectsList/ProjectsList.vue';
+import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
 import store from '@/store';
 import { NavigationLink } from '@/types/navigation';
@@ -302,7 +302,7 @@ export const router = new Router({
                     path: RouteConfig.ProjectsList.path,
                     name: RouteConfig.ProjectsList.name,
                     component: ProjectsList,
-                }
+                },
 ],
             },
         {

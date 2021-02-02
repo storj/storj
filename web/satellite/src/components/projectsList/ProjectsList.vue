@@ -1,4 +1,4 @@
-// Copyright (C) 2020 Storj Labs, Inc.
+// Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 <template>
@@ -22,9 +22,10 @@
                 <VList
                     :data-set="projectsPage.projects"
                     :item-component="itemComponent"
+                    :on-item-click="onProjectSelected"
                 />
             </div>
-            <div class="projects-list-items__pagination-area">
+            <div class="projects-list-items__pagination-area" v-if="projectsPage.pageCount > 1">
                 <VPagination
                     :total-page-count="projectsPage.pageCount"
                     :on-page-click-callback="onPageClick"
@@ -36,16 +37,21 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
-import { ProjectsApiGql } from '@/api/projects';
-import { ProjectsCursor, ProjectsPage, Project } from '@/types/projects';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { RouteConfig } from '@/router';
 
-import ProjectsListItem from '@/components/projectsList/ProjectsListItem.vue'
-import SortProjectsListHeader from '@/components/projectsList/SortProjectsListHeader.vue'
 import VButton from '@/components/common/VButton.vue';
 import VList from '@/components/common/VList.vue';
 import VPagination from '@/components/common/VPagination.vue';
+import ProjectsListItem from '@/components/projectsList/ProjectsListItem.vue';
+import SortProjectsListHeader from '@/components/projectsList/SortProjectsListHeader.vue';
+
+import { RouteConfig } from '@/router';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { Project, ProjectsCursor, ProjectsPage } from '@/types/projects';
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
+import { LocalData } from '@/utils/localData';
 
 const {
     FETCH_OWNED,
@@ -60,47 +66,77 @@ const {
     },
 })
 export default class Projects extends Vue {
-
     private currentPageNumber: number = 1;
-
-    private projectsApi: ProjectsApiGql = new ProjectsApiGql();
-
     private currentProjectsPage: ProjectsPage = new ProjectsPage();
+    private FIRST_PAGE = 1;
 
     /**
-     * Lifecycle hook after initial render where list of existing access grants is fetched.
+     * Lifecycle hook after initial render where list of existing ownded projects is fetched.
      */
     public async mounted(): Promise<void> {
         try {
             await this.$store.dispatch(FETCH_OWNED, this.currentPageNumber);
-        } catch(error) {
+        } catch (error) {
             await this.$notify.error(`Unable to fetch owned projects. ${error.message}`);
         }
     }
 
+    /**
+     * Fetches owned projects page page by clicked page number.
+     * @param index
+     */
     public async onPageClick(page: number): Promise<void> {
         this.currentPageNumber = page;
         try {
             await this.$store.dispatch(FETCH_OWNED, this.currentPageNumber);
-        } catch(error) {
+        } catch (error) {
             await this.$notify.error(`Unable to fetch owned projects. ${error.message}`);
         }
     }
 
+    /**
+     * Returns ProjectsList item component.
+     */
     public get itemComponent() {
         return ProjectsListItem;
     }
 
+    /**
+     * Redirects to create project page.
+     */
     public onCreateClick(): void {
         this.$router.push(RouteConfig.CreateProject.path);
     }
 
+    /**
+     * Returns projects page from store.
+     */
     public get projectsPage(): ProjectsPage {
         return this.$store.state.projectsModule.page;
     }
 
+    /**
+     * Fetches all project related information.
+     * @param project
+     */
+    public async onProjectSelected(project: Project): Promise<void> {
+        const projectID = project.id;
+        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, projectID);
+        LocalData.setSelectedProjectId(projectID);
+        await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
 
+        try {
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
+            await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
+            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
+            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
 
+            this.$router.push(RouteConfig.ProjectDashboard.path);
+        } catch (error) {
+            await this.$notify.error(`Unable to select project. ${error.message}`);
+        }
+    }
 }
 </script>
 
@@ -121,7 +157,7 @@ export default class Projects extends Vue {
                 font-size: 22px;
                 line-height: 27px;
                 color: #263549;
-                margin: 0;
+                margin: 10px 0 0;
             }
         }
 
