@@ -487,3 +487,130 @@ func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, latest
 	_, err = db.db.DB.ExecContext(ctx, db.db.Rebind(deleteRawSQL), latestRollup)
 	return err
 }
+
+// ArchiveRollupsBefore archives rollups older than a given time.
+func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, before time.Time, batchSize int) (nodeRollupsDeleted int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if batchSize <= 0 {
+		return 0, nil
+	}
+
+	switch db.db.implementation {
+	case dbutil.Cockroach:
+		for {
+			row := db.db.QueryRow(ctx, `
+			WITH rollups_to_move AS (
+				DELETE FROM storagenode_bandwidth_rollups
+				WHERE interval_start <= $1
+				LIMIT $2 RETURNING *
+			), moved_rollups AS (
+				INSERT INTO storagenode_bandwidth_rollup_archives SELECT * FROM rollups_to_move RETURNING *
+			)
+			SELECT count(*) FROM moved_rollups
+			`, before, batchSize)
+
+			var rowCount int
+			err = row.Scan(&rowCount)
+			if err != nil {
+				return nodeRollupsDeleted, err
+			}
+			nodeRollupsDeleted += rowCount
+
+			if rowCount < batchSize {
+				break
+			}
+		}
+	case dbutil.Postgres:
+		storagenodeStatement := `
+			WITH rollups_to_move AS (
+				DELETE FROM storagenode_bandwidth_rollups
+				WHERE interval_start <= $1
+				RETURNING *
+			), moved_rollups AS (
+				INSERT INTO storagenode_bandwidth_rollup_archives SELECT * FROM rollups_to_move RETURNING *
+			)
+			SELECT count(*) FROM moved_rollups
+		`
+		row := db.db.DB.QueryRow(ctx, storagenodeStatement, before)
+		var rowCount int
+		err = row.Scan(&rowCount)
+		if err != nil {
+			return nodeRollupsDeleted, err
+		}
+		nodeRollupsDeleted = rowCount
+	}
+	return nodeRollupsDeleted, err
+}
+
+// GetRollupsSince retrieves all archived bandwidth rollup records since a given time.
+func (db *StoragenodeAccounting) GetRollupsSince(ctx context.Context, since time.Time) (bwRollups []accounting.StoragenodeBandwidthRollup, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	pageLimit := db.db.opts.ReadRollupBatchSize
+	if pageLimit <= 0 {
+		pageLimit = 10000
+	}
+
+	var cursor *dbx.Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
+	for {
+		dbxRollups, next, err := db.db.Paged_StoragenodeBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx,
+			dbx.StoragenodeBandwidthRollup_IntervalStart(since),
+			pageLimit, cursor)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		cursor = next
+		for _, dbxRollup := range dbxRollups {
+			id, err := storj.NodeIDFromBytes(dbxRollup.StoragenodeId)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+			bwRollups = append(bwRollups, accounting.StoragenodeBandwidthRollup{
+				NodeID:        id,
+				IntervalStart: dbxRollup.IntervalStart,
+				Action:        dbxRollup.Action,
+				Settled:       dbxRollup.Settled,
+			})
+		}
+		if len(dbxRollups) < pageLimit {
+			return bwRollups, nil
+		}
+	}
+}
+
+// GetArchivedRollupsSince retrieves all archived bandwidth rollup records since a given time.
+func (db *StoragenodeAccounting) GetArchivedRollupsSince(ctx context.Context, since time.Time) (bwRollups []accounting.StoragenodeBandwidthRollup, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	pageLimit := db.db.opts.ReadRollupBatchSize
+	if pageLimit <= 0 {
+		pageLimit = 10000
+	}
+
+	var cursor *dbx.Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
+	for {
+		dbxRollups, next, err := db.db.Paged_StoragenodeBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual(ctx,
+			dbx.StoragenodeBandwidthRollupArchive_IntervalStart(since),
+			pageLimit, cursor)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		cursor = next
+		for _, dbxRollup := range dbxRollups {
+			id, err := storj.NodeIDFromBytes(dbxRollup.StoragenodeId)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+			bwRollups = append(bwRollups, accounting.StoragenodeBandwidthRollup{
+				NodeID:        id,
+				IntervalStart: dbxRollup.IntervalStart,
+				Action:        dbxRollup.Action,
+				Settled:       dbxRollup.Settled,
+			})
+		}
+		if len(dbxRollups) < pageLimit {
+			return bwRollups, nil
+		}
+	}
+}

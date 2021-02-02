@@ -26,8 +26,8 @@ import (
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/projectbwcleanup"
-	"storj.io/storj/satellite/accounting/reportedrollup"
 	"storj.io/storj/satellite/accounting/rollup"
+	"storj.io/storj/satellite/accounting/rolluparchive"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/contact"
@@ -115,7 +115,7 @@ type Core struct {
 	Accounting struct {
 		Tally                 *tally.Service
 		Rollup                *rollup.Service
-		ReportedRollupChore   *reportedrollup.Chore
+		RollupArchiveChore    *rolluparchive.Chore
 		ProjectBWCleanupChore *projectbwcleanup.Chore
 	}
 
@@ -423,15 +423,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Accounting Rollup", peer.Accounting.Rollup.Loop))
 
-		peer.Accounting.ReportedRollupChore = reportedrollup.NewChore(peer.Log.Named("accounting:reported-rollup"), peer.DB.Orders(), config.ReportedRollup)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "accounting:reported-rollup",
-			Run:   peer.Accounting.ReportedRollupChore.Run,
-			Close: peer.Accounting.ReportedRollupChore.Close,
-		})
-		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Accounting Reported Rollup", peer.Accounting.ReportedRollupChore.Loop))
-
 		peer.Accounting.ProjectBWCleanupChore = projectbwcleanup.NewChore(peer.Log.Named("accounting:chore"), peer.DB.ProjectAccounting(), config.ProjectBWCleanup)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "accounting:project-bw-rollup",
@@ -440,6 +431,19 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Accounting Project Bandwidth Rollup", peer.Accounting.ProjectBWCleanupChore.Loop))
+
+		if config.RollupArchive.Enabled {
+			peer.Accounting.RollupArchiveChore = rolluparchive.New(peer.Log.Named("accounting:rollup-archive"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), config.RollupArchive)
+			peer.Services.Add(lifecycle.Item{
+				Name:  "accounting:rollup-archive",
+				Run:   peer.Accounting.RollupArchiveChore.Run,
+				Close: peer.Accounting.RollupArchiveChore.Close,
+			})
+			peer.Debug.Server.Panel.Add(
+				debug.Cycle("Accounting Rollup Archive", peer.Accounting.RollupArchiveChore.Loop))
+		} else {
+			peer.Log.Named("rolluparchive").Info("disabled")
+		}
 	}
 
 	// TODO: remove in future, should be in API
@@ -474,7 +478,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.CouponProjectLimit,
 			pc.MinCoinPayment,
 			pc.PaywallProportion)
-
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}

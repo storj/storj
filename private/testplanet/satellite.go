@@ -34,8 +34,8 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/accounting/projectbwcleanup"
-	"storj.io/storj/satellite/accounting/reportedrollup"
 	"storj.io/storj/satellite/accounting/rollup"
+	"storj.io/storj/satellite/accounting/rolluparchive"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/audit"
@@ -143,8 +143,8 @@ type Satellite struct {
 		Tally            *tally.Service
 		Rollup           *rollup.Service
 		ProjectUsage     *accounting.Service
-		ReportedRollup   *reportedrollup.Chore
 		ProjectBWCleanup *projectbwcleanup.Chore
+		RollupArchive    *rolluparchive.Chore
 	}
 
 	LiveAccounting struct {
@@ -504,13 +504,11 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			},
 		},
 		Orders: orders.Config{
-			Expiration:                 7 * 24 * time.Hour,
-			SettlementBatchSize:        10,
-			FlushBatchSize:             10,
-			FlushInterval:              defaultInterval,
-			NodeStatusLogging:          true,
-			WindowEndpointRolloutPhase: orders.WindowEndpointRolloutPhase3,
-			EncryptionKeys:             *encryptionKeys,
+			Expiration:        7 * 24 * time.Hour,
+			FlushBatchSize:    10,
+			FlushInterval:     defaultInterval,
+			NodeStatusLogging: true,
+			EncryptionKeys:    *encryptionKeys,
 		},
 		Checker: checker.Config{
 			Interval:                  defaultInterval,
@@ -570,8 +568,11 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			Interval:      defaultInterval,
 			DeleteTallies: false,
 		},
-		ReportedRollup: reportedrollup.Config{
-			Interval: defaultInterval,
+		RollupArchive: rolluparchive.Config{
+			Interval:   defaultInterval,
+			ArchiveAge: time.Hour * 24,
+			BatchSize:  1000,
+			Enabled:    true,
 		},
 		ProjectBWCleanup: projectbwcleanup.Config{
 			Interval:     defaultInterval,
@@ -745,8 +746,8 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Accounting.Tally = peer.Accounting.Tally
 	system.Accounting.Rollup = peer.Accounting.Rollup
 	system.Accounting.ProjectUsage = api.Accounting.ProjectUsage
-	system.Accounting.ReportedRollup = peer.Accounting.ReportedRollupChore
 	system.Accounting.ProjectBWCleanup = peer.Accounting.ProjectBWCleanupChore
+	system.Accounting.RollupArchive = peer.Accounting.RollupArchiveChore
 
 	system.LiveAccounting = peer.LiveAccounting
 

@@ -449,111 +449,6 @@ read all (
     orderby asc api_key.name
 )
 
-//--- tracking serial numbers ---//
-
-model serial_number (
-	key    id
-	index (
-	    name serial_number_index
-	    fields serial_number
-	    unique
-	)
-
-	field id            serial
-	field serial_number blob
-
-	field bucket_id     blob
-	field expires_at    timestamp
-
-	index (
-		fields expires_at
-	)
-)
-
-read one (
-	select serial_number.bucket_id
-	where serial_number.serial_number = ?
-)
-
-model used_serial (
-	key    serial_number_id storage_node_id
-
-	field serial_number_id serial_number.id cascade
-	field storage_node_id  blob
-)
-
-// inserting a new serial number
-create serial_number ( noreturn )
-
-// finding out information about the serial number
-read scalar (
-	select serial_number
-	where  serial_number.serial_number = ?
-)
-
-// deleting expired serial numbers
-delete serial_number (
-	where serial_number.expires_at <= ?
-)
-
-// for preventing duplicate serial numbers
-create used_serial ( noreturn )
-
-//
-// DEPRECATED! vvvvvvvvvvvvvvvvvvvvvvvvvvv
-//
-
-model reported_serial (
-	key expires_at storage_node_id bucket_id action serial_number
-
-	field expires_at      timestamp // ceil'd to the next day
-	field storage_node_id blob      // involved node id
-	field bucket_id       blob      // involved project id and bucket name
-	field action          uint      // action (get, put, audit, etc. see protobuf)
-	field serial_number   blob      // identifies order (required for uniqueness)
-
-	field settled     uint64
-	field observed_at timestamp
-)
-
-//
-// DEPRECATED! ^^^^^^^^^^^^^^^^^^^^^^^^^^
-//
-
-model pending_serial_queue (
-	table pending_serial_queue
-
-	key   storage_node_id bucket_id serial_number
-	field storage_node_id blob
-	field bucket_id       blob
-	field serial_number   blob
-
-	field action     uint
-	field settled    uint64
-	field expires_at timestamp
-)
-
-create pending_serial_queue ( noreturn, replace )
-read paged ( select pending_serial_queue )
-
-model consumed_serial (
-	key storage_node_id serial_number
-	index ( fields expires_at )
-
-	field storage_node_id blob
-	field serial_number   blob
-	field expires_at      timestamp
-)
-
-create consumed_serial ( noreturn )
-delete consumed_serial ( where consumed_serial.expires_at <= ? )
-
-read has (
-	select consumed_serial
-	where consumed_serial.storage_node_id = ?
-	where consumed_serial.serial_number   = ?
-)
-
 // --- bucket accounting tables --- //
 
 model bucket_bandwidth_rollup (
@@ -585,6 +480,39 @@ read scalar (
 	where  bucket_bandwidth_rollup.project_id = ?
 	where  bucket_bandwidth_rollup.interval_start = ?
 	where  bucket_bandwidth_rollup.action = ?
+)
+
+read paged (
+    select bucket_bandwidth_rollup
+    where bucket_bandwidth_rollup.interval_start >= ?
+)
+
+model bucket_bandwidth_rollup_archive (
+	key    bucket_name project_id interval_start action
+	index (
+		name bucket_bandwidth_rollups_archive_project_id_action_interval_index
+		fields project_id action interval_start
+	)
+	index (
+		name bucket_bandwidth_rollups_archive_action_interval_project_id_index
+		fields action interval_start project_id
+	)
+
+	field bucket_name       blob
+	field project_id        blob
+
+	field interval_start   timestamp
+	field interval_seconds uint
+	field action           uint
+
+	field inline    uint64 ( updatable )
+	field allocated uint64 ( updatable )
+	field settled   uint64 ( updatable )
+)
+
+read paged (
+    select bucket_bandwidth_rollup_archive
+    where bucket_bandwidth_rollup_archive.interval_start >= ?
 )
 
 model revocation (
@@ -681,9 +609,36 @@ read all (
 )
 
 read paged (
+    select storagenode_bandwidth_rollup
+    where storagenode_bandwidth_rollup.interval_start >= ?
+)
+
+read paged (
   select storagenode_bandwidth_rollup
   where storagenode_bandwidth_rollup.storagenode_id = ?
   where storagenode_bandwidth_rollup.interval_start >= ?
+)
+
+model storagenode_bandwidth_rollup_archive (
+	key    storagenode_id interval_start action
+
+	index (
+		name storagenode_bandwidth_rollup_archives_interval_start_index
+		fields interval_start
+	)
+
+	field storagenode_id   blob
+	field interval_start   timestamp
+	field interval_seconds uint
+	field action           uint
+
+	field allocated uint64 ( updatable, nullable, default 0 )
+	field settled   uint64 ( updatable )
+)
+
+read paged (
+    select storagenode_bandwidth_rollup_archive
+    where storagenode_bandwidth_rollup_archive.interval_start >= ?
 )
 
 ///////////////////////////////////////
@@ -770,10 +725,11 @@ model storagenode_paystub (
 
 	field surge_percent int64                 // percentage
 
-	field held     int64                      // in micro-units of currency
-	field owed     int64                      // in micro-units of currency
-	field disposed int64                      // in micro-units of currency
-	field paid     int64                      // in micro-units of currency
+	field held        int64                   // in micro-units of currency
+	field owed        int64                   // in micro-units of currency
+	field disposed    int64                   // in micro-units of currency
+	field paid        int64                   // in micro-units of currency
+	field distributed int64                   // in micro-units of currency
 )
 
 create storagenode_paystub ( noreturn )

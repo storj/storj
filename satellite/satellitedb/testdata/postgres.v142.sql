@@ -32,6 +32,17 @@ CREATE TABLE bucket_bandwidth_rollups (
 	settled bigint NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
 );
+CREATE TABLE bucket_bandwidth_rollup_archives (
+	bucket_name bytea NOT NULL,
+	project_id bytea NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
+	interval_seconds integer NOT NULL,
+	action integer NOT NULL,
+	inline bigint NOT NULL,
+	allocated bigint NOT NULL,
+	settled bigint NOT NULL,
+	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
+);
 CREATE TABLE bucket_storage_tallies (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -278,6 +289,15 @@ CREATE TABLE storagenode_bandwidth_rollups (
 	settled bigint NOT NULL,
 	PRIMARY KEY ( storagenode_id, interval_start, action )
 );
+CREATE TABLE storagenode_bandwidth_rollup_archives (
+	storagenode_id bytea NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
+	interval_seconds integer NOT NULL,
+	action integer NOT NULL,
+	allocated bigint DEFAULT 0,
+	settled bigint NOT NULL,
+	PRIMARY KEY ( storagenode_id, interval_start, action )
+);
 CREATE TABLE storagenode_bandwidth_rollups_phase2 (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
@@ -442,6 +462,8 @@ CREATE TABLE user_credits (
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time );
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start );
 CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id );
+CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start );
+CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id );
 CREATE INDEX bucket_storage_tallies_project_id_index ON bucket_storage_tallies ( project_id );
 CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
 CREATE INDEX graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at );
@@ -453,6 +475,7 @@ CREATE INDEX nodes_dis_unk_exit_fin_last_success_index ON nodes ( disqualified, 
 CREATE UNIQUE INDEX serial_number_index ON serial_numbers ( serial_number );
 CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start );
+CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start );
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period );
 CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id );
 CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id );
@@ -574,3 +597,5 @@ INSERT INTO "storagenode_bandwidth_rollups_phase2" ("storagenode_id", "interval_
 INSERT INTO "users"("id", "full_name", "short_name", "email", "normalized_email", "password_hash", "status", "partner_id", "created_at", "position", "company_name", "working_on", "company_size", "is_professional") VALUES (E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\205\\311",'::bytea, 'Thierry', 'Berg', '2email2@mail.test', '2EMAIL2@MAIL.TEST', E'some_readable_hash'::bytea, 2, NULL, '2020-05-16 10:28:24.614594+00', 'engineer', 'storj', 'data storage', 55, true);
 
 -- NEW DATA --
+INSERT INTO "storagenode_bandwidth_rollup_archives" ("storagenode_id", "interval_start", "interval_seconds", "action", "allocated", "settled") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', '2019-03-06 08:00:00.000000' AT TIME ZONE current_setting('TIMEZONE'), 3600, 1, 1024, 2024);
+INSERT INTO "bucket_bandwidth_rollup_archives" ("bucket_name", "project_id", "interval_start", "interval_seconds", "action", "inline", "allocated", "settled") VALUES (E'testbucket'::bytea, E'\\170\\160\\157\\370\\274\\366\\113\\364\\272\\235\\301\\243\\321\\102\\321\\136'::bytea,'2019-03-06 08:00:00.000000' AT TIME ZONE current_setting('TIMEZONE'), 3600, 1, 1024, 2024, 3024);

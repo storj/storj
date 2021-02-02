@@ -116,7 +116,6 @@ func TestProjectUsageBandwidth(t *testing.T) {
 			testplanet.Run(t, testplanet.Config{
 				SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-
 				saDB := planet.Satellites[0].DB
 				orderDB := saDB.Orders()
 
@@ -175,14 +174,14 @@ func TestProjectBandwidthRollups(t *testing.T) {
 		require.NoError(t, err)
 		err = db.Orders().UpdateBucketBandwidthAllocation(ctx, p1, b2, pb.PieceAction_GET, 1000, hour)
 		require.NoError(t, err)
-		err = db.Orders().WithTransaction(ctx, func(ctx context.Context, tx orders.Transaction) error {
-			rollups := []orders.BucketBandwidthRollup{
-				{ProjectID: p1, BucketName: string(b1), Action: pb.PieceAction_GET, Inline: 1000, Allocated: 1000 /* counted */, Settled: 1000},
-				{ProjectID: p1, BucketName: string(b2), Action: pb.PieceAction_GET, Inline: 1000, Allocated: 1000 /* counted */, Settled: 1000},
-			}
-			return tx.UpdateBucketBandwidthBatch(ctx, hour, rollups)
-		})
+
+		rollups := []orders.BucketBandwidthRollup{
+			{ProjectID: p1, BucketName: string(b1), Action: pb.PieceAction_GET, Inline: 1000, Allocated: 1000 /* counted */, Settled: 1000},
+			{ProjectID: p1, BucketName: string(b2), Action: pb.PieceAction_GET, Inline: 1000, Allocated: 1000 /* counted */, Settled: 1000},
+		}
+		err = db.Orders().UpdateBucketBandwidthBatch(ctx, hour, rollups)
 		require.NoError(t, err)
+
 		// things that shouldn't be counted
 		err = db.Orders().UpdateBucketBandwidthAllocation(ctx, p1, b1, pb.PieceAction_PUT, 1000, hour)
 		require.NoError(t, err)
@@ -208,23 +207,22 @@ func TestProjectBandwidthRollups(t *testing.T) {
 		require.NoError(t, err)
 		err = db.Orders().UpdateBucketBandwidthAllocation(ctx, p2, b2, pb.PieceAction_GET_REPAIR, 1000, hour)
 		require.NoError(t, err)
-		err = db.Orders().WithTransaction(ctx, func(ctx context.Context, tx orders.Transaction) error {
-			rollups := []orders.BucketBandwidthRollup{
-				{ProjectID: p1, BucketName: string(b1), Action: pb.PieceAction_PUT, Inline: 1000, Allocated: 1000, Settled: 1000},
-				{ProjectID: p1, BucketName: string(b2), Action: pb.PieceAction_PUT, Inline: 1000, Allocated: 1000, Settled: 1000},
-				{ProjectID: p1, BucketName: string(b1), Action: pb.PieceAction_PUT_GRACEFUL_EXIT, Inline: 1000, Allocated: 1000, Settled: 1000},
-				{ProjectID: p1, BucketName: string(b2), Action: pb.PieceAction_PUT_REPAIR, Inline: 1000, Allocated: 1000, Settled: 1000},
-				{ProjectID: p1, BucketName: string(b1), Action: pb.PieceAction_GET_AUDIT, Inline: 1000, Allocated: 1000, Settled: 1000},
-				{ProjectID: p1, BucketName: string(b2), Action: pb.PieceAction_GET_REPAIR, Inline: 1000, Allocated: 1000, Settled: 1000},
-				{ProjectID: p2, BucketName: string(b1), Action: pb.PieceAction_PUT, Inline: 1000, Allocated: 1000, Settled: 1000},
-				{ProjectID: p2, BucketName: string(b2), Action: pb.PieceAction_PUT, Inline: 1000, Allocated: 1000, Settled: 1000},
-				{ProjectID: p2, BucketName: string(b1), Action: pb.PieceAction_PUT_GRACEFUL_EXIT, Inline: 1000, Allocated: 1000, Settled: 1000},
-				{ProjectID: p2, BucketName: string(b2), Action: pb.PieceAction_PUT_REPAIR, Inline: 1000, Allocated: 1000, Settled: 1000},
-				{ProjectID: p2, BucketName: string(b1), Action: pb.PieceAction_GET_AUDIT, Inline: 1000, Allocated: 1000, Settled: 1000},
-				{ProjectID: p2, BucketName: string(b2), Action: pb.PieceAction_GET_REPAIR, Inline: 1000, Allocated: 1000, Settled: 1000},
-			}
-			return tx.UpdateBucketBandwidthBatch(ctx, hour, rollups)
-		})
+
+		rollups = []orders.BucketBandwidthRollup{
+			{ProjectID: p1, BucketName: string(b1), Action: pb.PieceAction_PUT, Inline: 1000, Allocated: 1000, Settled: 1000},
+			{ProjectID: p1, BucketName: string(b2), Action: pb.PieceAction_PUT, Inline: 1000, Allocated: 1000, Settled: 1000},
+			{ProjectID: p1, BucketName: string(b1), Action: pb.PieceAction_PUT_GRACEFUL_EXIT, Inline: 1000, Allocated: 1000, Settled: 1000},
+			{ProjectID: p1, BucketName: string(b2), Action: pb.PieceAction_PUT_REPAIR, Inline: 1000, Allocated: 1000, Settled: 1000},
+			{ProjectID: p1, BucketName: string(b1), Action: pb.PieceAction_GET_AUDIT, Inline: 1000, Allocated: 1000, Settled: 1000},
+			{ProjectID: p1, BucketName: string(b2), Action: pb.PieceAction_GET_REPAIR, Inline: 1000, Allocated: 1000, Settled: 1000},
+			{ProjectID: p2, BucketName: string(b1), Action: pb.PieceAction_PUT, Inline: 1000, Allocated: 1000, Settled: 1000},
+			{ProjectID: p2, BucketName: string(b2), Action: pb.PieceAction_PUT, Inline: 1000, Allocated: 1000, Settled: 1000},
+			{ProjectID: p2, BucketName: string(b1), Action: pb.PieceAction_PUT_GRACEFUL_EXIT, Inline: 1000, Allocated: 1000, Settled: 1000},
+			{ProjectID: p2, BucketName: string(b2), Action: pb.PieceAction_PUT_REPAIR, Inline: 1000, Allocated: 1000, Settled: 1000},
+			{ProjectID: p2, BucketName: string(b1), Action: pb.PieceAction_GET_AUDIT, Inline: 1000, Allocated: 1000, Settled: 1000},
+			{ProjectID: p2, BucketName: string(b2), Action: pb.PieceAction_GET_REPAIR, Inline: 1000, Allocated: 1000, Settled: 1000},
+		}
+		err = db.Orders().UpdateBucketBandwidthBatch(ctx, hour, rollups)
 		require.NoError(t, err)
 
 		alloc, err := db.ProjectAccounting().GetProjectAllocatedBandwidth(ctx, p1, now.Year(), now.Month())
@@ -677,7 +675,6 @@ func TestProjectUsage_BandwidthCache(t *testing.T) {
 		fromCache, err = projectUsage.GetProjectBandwidthUsage(ctx, project.ID)
 		require.NoError(t, err)
 		require.Equal(t, badwidthUsed+increment, fromCache)
-
 	})
 }
 

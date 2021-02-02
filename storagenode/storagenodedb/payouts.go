@@ -53,8 +53,9 @@ func (db *payoutDB) StorePayStub(ctx context.Context, paystub payouts.PayStub) (
 			held,
 			owed,
 			disposed,
-			paid
-		) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+			paid,
+			distributed
+		) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
 
 	_, err = db.ExecContext(ctx, query,
 		paystub.Period,
@@ -78,6 +79,7 @@ func (db *payoutDB) StorePayStub(ctx context.Context, paystub payouts.PayStub) (
 		paystub.Owed,
 		paystub.Disposed,
 		paystub.Paid,
+		paystub.Distributed,
 	)
 
 	return ErrPayout.Wrap(err)
@@ -111,7 +113,8 @@ func (db *payoutDB) GetPayStub(ctx context.Context, satelliteID storj.NodeID, pe
 			held,
 			owed,
 			disposed,
-			paid
+			paid,
+			distributed
 		FROM paystubs WHERE satellite_id = ? AND period = ?`,
 		satelliteID, period,
 	)
@@ -136,6 +139,7 @@ func (db *payoutDB) GetPayStub(ctx context.Context, satelliteID storj.NodeID, pe
 		&result.Owed,
 		&result.Disposed,
 		&result.Paid,
+		&result.Distributed,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -171,7 +175,8 @@ func (db *payoutDB) AllPayStubs(ctx context.Context, period string) (_ []payouts
 			  	held,
 			  	owed,
 			  	disposed,
-			  	paid
+			  	paid,
+				distributed
 			  FROM paystubs WHERE period = ?`
 
 	rows, err := db.QueryContext(ctx, query, period)
@@ -206,6 +211,7 @@ func (db *payoutDB) AllPayStubs(ctx context.Context, period string) (_ []payouts
 			&paystub.Owed,
 			&paystub.Disposed,
 			&paystub.Paid,
+			&paystub.Distributed,
 		)
 		if err != nil {
 			return nil, ErrPayout.Wrap(err)

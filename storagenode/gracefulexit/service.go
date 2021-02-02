@@ -92,9 +92,12 @@ func (c *service) ListPendingExits(ctx context.Context) (_ []ExitingSatellite, e
 	}
 	exitingSatellites := make([]ExitingSatellite, 0, len(exitProgress))
 	for _, sat := range exitProgress {
+		if sat.FinishedAt != nil {
+			continue
+		}
 		nodeURL, err := c.trust.GetNodeURL(ctx, sat.SatelliteID)
 		if err != nil {
-			c.log.Error("failed to get satellite address", zap.Stringer("satellite-id", sat.SatelliteID), zap.Error(err))
+			c.log.Error("failed to get satellite address", zap.Stringer("Satellite ID", sat.SatelliteID), zap.Error(err))
 			continue
 		}
 		exitingSatellites = append(exitingSatellites, ExitingSatellite{ExitProgress: sat, NodeURL: nodeURL})

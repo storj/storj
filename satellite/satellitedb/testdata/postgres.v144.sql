@@ -32,6 +32,17 @@ CREATE TABLE bucket_bandwidth_rollups (
 	settled bigint NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
 );
+CREATE TABLE bucket_bandwidth_rollup_archives (
+	bucket_name bytea NOT NULL,
+	project_id bytea NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
+	interval_seconds integer NOT NULL,
+	action integer NOT NULL,
+	inline bigint NOT NULL,
+	allocated bigint NOT NULL,
+	settled bigint NOT NULL,
+	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
+);
 CREATE TABLE bucket_storage_tallies (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -55,12 +66,6 @@ CREATE TABLE coinpayments_transactions (
 	timeout integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE consumed_serials (
-	storage_node_id bytea NOT NULL,
-	serial_number bytea NOT NULL,
-	expires_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( storage_node_id, serial_number )
 );
 CREATE TABLE coupons (
 	id bytea NOT NULL,
@@ -204,15 +209,6 @@ CREATE TABLE pending_audits (
 	path bytea NOT NULL,
 	PRIMARY KEY ( node_id )
 );
-CREATE TABLE pending_serial_queue (
-	storage_node_id bytea NOT NULL,
-	bucket_id bytea NOT NULL,
-	serial_number bytea NOT NULL,
-	action integer NOT NULL,
-	settled bigint NOT NULL,
-	expires_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( storage_node_id, bucket_id, serial_number )
-);
 CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
@@ -240,16 +236,6 @@ CREATE TABLE registration_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
-CREATE TABLE reported_serials (
-	expires_at timestamp with time zone NOT NULL,
-	storage_node_id bytea NOT NULL,
-	bucket_id bytea NOT NULL,
-	action integer NOT NULL,
-	serial_number bytea NOT NULL,
-	settled bigint NOT NULL,
-	observed_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( expires_at, storage_node_id, bucket_id, action, serial_number )
-);
 CREATE TABLE reset_password_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea NOT NULL,
@@ -262,14 +248,16 @@ CREATE TABLE revocations (
 	api_key_id bytea NOT NULL,
 	PRIMARY KEY ( revoked )
 );
-CREATE TABLE serial_numbers (
-	id serial NOT NULL,
-	serial_number bytea NOT NULL,
-	bucket_id bytea NOT NULL,
-	expires_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
-);
 CREATE TABLE storagenode_bandwidth_rollups (
+	storagenode_id bytea NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
+	interval_seconds integer NOT NULL,
+	action integer NOT NULL,
+	allocated bigint DEFAULT 0,
+	settled bigint NOT NULL,
+	PRIMARY KEY ( storagenode_id, interval_start, action )
+);
+CREATE TABLE storagenode_bandwidth_rollup_archives (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
 	interval_seconds integer NOT NULL,
@@ -319,6 +307,7 @@ CREATE TABLE storagenode_paystubs (
 	owed bigint NOT NULL,
 	disposed bigint NOT NULL,
 	paid bigint NOT NULL,
+	distributed bigint NOT NULL,
 	PRIMARY KEY ( period, node_id )
 );
 CREATE TABLE storagenode_storage_tallies (
@@ -421,11 +410,6 @@ CREATE TABLE stripecoinpayments_apply_balance_intents (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( tx_id )
 );
-CREATE TABLE used_serials (
-	serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
-	storage_node_id bytea NOT NULL,
-	PRIMARY KEY ( serial_number_id, storage_node_id )
-);
 CREATE TABLE user_credits (
 	id serial NOT NULL,
 	user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
@@ -442,17 +426,17 @@ CREATE TABLE user_credits (
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time );
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start );
 CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id );
+CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start );
+CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id );
 CREATE INDEX bucket_storage_tallies_project_id_index ON bucket_storage_tallies ( project_id );
-CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
 CREATE INDEX graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX injuredsegments_segment_health_index ON injuredsegments ( segment_health );
 CREATE INDEX injuredsegments_updated_at_index ON injuredsegments ( updated_at );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE INDEX nodes_dis_unk_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, exit_finished_at, last_contact_success );
-CREATE UNIQUE INDEX serial_number_index ON serial_numbers ( serial_number );
-CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start );
+CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start );
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period );
 CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id );
 CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id );
@@ -483,9 +467,6 @@ INSERT INTO "project_members"("member_id", "project_id", "created_at") VALUES (E
 INSERT INTO "irreparabledbs" ("segmentpath", "segmentdetail", "pieces_lost_count", "seg_damaged_unix_sec", "repair_attempt_count") VALUES ('\x49616d5365676d656e746b6579696e666f30', '\x49616d5365676d656e7464657461696c696e666f30', 10, 1550159554, 10);
 
 INSERT INTO "registration_tokens" ("secret", "owner_id", "project_limit", "created_at") VALUES (E'\\070\\127\\144\\013\\332\\344\\102\\376\\306\\056\\303\\130\\106\\132\\321\\276\\321\\274\\170\\264\\054\\333\\221\\116\\154\\221\\335\\070\\220\\146\\344\\216'::bytea, null, 1, '2019-02-14 08:28:24.677953+00');
-
-INSERT INTO "serial_numbers" ("id", "serial_number", "bucket_id", "expires_at") VALUES (1, E'0123456701234567'::bytea, E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014/testbucket'::bytea, '2019-03-06 08:28:24.677953+00');
-INSERT INTO "used_serials" ("serial_number_id", "storage_node_id") VALUES (1, E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n');
 
 INSERT INTO "storagenode_bandwidth_rollups" ("storagenode_id", "interval_start", "interval_seconds", "action", "allocated", "settled") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', '2019-03-06 08:00:00.000000' AT TIME ZONE current_setting('TIMEZONE'), 3600, 1, 1024, 2024);
 INSERT INTO "storagenode_storage_tallies" VALUES (E'\\3510\\323\\225"~\\036<\\342\\330m\\0253Jhr\\246\\233K\\246#\\2303\\351\\256\\275j\\212UM\\362\\207', '2019-02-14 08:16:57.812849+00', 1000);
@@ -534,15 +515,9 @@ INSERT INTO "storagenode_bandwidth_rollups" ("storagenode_id", "interval_start",
 INSERT INTO "coupons" ("id", "user_id", "amount", "description", "type", "status", "duration", "created_at") VALUES (E'\\362\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, 50, 'description', 0, 0, 2, '2019-06-01 08:28:24.267934+00');
 INSERT INTO "coupon_usages" ("coupon_id", "amount", "status", "period") VALUES (E'\\362\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014'::bytea, 22, 0, '2019-06-01 09:28:24.267934+00');
 
-INSERT INTO "reported_serials" ("expires_at", "storage_node_id", "bucket_id", "action", "serial_number", "settled", "observed_at") VALUES ('2020-01-11 08:00:00.000000+00', E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014/testbucket'::bytea, 1, E'0123456701234567'::bytea, 100, '2020-01-11 08:00:00.000000+00');
-
 INSERT INTO "stripecoinpayments_apply_balance_intents" ("tx_id", "state", "created_at") VALUES ('tx_id', 0, '2019-06-01 08:28:24.267934+00');
 
 INSERT INTO "projects"("id", "name", "description", "usage_limit", "bandwidth_limit", "max_buckets", "rate_limit", "partner_id", "owner_id", "created_at") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\347'::bytea, 'projName1', 'Test project 1', NULL, NULL, NULL, 2000000, NULL, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, '2020-01-15 08:28:24.636949+00');
-
-INSERT INTO "pending_serial_queue" ("storage_node_id", "bucket_id", "serial_number", "action", "settled", "expires_at") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014/testbucket'::bytea, E'5123456701234567'::bytea, 1, 100, '2020-01-11 08:00:00.000000+00');
-
-INSERT INTO "consumed_serials" ("storage_node_id", "serial_number", "expires_at") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', E'1234567012345678'::bytea, '2020-01-12 08:00:00.000000+00');
 
 INSERT INTO "injuredsegments" ("path", "data", "segment_health", "updated_at") VALUES ('0', '\x0a0130120100', 1.0, '2020-09-01 00:00:00.000000+00');
 INSERT INTO "injuredsegments" ("path", "data", "segment_health", "updated_at") VALUES ('here''s/a/great/path', '\x0a136865726527732f612f67726561742f70617468120a0102030405060708090a', 1.0, '2020-09-01 00:00:00.000000+00');
@@ -554,7 +529,7 @@ INSERT INTO "project_bandwidth_rollups"("project_id", "interval_month", egress_a
 
 INSERT INTO "projects"("id", "name", "description", "usage_limit", "bandwidth_limit", "max_buckets","rate_limit", "partner_id", "owner_id", "created_at") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\345'::bytea, 'egress101', 'High Bandwidth Project', NULL, NULL, NULL, 2000000, NULL, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, '2020-05-15 08:46:24.000000+00');
 
-INSERT INTO "storagenode_paystubs"("period", "node_id", "created_at", "codes", "usage_at_rest", "usage_get", "usage_put", "usage_get_repair", "usage_put_repair", "usage_get_audit", "comp_at_rest", "comp_get", "comp_put", "comp_get_repair", "comp_put_repair", "comp_get_audit", "surge_percent", "held", "owed", "disposed", "paid") VALUES ('2020-01', '\xf2a3b4c4dfdf7221310382fd5db5aa73e1d227d6df09734ec4e5305000000000', '2020-04-07T20:14:21.479141Z', '', 1327959864508416, 294054066688, 159031363328, 226751, 0, 836608, 2861984, 5881081, 0, 226751, 0, 8, 300, 0, 26909472, 0, 26909472);
+INSERT INTO "storagenode_paystubs"("period", "node_id", "created_at", "codes", "usage_at_rest", "usage_get", "usage_put", "usage_get_repair", "usage_put_repair", "usage_get_audit", "comp_at_rest", "comp_get", "comp_put", "comp_get_repair", "comp_put_repair", "comp_get_audit", "surge_percent", "held", "owed", "disposed", "paid", "distributed") VALUES ('2020-01', '\xf2a3b4c4dfdf7221310382fd5db5aa73e1d227d6df09734ec4e5305000000000', '2020-04-07T20:14:21.479141Z', '', 1327959864508416, 294054066688, 159031363328, 226751, 0, 836608, 2861984, 5881081, 0, 226751, 0, 8, 300, 0, 26909472, 0, 26909472, 0);
 INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "uptime_reputation_alpha", "uptime_reputation_beta", "exit_success", "unknown_audit_suspended", "offline_suspended", "under_review") VALUES (E'\\153\\313\\233\\074\\327\\255\\136\\070\\346\\001', '127.0.0.1:55516', '', 0, 4, '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 5, 0, 5, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 50, 0, 1, 0, 100, 5, false, '2019-02-14 08:07:31.108963+00', '2019-02-14 08:07:31.108963+00', '2019-02-14 08:07:31.108963+00');
 
 INSERT INTO "audit_histories" ("node_id", "history") VALUES (E'\\153\\313\\233\\074\\327\\177\\136\\070\\346\\001', '\x0a23736f2f6d616e792f69636f6e69632f70617468732f746f2f63686f6f73652f66726f6d120a0102030405060708090a');
@@ -572,5 +547,11 @@ INSERT INTO "projects"("id", "name", "description", "usage_limit", "bandwidth_li
 INSERT INTO "storagenode_bandwidth_rollups_phase2" ("storagenode_id", "interval_start", "interval_seconds", "action", "allocated", "settled") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', '2019-03-06 08:00:00.000000' AT TIME ZONE current_setting('TIMEZONE'), 3600, 1, 1024, 2024);
 
 INSERT INTO "users"("id", "full_name", "short_name", "email", "normalized_email", "password_hash", "status", "partner_id", "created_at", "position", "company_name", "working_on", "company_size", "is_professional") VALUES (E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\205\\311",'::bytea, 'Thierry', 'Berg', '2email2@mail.test', '2EMAIL2@MAIL.TEST', E'some_readable_hash'::bytea, 2, NULL, '2020-05-16 10:28:24.614594+00', 'engineer', 'storj', 'data storage', 55, true);
+
+INSERT INTO "storagenode_bandwidth_rollup_archives" ("storagenode_id", "interval_start", "interval_seconds", "action", "allocated", "settled") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', '2019-03-06 08:00:00.000000' AT TIME ZONE current_setting('TIMEZONE'), 3600, 1, 1024, 2024);
+INSERT INTO "bucket_bandwidth_rollup_archives" ("bucket_name", "project_id", "interval_start", "interval_seconds", "action", "inline", "allocated", "settled") VALUES (E'testbucket'::bytea, E'\\170\\160\\157\\370\\274\\366\\113\\364\\272\\235\\301\\243\\321\\102\\321\\136'::bytea,'2019-03-06 08:00:00.000000' AT TIME ZONE current_setting('TIMEZONE'), 3600, 1, 1024, 2024, 3024);
+
+INSERT INTO "storagenode_paystubs"("period", "node_id", "created_at", "codes", "usage_at_rest", "usage_get", "usage_put", "usage_get_repair", "usage_put_repair", "usage_get_audit", "comp_at_rest", "comp_get", "comp_put", "comp_get_repair", "comp_put_repair", "comp_get_audit", "surge_percent", "held", "owed", "disposed", "paid", "distributed") VALUES ('2020-12', '\x1111111111111111111111111111111111111111111111111111111111111111', '2020-04-07T20:14:21.479141Z', '', 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 117);
+INSERT INTO "storagenode_payments"("id", "created_at", "period", "node_id", "amount") VALUES (1, '2020-04-07T20:14:21.479141Z', '2020-12', '\x1111111111111111111111111111111111111111111111111111111111111111', 117);
 
 -- NEW DATA --

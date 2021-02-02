@@ -32,6 +32,17 @@ CREATE TABLE bucket_bandwidth_rollups (
 	settled bigint NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
 );
+CREATE TABLE bucket_bandwidth_rollup_archives (
+	bucket_name bytea NOT NULL,
+	project_id bytea NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
+	interval_seconds integer NOT NULL,
+	action integer NOT NULL,
+	inline bigint NOT NULL,
+	allocated bigint NOT NULL,
+	settled bigint NOT NULL,
+	PRIMARY KEY ( bucket_name, project_id, interval_start, action )
+);
 CREATE TABLE bucket_storage_tallies (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -55,12 +66,6 @@ CREATE TABLE coinpayments_transactions (
 	timeout integer NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
-);
-CREATE TABLE consumed_serials (
-	storage_node_id bytea NOT NULL,
-	serial_number bytea NOT NULL,
-	expires_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( storage_node_id, serial_number )
 );
 CREATE TABLE coupons (
 	id bytea NOT NULL,
@@ -204,15 +209,6 @@ CREATE TABLE pending_audits (
 	path bytea NOT NULL,
 	PRIMARY KEY ( node_id )
 );
-CREATE TABLE pending_serial_queue (
-	storage_node_id bytea NOT NULL,
-	bucket_id bytea NOT NULL,
-	serial_number bytea NOT NULL,
-	action integer NOT NULL,
-	settled bigint NOT NULL,
-	expires_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( storage_node_id, bucket_id, serial_number )
-);
 CREATE TABLE projects (
 	id bytea NOT NULL,
 	name text NOT NULL,
@@ -240,16 +236,6 @@ CREATE TABLE registration_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
-CREATE TABLE reported_serials (
-	expires_at timestamp with time zone NOT NULL,
-	storage_node_id bytea NOT NULL,
-	bucket_id bytea NOT NULL,
-	action integer NOT NULL,
-	serial_number bytea NOT NULL,
-	settled bigint NOT NULL,
-	observed_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( expires_at, storage_node_id, bucket_id, action, serial_number )
-);
 CREATE TABLE reset_password_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea NOT NULL,
@@ -262,14 +248,16 @@ CREATE TABLE revocations (
 	api_key_id bytea NOT NULL,
 	PRIMARY KEY ( revoked )
 );
-CREATE TABLE serial_numbers (
-	id serial NOT NULL,
-	serial_number bytea NOT NULL,
-	bucket_id bytea NOT NULL,
-	expires_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
-);
 CREATE TABLE storagenode_bandwidth_rollups (
+	storagenode_id bytea NOT NULL,
+	interval_start timestamp with time zone NOT NULL,
+	interval_seconds integer NOT NULL,
+	action integer NOT NULL,
+	allocated bigint DEFAULT 0,
+	settled bigint NOT NULL,
+	PRIMARY KEY ( storagenode_id, interval_start, action )
+);
+CREATE TABLE storagenode_bandwidth_rollup_archives (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
 	interval_seconds integer NOT NULL,
@@ -319,6 +307,7 @@ CREATE TABLE storagenode_paystubs (
 	owed bigint NOT NULL,
 	disposed bigint NOT NULL,
 	paid bigint NOT NULL,
+	distributed bigint NOT NULL,
 	PRIMARY KEY ( period, node_id )
 );
 CREATE TABLE storagenode_storage_tallies (
@@ -421,11 +410,6 @@ CREATE TABLE stripecoinpayments_apply_balance_intents (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( tx_id )
 );
-CREATE TABLE used_serials (
-	serial_number_id integer NOT NULL REFERENCES serial_numbers( id ) ON DELETE CASCADE,
-	storage_node_id bytea NOT NULL,
-	PRIMARY KEY ( serial_number_id, storage_node_id )
-);
 CREATE TABLE user_credits (
 	id serial NOT NULL,
 	user_id bytea NOT NULL REFERENCES users( id ) ON DELETE CASCADE,
@@ -442,17 +426,17 @@ CREATE TABLE user_credits (
 CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time );
 CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start );
 CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id );
+CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start );
+CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id );
 CREATE INDEX bucket_storage_tallies_project_id_index ON bucket_storage_tallies ( project_id );
-CREATE INDEX consumed_serials_expires_at_index ON consumed_serials ( expires_at );
 CREATE INDEX graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at );
 CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
 CREATE INDEX injuredsegments_segment_health_index ON injuredsegments ( segment_health );
 CREATE INDEX injuredsegments_updated_at_index ON injuredsegments ( updated_at );
 CREATE INDEX node_last_ip ON nodes ( last_net );
 CREATE INDEX nodes_dis_unk_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, exit_finished_at, last_contact_success );
-CREATE UNIQUE INDEX serial_number_index ON serial_numbers ( serial_number );
-CREATE INDEX serial_numbers_expires_at_index ON serial_numbers ( expires_at );
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start );
+CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start );
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period );
 CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id );
 CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id );

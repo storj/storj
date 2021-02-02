@@ -64,6 +64,7 @@ type PayStub struct {
 	Owed           int64        `json:"owed"`
 	Disposed       int64        `json:"disposed"`
 	Paid           int64        `json:"paid"`
+	Distributed    int64        `json:"distributed"`
 }
 
 // HoldForPeriod is node's held amount for period.

@@ -1212,6 +1212,85 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					return nil
 				}),
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add storagenode_bandwidth_rollups_archives and bucket_bandwidth_rollup_archives",
+				Version:     142,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`
+					CREATE TABLE storagenode_bandwidth_rollup_archives (
+						storagenode_id bytea NOT NULL,
+						interval_start timestamp with time zone NOT NULL,
+						interval_seconds integer NOT NULL,
+						action integer NOT NULL,
+						allocated bigint DEFAULT 0,
+						settled bigint NOT NULL,
+						PRIMARY KEY ( storagenode_id, interval_start, action )
+					);`,
+					`CREATE TABLE bucket_bandwidth_rollup_archives (
+						bucket_name bytea NOT NULL,
+						project_id bytea NOT NULL,
+						interval_start timestamp with time zone NOT NULL,
+						interval_seconds integer NOT NULL,
+						action integer NOT NULL,
+						inline bigint NOT NULL,
+						allocated bigint NOT NULL,
+						settled bigint NOT NULL,
+						PRIMARY KEY ( bucket_name, project_id, interval_start, action )
+					);`,
+					`CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start );`,
+					`CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id );`,
+					`CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives (interval_start);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add distributed column to storagenode_paystubs table",
+				Version:     143,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+					_, err := db.Exec(ctx, `
+							ALTER TABLE storagenode_paystubs ADD COLUMN distributed BIGINT;
+						`)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+
+					_, err = db.Exec(ctx, `
+							UPDATE storagenode_paystubs ps
+							SET distributed = coalesce((
+								SELECT sum(amount)::bigint
+								FROM storagenode_payments pm
+								WHERE pm.period = ps.period
+								  AND pm.node_id = ps.node_id
+							), 0);
+						`)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+
+					_, err = db.Exec(ctx, `
+							ALTER TABLE storagenode_paystubs ALTER COLUMN distributed SET NOT NULL;
+						`)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "delete deprecated and unused serial tables",
+				Version:     144,
+				Action: migrate.SQL{
+					`DROP TABLE used_serials;`,
+					`DROP TABLE reported_serials;`,
+					`DROP TABLE pending_serial_queue;`,
+					`DROP TABLE serial_numbers;`,
+					`DROP TABLE consumed_serials;`,
+				},
+			},
 		},
 	}
 }

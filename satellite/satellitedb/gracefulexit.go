@@ -153,6 +153,36 @@ func (db *gracefulexitDB) DeleteFinishedTransferQueueItems(ctx context.Context, 
 	return Error.Wrap(err)
 }
 
+// DeleteAllFinishedTransferQueueItems deletes all graceful exit transfer
+// queue items whose nodes have finished the exit before the indicated time
+// returning the total number of deleted items.
+func (db *gracefulexitDB) DeleteAllFinishedTransferQueueItems(
+	ctx context.Context, before time.Time) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	statement := db.db.Rebind(
+		`DELETE FROM graceful_exit_transfer_queue
+		WHERE node_id IN (
+			SELECT id
+			FROM nodes
+			WHERE exit_finished_at IS NOT NULL
+				AND exit_finished_at < ?
+		)`,
+	)
+
+	res, err := db.db.ExecContext(ctx, statement, before)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	count, err := res.RowsAffected()
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	return count, nil
+}
+
 // GetTransferQueueItem gets a graceful exit transfer queue entry.
 func (db *gracefulexitDB) GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, key metabase.SegmentKey, pieceNum int32) (_ *gracefulexit.TransferQueueItem, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -253,6 +283,45 @@ func (db *gracefulexitDB) IncrementOrderLimitSendCount(ctx context.Context, node
 	)
 	_, err = db.db.ExecContext(ctx, sql, nodeID, key, pieceNum)
 	return Error.Wrap(err)
+}
+
+// CountFinishedTransferQueueItemsByNode return a map of the nodes which has
+// finished the exit before the indicated time but there are at least one item
+// left in the transfer queue.
+func (db *gracefulexitDB) CountFinishedTransferQueueItemsByNode(ctx context.Context, before time.Time) (_ map[storj.NodeID]int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	statement := db.db.Rebind(
+		`SELECT n.id, count(getq.node_id)
+		FROM nodes as n LEFT JOIN graceful_exit_transfer_queue as getq
+			ON n.id = getq.node_id
+		WHERE n.exit_finished_at IS NOT NULL
+			AND n.exit_finished_at < ?
+		GROUP BY n.id
+		HAVING count(getq.node_id) > 0`,
+	)
+
+	rows, err := db.db.QueryContext(ctx, statement, before)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, Error.Wrap(rows.Close())) }()
+
+	nodesItemsCount := make(map[storj.NodeID]int64)
+	for rows.Next() {
+		var (
+			nodeID storj.NodeID
+			n      int64
+		)
+		err := rows.Scan(&nodeID, &n)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		nodesItemsCount[nodeID] = n
+	}
+
+	return nodesItemsCount, Error.Wrap(rows.Err())
 }
 
 func scanRows(rows tagsql.Rows) (transferQueueItemRows []*gracefulexit.TransferQueueItem, err error) {

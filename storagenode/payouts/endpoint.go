@@ -95,6 +95,7 @@ func (endpoint *Endpoint) GetPaystub(ctx context.Context, satelliteID storj.Node
 		Owed:           resp.Owed,
 		Disposed:       resp.Disposed,
 		Paid:           resp.Paid,
+		Distributed:    resp.Distributed,
 	}, nil
 }
 
@@ -138,6 +139,7 @@ func (endpoint *Endpoint) GetAllPaystubs(ctx context.Context, satelliteID storj.
 			Owed:           resp.Paystub[i].Owed,
 			Disposed:       resp.Paystub[i].Disposed,
 			Paid:           resp.Paystub[i].Paid,
+			Distributed:    resp.Paystub[i].Distributed,
 		}
 
 		payStubs = append(payStubs, paystub)

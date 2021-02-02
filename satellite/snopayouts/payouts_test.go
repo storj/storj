@@ -43,6 +43,7 @@ func TestPayoutDB(t *testing.T) {
 			Owed:           15,
 			Disposed:       16,
 			Paid:           17,
+			Distributed:    18,
 		}
 
 		paystub2 := snopayouts.Paystub{
@@ -66,6 +67,7 @@ func TestPayoutDB(t *testing.T) {
 			Owed:           18,
 			Disposed:       19,
 			Paid:           20,
+			Distributed:    21,
 		}
 
 		paystub3 := snopayouts.Paystub{
@@ -89,6 +91,7 @@ func TestPayoutDB(t *testing.T) {
 			Owed:           24,
 			Disposed:       25,
 			Paid:           26,
+			Distributed:    27,
 		}
 
 		{
