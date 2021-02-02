@@ -83,7 +83,9 @@ export class Project {
      */
     public createdDate(): string {
         const createdAt = new Date(this.createdAt);
-        return createdAt.toLocaleString('en-US', {timeZone: 'UTC', timeZoneName: 'short'});
+        const options = { year: 'numeric', month: 'short', day: 'numeric' };
+
+        return createdAt.toLocaleString('en-US', options);
     }
 }
 
@@ -142,11 +144,11 @@ export class ProjectPage {
         public pageCount: number = 0,
         public currentPage: number = 0,
         public totalCount: number = 0,
-    ){}
+    ) {}
 }
 
 /**
- * BucketPage class holds bucket total usages and flag whether more usages available.
+ * ProjectsPage class, used to describe paged projects list.
  */
 export class ProjectsPage {
     public constructor(
@@ -160,7 +162,7 @@ export class ProjectsPage {
 }
 
 /**
- * BucketCursor class holds cursor for bucket name and limit.
+ * ProjectsPage class, used to describe paged projects list.
  */
 export class ProjectsCursor {
     public constructor(

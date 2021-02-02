@@ -3,7 +3,14 @@
 
 import { BaseGql } from '@/api/baseGql';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { Project, ProjectFields, ProjectLimits, ProjectsApi, ProjectsPage, ProjectsCursor } from '@/types/projects';
+import {
+    Project,
+    ProjectFields,
+    ProjectLimits,
+    ProjectsApi,
+    ProjectsCursor,
+    ProjectsPage,
+} from '@/types/projects';
 import { HttpClient } from '@/utils/httpClient';
 
 export class ProjectsApiGql extends BaseGql implements ProjectsApi {
@@ -144,6 +151,12 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
         throw new Error('can not get usage limits');
     }
 
+    /**
+     * Fetch owned projects.
+     *
+     * @returns ProjectsPage
+     * @throws Error
+     */
     public async getOwnedProjects(cursor: ProjectsCursor): Promise<ProjectsPage> {
         const query =
             `query($limit: Int!, $page: Int!) {
@@ -170,11 +183,12 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
         };
 
         const response = await this.query(query, variables);
+
         return this.getProjectsPage(response.data.ownedProjects);
     }
 
     /**
-     * Method for mapping buckets page from json to BucketPage type.
+     * Method for mapping projects page from json to ProjectsPage type.
      *
      * @param page anonymous object from json
      */

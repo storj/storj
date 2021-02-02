@@ -7,8 +7,8 @@ import {
     ProjectFields,
     ProjectLimits,
     ProjectsApi,
-    ProjectsPage,
     ProjectsCursor,
+    ProjectsPage,
 } from '@/types/projects';
 
 export const PROJECTS_ACTIONS = {
@@ -70,6 +70,7 @@ const {
     SET_PAGE_NUMBER,
     SET_PAGE,
 } = PROJECTS_MUTATIONS;
+const projectsPageLimit = 7;
 
 export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState> {
     return {
@@ -133,6 +134,7 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
             },
             [SET_PAGE_NUMBER](state: ProjectsState, pageNumber: number) {
                 state.cursor.page = pageNumber;
+                state.cursor.limit = projectsPageLimit;
             },
             [SET_PAGE](state: ProjectsState, page: ProjectsPage) {
                 state.page = page;
