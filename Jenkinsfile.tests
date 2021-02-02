@@ -3,7 +3,11 @@ node('node') {
   properties([disableConcurrentBuilds()])
   try {
     currentBuild.result = "SUCCESS"
-
+    agent {
+      docker {
+        image 'maven:3.5.0-jdk-8'
+      }
+    }
     stage('Checkout') {
       lastStage = env.STAGE_NAME
       checkout scm
@@ -15,11 +19,11 @@ node('node') {
     stage('Run UITests') {
         lastStage = env.STAGE_NAME
         try {
-          echo "Running UITests"
+
+echo "Running UITests"
 
           env.STORJ_SIM_POSTGRES = 'postgres://postgres@postgres:5432/teststorj?sslmode=disable'
           env.STORJ_SIM_REDIS = 'redis:6379'
-
           echo "STORJ_SIM_POSTGRES: $STORJ_SIM_POSTGRES"
           echo "STORJ_SIM_REDIS: $STORJ_SIM_REDIS"
           sh 'docker run --rm -d -e POSTGRES_HOST_AUTH_METHOD=trust --name postgres-ui-$BUILD_NUMBER postgres:12.3'
