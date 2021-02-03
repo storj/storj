@@ -9,7 +9,7 @@ import (
 
 var login string = "test1@g.com"
 	var password = "123qwe"
-	var startPage = "http://127.0.0.1:10002"
+	var startPage = "http://127.0.0.1:10002/login"
 //	var startPage = "https://satellite.qa.storj.io/login"
 	var screenWidth int= 1350
 	var screenHeigth int = 600
@@ -405,9 +405,10 @@ var login string = "test1@g.com"
 
 		// Make sure viewport is always consistent.
 		page.MustSetViewport(screenWidth, screenHeigth, 1, false)
-		fmt.Println(page.MustElement("svg.login-container__logo").MustVisible())
+
 		header:= page.MustElement("h1.login-area__title-container__title").MustText()
 		fmt.Println(header)
+		fmt.Println(page.MustElement("svg.login-container__logo").MustVisible())
 		forgotText:= page.MustElement("h3.login-area__navigation-area__nav-link__link").MustText()
 		fmt.Println(forgotText)
 		forgotLink:= page.MustElement("a.login-area__navigation-area__nav-link").MustAttribute("href")
@@ -427,8 +428,8 @@ var login string = "test1@g.com"
 		supportLink:= page.MustElement("a.login-area__info-area__help").MustAttribute("href")
 		fmt.Println(*supportLink)
 
-		// Output: true
-		// Login to Storj
+		// Output: Login to Storj
+		// true
 		// Forgot password?
 		// /forgot-password
 		// Create Account
