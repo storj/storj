@@ -9,7 +9,7 @@ import (
 
 var login string = "test1@g.com"
 	var password = "123qwe"
-	var startPage = "http://0.0.0.0:10002/login"
+	var startPage = "127.0.0.1:10002/login"
 //	var startPage = "https://satellite.qa.storj.io/login"
 	var screenWidth int= 1350
 	var screenHeigth int = 600
@@ -393,7 +393,7 @@ var login string = "test1@g.com"
 			Timeout(time.Minute).
 			ControlURL(url).
 			Trace(true).
-			SlowMotion(3300 * time.Millisecond).
+			SlowMotion(300 * time.Millisecond).
 			MustConnect()
 
 		// Even you forget to close, rod will close it after main process ends.
