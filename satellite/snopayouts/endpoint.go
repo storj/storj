@@ -130,7 +130,6 @@ func convertPaystub(paystub Paystub) (*pb.GetHeldAmountResponse, error) {
 		Owed:           paystub.Owed,
 		Disposed:       paystub.Disposed,
 		Paid:           paystub.Paid,
-		Distributed:    paystub.Distributed,
 	}, err
 }
 
