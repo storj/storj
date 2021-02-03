@@ -28,7 +28,6 @@ import (
 	"storj.io/storj/satellite/accounting/projectbwcleanup"
 	"storj.io/storj/satellite/accounting/reportedrollup"
 	"storj.io/storj/satellite/accounting/rollup"
-	"storj.io/storj/satellite/accounting/rolluparchive"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/contact"
@@ -115,7 +114,6 @@ type Core struct {
 	Accounting struct {
 		Tally                 *tally.Service
 		Rollup                *rollup.Service
-		RollupArchiveChore    *rolluparchive.Chore
 		ReportedRollupChore   *reportedrollup.Chore
 		ProjectBWCleanupChore *projectbwcleanup.Chore
 	}
@@ -434,19 +432,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Accounting Project Bandwidth Rollup", peer.Accounting.ProjectBWCleanupChore.Loop))
-
-		if config.RollupArchive.Enabled {
-			peer.Accounting.RollupArchiveChore = rolluparchive.New(peer.Log.Named("accounting:rollup-archive"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), config.RollupArchive)
-			peer.Services.Add(lifecycle.Item{
-				Name:  "accounting:rollup-archive",
-				Run:   peer.Accounting.RollupArchiveChore.Run,
-				Close: peer.Accounting.RollupArchiveChore.Close,
-			})
-			peer.Debug.Server.Panel.Add(
-				debug.Cycle("Accounting Rollup Archive", peer.Accounting.RollupArchiveChore.Loop))
-		} else {
-			peer.Log.Named("rolluparchive").Info("disabled")
-		}
 	}
 
 	// TODO: remove in future, should be in API

@@ -619,18 +619,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # default queue batch size
 # reported-rollup.queue-batch-size: 10000
 
-# age at which a rollup is archived
-# rollup-archive.archive-age: 2160h0m0s
-
-# number of records to delete per delete execution. Used only for crdb which is slow without limit.
-# rollup-archive.batch-size: 500
-
-# whether or not the rollup archive is enabled.
-# rollup-archive.enabled: true
-
-# how frequently rollup archiver should run
-# rollup-archive.interval: 24h0m0s
-
 # option for deleting tallies after they are rolled up
 # rollup.delete-tallies: true
 

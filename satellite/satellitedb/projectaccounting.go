@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/metainfo/metabase"
-	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
@@ -632,65 +631,6 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	return page, nil
 }
 
-// ArchiveRollupsBefore archives rollups older than a given time.
-func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before time.Time, batchSize int) (bucketRollupsDeleted int, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if batchSize <= 0 {
-		return 0, nil
-	}
-
-	switch db.db.implementation {
-	case dbutil.Cockroach:
-		for {
-			row := db.db.QueryRow(ctx, `
-				WITH rollups_to_move AS (
-                    DELETE FROM bucket_bandwidth_rollups
-                    WHERE interval_start <= $1
-                    LIMIT $2 RETURNING *
-                ), moved_rollups AS (
-					INSERT INTO bucket_bandwidth_rollup_archives(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
-					SELECT bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled FROM rollups_to_move
-					RETURNING *
-                )
-                SELECT count(*) FROM moved_rollups
-			`, before, batchSize)
-
-			var rowCount int
-			err = row.Scan(&rowCount)
-			if err != nil {
-				return bucketRollupsDeleted, err
-			}
-			bucketRollupsDeleted += rowCount
-
-			if rowCount < batchSize {
-				break
-			}
-		}
-	case dbutil.Postgres:
-		bwStatement := `
-			WITH rollups_to_move AS (
-				DELETE FROM bucket_bandwidth_rollups
-				WHERE interval_start <= $1
-				RETURNING *
-			), moved_rollups AS (
-				INSERT INTO bucket_bandwidth_rollup_archives(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
-				SELECT bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled FROM rollups_to_move
-				RETURNING *
-            )
-            SELECT count(*) FROM moved_rollups
-		`
-		row := db.db.DB.QueryRow(ctx, bwStatement, before)
-		var rowCount int
-		err = row.Scan(&rowCount)
-		if err != nil {
-			return bucketRollupsDeleted, err
-		}
-		bucketRollupsDeleted = rowCount
-	}
-	return bucketRollupsDeleted, err
-}
-
 // getBuckets list all bucket of certain project.
 func (db *ProjectAccounting) getBuckets(ctx context.Context, projectID uuid.UUID) (_ []string, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -738,80 +678,4 @@ func (db *ProjectAccounting) GetProjectLimits(ctx context.Context, projectID uui
 		Usage:     row.UsageLimit,
 		Bandwidth: row.BandwidthLimit,
 	}, nil
-}
-
-// GetRollupsSince retrieves all archived rollup records since a given time.
-func (db *ProjectAccounting) GetRollupsSince(ctx context.Context, since time.Time) (bwRollups []orders.BucketBandwidthRollup, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	pageLimit := db.db.opts.ReadRollupBatchSize
-	if pageLimit <= 0 {
-		pageLimit = 10000
-	}
-
-	var cursor *dbx.Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual_Continuation
-	for {
-		dbxRollups, next, err := db.db.Paged_BucketBandwidthRollup_By_IntervalStart_GreaterOrEqual(ctx,
-			dbx.BucketBandwidthRollup_IntervalStart(since),
-			pageLimit, cursor)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		cursor = next
-		for _, dbxRollup := range dbxRollups {
-			projectID, err := uuid.FromBytes(dbxRollup.ProjectId)
-			if err != nil {
-				return nil, err
-			}
-			bwRollups = append(bwRollups, orders.BucketBandwidthRollup{
-				ProjectID:  projectID,
-				BucketName: string(dbxRollup.BucketName),
-				Action:     pb.PieceAction(dbxRollup.Action),
-				Inline:     int64(dbxRollup.Inline),
-				Allocated:  int64(dbxRollup.Allocated),
-				Settled:    int64(dbxRollup.Settled),
-			})
-		}
-		if len(dbxRollups) < pageLimit {
-			return bwRollups, nil
-		}
-	}
-}
-
-// GetArchivedRollupsSince retrieves all archived rollup records since a given time.
-func (db *ProjectAccounting) GetArchivedRollupsSince(ctx context.Context, since time.Time) (bwRollups []orders.BucketBandwidthRollup, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	pageLimit := db.db.opts.ReadRollupBatchSize
-	if pageLimit <= 0 {
-		pageLimit = 10000
-	}
-
-	var cursor *dbx.Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual_Continuation
-	for {
-		dbxRollups, next, err := db.db.Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual(ctx,
-			dbx.BucketBandwidthRollupArchive_IntervalStart(since),
-			pageLimit, cursor)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		cursor = next
-		for _, dbxRollup := range dbxRollups {
-			projectID, err := uuid.FromBytes(dbxRollup.ProjectId)
-			if err != nil {
-				return nil, err
-			}
-			bwRollups = append(bwRollups, orders.BucketBandwidthRollup{
-				ProjectID:  projectID,
-				BucketName: string(dbxRollup.BucketName),
-				Action:     pb.PieceAction(dbxRollup.Action),
-				Inline:     int64(dbxRollup.Inline),
-				Allocated:  int64(dbxRollup.Allocated),
-				Settled:    int64(dbxRollup.Settled),
-			})
-		}
-		if len(dbxRollups) < pageLimit {
-			return bwRollups, nil
-		}
-	}
 }
