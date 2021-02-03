@@ -242,7 +242,7 @@ func (db *ProjectAccounting) GetProjectBandwidthLimit(ctx context.Context, proje
 func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid.UUID, since, before time.Time) (usage *accounting.ProjectUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
 	since = timeTruncateDown(since)
-	bucketNames, err := db.getBuckets(ctx, projectID)
+	bucketNames, err := db.getBucketsSinceAndBefore(ctx, projectID, since, before)
 	if err != nil {
 		return nil, err
 	}
@@ -344,7 +344,7 @@ func (db *ProjectAccounting) GetBucketUsageRollups(ctx context.Context, projectI
 	since = timeTruncateDown(since.UTC())
 	before = before.UTC()
 
-	buckets, err := db.getBuckets(ctx, projectID)
+	buckets, err := db.getBucketsSinceAndBefore(ctx, projectID, since, before)
 	if err != nil {
 		return nil, err
 	}
@@ -691,14 +691,15 @@ func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before ti
 	return bucketRollupsDeleted, err
 }
 
-// getBuckets list all bucket of certain project.
-func (db *ProjectAccounting) getBuckets(ctx context.Context, projectID uuid.UUID) (_ []string, err error) {
+// getBucketsSinceAndBefore lists distinct bucket names for a project within a specific timeframe.
+func (db *ProjectAccounting) getBucketsSinceAndBefore(ctx context.Context, projectID uuid.UUID, since, before time.Time) (_ []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 	bucketsQuery := db.db.Rebind(`SELECT DISTINCT bucket_name
 		FROM bucket_storage_tallies
-		WHERE project_id = ?`)
-
-	bucketRows, err := db.db.QueryContext(ctx, bucketsQuery, projectID[:])
+		WHERE project_id = ?
+		AND interval_start >= ? 
+		AND interval_start <= ?`)
+	bucketRows, err := db.db.QueryContext(ctx, bucketsQuery, projectID[:], since, before)
 	if err != nil {
 		return nil, err
 	}
