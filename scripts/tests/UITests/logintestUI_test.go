@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/launcher"
+	"testing"
 	"time"
 )
 
@@ -14,7 +15,14 @@ var login string = "test1@g.com"
 	var screenWidth int= 1350
 	var screenHeigth int = 600
 
-//func Example_login() {
+func Test_page_screenshot(t *testing.T) {
+	page := rod.New().MustConnect().MustPage(startPage).MustWaitLoad()
+
+	// simple version
+	page.MustScreenshotFullPage("my.png")
+}
+
+	//func Example_login() {
 //
 //	page, browser := login_to_account()
 //	//check title
