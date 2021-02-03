@@ -407,6 +407,7 @@ CREATE TABLE bucket_metainfos (
 	default_redundancy_optimal_shares integer NOT NULL,
 	default_redundancy_total_shares integer NOT NULL,
 	PRIMARY KEY ( id ),
+	UNIQUE ( name, project_id ),
 	UNIQUE ( project_id, name )
 );
 CREATE TABLE project_members (

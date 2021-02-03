@@ -981,6 +981,7 @@ create user_credit ()
 
 model bucket_metainfo (
 	key    id
+	unique name project_id //to remove later
 	unique project_id name
 
 	field id             blob
