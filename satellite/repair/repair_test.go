@@ -479,10 +479,10 @@ func TestRepairExpiredSegment(t *testing.T) {
 		satellite.Repair.Repairer.Loop.Pause()
 		satellite.Repair.Repairer.WaitForPendingRepairs()
 
-		// Verify that the segment was removed
+		// Verify that the segment is still in the queue
 		count, err = satellite.DB.RepairQueue().Count(ctx)
 		require.NoError(t, err)
-		require.Equal(t, count, 1)
+		require.Equal(t, 1, count)
 	})
 }
 
