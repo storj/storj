@@ -1176,18 +1176,6 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes ALTER COLUMN total_uptime_count SET DEFAULT 0;`,
 				},
 			},
-			{
-				DB:          &db.migrationDB,
-				Description: "add columns for professional users",
-				Version:     140,
-				Action: migrate.SQL{
-					`ALTER TABLE users ADD COLUMN position text;`,
-					`ALTER TABLE users ADD COLUMN company_name text;`,
-					`ALTER TABLE users ADD COLUMN working_on text;`,
-					`ALTER TABLE users ADD COLUMN company_size int;`,
-					`ALTER TABLE users ADD COLUMN is_professional boolean NOT NULL DEFAULT false;`,
-				},
-			},
 		},
 	}
 }
