@@ -1178,76 +1178,8 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 			},
 			{
 				DB:          &db.migrationDB,
-				Description: "add columns for professional users",
-				Version:     140,
-				Action: migrate.SQL{
-					`ALTER TABLE users ADD COLUMN position text;`,
-					`ALTER TABLE users ADD COLUMN company_name text;`,
-					`ALTER TABLE users ADD COLUMN working_on text;`,
-					`ALTER TABLE users ADD COLUMN company_size int;`,
-					`ALTER TABLE users ADD COLUMN is_professional boolean NOT NULL DEFAULT false;`,
-				},
-			},
-			{
-				DB:          &db.migrationDB,
-				Description: "drop the obsolete (name, project_id) index from bucket_metainfos table.",
-				Version:     141,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
-						_, err := db.Exec(ctx,
-							`DROP INDEX bucket_metainfos_name_project_id_key CASCADE;`,
-						)
-						if err != nil {
-							return ErrMigrate.Wrap(err)
-						}
-						return nil
-					}
-
-					_, err := db.Exec(ctx,
-						`ALTER TABLE bucket_metainfos DROP CONSTRAINT bucket_metainfos_name_project_id_key;`,
-					)
-					if err != nil {
-						return ErrMigrate.Wrap(err)
-					}
-					return nil
-				}),
-			},
-			{
-				DB:          &db.migrationDB,
-				Description: "add storagenode_bandwidth_rollups_archives and bucket_bandwidth_rollup_archives",
-				Version:     142,
-				SeparateTx:  true,
-				Action: migrate.SQL{
-					`
-					CREATE TABLE storagenode_bandwidth_rollup_archives (
-						storagenode_id bytea NOT NULL,
-						interval_start timestamp with time zone NOT NULL,
-						interval_seconds integer NOT NULL,
-						action integer NOT NULL,
-						allocated bigint DEFAULT 0,
-						settled bigint NOT NULL,
-						PRIMARY KEY ( storagenode_id, interval_start, action )
-					);`,
-					`CREATE TABLE bucket_bandwidth_rollup_archives (
-						bucket_name bytea NOT NULL,
-						project_id bytea NOT NULL,
-						interval_start timestamp with time zone NOT NULL,
-						interval_seconds integer NOT NULL,
-						action integer NOT NULL,
-						inline bigint NOT NULL,
-						allocated bigint NOT NULL,
-						settled bigint NOT NULL,
-						PRIMARY KEY ( bucket_name, project_id, interval_start, action )
-					);`,
-					`CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start );`,
-					`CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id );`,
-					`CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives (interval_start);`,
-				},
-			},
-			{
-				DB:          &db.migrationDB,
 				Description: "add distributed column to storagenode_paystubs table",
-				Version:     143,
+				Version:     140,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
 					_, err := db.Exec(ctx, `
 							ALTER TABLE storagenode_paystubs ADD COLUMN distributed BIGINT;
@@ -1278,6 +1210,73 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 
 					return nil
 				}),
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add columns for professional users",
+				Version:     141,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN position text;`,
+					`ALTER TABLE users ADD COLUMN company_name text;`,
+					`ALTER TABLE users ADD COLUMN working_on text;`,
+					`ALTER TABLE users ADD COLUMN company_size int;`,
+					`ALTER TABLE users ADD COLUMN is_professional boolean NOT NULL DEFAULT false;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop the obsolete (name, project_id) index from bucket_metainfos table.",
+				Version:     142,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+						_, err := db.Exec(ctx,
+							`DROP INDEX bucket_metainfos_name_project_id_key CASCADE;`,
+						)
+						if err != nil {
+							return ErrMigrate.Wrap(err)
+						}
+						return nil
+					}
+
+					_, err := db.Exec(ctx,
+						`ALTER TABLE bucket_metainfos DROP CONSTRAINT bucket_metainfos_name_project_id_key;`,
+					)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+					return nil
+				}),
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add storagenode_bandwidth_rollups_archives and bucket_bandwidth_rollup_archives",
+				Version:     143,
+				SeparateTx:  true,
+				Action: migrate.SQL{`
+                    CREATE TABLE storagenode_bandwidth_rollup_archives (
+                        storagenode_id bytea NOT NULL,
+                        interval_start timestamp with time zone NOT NULL,
+                        interval_seconds integer NOT NULL,
+                        action integer NOT NULL,
+                        allocated bigint DEFAULT 0,
+                        settled bigint NOT NULL,
+                        PRIMARY KEY ( storagenode_id, interval_start, action )
+                    );`,
+					`CREATE TABLE bucket_bandwidth_rollup_archives (
+                        bucket_name bytea NOT NULL,
+                        project_id bytea NOT NULL,
+                        interval_start timestamp with time zone NOT NULL,
+                        interval_seconds integer NOT NULL,
+                        action integer NOT NULL,
+                        inline bigint NOT NULL,
+                        allocated bigint NOT NULL,
+                        settled bigint NOT NULL,
+                        PRIMARY KEY ( bucket_name, project_id, interval_start, action )
+                    );`,
+					`CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start );`,
+					`CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id );`,
+					`CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives (interval_start);`,
+				},
 			},
 			{
 				DB:          &db.migrationDB,

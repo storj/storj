@@ -356,7 +356,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
 
-		peer.Server, err = server.New(log.Named("server"), tlsOptions, sc.Address, sc.PrivateAddress)
+		peer.Server, err = server.New(log.Named("server"), tlsOptions, sc)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
