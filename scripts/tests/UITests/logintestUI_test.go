@@ -9,7 +9,7 @@ import (
 
 var login string = "test1@g.com"
 	var password = "123qwe"
-	var startPage = "127.0.0.1:10002/login"
+	var startPage = "http://127.0.0.1:10002"
 //	var startPage = "https://satellite.qa.storj.io/login"
 	var screenWidth int= 1350
 	var screenHeigth int = 600
@@ -401,7 +401,7 @@ var login string = "test1@g.com"
 
 		// Timeout will be passed to all chained function calls.
 		// The code will panic out if any chained call is used after the timeout.
-		page := browser.Timeout(15 * time.Second).MustPage(startPage)
+		page := browser.Timeout(45 * time.Second).MustPage(startPage)
 
 		// Make sure viewport is always consistent.
 		page.MustSetViewport(screenWidth, screenHeigth, 1, false)
