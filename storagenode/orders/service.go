@@ -232,8 +232,6 @@ func (service *Service) sendOrdersFromDB(ctx context.Context) (hasOrders bool) {
 }
 
 // Settle uploads orders to the satellite.
-//
-// DEPRECATED server always return an error if this endpoint is called.
 func (service *Service) Settle(ctx context.Context, satelliteID storj.NodeID, orders []*ordersfile.Info, requests chan ArchiveRequest) {
 	log := service.log.Named(satelliteID.String())
 	err := service.settle(ctx, log, satelliteID, orders, requests)

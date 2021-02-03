@@ -69,6 +69,10 @@ type Options struct {
 	APIKeysLRUOptions    cache.Options
 	RevocationLRUOptions cache.Options
 
+	// How many records to read in a single transaction when asked for all of the
+	// billable bandwidth from the reported serials table.
+	ReportedRollupsReadBatchSize int
+
 	// How many storage node rollups to save/read in one batch.
 	SaveRollupBatchSize int
 	ReadRollupBatchSize int
@@ -255,7 +259,7 @@ func (dbc *satelliteDBCollection) Rewards() rewards.DB {
 // Orders returns database for storing orders.
 func (dbc *satelliteDBCollection) Orders() orders.DB {
 	db := dbc.getByName("orders")
-	return &ordersDB{db: db}
+	return &ordersDB{db: db, reportedRollupsReadBatchSize: db.opts.ReportedRollupsReadBatchSize}
 }
 
 // Containment returns database for storing pending audit info.

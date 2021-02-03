@@ -8,7 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
@@ -17,9 +19,30 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/orders"
 )
+
+func runTestWithPhases(t *testing.T, fn func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet)) {
+	run := func(phase orders.WindowEndpointRolloutPhase) func(t *testing.T) {
+		return func(t *testing.T) {
+			testplanet.Run(t, testplanet.Config{
+				SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+				Reconfigure: testplanet.Reconfigure{
+					Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+						config.Orders.WindowEndpointRolloutPhase = phase
+					},
+				},
+			}, fn)
+		}
+	}
+
+	t.Run("Phase1", run(orders.WindowEndpointRolloutPhase1))
+	t.Run("Phase2", run(orders.WindowEndpointRolloutPhase2))
+	t.Run("Phase3", run(orders.WindowEndpointRolloutPhase3))
+}
 
 func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
@@ -37,9 +60,10 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 		}
 		key := satellite.Config.Orders.EncryptionKeys.Default
 
-		// stop the async flush because we want to be sure when some values are
+		// stop any async flushes because we want to be sure when some values are
 		// written to avoid races
 		satellite.Orders.Chore.Loop.Pause()
+		satellite.Accounting.ReportedRollup.Loop.Pause()
 
 		// confirm storagenode and bucket bandwidth tables start empty
 		snbw, err := ordersDB.GetStorageNodeBandwidth(ctx, satellite.ID(), time.Time{}, now)
@@ -49,7 +73,7 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int64(0), bucketbw)
 
-		testCases := []struct {
+		var testCases = []struct {
 			name          string
 			dataAmount    int64
 			orderCreation time.Time
@@ -153,12 +177,18 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 				resp, err := stream.CloseAndRecv()
 				require.NoError(t, err)
 
-				settled := map[int32]int64{int32(pb.PieceAction_PUT): tt.settledAmt}
+				// the settled amount is only returned during phase3
+				var settled map[int32]int64
+				if satellite.Config.Orders.WindowEndpointRolloutPhase == orders.WindowEndpointRolloutPhase3 {
+					settled = map[int32]int64{int32(pb.PieceAction_PUT): tt.settledAmt}
+				}
 				require.Equal(t, &pb.SettlementWithWindowResponse{
 					Status:        pb.SettlementWithWindowResponse_ACCEPTED,
 					ActionSettled: settled,
 				}, resp)
 
+				// trigger and wait for all of the chores necessary to flush the orders
+				assert.NoError(t, satellite.Accounting.ReportedRollup.RunOnce(ctx, tt.orderCreation))
 				satellite.Orders.Chore.Loop.TriggerWait()
 
 				// assert all the right stuff is in the satellite storagenode and bucket bandwidth tables
@@ -173,11 +203,11 @@ func TestSettlementWithWindowEndpointManyOrders(t *testing.T) {
 		}
 	})
 }
-
 func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
 		const dataAmount int64 = 50
 		satellite := planet.Satellites[0]
 		ordersDB := satellite.Orders.DB
@@ -191,9 +221,10 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 		}
 		key := satellite.Config.Orders.EncryptionKeys.Default
 
-		// stop the async flush because we want to be sure when some values are
+		// stop any async flushes because we want to be sure when some values are
 		// written to avoid races
 		satellite.Orders.Chore.Loop.Pause()
+		satellite.Accounting.ReportedRollup.Loop.Pause()
 
 		// confirm storagenode and bucket bandwidth tables start empty
 		snbw, err := ordersDB.GetStorageNodeBandwidth(ctx, satellite.ID(), time.Time{}, now)
@@ -217,7 +248,7 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 		piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
 		require.NoError(t, err)
 
-		testCases := []struct {
+		var testCases = []struct {
 			name           string
 			dataAmount     int64
 			expectedStatus pb.SettlementWithWindowResponse_Status
@@ -273,6 +304,9 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 
 				expected := new(pb.SettlementWithWindowResponse)
 				switch {
+				case satellite.Config.Orders.WindowEndpointRolloutPhase != orders.WindowEndpointRolloutPhase3:
+					expected.Status = pb.SettlementWithWindowResponse_ACCEPTED
+					expected.ActionSettled = nil
 				case tt.expectedStatus == pb.SettlementWithWindowResponse_ACCEPTED:
 					expected.Status = pb.SettlementWithWindowResponse_ACCEPTED
 					expected.ActionSettled = map[int32]int64{int32(pb.PieceAction_PUT): tt.dataAmount}
@@ -282,7 +316,8 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 				}
 				require.Equal(t, expected, resp)
 
-				// flush the chores
+				// flush all the chores
+				assert.NoError(t, satellite.Accounting.ReportedRollup.RunOnce(ctx, now))
 				satellite.Orders.Chore.Loop.TriggerWait()
 
 				// assert all the right stuff is in the satellite storagenode and bucket bandwidth tables
@@ -299,9 +334,7 @@ func TestSettlementWithWindowEndpointSingleOrder(t *testing.T) {
 }
 
 func TestSettlementWithWindowEndpointErrors(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	runTestWithPhases(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		ordersDB := satellite.Orders.DB
 		storagenode := planet.StorageNodes[0]
@@ -313,9 +346,10 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 			BucketName: bucketname,
 		}
 
-		// stop the async flush because we want to be sure when some values are
+		// stop any async flushes because we want to be sure when some values are
 		// written to avoid races
 		satellite.Orders.Chore.Loop.Pause()
+		satellite.Accounting.ReportedRollup.Loop.Pause()
 
 		// confirm storagenode and bucket bandwidth tables start empty
 		snbw, err := ordersDB.GetStorageNodeBandwidth(ctx, satellite.ID(), time.Time{}, now)
@@ -326,13 +360,20 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, 0, bucketbw)
 
+		// create serial number to use in test
+		serialNumber1 := testrand.SerialNumber()
+		err = ordersDB.CreateSerialInfo(ctx, serialNumber1, []byte(bucketLocation.Prefix()), now.AddDate(1, 0, 10))
+		require.NoError(t, err)
+
+		serialNumber2 := testrand.SerialNumber()
+		err = ordersDB.CreateSerialInfo(ctx, serialNumber2, []byte(bucketLocation.Prefix()), now.AddDate(1, 0, 10))
+		require.NoError(t, err)
+
 		piecePublicKey1, piecePrivateKey1, err := storj.NewPieceKey()
 		require.NoError(t, err)
 
 		_, piecePrivateKey2, err := storj.NewPieceKey()
 		require.NoError(t, err)
-
-		serialNumber1 := testrand.SerialNumber()
 		key := satellite.Config.Orders.EncryptionKeys.Default
 		encrypted, err := key.EncryptMetadata(
 			serialNumber1,
@@ -365,7 +406,6 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		serialNumber2 := testrand.SerialNumber()
 		order2, err := signing.SignUplinkOrder(ctx, piecePrivateKey1, &pb.Order{
 			SerialNumber: serialNumber2,
 			Amount:       int64(50),
@@ -378,7 +418,7 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		testCases := []struct {
+		var testCases = []struct {
 			name       string
 			order      *pb.Order
 			orderLimit *pb.OrderLimit
@@ -413,7 +453,8 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 					ActionSettled: nil,
 				}, resp)
 
-				// flush the chores
+				// flush all the chores
+				assert.NoError(t, satellite.Accounting.ReportedRollup.RunOnce(ctx, now))
 				satellite.Orders.Chore.Loop.TriggerWait()
 
 				// assert no data was added to satellite storagenode or bucket bandwidth tables
@@ -430,9 +471,7 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 }
 
 func TestSettlementEndpointSingleOrder(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	runTestWithPhases(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		const dataAmount int64 = 50
 		satellite := planet.Satellites[0]
 		ordersDB := satellite.Orders.DB
@@ -444,9 +483,10 @@ func TestSettlementEndpointSingleOrder(t *testing.T) {
 			ProjectID:  projectID,
 			BucketName: bucketname,
 		}
-		// stop the async flush because we want to be sure when some values are
+		// stop any async flushes because we want to be sure when some values are
 		// written to avoid races
 		satellite.Orders.Chore.Loop.Pause()
+		satellite.Accounting.ReportedRollup.Loop.Pause()
 
 		// confirm storagenode and bucket bandwidth tables start empty
 		snbw, err := ordersDB.GetStorageNodeBandwidth(ctx, satellite.ID(), time.Time{}, now)
@@ -457,10 +497,13 @@ func TestSettlementEndpointSingleOrder(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, 0, bucketbw)
 
-		piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+		// create serial number to use in test
+		serialNumber := testrand.SerialNumber()
+		err = ordersDB.CreateSerialInfo(ctx, serialNumber, []byte(bucketLocation.Prefix()), now.AddDate(1, 0, 10))
 		require.NoError(t, err)
 
-		serialNumber := testrand.SerialNumber()
+		piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
+		require.NoError(t, err)
 		key := satellite.Config.Orders.EncryptionKeys.Default
 		encrypted, err := key.EncryptMetadata(
 			serialNumber,
@@ -503,21 +546,54 @@ func TestSettlementEndpointSingleOrder(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(stream.Close)
 
-		// in phase2 and phase3, the endpoint was disabled. depending on how fast the
-		// server sends that error message, we may see an io.EOF on the Send call, or
-		// we may see no error at all. In either case, we have to call stream.Recv to
-		// see the actual error. gRPC semantics are funky.
-		err = stream.Send(&pb.SettlementRequest{
-			Limit: orderLimit,
-			Order: order,
-		})
-		if err != io.EOF {
+		// storagenode settles an order and orderlimit
+		var resp *pb.SettlementResponse
+		if satellite.Config.Orders.WindowEndpointRolloutPhase == orders.WindowEndpointRolloutPhase1 {
+			err = stream.Send(&pb.SettlementRequest{
+				Limit: orderLimit,
+				Order: order,
+			})
 			require.NoError(t, err)
-		}
-		require.NoError(t, stream.CloseSend())
+			require.NoError(t, stream.CloseSend())
 
-		_, err = stream.Recv()
-		require.Error(t, err)
-		require.Equal(t, rpcstatus.Unavailable, rpcstatus.Code(err))
+			resp, err = stream.Recv()
+			require.NoError(t, err)
+		} else {
+			// in phase2 and phase3, the endpoint is disabled. depending on how fast the
+			// server sends that error message, we may see an io.EOF on the Send call, or
+			// we may see no error at all. In either case, we have to call stream.Recv to
+			// see the actual error. gRPC semantics are funky.
+			err = stream.Send(&pb.SettlementRequest{
+				Limit: orderLimit,
+				Order: order,
+			})
+			if err != io.EOF {
+				require.NoError(t, err)
+			}
+			require.NoError(t, stream.CloseSend())
+
+			_, err = stream.Recv()
+			require.Error(t, err)
+			require.Equal(t, rpcstatus.Unavailable, rpcstatus.Code(err))
+			return
+		}
+
+		require.Equal(t, &pb.SettlementResponse{
+			SerialNumber: serialNumber,
+			Status:       pb.SettlementResponse_ACCEPTED,
+		}, resp)
+
+		// flush all the chores
+		assert.NoError(t, satellite.Accounting.ReportedRollup.RunOnce(ctx, now))
+		satellite.Orders.Chore.Loop.TriggerWait()
+
+		// assert all the right stuff is in the satellite storagenode and bucket bandwidth tables
+		snbw, err = ordersDB.GetStorageNodeBandwidth(ctx, storagenode.ID(), time.Time{}, now)
+		require.NoError(t, err)
+		require.Equal(t, dataAmount, snbw)
+
+		newBbw, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
+		require.NoError(t, err)
+		require.Equal(t, dataAmount, newBbw)
 	})
 }

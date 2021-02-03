@@ -1217,8 +1217,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Description: "add storagenode_bandwidth_rollups_archives and bucket_bandwidth_rollup_archives",
 				Version:     142,
 				SeparateTx:  true,
-				Action: migrate.SQL{
-					`
+				Action: migrate.SQL{`
 					CREATE TABLE storagenode_bandwidth_rollup_archives (
 						storagenode_id bytea NOT NULL,
 						interval_start timestamp with time zone NOT NULL,
@@ -1278,18 +1277,6 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 
 					return nil
 				}),
-			},
-			{
-				DB:          &db.migrationDB,
-				Description: "delete deprecated and unused serial tables",
-				Version:     144,
-				Action: migrate.SQL{
-					`DROP TABLE used_serials;`,
-					`DROP TABLE reported_serials;`,
-					`DROP TABLE pending_serial_queue;`,
-					`DROP TABLE serial_numbers;`,
-					`DROP TABLE consumed_serials;`,
-				},
 			},
 		},
 	}
