@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/storage"
+	"storj.io/uplink/private/multipart"
 )
 
 // TestDataRepair does the following:
@@ -219,9 +220,9 @@ func testDataRepairPendingObject(t *testing.T, inMemoryRepair bool) {
 		require.NoError(t, err)
 
 		// upload pending object
-		info, err := project.NewMultipartUpload(ctx, "testbucket", "test/path", nil)
+		info, err := multipart.NewMultipartUpload(ctx, project, "testbucket", "test/path", nil)
 		require.NoError(t, err)
-		_, err = project.PutObjectPart(ctx, "testbucket", "test/path", info.StreamID, 7, bytes.NewReader(testData))
+		_, err = multipart.PutObjectPart(ctx, project, "testbucket", "test/path", info.StreamID, 7, bytes.NewReader(testData))
 		require.NoError(t, err)
 
 		segment, _ := getRemoteSegment(t, ctx, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
@@ -303,7 +304,7 @@ func testDataRepairPendingObject(t *testing.T, inMemoryRepair bool) {
 		}
 
 		// complete the pending multipart upload
-		_, err = project.CompleteMultipartUpload(ctx, "testbucket", "test/path", info.StreamID, nil)
+		_, err = multipart.CompleteMultipartUpload(ctx, project, "testbucket", "test/path", info.StreamID, nil)
 		require.NoError(t, err)
 
 		// we should be able to download data without any of the original nodes
@@ -620,7 +621,7 @@ func TestRepairExpiredSegment(t *testing.T) {
 		satellite.Repair.Repairer.Loop.Pause()
 		satellite.Repair.Repairer.WaitForPendingRepairs()
 
-		// Verify that the segment was removed
+		// Verify that the segment is still in the queue
 		count, err = satellite.DB.RepairQueue().Count(ctx)
 		require.NoError(t, err)
 		require.Equal(t, 1, count)

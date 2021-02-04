@@ -1546,7 +1546,6 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 			(
 				id, address, last_net, protocol, type,
 				email, wallet, free_disk,
-				uptime_success_count, total_uptime_count,
 				last_contact_success,
 				last_contact_failure,
 				audit_reputation_alpha, audit_reputation_beta,
@@ -1557,7 +1556,6 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 			VALUES (
 				$1, $2, $3, $4, $5,
 				$6, $7, $8,
-				$9::bool::int, 1,
 				CASE WHEN $9::bool IS TRUE THEN $18::timestamptz
 					ELSE '0001-01-01 00:00:00+00'::timestamptz
 				END,

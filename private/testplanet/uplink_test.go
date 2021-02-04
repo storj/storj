@@ -205,7 +205,7 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 		tlsOptions, err := tlsopts.NewOptions(storageNode.Identity, tlscfg, revocationDB)
 		require.NoError(t, err)
 
-		server, err := server.New(storageNode.Log.Named("mock-server"), tlsOptions, storageNode.Addr(), storageNode.PrivateAddr())
+		server, err := server.New(storageNode.Log.Named("mock-server"), tlsOptions, storageNode.Config.Server)
 		require.NoError(t, err)
 
 		err = pb.DRPCRegisterPiecestore(server.DRPC(), &piecestoreMock{})

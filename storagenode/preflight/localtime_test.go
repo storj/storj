@@ -76,7 +76,7 @@ func TestLocalTime_OutOfSync(t *testing.T) {
 		var group errgroup.Group
 		defer ctx.Check(group.Wait)
 
-		contactServer, err := server.New(log, mockSatTLSOptions, config.Address, config.PrivateAddress)
+		contactServer, err := server.New(log, mockSatTLSOptions, config)
 		require.NoError(t, err)
 		defer ctx.Check(contactServer.Close)
 
@@ -132,7 +132,7 @@ func TestLocalTime_OutOfSync(t *testing.T) {
 		var group errgroup.Group
 		defer ctx.Check(group.Wait)
 
-		contactServer, err := server.New(log, mockSatTLSOptions, config.Address, config.PrivateAddress)
+		contactServer, err := server.New(log, mockSatTLSOptions, config)
 		require.NoError(t, err)
 		defer ctx.Check(contactServer.Close)
 

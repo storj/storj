@@ -17,7 +17,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/metainfo/metabase"
-	"storj.io/uplink"
+	"storj.io/uplink/private/multipart"
 )
 
 func TestEndpoint_DeleteCommittedObject(t *testing.T) {
@@ -52,10 +52,10 @@ func TestEndpoint_DeletePendingObject(t *testing.T) {
 		_, err = project.CreateBucket(ctx, bucketName)
 		require.NoError(t, err, "failed to create bucket")
 
-		info, err := project.NewMultipartUpload(ctx, bucketName, "object-filename", &uplink.MultipartUploadOptions{})
+		info, err := multipart.NewMultipartUpload(ctx, project, bucketName, "object-filename", &multipart.UploadOptions{})
 		require.NoError(t, err, "failed to start multipart upload")
 
-		_, err = project.PutObjectPart(ctx, bucketName, bucketName, info.StreamID, 1, bytes.NewReader(data))
+		_, err = multipart.PutObjectPart(ctx, project, bucketName, bucketName, info.StreamID, 1, bytes.NewReader(data))
 		require.NoError(t, err, "failed to put object part")
 	}
 	deleteObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
@@ -109,10 +109,10 @@ func TestEndpoint_DeleteObjectAnyStatus(t *testing.T) {
 		_, err = project.CreateBucket(ctx, bucketName)
 		require.NoError(t, err, "failed to create bucket")
 
-		info, err := project.NewMultipartUpload(ctx, bucketName, "object-filename", &uplink.MultipartUploadOptions{})
+		info, err := multipart.NewMultipartUpload(ctx, project, bucketName, "object-filename", &multipart.UploadOptions{})
 		require.NoError(t, err, "failed to start multipart upload")
 
-		_, err = project.PutObjectPart(ctx, bucketName, bucketName, info.StreamID, 1, bytes.NewReader(data))
+		_, err = multipart.PutObjectPart(ctx, project, bucketName, bucketName, info.StreamID, 1, bytes.NewReader(data))
 		require.NoError(t, err, "failed to put object part")
 	}
 

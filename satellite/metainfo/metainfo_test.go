@@ -35,6 +35,7 @@ import (
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metainfo"
+	"storj.io/uplink/private/multipart"
 	"storj.io/uplink/private/object"
 	"storj.io/uplink/private/testuplink"
 )
@@ -1702,22 +1703,22 @@ func TestMultipartObjectDownloadRejection(t *testing.T) {
 
 		_, err = project.EnsureBucket(ctx, "pip-second")
 		require.NoError(t, err)
-		info, err := project.NewMultipartUpload(ctx, "pip-second", "multipart-object", nil)
+		info, err := multipart.NewMultipartUpload(ctx, project, "pip-second", "multipart-object", nil)
 		require.NoError(t, err)
-		_, err = project.PutObjectPart(ctx, "pip-second", "multipart-object", info.StreamID, 1, bytes.NewReader(data))
+		_, err = multipart.PutObjectPart(ctx, project, "pip-second", "multipart-object", info.StreamID, 1, bytes.NewReader(data))
 		require.NoError(t, err)
-		_, err = project.CompleteMultipartUpload(ctx, "pip-second", "multipart-object", info.StreamID, nil)
+		_, err = multipart.CompleteMultipartUpload(ctx, project, "pip-second", "multipart-object", info.StreamID, nil)
 		require.NoError(t, err)
 
 		_, err = project.EnsureBucket(ctx, "pip-third")
 		require.NoError(t, err)
-		info, err = project.NewMultipartUpload(ctx, "pip-third", "multipart-object-third", nil)
+		info, err = multipart.NewMultipartUpload(ctx, project, "pip-third", "multipart-object-third", nil)
 		require.NoError(t, err)
 		for i := 0; i < 4; i++ {
-			_, err = project.PutObjectPart(ctx, "pip-third", "multipart-object-third", info.StreamID, i+1, bytes.NewReader(data))
+			_, err = multipart.PutObjectPart(ctx, project, "pip-third", "multipart-object-third", info.StreamID, i+1, bytes.NewReader(data))
 			require.NoError(t, err)
 		}
-		_, err = project.CompleteMultipartUpload(ctx, "pip-third", "multipart-object-third", info.StreamID, nil)
+		_, err = multipart.CompleteMultipartUpload(ctx, project, "pip-third", "multipart-object-third", info.StreamID, nil)
 		require.NoError(t, err)
 
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
@@ -1810,9 +1811,9 @@ func TestObjectOverrideOnUpload(t *testing.T) {
 			defer ctx.Check(project.Close)
 
 			// upload pending object
-			info, err := project.NewMultipartUpload(ctx, "pip-first", "pending-object", nil)
+			info, err := multipart.NewMultipartUpload(ctx, project, "pip-first", "pending-object", nil)
 			require.NoError(t, err)
-			_, err = project.PutObjectPart(ctx, "pip-first", "pending-object", info.StreamID, 1, bytes.NewReader(initialData))
+			_, err = multipart.PutObjectPart(ctx, project, "pip-first", "pending-object", info.StreamID, 1, bytes.NewReader(initialData))
 			require.NoError(t, err)
 
 			// upload once again to override

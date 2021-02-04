@@ -40,7 +40,8 @@ type Invoice struct {
 	Disposed         currency.MicroUnit `csv:"disposed"`          // Amount of owed that is due to graceful-exit or held period ending
 	TotalHeld        currency.MicroUnit `csv:"total-held"`        // Total amount ever held from the node
 	TotalDisposed    currency.MicroUnit `csv:"total-disposed"`    // Total amount ever disposed to the node
-	PaidYTD          currency.MicroUnit `csv:"paid-ytd"`          // Deprecated
+	TotalPaid        currency.MicroUnit `csv:"total-paid"`        // Total amount ever paid to the node (but not necessarily dispensed)
+	TotalDistributed currency.MicroUnit `csv:"total-distributed"` // Total amount ever distributed to the node (always less than or equal to paid)
 }
 
 // MergeNodeInfo updates the fields representing the node information into the invoice.
@@ -59,6 +60,8 @@ func (invoice *Invoice) MergeNodeInfo(nodeInfo NodeInfo) error {
 	invoice.UsageGetAudit = nodeInfo.UsageGetAudit
 	invoice.TotalHeld = nodeInfo.TotalHeld
 	invoice.TotalDisposed = nodeInfo.TotalDisposed
+	invoice.TotalPaid = nodeInfo.TotalPaid
+	invoice.TotalDistributed = nodeInfo.TotalDistributed
 	return nil
 }
 

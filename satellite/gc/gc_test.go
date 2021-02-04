@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
+	"storj.io/uplink/private/multipart"
 	"storj.io/uplink/private/testuplink"
 )
 
@@ -249,10 +250,10 @@ func startMultipartUpload(ctx context.Context, t *testing.T, uplink *testplanet.
 	_, err = project.EnsureBucket(ctx, bucketName)
 	require.NoError(t, err)
 
-	info, err := project.NewMultipartUpload(ctx, bucketName, path, nil)
+	info, err := multipart.NewMultipartUpload(ctx, project, bucketName, path, nil)
 	require.NoError(t, err)
 
-	_, err = project.PutObjectPart(ctx, bucketName, path, info.StreamID, 1, bytes.NewReader(data))
+	_, err = multipart.PutObjectPart(ctx, project, bucketName, path, info.StreamID, 1, bytes.NewReader(data))
 	require.NoError(t, err)
 
 	return info.StreamID
@@ -268,6 +269,6 @@ func completeMultipartUpload(ctx context.Context, t *testing.T, uplink *testplan
 	require.NoError(t, err)
 	defer func() { require.NoError(t, project.Close()) }()
 
-	_, err = project.CompleteMultipartUpload(ctx, bucketName, path, streamID, nil)
+	_, err = multipart.CompleteMultipartUpload(ctx, project, bucketName, path, streamID, nil)
 	require.NoError(t, err)
 }

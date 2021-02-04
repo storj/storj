@@ -87,3 +87,25 @@ var MaxMetadataSize = func(maxMetadataSize memory.Size) func(log *zap.Logger, in
 		config.Metainfo.MaxMetadataSize = maxMetadataSize
 	}
 }
+
+// DisableTCP prevents both satellite and storagenode being able to accept new
+// tcp connections.
+var DisableTCP = Reconfigure{
+	Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+		config.Server.DisableTCPTLS = true
+	},
+	StorageNode: func(index int, config *storagenode.Config) {
+		config.Server.DisableTCPTLS = true
+	},
+}
+
+// DisableQUIC prevents both satellite and storagenode being able to accept new
+// quic connections.
+var DisableQUIC = Reconfigure{
+	Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+		config.Server.DisableQUIC = true
+	},
+	StorageNode: func(index int, config *storagenode.Config) {
+		config.Server.DisableQUIC = true
+	},
+}

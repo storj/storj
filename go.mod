@@ -47,9 +47,9 @@ require (
 	golang.org/x/tools v0.0.0-20200923182640-463111b69878 // indirect
 	google.golang.org/api v0.20.0 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
-	storj.io/common v0.0.0-20210202120805-a5a4cfd90efa
+	storj.io/common v0.0.0-20210203121719-6c48157d3f5f
 	storj.io/drpc v0.0.16
 	storj.io/monkit-jaeger v0.0.0-20200518165323-80778fc3f91b
-	storj.io/private v0.0.0-20210120150301-bd3ac3e989f0
-	storj.io/uplink v1.4.6-0.20210115090500-10cfa3d1c277
+	storj.io/private v0.0.0-20210203200143-9d2ec06f0d3c
+	storj.io/uplink v1.4.6-0.20210201122710-48b82ce14a37
 )

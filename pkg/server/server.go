@@ -34,15 +34,22 @@ type Config struct {
 	tlsopts.Config
 	Address        string `user:"true" help:"public address to listen on" default:":7777"`
 	PrivateAddress string `user:"true" help:"private address to listen on" default:"127.0.0.1:7778"`
+	DisableQUIC    bool   `help:"disable QUIC listener on a server" hidden:"true" default:"false"`
 
+	DisableTCPTLS   bool `help:"disable TCP/TLS listener on a server" internal:"true"`
 	DebugLogTraffic bool `hidden:"true" default:"false"` // Deprecated
 }
 
 type public struct {
-	tcpListener  net.Listener
-	quicListener net.Listener
-	drpc         *drpcserver.Server
-	mux          *drpcmux.Mux
+	tcpListener   net.Listener
+	udpConn       *net.UDPConn
+	quicListener  net.Listener
+	addr          net.Addr
+	disableTCPTLS bool
+	disableQUIC   bool
+
+	drpc *drpcserver.Server
+	mux  *drpcmux.Mux
 }
 
 type private struct {
@@ -67,55 +74,24 @@ type Server struct {
 
 // New creates a Server out of an Identity, a net.Listener,
 // and interceptors.
-func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr string) (*Server, error) {
+func New(log *zap.Logger, tlsOptions *tlsopts.Options, config Config) (_ *Server, err error) {
 	server := &Server{
 		log:        log,
 		tlsOptions: tlsOptions,
 		done:       make(chan struct{}),
 	}
 
+	server.public, err = newPublic(config.Address, config.DisableTCPTLS, config.DisableQUIC)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
 	serverOptions := drpcserver.Options{
 		Manager: rpc.NewDefaultManagerOptions(),
 	}
-
-	var err error
-	var publicTCPListener, publicQUICListener net.Listener
-	for retry := 0; ; retry++ {
-		publicTCPListener, err = net.Listen("tcp", publicAddr)
-		if err != nil {
-			return nil, err
-		}
-
-		publicQUICListener, err = quic.NewListener(tlsOptions.ServerTLSConfig(), publicTCPListener.Addr().String(), &quicgo.Config{MaxIdleTimeout: defaultUserTimeout})
-		if err != nil {
-			_, port, _ := net.SplitHostPort(publicAddr)
-			if port == "0" && retry < 10 && isErrorAddressAlreadyInUse(err) {
-				// from here, we know for sure that the tcp port chosen by the
-				// os is available, but we don't know if the same port number
-				// for udp is also available.
-				// if a udp port is already in use, we will close the tcp port and retry
-				// to find one that is available for both udp and tcp.
-				_ = publicTCPListener.Close()
-				continue
-			}
-			return nil, errs.Combine(err, publicTCPListener.Close())
-		}
-
-		break
-	}
-
-	publicMux := drpcmux.New()
-	publicTracingHandler := rpctracing.NewHandler(publicMux, jaeger.RemoteTraceHandler)
-	server.public = public{
-		tcpListener:  wrapListener(publicTCPListener),
-		quicListener: wrapListener(publicQUICListener),
-		drpc:         drpcserver.NewWithOptions(publicTracingHandler, serverOptions),
-		mux:          publicMux,
-	}
-
-	privateListener, err := net.Listen("tcp", privateAddr)
+	privateListener, err := net.Listen("tcp", config.PrivateAddress)
 	if err != nil {
-		return nil, errs.Combine(err, publicTCPListener.Close(), publicQUICListener.Close())
+		return nil, errs.Combine(err, server.public.Close())
 	}
 	privateMux := drpcmux.New()
 	privateTracingHandler := rpctracing.NewHandler(privateMux, jaeger.RemoteTraceHandler)
@@ -132,7 +108,7 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, publicAddr, privateAddr s
 func (p *Server) Identity() *identity.FullIdentity { return p.tlsOptions.Ident }
 
 // Addr returns the server's public listener address.
-func (p *Server) Addr() net.Addr { return p.public.tcpListener.Addr() }
+func (p *Server) Addr() net.Addr { return p.public.addr }
 
 // PrivateAddr returns the server's private listener address.
 func (p *Server) PrivateAddr() net.Addr { return p.private.listener.Addr() }
@@ -156,8 +132,7 @@ func (p *Server) Close() error {
 	// We ignore these errors because there's not really anything to do
 	// even if they happen, and they'll just be errors due to duplicate
 	// closes anyway.
-	_ = p.public.quicListener.Close()
-	_ = p.public.tcpListener.Close()
+	_ = p.public.Close()
 	_ = p.private.listener.Close()
 	return nil
 }
@@ -186,8 +161,21 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	// a chance to be notified that they're done running.
 	const drpcHeader = "DRPC!!!1"
 
-	publicMux := listenmux.New(p.public.tcpListener, len(drpcHeader))
-	publicDRPCListener := tls.NewListener(publicMux.Route(drpcHeader), p.tlsOptions.ServerTLSConfig())
+	var (
+		publicMux          *listenmux.Mux
+		publicDRPCListener net.Listener
+	)
+	if p.public.tcpListener != nil {
+		publicMux = listenmux.New(p.public.tcpListener, len(drpcHeader))
+		publicDRPCListener = tls.NewListener(publicMux.Route(drpcHeader), p.tlsOptions.ServerTLSConfig())
+	}
+
+	if p.public.udpConn != nil {
+		p.public.quicListener, err = quic.NewListener(p.public.udpConn, p.tlsOptions.ServerTLSConfig(), &quicgo.Config{MaxIdleTimeout: defaultUserTimeout})
+		if err != nil {
+			return err
+		}
+	}
 
 	privateMux := listenmux.New(p.private.listener, len(drpcHeader))
 	privateDRPCListener := privateMux.Route(drpcHeader)
@@ -201,9 +189,11 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	defer muxCancel()
 
 	var muxGroup errgroup.Group
-	muxGroup.Go(func() error {
-		return publicMux.Run(muxCtx)
-	})
+	if publicMux != nil {
+		muxGroup.Go(func() error {
+			return publicMux.Run(muxCtx)
+		})
+	}
 	muxGroup.Go(func() error {
 		return privateMux.Run(muxCtx)
 	})
@@ -223,14 +213,20 @@ func (p *Server) Run(ctx context.Context) (err error) {
 		return nil
 	})
 
-	group.Go(func() error {
-		defer cancel()
-		return p.public.drpc.Serve(ctx, publicDRPCListener)
-	})
-	group.Go(func() error {
-		defer cancel()
-		return p.public.drpc.Serve(ctx, p.public.quicListener)
-	})
+	if publicDRPCListener != nil {
+		group.Go(func() error {
+			defer cancel()
+			return p.public.drpc.Serve(ctx, publicDRPCListener)
+		})
+	}
+
+	if p.public.quicListener != nil {
+		group.Go(func() error {
+			defer cancel()
+			return p.public.drpc.Serve(ctx, wrapListener(p.public.quicListener))
+		})
+	}
+
 	group.Go(func() error {
 		defer cancel()
 		return p.private.drpc.Serve(ctx, privateDRPCListener)
@@ -242,6 +238,89 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	// Now we close down our listeners.
 	muxCancel()
 	return errs.Combine(err, muxGroup.Wait())
+}
+
+func newPublic(publicAddr string, disableTCPTLS, disableQUIC bool) (public, error) {
+	var (
+		err               error
+		publicTCPListener net.Listener
+		publicUDPConn     *net.UDPConn
+	)
+
+	for retry := 0; ; retry++ {
+		addr := publicAddr
+		if !disableTCPTLS {
+			publicTCPListener, err = net.Listen("tcp", addr)
+			if err != nil {
+				return public{}, err
+			}
+
+			addr = publicTCPListener.Addr().String()
+		}
+
+		if !disableQUIC {
+			udpAddr, err := net.ResolveUDPAddr("udp", addr)
+			if err != nil {
+				return public{}, err
+			}
+
+			publicUDPConn, err = net.ListenUDP("udp", udpAddr)
+			if err != nil {
+				_, port, _ := net.SplitHostPort(publicAddr)
+				if port == "0" && retry < 10 && isErrorAddressAlreadyInUse(err) {
+					// from here, we know for sure that the tcp port chosen by the
+					// os is available, but we don't know if the same port number
+					// for udp is also available.
+					// if a udp port is already in use, we will close the tcp port and retry
+					// to find one that is available for both udp and tcp.
+					_ = publicTCPListener.Close()
+					continue
+				}
+				return public{}, errs.Combine(err, publicTCPListener.Close())
+			}
+		}
+
+		break
+	}
+
+	publicMux := drpcmux.New()
+	publicTracingHandler := rpctracing.NewHandler(publicMux, jaeger.RemoteTraceHandler)
+	serverOptions := drpcserver.Options{
+		Manager: rpc.NewDefaultManagerOptions(),
+	}
+
+	var netAddr net.Addr
+	if publicTCPListener != nil {
+		netAddr = publicTCPListener.Addr()
+	}
+
+	if publicUDPConn != nil && netAddr == nil {
+		netAddr = publicUDPConn.LocalAddr()
+	}
+
+	return public{
+		tcpListener:   wrapListener(publicTCPListener),
+		udpConn:       publicUDPConn,
+		addr:          netAddr,
+		drpc:          drpcserver.NewWithOptions(publicTracingHandler, serverOptions),
+		mux:           publicMux,
+		disableTCPTLS: disableTCPTLS,
+		disableQUIC:   disableQUIC,
+	}, nil
+}
+
+func (p public) Close() (err error) {
+	if p.quicListener != nil {
+		err = p.quicListener.Close()
+	}
+	if p.udpConn != nil {
+		err = errs.Combine(err, p.udpConn.Close())
+	}
+	if p.tcpListener != nil {
+		err = errs.Combine(err, p.tcpListener.Close())
+	}
+
+	return err
 }
 
 // isErrorAddressAlreadyInUse checks whether the error is corresponding to

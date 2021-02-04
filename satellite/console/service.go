@@ -98,7 +98,7 @@ type Service struct {
 
 // Config keeps track of core console service configuration parameters.
 type Config struct {
-	PasswordCost            int  `help:"password hashing cost (0=automatic)" internal:"true" default:"0"`
+	PasswordCost            int  `help:"password hashing cost (0=automatic)" internal:"true"`
 	OpenRegistrationEnabled bool `help:"enable open registration" default:"false"`
 	DefaultProjectLimit     int  `help:"default project limits for users" default:"10"`
 }
