@@ -87,6 +87,8 @@ func (db *DB) TestingDeleteAll(ctx context.Context) (err error) {
 	_, err = db.db.ExecContext(ctx, `
 		DELETE FROM objects;
 		DELETE FROM segments;
+		DELETE FROM node_aliases;
+		SELECT setval('node_alias_seq', 1, false);
 	`)
 	return Error.Wrap(err)
 }

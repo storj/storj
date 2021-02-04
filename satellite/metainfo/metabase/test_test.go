@@ -433,6 +433,29 @@ func (step IterateObjectsWithStatus) Check(ctx *testcontext.Context, t testing.T
 	require.Zero(t, diff)
 }
 
+type EnsureNodeAliases struct {
+	Opts metabase.EnsureNodeAliases
+
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+func (step EnsureNodeAliases) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	err := db.EnsureNodeAliases(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+}
+
+type ListNodeAliases struct {
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+func (step ListNodeAliases) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) []metabase.NodeAliasEntry {
+	result, err := db.ListNodeAliases(ctx)
+	checkError(t, err, step.ErrClass, step.ErrText)
+	return result
+}
+
 func checkError(t testing.TB, err error, errClass *errs.Class, errText string) {
 	if errClass != nil {
 		require.True(t, errClass.Has(err), "expected an error %v got %v", *errClass, err)

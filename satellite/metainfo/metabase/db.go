@@ -60,6 +60,8 @@ func (db *DB) DestroyTables(ctx context.Context) error {
 	_, err := db.db.ExecContext(ctx, `
 		DROP TABLE IF EXISTS objects;
 		DROP TABLE IF EXISTS segments;
+		DROP TABLE IF EXISTS node_aliases;
+		DROP SEQUENCE IF EXISTS node_alias_seq;
 	`)
 	return Error.Wrap(err)
 }
@@ -138,6 +140,23 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Action: migrate.SQL{
 					`ALTER TABLE objects ALTER COLUMN total_plain_size TYPE INT8;`,
 					`ALTER TABLE objects ALTER COLUMN total_encrypted_size TYPE INT8;`,
+				},
+			},
+			{
+				DB:          &db.db,
+				Description: "add node aliases table",
+				Version:     3,
+				Action: migrate.SQL{
+					// We use a custom sequence to ensure small alias values.
+					`CREATE SEQUENCE node_alias_seq
+						INCREMENT BY 1
+						MINVALUE 1 MAXVALUE 2147483647 -- MaxInt32
+						START WITH 1
+					`,
+					`CREATE TABLE node_aliases (
+						node_id    BYTEA  NOT NULL UNIQUE,
+						node_alias INT4   NOT NULL UNIQUE default nextval('node_alias_seq')
+					)`,
 				},
 			},
 		},
