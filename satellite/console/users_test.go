@@ -18,14 +18,19 @@ import (
 )
 
 const (
-	lastName    = "lastName"
-	email       = "email@mail.test"
-	passValid   = "123456"
-	name        = "name"
-	newName     = "newName"
-	newLastName = "newLastName"
-	newEmail    = "newEmail@mail.test"
-	newPass     = "newPass1234567890123456789012345"
+	lastName       = "lastName"
+	email          = "email@mail.test"
+	passValid      = "123456"
+	name           = "name"
+	newName        = "newName"
+	newLastName    = "newLastName"
+	newEmail       = "newEmail@mail.test"
+	newPass        = "newPass1234567890123456789012345"
+	position       = "position"
+	companyName    = "companyName"
+	companySize    = 123
+	workingOn      = "workingOn"
+	isProfessional = true
 )
 
 func TestUserRepository(t *testing.T) {
@@ -52,6 +57,22 @@ func TestUserRepository(t *testing.T) {
 			Email:        email,
 			PasswordHash: []byte(passValid),
 			CreatedAt:    time.Now(),
+		}
+		testUsers(ctx, t, repository, user)
+
+		// test professional user
+		user = &console.User{
+			ID:             testrand.UUID(),
+			FullName:       name,
+			ShortName:      lastName,
+			Email:          email,
+			PasswordHash:   []byte(passValid),
+			CreatedAt:      time.Now(),
+			IsProfessional: isProfessional,
+			Position:       position,
+			CompanyName:    companyName,
+			CompanySize:    companySize,
+			WorkingOn:      workingOn,
 		}
 		testUsers(ctx, t, repository, user)
 	})
@@ -114,12 +135,35 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.Equal(t, name, userByEmail.FullName)
 		assert.Equal(t, lastName, userByEmail.ShortName)
 		assert.Equal(t, user.PartnerID, userByEmail.PartnerID)
+		if user.IsProfessional {
+			assert.Equal(t, workingOn, userByEmail.WorkingOn)
+			assert.Equal(t, position, userByEmail.Position)
+			assert.Equal(t, companyName, userByEmail.CompanyName)
+			assert.Equal(t, companySize, userByEmail.CompanySize)
+		} else {
+			assert.Equal(t, "", userByEmail.WorkingOn)
+			assert.Equal(t, "", userByEmail.Position)
+			assert.Equal(t, "", userByEmail.CompanyName)
+			assert.Equal(t, 0, userByEmail.CompanySize)
+		}
 
 		userByID, err := repository.Get(ctx, userByEmail.ID)
 		assert.NoError(t, err)
 		assert.Equal(t, name, userByID.FullName)
 		assert.Equal(t, lastName, userByID.ShortName)
 		assert.Equal(t, user.PartnerID, userByID.PartnerID)
+
+		if user.IsProfessional {
+			assert.Equal(t, workingOn, userByID.WorkingOn)
+			assert.Equal(t, position, userByID.Position)
+			assert.Equal(t, companyName, userByID.CompanyName)
+			assert.Equal(t, companySize, userByID.CompanySize)
+		} else {
+			assert.Equal(t, "", userByID.WorkingOn)
+			assert.Equal(t, "", userByID.Position)
+			assert.Equal(t, "", userByID.CompanyName)
+			assert.Equal(t, 0, userByID.CompanySize)
+		}
 
 		assert.Equal(t, userByID.ID, userByEmail.ID)
 		assert.Equal(t, userByID.FullName, userByEmail.FullName)
@@ -128,6 +172,11 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.Equal(t, userByID.PasswordHash, userByEmail.PasswordHash)
 		assert.Equal(t, userByID.PartnerID, userByEmail.PartnerID)
 		assert.Equal(t, userByID.CreatedAt, userByEmail.CreatedAt)
+		assert.Equal(t, userByID.IsProfessional, userByEmail.IsProfessional)
+		assert.Equal(t, userByID.WorkingOn, userByEmail.WorkingOn)
+		assert.Equal(t, userByID.Position, userByEmail.Position)
+		assert.Equal(t, userByID.CompanyName, userByEmail.CompanyName)
+		assert.Equal(t, userByID.CompanySize, userByEmail.CompanySize)
 	})
 
 	t.Run("Update user success", func(t *testing.T) {
