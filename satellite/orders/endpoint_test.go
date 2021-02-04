@@ -4,14 +4,12 @@
 package orders_test
 
 import (
-	"io"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/pb"
-	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -426,98 +424,5 @@ func TestSettlementWithWindowEndpointErrors(t *testing.T) {
 				require.EqualValues(t, 0, newBbw)
 			})
 		}
-	})
-}
-
-func TestSettlementEndpointSingleOrder(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		const dataAmount int64 = 50
-		satellite := planet.Satellites[0]
-		ordersDB := satellite.Orders.DB
-		storagenode := planet.StorageNodes[0]
-		now := time.Now()
-		projectID := testrand.UUID()
-		bucketname := "testbucket"
-		bucketLocation := metabase.BucketLocation{
-			ProjectID:  projectID,
-			BucketName: bucketname,
-		}
-		// stop the async flush because we want to be sure when some values are
-		// written to avoid races
-		satellite.Orders.Chore.Loop.Pause()
-
-		// confirm storagenode and bucket bandwidth tables start empty
-		snbw, err := ordersDB.GetStorageNodeBandwidth(ctx, satellite.ID(), time.Time{}, now)
-		require.NoError(t, err)
-		require.EqualValues(t, 0, snbw)
-
-		bucketbw, err := ordersDB.GetBucketBandwidth(ctx, projectID, []byte(bucketname), time.Time{}, now)
-		require.NoError(t, err)
-		require.EqualValues(t, 0, bucketbw)
-
-		piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
-		require.NoError(t, err)
-
-		serialNumber := testrand.SerialNumber()
-		key := satellite.Config.Orders.EncryptionKeys.Default
-		encrypted, err := key.EncryptMetadata(
-			serialNumber,
-			&internalpb.OrderLimitMetadata{
-				CompactProjectBucketPrefix: bucketLocation.CompactPrefix(),
-			},
-		)
-		require.NoError(t, err)
-
-		// create signed orderlimit or order to test with
-		limit := &pb.OrderLimit{
-			SerialNumber:           serialNumber,
-			SatelliteId:            satellite.ID(),
-			UplinkPublicKey:        piecePublicKey,
-			StorageNodeId:          storagenode.ID(),
-			PieceId:                storj.NewPieceID(),
-			Action:                 pb.PieceAction_PUT,
-			Limit:                  1000,
-			PieceExpiration:        time.Time{},
-			OrderCreation:          now,
-			OrderExpiration:        now.Add(24 * time.Hour),
-			EncryptedMetadataKeyId: key.ID[:],
-			EncryptedMetadata:      encrypted,
-		}
-		orderLimit, err := signing.SignOrderLimit(ctx, signing.SignerFromFullIdentity(satellite.Identity), limit)
-		require.NoError(t, err)
-
-		order, err := signing.SignUplinkOrder(ctx, piecePrivateKey, &pb.Order{
-			SerialNumber: serialNumber,
-			Amount:       dataAmount,
-		})
-		require.NoError(t, err)
-
-		// create connection between storagenode and satellite
-		conn, err := storagenode.Dialer.DialNodeURL(ctx, storj.NodeURL{ID: satellite.ID(), Address: satellite.Addr()})
-		require.NoError(t, err)
-		defer ctx.Check(conn.Close)
-
-		stream, err := pb.NewDRPCOrdersClient(conn).Settlement(ctx)
-		require.NoError(t, err)
-		defer ctx.Check(stream.Close)
-
-		// in phase2 and phase3, the endpoint was disabled. depending on how fast the
-		// server sends that error message, we may see an io.EOF on the Send call, or
-		// we may see no error at all. In either case, we have to call stream.Recv to
-		// see the actual error. gRPC semantics are funky.
-		err = stream.Send(&pb.SettlementRequest{
-			Limit: orderLimit,
-			Order: order,
-		})
-		if err != io.EOF {
-			require.NoError(t, err)
-		}
-		require.NoError(t, stream.CloseSend())
-
-		_, err = stream.Recv()
-		require.Error(t, err)
-		require.Equal(t, rpcstatus.Unavailable, rpcstatus.Code(err))
 	})
 }

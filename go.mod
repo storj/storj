@@ -10,7 +10,7 @@ require (
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/fatih/color v1.9.0
 	github.com/go-redis/redis v6.15.9+incompatible
-	github.com/gogo/protobuf v1.3.1
+	github.com/gogo/protobuf v1.3.2
 	github.com/golang-migrate/migrate/v4 v4.7.0
 	github.com/google/go-cmp v0.5.2
 	github.com/google/pprof v0.0.0-20200229191704-1ebb73c60ed3 // indirect
@@ -42,12 +42,11 @@ require (
 	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c
 	golang.org/x/term v0.0.0-20201117132131-f5c789dd3221
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
-	golang.org/x/tools v0.0.0-20200923182640-463111b69878 // indirect
 	google.golang.org/api v0.20.0 // indirect
 	google.golang.org/protobuf v1.25.0 // indirect
-	storj.io/common v0.0.0-20210202120805-a5a4cfd90efa
+	storj.io/common v0.0.0-20210203121719-6c48157d3f5f
 	storj.io/drpc v0.0.16
 	storj.io/monkit-jaeger v0.0.0-20200518165323-80778fc3f91b
-	storj.io/private v0.0.0-20210120150301-bd3ac3e989f0
+	storj.io/private v0.0.0-20210203200143-9d2ec06f0d3c
 	storj.io/uplink v1.4.6-0.20210201122710-48b82ce14a37
 )
