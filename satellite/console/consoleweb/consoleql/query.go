@@ -5,11 +5,11 @@ package consoleql
 
 import (
 	"github.com/graphql-go/graphql"
+	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/rewards"
 )
 
 const (
@@ -87,25 +87,13 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					rewardType, _ := p.Args[FieldType].(int)
-
-					offer, err := service.GetCurrentRewardByType(p.Context, rewards.OfferType(rewardType))
-					if err != nil {
-						return nil, err
-					}
-
-					return offer, nil
+					return nil, errs.New("endpoint deprecated")
 				},
 			},
 			CreditUsageQuery: &graphql.Field{
 				Type: types.creditUsage,
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					usage, err := service.GetUserCreditUsage(p.Context)
-					if err != nil {
-						return nil, err
-					}
-
-					return usage, nil
+					return nil, errs.New("endpoint deprecated")
 				},
 			},
 		},

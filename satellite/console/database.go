@@ -23,8 +23,6 @@ type DB interface {
 	RegistrationTokens() RegistrationTokens
 	// ResetPasswordTokens is a getter for ResetPasswordTokens repository.
 	ResetPasswordTokens() ResetPasswordTokens
-	// UserCredits is a getter for UserCredits repository.
-	UserCredits() UserCredits
 
 	// WithTx is a method for executing transactions with retrying as necessary.
 	WithTx(ctx context.Context, fn func(ctx context.Context, tx DBTx) error) error

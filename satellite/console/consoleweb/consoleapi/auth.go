@@ -149,7 +149,6 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			Password:  registerData.Password,
 		},
 		secret,
-		registerData.ReferrerUserID,
 	)
 	if err != nil {
 		a.serveJSONError(w, err)

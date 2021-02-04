@@ -68,11 +68,6 @@ func (db *ConsoleDB) ResetPasswordTokens() console.ResetPasswordTokens {
 	return &resetPasswordTokens{db.methods}
 }
 
-// UserCredits is a getter for console.UserCredits repository.
-func (db *ConsoleDB) UserCredits() console.UserCredits {
-	return &usercredits{db.db, db.tx}
-}
-
 // WithTx is a method for executing and retrying transaction.
 func (db *ConsoleDB) WithTx(ctx context.Context, fn func(context.Context, console.DBTx) error) error {
 	if db.db == nil {
