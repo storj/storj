@@ -17,17 +17,17 @@ export class Node {
     private readonly STATUS_TRESHHOLD_MILISECONDS: number = 10.8e6;
 
     public constructor(
-        public id: string,
-        public name: string,
-        public version: string,
-        public lastContact: Date,
-        public diskSpaceUsed: number,
-        public diskSpaceLeft: number,
-        public bandwidthUsed: number,
-        public onlineScore: number,
-        public auditScore: number,
-        public suspensionScore: number,
-        public earned: number,
+        public id: string = '',
+        public name: string = '',
+        public version: string = '',
+        public lastContact: Date = new Date(),
+        public diskSpaceUsed: number = 0,
+        public diskSpaceLeft: number = 0,
+        public bandwidthUsed: number = 0,
+        public onlineScore: number = 0,
+        public auditScore: number = 0,
+        public suspensionScore: number = 0,
+        public earned: number = 0,
     ) {
         const now = new Date();
         if (now.getTime() - this.lastContact.getTime() < this.STATUS_TRESHHOLD_MILISECONDS) {

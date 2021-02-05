@@ -157,6 +157,7 @@ export default class HeaderedInput extends HeaderlessInput {
         height: 48px;
         width: 100%;
         text-indent: 20px;
+        padding-right: 20px;
         outline: none;
         box-shadow: none;
         font-family: 'font_regular', sans-serif;
