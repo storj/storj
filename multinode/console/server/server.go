@@ -17,6 +17,7 @@ import (
 
 	"storj.io/storj/multinode/console/controllers"
 	"storj.io/storj/multinode/nodes"
+	"storj.io/storj/multinode/payouts"
 )
 
 var (
@@ -36,8 +37,9 @@ type Config struct {
 type Server struct {
 	log *zap.Logger
 
-	config Config
-	nodes  *nodes.Service
+	config  Config
+	nodes   *nodes.Service
+	payouts *payouts.Service
 
 	listener net.Listener
 	http     http.Server
@@ -46,12 +48,13 @@ type Server struct {
 }
 
 // NewServer returns new instance of Multinode Dashboard http server.
-func NewServer(log *zap.Logger, config Config, nodes *nodes.Service, listener net.Listener) (*Server, error) {
+func NewServer(log *zap.Logger, config Config, nodes *nodes.Service, payouts *payouts.Service, listener net.Listener) (*Server, error) {
 	server := Server{
 		log:      log,
 		config:   config,
 		nodes:    nodes,
 		listener: listener,
+		payouts:  payouts,
 	}
 
 	router := mux.NewRouter()
@@ -69,6 +72,10 @@ func NewServer(log *zap.Logger, config Config, nodes *nodes.Service, listener ne
 	nodesRouter.HandleFunc("/{id}", nodesController.Get).Methods(http.MethodGet)
 	nodesRouter.HandleFunc("/{id}", nodesController.UpdateName).Methods(http.MethodPatch)
 	nodesRouter.HandleFunc("/{id}", nodesController.Delete).Methods(http.MethodDelete)
+
+	payoutsController := controllers.NewPayouts(server.log, server.payouts)
+	payoutsRouter := apiRouter.PathPrefix("/payouts").Subrouter()
+	payoutsRouter.HandleFunc("/total-earned", payoutsController.GetAllNodesTotalEarned).Methods(http.MethodGet)
 
 	if server.config.StaticDir != "" {
 		router.PathPrefix("/static/").Handler(http.StripPrefix("/static", fs))
