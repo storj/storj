@@ -22,7 +22,7 @@ import { makeCreditsModule } from '@/store/modules/credits';
 import { makeNotificationsModule, NotificationsState } from '@/store/modules/notifications';
 import { makePaymentsModule, PaymentsState } from '@/store/modules/payments';
 import { makeProjectMembersModule, ProjectMembersState } from '@/store/modules/projectMembers';
-import { makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState } from '@/store/modules/projects';
+import { makeProjectsModule, ProjectsState, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { makeReferralModule, ReferralState } from '@/store/modules/referral';
 import { makeUsersModule } from '@/store/modules/users';
 import { CreditUsage } from '@/types/credits';

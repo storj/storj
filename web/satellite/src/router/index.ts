@@ -26,6 +26,7 @@ import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
 import CreateProject from '@/components/project/CreateProject.vue';
 import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
+import ProjectsList from '@/components/projectsList/ProjectsList.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
 import store from '@/store';
@@ -53,6 +54,7 @@ export abstract class RouteConfig {
     public static CreateProject = new NavigationLink('/create-project', 'Create Project');
     public static EditProjectDetails = new NavigationLink('/edit-project-details', 'Edit Project Details');
     public static AccessGrants = new NavigationLink('/access-grants', 'Access Grants');
+    public static ProjectsList = new NavigationLink('/projects', 'Projects');
 
     // account child paths
     public static Settings = new NavigationLink('settings', 'Settings');
@@ -98,6 +100,7 @@ export const notProjectRelatedRoutes = [
     RouteConfig.CreditsHistory.name,
     RouteConfig.Settings.name,
     RouteConfig.AccessGrants.name,
+    RouteConfig.ProjectsList.name,
     // RouteConfig.Referral.name,
 ];
 
@@ -294,6 +297,11 @@ export const router = new Router({
                             ],
                         },
                     ],
+                },
+                {
+                    path: RouteConfig.ProjectsList.path,
+                    name: RouteConfig.ProjectsList.name,
+                    component: ProjectsList,
                 },
 ],
             },
