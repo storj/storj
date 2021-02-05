@@ -5,7 +5,6 @@ package consoleql
 
 import (
 	"github.com/graphql-go/graphql"
-	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
@@ -21,10 +20,6 @@ const (
 	OwnedProjectsQuery = "ownedProjects"
 	// MyProjectsQuery is a query name for projects related to account.
 	MyProjectsQuery = "myProjects"
-	// ActiveRewardQuery is a query name for current active reward offer.
-	ActiveRewardQuery = "activeReward"
-	// CreditUsageQuery is a query name for credit usage related to an user.
-	CreditUsageQuery = "creditUsage"
 )
 
 // rootQuery creates query for graphql populated by AccountsClient.
@@ -77,23 +72,6 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 					}
 
 					return projects, nil
-				},
-			},
-			ActiveRewardQuery: &graphql.Field{
-				Type: types.reward,
-				Args: graphql.FieldConfigArgument{
-					FieldType: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.Int),
-					},
-				},
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					return nil, errs.New("endpoint deprecated")
-				},
-			},
-			CreditUsageQuery: &graphql.Field{
-				Type: types.creditUsage,
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					return nil, errs.New("endpoint deprecated")
 				},
 			},
 		},

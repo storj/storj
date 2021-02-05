@@ -18,7 +18,6 @@ type TypeCreator struct {
 
 	user              *graphql.Object
 	reward            *graphql.Object
-	creditUsage       *graphql.Object
 	project           *graphql.Object
 	projectUsage      *graphql.Object
 	projectsPage      *graphql.Object
@@ -74,11 +73,6 @@ func (c *TypeCreator) Create(log *zap.Logger, service *console.Service, mailServ
 
 	c.reward = graphqlReward()
 	if err := c.reward.Error(); err != nil {
-		return err
-	}
-
-	c.creditUsage = graphqlCreditUsage()
-	if err := c.creditUsage.Error(); err != nil {
 		return err
 	}
 

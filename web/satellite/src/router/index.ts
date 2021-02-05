@@ -28,9 +28,9 @@ import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
 import ProjectsList from '@/components/projectsList/ProjectsList.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
-
 import store from '@/store';
 import { NavigationLink } from '@/types/navigation';
+
 const DashboardArea = () => import('@/views/DashboardArea.vue');
 const ForgotPassword = () => import('@/views/forgotPassword/ForgotPassword.vue');
 const LoginArea = () => import('@/views/login/LoginArea.vue');
@@ -82,12 +82,6 @@ export abstract class RouteConfig {
     public static AccessGrantCLI = new NavigationLink('cli', 'Onboarding Access Grant CLI');
     public static AccessGrantPassphrase = new NavigationLink('create-passphrase', 'Onboarding Access Grant Create Passphrase');
     public static AccessGrantResult = new NavigationLink('result', 'Onboarding Access Grant Result');
-
-    // TODO: disabled until implementation
-    // public static Referral = new NavigationLink('referral', 'Referral');
-
-    // not in project yet
-    // public static Referral = new NavigationLink('//ref/:ids', 'Referral');
 }
 
 export const notProjectRelatedRoutes = [
@@ -101,7 +95,6 @@ export const notProjectRelatedRoutes = [
     RouteConfig.Settings.name,
     RouteConfig.AccessGrants.name,
     RouteConfig.ProjectsList.name,
-    // RouteConfig.Referral.name,
 ];
 
 export const router = new Router({
@@ -159,11 +152,6 @@ export const router = new Router({
                             name: RouteConfig.CreditsHistory.name,
                             component: CreditsHistory,
                         },
-                        // {
-                        //     path: RouteConfig.Referral.path,
-                        //     name: RouteConfig.Referral.name,
-                        //     component: ReferralArea,
-                        // },
                     ],
                 },
                 {
@@ -303,8 +291,8 @@ export const router = new Router({
                     name: RouteConfig.ProjectsList.name,
                     component: ProjectsList,
                 },
-],
-            },
+            ],
+        },
         {
             path: '*',
             name: '404',
@@ -347,7 +335,7 @@ router.beforeEach((to, from, next) => {
     next();
 });
 
-router.afterEach(({name}, from) => {
+router.afterEach(({ name }, from) => {
     if (!name) {
         return;
     }

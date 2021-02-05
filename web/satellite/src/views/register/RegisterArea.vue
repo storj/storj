@@ -38,8 +38,6 @@ export default class RegisterArea extends Vue {
 
     // tardigrade logic
     private secret: string = '';
-    private referralToken: string = '';
-    private refUserId: string = '';
     private gtm: GoogleTagManager;
     private satellitesString: string;
     private partneredSatellites: string[];
@@ -97,32 +95,13 @@ export default class RegisterArea extends Vue {
      * Lifecycle hook after initial render.
      * Sets up variables from route params.
      */
-    public async mounted(): Promise<void> {
+    public mounted(): void {
         if (this.$route.query.token) {
             this.secret = this.$route.query.token.toString();
         }
 
-        if (this.$route.query.referralToken) {
-            this.referralToken = this.$route.query.referralToken.toString();
-        }
-
         if (this.$route.query.partner) {
             this.user.partner = this.$route.query.partner.toString();
-        }
-
-        const { ids = '' } = this.$route.params;
-        let decoded = '';
-        try {
-            decoded = atob(ids);
-        } catch (error) {
-            await this.$notify.error('Invalid Referral URL');
-
-            return;
-        }
-        const referralIds = ids ? JSON.parse(decoded) : undefined;
-        if (referralIds) {
-            this.user.partnerId = referralIds.partnerId;
-            this.refUserId = referralIds.userId;
         }
     }
 
@@ -268,15 +247,12 @@ export default class RegisterArea extends Vue {
      */
     private async createUser(): Promise<void> {
         try {
-            this.userId = this.referralToken ?
-                await this.auth.referralRegister(this.user, this.referralToken) :
-                await this.auth.register(this.user, this.secret, this.refUserId);
+            this.userId = await this.auth.register(this.user, this.secret);
 
             LocalData.setUserId(this.userId);
 
             this.$segment.identify(this.userId, {
                 email: this.$store.getters.user.email,
-                referralToken: this.referralToken,
             });
 
             if (this.partneredSatellites.includes(this.satelliteName)) {
