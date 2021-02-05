@@ -23,7 +23,7 @@ func (comp *compensationDB) QueryTotalAmounts(ctx context.Context, nodeID storj.
 	stmt := comp.db.Rebind(`
 		SELECT
 			coalesce(SUM(held), 0) AS total_held,
-			coalesce(SUM(disposed), 0) AS total_disposed
+			coalesce(SUM(disposed), 0) AS total_disposed,
 			coalesce(SUM(paid), 0) AS total_paid,
 			coalesce(SUM(distributed), 0) AS total_distributed
 		FROM
