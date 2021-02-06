@@ -202,13 +202,14 @@ func createURL(newAccessData string, sharePrefixes []sharePrefixExtension) (err 
 	fmt.Println("=========== BROWSER URL ==================================================================")
 	fmt.Println("REMINDER  : Object key must end in '/' when trying to share recursively")
 
-	var printFormat string
-	if p.Path() == "" || !sharePrefixes[0].hasTrailingSlash { // Check if the path is empty (aka sharing the entire bucket) or the path is not a directory or an object that ends in "/".
-		printFormat = "URL       : %s/%s/%s/%s\n"
-	} else {
-		printFormat = "URL       : %s/%s/%s/%s/\n"
+	path := p.Path()
+	// If we're not sharing the entire bucket (the path is empty)
+	// and the requested share prefix has a trailing slash, then
+	// make sure to append a trailing slash to the URL.
+	if path != "" && sharePrefixes[0].hasTrailingSlash {
+		path += "/"
 	}
-	fmt.Printf(printFormat, shareCfg.BaseURL, url.PathEscape(newAccessData), p.Bucket(), p.Path())
+	fmt.Printf("URL       : %s/s/%s/%s/%s\n", shareCfg.BaseURL, url.PathEscape(newAccessData), p.Bucket(), path)
 	return nil
 }
 
