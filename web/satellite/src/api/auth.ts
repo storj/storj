@@ -205,7 +205,7 @@ export class AuthHttpApi {
      * @returns id of created user
      * @throws Error
      */
-    public async register(user: { fullName: string; shortName: string; email: string; partner: string; partnerId: string; password: string }, secret: string): Promise<string> {
+    public async register(user: {fullName: string; shortName: string; email: string; partner: string; partnerId: string; password: string; isProfessional: boolean; position: string; companyName: string; employeeCount: string}, secret: string): Promise<string> {
         const path = `${this.ROOT_PATH}/register`;
         const body = {
             secret: secret,
@@ -215,6 +215,10 @@ export class AuthHttpApi {
             email: user.email,
             partner: user.partner ? user.partner : '',
             partnerId: user.partnerId ? user.partnerId : '',
+            isProfessional: user.isProfessional,
+            position: user.position,
+            companyName: user.companyName,
+            employeeCount: user.employeeCount,
         };
 
         const response = await this.http.post(path, JSON.stringify(body));

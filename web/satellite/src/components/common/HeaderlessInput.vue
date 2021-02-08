@@ -19,7 +19,18 @@
             :style="style.inputStyle"
             @focus="showPasswordStrength"
             @blur="hidePasswordStrength"
+            @click="showOptions"
+            :optionsShown="optionsShown"
+            @optionsList="optionsList"
         />
+
+        <!-- Shown if there are input choice options  -->
+        <InputCaret v-if="optionsList.length > 0" class="headerless-input__caret" />
+        <ul v-click-outside="hideOptions" class="headerless-input__options-wrapper" v-if="optionsShown">
+            <li class="headerless-input__option" @click="chooseOption(option)" v-for="option in optionsList">{{option}}</li>
+        </ul>
+        <!-- end of option render logic-->
+
         <!--2 conditions of eye image (crossed or not) -->
         <PasswordHiddenIcon
             class="input-wrap__image"
@@ -38,6 +49,7 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
+import InputCaret from '@/../static/images/common/caret.svg';
 import PasswordHiddenIcon from '@/../static/images/common/passwordHidden.svg';
 import PasswordShownIcon from '@/../static/images/common/passwordShown.svg';
 import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
@@ -45,6 +57,7 @@ import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
 // Custom input component for login page
 @Component({
     components: {
+        InputCaret,
         ErrorIcon,
         PasswordHiddenIcon,
         PasswordShownIcon,
@@ -73,6 +86,12 @@ export default class HeaderlessInput extends Vue {
     protected readonly error: string;
     @Prop({default: Number.MAX_SAFE_INTEGER})
     protected readonly maxSymbols: number;
+    @Prop({default: []})
+    protected readonly optionsList: [string];
+    @Prop({default: false})
+    protected optionsShown: boolean;
+    @Prop({default: false})
+    protected inputClicked: boolean;
 
     @Prop({default: false})
     private readonly isWhite: boolean;
@@ -118,6 +137,36 @@ export default class HeaderlessInput extends Vue {
     public changeVision(): void {
         this.isPasswordShown = !this.isPasswordShown;
         this.type = this.isPasswordShown ? this.textType : this.passwordType;
+    }
+
+    /**
+     * Chose a dropdown option as the input value.
+     */
+    public chooseOption(option: string): void {
+        this.value = option;
+        this.$emit('setData', this.value);
+        this.optionsShown = false;
+    }
+
+    /**
+     * Show dropdown options when the input is clicked, if they exist.
+     */
+    public showOptions(): void {
+        if (this.optionsList.length > 0) {
+            this.optionsShown = true;
+            this.inputClicked = true;
+        }
+    }
+
+    /**
+     * Hide the dropdown options from view when there is a click outside of the dropdown.
+     */
+    public hideOptions(): void {
+        if (this.optionsList.length > 0 && !this.inputClicked && this.optionsShown) {
+            this.optionsShown = false;
+            this.inputClicked = false;
+        }
+        this.inputClicked = false;
     }
 
     public get isLabelShown(): boolean {
@@ -170,6 +219,72 @@ export default class HeaderlessInput extends Vue {
                 fill: #2683ff !important;
             }
         }
+
+        .headerless-input {
+            font-size: 16px;
+            line-height: 21px;
+            resize: none;
+            height: 46px;
+            padding: 0 30px 0 0;
+            width: calc(100% - 30px) !important;
+            text-indent: 20px;
+            border: 1px solid rgba(56, 75, 101, 0.4);
+            border-radius: 6px;
+
+            &__caret {
+                position: absolute;
+                right: 28px;
+                bottom: 18px;
+            }
+
+            &__options-wrapper {
+                border: 1px solid rgba(56, 75, 101, 0.4);
+                position: absolute;
+                width: 100%;
+                top: 89px;
+                padding: 0;
+                background: #fff;
+                z-index: 21;
+                border-radius: 6px;
+                list-style: none;
+                border-top-right-radius: 0;
+                border-top-left-radius: 0;
+                border-top: none;
+                height: 176px;
+                margin-top: 0;
+            }
+
+            &__option {
+                cursor: pointer;
+                padding: 20px 22px;
+
+                &:hover {
+                    background: #2582ff;
+                    color: #fff;
+                }
+            }
+        }
+
+        .headerless-input::placeholder {
+            color: #384b65;
+            opacity: 0.4;
+        }
+
+        &:focus-within {
+
+            .headerless-input {
+                position: relative;
+                z-index: 22;
+
+                &__options-wrapper {
+                    border-top: 3px solid #145ecc;
+                }
+
+                &__caret {
+                    z-index: 23;
+                }
+            }
+        }
     }
 
     .label-container {
@@ -197,23 +312,6 @@ export default class HeaderlessInput extends Vue {
             font-size: 16px;
             margin: 18px 0 0 10px;
         }
-    }
-
-    .headerless-input {
-        font-size: 16px;
-        line-height: 21px;
-        resize: none;
-        height: 46px;
-        padding: 0 30px 0 0;
-        width: calc(100% - 30px) !important;
-        text-indent: 20px;
-        border: 1px solid rgba(56, 75, 101, 0.4);
-        border-radius: 6px;
-    }
-
-    .headerless-input::placeholder {
-        color: #384b65;
-        opacity: 0.4;
     }
 
     .inputError::placeholder {
