@@ -47,7 +47,7 @@
                 <HeaderedInput
                     class="create-passphrase__value-area__password__input"
                     label="Create Your Passphrase"
-                    placeholder="Enter your passphrase here"
+                    placeholder="Strong passphrases contain 12 characters or more"
                     @setData="onChangePassphrase"
                     :error="errorMessage"
                 />
