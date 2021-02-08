@@ -125,19 +125,22 @@ func TestBeginObjectNextVersion(t *testing.T) {
 			})
 		}
 
+		objectStream := metabase.ObjectStream{
+			ProjectID:  obj.ProjectID,
+			BucketName: obj.BucketName,
+			ObjectKey:  obj.ObjectKey,
+			StreamID:   obj.StreamID,
+		}
+
 		t.Run("disallow exact version", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
+			objectStream.Version = 5
+
 			BeginObjectNextVersion{
 				Opts: metabase.BeginObjectNextVersion{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-					Encryption: defaultTestEncryption,
+					ObjectStream: objectStream,
+					Encryption:   defaultTestEncryption,
 				},
 				Version:  -1,
 				ErrClass: &metabase.ErrInvalidRequest,
@@ -149,31 +152,23 @@ func TestBeginObjectNextVersion(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
 			now1 := time.Now()
+
+			objectStream.Version = metabase.NextVersion
+
 			BeginObjectNextVersion{
 				Opts: metabase.BeginObjectNextVersion{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    metabase.NextVersion,
-						StreamID:   obj.StreamID,
-					},
-					Encryption: defaultTestEncryption,
+					ObjectStream: objectStream,
+					Encryption:   defaultTestEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
 
 			now2 := time.Now()
+
 			BeginObjectNextVersion{
 				Opts: metabase.BeginObjectNextVersion{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    metabase.NextVersion,
-						StreamID:   obj.StreamID,
-					},
-					Encryption: defaultTestEncryption,
+					ObjectStream: objectStream,
+					Encryption:   defaultTestEncryption,
 				},
 				Version: 2,
 			}.Check(ctx, t, db)
@@ -213,8 +208,164 @@ func TestBeginObjectNextVersion(t *testing.T) {
 		// TODO: expires at date
 		// TODO: zombie deletion deadline
 
-		// TODO: older committed version exists
-		// TODO: newer committed version exists, we could reject the request
+		t.Run("older committed version exists", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			now1 := time.Now()
+			objectStream.Version = metabase.NextVersion
+
+			BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: objectStream,
+					Encryption:   defaultTestEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    1,
+						StreamID:   obj.StreamID,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			now2 := time.Now()
+			BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: objectStream,
+					Encryption:   defaultTestEncryption,
+				},
+				Version: 2,
+			}.Check(ctx, t, db)
+
+			CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    2,
+						StreamID:   obj.StreamID,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  obj.ProjectID,
+							BucketName: obj.BucketName,
+							ObjectKey:  obj.ObjectKey,
+							Version:    1,
+							StreamID:   obj.StreamID,
+						},
+						CreatedAt: now1,
+						Status:    metabase.Committed,
+
+						Encryption: defaultTestEncryption,
+					},
+					{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  obj.ProjectID,
+							BucketName: obj.BucketName,
+							ObjectKey:  obj.ObjectKey,
+							Version:    2,
+							StreamID:   obj.StreamID,
+						},
+						CreatedAt: now2,
+						Status:    metabase.Committed,
+
+						Encryption: defaultTestEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("newer committed version exists", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			now1 := time.Now()
+
+			objectStream.Version = metabase.NextVersion
+
+			BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: objectStream,
+					Encryption:   defaultTestEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			now2 := time.Now()
+			BeginObjectNextVersion{
+				Opts: metabase.BeginObjectNextVersion{
+					ObjectStream: objectStream,
+					Encryption:   defaultTestEncryption,
+				},
+				Version: 2,
+			}.Check(ctx, t, db)
+
+			CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    2,
+						StreamID:   obj.StreamID,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    1,
+						StreamID:   obj.StreamID,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  obj.ProjectID,
+							BucketName: obj.BucketName,
+							ObjectKey:  obj.ObjectKey,
+							Version:    1,
+							StreamID:   obj.StreamID,
+						},
+						CreatedAt: now1,
+						Status:    metabase.Committed,
+
+						Encryption: defaultTestEncryption,
+					},
+					{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  obj.ProjectID,
+							BucketName: obj.BucketName,
+							ObjectKey:  obj.ObjectKey,
+							Version:    2,
+							StreamID:   obj.StreamID,
+						},
+						CreatedAt: now2,
+						Status:    metabase.Committed,
+
+						Encryption: defaultTestEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
 	})
 }
 
@@ -239,19 +390,22 @@ func TestBeginObjectExactVersion(t *testing.T) {
 			})
 		}
 
+		objectStream := metabase.ObjectStream{
+			ProjectID:  obj.ProjectID,
+			BucketName: obj.BucketName,
+			ObjectKey:  obj.ObjectKey,
+			StreamID:   obj.StreamID,
+		}
+
 		t.Run("disallow NextVersion", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
+			objectStream.Version = metabase.NextVersion
+
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    metabase.NextVersion,
-						StreamID:   obj.StreamID,
-					},
-					Encryption: defaultTestEncryption,
+					ObjectStream: objectStream,
+					Encryption:   defaultTestEncryption,
 				},
 				Version:  -1,
 				ErrClass: &metabase.ErrInvalidRequest,
@@ -263,16 +417,13 @@ func TestBeginObjectExactVersion(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
 			now1 := time.Now()
+
+			objectStream.Version = 5
+
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-					Encryption: defaultTestEncryption,
+					ObjectStream: objectStream,
+					Encryption:   defaultTestEncryption,
 				},
 				Version: 5,
 			}.Check(ctx, t, db)
@@ -300,30 +451,21 @@ func TestBeginObjectExactVersion(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
 			now1 := time.Now()
+
+			objectStream.Version = 5
+
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-					Encryption: defaultTestEncryption,
+					ObjectStream: objectStream,
+					Encryption:   defaultTestEncryption,
 				},
 				Version: 5,
 			}.Check(ctx, t, db)
 
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-					Encryption: defaultTestEncryption,
+					ObjectStream: objectStream,
+					Encryption:   defaultTestEncryption,
 				},
 				Version:  -1,
 				ErrClass: &metabase.ErrConflict,
@@ -353,42 +495,27 @@ func TestBeginObjectExactVersion(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
 			now1 := time.Now()
+
+			objectStream.Version = 5
+
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-					Encryption: defaultTestEncryption,
+					ObjectStream: objectStream,
+					Encryption:   defaultTestEncryption,
 				},
 				Version: 5,
 			}.Check(ctx, t, db)
 
 			CommitObject{
 				Opts: metabase.CommitObject{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
+					ObjectStream: objectStream,
 				},
 			}.Check(ctx, t, db)
 
 			BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
-					ObjectStream: metabase.ObjectStream{
-						ProjectID:  obj.ProjectID,
-						BucketName: obj.BucketName,
-						ObjectKey:  obj.ObjectKey,
-						Version:    5,
-						StreamID:   obj.StreamID,
-					},
-					Encryption: defaultTestEncryption,
+					ObjectStream: objectStream,
+					Encryption:   defaultTestEncryption,
 				},
 				Version:  -1,
 				ErrClass: &metabase.ErrConflict,
@@ -416,8 +543,143 @@ func TestBeginObjectExactVersion(t *testing.T) {
 		// TODO: expires at date
 		// TODO: zombie deletion deadline
 
-		// TODO: older committed version exists
-		// TODO: newer committed version exists, we could reject the request
+		t.Run("Older committed version exists", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			now1 := time.Now()
+
+			objectStream.Version = 1
+
+			BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: objectStream,
+					Encryption:   defaultTestEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: objectStream,
+				},
+			}.Check(ctx, t, db)
+
+			objectStream.Version = 3
+
+			BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: objectStream,
+					Encryption:   defaultTestEncryption,
+				},
+				Version: 3,
+			}.Check(ctx, t, db)
+
+			CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: objectStream,
+				},
+			}.Check(ctx, t, db)
+
+			Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  obj.ProjectID,
+							BucketName: obj.BucketName,
+							ObjectKey:  obj.ObjectKey,
+							Version:    1,
+							StreamID:   obj.StreamID,
+						},
+						CreatedAt: now1,
+						Status:    metabase.Committed,
+
+						Encryption: defaultTestEncryption,
+					},
+					{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  obj.ProjectID,
+							BucketName: obj.BucketName,
+							ObjectKey:  obj.ObjectKey,
+							Version:    3,
+							StreamID:   obj.StreamID,
+						},
+						CreatedAt: now1,
+						Status:    metabase.Committed,
+
+						Encryption: defaultTestEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Newer committed version exists", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			now1 := time.Now()
+
+			objectStream.Version = 3
+
+			BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: objectStream,
+					Encryption:   defaultTestEncryption,
+				},
+				Version: 3,
+			}.Check(ctx, t, db)
+
+			CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: objectStream,
+				},
+			}.Check(ctx, t, db)
+
+			objectStream.Version = 1
+
+			BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: objectStream,
+					Encryption:   defaultTestEncryption,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+
+			CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: objectStream,
+				},
+			}.Check(ctx, t, db)
+
+			Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  obj.ProjectID,
+							BucketName: obj.BucketName,
+							ObjectKey:  obj.ObjectKey,
+							Version:    1,
+							StreamID:   obj.StreamID,
+						},
+						CreatedAt: now1,
+						Status:    metabase.Committed,
+
+						Encryption: defaultTestEncryption,
+					},
+					{
+						ObjectStream: metabase.ObjectStream{
+							ProjectID:  obj.ProjectID,
+							BucketName: obj.BucketName,
+							ObjectKey:  obj.ObjectKey,
+							Version:    3,
+							StreamID:   obj.StreamID,
+						},
+						CreatedAt: now1,
+						Status:    metabase.Committed,
+
+						Encryption: defaultTestEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
 	})
 }
 
