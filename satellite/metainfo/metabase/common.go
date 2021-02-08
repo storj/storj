@@ -295,6 +295,12 @@ const (
 // Pieces defines information for pieces.
 type Pieces []Piece
 
+// Piece defines information for a segment piece.
+type Piece struct {
+	Number      uint16
+	StorageNode storj.NodeID
+}
+
 // Verify verifies pieces.
 func (p Pieces) Verify() error {
 	if len(p) == 0 {
@@ -360,9 +366,3 @@ func (p Pieces) Less(i, j int) bool { return p[i].Number < p[j].Number }
 
 // Swap swaps the pieces with indexes i and j.
 func (p Pieces) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
-
-// Piece defines information for a segment piece.
-type Piece struct {
-	Number      uint16
-	StorageNode storj.NodeID
-}

@@ -60,7 +60,7 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 			return err
 		}
 
-		deletedSegments, err = deleteSegmentsNotInCommit(ctx, tx, opts.StreamID, segmentsToDelete)
+		deletedSegments, err = db.deleteSegmentsNotInCommit(ctx, tx, opts.StreamID, segmentsToDelete)
 		if err != nil {
 			return err
 		}
@@ -291,7 +291,7 @@ func updateSegmentOffsets(ctx context.Context, tx tagsql.Tx, streamID uuid.UUID,
 }
 
 // deleteSegmentsNotInCommit deletes the listed segments inside the tx.
-func deleteSegmentsNotInCommit(ctx context.Context, tx tagsql.Tx, streamID uuid.UUID, segments []SegmentPosition) (deletedSegments []DeletedSegmentInfo, err error) {
+func (db *DB) deleteSegmentsNotInCommit(ctx context.Context, tx tagsql.Tx, streamID uuid.UUID, segments []SegmentPosition) (deletedSegments []DeletedSegmentInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(segments) == 0 {
 		return nil, nil
@@ -306,17 +306,23 @@ func deleteSegmentsNotInCommit(ctx context.Context, tx tagsql.Tx, streamID uuid.
 	err = withRows(tx.Query(ctx, `
 			DELETE FROM segments
 			WHERE stream_id = $1 AND position = ANY($2)
-			RETURNING root_piece_id, remote_pieces
+			RETURNING root_piece_id, remote_alias_pieces
 		`, streamID, pgutil.Int8Array(positions)))(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var deleted DeletedSegmentInfo
-			err := rows.Scan(&deleted.RootPieceID, &deleted.Pieces)
+			var aliasPieces AliasPieces
+			err := rows.Scan(&deleted.RootPieceID, &aliasPieces)
 			if err != nil {
 				return Error.New("failed to scan segments: %w", err)
 			}
 			// we don't need to report info about inline segments
 			if deleted.RootPieceID.IsZero() {
 				continue
+			}
+
+			deleted.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+			if err != nil {
+				return Error.New("failed to convert aliases: %w", err)
 			}
 			deletedSegments = append(deletedSegments, deleted)
 		}

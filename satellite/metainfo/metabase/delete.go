@@ -135,7 +135,7 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 			return storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
 		}
 
-		segmentInfos, err := deleteSegments(ctx, tx, result.Objects)
+		segmentInfos, err := db.deleteSegments(ctx, tx, result.Objects)
 		if err != nil {
 			return err
 		}
@@ -215,7 +215,7 @@ func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject)
 			return storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
 		}
 
-		segmentInfos, err := deleteSegments(ctx, tx, result.Objects)
+		segmentInfos, err := db.deleteSegments(ctx, tx, result.Objects)
 		if err != nil {
 			return err
 		}
@@ -294,7 +294,7 @@ func (db *DB) DeleteObjectLatestVersion(ctx context.Context, opts DeleteObjectLa
 			return storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
 		}
 
-		segmentInfos, err := deleteSegments(ctx, tx, result.Objects)
+		segmentInfos, err := db.deleteSegments(ctx, tx, result.Objects)
 		if err != nil {
 			return err
 		}
@@ -349,7 +349,7 @@ func (db *DB) DeleteObjectAnyStatusAllVersions(ctx context.Context, opts DeleteO
 			return storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
 		}
 
-		segmentInfos, err := deleteSegments(ctx, tx, result.Objects)
+		segmentInfos, err := db.deleteSegments(ctx, tx, result.Objects)
 		if err != nil {
 			return err
 		}
@@ -428,7 +428,7 @@ func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAl
 			return nil
 		}
 
-		segmentInfos, err := deleteSegments(ctx, tx, result.Objects)
+		segmentInfos, err := db.deleteSegments(ctx, tx, result.Objects)
 		if err != nil {
 			return err
 		}
@@ -504,7 +504,7 @@ func scanMultipleObjectsDeletion(rows tagsql.Rows) (objects []Object, err error)
 	return objects, nil
 }
 
-func deleteSegments(ctx context.Context, tx tagsql.Tx, objects []Object) (_ []DeletedSegmentInfo, err error) {
+func (db *DB) deleteSegments(ctx context.Context, tx tagsql.Tx, objects []Object) (_ []DeletedSegmentInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO we need to figure out how integrate this with piece deletion code
@@ -524,7 +524,7 @@ func deleteSegments(ctx context.Context, tx tagsql.Tx, objects []Object) (_ []De
 	segmentsRows, err := tx.Query(ctx, `
 			DELETE FROM segments
 			WHERE stream_id = ANY ($1)
-			RETURNING root_piece_id, remote_pieces;
+			RETURNING root_piece_id, remote_alias_pieces;
 		`, pgutil.ByteaArray(streamIDs))
 	if err != nil {
 		return []DeletedSegmentInfo{}, Error.New("unable to delete object: %w", err)
@@ -534,11 +534,16 @@ func deleteSegments(ctx context.Context, tx tagsql.Tx, objects []Object) (_ []De
 	infos := make([]DeletedSegmentInfo, 0, len(objects))
 	for segmentsRows.Next() {
 		var segmentInfo DeletedSegmentInfo
-		err = segmentsRows.Scan(&segmentInfo.RootPieceID, &segmentInfo.Pieces)
+		var aliasPieces AliasPieces
+		err = segmentsRows.Scan(&segmentInfo.RootPieceID, &aliasPieces)
 		if err != nil {
 			return []DeletedSegmentInfo{}, Error.New("unable to delete object: %w", err)
 		}
 
+		segmentInfo.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+		if err != nil {
+			return []DeletedSegmentInfo{}, Error.New("failed to convert aliases: %w", err)
+		}
 		if len(segmentInfo.Pieces) != 0 {
 			infos = append(infos, segmentInfo)
 		}

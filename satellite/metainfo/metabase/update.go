@@ -46,18 +46,28 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 		return err
 	}
 
-	var pieces Pieces
+	oldPieces, err := db.aliasCache.ConvertPiecesToAliases(ctx, opts.OldPieces)
+	if err != nil {
+		return Error.New("unable to convert pieces to aliases: %w", err)
+	}
+
+	newPieces, err := db.aliasCache.ConvertPiecesToAliases(ctx, opts.NewPieces)
+	if err != nil {
+		return Error.New("unable to convert pieces to aliases: %w", err)
+	}
+
+	var resultPieces AliasPieces
 	err = db.db.QueryRow(ctx, `
 		UPDATE segments SET
-			remote_pieces = CASE
-				WHEN remote_pieces = $3 THEN $4
-				ELSE remote_pieces
+			remote_alias_pieces = CASE
+				WHEN remote_alias_pieces = $3 THEN $4
+				ELSE remote_alias_pieces
 			END
 		WHERE
 			stream_id     = $1 AND
 			position      = $2
-		RETURNING remote_pieces
-		`, opts.StreamID, opts.Position, opts.OldPieces, opts.NewPieces).Scan(&pieces)
+		RETURNING remote_alias_pieces
+		`, opts.StreamID, opts.Position, oldPieces, newPieces).Scan(&resultPieces)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrSegmentNotFound.New("segment missing")
@@ -65,8 +75,8 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 		return Error.New("unable to update segment pieces: %w", err)
 	}
 
-	if !opts.NewPieces.Equal(pieces) {
-		return storage.ErrValueChanged.New("segment remote_pieces field was changed")
+	if !EqualAliasPieces(newPieces, resultPieces) {
+		return storage.ErrValueChanged.New("segment remote_alias_pieces field was changed")
 	}
 
 	return nil

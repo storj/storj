@@ -257,6 +257,11 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 
 	// TODO: verify opts.Pieces is compatible with opts.Redundancy
 
+	aliasPieces, err := db.aliasCache.ConvertPiecesToAliases(ctx, opts.Pieces)
+	if err != nil {
+		return Error.New("unable to convert pieces to aliases: %w", err)
+	}
+
 	// Verify that object exists and is partial.
 	_, err = db.db.ExecContext(ctx, `
 		INSERT INTO segments (
@@ -264,7 +269,7 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size, plain_offset, plain_size,
 			redundancy,
-			remote_pieces
+			remote_alias_pieces
 		) VALUES (
 			(SELECT stream_id
 				FROM objects WHERE
@@ -283,7 +288,7 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 		opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
 		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize,
 		redundancyScheme{&opts.Redundancy},
-		opts.Pieces,
+		aliasPieces,
 		opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID,
 	)
 	if err != nil {

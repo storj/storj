@@ -126,6 +126,52 @@ func (cache *NodeAliasCache) refresh(ctx context.Context) (_ *NodeAliasMap, err 
 	return cache.latest, nil
 }
 
+// ConvertPiecesToAliases converts pieces to alias pieces.
+func (cache *NodeAliasCache) ConvertPiecesToAliases(ctx context.Context, pieces Pieces) (_ AliasPieces, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	nodes := make([]storj.NodeID, len(pieces))
+	for i, p := range pieces {
+		nodes[i] = p.StorageNode
+	}
+
+	aliases, err := cache.Aliases(ctx, nodes)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	aliasPieces := make(AliasPieces, len(aliases))
+	for i, alias := range aliases {
+		aliasPieces[i] = AliasPiece{
+			Number: pieces[i].Number,
+			Alias:  alias,
+		}
+	}
+
+	return aliasPieces, nil
+}
+
+// ConvertAliasesToPieces converts alias pieces to pieces.
+func (cache *NodeAliasCache) ConvertAliasesToPieces(ctx context.Context, aliasPieces AliasPieces) (_ Pieces, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	aliases := make([]NodeAlias, len(aliasPieces))
+	pieces := make(Pieces, len(aliasPieces))
+	for i, aliasPiece := range aliasPieces {
+		pieces[i].Number, aliases[i] = aliasPiece.Number, aliasPiece.Alias
+	}
+
+	nodes, err := cache.Nodes(ctx, aliases)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	for i, n := range nodes {
+		pieces[i].StorageNode = n
+	}
+
+	return pieces, nil
+}
+
 // NodeAliasMap contains bidirectional mapping between node ID and a NodeAlias.
 type NodeAliasMap struct {
 	node  map[NodeAlias]storj.NodeID

@@ -54,16 +54,22 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 			)
 			DELETE FROM segments
 			WHERE segments.stream_id in (SELECT deleted_objects.stream_id FROM deleted_objects)
-			RETURNING segments.stream_id, segments.root_piece_id, segments.remote_pieces
+			RETURNING segments.stream_id, segments.root_piece_id, segments.remote_alias_pieces
 		`, opts.Bucket.ProjectID, opts.Bucket.BucketName, batchSize))(func(rows tagsql.Rows) error {
 			ids := map[uuid.UUID]struct{}{} // TODO: avoid map here
 			for rows.Next() {
 				var streamID uuid.UUID
 				var segment DeletedSegmentInfo
-				err := rows.Scan(&streamID, &segment.RootPieceID, &segment.Pieces)
+				var aliasPieces AliasPieces
+				err := rows.Scan(&streamID, &segment.RootPieceID, &aliasPieces)
 				if err != nil {
 					return Error.Wrap(err)
 				}
+				segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+				if err != nil {
+					return Error.Wrap(err)
+				}
+
 				ids[streamID] = struct{}{}
 				deleteSegments = append(deleteSegments, segment)
 			}

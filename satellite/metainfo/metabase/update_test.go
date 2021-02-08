@@ -227,7 +227,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 					},
 				},
 				ErrClass: &storage.ErrValueChanged,
-				ErrText:  "segment remote_pieces field was changed",
+				ErrText:  "segment remote_alias_pieces field was changed",
 			}.Check(ctx, t, db)
 		})
 

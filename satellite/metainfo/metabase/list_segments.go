@@ -47,7 +47,7 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size, plain_offset, plain_size,
 			redundancy,
-			inline_data, remote_pieces
+			inline_data, remote_alias_pieces
 		FROM segments
 		WHERE
 			stream_id = $1 AND
@@ -57,15 +57,21 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 	`, opts.StreamID, opts.Cursor, opts.Limit+1))(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var segment Segment
+			var aliasPieces AliasPieces
 			err = rows.Scan(
 				&segment.Position,
 				&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 				&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
 				redundancyScheme{&segment.Redundancy},
-				&segment.InlineData, &segment.Pieces,
+				&segment.InlineData, &aliasPieces,
 			)
 			if err != nil {
 				return Error.New("failed to scan segments: %w", err)
+			}
+
+			segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+			if err != nil {
+				return Error.New("failed to convert aliases to pieces: %w", err)
 			}
 
 			segment.StreamID = opts.StreamID

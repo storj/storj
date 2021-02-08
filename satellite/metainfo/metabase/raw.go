@@ -90,6 +90,7 @@ func (db *DB) TestingDeleteAll(ctx context.Context) (err error) {
 		DELETE FROM node_aliases;
 		SELECT setval('node_alias_seq', 1, false);
 	`)
+	db.aliasCache = NewNodeAliasCache(db)
 	return Error.Wrap(err)
 }
 
@@ -165,7 +166,7 @@ func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err er
 			encrypted_size,
 			plain_offset, plain_size,
 			redundancy,
-			inline_data, remote_pieces
+			inline_data, remote_alias_pieces
 		FROM segments
 		ORDER BY stream_id ASC, position ASC
 	`)
@@ -175,6 +176,7 @@ func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err er
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 	for rows.Next() {
 		var seg RawSegment
+		var aliasPieces AliasPieces
 		err := rows.Scan(
 			&seg.StreamID,
 			&seg.Position,
@@ -190,11 +192,17 @@ func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err er
 			redundancyScheme{&seg.Redundancy},
 
 			&seg.InlineData,
-			&seg.Pieces,
+			&aliasPieces,
 		)
 		if err != nil {
 			return nil, Error.New("testingGetAllSegments scan failed: %w", err)
 		}
+
+		seg.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+		if err != nil {
+			return nil, Error.New("testingGetAllSegments convert aliases to pieces failed: %w", err)
+		}
+
 		segs = append(segs, seg)
 	}
 	if err := rows.Err(); err != nil {

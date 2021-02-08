@@ -168,13 +168,14 @@ func (db *DB) GetSegmentByLocation(ctx context.Context, opts GetSegmentByLocatio
 		return Segment{}, err
 	}
 
+	var aliasPieces AliasPieces
 	err = db.db.QueryRow(ctx, `
 			SELECT
 				stream_id,
 				root_piece_id, encrypted_key_nonce, encrypted_key,
 				encrypted_size, plain_offset, plain_size,
 				redundancy,
-				inline_data, remote_pieces
+				inline_data, remote_alias_pieces
 			FROM segments
 			WHERE
 				stream_id IN (SELECT stream_id FROM objects WHERE
@@ -191,7 +192,7 @@ func (db *DB) GetSegmentByLocation(ctx context.Context, opts GetSegmentByLocatio
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
 			redundancyScheme{&segment.Redundancy},
-			&segment.InlineData, &segment.Pieces,
+			&segment.InlineData, &aliasPieces,
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -200,6 +201,10 @@ func (db *DB) GetSegmentByLocation(ctx context.Context, opts GetSegmentByLocatio
 		return Segment{}, Error.New("unable to query segment: %w", err)
 	}
 
+	segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+	if err != nil {
+		return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
+	}
 	segment.Position = opts.Position
 
 	return segment, nil
@@ -227,12 +232,13 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 		return Segment{}, err
 	}
 
+	var aliasPieces AliasPieces
 	err = db.db.QueryRow(ctx, `
 		SELECT
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size, plain_offset, plain_size,
 			redundancy,
-			inline_data, remote_pieces
+			inline_data, remote_alias_pieces
 		FROM segments
 		WHERE
 			stream_id = $1 AND
@@ -242,13 +248,18 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
 			redundancyScheme{&segment.Redundancy},
-			&segment.InlineData, &segment.Pieces,
+			&segment.InlineData, &aliasPieces,
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Segment{}, ErrSegmentNotFound.New("segment missing")
 		}
 		return Segment{}, Error.New("unable to query segment: %w", err)
+	}
+
+	segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+	if err != nil {
+		return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
 	}
 
 	segment.StreamID = opts.StreamID
@@ -270,13 +281,14 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 		return Segment{}, err
 	}
 
+	var aliasPieces AliasPieces
 	err = db.db.QueryRow(ctx, `
 		SELECT
 			stream_id, position,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size, plain_offset, plain_size,
 			redundancy,
-			inline_data, remote_pieces
+			inline_data, remote_alias_pieces
 		FROM segments
 		WHERE
 			stream_id IN (SELECT stream_id FROM objects WHERE
@@ -295,13 +307,18 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
 			redundancyScheme{&segment.Redundancy},
-			&segment.InlineData, &segment.Pieces,
+			&segment.InlineData, &aliasPieces,
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Segment{}, storj.ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
 		}
 		return Segment{}, Error.New("unable to query segment: %w", err)
+	}
+
+	segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+	if err != nil {
+		return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
 	}
 
 	return segment, nil
@@ -325,13 +342,14 @@ func (db *DB) GetSegmentByOffset(ctx context.Context, opts GetSegmentByOffset) (
 		return Segment{}, ErrInvalidRequest.New("Invalid PlainOffset: %d", opts.PlainOffset)
 	}
 
+	var aliasPieces AliasPieces
 	err = db.db.QueryRow(ctx, `
 		SELECT
 			stream_id, position,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size, plain_offset, plain_size,
 			redundancy,
-			inline_data, remote_pieces
+			inline_data, remote_alias_pieces
 		FROM segments
 		WHERE
 			stream_id IN (SELECT stream_id FROM objects WHERE
@@ -352,13 +370,18 @@ func (db *DB) GetSegmentByOffset(ctx context.Context, opts GetSegmentByOffset) (
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
 			redundancyScheme{&segment.Redundancy},
-			&segment.InlineData, &segment.Pieces,
+			&segment.InlineData, &aliasPieces,
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return Segment{}, storj.ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
 		}
 		return Segment{}, Error.New("unable to query segment: %w", err)
+	}
+
+	segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+	if err != nil {
+		return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
 	}
 
 	return segment, nil

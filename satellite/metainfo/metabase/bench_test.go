@@ -94,6 +94,9 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 			// wipe data so we can do the exact same test
 			b.StopTimer()
 			DeleteAll{}.Check(ctx, b, db)
+			if err := db.EnsureNodeAliases(ctx, metabase.EnsureNodeAliases{Nodes: nodes}); err != nil {
+				require.NoError(b, err)
+			}
 			b.StartTimer()
 
 			s.objectStream = nil

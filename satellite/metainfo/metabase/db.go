@@ -6,13 +6,17 @@ package metabase
 
 import (
 	"context"
+	"sort"
 	"strconv"
 
 	_ "github.com/jackc/pgx/v4"        // registers pgx as a tagsql driver.
 	_ "github.com/jackc/pgx/v4/stdlib" // registers pgx as a tagsql driver.
 	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/private/tagsql"
@@ -26,22 +30,30 @@ var (
 type DB struct {
 	log *zap.Logger
 	db  tagsql.DB
+
+	aliasCache *NodeAliasCache
 }
 
 // Open opens a connection to metabase.
 func Open(ctx context.Context, log *zap.Logger, driverName, connstr string) (*DB, error) {
-	db, err := tagsql.Open(ctx, driverName, connstr)
+	rawdb, err := tagsql.Open(ctx, driverName, connstr)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	dbutil.Configure(ctx, db, "metabase", mon)
+	dbutil.Configure(ctx, rawdb, "metabase", mon)
 
-	return &DB{log: log, db: postgresRebind{db}}, nil
+	db := &DB{log: log, db: postgresRebind{rawdb}}
+	db.aliasCache = NewNodeAliasCache(db)
+	return db, nil
 }
 
-// InternalImplementation returns *metabase.DB
+// InternalImplementation returns *metabase.DB.
 // TODO: remove.
 func (db *DB) InternalImplementation() interface{} { return db }
+
+// UnderlyingTagSQL returns *tagsql.DB.
+// TODO: remove.
+func (db *DB) UnderlyingTagSQL() tagsql.DB { return db.db }
 
 // Ping checks whether connection has been established.
 func (db *DB) Ping(ctx context.Context) error {
@@ -63,6 +75,7 @@ func (db *DB) DestroyTables(ctx context.Context) error {
 		DROP TABLE IF EXISTS node_aliases;
 		DROP SEQUENCE IF EXISTS node_alias_seq;
 	`)
+	db.aliasCache = NewNodeAliasCache(db)
 	return Error.Wrap(err)
 }
 
@@ -157,6 +170,105 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						node_id    BYTEA  NOT NULL UNIQUE,
 						node_alias INT4   NOT NULL UNIQUE default nextval('node_alias_seq')
 					)`,
+				},
+			},
+			{
+				DB:          &db.db,
+				Description: "add remote_alias_pieces column",
+				Version:     4,
+				Action: migrate.SQL{
+					`ALTER TABLE segments ADD COLUMN remote_alias_pieces BYTEA`,
+				},
+			},
+			{
+				DB:          &db.db,
+				Description: "convert remote_pieces to remote_alias_pieces",
+				Version:     5,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+					type segmentPieces struct {
+						StreamID     uuid.UUID
+						Position     SegmentPosition
+						RemotePieces Pieces
+					}
+
+					var allSegments []segmentPieces
+
+					err := withRows(tx.QueryContext(ctx, `SELECT stream_id, position, remote_pieces FROM segments WHERE remote_pieces IS NOT NULL`))(
+						func(rows tagsql.Rows) error {
+							for rows.Next() {
+								var seg segmentPieces
+								if err := rows.Scan(&seg.StreamID, &seg.Position, &seg.RemotePieces); err != nil {
+									return Error.Wrap(err)
+								}
+								allSegments = append(allSegments, seg)
+							}
+							return nil
+						})
+					if err != nil {
+						return Error.Wrap(err)
+					}
+
+					allNodes := map[storj.NodeID]struct{}{}
+					for i := range allSegments {
+						seg := &allSegments[i]
+						for k := range seg.RemotePieces {
+							p := &seg.RemotePieces[k]
+							allNodes[p.StorageNode] = struct{}{}
+						}
+					}
+
+					nodesList := []storj.NodeID{}
+					for id := range allNodes {
+						nodesList = append(nodesList, id)
+					}
+					aliasCache := NewNodeAliasCache(&txNodeAliases{tx})
+					_, err = aliasCache.Aliases(ctx, nodesList)
+					if err != nil {
+						return Error.Wrap(err)
+					}
+
+					err = func() (err error) {
+						stmt, err := tx.PrepareContext(ctx, `UPDATE segments SET remote_alias_pieces = $3 WHERE stream_id = $1 AND position = $2`)
+						if err != nil {
+							return Error.Wrap(err)
+						}
+						defer func() { err = errs.Combine(err, Error.Wrap(stmt.Close())) }()
+
+						for i := range allSegments {
+							seg := &allSegments[i]
+							if len(seg.RemotePieces) == 0 {
+								continue
+							}
+
+							aliases, err := aliasCache.ConvertPiecesToAliases(ctx, seg.RemotePieces)
+							if err != nil {
+								return Error.Wrap(err)
+							}
+							sort.Slice(aliases, func(i, k int) bool {
+								return aliases[i].Number < aliases[k].Number
+							})
+
+							_, err = stmt.ExecContext(ctx, seg.StreamID, seg.Position, aliases)
+							if err != nil {
+								return Error.Wrap(err)
+							}
+						}
+
+						return nil
+					}()
+					if err != nil {
+						return err
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          &db.db,
+				Description: "drop remote_pieces from segments table",
+				Version:     6,
+				Action: migrate.SQL{
+					`ALTER TABLE segments DROP COLUMN remote_pieces`,
 				},
 			},
 		},
