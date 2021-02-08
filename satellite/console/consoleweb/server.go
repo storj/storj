@@ -76,7 +76,7 @@ type Config struct {
 	TermsAndConditionsURL           string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
 	SegmentIOPublicKey              string `help:"used to initialize segment.io at web satellite console" default:""`
 	AccountActivationRedirectURL    string `help:"url link for account activation redirect" default:""`
-	VerificationPageURL             string `help:"url link to sign up verification page" default:"https://tardigrade.io/verify"`
+	VerificationPageURL             string `help:"url link to sign up verification page" devDefault:"" releaseDefault:"https://tardigrade.io/verify"`
 	PartneredSatelliteNames         string `help:"names of partnered satellites" default:"US-Central-1,Europe-West-1,Asia-East-1"`
 	GoogleTagManagerID              string `help:"id for google tag manager" default:""`
 	GeneralRequestURL               string `help:"url link to general request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
@@ -276,6 +276,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
 	var data struct {
+		ExternalAddress                 string
 		SatelliteName                   string
 		SatelliteNodeURL                string
 		SegmentIOPublicKey              string
@@ -289,6 +290,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		GatewayCredentialsRequestURL    string
 	}
 
+	data.ExternalAddress = server.config.ExternalAddress
 	data.SatelliteName = server.config.SatelliteName
 	data.SatelliteNodeURL = server.nodeURL.String()
 	data.SegmentIOPublicKey = server.config.SegmentIOPublicKey

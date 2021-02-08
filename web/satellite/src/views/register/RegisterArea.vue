@@ -255,11 +255,12 @@ export default class RegisterArea extends Vue {
                 email: this.$store.getters.user.email,
             });
 
-            if (this.partneredSatellites.includes(this.satelliteName)) {
-                const verificationPageURL: string = MetaUtils.getMetaContent('verification-page-url');
+            const verificationPageURL: string = MetaUtils.getMetaContent('verification-page-url');
+            if (verificationPageURL) {
+                const externalAddress: string = MetaUtils.getMetaContent('external-address');
                 const url = new URL(verificationPageURL);
 
-                url.searchParams.append('name', this.satelliteName);
+                url.searchParams.append('redirect', externalAddress);
 
                 window.top.location.href = url.href;
 
