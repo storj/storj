@@ -68,6 +68,11 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 		s.projectID = append(s.projectID, testrand.UUID())
 	}
 
+	nodes := make([]storj.NodeID, 10000)
+	for i := range nodes {
+		nodes[i] = testrand.NodeID()
+	}
+
 	b.Run("Upload", func(b *testing.B) {
 		totalUpload := make(Metrics, 0, b.N*s.projects*s.objects)
 		beginObject := make(Metrics, 0, b.N*s.projects*s.objects)
@@ -118,7 +123,7 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 						for part := 0; part < s.parts; part++ {
 							for segment := 0; segment < s.segments-1; segment++ {
 								rootPieceID := testrand.PieceID()
-								pieces := randPieces(int(s.redundancy.OptimalShares))
+								pieces := randPieces(int(s.redundancy.OptimalShares), nodes)
 
 								beginSegment.Record(func() {
 									err := db.BeginSegment(ctx, metabase.BeginSegment{
@@ -302,12 +307,14 @@ func (m *Metrics) Report(b *testing.B, name string) {
 }
 
 // randPieces returns randomized pieces.
-func randPieces(count int) metabase.Pieces {
+func randPieces(count int, nodes []storj.NodeID) metabase.Pieces {
 	pieces := make(metabase.Pieces, count)
 	for i := range pieces {
 		pieces[i] = metabase.Piece{
-			Number:      uint16(i),
-			StorageNode: testrand.NodeID(),
+			Number: uint16(i),
+			// TODO: this will rarely end up with duplicates in the segment,
+			// however, it should be fine.
+			StorageNode: nodes[testrand.Intn(len(nodes))],
 		}
 	}
 	return pieces
