@@ -36,6 +36,10 @@ type DB interface {
 	GetReceipt(ctx context.Context, satelliteID storj.NodeID, period string) (string, error)
 	// GetTotalEarned returns total earned amount of node from all paystubs.
 	GetTotalEarned(ctx context.Context) (_ int64, err error)
+	// GetEarnedAtSatellite returns total earned value for node from specific satellite.
+	GetEarnedAtSatellite(ctx context.Context, id storj.NodeID) (int64, error)
+	// GetPayingSatellitesIDs returns list of satellite ID's that ever paid to storagenode.
+	GetPayingSatellitesIDs(ctx context.Context) ([]storj.NodeID, error)
 }
 
 // ErrNoPayStubForPeriod represents errors from the payouts database.

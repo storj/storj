@@ -314,3 +314,97 @@ func TestAllPayStubPeriodCached(t *testing.T) {
 		require.Equal(t, 0, len(payStubs))
 	})
 }
+
+func TestPayouts(t *testing.T) {
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		payout := db.Payout()
+		t.Run("Test SatelliteIDs", func(t *testing.T) {
+			id1 := storj.NodeID{1, 2, 3}
+			id2 := storj.NodeID{2, 3, 4}
+			id3 := storj.NodeID{3, 3, 3}
+			err := payout.StorePayStub(ctx, payouts.PayStub{
+				SatelliteID: id1,
+			})
+			require.NoError(t, err)
+			err = payout.StorePayStub(ctx, payouts.PayStub{
+				SatelliteID: id1,
+			})
+			require.NoError(t, err)
+			err = payout.StorePayStub(ctx, payouts.PayStub{
+				SatelliteID: id2,
+			})
+			require.NoError(t, err)
+			err = payout.StorePayStub(ctx, payouts.PayStub{
+				SatelliteID: id3,
+			})
+			require.NoError(t, err)
+			err = payout.StorePayStub(ctx, payouts.PayStub{
+				SatelliteID: id3,
+			})
+			require.NoError(t, err)
+			err = payout.StorePayStub(ctx, payouts.PayStub{
+				SatelliteID: id2,
+			})
+			require.NoError(t, err)
+			listIDs, err := payout.GetPayingSatellitesIDs(ctx)
+			require.Equal(t, len(listIDs), 3)
+			require.NoError(t, err)
+		})
+		t.Run("Test GetSatelliteEarned", func(t *testing.T) {
+			id1 := storj.NodeID{1, 2, 3}
+			id2 := storj.NodeID{2, 3, 4}
+			id3 := storj.NodeID{3, 3, 3}
+			err := payout.StorePayStub(ctx, payouts.PayStub{
+				Period:      "2020-11",
+				SatelliteID: id1,
+				CompGet:     11,
+				CompAtRest:  11,
+			})
+			require.NoError(t, err)
+			err = payout.StorePayStub(ctx, payouts.PayStub{
+				Period:      "2020-12",
+				SatelliteID: id1,
+				CompGet:     22,
+				CompAtRest:  22,
+			})
+			require.NoError(t, err)
+			err = payout.StorePayStub(ctx, payouts.PayStub{
+				Period:      "2020-11",
+				SatelliteID: id2,
+				CompGet:     33,
+				CompAtRest:  33,
+			})
+			require.NoError(t, err)
+			err = payout.StorePayStub(ctx, payouts.PayStub{
+				Period:      "2020-10",
+				SatelliteID: id3,
+				CompGet:     44,
+				CompAtRest:  44,
+			})
+			require.NoError(t, err)
+			err = payout.StorePayStub(ctx, payouts.PayStub{
+				Period:      "2020-11",
+				SatelliteID: id3,
+				CompGet:     55,
+				CompAtRest:  55,
+			})
+			require.NoError(t, err)
+			err = payout.StorePayStub(ctx, payouts.PayStub{
+				Period:      "2020-10",
+				SatelliteID: id2,
+				CompGet:     66,
+				CompAtRest:  66,
+			})
+			require.NoError(t, err)
+			satellite1Earned, err := payout.GetEarnedAtSatellite(ctx, id1)
+			require.Equal(t, int(satellite1Earned), 66)
+			require.NoError(t, err)
+			satellite2Earned, err := payout.GetEarnedAtSatellite(ctx, id2)
+			require.Equal(t, int(satellite2Earned), 198)
+			require.NoError(t, err)
+			satellite3Earned, err := payout.GetEarnedAtSatellite(ctx, id3)
+			require.Equal(t, int(satellite3Earned), 198)
+			require.NoError(t, err)
+		})
+	})
+}
