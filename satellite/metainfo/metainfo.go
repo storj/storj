@@ -83,6 +83,7 @@ type Endpoint struct {
 	revocations          revocation.DB
 	defaultRS            *pb.RedundancyScheme
 	config               Config
+	versionCollector     *versionCollector
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
@@ -136,6 +137,7 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 		revocations:          revocations,
 		defaultRS:            defaultRSScheme,
 		config:               config,
+		versionCollector:     newVersionCollector(),
 	}, nil
 }
 
@@ -223,6 +225,11 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRequest) (_ *pb.ProjectInfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:   macaroon.ActionProjectInfo,
 		Time: time.Now(),
@@ -241,6 +248,11 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 // GetBucket returns a bucket.
 func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetRequest) (resp *pb.BucketGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionRead,
@@ -273,6 +285,11 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 // CreateBucket creates a new bucket.
 func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreateRequest) (resp *pb.BucketCreateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionWrite,
@@ -349,6 +366,11 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 // DeleteBucket deletes a bucket.
 func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDeleteRequest) (resp *pb.BucketDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
 
 	now := time.Now()
 
@@ -498,6 +520,12 @@ func (endpoint *Endpoint) deleteByPrefix(ctx context.Context, projectID uuid.UUI
 // ListBuckets returns buckets in a project where the bucket name matches the request cursor.
 func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListRequest) (resp *pb.BucketListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
 	action := macaroon.Action{
 		// TODO: This has to be ActionList, but it seems to be set to
 		// ActionRead as a hacky workaround to make bucket listing possible.
@@ -641,6 +669,11 @@ func convertBucketToProto(bucket storj.Bucket, rs *pb.RedundancyScheme) (pbBucke
 func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRequest) (resp *pb.ObjectBeginResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        req.Bucket,
@@ -733,6 +766,11 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommitRequest) (resp *pb.ObjectCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
 	return endpoint.commitObject(ctx, req, nil)
 }
 
@@ -815,6 +853,11 @@ func (endpoint *Endpoint) commitObject(ctx context.Context, req *pb.ObjectCommit
 // GetObject gets single object.
 func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetRequest) (resp *pb.ObjectGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionRead,
@@ -925,6 +968,11 @@ func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bu
 func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListRequest) (resp *pb.ObjectListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionList,
 		Bucket:        req.Bucket,
@@ -986,6 +1034,11 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 // BeginDeleteObject begins object deletion process.
 func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectBeginDeleteRequest) (resp *pb.ObjectBeginDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
 
 	now := time.Now()
 
@@ -1064,6 +1117,11 @@ func (endpoint *Endpoint) FinishDeleteObject(ctx context.Context, req *pb.Object
 // the provided object. This is useful for knowing the locations of the pieces.
 func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPsRequest) (resp *pb.ObjectGetIPsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionRead,
@@ -1165,6 +1223,11 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBeginRequest) (resp *pb.SegmentBeginResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
 	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
@@ -1232,6 +1295,11 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 // CommitSegment commits segment after uploading.
 func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentCommitRequest) (resp *pb.SegmentCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
 
 	_, resp, err = endpoint.commitSegment(ctx, req, true)
 	return resp, err
@@ -1376,6 +1444,11 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.SegmentMakeInlineRequest) (resp *pb.SegmentMakeInlineResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
 	_, resp, err = endpoint.makeInlineSegment(ctx, req, true)
 	return resp, err
 }
@@ -1492,6 +1565,11 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 // DownloadSegment returns data necessary to download segment.
 func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDownloadRequest) (resp *pb.SegmentDownloadResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
 
 	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
 	if err != nil {
@@ -1830,6 +1908,12 @@ func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, reqs ...*meta
 // RevokeAPIKey handles requests to revoke an api key.
 func (endpoint *Endpoint) RevokeAPIKey(ctx context.Context, req *pb.RevokeAPIKeyRequest) (resp *pb.RevokeAPIKeyResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
 	macToRevoke, err := macaroon.ParseMacaroon(req.GetApiKey())
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "API key to revoke is not a macaroon")
