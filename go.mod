@@ -46,7 +46,7 @@ require (
 	google.golang.org/protobuf v1.25.0 // indirect
 	storj.io/common v0.0.0-20210204114159-106c992bbc05
 	storj.io/drpc v0.0.16
-	storj.io/monkit-jaeger v0.0.0-20200518165323-80778fc3f91b
+	storj.io/monkit-jaeger v0.0.0-20210205021559-85f08034688c
 	storj.io/private v0.0.0-20210203200143-9d2ec06f0d3c
 	storj.io/uplink v1.4.6-0.20210204154407-ab245b221ef3
 )
