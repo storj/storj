@@ -152,6 +152,8 @@ export function newPayoutModule(service: PayoutService): StoreModule<PayoutState
                 commit(PAYOUT_MUTATIONS.SET_ESTIMATION, estimatedInfo);
             },
             [PAYOUT_ACTIONS.GET_PAYOUT_HISTORY]: async function ({ commit, state }: any): Promise<void> {
+                if (!state.payoutHistoryPeriod) return;
+
                 const payoutHistory = await service.payoutHistory(state.payoutHistoryPeriod);
 
                 commit(PAYOUT_MUTATIONS.SET_PAYOUT_HISTORY, payoutHistory);
