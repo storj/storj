@@ -212,6 +212,11 @@ type MetabaseDB interface {
 	BucketEmpty(ctx context.Context, opts metabase.BucketEmpty) (empty bool, err error)
 	// UpdateSegmentPieces updates pieces for specified segment. If provided old pieces won't match current database state update will fail.
 	UpdateSegmentPieces(ctx context.Context, opts metabase.UpdateSegmentPieces) (err error)
+	// EnsureNodeAliases ensures that the supplied node ID-s have a alias.
+	// It's safe to concurrently try and create node ID-s for the same NodeID.
+	EnsureNodeAliases(ctx context.Context, opts metabase.EnsureNodeAliases) (err error)
+	// ListNodeAliases lists all node alias mappings.
+	ListNodeAliases(ctx context.Context) (_ []metabase.NodeAliasEntry, err error)
 
 	// TestingAllCommittedObjects gets all committed objects from bucket. Use only for testing purposes.
 	TestingAllCommittedObjects(ctx context.Context, projectID uuid.UUID, bucketName string) (objects []metabase.ObjectEntry, err error)

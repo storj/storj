@@ -167,9 +167,7 @@ pipeline {
 
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj3;\''
-                        // catchError {
-                        //     sh 'make test-sim-backwards-compatible'
-                        // }
+                        sh 'make test-sim-backwards-compatible'
                     }
                 }
 
@@ -184,9 +182,7 @@ pipeline {
 
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach5;\''
-                        // catchError {
-                        //     sh 'make test-sim-backwards-compatible'
-                        // }
+                        sh 'make test-sim-backwards-compatible'
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach5;\''
                     }
                 }

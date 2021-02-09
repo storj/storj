@@ -4,9 +4,11 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"os"
 	"runtime/pprof"
@@ -30,7 +32,7 @@ import (
 	"storj.io/storj/satellite/metainfo/metabase"
 )
 
-const objectArgs = 13
+const objectArgs = 14
 const segmentArgs = 11
 
 // EntryKey map key for object.
@@ -41,16 +43,16 @@ type EntryKey struct {
 
 // Object represents object metadata.
 type Object struct {
-	StreamID           uuid.UUID
-	CreationDate       time.Time
-	ExpireAt           *time.Time
-	EncryptedKey       []byte
-	Encryption         int64
-	Metadata           []byte
-	TotalEncryptedSize int64
-
-	SegmentsRead     int64
-	SegmentsExpected int64
+	StreamID               uuid.UUID
+	CreationDate           time.Time
+	ExpireAt               *time.Time
+	EncryptedMetadata      []byte
+	EncryptedMetadataKey   []byte
+	EncryptedMetadataNonce []byte
+	Encryption             int64
+	TotalEncryptedSize     int64
+	SegmentsRead           int64
+	SegmentsExpected       int64
 }
 
 // Config initial settings for migrator.
@@ -59,6 +61,7 @@ type Config struct {
 	ReadBatchSize         int
 	WriteBatchSize        int
 	WriteParallelLimit    int
+	Nodes                 string
 }
 
 // Migrator defines metainfo migrator.
@@ -116,7 +119,6 @@ func (m *Migrator) MigrateProjects(ctx context.Context) (err error) {
 	}
 	defer func() { err = errs.Combine(err, pointerDBConn.Close(ctx)) }()
 
-	// TODO use initial custom DB schema (e.g. to avoid indexes)
 	mb, err := metainfo.OpenMetabase(ctx, m.log.Named("metabase"), m.metabaseDBStr)
 	if err != nil {
 		return err
@@ -124,9 +126,9 @@ func (m *Migrator) MigrateProjects(ctx context.Context) (err error) {
 	if err := mb.MigrateToLatest(ctx); err != nil {
 		return err
 	}
-	if err := mb.Close(); err != nil {
-		return err
-	}
+	defer func() { err = errs.Combine(err, mb.Close()) }()
+
+	aliasCache := metabase.NewNodeAliasCache(mb)
 
 	config, err := pgxpool.ParseConfig(m.metabaseDBStr)
 	if err != nil {
@@ -162,16 +164,23 @@ func (m *Migrator) MigrateProjects(ctx context.Context) (err error) {
 	objects := make(map[EntryKey]Object)
 	var currentProject uuid.UUID
 	var fullpath, lastFullPath, metadata []byte
-	var allSegments, zombieSegments int64
+	var allObjects, allSegments, zombieSegments int64
 
 	start := time.Now()
+	if m.config.Nodes != "" {
+		err = m.aliasNodes(ctx, mb)
+		if err != nil {
+			return err
+		}
+	}
 
+	lastCheck := time.Now()
 	m.log.Info("Start generating StreamIDs", zap.Int("total", m.config.PreGeneratedStreamIDs))
 	ids, err := generateStreamIDs(m.config.PreGeneratedStreamIDs)
 	if err != nil {
 		return err
 	}
-	m.log.Info("Finished generating StreamIDs", zap.Duration("took", time.Since(start)))
+	m.log.Info("Finished generating StreamIDs", zap.Duration("took", time.Since(lastCheck)))
 
 	m.log.Info("Start", zap.Time("time", start),
 		zap.Int("readBatchSize", m.config.ReadBatchSize),
@@ -179,7 +188,7 @@ func (m *Migrator) MigrateProjects(ctx context.Context) (err error) {
 		zap.Int("writeParallelLimit", m.config.WriteParallelLimit),
 	)
 
-	lastCheck := time.Now()
+	lastCheck = time.Now()
 	for {
 		hasResults := false
 		err = func() error {
@@ -235,6 +244,9 @@ func (m *Migrator) MigrateProjects(ctx context.Context) (err error) {
 				// * detect empty objects and insert only object
 				if segmentKey.Position.Index == metabase.LastSegmentIndex {
 					// process last segment, it contains information about object and segment metadata
+					if len(ids) == 0 {
+						return errs.New("not enough generated stream ids")
+					}
 					streamID := ids[0]
 					err = proto.Unmarshal(pointer.Metadata, streamMeta)
 					if err != nil {
@@ -262,8 +274,9 @@ func (m *Migrator) MigrateProjects(ctx context.Context) (err error) {
 					object.CreationDate = pointer.CreationDate
 					object.ExpireAt = expireAt
 					object.Encryption = encryption
-					object.EncryptedKey = streamMeta.LastSegmentMeta.EncryptedKey
-					object.Metadata = pointer.Metadata // TODO this needs to be striped to EncryptedStreamInfo
+					object.EncryptedMetadataKey = streamMeta.LastSegmentMeta.EncryptedKey
+					object.EncryptedMetadataNonce = streamMeta.LastSegmentMeta.KeyNonce
+					object.EncryptedMetadata = pointer.Metadata // TODO this needs to be striped to EncryptedStreamInfo
 
 					object.SegmentsRead = 1
 					object.TotalEncryptedSize = pointer.SegmentSize
@@ -278,12 +291,13 @@ func (m *Migrator) MigrateProjects(ctx context.Context) (err error) {
 						if err != nil {
 							return err
 						}
+						allObjects++
 					} else {
 						objects[key] = object
 					}
 
 					segmentPosition.Index = uint32(streamMeta.NumberOfSegments - 1)
-					err = m.insertSegment(ctx, metabaseConn, streamID, segmentPosition.Encode(), pointer, streamMeta.LastSegmentMeta)
+					err = m.insertSegment(ctx, metabaseConn, aliasCache, streamID, segmentPosition.Encode(), pointer, streamMeta.LastSegmentMeta)
 					if err != nil {
 						return err
 					}
@@ -299,7 +313,7 @@ func (m *Migrator) MigrateProjects(ctx context.Context) (err error) {
 						}
 
 						segmentPosition.Index = segmentKey.Position.Index
-						err = m.insertSegment(ctx, metabaseConn, object.StreamID, segmentPosition.Encode(), pointer, segmentMeta)
+						err = m.insertSegment(ctx, metabaseConn, aliasCache, object.StreamID, segmentPosition.Encode(), pointer, segmentMeta)
 						if err != nil {
 							return err
 						}
@@ -314,6 +328,7 @@ func (m *Migrator) MigrateProjects(ctx context.Context) (err error) {
 							if err != nil {
 								return err
 							}
+							allObjects++
 
 							delete(objects, key)
 						} else {
@@ -346,7 +361,7 @@ func (m *Migrator) MigrateProjects(ctx context.Context) (err error) {
 
 	m.metabaseLimiter.Wait()
 
-	m.log.Info("Finished", zap.Int64("segments", allSegments), zap.Int64("invalid", zombieSegments), zap.Duration("total", time.Since(start)))
+	m.log.Info("Finished", zap.Int64("objects", allObjects), zap.Int64("segments", allSegments), zap.Int64("invalid", zombieSegments), zap.Duration("total", time.Since(start)))
 
 	return nil
 }
@@ -356,7 +371,7 @@ func (m *Migrator) insertObject(ctx context.Context, conn *pgxpool.Pool, locatio
 		location.ProjectID, location.BucketName, []byte(location.ObjectKey), 1, object.StreamID,
 		object.CreationDate, object.ExpireAt,
 		metabase.Committed, object.SegmentsRead,
-		object.Metadata, object.EncryptedKey,
+		object.EncryptedMetadata, object.EncryptedMetadataKey, object.EncryptedMetadataNonce,
 		object.TotalEncryptedSize,
 		object.Encryption,
 	})
@@ -370,7 +385,7 @@ func (m *Migrator) insertObject(ctx context.Context, conn *pgxpool.Pool, locatio
 	return nil
 }
 
-func (m *Migrator) insertSegment(ctx context.Context, conn *pgxpool.Pool, streamID uuid.UUID, position uint64, pointer *fastpb.Pointer, segmentMeta *fastpb.SegmentMeta) (err error) {
+func (m *Migrator) insertSegment(ctx context.Context, conn *pgxpool.Pool, aliasCache *metabase.NodeAliasCache, streamID uuid.UUID, position uint64, pointer *fastpb.Pointer, segmentMeta *fastpb.SegmentMeta) (err error) {
 	var rootPieceID storj.PieceID
 	var remotePieces metabase.Pieces
 	var redundancy int64
@@ -389,13 +404,22 @@ func (m *Migrator) insertSegment(ctx context.Context, conn *pgxpool.Pool, stream
 		}
 	}
 
+	pieces, err := aliasCache.ConvertPiecesToAliases(ctx, remotePieces)
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(pieces, func(i, j int) bool {
+		return pieces[i].Number < pieces[j].Number
+	})
+
 	m.segments = append(m.segments, []interface{}{
 		streamID, position,
 		rootPieceID,
 		segmentMeta.EncryptedKey, segmentMeta.KeyNonce,
 		pointer.SegmentSize, 0, 0,
 		redundancy,
-		pointer.InlineSegment, remotePieces,
+		pointer.InlineSegment, pieces,
 	})
 
 	if len(m.segments) >= m.config.WriteBatchSize {
@@ -508,7 +532,7 @@ func prepareObjectsSQL(batchSize int) string {
 			project_id, bucket_name, object_key, version, stream_id,
 			created_at, expires_at,
 			status, segment_count,
-			encrypted_metadata, encrypted_metadata_encrypted_key,
+			encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_metadata_nonce,
 			total_encrypted_size,
 			encryption
 		) VALUES
@@ -561,4 +585,50 @@ func generateStreamIDs(numberOfIDs int) ([]uuid.UUID, error) {
 		return bytes.Compare(ids[i][:], ids[j][:]) == -1
 	})
 	return ids, nil
+}
+
+func (m *Migrator) aliasNodes(ctx context.Context, mb metainfo.MetabaseDB) error {
+	start := time.Now()
+	m.log.Info("Start aliasing nodes")
+	file, err := os.Open(m.config.Nodes)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errs.Combine(err, file.Close()) }()
+
+	scanner := bufio.NewScanner(file)
+	nodes := make([]storj.NodeID, 0, 30000)
+	for scanner.Scan() {
+		line := scanner.Text()
+		decoded, err := hex.DecodeString(line)
+		if err != nil {
+			m.log.Error("unable decode node id", zap.String("value", line), zap.Error(err))
+			continue
+		}
+		node, err := storj.NodeIDFromBytes(decoded)
+		if err != nil {
+			m.log.Error("unable create node id", zap.String("value", line), zap.Error(err))
+			continue
+		}
+		nodes = append(nodes, node)
+	}
+
+	// batch is used because we had issue with CRDB to put all nodes in one insert
+	batch := 1000
+	for len(nodes) > 0 {
+		if len(nodes) < batch {
+			batch = len(nodes)
+		}
+
+		err = mb.EnsureNodeAliases(ctx, metabase.EnsureNodeAliases{
+			Nodes: nodes[:batch],
+		})
+		if err != nil {
+			return err
+		}
+		nodes = nodes[batch:]
+		m.log.Info("Left to insert", zap.Int("nodes", len(nodes)))
+	}
+	m.log.Info("Finished aliasing nodes", zap.Duration("took", time.Since(start)))
+	return nil
 }

@@ -6,8 +6,7 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
-	"os"
+	"log"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -27,6 +26,7 @@ var (
 	writeBatchSize        = flag.Int("writeBatchSize", defaultWriteBatchSize, "batch size for inserting objects and segments")
 	writeParallelLimit    = flag.Int("writeParallelLimit", defaultWriteParallelLimit, "limit of parallel batch writes")
 	preGeneratedStreamIDs = flag.Int("preGeneratedStreamIDs", defaultPreGeneratedStreamIDs, "number of pre generated stream ids for segment")
+	nodes                 = flag.String("nodes", "", "file with nodes ids")
 
 	pointerdb  = flag.String("pointerdb", "", "connection URL for PointerDB")
 	metabasedb = flag.String("metabasedb", "", "connection URL for MetabaseDB")
@@ -36,12 +36,10 @@ func main() {
 	flag.Parse()
 
 	if *pointerdb == "" {
-		fmt.Println("Flag '--pointerdb' is not set")
-		os.Exit(1)
+		log.Fatalln("Flag '--pointerdb' is not set")
 	}
 	if *metabasedb == "" {
-		fmt.Println("Flag '--metabasedb' is not set")
-		os.Exit(1)
+		log.Fatalln("Flag '--metabasedb' is not set")
 	}
 
 	ctx := context.Background()
@@ -73,6 +71,7 @@ func main() {
 		ReadBatchSize:         *readBatchSize,
 		WriteBatchSize:        *writeBatchSize,
 		WriteParallelLimit:    *writeParallelLimit,
+		Nodes:                 *nodes,
 	}
 	migrator := NewMigrator(log, *pointerdb, *metabasedb, config)
 	err = migrator.MigrateProjects(ctx)
