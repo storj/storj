@@ -1901,6 +1901,76 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					`ALTER TABLE paystubs ADD COLUMN distributed bigint`,
 				},
 			},
+			{
+				DB:          &db.payoutDB.DB,
+				Description: "Make distributed field in paystubs table not null",
+				Version:     50,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					_, err = rtx.Exec(ctx, `UPDATE paystubs SET distributed = ? WHERE distributed ISNULL`, 0)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `
+						CREATE TABLE paystubs_new (
+							period text NOT NULL,
+							satellite_id bytea NOT NULL,
+							created_at timestamp NOT NULL,
+							codes text NOT NULL,
+							usage_at_rest double precision NOT NULL,
+							usage_get bigint NOT NULL,
+							usage_put bigint NOT NULL,
+							usage_get_repair bigint NOT NULL,
+							usage_put_repair bigint NOT NULL,
+							usage_get_audit bigint NOT NULL,
+							comp_at_rest bigint NOT NULL,
+							comp_get bigint NOT NULL,
+							comp_put bigint NOT NULL,
+							comp_get_repair bigint NOT NULL,
+							comp_put_repair bigint NOT NULL,
+							comp_get_audit bigint NOT NULL,
+							surge_percent bigint NOT NULL,
+							held bigint NOT NULL,
+							owed bigint NOT NULL,
+							disposed bigint NOT NULL,
+							paid bigint NOT NULL,
+							distributed bigint NOT NULL,
+							PRIMARY KEY ( period, satellite_id )
+						);
+						INSERT INTO paystubs_new SELECT
+							period,
+							satellite_id,
+							created_at,
+							codes,
+							usage_at_rest,
+							usage_get,
+							usage_put,
+							usage_get_repair,
+							usage_put_repair,
+							usage_get_audit,
+							comp_at_rest,
+							comp_get,
+							comp_put,
+							comp_get_repair,
+							comp_put_repair,
+							comp_get_audit,
+							surge_percent,
+							held,
+							owed,
+							disposed,
+							paid,
+							distributed
+							FROM paystubs;
+						DROP TABLE paystubs;
+						ALTER TABLE paystubs_new RENAME TO paystubs;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
 		},
 	}
 }
