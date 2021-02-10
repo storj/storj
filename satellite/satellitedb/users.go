@@ -66,8 +66,8 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 	if user.IsProfessional {
 		optional.Position = dbx.User_Position(user.Position)
 		optional.CompanyName = dbx.User_CompanyName(user.CompanyName)
-		optional.CompanySize = dbx.User_CompanySize(user.CompanySize)
 		optional.WorkingOn = dbx.User_WorkingOn(user.WorkingOn)
+		optional.EmployeeCount = dbx.User_EmployeeCount(user.EmployeeCount)
 	}
 
 	createdUser, err := users.db.Create_User(ctx,
@@ -179,12 +179,12 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		result.CompanyName = *user.CompanyName
 	}
 
-	if user.CompanySize != nil {
-		result.CompanySize = *user.CompanySize
-	}
-
 	if user.WorkingOn != nil {
 		result.WorkingOn = *user.WorkingOn
+	}
+
+	if user.EmployeeCount != nil {
+		result.EmployeeCount = *user.EmployeeCount
 	}
 
 	return &result, nil

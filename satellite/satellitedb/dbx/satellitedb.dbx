@@ -297,6 +297,7 @@ model user (
     field company_size     int       ( updatable, nullable )
     field working_on       text      ( updatable, nullable )
     field is_professional  bool      ( updatable, default false )
+    field employee_count   text      ( updatable, nullable )
 
 )
 

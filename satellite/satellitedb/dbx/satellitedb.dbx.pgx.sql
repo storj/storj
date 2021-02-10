@@ -359,6 +359,7 @@ CREATE TABLE users (
 	company_size integer,
 	working_on text,
 	is_professional boolean NOT NULL DEFAULT false,
+	employee_count text,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (
