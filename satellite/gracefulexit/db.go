@@ -46,7 +46,7 @@ type DB interface {
 	GetProgress(ctx context.Context, nodeID storj.NodeID) (*Progress, error)
 
 	// Enqueue batch inserts graceful exit transfer queue entries it does not exist.
-	Enqueue(ctx context.Context, items []TransferQueueItem) error
+	Enqueue(ctx context.Context, items []TransferQueueItem, batchSize int) error
 	// UpdateTransferQueueItem creates a graceful exit transfer queue entry.
 	UpdateTransferQueueItem(ctx context.Context, item TransferQueueItem) error
 	// DeleteTransferQueueItem deletes a graceful exit transfer queue entry.
@@ -58,12 +58,12 @@ type DB interface {
 	// DeleteAllFinishedTransferQueueItems deletes all graceful exit transfer
 	// queue items whose nodes have finished the exit before the indicated time
 	// returning the total number of deleted items.
-	DeleteAllFinishedTransferQueueItems(ctx context.Context, before time.Time) (count int64, err error)
+	DeleteAllFinishedTransferQueueItems(ctx context.Context, before time.Time, asOfSystemTimeInterval time.Duration, batchSize int) (count int64, err error)
 	// DeleteFinishedExitProgress deletes exit progress entries for nodes that
 	// finished exiting before the indicated time, returns number of deleted entries.
-	DeleteFinishedExitProgress(ctx context.Context, before time.Time) (count int64, err error)
+	DeleteFinishedExitProgress(ctx context.Context, before time.Time, asOfSystemTimeInterval time.Duration) (count int64, err error)
 	// GetFinishedExitNodes gets nodes that are marked having finished graceful exit before a given time.
-	GetFinishedExitNodes(ctx context.Context, before time.Time) (finishedNodes []storj.NodeID, err error)
+	GetFinishedExitNodes(ctx context.Context, before time.Time, asOfSystemTimeInterval time.Duration) (finishedNodes []storj.NodeID, err error)
 	// GetTransferQueueItem gets a graceful exit transfer queue entry.
 	GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, key metabase.SegmentKey, pieceNum int32) (*TransferQueueItem, error)
 	// GetIncomplete gets incomplete graceful exit transfer queue entries ordered by durability ratio and queued date ascending.
@@ -77,5 +77,5 @@ type DB interface {
 	// CountFinishedTransferQueueItemsByNode return a map of the nodes which has
 	// finished the exit before the indicated time but there are at least one item
 	// left in the transfer queue.
-	CountFinishedTransferQueueItemsByNode(ctx context.Context, before time.Time) (map[storj.NodeID]int64, error)
+	CountFinishedTransferQueueItemsByNode(ctx context.Context, before time.Time, asOfSystemTimeInterval time.Duration) (map[storj.NodeID]int64, error)
 }

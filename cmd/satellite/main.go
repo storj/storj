@@ -754,8 +754,7 @@ func cmdConsistencyGECleanup(cmd *cobra.Command, args []string) error {
 	if before.After(time.Now()) {
 		return errs.New("before flag value cannot be newer than the current time.")
 	}
-
-	return cleanupGEOrphanedData(ctx, before.UTC())
+	return cleanupGEOrphanedData(ctx, before.UTC(), runCfg.GracefulExit)
 }
 
 func cmdRestoreTrash(cmd *cobra.Command, args []string) error {

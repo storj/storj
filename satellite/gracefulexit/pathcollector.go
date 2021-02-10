@@ -115,7 +115,7 @@ func (collector *PathCollector) InlineSegment(ctx context.Context, segment *meta
 
 func (collector *PathCollector) flush(ctx context.Context, limit int) (err error) {
 	if len(collector.buffer) >= limit {
-		err = collector.db.Enqueue(ctx, collector.buffer)
+		err = collector.db.Enqueue(ctx, collector.buffer, collector.batchSize)
 		collector.buffer = collector.buffer[:0]
 
 		return errs.Wrap(err)

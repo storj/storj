@@ -602,6 +602,9 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			RecvTimeout:                  time.Minute * 1,
 			MaxOrderLimitSendCount:       3,
 			NodeMinAgeInMonths:           0,
+
+			AsOfSystemTimeInterval: 0,
+			TransferQueueBatchSize: 1000,
 		},
 		Metrics: metrics.Config{},
 	}

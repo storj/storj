@@ -159,9 +159,10 @@ func (dbc *satelliteDBCollection) getByName(name string) *satelliteDB {
 }
 
 // AsOfSystemTimeClause returns the "AS OF SYSTEM TIME" clause if the DB implementation
-// is CockroachDB and the interval is less than 0.
+// is CockroachDB and the interval is less than or equal to a negative microsecond
+// (CRDB does not support intervals in the negative nanoseconds).
 func (db *satelliteDB) AsOfSystemTimeClause(interval time.Duration) (asOf string) {
-	if db.implementation == dbutil.Cockroach && interval < 0 {
+	if db.implementation == dbutil.Cockroach && interval <= -time.Microsecond {
 		asOf = " AS OF SYSTEM TIME '" + interval.String() + "' "
 	}
 

@@ -244,6 +244,9 @@ contact.external-address: ""
 # if true, skip the first run of GC
 # garbage-collection.skip-first: true
 
+# interval for AS OF SYSTEM TIME clause (crdb specific) to read from db at a specific time in the past 
+# graceful-exit.as-of-system-time-interval: -10s
+
 # size of the buffer used to batch inserts into the transfer queue.
 # graceful-exit.chore-batch-size: 500
 
@@ -273,6 +276,9 @@ contact.external-address: ""
 
 # the minimum duration for receiving a stream from a storage node before timing out
 # graceful-exit.recv-timeout: 2h0m0s
+
+# batch size (crdb specific) for deleting and adding items to the transfer queue
+# graceful-exit.transfer-queue-batch-size: 1000
 
 # path to the certificate chain for this identity
 identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
