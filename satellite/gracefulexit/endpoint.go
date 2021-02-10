@@ -862,26 +862,15 @@ func (endpoint *Endpoint) getValidSegment(ctx context.Context, key metabase.Segm
 	// TODO refactor PendingTransfer and TransferQueueItem to provide StreamID/Position to be able
 	// to get segment from object with specific version, this will work only until we won't have
 	// multiple object versions
-	object, err := endpoint.metabase.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
-		ObjectLocation: location.Object(),
+	segment, err := endpoint.metabase.GetSegmentByLocation(ctx, metabase.GetSegmentByLocation{
+		SegmentLocation: location,
 	})
 	if err != nil {
-		return metabase.Segment{}, Error.Wrap(err)
-	}
-
-	segment, err := endpoint.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
-		StreamID: object.StreamID,
-		Position: location.Position,
-	})
-	if err != nil {
-		if metabase.ErrSegmentNotFound.Has(err) {
-			return metabase.Segment{}, Error.New("segment (%s, %d) no longer exists.", object.StreamID, location.Position.Encode())
-		}
 		return metabase.Segment{}, Error.Wrap(err)
 	}
 
 	if !originalRootPieceID.IsZero() && originalRootPieceID != segment.RootPieceID {
-		return metabase.Segment{}, Error.New("segment (%s, %d) has changed.", object.StreamID, location.Position.Encode())
+		return metabase.Segment{}, Error.New("segment has changed")
 	}
 	return segment, nil
 }
