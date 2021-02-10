@@ -792,6 +792,15 @@ func (endpoint *Endpoint) commitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
+	// for old uplinks get Encryption from StreamMeta
+	streamMeta := &pb.StreamMeta{}
+	encryption := storj.EncryptionParameters{}
+	err = pb.Unmarshal(req.EncryptedMetadata, streamMeta)
+	if err == nil {
+		encryption.CipherSuite = storj.CipherSuite(streamMeta.EncryptionType)
+		encryption.BlockSize = streamMeta.EncryptionBlockSize
+	}
+
 	_, err = endpoint.metainfo.metabaseDB.CommitObject(ctx, metabase.CommitObject{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
@@ -803,6 +812,8 @@ func (endpoint *Endpoint) commitObject(ctx context.Context, req *pb.ObjectCommit
 		EncryptedMetadata:             req.EncryptedMetadata,
 		EncryptedMetadataNonce:        req.EncryptedMetadataNonce[:],
 		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
+
+		Encryption: encryption,
 	})
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
