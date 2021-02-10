@@ -21,22 +21,52 @@ import (
 
 func TestDQNodesLastSeenBefore(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 2,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		node := planet.StorageNodes[0]
-		node.Contact.Chore.Pause(ctx)
+		planet.Satellites[0].Overlay.DQStrayNodes.Loop.Pause()
+
+		node1 := planet.StorageNodes[0]
+		node2 := planet.StorageNodes[1]
+		node1.Contact.Chore.Pause(ctx)
+		node2.Contact.Chore.Pause(ctx)
 
 		cache := planet.Satellites[0].Overlay.DB
 
-		info, err := cache.Get(ctx, node.ID())
+		// initial check that node1 is not disqualified
+		n1Info, err := cache.Get(ctx, node1.ID())
 		require.NoError(t, err)
-		require.Nil(t, info.Disqualified)
+		require.Nil(t, n1Info.Disqualified)
 
+		// gracefully exit node2
+		req := &overlay.ExitStatusRequest{
+			NodeID:              node2.ID(),
+			ExitInitiatedAt:     time.Now(),
+			ExitLoopCompletedAt: time.Now(),
+			ExitFinishedAt:      time.Now(),
+		}
+
+		dossier, err := cache.UpdateExitStatus(ctx, req)
+		require.NoError(t, err)
+		require.NotNil(t, dossier.ExitStatus.ExitFinishedAt)
+
+		// check that node1 is disqualified and node2 is not
 		require.NoError(t, cache.DQNodesLastSeenBefore(ctx, time.Now()))
 
-		info, err = cache.Get(ctx, node.ID())
+		n1Info, err = cache.Get(ctx, node1.ID())
 		require.NoError(t, err)
-		require.NotNil(t, info.Disqualified)
+		require.NotNil(t, n1Info.Disqualified)
+		n1DQTime := n1Info.Disqualified
+
+		n2Info, err := cache.Get(ctx, node2.ID())
+		require.NoError(t, err)
+		require.Nil(t, n2Info.Disqualified)
+
+		// check that node1 DQ time is not overwritten
+		require.NoError(t, cache.DQNodesLastSeenBefore(ctx, time.Now()))
+
+		n1Info, err = cache.Get(ctx, node1.ID())
+		require.NoError(t, err)
+		require.Equal(t, n1DQTime, n1Info.Disqualified)
 	})
 }
 

@@ -1553,10 +1553,14 @@ func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *ove
 	return updateFields
 }
 
-// DQNodesLastSeenBefore disqualifies all nodes where last_contact_success < cutoff.
+// DQNodesLastSeenBefore disqualifies all nodes where last_contact_success < cutoff except those already disqualified
+// or gracefully exited.
 func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	q := `UPDATE nodes SET disqualified = current_timestamp WHERE last_contact_success < $1;`
+	q := `UPDATE nodes SET disqualified = current_timestamp
+			WHERE last_contact_success < $1
+			AND disqualified is NULL
+			AND exit_finished_at is NULL;`
 	_, err = cache.db.ExecContext(ctx, q, cutoff)
 	return err
 }
