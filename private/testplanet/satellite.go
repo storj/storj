@@ -649,6 +649,11 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, err
 	}
 
+	err = metabaseDB.MigrateToLatest(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	api, err := planet.newAPI(ctx, index, identity, db, pointerDB, metabaseDB, config, versionInfo)
 	if err != nil {
 		return nil, err

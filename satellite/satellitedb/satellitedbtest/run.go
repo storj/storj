@@ -204,7 +204,6 @@ func CreateMetabaseDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbuti
 	if err != nil {
 		return nil, err
 	}
-	err = metabaseDB.MigrateToLatest(ctx)
 	return &tempMetabaseDB{MetabaseDB: metabaseDB, tempDB: tempDB}, err
 }
 
