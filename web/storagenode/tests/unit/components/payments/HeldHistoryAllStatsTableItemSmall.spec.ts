@@ -35,17 +35,13 @@ describe('HeldHistoryAllStatsTableItemSmall', (): void => {
             localVue,
         });
 
-        expect(wrapper).toMatchSnapshot();
+        await expect(wrapper).toMatchSnapshot();
 
-        wrapper.find('.expand').trigger('click');
-
-        await localVue.nextTick();
+        await wrapper.find('.expand').trigger('click');
 
         expect(wrapper).toMatchSnapshot();
 
-        wrapper.find('.hide').trigger('click');
-
-        await localVue.nextTick();
+        await wrapper.find('.hide').trigger('click');
 
         expect(wrapper).toMatchSnapshot();
 

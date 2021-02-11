@@ -140,7 +140,7 @@ export class PayoutHttpApi implements PayoutApi {
      * @throws Error
      */
     public async getHeldHistory(): Promise<SatelliteHeldHistory[]> {
-        const path = `${this.ROOT_PATH}/held-history/`;
+        const path = `${this.ROOT_PATH}/held-history`;
 
         const response = await this.client.get(path);
 

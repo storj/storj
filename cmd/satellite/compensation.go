@@ -95,11 +95,12 @@ func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io
 		}
 
 		invoice := compensation.Invoice{
-			Period:      period,
-			NodeID:      compensation.NodeID(usage.NodeID),
-			NodeWallet:  node.Operator.Wallet,
-			NodeAddress: nodeAddress,
-			NodeLastIP:  nodeLastIP,
+			Period:             period,
+			NodeID:             compensation.NodeID(usage.NodeID),
+			NodeWallet:         node.Operator.Wallet,
+			NodeWalletFeatures: node.Operator.WalletFeatures,
+			NodeAddress:        nodeAddress,
+			NodeLastIP:         nodeLastIP,
 		}
 
 		if err := invoice.MergeNodeInfo(nodeInfo); err != nil {

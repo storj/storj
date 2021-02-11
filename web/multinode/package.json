@@ -11,6 +11,7 @@
   "dependencies": {
     "vue": "2.6.11",
     "vue-class-component": "7.2.6",
+    "vue-clipboard2": "0.3.1",
     "vue-property-decorator": "9.1.2",
     "vue-router": "3.4.9",
     "vuex": "3.6.0"
@@ -38,41 +39,5 @@
     "vue-tslint": "0.3.2",
     "vue-tslint-loader": "3.5.6",
     "webpack": "4.41.5"
-  },
-  "stylelint": {
-    "plugins": [
-      "stylelint-scss"
-    ],
-    "extends": "stylelint-config-standard",
-    "rules": {
-      "indentation": 4,
-      "string-quotes": "single",
-      "no-duplicate-selectors": true,
-      "selector-max-attribute": 1,
-      "selector-combinator-space-after": "always",
-      "selector-attribute-operator-space-before": "never",
-      "selector-attribute-operator-space-after": "never",
-      "selector-attribute-brackets-space-inside": "never",
-      "declaration-block-trailing-semicolon": "always",
-      "declaration-colon-space-before": "never",
-      "declaration-colon-space-after": "always",
-      "number-leading-zero": "always",
-      "function-url-quotes": "always",
-      "font-family-name-quotes": "always-unless-keyword",
-      "comment-whitespace-inside": "always",
-      "comment-empty-line-before": "always",
-      "rule-empty-line-before": "always-multi-line",
-      "selector-pseudo-element-colon-notation": "single",
-      "selector-pseudo-class-parentheses-space-inside": "never",
-      "selector-max-type": 3,
-      "font-family-no-missing-generic-family-keyword": true,
-      "at-rule-no-unknown": null,
-      "scss/at-rule-no-unknown": true,
-      "media-feature-range-operator-space-before": "always",
-      "media-feature-range-operator-space-after": "always",
-      "media-feature-parentheses-space-inside": "never",
-      "media-feature-colon-space-before": "never",
-      "media-feature-colon-space-after": "always"
-    }
   }
 }

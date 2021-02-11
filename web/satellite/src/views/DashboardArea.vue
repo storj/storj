@@ -190,6 +190,12 @@ export default class DashboardArea extends Vue {
         }
 
         try {
+            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_OWNED, this.FIRST_PAGE);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch owned projects. ${error.message}`);
+        }
+
+        try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
         } catch (error) {
             await this.$notify.error(`Unable to fetch all bucket names. ${error.message}`);
@@ -232,16 +238,16 @@ export default class DashboardArea extends Vue {
      * Indicates if billing info bar is shown.
      */
     public get isBillingInfoBarShown(): boolean {
-        const isBillingPage = this.$route.name === RouteConfig.Billing.name;
+        const showBillingInfoBar = (this.$route.name === RouteConfig.Billing.name) || (this.$route.name === RouteConfig.ProjectDashboard.name);
 
-        return isBillingPage && this.projectsCount > 0;
+        return showBillingInfoBar && this.projectsCount > 0;
     }
 
     /**
      * Indicates if project limit info bar is shown.
      */
     public get isProjectLimitInfoBarShown(): boolean {
-        return this.$route.name === RouteConfig.ProjectDashboard.name;
+        return this.$route.name === RouteConfig.ProjectsList.name;
     }
 
     /**

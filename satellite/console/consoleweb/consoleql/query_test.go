@@ -90,7 +90,6 @@ func TestGraphqlQuery(t *testing.T) {
 			db.ProjectAccounting(),
 			projectUsage,
 			db.Buckets(),
-			db.Rewards(),
 			partnersService,
 			paymentsService.Accounts(),
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
@@ -125,12 +124,11 @@ func TestGraphqlQuery(t *testing.T) {
 			Email:     "mtest@mail.test",
 			Password:  "123a123",
 		}
-		refUserID := ""
 
 		regToken, err := service.CreateRegToken(ctx, 2)
 		require.NoError(t, err)
 
-		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret, refUserID)
+		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret)
 		require.NoError(t, err)
 
 		err = paymentsService.Accounts().Setup(ctx, rootUser.ID, rootUser.Email)
@@ -208,7 +206,7 @@ func TestGraphqlQuery(t *testing.T) {
 			ShortName: "Last",
 			Password:  "123a123",
 			Email:     "muu1@mail.test",
-		}, regTokenUser1.Secret, refUserID)
+		}, regTokenUser1.Secret)
 		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {
@@ -232,7 +230,7 @@ func TestGraphqlQuery(t *testing.T) {
 			ShortName: "Name",
 			Email:     "muu2@mail.test",
 			Password:  "123a123",
-		}, regTokenUser2.Secret, refUserID)
+		}, regTokenUser2.Secret)
 		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {

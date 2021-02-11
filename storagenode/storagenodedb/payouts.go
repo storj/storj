@@ -430,3 +430,51 @@ func (db *payoutDB) GetTotalEarned(ctx context.Context) (_ int64, err error) {
 
 	return totalEarned, nil
 }
+
+// GetEarnedAtSatellite returns total earned value for node from specific satellite.
+func (db *payoutDB) GetEarnedAtSatellite(ctx context.Context, id storj.NodeID) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	query := `SELECT comp_at_rest, comp_get, comp_get_repair, comp_get_audit FROM paystubs WHERE satellite_id = ?`
+	rows, err := db.QueryContext(ctx, query, id)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	var totalEarned int64
+	for rows.Next() {
+		var compAtRest, compGet, compGetRepair, compGetAudit int64
+		err := rows.Scan(&compAtRest, &compGet, &compGetRepair, &compGetAudit)
+		if err != nil {
+			return 0, ErrPayout.Wrap(err)
+		}
+		totalEarned += compGetAudit + compGet + compGetRepair + compAtRest
+	}
+	if err = rows.Err(); err != nil {
+		return 0, ErrPayout.Wrap(err)
+	}
+	return totalEarned, nil
+}
+
+// GetPayingSatellitesIDs returns list of satellite ID's that ever paid to storagenode.
+func (db *payoutDB) GetPayingSatellitesIDs(ctx context.Context) (_ []storj.NodeID, err error) {
+	defer mon.Task()(&ctx)(&err)
+	query := `SELECT DISTINCT (satellite_id) FROM paystubs`
+	rows, err := db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	var satelliteIDs []storj.NodeID
+	for rows.Next() {
+		var satelliteID storj.NodeID
+		err := rows.Scan(&satelliteID)
+		if err != nil {
+			return nil, ErrPayout.Wrap(err)
+		}
+		satelliteIDs = append(satelliteIDs, satelliteID)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, ErrPayout.Wrap(err)
+	}
+	return satelliteIDs, nil
+}

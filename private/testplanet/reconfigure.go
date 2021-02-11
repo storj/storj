@@ -10,7 +10,6 @@ import (
 
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/memory"
-	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
@@ -24,8 +23,6 @@ type Reconfigure struct {
 	SatellitePointerDB  func(log *zap.Logger, index int, db metainfo.PointerDB) (metainfo.PointerDB, error)
 	SatelliteMetabaseDB func(log *zap.Logger, index int, db metainfo.MetabaseDB) (metainfo.MetabaseDB, error)
 	Satellite           func(log *zap.Logger, index int, config *satellite.Config)
-
-	ReferralManagerServer func(log *zap.Logger) pb.DRPCReferralManagerServer
 
 	StorageNodeDB func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error)
 	StorageNode   func(index int, config *storagenode.Config)

@@ -9,7 +9,6 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/rewards"
 )
 
 const (
@@ -21,10 +20,6 @@ const (
 	OwnedProjectsQuery = "ownedProjects"
 	// MyProjectsQuery is a query name for projects related to account.
 	MyProjectsQuery = "myProjects"
-	// ActiveRewardQuery is a query name for current active reward offer.
-	ActiveRewardQuery = "activeReward"
-	// CreditUsageQuery is a query name for credit usage related to an user.
-	CreditUsageQuery = "creditUsage"
 )
 
 // rootQuery creates query for graphql populated by AccountsClient.
@@ -77,35 +72,6 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 					}
 
 					return projects, nil
-				},
-			},
-			ActiveRewardQuery: &graphql.Field{
-				Type: types.reward,
-				Args: graphql.FieldConfigArgument{
-					FieldType: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.Int),
-					},
-				},
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					rewardType, _ := p.Args[FieldType].(int)
-
-					offer, err := service.GetCurrentRewardByType(p.Context, rewards.OfferType(rewardType))
-					if err != nil {
-						return nil, err
-					}
-
-					return offer, nil
-				},
-			},
-			CreditUsageQuery: &graphql.Field{
-				Type: types.creditUsage,
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					usage, err := service.GetUserCreditUsage(p.Context)
-					if err != nil {
-						return nil, err
-					}
-
-					return usage, nil
 				},
 			},
 		},

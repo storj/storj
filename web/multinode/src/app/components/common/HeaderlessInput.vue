@@ -123,7 +123,7 @@ export default class HeaderlessInput extends Vue {
      */
     // @ts-ignore
     public onInput({ target }): void {
-        if (!target || target.value) return;
+        if (!target || !target.value) return;
 
         if (target.value.length > this.maxSymbols) {
             this.value = target.value.slice(0, this.maxSymbols);

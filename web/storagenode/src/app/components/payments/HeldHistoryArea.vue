@@ -40,8 +40,6 @@ import { Component, Vue } from 'vue-property-decorator';
 import HeldHistoryAllStatsTable from '@/app/components/payments/HeldHistoryAllStatsTable.vue';
 import HeldHistoryMonthlyBreakdownTable from '@/app/components/payments/HeldHistoryMonthlyBreakdownTable.vue';
 
-import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
-
 @Component({
     components: {
         HeldHistoryAllStatsTable,

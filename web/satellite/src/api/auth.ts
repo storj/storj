@@ -14,7 +14,6 @@ import { HttpClient } from '@/utils/httpClient';
 export class AuthHttpApi {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/auth';
-    private readonly REFERRAL_PATH: string = '/api/v0/referrals';
 
     /**
      * Used to resend an registration confirmation email.
@@ -203,15 +202,13 @@ export class AuthHttpApi {
      *
      * @param user - stores user information
      * @param secret - registration token used in Vanguard release
-     * @param referrerUserId - referral id to participate in bonus program
      * @returns id of created user
      * @throws Error
      */
-    public async register(user: {fullName: string; shortName: string; email: string; partner: string; partnerId: string; password: string}, secret: string, referrerUserId: string): Promise<string> {
+    public async register(user: { fullName: string; shortName: string; email: string; partner: string; partnerId: string; password: string }, secret: string): Promise<string> {
         const path = `${this.ROOT_PATH}/register`;
         const body = {
             secret: secret,
-            referrerUserId: referrerUserId ? referrerUserId : '',
             password: user.password,
             fullName: user.fullName,
             shortName: user.shortName,
@@ -232,36 +229,6 @@ export class AuthHttpApi {
                 default:
                     throw new Error('Can not register user');
             }
-        }
-
-        return await response.json();
-    }
-
-    /**
-     * Used to register account by referral link.
-     *
-     * @param user - stores user information
-     * @param referralToken - referral registration token
-     * @returns id of created user
-     * @throws Error
-     */
-    public async referralRegister(user: {fullName: string; shortName: string; email: string; password: string}, referralToken: string): Promise<string> {
-        const path = `${this.REFERRAL_PATH}/register`;
-        const body = {
-            referralToken,
-            password: user.password,
-            fullName: user.fullName,
-            shortName: user.shortName,
-            email: user.email,
-        };
-
-        const response = await this.http.post(path, JSON.stringify(body));
-        if (!response.ok) {
-            if (response.status === 400) {
-                throw new Error('we are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation');
-            }
-
-            throw new Error('can not register user');
         }
 
         return await response.json();

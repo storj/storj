@@ -403,8 +403,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			ID:      peer.ID(),
 			Address: c.ExternalAddress,
 			Operator: pb.NodeOperator{
-				Email:  config.Operator.Email,
-				Wallet: config.Operator.Wallet,
+				Email:          config.Operator.Email,
+				Wallet:         config.Operator.Wallet,
+				WalletFeatures: config.Operator.WalletFeatures,
 			},
 			Version: *pbVersion,
 		}
@@ -422,7 +423,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err := pb.DRPCRegisterContact(peer.Server.DRPC(), peer.Contact.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-
 	}
 
 	{ // setup storage

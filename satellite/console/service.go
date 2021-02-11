@@ -87,7 +87,6 @@ type Service struct {
 	projectAccounting accounting.ProjectAccounting
 	projectUsage      *accounting.Service
 	buckets           Buckets
-	rewards           rewards.DB
 	partners          *rewards.PartnersService
 	accounts          payments.Accounts
 
@@ -109,7 +108,7 @@ type PaymentsService struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, rewards rewards.DB, partners *rewards.PartnersService, accounts payments.Accounts, config Config, minCoinPayment int64) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, partners *rewards.PartnersService, accounts payments.Accounts, config Config, minCoinPayment int64) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -131,7 +130,6 @@ func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting acco
 		projectAccounting: projectAccounting,
 		projectUsage:      projectUsage,
 		buckets:           buckets,
-		rewards:           rewards,
 		partners:          partners,
 		accounts:          accounts,
 		config:            config,
@@ -523,29 +521,9 @@ func (s *Service) checkRegistrationSecret(ctx context.Context, tokenSecret Regis
 }
 
 // CreateUser gets password hash value and creates new inactive User.
-func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret, refUserID string) (u *User, err error) {
+func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if err := user.IsValid(); err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	offerType := rewards.FreeCredit
-	if user.PartnerID != "" {
-		offerType = rewards.Partner
-	} else if refUserID != "" {
-		offerType = rewards.Referral
-	}
-
-	// TODO: Create a current offer cache to replace database call
-	offers, err := s.rewards.GetActiveOffersByType(ctx, offerType)
-	if err != nil && !rewards.ErrOfferNotExist.Has(err) {
-		s.log.Error("internal error", zap.Error(err))
-		return nil, Error.Wrap(err)
-	}
-
-	currentReward, err := s.partners.GetActiveOffer(ctx, offers, offerType, user.PartnerID)
-	if err != nil && !rewards.ErrOfferNotExist.Has(err) {
-		s.log.Error("internal error", zap.Error(err))
 		return nil, Error.Wrap(err)
 	}
 
@@ -605,26 +583,6 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			if err != nil {
 				return Error.Wrap(err)
 			}
-		}
-
-		if currentReward != nil {
-			_ = currentReward
-			// ToDo: NB: Uncomment this block when UserCredits().Create is cockroach compatible
-			// var refID *uuid.UUID
-			// if refUserID != "" {
-			// 	refID, err = uuid.FromString(refUserID)
-			// 	if err != nil {
-			// 		return Error.Wrap(err)
-			// 	}
-			// }
-			// newCredit, err := NewCredit(currentReward, Invitee, u.ID, refID)
-			// if err != nil {
-			// 	return err
-			// }
-			// err = tx.UserCredits().Create(ctx, *newCredit)
-			// if err != nil {
-			// 	return err
-			// }
 		}
 
 		return nil
@@ -711,11 +669,6 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return Error.Wrap(err)
 	}
 	s.auditLog(ctx, "activate account", &user.ID, user.Email)
-
-	err = s.store.UserCredits().UpdateEarnedCredits(ctx, user.ID)
-	if err != nil && !NoCreditForUpdateErr.Has(err) {
-		return Error.Wrap(err)
-	}
 
 	if s.accounts.PaywallEnabled(user.ID) {
 		return nil
@@ -1002,40 +955,6 @@ func (s *Service) GetUsersOwnedProjectsPage(ctx context.Context, cursor Projects
 	}
 
 	return projects, nil
-}
-
-// GetCurrentRewardByType is a method for querying current active reward offer based on its type.
-func (s *Service) GetCurrentRewardByType(ctx context.Context, offerType rewards.OfferType) (offer *rewards.Offer, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	offers, err := s.rewards.GetActiveOffersByType(ctx, offerType)
-	if err != nil {
-		s.log.Error("internal error", zap.Error(err))
-		return nil, Error.Wrap(err)
-	}
-
-	result, err := s.partners.GetActiveOffer(ctx, offers, offerType, "")
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	return result, nil
-}
-
-// GetUserCreditUsage is a method for querying users' credit information up until now.
-func (s *Service) GetUserCreditUsage(ctx context.Context) (usage *UserCreditUsage, err error) {
-	defer mon.Task()(&ctx)(&err)
-	auth, err := s.getAuthAndAuditLog(ctx, "get credit card usage")
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	usage, err = s.store.UserCredits().GetCreditUsage(ctx, auth.User.ID, time.Now().UTC())
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	return usage, nil
 }
 
 // CreateProject is a method for creating new project.

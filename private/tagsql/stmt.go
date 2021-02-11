@@ -7,6 +7,8 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/private/traces"
 )
 
@@ -37,7 +39,7 @@ type sqlStmt struct {
 }
 
 func (s *sqlStmt) Close() error {
-	return s.stmt.Close()
+	return errs.Combine(s.tracker.close(), s.stmt.Close())
 }
 
 func (s *sqlStmt) Exec(ctx context.Context, args ...interface{}) (sql.Result, error) {

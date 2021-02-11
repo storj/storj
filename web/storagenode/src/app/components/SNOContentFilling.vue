@@ -174,7 +174,7 @@ import LargeSuspensionIcon from '@/../static/images/largeSuspend.svg';
 
 import { RouteConfig } from '@/app/router';
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
-import { formatBytes } from '@/app/utils/converter';
+import { Size } from '@/private/memory/size';
 import { SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno';
 
 @Component ({
@@ -302,7 +302,7 @@ export default class SNOContentFilling extends Vue {
      * @return string - formatted amount of monthly bandwidth used
      */
     public get bandwidthSummary(): string {
-        return formatBytes(this.$store.state.node.bandwidthSummary);
+        return Size.toBase10String(this.$store.state.node.bandwidthSummary);
     }
 
     /**
@@ -310,7 +310,7 @@ export default class SNOContentFilling extends Vue {
      * @return string - formatted amount of monthly egress used
      */
     public get egressSummary(): string {
-        return formatBytes(this.$store.state.node.egressSummary);
+        return Size.toBase10String(this.$store.state.node.egressSummary);
     }
 
     /**
@@ -318,7 +318,7 @@ export default class SNOContentFilling extends Vue {
      * @return string - formatted amount of monthly ingress used
      */
     public get ingressSummary(): string {
-        return formatBytes(this.$store.state.node.ingressSummary);
+        return Size.toBase10String(this.$store.state.node.ingressSummary);
     }
 
     /**
@@ -326,7 +326,7 @@ export default class SNOContentFilling extends Vue {
      * @return string - formatted amount of monthly disk space used
      */
     public get storageSummary(): string {
-        return formatBytes(this.$store.state.node.storageSummary);
+        return Size.toBase10String(this.$store.state.node.storageSummary);
     }
 
     /**

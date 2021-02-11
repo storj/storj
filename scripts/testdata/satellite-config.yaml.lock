@@ -301,15 +301,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # uri which is used when retrieving new access token
 # mail.token-uri: ""
 
-# server address of the marketing Admin GUI
-# marketing.address: 127.0.0.1:8090
-
-# base url for marketing Admin GUI
-# marketing.base-url: ""
-
-# path to static resources
-# marketing.static-dir: ""
-
 # the database connection string to use
 # metainfo.database-url: postgres://
 
@@ -567,9 +558,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # how long to cache the project limits.
 # project-limit.cache-expiration: 10m0s
-
-# the URL for referral manager
-# referrals.referral-manager-url: ""
 
 # time limit for downloading pieces from a node for repair
 # repairer.download-timeout: 5m0s

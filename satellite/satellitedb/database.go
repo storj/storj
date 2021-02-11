@@ -31,7 +31,6 @@ import (
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/revocation"
-	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/satellite/snopayouts"
 )
@@ -245,11 +244,6 @@ func (dbc *satelliteDBCollection) Console() console.DB {
 	})
 
 	return db.consoleDB
-}
-
-// Rewards returns database for storing offers.
-func (dbc *satelliteDBCollection) Rewards() rewards.DB {
-	return &offersDB{db: dbc.getByName("rewards")}
 }
 
 // Orders returns database for storing orders.

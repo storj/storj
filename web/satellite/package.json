@@ -32,8 +32,9 @@
   "devDependencies": {
     "@babel/core": "7.11.6",
     "@babel/plugin-proposal-object-rest-spread": "7.11.0",
-    "@types/segment-analytics": "0.0.32",
     "@types/node": "13.11.1",
+    "@types/segment-analytics": "0.0.32",
+    "@types/vue2-datepicker": "3.3.0",
     "@vue/cli-plugin-babel": "4.5.6",
     "@vue/cli-plugin-typescript": "4.5.6",
     "@vue/cli-plugin-unit-jest": "4.5.6",

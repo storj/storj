@@ -58,11 +58,10 @@ const (
 	storagenodePeer     = 3
 
 	// Endpoints.
-	publicRPC   = 0
-	privateRPC  = 1
-	publicHTTP  = 2
-	privateHTTP = 3
-	debugHTTP   = 9
+	publicRPC  = 0
+	privateRPC = 1
+	publicHTTP = 2
+	debugHTTP  = 9
 
 	// Satellite specific constants.
 	redisPort      = 4
@@ -336,10 +335,6 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--console.auth-token-secret", "my-suppa-secret-key",
 				"--console.open-registration-enabled",
 				"--console.rate-limit.burst", "100",
-
-				"--marketing.base-url", "",
-				"--marketing.address", net.JoinHostPort(host, port(satellitePeer, i, privateHTTP)),
-				"--marketing.static-dir", filepath.Join(storjRoot, "web/marketing/"),
 
 				"--server.address", apiProcess.Address,
 				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateRPC)),

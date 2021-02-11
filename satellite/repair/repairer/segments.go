@@ -50,12 +50,13 @@ func (ie *irreparableError) Error() string {
 
 // SegmentRepairer for segments.
 type SegmentRepairer struct {
-	log      *zap.Logger
-	metabase metainfo.MetabaseDB
-	orders   *orders.Service
-	overlay  *overlay.Service
-	ec       *ECRepairer
-	timeout  time.Duration
+	log            *zap.Logger
+	statsCollector *statsCollector
+	metabase       metainfo.MetabaseDB
+	orders         *orders.Service
+	overlay        *overlay.Service
+	ec             *ECRepairer
+	timeout        time.Duration
 
 	// multiplierOptimalThreshold is the value that multiplied by the optimal
 	// threshold results in the maximum limit of number of nodes to upload
@@ -87,6 +88,7 @@ func NewSegmentRepairer(
 
 	return &SegmentRepairer{
 		log:                        log,
+		statsCollector:             newStatsCollector(),
 		metabase:                   metabase,
 		orders:                     orders,
 		overlay:                    overlay,
@@ -130,13 +132,24 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		return true, invalidRepairError.New("cannot repair inline segment")
 	}
 
-	mon.Meter("repair_attempts").Mark(1)                                    //mon:locked
-	mon.IntVal("repair_segment_size").Observe(int64(segment.EncryptedSize)) //mon:locked
-
 	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 	if err != nil {
 		return true, invalidRepairError.New("invalid redundancy strategy: %w", err)
 	}
+
+	stats := repairer.getStatsByRS(&pb.RedundancyScheme{
+		Type:             pb.RedundancyScheme_SchemeType(segment.Redundancy.Algorithm),
+		ErasureShareSize: segment.Redundancy.ShareSize,
+		MinReq:           int32(segment.Redundancy.RequiredShares),
+		RepairThreshold:  int32(segment.Redundancy.RepairShares),
+		SuccessThreshold: int32(segment.Redundancy.OptimalShares),
+		Total:            int32(segment.Redundancy.TotalShares),
+	})
+
+	mon.Meter("repair_attempts").Mark(1) //mon:locked
+	stats.repairAttempts.Mark(1)
+	mon.IntVal("repair_segment_size").Observe(int64(segment.EncryptedSize)) //mon:locked
+	stats.repairSegmentSize.Observe(int64(segment.EncryptedSize))
 
 	var excludeNodeIDs storj.NodeIDList
 	pieces := segment.Pieces
@@ -149,7 +162,9 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	// irreparable piece
 	if numHealthy < int(segment.Redundancy.RequiredShares) {
 		mon.Counter("repairer_segments_below_min_req").Inc(1) //mon:locked
-		mon.Meter("repair_nodes_unavailable").Mark(1)         //mon:locked
+		stats.repairerSegmentsBelowMinReq.Inc(1)
+		mon.Meter("repair_nodes_unavailable").Mark(1) //mon:locked
+		stats.repairerNodesUnavailable.Mark(1)
 		return true, &irreparableError{
 			path:            path,
 			piecesAvailable: int32(numHealthy),
@@ -159,6 +174,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 
 	// ensure we get values, even if only zero values, so that redash can have an alert based on this
 	mon.Counter("repairer_segments_below_min_req").Inc(0) //mon:locked
+	stats.repairerSegmentsBelowMinReq.Inc(0)
 
 	repairThreshold := int32(segment.Redundancy.RepairShares)
 
@@ -176,6 +192,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	// repair not needed
 	if numHealthy > int(repairThreshold) {
 		mon.Meter("repair_unnecessary").Mark(1) //mon:locked
+		stats.repairUnnecessary.Mark(1)
 		repairer.log.Debug("segment above repair threshold", zap.Int("numHealthy", numHealthy), zap.Int32("repairThreshold", repairThreshold))
 		return true, nil
 	}
@@ -185,6 +202,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		healthyRatioBeforeRepair = float64(numHealthy) / float64(segment.Redundancy.TotalShares)
 	}
 	mon.FloatVal("healthy_ratio_before_repair").Observe(healthyRatioBeforeRepair) //mon:locked
+	stats.healthyRatioBeforeRepair.Observe(healthyRatioBeforeRepair)
 
 	lostPiecesSet := sliceToSet(missingPieces)
 
@@ -281,6 +299,8 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		// to wait for nodes to come back online.
 		if irreparableErr, ok := err.(*irreparableError); ok {
 			mon.Meter("repair_too_many_nodes_failed").Mark(1) //mon:locked
+			stats.repairTooManyNodesFailed.Mark(1)
+			// irreparableErr.segmentInfo = pointer
 			return true, irreparableErr
 		}
 		// The segment's redundancy strategy is invalid, or else there was an internal error.
@@ -318,17 +338,22 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		// repair "succeeded" in that the segment is now healthier than it was, but it is
 		// not as healthy as we want it to be.
 		mon.Meter("repair_failed").Mark(1) //mon:locked
+		stats.repairFailed.Mark(1)
 	case healthyAfterRepair < int(segment.Redundancy.OptimalShares):
 		mon.Meter("repair_partial").Mark(1) //mon:locked
+		stats.repairPartial.Mark(1)
 	default:
 		mon.Meter("repair_success").Mark(1) //mon:locked
+		stats.repairSuccess.Mark(1)
 	}
 
 	healthyRatioAfterRepair := 0.0
 	if segment.Redundancy.TotalShares != 0 {
 		healthyRatioAfterRepair = float64(healthyAfterRepair) / float64(segment.Redundancy.TotalShares)
 	}
+
 	mon.FloatVal("healthy_ratio_after_repair").Observe(healthyRatioAfterRepair) //mon:locked
+	stats.healthyRatioAfterRepair.Observe(healthyRatioAfterRepair)
 
 	var toRemove metabase.Pieces
 	if healthyAfterRepair >= int(segment.Redundancy.OptimalShares) {
@@ -376,8 +401,11 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		return false, metainfoPutError.Wrap(err)
 	}
 
+	// TODO all values bellow are zero
 	mon.IntVal("segment_time_until_repair").Observe(int64(segmentAge.Seconds())) //mon:locked
-	mon.IntVal("segment_repair_count").Observe(repairCount)                      //mon:locked
+	stats.segmentTimeUntilRepair.Observe((int64(segmentAge.Seconds())))
+	mon.IntVal("segment_repair_count").Observe(repairCount) //mon:locked
+	stats.segmentRepairCount.Observe(repairCount)
 
 	return true, nil
 }
@@ -419,6 +447,20 @@ func updatePieces(orignalPieces, toAddPieces, toRemovePieces metabase.Pieces) (m
 	sort.Sort(newPieces)
 
 	return newPieces, nil
+}
+
+func (repairer *SegmentRepairer) getStatsByRS(redundancy *pb.RedundancyScheme) *stats {
+	rsString := getRSString(repairer.loadRedundancy(redundancy))
+	return repairer.statsCollector.getStatsByRS(rsString)
+}
+
+func (repairer *SegmentRepairer) loadRedundancy(redundancy *pb.RedundancyScheme) (int, int, int, int) {
+	repair := int(redundancy.RepairThreshold)
+	overrideValue := repairer.repairOverrides.GetOverrideValuePB(redundancy)
+	if overrideValue != 0 {
+		repair = int(overrideValue)
+	}
+	return int(redundancy.MinReq), repair, int(redundancy.SuccessThreshold), int(redundancy.Total)
 }
 
 func (repairer *SegmentRepairer) updateAuditFailStatus(ctx context.Context, failedAuditNodeIDs storj.NodeIDList) (failedNum int, err error) {

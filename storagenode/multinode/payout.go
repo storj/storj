@@ -51,3 +51,32 @@ func (payout *PayoutEndpoint) Earned(ctx context.Context, req *multinodepb.Earne
 		Total: earned,
 	}, nil
 }
+
+// EarnedPerSatellite returns total earned amount per satellite.
+func (payout *PayoutEndpoint) EarnedPerSatellite(ctx context.Context, req *multinodepb.EarnedPerSatelliteRequest) (_ *multinodepb.EarnedPerSatelliteResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err = authenticate(ctx, payout.apiKeys, req.GetHeader()); err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+	}
+
+	var resp multinodepb.EarnedPerSatelliteResponse
+	satelliteIDs, err := payout.db.GetPayingSatellitesIDs(ctx)
+	if err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
+
+	for i := 0; i < len(satelliteIDs); i++ {
+		earned, err := payout.db.GetEarnedAtSatellite(ctx, satelliteIDs[i])
+		if err != nil {
+			return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
+		}
+
+		resp.EarnedSatellite = append(resp.EarnedSatellite, &multinodepb.EarnedSatellite{
+			Total:       earned,
+			SatelliteId: satelliteIDs[i],
+		})
+	}
+
+	return &resp, nil
+}

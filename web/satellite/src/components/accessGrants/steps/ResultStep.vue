@@ -122,6 +122,7 @@ import HideIcon from '@/../static/images/common/BlackArrowHide.svg';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { GatewayCredentials } from '@/types/accessGrants';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { MetaUtils } from '@/utils/meta';
 
 @Component({
@@ -274,6 +275,14 @@ export default class ResultStep extends Vue {
 
             await this.$notify.success('Gateway credentials were generated successfully');
             this.areKeysVisible = true;
+
+            const satelliteName: string = MetaUtils.getMetaContent('satellite-name');
+
+            this.$segment.track(SegmentEvent.GENERATE_GATEWAY_CREDENTIALS_CLICKED, {
+                satelliteName: satelliteName,
+                email: this.$store.getters.user.email,
+            });
+
             this.isLoading = false;
         } catch (error) {
             await this.$notify.error(error.message);

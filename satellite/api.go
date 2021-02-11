@@ -40,7 +40,6 @@ import (
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
-	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/nodestats"
@@ -48,7 +47,6 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
-	"storj.io/storj/satellite/referrals"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/snopayouts"
@@ -136,10 +134,6 @@ type API struct {
 		Stripe   stripecoinpayments.StripeClient
 	}
 
-	Referrals struct {
-		Service *referrals.Service
-	}
-
 	Console struct {
 		Listener net.Listener
 		Service  *console.Service
@@ -148,9 +142,6 @@ type API struct {
 
 	Marketing struct {
 		PartnersService *rewards.PartnersService
-
-		Listener net.Listener
-		Endpoint *marketingweb.Server
 	}
 
 	NodeStats struct {
@@ -360,7 +351,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
-	{ // setup marketing portal
+	{ // setup marketing partners service
 		peer.Marketing.PartnersService = rewards.NewPartnersService(
 			peer.Log.Named("partners"),
 			rewards.DefaultPartnersDB,
@@ -370,28 +361,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				"https://europe-west-1.tardigrade.io/",
 			},
 		)
-
-		peer.Marketing.Listener, err = net.Listen("tcp", config.Marketing.Address)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		peer.Marketing.Endpoint, err = marketingweb.NewServer(
-			peer.Log.Named("marketing:endpoint"),
-			config.Marketing,
-			peer.DB.Rewards(),
-			peer.Marketing.PartnersService,
-			peer.Marketing.Listener,
-		)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		peer.Servers.Add(lifecycle.Item{
-			Name:  "marketing:endpoint",
-			Run:   peer.Marketing.Endpoint.Run,
-			Close: peer.Marketing.Endpoint.Close,
-		})
 	}
 
 	{ // setup metainfo
@@ -597,15 +566,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.New("Auth token secret required")
 		}
 
-		peer.Referrals.Service = referrals.NewService(
-			peer.Log.Named("referrals:service"),
-			signing.SignerFromFullIdentity(peer.Identity),
-			config.Referrals,
-			peer.Dialer,
-			peer.DB.Console().Users(),
-			consoleConfig.PasswordCost,
-		)
-
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
@@ -613,7 +573,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.ProjectAccounting(),
 			peer.Accounting.ProjectUsage,
 			peer.DB.Buckets(),
-			peer.DB.Rewards(),
 			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,
 			consoleConfig.Config,
@@ -628,7 +587,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			consoleConfig,
 			peer.Console.Service,
 			peer.Mail.Service,
-			peer.Referrals.Service,
 			peer.Marketing.PartnersService,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,

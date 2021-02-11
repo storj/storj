@@ -162,7 +162,7 @@ func Schema() map[string]*dbschema.Schema {
 						&dbschema.Column{
 							Name:       "distributed",
 							Type:       "bigint",
-							IsNullable: true,
+							IsNullable: false,
 						},
 						&dbschema.Column{
 							Name:       "held",

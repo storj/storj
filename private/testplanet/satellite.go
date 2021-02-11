@@ -47,7 +47,6 @@ import (
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
@@ -165,11 +164,6 @@ type Satellite struct {
 		Endpoint *consoleweb.Server
 	}
 
-	Marketing struct {
-		Listener net.Listener
-		Endpoint *marketingweb.Server
-	}
-
 	NodeStats struct {
 		Endpoint *nodestats.Endpoint
 	}
@@ -210,7 +204,7 @@ func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser
 	}
 
 	newUser.Password = newUser.FullName
-	user, err := system.API.Console.Service.CreateUser(ctx, newUser, regToken.Secret, "")
+	user, err := system.API.Console.Service.CreateUser(ctx, newUser, regToken.Secret)
 	if err != nil {
 		return nil, err
 	}
@@ -603,10 +597,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 				NumLimits: 10,
 			},
 		},
-		Marketing: marketingweb.Config{
-			Address:   "127.0.0.1:0",
-			StaticDir: filepath.Join(developmentRoot, "web/marketing"),
-		},
 		Version: planet.NewVersionConfig(),
 		GracefulExit: gracefulexit.Config{
 			Enabled: true,
@@ -627,12 +617,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		},
 	}
 
-	if planet.ReferralManager != nil {
-		config.Referrals.ReferralManagerURL = storj.NodeURL{
-			ID:      planet.ReferralManager.Identity().ID,
-			Address: planet.ReferralManager.Addr().String(),
-		}
-	}
 	if planet.config.Reconfigure.Satellite != nil {
 		planet.config.Reconfigure.Satellite(log, index, &config)
 	}
@@ -752,9 +736,6 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.LiveAccounting = peer.LiveAccounting
 
 	system.ProjectLimits.Cache = api.ProjectLimits.Cache
-
-	system.Marketing.Listener = api.Marketing.Listener
-	system.Marketing.Endpoint = api.Marketing.Endpoint
 
 	system.GracefulExit.Chore = peer.GracefulExit.Chore
 	system.GracefulExit.Endpoint = api.GracefulExit.Endpoint
