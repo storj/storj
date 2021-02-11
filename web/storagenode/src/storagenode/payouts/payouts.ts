@@ -283,14 +283,21 @@ export class SatellitePayoutForPeriod {
         this.afterHeld = this.convertToCents(this.afterHeld);
         this.disposed = this.convertToCents(this.disposed);
         this.paid = this.convertToCents(this.paid);
-
-        this.convertReceiptToEtherscanLink();
     }
 
-    private convertReceiptToEtherscanLink() {
-        if (this.receipt) {
-            this.receipt = `https://etherscan.io/tx/${this.receipt.slice(4)}`;
+    public get transactionLink(): string {
+        if (!this.receipt) {
+            return '';
         }
+
+        if (this.receipt.indexOf('eth') !== -1) {
+            return `https://etherscan.io/tx/${this.receipt.slice(4)}`;
+        }
+        if (this.receipt.indexOf('zksync') !== -1) {
+            return `https://zkscan.io/explorer/transactions/${this.receipt.slice(7)}`;
+        }
+
+        return this.receipt;
     }
 
     private convertToCents(value: number): number {
