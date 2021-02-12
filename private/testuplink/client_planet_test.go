@@ -53,14 +53,14 @@ func TestECClient(t *testing.T) {
 		require.NoError(t, err)
 
 		// Erasure encode some random data and upload the pieces
-		successfulNodes, successfulHashes := testPut(ctx, t, planet, ec, rs, data)
+		results := testPut(ctx, t, planet, ec, rs, data)
 
 		// Download the pieces and erasure decode the data
-		testGet(ctx, t, planet, ec, es, data, successfulNodes, successfulHashes)
+		testGet(ctx, t, planet, ec, es, data, results)
 	})
 }
 
-func testPut(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ecclient.Client, rs eestream.RedundancyStrategy, data []byte) ([]*pb.Node, []*pb.PieceHash) {
+func testPut(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ecclient.Client, rs eestream.RedundancyStrategy, data []byte) []*pb.SegmentPieceUploadResult {
 	piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
 	require.NoError(t, err)
 
@@ -70,24 +70,22 @@ func testPut(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ec
 		require.NoError(t, err)
 	}
 
-	ttl := time.Now()
-
 	r := bytes.NewReader(data)
 
-	successfulNodes, successfulHashes, err := ec.Put(ctx, limits, piecePrivateKey, rs, r, ttl)
+	results, err := ec.PutSingleResult(ctx, limits, piecePrivateKey, rs, r)
 
 	require.NoError(t, err)
-	assert.Equal(t, len(limits), len(successfulNodes))
+	assert.Equal(t, len(limits), len(results))
 
 	slowNodes := 0
 	for i := range limits {
-		if successfulNodes[i] == nil && limits[i] != nil {
+		if results[i] == nil && limits[i] != nil {
 			slowNodes++
 		} else {
-			assert.Equal(t, limits[i].GetLimit().StorageNodeId, successfulNodes[i].Id)
-			if successfulNodes[i] != nil {
-				assert.NotNil(t, successfulHashes[i])
-				assert.Equal(t, limits[i].GetLimit().PieceId, successfulHashes[i].PieceId)
+			assert.Equal(t, limits[i].GetLimit().StorageNodeId, results[i].NodeId)
+			if results[i] != nil {
+				assert.NotNil(t, results[i].Hash)
+				assert.Equal(t, limits[i].GetLimit().PieceId, results[i].Hash.PieceId)
 			}
 		}
 	}
@@ -98,17 +96,17 @@ func testPut(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ec
 			"actual  :    %d", rs.TotalCount()-rs.RequiredCount(), slowNodes))
 	}
 
-	return successfulNodes, successfulHashes
+	return results
 }
 
-func testGet(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ecclient.Client, es eestream.ErasureScheme, data []byte, successfulNodes []*pb.Node, successfulHashes []*pb.PieceHash) {
+func testGet(ctx context.Context, t *testing.T, planet *testplanet.Planet, ec ecclient.Client, es eestream.ErasureScheme, data []byte, results []*pb.SegmentPieceUploadResult) {
 	piecePublicKey, piecePrivateKey, err := storj.NewPieceKey()
 	require.NoError(t, err)
 
 	limits := make([]*pb.AddressedOrderLimit, es.TotalCount())
 	for i := 0; i < len(limits); i++ {
-		if successfulNodes[i] != nil {
-			limits[i], err = newAddressedOrderLimit(ctx, pb.PieceAction_GET, planet.Satellites[0], piecePublicKey, planet.StorageNodes[i], successfulHashes[i].PieceId)
+		if results[i] != nil {
+			limits[i], err = newAddressedOrderLimit(ctx, pb.PieceAction_GET, planet.Satellites[0], piecePublicKey, planet.StorageNodes[i], results[i].Hash.PieceId)
 			require.NoError(t, err)
 		}
 	}
