@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math/rand"
 	"reflect"
 	"strconv"
 	"strings"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/jackc/pgconn"
 	_ "github.com/jackc/pgx/v4/stdlib"
+	"github.com/mattn/go-sqlite3"
 
 	"storj.io/storj/private/tagsql"
 )
@@ -145,6 +147,8 @@ func Open(driver, source string) (db *DB, err error) {
 	switch driver {
 	case "pgx":
 		sql_db, err = openpgx(source)
+	case "sqlite3":
+		sql_db, err = opensqlite3(source)
 	default:
 		return nil, unsupportedDriver(driver)
 	}
@@ -169,6 +173,8 @@ func Open(driver, source string) (db *DB, err error) {
 	switch driver {
 	case "pgx":
 		db.dbMethods = newpgx(db)
+	case "sqlite3":
+		db.dbMethods = newsqlite3(db)
 	default:
 		return nil, unsupportedDriver(driver)
 	}
@@ -302,6 +308,84 @@ type pgxTx struct {
 }
 
 func pgxLogStmt(stmt string, args ...interface{}) {
+	// TODO: render placeholders
+	if Logger != nil {
+		out := fmt.Sprintf("stmt: %s\nargs: %v\n", stmt, pretty(args))
+		Logger(out)
+	}
+}
+
+type sqlite3Impl struct {
+	db      *DB
+	dialect __sqlbundle_sqlite3
+	driver  driver
+}
+
+func (obj *sqlite3Impl) Rebind(s string) string {
+	return obj.dialect.Rebind(s)
+}
+
+func (obj *sqlite3Impl) logStmt(stmt string, args ...interface{}) {
+	sqlite3LogStmt(stmt, args...)
+}
+
+func (obj *sqlite3Impl) makeErr(err error) error {
+	constraint, ok := obj.isConstraintError(err)
+	if ok {
+		return constraintViolation(err, constraint)
+	}
+	return makeErr(err)
+}
+
+type sqlite3DB struct {
+	db *DB
+	*sqlite3Impl
+}
+
+func newsqlite3(db *DB) *sqlite3DB {
+	return &sqlite3DB{
+		db: db,
+		sqlite3Impl: &sqlite3Impl{
+			db:     db,
+			driver: db.DB,
+		},
+	}
+}
+
+func (obj *sqlite3DB) Schema() string {
+	return `CREATE TABLE members (
+	id BLOB NOT NULL,
+	email TEXT NOT NULL,
+	name TEXT NOT NULL,
+	password_hash BLOB NOT NULL,
+	created_at TIMESTAMP NOT NULL,
+	PRIMARY KEY ( id )
+);
+CREATE TABLE nodes (
+	id BLOB NOT NULL,
+	name TEXT NOT NULL,
+	public_address TEXT NOT NULL,
+	api_secret BLOB NOT NULL,
+	PRIMARY KEY ( id )
+);`
+}
+
+func (obj *sqlite3DB) wrapTx(tx tagsql.Tx) txMethods {
+	return &sqlite3Tx{
+		dialectTx: dialectTx{tx: tx},
+		sqlite3Impl: &sqlite3Impl{
+			db:     obj.db,
+			driver: tx,
+		},
+	}
+}
+
+type sqlite3Tx struct {
+	dialectTx
+	*sqlite3Impl
+}
+
+func sqlite3LogStmt(stmt string, args ...interface{}) {
 	// TODO: render placeholders
 	if Logger != nil {
 		out := fmt.Sprintf("stmt: %s\nargs: %v\n", stmt, pretty(args))
@@ -1369,6 +1453,478 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 
 }
 
+func (obj *sqlite3Impl) Create_Node(ctx context.Context,
+	node_id Node_Id_Field,
+	node_name Node_Name_Field,
+	node_public_address Node_PublicAddress_Field,
+	node_api_secret Node_ApiSecret_Field) (
+	node *Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+	__id_val := node_id.value()
+	__name_val := node_name.value()
+	__public_address_val := node_public_address.value()
+	__api_secret_val := node_api_secret.value()
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO nodes ( id, name, public_address, api_secret ) VALUES ( ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __name_val, __public_address_val, __api_secret_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastNode(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Create_Member(ctx context.Context,
+	member_id Member_Id_Field,
+	member_email Member_Email_Field,
+	member_name Member_Name_Field,
+	member_password_hash Member_PasswordHash_Field) (
+	member *Member, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := member_id.value()
+	__email_val := member_email.value()
+	__name_val := member_name.value()
+	__password_hash_val := member_password_hash.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO members ( id, email, name, password_hash, created_at ) VALUES ( ?, ?, ?, ?, ? )")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __email_val, __name_val, __password_hash_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	__pk, err := __res.LastInsertId()
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return obj.getLastMember(ctx, __pk)
+
+}
+
+func (obj *sqlite3Impl) Get_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field) (
+	node *Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.name, nodes.public_address, nodes.api_secret FROM nodes WHERE nodes.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	node = &Node{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Name, &node.PublicAddress, &node.ApiSecret)
+	if err != nil {
+		return (*Node)(nil), obj.makeErr(err)
+	}
+	return node, nil
+
+}
+
+func (obj *sqlite3Impl) All_Node(ctx context.Context) (
+	rows []*Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.name, nodes.public_address, nodes.api_secret FROM nodes")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		node := &Node{}
+		err = __rows.Scan(&node.Id, &node.Name, &node.PublicAddress, &node.ApiSecret)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, node)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Get_Member_By_Email(ctx context.Context,
+	member_email Member_Email_Field) (
+	member *Member, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT members.id, members.email, members.name, members.password_hash, members.created_at FROM members WHERE members.email = ? LIMIT 2")
+
+	var __values []interface{}
+	__values = append(__values, member_email.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	if !__rows.Next() {
+		if err := __rows.Err(); err != nil {
+			return nil, obj.makeErr(err)
+		}
+		return nil, makeErr(sql.ErrNoRows)
+	}
+
+	member = &Member{}
+	err = __rows.Scan(&member.Id, &member.Email, &member.Name, &member.PasswordHash, &member.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	if __rows.Next() {
+		return nil, tooManyRows("Member_By_Email")
+	}
+
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	return member, nil
+
+}
+
+func (obj *sqlite3Impl) Get_Member_By_Id(ctx context.Context,
+	member_id Member_Id_Field) (
+	member *Member, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT members.id, members.email, members.name, members.password_hash, members.created_at FROM members WHERE members.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, member_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	member = &Member{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&member.Id, &member.Email, &member.Name, &member.PasswordHash, &member.CreatedAt)
+	if err != nil {
+		return (*Member)(nil), obj.makeErr(err)
+	}
+	return member, nil
+
+}
+
+func (obj *sqlite3Impl) Update_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field,
+	update Node_Update_Fields) (
+	node *Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Name._set {
+		__values = append(__values, update.Name.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	node = &Node{}
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT nodes.id, nodes.name, nodes.public_address, nodes.api_secret FROM nodes WHERE nodes.id = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRowContext(ctx, __stmt_get, __args...).Scan(&node.Id, &node.Name, &node.PublicAddress, &node.ApiSecret)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return node, nil
+}
+
+func (obj *sqlite3Impl) UpdateNoReturn_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field,
+	update Node_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Name._set {
+		__values = append(__values, update.Name.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return emptyUpdate()
+	}
+
+	__args = append(__args, node_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
+func (obj *sqlite3Impl) Update_Member_By_Id(ctx context.Context,
+	member_id Member_Id_Field,
+	update Member_Update_Fields) (
+	member *Member, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE members SET "), __sets, __sqlbundle_Literal(" WHERE members.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.Email._set {
+		__values = append(__values, update.Email.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
+	}
+
+	if update.Name._set {
+		__values = append(__values, update.Name.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
+	}
+
+	if update.PasswordHash._set {
+		__values = append(__values, update.PasswordHash.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("password_hash = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, member_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	member = &Member{}
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+
+	var __embed_stmt_get = __sqlbundle_Literal("SELECT members.id, members.email, members.name, members.password_hash, members.created_at FROM members WHERE members.id = ?")
+
+	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
+	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
+
+	err = obj.driver.QueryRowContext(ctx, __stmt_get, __args...).Scan(&member.Id, &member.Email, &member.Name, &member.PasswordHash, &member.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return member, nil
+}
+
+func (obj *sqlite3Impl) Delete_Node_By_Id(ctx context.Context,
+	node_id Node_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM nodes WHERE nodes.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *sqlite3Impl) Delete_Member_By_Id(ctx context.Context,
+	member_id Member_Id_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM members WHERE members.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, member_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *sqlite3Impl) getLastNode(ctx context.Context,
+	pk int64) (
+	node *Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.name, nodes.public_address, nodes.api_secret FROM nodes WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	node = &Node{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, pk).Scan(&node.Id, &node.Name, &node.PublicAddress, &node.ApiSecret)
+	if err != nil {
+		return (*Node)(nil), obj.makeErr(err)
+	}
+	return node, nil
+
+}
+
+func (obj *sqlite3Impl) getLastMember(ctx context.Context,
+	pk int64) (
+	member *Member, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT members.id, members.email, members.name, members.password_hash, members.created_at FROM members WHERE _rowid_ = ?")
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, pk)
+
+	member = &Member{}
+	err = obj.driver.QueryRowContext(ctx, __stmt, pk).Scan(&member.Id, &member.Email, &member.Name, &member.PasswordHash, &member.CreatedAt)
+	if err != nil {
+		return (*Member)(nil), obj.makeErr(err)
+	}
+	return member, nil
+
+}
+
+func (impl sqlite3Impl) isConstraintError(err error) (
+	constraint string, ok bool) {
+	if e, ok := err.(sqlite3.Error); ok {
+		if e.Code == sqlite3.ErrConstraint {
+			msg := err.Error()
+			colon := strings.LastIndex(msg, ":")
+			if colon != -1 {
+				return strings.TrimSpace(msg[colon:]), true
+			}
+			return "", true
+		}
+	}
+	return "", false
+}
+
+func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __res sql.Result
+	var __count int64
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM nodes;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM members;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+
+	return count, nil
+
+}
+
 type Rx struct {
 	db *DB
 	tx *Tx
@@ -1616,4 +2172,37 @@ type dbMethods interface {
 
 func openpgx(source string) (*sql.DB, error) {
 	return sql.Open("pgx", source)
+}
+
+var sqlite3DriverName = func() string {
+	var id [16]byte
+	rand.Read(id[:])
+	return fmt.Sprintf("sqlite3_%x", string(id[:]))
+}()
+
+func init() {
+	sql.Register(sqlite3DriverName, &sqlite3.SQLiteDriver{
+		ConnectHook: sqlite3SetupConn,
+	})
+}
+
+// SQLite3JournalMode controls the journal_mode pragma for all new connections.
+// Since it is read without a mutex, it must be changed to the value you want
+// before any Open calls.
+var SQLite3JournalMode = "WAL"
+
+func sqlite3SetupConn(conn *sqlite3.SQLiteConn) (err error) {
+	_, err = conn.Exec("PRAGMA foreign_keys = ON", nil)
+	if err != nil {
+		return makeErr(err)
+	}
+	_, err = conn.Exec("PRAGMA journal_mode = "+SQLite3JournalMode, nil)
+	if err != nil {
+		return makeErr(err)
+	}
+	return nil
+}
+
+func opensqlite3(source string) (*sql.DB, error) {
+	return sql.Open(sqlite3DriverName, source)
 }

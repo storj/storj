@@ -5,6 +5,7 @@ package multinodedb
 
 import (
 	"context"
+	"strings"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -48,14 +49,17 @@ func Open(ctx context.Context, log *zap.Logger, databaseURL string) (multinode.D
 	if err != nil {
 		return nil, err
 	}
-	// TODO: do we need cockroach implementation?
-	if implementation != dbutil.Postgres && implementation != dbutil.Cockroach {
-		return nil, Error.New("unsupported driver %q", driver)
-	}
 
-	source, err = pgutil.CheckApplicationName(source, "storagenode-multinode")
-	if err != nil {
-		return nil, err
+	switch implementation {
+	case dbutil.SQLite3:
+		source = sqlite3SetDefaultOptions(source)
+	case dbutil.Postgres:
+		source, err = pgutil.CheckApplicationName(source, "multinode")
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, Error.New("unsupported driver %q", driver)
 	}
 
 	dbxDB, err := dbx.Open(driver, source)
@@ -63,6 +67,7 @@ func Open(ctx context.Context, log *zap.Logger, databaseURL string) (multinode.D
 		return nil, Error.New("failed opening database via DBX at %q: %v",
 			source, err)
 	}
+
 	log.Debug("Connected to:", zap.String("db source", source))
 
 	dbutil.Configure(ctx, dbxDB.DB, "multinodedb", mon)
@@ -97,4 +102,21 @@ func (db *multinodeDB) Members() console.Members {
 func (db *multinodeDB) CreateSchema(ctx context.Context) error {
 	_, err := db.ExecContext(ctx, db.DB.Schema())
 	return err
+}
+
+// sqlite3SetDefaultOptions sets default options for disk-based db with URI filename source string
+// if no options were set.
+func sqlite3SetDefaultOptions(source string) string {
+	if !strings.HasPrefix(source, "file:") {
+		return source
+	}
+	// do not set anything for in-memory db
+	if strings.HasPrefix(source, "file::memory:") {
+		return source
+	}
+	if strings.Contains(source, "?") {
+		return source
+	}
+
+	return source + "?_journal=WAL&_busy_timeout=10000"
 }
