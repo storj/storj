@@ -99,8 +99,9 @@ func (b base64url) MarshalJSON() ([]byte, error) {
 }
 
 type accessInfo struct {
-	SatelliteAddr    string               `json:"satellite_addr,omitempty"`
-	EncryptionAccess *pb.EncryptionAccess `json:"encryption_access,omitempty"`
+	SatelliteAddr    string               `json:"satellite_addr"`
+	EncryptionAccess *pb.EncryptionAccess `json:"encryption_access"`
+	APIKey           string               `json:"api_key"`
 	Macaroon         accessInfoMacaroon   `json:"macaroon"`
 }
 
@@ -133,9 +134,16 @@ func accessInspect(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
+	// TODO: this could be better
+	apiKey, err := macaroon.ParseRawAPIKey(p.ApiKey)
+	if err != nil {
+		return err
+	}
+
 	ai := accessInfo{
 		SatelliteAddr:    p.SatelliteAddr,
 		EncryptionAccess: p.EncryptionAccess,
+		APIKey:           apiKey.Serialize(),
 		Macaroon: accessInfoMacaroon{
 			Head:    m.Head(),
 			Caveats: []macaroon.Caveat{},
