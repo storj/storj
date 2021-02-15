@@ -49,7 +49,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
-import { Project, ProjectsCursor, ProjectsPage } from '@/types/projects';
+import { Project, ProjectsPage } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
 
@@ -67,7 +67,6 @@ const {
 })
 export default class Projects extends Vue {
     private currentPageNumber: number = 1;
-    private currentProjectsPage: ProjectsPage = new ProjectsPage();
     private FIRST_PAGE = 1;
 
     /**
@@ -83,7 +82,7 @@ export default class Projects extends Vue {
 
     /**
      * Fetches owned projects page page by clicked page number.
-     * @param index
+     * @param page
      */
     public async onPageClick(page: number): Promise<void> {
         this.currentPageNumber = page;
@@ -142,7 +141,6 @@ export default class Projects extends Vue {
 
 <style lang="scss">
     .projects-list {
-        position: relative;
         padding: 40px 30px 55px 30px;
         font-family: 'font_regular', sans-serif;
 
@@ -162,7 +160,6 @@ export default class Projects extends Vue {
         }
 
         .projects-list-items {
-            position: relative;
 
             &__content {
                 background-color: #fff;

@@ -20,6 +20,7 @@ export const ACCESS_GRANTS_ACTIONS = {
     CLEAR: 'clearAccessGrants',
     GET_GATEWAY_CREDENTIALS: 'getGatewayCredentials',
     SET_ACCESS_GRANTS_WEB_WORKER: 'setAccessGrantsWebWorker',
+    STOP_ACCESS_GRANTS_WEB_WORKER: 'stopAccessGrantsWebWorker',
     SET_SEARCH_QUERY: 'setAccessGrantsSearchQuery',
     SET_SORT_BY: 'setAccessGrantsSortingBy',
     SET_SORT_DIRECTION: 'setAccessGrantsSortingDirection',
@@ -33,6 +34,7 @@ export const ACCESS_GRANTS_MUTATIONS = {
     SET_PAGE: 'setAccessGrants',
     SET_GATEWAY_CREDENTIALS: 'setGatewayCredentials',
     SET_ACCESS_GRANTS_WEB_WORKER: 'setAccessGrantsWebWorker',
+    STOP_ACCESS_GRANTS_WEB_WORKER: 'stopAccessGrantsWebWorker',
     TOGGLE_SELECTION: 'toggleAccessGrantsSelection',
     TOGGLE_BUCKET_SELECTION: 'toggleBucketSelection',
     CLEAR_SELECTION: 'clearAccessGrantsSelection',
@@ -57,6 +59,7 @@ const {
     SET_DURATION_PERMISSION,
     SET_GATEWAY_CREDENTIALS,
     SET_ACCESS_GRANTS_WEB_WORKER,
+    STOP_ACCESS_GRANTS_WEB_WORKER,
 } = ACCESS_GRANTS_MUTATIONS;
 
 export class AccessGrantsState {
@@ -95,6 +98,13 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
                 state.accessGrantsWebWorker.onerror = (error: ErrorEvent) => {
                     console.error(`Failed to configure access grants web worker. ${error.message}`);
                 };
+            },
+            [STOP_ACCESS_GRANTS_WEB_WORKER](state: AccessGrantsState): void {
+                state.accessGrantsWebWorker?.postMessage({
+                    'type': 'Stop',
+                });
+                state.accessGrantsWebWorker = null;
+                state.isAccessGrantsWebWorkerReady = false;
             },
             [SET_PAGE](state: AccessGrantsState, page: AccessGrantsPage) {
                 state.page = page;
@@ -172,12 +182,16 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
                 state.selectedAccessGrantsIds = [];
                 state.selectedBucketNames = [];
                 state.permissionNotBefore = new Date();
-                state.permissionNotAfter = new Date();
+                state.permissionNotAfter = new Date('2200-01-01');
+                state.gatewayCredentials = new GatewayCredentials();
             },
         },
         actions: {
             setAccessGrantsWebWorker: function({commit}: any): void {
                 commit(SET_ACCESS_GRANTS_WEB_WORKER);
+            },
+            stopAccessGrantsWebWorker: function({commit}: any): void {
+                commit(STOP_ACCESS_GRANTS_WEB_WORKER);
             },
             fetchAccessGrants: async function ({commit, rootGetters, state}, pageNumber: number): Promise<AccessGrantsPage> {
                 const projectId = rootGetters.selectedProject.id;

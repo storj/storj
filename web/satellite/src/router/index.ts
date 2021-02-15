@@ -12,7 +12,6 @@ import EnterPassphraseStep from '@/components/accessGrants/steps/EnterPassphrase
 import NameStep from '@/components/accessGrants/steps/NameStep.vue';
 import PermissionsStep from '@/components/accessGrants/steps/PermissionsStep.vue';
 import ResultStep from '@/components/accessGrants/steps/ResultStep.vue';
-import UploadStep from '@/components/accessGrants/steps/UploadStep.vue';
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
 import DetailedHistory from '@/components/account/billing/depositAndBillingHistory/DetailedHistory.vue';
@@ -28,6 +27,7 @@ import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
 import ProjectsList from '@/components/projectsList/ProjectsList.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
+
 import store from '@/store';
 import { NavigationLink } from '@/types/navigation';
 
@@ -71,7 +71,6 @@ export abstract class RouteConfig {
     public static EnterPassphraseStep = new NavigationLink('enter-passphrase', 'Access Grant Enter Passphrase');
     public static ResultStep = new NavigationLink('result', 'Access Grant Result');
     public static CLIStep = new NavigationLink('cli', 'Access Grant In CLI');
-    public static UploadStep = new NavigationLink('upload', 'Access Grant Upload Data');
 
     // onboarding tour child paths
     public static OverviewStep = new NavigationLink('overview', 'Onboarding Overview');
@@ -93,8 +92,6 @@ export const notProjectRelatedRoutes = [
     RouteConfig.DepositHistory.name,
     RouteConfig.CreditsHistory.name,
     RouteConfig.Settings.name,
-    RouteConfig.AccessGrants.name,
-    RouteConfig.ProjectsList.name,
 ];
 
 export const router = new Router({
@@ -276,11 +273,6 @@ export const router = new Router({
                                     name: RouteConfig.CLIStep.name,
                                     component: CLIStep,
                                     props: true,
-                                },
-                                {
-                                    path: RouteConfig.UploadStep.path,
-                                    name: RouteConfig.UploadStep.name,
-                                    component: UploadStep,
                                 },
                             ],
                         },
