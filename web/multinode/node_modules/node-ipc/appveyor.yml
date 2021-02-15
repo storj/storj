@@ -1,0 +1,31 @@
+# http://www.appveyor.com/docs/appveyor-yml
+
+# version format
+version: 9.1.2.{build}
+
+# Test against these versions of Io.js and Node.js.
+environment:
+  matrix:
+  # node.js
+    - nodejs_version: "8"
+    - nodejs_version: "10"
+    - nodejs_version: "12"
+    - nodejs_version: "14"
+
+# Install scripts. (runs after repo cloning)
+install:
+  # Get the latest stable version of Node 0.STABLE.latest
+  - ps: Install-Product node $env:nodejs_version
+  - npm -g install npm
+  - npm install
+
+# Post-install test scripts.
+test_script:
+  # Output useful info for debugging.
+  - node --version
+  - npm --version
+  # run tests
+  - npm run test-windows
+
+# Don't actually build.
+build: off

@@ -1,0 +1,7 @@
+extends:
+  - wotan:recommended
+  - ./rules
+rules:
+  tcc/no-unused: error
+  no-useless-assertion: off
+  no-useless-predicate: off

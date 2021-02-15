@@ -1,0 +1,42 @@
+{
+  "type": "object",
+  "properties": {
+    "cacheContext": {
+      "description": "The default cache context in order to generate the cache relatively to a path. By default it will use absolute paths.",
+      "type": "string"
+    },
+    "cacheKey": {
+      "description": "Allows you to override default cache key generator.",
+      "instanceof": "Function"
+    },
+    "cacheIdentifier": {
+      "description": "Provide a cache directory where cache items should be stored (used for default read/write implementation).",
+      "type": "string"
+    },
+    "cacheDirectory": {
+      "description": "Provide an invalidation identifier which is used to generate the hashes. You can use it for extra dependencies of loaders (used for default read/write implementation).",
+      "type": "string"
+    },
+    "compare": {
+      "description": "Allows you to override default comparison function between the cached dependency and the one is being read. Return true to use the cached resource.",
+      "instanceof": "Function"
+    },
+    "precision": {
+      "description": "Round mtime by this number of milliseconds both for stats and deps before passing those params to the comparing function.",
+      "type": "number"
+    },
+    "read": {
+      "description": "Allows you to override default read cache data from file.",
+      "instanceof": "Function"
+    },
+    "readOnly": {
+      "description": "Allows you to override default value and make the cache read only (useful for some environments where you don't want the cache to be updated, only read from it).",
+      "type": "boolean"
+    },
+    "write": {
+      "description": "Allows you to override default write cache data to file (e.g. Redis, memcached).",
+      "instanceof": "Function"
+    }
+  },
+  "additionalProperties": false
+}
