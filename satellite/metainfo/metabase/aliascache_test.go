@@ -7,9 +7,11 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -65,6 +67,72 @@ func TestNodeAliasCache(t *testing.T) {
 		nodes, err := cache.Nodes(ctx, []metabase.NodeAlias{1, 2})
 		require.EqualError(t, err, "metabase: failed to refresh node alias db: io.EOF")
 		require.Empty(t, nodes)
+	})
+
+	t.Run("Aliases refresh once", func(t *testing.T) {
+		for repeat := 0; repeat < 3; repeat++ {
+			database := &NodeAliasDB{}
+			cache := metabase.NewNodeAliasCache(database)
+			n1, n2 := testrand.NodeID(), testrand.NodeID()
+
+			start := make(chan struct{})
+			const N = 4
+			var waiting sync.WaitGroup
+			waiting.Add(N)
+
+			var group errgroup.Group
+			for k := 0; k < N; k++ {
+				group.Go(func() error {
+					waiting.Done()
+					<-start
+
+					_, err := cache.Aliases(ctx, []storj.NodeID{n1, n2})
+					return err
+				})
+			}
+
+			waiting.Wait()
+			close(start)
+			require.NoError(t, group.Wait())
+
+			require.Equal(t, int64(1), database.ListNodeAliasesCount())
+		}
+	})
+
+	t.Run("Nodes refresh once", func(t *testing.T) {
+		for repeat := 0; repeat < 3; repeat++ {
+			n1, n2 := testrand.NodeID(), testrand.NodeID()
+
+			database := &NodeAliasDB{}
+			err := database.EnsureNodeAliases(ctx, metabase.EnsureNodeAliases{
+				Nodes: []storj.NodeID{n1, n2},
+			})
+			require.NoError(t, err)
+
+			cache := metabase.NewNodeAliasCache(database)
+
+			start := make(chan struct{})
+			const N = 4
+			var waiting sync.WaitGroup
+			waiting.Add(N)
+
+			var group errgroup.Group
+			for k := 0; k < N; k++ {
+				group.Go(func() error {
+					waiting.Done()
+					<-start
+
+					_, err := cache.Nodes(ctx, []metabase.NodeAlias{1, 2})
+					return err
+				})
+			}
+
+			waiting.Wait()
+			close(start)
+			require.NoError(t, group.Wait())
+
+			require.Equal(t, int64(1), database.ListNodeAliasesCount())
+		}
 	})
 }
 
@@ -204,6 +272,9 @@ type NodeAliasDB struct {
 	fail    error
 	last    metabase.NodeAlias
 	entries []metabase.NodeAliasEntry
+
+	ensureNodeAliasesCount int64
+	listNodeAliasesCount   int64
 }
 
 func (db *NodeAliasDB) SetFail(err error) {
@@ -236,6 +307,8 @@ func (db *NodeAliasDB) Ensure(id storj.NodeID) {
 }
 
 func (db *NodeAliasDB) EnsureNodeAliases(ctx context.Context, opts metabase.EnsureNodeAliases) error {
+	atomic.AddInt64(&db.ensureNodeAliasesCount, 1)
+
 	if err := db.ShouldFail(); err != nil {
 		return err
 	}
@@ -245,7 +318,13 @@ func (db *NodeAliasDB) EnsureNodeAliases(ctx context.Context, opts metabase.Ensu
 	return nil
 }
 
+func (db *NodeAliasDB) EnsureNodeAliasesCount() int64 {
+	return atomic.LoadInt64(&db.ensureNodeAliasesCount)
+}
+
 func (db *NodeAliasDB) ListNodeAliases(ctx context.Context) (_ []metabase.NodeAliasEntry, err error) {
+	atomic.AddInt64(&db.listNodeAliasesCount, 1)
+
 	if err := db.ShouldFail(); err != nil {
 		return nil, err
 	}
@@ -255,4 +334,8 @@ func (db *NodeAliasDB) ListNodeAliases(ctx context.Context) (_ []metabase.NodeAl
 	db.mu.Unlock()
 
 	return xs, nil
+}
+
+func (db *NodeAliasDB) ListNodeAliasesCount() int64 {
+	return atomic.LoadInt64(&db.listNodeAliasesCount)
 }

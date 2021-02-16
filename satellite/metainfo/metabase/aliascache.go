@@ -6,6 +6,7 @@ package metabase
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
 	"storj.io/common/storj"
 )
@@ -18,26 +19,29 @@ type NodeAliasDB interface {
 
 // NodeAliasCache is a write-through cache for looking up node ID and alias mapping.
 type NodeAliasCache struct {
-	mu     sync.Mutex
-	latest *NodeAliasMap
-	db     NodeAliasDB
+	db         NodeAliasDB
+	refreshing sync.Mutex
+	latest     atomic.Value // *NodeAliasMap
 }
 
 // NewNodeAliasCache creates a new cache using the specified database.
 func NewNodeAliasCache(db NodeAliasDB) *NodeAliasCache {
-	return &NodeAliasCache{
-		db:     db,
-		latest: NewNodeAliasMap(nil),
+	cache := &NodeAliasCache{
+		db: db,
 	}
+	cache.latest.Store(NewNodeAliasMap(nil))
+	return cache
+}
+
+func (cache *NodeAliasCache) getLatest() *NodeAliasMap {
+	return cache.latest.Load().(*NodeAliasMap)
 }
 
 // Nodes returns node ID-s corresponding to the aliases,
 // refreshing the cache once when an alias is missing.
 // This results in an error when the alias is not in the database.
 func (cache *NodeAliasCache) Nodes(ctx context.Context, aliases []NodeAlias) ([]storj.NodeID, error) {
-	cache.mu.Lock()
-	latest := cache.latest
-	cache.mu.Unlock()
+	latest := cache.getLatest()
 
 	nodes, missing := latest.Nodes(aliases)
 	if len(missing) == 0 {
@@ -46,7 +50,7 @@ func (cache *NodeAliasCache) Nodes(ctx context.Context, aliases []NodeAlias) ([]
 
 	if len(missing) > 0 {
 		var err error
-		latest, err = cache.refresh(ctx)
+		latest, err = cache.refresh(ctx, nil, missing)
 		if err != nil {
 			return nil, Error.New("failed to refresh node alias db: %w", err)
 		}
@@ -63,9 +67,7 @@ func (cache *NodeAliasCache) Nodes(ctx context.Context, aliases []NodeAlias) ([]
 // Aliases returns node aliases corresponding to the node ID-s,
 // adding missing node ID-s to the database when needed.
 func (cache *NodeAliasCache) Aliases(ctx context.Context, nodes []storj.NodeID) ([]NodeAlias, error) {
-	cache.mu.Lock()
-	latest := cache.latest
-	cache.mu.Unlock()
+	latest := cache.getLatest()
 
 	aliases, missing := latest.Aliases(nodes)
 	if len(missing) == 0 {
@@ -97,33 +99,39 @@ func (cache *NodeAliasCache) ensure(ctx context.Context, missing ...storj.NodeID
 	}); err != nil {
 		return nil, Error.New("failed to update node alias db: %w", err)
 	}
-	return cache.refresh(ctx)
+	return cache.refresh(ctx, missing, nil)
 }
 
 // refresh refreshses the state of the cache.
-func (cache *NodeAliasCache) refresh(ctx context.Context) (_ *NodeAliasMap, err error) {
+func (cache *NodeAliasCache) refresh(ctx context.Context, missingNodes []storj.NodeID, missingAliases []NodeAlias) (_ *NodeAliasMap, err error) {
 	defer mon.Task()(&ctx)(&err)
-	// TODO: allow only one inflight request
+
+	cache.refreshing.Lock()
+	defer cache.refreshing.Unlock()
+
+	latest := cache.getLatest()
+
+	// Maybe some other goroutine already refreshed the list, double-check.
+	if latest.ContainsAll(missingNodes, missingAliases) {
+		return latest, nil
+	}
 
 	entries, err := cache.db.ListNodeAliases(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	xs := NewNodeAliasMap(entries)
-
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-
 	// Since we never remove node aliases we can assume that the alias map that contains more
 	// entries is the latest one.
 	//
 	// Note: we merge the maps here rather than directly replacing.
 	// This is not ideal from performance side, however it should reduce possible consistency issues.
-	xs.Merge(cache.latest)
-	cache.latest = xs
 
-	return cache.latest, nil
+	xs := NewNodeAliasMap(entries)
+	xs.Merge(latest)
+	cache.latest.Store(xs)
+
+	return xs, nil
 }
 
 // ConvertPiecesToAliases converts pieces to alias pieces.
@@ -225,6 +233,21 @@ func (m *NodeAliasMap) Aliases(nodes []storj.NodeID) (xs []NodeAlias, missing []
 		}
 	}
 	return xs, missing
+}
+
+// ContainsAll returns true when the table contains all entries.
+func (m *NodeAliasMap) ContainsAll(nodeIDs []storj.NodeID, nodeAliases []NodeAlias) bool {
+	for _, id := range nodeIDs {
+		if _, ok := m.alias[id]; !ok {
+			return false
+		}
+	}
+	for _, alias := range nodeAliases {
+		if _, ok := m.node[alias]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 // Size returns the number of entries in this map.
