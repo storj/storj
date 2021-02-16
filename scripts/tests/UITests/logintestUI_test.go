@@ -16,7 +16,7 @@ func Test_page_screenshot(t *testing.T) {
 	page := rod.New().MustConnect().MustPage(startPage).MustWaitLoad()
 
 	// simple version
-	page.MustScreenshotFullPage("my.png")
+	page.MustScreenshotFullPage("./screenshots/my.png")
 }
 
 	//func Example_login() {
