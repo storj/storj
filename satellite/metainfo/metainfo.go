@@ -876,7 +876,31 @@ func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bu
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	object, err := endpoint.objectToProto(ctx, metaObject)
+	rs := endpoint.defaultRS
+	if metaObject.SegmentCount > 0 {
+		segment, err := endpoint.metainfo.metabaseDB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: metaObject.StreamID,
+			Position: metabase.SegmentPosition{
+				Index: 0,
+			},
+		})
+		if err != nil {
+			// don't fail because its possible that its multipart object
+			endpoint.log.Error("internal", zap.Error(err))
+		} else {
+			rs = &pb.RedundancyScheme{
+				Type:             pb.RedundancyScheme_SchemeType(segment.Redundancy.Algorithm),
+				ErasureShareSize: segment.Redundancy.ShareSize,
+
+				MinReq:           int32(segment.Redundancy.RequiredShares),
+				RepairThreshold:  int32(segment.Redundancy.RepairShares),
+				SuccessThreshold: int32(segment.Redundancy.OptimalShares),
+				Total:            int32(segment.Redundancy.TotalShares),
+			}
+		}
+	}
+
+	object, err := endpoint.objectToProto(ctx, metaObject, rs)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -2048,7 +2072,7 @@ func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, result metaba
 
 	deletedObjects = make([]*pb.Object, len(result.Objects))
 	for i, object := range result.Objects {
-		deletedObject, err := endpoint.objectToProto(ctx, object)
+		deletedObject, err := endpoint.objectToProto(ctx, object, endpoint.defaultRS)
 		if err != nil {
 			return nil, err
 		}
@@ -2080,7 +2104,7 @@ func (endpoint *Endpoint) deleteSegmentPieces(ctx context.Context, segments []me
 	}
 }
 
-func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Object) (*pb.Object, error) {
+func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Object, rs *pb.RedundancyScheme) (*pb.Object, error) {
 	expires := time.Time{}
 	if object.ExpiresAt != nil {
 		expires = *object.ExpiresAt
@@ -2096,9 +2120,7 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		ExpirationDate:  expires,
 		StreamId:        object.StreamID[:],
 		MultipartObject: multipartObject,
-		// TODO: defaultRS may change while the upload is pending.
-		// Ideally, we should remove redundancy from satStreamID.
-		Redundancy: endpoint.defaultRS,
+		Redundancy:      rs,
 	})
 	if err != nil {
 		return nil, err
@@ -2159,8 +2181,7 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 			BlockSize:   int64(object.Encryption.BlockSize),
 		},
 
-		// TODO extend DownloadSegment response to provide RS values for client
-		RedundancyScheme: endpoint.defaultRS,
+		RedundancyScheme: rs,
 	}
 
 	return result, nil
