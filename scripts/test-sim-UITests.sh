@@ -81,7 +81,7 @@ apt-get -y install wormhole
 Xvfb -ac :99 -screen 0 1280x1024x16 & export DISPLAY=:99
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network run &
 go test "$SCRIPTDIR"/tests/UITests/.
-wormhole send "$SCRIPTDIR"/tests/UITests/screenshots/my.png
+wormhole send "$SCRIPTDIR"/tests/UITests/screenshots/my1.png
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network destroy
 
 # setup the network with ipv6
