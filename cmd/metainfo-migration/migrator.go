@@ -473,8 +473,9 @@ func (m *Migrator) flushObjects(ctx context.Context, conn *pgxpool.Pool) error {
 		return nil
 	}
 
+	objectsSQL := m.objectsSQL
 	if len(m.objects) < m.config.WriteBatchSize {
-		m.objectsSQL = prepareObjectsSQL(len(m.objects))
+		objectsSQL = prepareObjectsSQL(len(m.objects))
 	}
 
 	// TODO make predefined instance for that
@@ -485,8 +486,7 @@ func (m *Migrator) flushObjects(ctx context.Context, conn *pgxpool.Pool) error {
 
 	m.metabaseLimiter.Go(ctx, func() {
 		params := params
-		query := m.objectsSQL
-		_, err := conn.Exec(ctx, query, params...)
+		_, err := conn.Exec(ctx, objectsSQL, params...)
 		// TODO handle this error correctly
 		if err != nil {
 			m.log.Error("error", zap.Error(err))
@@ -502,8 +502,9 @@ func (m *Migrator) flushSegments(ctx context.Context, conn *pgxpool.Pool) error 
 		return nil
 	}
 
+	segmentsSQL := m.segmentsSQL
 	if len(m.segments) < m.config.WriteBatchSize {
-		m.segmentsSQL = prepareSegmentsSQL(len(m.segments))
+		segmentsSQL = prepareSegmentsSQL(len(m.segments))
 	}
 
 	// TODO make predefined instance for that
@@ -514,8 +515,7 @@ func (m *Migrator) flushSegments(ctx context.Context, conn *pgxpool.Pool) error 
 
 	m.metabaseLimiter.Go(ctx, func() {
 		params := params
-		query := m.segmentsSQL
-		_, err := conn.Exec(ctx, query, params...)
+		_, err := conn.Exec(ctx, segmentsSQL, params...)
 		if err != nil {
 			// TODO handle this error correctly
 			m.log.Error("error", zap.Error(err))
