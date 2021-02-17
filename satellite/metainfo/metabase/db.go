@@ -80,11 +80,15 @@ func (db *DB) DestroyTables(ctx context.Context) error {
 }
 
 // MigrateToLatest migrates database to the latest version.
-//
-// TODO: use migrate package.
 func (db *DB) MigrateToLatest(ctx context.Context) error {
 	migration := db.PostgresMigration()
 	return migration.Run(ctx, db.log.Named("migrate"))
+}
+
+// CheckVersion checks the database is the correct version.
+func (db *DB) CheckVersion(ctx context.Context) error {
+	migration := db.PostgresMigration()
+	return migration.ValidateVersions(ctx, db.log)
 }
 
 // PostgresMigration returns steps needed for migrating postgres database.

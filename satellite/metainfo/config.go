@@ -167,8 +167,12 @@ func OpenStore(ctx context.Context, logger *zap.Logger, dbURLString string, app 
 // MetabaseDB stores objects and segments.
 type MetabaseDB interface {
 	io.Closer
+
 	// MigrateToLatest migrates to latest schema version.
 	MigrateToLatest(ctx context.Context) error
+	// CheckVersion checks the database is the correct version
+	CheckVersion(ctx context.Context) error
+
 	// DeleteObjectAnyStatusAllVersions deletes all object versions.
 	DeleteObjectAnyStatusAllVersions(ctx context.Context, opts metabase.DeleteObjectAnyStatusAllVersions) (result metabase.DeleteObjectResult, err error)
 	// DeleteObjectsAllVersions deletes all versions of multiple objects from the same bucket.
