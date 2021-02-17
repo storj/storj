@@ -72,18 +72,7 @@ export default class CLIStep extends Vue {
      * Redirects to upload step.
      */
     public onDoneClick(): void {
-        if (this.isOnboardingTour) {
-            this.$router.push(RouteConfig.ProjectDashboard.path);
-
-            return;
-        }
-
-        this.$router.push({
-            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.UploadStep)).name,
-            params: {
-                isUplinkSectionEnabled: 'true',
-            },
-        });
+        this.isOnboardingTour ? this.$router.push(RouteConfig.ProjectDashboard.path) : this.$router.push(RouteConfig.AccessGrants.path);
     }
 
     /**

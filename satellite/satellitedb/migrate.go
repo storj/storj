@@ -1310,6 +1310,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes ADD COLUMN wallet_features text NOT NULL DEFAULT '';`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add employee_count column on users",
+				Version:     147,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN employee_count text;`,
+				},
+			},
 		},
 	}
 }

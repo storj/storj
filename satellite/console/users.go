@@ -57,8 +57,8 @@ type CreateUser struct {
 	IsProfessional bool   `json:"isProfessional"`
 	Position       string `json:"position"`
 	CompanyName    string `json:"companyName"`
-	CompanySize    int    `json:"companySize"`
 	WorkingOn      string `json:"workingOn"`
+	EmployeeCount  string `json:"employeeCount"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.
@@ -116,4 +116,5 @@ type User struct {
 	CompanyName    string `json:"companyName"`
 	CompanySize    int    `json:"companySize"`
 	WorkingOn      string `json:"workingOn"`
+	EmployeeCount  string `json:"employeeCount"`
 }

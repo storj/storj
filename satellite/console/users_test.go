@@ -28,7 +28,7 @@ const (
 	newPass        = "newPass1234567890123456789012345"
 	position       = "position"
 	companyName    = "companyName"
-	companySize    = 123
+	employeeCount  = "0"
 	workingOn      = "workingOn"
 	isProfessional = true
 )
@@ -71,7 +71,7 @@ func TestUserRepository(t *testing.T) {
 			IsProfessional: isProfessional,
 			Position:       position,
 			CompanyName:    companyName,
-			CompanySize:    companySize,
+			EmployeeCount:  employeeCount,
 			WorkingOn:      workingOn,
 		}
 		testUsers(ctx, t, repository, user)
@@ -139,12 +139,12 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 			assert.Equal(t, workingOn, userByEmail.WorkingOn)
 			assert.Equal(t, position, userByEmail.Position)
 			assert.Equal(t, companyName, userByEmail.CompanyName)
-			assert.Equal(t, companySize, userByEmail.CompanySize)
+			assert.Equal(t, employeeCount, userByEmail.EmployeeCount)
 		} else {
 			assert.Equal(t, "", userByEmail.WorkingOn)
 			assert.Equal(t, "", userByEmail.Position)
 			assert.Equal(t, "", userByEmail.CompanyName)
-			assert.Equal(t, 0, userByEmail.CompanySize)
+			assert.Equal(t, "", userByEmail.EmployeeCount)
 		}
 
 		userByID, err := repository.Get(ctx, userByEmail.ID)
@@ -157,12 +157,12 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 			assert.Equal(t, workingOn, userByID.WorkingOn)
 			assert.Equal(t, position, userByID.Position)
 			assert.Equal(t, companyName, userByID.CompanyName)
-			assert.Equal(t, companySize, userByID.CompanySize)
+			assert.Equal(t, employeeCount, userByID.EmployeeCount)
 		} else {
 			assert.Equal(t, "", userByID.WorkingOn)
 			assert.Equal(t, "", userByID.Position)
 			assert.Equal(t, "", userByID.CompanyName)
-			assert.Equal(t, 0, userByID.CompanySize)
+			assert.Equal(t, "", userByID.EmployeeCount)
 		}
 
 		assert.Equal(t, userByID.ID, userByEmail.ID)
@@ -176,7 +176,7 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.Equal(t, userByID.WorkingOn, userByEmail.WorkingOn)
 		assert.Equal(t, userByID.Position, userByEmail.Position)
 		assert.Equal(t, userByID.CompanyName, userByEmail.CompanyName)
-		assert.Equal(t, userByID.CompanySize, userByEmail.CompanySize)
+		assert.Equal(t, userByID.EmployeeCount, userByEmail.EmployeeCount)
 	})
 
 	t.Run("Update user success", func(t *testing.T) {

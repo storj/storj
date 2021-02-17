@@ -55,7 +55,7 @@
                     <VButton
                         class="generate-grant__gateway-area__container__warning__button"
                         label="Generate Gateway Credentials"
-                        width="100%"
+                        width="calc(100% - 4px)"
                         height="48px"
                         :is-blue-white="true"
                         :on-press="onGenerateCredentialsClick"
@@ -101,6 +101,7 @@
         </div>
         <VButton
             class="generate-grant__done-button"
+            :class="{ 'extra-margin-top': !(isOnboardingTour || areGatewayCredentialsVisible) }"
             label="Done"
             width="100%"
             height="48px"
@@ -249,18 +250,7 @@ export default class ResultStep extends Vue {
      * Proceed to upload data step.
      */
     public onDoneClick(): void {
-        if (this.isOnboardingTour) {
-            this.$router.push(RouteConfig.ProjectDashboard.path);
-
-            return;
-        }
-
-        this.$router.push({
-            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.UploadStep)).name,
-            params: {
-                isUplinkSectionEnabled: 'false',
-            },
-        });
+        this.isOnboardingTour ? this.$router.push(RouteConfig.ProjectDashboard.path) : this.$router.push(RouteConfig.AccessGrants.path);
     }
 
     /**
@@ -529,5 +519,9 @@ export default class ResultStep extends Vue {
 
     .border-radius {
         border-radius: 6px;
+    }
+
+    .extra-margin-top {
+        margin-top: 76px;
     }
 </style>

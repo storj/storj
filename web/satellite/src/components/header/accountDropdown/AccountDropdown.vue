@@ -59,6 +59,7 @@ export default class AccountDropdown extends Vue {
         await this.$store.dispatch(PROJECTS_ACTIONS.CLEAR);
         await this.$store.dispatch(USER_ACTIONS.CLEAR);
         await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR);
+        await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
         await this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR);
         await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
         await this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);

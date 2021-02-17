@@ -35,12 +35,13 @@ func GenAccessGrant(satelliteNodeURL, apiKey, encryptionPassphrase, projectID st
 
 	encAccess := access2.NewEncryptionAccessWithDefaultKey(key)
 	encAccess.SetDefaultPathCipher(storj.EncAESGCM)
-	a := &access2.Access{
+	encAccess.LimitTo(parsedAPIKey)
+
+	accessString, err := (&access2.Access{
 		SatelliteAddress: satelliteNodeURL,
 		APIKey:           parsedAPIKey,
 		EncAccess:        encAccess,
-	}
-	accessString, err := a.Serialize()
+	}).Serialize()
 	if err != nil {
 		return "", err
 	}

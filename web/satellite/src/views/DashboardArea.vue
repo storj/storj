@@ -73,7 +73,6 @@ const {
     GET_CREDIT_CARDS,
     GET_PAYMENTS_HISTORY,
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
-    GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP,
 } = PAYMENTS_ACTIONS;
 
 @Component({
@@ -96,11 +95,12 @@ export default class DashboardArea extends Vue {
      * Lifecycle hook before initial render.
      * Sets access grants web worker.
      */
-    public beforeMount(): void {
+    public async beforeMount(): Promise<void> {
         try {
-            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_ACCESS_GRANTS_WEB_WORKER);
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_ACCESS_GRANTS_WEB_WORKER);
         } catch (error) {
-            this.$notify.error(`Unable to set access grants wizard. ${error.message}`);
+            await this.$notify.error(`Unable to set access grants wizard. ${error.message}`);
         }
     }
 

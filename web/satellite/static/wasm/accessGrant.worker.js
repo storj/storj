@@ -58,6 +58,9 @@ self.onmessage = function (event) {
 
             self.postMessage(result);
             break;
+        case 'Stop':
+            self.close();
+            break;
         default:
             self.postMessage(new Error('provided message event type is not supported'));
     }

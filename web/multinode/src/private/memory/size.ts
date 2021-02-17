@@ -33,6 +33,8 @@ export class Size {
                 return `${parseFloat((size / SizeBreakpoints.PB).toFixed(decimals))}PB`;
             case _size >= SizeBreakpoints.TB * 2 / 3:
                 return `${parseFloat((size / SizeBreakpoints.TB).toFixed(decimals))}TB`;
+            case _size >= SizeBreakpoints.GB * 2 / 3:
+                return `${parseFloat((size / SizeBreakpoints.GB).toFixed(decimals))}GB`;
             case _size >= SizeBreakpoints.MB * 2 / 3:
                 return `${parseFloat((size / SizeBreakpoints.MB).toFixed(decimals))}MB`;
             case _size >= SizeBreakpoints.KB * 2 / 3:
