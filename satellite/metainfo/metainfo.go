@@ -874,7 +874,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	object, err := endpoint.getObject(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedPath, req.Version)
+	object, err := endpoint.getObject(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedPath, req.Version, req.RedundancySchemePerSegment)
 	if err != nil {
 		return nil, err
 	}
@@ -887,7 +887,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	}, nil
 }
 
-func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bucket, encryptedPath []byte, version int32) (*pb.Object, error) {
+func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bucket, encryptedPath []byte, version int32, rsPerSegment bool) (*pb.Object, error) {
 	pointer, _, err := endpoint.getPointer(ctx, projectID, metabase.LastSegmentIndex, bucket, encryptedPath)
 	if err != nil {
 		return nil, err
@@ -921,6 +921,11 @@ func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bu
 			CipherSuite: pb.CipherSuite(streamMeta.EncryptionType),
 			BlockSize:   int64(streamMeta.EncryptionBlockSize),
 		},
+	}
+
+	// don't return redundancy scheme if feature flag RedundancySchemePerSegment is set
+	if rsPerSegment {
+		return object, nil
 	}
 
 	if pointer.Remote != nil {
@@ -1697,6 +1702,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 			EncryptedKeyNonce: encryptedKeyNonce,
 			EncryptedKey:      encryptedKey,
+			RedundancyScheme:  pointer.Remote.Redundancy,
 		}, nil
 	}
 
