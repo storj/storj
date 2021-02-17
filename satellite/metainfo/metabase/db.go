@@ -86,6 +86,12 @@ func (db *DB) MigrateToLatest(ctx context.Context) error {
 	return migration.Run(ctx, db.log.Named("migrate"))
 }
 
+// CheckVersion checks the database is the correct version.
+func (db *DB) CheckVersion(ctx context.Context) error {
+	migration := db.PostgresMigration()
+	return migration.ValidateVersions(ctx, db.log)
+}
+
 // PostgresMigration returns steps needed for migrating postgres database.
 func (db *DB) PostgresMigration() *migrate.Migration {
 	// TODO: merge this with satellite migration code or a way to keep them in sync.

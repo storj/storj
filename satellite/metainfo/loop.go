@@ -220,7 +220,7 @@ func (loop *Loop) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for {
-		err := loop.runOnce(ctx)
+		err := loop.RunOnce(ctx)
 		if err != nil {
 			return err
 		}
@@ -233,8 +233,10 @@ func (loop *Loop) Close() (err error) {
 	return nil
 }
 
-// runOnce goes through metainfo one time and sends information to observers.
-func (loop *Loop) runOnce(ctx context.Context) (err error) {
+// RunOnce goes through metainfo one time and sends information to observers.
+//
+// It is not safe to call this concurrently with Run.
+func (loop *Loop) RunOnce(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var observers []*observerContext
