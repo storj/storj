@@ -19,6 +19,58 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
+func TestGracefulexitDB_DeleteFinishedExitProgress(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 6,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		geDB := planet.Satellites[0].DB.GracefulExit()
+
+		days := 6
+		currentTime := time.Now().UTC()
+		// Set timestamp back by the number of days we want to save
+		timestamp := currentTime.AddDate(0, 0, -days).Truncate(time.Millisecond)
+
+		for i := 0; i < days; i++ {
+			nodeID := planet.StorageNodes[i].ID()
+			err := geDB.IncrementProgress(ctx, nodeID, 100, 100, 100)
+			require.NoError(t, err)
+
+			_, err = satellite.Overlay.DB.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
+				NodeID:         nodeID,
+				ExitFinishedAt: timestamp,
+			})
+			require.NoError(t, err)
+
+			// Advance time by 24 hours
+			timestamp = timestamp.Add(time.Hour * 24)
+		}
+		threeDays := currentTime.AddDate(0, 0, -days/2).Add(-time.Millisecond)
+		finishedNodes, err := geDB.GetFinishedExitNodes(ctx, threeDays)
+		require.NoError(t, err)
+		require.Len(t, finishedNodes, 3)
+
+		finishedNodes, err = geDB.GetFinishedExitNodes(ctx, currentTime)
+		require.NoError(t, err)
+		require.Len(t, finishedNodes, 6)
+
+		count, err := geDB.DeleteFinishedExitProgress(ctx, threeDays)
+		require.NoError(t, err)
+		require.EqualValues(t, 3, count)
+
+		// Check that first three nodes were removed from exit progress table
+		for i, node := range planet.StorageNodes {
+			progress, err := geDB.GetProgress(ctx, node.ID())
+			if i < 3 {
+				require.True(t, gracefulexit.ErrNodeNotFound.Has(err))
+				require.Nil(t, progress)
+			} else {
+				require.NoError(t, err)
+			}
+		}
+	})
+}
+
 func TestGracefulExit_DeleteAllFinishedTransferQueueItems(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 7,

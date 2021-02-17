@@ -59,6 +59,11 @@ type DB interface {
 	// queue items whose nodes have finished the exit before the indicated time
 	// returning the total number of deleted items.
 	DeleteAllFinishedTransferQueueItems(ctx context.Context, before time.Time) (count int64, err error)
+	// DeleteFinishedExitProgress deletes exit progress entries for nodes that
+	// finished exiting before the indicated time, returns number of deleted entries.
+	DeleteFinishedExitProgress(ctx context.Context, before time.Time) (count int64, err error)
+	// GetFinishedExitNodes gets nodes that are marked having finished graceful exit before a given time.
+	GetFinishedExitNodes(ctx context.Context, before time.Time) (finishedNodes []storj.NodeID, err error)
 	// GetTransferQueueItem gets a graceful exit transfer queue entry.
 	GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, key metabase.SegmentKey, pieceNum int32) (*TransferQueueItem, error)
 	// GetIncomplete gets incomplete graceful exit transfer queue entries ordered by durability ratio and queued date ascending.
