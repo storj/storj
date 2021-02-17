@@ -823,7 +823,7 @@ func (endpoint *Endpoint) commitObject(ctx context.Context, req *pb.ObjectCommit
 	return &pb.ObjectCommitResponse{}, nil
 }
 
-// GetObject gets single object.
+// GetObject gets single object metadata.
 func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetRequest) (resp *pb.ObjectGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -847,25 +847,11 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	object, err := endpoint.getObject(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedPath, req.Version)
-	if err != nil {
-		return nil, err
-	}
-
-	endpoint.log.Info("Object Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "object"))
-	mon.Meter("req_get_object").Mark(1)
-
-	return &pb.ObjectGetResponse{
-		Object: object,
-	}, nil
-}
-
-func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bucket, encryptedPath []byte, version int32) (*pb.Object, error) {
-	metaObject, err := endpoint.metainfo.metabaseDB.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
+	mbObject, err := endpoint.metainfo.metabaseDB.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
 		ObjectLocation: metabase.ObjectLocation{
-			ProjectID:  projectID,
-			BucketName: string(bucket),
-			ObjectKey:  metabase.ObjectKey(encryptedPath),
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(req.Bucket),
+			ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
 		},
 	})
 	if err != nil {
@@ -876,10 +862,12 @@ func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bu
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	rs := endpoint.defaultRS
-	if metaObject.SegmentCount > 0 {
+	var segmentRS *pb.RedundancyScheme
+	// TODO we may try to avoid additional request for inline objects
+	if !req.RedundancySchemePerSegment && mbObject.SegmentCount > 0 {
+		segmentRS = endpoint.defaultRS
 		segment, err := endpoint.metainfo.metabaseDB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
-			StreamID: metaObject.StreamID,
+			StreamID: mbObject.StreamID,
 			Position: metabase.SegmentPosition{
 				Index: 0,
 			},
@@ -888,7 +876,7 @@ func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bu
 			// don't fail because its possible that its multipart object
 			endpoint.log.Error("internal", zap.Error(err))
 		} else {
-			rs = &pb.RedundancyScheme{
+			segmentRS = &pb.RedundancyScheme{
 				Type:             pb.RedundancyScheme_SchemeType(segment.Redundancy.Algorithm),
 				ErasureShareSize: segment.Redundancy.ShareSize,
 
@@ -898,15 +886,21 @@ func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bu
 				Total:            int32(segment.Redundancy.TotalShares),
 			}
 		}
+
+		// monitor how many uplinks is still using this additional code
+		mon.Meter("req_get_object_rs_per_object").Mark(1)
 	}
 
-	object, err := endpoint.objectToProto(ctx, metaObject, rs)
+	object, err := endpoint.objectToProto(ctx, mbObject, segmentRS)
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	return object, nil
+	endpoint.log.Info("Object Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "object"))
+	mon.Meter("req_get_object").Mark(1)
+
+	return &pb.ObjectGetResponse{Object: object}, nil
 }
 
 // ListObjects list objects according to specific parameters.
@@ -1872,6 +1866,15 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 		EncryptedKeyNonce: encryptedKeyNonce,
 		EncryptedKey:      segment.EncryptedKey,
+		RedundancyScheme: &pb.RedundancyScheme{
+			Type:             pb.RedundancyScheme_SchemeType(segment.Redundancy.Algorithm),
+			ErasureShareSize: segment.Redundancy.ShareSize,
+
+			MinReq:           int32(segment.Redundancy.RequiredShares),
+			RepairThreshold:  int32(segment.Redundancy.RepairShares),
+			SuccessThreshold: int32(segment.Redundancy.OptimalShares),
+			Total:            int32(segment.Redundancy.TotalShares),
+		},
 	}, nil
 }
 
