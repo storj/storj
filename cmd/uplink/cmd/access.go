@@ -49,7 +49,7 @@ func init() {
 
 	inspectCmd := &cobra.Command{
 		Use:   "inspect [ACCESS]",
-		Short: "Inspect allows you to explode a serialized access into it's constituent parts.",
+		Short: "Inspect allows you to explode a serialized access into its constituent parts.",
 		RunE:  accessInspect,
 		Args:  cobra.MaximumNArgs(1),
 	}
