@@ -416,7 +416,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # orders.expiration: 48h0m0s
 
 # how many items in the rollups write cache before they are flushed to the database
-# orders.flush-batch-size: 10000
+# orders.flush-batch-size: 1000
 
 # how often to flush the rollups write cache to the database
 # orders.flush-interval: 1m0s
