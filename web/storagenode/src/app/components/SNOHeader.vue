@@ -164,12 +164,12 @@ export default class SNOHeader extends Vue {
     public async onRefresh(): Promise<void> {
         await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, true);
 
-        const selectedSatellite = this.$store.state.node.selectedSatellite.id;
+        const selectedSatelliteId = this.$store.state.node.selectedSatellite.id;
         await this.$store.dispatch(APPSTATE_ACTIONS.SET_NO_PAYOUT_DATA, false);
 
         try {
             await this.$store.dispatch(GET_NODE_INFO);
-            await this.$store.dispatch(SELECT_SATELLITE, selectedSatellite);
+            await this.$store.dispatch(SELECT_SATELLITE, selectedSatelliteId);
         } catch (error) {
             console.error(`${error.message} satellite data.`);
         }
@@ -189,7 +189,7 @@ export default class SNOHeader extends Vue {
         await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
 
         try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_INFO, selectedSatellite);
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_INFO, selectedSatelliteId);
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
         } catch (error) {
             console.error(error.message);

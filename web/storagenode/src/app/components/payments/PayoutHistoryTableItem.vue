@@ -18,7 +18,7 @@
                     <div class="payout-history-item__expanded-area__left-area__info-area">
                         <div class="payout-history-item__expanded-area__left-area__info-area__item flex-start">
                             <p class="payout-history-item__expanded-area__left-area__info-area__item__label extra-margin">Node Age</p>
-                            <p class="payout-history-item__expanded-area__left-area__info-area__item__value">{{ historyItem.age }} Month</p>
+                            <p class="payout-history-item__expanded-area__left-area__info-area__item__value">{{ `${historyItem.age} Month${historyItem.age > 1 ? 's' : ''}` }}</p>
                         </div>
                         <div class="payout-history-item__expanded-area__left-area__info-area__item flex-start">
                             <p class="payout-history-item__expanded-area__left-area__info-area__item__label extra-margin">Earned</p>
@@ -77,6 +77,10 @@
                     <div class="payout-history-item__expanded-area__right-area__info-item">
                         <p class="payout-history-item__expanded-area__right-area__info-item__label">Held Returned</p>
                         <p class="payout-history-item__expanded-area__right-area__info-item__value">{{ historyItem.disposed | centsToDollars }}</p>
+                    </div>
+                    <div class="payout-history-item__expanded-area__right-area__info-item">
+                        <p class="payout-history-item__expanded-area__right-area__info-item__label">Distributed</p>
+                        <p class="payout-history-item__expanded-area__right-area__info-item__value">{{ historyItem.distributed | centsToDollars }}</p>
                     </div>
                     <div class="payout-history-item__expanded-area__right-area__divider"></div>
                     <div class="payout-history-item__expanded-area__right-area__footer">

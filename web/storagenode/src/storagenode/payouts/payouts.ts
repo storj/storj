@@ -137,6 +137,7 @@ export class TotalPaystubForPeriod {
     public paid: number = 0;
     public paidWithoutSurge: number = 0;
     public grossWithSurge: number = 0;
+    public distributed: number = 0;
 
     public constructor(
         paystubs: Paystub[] = [],
@@ -161,6 +162,7 @@ export class TotalPaystubForPeriod {
             this.surgePercent = paystub.surgePercent;
             this.paidWithoutSurge += this.convertToCents(paystub.paid + paystub.held - paystub.disposed) / paystub.surgeMultiplier;
             this.grossWithSurge += this.convertToCents(paystub.paid + paystub.held - paystub.disposed);
+            this.distributed += this.convertToCents(paystub.distributed);
         });
     }
 
@@ -276,6 +278,7 @@ export class SatellitePayoutForPeriod {
         public receipt: string = '',
         public isExitComplete: boolean = false,
         public heldPercent: number = 0,
+        public distributed: number = 0,
     ) {
         this.earned = this.convertToCents(this.earned);
         this.surge = this.convertToCents(this.surge);
@@ -283,6 +286,7 @@ export class SatellitePayoutForPeriod {
         this.afterHeld = this.convertToCents(this.afterHeld);
         this.disposed = this.convertToCents(this.disposed);
         this.paid = this.convertToCents(this.paid);
+        this.distributed = this.convertToCents(this.distributed);
     }
 
     public get transactionLink(): string {

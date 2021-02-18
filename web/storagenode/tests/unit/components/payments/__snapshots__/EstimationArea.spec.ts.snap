@@ -131,6 +131,7 @@ exports[`EstimationArea renders correctly with actual values and current period 
         <p class="estimation-table-container__net-total-area__text">$8000000.00</p>
       </div>
     </div>
+    <!---->
   </div>
   <!---->
   <!---->
@@ -268,6 +269,7 @@ exports[`EstimationArea renders correctly with actual values and current period 
         <p class="estimation-table-container__net-total-area__text">$800000.00</p>
       </div>
     </div>
+    <!---->
   </div>
   <div class="estimation-container__payout-area">
     <div class="estimation-container__payout-area__left-area">
@@ -415,6 +417,21 @@ exports[`EstimationArea renders correctly with actual values and historical peri
       <div class="column justify-end column-6">
         <p class="estimation-table-container__net-total-area__text">$0.56</p>
       </div>
+    </div>
+    <div class="estimation-table-container__distributed-area">
+      <div class="estimation-table-container__distributed-area__left-area">
+        <p class="estimation-table-container__distributed-area__text">Distributed</p>
+        <div class="estimation-table-container__distributed-area__info-area">
+          <checksinfoicon-stub alt="Info icon with question mark" class="checks-area-image"></checksinfoicon-stub>
+          <div class="tooltip" style="display: none;">
+            <div class="tooltip__text-area">
+              <p class="tooltip__text-area__text">If you see $0.00 as your distributed amount, you didn’t reach the minimum payout threshold. Your payout will be distributed along with one of the payouts in the upcoming payout cycles. If you see a distributed amount higher than expected, it means this month you were paid undistributed payouts from previous months in addition to this month’s payout.</p>
+            </div>
+            <div class="tooltip__footer"></div>
+          </div>
+        </div>
+      </div>
+      <p class="estimation-table-container__distributed-area__text">$0.33</p>
     </div>
   </div>
   <!---->
@@ -578,6 +595,7 @@ exports[`EstimationArea renders correctly with actual values and previous period
         <p class="estimation-table-container__net-total-area__text">$8000000.00</p>
       </div>
     </div>
+    <!---->
   </div>
   <!---->
   <!---->
