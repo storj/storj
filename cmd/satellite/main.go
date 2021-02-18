@@ -806,6 +806,12 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 			log.Error("unable to connect", zap.String("Node ID", node.ID.String()), zap.Error(err))
 			return
 		}
+		defer func() {
+			err := conn.Close()
+			if err != nil {
+				log.Error("close failure", zap.String("Node ID", node.ID.String()), zap.Error(err))
+			}
+		}()
 
 		client := pb.NewDRPCPiecestoreClient(conn)
 		_, err = client.RestoreTrash(ctx, &pb.RestoreTrashRequest{})
