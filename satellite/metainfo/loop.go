@@ -291,50 +291,22 @@ func iterateDatabase(ctx context.Context, db PointerDB, bucketsDB BucketsDB, met
 		finishObservers(observers)
 	}()
 
-	more := true
-	bucketsCursor := ListAllBucketsCursor{}
-	for more {
-		buckets, err := bucketsDB.ListAllBuckets(ctx, ListAllBucketsOptions{
-			Cursor: bucketsCursor,
-			Limit:  limit,
-		})
-		if err != nil {
-			return LoopError.Wrap(err)
-		}
-
-		for _, bucket := range buckets.Items {
-			observers, err = iterateObjects(ctx, bucket.ProjectID, bucket.Name, metabaseDB, observers, limit, rateLimiter)
-			if err != nil {
-				return LoopError.Wrap(err)
-			}
-		}
-
-		// if context has been canceled exit. Otherwise, continue
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-
-		more = buckets.More
-		if more {
-			lastBucket := buckets.Items[len(buckets.Items)-1]
-			bucketsCursor.ProjectID = lastBucket.ProjectID
-			bucketsCursor.BucketName = []byte(lastBucket.Name)
-		}
+	observers, err = iterateObjects(ctx, metabaseDB, observers, limit, rateLimiter)
+	if err != nil {
+		return LoopError.Wrap(err)
 	}
+
 	return err
 }
 
-func iterateObjects(ctx context.Context, projectID uuid.UUID, bucket string, metabaseDB MetabaseDB, observers []*observerContext, limit int, rateLimiter *rate.Limiter) (_ []*observerContext, err error) {
+func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*observerContext, limit int, rateLimiter *rate.Limiter) (_ []*observerContext, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO we should improve performance here, this is just most straightforward solution
-
-	err = metabaseDB.IterateObjectsAllVersions(ctx, metabase.IterateObjects{
-		ProjectID:  projectID,
-		BucketName: bucket,
-		BatchSize:  limit,
-	}, func(ctx context.Context, it metabase.ObjectsIterator) error {
-		var entry metabase.ObjectEntry
+	err = metabaseDB.FullIterateObjects(ctx, metabase.FullIterateObjects{
+		BatchSize: limit,
+	}, func(ctx context.Context, it metabase.FullObjectsIterator) error {
+		var entry metabase.FullObjectEntry
 		for it.Next(ctx, &entry) {
 			if err := rateLimiter.Wait(ctx); err != nil {
 				// We don't really execute concurrent batches so we should never
@@ -345,12 +317,7 @@ func iterateObjects(ctx context.Context, projectID uuid.UUID, bucket string, met
 
 			nextObservers := observers[:0]
 			for _, observer := range observers {
-				location := metabase.ObjectLocation{
-					ProjectID:  projectID,
-					BucketName: bucket,
-					ObjectKey:  entry.ObjectKey,
-				}
-				keepObserver := handleObject(ctx, observer, location, entry)
+				keepObserver := handleObject(ctx, observer, entry)
 				if keepObserver {
 					nextObservers = append(nextObservers, observer)
 				}
@@ -388,8 +355,8 @@ func iterateObjects(ctx context.Context, projectID uuid.UUID, bucket string, met
 				for _, segment := range segments.Segments {
 					nextObservers := observers[:0]
 					location := metabase.SegmentLocation{
-						ProjectID:  projectID,
-						BucketName: bucket,
+						ProjectID:  entry.ProjectID,
+						BucketName: entry.BucketName,
 						ObjectKey:  entry.ObjectKey,
 						Position:   segment.Position,
 					}
@@ -424,14 +391,14 @@ func iterateObjects(ctx context.Context, projectID uuid.UUID, bucket string, met
 	return observers, err
 }
 
-func handleObject(ctx context.Context, observer *observerContext, location metabase.ObjectLocation, object metabase.ObjectEntry) bool {
+func handleObject(ctx context.Context, observer *observerContext, object metabase.FullObjectEntry) bool {
 	expirationDate := time.Time{}
 	if object.ExpiresAt != nil {
 		expirationDate = *object.ExpiresAt
 	}
 
 	if observer.HandleError(observer.Object(ctx, &Object{
-		Location:       location,
+		Location:       object.Location(),
 		StreamID:       object.StreamID,
 		SegmentCount:   int(object.SegmentCount),
 		MetadataSize:   len(object.EncryptedMetadata),
