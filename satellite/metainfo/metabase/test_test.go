@@ -373,6 +373,17 @@ func (coll *IterateCollector) Add(ctx context.Context, it metabase.ObjectsIterat
 	return nil
 }
 
+type FullIterateCollector []metabase.FullObjectEntry
+
+func (coll *FullIterateCollector) Add(ctx context.Context, it metabase.FullObjectsIterator) error {
+	var item metabase.FullObjectEntry
+
+	for it.Next(ctx, &item) {
+		*coll = append(*coll, item)
+	}
+	return nil
+}
+
 type IterateObjects struct {
 	Opts metabase.IterateObjects
 
@@ -430,6 +441,24 @@ func (step IterateObjectsWithStatus) Check(ctx *testcontext.Context, t testing.T
 	checkError(t, err, step.ErrClass, step.ErrText)
 
 	diff := cmp.Diff(step.Result, []metabase.ObjectEntry(result), cmpopts.EquateApproxTime(5*time.Second))
+	require.Zero(t, diff)
+}
+
+type FullIterateObjects struct {
+	Opts metabase.FullIterateObjects
+
+	Result   []metabase.FullObjectEntry
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+func (step FullIterateObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	var result FullIterateCollector
+
+	err := db.FullIterateObjects(ctx, step.Opts, result.Add)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, []metabase.FullObjectEntry(result), cmpopts.EquateApproxTime(5*time.Second))
 	require.Zero(t, diff)
 }
 
