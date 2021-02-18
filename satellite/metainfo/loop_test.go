@@ -109,6 +109,40 @@ func TestLoop(t *testing.T) {
 	})
 }
 
+func TestLoop_AllData(t *testing.T) {
+	segmentSize := 8 * memory.KiB
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 4,
+		UplinkCount:      3,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.Loop.CoalesceDuration = 1 * time.Second
+				config.Metainfo.Loop.ListLimit = 2
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		bucketNames := strings.Split("abc", "")
+
+		data := testrand.Bytes(segmentSize)
+		for _, up := range planet.Uplinks {
+			for _, bucketName := range bucketNames {
+				err := up.Upload(ctx, planet.Satellites[0], "zzz"+bucketName, "1", data)
+				require.NoError(t, err)
+			}
+		}
+
+		metaLoop := planet.Satellites[0].Metainfo.Loop
+
+		obs := newTestObserver(nil)
+		err := metaLoop.Join(ctx, obs)
+		require.NoError(t, err)
+
+		gotItems := len(obs.uniquePaths)
+		require.Equal(t, len(bucketNames)*len(planet.Uplinks), gotItems)
+	})
+}
+
 // TestLoopObserverCancel does the following:
 // * upload 3 remote segments
 // * hook three observers up to metainfo loop
