@@ -14,10 +14,10 @@ import (
 //
 // architecture: Observer
 type Counter struct {
+	ObjectCount     int64
 	RemoteDependent int64
-	Inline          int64
-	Total           int64
-	streamIDCursor  uuid.UUID
+
+	checkObjectRemoteness uuid.UUID
 }
 
 // NewCounter instantiates a new counter to be subscribed to the metainfo loop.
@@ -29,19 +29,8 @@ func NewCounter() *Counter {
 func (counter *Counter) Object(ctx context.Context, object *metainfo.Object) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	counter.Total++
-
-	if object.SegmentCount == 0 {
-		counter.Inline++
-		return nil
-	}
-
-	if !counter.streamIDCursor.IsZero() {
-		return Error.New("unexpected cursor: wants zero, got %s", counter.streamIDCursor.String())
-	}
-
-	counter.streamIDCursor = object.StreamID
-
+	counter.ObjectCount++
+	counter.checkObjectRemoteness = object.StreamID
 	return nil
 }
 
@@ -49,38 +38,20 @@ func (counter *Counter) Object(ctx context.Context, object *metainfo.Object) (er
 func (counter *Counter) RemoteSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if counter.streamIDCursor.IsZero() {
-		return nil
+	if counter.checkObjectRemoteness == segment.StreamID {
+		counter.RemoteDependent++
+		// we need to count this only once
+		counter.checkObjectRemoteness = uuid.UUID{}
 	}
-
-	if counter.streamIDCursor != segment.StreamID {
-		return Error.New("unexpected cursor: wants %s, got %s", segment.StreamID.String(), counter.streamIDCursor.String())
-	}
-
-	counter.RemoteDependent++
-
-	// reset the cursor to ensure we don't count multi-segment objects more than once.
-	counter.streamIDCursor = uuid.UUID{}
-
 	return nil
 }
 
 // InlineSegment increments the count for inline objects.
 func (counter *Counter) InlineSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if counter.streamIDCursor.IsZero() {
-		return nil
-	}
-
-	if counter.streamIDCursor != segment.StreamID {
-		return Error.New("unexpected cursor: wants %s, got %s", segment.StreamID.String(), counter.streamIDCursor.String())
-	}
-
-	counter.Inline++
-
-	// reset the cursor to ensure we don't count multi-segment objects more than once.
-	counter.streamIDCursor = uuid.UUID{}
-
 	return nil
+}
+
+// InlineObjectCount returns the count of objects that are inline only.
+func (counter *Counter) InlineObjectCount() int64 {
+	return counter.ObjectCount - counter.RemoteDependent
 }
