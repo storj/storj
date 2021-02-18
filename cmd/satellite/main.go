@@ -18,6 +18,9 @@ import (
 
 	"storj.io/common/context2"
 	"storj.io/common/fpath"
+	"storj.io/common/pb"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/private/cfgstruct"
@@ -765,8 +768,50 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 		err = errs.Combine(err, db.Close())
 	}()
 
+	identity, err := runCfg.Identity.Load()
+	if err != nil {
+		log.Error("Failed to load identity.", zap.Error(err))
+		return errs.New("Failed to load identity: %+v", err)
+	}
+
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, runCfg.Server.Config)
+	if err != nil {
+		return errs.New("Error creating revocation database: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, revocationDB.Close())
+	}()
+
+	tlsOptions, err := tlsopts.NewOptions(identity, runCfg.Server.Config, revocationDB)
+	if err != nil {
+		return err
+	}
+
+	dialer := rpc.NewDefaultDialer(tlsOptions)
+
+	var successes, failures int64
+
 	undelete := func(ctx context.Context, node *overlay.SelectedNode) error {
-		// TODO
+		conn, err := dialer.DialNodeURL(ctx, storj.NodeURL{
+			ID:      node.ID,
+			Address: node.Address.Address, // TODO is this correct field?
+		})
+		if err != nil {
+			failures++
+			log.Error("unable to connect", zap.String("Node ID", node.ID.String()), zap.Error(err))
+			return nil
+		}
+
+		client := pb.NewDRPCPiecestoreClient(conn)
+		_, err = client.RestoreTrash(ctx, &pb.RestoreTrashRequest{})
+		if err != nil {
+			failures++
+			log.Error("unable to restore trash", zap.String("Node ID", node.ID.String()), zap.Error(err))
+			return nil
+		}
+
+		successes++
+		log.Info("successful restore trash", zap.String("Node ID", node.ID.String()))
 		return nil
 	}
 
@@ -807,6 +852,7 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	log.Sugar().Infof("restore trash complete. %d successes, %d failures", successes, failures)
 	return nil
 }
 
