@@ -70,6 +70,10 @@ func (service *Service) SatellitePayStubMonthly(ctx context.Context, satelliteID
 
 	payStub, err = service.db.GetPayStub(ctx, satelliteID, period)
 	if err != nil {
+		if ErrNoPayStubForPeriod.Has(err) {
+			return nil, nil
+		}
+
 		return nil, ErrPayoutService.Wrap(err)
 	}
 
@@ -304,6 +308,7 @@ func (service *Service) AllSatellitesPayoutPeriod(ctx context.Context, period st
 		payoutForPeriod.SurgePercent = paystub.SurgePercent
 		payoutForPeriod.Paid = paystub.Paid
 		payoutForPeriod.HeldPercent = heldPercent
+		payoutForPeriod.Distributed = paystub.Distributed
 
 		result = append(result, payoutForPeriod)
 	}

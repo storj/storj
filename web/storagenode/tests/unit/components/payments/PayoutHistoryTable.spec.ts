@@ -28,10 +28,10 @@ describe('PayoutHistoryTable', (): void => {
     it('renders correctly with actual values', async (): Promise<void> => {
         await store.commit(PAYOUT_MUTATIONS.SET_PAYOUT_HISTORY, [
             new SatellitePayoutForPeriod('1', 'name1', 1, 100000, 1200000, 140,
-                500000, 600000, 200000, 800000, 'receipt1', false,
+                500000, 600000, 200000, 800000, 'receipt1', false, 400000,
             ),
             new SatellitePayoutForPeriod('2', 'name2', 16, 100000, 1200000, 140,
-                500000, 600000, 200000, 800000, 'receipt2', true,
+                500000, 600000, 200000, 800000, 'receipt2', true, 400000,
             ),
         ]);
 

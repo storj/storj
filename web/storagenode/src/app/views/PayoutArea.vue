@@ -14,8 +14,8 @@
             <p class="payout-area-container__section-title">Balance</p>
             <section class="payout-area-container__balance-area">
                 <div class="row">
-                    <SingleInfo width="48%" label="Node Operator Balance" :value="balance | centsToDollars" info-text="You need to earn the minimum withdrawal amount so that we can transfer the entire amount to the wallet at the end of the month, otherwise it will remain on your balance for the next month or until you accumulate the minimum withdrawal amount" />
-                    <SingleInfo width="48%" :label="`Clean earnings, ${currentPeriod}`" :value="currentMonthExpectations | centsToDollars" info-text="Estimated payout at the end of the month. This is only an estimate and may nor reflect actual payout amount." />
+                    <SingleInfo width="48%" label="Undistributed payout" :value="balance | centsToDollars" info-text="You need to earn the minimum withdrawal amount so that we can transfer the entire amount to the wallet at the end of the month, otherwise it will remain on your balance for the next month or until you accumulate the minimum withdrawal amount" />
+                    <SingleInfo width="48%" label="Estimated earning this month" :value="currentMonthExpectations | centsToDollars" info-text="Estimated payout at the end of the month. This is only an estimate and may not reflect actual payout amount." />
                 </div>
             </section>
             <p class="payout-area-container__section-title">Payout</p>
@@ -140,18 +140,6 @@ export default class PayoutArea extends Vue {
 
     public get payoutPeriods(): PayoutPeriod[] {
         return this.$store.state.payoutModule.payoutPeriods;
-    }
-
-    /**
-     * Returns formatted selected payout period.
-     */
-    public get currentPeriod(): string {
-        const start: PayoutPeriod = this.$store.state.payoutModule.periodRange.start;
-        const end: PayoutPeriod = this.$store.state.payoutModule.periodRange.end;
-
-        return start && start.period !== end.period ?
-            `${monthNames[start.month].slice(0, 3)} ${start.year} - ${monthNames[end.month].slice(0, 3)} ${end.year}`
-            : `${monthNames[end.month].slice(0, 3)} ${end.year}`;
     }
 
     public get currentMonthExpectations(): number {

@@ -169,6 +169,7 @@ describe('EstimationArea', (): void => {
         paystub.held = 777777;
         paystub.paid = 555555;
         paystub.surgePercent = 300;
+        paystub.distributed = 333333;
         const totalPaystubForPeriod = new TotalPaystubForPeriod([paystub]);
 
         await store.commit(PAYOUT_MUTATIONS.SET_PERIODS, [payoutPeriod]);

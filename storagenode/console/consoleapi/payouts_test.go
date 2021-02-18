@@ -75,7 +75,7 @@ func TestHeldAmountApi(t *testing.T) {
 
 				paystub.UsageAtRest /= 720
 
-				expected, err := json.Marshal([]payouts.PayStub{paystub})
+				expected, err := json.Marshal(paystub)
 				require.NoError(t, err)
 
 				defer func() {
@@ -92,7 +92,7 @@ func TestHeldAmountApi(t *testing.T) {
 				res2, err := http.Get(url)
 				require.NoError(t, err)
 				require.NotNil(t, res2)
-				require.Equal(t, http.StatusNotFound, res2.StatusCode)
+				require.Equal(t, http.StatusOK, res2.StatusCode)
 
 				defer func() {
 					err = res2.Body.Close()
@@ -101,7 +101,7 @@ func TestHeldAmountApi(t *testing.T) {
 				body2, err := ioutil.ReadAll(res2.Body)
 				require.NoError(t, err)
 
-				expected = []byte("{\"error\":\"payouts console web error: payouts service error: no payStub for period error: sql: no rows in result set\"}\n")
+				expected = []byte("null\n")
 				require.Equal(t, expected, body2)
 
 				// should return 400 cause of wrong satellite id.
