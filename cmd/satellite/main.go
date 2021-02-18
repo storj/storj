@@ -34,6 +34,7 @@ import (
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -231,6 +232,13 @@ var (
 		Long:  "Cleanup Graceful Exit data which is lingering in the transfer queue DB table on nodes which has finished the exit.",
 		RunE:  cmdConsistencyGECleanup,
 	}
+	restoreTrashCmd = &cobra.Command{
+		Use:   "restore-trash [node-id-1 node-id-2 node-id-3 ...]",
+		Short: "Restore trash",
+		Long: "Tell storage nodes to undo garbage collection. " +
+			"If node ids aren't provided, *all* nodes are used.",
+		RunE: cmdRestoreTrash,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -293,6 +301,7 @@ func init() {
 	rootCmd.AddCommand(compensationCmd)
 	rootCmd.AddCommand(billingCmd)
 	rootCmd.AddCommand(consistencyCmd)
+	rootCmd.AddCommand(restoreTrashCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(reportsGracefulExitCmd)
@@ -313,6 +322,7 @@ func init() {
 	process.Bind(runAdminCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runRepairerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runGCCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(restoreTrashCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -741,6 +751,63 @@ func cmdConsistencyGECleanup(cmd *cobra.Command, args []string) error {
 	}
 
 	return cleanupGEOrphanedData(ctx, before.UTC())
+}
+
+func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
+	ctx, _ := process.Ctx(cmd)
+	log := zap.L()
+
+	db, err := satellitedb.Open(ctx, log.Named("restore-trash"), runCfg.Database, satellitedb.Options{ApplicationName: "satellite-restore-trash"})
+	if err != nil {
+		return errs.New("Error creating new master database connection: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, db.Close())
+	}()
+
+	undelete := func(ctx context.Context, node *overlay.SelectedNode) error {
+		// TODO
+		return nil
+	}
+
+	if len(args) == 0 {
+		var nodes []*overlay.SelectedNode
+		err = db.OverlayCache().IterateAllNodes(ctx, func(ctx context.Context, node *overlay.SelectedNode) error {
+			nodes = append(nodes, node)
+			return nil
+		})
+		for _, node := range nodes {
+			err = undelete(ctx, node)
+			if err != nil {
+				return err
+			}
+		}
+		if err != nil {
+			return err
+		}
+	} else {
+		for _, nodeid := range args {
+			parsedNodeID, err := storj.NodeIDFromString(nodeid)
+			if err != nil {
+				return err
+			}
+			dossier, err := db.OverlayCache().Get(ctx, parsedNodeID)
+			if err != nil {
+				return err
+			}
+			err = undelete(ctx, &overlay.SelectedNode{
+				ID:         dossier.Id,
+				Address:    dossier.Address,
+				LastNet:    dossier.LastNet,
+				LastIPPort: dossier.LastIPPort,
+			})
+			if err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }
 
 func main() {
