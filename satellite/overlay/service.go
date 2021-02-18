@@ -104,7 +104,7 @@ type DB interface {
 	// AuditHistoryDB includes operations for interfacing with the audit history table.
 	AuditHistoryDB
 
-	// IterateAllNodes will call cb on all known nodes (used in restore trash contexts)
+	// IterateAllNodes will call cb on all known nodes (used in restore trash contexts).
 	IterateAllNodes(context.Context, func(context.Context, *SelectedNode) error) error
 }
 

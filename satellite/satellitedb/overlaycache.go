@@ -1680,7 +1680,7 @@ func (cache *overlaycache) TestUnvetNode(ctx context.Context, nodeID storj.NodeI
 	return err
 }
 
-// IterateAllNodes will call cb on all known nodes (used in restore trash contexts)
+// IterateAllNodes will call cb on all known nodes (used in restore trash contexts).
 func (cache *overlaycache) IterateAllNodes(ctx context.Context, cb func(context.Context, *overlay.SelectedNode) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

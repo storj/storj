@@ -9,6 +9,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
+	"sync/atomic"
 	"text/tabwriter"
 	"time"
 
@@ -789,30 +791,46 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 
 	dialer := rpc.NewDefaultDialer(tlsOptions)
 
-	var successes, failures int64
+	successes := new(int64)
+	failures := new(int64)
 
-	undelete := func(ctx context.Context, node *overlay.SelectedNode) error {
+	undelete := func(node *overlay.SelectedNode) {
+		log.Info("starting restore trash", zap.String("Node ID", node.ID.String()))
+
 		conn, err := dialer.DialNodeURL(ctx, storj.NodeURL{
 			ID:      node.ID,
-			Address: node.Address.Address, // TODO is this correct field?
+			Address: node.Address.Address,
 		})
 		if err != nil {
-			failures++
+			atomic.AddInt64(failures, 1)
 			log.Error("unable to connect", zap.String("Node ID", node.ID.String()), zap.Error(err))
-			return nil
+			return
 		}
 
 		client := pb.NewDRPCPiecestoreClient(conn)
 		_, err = client.RestoreTrash(ctx, &pb.RestoreTrashRequest{})
 		if err != nil {
-			failures++
+			atomic.AddInt64(failures, 1)
 			log.Error("unable to restore trash", zap.String("Node ID", node.ID.String()), zap.Error(err))
-			return nil
+			return
 		}
 
-		successes++
+		atomic.AddInt64(successes, 1)
 		log.Info("successful restore trash", zap.String("Node ID", node.ID.String()))
-		return nil
+	}
+
+	var wg sync.WaitGroup
+	workQueue := make(chan *overlay.SelectedNode)
+	const workers = 100
+
+	for i := 0; i < workers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for node := range workQueue {
+				undelete(node)
+			}
+		}()
 	}
 
 	if len(args) == 0 {
@@ -821,14 +839,11 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 			nodes = append(nodes, node)
 			return nil
 		})
-		for _, node := range nodes {
-			err = undelete(ctx, node)
-			if err != nil {
-				return err
-			}
-		}
 		if err != nil {
 			return err
+		}
+		for _, node := range nodes {
+			workQueue <- node
 		}
 	} else {
 		for _, nodeid := range args {
@@ -840,19 +855,19 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return err
 			}
-			err = undelete(ctx, &overlay.SelectedNode{
+			workQueue <- &overlay.SelectedNode{
 				ID:         dossier.Id,
 				Address:    dossier.Address,
 				LastNet:    dossier.LastNet,
 				LastIPPort: dossier.LastIPPort,
-			})
-			if err != nil {
-				return err
 			}
 		}
 	}
 
-	log.Sugar().Infof("restore trash complete. %d successes, %d failures", successes, failures)
+	close(workQueue)
+	wg.Wait()
+
+	log.Sugar().Infof("restore trash complete. %d successes, %d failures", *successes, *failures)
 	return nil
 }
 
