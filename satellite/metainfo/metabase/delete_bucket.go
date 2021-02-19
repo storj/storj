@@ -9,6 +9,7 @@ import (
 	"errors"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/tagsql"
 )
 
@@ -37,25 +38,45 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 		batchSize = deleteBatchSizeLimit
 	}
 
+	var query string
+	switch db.implementation {
+	case dbutil.Cockroach:
+		query = `
+		WITH deleted_objects AS (
+			DELETE FROM objects
+			WHERE project_id = $1 AND bucket_name = $2 LIMIT $3
+			RETURNING objects.stream_id
+		)
+		DELETE FROM segments
+		WHERE segments.stream_id in (SELECT deleted_objects.stream_id FROM deleted_objects)
+		RETURNING segments.stream_id, segments.root_piece_id, segments.remote_alias_pieces
+	`
+	case dbutil.Postgres:
+		query = `
+		WITH deleted_objects AS (
+			DELETE FROM objects
+			WHERE stream_id IN (
+				SELECT stream_id FROM objects
+				WHERE project_id = $1 AND bucket_name = $2
+				LIMIT $3
+			)
+			RETURNING objects.stream_id
+		)
+		DELETE FROM segments
+		WHERE segments.stream_id in (SELECT deleted_objects.stream_id FROM deleted_objects)
+		RETURNING segments.stream_id, segments.root_piece_id, segments.remote_alias_pieces
+	`
+	default:
+		return deletedObjectCount, Error.New("invalid dbType: %v", db.implementation)
+	}
+
 	// TODO: fix the count for objects without segments
 
 	var deleteSegments []DeletedSegmentInfo
 	for {
 		deleteSegments = deleteSegments[:0]
-		err = withRows(db.db.Query(ctx, `
-			WITH deleted_objects AS (
-				DELETE FROM objects
-				WHERE stream_id IN (
-					SELECT stream_id FROM objects
-					WHERE project_id = $1 AND bucket_name = $2
-					LIMIT $3
-				)
-				RETURNING objects.stream_id
-			)
-			DELETE FROM segments
-			WHERE segments.stream_id in (SELECT deleted_objects.stream_id FROM deleted_objects)
-			RETURNING segments.stream_id, segments.root_piece_id, segments.remote_alias_pieces
-		`, opts.Bucket.ProjectID, opts.Bucket.BucketName, batchSize))(func(rows tagsql.Rows) error {
+		err = withRows(db.db.Query(ctx, query,
+			opts.Bucket.ProjectID, opts.Bucket.BucketName, batchSize))(func(rows tagsql.Rows) error {
 			ids := map[uuid.UUID]struct{}{} // TODO: avoid map here
 			for rows.Next() {
 				var streamID uuid.UUID
