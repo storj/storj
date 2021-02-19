@@ -260,7 +260,7 @@ func TestLoopCancel(t *testing.T) {
 		metaLoop := metainfo.NewLoop(metainfo.LoopConfig{
 			CoalesceDuration: 1 * time.Second,
 			ListLimit:        10000,
-		}, satellite.Metainfo.Database, satellite.DB.Buckets(), satellite.Metainfo.Metabase)
+		}, satellite.Metainfo.Metabase)
 
 		// create a cancelable context to pass into metaLoop.Run
 		loopCtx, cancel := context.WithCancel(ctx)

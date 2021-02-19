@@ -17,7 +17,6 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/satellitedb"
 )
 
 var mon = monkit.Package()
@@ -28,7 +27,6 @@ var Error = errs.Class("metaloop-benchmark")
 // Bench benchmarks metainfo loop performance.
 type Bench struct {
 	CPUProfile string
-	Database   string
 	MetabaseDB string
 
 	IgnoreVersionMismatch bool
@@ -41,7 +39,6 @@ type Bench struct {
 // BindFlags adds bench flags to the the flagset.
 func (bench *Bench) BindFlags(flag *flag.FlagSet) {
 	flag.StringVar(&bench.CPUProfile, "cpuprofile", "", "write cpu profile to file")
-	flag.StringVar(&bench.Database, "database", "", "connection URL for Database")
 	flag.StringVar(&bench.MetabaseDB, "metabasedb", "", "connection URL for MetabaseDB")
 
 	flag.BoolVar(&bench.IgnoreVersionMismatch, "ignore-version-mismatch", false, "ignore version mismatch")
@@ -56,9 +53,6 @@ func (bench *Bench) BindFlags(flag *flag.FlagSet) {
 // VerifyFlags verifies whether the values provided are valid.
 func (bench *Bench) VerifyFlags() error {
 	var errlist errs.Group
-	if bench.Database == "" {
-		errlist.Add(errors.New("flag '--database' is not set"))
-	}
 	if bench.MetabaseDB == "" {
 		errlist.Add(errors.New("flag '--metabasedb' is not set"))
 	}
@@ -85,29 +79,18 @@ func (bench *Bench) Run(ctx context.Context, log *zap.Logger) (err error) {
 
 	// setup databases
 
-	db, err := satellitedb.Open(ctx, log.Named("db"), bench.Database, satellitedb.Options{
-		ApplicationName: "metainfo-loop-benchmark",
-	})
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	defer func() { _ = db.Close() }()
-
 	mdb, err := metainfo.OpenMetabase(ctx, log.Named("mdb"), bench.MetabaseDB)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 	defer func() { _ = mdb.Close() }()
 
-	checkDatabase := db.CheckVersion(ctx)
 	checkMetabase := mdb.CheckVersion(ctx)
 
-	if checkDatabase != nil || checkMetabase != nil {
-		log.Error("versions skewed",
-			zap.Any("database version", checkDatabase),
-			zap.Any("metabase version", checkMetabase))
+	if checkMetabase != nil {
+		log.Error("versions skewed", zap.Any("metabase version", checkMetabase))
 		if !bench.IgnoreVersionMismatch {
-			return errs.Combine(checkDatabase, checkMetabase)
+			return checkMetabase
 		}
 	}
 
@@ -116,7 +99,7 @@ func (bench *Bench) Run(ctx context.Context, log *zap.Logger) (err error) {
 	var group errs2.Group
 
 	// Passing PointerDB as nil, since metainfo.Loop actually doesn't need it.
-	loop := metainfo.NewLoop(bench.Loop, nil, db.Buckets(), mdb)
+	loop := metainfo.NewLoop(bench.Loop, mdb)
 
 	group.Go(func() error {
 		progress := &ProgressObserver{

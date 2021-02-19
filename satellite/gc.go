@@ -142,8 +142,6 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 		// the metainfo loop will only run when the garbage collection joins (which happens every GarbageCollection.Interval)
 		peer.Metainfo.Loop = metainfo.NewLoop(
 			config.Metainfo.Loop,
-			peer.Metainfo.Database,
-			peer.DB.Buckets(),
 			metabaseDB,
 		)
 		peer.Services.Add(lifecycle.Item{

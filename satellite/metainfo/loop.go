@@ -166,18 +166,14 @@ type LoopConfig struct {
 // architecture: Service
 type Loop struct {
 	config     LoopConfig
-	db         PointerDB
-	bucketsDB  BucketsDB
 	metabaseDB MetabaseDB
 	join       chan []*observerContext
 	done       chan struct{}
 }
 
 // NewLoop creates a new metainfo loop service.
-func NewLoop(config LoopConfig, db PointerDB, bucketsDB BucketsDB, metabaseDB MetabaseDB) *Loop {
+func NewLoop(config LoopConfig, metabaseDB MetabaseDB) *Loop {
 	return &Loop{
-		db:         db,
-		bucketsDB:  bucketsDB,
 		metabaseDB: metabaseDB,
 		config:     config,
 		join:       make(chan []*observerContext),
@@ -262,18 +258,18 @@ waitformore:
 			return ctx.Err()
 		}
 	}
-	return iterateDatabase(ctx, loop.db, loop.bucketsDB, loop.metabaseDB, observers, loop.config.ListLimit, rate.NewLimiter(rate.Limit(loop.config.RateLimit), 1))
+	return iterateDatabase(ctx, loop.metabaseDB, observers, loop.config.ListLimit, rate.NewLimiter(rate.Limit(loop.config.RateLimit), 1))
 }
 
 // IterateDatabase iterates over PointerDB and notifies specified observers about results.
 //
 // It uses 10000 as the lookup limit for iterating.
-func IterateDatabase(ctx context.Context, rateLimit float64, db PointerDB, bucketsDB BucketsDB, metabaseDB MetabaseDB, observers ...Observer) error {
+func IterateDatabase(ctx context.Context, rateLimit float64, metabaseDB MetabaseDB, observers ...Observer) error {
 	obsContexts := make([]*observerContext, len(observers))
 	for i, observer := range observers {
 		obsContexts[i] = newObserverContext(ctx, observer)
 	}
-	return iterateDatabase(ctx, db, bucketsDB, metabaseDB, obsContexts, 10000, rate.NewLimiter(rate.Limit(rateLimit), 1))
+	return iterateDatabase(ctx, metabaseDB, obsContexts, 10000, rate.NewLimiter(rate.Limit(rateLimit), 1))
 }
 
 // Wait waits for run to be finished.
@@ -282,7 +278,7 @@ func (loop *Loop) Wait() {
 	<-loop.done
 }
 
-func iterateDatabase(ctx context.Context, db PointerDB, bucketsDB BucketsDB, metabaseDB MetabaseDB, observers []*observerContext, limit int, rateLimiter *rate.Limiter) (err error) {
+func iterateDatabase(ctx context.Context, metabaseDB MetabaseDB, observers []*observerContext, limit int, rateLimiter *rate.Limiter) (err error) {
 	defer func() {
 		if err != nil {
 			for _, observer := range observers {
