@@ -1841,7 +1841,7 @@ func TestStableUploadID(t *testing.T) {
 
 		beginResp, err := client.BeginObject(ctx, metainfo.BeginObjectParams{
 			Bucket:        []byte("testbucket"),
-			EncryptedPath: []byte("testobject"),
+			EncryptedPath: []byte("a/b/testobject"),
 			EncryptionParameters: storj.EncryptionParameters{
 				CipherSuite: storj.EncAESGCM,
 				BlockSize:   256,
@@ -1849,22 +1849,48 @@ func TestStableUploadID(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		// List the root of the bucket recursively
 		listResp, _, err := client.ListObjects(ctx, metainfo.ListObjectsParams{
-			Bucket: []byte("testbucket"),
-			Status: int32(metabase.Pending),
+			Bucket:    []byte("testbucket"),
+			Status:    int32(metabase.Pending),
+			Recursive: true,
 		})
 		require.NoError(t, err)
 		require.Len(t, listResp, 1)
 		// check that BeginObject and ListObjects return the same StreamID.
 		assert.Equal(t, beginResp.StreamID, listResp[0].StreamID)
 
+		// List with prefix non-recursively
 		listResp2, _, err := client.ListObjects(ctx, metainfo.ListObjectsParams{
-			Bucket: []byte("testbucket"),
-			Status: int32(metabase.Pending),
+			Bucket:          []byte("testbucket"),
+			Status:          int32(metabase.Pending),
+			EncryptedPrefix: []byte("a/b/"),
 		})
 		require.NoError(t, err)
 		require.Len(t, listResp2, 1)
-		// check that the two list results return the same StreamID.
+		// check that the StreamID is still the same.
 		assert.Equal(t, listResp[0].StreamID, listResp2[0].StreamID)
+
+		// List with prefix recursively
+		listResp3, _, err := client.ListObjects(ctx, metainfo.ListObjectsParams{
+			Bucket:          []byte("testbucket"),
+			Status:          int32(metabase.Pending),
+			EncryptedPrefix: []byte("a/b/"),
+			Recursive:       true,
+		})
+		require.NoError(t, err)
+		require.Len(t, listResp3, 1)
+		// check that the StreamID is still the same.
+		assert.Equal(t, listResp[0].StreamID, listResp3[0].StreamID)
+
+		// List the pending object directly
+		listResp4, err := client.ListPendingObjectStreams(ctx, metainfo.ListPendingObjectStreamsParams{
+			Bucket:        []byte("testbucket"),
+			EncryptedPath: []byte("a/b/testobject"),
+		})
+		require.NoError(t, err)
+		require.Len(t, listResp4.Items, 1)
+		// check that the StreamID is still the same.
+		assert.Equal(t, listResp[0].StreamID, listResp4.Items[0].StreamID)
 	})
 }

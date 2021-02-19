@@ -976,7 +976,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 			entry := metabase.ObjectEntry{}
 			for len(resp.Items) < limit && it.Next(ctx, &entry) {
-				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry)
+				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix)
 				if err != nil {
 					return err
 				}
@@ -1076,7 +1076,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 			entry := metabase.ObjectEntry{}
 			for len(resp.Items) < limit && it.Next(ctx, &entry) {
-				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry)
+				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, "")
 				if err != nil {
 					return err
 				}
@@ -2185,7 +2185,7 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 	return result, nil
 }
 
-func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket []byte, entry metabase.ObjectEntry) (item *pb.ObjectListItem, err error) {
+func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket []byte, entry metabase.ObjectEntry, prefixToPrependInSatStreamID metabase.ObjectKey) (item *pb.ObjectListItem, err error) {
 	expires := time.Time{}
 	if entry.ExpiresAt != nil {
 		expires = *entry.ExpiresAt
@@ -2243,7 +2243,7 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 	if entry.Status == metabase.Pending {
 		satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
 			Bucket:          bucket,
-			EncryptedPath:   item.EncryptedPath,
+			EncryptedPath:   append([]byte(prefixToPrependInSatStreamID), item.EncryptedPath...),
 			Version:         item.Version,
 			CreationDate:    item.CreatedAt,
 			ExpirationDate:  item.ExpiresAt,
