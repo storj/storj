@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package coinpayments
+package coinpayments_test
 
 import (
 	"math/big"
@@ -10,6 +10,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"storj.io/common/testcontext"
+	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/payments/coinpayments"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func TestListInfos(t *testing.T) {
@@ -18,24 +21,24 @@ func TestListInfos(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	payments := NewClient(Credentials{
+	payments := coinpayments.NewClient(coinpayments.Credentials{
 		PublicKey:  "ask-littleskunk-on-keybase",
 		PrivateKey: "ask-littleskunk-on-keybase",
 	}).Transactions()
 
 	// verify that bad ids fail
-	infos, err := payments.ListInfos(ctx, TransactionIDList{"an_unlikely_id"})
+	infos, err := payments.ListInfos(ctx, coinpayments.TransactionIDList{"an_unlikely_id"})
 	assert.Error(t, err)
 	assert.Len(t, infos, 0)
 
 	// verify that ListInfos can handle more than 25 good ids
-	ids := TransactionIDList{}
+	ids := coinpayments.TransactionIDList{}
 	for x := 0; x < 27; x++ {
 		tx, err := payments.Create(ctx,
-			&CreateTX{
+			&coinpayments.CreateTX{
 				Amount:      *big.NewFloat(100),
-				CurrencyIn:  CurrencySTORJ,
-				CurrencyOut: CurrencySTORJ,
+				CurrencyIn:  coinpayments.CurrencySTORJ,
+				CurrencyOut: coinpayments.CurrencySTORJ,
 				BuyerEmail:  "test@test.com",
 			},
 		)
@@ -45,4 +48,12 @@ func TestListInfos(t *testing.T) {
 	infos, err = payments.ListInfos(ctx, ids)
 	assert.NoError(t, err)
 	assert.Len(t, infos, 27)
+}
+
+func TestUpdateSameAppliesDoesNotExplode(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		tdb := db.StripeCoinPayments().Transactions()
+		assert.NoError(t, tdb.Update(ctx, nil, coinpayments.TransactionIDList{"blah", "blah"}))
+		assert.NoError(t, tdb.Update(ctx, nil, coinpayments.TransactionIDList{"blah", "blah"}))
+	})
 }

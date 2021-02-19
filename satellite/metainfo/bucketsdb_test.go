@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb_test
+package metainfo_test
 
 import (
 	"bytes"

@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb_test
+package overlay_test
 
 import (
 	"fmt"
@@ -185,14 +185,4 @@ func TestOperatorConfig(t *testing.T) {
 			require.Equal(t, []string(node.Config.Operator.WalletFeatures), nodeInfo.Operator.WalletFeatures)
 		}
 	})
-}
-
-// returns an AuditHistoryConfig with sensible test values.
-func testAuditHistoryConfig() overlay.AuditHistoryConfig {
-	return overlay.AuditHistoryConfig{
-		WindowSize:       time.Hour,
-		TrackingPeriod:   time.Hour,
-		GracePeriod:      time.Hour,
-		OfflineThreshold: 0,
-	}
 }
