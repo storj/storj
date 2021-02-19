@@ -1589,11 +1589,6 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 	}
 
 	inlineUsed := int64(len(req.EncryptedInlineData))
-	// TODO silently ignore empty inline segmens to be backward compatible with old uplinks.
-	// Metabase is rejecting empty inline segments.
-	if inlineUsed == 0 {
-		return nil, &pb.SegmentMakeInlineResponse{}, nil
-	}
 	if inlineUsed > endpoint.encInlineSegmentSize {
 		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, fmt.Sprintf("inline segment size cannot be larger than %s", endpoint.config.MaxInlineSegmentSize))
 	}

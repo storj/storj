@@ -327,10 +327,9 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 	}
 
 	// TODO: do we have a lower limit for inline data?
+	// TODO should we move check for max inline segment from metainfo here
 
 	switch {
-	case len(opts.InlineData) == 0:
-		return ErrInvalidRequest.New("InlineData missing")
 	case len(opts.EncryptedKey) == 0:
 		return ErrInvalidRequest.New("EncryptedKey missing")
 	case len(opts.EncryptedKeyNonce) == 0:
