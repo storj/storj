@@ -14,6 +14,8 @@ import (
 	"storj.io/storj/private/tagsql"
 )
 
+const fullIteratorBatchSizeLimit = 2500
+
 // FullObjectEntry contains information about and object in metabase.
 type FullObjectEntry struct {
 	ObjectStream
@@ -76,8 +78,8 @@ func (db *DB) FullIterateObjects(ctx context.Context, opts FullIterateObjects, f
 	}
 
 	// ensure batch size is reasonable
-	if it.batchSize <= 0 || it.batchSize > batchsizeLimit {
-		it.batchSize = batchsizeLimit
+	if it.batchSize <= 0 || it.batchSize > fullIteratorBatchSizeLimit {
+		it.batchSize = fullIteratorBatchSizeLimit
 	}
 
 	it.curRows, err = it.doNextQuery(ctx)

@@ -476,7 +476,7 @@ func (obs *checkerObserver) InlineSegment(ctx context.Context, segment *metainfo
 	// TODO: check for expired segments
 
 	if !obs.objectCounted {
-		// Note: this may give may give false stats when an object starts with a inline segment.
+		// Note: this may give false stats when an object starts with a inline segment.
 		obs.objectCounted = true
 		stats := obs.getStatsByRS(storj.RedundancyScheme{})
 		stats.iterationAggregates.objectsChecked++
