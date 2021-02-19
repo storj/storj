@@ -646,6 +646,12 @@ func TestProjectUsage_ResetLimitsFirstDayOfNextMonth(t *testing.T) {
 		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path1")
 		require.NoError(t, err)
 
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+		tomorrow := time.Now().Add(24 * time.Hour)
+		for _, storageNode := range planet.StorageNodes {
+			storageNode.Storage2.Orders.SendOrders(ctx, tomorrow)
+		}
+
 		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
 
 		// verify that bandwidth limit is all used
