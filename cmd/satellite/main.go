@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sync"
 	"sync/atomic"
 	"text/tabwriter"
 	"time"
@@ -24,6 +23,7 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/common/uuid"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
@@ -825,31 +825,14 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 		log.Info("successful restore trash", zap.String("Node ID", node.ID.String()))
 	}
 
-	var wg sync.WaitGroup
-	workQueue := make(chan *overlay.SelectedNode)
-	const workers = 100
-
-	for i := 0; i < workers; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for node := range workQueue {
-				undelete(node)
-			}
-		}()
-	}
-
+	var nodes []*overlay.SelectedNode
 	if len(args) == 0 {
-		var nodes []*overlay.SelectedNode
 		err = db.OverlayCache().IterateAllNodes(ctx, func(ctx context.Context, node *overlay.SelectedNode) error {
 			nodes = append(nodes, node)
 			return nil
 		})
 		if err != nil {
 			return err
-		}
-		for _, node := range nodes {
-			workQueue <- node
 		}
 	} else {
 		for _, nodeid := range args {
@@ -861,17 +844,21 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return err
 			}
-			workQueue <- &overlay.SelectedNode{
+			nodes = append(nodes, &overlay.SelectedNode{
 				ID:         dossier.Id,
 				Address:    dossier.Address,
 				LastNet:    dossier.LastNet,
 				LastIPPort: dossier.LastIPPort,
-			}
+			})
 		}
 	}
 
-	close(workQueue)
-	wg.Wait()
+	limiter := sync2.NewLimiter(100)
+	for _, node := range nodes {
+		node := node
+		limiter.Go(ctx, func() { undelete(node) })
+	}
+	limiter.Wait()
 
 	log.Sugar().Infof("restore trash complete. %d successes, %d failures", *successes, *failures)
 	return nil
