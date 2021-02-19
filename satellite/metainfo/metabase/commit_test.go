@@ -1433,7 +1433,7 @@ func TestCommitInlineSegment(t *testing.T) {
 					ObjectStream: obj,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "InlineData missing",
+				ErrText:  "EncryptedKey missing",
 			}.Check(ctx, t, db)
 
 			CommitInlineSegment{
@@ -1619,6 +1619,58 @@ func TestCommitInlineSegment(t *testing.T) {
 						CreatedAt:    now,
 						Status:       metabase.Committed,
 						Encryption:   defaultTestEncryption,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("commit empty segment of pending object", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			encryptedKey := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Bytes(32)
+
+			now := time.Now()
+			BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
+				},
+				Version: obj.Version,
+			}.Check(ctx, t, db)
+
+			CommitInlineSegment{
+				Opts: metabase.CommitInlineSegment{
+					ObjectStream: obj,
+
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce,
+
+					PlainSize:   0,
+					PlainOffset: 0,
+				},
+			}.Check(ctx, t, db)
+
+			Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Pending,
+						Encryption:   defaultTestEncryption,
+					},
+				},
+				Segments: []metabase.RawSegment{
+					{
+						StreamID: obj.StreamID,
+
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce,
+
+						PlainOffset: 0,
+						PlainSize:   0,
+
+						EncryptedSize: 0,
 					},
 				},
 			}.Check(ctx, t, db)
