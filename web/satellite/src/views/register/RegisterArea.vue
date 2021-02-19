@@ -48,12 +48,18 @@ export default class RegisterArea extends Vue {
     private password: string = '';
     private repeatedPassword: string = '';
 
+    // Only for beta sats (like US2).
+    private areBetaTermsAccepted: boolean = false;
+
     private fullNameError: string = '';
     private emailError: string = '';
     private passwordError: string = '';
     private repeatedPasswordError: string = '';
     private isTermsAcceptedError: boolean = false;
     private isLoading: boolean = false;
+
+    // Only for beta sats (like US2).
+    private areBetaTermsAcceptedError: boolean = false;
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
@@ -209,6 +215,17 @@ export default class RegisterArea extends Vue {
     }
 
     /**
+     * Only for US2 tardigrade beta satellite.
+     * Sets user's repeat password field from value string.
+     */
+    public get isBetaSatellite(): boolean {
+        const US2_SAT_NAME_PART = 'US2';
+        const satName: string = this.$store.state.appStateModule.satelliteName;
+
+        return satName.includes(US2_SAT_NAME_PART);
+    }
+
+    /**
      * Validates input values to satisfy expected rules.
      */
     private validateFields(): boolean {
@@ -236,6 +253,12 @@ export default class RegisterArea extends Vue {
 
         if (!this.isTermsAccepted) {
             this.isTermsAcceptedError = true;
+            isNoErrors = false;
+        }
+
+        // only for beta US2 sats.
+        if (this.isBetaSatellite && !this.areBetaTermsAccepted) {
+            this.areBetaTermsAcceptedError = true;
             isNoErrors = false;
         }
 
