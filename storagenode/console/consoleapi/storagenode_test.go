@@ -17,6 +17,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/storj/private/date"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/storagenode/payouts/estimatedpayouts"
@@ -94,15 +95,19 @@ func TestStorageNodeApi(t *testing.T) {
 			})
 			require.NoError(t, err)
 
+			now2 := time.Now().UTC()
+			daysPerMonth := date.UTCEndOfMonth(now2).Day()
+
 			err = reputationdb.Store(ctx, reputation.Stats{
 				SatelliteID: satellite.ID(),
-				JoinedAt:    time.Now().UTC(),
+				JoinedAt:    now.AddDate(0, 0, -daysPerMonth+3),
 			})
 			require.NoError(t, err)
 
 			t.Run("test EstimatedPayout", func(t *testing.T) {
 				// should return estimated payout for both satellites in current month and empty for previous
 				url := fmt.Sprintf("%s/estimated-payout", baseURL)
+
 				res, err := http.Get(url)
 				require.NoError(t, err)
 				require.NotNil(t, res)
@@ -122,7 +127,6 @@ func TestStorageNodeApi(t *testing.T) {
 					PreviousMonth:            estimation.PreviousMonth,
 					CurrentMonthExpectations: estimation.CurrentMonthExpectations,
 				})
-
 				require.NoError(t, err)
 				require.Equal(t, string(expected)+"\n", string(body))
 			})

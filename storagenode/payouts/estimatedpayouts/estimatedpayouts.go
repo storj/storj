@@ -60,20 +60,49 @@ func (pm *PayoutMonthly) SetPayout() {
 	pm.Payout = RoundFloat(amount)
 }
 
+// Add sums payout monthly data.
+func (pm *PayoutMonthly) Add(monthly PayoutMonthly) {
+	pm.Payout += monthly.Payout
+	pm.EgressRepairAuditPayout += monthly.EgressRepairAuditPayout
+	pm.DiskSpacePayout += monthly.DiskSpacePayout
+	pm.DiskSpace += monthly.DiskSpace
+	pm.EgressBandwidth += monthly.EgressBandwidth
+	pm.EgressBandwidthPayout += monthly.EgressBandwidthPayout
+	pm.EgressRepairAudit += monthly.EgressRepairAudit
+	pm.Held += monthly.Held
+}
+
 // RoundFloat rounds float value till 2 signs after dot.
 func RoundFloat(value float64) float64 {
 	return math.Round(value*100) / 100
 }
 
-// SetExpectedMonth set current month expectations.
-func (estimatedPayout *EstimatedPayout) SetExpectedMonth(now time.Time) {
-	daysPast := float64(now.Day()) - 1
-	if daysPast < 1 {
-		daysPast = 1
+// Set set's estimated payout with current/previous PayoutMonthly's data and current month expectations.
+func (estimatedPayout *EstimatedPayout) Set(current, previous PayoutMonthly, now, joinedAt time.Time) {
+	estimatedPayout.CurrentMonth = current
+	estimatedPayout.PreviousMonth = previous
+
+	daysSinceJoined := now.Sub(joinedAt).Hours() / 24
+	daysPerMonth := float64(date.UTCEndOfMonth(now).Day())
+
+	if daysSinceJoined >= float64(now.Day()) {
+		daysPast := float64(now.Day()) - 1
+		if daysPast < 1 {
+			daysPast = 1
+		}
+
+		payoutPerDay := estimatedPayout.CurrentMonth.Payout / daysPast
+
+		estimatedPayout.CurrentMonthExpectations += payoutPerDay * daysPerMonth
+		return
 	}
 
-	daysPerMonth := float64(date.UTCEndOfMonth(now).Day())
-	payoutPerDay := estimatedPayout.CurrentMonth.Payout / daysPast
+	estimatedPayout.CurrentMonthExpectations += estimatedPayout.CurrentMonth.Payout / daysSinceJoined * daysPerMonth
+}
 
-	estimatedPayout.CurrentMonthExpectations += payoutPerDay * daysPerMonth
+// Add adds estimate into the receiver.
+func (estimatedPayout *EstimatedPayout) Add(other EstimatedPayout) {
+	estimatedPayout.CurrentMonth.Add(other.CurrentMonth)
+	estimatedPayout.PreviousMonth.Add(other.PreviousMonth)
+	estimatedPayout.CurrentMonthExpectations += other.CurrentMonthExpectations
 }
