@@ -22,6 +22,12 @@ type Snapshot struct {
 	*Data
 }
 
+// DropTable removes the specified table.
+func (snapshot *Snapshot) DropTable(tableName string) {
+	snapshot.Schema.DropTable(tableName)
+	snapshot.Data.DropTable(tableName)
+}
+
 // Add adds a new snapshot.
 func (snapshots *Snapshots) Add(snap *Snapshot) {
 	snapshots.List = append(snapshots.List, snap)
@@ -52,9 +58,10 @@ type Sections struct {
 
 // These consts are the names of the sections that are typical in our scripts.
 const (
-	NewData = "NEW DATA"
-	OldData = "OLD DATA"
-	Main    = "MAIN"
+	NewData  = "NEW DATA"
+	OldData  = "OLD DATA"
+	Main     = "MAIN"
+	MainData = "MAIN DATA"
 )
 
 // NewSections constructs a Sections from a sql script.

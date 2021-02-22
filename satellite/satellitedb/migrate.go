@@ -6,7 +6,6 @@ package satellitedb
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -17,6 +16,8 @@ import (
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/private/tagsql"
 )
+
+//go:generate go run migrate_gen.go
 
 var (
 	// ErrMigrate is for tracking migration errors.
@@ -121,12 +122,8 @@ func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
 			return ErrMigrateMinVersion.New("the database must be empty, got version %d", dbVersion)
 		}
 
-		flattened, err := flattenMigration(migration)
-		if err != nil {
-			return ErrMigrateMinVersion.Wrap(err)
-		}
-
-		return flattened.Run(ctx, db.log.Named("migrate"))
+		testMigration := db.TestPostgresMigration()
+		return testMigration.Run(ctx, db.log.Named("migrate"))
 	default:
 		return migrate.Create(ctx, "database", db.DB)
 	}
@@ -144,59 +141,9 @@ func (db *satelliteDB) CheckVersion(ctx context.Context) error {
 	}
 }
 
-// flattenMigration joins the migration sql queries from
-// each migration step to speed up the database setup.
-//
-// Steps with "SeparateTx" end up as separate migration transactions.
-// Cockroach requires schema changes and updates to the values of that
-// schema change to be in a different transaction.
-func flattenMigration(m *migrate.Migration) (*migrate.Migration, error) {
-	var db tagsql.DB
-	var version int
-	var statements migrate.SQL
-	var steps []*migrate.Step
-
-	pushMerged := func() {
-		if len(statements) == 0 {
-			return
-		}
-
-		steps = append(steps, &migrate.Step{
-			DB:          &db,
-			Description: "Setup",
-			Version:     version,
-			Action:      migrate.SQL{strings.Join(statements, ";\n")},
-		})
-
-		statements = nil
-	}
-
-	for _, step := range m.Steps {
-		if db == nil {
-			db = *step.DB
-		} else if db != *step.DB {
-			return nil, errs.New("multiple databases not supported")
-		}
-
-		if sql, ok := step.Action.(migrate.SQL); ok {
-			if step.SeparateTx {
-				pushMerged()
-			}
-
-			version = step.Version
-			statements = append(statements, sql...)
-		} else {
-			pushMerged()
-			steps = append(steps, step)
-		}
-	}
-
-	pushMerged()
-
-	return &migrate.Migration{
-		Table: "versions",
-		Steps: steps,
-	}, nil
+// TestPostgresMigration returns steps needed for migrating test postgres database.
+func (db *satelliteDB) TestPostgresMigration() *migrate.Migration {
+	return db.testMigration()
 }
 
 // PostgresMigration returns steps needed for migrating postgres database.
@@ -1318,6 +1265,8 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE users ADD COLUMN employee_count text;`,
 				},
 			},
+			// NB: after updating testdata in `testdata`, run
+			//     `go generate` to update `migratez.go`.
 		},
 	}
 }
