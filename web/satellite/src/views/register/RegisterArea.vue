@@ -216,7 +216,7 @@ export default class RegisterArea extends Vue {
 
     /**
      * Only for US2 tardigrade beta satellite.
-     * Sets user's repeat password field from value string.
+     * Indicates if US2 satellite.
      */
     public get isBetaSatellite(): boolean {
         const US2_SAT_NAME_PART = 'US2';
