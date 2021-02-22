@@ -114,7 +114,7 @@
                 <p class="additional-text">At the end of the month if the load keeps the same for the rest of the month.</p>
             </div>
             <div class="estimation-container__payout-area__right-area">
-                <p class="title-text">{{ currentMonthEstimatedPayout | centsToDollars }}</p>
+                <p class="title-text">{{ estimation.currentMonthExpectations | centsToDollars }}</p>
             </div>
         </div>
         <div class="no-data-container" v-if="isPayoutNoDataState">
@@ -384,16 +384,6 @@ export default class EstimationArea extends Vue {
      */
     public get isFirstDayOfCurrentMonth(): boolean {
         return this.now.getUTCDate() === 1;
-    }
-
-    /**
-     * Returns estimated payout on the end on current month.
-     */
-    public get currentMonthEstimatedPayout(): number {
-        const currentMonthDaysCount = new Date(this.now.getUTCFullYear(), this.now.getUTCMonth(), 0).getDate();
-        const currentDate = this.now.getUTCDate();
-
-        return (this.estimation.currentMonth.payout / (currentDate - 1)) * currentMonthDaysCount;
     }
 
     /**

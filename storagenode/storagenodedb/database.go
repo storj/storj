@@ -1971,6 +1971,14 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					return nil
 				}),
 			},
+			{
+				DB:          &db.payoutDB.DB,
+				Description: "Assume distributed == paid for paystubs before 2020-12.",
+				Version:     51,
+				Action: migrate.SQL{
+					`UPDATE paystubs SET distributed = paid WHERE period < '2020-12'`,
+				},
+			},
 		},
 	}
 }

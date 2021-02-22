@@ -69,7 +69,7 @@ func (s *Service) GetSatelliteEstimatedPayout(ctx context.Context, satelliteID s
 		return EstimatedPayout{}, EstimationServiceErr.Wrap(err)
 	}
 
-	daysSinceJoined := stats.JoinedAt.Sub(now).Hours() / 24
+	daysSinceJoined := now.Sub(stats.JoinedAt).Hours() / 24
 	if daysSinceJoined >= float64(now.Day()) {
 		payout.SetExpectedMonth(now)
 

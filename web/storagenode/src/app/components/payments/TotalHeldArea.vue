@@ -10,17 +10,17 @@
             </div>
             <div class="total-held-area__united-info-area__item align-center">
                 <p class="total-held-area__united-info-area__item__label">Total Held Amount</p>
-                <p class="total-held-area__united-info-area__item__amount">{{ totalHeldAndPaid.held | centsToDollars }}</p>
+                <p class="total-held-area__united-info-area__item__amount">{{ totalPayments.held | centsToDollars }}</p>
             </div>
             <div class="total-held-area__united-info-area__item align-end">
                 <p class="total-held-area__united-info-area__item__label">Total Held Returned</p>
-                <p class="total-held-area__united-info-area__item__amount">{{ totalHeldAndPaid.disposed | centsToDollars }}</p>
+                <p class="total-held-area__united-info-area__item__amount">{{ totalPayments.disposed | centsToDollars }}</p>
             </div>
         </div>
         <div class="total-held-area__info-area">
             <SingleInfo width="100%" label="Held Amount Rate" :value="heldPercentage + '%'" />
-            <SingleInfo width="100%" label="Total Held Amount" :value="totalHeldAndPaid.held | centsToDollars" />
-            <SingleInfo width="100%" label="Total Held Returned" :value="totalHeldAndPaid.disposed | centsToDollars" />
+            <SingleInfo width="100%" label="Total Held Amount" :value="totalPayments.held | centsToDollars" />
+            <SingleInfo width="100%" label="Total Held Returned" :value="totalPayments.disposed | centsToDollars" />
         </div>
     </section>
 </template>
@@ -30,7 +30,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import SingleInfo from '@/app/components/payments/SingleInfo.vue';
 
-import { TotalHeldAndPaid } from '@/storagenode/payouts/payouts';
+import { TotalPayments } from '@/storagenode/payouts/payouts';
 
 @Component({
     components: {
@@ -38,8 +38,8 @@ import { TotalHeldAndPaid } from '@/storagenode/payouts/payouts';
     },
 })
 export default class TotalPayoutArea extends Vue {
-    public get totalHeldAndPaid(): TotalHeldAndPaid {
-        return this.$store.state.payoutModule.totalHeldAndPaid;
+    public get totalPayments(): TotalPayments {
+        return this.$store.state.payoutModule.totalPayments;
     }
 
     public get heldPercentage(): string {

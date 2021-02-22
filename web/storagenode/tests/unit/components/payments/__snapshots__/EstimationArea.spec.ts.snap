@@ -137,7 +137,7 @@ exports[`EstimationArea renders correctly with actual values and current period 
 </div>
 `;
 
-exports[`EstimationArea renders correctly with actual values and current period and not fist day on month 1`] = `
+exports[`EstimationArea renders correctly with actual values and current period and not first day on month 1`] = `
 <div class="estimation-container">
   <div class="estimation-container__header">
     <p class="estimation-container__header__title">Info &amp; Estimation,<span class="estimation-container__header__period">Feb 2020</span></p>
@@ -275,7 +275,7 @@ exports[`EstimationArea renders correctly with actual values and current period 
       <p class="additional-text">At the end of the month if the load keeps the same for the rest of the month.</p>
     </div>
     <div class="estimation-container__payout-area__right-area">
-      <p class="title-text">$1200000.00</p>
+      <p class="title-text">$12000000.00</p>
     </div>
   </div>
   <!---->
