@@ -1561,7 +1561,15 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 			WHERE last_contact_success < $1
 			AND disqualified is NULL
 			AND exit_finished_at is NULL;`
-	_, err = cache.db.ExecContext(ctx, q, cutoff)
+	results, err := cache.db.ExecContext(ctx, q, cutoff)
+	if err != nil {
+		return err
+	}
+	n, err := results.RowsAffected()
+	if err != nil {
+		return err
+	}
+	mon.IntVal("stray_nodes_dq_count").Observe(n)
 	return err
 }
 
