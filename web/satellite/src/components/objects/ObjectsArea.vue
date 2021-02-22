@@ -1,0 +1,40 @@
+// Copyright (C) 2021 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+<template>
+    <div class="objects-area">
+        <div class="objects-area__header">
+            <h1 class="objects-area__header__title">File</h1>
+        </div>
+        <router-view/>
+    </div>
+</template>
+
+<script lang="ts">
+import { Component, Vue } from 'vue-property-decorator';
+
+@Component
+export default class ObjectsArea extends Vue {}
+</script>
+
+<style scoped lang="scss">
+    .objects-area {
+        padding: 20px 45px;
+
+        &__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            &__title {
+                font-family: 'font_medium', sans-serif;
+                font-style: normal;
+                font-weight: bold;
+                font-size: 18px;
+                line-height: 26px;
+                color: #232B34;
+                margin: 0;
+            }
+        }
+    }
+</style>

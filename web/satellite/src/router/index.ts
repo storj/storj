@@ -18,6 +18,10 @@ import DetailedHistory from '@/components/account/billing/depositAndBillingHisto
 import CreditsHistory from '@/components/account/billing/freeCredits/CreditsHistory.vue';
 import SettingsArea from '@/components/account/SettingsArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
+import CreatePassphrase from '@/components/objects/CreatePassphrase.vue';
+import EnterPassphrase from '@/components/objects/EnterPassphrase.vue';
+import ObjectsArea from '@/components/objects/ObjectsArea.vue';
+import UploadFile from '@/components/objects/UploadFile.vue';
 import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
 import AddPaymentStep from '@/components/onboardingTour/steps/AddPaymentStep.vue';
 import CreateAccessGrantStep from '@/components/onboardingTour/steps/CreateAccessGrantStep.vue';
@@ -53,8 +57,9 @@ export abstract class RouteConfig {
     public static OnboardingTour = new NavigationLink('/onboarding-tour', 'Onboarding Tour');
     public static CreateProject = new NavigationLink('/create-project', 'Create Project');
     public static EditProjectDetails = new NavigationLink('/edit-project-details', 'Edit Project Details');
-    public static AccessGrants = new NavigationLink('/access-grants', 'Access Grants');
+    public static AccessGrants = new NavigationLink('/access-grants', 'Access');
     public static ProjectsList = new NavigationLink('/projects', 'Projects');
+    public static Objects = new NavigationLink('/objects', 'Objects');
 
     // account child paths
     public static Settings = new NavigationLink('settings', 'Settings');
@@ -81,6 +86,11 @@ export abstract class RouteConfig {
     public static AccessGrantCLI = new NavigationLink('cli', 'Onboarding Access Grant CLI');
     public static AccessGrantPassphrase = new NavigationLink('create-passphrase', 'Onboarding Access Grant Create Passphrase');
     public static AccessGrantResult = new NavigationLink('result', 'Onboarding Access Grant Result');
+
+    // objects child paths.
+    public static CreatePassphrase = new NavigationLink('create-passphrase', 'Objects Create Passphrase');
+    public static EnterPassphrase = new NavigationLink('enter-passphrase', 'Objects Enter Passphrase');
+    public static UploadFile = new NavigationLink('upload', 'Objects Upload');
 }
 
 export const notProjectRelatedRoutes = [
@@ -282,6 +292,28 @@ export const router = new Router({
                     path: RouteConfig.ProjectsList.path,
                     name: RouteConfig.ProjectsList.name,
                     component: ProjectsList,
+                },
+                {
+                    path: RouteConfig.Objects.path,
+                    name: RouteConfig.Objects.name,
+                    component: ObjectsArea,
+                    children: [
+                        {
+                            path: RouteConfig.CreatePassphrase.path,
+                            name: RouteConfig.CreatePassphrase.name,
+                            component: CreatePassphrase,
+                        },
+                        {
+                            path: RouteConfig.EnterPassphrase.path,
+                            name: RouteConfig.EnterPassphrase.name,
+                            component: EnterPassphrase,
+                        },
+                        {
+                            path: RouteConfig.UploadFile.path,
+                            name: RouteConfig.UploadFile.name,
+                            component: UploadFile,
+                        },
+                    ],
                 },
             ],
         },
