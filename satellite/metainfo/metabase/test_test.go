@@ -274,6 +274,21 @@ func (step ListSegments) Check(ctx *testcontext.Context, t testing.TB, db *metab
 	require.Zero(t, diff)
 }
 
+type ListObjectsSegments struct {
+	Opts     metabase.ListObjectsSegments
+	Result   metabase.ListObjectsSegmentsResult
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+func (step ListObjectsSegments) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.ListObjectsSegments(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	require.Zero(t, diff)
+}
+
 type DeleteObjectExactVersion struct {
 	Opts     metabase.DeleteObjectExactVersion
 	Result   metabase.DeleteObjectResult

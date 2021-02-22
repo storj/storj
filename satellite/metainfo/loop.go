@@ -5,6 +5,7 @@ package metainfo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -300,7 +301,98 @@ func iterateDatabase(ctx context.Context, metabaseDB MetabaseDB, observers []*ob
 func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*observerContext, limit int, rateLimiter *rate.Limiter) (_ []*observerContext, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO we should improve performance here, this is just most straightforward solution
+	noObserversErr := errs.New("no observers")
+
+	// TODO we may consider keeping only expiration time as its
+	// only thing we need to handle segments
+	objectsMap := make(map[uuid.UUID]metabase.FullObjectEntry)
+	ids := make([]uuid.UUID, 0, limit)
+
+	processBatch := func() error {
+		if len(objectsMap) == 0 {
+			return nil
+		}
+
+		segments, err := metabaseDB.ListObjectsSegments(ctx, metabase.ListObjectsSegments{
+			StreamIDs: ids,
+		})
+		if err != nil {
+			return err
+		}
+
+		var lastObject metabase.FullObjectEntry
+		for _, segment := range segments.Segments {
+			if err := rateLimiter.Wait(ctx); err != nil {
+				// We don't really execute concurrent batches so we should never
+				// exceed the burst size of 1 and this should never happen.
+				// We can also enter here if the context is cancelled.
+				return err
+			}
+
+			if segment.StreamID != lastObject.StreamID {
+				var ok bool
+				lastObject, ok = objectsMap[segment.StreamID]
+				if !ok {
+					return errs.New("unable to find corresponding object: %v", segment.StreamID)
+				}
+
+				delete(objectsMap, lastObject.StreamID)
+
+				// TODO should we move this directly to iterator to have object
+				// state as close as possible to time of reading
+				observers = withObservers(observers, func(observer *observerContext) bool {
+					return handleObject(ctx, observer, lastObject)
+				})
+				if len(observers) == 0 {
+					return noObserversErr
+				}
+
+				// if context has been canceled exit. Otherwise, continue
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+			}
+
+			location := metabase.SegmentLocation{
+				ProjectID:  lastObject.ProjectID,
+				BucketName: lastObject.BucketName,
+				ObjectKey:  lastObject.ObjectKey,
+				Position:   segment.Position,
+			}
+			segment := segment
+			observers = withObservers(observers, func(observer *observerContext) bool {
+				return handleSegment(ctx, observer, location, segment, lastObject.ExpiresAt)
+			})
+			if len(observers) == 0 {
+				return noObserversErr
+			}
+
+			// if context has been canceled exit. Otherwise, continue
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+		}
+
+		// we have now only objects without segments
+		for id, object := range objectsMap {
+			delete(objectsMap, id)
+
+			object := object
+			observers = withObservers(observers, func(observer *observerContext) bool {
+				return handleObject(ctx, observer, object)
+			})
+			if len(observers) == 0 {
+				return noObserversErr
+			}
+
+			// if context has been canceled exit. Otherwise, continue
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
 	err = metabaseDB.FullIterateObjects(ctx, metabase.FullIterateObjects{
 		BatchSize: limit,
 	}, func(ctx context.Context, it metabase.FullObjectsIterator) error {
@@ -313,80 +405,44 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 				return err
 			}
 
-			nextObservers := observers[:0]
-			for _, observer := range observers {
-				keepObserver := handleObject(ctx, observer, entry)
-				if keepObserver {
-					nextObservers = append(nextObservers, observer)
-				}
-			}
+			objectsMap[entry.StreamID] = entry
+			ids = append(ids, entry.StreamID)
 
-			observers = nextObservers
-			if len(observers) == 0 {
-				return nil
-			}
-
-			// if context has been canceled exit. Otherwise, continue
-			if err := ctx.Err(); err != nil {
-				return err
-			}
-
-			more := true
-			cursor := metabase.SegmentPosition{}
-			for more {
-				if err := rateLimiter.Wait(ctx); err != nil {
-					// We don't really execute concurrent batches so we should never
-					// exceed the burst size of 1 and this should never happen.
-					// We can also enter here if the context is cancelled.
-					return err
-				}
-
-				segments, err := metabaseDB.ListSegments(ctx, metabase.ListSegments{
-					StreamID: entry.StreamID,
-					Cursor:   cursor,
-					Limit:    limit,
-				})
+			if len(objectsMap) == limit {
+				err := processBatch()
 				if err != nil {
-					return err
-				}
-
-				for _, segment := range segments.Segments {
-					nextObservers := observers[:0]
-					location := metabase.SegmentLocation{
-						ProjectID:  entry.ProjectID,
-						BucketName: entry.BucketName,
-						ObjectKey:  entry.ObjectKey,
-						Position:   segment.Position,
-					}
-					for _, observer := range observers {
-						keepObserver := handleSegment(ctx, observer, location, segment, entry.ExpiresAt)
-						if keepObserver {
-							nextObservers = append(nextObservers, observer)
-						}
-					}
-
-					observers = nextObservers
-					if len(observers) == 0 {
+					if errors.Is(err, noObserversErr) {
 						return nil
 					}
-
-					// if context has been canceled exit. Otherwise, continue
-					if err := ctx.Err(); err != nil {
-						return err
-					}
+					return err
 				}
 
-				more = segments.More
-				if more {
-					lastSegment := segments.Segments[len(segments.Segments)-1]
-					cursor = lastSegment.Position
+				if len(objectsMap) > 0 {
+					return errs.New("objects map is not empty")
 				}
+
+				ids = ids[:0]
 			}
 		}
-		return nil
+		err = processBatch()
+		if errors.Is(err, noObserversErr) {
+			return nil
+		}
+		return err
 	})
 
 	return observers, err
+}
+
+func withObservers(observers []*observerContext, handleObserver func(observer *observerContext) bool) []*observerContext {
+	nextObservers := observers[:0]
+	for _, observer := range observers {
+		keepObserver := handleObserver(observer)
+		if keepObserver {
+			nextObservers = append(nextObservers, observer)
+		}
+	}
+	return nextObservers
 }
 
 func handleObject(ctx context.Context, observer *observerContext, object metabase.FullObjectEntry) bool {
