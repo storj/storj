@@ -9,7 +9,7 @@ import { newNodeModule, NODE_MUTATIONS } from '@/app/store/modules/node';
 import { newPayoutModule, PAYOUT_MUTATIONS } from '@/app/store/modules/payout';
 import { PayoutHttpApi } from '@/storagenode/api/payout';
 import { StorageNodeApi } from '@/storagenode/api/storagenode';
-import { Paystub, TotalHeldAndPaid } from '@/storagenode/payouts/payouts';
+import { Paystub, TotalPayments } from '@/storagenode/payouts/payouts';
 import { PayoutService } from '@/storagenode/payouts/service';
 import { StorageNodeService } from '@/storagenode/sno/service';
 import { Metric, Satellite, SatelliteScores, Stamp } from '@/storagenode/sno/sno';
@@ -67,11 +67,11 @@ describe('TotalHeldArea', (): void => {
         paystub.disposed = 100000;
         paystub.paid = 1000000;
 
-        const totalHeldAndPaid = new TotalHeldAndPaid([paystub]);
+        const totalPayments = new TotalPayments([paystub]);
 
         await store.commit(NODE_MUTATIONS.SELECT_SATELLITE, satelliteInfo);
 
-        await store.commit(PAYOUT_MUTATIONS.SET_TOTAL, totalHeldAndPaid);
+        await store.commit(PAYOUT_MUTATIONS.SET_TOTAL, totalPayments);
 
         expect(wrapper).toMatchSnapshot();
     });

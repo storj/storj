@@ -155,29 +155,29 @@ func (db *payoutDB) GetPayStub(ctx context.Context, satelliteID storj.NodeID, pe
 func (db *payoutDB) AllPayStubs(ctx context.Context, period string) (_ []payouts.PayStub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT 
-			  	satellite_id,
-			  	created_at,
-			  	codes,
-			  	usage_at_rest,
-			  	usage_get,
-			  	usage_put,
-			  	usage_get_repair,
-			  	usage_put_repair,
-			  	usage_get_audit,
-			  	comp_at_rest,
-			  	comp_get,
-			  	comp_put,
-			  	comp_get_repair,
-			  	comp_put_repair,
-			  	comp_get_audit,
-			  	surge_percent,
-			  	held,
-			  	owed,
-			  	disposed,
-			  	paid,
-				distributed
-			  FROM paystubs WHERE period = ?`
+	query := `SELECT
+			satellite_id,
+			created_at,
+			codes,
+			usage_at_rest,
+			usage_get,
+			usage_put,
+			usage_get_repair,
+			usage_put_repair,
+			usage_get_audit,
+			comp_at_rest,
+			comp_get,
+			comp_put,
+			comp_get_repair,
+			comp_put_repair,
+			comp_get_audit,
+			surge_percent,
+			held,
+			owed,
+			disposed,
+			paid,
+			distributed
+		FROM paystubs WHERE period = ?`
 
 	rows, err := db.QueryContext(ctx, query, period)
 	if err != nil {
@@ -230,10 +230,10 @@ func (db *payoutDB) AllPayStubs(ctx context.Context, period string) (_ []payouts
 func (db *payoutDB) SatellitesHeldbackHistory(ctx context.Context, id storj.NodeID) (_ []payouts.HoldForPeriod, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT 
-				period,
-				held
-			  FROM paystubs WHERE satellite_id = ? ORDER BY period ASC`
+	query := `SELECT
+			period,
+			held
+		FROM paystubs WHERE satellite_id = ? ORDER BY period ASC`
 
 	rows, err := db.QueryContext(ctx, query, id)
 	if err != nil {
@@ -351,9 +351,9 @@ func (db *payoutDB) StorePayment(ctx context.Context, payment payouts.Payment) (
 func (db *payoutDB) SatellitesDisposedHistory(ctx context.Context, satelliteID storj.NodeID) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT 
-				disposed
-			  FROM paystubs WHERE satellite_id = ? ORDER BY period ASC`
+	query := `SELECT
+			disposed
+		FROM paystubs WHERE satellite_id = ? ORDER BY period ASC`
 
 	rows, err := db.QueryContext(ctx, query, satelliteID)
 	if err != nil {

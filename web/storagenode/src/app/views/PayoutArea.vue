@@ -11,6 +11,13 @@
                 <p class="payout-area-container__header__text">Payout Information</p>
             </header>
             <SatelliteSelection />
+            <p class="payout-area-container__section-title">Balance</p>
+            <section class="payout-area-container__balance-area">
+                <div class="row">
+                    <SingleInfo width="48%" label="Node Operator Balance" :value="balance | centsToDollars" info-text="You need to earn the minimum withdrawal amount so that we can transfer the entire amount to the wallet at the end of the month, otherwise it will remain on your balance for the next month or until you accumulate the minimum withdrawal amount" />
+                    <SingleInfo width="48%" :label="`Clean earnings, ${currentPeriod}`" :value="currentMonthExpectations | centsToDollars" info-text="Estimated payout at the end of the month. This is only an estimate and may nor reflect actual payout amount." />
+                </div>
+            </section>
             <p class="payout-area-container__section-title">Payout</p>
             <EstimationArea class="payout-area-container__estimation"/>
             <PayoutHistoryTable class="payout-area-container__payout-history-table" v-if="payoutPeriods.length > 0" />
@@ -29,8 +36,8 @@
             <section class="payout-area-container__held-info-area">
                 <TotalHeldArea v-if="isSatelliteSelected" />
                 <div class="row" v-else >
-                    <SingleInfo width="48%" label="Total Held Amount" :value="totalHeldAndPaid.held | centsToDollars" />
-                    <SingleInfo width="48%" label="Total Held Returned" :value="totalHeldAndPaid.disposed | centsToDollars" />
+                    <SingleInfo width="48%" label="Total Held Amount" :value="totalPayments.held | centsToDollars" />
+                    <SingleInfo width="48%" label="Total Held Returned" :value="totalPayments.disposed | centsToDollars" />
                 </div>
             </section>
             <HeldProgress v-if="isSatelliteSelected" class="payout-area-container__process-area" />
@@ -57,7 +64,8 @@ import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { NODE_ACTIONS } from '@/app/store/modules/node';
 import { NOTIFICATIONS_ACTIONS } from '@/app/store/modules/notifications';
 import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
-import { PayoutPeriod, SatelliteHeldHistory, TotalHeldAndPaid } from '@/storagenode/payouts/payouts';
+import { monthNames } from '@/app/types/payout';
+import { PayoutPeriod, SatelliteHeldHistory, TotalPayments } from '@/storagenode/payouts/payouts';
 
 @Component ({
     components: {
@@ -119,8 +127,8 @@ export default class PayoutArea extends Vue {
         await this.$store.dispatch(APPSTATE_ACTIONS.SET_LOADING, false);
     }
 
-    public get totalHeldAndPaid(): TotalHeldAndPaid {
-        return this.$store.state.payoutModule.totalHeldAndPaid;
+    public get totalPayments(): TotalPayments {
+        return this.$store.state.payoutModule.totalPayments;
     }
 
     /**
@@ -132,6 +140,26 @@ export default class PayoutArea extends Vue {
 
     public get payoutPeriods(): PayoutPeriod[] {
         return this.$store.state.payoutModule.payoutPeriods;
+    }
+
+    /**
+     * Returns formatted selected payout period.
+     */
+    public get currentPeriod(): string {
+        const start: PayoutPeriod = this.$store.state.payoutModule.periodRange.start;
+        const end: PayoutPeriod = this.$store.state.payoutModule.periodRange.end;
+
+        return start && start.period !== end.period ?
+            `${monthNames[start.month].slice(0, 3)} ${start.year} - ${monthNames[end.month].slice(0, 3)} ${end.year}`
+            : `${monthNames[end.month].slice(0, 3)} ${end.year}`;
+    }
+
+    public get currentMonthExpectations(): number {
+        return this.$store.state.payoutModule.estimation.currentMonthExpectations;
+    }
+
+    public get balance(): number {
+        return this.$store.state.payoutModule.totalPayments.balance;
     }
 
     public get heldHistory(): SatelliteHeldHistory[] {
@@ -204,7 +232,8 @@ export default class PayoutArea extends Vue {
             margin-top: 20px;
         }
 
-        &__held-info-area {
+        &__held-info-area,
+        &__balance-area {
             display: flex;
             flex-direction: row;
             align-items: flex-start;

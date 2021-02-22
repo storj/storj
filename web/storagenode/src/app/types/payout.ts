@@ -6,7 +6,7 @@ import {
     PayoutPeriod,
     SatelliteHeldHistory,
     SatellitePayoutForPeriod,
-    TotalHeldAndPaid,
+    TotalPayments,
     TotalPaystubForPeriod,
 } from '@/storagenode/payouts/payouts';
 
@@ -27,7 +27,7 @@ export class PayoutState {
     public constructor (
         public totalPaystubForPeriod: TotalPaystubForPeriod = new TotalPaystubForPeriod(),
         public periodRange: PayoutInfoRange = new PayoutInfoRange(),
-        public totalHeldAndPaid: TotalHeldAndPaid = new TotalHeldAndPaid(),
+        public totalPayments: TotalPayments = new TotalPayments(),
         public currentMonthEarnings: number = 0,
         public heldPercentage: number = 0,
         public payoutPeriods: PayoutPeriod[] = [],

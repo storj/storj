@@ -9,7 +9,7 @@ import {
     Paystub,
     SatelliteHeldHistory,
     SatellitePayoutForPeriod,
-    TotalHeldAndPaid,
+    TotalPayments,
     TotalPaystubForPeriod,
 } from '@/storagenode/payouts/payouts';
 
@@ -42,10 +42,10 @@ export class PayoutService {
      * @param end period end
      * @param satelliteId
      */
-    public async totalHeldAndPaid(start: PayoutPeriod, end: PayoutPeriod, satelliteId: string): Promise<TotalHeldAndPaid> {
+    public async totalPayments(start: PayoutPeriod, end: PayoutPeriod, satelliteId: string): Promise<TotalPayments> {
         const paystubs: Paystub[] = await this.payouts.getPaystubsForPeriod(new PaymentInfoParameters(start, end, satelliteId));
 
-        return new TotalHeldAndPaid(paystubs);
+        return new TotalPayments(paystubs);
     }
 
     /**

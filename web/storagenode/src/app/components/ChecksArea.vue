@@ -22,13 +22,10 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import VInfo from '@/app/components/VInfo.vue';
-
 import ChecksInfoIcon from '@/../static/images/checksInfo.svg';
 
 @Component ({
     components: {
-        VInfo,
         ChecksInfoIcon,
     },
 })
