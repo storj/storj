@@ -96,8 +96,9 @@ pipeline {
                                     sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
                                     sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
                                     cobertura coberturaReportFile: '.build/cobertura.xml',
-                                        lineCoverageTargets: '100, 0, 0',
-                                        autoUpdateHealth: true,
+                                        lineCoverageTargets: '70, 60, 50',
+                                        autoUpdateHealth: false,
+                                        autoUpdateStability: false,
                                         failUnhealthy: true
                                 }
                             }
