@@ -215,14 +215,10 @@ export default class RegisterArea extends Vue {
     }
 
     /**
-     * Only for US2 tardigrade beta satellite.
-     * Indicates if US2 satellite.
+     * Indicates if satellite is in beta.
      */
     public get isBetaSatellite(): boolean {
-        const US2_SAT_NAME_PART = 'US2';
-        const satName: string = this.$store.state.appStateModule.satelliteName;
-
-        return satName.includes(US2_SAT_NAME_PART);
+        return this.$store.state.appStateModule.isBetaSatellite;
     }
 
     /**

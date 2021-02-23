@@ -97,6 +97,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # id for google tag manager
 # console.google-tag-manager-id: ""
 
+# indicates if satellite is in beta
+# console.is-beta-satellite: false
+
 # url link to let us know page
 # console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
 
