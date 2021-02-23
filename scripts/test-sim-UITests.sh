@@ -55,7 +55,7 @@ STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
 STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
 STORJ_SIM_REDIS=${STORJ_SIM_REDIS:-""}
 # STORJ_CONSOLE_payments_stripe-coin-payments_coinpayments-private-key="5366b14A7Dc5A1b0FCc3C8845c5d903E8c6b6360de5f3667AD8B58f5E8cC017c"
-STORJ_CONSOLE_STATIC_DIR="/var/jenkins_home/workspace/SatelliteUITestGithub/web/satellite"
+# STORJ_CONSOLE_STATIC_DIR="/var/jenkins_home/workspace/SatelliteUITestGithub/web/satellite"
 # setup the network
 # if postgres connection string is set as STORJ_SIM_POSTGRES then use that for testing
 if [ -z ${STORJ_SIM_POSTGRES} ]; then
