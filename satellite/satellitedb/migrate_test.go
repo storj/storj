@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -46,9 +47,8 @@ func loadSnapshots(ctx context.Context, connstr, dbxscript string) (*dbschema.Sn
 	for i, match := range matches {
 		i, match := i, match
 		group.Go(func() error {
-			versionStr := match[19 : len(match)-4] // hack to avoid trim issues with path differences in windows/linux
-			version, err := strconv.Atoi(versionStr)
-			if err != nil {
+			version := parseTestdataVersion(match)
+			if version < 0 {
 				return errs.New("invalid testdata file %q: %v", match, err)
 			}
 
@@ -84,6 +84,18 @@ func loadSnapshots(ctx context.Context, connstr, dbxscript string) (*dbschema.Sn
 	snapshots.Sort()
 
 	return snapshots, dbschema, nil
+}
+
+func parseTestdataVersion(path string) int {
+	path = filepath.ToSlash(strings.ToLower(path))
+	path = strings.TrimPrefix(path, "testdata/postgres.v")
+	path = strings.TrimSuffix(path, ".sql")
+
+	v, err := strconv.Atoi(path)
+	if err != nil {
+		return -1
+	}
+	return v
 }
 
 // loadSnapshotFromSQL inserts script into connstr and loads schema.
