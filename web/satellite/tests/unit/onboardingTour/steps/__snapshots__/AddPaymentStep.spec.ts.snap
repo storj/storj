@@ -1,0 +1,81 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`AddPaymentStep.vue renders correctly 1`] = `
+<div class="payment-step">
+  <h1 class="payment-step__title">Get Started with 50 GB Free</h1>
+  <p class="payment-step__sub-title">
+    Adding a payment method ensures your project won’t be interrupted after your <b>free</b> credit is used.
+  </p>
+  <div class="payment-step__methods-container">
+    <div class="payment-step__methods-container__title-area">
+      <h2 class="payment-step__methods-container__title-area__title">Payment Method</h2>
+      <div class="payment-step__methods-container__title-area__options-area"><span class="payment-step__methods-container__title-area__options-area__token">
+                    STORJ Token
+                </span> <span class="payment-step__methods-container__title-area__options-area__card selected">
+                    Card
+                </span></div>
+    </div>
+    <!---->
+  </div>
+  <addcardstate-stub></addcardstate-stub>
+  <!---->
+  <h1 class="payment-step__title second-title">Transparent Monthly Pricing</h1>
+  <p class="payment-step__sub-title">
+    Pay only for the storage and bandwidth you use.
+  </p>
+  <div class="payment-step__pricing-modal">
+    <div class="payment-step__pricing-modal__item">
+      <div class="payment-step__pricing-modal__item__left-side"><img src="@/../static/images/onboardingTour/cloud.png" alt="cloud image"> <span class="payment-step__pricing-modal__item__left-side__title">Storage</span></div>
+      <div class="payment-step__pricing-modal__item__right-side"><b class="payment-step__pricing-modal__item__right-side__price">$0.01</b> <span class="payment-step__pricing-modal__item__left-side__dimension">/GB</span></div>
+    </div>
+    <div class="payment-step__pricing-modal__item download-item">
+      <div class="payment-step__pricing-modal__item__left-side"><img src="@/../static/images/onboardingTour/arrow-down.png" alt="arrow image"> <span class="payment-step__pricing-modal__item__left-side__title">Download</span></div>
+      <div class="payment-step__pricing-modal__item__right-side"><b class="payment-step__pricing-modal__item__right-side__price">$0.045</b> <span class="payment-step__pricing-modal__item__left-side__dimension">/GB</span></div>
+    </div>
+    <div class="payment-step__pricing-modal__item">
+      <div class="payment-step__pricing-modal__item__left-side"><img src="@/../static/images/onboardingTour/squares.png" alt="squares image"> <span class="payment-step__pricing-modal__item__left-side__title">Per Object</span></div>
+      <div class="payment-step__pricing-modal__item__right-side"><b class="payment-step__pricing-modal__item__right-side__price">$0.0000022</b> <span class="payment-step__pricing-modal__item__left-side__dimension">/OBJECT</span></div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`AddPaymentStep.vue renders correctly 2`] = `
+<div class="payment-step">
+  <h1 class="payment-step__title">Get Started with 50 GB Free</h1>
+  <p class="payment-step__sub-title">
+    Adding a payment method ensures your project won’t be interrupted after your <b>free</b> credit is used.
+  </p>
+  <div class="payment-step__methods-container">
+    <div class="payment-step__methods-container__title-area">
+      <h2 class="payment-step__methods-container__title-area__title">Payment Method</h2>
+      <div class="payment-step__methods-container__title-area__options-area"><span class="payment-step__methods-container__title-area__options-area__token selected">
+                    STORJ Token
+                </span> <span class="payment-step__methods-container__title-area__options-area__card">
+                    Card
+                </span></div>
+    </div>
+    <!---->
+  </div>
+  <!---->
+  <addstorjstate-stub></addstorjstate-stub>
+  <h1 class="payment-step__title second-title">Transparent Monthly Pricing</h1>
+  <p class="payment-step__sub-title">
+    Pay only for the storage and bandwidth you use.
+  </p>
+  <div class="payment-step__pricing-modal">
+    <div class="payment-step__pricing-modal__item">
+      <div class="payment-step__pricing-modal__item__left-side"><img src="@/../static/images/onboardingTour/cloud.png" alt="cloud image"> <span class="payment-step__pricing-modal__item__left-side__title">Storage</span></div>
+      <div class="payment-step__pricing-modal__item__right-side"><b class="payment-step__pricing-modal__item__right-side__price">$0.01</b> <span class="payment-step__pricing-modal__item__left-side__dimension">/GB</span></div>
+    </div>
+    <div class="payment-step__pricing-modal__item download-item">
+      <div class="payment-step__pricing-modal__item__left-side"><img src="@/../static/images/onboardingTour/arrow-down.png" alt="arrow image"> <span class="payment-step__pricing-modal__item__left-side__title">Download</span></div>
+      <div class="payment-step__pricing-modal__item__right-side"><b class="payment-step__pricing-modal__item__right-side__price">$0.045</b> <span class="payment-step__pricing-modal__item__left-side__dimension">/GB</span></div>
+    </div>
+    <div class="payment-step__pricing-modal__item">
+      <div class="payment-step__pricing-modal__item__left-side"><img src="@/../static/images/onboardingTour/squares.png" alt="squares image"> <span class="payment-step__pricing-modal__item__left-side__title">Per Object</span></div>
+      <div class="payment-step__pricing-modal__item__right-side"><b class="payment-step__pricing-modal__item__right-side__price">$0.0000022</b> <span class="payment-step__pricing-modal__item__left-side__dimension">/OBJECT</span></div>
+    </div>
+  </div>
+</div>
+`;

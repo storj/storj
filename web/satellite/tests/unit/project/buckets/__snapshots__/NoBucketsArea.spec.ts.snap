@@ -1,0 +1,13 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`NoBucketsArea.vue renders correctly 1`] = `
+<div class="no-buckets-area"><img src="@/../static/images/buckets/bucket.png" alt="bucket image" class="no-buckets-area__image">
+  <h2 class="no-buckets-area__message">Create your first bucket to get started.</h2> <a href="https://documentation.tardigrade.io/api-reference/uplink-cli" target="_blank" rel="noopener noreferrer" class="no-buckets-area__first-button">
+    Get Started
+  </a> <a href="https://documentation.tardigrade.io/" target="_blank" rel="noopener noreferrer" class="no-buckets-area__second-button">
+    Visit the Docs
+  </a> <a href="https://support.tardigrade.io/hc/en-us/articles/360035332472-Why-can-t-I-upload-from-the-browser-" target="_blank" rel="noopener noreferrer" class="no-buckets-area__help">
+    Why can't I upload from the browser?
+  </a>
+</div>
+`;

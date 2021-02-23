@@ -1,0 +1,19 @@
+<!--Copyright (C) 2019 Storj Labs, Inc.-->
+<!--See LICENSE for copying information.-->
+
+<div class="register-success-area" >
+    <div class="register-success-area__form-container">
+        <h2 class="register-success-area__form-container__title">Account Created!</h2>
+        <span class="register-success-area__form-container__sub-title">Check your email to complete registration.</span>
+        <p class="register-success-area__form-container__text">Didn’t receive a verification email?<b class="register-success-area__form-container__verification-cooldown__bold-text"> {{timeToEnableResendEmailButton}}</b></p>
+        <div class="register-success-area__form-container__button-container">
+            <VButton
+                label="Resend Email"
+                width="450px"
+                height="50px"
+                :on-press="onResendEmailButtonClick"
+                :is-disabled="isResendEmailButtonDisabled"
+            />
+        </div>
+    </div>
+</div>

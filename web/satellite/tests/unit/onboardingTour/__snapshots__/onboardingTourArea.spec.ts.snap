@@ -1,0 +1,22 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`OnboardingTourArea.vue renders correctly 1`] = `
+<div class="tour-area">
+  <div class="tour-area__info-bar">
+    <div class="tour-area__info-bar__message"><b class="tour-area__info-bar__message__bold">Try Tardigrade with 50 GB Free after adding a payment method.</b>
+      <p class="tour-area__info-bar__message__regular"> Cancel before your credit runs out and you’ll never be billed.</p>
+    </div>
+    <closeimage-stub class="tour-area__info-bar__close-img"></closeimage-stub>
+  </div>
+  <div class="tour-area__content">
+    <progressbar-stub ispaywallenabled="true"></progressbar-stub>
+    <overviewstep-stub></overviewstep-stub>
+    <!---->
+    <!---->
+    <!---->
+    <!---->
+    <!---->
+    <!---->
+  </div>
+</div>
+`;

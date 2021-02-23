@@ -1,0 +1,31 @@
+<!--Copyright (C) 2019 Storj Labs, Inc.-->
+<!--See LICENSE for copying information.-->
+
+<div class="header-container">
+    <div class="header-container__left-area">
+        <div class="header-container__left-area__logo-area">
+            <NavigationMenuIcon
+                class="header-container__left-area__logo-area__menu-button"
+                v-if="!isNavigationVisible"
+                @click.stop="toggleNavigationVisibility"
+            />
+            <div class="header-container__left-area__logo-area__close-button" v-if="isNavigationVisible" @click.stop="toggleNavigationVisibility">
+                <NavigationCloseIcon/>
+                <p class="header-container__left-area__logo-area__close-button__title">Close</p>
+            </div>
+            <LogoIcon
+                class="logo"
+                @click.stop="onLogoClick"
+            />
+        </div>
+        <ProjectSelection class="project-selection"/>
+        <ResourcesSelection class="resources-selection"/>
+        <SettingsSelection class="settings-selection"/>
+    </div>
+    <AccountButton class="header-container__account-button"/>
+    <NavigationArea
+        class="adapted-navigation"
+        v-if="isNavigationVisible"
+    />
+    <div class="navigation-blur" v-if="isNavigationVisible" @click.self.stop="toggleNavigationVisibility"></div>
+</div>

@@ -1,0 +1,123 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Team HeaderArea renders correctly 1`] = `
+<div class="team-header-container">
+  <div class="team-header-container__title-area">
+    <h1 class="team-header-container__title-area__title">Project Members</h1>
+    <vinfo-stub text="" boldtext="The only project role currently available is Admin, which gives full access to the project." class="team-header-container__title-area__info-button">
+      <infoicon-stub class="team-header-container__title-area__info-button__image"></infoicon-stub>
+    </vinfo-stub>
+  </div>
+  <div class="team-header-container__wrapper">
+    <vheader-stub placeholder="Team Members" search="function () { [native code] }">
+      <div class="header-default-state">
+        <vbutton-stub label="+ Add" width="122px" height="48px" onpress="function () { [native code] }" class="button"></vbutton-stub>
+      </div>
+      <!---->
+      <!---->
+    </vheader-stub>
+    <!---->
+    <!---->
+  </div>
+  <!---->
+</div>
+`;
+
+exports[`Team HeaderArea renders correctly with 1 selected user and delete clicked once 1`] = `
+<div class="team-header-container">
+  <div class="team-header-container__title-area">
+    <h1 class="team-header-container__title-area__title">Project Members</h1>
+    <vinfo-stub text="" boldtext="The only project role currently available is Admin, which gives full access to the project." class="team-header-container__title-area__info-button">
+      <infoicon-stub class="team-header-container__title-area__info-button__image"></infoicon-stub>
+    </vinfo-stub>
+  </div>
+  <div class="team-header-container__wrapper">
+    <vheader-stub placeholder="Team Members" search="function () { [native code] }">
+      <!---->
+      <!---->
+      <div class="header-after-delete-click"><span class="header-after-delete-click__delete-confirmation">Are you sure you want to delete <b>1</b> user?</span>
+        <div class="header-after-delete-click__button-area">
+          <vbutton-stub label="Delete" width="122px" height="48px" onpress="function () { [native code] }" class="button deletion"></vbutton-stub>
+          <vbutton-stub label="Cancel" width="122px" height="48px" istransparent="true" onpress="function () { [native code] }" class="button"></vbutton-stub>
+        </div>
+      </div>
+    </vheader-stub>
+    <div class="blur-content"></div>
+    <div class="blur-search"></div>
+  </div>
+  <adduserpopup-stub></adduserpopup-stub>
+</div>
+`;
+
+exports[`Team HeaderArea renders correctly with 2 selected users and delete clicked once 1`] = `
+<div class="team-header-container">
+  <div class="team-header-container__title-area">
+    <h1 class="team-header-container__title-area__title">Project Members</h1>
+    <vinfo-stub text="" boldtext="The only project role currently available is Admin, which gives full access to the project." class="team-header-container__title-area__info-button">
+      <infoicon-stub class="team-header-container__title-area__info-button__image"></infoicon-stub>
+    </vinfo-stub>
+  </div>
+  <div class="team-header-container__wrapper">
+    <vheader-stub placeholder="Team Members" search="function () { [native code] }">
+      <!---->
+      <!---->
+      <div class="header-after-delete-click"><span class="header-after-delete-click__delete-confirmation">Are you sure you want to delete <b>2</b> users?</span>
+        <div class="header-after-delete-click__button-area">
+          <vbutton-stub label="Delete" width="122px" height="48px" onpress="function () { [native code] }" class="button deletion"></vbutton-stub>
+          <vbutton-stub label="Cancel" width="122px" height="48px" istransparent="true" onpress="function () { [native code] }" class="button"></vbutton-stub>
+        </div>
+      </div>
+    </vheader-stub>
+    <div class="blur-content"></div>
+    <div class="blur-search"></div>
+  </div>
+  <!---->
+</div>
+`;
+
+exports[`Team HeaderArea renders correctly with opened Add team member popup 1`] = `
+<div class="team-header-container">
+  <div class="team-header-container__title-area">
+    <h1 class="team-header-container__title-area__title">Project Members</h1>
+    <vinfo-stub text="" boldtext="The only project role currently available is Admin, which gives full access to the project." class="team-header-container__title-area__info-button">
+      <infoicon-stub class="team-header-container__title-area__info-button__image"></infoicon-stub>
+    </vinfo-stub>
+  </div>
+  <div class="team-header-container__wrapper">
+    <vheader-stub placeholder="Team Members" search="function () { [native code] }">
+      <div class="header-default-state">
+        <vbutton-stub label="+ Add" width="122px" height="48px" onpress="function () { [native code] }" class="button"></vbutton-stub>
+      </div>
+      <!---->
+      <!---->
+    </vheader-stub>
+    <!---->
+    <!---->
+  </div>
+  <adduserpopup-stub></adduserpopup-stub>
+</div>
+`;
+
+exports[`Team HeaderArea renders correctly with selected users 1`] = `
+<div class="team-header-container">
+  <div class="team-header-container__title-area">
+    <h1 class="team-header-container__title-area__title">Project Members</h1>
+    <vinfo-stub text="" boldtext="The only project role currently available is Admin, which gives full access to the project." class="team-header-container__title-area__info-button">
+      <infoicon-stub class="team-header-container__title-area__info-button__image"></infoicon-stub>
+    </vinfo-stub>
+  </div>
+  <div class="team-header-container__wrapper">
+    <vheader-stub placeholder="Team Members" search="function () { [native code] }">
+      <!---->
+      <div class="header-selected-members">
+        <vbutton-stub label="Delete" width="122px" height="48px" onpress="function () { [native code] }" class="button deletion"></vbutton-stub>
+        <vbutton-stub label="Cancel" width="122px" height="48px" istransparent="true" onpress="function () { [native code] }" class="button"></vbutton-stub> <span class="header-selected-members__info-text"><b>2</b> users selected</span>
+      </div>
+      <!---->
+    </vheader-stub>
+    <!---->
+    <!---->
+  </div>
+  <adduserpopup-stub></adduserpopup-stub>
+</div>
+`;

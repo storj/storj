@@ -1,0 +1,114 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`EditProjectDetails.vue editing description works correctly 1`] = `
+<div class="project-details">
+  <div class="project-details__wrapper">
+    <p class="project-details__wrapper__back">&lt;- Back</p>
+    <div class="project-details__wrapper__container">
+      <h1 class="project-details__wrapper__container__title">Project Details</h1>
+      <p class="project-details__wrapper__container__label">Name</p>
+      <div class="project-details__wrapper__container__name-area">
+        <p class="project-details__wrapper__container__name-area__name">new name</p>
+        <div class="container white" style="width: 64px; height: 28px;"><span class="label">Edit</span></div>
+      </div>
+      <!---->
+      <p class="project-details__wrapper__container__label">Description</p>
+      <!---->
+      <div class="project-details__wrapper__container__description-editing"><input placeholder="Enter a description for your project" class="project-details__wrapper__container__description-editing__input"> <span class="project-details__wrapper__container__description-editing__limit">4/100</span>
+        <div class="project-details__wrapper__container__description-editing__save-button container" style="width: 66px; height: 30px;"><span class="label">Save</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`EditProjectDetails.vue editing description works correctly 2`] = `
+<div class="project-details">
+  <div class="project-details__wrapper">
+    <p class="project-details__wrapper__back">&lt;- Back</p>
+    <div class="project-details__wrapper__container">
+      <h1 class="project-details__wrapper__container__title">Project Details</h1>
+      <p class="project-details__wrapper__container__label">Name</p>
+      <div class="project-details__wrapper__container__name-area">
+        <p class="project-details__wrapper__container__name-area__name">new name</p>
+        <div class="container white" style="width: 64px; height: 28px;"><span class="label">Edit</span></div>
+      </div>
+      <!---->
+      <p class="project-details__wrapper__container__label">Description</p>
+      <div class="project-details__wrapper__container__description-area">
+        <p class="project-details__wrapper__container__description-area__description">new description</p>
+        <div class="container white" style="width: 64px; height: 28px;"><span class="label">Edit</span></div>
+      </div>
+      <!---->
+    </div>
+  </div>
+</div>
+`;
+
+exports[`EditProjectDetails.vue editing name works correctly 1`] = `
+<div class="project-details">
+  <div class="project-details__wrapper">
+    <p class="project-details__wrapper__back">&lt;- Back</p>
+    <div class="project-details__wrapper__container">
+      <h1 class="project-details__wrapper__container__title">Project Details</h1>
+      <p class="project-details__wrapper__container__label">Name</p>
+      <!---->
+      <div class="project-details__wrapper__container__name-editing"><input placeholder="Enter a name for your project" class="project-details__wrapper__container__name-editing__input"> <span class="project-details__wrapper__container__name-editing__limit">4/20</span>
+        <div class="project-details__wrapper__container__name-editing__save-button container" style="width: 66px; height: 30px;"><span class="label">Save</span></div>
+      </div>
+      <p class="project-details__wrapper__container__label">Description</p>
+      <div class="project-details__wrapper__container__description-area">
+        <p class="project-details__wrapper__container__description-area__description">test</p>
+        <div class="container white" style="width: 64px; height: 28px;"><span class="label">Edit</span></div>
+      </div>
+      <!---->
+    </div>
+  </div>
+</div>
+`;
+
+exports[`EditProjectDetails.vue editing name works correctly 2`] = `
+<div class="project-details">
+  <div class="project-details__wrapper">
+    <p class="project-details__wrapper__back">&lt;- Back</p>
+    <div class="project-details__wrapper__container">
+      <h1 class="project-details__wrapper__container__title">Project Details</h1>
+      <p class="project-details__wrapper__container__label">Name</p>
+      <div class="project-details__wrapper__container__name-area">
+        <p class="project-details__wrapper__container__name-area__name">new name</p>
+        <div class="container white" style="width: 64px; height: 28px;"><span class="label">Edit</span></div>
+      </div>
+      <!---->
+      <p class="project-details__wrapper__container__label">Description</p>
+      <div class="project-details__wrapper__container__description-area">
+        <p class="project-details__wrapper__container__description-area__description">test</p>
+        <div class="container white" style="width: 64px; height: 28px;"><span class="label">Edit</span></div>
+      </div>
+      <!---->
+    </div>
+  </div>
+</div>
+`;
+
+exports[`EditProjectDetails.vue renders correctly 1`] = `
+<div class="project-details">
+  <div class="project-details__wrapper">
+    <p class="project-details__wrapper__back">&lt;- Back</p>
+    <div class="project-details__wrapper__container">
+      <h1 class="project-details__wrapper__container__title">Project Details</h1>
+      <p class="project-details__wrapper__container__label">Name</p>
+      <div class="project-details__wrapper__container__name-area">
+        <p class="project-details__wrapper__container__name-area__name">test</p>
+        <div class="container white" style="width: 64px; height: 28px;"><span class="label">Edit</span></div>
+      </div>
+      <!---->
+      <p class="project-details__wrapper__container__label">Description</p>
+      <div class="project-details__wrapper__container__description-area">
+        <p class="project-details__wrapper__container__description-area__description">test</p>
+        <div class="container white" style="width: 64px; height: 28px;"><span class="label">Edit</span></div>
+      </div>
+      <!---->
+    </div>
+  </div>
+</div>
+`;

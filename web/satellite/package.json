@@ -1,0 +1,146 @@
+{
+  "name": "storj-satellite",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "serve": "vue-cli-service serve",
+    "lint": "vue-cli-service lint && stylelint '**/*.{vue,scss}' --fix",
+    "test": "vue-cli-service test:unit",
+    "build": "vue-cli-service build",
+    "dev": "vue-cli-service build --mode development"
+  },
+  "dependencies": {
+    "apollo-cache-inmemory": "1.6.6",
+    "apollo-client": "2.6.10",
+    "apollo-link": "1.2.14",
+    "apollo-link-context": "1.0.20",
+    "apollo-link-error": "1.1.13",
+    "apollo-link-http": "1.5.17",
+    "graphql": "15.3.0",
+    "graphql-tag": "2.11.0",
+    "load-script": "1.0.0",
+    "stripe": "8.96.0",
+    "vue": "2.6.12",
+    "vue-class-component": "7.2.5",
+    "vue-clipboard2": "0.3.1",
+    "vue-property-decorator": "9.0.0",
+    "vue-router": "3.4.3",
+    "vuex": "3.5.1"
+  },
+  "devDependencies": {
+    "@babel/core": "7.11.6",
+    "@babel/plugin-proposal-object-rest-spread": "7.11.0",
+    "@types/segment-analytics": "0.0.32",
+    "@types/node": "13.11.1",
+    "@vue/cli-plugin-babel": "4.5.6",
+    "@vue/cli-plugin-typescript": "4.5.6",
+    "@vue/cli-plugin-unit-jest": "4.5.6",
+    "@vue/cli-service": "4.5.6",
+    "@vue/test-utils": "1.1.0",
+    "babel-core": "7.0.0-bridge.0",
+    "compression-webpack-plugin": "6.0.0",
+    "jest-fetch-mock": "3.0.3",
+    "node-sass": "4.14.1",
+    "sass-loader": "10.0.2",
+    "sinon": "9.0.3",
+    "stylelint": "13.7.1",
+    "stylelint-config-standard": "20.0.0",
+    "stylelint-scss": "3.18.0",
+    "stylelint-webpack-plugin": "2.1.0",
+    "ts-jest": "26.3.0",
+    "tslint": "6.1.3",
+    "tslint-consistent-codestyle": "1.16.0",
+    "tslint-loader": "3.5.4",
+    "typescript": "4.0.2",
+    "vue-svg-loader": "0.16.0",
+    "vue-template-compiler": "2.6.12",
+    "vue-tslint": "0.3.2",
+    "vue-tslint-loader": "3.5.6",
+    "webpack": "4.44.1"
+  },
+  "postcss": {
+    "plugins": {
+      "autoprefixer": {}
+    }
+  },
+  "browserslist": [
+    "> 1%",
+    "last 2 versions",
+    "not ie <= 8"
+  ],
+  "stylelint": {
+    "plugins": [
+      "stylelint-scss"
+    ],
+    "extends": "stylelint-config-standard",
+    "rules": {
+      "indentation": 4,
+      "string-quotes": "single",
+      "no-duplicate-selectors": true,
+      "selector-max-attribute": 1,
+      "selector-combinator-space-after": "always",
+      "selector-attribute-operator-space-before": "never",
+      "selector-attribute-operator-space-after": "never",
+      "selector-attribute-brackets-space-inside": "never",
+      "declaration-block-trailing-semicolon": "always",
+      "declaration-colon-space-before": "never",
+      "declaration-colon-space-after": "always",
+      "number-leading-zero": "always",
+      "function-url-quotes": "always",
+      "font-family-name-quotes": "always-unless-keyword",
+      "comment-whitespace-inside": "always",
+      "comment-empty-line-before": "always",
+      "rule-empty-line-before": "always-multi-line",
+      "selector-pseudo-element-colon-notation": "single",
+      "selector-pseudo-class-parentheses-space-inside": "never",
+      "selector-max-type": 1,
+      "font-family-no-missing-generic-family-keyword": true,
+      "at-rule-no-unknown": true,
+      "media-feature-range-operator-space-before": "always",
+      "media-feature-range-operator-space-after": "always",
+      "media-feature-parentheses-space-inside": "never",
+      "media-feature-colon-space-before": "never",
+      "media-feature-colon-space-after": "always"
+    }
+  },
+  "jest": {
+    "automock": false,
+    "setupFiles": [
+      "./jestSetup.ts"
+    ],
+    "globals": {
+      "ts-jest": {
+        "diagnostics": false
+      }
+    },
+    "moduleFileExtensions": [
+      "js",
+      "jsx",
+      "json",
+      "vue",
+      "ts",
+      "tsx"
+    ],
+    "collectCoverage": true,
+    "transform": {
+      "^.+\\.js$": "babel-jest",
+      "^.+\\.vue$": "vue-jest",
+      ".+\\.(css|styl|less|sass|scss|png|jpg|ttf|woff|woff2)$": "jest-transform-stub",
+      "^.+\\.tsx?$": "ts-jest",
+      "^.+\\.svg$": "<rootDir>/tests/unit/mock/svgTransform.js"
+    },
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(apollo-client|apollo-link))"
+    ],
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/src/$1"
+    },
+    "snapshotSerializers": [
+      "jest-serializer-vue"
+    ],
+    "testMatch": [
+      "**/tests/unit/**/*.spec.(js|jsx|ts|tsx)|**/__tests__/*.(js|jsx|ts|tsx)"
+    ],
+    "testURL": "http://localhost/"
+  }
+}

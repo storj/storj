@@ -1,0 +1,23 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ApiKeysItem.vue renders correctly 1`] = `
+<div class="apikey-item-container">
+  <div class="apikey-item-container__common-info">
+    <div class="checkbox-container"><svg width="23" height="23" viewBox="0 0 23 23" fill="none" xmlns="http://www.w3.org/2000/svg" class="checkbox-container__image">
+        <rect x="0.75" y="0.75" width="21.5" height="21.5" rx="3.25" stroke="#384B65" stroke-opacity="0.4" stroke-width="1.5" class="checkbox-container__image__rect"></rect>
+      </svg></div>
+    <div class="avatar"><svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg" class="avatar__image">
+        <path d="M0 6C0 2.68629 2.68629 0 6 0H24C27.3137 0 30 2.68629 30 6V24C30 27.3137 27.3137 30 24 30H6C2.68629 30 0 27.3137 0 24V6Z" fill="#2683FF"></path>
+        <path d="M11.9184 11C13.4286 11 14.7239 11.8848 15.3777 13.1667H22.0408C22.1155 13.1667 22.1875 13.1921 22.2449 13.2396L23.8776 14.5886C23.9573 14.6537 24.0026 14.7533 23.9994 14.8581C23.9968 14.9623 23.9458 15.0593 23.8623 15.1198L21.5766 16.7708C21.456 16.8581 21.2928 16.8516 21.1786 16.7552L20.4082 16.099L19.6378 16.7552C19.5172 16.8581 19.3406 16.8581 19.2194 16.7552L18.449 16.099L17.6786 16.7552C17.6205 16.8053 17.5465 16.8327 17.4694 16.8333H15.3724C14.7174 18.112 13.426 19 11.9184 19C9.75837 19 8 17.205 8 15C8 12.795 9.75837 11 11.9184 11H11.9184Z" fill="white"></path>
+        <path d="M10.7754 13.666C11.4928 13.666 12.0815 14.2669 12.0815 14.9993C12.0815 15.7318 11.4928 16.3327 10.7754 16.3327C10.0579 16.3327 9.46924 15.7318 9.46924 14.9993C9.46924 14.2669 10.0579 13.666 10.7754 13.666Z" fill="#2683FF"></path>
+        <path d="M10.7756 14.334C10.4108 14.334 10.1226 14.6283 10.1226 15.0007C10.1226 15.3731 10.4108 15.6673 10.7756 15.6673C11.1404 15.6673 11.4287 15.3731 11.4287 15.0007C11.4287 14.6283 11.1404 14.334 10.7756 14.334Z" fill="#2683FF"></path>
+      </svg></div>
+    <div title="" class="name-container">
+      <p class="name"></p>
+    </div>
+  </div>
+  <div class="apikey-item-container__common-info date-item-container">
+    <p class="date">1/1/1970</p>
+  </div>
+</div>
+`;

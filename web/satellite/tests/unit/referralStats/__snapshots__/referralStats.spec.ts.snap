@@ -1,0 +1,12 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ReferralStats snapshot not changed 1`] = `
+<div class="referral-stats">
+  <p class="referral-stats__title"> full name, Here Are Your Referrals So Far </p>
+  <div class="referral-stats__wrapper">
+    <div class="referral-stats__card"><span class="referral-stats__card-text"><span class="referral-stats__card-title">referrals made</span> <span class="referral-stats__card-description">People you referred who signed up</span></span> <br> <span class="referral-stats__card-number">undefined</span></div>
+    <div class="referral-stats__card"><span class="referral-stats__card-text"><span class="referral-stats__card-title">earned credits</span> <span class="referral-stats__card-description">Free credits that will apply to your upcoming bill</span></span> <br> <span class="referral-stats__card-number">$undefined</span></div>
+    <div class="referral-stats__card"><span class="referral-stats__card-text"><span class="referral-stats__card-title">applied credits</span> <span class="referral-stats__card-description">Free credits that have already been applied to your bill</span></span> <br> <span class="referral-stats__card-number">$undefined</span></div>
+  </div>
+</div>
+`;

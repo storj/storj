@@ -1,0 +1,11 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`VInfoBar.vue renders correctly 1`] = `
+<div class="info-bar">
+  <div class="info-bar__info-area"><b class="info-bar__info-area__first-value">5GB</b> <span class="info-bar__info-area__first-description">test1</span> <b class="info-bar__info-area__second-value">5GB</b> <span class="info-bar__info-area__second-description">test2</span>
+    <router-link-stub to="/" tag="a" ariacurrentvalue="page" event="click" class="info-bar__info-area__button">Details</router-link-stub>
+  </div> <a href="testlink" target="_blank" rel="noopener noreferrer" class="info-bar__link">
+    label
+  </a>
+</div>
+`;

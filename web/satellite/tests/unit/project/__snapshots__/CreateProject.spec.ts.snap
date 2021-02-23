@@ -1,0 +1,40 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`CreateProject.vue renders correctly 1`] = `
+<div class="create-project-area">
+  <div class="create-project-area__container"><img src="@/../static/images/project/createProject.png" alt="create project image">
+    <h2 class="create-project-area__title">Create a Project</h2>
+    <div class="input-container full-input">
+      <div class="label-container">
+        <div class="label-container__main">
+          <!---->
+          <h3 class="label-container__main__label">Project Name</h3>
+          <h3 class="label-container__main__label add-label">Up To 20 Characters</h3>
+          <!---->
+        </div>
+        <h3 class="label-container__limit">0/20</h3>
+      </div>
+      <!---->
+      <!----> <input id="Project Name" placeholder="Enter Project Name" type="text" class="headered-input" style="width: 100%; height: 48px;">
+    </div>
+    <div class="input-container full-input">
+      <div class="label-container">
+        <div class="label-container__main">
+          <!---->
+          <h3 class="label-container__main__label">Description</h3>
+          <h3 class="label-container__main__label add-label">Optional</h3>
+          <!---->
+        </div>
+        <h3 class="label-container__limit">0/100</h3>
+      </div>
+      <!----> <textarea id="Description" placeholder="Enter Project Description" rows="5" cols="40" wrap="hard" class="headered-textarea" style="height: 60px;"></textarea>
+      <!---->
+    </div>
+    <div class="create-project-area__container__button-container">
+      <div class="container transparent" style="width: 210px; height: 48px;"><span class="label">Cancel</span></div>
+      <div class="container disabled" style="width: 210px; height: 48px;"><span class="label">Create Project +</span></div>
+    </div>
+    <!---->
+  </div>
+</div>
+`;

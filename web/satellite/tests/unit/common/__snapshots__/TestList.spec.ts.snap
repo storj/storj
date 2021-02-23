@@ -1,0 +1,9 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`TestList.vue should render list of primitive types 1`] = `
+<div class="item-component">
+  <h1 class="title item-component__item">1</h1>
+  <h1 class="title item-component__item">2</h1>
+  <h1 class="title item-component__item">3</h1>
+</div>
+`;

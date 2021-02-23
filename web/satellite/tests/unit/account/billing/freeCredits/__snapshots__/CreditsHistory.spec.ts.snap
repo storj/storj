@@ -1,0 +1,17 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`CreditsHistory renders correctly 1`] = `
+<div class="credit-history">
+  <div class="credit-history__back-area">
+    <backimage-stub></backimage-stub>
+    <p class="credit-history__back-area__title">Back to Billing</p>
+  </div>
+  <h1 class="credit-history__title">Free Credits</h1>
+  <div class="credit-history__content">
+    <h1 class="credit-history__content__sum">$5.75</h1> <span class="credit-history__content__info">Available credits since last bill</span> <span class="credit-history__content__details">DETAILS</span>
+    <sortingheader-stub></sortingheader-stub>
+    <creditsitem-stub creditsitem="[object Object]"></creditsitem-stub>
+    <creditsitem-stub creditsitem="[object Object]"></creditsitem-stub>
+  </div>
+</div>
+`;

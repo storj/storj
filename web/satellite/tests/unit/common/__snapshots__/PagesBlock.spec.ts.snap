@@ -1,0 +1,5 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Pagination.vue renders correctly with props 1`] = `<div class="pages-container"><span class="pages-container__pages">1</span><span class="pages-container__pages">2</span><span class="pages-container__pages selected">3</span><span class="pages-container__pages">4</span></div>`;
+
+exports[`Pagination.vue renders correctly without props 1`] = `<div class="pages-container"></div>`;

@@ -1,0 +1,64 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`BucketArea.vue renders correctly with bucket 1`] = `
+<div class="buckets-area">
+  <div class="buckets-overflow">
+    <div class="buckets-header">
+      <p class="buckets-header__title">Buckets</p>
+      <vheader-stub placeholder="Buckets" search="function () { [native code] }" class="buckets-header-component"></vheader-stub>
+    </div>
+    <div class="buckets-container">
+      <sortingheader-stub></sortingheader-stub>
+      <vlist-stub itemcomponent="function VueComponent (options) {
+      this._init(options);
+    }" onitemclick="function () { [native code] }" dataset="[object Object]" class="buckets-list"></vlist-stub>
+    </div>
+    <!---->
+  </div>
+  <!---->
+</div>
+`;
+
+exports[`BucketArea.vue renders correctly with pagination 1`] = `
+<div class="buckets-area">
+  <div class="buckets-overflow">
+    <div class="buckets-header">
+      <p class="buckets-header__title">Buckets</p>
+      <vheader-stub placeholder="Buckets" search="function () { [native code] }" class="buckets-header-component"></vheader-stub>
+    </div>
+    <div class="buckets-container">
+      <sortingheader-stub></sortingheader-stub>
+      <vlist-stub itemcomponent="function VueComponent (options) {
+      this._init(options);
+    }" onitemclick="function () { [native code] }" dataset="[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object],[object Object]" class="buckets-list"></vlist-stub>
+    </div>
+    <!---->
+  </div>
+  <div class="buckets-area__pagination-area">
+    <vpagination-stub totalpagecount="2" onpageclickcallback="function () { [native code] }"></vpagination-stub>
+  </div>
+</div>
+`;
+
+exports[`BucketArea.vue renders correctly without bucket 1`] = `
+<div class="buckets-area">
+  <nobucketarea-stub></nobucketarea-stub>
+  <!---->
+</div>
+`;
+
+exports[`BucketArea.vue renders correctly without search results 1`] = `
+<div class="buckets-area">
+  <div class="buckets-overflow">
+    <div class="buckets-header">
+      <p class="buckets-header__title">Buckets</p>
+      <vheader-stub placeholder="Buckets" search="function () { [native code] }" class="buckets-header-component"></vheader-stub>
+    </div>
+    <!---->
+    <div class="empty-search-result-area">
+      <h1 class="empty-search-result-area__title">No results found</h1>
+    </div>
+  </div>
+  <!---->
+</div>
+`;

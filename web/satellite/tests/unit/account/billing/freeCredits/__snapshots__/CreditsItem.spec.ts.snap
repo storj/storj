@@ -1,0 +1,10 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`CreditsItem renders correctly 1`] = `
+<div class="container">
+  <p class="container__item">Trial Credit</p>
+  <p class="container__item">January 1970</p>
+  <p class="container__item">50 GB ($2.75)</p>
+  <p class="container__item available">$2.75</p>
+</div>
+`;

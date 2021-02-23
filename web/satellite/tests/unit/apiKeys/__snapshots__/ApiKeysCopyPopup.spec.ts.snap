@@ -1,0 +1,19 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`ApiKeysCopyPopup renders correctly 1`] = `
+<div class="save-api-popup">
+  <h2 class="save-api-popup__title">Save Your Secret API Key! It Will Appear Only Once.</h2>
+  <div class="save-api-popup__copy-area">
+    <div class="save-api-popup__copy-area__key-area">
+      <p class="save-api-popup__copy-area__key-area__key">test</p>
+    </div>
+    <p class="save-api-popup__copy-area__copy-button">Copy</p>
+  </div>
+  <div class="save-api-popup__next-step-area"><span class="save-api-popup__next-step-area__label">Next Step:</span> <a href="https://documentation.tardigrade.io/getting-started/uploading-your-first-object/set-up-uplink-cli" target="_blank" rel="noopener noreferrer" class="save-api-popup__next-step-area__link">
+      Set Up Uplink CLI
+    </a>
+    <div class="container" style="width: 156px; height: 40px;"><span class="label">Done</span></div>
+  </div>
+  <div class="blur-content"></div>
+</div>
+`;

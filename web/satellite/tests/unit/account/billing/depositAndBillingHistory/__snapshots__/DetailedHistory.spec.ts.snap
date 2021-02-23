@@ -1,0 +1,27 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`DetailedHistory renders correctly with deposit items 1`] = `
+<div class="history-area">
+  <div class="history-area__back-area">
+    <backimage-stub></backimage-stub>
+    <p class="history-area__back-area__title">Back to Billing</p>
+  </div>
+  <h1 class="history-area__title">Balance History</h1>
+  <div class="history-area__content">
+    <sortingheader-stub></sortingheader-stub>
+    <paymentsitem-stub billingitem="[object Object]"></paymentsitem-stub>
+    <paymentsitem-stub billingitem="[object Object]"></paymentsitem-stub>
+  </div>
+</div>
+`;
+
+exports[`DetailedHistory renders correctly without items 1`] = `
+<div class="history-area">
+  <div class="history-area__back-area">
+    <backimage-stub></backimage-stub>
+    <p class="history-area__back-area__title">Back to Billing</p>
+  </div>
+  <h1 class="history-area__title">Balance History</h1>
+  <h2 class="history-area__empty-state">No Items Yet</h2>
+</div>
+`;

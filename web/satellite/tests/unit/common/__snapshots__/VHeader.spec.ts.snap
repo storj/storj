@@ -1,0 +1,8 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`HeaderComponent.vue renders correctly 1`] = `
+<div class="header-container">
+  <div class="header-container__buttons-area"></div>
+  <vsearch-stub placeholder="" search=""></vsearch-stub>
+</div>
+`;
