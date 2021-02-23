@@ -8,9 +8,9 @@ import "storj.io/storj/storagenode/storagenodedb"
 var v50 = MultiDBState{
 	Version: 50,
 	DBStates: DBStates{
-		storagenodedb.UsedSerialsDBName:  v47.DBStates[storagenodedb.UsedSerialsDBName],
-		storagenodedb.StorageUsageDBName: v47.DBStates[storagenodedb.StorageUsageDBName],
-		storagenodedb.ReputationDBName: v48.DBStates[storagenodedb.ReputationDBName],
+		storagenodedb.UsedSerialsDBName:     v47.DBStates[storagenodedb.UsedSerialsDBName],
+		storagenodedb.StorageUsageDBName:    v47.DBStates[storagenodedb.StorageUsageDBName],
+		storagenodedb.ReputationDBName:      v48.DBStates[storagenodedb.ReputationDBName],
 		storagenodedb.PieceSpaceUsedDBName:  v47.DBStates[storagenodedb.PieceSpaceUsedDBName],
 		storagenodedb.PieceInfoDBName:       v47.DBStates[storagenodedb.PieceInfoDBName],
 		storagenodedb.PieceExpirationDBName: v47.DBStates[storagenodedb.PieceExpirationDBName],
@@ -58,6 +58,6 @@ var v50 = MultiDBState{
 					PRIMARY KEY ( id )
 				);`,
 		},
-		storagenodedb.PricingDBName:         v47.DBStates[storagenodedb.PricingDBName],
-		storagenodedb.APIKeysDBName:         v47.DBStates[storagenodedb.APIKeysDBName]},
+		storagenodedb.PricingDBName: v47.DBStates[storagenodedb.PricingDBName],
+		storagenodedb.APIKeysDBName: v47.DBStates[storagenodedb.APIKeysDBName]},
 }

@@ -80,10 +80,10 @@
                     </div>
                     <div class="payout-history-item__expanded-area__right-area__divider"></div>
                     <div class="payout-history-item__expanded-area__right-area__footer">
-                        <div class="payout-history-item__expanded-area__right-area__footer__transaction" v-if="historyItem.receipt">
+                        <div class="payout-history-item__expanded-area__right-area__footer__transaction" v-if="historyItem.transactionLink">
                             <a
                                 class="payout-history-item__expanded-area__right-area__footer__transaction__link"
-                                :href="historyItem.receipt"
+                                :href="historyItem.transactionLink"
                                 target="_blank"
                                 rel="noreferrer noopener"
                             >

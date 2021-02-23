@@ -1553,10 +1553,14 @@ func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *ove
 	return updateFields
 }
 
-// DQNodesLastSeenBefore disqualifies all nodes where last_contact_success < cutoff.
+// DQNodesLastSeenBefore disqualifies all nodes where last_contact_success < cutoff except those already disqualified
+// or gracefully exited.
 func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	q := `UPDATE nodes SET disqualified = current_timestamp WHERE last_contact_success < $1;`
+	q := `UPDATE nodes SET disqualified = current_timestamp
+			WHERE last_contact_success < $1
+			AND disqualified is NULL
+			AND exit_finished_at is NULL;`
 	_, err = cache.db.ExecContext(ctx, q, cutoff)
 	return err
 }
@@ -1589,7 +1593,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				audit_reputation_alpha, audit_reputation_beta,
 				unknown_audit_reputation_alpha, unknown_audit_reputation_beta,
 				major, minor, patch, hash, timestamp, release,
-				last_ip_port, 
+				last_ip_port,
 				wallet_features
 			)
 			VALUES (
@@ -1678,4 +1682,40 @@ func (cache *overlaycache) TestUnvetNode(ctx context.Context, nodeID storj.NodeI
 	}
 	_, err = cache.Get(ctx, nodeID)
 	return err
+}
+
+// IterateAllNodes will call cb on all known nodes (used in restore trash contexts).
+func (cache *overlaycache) IterateAllNodes(ctx context.Context, cb func(context.Context, *overlay.SelectedNode) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var rows tagsql.Rows
+	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+		SELECT last_net, id, address, last_ip_port
+		FROM nodes
+	`))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		var node overlay.SelectedNode
+		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
+
+		var lastIPPort sql.NullString
+		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		if lastIPPort.Valid {
+			node.LastIPPort = lastIPPort.String
+		}
+
+		err = cb(ctx, &node)
+		if err != nil {
+			return err
+		}
+	}
+
+	return rows.Err()
 }

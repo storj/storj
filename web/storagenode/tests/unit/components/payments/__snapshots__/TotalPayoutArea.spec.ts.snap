@@ -17,9 +17,9 @@ exports[`TotalPayoutArea renders correctly 1`] = `
     </div>
   </div>
   <div class="total-payout-area__info-area">
-    <singleinfo-stub width="100%" label="Current Month Earnings" value="$0.00"></singleinfo-stub>
-    <singleinfo-stub width="100%" label="Total Earnings" value="$0.00"></singleinfo-stub>
-    <singleinfo-stub width="100%" label="Total Held Amount" value="$0.00"></singleinfo-stub>
+    <singleinfo-stub width="100%" label="Current Month Earnings" value="$0.00" infotext=""></singleinfo-stub>
+    <singleinfo-stub width="100%" label="Total Earnings" value="$0.00" infotext=""></singleinfo-stub>
+    <singleinfo-stub width="100%" label="Total Held Amount" value="$0.00" infotext=""></singleinfo-stub>
   </div>
 </section>
 `;
@@ -41,9 +41,9 @@ exports[`TotalPayoutArea renders correctly with actual values 1`] = `
     </div>
   </div>
   <div class="total-payout-area__info-area">
-    <singleinfo-stub width="100%" label="Current Month Earnings" value="$400.00"></singleinfo-stub>
-    <singleinfo-stub width="100%" label="Total Earnings" value="$1.00"></singleinfo-stub>
-    <singleinfo-stub width="100%" label="Total Held Amount" value="$0.50"></singleinfo-stub>
+    <singleinfo-stub width="100%" label="Current Month Earnings" value="$400.00" infotext=""></singleinfo-stub>
+    <singleinfo-stub width="100%" label="Total Earnings" value="$1.00" infotext=""></singleinfo-stub>
+    <singleinfo-stub width="100%" label="Total Held Amount" value="$0.50" infotext=""></singleinfo-stub>
   </div>
 </section>
 `;
@@ -65,9 +65,9 @@ exports[`TotalPayoutArea renders correctly with actual values 2`] = `
     </div>
   </div>
   <div class="total-payout-area__info-area">
-    <singleinfo-stub width="100%" label="Current Month Earnings" value="$400.00"></singleinfo-stub>
-    <singleinfo-stub width="100%" label="Total Earnings" value="$1.00"></singleinfo-stub>
-    <singleinfo-stub width="100%" label="Total Held Amount" value="$4000.00"></singleinfo-stub>
+    <singleinfo-stub width="100%" label="Current Month Earnings" value="$400.00" infotext=""></singleinfo-stub>
+    <singleinfo-stub width="100%" label="Total Earnings" value="$1.00" infotext=""></singleinfo-stub>
+    <singleinfo-stub width="100%" label="Total Held Amount" value="$4000.00" infotext=""></singleinfo-stub>
   </div>
 </section>
 `;

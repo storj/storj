@@ -176,6 +176,7 @@ func (db *satelliteDB) TestDBAccess() *dbx.DB { return db.DB }
 // the default database.
 func (dbc *satelliteDBCollection) MigrationTestingDefaultDB() interface {
 	TestDBAccess() *dbx.DB
+	TestPostgresMigration() *migrate.Migration
 	PostgresMigration() *migrate.Migration
 } {
 	return dbc.getByName("")

@@ -60,6 +60,16 @@ func (data *Data) AddTable(table *TableData) {
 	data.Tables = append(data.Tables, table)
 }
 
+// DropTable removes the specified table.
+func (data *Data) DropTable(tableName string) {
+	for i, table := range data.Tables {
+		if table.Name == tableName {
+			data.Tables = append(data.Tables[:i], data.Tables[i+1:]...)
+			break
+		}
+	}
+}
+
 // AddRow adds a new row.
 func (table *TableData) AddRow(row RowData) error {
 	if len(row) != len(table.Columns) {

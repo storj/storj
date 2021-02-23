@@ -35,6 +35,9 @@ func TestHeldAmountApi(t *testing.T) {
 			reputationDB := sno.DB.Reputation()
 			baseURL := fmt.Sprintf("http://%s/api/heldamount", console.Listener.Addr())
 
+			// pause nodestats reputation cache because later tests assert a specific joinedat.
+			sno.NodeStats.Cache.Reputation.Pause()
+
 			period := "2020-03"
 			paystub := payouts.PayStub{
 				SatelliteID:    satellite.ID(),

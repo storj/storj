@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"text/tabwriter"
 	"time"
 
@@ -18,7 +19,11 @@ import (
 
 	"storj.io/common/context2"
 	"storj.io/common/fpath"
+	"storj.io/common/pb"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/rpc"
 	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/common/uuid"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
@@ -34,6 +39,7 @@ import (
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -231,6 +237,13 @@ var (
 		Long:  "Cleanup Graceful Exit data which is lingering in the transfer queue DB table on nodes which has finished the exit.",
 		RunE:  cmdConsistencyGECleanup,
 	}
+	restoreTrashCmd = &cobra.Command{
+		Use:   "restore-trash [node-id-1 node-id-2 node-id-3 ...]",
+		Short: "Restore trash",
+		Long: "Tell storage nodes to undo garbage collection. " +
+			"If node ids aren't provided, *all* nodes are used.",
+		RunE: cmdRestoreTrash,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -293,6 +306,7 @@ func init() {
 	rootCmd.AddCommand(compensationCmd)
 	rootCmd.AddCommand(billingCmd)
 	rootCmd.AddCommand(consistencyCmd)
+	rootCmd.AddCommand(restoreTrashCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
 	reportsCmd.AddCommand(reportsGracefulExitCmd)
@@ -313,6 +327,7 @@ func init() {
 	process.Bind(runAdminCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runRepairerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runGCCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(restoreTrashCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -766,6 +781,112 @@ func cmdConsistencyGECleanup(cmd *cobra.Command, args []string) error {
 	}
 
 	return cleanupGEOrphanedData(ctx, before.UTC())
+}
+
+func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
+	ctx, _ := process.Ctx(cmd)
+	log := zap.L()
+
+	db, err := satellitedb.Open(ctx, log.Named("restore-trash"), runCfg.Database, satellitedb.Options{ApplicationName: "satellite-restore-trash"})
+	if err != nil {
+		return errs.New("Error creating new master database connection: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, db.Close())
+	}()
+
+	identity, err := runCfg.Identity.Load()
+	if err != nil {
+		log.Error("Failed to load identity.", zap.Error(err))
+		return errs.New("Failed to load identity: %+v", err)
+	}
+
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, runCfg.Server.Config)
+	if err != nil {
+		return errs.New("Error creating revocation database: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, revocationDB.Close())
+	}()
+
+	tlsOptions, err := tlsopts.NewOptions(identity, runCfg.Server.Config, revocationDB)
+	if err != nil {
+		return err
+	}
+
+	dialer := rpc.NewDefaultDialer(tlsOptions)
+
+	successes := new(int64)
+	failures := new(int64)
+
+	undelete := func(node *overlay.SelectedNode) {
+		log.Info("starting restore trash", zap.String("Node ID", node.ID.String()))
+
+		conn, err := dialer.DialNodeURL(ctx, storj.NodeURL{
+			ID:      node.ID,
+			Address: node.Address.Address,
+		})
+		if err != nil {
+			atomic.AddInt64(failures, 1)
+			log.Error("unable to connect", zap.String("Node ID", node.ID.String()), zap.Error(err))
+			return
+		}
+		defer func() {
+			err := conn.Close()
+			if err != nil {
+				log.Error("close failure", zap.String("Node ID", node.ID.String()), zap.Error(err))
+			}
+		}()
+
+		client := pb.NewDRPCPiecestoreClient(conn)
+		_, err = client.RestoreTrash(ctx, &pb.RestoreTrashRequest{})
+		if err != nil {
+			atomic.AddInt64(failures, 1)
+			log.Error("unable to restore trash", zap.String("Node ID", node.ID.String()), zap.Error(err))
+			return
+		}
+
+		atomic.AddInt64(successes, 1)
+		log.Info("successful restore trash", zap.String("Node ID", node.ID.String()))
+	}
+
+	var nodes []*overlay.SelectedNode
+	if len(args) == 0 {
+		err = db.OverlayCache().IterateAllNodes(ctx, func(ctx context.Context, node *overlay.SelectedNode) error {
+			nodes = append(nodes, node)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	} else {
+		for _, nodeid := range args {
+			parsedNodeID, err := storj.NodeIDFromString(nodeid)
+			if err != nil {
+				return err
+			}
+			dossier, err := db.OverlayCache().Get(ctx, parsedNodeID)
+			if err != nil {
+				return err
+			}
+			nodes = append(nodes, &overlay.SelectedNode{
+				ID:         dossier.Id,
+				Address:    dossier.Address,
+				LastNet:    dossier.LastNet,
+				LastIPPort: dossier.LastIPPort,
+			})
+		}
+	}
+
+	limiter := sync2.NewLimiter(100)
+	for _, node := range nodes {
+		node := node
+		limiter.Go(ctx, func() { undelete(node) })
+	}
+	limiter.Wait()
+
+	log.Sugar().Infof("restore trash complete. %d successes, %d failures", *successes, *failures)
+	return nil
 }
 
 func main() {

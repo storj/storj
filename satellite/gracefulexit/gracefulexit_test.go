@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb_test
+package gracefulexit_test
 
 import (
 	"math/rand"
@@ -162,8 +162,8 @@ func generateTransferQueueItems(t *testing.T, nodes []*testplanet.StorageNode) (
 	)
 	for i, item := range items {
 		item.NodeID = getNodeID()
-		item.Key = metabase.SegmentKey{byte(rand.Int31n(256))}
-		item.PieceNum = rand.Int31()
+		item.Key = metabase.SegmentKey{byte(i)}
+		item.PieceNum = int32(i + 1)
 		items[i] = item
 		nodesItems[item.NodeID]++
 	}

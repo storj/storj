@@ -75,5 +75,5 @@ func (estimatedPayout *EstimatedPayout) SetExpectedMonth(now time.Time) {
 	daysPerMonth := float64(date.UTCEndOfMonth(now).Day())
 	payoutPerDay := estimatedPayout.CurrentMonth.Payout / daysPast
 
-	estimatedPayout.CurrentMonthExpectations = payoutPerDay * daysPerMonth
+	estimatedPayout.CurrentMonthExpectations += payoutPerDay * daysPerMonth
 }
