@@ -12,7 +12,7 @@ exports[`HeaderedInput.vue renders correctly with default props 1`] = `
     <!---->
   </div>
   <!---->
-  <!----> <input id="" placeholder="default" type="text" class="headered-input" style="width: 100%; height: 48px;">
+  <!----> <input id="" placeholder="default" type="text" class="headered-input" style="width: 100%; height: 48px; padding: 0px 30px 0px 0px;">
 </div>
 `;
 
@@ -28,7 +28,7 @@ exports[`HeaderedInput.vue renders correctly with input error 1`] = `
     <!---->
   </div>
   <!---->
-  <!----> <input id="" placeholder="default" type="text" class="headered-input" style="width: 100%; height: 48px;">
+  <!----> <input id="" placeholder="default" type="text" class="headered-input" style="width: 100%; height: 48px; padding: 0px 30px 0px 0px;">
 </div>
 `;
 
@@ -43,7 +43,7 @@ exports[`HeaderedInput.vue renders correctly with isMultiline props 1`] = `
     </div>
     <!---->
   </div>
-  <!----> <textarea id="" placeholder="default" rows="5" cols="40" wrap="hard" class="headered-textarea" style="width: 100%; height: 48px;"></textarea>
+  <!----> <textarea id="" placeholder="default" rows="5" cols="40" wrap="hard" class="headered-textarea" style="width: 100%; height: 48px; padding: 0px 30px 0px 0px;"></textarea>
   <!---->
 </div>
 `;

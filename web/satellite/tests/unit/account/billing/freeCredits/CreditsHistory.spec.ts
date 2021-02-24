@@ -49,18 +49,4 @@ describe('CreditsHistory', (): void => {
 
         expect(wrapper).toMatchSnapshot();
     });
-
-    it('click on back works correctly', async (): Promise<void> => {
-        const wrapper = shallowMount(CreditsHistory, {
-            localVue,
-            store,
-            router,
-        });
-
-        wrapper.vm.onBackToBillingClick = clickSpy;
-
-        await wrapper.find('.credit-history__back-area').trigger('click');
-
-        expect(clickSpy.callCount).toBe(1);
-    });
 });

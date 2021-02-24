@@ -102,6 +102,8 @@ export default class HeaderlessInput extends Vue {
 
     @Prop({default: false})
     private readonly isWhite: boolean;
+    @Prop({default: false})
+    private readonly withIcon: boolean;
 
     public constructor() {
         super();
@@ -196,6 +198,7 @@ export default class HeaderlessInput extends Vue {
             inputStyle: {
                 width: this.width,
                 height: this.height,
+                padding: this.withIcon ? '0 0 0 45px' : '0 30px 0 0',
             },
             labelStyle: {
                 color: this.isWhite ? 'white' : '#354049',

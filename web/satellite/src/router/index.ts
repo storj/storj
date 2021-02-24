@@ -15,6 +15,7 @@ import ResultStep from '@/components/accessGrants/steps/ResultStep.vue';
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
 import DetailedHistory from '@/components/account/billing/depositAndBillingHistory/DetailedHistory.vue';
+import AddCoupon from '@/components/account/billing/freeCredits/AddCoupon.vue';
 import CreditsHistory from '@/components/account/billing/freeCredits/CreditsHistory.vue';
 import SettingsArea from '@/components/account/SettingsArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
@@ -59,6 +60,7 @@ export abstract class RouteConfig {
     // account child paths
     public static Settings = new NavigationLink('settings', 'Settings');
     public static Billing = new NavigationLink('billing', 'Billing');
+    public static AddCoupon = new NavigationLink('add-coupon', 'Get Free Credits');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
     public static DepositHistory = new NavigationLink('deposit-history', 'Deposit History');
     public static CreditsHistory = new NavigationLink('credits-history', 'Credits History');
@@ -133,6 +135,13 @@ export const router = new Router({
                             path: RouteConfig.Billing.path,
                             name: RouteConfig.Billing.name,
                             component: AccountBilling,
+                            children: [
+                                {
+                                    path: RouteConfig.AddCoupon.path,
+                                    name: RouteConfig.AddCoupon.name,
+                                    component: AddCoupon,
+                                },
+                            ],
                         },
                         {
                             path: RouteConfig.BillingHistory.path,
@@ -306,8 +315,14 @@ router.beforeEach((to, from, next) => {
         return;
     }
 
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.Billing.with(RouteConfig.AddCoupon))) {
+        next(RouteConfig.Billing.with(RouteConfig.AddCoupon).path);
+
+        return;
+    }
+
     if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant))) {
-        next(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).with(RouteConfig.NameStep).path);
+        next(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).path);
 
         return;
     }

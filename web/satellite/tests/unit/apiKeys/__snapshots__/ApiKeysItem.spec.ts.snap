@@ -17,7 +17,7 @@ exports[`ApiKeysItem.vue renders correctly 1`] = `
     </div>
   </div>
   <div class="apikey-item-container__common-info date-item-container">
-    <p class="date">1/1/1970</p>
+    <p class="date">12/31/1969</p>
   </div>
 </div>
 `;
