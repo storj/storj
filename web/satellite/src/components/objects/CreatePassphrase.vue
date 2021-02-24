@@ -12,9 +12,13 @@
 </template>
 
 <script lang="ts">
+import pbkdf2 from 'pbkdf2';
 import { Component, Vue } from 'vue-property-decorator';
 
 import GeneratePassphrase from '@/components/common/GeneratePassphrase.vue';
+
+import { RouteConfig } from '@/router';
+import { LocalData } from '@/utils/localData';
 
 @Component({
     components: {
@@ -36,10 +40,21 @@ export default class CreatePassphrase extends Vue {
     /**
      * Holds on next button click logic.
      */
-    public onNextClick(): void {
+    public async onNextClick(): Promise<void> {
         if (this.isLoading) return;
 
         this.isLoading = true;
+
+        const SALT = 'storj-unique-salt';
+        pbkdf2.pbkdf2(this.passphrase, SALT, 1, 64, (error, key) => {
+            if (error) return this.$notify.error(error.message);
+
+            LocalData.setUserIDPassSalt(this.$store.getters.user.id, key.toString('hex'), SALT);
+        });
+
+        this.isLoading = false;
+
+        await this.$router.push(RouteConfig.UploadFile.path);
     }
 }
 </script>
