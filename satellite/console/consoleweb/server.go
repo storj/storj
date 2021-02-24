@@ -86,6 +86,7 @@ type Config struct {
 	BetaSatelliteFeedbackURL        string `help:"url link for for beta satellite feedback" default:""`
 	BetaSatelliteSupportURL         string `help:"url link for for beta satellite support" default:""`
 	DocumentationURL                string `help:"url link to documentation" devDefault:"https://documentation.storj.io/" releaseDefault:"https://documentation.tardigrade.io/"`
+	CouponCodeUIEnabled             bool   `help:"indicates if user is allowed to add coupon codes to account" default:"false"`
 
 	RateLimit web.IPRateLimiterConfig
 
@@ -296,6 +297,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		BetaSatelliteFeedbackURL        string
 		BetaSatelliteSupportURL         string
 		DocumentationURL                string
+		CouponCodeUIEnabled             bool
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -314,6 +316,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.BetaSatelliteFeedbackURL = server.config.BetaSatelliteFeedbackURL
 	data.BetaSatelliteSupportURL = server.config.BetaSatelliteSupportURL
 	data.DocumentationURL = server.config.DocumentationURL
+	data.CouponCodeUIEnabled = server.config.CouponCodeUIEnabled
 
 	if server.templates.index == nil {
 		server.log.Error("index template is not set")

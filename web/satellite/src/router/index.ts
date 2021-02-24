@@ -15,6 +15,7 @@ import ResultStep from '@/components/accessGrants/steps/ResultStep.vue';
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
 import DetailedHistory from '@/components/account/billing/depositAndBillingHistory/DetailedHistory.vue';
+import AddCouponCode from '@/components/account/billing/freeCredits/AddCouponCode.vue';
 import CreditsHistory from '@/components/account/billing/freeCredits/CreditsHistory.vue';
 import SettingsArea from '@/components/account/SettingsArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
@@ -64,6 +65,7 @@ export abstract class RouteConfig {
     // account child paths
     public static Settings = new NavigationLink('settings', 'Settings');
     public static Billing = new NavigationLink('billing', 'Billing');
+    public static AddCouponCode = new NavigationLink('add-coupon', 'Get Free Credits');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
     public static DepositHistory = new NavigationLink('deposit-history', 'Deposit History');
     public static CreditsHistory = new NavigationLink('credits-history', 'Credits History');
@@ -143,6 +145,13 @@ export const router = new Router({
                             path: RouteConfig.Billing.path,
                             name: RouteConfig.Billing.name,
                             component: AccountBilling,
+                            children: [
+                                {
+                                    path: RouteConfig.AddCouponCode.path,
+                                    name: RouteConfig.AddCouponCode.name,
+                                    component: AddCouponCode,
+                                },
+                            ],
                         },
                         {
                             path: RouteConfig.BillingHistory.path,
