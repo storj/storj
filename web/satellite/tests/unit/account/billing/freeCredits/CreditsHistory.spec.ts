@@ -8,6 +8,7 @@ import CreditsHistory from '@/components/account/billing/freeCredits/CreditsHist
 
 import { PaymentsHttpApi } from '@/api/payments';
 import { router } from '@/router';
+import { appStateModule } from '@/store/modules/appState';
 import { makePaymentsModule, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
@@ -34,7 +35,7 @@ localVue.filter('centsToDollars', (cents: number): string => {
     return `$${(cents / 100).toFixed(2)}`;
 });
 
-const store = new Vuex.Store({ modules: { paymentsModule, projectsModule }});
+const store = new Vuex.Store({ modules: { paymentsModule, projectsModule, appStateModule }});
 store.commit(PROJECTS_MUTATIONS.SET_PROJECTS, [project]);
 store.commit(PROJECTS_MUTATIONS.SELECT_PROJECT, project.id);
 store.commit(PAYMENTS_MUTATIONS.SET_PAYMENTS_HISTORY, [itemInvoice, itemCharge, itemTransaction, coupon, coupon1]);
@@ -48,19 +49,5 @@ describe('CreditsHistory', (): void => {
         });
 
         expect(wrapper).toMatchSnapshot();
-    });
-
-    it('click on back works correctly', async (): Promise<void> => {
-        const wrapper = shallowMount(CreditsHistory, {
-            localVue,
-            store,
-            router,
-        });
-
-        wrapper.vm.onBackToBillingClick = clickSpy;
-
-        await wrapper.find('.credit-history__back-area').trigger('click');
-
-        expect(clickSpy.callCount).toBe(1);
     });
 });
