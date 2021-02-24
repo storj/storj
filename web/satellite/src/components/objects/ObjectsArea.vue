@@ -4,7 +4,7 @@
 <template>
     <div class="objects-area">
         <div class="objects-area__header">
-            <h1 class="objects-area__header__title">File</h1>
+            <h1 class="objects-area__header__title">Objects</h1>
         </div>
         <router-view/>
     </div>
@@ -13,18 +13,32 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import { RouteConfig } from '@/router';
+
 @Component
-export default class ObjectsArea extends Vue {}
+export default class ObjectsArea extends Vue {
+    /**
+     * Lifecycle hook after initial render.
+     * Chooses correct route.
+     */
+    public mounted(): void {
+        this.$router.push(RouteConfig.Objects.with(RouteConfig.CreatePassphrase).path);
+    }
+}
 </script>
 
 <style scoped lang="scss">
     .objects-area {
         padding: 20px 45px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
 
         &__header {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            width: 100%;
 
             &__title {
                 font-family: 'font_medium', sans-serif;
@@ -32,7 +46,7 @@ export default class ObjectsArea extends Vue {}
                 font-weight: bold;
                 font-size: 18px;
                 line-height: 26px;
-                color: #232B34;
+                color: #232b34;
                 margin: 0;
             }
         }
