@@ -27,7 +27,7 @@ type Segment RawSegment
 
 // Inline returns true if segment is inline.
 func (s Segment) Inline() bool {
-	return s.Redundancy.IsZero() && s.RootPieceID.IsZero()
+	return s.Redundancy.IsZero() && len(s.Pieces) == 0
 }
 
 // GetObjectExactVersion contains arguments necessary for fetching an information
