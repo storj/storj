@@ -19,39 +19,13 @@
             </div>
         </div>
         <div class="account-billing-area__title-area" v-if="userHasOwnProject" :class="{ 'custom-position': hasNoCreditCard && (isBalanceLow || isBalanceNegative) }">
-            <div class="account-billing-area__title-area__balance-area">
-                <div @click.stop="toggleCreditsDropdown" class="account-billing-area__title-area__balance-area__free-credits">
-                    <span class="account-billing-area__title-area__balance-area__free-credits__amount">
-                        Free Credits: {{ balance.freeCredits | centsToDollars }}
-                    </span>
-                    <HideIcon v-if="isCreditsDropdownShown"/>
-                    <ExpandIcon v-else/>
-                    <HistoryDropdown
-                        v-show="isCreditsDropdownShown"
-                        @close="closeDropdown"
-                        label="Credits History"
-                        :route="creditHistoryRoute"
-                    />
-                </div>
-                <div @click.stop="toggleBalanceDropdown" class="account-billing-area__title-area__balance-area__tokens-area">
-                    <span class="account-billing-area__title-area__balance-area__tokens-area__amount" :style="{ color: balanceColor }">
-                        Available Balance: {{ balance.coins | centsToDollars }}
-                    </span>
-                    <HideIcon v-if="isBalanceDropdownShown"/>
-                    <ExpandIcon v-else/>
-                    <HistoryDropdown
-                        v-show="isBalanceDropdownShown"
-                        @close="closeDropdown"
-                        label="Balance History"
-                        :route="balanceHistoryRoute"
-                    />
-                </div>
-            </div>
             <PeriodSelection v-if="userHasOwnProject"/>
         </div>
         <EstimatedCostsAndCredits v-if="isSummaryVisible"/>
         <PaymentMethods/>
         <SmallDepositHistory/>
+        <CreditsHistory />
+        <router-view/>
     </div>
 </template>
 
@@ -61,6 +35,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import PeriodSelection from '@/components/account/billing/depositAndBillingHistory/PeriodSelection.vue';
 import SmallDepositHistory from '@/components/account/billing/depositAndBillingHistory/SmallDepositHistory.vue';
 import EstimatedCostsAndCredits from '@/components/account/billing/estimatedCostsAndCredits/EstimatedCostsAndCredits.vue';
+import CreditsHistory from '@/components/account/billing/freeCredits/CreditsHistory.vue';
 import HistoryDropdown from '@/components/account/billing/HistoryDropdown.vue';
 import PaymentMethods from '@/components/account/billing/paymentMethods/PaymentMethods.vue';
 
@@ -88,9 +63,11 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
         HistoryDropdown,
         ExpandIcon,
         HideIcon,
+        CreditsHistory,
     },
 })
 export default class BillingArea extends Vue {
+
     public readonly creditHistoryRoute: string = RouteConfig.Account.with(RouteConfig.CreditsHistory).path;
     public readonly balanceHistoryRoute: string = RouteConfig.Account.with(RouteConfig.DepositHistory).path;
 
@@ -208,10 +185,91 @@ export default class BillingArea extends Vue {
 
         this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
     }
+
 }
 </script>
 
 <style scoped lang="scss">
+
+    .label-header {
+        display: none;
+    }
+
+    .credit-history {
+
+        &__coupon-modal-wrapper {
+            background: #1b2533c7 75%;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            z-index: 1000;
+        }
+
+        &__coupon-modal {
+            width: 741px;
+            height: 298px;
+            background: #fff;
+            border-radius: 8px;
+            margin: 15% auto;
+            position: relative;
+
+            &__header-wrapper {
+                display: flex;
+                justify-content: space-between;
+            }
+
+            &__header {
+                font-family: 'font_bold', sans-serif;
+                font-style: normal;
+                font-weight: bold;
+                font-size: 16px;
+                line-height: 148.31%;
+                margin: 30px 0;
+                display: inline-block;
+                margin-bottom: 10px;
+            }
+
+            &__input-wrapper {
+                position: relative;
+                width: 85%;
+                margin: 0 auto;
+
+                .headerless-input::placeholder {
+                    color: #384b65;
+                    opacity: 0.4;
+                    position: relative;
+                    left: 20px;
+                }
+            }
+
+            &__claim-button {
+                position: absolute;
+                bottom: 11px;
+                right: 10px;
+            }
+
+            &__apply-button {
+                width: 85%;
+                height: 44px;
+                position: absolute;
+                left: 0;
+                right: 0;
+                margin: 0 auto;
+                bottom: 50px;
+                background: #93a1af;
+            }
+
+            &__icon {
+                position: absolute;
+                top: 90px;
+                z-index: 1;
+                left: 20px;
+            }
+        }
+    }
+
     .account-billing-area {
         padding-bottom: 40px;
 

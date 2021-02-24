@@ -88,6 +88,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to contacts page
 # console.contact-info-url: https://forum.storj.io
 
+# indicates if user is allowed to add coupon codes to account
+# console.coupon-code-ui-enabled: false
+
 # default project limits for users
 # console.default-project-limit: 3
 
