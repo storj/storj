@@ -40,7 +40,7 @@ export default class CreatePassphrase extends Vue {
     /**
      * Holds on next button click logic.
      */
-    public async onNextClick(): Promise<void> {
+    public onNextClick(): void {
         if (this.isLoading) return;
 
         this.isLoading = true;
@@ -54,13 +54,13 @@ export default class CreatePassphrase extends Vue {
 
         this.isLoading = false;
 
-        await this.$router.push(RouteConfig.UploadFile.path);
+        this.$router.push(RouteConfig.UploadFile.path);
     }
 }
 </script>
 
 <style scoped lang="scss">
     .create-pass {
-        margin-top: 150px;
+        margin-top: 100px;
     }
 </style>

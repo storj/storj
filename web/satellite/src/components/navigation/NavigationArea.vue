@@ -47,7 +47,8 @@ export default class NavigationArea extends Vue {
      */
     public readonly navigation: NavigationLink[] = [
         RouteConfig.ProjectDashboard.withIcon(DashboardIcon),
-        RouteConfig.Objects.withIcon(ObjectsIcon),
+        // TODO: enable when the flow will be finished
+        // RouteConfig.Objects.withIcon(ObjectsIcon),
         RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
         RouteConfig.Users.withIcon(TeamIcon),
     ];
