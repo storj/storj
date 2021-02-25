@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgtype"
 
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 )
 
 // The following XArray() helper methods exist alongside similar methods in the
@@ -131,6 +132,25 @@ func NodeIDArray(nodeIDs []storj.NodeID) *pgtype.ByteaArray {
 	return &pgtype.ByteaArray{
 		Elements:   pgtypeByteaArray,
 		Dimensions: []pgtype.ArrayDimension{{Length: int32(len(nodeIDs)), LowerBound: 1}},
+		Status:     pgtype.Present,
+	}
+}
+
+// UUIDArray returns an object usable by pg drivers for passing a []uuid.UUID
+// slice into a database as type BYTEA[].
+func UUIDArray(uuids []uuid.UUID) *pgtype.ByteaArray {
+	if uuids == nil {
+		return &pgtype.ByteaArray{Status: pgtype.Null}
+	}
+	pgtypeByteaArray := make([]pgtype.Bytea, len(uuids))
+	for i, uuid := range uuids {
+		uuidCopy := uuid
+		pgtypeByteaArray[i].Bytes = uuidCopy[:]
+		pgtypeByteaArray[i].Status = pgtype.Present
+	}
+	return &pgtype.ByteaArray{
+		Elements:   pgtypeByteaArray,
+		Dimensions: []pgtype.ArrayDimension{{Length: int32(len(uuids)), LowerBound: 1}},
 		Status:     pgtype.Present,
 	}
 }
