@@ -1438,15 +1438,26 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	// Updating node stats always exits it from containment mode
 	updateFields.Contained = boolField{set: true, value: false}
 
+	// always update online score
+	updateFields.OnlineScore = float64Field{set: true, value: auditHistoryResponse.NewScore}
+
+	// if suspension not enabled, skip penalization and unsuspend node if applicable
+	if !updateReq.AuditHistory.OfflineSuspensionEnabled {
+		if dbNode.OfflineSuspended != nil {
+			updateFields.OfflineSuspended = timeField{set: true, isNil: true}
+		}
+		if dbNode.UnderReview != nil {
+			updateFields.OfflineUnderReview = timeField{set: true, isNil: true}
+		}
+		return updateFields
+	}
+
 	// only penalize node if online score is below threshold and
 	// if it has enough completed windows to fill a tracking period
 	penalizeOfflineNode := false
 	if auditHistoryResponse.NewScore < updateReq.AuditHistory.OfflineThreshold && auditHistoryResponse.TrackingPeriodFull {
 		penalizeOfflineNode = true
 	}
-
-	// always update online score
-	updateFields.OnlineScore = float64Field{set: true, value: auditHistoryResponse.NewScore}
 
 	// Suspension and disqualification for offline nodes
 	if dbNode.UnderReview != nil {
