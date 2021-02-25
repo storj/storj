@@ -439,6 +439,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # whether nodes will be disqualified if they have low online score after a review period
 # overlay.audit-history.offline-dq-enabled: false
 
+# whether nodes will be suspended if they have low online score
+# overlay.audit-history.offline-suspension-enabled: true
+
 # The point below which a node is punished for offline audits. Determined by calculating the ratio of online/total audits within each window and finding the average across windows within the tracking period.
 # overlay.audit-history.offline-threshold: 0.6
 
