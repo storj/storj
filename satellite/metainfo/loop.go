@@ -392,6 +392,7 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 		return nil
 	}
 
+	segmentsInBatch := int32(0)
 	err = metabaseDB.FullIterateObjects(ctx, metabase.FullIterateObjects{
 		BatchSize: limit,
 	}, func(ctx context.Context, it metabase.FullObjectsIterator) error {
@@ -407,7 +408,10 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 			objectsMap[entry.StreamID] = entry
 			ids = append(ids, entry.StreamID)
 
-			if len(objectsMap) == limit {
+			// add +1 to reduce risk of crossing limit
+			segmentsInBatch += entry.SegmentCount + 1
+
+			if segmentsInBatch >= int32(limit) {
 				err := processBatch()
 				if err != nil {
 					if errors.Is(err, noObserversErr) {
@@ -421,6 +425,7 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 				}
 
 				ids = ids[:0]
+				segmentsInBatch = 0
 			}
 		}
 		err = processBatch()
