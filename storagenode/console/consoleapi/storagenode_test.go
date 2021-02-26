@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"testing"
 	"time"
@@ -120,15 +121,23 @@ func TestStorageNodeApi(t *testing.T) {
 				body, err := ioutil.ReadAll(res.Body)
 				require.NoError(t, err)
 
+				bodyPayout := &estimatedpayouts.EstimatedPayout{}
+				require.NoError(t, json.Unmarshal(body, bodyPayout))
+
 				estimation, err := sno.Console.Service.GetAllSatellitesEstimatedPayout(ctx, time.Now())
 				require.NoError(t, err)
-				expected, err := json.Marshal(estimatedpayouts.EstimatedPayout{
+				expectedPayout := &estimatedpayouts.EstimatedPayout{
 					CurrentMonth:             estimation.CurrentMonth,
 					PreviousMonth:            estimation.PreviousMonth,
 					CurrentMonthExpectations: estimation.CurrentMonthExpectations,
-				})
+				}
 				require.NoError(t, err)
-				require.Equal(t, string(expected)+"\n", string(body))
+
+				// round CurrentMonthExpectations to 3 decimal places to resolve precision issues
+				bodyPayout.CurrentMonthExpectations = math.Floor(bodyPayout.CurrentMonthExpectations*1000) / 1000
+				expectedPayout.CurrentMonthExpectations = math.Floor(expectedPayout.CurrentMonthExpectations*1000) / 1000
+
+				require.EqualValues(t, expectedPayout, bodyPayout)
 			})
 		},
 	)
