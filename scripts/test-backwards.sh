@@ -2,6 +2,8 @@
 set -ueo pipefail
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+source $SCRIPTDIR/utils.sh
+trap 'failure ${LINENO} "$BASH_COMMAND"' ERR
 
 : "${STORJ_NETWORK_DIR?Environment variable STORJ_NETWORK_DIR needs to be set}"
 
@@ -29,11 +31,6 @@ set -x
 if [[ "$1" == "upload" ]]; then
     mkdir -p "$PRISTINE_FILES_DIR" "$DOWNLOAD_FILES_DIR"
 
-    random_bytes_file () {
-        size=$1
-        output=$2
-        head -c "$size" </dev/urandom > "$output"
-    }
     random_bytes_file "2KiB"   "$PRISTINE_FILES_DIR/small-upload-testfile"         # create 2kb file of random bytes (inline)
     random_bytes_file "5MiB"   "$PRISTINE_FILES_DIR/big-upload-testfile"           # create 5mb file of random bytes (remote)
     random_bytes_file "12MiB"  "$PRISTINE_FILES_DIR/multisegment-upload-testfile"  # create 12mb file of random bytes (remote)
@@ -52,29 +49,9 @@ if [[ "$1" == "download" ]]; then
     uplink --config-dir "$GATEWAY_0_DIR" cp --progress=false "sj://$BUCKET/big-upload-testfile" "$DOWNLOAD_FILES_DIR"
     uplink --config-dir "$GATEWAY_0_DIR" cp --progress=false "sj://$BUCKET/multisegment-upload-testfile" "$DOWNLOAD_FILES_DIR"
 
-    if cmp "$PRISTINE_FILES_DIR/small-upload-testfile" "$DOWNLOAD_FILES_DIR/small-upload-testfile"
-    then
-        echo "download test: small upload testfile matches uploaded file"
-    else
-        echo "download test: small upload testfile does not match uploaded file"
-        exit 1
-    fi
-
-    if cmp "$PRISTINE_FILES_DIR/big-upload-testfile" "$DOWNLOAD_FILES_DIR/big-upload-testfile"
-    then
-        echo "download test: big upload testfile matches uploaded file"
-    else
-        echo "download test: big upload testfile does not match uploaded file"
-        exit 1
-    fi
-
-    if cmp "$PRISTINE_FILES_DIR/multisegment-upload-testfile" "$DOWNLOAD_FILES_DIR/multisegment-upload-testfile"
-    then
-        echo "download test: multisegment upload testfile matches uploaded file"
-    else
-        echo "download test: multisegment upload testfile does not match uploaded file"
-        exit 1
-    fi
+    compare_files "$PRISTINE_FILES_DIR/small-upload-testfile" "$DOWNLOAD_FILES_DIR/small-upload-testfile"
+    compare_files "$PRISTINE_FILES_DIR/big-upload-testfile" "$DOWNLOAD_FILES_DIR/big-upload-testfile"
+    compare_files "$PRISTINE_FILES_DIR/multisegment-upload-testfile" "$DOWNLOAD_FILES_DIR/multisegment-upload-testfile"
 
     rm "$DOWNLOAD_FILES_DIR/small-upload-testfile"
     rm "$DOWNLOAD_FILES_DIR/big-upload-testfile"
