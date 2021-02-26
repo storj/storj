@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+source $SCRIPTDIR/utils.sh
+
 TMPDIR=$(mktemp -d -t tmp.XXXXXXXXXX)
 
 cleanup(){
@@ -12,21 +15,7 @@ cleanup(){
     echo "cleaned up test successfully"
 }
 trap cleanup EXIT
-
-require_error_exit_code(){
-    if [ $1 -eq 0 ]; then
-        echo "Result of copying does not match expectations. Test FAILED"
-        exit 1
-    else
-        echo "Copy file without permission: PASSED"    # Expect unsuccessful exit code
-    fi
-}
-
-random_bytes_file () {
-    size=$1
-    output=$2
-    head -c $size </dev/urandom > $output
-}
+trap 'failure ${LINENO} "$BASH_COMMAND"' ERR
 
 BUCKET_WITHOUT_ACCESS=bucket1
 BUCKET_WITH_ACCESS=bucket2
@@ -72,9 +61,4 @@ fi
 
 uplink cp "sj://$BUCKET_WITH_ACCESS/$FOLDER_TO_SHARE_FILE/testfile" "$DST_DIR" --access $SHARED_ACCESS
 
-if cmp "$SRC_DIR/testfile" "$DST_DIR/testfile"; then
-    echo "Testfile matches uploaded file: PASSED"
-else
-    echo "Download test: FAILED"
-    exit 1
-fi
+compare_files "$SRC_DIR/testfile" "$DST_DIR/testfile"

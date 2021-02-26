@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 set -ueo pipefail
 
+SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+source $SCRIPTDIR/utils.sh
+
 TMPDIR=$(mktemp -d -t tmp.XXXXXXXXXX)
 
 cleanup(){
     rm -rf "$TMPDIR"
     echo "cleaned up test successfully"
 }
-
 trap cleanup EXIT
+trap 'failure ${LINENO} "$BASH_COMMAND"' ERR
 
 BUCKET=bucket-123
 SRC_DIR=$TMPDIR/source
@@ -16,23 +19,6 @@ DST_DIR=$TMPDIR/dst
 UPLINK_DIR=$TMPDIR/uplink
 
 mkdir -p "$SRC_DIR" "$DST_DIR"
-
-random_bytes_file () {
-    size=$1
-    output=$2
-    head -c $size </dev/urandom > $output
-}
-
-compare_files () {
-    name=$(basename $2)
-    if cmp "$1" "$2"
-    then
-        echo "$name matches uploaded file"
-    else
-        echo "$name does not match uploaded file"
-        exit 1
-    fi
-}
 
 random_bytes_file "2KiB"    "$SRC_DIR/small-upload-testfile"          # create 2KiB file of random bytes (inline)
 random_bytes_file "5MiB"    "$SRC_DIR/big-upload-testfile"            # create 5MiB file of random bytes (remote)
