@@ -240,6 +240,15 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 	it.cursor.Version = item.Version
 	it.cursor.StreamID = item.StreamID
 
+	if it.prefix != "" {
+		if !strings.HasPrefix(string(item.ObjectKey), string(it.prefix)) {
+			return false
+		}
+	}
+
+	// TODO this should be done with SQL query
+	item.ObjectKey = item.ObjectKey[len(it.prefix):]
+
 	return true
 }
 
@@ -398,15 +407,6 @@ func (it *objectsIterator) scanItem(item *ObjectEntry) error {
 	if err != nil {
 		return err
 	}
-
-	if it.prefix != "" {
-		if !strings.HasPrefix(string(item.ObjectKey), string(it.prefix)) {
-			return Error.New("internal server error: project:%q bucket:%q key:%q prefix:%q", it.projectID, it.bucketName, item.ObjectKey, it.prefix)
-		}
-	}
-
-	// TODO this should be done with SQL query
-	item.ObjectKey = item.ObjectKey[len(it.prefix):]
 	return nil
 }
 
