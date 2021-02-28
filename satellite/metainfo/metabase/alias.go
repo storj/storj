@@ -78,7 +78,7 @@ func (db *DB) ListNodeAliases(ctx context.Context) (_ []NodeAliasEntry, err erro
 // txNodeAliases is used inside a migration.
 // This will be removed once the migration has been completed.
 type txNodeAliases struct {
-	db tagsql.Tx
+	db tagsql.DB
 }
 
 // EnsureNodeAliases ensures that the supplied node ID-s have a alias.
