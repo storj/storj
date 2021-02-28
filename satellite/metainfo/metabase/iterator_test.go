@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -344,6 +346,61 @@ func TestIterateObjects(t *testing.T) {
 				},
 				Result: nil,
 			}.Check(ctx, t, db)
+		})
+
+		t.Run("boundaries", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+			projectID, bucketName := uuid.UUID{1}, "bucky"
+
+			queries := []metabase.ObjectKey{""}
+			for a := 0; a <= 0xFF; a++ {
+				if 5 < a && a < 250 {
+					continue
+				}
+				queries = append(queries, metabase.ObjectKey([]byte{byte(a)}))
+				for b := 0; b <= 0xFF; b++ {
+					if 5 < b && b < 250 {
+						continue
+					}
+					queries = append(queries, metabase.ObjectKey([]byte{byte(a), byte(b)}))
+				}
+			}
+
+			createObjectsWithKeys(ctx, t, db, projectID, bucketName, queries[1:])
+
+			for _, cursor := range queries {
+				for _, prefix := range queries {
+					var collector IterateCollector
+					err := db.IterateObjectsAllVersions(ctx, metabase.IterateObjects{
+						ProjectID:  projectID,
+						BucketName: bucketName,
+						Cursor: metabase.IterateCursor{
+							Key:     cursor,
+							Version: -1,
+						},
+						Prefix: prefix,
+					}, collector.Add)
+					require.NoError(t, err)
+				}
+			}
+		})
+
+		t.Run("verify-iterator-boundary", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+			projectID, bucketName := uuid.UUID{1}, "bucky"
+			queries := []metabase.ObjectKey{"\x00\xFF"}
+			createObjectsWithKeys(ctx, t, db, projectID, bucketName, queries)
+			var collector IterateCollector
+			err := db.IterateObjectsAllVersions(ctx, metabase.IterateObjects{
+				ProjectID:  projectID,
+				BucketName: bucketName,
+				Cursor: metabase.IterateCursor{
+					Key:     metabase.ObjectKey([]byte{}),
+					Version: -1,
+				},
+				Prefix: metabase.ObjectKey([]byte{1}),
+			}, collector.Add)
+			require.NoError(t, err)
 		})
 	})
 }
@@ -880,8 +937,79 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				),
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("boundaries", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+			projectID, bucketName := uuid.UUID{1}, "bucky"
+
+			queries := []metabase.ObjectKey{""}
+			for a := 0; a <= 0xFF; a++ {
+				if 5 < a && a < 250 {
+					continue
+				}
+				queries = append(queries, metabase.ObjectKey([]byte{byte(a)}))
+				for b := 0; b <= 0xFF; b++ {
+					if 5 < b && b < 250 {
+						continue
+					}
+					queries = append(queries, metabase.ObjectKey([]byte{byte(a), byte(b)}))
+				}
+			}
+
+			createObjectsWithKeys(ctx, t, db, projectID, bucketName, queries[1:])
+
+			for _, cursor := range queries {
+				for _, prefix := range queries {
+					var collector IterateCollector
+					err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
+						ProjectID:  projectID,
+						BucketName: bucketName,
+						Cursor: metabase.IterateCursor{
+							Key:     cursor,
+							Version: -1,
+						},
+						Prefix: prefix,
+						Status: metabase.Committed,
+					}, collector.Add)
+					require.NoError(t, err)
+
+					err = db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
+						ProjectID:  projectID,
+						BucketName: bucketName,
+						Cursor: metabase.IterateCursor{
+							Key:     cursor,
+							Version: -1,
+						},
+						Prefix:    prefix,
+						Recursive: true,
+						Status:    metabase.Committed,
+					}, collector.Add)
+					require.NoError(t, err)
+				}
+			}
+		})
+
+		t.Run("verify-iterator-boundary", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+			projectID, bucketName := uuid.UUID{1}, "bucky"
+			queries := []metabase.ObjectKey{"\x00\xFF"}
+			createObjectsWithKeys(ctx, t, db, projectID, bucketName, queries)
+			var collector IterateCollector
+			err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
+				ProjectID:  projectID,
+				BucketName: bucketName,
+				Cursor: metabase.IterateCursor{
+					Key:     metabase.ObjectKey([]byte{}),
+					Version: -1,
+				},
+				Prefix: metabase.ObjectKey([]byte{1}),
+				Status: metabase.Committed,
+			}, collector.Add)
+			require.NoError(t, err)
+		})
 	})
 }
+
 func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := randObjectStream()
