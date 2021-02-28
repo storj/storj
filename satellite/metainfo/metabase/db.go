@@ -44,6 +44,7 @@ func Open(ctx context.Context, log *zap.Logger, driverName, connstr string) (*DB
 
 	db := &DB{log: log, db: postgresRebind{rawdb}}
 	db.aliasCache = NewNodeAliasCache(db)
+
 	return db, nil
 }
 
@@ -80,8 +81,6 @@ func (db *DB) DestroyTables(ctx context.Context) error {
 }
 
 // MigrateToLatest migrates database to the latest version.
-//
-// TODO: use migrate package.
 func (db *DB) MigrateToLatest(ctx context.Context) error {
 	migration := db.PostgresMigration()
 	return migration.Run(ctx, db.log.Named("migrate"))
@@ -184,6 +183,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				DB:          &db.db,
 				Description: "convert remote_pieces to remote_alias_pieces",
 				Version:     5,
+				SeparateTx:  true,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
 					type segmentPieces struct {
 						StreamID     uuid.UUID
@@ -193,7 +193,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 
 					var allSegments []segmentPieces
 
-					err := withRows(tx.QueryContext(ctx, `SELECT stream_id, position, remote_pieces FROM segments WHERE remote_pieces IS NOT NULL`))(
+					err := withRows(db.QueryContext(ctx, `SELECT stream_id, position, remote_pieces FROM segments WHERE remote_pieces IS NOT NULL`))(
 						func(rows tagsql.Rows) error {
 							for rows.Next() {
 								var seg segmentPieces
@@ -221,14 +221,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					for id := range allNodes {
 						nodesList = append(nodesList, id)
 					}
-					aliasCache := NewNodeAliasCache(&txNodeAliases{tx})
+					aliasCache := NewNodeAliasCache(&txNodeAliases{db})
 					_, err = aliasCache.Aliases(ctx, nodesList)
 					if err != nil {
 						return Error.Wrap(err)
 					}
 
 					err = func() (err error) {
-						stmt, err := tx.PrepareContext(ctx, `UPDATE segments SET remote_alias_pieces = $3 WHERE stream_id = $1 AND position = $2`)
+						stmt, err := db.PrepareContext(ctx, `UPDATE segments SET remote_alias_pieces = $3 WHERE stream_id = $1 AND position = $2`)
 						if err != nil {
 							return Error.Wrap(err)
 						}
