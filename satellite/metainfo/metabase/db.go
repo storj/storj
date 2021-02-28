@@ -184,6 +184,7 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Description: "convert remote_pieces to remote_alias_pieces",
 				Version:     5,
 				SeparateTx:  true,
+				WithoutTx:   true,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
 					type segmentPieces struct {
 						StreamID     uuid.UUID
@@ -192,6 +193,8 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					}
 
 					var allSegments []segmentPieces
+
+					log.Info("loading segments from database")
 
 					err := withRows(db.QueryContext(ctx, `SELECT stream_id, position, remote_pieces FROM segments WHERE remote_pieces IS NOT NULL`))(
 						func(rows tagsql.Rows) error {
@@ -208,6 +211,8 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						return Error.Wrap(err)
 					}
 
+					log.Info("loaded segments from database", zap.Int("count", len(allSegments)))
+
 					allNodes := map[storj.NodeID]struct{}{}
 					for i := range allSegments {
 						seg := &allSegments[i]
@@ -221,13 +226,40 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					for id := range allNodes {
 						nodesList = append(nodesList, id)
 					}
-					aliasCache := NewNodeAliasCache(&txNodeAliases{db})
+
+					log.Info("ensuring node aliases", zap.Int("count", len(nodesList)))
+
+					nodeAliasesDB := &txNodeAliases{db}
+					const batchSize = 100
+					for i := 0; i < len(nodesList); i += batchSize {
+						batch := nodesList[i:]
+						if len(batch) > batchSize {
+							batch = batch[:batchSize]
+						}
+
+						log.Info("adding nodes to aliases table", zap.Int("count", len(batch)))
+						err := nodeAliasesDB.EnsureNodeAliases(ctx, EnsureNodeAliases{
+							Nodes: batch,
+						})
+						if err != nil {
+							return Error.Wrap(err)
+						}
+					}
+
+					aliasCache := NewNodeAliasCache(nodeAliasesDB)
+					log.Info("refreshing alias cache")
+					if _, err := aliasCache.refresh(ctx, nil, nil); err != nil {
+						return Error.Wrap(err)
+					}
+
 					_, err = aliasCache.Aliases(ctx, nodesList)
 					if err != nil {
 						return Error.Wrap(err)
 					}
 
 					err = func() (err error) {
+						log.Info("updating segments table", zap.Int("count", len(allSegments)))
+
 						stmt, err := db.PrepareContext(ctx, `UPDATE segments SET remote_alias_pieces = $3 WHERE stream_id = $1 AND position = $2`)
 						if err != nil {
 							return Error.Wrap(err)
@@ -235,6 +267,10 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						defer func() { err = errs.Combine(err, Error.Wrap(stmt.Close())) }()
 
 						for i := range allSegments {
+							if i%100 == 0 {
+								log.Info("updating segment", zap.Int("progress", i), zap.Int("total", len(allSegments)))
+							}
+
 							seg := &allSegments[i]
 							if len(seg.RemotePieces) == 0 {
 								continue
