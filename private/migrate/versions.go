@@ -73,6 +73,8 @@ type Step struct {
 	// SeparateTx marks a step as it should not be merged together for optimization.
 	// Cockroach cannot add a column and update the value in the same transaction.
 	SeparateTx bool
+
+	WithoutTx bool
 }
 
 // Action is something that needs to be done.
@@ -193,18 +195,34 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 			stepLog.Info(step.Description)
 		}
 
-		err = txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
-			err = step.Action.Run(ctx, stepLog, db, tx)
+		if step.WithoutTx {
+			err = step.Action.Run(ctx, stepLog, db, nil)
 			if err != nil {
 				return err
 			}
 
-			err = migration.addVersion(ctx, tx, db, step.Version)
-			if err != nil {
-				return err
-			}
-			return nil
-		})
+			err = txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+				err = migration.addVersion(ctx, tx, db, step.Version)
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+		} else {
+			err = txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+				err = step.Action.Run(ctx, stepLog, db, tx)
+				if err != nil {
+					return err
+				}
+
+				err = migration.addVersion(ctx, tx, db, step.Version)
+				if err != nil {
+					return err
+				}
+				return nil
+			})
+		}
+
 		if err != nil {
 			return Error.Wrap(err)
 		}
