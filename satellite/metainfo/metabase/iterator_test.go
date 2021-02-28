@@ -402,6 +402,26 @@ func TestIterateObjects(t *testing.T) {
 			}, collector.Add)
 			require.NoError(t, err)
 		})
+
+		t.Run("verify-cursor-continuation", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+			projectID, bucketName := uuid.UUID{1}, "bucky"
+
+			createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
+				"1",
+				"a/a",
+				"a/0",
+			})
+
+			var collector IterateCollector
+			err := db.IterateObjectsAllVersions(ctx, metabase.IterateObjects{
+				ProjectID:  projectID,
+				BucketName: bucketName,
+				Prefix:     metabase.ObjectKey("a/"),
+				BatchSize:  1,
+			}, collector.Add)
+			require.NoError(t, err)
+		})
 	})
 }
 
@@ -1004,6 +1024,27 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				},
 				Prefix: metabase.ObjectKey([]byte{1}),
 				Status: metabase.Committed,
+			}, collector.Add)
+			require.NoError(t, err)
+		})
+
+		t.Run("verify-cursor-continuation", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+			projectID, bucketName := uuid.UUID{1}, "bucky"
+
+			createObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
+				"1",
+				"a/a",
+				"a/0",
+			})
+
+			var collector IterateCollector
+			err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
+				ProjectID:  projectID,
+				BucketName: bucketName,
+				Prefix:     metabase.ObjectKey("a/"),
+				BatchSize:  1,
+				Status:     metabase.Committed,
 			}, collector.Add)
 			require.NoError(t, err)
 		})
