@@ -300,7 +300,7 @@ satellite-wasm:
 	scripts/build-wasm.sh ;\
 
 .PHONY: images
-images: multinode-image satellite-image uplink-image versioncontrol-image storagenode-image## Build multinode, satellite and versioncontrol Docker images
+images: satellite-image 
 	echo Built version: ${TAG}
 
 .PHONY: multinode-image
@@ -333,14 +333,8 @@ storagenode-image: storagenode_linux_amd64 identity_linux_amd64
 		-f cmd/storagenode/Dockerfile.dev .
 
 .PHONY: satellite-image
-satellite-image: satellite_linux_arm satellite_linux_arm64 satellite_linux_amd64 ## Build satellite Docker image
+satellite-image: satellite_linux_amd64 ## Build satellite Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG}-amd64 \
-		-f cmd/satellite/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG}-arm32v5 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v5 \
-		-f cmd/satellite/Dockerfile .
-	${DOCKER_BUILD} --pull=true -t storjlabs/satellite:${TAG}${CUSTOMTAG}-arm64v8 \
-		--build-arg=GOARCH=arm64 --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/satellite/Dockerfile .
 
 .PHONY: versioncontrol-image
@@ -437,11 +431,11 @@ multinode_%: multinode-console
 	$(MAKE) binary-check COMPONENT=multinode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 
 
-COMPONENTLIST := certificates identity multinode satellite storagenode storagenode-updater uplink versioncontrol
-OSARCHLIST    := linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
+COMPONENTLIST := satellite
+OSARCHLIST    := linux_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
-binaries: ${BINARIES} ## Build certificates, identity, multinode, satellite, storagenode, uplink, versioncontrol and multinode binaries (jenkins)
+binaries: ${BINARIES}
 
 .PHONY: sign-windows-installer
 sign-windows-installer:
@@ -452,18 +446,12 @@ sign-windows-installer:
 .PHONY: push-images
 push-images: ## Push Docker images to Docker Hub (jenkins)
 	# images have to be pushed before a manifest can be created
-	set -x; for c in multinode satellite uplink versioncontrol ; do \
+	set -x; for c in satellite ; do \
 		docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
-		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v5 \
-		&& docker push storjlabs/$$c:${TAG}${CUSTOMTAG}-arm64v8 \
 		&& for t in ${TAG}${CUSTOMTAG} ${LATEST_TAG}; do \
 			docker manifest create --amend storjlabs/$$c:$$t \
 			storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 \
-			storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v5 \
-			storjlabs/$$c:${TAG}${CUSTOMTAG}-arm64v8 \
 			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-amd64 --os linux --arch amd64 \
-			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-arm32v5 --os linux --arch arm --variant v5 \
-			&& docker manifest annotate storjlabs/$$c:$$t storjlabs/$$c:${TAG}${CUSTOMTAG}-arm64v8 --os linux --arch arm64 --variant v8 \
 			&& docker manifest push --purge storjlabs/$$c:$$t \
 		; done \
 	; done
