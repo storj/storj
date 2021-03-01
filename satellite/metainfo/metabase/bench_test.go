@@ -286,6 +286,34 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 			}
 		}
 	})
+
+	b.Run("IterateObjectsAllVersionsWithStatus", func(b *testing.B) {
+		m := make(Metrics, 0, b.N*len(s.objectStream)*s.parts*s.segments)
+		defer m.Report(b, "ns/seg")
+
+		for i := 0; i < b.N; i++ {
+			for _, object := range s.objectStream {
+				m.Record(func() {
+					err := db.IterateObjectsAllVersionsWithStatus(ctx, metabase.IterateObjectsWithStatus{
+						ProjectID:  object.ProjectID,
+						BucketName: object.BucketName,
+						Recursive:  true,
+						BatchSize:  1,
+						Cursor: metabase.IterateCursor{
+							Key: object.ObjectKey,
+						},
+						Status: metabase.Committed,
+					}, func(ctx context.Context, it metabase.ObjectsIterator) error {
+						var item metabase.ObjectEntry
+						for it.Next(ctx, &item) {
+						}
+						return nil
+					})
+					require.NoError(b, err)
+				})
+			}
+		}
+	})
 }
 
 // Metrics records a set of time.Durations.
