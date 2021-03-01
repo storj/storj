@@ -14,10 +14,10 @@ import (
 	"storj.io/storj/private/tagsql"
 )
 
-const fullIteratorBatchSizeLimit = 2500
+const loopIteratorBatchSizeLimit = 2500
 
-// FullObjectEntry contains information about and object in metabase.
-type FullObjectEntry struct {
+// LoopObjectEntry contains information about object needed by metainfo loop.
+type LoopObjectEntry struct {
 	ObjectStream
 
 	CreatedAt time.Time
@@ -42,44 +42,44 @@ type FullObjectEntry struct {
 	ZombieDeletionDeadline *time.Time
 }
 
-// FullObjectsIterator iterates over a sequence of FullObjectEntry items.
-type FullObjectsIterator interface {
-	Next(ctx context.Context, item *FullObjectEntry) bool
+// LoopObjectsIterator iterates over a sequence of LoopObjectEntry items.
+type LoopObjectsIterator interface {
+	Next(ctx context.Context, item *LoopObjectEntry) bool
 }
 
-// FullIterateObjects contains arguments necessary for listing objects in metabase.
-type FullIterateObjects struct {
+// IterateLoopObjects contains arguments necessary for listing objects in metabase.
+type IterateLoopObjects struct {
 	BatchSize int
 }
 
 // Verify verifies get object request fields.
-func (opts *FullIterateObjects) Verify() error {
+func (opts *IterateLoopObjects) Verify() error {
 	if opts.BatchSize < 0 {
 		return ErrInvalidRequest.New("BatchSize is negative")
 	}
 	return nil
 }
 
-// FullIterateObjects iterates through all objects in metabase.
-func (db *DB) FullIterateObjects(ctx context.Context, opts FullIterateObjects, fn func(context.Context, FullObjectsIterator) error) (err error) {
+// IterateLoopObjects iterates through all objects in metabase.
+func (db *DB) IterateLoopObjects(ctx context.Context, opts IterateLoopObjects, fn func(context.Context, LoopObjectsIterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Verify(); err != nil {
 		return err
 	}
 
-	it := &fullIterator{
+	it := &loopIterator{
 		db: db,
 
 		batchSize: opts.BatchSize,
 
 		curIndex: 0,
-		cursor:   fullIterateCursor{},
+		cursor:   loopIterateCursor{},
 	}
 
 	// ensure batch size is reasonable
-	if it.batchSize <= 0 || it.batchSize > fullIteratorBatchSizeLimit {
-		it.batchSize = fullIteratorBatchSizeLimit
+	if it.batchSize <= 0 || it.batchSize > loopIteratorBatchSizeLimit {
+		it.batchSize = loopIteratorBatchSizeLimit
 	}
 
 	it.curRows, err = it.doNextQuery(ctx)
@@ -97,18 +97,18 @@ func (db *DB) FullIterateObjects(ctx context.Context, opts FullIterateObjects, f
 	return fn(ctx, it)
 }
 
-// fullIterator enables iteration of all objects in metabase.
-type fullIterator struct {
+// loopIterator enables iteration of all objects in metabase.
+type loopIterator struct {
 	db *DB
 
 	batchSize int
 
 	curIndex int
 	curRows  tagsql.Rows
-	cursor   fullIterateCursor
+	cursor   loopIterateCursor
 }
 
-type fullIterateCursor struct {
+type loopIterateCursor struct {
 	ProjectID  uuid.UUID
 	BucketName string
 	ObjectKey  ObjectKey
@@ -116,7 +116,7 @@ type fullIterateCursor struct {
 }
 
 // Next returns true if there was another item and copy it in item.
-func (it *fullIterator) Next(ctx context.Context, item *FullObjectEntry) bool {
+func (it *loopIterator) Next(ctx context.Context, item *LoopObjectEntry) bool {
 	next := it.curRows.Next()
 	if !next {
 		if it.curIndex < it.batchSize {
@@ -158,7 +158,7 @@ func (it *fullIterator) Next(ctx context.Context, item *FullObjectEntry) bool {
 	return true
 }
 
-func (it *fullIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err error) {
+func (it *loopIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return it.db.db.Query(ctx, `
@@ -180,8 +180,8 @@ func (it *fullIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err err
 	)
 }
 
-// scanItem scans doNextQuery results into FullObjectEntry.
-func (it *fullIterator) scanItem(item *FullObjectEntry) error {
+// scanItem scans doNextQuery results into LoopObjectEntry.
+func (it *loopIterator) scanItem(item *LoopObjectEntry) error {
 	return it.curRows.Scan(
 		&item.ProjectID, &item.BucketName,
 		&item.ObjectKey, &item.StreamID, &item.Version, &item.Status,
