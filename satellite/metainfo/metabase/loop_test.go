@@ -6,7 +6,6 @@ package metabase_test
 import (
 	"strings"
 	"testing"
-	"time"
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -51,8 +50,6 @@ func TestIterateLoopObjects(t *testing.T) {
 		t.Run("pending and committed", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
-			now := time.Now()
-
 			pending := randObjectStream()
 			committed := randObjectStream()
 			committed.ProjectID = pending.ProjectID
@@ -93,18 +90,10 @@ func TestIterateLoopObjects(t *testing.T) {
 				Result: []metabase.LoopObjectEntry{
 					{
 						ObjectStream: pending,
-						CreatedAt:    now,
-						Status:       metabase.Pending,
-						Encryption:   defaultTestEncryption,
 					},
 					{
-						ObjectStream:                  committed,
-						CreatedAt:                     now,
-						Status:                        metabase.Committed,
-						Encryption:                    defaultTestEncryption,
-						EncryptedMetadataNonce:        encryptedMetadataNonce[:],
-						EncryptedMetadata:             encryptedMetadata,
-						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
+						ObjectStream:          committed,
+						EncryptedMetadataSize: len(encryptedMetadata),
 					},
 				},
 			}.Check(ctx, t, db)
@@ -251,15 +240,11 @@ func createFullObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metab
 		obj.ProjectID = projectID
 		obj.BucketName = bucketName
 		obj.ObjectKey = key
-		now := time.Now()
 
 		createObject(ctx, t, db, obj, 0)
 
 		objects[key] = metabase.LoopObjectEntry{
 			ObjectStream: obj,
-			CreatedAt:    now,
-			Status:       metabase.Committed,
-			Encryption:   defaultTestEncryption,
 		}
 	}
 
@@ -267,17 +252,8 @@ func createFullObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metab
 }
 func loopObjectEntryFromRaw(m metabase.RawObject) metabase.LoopObjectEntry {
 	return metabase.LoopObjectEntry{
-		ObjectStream:                  m.ObjectStream,
-		CreatedAt:                     m.CreatedAt,
-		ExpiresAt:                     m.ExpiresAt,
-		Status:                        m.Status,
-		SegmentCount:                  m.SegmentCount,
-		EncryptedMetadataNonce:        m.EncryptedMetadataNonce,
-		EncryptedMetadata:             m.EncryptedMetadata,
-		EncryptedMetadataEncryptedKey: m.EncryptedMetadataEncryptedKey,
-		TotalEncryptedSize:            m.TotalEncryptedSize,
-		FixedSegmentSize:              m.FixedSegmentSize,
-		Encryption:                    m.Encryption,
-		ZombieDeletionDeadline:        m.ZombieDeletionDeadline,
+		ObjectStream: m.ObjectStream,
+		ExpiresAt:    m.ExpiresAt,
+		SegmentCount: m.SegmentCount,
 	}
 }

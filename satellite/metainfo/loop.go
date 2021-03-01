@@ -28,17 +28,11 @@ var (
 )
 
 // Object is the object info passed to Observer by metainfo loop.
-type Object struct {
-	Location       metabase.ObjectLocation // tally
-	StreamID       uuid.UUID               // metrics, repair
-	SegmentCount   int                     // metrics
-	MetadataSize   int                     // tally
-	expirationDate time.Time               // tally
-}
+type Object metabase.LoopObjectEntry
 
-// Expired checks if object is expired relative to now.
+// Expired checks if object expired relative to now.
 func (object *Object) Expired(now time.Time) bool {
-	return !object.expirationDate.IsZero() && object.expirationDate.Before(now)
+	return object.ExpiresAt != nil && object.ExpiresAt.Before(now)
 }
 
 // Segment is the segment info passed to Observer by metainfo loop.
@@ -326,21 +320,22 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 			return err
 		}
 
-		var lastObject metabase.LoopObjectEntry
+		var lastEntry metabase.LoopObjectEntry
 		for _, segment := range segments.Segments {
-			if segment.StreamID != lastObject.StreamID {
+			if segment.StreamID != lastEntry.StreamID {
 				var ok bool
-				lastObject, ok = objectsMap[segment.StreamID]
+				lastEntry, ok = objectsMap[segment.StreamID]
 				if !ok {
 					return errs.New("unable to find corresponding object: %v", segment.StreamID)
 				}
 
-				delete(objectsMap, lastObject.StreamID)
+				delete(objectsMap, lastEntry.StreamID)
 
 				// TODO should we move this directly to iterator to have object
 				// state as close as possible to time of reading
 				observers = withObservers(observers, func(observer *observerContext) bool {
-					return handleObject(ctx, observer, lastObject)
+					object := Object(lastEntry)
+					return handleObject(ctx, observer, &object)
 				})
 				if len(observers) == 0 {
 					return noObserversErr
@@ -353,14 +348,14 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 			}
 
 			location := metabase.SegmentLocation{
-				ProjectID:  lastObject.ProjectID,
-				BucketName: lastObject.BucketName,
-				ObjectKey:  lastObject.ObjectKey,
+				ProjectID:  lastEntry.ProjectID,
+				BucketName: lastEntry.BucketName,
+				ObjectKey:  lastEntry.ObjectKey,
 				Position:   segment.Position,
 			}
 			segment := segment
 			observers = withObservers(observers, func(observer *observerContext) bool {
-				return handleSegment(ctx, observer, location, segment, lastObject.ExpiresAt)
+				return handleSegment(ctx, observer, location, segment, lastEntry.ExpiresAt)
 			})
 			if len(observers) == 0 {
 				return noObserversErr
@@ -373,12 +368,12 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 		}
 
 		// we have now only objects without segments
-		for id, object := range objectsMap {
+		for id, entry := range objectsMap {
 			delete(objectsMap, id)
 
-			object := object
+			object := Object(entry)
 			observers = withObservers(observers, func(observer *observerContext) bool {
-				return handleObject(ctx, observer, object)
+				return handleObject(ctx, observer, &object)
 			})
 			if len(observers) == 0 {
 				return noObserversErr
@@ -449,19 +444,8 @@ func withObservers(observers []*observerContext, handleObserver func(observer *o
 	return nextObservers
 }
 
-func handleObject(ctx context.Context, observer *observerContext, object metabase.LoopObjectEntry) bool {
-	expirationDate := time.Time{}
-	if object.ExpiresAt != nil {
-		expirationDate = *object.ExpiresAt
-	}
-
-	if observer.HandleError(observer.Object(ctx, &Object{
-		Location:       object.Location(),
-		StreamID:       object.StreamID,
-		SegmentCount:   int(object.SegmentCount),
-		MetadataSize:   len(object.EncryptedMetadata),
-		expirationDate: expirationDate,
-	})) {
+func handleObject(ctx context.Context, observer *observerContext, object *Object) bool {
+	if observer.HandleError(observer.Object(ctx, object)) {
 		return false
 	}
 

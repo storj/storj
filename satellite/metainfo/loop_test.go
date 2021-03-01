@@ -106,6 +106,8 @@ func TestLoop(t *testing.T) {
 				assert.EqualValues(t, path.BucketName, "bucket")
 				assert.EqualValues(t, path.ProjectID, projectID)
 			}
+			// TODO we need better calulation
+			assert.NotZero(t, obs.totalMetadataSize)
 		}
 	})
 }
@@ -378,20 +380,22 @@ func TestLoopCancel(t *testing.T) {
 }
 
 type testObserver struct {
-	objectCount    int
-	remoteSegCount int
-	inlineSegCount int
-	uniquePaths    map[string]metabase.SegmentLocation
-	onSegment      func(context.Context) error // if set, run this during RemoteSegment()
+	objectCount       int
+	remoteSegCount    int
+	inlineSegCount    int
+	totalMetadataSize int
+	uniquePaths       map[string]metabase.SegmentLocation
+	onSegment         func(context.Context) error // if set, run this during RemoteSegment()
 }
 
 func newTestObserver(onSegment func(context.Context) error) *testObserver {
 	return &testObserver{
-		objectCount:    0,
-		remoteSegCount: 0,
-		inlineSegCount: 0,
-		uniquePaths:    make(map[string]metabase.SegmentLocation),
-		onSegment:      onSegment,
+		objectCount:       0,
+		remoteSegCount:    0,
+		inlineSegCount:    0,
+		totalMetadataSize: 0,
+		uniquePaths:       make(map[string]metabase.SegmentLocation),
+		onSegment:         onSegment,
 	}
 }
 
@@ -414,6 +418,7 @@ func (obs *testObserver) RemoteSegment(ctx context.Context, segment *metainfo.Se
 
 func (obs *testObserver) Object(ctx context.Context, object *metainfo.Object) error {
 	obs.objectCount++
+	obs.totalMetadataSize += object.EncryptedMetadataSize
 	return nil
 }
 

@@ -9,7 +9,6 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/tagsql"
 )
@@ -18,28 +17,10 @@ const loopIteratorBatchSizeLimit = 2500
 
 // LoopObjectEntry contains information about object needed by metainfo loop.
 type LoopObjectEntry struct {
-	ObjectStream
-
-	CreatedAt time.Time
-	ExpiresAt *time.Time
-
-	Status       ObjectStatus
-	SegmentCount int32
-
-	EncryptedMetadataNonce        []byte
-	EncryptedMetadata             []byte
-	EncryptedMetadataEncryptedKey []byte
-
-	TotalPlainSize     int64
-	TotalEncryptedSize int64
-	FixedSegmentSize   int32
-
-	Encryption storj.EncryptionParameters
-
-	// ZombieDeletionDeadline defines when the pending raw object should be deleted from the database.
-	// This is as a safeguard against objects that failed to upload and the client has not indicated
-	// whether they want to continue uploading or delete the already uploaded data.
-	ZombieDeletionDeadline *time.Time
+	ObjectStream                     // metrics, repair, tally
+	ExpiresAt             *time.Time // tally
+	SegmentCount          int32      // metrics
+	EncryptedMetadataSize int        // tally
 }
 
 // LoopObjectsIterator iterates over a sequence of LoopObjectEntry items.
@@ -164,12 +145,10 @@ func (it *loopIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err err
 	return it.db.db.Query(ctx, `
 		SELECT
 			project_id, bucket_name,
-			object_key, stream_id, version, status,
-			created_at, expires_at,
+			object_key, stream_id, version,
+			expires_at,
 			segment_count,
-			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
-			total_plain_size, total_encrypted_size, fixed_segment_size,
-			encryption
+			LENGTH(COALESCE(encrypted_metadata,''))
 		FROM objects
 		WHERE (project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
 		ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
@@ -184,11 +163,9 @@ func (it *loopIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err err
 func (it *loopIterator) scanItem(item *LoopObjectEntry) error {
 	return it.curRows.Scan(
 		&item.ProjectID, &item.BucketName,
-		&item.ObjectKey, &item.StreamID, &item.Version, &item.Status,
-		&item.CreatedAt, &item.ExpiresAt,
+		&item.ObjectKey, &item.StreamID, &item.Version,
+		&item.ExpiresAt,
 		&item.SegmentCount,
-		&item.EncryptedMetadataNonce, &item.EncryptedMetadata, &item.EncryptedMetadataEncryptedKey,
-		&item.TotalPlainSize, &item.TotalEncryptedSize, &item.FixedSegmentSize,
-		encryptionParameters{&item.Encryption},
+		&item.EncryptedMetadataSize,
 	)
 }
