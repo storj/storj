@@ -18,14 +18,15 @@ fi
 echo $COMMIT
 
 echo -n "Tagged version: "
-if git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*"; then
-  VERSION=$(git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*")
-  echo $VERSION
-else
-  VERSION=v0.0.0
+#if git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*"; then
+#  VERSION=$(git describe --tags --exact-match --match "v[0-9]*.[0-9]*.[0-9]*")
+#  echo $VERSION
+#else
+#  VERSION=v0.0.0
+#  RELEASE=false
+#fi
+  VERSION=v0.0.1
   RELEASE=false
-fi
-
 echo Running "go $@"
 exec go "$1" -ldflags \
   "-X storj.io/private/version.buildTimestamp=$TIMESTAMP
