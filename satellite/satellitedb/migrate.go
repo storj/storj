@@ -256,10 +256,10 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						exit_initiated_at timestamp with time zone,
 						exit_finished_at timestamp with time zone,
 						exit_success boolean NOT NULL DEFAULT FALSE,
-						last_ip_port text,
-						suspended timestamp with time zone,
 						unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
 						unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
+						suspended timestamp with time zone,
+						last_ip_port text,
 						vetted_at timestamp with time zone,
 						PRIMARY KEY ( id )
 					);`,

@@ -1802,3 +1802,33 @@ func (cache *overlaycache) IterateAllNodes(ctx context.Context, cb func(context.
 
 	return rows.Err()
 }
+
+// IterateAllNodeDossiers will call cb on all known nodes (used for invoice generation).
+func (cache *overlaycache) IterateAllNodeDossiers(ctx context.Context, cb func(context.Context, *overlay.NodeDossier) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	const nodesPerPage = 1000
+	var cont *dbx.Paged_Node_Continuation
+	var dbxNodes []*dbx.Node
+
+	for {
+		dbxNodes, cont, err = cache.db.Paged_Node(ctx, nodesPerPage, cont)
+		if err != nil {
+			return err
+		}
+
+		for _, node := range dbxNodes {
+			dossier, err := convertDBNode(ctx, node)
+			if err != nil {
+				return err
+			}
+			if err := cb(ctx, dossier); err != nil {
+				return err
+			}
+		}
+
+		if cont == nil {
+			return nil
+		}
+	}
+}

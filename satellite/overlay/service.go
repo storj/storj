@@ -106,6 +106,8 @@ type DB interface {
 
 	// IterateAllNodes will call cb on all known nodes (used in restore trash contexts).
 	IterateAllNodes(context.Context, func(context.Context, *SelectedNode) error) error
+	// IterateAllNodes will call cb on all known nodes (used for invoice generation).
+	IterateAllNodeDossiers(context.Context, func(context.Context, *NodeDossier) error) error
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins.
