@@ -274,15 +274,28 @@ func (step ListSegments) Check(ctx *testcontext.Context, t testing.TB, db *metab
 	require.Zero(t, diff)
 }
 
-type ListLoopSegmentEntries struct {
-	Opts     metabase.ListLoopSegmentEntries
-	Result   metabase.ListLoopSegmentEntriesResult
+type IterateLoopStreams struct {
+	Opts     metabase.IterateLoopStreams
+	Result   map[uuid.UUID][]metabase.LoopSegmentEntry
 	ErrClass *errs.Class
 	ErrText  string
 }
 
-func (step ListLoopSegmentEntries) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	result, err := db.ListLoopSegmentEntries(ctx, step.Opts)
+func (step IterateLoopStreams) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result := make(map[uuid.UUID][]metabase.LoopSegmentEntry)
+	err := db.IterateLoopStreams(ctx, step.Opts,
+		func(ctx context.Context, streamID uuid.UUID, next metabase.SegmentIterator) error {
+			var segments []metabase.LoopSegmentEntry
+			for {
+				var segment metabase.LoopSegmentEntry
+				if !next(&segment) {
+					break
+				}
+				segments = append(segments, segment)
+			}
+			result[streamID] = segments
+			return nil
+		})
 	checkError(t, err, step.ErrClass, step.ErrText)
 
 	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))

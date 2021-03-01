@@ -6,8 +6,7 @@ package metabase
 import (
 	"bytes"
 	"context"
-	"database/sql"
-	"errors"
+	"fmt"
 	"sort"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/tagsql"
 )
@@ -176,6 +176,16 @@ func (it *loopIterator) scanItem(item *LoopObjectEntry) error {
 	)
 }
 
+// IterateLoopStreams contains arguments necessary for listing multiple streams segments.
+type IterateLoopStreams struct {
+	StreamIDs []uuid.UUID
+
+	AsOfSystemTime time.Time
+}
+
+// SegmentIterator returns the next segment.
+type SegmentIterator func(segment *LoopSegmentEntry) bool
+
 // LoopSegmentEntry contains information about segment metadata needed by metainfo loop.
 type LoopSegmentEntry struct {
 	StreamID      uuid.UUID
@@ -191,40 +201,34 @@ func (s LoopSegmentEntry) Inline() bool {
 	return s.Redundancy.IsZero() && len(s.Pieces) == 0
 }
 
-// ListLoopSegmentEntries contains arguments necessary for listing streams loop segment entries.
-type ListLoopSegmentEntries struct {
-	StreamIDs []uuid.UUID
-}
-
-// ListLoopSegmentEntriesResult result of listing streams loop segment entries.
-type ListLoopSegmentEntriesResult struct {
-	Segments []LoopSegmentEntry
-}
-
-// ListLoopSegmentEntries lists streams loop segment entries.
-func (db *DB) ListLoopSegmentEntries(ctx context.Context, opts ListLoopSegmentEntries) (result ListLoopSegmentEntriesResult, err error) {
+// IterateLoopStreams lists multiple streams segments.
+func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, handleStream func(ctx context.Context, streamID uuid.UUID, next SegmentIterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(opts.StreamIDs) == 0 {
-		return ListLoopSegmentEntriesResult{}, ErrInvalidRequest.New("StreamIDs list is empty")
+		return ErrInvalidRequest.New("StreamIDs list is empty")
 	}
 
-	// TODO do something like pgutil.UUIDArray()
-	ids := make([][]byte, len(opts.StreamIDs))
-	for i, streamID := range opts.StreamIDs {
-		if streamID.IsZero() {
-			return ListLoopSegmentEntriesResult{}, ErrInvalidRequest.New("StreamID missing: index %d", i)
-		}
-
-		id := streamID
-		ids[i] = id[:]
-	}
-
-	sort.Slice(ids, func(i, j int) bool {
-		return bytes.Compare(ids[i], ids[j]) < 0
+	sort.Slice(opts.StreamIDs, func(i, k int) bool {
+		return bytes.Compare(opts.StreamIDs[i][:], opts.StreamIDs[k][:]) < 0
 	})
 
-	err = withRows(db.db.Query(ctx, `
+	// TODO do something like pgutil.UUIDArray()
+	bytesIDs := make([][]byte, len(opts.StreamIDs))
+	for i, streamID := range opts.StreamIDs {
+		if streamID.IsZero() {
+			return ErrInvalidRequest.New("StreamID missing: index %d", i)
+		}
+		id := streamID
+		bytesIDs[i] = id[:]
+	}
+
+	var asOfSystemTime string
+	if !opts.AsOfSystemTime.IsZero() && db.implementation == dbutil.Cockroach {
+		asOfSystemTime = fmt.Sprintf(` AS OF SYSTEM TIME '%d' `, opts.AsOfSystemTime.UnixNano())
+	}
+
+	rows, err := db.db.Query(ctx, `
 		SELECT
 			stream_id, position,
 			root_piece_id,
@@ -232,12 +236,40 @@ func (db *DB) ListLoopSegmentEntries(ctx context.Context, opts ListLoopSegmentEn
 			redundancy,
 			remote_alias_pieces
 		FROM segments
+		`+asOfSystemTime+`
 		WHERE
 		    -- this turns out to be a little bit faster than stream_id IN (SELECT unnest($1::BYTEA[]))
 			stream_id = ANY ($1::BYTEA[])
 		ORDER BY stream_id ASC, position ASC
-	`, pgutil.ByteaArray(ids)))(func(rows tagsql.Rows) error {
-		for rows.Next() {
+	`, pgutil.ByteaArray(bytesIDs))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Err(), rows.Close()) }()
+
+	var noMoreData bool
+	var nextSegment *LoopSegmentEntry
+	for _, streamID := range opts.StreamIDs {
+		streamID := streamID
+		var internalError error
+		err := handleStream(ctx, streamID, func(output *LoopSegmentEntry) bool {
+			if nextSegment != nil {
+				if nextSegment.StreamID != streamID {
+					return false
+				}
+				*output = *nextSegment
+				nextSegment = nil
+				return true
+			}
+
+			if noMoreData {
+				return false
+			}
+			if !rows.Next() {
+				noMoreData = true
+				return false
+			}
+
 			var segment LoopSegmentEntry
 			var aliasPieces AliasPieces
 			err = rows.Scan(
@@ -248,24 +280,28 @@ func (db *DB) ListLoopSegmentEntries(ctx context.Context, opts ListLoopSegmentEn
 				&aliasPieces,
 			)
 			if err != nil {
-				return Error.New("failed to scan segments: %w", err)
+				internalError = Error.New("failed to scan segments: %w", err)
+				return false
 			}
 
 			segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
 			if err != nil {
-				return Error.New("failed to convert aliases to pieces: %w", err)
+				internalError = Error.New("failed to convert aliases to pieces: %w", err)
+				return false
 			}
 
-			result.Segments = append(result.Segments, segment)
+			if segment.StreamID != streamID {
+				nextSegment = &segment
+				return false
+			}
+
+			*output = segment
+			return true
+		})
+		if internalError != nil || err != nil {
+			return Error.Wrap(errs.Combine(internalError, err))
 		}
-		return nil
-	})
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return ListLoopSegmentEntriesResult{}, nil
-		}
-		return ListLoopSegmentEntriesResult{}, Error.New("unable to fetch object segments: %w", err)
 	}
 
-	return result, nil
+	return Error.Wrap(err)
 }

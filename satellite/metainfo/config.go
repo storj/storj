@@ -205,8 +205,6 @@ type MetabaseDB interface {
 	GetLatestObjectLastSegment(ctx context.Context, opts metabase.GetLatestObjectLastSegment) (segment metabase.Segment, err error)
 	// ListSegments lists specified stream segments.
 	ListSegments(ctx context.Context, opts metabase.ListSegments) (result metabase.ListSegmentsResult, err error)
-	// ListLoopSegmentEntries lists streams loop segment entries.
-	ListLoopSegmentEntries(ctx context.Context, opts metabase.ListLoopSegmentEntries) (result metabase.ListLoopSegmentEntriesResult, err error)
 	// IterateObjectsAllVersions iterates through all versions of all objects.
 	IterateObjectsAllVersions(ctx context.Context, opts metabase.IterateObjects, fn func(context.Context, metabase.ObjectsIterator) error) (err error)
 	// IterateObjectsAllVersionsWithStatus iterates through all versions of all objects with specified status.
@@ -215,6 +213,8 @@ type MetabaseDB interface {
 	IteratePendingObjectsByKey(ctx context.Context, opts metabase.IteratePendingObjectsByKey, fn func(context.Context, metabase.ObjectsIterator) error) (err error)
 	// IterateLoopObjects iterates through all objects in metabase for metainfo loop purpose.
 	IterateLoopObjects(ctx context.Context, opts metabase.IterateLoopObjects, fn func(context.Context, metabase.LoopObjectsIterator) error) (err error)
+	// IterateLoopStreams iterates through all streams passed in as arguments.
+	IterateLoopStreams(ctx context.Context, opts metabase.IterateLoopStreams, handleStream func(ctx context.Context, streamID uuid.UUID, next metabase.SegmentIterator) error) (err error)
 	// BucketEmpty returns true if bucket does not contain objects (pending or committed).
 	// This method doesn't check bucket existence.
 	BucketEmpty(ctx context.Context, opts metabase.BucketEmpty) (empty bool, err error)
