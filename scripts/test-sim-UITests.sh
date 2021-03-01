@@ -75,6 +75,7 @@ echo "install nodeJs starts.....................................................
 apt-get -y install nodejs
 echo "npm install starts..........................................................................................."
 npm install --prefix "/var/jenkins_home/workspace/SatelliteUITestGithub/web/satellite/."
+git show
 echo "npm run build starts...................................................................................................."
 npm run build --prefix "/var/jenkins_home/workspace/SatelliteUITestGithub/web/satellite/."
 echo "wormhole installing ..............................................................................................."
