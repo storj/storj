@@ -279,8 +279,8 @@ func (observer *Observer) Object(ctx context.Context, object *metainfo.Object) (
 		return nil
 	}
 
-	bucket := observer.ensureBucket(ctx, object.Location)
-	bucket.MetadataSize += int64(object.MetadataSize)
+	bucket := observer.ensureBucket(ctx, object.ObjectStream.Location())
+	bucket.MetadataSize += int64(object.EncryptedMetadataSize)
 	bucket.ObjectCount++
 
 	return nil
