@@ -60,3 +60,13 @@ export class NodeURL {
         public address: string,
     ) {}
 }
+
+/**
+ * UpdateNodeModel defines a structure for updating node name.
+ */
+export class UpdateNodeModel {
+    public constructor(
+        public id: string,
+        public name: string,
+    ) {}
+}

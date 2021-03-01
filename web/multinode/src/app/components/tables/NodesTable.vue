@@ -23,7 +23,7 @@
             </tr>
         </thead>
         <tbody>
-            <NodeItem v-for="node in nodes" :key="node.id" :node="node" />
+            <node-item v-for="node in nodes" :key="node.id" :node="node" />
         </tbody>
     </table>
 </template>
