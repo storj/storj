@@ -213,8 +213,8 @@ type MetabaseDB interface {
 	IterateObjectsAllVersionsWithStatus(ctx context.Context, opts metabase.IterateObjectsWithStatus, fn func(context.Context, metabase.ObjectsIterator) error) (err error)
 	// IteratePendingObjectsByKey iterates through all StreamID for a given ObjectKey.
 	IteratePendingObjectsByKey(ctx context.Context, opts metabase.IteratePendingObjectsByKey, fn func(context.Context, metabase.ObjectsIterator) error) (err error)
-	// FullIterateObjects iterates through all objects in metabase.
-	FullIterateObjects(ctx context.Context, opts metabase.FullIterateObjects, fn func(context.Context, metabase.FullObjectsIterator) error) (err error)
+	// IterateLoopObjects iterates through all objects in metabase for metainfo loop purpose.
+	IterateLoopObjects(ctx context.Context, opts metabase.IterateLoopObjects, fn func(context.Context, metabase.LoopObjectsIterator) error) (err error)
 	// BucketEmpty returns true if bucket does not contain objects (pending or committed).
 	// This method doesn't check bucket existence.
 	BucketEmpty(ctx context.Context, opts metabase.BucketEmpty) (empty bool, err error)

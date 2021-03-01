@@ -311,7 +311,7 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 
 	// TODO we may consider keeping only expiration time as its
 	// only thing we need to handle segments
-	objectsMap := make(map[uuid.UUID]metabase.FullObjectEntry)
+	objectsMap := make(map[uuid.UUID]metabase.LoopObjectEntry)
 	ids := make([]uuid.UUID, 0, limit)
 
 	processBatch := func() error {
@@ -326,7 +326,7 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 			return err
 		}
 
-		var lastObject metabase.FullObjectEntry
+		var lastObject metabase.LoopObjectEntry
 		for _, segment := range segments.Segments {
 			if segment.StreamID != lastObject.StreamID {
 				var ok bool
@@ -393,10 +393,10 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 	}
 
 	segmentsInBatch := int32(0)
-	err = metabaseDB.FullIterateObjects(ctx, metabase.FullIterateObjects{
+	err = metabaseDB.IterateLoopObjects(ctx, metabase.IterateLoopObjects{
 		BatchSize: limit,
-	}, func(ctx context.Context, it metabase.FullObjectsIterator) error {
-		var entry metabase.FullObjectEntry
+	}, func(ctx context.Context, it metabase.LoopObjectsIterator) error {
+		var entry metabase.LoopObjectEntry
 		for it.Next(ctx, &entry) {
 			if err := rateLimiter.Wait(ctx); err != nil {
 				// We don't really execute concurrent batches so we should never
@@ -449,7 +449,7 @@ func withObservers(observers []*observerContext, handleObserver func(observer *o
 	return nextObservers
 }
 
-func handleObject(ctx context.Context, observer *observerContext, object metabase.FullObjectEntry) bool {
+func handleObject(ctx context.Context, observer *observerContext, object metabase.LoopObjectEntry) bool {
 	expirationDate := time.Time{}
 	if object.ExpiresAt != nil {
 		expirationDate = *object.ExpiresAt
