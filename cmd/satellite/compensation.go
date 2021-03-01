@@ -12,7 +12,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/compensation"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -48,36 +51,49 @@ func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io
 		return err
 	}
 
-	invoices := make([]compensation.Invoice, 0, len(periodUsage))
+	periodUsageByNode := make(map[storj.NodeID]accounting.StorageNodePeriodUsage, len(periodUsage))
 	for _, usage := range periodUsage {
-		totalAmounts, err := db.Compensation().QueryTotalAmounts(ctx, usage.NodeID)
+		periodUsageByNode[usage.NodeID] = usage
+	}
+
+	var allNodes []*overlay.NodeDossier
+	err = db.OverlayCache().IterateAllNodeDossiers(ctx,
+		func(ctx context.Context, node *overlay.NodeDossier) error {
+			allNodes = append(allNodes, node)
+			return nil
+		})
+	if err != nil {
+		return err
+	}
+
+	invoices := make([]compensation.Invoice, 0, len(allNodes))
+	for _, node := range allNodes {
+		totalAmounts, err := db.Compensation().QueryTotalAmounts(ctx, node.Id)
 		if err != nil {
 			return err
 		}
 
-		node, err := db.OverlayCache().Get(ctx, usage.NodeID)
-		if err != nil {
-			zap.L().Warn("failed to get node, skipping", zap.String("nodeID", usage.NodeID.String()), zap.Error(err))
-			continue
-		}
 		var gracefulExit *time.Time
 		if node.ExitStatus.ExitSuccess {
 			gracefulExit = node.ExitStatus.ExitFinishedAt
 		}
 		nodeAddress, _, err := net.SplitHostPort(node.Address.Address)
 		if err != nil {
-			return errs.New("unable to split node %q address %q", usage.NodeID, node.Address.Address)
+			return errs.New("unable to split node %q address %q", node.Id, node.Address.Address)
 		}
 		var nodeLastIP string
 		if node.LastIPPort != "" {
 			nodeLastIP, _, err = net.SplitHostPort(node.LastIPPort)
 			if err != nil {
-				return errs.New("unable to split node %q last ip:port %q", usage.NodeID, node.LastIPPort)
+				return errs.New("unable to split node %q last ip:port %q", node.Id, node.LastIPPort)
 			}
 		}
 
+		// the zero value of period usage is acceptable for if the node does not have
+		// any usage for the period.
+		usage := periodUsageByNode[node.Id]
 		nodeInfo := compensation.NodeInfo{
-			ID:                 usage.NodeID,
+			ID:                 node.Id,
 			CreatedAt:          node.CreatedAt,
 			LastContactSuccess: node.Reputation.LastContactSuccess,
 			Disqualified:       node.Disqualified,
@@ -96,7 +112,7 @@ func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io
 
 		invoice := compensation.Invoice{
 			Period:             period,
-			NodeID:             compensation.NodeID(usage.NodeID),
+			NodeID:             compensation.NodeID(node.Id),
 			NodeWallet:         node.Operator.Wallet,
 			NodeWalletFeatures: node.Operator.WalletFeatures,
 			NodeAddress:        nodeAddress,

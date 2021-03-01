@@ -157,7 +157,7 @@ func (db *StoragenodeAccounting) getBandwidthByNodeSince(ctx context.Context, la
 				return err
 			}
 		}
-		if len(rollups) < pageLimit {
+		if cursor == nil {
 			return nil
 		}
 	}
@@ -196,7 +196,7 @@ func (db *StoragenodeAccounting) getBandwidthPhase2ByNodeSince(ctx context.Conte
 				return err
 			}
 		}
-		if len(rollups) < pageLimit {
+		if cursor == nil {
 			return nil
 		}
 	}
@@ -611,7 +611,7 @@ func (db *StoragenodeAccounting) GetRollupsSince(ctx context.Context, since time
 				Settled:       dbxRollup.Settled,
 			})
 		}
-		if len(dbxRollups) < pageLimit {
+		if cursor == nil {
 			return bwRollups, nil
 		}
 	}
@@ -647,7 +647,7 @@ func (db *StoragenodeAccounting) GetArchivedRollupsSince(ctx context.Context, si
 				Settled:       dbxRollup.Settled,
 			})
 		}
-		if len(dbxRollups) < pageLimit {
+		if cursor == nil {
 			return bwRollups, nil
 		}
 	}

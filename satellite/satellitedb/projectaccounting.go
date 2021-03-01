@@ -249,17 +249,17 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 
 	storageQuery := db.db.Rebind(`
 		SELECT
-			bucket_storage_tallies.interval_start, 
+			bucket_storage_tallies.interval_start,
 			bucket_storage_tallies.inline,
 			bucket_storage_tallies.remote,
 			bucket_storage_tallies.object_count
-		FROM 
-			bucket_storage_tallies 
-		WHERE 
-			bucket_storage_tallies.project_id = ? AND 
+		FROM
+			bucket_storage_tallies
+		WHERE
+			bucket_storage_tallies.project_id = ? AND
 			bucket_storage_tallies.bucket_name = ? AND
-			bucket_storage_tallies.interval_start >= ? AND 
-			bucket_storage_tallies.interval_start <= ? 
+			bucket_storage_tallies.interval_start >= ? AND
+			bucket_storage_tallies.interval_start <= ?
 		ORDER BY bucket_storage_tallies.interval_start DESC
 	`)
 
@@ -320,14 +320,14 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 // only process PieceAction_GET.
 func (db *ProjectAccounting) getTotalEgress(ctx context.Context, projectID uuid.UUID, since, before time.Time) (totalEgress int64, err error) {
 	totalEgressQuery := db.db.Rebind(`
-		SELECT 
-			COALESCE(SUM(settled) + SUM(inline), 0)  
-		FROM 
-			bucket_bandwidth_rollups 
-		WHERE 
-			project_id = ? AND 
-			interval_start >= ? AND 
-			interval_start <= ? AND 
+		SELECT
+			COALESCE(SUM(settled) + SUM(inline), 0)
+		FROM
+			bucket_bandwidth_rollups
+		WHERE
+			project_id = ? AND
+			interval_start >= ? AND
+			interval_start <= ? AND
 			action = ?;
 	`)
 
@@ -542,7 +542,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 	}
 
 	var buckets []string
-	bucketsQuery := db.db.Rebind(`SELECT name FROM bucket_metainfos 
+	bucketsQuery := db.db.Rebind(`SELECT name FROM bucket_metainfos
 	WHERE project_id = ? AND ` + bucketNameRange + `ORDER BY name ASC LIMIT ? OFFSET ?`)
 
 	args = []interface{}{
@@ -645,15 +645,15 @@ func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before ti
 		for {
 			row := db.db.QueryRow(ctx, `
 				WITH rollups_to_move AS (
-                    DELETE FROM bucket_bandwidth_rollups
-                    WHERE interval_start <= $1
-                    LIMIT $2 RETURNING *
-                ), moved_rollups AS (
+					DELETE FROM bucket_bandwidth_rollups
+					WHERE interval_start <= $1
+					LIMIT $2 RETURNING *
+				), moved_rollups AS (
 					INSERT INTO bucket_bandwidth_rollup_archives(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
 					SELECT bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled FROM rollups_to_move
 					RETURNING *
-                )
-                SELECT count(*) FROM moved_rollups
+				)
+				SELECT count(*) FROM moved_rollups
 			`, before, batchSize)
 
 			var rowCount int
@@ -677,8 +677,8 @@ func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before ti
 				INSERT INTO bucket_bandwidth_rollup_archives(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
 				SELECT bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled FROM rollups_to_move
 				RETURNING *
-            )
-            SELECT count(*) FROM moved_rollups
+			)
+			SELECT count(*) FROM moved_rollups
 		`
 		row := db.db.DB.QueryRow(ctx, bwStatement, before)
 		var rowCount int
@@ -697,7 +697,7 @@ func (db *ProjectAccounting) getBucketsSinceAndBefore(ctx context.Context, proje
 	bucketsQuery := db.db.Rebind(`SELECT DISTINCT bucket_name
 		FROM bucket_storage_tallies
 		WHERE project_id = ?
-		AND interval_start >= ? 
+		AND interval_start >= ?
 		AND interval_start <= ?`)
 	bucketRows, err := db.db.QueryContext(ctx, bucketsQuery, projectID[:], since, before)
 	if err != nil {
@@ -773,7 +773,7 @@ func (db *ProjectAccounting) GetRollupsSince(ctx context.Context, since time.Tim
 				Settled:    int64(dbxRollup.Settled),
 			})
 		}
-		if len(dbxRollups) < pageLimit {
+		if cursor == nil {
 			return bwRollups, nil
 		}
 	}
@@ -811,7 +811,7 @@ func (db *ProjectAccounting) GetArchivedRollupsSince(ctx context.Context, since 
 				Settled:    int64(dbxRollup.Settled),
 			})
 		}
-		if len(dbxRollups) < pageLimit {
+		if cursor == nil {
 			return bwRollups, nil
 		}
 	}
