@@ -296,6 +296,8 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 		limit = batchsizeLimit
 	}
 
+	startingTime := time.Now()
+
 	noObserversErr := errs.New("no observers")
 
 	// TODO we may consider keeping only expiration time as its
@@ -308,77 +310,64 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 			return nil
 		}
 
-		segments, err := metabaseDB.ListLoopSegmentEntries(ctx, metabase.ListLoopSegmentEntries{
-			StreamIDs: ids,
-		})
-		if err != nil {
-			return err
-		}
-
-		var lastEntry metabase.LoopObjectEntry
-		for _, segment := range segments.Segments {
-			if segment.StreamID != lastEntry.StreamID {
-				var ok bool
-				lastEntry, ok = objectsMap[segment.StreamID]
-				if !ok {
-					return errs.New("unable to find corresponding object: %v", segment.StreamID)
-				}
-
-				delete(objectsMap, lastEntry.StreamID)
-
-				// TODO should we move this directly to iterator to have object
-				// state as close as possible to time of reading
-				observers = withObservers(observers, func(observer *observerContext) bool {
-					object := Object(lastEntry)
-					return handleObject(ctx, observer, &object)
-				})
-				if len(observers) == 0 {
-					return noObserversErr
-				}
-
-				// if context has been canceled exit. Otherwise, continue
-				if err := ctx.Err(); err != nil {
-					return err
-				}
-			}
-
-			location := metabase.SegmentLocation{
-				ProjectID:  lastEntry.ProjectID,
-				BucketName: lastEntry.BucketName,
-				ObjectKey:  lastEntry.ObjectKey,
-				Position:   segment.Position,
-			}
-			segment := segment
-			observers = withObservers(observers, func(observer *observerContext) bool {
-				return handleSegment(ctx, observer, location, segment, lastEntry.ExpiresAt)
-			})
-			if len(observers) == 0 {
-				return noObserversErr
-			}
-
-			// if context has been canceled exit. Otherwise, continue
+		err := metabaseDB.IterateLoopStreams(ctx, metabase.IterateLoopStreams{
+			StreamIDs:      ids,
+			AsOfSystemTime: startingTime,
+		}, func(ctx context.Context, streamID uuid.UUID, next metabase.SegmentIterator) error {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-		}
 
-		// we have now only objects without segments
-		for id, entry := range objectsMap {
-			delete(objectsMap, id)
+			obj, ok := objectsMap[streamID]
+			if !ok {
+				return Error.New("unable to find corresponding object: %v", streamID)
+			}
+			delete(objectsMap, streamID)
 
-			object := Object(entry)
 			observers = withObservers(observers, func(observer *observerContext) bool {
+				object := Object(obj)
 				return handleObject(ctx, observer, &object)
 			})
 			if len(observers) == 0 {
 				return noObserversErr
 			}
 
-			// if context has been canceled exit. Otherwise, continue
-			if err := ctx.Err(); err != nil {
-				return err
+			for {
+				// if context has been canceled exit. Otherwise, continue
+				if err := ctx.Err(); err != nil {
+					return err
+				}
+
+				var segment metabase.LoopSegmentEntry
+				if !next(&segment) {
+					break
+				}
+
+				location := metabase.SegmentLocation{
+					ProjectID:  obj.ProjectID,
+					BucketName: obj.BucketName,
+					ObjectKey:  obj.ObjectKey,
+					Position:   segment.Position,
+				}
+
+				observers = withObservers(observers, func(observer *observerContext) bool {
+					return handleSegment(ctx, observer, location, segment, obj.ExpiresAt)
+				})
+				if len(observers) == 0 {
+					return noObserversErr
+				}
 			}
+
+			return nil
+		})
+		if err != nil {
+			return Error.Wrap(err)
 		}
+
+		if len(objectsMap) > 0 {
+			return Error.New("unhandled objects %#v", objectsMap)
+		}
+
 		return nil
 	}
 
