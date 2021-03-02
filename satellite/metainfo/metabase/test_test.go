@@ -274,15 +274,15 @@ func (step ListSegments) Check(ctx *testcontext.Context, t testing.TB, db *metab
 	require.Zero(t, diff)
 }
 
-type ListObjectsSegments struct {
-	Opts     metabase.ListObjectsSegments
-	Result   metabase.ListObjectsSegmentsResult
+type ListLoopSegmentEntries struct {
+	Opts     metabase.ListLoopSegmentEntries
+	Result   metabase.ListLoopSegmentEntriesResult
 	ErrClass *errs.Class
 	ErrText  string
 }
 
-func (step ListObjectsSegments) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	result, err := db.ListObjectsSegments(ctx, step.Opts)
+func (step ListLoopSegmentEntries) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.ListLoopSegmentEntries(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
 	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
