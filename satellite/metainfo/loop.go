@@ -13,7 +13,6 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/time/rate"
 
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metainfo/metabase"
 )
@@ -38,15 +37,11 @@ func (object *Object) Expired(now time.Time) bool {
 // Segment is the segment info passed to Observer by metainfo loop.
 type Segment struct {
 	Location       metabase.SegmentLocation // tally, repair, graceful exit, audit
-	StreamID       uuid.UUID                // audit
-	DataSize       int                      // tally, graceful exit
-	Inline         bool                     // metrics
-	Redundancy     storj.RedundancyScheme   // tally, graceful exit, repair
-	RootPieceID    storj.PieceID            // gc, graceful exit
-	Pieces         metabase.Pieces          // tally, audit, gc, graceful exit, repair
 	CreationDate   time.Time                // repair
 	ExpirationDate time.Time                // tally, repair
 	LastRepaired   time.Time                // repair
+
+	metabase.LoopSegmentEntry
 }
 
 // Expired checks if segment is expired relative to now.
@@ -459,26 +454,28 @@ func handleObject(ctx context.Context, observer *observerContext, object *Object
 	return true
 }
 
-func handleSegment(ctx context.Context, observer *observerContext, location metabase.SegmentLocation, segment metabase.LoopSegmentEntry, expiresAt *time.Time) bool {
+func handleSegment(ctx context.Context, observer *observerContext, location metabase.SegmentLocation, segment metabase.LoopSegmentEntry, expirationDate *time.Time) bool {
 	loopSegment := &Segment{
 		Location: location,
+		// TODO we are not setting this since multipart-upload branch, we need to
+		// check if thats affecting anything and if we need to set it correctly
+		// or just replace it with something else
+		CreationDate: time.Time{},
+		// TODO we are not setting this and we need to decide what to do with this
+		LastRepaired: time.Time{},
+
+		LoopSegmentEntry: segment,
 	}
 
-	if expiresAt != nil {
-		loopSegment.ExpirationDate = *expiresAt
+	if expirationDate != nil {
+		loopSegment.ExpirationDate = *expirationDate
 	}
 
-	loopSegment.StreamID = segment.StreamID
-	loopSegment.DataSize = int(segment.EncryptedSize)
-	if segment.Inline() {
-		loopSegment.Inline = true
+	if loopSegment.Inline() {
 		if observer.HandleError(observer.InlineSegment(ctx, loopSegment)) {
 			return false
 		}
 	} else {
-		loopSegment.RootPieceID = segment.RootPieceID
-		loopSegment.Redundancy = segment.Redundancy
-		loopSegment.Pieces = segment.Pieces
 		if observer.HandleError(observer.RemoteSegment(ctx, loopSegment)) {
 			return false
 		}

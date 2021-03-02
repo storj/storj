@@ -178,22 +178,12 @@ func (it *loopIterator) scanItem(item *LoopObjectEntry) error {
 
 // LoopSegmentEntry contains information about segment metadata needed by metainfo loop.
 type LoopSegmentEntry struct {
-	StreamID uuid.UUID
-	Position SegmentPosition
-
-	RootPieceID       storj.PieceID
-	EncryptedKeyNonce []byte
-	EncryptedKey      []byte
-
+	StreamID      uuid.UUID
+	Position      SegmentPosition
+	RootPieceID   storj.PieceID
 	EncryptedSize int32 // size of the whole segment (not a piece)
-	PlainSize     int32
-	PlainOffset   int64
-	// TODO: add fields for proofs/chains
-
-	Redundancy storj.RedundancyScheme
-
-	InlineData []byte
-	Pieces     Pieces
+	Redundancy    storj.RedundancyScheme
+	Pieces        Pieces
 }
 
 // Inline returns true if segment is inline.
@@ -237,10 +227,10 @@ func (db *DB) ListLoopSegmentEntries(ctx context.Context, opts ListLoopSegmentEn
 	err = withRows(db.db.Query(ctx, `
 		SELECT
 			stream_id, position,
-			root_piece_id, encrypted_key_nonce, encrypted_key,
-			encrypted_size, plain_offset, plain_size,
+			root_piece_id,
+			encrypted_size,
 			redundancy,
-			inline_data, remote_alias_pieces
+			remote_alias_pieces
 		FROM segments
 		WHERE
 		    -- this turns out to be a little bit faster than stream_id IN (SELECT unnest($1::BYTEA[]))
@@ -252,10 +242,10 @@ func (db *DB) ListLoopSegmentEntries(ctx context.Context, opts ListLoopSegmentEn
 			var aliasPieces AliasPieces
 			err = rows.Scan(
 				&segment.StreamID, &segment.Position,
-				&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
-				&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
+				&segment.RootPieceID,
+				&segment.EncryptedSize,
 				redundancyScheme{&segment.Redundancy},
-				&segment.InlineData, &aliasPieces,
+				&aliasPieces,
 			)
 			if err != nil {
 				return Error.New("failed to scan segments: %w", err)

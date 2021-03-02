@@ -253,6 +253,7 @@ func createFullObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metab
 
 	return objects
 }
+
 func loopObjectEntryFromRaw(m metabase.RawObject) metabase.LoopObjectEntry {
 	return metabase.LoopObjectEntry{
 		ObjectStream: m.ObjectStream,
@@ -312,16 +313,23 @@ func TestListLoopSegmentEntries(t *testing.T) {
 						Position: metabase.SegmentPosition{
 							Index: uint32(i),
 						},
-						RootPieceID:       storj.PieceID{1},
-						EncryptedKey:      []byte{3},
-						EncryptedKeyNonce: []byte{4},
-						EncryptedSize:     1024,
-						PlainSize:         512,
-						Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
-						Redundancy:        defaultTestRedundancy,
+						RootPieceID:   storj.PieceID{1},
+						EncryptedSize: 1024,
+						Pieces:        metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+						Redundancy:    defaultTestRedundancy,
 					}
 					expectedSegments = append(expectedSegments, segment)
-					expectedRawSegments = append(expectedRawSegments, metabase.RawSegment(segment))
+					expectedRawSegments = append(expectedRawSegments, metabase.RawSegment{
+						StreamID:          segment.StreamID,
+						Position:          segment.Position,
+						EncryptedSize:     segment.EncryptedSize,
+						Pieces:            segment.Pieces,
+						Redundancy:        segment.Redundancy,
+						RootPieceID:       segment.RootPieceID,
+						PlainSize:         512,
+						EncryptedKey:      []byte{3},
+						EncryptedKeyNonce: []byte{4},
+					})
 				}
 			}
 
