@@ -11,6 +11,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/dbutil/txutil"
 	"storj.io/storj/private/tagsql"
@@ -37,25 +38,44 @@ func (db *DB) deleteExpiredObjectsBatch(ctx context.Context, startAfter Object, 
 
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		var streamIDs [][]byte
+
+		var query string
+		switch db.implementation {
+		case dbutil.Cockroach:
+			query = `
+			DELETE FROM objects
+			WHERE
+				(project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
+				AND expires_at < $5
+				ORDER BY project_id, bucket_name, object_key, version
+			LIMIT $6
+			RETURNING
+				project_id, bucket_name,
+				object_key, version, stream_id,
+				expires_at;`
+		case dbutil.Postgres:
+			query = `
+			DELETE FROM objects
+			WHERE stream_id IN (
+				SELECT stream_id FROM objects
+					WHERE
+						(project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
+						AND expires_at < $5
+					ORDER BY project_id, bucket_name, object_key, version
+					LIMIT $6
+			)
+			RETURNING
+				project_id, bucket_name,
+				object_key, version, stream_id,
+				expires_at;`
+		default:
+			return Error.New("invalid dbType: %v", db.implementation)
+		}
 		// TODO: Consider adding an index like "CREATE INDEX ON objects (expires_at) WHERE expires_at IS NOT NULL".
 		// It would let the database go immediately to the relevant rows instead of scanning through the table for
 		// them. This would save a lot of time if a very small percent of all rows have expiration time, which is
 		// what we actually expect.
-		err = withRows(tx.Query(ctx, `
-			DELETE FROM objects
-				WHERE stream_id IN (
-					SELECT stream_id FROM objects
-						WHERE
-							(project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
-							AND expires_at < $5
-						ORDER BY project_id, bucket_name, object_key, version
-						LIMIT $6
-				)
-				RETURNING
-					project_id, bucket_name,
-					object_key, version, stream_id,
-					expires_at;
-			`, lastDeleted.ProjectID, lastDeleted.BucketName, []byte(lastDeleted.ObjectKey), lastDeleted.Version,
+		err = withRows(tx.Query(ctx, query, lastDeleted.ProjectID, []byte(lastDeleted.BucketName), []byte(lastDeleted.ObjectKey), lastDeleted.Version,
 			expiredBefore,
 			batchsizeLimit),
 		)(func(rows tagsql.Rows) error {
