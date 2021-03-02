@@ -313,7 +313,7 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 			return nil
 		}
 
-		segments, err := metabaseDB.ListObjectsSegments(ctx, metabase.ListObjectsSegments{
+		segments, err := metabaseDB.ListLoopSegmentEntries(ctx, metabase.ListLoopSegmentEntries{
 			StreamIDs: ids,
 		})
 		if err != nil {
@@ -459,7 +459,7 @@ func handleObject(ctx context.Context, observer *observerContext, object *Object
 	return true
 }
 
-func handleSegment(ctx context.Context, observer *observerContext, location metabase.SegmentLocation, segment metabase.Segment, expiresAt *time.Time) bool {
+func handleSegment(ctx context.Context, observer *observerContext, location metabase.SegmentLocation, segment metabase.LoopSegmentEntry, expiresAt *time.Time) bool {
 	loopSegment := &Segment{
 		Location: location,
 	}

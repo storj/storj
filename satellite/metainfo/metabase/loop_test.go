@@ -4,9 +4,12 @@
 package metabase_test
 
 import (
+	"bytes"
+	"sort"
 	"strings"
 	"testing"
 
+	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -256,4 +259,97 @@ func loopObjectEntryFromRaw(m metabase.RawObject) metabase.LoopObjectEntry {
 		ExpiresAt:    m.ExpiresAt,
 		SegmentCount: m.SegmentCount,
 	}
+}
+
+func TestListLoopSegmentEntries(t *testing.T) {
+	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		t.Run("StreamIDs list is empty", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			ListLoopSegmentEntries{
+				Opts:     metabase.ListLoopSegmentEntries{},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "StreamIDs list is empty",
+			}.Check(ctx, t, db)
+
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("StreamIDs list contains empty ID", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			ListLoopSegmentEntries{
+				Opts: metabase.ListLoopSegmentEntries{
+					StreamIDs: []uuid.UUID{{}},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "StreamID missing: index 0",
+			}.Check(ctx, t, db)
+
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("List objects segments", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			expectedObject01 := createObject(ctx, t, db, randObjectStream(), 1)
+			expectedObject02 := createObject(ctx, t, db, randObjectStream(), 5)
+			expectedObject03 := createObject(ctx, t, db, randObjectStream(), 3)
+
+			expectedSegments := []metabase.LoopSegmentEntry{}
+			expectedRawSegments := []metabase.RawSegment{}
+
+			objects := []metabase.Object{expectedObject01, expectedObject02, expectedObject03}
+
+			sort.Slice(objects, func(i, j int) bool {
+				return bytes.Compare(objects[i].StreamID[:], objects[j].StreamID[:]) < 0
+			})
+
+			addSegments := func(object metabase.Object) {
+				for i := 0; i < int(object.SegmentCount); i++ {
+					segment := metabase.LoopSegmentEntry{
+						StreamID: object.StreamID,
+						Position: metabase.SegmentPosition{
+							Index: uint32(i),
+						},
+						RootPieceID:       storj.PieceID{1},
+						EncryptedKey:      []byte{3},
+						EncryptedKeyNonce: []byte{4},
+						EncryptedSize:     1024,
+						PlainSize:         512,
+						Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+						Redundancy:        defaultTestRedundancy,
+					}
+					expectedSegments = append(expectedSegments, segment)
+					expectedRawSegments = append(expectedRawSegments, metabase.RawSegment(segment))
+				}
+			}
+
+			for _, object := range objects {
+				addSegments(object)
+			}
+
+			ListLoopSegmentEntries{
+				Opts: metabase.ListLoopSegmentEntries{
+					StreamIDs: []uuid.UUID{
+						expectedObject01.StreamID,
+						expectedObject02.StreamID,
+						expectedObject03.StreamID,
+					},
+				},
+				Result: metabase.ListLoopSegmentEntriesResult{
+					Segments: expectedSegments,
+				},
+			}.Check(ctx, t, db)
+
+			Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(expectedObject01),
+					metabase.RawObject(expectedObject02),
+					metabase.RawObject(expectedObject03),
+				},
+				Segments: expectedRawSegments,
+			}.Check(ctx, t, db)
+		})
+	})
 }
