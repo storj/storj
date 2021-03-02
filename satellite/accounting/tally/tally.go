@@ -294,7 +294,7 @@ func (observer *Observer) InlineSegment(ctx context.Context, segment *metainfo.S
 
 	bucket := observer.ensureBucket(ctx, segment.Location.Object())
 	bucket.InlineSegments++
-	bucket.InlineBytes += int64(segment.DataSize)
+	bucket.InlineBytes += int64(segment.EncryptedSize)
 
 	return nil
 }
@@ -307,7 +307,7 @@ func (observer *Observer) RemoteSegment(ctx context.Context, segment *metainfo.S
 
 	bucket := observer.ensureBucket(ctx, segment.Location.Object())
 	bucket.RemoteSegments++
-	bucket.RemoteBytes += int64(segment.DataSize)
+	bucket.RemoteBytes += int64(segment.EncryptedSize)
 
 	// add node info
 	minimumRequired := segment.Redundancy.RequiredShares
@@ -317,7 +317,7 @@ func (observer *Observer) RemoteSegment(ctx context.Context, segment *metainfo.S
 		return nil
 	}
 
-	pieceSize := float64(segment.DataSize / int(minimumRequired)) // TODO: Add this as a method to RedundancyScheme
+	pieceSize := float64(segment.EncryptedSize / int32(minimumRequired)) // TODO: Add this as a method to RedundancyScheme
 
 	for _, piece := range segment.Pieces {
 		observer.Node[piece.StorageNode] += pieceSize
