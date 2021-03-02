@@ -38,8 +38,8 @@ pushd $SCRIPTDIR
       rm -Rf $SCRIPTDIR/storj; 
     fi
     
-#    git clone https://github.com/storj/storj.git --depth 1
-    git clone https://github.com/storj/storj.git#main
+    git clone https://github.com/storj/storj.git --depth 1
+#    git clone https://github.com/storj/storj.git#main
 
     pushd ./storj
         install_sim
@@ -75,9 +75,9 @@ apt-get -y install imagemagick x11-apps
 echo "install nodeJs starts.................................................................................."
 apt-get -y install nodejs
 echo "npm install starts..........................................................................................."
-npm install --prefix "/var/jenkins_home/workspace/SatelliteUITestGithub/web/satellite/."
+npm install --prefix "$SCRIPTDIR"/storj/web/satellite/.
 echo "npm run build starts...................................................................................................."
-npm run build --prefix "/var/jenkins_home/workspace/SatelliteUITestGithub/web/satellite/."
+npm run build --prefix "$SCRIPTDIR"/storj/web/satellite/.
 echo "wormhole installing ..............................................................................................."
 apt-get -y install wormhole
 Xvfb -ac :99 -screen 0 1280x1024x16 & export DISPLAY=:99
