@@ -38,7 +38,8 @@ pushd $SCRIPTDIR
       rm -Rf $SCRIPTDIR/storj; 
     fi
     
-    git clone https://github.com/storj/storj.git --depth 1
+#    git clone https://github.com/storj/storj.git --depth 1
+    git clone https://github.com/storj/storj.git#main
 
     pushd ./storj
         install_sim
@@ -75,7 +76,6 @@ echo "install nodeJs starts.....................................................
 apt-get -y install nodejs
 echo "npm install starts..........................................................................................."
 npm install --prefix "/var/jenkins_home/workspace/SatelliteUITestGithub/web/satellite/."
-git show
 echo "npm run build starts...................................................................................................."
 npm run build --prefix "/var/jenkins_home/workspace/SatelliteUITestGithub/web/satellite/."
 echo "wormhole installing ..............................................................................................."
