@@ -73,7 +73,7 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 			object_key   = $3 AND
 			version      = $4 AND
 			status       = `+committedStatus,
-		opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version).
+		opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version).
 		Scan(
 			&object.StreamID,
 			&object.CreatedAt, &object.ExpiresAt,
@@ -130,7 +130,7 @@ func (db *DB) GetObjectLatestVersion(ctx context.Context, opts GetObjectLatestVe
 			status       = `+committedStatus+`
 		ORDER BY version desc
 		LIMIT 1
-	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey)).
+	`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey)).
 		Scan(
 			&object.StreamID, &object.Version,
 			&object.CreatedAt, &object.ExpiresAt,
@@ -186,7 +186,7 @@ func (db *DB) GetSegmentByLocation(ctx context.Context, opts GetSegmentByLocatio
 					LIMIT 1
 				) AND
 				position = $4
-		`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Position.Encode()).
+		`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Position.Encode()).
 		Scan(
 			&segment.StreamID,
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
@@ -301,7 +301,7 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 			)
 		ORDER BY position DESC
 		LIMIT 1
-	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey)).
+	`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey)).
 		Scan(
 			&segment.StreamID, &segment.Position,
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
@@ -364,7 +364,7 @@ func (db *DB) GetSegmentByOffset(ctx context.Context, opts GetSegmentByOffset) (
 			(plain_size + plain_offset) > $4
 		ORDER BY plain_offset ASC
 		LIMIT 1
-	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.PlainOffset).
+	`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.PlainOffset).
 		Scan(
 			&segment.StreamID, &segment.Position,
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
@@ -414,7 +414,7 @@ func (db *DB) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, er
 			project_id   = $1 AND
 			bucket_name  = $2
 		LIMIT 1
-	`, opts.ProjectID, opts.BucketName).Scan(&value)
+	`, opts.ProjectID, []byte(opts.BucketName)).Scan(&value)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return true, nil

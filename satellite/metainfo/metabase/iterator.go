@@ -19,7 +19,7 @@ type objectsIterator struct {
 	db *DB
 
 	projectID       uuid.UUID
-	bucketName      string
+	bucketName      []byte
 	status          ObjectStatus
 	prefix          ObjectKey
 	prefixLimit     ObjectKey
@@ -49,7 +49,7 @@ func iterateAllVersions(ctx context.Context, db *DB, opts IterateObjects, fn fun
 		db: db,
 
 		projectID:       opts.ProjectID,
-		bucketName:      opts.BucketName,
+		bucketName:      []byte(opts.BucketName),
 		prefix:          opts.Prefix,
 		prefixLimit:     prefixLimit(opts.Prefix),
 		batchSize:       opts.BatchSize,
@@ -82,7 +82,7 @@ func iterateAllVersionsWithStatus(ctx context.Context, db *DB, opts IterateObjec
 		db: db,
 
 		projectID:       opts.ProjectID,
-		bucketName:      opts.BucketName,
+		bucketName:      []byte(opts.BucketName),
 		status:          opts.Status,
 		prefix:          opts.Prefix,
 		prefixLimit:     prefixLimit(opts.Prefix),
@@ -121,7 +121,7 @@ func iteratePendingObjectsByKey(ctx context.Context, db *DB, opts IteratePending
 		db: db,
 
 		projectID:       opts.ProjectID,
-		bucketName:      opts.BucketName,
+		bucketName:      []byte(opts.BucketName),
 		prefix:          "",
 		prefixLimit:     "",
 		batchSize:       opts.BatchSize,
@@ -366,8 +366,10 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 }
 
 // nextBucket returns the lexicographically next bucket.
-func nextBucket(b string) string {
-	return b + "\x01"
+func nextBucket(b []byte) []byte {
+	xs := make([]byte, len(b)+1)
+	copy(xs, b)
+	return xs
 }
 
 // doNextQuery executes query to fetch the next batch returning the rows.

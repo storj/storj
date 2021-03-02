@@ -76,7 +76,7 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 	for {
 		deleteSegments = deleteSegments[:0]
 		err = withRows(db.db.Query(ctx, query,
-			opts.Bucket.ProjectID, opts.Bucket.BucketName, batchSize))(func(rows tagsql.Rows) error {
+			opts.Bucket.ProjectID, []byte(opts.Bucket.BucketName), batchSize))(func(rows tagsql.Rows) error {
 			ids := map[uuid.UUID]struct{}{} // TODO: avoid map here
 			for rows.Next() {
 				var streamID uuid.UUID

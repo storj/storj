@@ -174,7 +174,7 @@ func (it *loopIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err err
 		WHERE (project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
 		ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
 		LIMIT $5
-		`, it.cursor.ProjectID, it.cursor.BucketName,
+		`, it.cursor.ProjectID, []byte(it.cursor.BucketName),
 		[]byte(it.cursor.ObjectKey), int(it.cursor.Version),
 		it.batchSize,
 	)
