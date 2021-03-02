@@ -67,7 +67,7 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 			$4, $5, $6,
 			$7)
 		RETURNING version
-	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.StreamID,
+	`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.StreamID,
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
 		opts.ZombieDeletionDeadline)
 
@@ -125,7 +125,7 @@ func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExact
 			$8
 		)
 		RETURNING status, created_at
-	`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID,
+	`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID,
 		opts.ExpiresAt, encryptionParameters{&opts.Encryption},
 		opts.ZombieDeletionDeadline).
 		Scan(
@@ -183,7 +183,7 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 				version      = $4 AND
 				stream_id    = $5 AND
 				status       = `+pendingStatus,
-			opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID).Scan(&value)
+			opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID).Scan(&value)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return Error.New("pending object missing")
@@ -289,7 +289,7 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize,
 		redundancyScheme{&opts.Redundancy},
 		aliasPieces,
-		opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID,
+		opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID,
 	)
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
@@ -364,7 +364,7 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 		storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
 		len(opts.InlineData), opts.PlainOffset, opts.PlainSize,
 		opts.InlineData,
-		opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID,
+		opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID,
 	)
 	if err != nil {
 		if code := pgerrcode.FromError(err); code == pgxerrcode.NotNullViolation {
@@ -502,7 +502,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			RETURNING
 				created_at, expires_at,
 				encryption;
-		`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID,
+		`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID,
 			len(segments),
 			opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey,
 			totalPlainSize,
@@ -583,7 +583,7 @@ func (db *DB) UpdateObjectMetadata(ctx context.Context, opts UpdateObjectMetadat
 			version      = $4 AND
 			stream_id    = $5 AND
 			status       = `+committedStatus,
-		opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID,
+		opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID,
 		opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey)
 	if err != nil {
 		return Error.New("unable to update object metadata: %w", err)

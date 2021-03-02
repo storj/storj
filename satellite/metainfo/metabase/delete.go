@@ -118,7 +118,7 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
 				encryption;
-		`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version)
+		`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
@@ -198,7 +198,7 @@ func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject)
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
 				encryption;
-		`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey), opts.Version, opts.StreamID)
+		`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
@@ -253,7 +253,7 @@ func (db *DB) DeleteObjectLatestVersion(ctx context.Context, opts DeleteObjectLa
 		// ORDER BY version DESC
 		// LIMIT 1
 		// RETURNING stream_id;
-		// `, opts.ProjectID, opts.BucketName, opts.ObjectKey)
+		// `, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey)
 
 		// version for Postgres and Cockroachdb (but slow for Cockroachdb)
 		rows, err := tx.Query(ctx, `
@@ -277,7 +277,7 @@ func (db *DB) DeleteObjectLatestVersion(ctx context.Context, opts DeleteObjectLa
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
 				encryption;
-		`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey))
+		`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey))
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
@@ -332,7 +332,7 @@ func (db *DB) DeleteObjectAnyStatusAllVersions(ctx context.Context, opts DeleteO
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
 				encryption;
-		`, opts.ProjectID, opts.BucketName, []byte(opts.ObjectKey))
+		`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey))
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
@@ -410,7 +410,7 @@ func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAl
 					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
 					total_plain_size, total_encrypted_size, fixed_segment_size,
 					encryption;
-		`, projectID, bucketName, pgutil.ByteaArray(objectKeys))
+		`, projectID, []byte(bucketName), pgutil.ByteaArray(objectKeys))
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
