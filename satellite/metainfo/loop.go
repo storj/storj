@@ -253,17 +253,6 @@ waitformore:
 	return iterateDatabase(ctx, loop.metabaseDB, observers, loop.config.ListLimit, rate.NewLimiter(rate.Limit(loop.config.RateLimit), 1))
 }
 
-// IterateDatabase iterates over PointerDB and notifies specified observers about results.
-//
-// It uses 10000 as the lookup limit for iterating.
-func IterateDatabase(ctx context.Context, rateLimit float64, metabaseDB MetabaseDB, observers ...Observer) error {
-	obsContexts := make([]*observerContext, len(observers))
-	for i, observer := range observers {
-		obsContexts[i] = newObserverContext(ctx, observer)
-	}
-	return iterateDatabase(ctx, metabaseDB, obsContexts, 10000, rate.NewLimiter(rate.Limit(rateLimit), 1))
-}
-
 // Wait waits for run to be finished.
 // Safe to be called concurrently.
 func (loop *Loop) Wait() {
