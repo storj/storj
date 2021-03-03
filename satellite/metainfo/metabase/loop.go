@@ -21,22 +21,11 @@ import (
 
 const loopIteratorBatchSizeLimit = 2500
 
-// LoopObjectEntry contains information about object needed by metainfo loop.
-type LoopObjectEntry struct {
-	ObjectStream                     // metrics, repair, tally
-	ExpiresAt             *time.Time // tally
-	SegmentCount          int32      // metrics
-	EncryptedMetadataSize int        // tally
-}
-
-// LoopObjectsIterator iterates over a sequence of LoopObjectEntry items.
-type LoopObjectsIterator interface {
-	Next(ctx context.Context, item *LoopObjectEntry) bool
-}
-
 // IterateLoopObjects contains arguments necessary for listing objects in metabase.
 type IterateLoopObjects struct {
 	BatchSize int
+
+	AsOfSystemTime time.Time
 }
 
 // Verify verifies get object request fields.
@@ -45,6 +34,19 @@ func (opts *IterateLoopObjects) Verify() error {
 		return ErrInvalidRequest.New("BatchSize is negative")
 	}
 	return nil
+}
+
+// LoopObjectsIterator iterates over a sequence of LoopObjectEntry items.
+type LoopObjectsIterator interface {
+	Next(ctx context.Context, item *LoopObjectEntry) bool
+}
+
+// LoopObjectEntry contains information about object needed by metainfo loop.
+type LoopObjectEntry struct {
+	ObjectStream                     // metrics, repair, tally
+	ExpiresAt             *time.Time // tally
+	SegmentCount          int32      // metrics
+	EncryptedMetadataSize int        // tally
 }
 
 // IterateLoopObjects iterates through all objects in metabase.
@@ -88,7 +90,8 @@ func (db *DB) IterateLoopObjects(ctx context.Context, opts IterateLoopObjects, f
 type loopIterator struct {
 	db *DB
 
-	batchSize int
+	batchSize      int
+	asOfSystemTime time.Time
 
 	curIndex int
 	curRows  tagsql.Rows
@@ -148,6 +151,11 @@ func (it *loopIterator) Next(ctx context.Context, item *LoopObjectEntry) bool {
 func (it *loopIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var asOfSystemTime string
+	if !it.asOfSystemTime.IsZero() && it.db.implementation == dbutil.Cockroach {
+		asOfSystemTime = fmt.Sprintf(` AS OF SYSTEM TIME '%d' `, it.asOfSystemTime.UnixNano())
+	}
+
 	return it.db.db.Query(ctx, `
 		SELECT
 			project_id, bucket_name,
@@ -156,6 +164,7 @@ func (it *loopIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err err
 			segment_count,
 			LENGTH(COALESCE(encrypted_metadata,''))
 		FROM objects
+		`+asOfSystemTime+`
 		WHERE (project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
 		ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
 		LIMIT $5
@@ -303,5 +312,5 @@ func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, h
 		}
 	}
 
-	return Error.Wrap(err)
+	return nil
 }

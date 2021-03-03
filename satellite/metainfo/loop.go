@@ -373,7 +373,8 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 
 	segmentsInBatch := int32(0)
 	err = metabaseDB.IterateLoopObjects(ctx, metabase.IterateLoopObjects{
-		BatchSize: limit,
+		BatchSize:      limit,
+		AsOfSystemTime: startingTime,
 	}, func(ctx context.Context, it metabase.LoopObjectsIterator) error {
 		var entry metabase.LoopObjectEntry
 		for it.Next(ctx, &entry) {

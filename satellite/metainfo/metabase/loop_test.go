@@ -48,6 +48,14 @@ func TestIterateLoopObjects(t *testing.T) {
 				Result: nil,
 			}.Check(ctx, t, db)
 
+			IterateLoopObjects{
+				Opts: metabase.IterateLoopObjects{
+					BatchSize:      10,
+					AsOfSystemTime: time.Now(),
+				},
+				Result: nil,
+			}.Check(ctx, t, db)
+
 			Verify{}.Check(ctx, t, db)
 		})
 
@@ -78,6 +86,7 @@ func TestIterateLoopObjects(t *testing.T) {
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
+
 			CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream:                  committed,
@@ -87,19 +96,29 @@ func TestIterateLoopObjects(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
+			expected := []metabase.LoopObjectEntry{
+				{
+					ObjectStream: pending,
+				},
+				{
+					ObjectStream:          committed,
+					EncryptedMetadataSize: len(encryptedMetadata),
+				},
+			}
+
 			IterateLoopObjects{
 				Opts: metabase.IterateLoopObjects{
 					BatchSize: 1,
 				},
-				Result: []metabase.LoopObjectEntry{
-					{
-						ObjectStream: pending,
-					},
-					{
-						ObjectStream:          committed,
-						EncryptedMetadataSize: len(encryptedMetadata),
-					},
+				Result: expected,
+			}.Check(ctx, t, db)
+
+			IterateLoopObjects{
+				Opts: metabase.IterateLoopObjects{
+					BatchSize:      1,
+					AsOfSystemTime: time.Now(),
 				},
+				Result: expected,
 			}.Check(ctx, t, db)
 		})
 
@@ -112,12 +131,22 @@ func TestIterateLoopObjects(t *testing.T) {
 			for i, obj := range objects {
 				expected[i] = loopObjectEntryFromRaw(obj)
 			}
+
 			IterateLoopObjects{
 				Opts: metabase.IterateLoopObjects{
 					BatchSize: limit,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
+
+			IterateLoopObjects{
+				Opts: metabase.IterateLoopObjects{
+					BatchSize:      limit,
+					AsOfSystemTime: time.Now(),
+				},
+				Result: expected,
+			}.Check(ctx, t, db)
+
 			Verify{Objects: objects}.Check(ctx, t, db)
 		})
 
@@ -130,12 +159,22 @@ func TestIterateLoopObjects(t *testing.T) {
 			for i, obj := range objects {
 				expected[i] = loopObjectEntryFromRaw(obj)
 			}
+
 			IterateLoopObjects{
 				Opts: metabase.IterateLoopObjects{
 					BatchSize: limit,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
+
+			IterateLoopObjects{
+				Opts: metabase.IterateLoopObjects{
+					BatchSize:      limit,
+					AsOfSystemTime: time.Now(),
+				},
+				Result: expected,
+			}.Check(ctx, t, db)
+
 			Verify{Objects: objects}.Check(ctx, t, db)
 		})
 
@@ -155,21 +194,31 @@ func TestIterateLoopObjects(t *testing.T) {
 				"g",
 			})
 
+			expected := []metabase.LoopObjectEntry{
+				objects["a"],
+				objects["b/1"],
+				objects["b/2"],
+				objects["b/3"],
+				objects["c"],
+				objects["c/"],
+				objects["c//"],
+				objects["c/1"],
+				objects["g"],
+			}
+
 			IterateLoopObjects{
 				Opts: metabase.IterateLoopObjects{
 					BatchSize: 3,
 				},
-				Result: []metabase.LoopObjectEntry{
-					objects["a"],
-					objects["b/1"],
-					objects["b/2"],
-					objects["b/3"],
-					objects["c"],
-					objects["c/"],
-					objects["c//"],
-					objects["c/1"],
-					objects["g"],
+				Result: expected,
+			}.Check(ctx, t, db)
+
+			IterateLoopObjects{
+				Opts: metabase.IterateLoopObjects{
+					BatchSize:      3,
+					AsOfSystemTime: time.Now(),
 				},
+				Result: expected,
 			}.Check(ctx, t, db)
 		})
 
@@ -197,6 +246,14 @@ func TestIterateLoopObjects(t *testing.T) {
 			IterateLoopObjects{
 				Opts: metabase.IterateLoopObjects{
 					BatchSize: 3,
+				},
+				Result: expected,
+			}.Check(ctx, t, db)
+
+			IterateLoopObjects{
+				Opts: metabase.IterateLoopObjects{
+					BatchSize:      3,
+					AsOfSystemTime: time.Now(),
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -230,6 +287,14 @@ func TestIterateLoopObjects(t *testing.T) {
 			IterateLoopObjects{
 				Opts: metabase.IterateLoopObjects{
 					BatchSize: 2,
+				},
+				Result: expected,
+			}.Check(ctx, t, db)
+
+			IterateLoopObjects{
+				Opts: metabase.IterateLoopObjects{
+					BatchSize:      2,
+					AsOfSystemTime: time.Now(),
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
