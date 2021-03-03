@@ -40,7 +40,7 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 
 		// pick a specific date so that it doesn't fail if it's the last day of the month
 		// keep month + 1 because user needs to be created before calculation
-		period := time.Date(2020, time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
+		period := time.Date(time.Now().Year(), time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
 
 		numberOfProjects := 19
 		// generate test data, each user has one project, one coupon and some credits
@@ -110,7 +110,7 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 
 		// pick a specific date so that it doesn't fail if it's the last day of the month
 		// keep month + 1 because user needs to be created before calculation
-		period := time.Date(2020, time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
+		period := time.Date(time.Now().Year(), time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
 
 		payments.Service.SetNow(func() time.Time {
 			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
@@ -213,7 +213,7 @@ func TestService_InvoiceUserWithManyCoupons(t *testing.T) {
 
 		// pick a specific date so that it doesn't fail if it's the last day of the month
 		// keep month + 1 because user needs to be created before calculation
-		period := time.Date(2020, time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
+		period := time.Date(time.Now().Year(), time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
 
 		paymentsAPI.Service.SetNow(func() time.Time {
 			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
@@ -327,7 +327,7 @@ func TestService_ApplyCouponsInTheOrder(t *testing.T) {
 
 		// pick a specific date so that it doesn't fail if it's the last day of the month
 		// keep month + 1 because user needs to be created before calculation
-		period := time.Date(2020, time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
+		period := time.Date(time.Now().Year(), time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
 
 		paymentsAPI.Service.SetNow(func() time.Time {
 			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
@@ -491,7 +491,7 @@ func TestService_CouponStatus(t *testing.T) {
 
 			// pick a specific date so that it doesn't fail if it's the last day of the month
 			// keep month + 1 because user needs to be created before calculation
-			period := time.Date(2020, time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
+			period := time.Date(time.Now().Year(), time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
 
 			// generate egress
 			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("testbucket"),
@@ -529,7 +529,7 @@ func TestService_ProjectsWithMembers(t *testing.T) {
 
 		// pick a specific date so that it doesn't fail if it's the last day of the month
 		// keep month + 1 because user needs to be created before calculation
-		period := time.Date(2020, time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
+		period := time.Date(time.Now().Year(), time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
 
 		numberOfUsers := 5
 		users := make([]*console.User, numberOfUsers)

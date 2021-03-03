@@ -7,26 +7,30 @@ import Router, { RouteRecord } from 'vue-router';
 import AccessGrants from '@/components/accessGrants/AccessGrants.vue';
 import CreateAccessGrant from '@/components/accessGrants/CreateAccessGrant.vue';
 import CLIStep from '@/components/accessGrants/steps/CLIStep.vue';
+import CreatePassphraseStep from '@/components/accessGrants/steps/CreatePassphraseStep.vue';
+import EnterPassphraseStep from '@/components/accessGrants/steps/EnterPassphraseStep.vue';
 import NameStep from '@/components/accessGrants/steps/NameStep.vue';
-import PassphraseStep from '@/components/accessGrants/steps/PassphraseStep.vue';
 import PermissionsStep from '@/components/accessGrants/steps/PermissionsStep.vue';
 import ResultStep from '@/components/accessGrants/steps/ResultStep.vue';
-import UploadStep from '@/components/accessGrants/steps/UploadStep.vue';
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
 import DetailedHistory from '@/components/account/billing/depositAndBillingHistory/DetailedHistory.vue';
 import CreditsHistory from '@/components/account/billing/freeCredits/CreditsHistory.vue';
 import SettingsArea from '@/components/account/SettingsArea.vue';
-import ApiKeysArea from '@/components/apiKeys/ApiKeysArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
 import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
+import AddPaymentStep from '@/components/onboardingTour/steps/AddPaymentStep.vue';
+import CreateAccessGrantStep from '@/components/onboardingTour/steps/CreateAccessGrantStep.vue';
+import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
 import CreateProject from '@/components/project/CreateProject.vue';
 import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
+import ProjectsList from '@/components/projectsList/ProjectsList.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
 import store from '@/store';
 import { NavigationLink } from '@/types/navigation';
+
 const DashboardArea = () => import('@/views/DashboardArea.vue');
 const ForgotPassword = () => import('@/views/forgotPassword/ForgotPassword.vue');
 const LoginArea = () => import('@/views/login/LoginArea.vue');
@@ -46,31 +50,37 @@ export abstract class RouteConfig {
     public static Account = new NavigationLink('/account', 'Account');
     public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');
     public static Users = new NavigationLink('/project-members', 'Users');
-    public static ApiKeys = new NavigationLink('/api-keys', 'API Keys');
     public static OnboardingTour = new NavigationLink('/onboarding-tour', 'Onboarding Tour');
     public static CreateProject = new NavigationLink('/create-project', 'Create Project');
     public static EditProjectDetails = new NavigationLink('/edit-project-details', 'Edit Project Details');
     public static AccessGrants = new NavigationLink('/access-grants', 'Access Grants');
+    public static ProjectsList = new NavigationLink('/projects', 'Projects');
 
-    // child paths
+    // account child paths
     public static Settings = new NavigationLink('settings', 'Settings');
     public static Billing = new NavigationLink('billing', 'Billing');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
     public static DepositHistory = new NavigationLink('deposit-history', 'Deposit History');
     public static CreditsHistory = new NavigationLink('credits-history', 'Credits History');
+
+    // access grant child paths
     public static CreateAccessGrant = new NavigationLink('create-grant', 'Create Access Grant');
     public static NameStep = new NavigationLink('name', 'Name Access Grant');
     public static PermissionsStep = new NavigationLink('permissions', 'Access Grant Permissions');
-    public static PassphraseStep = new NavigationLink('passphrase', 'Access Grant Passphrase');
+    public static CreatePassphraseStep = new NavigationLink('create-passphrase', 'Access Grant Create Passphrase');
+    public static EnterPassphraseStep = new NavigationLink('enter-passphrase', 'Access Grant Enter Passphrase');
     public static ResultStep = new NavigationLink('result', 'Access Grant Result');
     public static CLIStep = new NavigationLink('cli', 'Access Grant In CLI');
-    public static UploadStep = new NavigationLink('upload', 'Access Grant Upload Data');
 
-    // TODO: disabled until implementation
-    // public static Referral = new NavigationLink('referral', 'Referral');
-
-    // not in project yet
-    // public static Referral = new NavigationLink('//ref/:ids', 'Referral');
+    // onboarding tour child paths
+    public static OverviewStep = new NavigationLink('overview', 'Onboarding Overview');
+    public static PaymentStep = new NavigationLink('payment', 'Onboarding Payment');
+    public static AccessGrant = new NavigationLink('access', 'Onboarding Access Grant');
+    public static AccessGrantName = new NavigationLink('name', 'Onboarding Name Access Grant');
+    public static AccessGrantPermissions = new NavigationLink('permissions', 'Onboarding Access Grant Permissions');
+    public static AccessGrantCLI = new NavigationLink('cli', 'Onboarding Access Grant CLI');
+    public static AccessGrantPassphrase = new NavigationLink('create-passphrase', 'Onboarding Access Grant Create Passphrase');
+    public static AccessGrantResult = new NavigationLink('result', 'Onboarding Access Grant Result');
 }
 
 export const notProjectRelatedRoutes = [
@@ -82,8 +92,6 @@ export const notProjectRelatedRoutes = [
     RouteConfig.DepositHistory.name,
     RouteConfig.CreditsHistory.name,
     RouteConfig.Settings.name,
-    RouteConfig.AccessGrants.name,
-    // RouteConfig.Referral.name,
 ];
 
 export const router = new Router({
@@ -141,11 +149,6 @@ export const router = new Router({
                             name: RouteConfig.CreditsHistory.name,
                             component: CreditsHistory,
                         },
-                        // {
-                        //     path: RouteConfig.Referral.path,
-                        //     name: RouteConfig.Referral.name,
-                        //     component: ReferralArea,
-                        // },
                     ],
                 },
                 {
@@ -164,14 +167,57 @@ export const router = new Router({
                     component: ProjectMembersArea,
                 },
                 {
-                    path: RouteConfig.ApiKeys.path,
-                    name: RouteConfig.ApiKeys.name,
-                    component: ApiKeysArea,
-                },
-                {
                     path: RouteConfig.OnboardingTour.path,
                     name: RouteConfig.OnboardingTour.name,
                     component: OnboardingTourArea,
+                    children: [
+                        {
+                            path: RouteConfig.OverviewStep.path,
+                            name: RouteConfig.OverviewStep.name,
+                            component: OverviewStep,
+                        },
+                        {
+                            path: RouteConfig.PaymentStep.path,
+                            name: RouteConfig.PaymentStep.name,
+                            component: AddPaymentStep,
+                        },
+                        {
+                            path: RouteConfig.AccessGrant.path,
+                            name: RouteConfig.AccessGrant.name,
+                            component: CreateAccessGrantStep,
+                            children: [
+                                {
+                                    path: RouteConfig.AccessGrantName.path,
+                                    name: RouteConfig.AccessGrantName.name,
+                                    component: NameStep,
+                                },
+                                {
+                                    path: RouteConfig.AccessGrantPermissions.path,
+                                    name: RouteConfig.AccessGrantPermissions.name,
+                                    component: PermissionsStep,
+                                    props: true,
+                                },
+                                {
+                                    path: RouteConfig.AccessGrantCLI.path,
+                                    name: RouteConfig.AccessGrantCLI.name,
+                                    component: CLIStep,
+                                    props: true,
+                                },
+                                {
+                                    path: RouteConfig.AccessGrantPassphrase.path,
+                                    name: RouteConfig.AccessGrantPassphrase.name,
+                                    component: CreatePassphraseStep,
+                                    props: true,
+                                },
+                                {
+                                    path: RouteConfig.AccessGrantResult.path,
+                                    name: RouteConfig.AccessGrantResult.name,
+                                    component: ResultStep,
+                                    props: true,
+                                },
+                            ],
+                        },
+                    ],
                 },
                 {
                     path: RouteConfig.CreateProject.path,
@@ -205,31 +251,40 @@ export const router = new Router({
                                     props: true,
                                 },
                                 {
-                                    path: RouteConfig.PassphraseStep.path,
-                                    name: RouteConfig.PassphraseStep.name,
-                                    component: PassphraseStep,
+                                    path: RouteConfig.CreatePassphraseStep.path,
+                                    name: RouteConfig.CreatePassphraseStep.name,
+                                    component: CreatePassphraseStep,
+                                    props: true,
+                                },
+                                {
+                                    path: RouteConfig.EnterPassphraseStep.path,
+                                    name: RouteConfig.EnterPassphraseStep.name,
+                                    component: EnterPassphraseStep,
+                                    props: true,
                                 },
                                 {
                                     path: RouteConfig.ResultStep.path,
                                     name: RouteConfig.ResultStep.name,
                                     component: ResultStep,
+                                    props: true,
                                 },
                                 {
                                     path: RouteConfig.CLIStep.path,
                                     name: RouteConfig.CLIStep.name,
                                     component: CLIStep,
-                                },
-                                {
-                                    path: RouteConfig.UploadStep.path,
-                                    name: RouteConfig.UploadStep.name,
-                                    component: UploadStep,
+                                    props: true,
                                 },
                             ],
                         },
                     ],
                 },
-],
-            },
+                {
+                    path: RouteConfig.ProjectsList.path,
+                    name: RouteConfig.ProjectsList.name,
+                    component: ProjectsList,
+                },
+            ],
+        },
         {
             path: '*',
             name: '404',
@@ -251,6 +306,18 @@ router.beforeEach((to, from, next) => {
         return;
     }
 
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant))) {
+        next(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).with(RouteConfig.NameStep).path);
+
+        return;
+    }
+
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour)) {
+        next(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+
+        return;
+    }
+
     if (to.name === 'default') {
         next(RouteConfig.ProjectDashboard.path);
 
@@ -260,7 +327,7 @@ router.beforeEach((to, from, next) => {
     next();
 });
 
-router.afterEach(({name}, from) => {
+router.afterEach(({ name }, from) => {
     if (!name) {
         return;
     }

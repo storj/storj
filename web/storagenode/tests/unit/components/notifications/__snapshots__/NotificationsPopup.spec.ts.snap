@@ -3,10 +3,9 @@
 exports[`NotificationsPopup renders correctly with less than 4 notifications 1`] = `
 <div class="notification-popup-container">
   <div class="notification-popup-container__header">
-    <p class="notification-popup-container__header__title">Notifications</p>
-    <router-link-stub to="/notifications" tag="a" event="click" class="notification-popup-container__header__link">
+    <p class="notification-popup-container__header__title">Notifications</p> <a href="/notifications" class="notification-popup-container__header__link">
       <p>See All</p>
-    </router-link-stub>
+    </a>
   </div>
   <div class="notification-popup-container__content collapsed">
     <snonotification-stub notification="[object Object]" issmall="true"></snonotification-stub>
@@ -17,10 +16,9 @@ exports[`NotificationsPopup renders correctly with less than 4 notifications 1`]
 exports[`NotificationsPopup renders correctly with more than 4 notifications 1`] = `
 <div class="notification-popup-container">
   <div class="notification-popup-container__header">
-    <p class="notification-popup-container__header__title">Notifications</p>
-    <router-link-stub to="/notifications" tag="a" event="click" class="notification-popup-container__header__link">
+    <p class="notification-popup-container__header__title">Notifications</p> <a href="/notifications" class="notification-popup-container__header__link">
       <p>See All</p>
-    </router-link-stub>
+    </a>
   </div>
   <div class="notification-popup-container__content">
     <snonotification-stub notification="[object Object]" issmall="true"></snonotification-stub>
@@ -35,10 +33,9 @@ exports[`NotificationsPopup renders correctly with more than 4 notifications 1`]
 exports[`NotificationsPopup renders correctly with no notifications 1`] = `
 <div class="notification-popup-container">
   <div class="notification-popup-container__header">
-    <p class="notification-popup-container__header__title">Notifications</p>
-    <router-link-stub to="/notifications" tag="a" event="click" class="notification-popup-container__header__link">
+    <p class="notification-popup-container__header__title">Notifications</p> <a href="/notifications" class="notification-popup-container__header__link">
       <p>See All</p>
-    </router-link-stub>
+    </a>
   </div>
   <div class="notification-popup-container__empty-state"><img src="@/../static/images/notifications/EmptyState.png" alt="Empty state image">
     <p class="notification-popup-container__empty-state__label">No notifications yet</p>

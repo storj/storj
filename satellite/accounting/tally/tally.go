@@ -27,10 +27,12 @@ var (
 
 // Config contains configurable values for the tally service.
 type Config struct {
-	Interval time.Duration `help:"how frequently the tally service should run" releaseDefault:"1h" devDefault:"30s"`
+	Interval            time.Duration `help:"how frequently the tally service should run" releaseDefault:"1h" devDefault:"30s"`
+	SaveRollupBatchSize int           `help:"how large of batches SaveRollup should process at a time" default:"1000"`
+	ReadRollupBatchSize int           `help:"how large of batches GetBandwidthSince should process at a time" default:"10000"`
 }
 
-// Service is the tally service for data stored on each storage node
+// Service is the tally service for data stored on each storage node.
 //
 // architecture: Chore
 type Service struct {
@@ -105,10 +107,64 @@ func (service *Service) SetNow(now func() time.Time) {
 func (service *Service) Tally(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// No-op unless that there isn't an error getting the
+	// liveAccounting.GetAllProjectTotals
+	updateLiveAccountingTotals := func(_ map[uuid.UUID]int64) {}
+
 	initialLiveTotals, err := service.liveAccounting.GetAllProjectTotals(ctx)
 	if err != nil {
-		return Error.Wrap(err)
+		service.log.Error(
+			"tally won't update the live accounting storage usages of the projects in this cycle",
+			zap.Error(err),
+		)
+	} else {
+		updateLiveAccountingTotals = func(tallyProjectTotals map[uuid.UUID]int64) {
+			latestLiveTotals, err := service.liveAccounting.GetAllProjectTotals(ctx)
+			if err != nil {
+				service.log.Error(
+					"tally isn't updating the live accounting storage usages of the projects in this cycle",
+					zap.Error(err),
+				)
+				return
+			}
+
+			// empty projects are not returned by the metainfo observer. If a project exists
+			// in live accounting, but not in tally projects, we would not update it in live accounting.
+			// Thus, we add them and set the total to 0.
+			for projectID := range latestLiveTotals {
+				if _, ok := tallyProjectTotals[projectID]; !ok {
+					tallyProjectTotals[projectID] = 0
+				}
+			}
+
+			for projectID, tallyTotal := range tallyProjectTotals {
+				delta := latestLiveTotals[projectID] - initialLiveTotals[projectID]
+				if delta < 0 {
+					delta = 0
+				}
+
+				// read the method documentation why the increase passed to this method
+				// is calculated in this way
+				err = service.liveAccounting.AddProjectStorageUsage(ctx, projectID, -latestLiveTotals[projectID]+tallyTotal+(delta/2))
+				if err != nil {
+					if accounting.ErrSystemOrNetError.Has(err) {
+						service.log.Error(
+							"tally isn't updating the live accounting storage usages of the projects in this cycle",
+							zap.Error(err),
+						)
+						return
+					}
+
+					service.log.Error(
+						"tally isn't updating the live accounting storage usage of the project in this cycle",
+						zap.Error(err),
+						zap.String("projectID", projectID.String()),
+					)
+				}
+			}
+		}
 	}
+
 	// Fetch when the last tally happened so we can roughly calculate the byte-hours.
 	lastTime, err := service.storagenodeAccountingDB.LastTimestamp(ctx, accounting.LastAtRestTally)
 	if err != nil {
@@ -128,9 +184,12 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 
 	// calculate byte hours, not just bytes
 	hours := time.Since(lastTime).Hours()
-	for id := range observer.Node {
-		observer.Node[id] *= hours
+	var totalSum float64
+	for id, pieceSize := range observer.Node {
+		totalSum += pieceSize
+		observer.Node[id] = pieceSize * hours
 	}
+	mon.IntVal("nodetallies.totalsum").Observe(int64(totalSum)) //mon:locked
 
 	// save the new results
 	var errAtRest, errBucketInfo error
@@ -148,61 +207,32 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 			errAtRest = errs.New("ProjectAccounting.SaveTallies failed: %v", err)
 		}
 
-		// update live accounting totals
-		tallyProjectTotals := projectTotalsFromBuckets(observer.Bucket)
-		latestLiveTotals, err := service.liveAccounting.GetAllProjectTotals(ctx)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		// empty projects are not returned by the metainfo observer. If a project exists
-		// in live accounting, but not in tally projects, we would not update it in live accounting.
-		// Thus, we add them and set the total to 0.
-		for projectID := range latestLiveTotals {
-			if _, ok := tallyProjectTotals[projectID]; !ok {
-				tallyProjectTotals[projectID] = 0
-			}
-		}
-
-		for projectID, tallyTotal := range tallyProjectTotals {
-			delta := latestLiveTotals[projectID] - initialLiveTotals[projectID]
-			if delta < 0 {
-				delta = 0
-			}
-
-			// read the method documentation why the increase passed to this method
-			// is calculated in this way
-			err = service.liveAccounting.AddProjectStorageUsage(ctx, projectID, -latestLiveTotals[projectID]+tallyTotal+(delta/2))
-			if err != nil {
-				return Error.Wrap(err)
-			}
-		}
+		updateLiveAccountingTotals(projectTotalsFromBuckets(observer.Bucket))
 	}
 
 	// report bucket metrics
 	if len(observer.Bucket) > 0 {
 		var total accounting.BucketTally
 		for _, bucket := range observer.Bucket {
-			monAccounting.IntVal("bucket.objects").Observe(bucket.ObjectCount)
+			monAccounting.IntVal("bucket_objects").Observe(bucket.ObjectCount)            //mon:locked
+			monAccounting.IntVal("bucket_segments").Observe(bucket.Segments())            //mon:locked
+			monAccounting.IntVal("bucket_inline_segments").Observe(bucket.InlineSegments) //mon:locked
+			monAccounting.IntVal("bucket_remote_segments").Observe(bucket.RemoteSegments) //mon:locked
 
-			monAccounting.IntVal("bucket.segments").Observe(bucket.Segments())
-			monAccounting.IntVal("bucket.inline_segments").Observe(bucket.InlineSegments)
-			monAccounting.IntVal("bucket.remote_segments").Observe(bucket.RemoteSegments)
-
-			monAccounting.IntVal("bucket.bytes").Observe(bucket.Bytes())
-			monAccounting.IntVal("bucket.inline_bytes").Observe(bucket.InlineBytes)
-			monAccounting.IntVal("bucket.remote_bytes").Observe(bucket.RemoteBytes)
+			monAccounting.IntVal("bucket_bytes").Observe(bucket.Bytes())            //mon:locked
+			monAccounting.IntVal("bucket_inline_bytes").Observe(bucket.InlineBytes) //mon:locked
+			monAccounting.IntVal("bucket_remote_bytes").Observe(bucket.RemoteBytes) //mon:locked
 			total.Combine(bucket)
 		}
-		monAccounting.IntVal("total.objects").Observe(total.ObjectCount) //mon:locked
+		monAccounting.IntVal("total_objects").Observe(total.ObjectCount) //mon:locked
 
-		monAccounting.IntVal("total.segments").Observe(total.Segments())            //mon:locked
-		monAccounting.IntVal("total.inline_segments").Observe(total.InlineSegments) //mon:locked
-		monAccounting.IntVal("total.remote_segments").Observe(total.RemoteSegments) //mon:locked
+		monAccounting.IntVal("total_segments").Observe(total.Segments())            //mon:locked
+		monAccounting.IntVal("total_inline_segments").Observe(total.InlineSegments) //mon:locked
+		monAccounting.IntVal("total_remote_segments").Observe(total.RemoteSegments) //mon:locked
 
-		monAccounting.IntVal("total.bytes").Observe(total.Bytes())            //mon:locked
-		monAccounting.IntVal("total.inline_bytes").Observe(total.InlineBytes) //mon:locked
-		monAccounting.IntVal("total.remote_bytes").Observe(total.RemoteBytes) //mon:locked
+		monAccounting.IntVal("total_bytes").Observe(total.Bytes())            //mon:locked
+		monAccounting.IntVal("total_inline_bytes").Observe(total.InlineBytes) //mon:locked
+		monAccounting.IntVal("total_remote_bytes").Observe(total.RemoteBytes) //mon:locked
 	}
 
 	// return errors if something went wrong.

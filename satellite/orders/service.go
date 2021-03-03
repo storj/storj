@@ -17,26 +17,27 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/uplink/private/eestream"
 )
 
-// ErrDownloadFailedNotEnoughPieces is returned when download failed due to missing pieces.
-var ErrDownloadFailedNotEnoughPieces = errs.Class("not enough pieces for download")
+var (
+	// ErrDownloadFailedNotEnoughPieces is returned when download failed due to missing pieces.
+	ErrDownloadFailedNotEnoughPieces = errs.Class("not enough pieces for download")
+	// ErrDecryptOrderMetadata is returned when a step of decrypting metadata fails.
+	ErrDecryptOrderMetadata = errs.Class("decrytping order metadata")
+)
 
 // Config is a configuration struct for orders Service.
 type Config struct {
-	EncryptionKeys               EncryptionKeys             `help:"encryption keys to encrypt info in orders" default:""`
-	IncludeEncryptedMetadata     bool                       `help:"include encrypted metadata in the order limit" default:"false"`
-	Expiration                   time.Duration              `help:"how long until an order expires" default:"48h"` // 2 days
-	SettlementBatchSize          int                        `help:"how many orders to batch per transaction" default:"250"`
-	FlushBatchSize               int                        `help:"how many items in the rollups write cache before they are flushed to the database" devDefault:"20" releaseDefault:"10000"`
-	FlushInterval                time.Duration              `help:"how often to flush the rollups write cache to the database" devDefault:"30s" releaseDefault:"1m"`
-	ReportedRollupsReadBatchSize int                        `help:"how many records to read in a single transaction when calculating billable bandwidth" default:"1000"`
-	NodeStatusLogging            bool                       `hidden:"true" help:"deprecated, log the offline/disqualification status of nodes" default:"false"`
-	WindowEndpointRolloutPhase   WindowEndpointRolloutPhase `help:"rollout phase for the windowed endpoint" default:"phase3"`
-	OrdersSemaphoreSize          int                        `help:"how many concurrent orders to process at once. zero is unlimited" default:"2"`
+	EncryptionKeys      EncryptionKeys `help:"encryption keys to encrypt info in orders" default:""`
+	Expiration          time.Duration  `help:"how long until an order expires" default:"48h"` // 2 days
+	FlushBatchSize      int            `help:"how many items in the rollups write cache before they are flushed to the database" devDefault:"20" releaseDefault:"1000"`
+	FlushInterval       time.Duration  `help:"how often to flush the rollups write cache to the database" devDefault:"30s" releaseDefault:"1m"`
+	NodeStatusLogging   bool           `hidden:"true" help:"deprecated, log the offline/disqualification status of nodes" default:"false"`
+	OrdersSemaphoreSize int            `help:"how many concurrent orders to process at once. zero is unlimited" default:"2"`
 }
 
 // BucketsDB returns information about buckets.
@@ -55,11 +56,9 @@ type Service struct {
 	orders    DB
 	buckets   BucketsDB
 
-	includeEncryptedMetadata bool
-	encryptionKeys           EncryptionKeys
+	encryptionKeys EncryptionKeys
 
-	satelliteAddress *pb.NodeAddress
-	orderExpiration  time.Duration
+	orderExpiration time.Duration
 
 	rngMu sync.Mutex
 	rng   *mathrand.Rand
@@ -70,9 +69,8 @@ func NewService(
 	log *zap.Logger, satellite signing.Signer, overlay *overlay.Service,
 	orders DB, buckets BucketsDB,
 	config Config,
-	satelliteAddress *pb.NodeAddress,
 ) (*Service, error) {
-	if config.IncludeEncryptedMetadata && config.EncryptionKeys.Default.IsZero() {
+	if config.EncryptionKeys.Default.IsZero() {
 		return nil, Error.New("encryption keys must be specified to include encrypted metadata")
 	}
 
@@ -83,11 +81,9 @@ func NewService(
 		orders:    orders,
 		buckets:   buckets,
 
-		includeEncryptedMetadata: config.IncludeEncryptedMetadata,
-		encryptionKeys:           config.EncryptionKeys,
+		encryptionKeys: config.EncryptionKeys,
 
-		satelliteAddress: satelliteAddress,
-		orderExpiration:  config.Expiration,
+		orderExpiration: config.Expiration,
 
 		rng: mathrand.New(mathrand.NewSource(time.Now().UnixNano())),
 	}, nil
@@ -97,11 +93,6 @@ func NewService(
 func (service *Service) VerifyOrderLimitSignature(ctx context.Context, signed *pb.OrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return signing.VerifyOrderLimitSignature(ctx, service.satellite, signed)
-}
-
-func (service *Service) saveSerial(ctx context.Context, serialNumber storj.SerialNumber, bucket metabase.BucketLocation, expiresAt time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	return service.orders.CreateSerialInfo(ctx, serialNumber, []byte(bucket.Prefix()), expiresAt)
 }
 
 func (service *Service) updateBandwidth(ctx context.Context, bucket metabase.BucketLocation, addressedOrderLimits ...*pb.AddressedOrderLimit) (err error) {
@@ -191,11 +182,6 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabas
 		return nil, storj.PiecePrivateKey{}, ErrDownloadFailedNotEnoughPieces.New("not enough orderlimits: got %d, required %d", len(signer.AddressedLimits), redundancy.RequiredCount())
 	}
 
-	err = service.saveSerial(ctx, signer.Serial, bucket, signer.OrderExpiration)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
-
 	if err := service.updateBandwidth(ctx, bucket, signer.AddressedLimits...); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -227,11 +213,6 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, bucket metabas
 		if err != nil {
 			return storj.PieceID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 		}
-	}
-
-	err = service.saveSerial(ctx, signer.Serial, bucket, signer.OrderExpiration)
-	if err != nil {
-		return storj.PieceID{}, nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
 	if err := service.updateBandwidth(ctx, bucket, signer.AddressedLimits...); err != nil {
@@ -281,11 +262,6 @@ func (service *Service) CreateDeleteOrderLimits(ctx context.Context, bucket meta
 
 	if len(signer.AddressedLimits) == 0 {
 		return nil, storj.PiecePrivateKey{}, Error.New("failed creating order limits: %w", nodeErrors.Err())
-	}
-
-	err = service.saveSerial(ctx, signer.Serial, bucket, signer.OrderExpiration)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
 	return signer.AddressedLimits, signer.PrivateKey, nil
@@ -349,11 +325,6 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucket metab
 		err = Error.New("not enough nodes available: got %d, required %d", limitsCount, redundancy.GetMinReq())
 		return nil, storj.PiecePrivateKey{}, nil, errs.Combine(err, nodeErrors.Err())
 	}
-
-	err = service.saveSerial(ctx, signer.Serial, bucket, signer.OrderExpiration)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
-	}
 	if err := service.updateBandwidth(ctx, bucket, limits...); err != nil {
 		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
 	}
@@ -393,10 +364,6 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucket metaba
 		return nil, storj.PiecePrivateKey{}, "", Error.Wrap(err)
 	}
 
-	err = service.saveSerial(ctx, signer.Serial, bucket, signer.OrderExpiration)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, "", Error.Wrap(err)
-	}
 	if err := service.updateBandwidth(ctx, bucket, limit); err != nil {
 		return nil, storj.PiecePrivateKey{}, "", Error.Wrap(err)
 	}
@@ -464,10 +431,6 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucket m
 		return nil, storj.PiecePrivateKey{}, errs.Combine(err, nodeErrors.Err())
 	}
 
-	err = service.saveSerial(ctx, signer.Serial, bucket, signer.OrderExpiration)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
 	if err := service.updateBandwidth(ctx, bucket, limits...); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -534,10 +497,6 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucket m
 		}
 	}
 
-	err = service.saveSerial(ctx, signer.Serial, bucket, signer.OrderExpiration)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
 	if err := service.updateBandwidth(ctx, bucket, limits...); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -576,10 +535,6 @@ func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, buc
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	err = service.saveSerial(ctx, signer.Serial, bucket, signer.OrderExpiration)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
 	if err := service.updateBandwidth(ctx, bucket, limit); err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -603,4 +558,25 @@ func (service *Service) UpdatePutInlineOrder(ctx context.Context, bucket metabas
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
 	return service.orders.UpdateBucketBandwidthInline(ctx, bucket.ProjectID, []byte(bucket.BucketName), pb.PieceAction_PUT, amount, intervalStart)
+}
+
+// DecryptOrderMetadata decrypts the order metadata.
+func (service *Service) DecryptOrderMetadata(ctx context.Context, order *pb.OrderLimit) (_ *internalpb.OrderLimitMetadata, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var orderKeyID EncryptionKeyID
+	copy(orderKeyID[:], order.EncryptedMetadataKeyId)
+
+	key := service.encryptionKeys.Default
+	if key.ID != orderKeyID {
+		val, ok := service.encryptionKeys.KeyByID[orderKeyID]
+		if !ok {
+			return nil, ErrDecryptOrderMetadata.New("no encryption key found that matches the order.EncryptedMetadataKeyId")
+		}
+		key = EncryptionKey{
+			ID:  orderKeyID,
+			Key: val,
+		}
+	}
+	return key.DecryptMetadata(order.SerialNumber, order.EncryptedMetadata)
 }

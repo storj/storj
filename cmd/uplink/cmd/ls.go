@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -51,6 +52,13 @@ func list(cmd *cobra.Command, args []string) error {
 
 		if src.IsLocal() {
 			return fmt.Errorf("no bucket specified, use format sj://bucket/")
+		}
+
+		if !strings.HasSuffix(args[0], "/") && src.Path() != "" {
+			err = listFile(ctx, project, src.Bucket(), src.Path())
+			if err != nil && !errors.Is(err, uplink.ErrObjectNotFound) {
+				return convertError(err, src)
+			}
 		}
 
 		err = listFiles(ctx, project, src.Bucket(), src.Path(), false)
@@ -115,6 +123,15 @@ func listFiles(ctx context.Context, project *uplink.Project, bucket, prefix stri
 		return objects.Err()
 	}
 
+	return nil
+}
+
+func listFile(ctx context.Context, project *uplink.Project, bucket, path string) error {
+	object, err := project.StatObject(ctx, bucket, path)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%v %v %12v %v\n", "OBJ", formatTime(object.System.Created), object.System.ContentLength, path)
 	return nil
 }
 

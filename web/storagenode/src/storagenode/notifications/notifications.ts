@@ -45,9 +45,8 @@ export class Notification {
 export enum NotificationTypes {
     Custom = 0,
     AuditCheckFailure = 1,
-    UptimeCheckFailure = 2,
-    Disqualification = 3,
-    Suspension = 4,
+    Disqualification = 2,
+    Suspension = 3,
 }
 
 /**

@@ -20,6 +20,10 @@ read one (
 read all(
     select node
 )
+update node (
+	where node.id = ?
+	noreturn
+)
 
 model member (
     key id

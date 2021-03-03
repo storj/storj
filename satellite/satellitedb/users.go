@@ -54,13 +54,20 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 	}
 
 	optional := dbx.User_Create_Fields{
-		ShortName: dbx.User_ShortName(user.ShortName),
+		ShortName:      dbx.User_ShortName(user.ShortName),
+		IsProfessional: dbx.User_IsProfessional(user.IsProfessional),
 	}
 	if !user.PartnerID.IsZero() {
 		optional.PartnerId = dbx.User_PartnerId(user.PartnerID[:])
 	}
 	if user.ProjectLimit != 0 {
 		optional.ProjectLimit = dbx.User_ProjectLimit(user.ProjectLimit)
+	}
+	if user.IsProfessional {
+		optional.Position = dbx.User_Position(user.Position)
+		optional.CompanyName = dbx.User_CompanyName(user.CompanyName)
+		optional.WorkingOn = dbx.User_WorkingOn(user.WorkingOn)
+		optional.EmployeeCount = dbx.User_EmployeeCount(user.EmployeeCount)
 	}
 
 	createdUser, err := users.db.Create_User(ctx,
@@ -143,13 +150,14 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 	}
 
 	result := console.User{
-		ID:           id,
-		FullName:     user.FullName,
-		Email:        user.Email,
-		PasswordHash: user.PasswordHash,
-		Status:       console.UserStatus(user.Status),
-		CreatedAt:    user.CreatedAt,
-		ProjectLimit: user.ProjectLimit,
+		ID:             id,
+		FullName:       user.FullName,
+		Email:          user.Email,
+		PasswordHash:   user.PasswordHash,
+		Status:         console.UserStatus(user.Status),
+		CreatedAt:      user.CreatedAt,
+		ProjectLimit:   user.ProjectLimit,
+		IsProfessional: user.IsProfessional,
 	}
 
 	if user.PartnerId != nil {
@@ -161,6 +169,22 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 
 	if user.ShortName != nil {
 		result.ShortName = *user.ShortName
+	}
+
+	if user.Position != nil {
+		result.Position = *user.Position
+	}
+
+	if user.CompanyName != nil {
+		result.CompanyName = *user.CompanyName
+	}
+
+	if user.WorkingOn != nil {
+		result.WorkingOn = *user.WorkingOn
+	}
+
+	if user.EmployeeCount != nil {
+		result.EmployeeCount = *user.EmployeeCount
 	}
 
 	return &result, nil

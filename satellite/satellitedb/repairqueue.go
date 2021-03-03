@@ -29,7 +29,7 @@ func (r *repairQueue) Insert(ctx context.Context, seg *internalpb.InjuredSegment
 	// insert if not exists, or update healthy count if does exist
 	var query string
 
-	// we want to insert the segment if it is not in the queue, but update the number of healthy pieces if it already is in the queue
+	// we want to insert the segment if it is not in the queue, but update the segment health if it already is in the queue
 	// we also want to know if the result was an insert or an update - this is the reasoning for the xmax section of the postgres query
 	// and the separate cockroach query (which the xmax trick does not work for)
 	switch r.db.implementation {
@@ -79,14 +79,14 @@ func (r *repairQueue) Insert(ctx context.Context, seg *internalpb.InjuredSegment
 
 func (r *repairQueue) Select(ctx context.Context) (seg *internalpb.InjuredSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
+
 	switch r.db.implementation {
 	case dbutil.Cockroach:
 		err = r.db.QueryRowContext(ctx, `
-				UPDATE injuredsegments SET attempted = now() WHERE path = (
-					SELECT path FROM injuredsegments
-					WHERE attempted IS NULL OR attempted < now() - interval '6 hours'
-					ORDER BY segment_health ASC, attempted LIMIT 1
-				) RETURNING data`).Scan(&seg)
+				UPDATE injuredsegments SET attempted = now()
+				WHERE attempted IS NULL OR attempted < now() - interval '6 hours'
+				LIMIT 1
+				RETURNING data`).Scan(&seg)
 	case dbutil.Postgres:
 		err = r.db.QueryRowContext(ctx, `
 				UPDATE injuredsegments SET attempted = now() WHERE path = (
@@ -145,5 +145,16 @@ func (r *repairQueue) Count(ctx context.Context) (count int, err error) {
 	// Count every segment regardless of how recently repair was last attempted
 	err = r.db.QueryRowContext(ctx, r.db.Rebind(`SELECT COUNT(*) as count FROM injuredsegments`)).Scan(&count)
 
+	return count, Error.Wrap(err)
+}
+
+// TestingSetAttemptedTime sets attempted time for a repairpath.
+func (r *repairQueue) TestingSetAttemptedTime(ctx context.Context, repairpath []byte, t time.Time) (rowsAffected int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	res, err := r.db.ExecContext(ctx, r.db.Rebind(`UPDATE injuredsegments SET attempted = ? WHERE path = ?`), t, repairpath)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+	count, err := res.RowsAffected()
 	return count, Error.Wrap(err)
 }

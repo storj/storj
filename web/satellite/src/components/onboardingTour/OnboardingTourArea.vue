@@ -11,34 +11,7 @@
             <CloseImage class="tour-area__info-bar__close-img" @click="disableInfoBar"/>
         </div>
         <div class="tour-area__content">
-            <ProgressBar
-                :is-paywall-enabled="isPaywallEnabled"
-                :is-add-payment-step="isAddPaymentState"
-                :is-create-project-step="isCreateProjectState"
-                :is-create-api-key-step="isCreatApiKeyState"
-                :is-upload-data-step="isUploadDataState"
-            />
-            <OverviewStep
-                v-if="isDefaultState && isPaywallEnabled"
-                @setAddPaymentState="setAddPaymentState"
-            />
-            <OverviewStepNoPaywall
-                v-if="isDefaultState && !isPaywallEnabled"
-                @setCreateProjectState="setCreateProjectState"
-            />
-            <AddPaymentStep
-                v-if="isAddPaymentState"
-                @setProjectState="setCreateProjectState"
-            />
-            <CreateProjectStep
-                v-if="isCreateProjectState"
-                @setApiKeyState="setCreateApiKeyState"
-            />
-            <CreateApiKeyStep
-                v-if="isCreatApiKeyState"
-                @setUploadDataState="setUploadDataState"
-            />
-            <UploadDataStep v-if="isUploadDataState"/>
+            <router-view/>
             <img
                 v-if="isAddPaymentState"
                 class="tour-area__content__tardigrade"
@@ -52,36 +25,16 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import ProgressBar from '@/components/onboardingTour/ProgressBar.vue';
-import AddPaymentStep from '@/components/onboardingTour/steps/AddPaymentStep.vue';
-import CreateApiKeyStep from '@/components/onboardingTour/steps/CreateApiKeyStep.vue';
-import CreateProjectStep from '@/components/onboardingTour/steps/CreateProjectStep.vue';
-import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
-import OverviewStepNoPaywall from '@/components/onboardingTour/steps/OverviewStepNoPaywall.vue';
-import UploadDataStep from '@/components/onboardingTour/steps/UploadDataStep.vue';
-
-import CheckedImage from '@/../static/images/common/checked.svg';
 import CloseImage from '@/../static/images/onboardingTour/close.svg';
 
 import { RouteConfig } from '@/router';
-import { TourState } from '@/utils/constants/onboardingTourEnums';
 
 @Component({
     components: {
-        OverviewStepNoPaywall,
-        UploadDataStep,
-        CreateApiKeyStep,
-        CreateProjectStep,
-        AddPaymentStep,
-        ProgressBar,
-        OverviewStep,
-        CheckedImage,
         CloseImage,
     },
 })
-
 export default class OnboardingTourArea extends Vue {
-    public areaState: number = TourState.DEFAULT;
     public isInfoBarVisible: boolean = true;
 
     /**
@@ -89,7 +42,7 @@ export default class OnboardingTourArea extends Vue {
      * Sets area to needed state.
      */
     public mounted(): void {
-        if (this.userHasProject && this.userHasApiKeys) {
+        if (this.userHasProject && this.userHasAccessGrants) {
             try {
                 this.$router.push(RouteConfig.ProjectDashboard.path);
             } catch (error) {
@@ -99,22 +52,8 @@ export default class OnboardingTourArea extends Vue {
             return;
         }
 
-        if (this.userHasProject && !this.userHasApiKeys) {
+        if (this.$route.name === RouteConfig.AccessGrant.name) {
             this.disableInfoBar();
-            this.setCreateApiKeyState();
-
-            return;
-        }
-
-        if (this.$store.state.paymentsModule.creditCards.length > 0) {
-            this.disableInfoBar();
-            this.setCreateProjectState();
-
-            return;
-        }
-
-        if (this.$store.getters.isTransactionProcessing || this.$store.getters.isBalancePositive) {
-            this.setAddPaymentState();
         }
     }
 
@@ -126,67 +65,10 @@ export default class OnboardingTourArea extends Vue {
     }
 
     /**
-     * Indicates if area is in default state.
+     * Sets area's state to creating access grant step.
      */
-    public get isDefaultState(): boolean {
-        return this.areaState === TourState.DEFAULT;
-    }
-
-    /**
-     * Indicates if area is in adding payment method state.
-     */
-    public get isAddPaymentState(): boolean {
-        return this.areaState === TourState.ADDING_PAYMENT;
-    }
-
-    /**
-     * Indicates if area is in creating project state.
-     */
-    public get isCreateProjectState(): boolean {
-        return this.areaState === TourState.PROJECT;
-    }
-
-    /**
-     * Indicates if area is in api key state.
-     */
-    public get isCreatApiKeyState(): boolean {
-        return this.areaState === TourState.API_KEY;
-    }
-
-    /**
-     * Indicates if area is in upload data state.
-     */
-    public get isUploadDataState(): boolean {
-        return this.areaState === TourState.UPLOAD;
-    }
-
-    /**
-     * Sets area's state to adding payment method state.
-     */
-    public setAddPaymentState(): void {
-        this.areaState = TourState.ADDING_PAYMENT;
-    }
-
-    /**
-     * Sets area's state to creating project state.
-     */
-    public setCreateProjectState(): void {
-        this.disableInfoBar();
-        this.areaState = TourState.PROJECT;
-    }
-
-    /**
-     * Sets area's state to creating api key state.
-     */
-    public setCreateApiKeyState(): void {
-        this.areaState = TourState.API_KEY;
-    }
-
-    /**
-     * Sets area's state to upload data state.
-     */
-    public setUploadDataState(): void {
-        this.areaState = TourState.UPLOAD;
+    public setCreateAccessGrantStep(): void {
+        this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).path);
     }
 
     /**
@@ -197,6 +79,13 @@ export default class OnboardingTourArea extends Vue {
     }
 
     /**
+     * Indicates if area is on adding payment method step.
+     */
+    public get isAddPaymentState(): boolean {
+        return this.$route.name === RouteConfig.PaymentStep.name;
+    }
+
+    /**
      * Indicates if user has at least one project.
      */
     private get userHasProject(): boolean {
@@ -204,10 +93,10 @@ export default class OnboardingTourArea extends Vue {
     }
 
     /**
-     * Indicates if user has at least one API key.
+     * Indicates if user has at least one access grant.
      */
-    private get userHasApiKeys(): boolean {
-        return this.$store.state.apiKeysModule.page.apiKeys.length > 0;
+    private get userHasAccessGrants(): boolean {
+        return this.$store.state.accessGrantsModule.page.accessGrants.length > 0;
     }
 }
 </script>
@@ -246,7 +135,10 @@ export default class OnboardingTourArea extends Vue {
         }
 
         &__content {
-            padding: 0 100px 80px 100px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 110px 0 80px 0;
             position: relative;
 
             &__tardigrade {
@@ -254,26 +146,6 @@ export default class OnboardingTourArea extends Vue {
                 left: 50%;
                 bottom: 0;
                 transform: translate(-50%);
-            }
-        }
-    }
-
-    @media screen and (max-width: 1550px) {
-
-        .tour-area {
-
-            &__content {
-                padding: 0 50px 80px 50px;
-            }
-        }
-    }
-
-    @media screen and (max-width: 1000px) {
-
-        .tour-area {
-
-            &__content {
-                padding: 0 25px 80px 25px;
             }
         }
     }

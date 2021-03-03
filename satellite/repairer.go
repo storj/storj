@@ -14,7 +14,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/identity"
-	"storj.io/common/pb"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
@@ -132,7 +131,11 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	}
 
 	{ // setup overlay
-		peer.Overlay = overlay.NewService(log.Named("overlay"), overlayCache, config.Overlay)
+		var err error
+		peer.Overlay, err = overlay.NewService(log.Named("overlay"), overlayCache, config.Overlay)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
 			Close: peer.Overlay.Close,
@@ -158,10 +161,6 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			peer.Orders.DB,
 			bucketsDB,
 			config.Orders,
-			&pb.NodeAddress{
-				Transport: pb.NodeTransport_TCP_TLS_GRPC,
-				Address:   config.Contact.ExternalAddress,
-			},
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -177,7 +176,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			peer.Dialer,
 			config.Repairer.Timeout,
 			config.Repairer.MaxExcessRateOptimalThreshold,
-			config.Checker.RepairOverride,
+			config.Checker.RepairOverrides,
 			config.Repairer.DownloadTimeout,
 			config.Repairer.InMemoryRepair,
 			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),

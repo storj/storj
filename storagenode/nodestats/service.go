@@ -27,7 +27,7 @@ var (
 	mon = monkit.Package()
 )
 
-// Client encapsulates NodeStatsClient with underlying connection
+// Client encapsulates NodeStatsClient with underlying connection.
 //
 // architecture: Client
 type Client struct {
@@ -40,7 +40,7 @@ func (c *Client) Close() error {
 	return c.conn.Close()
 }
 
-// Service retrieves info from satellites using an rpc client
+// Service retrieves info from satellites using an rpc client.
 //
 // architecture: Service
 type Service struct {
@@ -74,15 +74,10 @@ func (s *Service) GetReputationStats(ctx context.Context, satelliteID storj.Node
 		return nil, NodeStatsServiceErr.Wrap(err)
 	}
 
-	uptime := resp.GetUptimeCheck()
 	audit := resp.GetAuditCheck()
 
 	return &reputation.Stats{
 		SatelliteID: satelliteID,
-		Uptime: reputation.Metric{
-			TotalCount:   uptime.GetTotalCount(),
-			SuccessCount: uptime.GetSuccessCount(),
-		},
 		Audit: reputation.Metric{
 			TotalCount:   audit.GetTotalCount(),
 			SuccessCount: audit.GetSuccessCount(),
@@ -98,6 +93,7 @@ func (s *Service) GetReputationStats(ctx context.Context, satelliteID storj.Node
 		SuspendedAt:          resp.GetSuspended(),
 		OfflineSuspendedAt:   resp.GetOfflineSuspended(),
 		OfflineUnderReviewAt: resp.GetOfflineUnderReview(),
+		AuditHistory:         resp.GetAuditHistory(),
 		UpdatedAt:            time.Now(),
 		JoinedAt:             resp.JoinedAt,
 	}, nil

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="permissions">
+    <div class="permissions" :class="{ 'border-radius': isOnboardingTour }">
         <BackIcon class="permissions__back-icon" @click="onBackClick"/>
         <h1 class="permissions__title">Access Permissions</h1>
         <p class="permissions__sub-title">
@@ -11,12 +11,12 @@
         <div class="permissions__content">
             <div class="permissions__content__left">
                 <div class="permissions__content__left__item">
-                    <input type="checkbox" id="read" name="read" v-model="isRead" :checked="isRead">
-                    <label class="permissions__content__left__item__label" for="read">Read</label>
+                    <input type="checkbox" id="download" name="download" v-model="isDownload" :checked="isDownload">
+                    <label class="permissions__content__left__item__label" for="download">Download</label>
                 </div>
                 <div class="permissions__content__left__item">
-                    <input type="checkbox" id="write" name="write" v-model="isWrite" :checked="isWrite">
-                    <label class="permissions__content__left__item__label" for="write">Write</label>
+                    <input type="checkbox" id="upload" name="upload" v-model="isUpload" :checked="isUpload">
+                    <label class="permissions__content__left__item__label" for="upload">Upload</label>
                 </div>
                 <div class="permissions__content__left__item">
                     <input type="checkbox" id="list" name="list" v-model="isList" :checked="isList">
@@ -28,6 +28,10 @@
                 </div>
             </div>
             <div class="permissions__content__right">
+                <div class="permissions__content__right__duration-select">
+                    <p class="permissions__content__right__duration-select__label">Duration</p>
+                    <DurationSelection />
+                </div>
                 <div class="permissions__content__right__buckets-select">
                     <p class="permissions__content__right__buckets-select__label">Buckets</p>
                     <BucketsSelection />
@@ -49,8 +53,13 @@
             width="100%"
             height="48px"
             :on-press="onContinueInBrowserClick"
+            :is-disabled="isLoading || !isAccessGrantsWebWorkerReady"
         />
-        <p class="permissions__cli-link" @click.stop="onContinueInCLIClick">
+        <p
+            class="permissions__cli-link"
+            :class="{ disabled: !isAccessGrantsWebWorkerReady || isLoading }"
+            @click.stop="onContinueInCLIClick"
+        >
             Continue in CLI
         </p>
     </div>
@@ -61,11 +70,13 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import BucketNameBullet from '@/components/accessGrants/permissions/BucketNameBullet.vue';
 import BucketsSelection from '@/components/accessGrants/permissions/BucketsSelection.vue';
+import DurationSelection from '@/components/accessGrants/permissions/DurationSelection.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import BackIcon from '@/../static/images/accessGrants/back.svg';
 
 import { RouteConfig } from '@/router';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 
 @Component({
@@ -73,6 +84,7 @@ import { BUCKET_ACTIONS } from '@/store/modules/buckets';
         BackIcon,
         BucketsSelection,
         BucketNameBullet,
+        DurationSelection,
         VButton,
     },
 })
@@ -81,8 +93,9 @@ export default class PermissionsStep extends Vue {
     private restrictedKey: string = '';
     private worker: Worker;
 
-    public isRead: boolean = true;
-    public isWrite: boolean = true;
+    public isLoading: boolean = true;
+    public isDownload: boolean = true;
+    public isUpload: boolean = true;
     public isList: boolean = true;
     public isDelete: boolean = true;
 
@@ -94,10 +107,37 @@ export default class PermissionsStep extends Vue {
     public async mounted(): Promise<void> {
         if (!this.$route.params.key) {
             this.onBackClick();
+
+            return;
         }
 
         this.key = this.$route.params.key;
-        this.worker = new Worker('/static/static/wasm/webWorker.js');
+
+        this.setWorker();
+
+        try {
+            await this.$store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch all bucket names. ${error.message}`);
+        }
+
+        this.isLoading = false;
+    }
+
+    /**
+     * Holds on back button click logic.
+     * Redirects to previous step.
+     */
+    public onBackClick(): void {
+        this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
+    }
+
+    /**
+     * Sets local worker with worker instantiated in store.
+     * Also sets worker's onmessage and onerror logic.
+     */
+    public setWorker(): void {
+        this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
         this.worker.onmessage = (event: MessageEvent) => {
             const data = event.data;
             if (data.error) {
@@ -106,56 +146,161 @@ export default class PermissionsStep extends Vue {
                 return;
             }
 
-            this.$notify.success('Permissions were set successfully');
-
             this.restrictedKey = data.value;
+
+            this.$notify.success('Permissions were set successfully');
         };
         this.worker.onerror = (error: ErrorEvent) => {
             this.$notify.error(error.message);
         };
-
-        try {
-            await this.$store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch all bucket names. ${error.message}`);
-        }
-    }
-
-    /**
-     * Holds on back button click logic.
-     * Redirects to previous step.
-     */
-    public onBackClick(): void {
-        const PREVIOUS_ROUTE_NUMBER: number = -1;
-
-        this.$router.go(PREVIOUS_ROUTE_NUMBER);
     }
 
     /**
      * Holds on continue in CLI button click logic.
      */
     public onContinueInCLIClick(): void {
-        this.$router.push({
-            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CLIStep)).name,
-            params: {
-                key: this.key,
-            },
+        if (this.isLoading || !this.isAccessGrantsWebWorkerReady) return;
+
+        this.isLoading = true;
+
+        this.worker.postMessage({
+            'type': 'SetPermission',
+            'isDownload': this.isDownload,
+            'isUpload': this.isUpload,
+            'isList': this.isList,
+            'isDelete': this.isDelete,
+            'buckets': this.selectedBucketNames,
+            'apiKey': this.key,
+            'notBefore': this.notBeforePermission,
+            'notAfter': this.notAfterPermission,
         });
+
+        // Give time for web worker to return value.
+        setTimeout(() => {
+            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
+            this.isLoading = false;
+
+            if (this.isOnboardingTour) {
+                this.$router.push({
+                    name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantCLI)).name,
+                    params: {
+                        key: this.key,
+                        restrictedKey: this.restrictedKey,
+                    },
+                });
+
+                return;
+            }
+
+            this.$router.push({
+                name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CLIStep)).name,
+                params: {
+                    key: this.key,
+                    restrictedKey: this.restrictedKey,
+                },
+            });
+        }, 1000);
     }
 
     /**
      * Holds on continue in browser button click logic.
      */
     public onContinueInBrowserClick(): void {
-        // mock
-        return;
+        if (this.isLoading || !this.isAccessGrantsWebWorkerReady) return;
+
+        this.isLoading = true;
+
+        this.worker.postMessage({
+            'type': 'SetPermission',
+            'isDownload': this.isDownload,
+            'isUpload': this.isUpload,
+            'isList': this.isList,
+            'isDelete': this.isDelete,
+            'buckets': this.selectedBucketNames,
+            'apiKey': this.key,
+            'notBefore': this.notBeforePermission,
+            'notAfter': this.notAfterPermission,
+        });
+
+        // Give time for web worker to return value.
+        setTimeout(() => {
+            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
+            this.isLoading = false;
+
+            if (this.isOnboardingTour) {
+                this.$router.push({
+                    name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantPassphrase)).name,
+                    params: {
+                        key: this.key,
+                        restrictedKey: this.restrictedKey,
+                    },
+                });
+
+                return;
+            }
+
+            if (this.accessGrantsAmount > 1) {
+                this.$router.push({
+                    name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.EnterPassphraseStep)).name,
+                    params: {
+                        key: this.key,
+                        restrictedKey: this.restrictedKey,
+                    },
+                });
+
+                return;
+            }
+
+            this.$router.push({
+                name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CreatePassphraseStep)).name,
+                params: {
+                    key: this.key,
+                    restrictedKey: this.restrictedKey,
+                },
+            });
+        }, 1000);
     }
 
     /**
-     * Returns stored selected bucket names.
+     * Indicates if access grants web worker ready to use.
+     */
+    public get isAccessGrantsWebWorkerReady(): boolean {
+        return this.$store.state.accessGrantsModule.isAccessGrantsWebWorkerReady;
+    }
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    public get isOnboardingTour(): boolean {
+        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
+    }
+
+    /**
+     * Returns selected bucket names.
      */
     public get selectedBucketNames(): string[] {
         return this.$store.state.accessGrantsModule.selectedBucketNames;
+    }
+
+    /**
+     * Returns amount of access grants from store.
+     */
+    private get accessGrantsAmount(): number {
+        return this.$store.state.accessGrantsModule.page.accessGrants.length;
+    }
+
+    /**
+     * Returns not before date permission from store as ISO string.
+     */
+    private get notBeforePermission(): string {
+        return this.$store.state.accessGrantsModule.permissionNotBefore.toISOString();
+    }
+
+    /**
+     * Returns not after date permission from store as ISO string.
+     */
+    private get notAfterPermission(): string {
+        return this.$store.state.accessGrantsModule.permissionNotAfter.toISOString();
     }
 }
 </script>
@@ -178,10 +323,12 @@ export default class PermissionsStep extends Vue {
         flex-direction: column;
         align-items: center;
         position: relative;
+        background-color: #fff;
+        border-radius: 0 6px 6px 0;
 
         &__back-icon {
             position: absolute;
-            top: 40px;
+            top: 30px;
             left: 65px;
             cursor: pointer;
         }
@@ -201,7 +348,7 @@ export default class PermissionsStep extends Vue {
             line-height: 21px;
             color: #000;
             text-align: center;
-            margin: 0 0 50px 0;
+            margin: 0 0 70px 0;
         }
 
         &__content {
@@ -229,7 +376,8 @@ export default class PermissionsStep extends Vue {
                 width: 100%;
                 margin-left: 100px;
 
-                &__buckets-select {
+                &__buckets-select,
+                &__duration-select {
                     display: flex;
                     align-items: center;
                     width: 100%;
@@ -243,12 +391,16 @@ export default class PermissionsStep extends Vue {
                     }
                 }
 
+                &__duration-select {
+                    margin-bottom: 40px;
+                }
+
                 &__bucket-bullets {
                     display: flex;
                     align-items: center;
                     flex-wrap: wrap;
                     margin: 15px 0 0 85px;
-                    max-height: 200px;
+                    max-height: 100px;
                     max-width: 235px;
                     overflow-x: hidden;
                     overflow-y: scroll;
@@ -268,5 +420,14 @@ export default class PermissionsStep extends Vue {
             line-height: 23px;
             color: #0068dc;
         }
+    }
+
+    .border-radius {
+        border-radius: 6px;
+    }
+
+    .disabled {
+        pointer-events: none;
+        color: rgba(0, 0, 0, 0.4);
     }
 </style>

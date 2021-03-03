@@ -50,9 +50,29 @@ func ParseBucketPrefix(prefix BucketPrefix) (BucketLocation, error) {
 	}, nil
 }
 
+// ParseCompactBucketPrefix parses BucketPrefix.
+func ParseCompactBucketPrefix(compactPrefix []byte) (BucketLocation, error) {
+	if len(compactPrefix) < len(uuid.UUID{}) {
+		return BucketLocation{}, Error.New("invalid prefix %q", compactPrefix)
+	}
+
+	var loc BucketLocation
+	copy(loc.ProjectID[:], compactPrefix)
+	loc.BucketName = string(compactPrefix[len(loc.ProjectID):])
+	return loc, nil
+}
+
 // Prefix converts bucket location into bucket prefix.
 func (loc BucketLocation) Prefix() BucketPrefix {
 	return BucketPrefix(loc.ProjectID.String() + "/" + loc.BucketName)
+}
+
+// CompactPrefix converts bucket location into bucket prefix with compact project ID.
+func (loc BucketLocation) CompactPrefix() []byte {
+	xs := make([]byte, 0, len(loc.ProjectID)+len(loc.BucketName))
+	xs = append(xs, loc.ProjectID[:]...)
+	xs = append(xs, []byte(loc.BucketName)...)
+	return xs
 }
 
 // ObjectKey is an encrypted object key encoded using Path Component Encoding.
@@ -194,4 +214,24 @@ type Pieces []Piece
 type Piece struct {
 	Number      uint16
 	StorageNode storj.NodeID
+}
+
+// ObjectEntry contains information about an object in a bucket.
+type ObjectEntry struct {
+	ObjectKey ObjectKey
+
+	// TODO copy more fields from metabase multipart-upload package if needed
+}
+
+// SegmentPosition is segment part and index combined.
+type SegmentPosition struct {
+	Part  uint32
+	Index uint32
+}
+
+// Segment segment metadata.
+type Segment struct {
+	Position SegmentPosition
+
+	// TODO copy more fields from metabase multipart-upload package if needed
 }

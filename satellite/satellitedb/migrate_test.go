@@ -10,10 +10,12 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgconn"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -45,9 +47,8 @@ func loadSnapshots(ctx context.Context, connstr, dbxscript string) (*dbschema.Sn
 	for i, match := range matches {
 		i, match := i, match
 		group.Go(func() error {
-			versionStr := match[19 : len(match)-4] // hack to avoid trim issues with path differences in windows/linux
-			version, err := strconv.Atoi(versionStr)
-			if err != nil {
+			version := parseTestdataVersion(match)
+			if version < 0 {
 				return errs.New("invalid testdata file %q: %v", match, err)
 			}
 
@@ -85,6 +86,18 @@ func loadSnapshots(ctx context.Context, connstr, dbxscript string) (*dbschema.Sn
 	return snapshots, dbschema, nil
 }
 
+func parseTestdataVersion(path string) int {
+	path = filepath.ToSlash(strings.ToLower(path))
+	path = strings.TrimPrefix(path, "testdata/postgres.v")
+	path = strings.TrimSuffix(path, ".sql")
+
+	v, err := strconv.Atoi(path)
+	if err != nil {
+		return -1
+	}
+	return v
+}
+
 // loadSnapshotFromSQL inserts script into connstr and loads schema.
 func loadSnapshotFromSQL(ctx context.Context, connstr, script string) (_ *dbschema.Snapshot, err error) {
 	db, err := tempdb.OpenUnique(ctx, connstr, "load-schema")
@@ -96,6 +109,11 @@ func loadSnapshotFromSQL(ctx context.Context, connstr, script string) (_ *dbsche
 	sections := dbschema.NewSections(script)
 
 	_, err = db.ExecContext(ctx, sections.LookupSection(dbschema.Main))
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = db.ExecContext(ctx, sections.LookupSection(dbschema.MainData))
 	if err != nil {
 		return nil, err
 	}
@@ -134,11 +152,14 @@ func loadSchemaFromSQL(ctx context.Context, connstr, script string) (_ *dbschema
 func TestMigratePostgres(t *testing.T)  { migrateTest(t, pgtest.PickPostgres(t)) }
 func TestMigrateCockroach(t *testing.T) { migrateTest(t, pgtest.PickCockroachAlt(t)) }
 
-// satelliteDB provides access to certain methods on a *satellitedb.satelliteDB
-// instance, since that type is not exported.
-type satelliteDB interface {
-	TestDBAccess() *dbx.DB
-	PostgresMigration() *migrate.Migration
+type migrationTestingAccess interface {
+	// MigrationTestingDefaultDB assists in testing migrations themselves
+	// against the default database.
+	MigrationTestingDefaultDB() interface {
+		TestDBAccess() *dbx.DB
+		TestPostgresMigration() *migrate.Migration
+		PostgresMigration() *migrate.Migration
+	}
 }
 
 func migrateTest(t *testing.T, connStr string) {
@@ -155,12 +176,12 @@ func migrateTest(t *testing.T, connStr string) {
 	defer func() { require.NoError(t, tempDB.Close()) }()
 
 	// create a new satellitedb connection
-	db, err := satellitedb.Open(ctx, log, tempDB.ConnStr, satellitedb.Options{})
+	db, err := satellitedb.Open(ctx, log, tempDB.ConnStr, satellitedb.Options{ApplicationName: "satellite-migration-test"})
 	require.NoError(t, err)
 	defer func() { require.NoError(t, db.Close()) }()
 
 	// we need raw database access unfortunately
-	rawdb := db.(satelliteDB).TestDBAccess()
+	rawdb := db.(migrationTestingAccess).MigrationTestingDefaultDB().TestDBAccess()
 
 	snapshots, dbxschema, err := loadSnapshots(ctx, connStr, rawdb.Schema())
 	require.NoError(t, err)
@@ -168,7 +189,7 @@ func migrateTest(t *testing.T, connStr string) {
 	var finalSchema *dbschema.Schema
 
 	// get migration for this database
-	migrations := db.(satelliteDB).PostgresMigration()
+	migrations := db.(migrationTestingAccess).MigrationTestingDefaultDB().PostgresMigration()
 	for i, step := range migrations.Steps {
 		tag := fmt.Sprintf("#%d - v%d", i, step.Version)
 
@@ -215,6 +236,64 @@ func migrateTest(t *testing.T, connStr string) {
 	require.Equal(t, dbxschema, finalSchema, "result of all migration scripts did not match dbx schema")
 }
 
+func TestMigrateGeneratedPostgres(t *testing.T) {
+	migrateGeneratedTest(t, pgtest.PickPostgres(t), pgtest.PickPostgres(t))
+}
+func TestMigrateGeneratedCockroach(t *testing.T) {
+	migrateGeneratedTest(t, pgtest.PickCockroachAlt(t), pgtest.PickCockroachAlt(t))
+}
+
+// migrateGeneratedTest verifies whether the generated code in `migratez.go` is on par with migrate.go.
+func migrateGeneratedTest(t *testing.T, connStrProd, connStrTest string) {
+	t.Parallel()
+
+	ctx := testcontext.NewWithTimeout(t, 8*time.Minute)
+	defer ctx.Cleanup()
+
+	prodVersion, prodSnapshot := schemaFromMigration(t, ctx, connStrProd, func(db migrationTestingAccess) *migrate.Migration {
+		return db.MigrationTestingDefaultDB().PostgresMigration()
+	})
+
+	testVersion, testSnapshot := schemaFromMigration(t, ctx, connStrTest, func(db migrationTestingAccess) *migrate.Migration {
+		return db.MigrationTestingDefaultDB().TestPostgresMigration()
+	})
+
+	assert.Equal(t, prodVersion, testVersion, "migratez version does not match migration. Run `go generate` to update.")
+
+	prodSnapshot.DropTable("versions")
+	testSnapshot.DropTable("versions")
+
+	require.Equal(t, prodSnapshot.Schema, testSnapshot.Schema, "migratez schema does not match migration. Run `go generate` to update.")
+	require.Equal(t, prodSnapshot.Data, testSnapshot.Data, "migratez data does not match migration. Run `go generate` to update.")
+}
+
+func schemaFromMigration(t *testing.T, ctx *testcontext.Context, connStr string, getMigration func(migrationTestingAccess) *migrate.Migration) (version int, _ *dbschema.Snapshot) {
+	// create tempDB
+	log := zaptest.NewLogger(t)
+
+	tempDB, err := tempdb.OpenUnique(ctx, connStr, "migrate")
+	require.NoError(t, err)
+	defer func() { require.NoError(t, tempDB.Close()) }()
+
+	// create a new satellitedb connection
+	db, err := satellitedb.Open(ctx, log, tempDB.ConnStr, satellitedb.Options{
+		ApplicationName: "satellite-migration-test",
+	})
+	require.NoError(t, err)
+	defer func() { require.NoError(t, db.Close()) }()
+
+	testAccess := db.(migrationTestingAccess)
+
+	migration := getMigration(testAccess)
+	require.NoError(t, migration.Run(ctx, log))
+
+	rawdb := testAccess.MigrationTestingDefaultDB().TestDBAccess()
+	snapshot, err := pgutil.QuerySnapshot(ctx, rawdb)
+	require.NoError(t, err)
+
+	return migration.Steps[len(migration.Steps)-1].Version, snapshot
+}
+
 func BenchmarkSetup_Postgres(b *testing.B) {
 	connstr := pgtest.PickPostgres(b)
 	b.Run("merged", func(b *testing.B) {
@@ -247,7 +326,7 @@ func benchmarkSetup(b *testing.B, connStr string, merged bool) {
 			defer func() { require.NoError(b, tempDB.Close()) }()
 
 			// create a new satellitedb connection
-			db, err := satellitedb.Open(ctx, log, tempDB.ConnStr, satellitedb.Options{})
+			db, err := satellitedb.Open(ctx, log, tempDB.ConnStr, satellitedb.Options{ApplicationName: "satellite-migration-test"})
 			require.NoError(b, err)
 			defer func() { require.NoError(b, db.Close()) }()
 

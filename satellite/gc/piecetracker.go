@@ -17,7 +17,7 @@ import (
 
 var _ metainfo.Observer = (*PieceTracker)(nil)
 
-// PieceTracker implements the metainfo loop observer interface for garbage collection
+// PieceTracker implements the metainfo loop observer interface for garbage collection.
 //
 // architecture: Observer
 type PieceTracker struct {
@@ -38,7 +38,7 @@ func NewPieceTracker(log *zap.Logger, config Config, pieceCounts map[storj.NodeI
 		creationDate: time.Now().UTC(),
 		pieceCounts:  pieceCounts,
 
-		retainInfos: make(map[storj.NodeID]*RetainInfo),
+		retainInfos: make(map[storj.NodeID]*RetainInfo, len(pieceCounts)),
 	}
 }
 

@@ -74,6 +74,7 @@ export default class VInfoBar extends Vue {
                 margin-right: 5px;
                 font-size: 14px;
                 line-height: 17px;
+                white-space: nowrap;
             }
 
             &__button {
@@ -100,5 +101,21 @@ export default class VInfoBar extends Vue {
     .blue {
         background-color: #2582ff;
         color: #fff;
+    }
+
+    @media screen and (max-width: 768px) {
+
+        .info-bar {
+
+            &__info-area {
+
+                &__first-value,
+                &__second-value,
+                &__first-description,
+                &__second-description {
+                    white-space: unset;
+                }
+            }
+        }
     }
 </style>

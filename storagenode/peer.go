@@ -28,6 +28,7 @@ import (
 	"storj.io/private/version"
 	"storj.io/storj/pkg/server"
 	"storj.io/storj/private/lifecycle"
+	"storj.io/storj/private/multinodepb"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
@@ -42,11 +43,12 @@ import (
 	"storj.io/storj/storagenode/inspector"
 	"storj.io/storj/storagenode/internalpb"
 	"storj.io/storj/storagenode/monitor"
+	"storj.io/storj/storagenode/multinode"
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
-	"storj.io/storj/storagenode/payout"
-	"storj.io/storj/storagenode/payout/estimatedpayout"
+	"storj.io/storj/storagenode/payouts"
+	"storj.io/storj/storagenode/payouts/estimatedpayouts"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/piecestore/usedserials"
@@ -66,7 +68,7 @@ var (
 	mon = monkit.Package()
 )
 
-// DB is the master database for Storage Node
+// DB is the master database for Storage Node.
 //
 // architecture: Master Database
 type DB interface {
@@ -86,9 +88,9 @@ type DB interface {
 	StorageUsage() storageusage.DB
 	Satellites() satellites.DB
 	Notifications() notifications.DB
-	Payout() payout.DB
+	Payout() payouts.DB
 	Pricing() pricing.DB
-	Secret() apikeys.DB
+	APIKeys() apikeys.DB
 
 	Preflight(ctx context.Context) error
 }
@@ -224,7 +226,7 @@ type Peer struct {
 	}
 
 	Estimation struct {
-		Service *estimatedpayout.Service
+		Service *estimatedpayouts.Service
 	}
 
 	Storage2 struct {
@@ -272,13 +274,20 @@ type Peer struct {
 	}
 
 	Payout struct {
-		Service  *payout.Service
-		Endpoint *payout.Endpoint
+		Service  *payouts.Service
+		Endpoint *payouts.Endpoint
 	}
 
 	Bandwidth *bandwidth.Service
 
 	Reputation *reputation.Service
+
+	Multinode struct {
+		Storage   *multinode.StorageEndpoint
+		Bandwidth *multinode.BandwidthEndpoint
+		Node      *multinode.NodeEndpoint
+		Payout    *multinode.PayoutEndpoint
+	}
 }
 
 // New creates a new Storage Node.
@@ -347,7 +356,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
 
-		peer.Server, err = server.New(log.Named("server"), tlsOptions, sc.Address, sc.PrivateAddress)
+		peer.Server, err = server.New(log.Named("server"), tlsOptions, sc)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -394,8 +403,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			ID:      peer.ID(),
 			Address: c.ExternalAddress,
 			Operator: pb.NodeOperator{
-				Email:  config.Operator.Email,
-				Wallet: config.Operator.Wallet,
+				Email:          config.Operator.Email,
+				Wallet:         config.Operator.Wallet,
+				WalletFeatures: config.Operator.WalletFeatures,
 			},
 			Version: *pbVersion,
 		}
@@ -413,7 +423,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err := pb.DRPCRegisterContact(peer.Server.DRPC(), peer.Contact.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-
 	}
 
 	{ // setup storage
@@ -554,9 +563,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			debug.Cycle("Orders Cleanup", peer.Storage2.Orders.Cleanup))
 	}
 
-	{ // setup payout service.
-		service, err := payout.NewService(
-			peer.Log.Named("payout:service"),
+	{ // setup payouts service.
+		service, err := payouts.NewService(
+			peer.Log.Named("payouts:service"),
 			peer.DB.Payout(),
 			peer.DB.Reputation(),
 			peer.DB.Satellites(),
@@ -566,8 +575,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			return nil, errs.Combine(err, peer.Close())
 		}
 		peer.Payout.Service = service
-		peer.Payout.Endpoint = payout.NewEndpoint(
-			peer.Log.Named("payout:endpoint"),
+		peer.Payout.Endpoint = payouts.NewEndpoint(
+			peer.Log.Named("payouts:endpoint"),
 			peer.Dialer,
 			peer.Storage2.Trust,
 		)
@@ -616,7 +625,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup estimation service
-		peer.Estimation.Service = estimatedpayout.NewService(
+		peer.Estimation.Service = estimatedpayouts.NewService(
 			peer.DB.Bandwidth(),
 			peer.DB.Reputation(),
 			peer.DB.StorageUsage(),
@@ -768,6 +777,47 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	})
 	peer.Debug.Server.Panel.Add(
 		debug.Cycle("Bandwidth", peer.Bandwidth.Loop))
+
+	{ // setup multinode endpoints
+		// TODO: add to peer?
+		apiKeys := apikeys.NewService(peer.DB.APIKeys())
+
+		peer.Multinode.Storage = multinode.NewStorageEndpoint(
+			peer.Log.Named("multinode:storage-endpoint"),
+			apiKeys,
+			peer.Storage2.Monitor)
+
+		peer.Multinode.Bandwidth = multinode.NewBandwidthEndpoint(
+			peer.Log.Named("multinode:bandwidth-endpoint"),
+			apiKeys,
+			peer.DB.Bandwidth())
+
+		peer.Multinode.Node = multinode.NewNodeEndpoint(
+			peer.Log.Named("multinode:node-endpoint"),
+			apiKeys,
+			peer.Version.Service.Info,
+			peer.Contact.PingStats,
+			peer.DB.Reputation(),
+			peer.Storage2.Trust)
+
+		peer.Multinode.Payout = multinode.NewPayoutEndpoint(
+			peer.Log.Named("multinode:payout-endpoint"),
+			apiKeys,
+			peer.DB.Payout())
+
+		if err = multinodepb.DRPCRegisterStorage(peer.Server.DRPC(), peer.Multinode.Storage); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		if err = multinodepb.DRPCRegisterBandwidth(peer.Server.DRPC(), peer.Multinode.Bandwidth); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		if err = multinodepb.DRPCRegisterNode(peer.Server.DRPC(), peer.Multinode.Node); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		if err = multinodepb.DRPCRegisterPayout(peer.Server.DRPC(), peer.Multinode.Payout); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+	}
 
 	return peer, nil
 }

@@ -37,8 +37,8 @@
 # how stale reliable node cache can be
 # checker.reliability-cache-staleness: 5m0s
 
-# override value for repair threshold
-# checker.repair-override: 52
+# comma-separated override values for repair threshold in the format k/o/n-override (min/optimal/total-override)
+# checker.repair-overrides: 29/80/110-52,29/80/95-52,29/80/130-52
 
 # percent of held amount disposed to node after leaving withheld
 compensation.dispose-percent: 50
@@ -88,11 +88,17 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # allow domains to embed the satellite in a frame, space separated
 # console.frame-ancestors: tardigrade.io
 
+# url link for gateway credentials requests
+# console.gateway-credentials-request-url: https://auth.tardigradeshare.io
+
 # url link to general request page
 # console.general-request-url: https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000379291
 
 # id for google tag manager
 # console.google-tag-manager-id: ""
+
+# indicates if satellite is in beta
+# console.is-beta-satellite: false
 
 # url link to let us know page
 # console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
@@ -157,9 +163,6 @@ contact.external-address: ""
 # macaroon revocation cache expiration
 # database-options.revocations-cache.expiration: 5m0s
 
-# how often to delete expired serial numbers
-# db-cleanup.serials-interval: 4h0m0s
-
 # Maximum Database Connection Lifetime, -1ns means the stdlib default
 # db.conn_max_lifetime: 30m0s
 
@@ -180,18 +183,6 @@ contact.external-address: ""
 
 # If set, a path to write a process trace SVG to
 # debug.trace-out: ""
-
-# how often to run the downtime detection chore.
-# downtime.detection-interval: 1h0m0s
-
-# the downtime estimation chore should check this many offline nodes
-# downtime.estimation-batch-size: 1000
-
-# max number of concurrent connections in estimation chore
-# downtime.estimation-concurrency-limit: 10
-
-# how often to run the downtime estimation chore
-# downtime.estimation-interval: 1h0m0s
 
 # set if expired segment cleanup is enabled or not
 # expired-deletion.enabled: true
@@ -313,15 +304,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # uri which is used when retrieving new access token
 # mail.token-uri: ""
 
-# server address of the marketing Admin GUI
-# marketing.address: 127.0.0.1:8090
-
-# base url for marketing Admin GUI
-# marketing.base-url: ""
-
-# path to static resources
-# marketing.static-dir: ""
-
 # the database connection string to use
 # metainfo.database-url: postgres://
 
@@ -383,10 +365,10 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # metainfo.piece-deletion.request-timeout: 1m0s
 
 # the default bandwidth usage limit
-# metainfo.project-limits.default-max-bandwidth: 50.00 GB
+# metainfo.project-limits.default-max-bandwidth: 500.00 GB
 
 # the default storage usage limit
-# metainfo.project-limits.default-max-usage: 50.00 GB
+# metainfo.project-limits.default-max-usage: 500.00 GB
 
 # max bucket count for a project.
 # metainfo.project-limits.max-buckets: 100
@@ -434,25 +416,13 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # orders.expiration: 48h0m0s
 
 # how many items in the rollups write cache before they are flushed to the database
-# orders.flush-batch-size: 10000
+# orders.flush-batch-size: 1000
 
 # how often to flush the rollups write cache to the database
 # orders.flush-interval: 1m0s
 
-# include encrypted metadata in the order limit
-# orders.include-encrypted-metadata: false
-
 # how many concurrent orders to process at once. zero is unlimited
 # orders.orders-semaphore-size: 2
-
-# how many records to read in a single transaction when calculating billable bandwidth
-# orders.reported-rollups-read-batch-size: 1000
-
-# how many orders to batch per transaction
-# orders.settlement-batch-size: 250
-
-# rollout phase for the windowed endpoint
-# orders.window-endpoint-rollout-phase: phase3
 
 # The length of time to give suspended SNOs to diagnose and fix issues causing downtime. Afterwards, they will have one tracking period to reach the minimum online score before disqualification
 # overlay.audit-history.grace-period: 168h0m0s
@@ -474,6 +444,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # how stale the node selection cache can be
 # overlay.node-selection-cache.staleness: 3m0s
+
+# default duration for AS OF SYSTEM TIME
+# overlay.node.as-of-system-time.default-interval: -10s
+
+# enables the use of the AS OF SYSTEM TIME feature in CRDB
+# overlay.node.as-of-system-time.enabled: true
 
 # the number of times a node has been audited to not be considered a New Node
 # overlay.node.audit-count: 100
@@ -513,9 +489,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # the time period that must pass before suspended nodes will be disqualified
 # overlay.node.suspension-grace-period: 168h0m0s
-
-# the number of times a node's uptime has been checked to not be considered a New Node
-# overlay.node.uptime-count: 100
 
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100
@@ -598,9 +571,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how long to cache the project limits.
 # project-limit.cache-expiration: 10m0s
 
-# the URL for referral manager
-# referrals.referral-manager-url: ""
-
 # time limit for downloading pieces from a node for repair
 # repairer.download-timeout: 5m0s
 
@@ -625,11 +595,17 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # time limit for an entire repair job, from queue pop to upload completion
 # repairer.total-timeout: 45m0s
 
-# how often to flush the reported serial rollups to the database
-# reported-rollup.interval: 5m0s
+# age at which a rollup is archived
+# rollup-archive.archive-age: 2160h0m0s
 
-# default queue batch size
-# reported-rollup.queue-batch-size: 10000
+# number of records to delete per delete execution. Used only for crdb which is slow without limit.
+# rollup-archive.batch-size: 500
+
+# whether or not the rollup archive is enabled.
+# rollup-archive.enabled: true
+
+# how frequently rollup archiver should run
+# rollup-archive.interval: 24h0m0s
 
 # option for deleting tallies after they are rolled up
 # rollup.delete-tallies: true
@@ -661,8 +637,23 @@ server.private-address: 127.0.0.1:7778
 # if true, uses peer ca whitelist checking
 # server.use-peer-ca-whitelist: true
 
+# whether nodes will be disqualified if they have not been contacted in some time
+# stray-nodes.enable-dq: false
+
+# how often to check for and DQ stray nodes
+# stray-nodes.interval: 168h0m0s
+
+# length of time a node can go without contacting satellite before being disqualified
+# stray-nodes.max-duration-without-contact: 720h0m0s
+
 # how frequently the tally service should run
 # tally.interval: 1h0m0s
+
+# how large of batches GetBandwidthSince should process at a time
+# tally.read-rollup-batch-size: 10000
+
+# how large of batches SaveRollup should process at a time
+# tally.save-rollup-batch-size: 1000
 
 # address for jaeger agent
 # tracing.agent-addr: agent.tracing.datasci.storj.io:5775

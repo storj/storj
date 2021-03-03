@@ -13,7 +13,7 @@
         >
             <div class="navigation-area__item-container__link">
                 <component :is="navItem.icon"></component>
-                <h1 class="navigation-area__item-container__link__title">{{navItem.name}}</h1>
+                <p class="navigation-area__item-container__link__title">{{navItem.name}}</p>
             </div>
         </router-link>
     </div>
@@ -24,7 +24,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import EditProjectDropdown from '@/components/navigation/EditProjectDropdown.vue';
 
-import ApiKeysIcon from '@/../static/images/navigation/apiKeys.svg';
+import AccessGrantsIcon from '@/../static/images/navigation/apiKeys.svg';
 import DashboardIcon from '@/../static/images/navigation/dashboard.svg';
 import TeamIcon from '@/../static/images/navigation/team.svg';
 
@@ -34,7 +34,7 @@ import { NavigationLink } from '@/types/navigation';
 @Component({
     components: {
         DashboardIcon,
-        ApiKeysIcon,
+        AccessGrantsIcon,
         TeamIcon,
         EditProjectDropdown,
     },
@@ -45,7 +45,7 @@ export default class NavigationArea extends Vue {
      */
     public readonly navigation: NavigationLink[] = [
         RouteConfig.ProjectDashboard.withIcon(DashboardIcon),
-        RouteConfig.ApiKeys.withIcon(ApiKeysIcon),
+        RouteConfig.AccessGrants.withIcon(AccessGrantsIcon),
         RouteConfig.Users.withIcon(TeamIcon),
     ];
 
@@ -67,7 +67,7 @@ export default class NavigationArea extends Vue {
      * Indicates if current route is onboarding tour.
      */
     private get isOnboardingTour(): boolean {
-        return this.$route.name === RouteConfig.OnboardingTour.name;
+        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 }
 </script>
@@ -103,10 +103,12 @@ export default class NavigationArea extends Vue {
                 align-items: center;
 
                 &__title {
+                    font-family: 'font_medium', sans-serif;
                     font-size: 16px;
                     line-height: 23px;
                     color: #1b2533;
                     margin: 0 0 0 15px;
+                    white-space: nowrap;
                 }
             }
 

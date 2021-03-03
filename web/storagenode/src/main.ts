@@ -8,6 +8,7 @@ import { DirectiveBinding } from 'vue/types/options';
 import App from '@/app/App.vue';
 import { router } from '@/app/router';
 import { store } from '@/app/store';
+import { Size } from '@/private/memory/size';
 
 Vue.config.productionTip = false;
 VueClipboard.config.autoSetContainer = true;
@@ -22,7 +23,7 @@ let clickOutsideEvent: EventListener;
 Vue.directive('click-outside', {
     bind: function (el: HTMLElement, binding: DirectiveBinding, vnode: VNode) {
         clickOutsideEvent = function(event: Event): void {
-            if (el === event.target) {
+            if (el === event.target || el.contains((event.target as Node))) {
                 return;
             }
 
@@ -43,6 +44,13 @@ Vue.directive('click-outside', {
  */
 Vue.filter('centsToDollars', (cents: number): string => {
     return `$${(cents / 100).toFixed(2)}`;
+});
+
+/**
+ * Converts bytes to base-10 types.
+ */
+Vue.filter('bytesToBase10String', (amountInBytes: number): string => {
+    return `${Size.toBase10String(amountInBytes)}`;
 });
 
 new Vue({

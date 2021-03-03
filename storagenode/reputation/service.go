@@ -5,6 +5,7 @@ package reputation
 
 import (
 	"context"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -35,33 +36,51 @@ func NewService(log *zap.Logger, db DB, nodeID storj.NodeID, notifications *noti
 
 // Store stores reputation stats into db, and notify's in case of offline suspension.
 func (s *Service) Store(ctx context.Context, stats Stats, satelliteID storj.NodeID) error {
-	if err := s.db.Store(ctx, stats); err != nil {
+	rep, err := s.db.Get(ctx, satelliteID)
+	if err != nil {
 		return err
 	}
 
-	if stats.DisqualifiedAt == nil && stats.OfflineSuspendedAt != nil {
-		s.notifyOfflineSuspension(ctx, satelliteID)
+	err = s.db.Store(ctx, stats)
+	if err != nil {
+		return err
+	}
+
+	if stats.DisqualifiedAt == nil && isSuspended(stats, *rep) {
+		notification := newSuspensionNotification(satelliteID, s.nodeID, *stats.OfflineSuspendedAt)
+
+		_, err = s.notifications.Receive(ctx, notification)
+		if err != nil {
+			s.log.Sugar().Errorf("Failed to receive notification", err.Error())
+		}
 	}
 
 	return nil
 }
 
-// NotifyOfflineSuspension notifies storagenode about offline suspension.
-func (s *Service) notifyOfflineSuspension(ctx context.Context, satelliteID storj.NodeID) {
-	notification := NewSuspensionNotification(satelliteID, s.nodeID)
-
-	_, err := s.notifications.Receive(ctx, notification)
-	if err != nil {
-		s.log.Sugar().Errorf("Failed to receive notification", err.Error())
+// isSuspended returns if there's new downtime suspension.
+func isSuspended(new, old Stats) bool {
+	if new.OfflineSuspendedAt == nil {
+		return false
 	}
+
+	if old.OfflineSuspendedAt == nil {
+		return true
+	}
+
+	if !old.OfflineSuspendedAt.Equal(*new.OfflineSuspendedAt) {
+		return true
+	}
+
+	return false
 }
 
-// NewSuspensionNotification - returns offline suspension notification.
-func NewSuspensionNotification(satelliteID storj.NodeID, senderID storj.NodeID) (_ notifications.NewNotification) {
+// newSuspensionNotification - returns offline suspension notification.
+func newSuspensionNotification(satelliteID storj.NodeID, senderID storj.NodeID, time time.Time) (_ notifications.NewNotification) {
 	return notifications.NewNotification{
 		SenderID: senderID,
-		Type:     notifications.TypeCustom,
-		Title:    "Your Node was suspended!",
-		Message:  "This is a reminder that your Storage Node on " + satelliteID.String() + "Satellite is suspended",
+		Type:     notifications.TypeSuspension,
+		Title:    "Your Node was suspended " + time.String(),
+		Message:  "This is a reminder that your StorageNode on " + satelliteID.String() + "Satellite is suspended",
 	}
 }

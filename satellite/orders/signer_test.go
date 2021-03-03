@@ -21,10 +21,11 @@ import (
 )
 
 func TestSigner_EncryptedMetadata(t *testing.T) {
-	encryptionKey := orders.EncryptionKey{
+	ekeys, err := orders.NewEncryptionKeys(orders.EncryptionKey{
 		ID:  orders.EncryptionKeyID{1},
 		Key: storj.Key{1},
-	}
+	})
+	require.NoError(t, err)
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
@@ -32,8 +33,7 @@ func TestSigner_EncryptedMetadata(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				testplanet.ReconfigureRS(1, 1, 1, 1)(log, index, config)
 
-				config.Orders.IncludeEncryptedMetadata = true
-				config.Orders.EncryptionKeys.Default = encryptionKey
+				config.Orders.EncryptionKeys = *ekeys
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -41,10 +41,10 @@ func TestSigner_EncryptedMetadata(t *testing.T) {
 
 		project, err := uplink.GetProject(ctx, satellite)
 		require.NoError(t, err)
-
+		bucketName := "123456789012345678901234567890123456789012345678901234567890123"
 		bucketLocation := metabase.BucketLocation{
 			ProjectID:  uplink.Projects[0].ID,
-			BucketName: "testbucket",
+			BucketName: bucketName,
 		}
 
 		_, err = project.EnsureBucket(ctx, bucketLocation.BucketName)
@@ -65,23 +65,24 @@ func TestSigner_EncryptedMetadata(t *testing.T) {
 		require.NotEmpty(t, addressedLimit.Limit.EncryptedMetadata)
 		require.NotEmpty(t, addressedLimit.Limit.EncryptedMetadataKeyId)
 
-		require.Equal(t, encryptionKey.ID[:], addressedLimit.Limit.EncryptedMetadataKeyId)
+		require.Equal(t, ekeys.Default.ID[:], addressedLimit.Limit.EncryptedMetadataKeyId)
 
-		metadata, err := encryptionKey.DecryptMetadata(addressedLimit.Limit.SerialNumber, addressedLimit.Limit.EncryptedMetadata)
+		metadata, err := ekeys.Default.DecryptMetadata(addressedLimit.Limit.SerialNumber, addressedLimit.Limit.EncryptedMetadata)
 		require.NoError(t, err)
 
-		bucketID, err := satellite.DB.Buckets().GetBucketID(ctx, bucketLocation)
+		bucketInfo, err := metabase.ParseCompactBucketPrefix(metadata.CompactProjectBucketPrefix)
 		require.NoError(t, err)
-
-		require.Equal(t, bucketID[:], metadata.BucketId)
+		require.Equal(t, bucketInfo.BucketName, bucketName)
+		require.Equal(t, bucketInfo.ProjectID, uplink.Projects[0].ID)
 	})
 }
 
 func TestSigner_EncryptedMetadata_UploadDownload(t *testing.T) {
-	encryptionKey := orders.EncryptionKey{
+	ekeys, err := orders.NewEncryptionKeys(orders.EncryptionKey{
 		ID:  orders.EncryptionKeyID{1},
 		Key: storj.Key{1},
-	}
+	})
+	require.NoError(t, err)
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
@@ -89,18 +90,19 @@ func TestSigner_EncryptedMetadata_UploadDownload(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				testplanet.ReconfigureRS(1, 1, 1, 1)(log, index, config)
 
-				config.Orders.IncludeEncryptedMetadata = true
-				config.Orders.EncryptionKeys.Default = encryptionKey
+				config.Orders.EncryptionKeys = *ekeys
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite, uplink := planet.Satellites[0], planet.Uplinks[0]
 
+		const bucket = "123456789012345678901234567890123456789012345678901234567890123"
+
 		testdata := testrand.Bytes(8 * memory.KiB)
-		err := uplink.Upload(ctx, satellite, "testbucket", "data", testdata)
+		err := uplink.Upload(ctx, satellite, bucket, "data", testdata)
 		require.NoError(t, err)
 
-		downdata, err := uplink.Download(ctx, satellite, "testbucket", "data")
+		downdata, err := uplink.Download(ctx, satellite, bucket, "data")
 		require.NoError(t, err)
 
 		require.Equal(t, testdata, downdata)

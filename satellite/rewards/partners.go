@@ -68,6 +68,10 @@ func DefaultPartners() PartnerList {
 			ID:   "53fb82d7-73ff-4a1a-ab0c-6968cffc850e",
 			UUID: parseUUID("53fb82d7-73ff-4a1a-ab0c-6968cffc850e"),
 		}, {
+			Name: "Fastly",
+			ID:   "464699ba-301a-4c92-a740-692926d57661",
+			UUID: parseUUID("464699ba-301a-4c92-a740-692926d57661"),
+		}, {
 			Name: "Fluree",
 			ID:   "86c33256-cded-434c-aaac-405343974394",
 			UUID: parseUUID("86c33256-cded-434c-aaac-405343974394"),
@@ -79,6 +83,10 @@ func DefaultPartners() PartnerList {
 			Name: "Heroku",
 			ID:   "706011f3-400e-45eb-a796-90cce2a7d67e",
 			UUID: parseUUID("706011f3-400e-45eb-a796-90cce2a7d67e"),
+		}, {
+			Name: "Hypernet",
+			ID:   "5abfc372-1d59-44fa-bbcc-bc3aa03a9542",
+			UUID: parseUUID("5abfc372-1d59-44fa-bbcc-bc3aa03a9542"),
 		}, {
 			Name: "Infura",
 			ID:   "1519bdee-ed18-45fe-86c6-4c7fa9668a14",

@@ -5,8 +5,6 @@ package rewards
 
 import (
 	"context"
-	"encoding/base32"
-	"path"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -52,54 +50,6 @@ func NewPartnersService(log *zap.Logger, db PartnersDB, domains []string) *Partn
 		db:      db,
 		domains: domains,
 	}
-}
-
-// parnterIDEncoding is base32 without padding.
-var parnterIDEncoding = base32.StdEncoding.WithPadding(base32.NoPadding)
-
-// GeneratePartnerLink returns partner referral link.
-func (service *PartnersService) GeneratePartnerLink(ctx context.Context, offerName string) ([]string, error) {
-	partner, err := service.db.ByName(ctx, offerName)
-	if err != nil {
-		return nil, ErrPartners.Wrap(err)
-	}
-
-	var links []string
-	for _, domain := range service.domains {
-		encoded := parnterIDEncoding.EncodeToString([]byte(partner.ID))
-		links = append(links, path.Join(domain, "ref", encoded))
-	}
-
-	return links, nil
-}
-
-// GetActiveOffer returns an offer that is active based on its type.
-func (service *PartnersService) GetActiveOffer(ctx context.Context, offers Offers, offerType OfferType, partnerID string) (offer *Offer, err error) {
-	if len(offers) < 1 {
-		return nil, ErrOfferNotExist.New("no active offers")
-	}
-	switch offerType {
-	case Partner:
-		if partnerID == "" {
-			return nil, errs.New("partner ID is empty")
-		}
-		partnerInfo, err := service.db.ByID(ctx, partnerID)
-		if err != nil {
-			return nil, ErrPartnerNotExist.Wrap(err)
-		}
-		for i := range offers {
-			if offers[i].Name == partnerInfo.Name {
-				offer = &offers[i]
-			}
-		}
-	default:
-		if len(offers) > 1 {
-			return nil, errs.New("multiple active offers found")
-		}
-		offer = &offers[0]
-	}
-
-	return offer, nil
 }
 
 // ByName looks up partner by name.

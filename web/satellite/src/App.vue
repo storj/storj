@@ -29,10 +29,15 @@ export default class App extends Vue {
      */
     public mounted(): void {
         const satelliteName = MetaUtils.getMetaContent('satellite-name');
+        const isBetaSatellite = MetaUtils.getMetaContent('is-beta-satellite');
         const segmentioId = MetaUtils.getMetaContent('segment-io');
 
         if (satelliteName) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
+        }
+
+        if (isBetaSatellite) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_STATUS, isBetaSatellite === 'true');
         }
 
         if (segmentioId) {

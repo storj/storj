@@ -101,6 +101,7 @@ export class Paystub {
         public owed: number = 0,
         public disposed: number = 0,
         public paid: number = 0,
+        public distributed: number = 0,
     ) {}
 
     /**
@@ -136,6 +137,7 @@ export class TotalPaystubForPeriod {
     public paid: number = 0;
     public paidWithoutSurge: number = 0;
     public grossWithSurge: number = 0;
+    public distributed: number = 0;
 
     public constructor(
         paystubs: Paystub[] = [],
@@ -160,6 +162,7 @@ export class TotalPaystubForPeriod {
             this.surgePercent = paystub.surgePercent;
             this.paidWithoutSurge += this.convertToCents(paystub.paid + paystub.held - paystub.disposed) / paystub.surgeMultiplier;
             this.grossWithSurge += this.convertToCents(paystub.paid + paystub.held - paystub.disposed);
+            this.distributed += this.convertToCents(paystub.distributed);
         });
     }
 
@@ -171,12 +174,13 @@ export class TotalPaystubForPeriod {
 /**
  * Holds accumulated held and earned payouts.
  */
-export class TotalHeldAndPaid {
+export class TotalPayments {
     public held: number = 0;
     public paid: number = 0;
     public disposed: number = 0;
     // TODO: remove
     public currentMonthEarnings: number = 0;
+    public balance: number = 0;
 
     public constructor(
         paystubs: Paystub[] = [],
@@ -185,6 +189,7 @@ export class TotalHeldAndPaid {
             this.paid += this.convertToCents(paystub.paid);
             this.disposed += this.convertToCents(paystub.disposed);
             this.held += this.convertToCents(paystub.held - paystub.disposed);
+            this.balance += this.convertToCents(paystub.paid - paystub.distributed);
         });
     }
 
@@ -234,6 +239,7 @@ export class EstimatedPayout {
     public constructor(
         public currentMonth: PreviousMonthEstimatedPayout = new PreviousMonthEstimatedPayout(),
         public previousMonth: PreviousMonthEstimatedPayout = new PreviousMonthEstimatedPayout(),
+        public currentMonthExpectations: number = 0,
     ) {}
 }
 
@@ -272,6 +278,7 @@ export class SatellitePayoutForPeriod {
         public receipt: string = '',
         public isExitComplete: boolean = false,
         public heldPercent: number = 0,
+        public distributed: number = 0,
     ) {
         this.earned = this.convertToCents(this.earned);
         this.surge = this.convertToCents(this.surge);
@@ -279,14 +286,22 @@ export class SatellitePayoutForPeriod {
         this.afterHeld = this.convertToCents(this.afterHeld);
         this.disposed = this.convertToCents(this.disposed);
         this.paid = this.convertToCents(this.paid);
-
-        this.convertReceiptToEtherscanLink();
+        this.distributed = this.convertToCents(this.distributed);
     }
 
-    private convertReceiptToEtherscanLink() {
-        if (this.receipt) {
-            this.receipt = `https://etherscan.io/tx/${this.receipt.slice(4)}`;
+    public get transactionLink(): string {
+        if (!this.receipt) {
+            return '';
         }
+
+        if (this.receipt.indexOf('eth') !== -1) {
+            return `https://etherscan.io/tx/${this.receipt.slice(4)}`;
+        }
+        if (this.receipt.indexOf('zksync') !== -1) {
+            return `https://zkscan.io/explorer/transactions/${this.receipt.slice(7)}`;
+        }
+
+        return this.receipt;
     }
 
     private convertToCents(value: number): number {

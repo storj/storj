@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -29,25 +30,33 @@ type Processes struct {
 	Directory string
 	List      []*Process
 
+	FailFast       bool
 	MaxStartupWait time.Duration
 }
 
 const storjSimMaxLineLen = 10000
 
 // NewProcesses returns a group of processes.
-func NewProcesses(dir string) *Processes {
+func NewProcesses(dir string, failfast bool) *Processes {
 	return &Processes{
-		Output:         NewPrefixWriter("sim", storjSimMaxLineLen, os.Stdout),
-		Directory:      dir,
-		List:           nil,
+		Output:    NewPrefixWriter("sim", storjSimMaxLineLen, os.Stdout),
+		Directory: dir,
+		List:      nil,
+
+		FailFast:       failfast,
 		MaxStartupWait: time.Minute,
 	}
 }
 
 // Exec executes a command on all processes.
 func (processes *Processes) Exec(ctx context.Context, command string) error {
-	var group errgroup.Group
-	processes.Start(ctx, &group, command)
+	var group *errgroup.Group
+	if processes.FailFast {
+		group, ctx = errgroup.WithContext(ctx)
+	} else {
+		group = &errgroup.Group{}
+	}
+	processes.Start(ctx, group, command)
 	return group.Wait()
 }
 
@@ -221,7 +230,7 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	executable := process.Executable
 
 	// use executable inside the directory, if it exists
-	localExecutable := filepath.Join(process.Directory, executable)
+	localExecutable := exe(filepath.Join(process.Directory, executable))
 	if _, err := os.Lstat(localExecutable); !os.IsNotExist(err) {
 		executable = localExecutable
 	}
@@ -335,3 +344,10 @@ func tryConnect(address string) bool {
 
 // Close closes process resources.
 func (process *Process) Close() error { return nil }
+
+func exe(name string) string {
+	if runtime.GOOS == "windows" {
+		return name + ".exe"
+	}
+	return name
+}

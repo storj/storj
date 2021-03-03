@@ -30,15 +30,16 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/referrals"
 	"storj.io/storj/satellite/rewards"
 )
 
@@ -58,7 +59,7 @@ var (
 
 // Config contains configuration for console web server.
 type Config struct {
-	Address         string `help:"server address of the graphql api gateway and frontend app" devDefault:"127.0.0.1:8081" releaseDefault:":10100"`
+	Address         string `help:"server address of the graphql api gateway and frontend app" devDefault:"" releaseDefault:":10100"`
 	StaticDir       string `help:"path to static resources" default:""`
 	ExternalAddress string `help:"external endpoint of the satellite if hosted" default:""`
 
@@ -75,33 +76,35 @@ type Config struct {
 	TermsAndConditionsURL           string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
 	SegmentIOPublicKey              string `help:"used to initialize segment.io at web satellite console" default:""`
 	AccountActivationRedirectURL    string `help:"url link for account activation redirect" default:""`
-	VerificationPageURL             string `help:"url link to sign up verification page" default:"https://tardigrade.io/verify"`
+	VerificationPageURL             string `help:"url link to sign up verification page" devDefault:"" releaseDefault:"https://tardigrade.io/verify"`
 	PartneredSatelliteNames         string `help:"names of partnered satellites" default:"US-Central-1,Europe-West-1,Asia-East-1"`
 	GoogleTagManagerID              string `help:"id for google tag manager" default:""`
 	GeneralRequestURL               string `help:"url link to general request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
 	ProjectLimitsIncreaseRequestURL string `help:"url link to project limit increase request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
+	GatewayCredentialsRequestURL    string `help:"url link for gateway credentials requests" default:"https://auth.tardigradeshare.io"`
+	IsBetaSatellite                 bool   `help:"indicates if satellite is in beta" default:"false"`
 
 	RateLimit web.IPRateLimiterConfig
 
 	console.Config
 }
 
-// Server represents console web server
+// Server represents console web server.
 //
 // architecture: Endpoint
 type Server struct {
 	log *zap.Logger
 
-	config           Config
-	service          *console.Service
-	mailService      *mailservice.Service
-	referralsService *referrals.Service
-	partners         *rewards.PartnersService
+	config      Config
+	service     *console.Service
+	mailService *mailservice.Service
+	partners    *rewards.PartnersService
 
 	listener    net.Listener
 	server      http.Server
 	cookieAuth  *consolewebauth.CookieAuth
 	rateLimiter *web.IPRateLimiter
+	nodeURL     storj.NodeURL
 
 	stripePublicKey string
 
@@ -118,17 +121,17 @@ type Server struct {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, referralsService *referrals.Service, partners *rewards.PartnersService, listener net.Listener, stripePublicKey string) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, partners *rewards.PartnersService, listener net.Listener, stripePublicKey string, nodeURL storj.NodeURL) *Server {
 	server := Server{
-		log:              logger,
-		config:           config,
-		listener:         listener,
-		service:          service,
-		mailService:      mailService,
-		referralsService: referralsService,
-		partners:         partners,
-		stripePublicKey:  stripePublicKey,
-		rateLimiter:      web.NewIPRateLimiter(config.RateLimit),
+		log:             logger,
+		config:          config,
+		listener:        listener,
+		service:         service,
+		mailService:     mailService,
+		partners:        partners,
+		stripePublicKey: stripePublicKey,
+		rateLimiter:     web.NewIPRateLimiter(config.RateLimit),
+		nodeURL:         nodeURL,
 	}
 
 	logger.Debug("Starting Satellite UI.", zap.Stringer("Address", server.listener.Addr()))
@@ -163,11 +166,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		"/api/v0/projects/{id}/usage-limits",
 		server.withAuth(http.HandlerFunc(server.projectUsageLimitsHandler)),
 	).Methods(http.MethodGet)
-
-	referralsController := consoleapi.NewReferrals(logger, referralsService, service, mailService, server.config.ExternalAddress)
-	referralsRouter := router.PathPrefix("/api/v0/referrals").Subrouter()
-	referralsRouter.Handle("/tokens", server.withAuth(http.HandlerFunc(referralsController.GetTokens))).Methods(http.MethodGet)
-	referralsRouter.HandleFunc("/register", referralsController.Register).Methods(http.MethodPost)
 
 	authController := consoleapi.NewAuth(logger, service, mailService, server.cookieAuth, partners, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
@@ -206,7 +204,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		router.HandleFunc("/password-recovery/", server.passwordRecoveryHandler)
 		router.HandleFunc("/cancel-password-recovery/", server.cancelPasswordRecoveryHandler)
 		router.HandleFunc("/usage-report", server.bucketUsageReportHandler)
-		router.PathPrefix("/static/").Handler(server.gzipMiddleware(http.StripPrefix("/static", fs)))
+		router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fs)))
 		router.PathPrefix("/").Handler(http.HandlerFunc(server.appHandler))
 	}
 
@@ -266,7 +264,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 
 	cspValues := []string{
 		"default-src 'self'",
-		"connect-src 'self' api.segment.io *.google-analytics.com",
+		"connect-src 'self' api.segment.io *.google-analytics.com " + server.config.GatewayCredentialsRequestURL,
 		"frame-ancestors " + server.config.FrameAncestors,
 		"frame-src 'self' *.stripe.com *.googletagmanager.com",
 		"img-src 'self' data: *.customer.io *.googletagmanager.com *.google-analytics.com",
@@ -279,7 +277,9 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
 	var data struct {
+		ExternalAddress                 string
 		SatelliteName                   string
+		SatelliteNodeURL                string
 		SegmentIOPublicKey              string
 		StripePublicKey                 string
 		VerificationPageURL             string
@@ -288,9 +288,13 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		DefaultProjectLimit             int
 		GeneralRequestURL               string
 		ProjectLimitsIncreaseRequestURL string
+		GatewayCredentialsRequestURL    string
+		IsBetaSatellite                 bool
 	}
 
+	data.ExternalAddress = server.config.ExternalAddress
 	data.SatelliteName = server.config.SatelliteName
+	data.SatelliteNodeURL = server.nodeURL.String()
 	data.SegmentIOPublicKey = server.config.SegmentIOPublicKey
 	data.StripePublicKey = server.stripePublicKey
 	data.VerificationPageURL = server.config.VerificationPageURL
@@ -299,6 +303,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.DefaultProjectLimit = server.config.DefaultProjectLimit
 	data.GeneralRequestURL = server.config.GeneralRequestURL
 	data.ProjectLimitsIncreaseRequestURL = server.config.ProjectLimitsIncreaseRequestURL
+	data.GatewayCredentialsRequestURL = server.config.GatewayCredentialsRequestURL
+	data.IsBetaSatellite = server.config.IsBetaSatellite
 
 	if server.templates.index == nil {
 		server.log.Error("index template is not set")
@@ -599,6 +605,7 @@ func (server *Server) projectUsageLimitsHandler(w http.ResponseWriter, r *http.R
 			Error string `json:"error"`
 		}
 
+		// N.B. we are probably leaking internal details to the client
 		jsonError.Error = err.Error()
 
 		if err := json.NewEncoder(w).Encode(jsonError); err != nil {
@@ -610,6 +617,8 @@ func (server *Server) projectUsageLimitsHandler(w http.ResponseWriter, r *http.R
 		switch {
 		case console.ErrUnauthorized.Has(err):
 			handleError(http.StatusUnauthorized, err)
+		case accounting.ErrInvalidArgument.Has(err):
+			handleError(http.StatusBadRequest, err)
 		default:
 			handleError(http.StatusInternalServerError, err)
 		}
@@ -789,19 +798,19 @@ func (server *Server) seoHandler(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// gzipMiddleware is used to gzip static content to minify resources if browser support such decoding.
-func (server *Server) gzipMiddleware(fn http.Handler) http.Handler {
+// brotliMiddleware is used to compress static content using brotli to minify resources if browser support such decoding.
+func (server *Server) brotliMiddleware(fn http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "public, max-age=31536000")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 
-		isGzipSupported := strings.Contains(r.Header.Get("Accept-Encoding"), "gzip")
-		if !isGzipSupported {
+		isBrotliSupported := strings.Contains(r.Header.Get("Accept-Encoding"), "br")
+		if !isBrotliSupported {
 			fn.ServeHTTP(w, r)
 			return
 		}
 
-		info, err := os.Stat(server.config.StaticDir + strings.TrimPrefix(r.URL.Path, "/static") + ".gz")
+		info, err := os.Stat(server.config.StaticDir + strings.TrimPrefix(r.URL.Path, "/static") + ".br")
 		if err != nil {
 			fn.ServeHTTP(w, r)
 			return
@@ -809,13 +818,13 @@ func (server *Server) gzipMiddleware(fn http.Handler) http.Handler {
 
 		extension := filepath.Ext(info.Name()[:len(info.Name())-3])
 		w.Header().Set(contentType, mime.TypeByExtension(extension))
-		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Set("Content-Encoding", "br")
 
 		newRequest := new(http.Request)
 		*newRequest = *r
 		newRequest.URL = new(url.URL)
 		*newRequest.URL = *r.URL
-		newRequest.URL.Path += ".gz"
+		newRequest.URL.Path += ".br"
 
 		fn.ServeHTTP(w, newRequest)
 	})

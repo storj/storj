@@ -83,9 +83,9 @@ func (dialer *Dialer) Handle(ctx context.Context, node storj.NodeURL, queue Queu
 		for len(jobs) > 0 {
 			batch, promises, rest := batchJobs(jobs, dialer.piecesPerRequest)
 			// Aggregation metrics
-			mon.IntVal("delete batch size").Observe(int64(len(batch)))
+			mon.IntVal("delete_batch_size").Observe(int64(len(batch))) //mon:locked
 			// Tracing metrics
-			s.Annotate("delete batch size", strconv.Itoa(len(batch)))
+			s.Annotate("delete_batch_size", strconv.Itoa(len(batch)))
 
 			jobs = rest
 
@@ -111,7 +111,7 @@ func (dialer *Dialer) Handle(ctx context.Context, node storj.NodeURL, queue Queu
 				}
 				break
 			} else {
-				mon.IntVal("deletion pieces unhandled count").Observe(resp.UnhandledCount)
+				mon.IntVal("deletion_pieces_unhandled_count").Observe(resp.UnhandledCount) //mon:locked
 			}
 
 			jobs = append(jobs, queue.PopAllWithoutClose()...)

@@ -23,7 +23,7 @@ import BaseChart from '@/app/components/BaseChart.vue';
 import { ChartData } from '@/app/types/chartData';
 import { Tooltip, TooltipParams } from '@/app/types/tooltip';
 import { ChartUtils } from '@/app/utils/chart';
-import { formatBytes } from '@/app/utils/converter';
+import { Size } from '@/private/memory/size';
 import { IngressUsed } from '@/storagenode/sno/sno';
 
 /**
@@ -35,8 +35,8 @@ class IngressTooltip {
     public date: string;
 
     public constructor(bandwidth: IngressUsed) {
-        this.normalIngress = formatBytes(bandwidth.ingress.usage);
-        this.repairIngress = formatBytes(bandwidth.ingress.repair);
+        this.normalIngress = Size.toBase10String(bandwidth.ingress.usage);
+        this.repairIngress = Size.toBase10String(bandwidth.ingress.repair);
         this.date = bandwidth.intervalStart.toUTCString().slice(0, 16);
     }
 }

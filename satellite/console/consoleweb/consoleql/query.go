@@ -9,7 +9,6 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/rewards"
 )
 
 const (
@@ -17,12 +16,10 @@ const (
 	Query = "query"
 	// ProjectQuery is a query name for project.
 	ProjectQuery = "project"
+	// OwnedProjectsQuery is a query name for projects owned by an account.
+	OwnedProjectsQuery = "ownedProjects"
 	// MyProjectsQuery is a query name for projects related to account.
 	MyProjectsQuery = "myProjects"
-	// ActiveRewardQuery is a query name for current active reward offer.
-	ActiveRewardQuery = "activeReward"
-	// CreditUsageQuery is a query name for credit usage related to an user.
-	CreditUsageQuery = "creditUsage"
 )
 
 // rootQuery creates query for graphql populated by AccountsClient.
@@ -53,6 +50,19 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 					return project, nil
 				},
 			},
+			OwnedProjectsQuery: &graphql.Field{
+				Type: types.projectsPage,
+				Args: graphql.FieldConfigArgument{
+					CursorArg: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(types.projectsCursor),
+					},
+				},
+				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
+					cursor := fromMapProjectsCursor(p.Args[CursorArg].(map[string]interface{}))
+					page, err := service.GetUsersOwnedProjectsPage(p.Context, cursor)
+					return page, err
+				},
+			},
 			MyProjectsQuery: &graphql.Field{
 				Type: graphql.NewList(types.project),
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
@@ -62,35 +72,6 @@ func rootQuery(service *console.Service, mailService *mailservice.Service, types
 					}
 
 					return projects, nil
-				},
-			},
-			ActiveRewardQuery: &graphql.Field{
-				Type: types.reward,
-				Args: graphql.FieldConfigArgument{
-					FieldType: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.Int),
-					},
-				},
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					rewardType, _ := p.Args[FieldType].(int)
-
-					offer, err := service.GetCurrentRewardByType(p.Context, rewards.OfferType(rewardType))
-					if err != nil {
-						return nil, err
-					}
-
-					return offer, nil
-				},
-			},
-			CreditUsageQuery: &graphql.Field{
-				Type: types.creditUsage,
-				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					usage, err := service.GetUserCreditUsage(p.Context)
-					if err != nil {
-						return nil, err
-					}
-
-					return usage, nil
 				},
 			},
 		},

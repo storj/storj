@@ -26,7 +26,7 @@ type Config struct {
 }
 
 // Service is the contact service between storage nodes and satellites.
-// It is responsible for updating general node information like address, capacity, and uptime.
+// It is responsible for updating general node information like address and capacity.
 // It is also responsible for updating peer identity information for verifying signatures from that node.
 //
 // architecture: Service
@@ -83,7 +83,7 @@ func (service *Service) PingBack(ctx context.Context, nodeurl storj.NodeURL) (_ 
 		// If there is an error from trying to dial and ping the node, return that error as
 		// pingErrorMessage and not as the err. We want to use this info to update
 		// node contact info and do not want to terminate execution by returning an err
-		mon.Event("failed dial")
+		mon.Event("failed_dial") //mon:locked
 		pingNodeSuccess = false
 		pingErrorMessage = fmt.Sprintf("failed to dial storage node (ID: %s) at address %s: %q",
 			nodeurl.ID, nodeurl.Address, err,
@@ -97,7 +97,7 @@ func (service *Service) PingBack(ctx context.Context, nodeurl storj.NodeURL) (_ 
 
 	_, err = client.pingNode(ctx, &pb.ContactPingRequest{})
 	if err != nil {
-		mon.Event("failed ping node")
+		mon.Event("failed_ping_node") //mon:locked
 		pingNodeSuccess = false
 		pingErrorMessage = fmt.Sprintf("failed to ping storage node, your node indicated error code: %d, %q", rpcstatus.Code(err), err)
 		service.log.Debug("pingBack pingNode error",

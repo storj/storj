@@ -5,9 +5,9 @@
     <div class="notification-popup-container">
         <div class="notification-popup-container__header">
             <p class="notification-popup-container__header__title">Notifications</p>
-            <router-link :to="notificationsPath" class="notification-popup-container__header__link">
+            <a :href="notificationsPath" class="notification-popup-container__header__link">
                 <p>See All</p>
-            </router-link>
+            </a>
         </div>
         <div
             class="notification-popup-container__content"

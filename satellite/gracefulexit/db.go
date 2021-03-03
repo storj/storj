@@ -36,7 +36,7 @@ type TransferQueueItem struct {
 	OrderLimitSendCount int
 }
 
-// DB implements CRUD operations for graceful exit service
+// DB implements CRUD operations for graceful exit service.
 //
 // architecture: Database
 type DB interface {
@@ -53,8 +53,17 @@ type DB interface {
 	DeleteTransferQueueItem(ctx context.Context, nodeID storj.NodeID, key metabase.SegmentKey, pieceNum int32) error
 	// DeleteTransferQueueItem deletes a graceful exit transfer queue entries by nodeID.
 	DeleteTransferQueueItems(ctx context.Context, nodeID storj.NodeID) error
-	// DeleteFinishedTransferQueueItem deletes finiahed graceful exit transfer queue entries.
+	// DeleteFinishedTransferQueueItem deletes finished graceful exit transfer queue entries.
 	DeleteFinishedTransferQueueItems(ctx context.Context, nodeID storj.NodeID) error
+	// DeleteAllFinishedTransferQueueItems deletes all graceful exit transfer
+	// queue items whose nodes have finished the exit before the indicated time
+	// returning the total number of deleted items.
+	DeleteAllFinishedTransferQueueItems(ctx context.Context, before time.Time) (count int64, err error)
+	// DeleteFinishedExitProgress deletes exit progress entries for nodes that
+	// finished exiting before the indicated time, returns number of deleted entries.
+	DeleteFinishedExitProgress(ctx context.Context, before time.Time) (count int64, err error)
+	// GetFinishedExitNodes gets nodes that are marked having finished graceful exit before a given time.
+	GetFinishedExitNodes(ctx context.Context, before time.Time) (finishedNodes []storj.NodeID, err error)
 	// GetTransferQueueItem gets a graceful exit transfer queue entry.
 	GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, key metabase.SegmentKey, pieceNum int32) (*TransferQueueItem, error)
 	// GetIncomplete gets incomplete graceful exit transfer queue entries ordered by durability ratio and queued date ascending.
@@ -65,4 +74,8 @@ type DB interface {
 	GetIncompleteFailed(ctx context.Context, nodeID storj.NodeID, maxFailures int, limit int, offset int64) ([]*TransferQueueItem, error)
 	// IncrementOrderLimitSendCount increments the number of times a node has been sent an order limit for transferring.
 	IncrementOrderLimitSendCount(ctx context.Context, nodeID storj.NodeID, key metabase.SegmentKey, pieceNum int32) error
+	// CountFinishedTransferQueueItemsByNode return a map of the nodes which has
+	// finished the exit before the indicated time but there are at least one item
+	// left in the transfer queue.
+	CountFinishedTransferQueueItemsByNode(ctx context.Context, before time.Time) (map[storj.NodeID]int64, error)
 }

@@ -46,7 +46,8 @@ export class PayoutHttpApi implements PayoutApi {
             throw new Error('can not get held information');
         }
 
-        const data: any[] = await response.json() || [];
+        const responseBody = await response.json() || [];
+        const data: any[] = !Array.isArray(responseBody) ? [ responseBody ] : responseBody;
 
         return data.map((paystubJson: any) => {
             return new Paystub(
@@ -67,6 +68,7 @@ export class PayoutHttpApi implements PayoutApi {
                 paystubJson.owed,
                 paystubJson.disposed,
                 paystubJson.paid,
+                paystubJson.distributed,
             );
         });
     }
@@ -129,6 +131,7 @@ export class PayoutHttpApi implements PayoutApi {
                 payoutHistoryItem.receipt,
                 payoutHistoryItem.isExitComplete,
                 payoutHistoryItem.heldPercent,
+                payoutHistoryItem.distributed,
             );
         });
     }
@@ -140,7 +143,7 @@ export class PayoutHttpApi implements PayoutApi {
      * @throws Error
      */
     public async getHeldHistory(): Promise<SatelliteHeldHistory[]> {
-        const path = `${this.ROOT_PATH}/held-history/`;
+        const path = `${this.ROOT_PATH}/held-history`;
 
         const response = await this.client.get(path);
 
@@ -208,6 +211,7 @@ export class PayoutHttpApi implements PayoutApi {
                 data.previousMonth.payout,
                 data.previousMonth.held,
             ),
+            data.currentMonthExpectations,
         );
     }
 }

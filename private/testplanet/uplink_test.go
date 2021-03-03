@@ -215,7 +215,7 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 		tlsOptions, err := tlsopts.NewOptions(storageNode.Identity, tlscfg, revocationDB)
 		require.NoError(t, err)
 
-		server, err := server.New(storageNode.Log.Named("mock-server"), tlsOptions, storageNode.Addr(), storageNode.PrivateAddr())
+		server, err := server.New(storageNode.Log.Named("mock-server"), tlsOptions, storageNode.Config.Server)
 		require.NoError(t, err)
 
 		err = pb.DRPCRegisterPiecestore(server.DRPC(), &piecestoreMock{})
@@ -274,5 +274,18 @@ func TestDeleteWithOfflineStoragenode(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Equal(t, 0, len(objects))
+	})
+}
+
+func TestUplinkOpenProject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		_, err = project.EnsureBucket(ctx, "bucket-name")
+		require.NoError(t, err)
 	})
 }

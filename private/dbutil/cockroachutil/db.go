@@ -13,6 +13,7 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/context2"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/tagsql"
@@ -56,7 +57,8 @@ func OpenUnique(ctx context.Context, connStr string, schemaPrefix string) (db *d
 	}
 
 	cleanup := func(cleanupDB tagsql.DB) error {
-		_, err := cleanupDB.Exec(context.TODO(), "DROP DATABASE "+pgutil.QuoteIdentifier(schemaName))
+		ctx := context2.WithoutCancellation(ctx)
+		_, err := cleanupDB.Exec(ctx, "DROP DATABASE "+pgutil.QuoteIdentifier(schemaName))
 		return errs.Wrap(err)
 	}
 

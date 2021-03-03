@@ -28,7 +28,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
-// GarbageCollection is the satellite garbage collection process
+// GarbageCollection is the satellite garbage collection process.
 //
 // architecture: Peer
 type GarbageCollection struct {
@@ -137,7 +137,7 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Metainfo.Database = pointerDB
 
 		// Garbage Collection creates its own instance of the metainfo loop here. Since
-		// GC runs infrequently, this shouldn'tt add too much extra load on the metainfo db.
+		// GC runs infrequently, this shouldn't add too much extra load on the metainfo db.
 		// As long as garbage collection is the only observer joining the metainfo loop, then by default
 		// the metainfo loop will only run when the garbage collection joins (which happens every GarbageCollection.Interval)
 		peer.Metainfo.Loop = metainfo.NewLoop(config.Metainfo.Loop, peer.Metainfo.Database)

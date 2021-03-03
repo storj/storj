@@ -34,7 +34,7 @@ type CSVRow struct {
 	EgressData         int64
 }
 
-// DB implements the database for value attribution table
+// DB implements the database for value attribution table.
 //
 // architecture: Database
 type DB interface {

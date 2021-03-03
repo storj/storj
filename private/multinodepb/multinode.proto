@@ -1,0 +1,121 @@
+// Copyright (C) 2020 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "storj.io/storj/private/multinodepb";
+
+package multinode;
+
+import "gogo.proto";
+import "google/protobuf/timestamp.proto";
+
+message RequestHeader {
+  bytes api_key = 1;
+}
+
+service Storage {
+  rpc DiskSpace(DiskSpaceRequest) returns (DiskSpaceResponse);
+}
+
+message DiskSpaceRequest {
+  RequestHeader header = 1;
+}
+
+message DiskSpaceResponse {
+  int64 allocated = 1;
+  int64 used_pieces = 2;
+  int64 used_trash = 3;
+  int64 free = 4;
+  int64 available = 5;
+  int64 overused = 6;
+}
+
+service Bandwidth {
+  rpc MonthSummary(BandwidthMonthSummaryRequest) returns (BandwidthMonthSummaryResponse);
+}
+
+message BandwidthMonthSummaryRequest {
+  RequestHeader header = 1;
+}
+
+message BandwidthMonthSummaryResponse {
+  int64 used = 1;
+}
+
+service Node {
+  rpc Version(VersionRequest) returns (VersionResponse);
+  rpc LastContact(LastContactRequest) returns (LastContactResponse);
+  rpc Reputation(ReputationRequest) returns (ReputationResponse);
+  rpc TrustedSatellites(TrustedSatellitesRequest) returns (TrustedSatellitesResponse);
+}
+
+message VersionRequest {
+  RequestHeader header = 1;
+}
+
+message VersionResponse {
+  string version = 1; // must be semver formatted
+}
+
+message LastContactRequest {
+  RequestHeader header = 1;
+}
+
+message LastContactResponse {
+  google.protobuf.Timestamp last_contact = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message ReputationRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message ReputationResponse {
+  message Online {
+    double score = 1;
+  }
+  message Audit {
+    double score = 1;
+    double suspension_score = 2;
+  }
+
+  Online online = 1;
+  Audit audit = 2;
+}
+
+message TrustedSatellitesRequest {
+  RequestHeader header = 1;
+}
+
+message TrustedSatellitesResponse {
+  message NodeURL {
+    bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    string address = 2;
+  }
+
+  repeated NodeURL trusted_satellites = 1;
+}
+
+service Payout {
+  rpc Earned(EarnedRequest) returns (EarnedResponse);
+  rpc EarnedPerSatellite(EarnedPerSatelliteRequest) returns (EarnedPerSatelliteResponse);
+}
+
+message EarnedRequest {
+  RequestHeader header = 1;
+}
+
+message EarnedResponse {
+  int64 total = 1;
+}
+
+message EarnedPerSatelliteRequest {
+  RequestHeader header = 1;
+}
+message EarnedPerSatelliteResponse {
+  repeated EarnedSatellite earned_satellite = 1;
+}
+message EarnedSatellite {
+  int64 total = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}

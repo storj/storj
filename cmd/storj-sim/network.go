@@ -43,7 +43,7 @@ const (
 )
 
 var (
-	defaultAccess = "17jgVrPRktsquJQFzpT533WHmZnF6QDkuv8w3Ry5XPzAkh3vj7D1dbJ5MatQRiyRE2ZEiA1Y6fYnhoWqr2n7VgycdXSUPz1QzhthBsHqGXCrRcjSp8RbbVE1VJqDej9nLgB5YDPh3Q5JrVjQeMe9saHAL5rE5tUYJAeynVdre8HeTJMXcwau5"
+	defaultAccess = "12edqtGZnqQo6QHwTB92EDqg9B1WrWn34r7ALu94wkqXL4eXjBNnVr6F5W7GhJjVqJCqxpFERmDR1dhZWyMt3Qq5zwrE9yygXeT6kBoS9AfiPuwB6kNjjxepg5UtPPtp4VLp9mP5eeyobKQRD5TsEsxTGhxamsrHvGGBPrZi8DeLtNYFMRTV6RyJVxpYX6MrPCw9HVoDQbFs7VcPeeRxRMQttSXL3y33BJhkqJ6ByFviEquaX5R2wjQT2Kx"
 )
 
 const (
@@ -51,25 +51,28 @@ const (
 	// to create a port with a consistent format for storj-sim services.
 
 	// Peer classes.
-	satellitePeer      = 0
-	gatewayPeer        = 1
-	versioncontrolPeer = 2
-	storagenodePeer    = 3
+	satellitePeer       = 0
+	satellitePeerWorker = 4
+	gatewayPeer         = 1
+	versioncontrolPeer  = 2
+	storagenodePeer     = 3
 
 	// Endpoints.
-	publicRPC   = 0
-	privateRPC  = 1
-	publicHTTP  = 2
-	privateHTTP = 3
-	debugHTTP   = 9
+	publicRPC  = 0
+	privateRPC = 1
+	publicHTTP = 2
+	debugHTTP  = 9
 
 	// Satellite specific constants.
-	redisPort         = 4
-	adminHTTP         = 5
-	debugAdminHTTP    = 6
-	debugPeerHTTP     = 7
-	debugRepairerHTTP = 8
-	debugGCHTTP       = 10
+	redisPort      = 4
+	adminHTTP      = 5
+	debugAdminHTTP = 6
+	debugCoreHTTP  = 7
+
+	// Satellite worker specific constants.
+	debugMigrationHTTP = 0
+	debugRepairerHTTP  = 1
+	debugGCHTTP        = 2
 )
 
 // port creates a port with a consistent format for storj-sim services.
@@ -90,7 +93,7 @@ func networkExec(flags *Flags, args []string, command string) error {
 
 	if command == "setup" {
 		if flags.Postgres == "" {
-			return errors.New("postgres connection URL is required for running storj-sim. Example: `storj-sim network setup --postgres=<connection URL>`.\nSee docs for more details https://github.com/storj/docs/blob/master/Test-network.md#running-tests-with-postgres")
+			return errors.New("postgres connection URL is required for running storj-sim. Example: `storj-sim network setup --postgres=<connection URL>`.\nSee docs for more details https://github.com/storj/docs/blob/main/Test-network.md#running-tests-with-postgres")
 		}
 
 		identities, err := identitySetup(processes)
@@ -169,8 +172,14 @@ func networkTest(flags *Flags, command string, args []string) error {
 
 	ctx, cancel := NewCLIContext(context.Background())
 
-	var group errgroup.Group
-	processes.Start(ctx, &group, "run")
+	var group *errgroup.Group
+	if processes.FailFast {
+		group, ctx = errgroup.WithContext(ctx)
+	} else {
+		group = &errgroup.Group{}
+	}
+
+	processes.Start(ctx, group, "run")
 
 	for _, process := range processes.List {
 		process.Status.Started.Wait(ctx)
@@ -218,14 +227,19 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		common := []string{"--metrics.app-suffix", "sim", "--log.level", "debug", "--config-dir", dir}
 		if flags.IsDev {
 			common = append(common, "--defaults", "dev")
+		} else {
+			common = append(common, "--defaults", "release")
 		}
 		for command, args := range all {
-			all[command] = append(append(common, command), args...)
+			full := append([]string{}, common...)
+			full = append(full, command)
+			full = append(full, args...)
+			all[command] = full
 		}
 		return all
 	}
 
-	processes := NewProcesses(flags.Directory)
+	processes := NewProcesses(flags.Directory, flags.FailFast)
 
 	var host = flags.Host
 	versioncontrol := processes.New(Info{
@@ -315,13 +329,13 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		apiProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"setup": {
 				"--identity-dir", apiProcess.Directory,
+
 				"--console.address", net.JoinHostPort(host, port(satellitePeer, i, publicHTTP)),
 				"--console.static-dir", filepath.Join(storjRoot, "web/satellite/"),
+				"--console.auth-token-secret", "my-suppa-secret-key",
 				"--console.open-registration-enabled",
 				"--console.rate-limit.burst", "100",
-				"--marketing.base-url", "",
-				"--marketing.address", net.JoinHostPort(host, port(satellitePeer, i, privateHTTP)),
-				"--marketing.static-dir", filepath.Join(storjRoot, "web/marketing/"),
+
 				"--server.address", apiProcess.Address,
 				"--server.private-address", net.JoinHostPort(host, port(satellitePeer, i, privateRPC)),
 
@@ -355,6 +369,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			apiProcess.Arguments["setup"] = append(apiProcess.Arguments["setup"],
 				"--database", masterDBURL,
 				"--metainfo.database-url", metainfoDBURL,
+				"--orders.encryption-keys", "0100000000000000=0100000000000000000000000000000000000000000000000000000000000000",
 			)
 		}
 		apiProcess.ExecBefore["run"] = func(process *Process) error {
@@ -378,7 +393,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		migrationProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"run": {
 				"migration",
-				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugPeerHTTP)),
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeerWorker, i, debugMigrationHTTP)),
 			},
 		})
 		apiProcess.WaitForExited(migrationProcess)
@@ -391,7 +406,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		})
 		coreProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"run": {
-				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugPeerHTTP)),
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugCoreHTTP)),
+				"--orders.encryption-keys", "0100000000000000=0100000000000000000000000000000000000000000000000000000000000000",
 			},
 		})
 		coreProcess.WaitForExited(migrationProcess)
@@ -418,7 +434,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		repairProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"run": {
 				"repair",
-				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugRepairerHTTP)),
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeerWorker, i, debugRepairerHTTP)),
+				"--orders.encryption-keys", "0100000000000000=0100000000000000000000000000000000000000000000000000000000000000",
 			},
 		})
 		repairProcess.WaitForExited(migrationProcess)
@@ -431,7 +448,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		garbageCollectionProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
 			"run": {
 				"garbage-collection",
-				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugGCHTTP)),
+				"--debug.addr", net.JoinHostPort(host, port(satellitePeerWorker, i, debugGCHTTP)),
 			},
 		})
 		garbageCollectionProcess.WaitForExited(migrationProcess)
@@ -632,7 +649,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 }
 
 func identitySetup(network *Processes) (*Processes, error) {
-	processes := NewProcesses(network.Directory)
+	processes := NewProcesses(network.Directory, network.FailFast)
 
 	for _, process := range network.List {
 		if process.Info.Executable == "gateway" || process.Info.Executable == "redis-server" {

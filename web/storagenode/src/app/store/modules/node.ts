@@ -7,13 +7,11 @@ import { Duration, millisecondsInSecond, secondsInMinute } from '@/app/utils/dur
 import { getMonthsBeforeNow } from '@/app/utils/payout';
 import { StorageNodeService } from '@/storagenode/sno/service';
 import {
-    Checks,
     Dashboard,
     Node,
     Satellite,
     SatelliteInfo,
     Satellites,
-    Traffic,
     Utilization,
 } from '@/storagenode/sno/sno';
 
@@ -60,8 +58,8 @@ export function newNodeModule(service: StorageNodeService): StoreModule<StorageN
                 );
 
                 state.utilization = new Utilization(
-                    new Traffic(nodeInfo.bandwidth.used),
-                    new Traffic(nodeInfo.diskSpace.used, nodeInfo.diskSpace.available, nodeInfo.diskSpace.trash),
+                    nodeInfo.bandwidth,
+                    nodeInfo.diskSpace,
                 );
 
                 state.disqualifiedSatellites = nodeInfo.satellites.filter((satellite: SatelliteInfo) => satellite.disqualified);
@@ -84,7 +82,7 @@ export function newNodeModule(service: StorageNodeService): StoreModule<StorageN
                     satelliteInfo.joinDate,
                 );
 
-                state.checks = new Checks(satelliteInfo.uptime, satelliteInfo.audit);
+                state.audits = satelliteInfo.audits;
             },
             [SELECT_ALL_SATELLITES](state: any, satelliteInfo: Satellites): void {
                 state.selectedSatellite = new SatelliteInfo(

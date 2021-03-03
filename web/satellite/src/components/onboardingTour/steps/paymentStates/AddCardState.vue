@@ -16,15 +16,14 @@
                 Your card is secured by 128-bit SSL and AES-256 encryption. Your information is secure.
             </span>
         </div>
-        <div class="add-card-state__button" :class="{ loading: isLoading }" @click="onConfirmAddStripe">
-            <img
-                v-if="isLoading"
-                class="add-card-state__button__loading-image"
-                src="@/../static/images/account/billing/loading.gif"
-                alt="loading gif"
-            >
-            <span class="add-card-state__button__label">{{ isLoading ? 'Adding' : 'Add Payment' }}</span>
-        </div>
+        <p class="add-card-state__next-label">Next</p>
+        <VButton
+            label="Create an Access Grant"
+            width="252px"
+            height="48px"
+            :is-disabled="isLoading"
+            :on-press="onCreateGrantClick"
+        />
     </div>
 </template>
 
@@ -32,10 +31,16 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import StripeCardInput from '@/components/account/billing/paymentMethods/StripeCardInput.vue';
+import VButton from '@/components/common/VButton.vue';
 
 import LockImage from '@/../static/images/account/billing/lock.svg';
 
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { ProjectFields } from '@/types/projects';
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 const {
@@ -52,25 +57,67 @@ interface StripeForm {
     components: {
         StripeCardInput,
         LockImage,
+        VButton,
     },
 })
 
 export default class AddCardState extends Vue {
-    public isLoading: boolean = false;
+    private readonly TOGGLE_IS_LOADING: string = 'toggleIsLoading';
+    private readonly SET_CREATE_GRANT_STEP: string = 'setCreateGrantStep';
 
+    public isLoading: boolean = false;
     public $refs!: {
         stripeCardInput: StripeCardInput & StripeForm;
     };
 
     /**
-     * Provides card information to Stripe.
+     * Provides card information to Stripe, creates untitled project and redirects to next step.
      */
-    public async onConfirmAddStripe(): Promise<void> {
-        await this.$refs.stripeCardInput.onSubmit();
+    public async onCreateGrantClick(): Promise<void> {
+        if (this.isLoading) return;
 
-        this.$segment.track(SegmentEvent.PAYMENT_METHOD_ADDED, {
-            project_id: this.$store.getters.selectedProject.id,
-        });
+        this.isLoading = true;
+
+        this.$emit(this.TOGGLE_IS_LOADING);
+
+        try {
+            await this.$refs.stripeCardInput.onSubmit();
+
+            const FIRST_PAGE = 1;
+            const UNTITLED_PROJECT_NAME = 'Untitled Project';
+            const UNTITLED_PROJECT_DESCRIPTION = '___';
+            const project = new ProjectFields(
+                UNTITLED_PROJECT_NAME,
+                UNTITLED_PROJECT_DESCRIPTION,
+                this.$store.getters.user.id,
+            );
+            const createdProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
+            const createdProjectId = createdProject.id;
+
+            this.$segment.track(SegmentEvent.PROJECT_CREATED, {
+                project_id: createdProjectId,
+            });
+            this.$segment.track(SegmentEvent.PAYMENT_METHOD_ADDED, {
+                project_id: createdProjectId,
+            });
+
+            await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, createdProjectId);
+            await this.$store.dispatch(PM_ACTIONS.CLEAR);
+            await this.$store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
+            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, createdProjectId);
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR);
+            await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
+
+            this.setDefaultState();
+
+            this.$emit(this.SET_CREATE_GRANT_STEP);
+        } catch (error) {
+            await this.$notify.error(error.message);
+            this.setDefaultState();
+        }
     }
 
     /**
@@ -79,11 +126,6 @@ export default class AddCardState extends Vue {
      * @param token from Stripe
      */
     public async addCard(token: string) {
-        if (this.isLoading) return;
-
-        this.isLoading = true;
-        this.$emit('toggleIsLoading');
-
         try {
             await this.$store.dispatch(ADD_CREDIT_CARD, token);
         } catch (error) {
@@ -98,11 +140,8 @@ export default class AddCardState extends Vue {
             await this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {
             await this.$notify.error(error.message);
+            this.setDefaultState();
         }
-
-        this.setDefaultState();
-
-        this.$emit('setProjectState');
     }
 
     /**
@@ -110,7 +149,7 @@ export default class AddCardState extends Vue {
      */
     private setDefaultState(): void {
         this.isLoading = false;
-        this.$emit('toggleIsLoading');
+        this.$emit(this.TOGGLE_IS_LOADING);
     }
 }
 </script>
@@ -147,7 +186,6 @@ export default class AddCardState extends Vue {
             padding: 15px 35px;
             background-color: #cef0e3;
             border-radius: 0 0 8px 8px;
-            margin-bottom: 45px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -160,34 +198,12 @@ export default class AddCardState extends Vue {
             }
         }
 
-        &__button {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            width: 156px;
-            height: 48px;
-            cursor: pointer;
-            border-radius: 6px;
-            background-color: #2683ff;
-
-            &__loading-image {
-                margin-right: 5px;
-                width: 18px;
-                height: 18px;
-            }
-
-            &__label {
-                font-family: 'font_medium', sans-serif;
-                font-size: 16px;
-                line-height: 23px;
-                color: #fff;
-                word-break: keep-all;
-                white-space: nowrap;
-            }
-
-            &:hover {
-                background-color: #0059d0;
-            }
+        &__next-label {
+            font-weight: normal;
+            font-size: 16px;
+            line-height: 26px;
+            color: #768394;
+            margin: 35px 0;
         }
     }
 

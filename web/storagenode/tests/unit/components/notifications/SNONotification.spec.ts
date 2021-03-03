@@ -36,7 +36,7 @@ describe('SNONotification', (): void => {
         const testNotification = new Notification(
             '123',
             '1234',
-            NotificationTypes.UptimeCheckFailure,
+            NotificationTypes.AuditCheckFailure,
             'title1',
             'message1',
         );

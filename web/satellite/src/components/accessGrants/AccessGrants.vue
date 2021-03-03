@@ -106,7 +106,11 @@ export default class AccessGrants extends Vue {
      * Lifecycle hook after initial render where list of existing access grants is fetched.
      */
     public async mounted(): Promise<void> {
-        await this.$store.dispatch(FETCH, 1);
+        try {
+            await this.$store.dispatch(FETCH, 1);
+        } catch (error) {
+            await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`);
+        }
     }
 
     /**
@@ -160,7 +164,7 @@ export default class AccessGrants extends Vue {
      * Resets pagination to default state.
      */
     public resetPagination(): void {
-        if (this.totalPageCount > 0) {
+        if (this.totalPageCount > 1) {
             this.$refs.pagination.resetPageIndex();
         }
     }

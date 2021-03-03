@@ -2,7 +2,7 @@ pipeline {
     agent {
         docker {
             label 'main'
-            image docker.build("storj-ci", "--pull https://github.com/storj/ci.git").id
+            image docker.build("storj-ci", "--pull git://github.com/storj/ci.git#main").id
             args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/npm --tmpfs "/tmp:exec,mode=777"'
         }
     }
@@ -57,6 +57,7 @@ pipeline {
                         sh 'golangci-lint --config /go/ci/.golangci.yml -j=2 run'
                         sh 'check-mod-tidy -mod .build/go.mod.orig'
                         sh 'make check-monitoring'
+                        sh 'make test-wasm-size'
                     }
                 }
 
@@ -68,7 +69,7 @@ pipeline {
                             'cockroach://root@localhost:26259/testcockroach?sslmode=disable'
                         STORJ_TEST_COCKROACH_ALT = 'cockroach://root@localhost:26260/testcockroach?sslmode=disable'
                         STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
-                        COVERFLAGS = "${ env.BRANCH_NAME != 'master' ? '' : '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/pkg/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...'}"
+                        COVERFLAGS = "${ env.BRANCH_NAME != 'main' ? '' : '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/pkg/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...'}"
                     }
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
@@ -95,8 +96,9 @@ pipeline {
                                     sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
                                     sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
                                     cobertura coberturaReportFile: '.build/cobertura.xml',
-                                        lineCoverageTargets: '100, 0, 0',
-                                        autoUpdateHealth: true,
+                                        lineCoverageTargets: '70, 60, 50',
+                                        autoUpdateHealth: false,
+                                        autoUpdateStability: false,
                                         failUnhealthy: true
                                 }
                             }
@@ -185,6 +187,16 @@ pipeline {
                             sh 'npm run lint'
                             sh script: 'npm audit', returnStatus: true
                             sh 'npm run test'
+                        }
+                    }
+                }
+
+                stage('wasm npm') {
+                    steps {
+                        dir(".build") {
+                            sh 'cp -r ../satellite/console/wasm/tests/ .'
+                            sh 'cd tests && cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" .'
+                            sh 'cd tests && npm install && npm run test'
                         }
                     }
                 }

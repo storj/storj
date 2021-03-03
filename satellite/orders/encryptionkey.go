@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/internalpb"
 )
 
 // ErrEncryptionKey is error class used for keys.
@@ -31,6 +32,17 @@ type EncryptionKeys struct {
 	Default EncryptionKey
 	List    []EncryptionKey
 	KeyByID map[EncryptionKeyID]storj.Key
+}
+
+// NewEncryptionKeys creates a new EncrytpionKeys object with the provided keys.
+func NewEncryptionKeys(keys ...EncryptionKey) (*EncryptionKeys, error) {
+	var ekeys EncryptionKeys
+	for _, key := range keys {
+		if err := ekeys.Add(key); err != nil {
+			return nil, err
+		}
+	}
+	return &ekeys, nil
 }
 
 // EncryptionKey contains an identifier and an encryption key that is used to
@@ -71,7 +83,7 @@ func (key *EncryptionKey) Decrypt(ciphertext []byte, nonce storj.SerialNumber) (
 }
 
 // EncryptMetadata encrypts order limit metadata.
-func (key *EncryptionKey) EncryptMetadata(serial storj.SerialNumber, metadata *pb.OrderLimitMetadata) ([]byte, error) {
+func (key *EncryptionKey) EncryptMetadata(serial storj.SerialNumber, metadata *internalpb.OrderLimitMetadata) ([]byte, error) {
 	marshaled, err := pb.Marshal(metadata)
 	if err != nil {
 		return nil, ErrEncryptionKey.Wrap(err)
@@ -80,13 +92,13 @@ func (key *EncryptionKey) EncryptMetadata(serial storj.SerialNumber, metadata *p
 }
 
 // DecryptMetadata decrypts order limit metadata.
-func (key *EncryptionKey) DecryptMetadata(serial storj.SerialNumber, encrypted []byte) (*pb.OrderLimitMetadata, error) {
+func (key *EncryptionKey) DecryptMetadata(serial storj.SerialNumber, encrypted []byte) (*internalpb.OrderLimitMetadata, error) {
 	decrypted, err := key.Decrypt(encrypted, serial)
 	if err != nil {
 		return nil, ErrEncryptionKey.Wrap(err)
 	}
 
-	metadata := &pb.OrderLimitMetadata{}
+	metadata := &internalpb.OrderLimitMetadata{}
 	err = pb.Unmarshal(decrypted, metadata)
 	if err != nil {
 		return nil, ErrEncryptionKey.Wrap(err)
@@ -137,36 +149,53 @@ func (EncryptionKeys) Type() string { return "orders.EncryptionKeys" }
 
 // Set adds the values from a comma delimited hex encoded strings "hex(id1)=hex(key1),hex(id2)=hex(key2)".
 func (keys *EncryptionKeys) Set(s string) error {
-	if keys.KeyByID == nil {
-		keys.KeyByID = map[EncryptionKeyID]storj.Key{}
-	}
 	if s == "" {
 		return nil
 	}
+
+	keys.Clear()
 
 	for _, x := range strings.Split(s, ",") {
 		x = strings.TrimSpace(x)
 		var ekey EncryptionKey
 		if err := ekey.Set(x); err != nil {
-			return ErrEncryptionKey.New("invalid keys %q: %v", s, err)
+			return ErrEncryptionKey.New("invalid keys %q: %w", s, err)
 		}
-		if ekey.IsZero() {
-			continue
+		if err := keys.Add(ekey); err != nil {
+			return err
 		}
-
-		if keys.Default.IsZero() {
-			keys.Default = ekey
-		}
-
-		if _, exists := keys.KeyByID[ekey.ID]; exists {
-			return ErrEncryptionKey.New("duplicate key identifier %q", s)
-		}
-
-		keys.List = append(keys.List, ekey)
-		keys.KeyByID[ekey.ID] = ekey.Key
 	}
 
 	return nil
+}
+
+// Add adds an encryption key to EncryptionsKeys object.
+func (keys *EncryptionKeys) Add(ekey EncryptionKey) error {
+	if keys.KeyByID == nil {
+		keys.KeyByID = map[EncryptionKeyID]storj.Key{}
+	}
+	if ekey.IsZero() {
+		return ErrEncryptionKey.New("key is zero")
+	}
+
+	if keys.Default.IsZero() {
+		keys.Default = ekey
+	}
+
+	if _, exists := keys.KeyByID[ekey.ID]; exists {
+		return ErrEncryptionKey.New("duplicate key identifier %q", ekey.String())
+	}
+
+	keys.List = append(keys.List, ekey)
+	keys.KeyByID[ekey.ID] = ekey.Key
+	return nil
+}
+
+// Clear removes all keys.
+func (keys *EncryptionKeys) Clear() {
+	keys.Default = EncryptionKey{}
+	keys.List = nil
+	keys.KeyByID = map[EncryptionKeyID]storj.Key{}
 }
 
 // String is required for pflag.Value.

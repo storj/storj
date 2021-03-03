@@ -6,6 +6,8 @@ package console_test
 import (
 	"math/rand"
 	"sort"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,6 +17,7 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -225,7 +228,7 @@ func TestProjectsList(t *testing.T) {
 		}
 
 		require.False(t, projsPage.Next)
-		require.Equal(t, int64(0), projsPage.NextOffset)
+		require.EqualValues(t, 0, projsPage.NextOffset)
 		require.Equal(t, length, len(projectsList))
 		require.Empty(t, cmp.Diff(projects[0], projectsList[0],
 			cmp.Transformer("Sort", func(xs []console.Project) []console.Project {
@@ -235,6 +238,142 @@ func TestProjectsList(t *testing.T) {
 				})
 				return rs
 			})))
+	})
+}
+
+func TestProjectsListByOwner(t *testing.T) {
+	const (
+		limit      = 5
+		length     = limit*4 - 1 // make length offset from page size so we can test incomplete page at end
+		totalPages = 4
+	)
+
+	rateLimit := 100
+
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		owner1, err := db.Console().Users().Insert(ctx,
+			&console.User{
+				ID:           testrand.UUID(),
+				FullName:     "Billy H",
+				Email:        "billyh@example.com",
+				PasswordHash: []byte("example_password"),
+				Status:       1,
+			},
+		)
+		require.NoError(t, err)
+
+		owner2, err := db.Console().Users().Insert(ctx,
+			&console.User{
+				ID:           testrand.UUID(),
+				FullName:     "James H",
+				Email:        "james@example.com",
+				PasswordHash: []byte("example_password_2"),
+				Status:       1,
+			},
+		)
+		require.NoError(t, err)
+
+		projectsDB := db.Console().Projects()
+		projectMembersDB := db.Console().ProjectMembers()
+
+		// Create projects
+		var owner1Projects []console.Project
+		var owner2Projects []console.Project
+		for i := 0; i < length; i++ {
+			proj1, err := projectsDB.Insert(ctx,
+				&console.Project{
+					Name:        "owner1example" + strconv.Itoa(i),
+					Description: "example",
+					OwnerID:     owner1.ID,
+					RateLimit:   &rateLimit,
+				},
+			)
+			require.NoError(t, err)
+
+			proj2, err := projectsDB.Insert(ctx,
+				&console.Project{
+					Name:        "owner2example" + strconv.Itoa(i),
+					Description: "example",
+					OwnerID:     owner2.ID,
+					RateLimit:   &rateLimit,
+				},
+			)
+			require.NoError(t, err)
+
+			// insert 0, 1, or 2 project members
+			numMembers := i % 3
+			switch numMembers {
+			case 1:
+				_, err = projectMembersDB.Insert(ctx, owner1.ID, proj1.ID)
+				require.NoError(t, err)
+				_, err = projectMembersDB.Insert(ctx, owner2.ID, proj2.ID)
+				require.NoError(t, err)
+			case 2:
+				_, err = projectMembersDB.Insert(ctx, owner1.ID, proj1.ID)
+				require.NoError(t, err)
+				_, err = projectMembersDB.Insert(ctx, owner2.ID, proj1.ID)
+				require.NoError(t, err)
+				_, err = projectMembersDB.Insert(ctx, owner1.ID, proj2.ID)
+				require.NoError(t, err)
+				_, err = projectMembersDB.Insert(ctx, owner2.ID, proj2.ID)
+				require.NoError(t, err)
+			}
+			proj1.MemberCount = numMembers
+			proj2.MemberCount = numMembers
+
+			owner1Projects = append(owner1Projects, *proj1)
+			owner2Projects = append(owner2Projects, *proj2)
+		}
+
+		// test listing for each
+		var testCases = []struct {
+			id               uuid.UUID
+			originalProjects []console.Project
+		}{
+			{id: owner1.ID, originalProjects: owner1Projects},
+			{id: owner2.ID, originalProjects: owner2Projects},
+		}
+		for _, tt := range testCases {
+			cursor := &console.ProjectsCursor{
+				Limit: limit,
+				Page:  1,
+			}
+			projsPage, err := projectsDB.ListByOwnerID(ctx, tt.id, *cursor)
+			require.NoError(t, err)
+			require.Len(t, projsPage.Projects, limit)
+			require.EqualValues(t, 1, projsPage.CurrentPage)
+			require.EqualValues(t, totalPages, projsPage.PageCount)
+			require.EqualValues(t, length, projsPage.TotalCount)
+
+			ownerProjectsDB := projsPage.Projects
+
+			for projsPage.Next {
+				cursor.Page++
+				projsPage, err = projectsDB.ListByOwnerID(ctx, tt.id, *cursor)
+				require.NoError(t, err)
+				// number of projects should not exceed page limit
+				require.True(t, len(projsPage.Projects) > 0 && len(projsPage.Projects) <= limit)
+				require.EqualValues(t, cursor.Page, projsPage.CurrentPage)
+				require.EqualValues(t, totalPages, projsPage.PageCount)
+				require.EqualValues(t, length, projsPage.TotalCount)
+
+				ownerProjectsDB = append(ownerProjectsDB, projsPage.Projects...)
+			}
+
+			require.False(t, projsPage.Next)
+			require.EqualValues(t, 0, projsPage.NextOffset)
+			require.Equal(t, length, len(ownerProjectsDB))
+			// sort originalProjects by Name in alphabetical order
+			originalProjects := tt.originalProjects
+			sort.SliceStable(originalProjects, func(i, j int) bool {
+				return strings.Compare(originalProjects[i].Name, originalProjects[j].Name) < 0
+			})
+			for i, p := range ownerProjectsDB {
+				// expect response projects to be in alphabetical order
+				require.Equal(t, originalProjects[i].Name, p.Name)
+				require.Equal(t, originalProjects[i].MemberCount, p.MemberCount)
+			}
+		}
 	})
 }
 

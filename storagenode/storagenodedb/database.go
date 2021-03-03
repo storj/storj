@@ -29,7 +29,7 @@ import (
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
-	"storj.io/storj/storagenode/payout"
+	"storj.io/storj/storagenode/payouts"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
@@ -107,7 +107,7 @@ type DB struct {
 	notificationsDB   *notificationDB
 	payoutDB          *payoutDB
 	pricingDB         *pricingDB
-	secretDB          *secretDB
+	apiKeysDB         *apiKeysDB
 
 	SQLDBs map[string]DBContainer
 }
@@ -134,7 +134,7 @@ func OpenNew(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
 	notificationsDB := &notificationDB{}
 	payoutDB := &payoutDB{}
 	pricingDB := &pricingDB{}
-	secretDB := &secretDB{}
+	apiKeysDB := &apiKeysDB{}
 
 	db := &DB{
 		log:    log,
@@ -157,7 +157,7 @@ func OpenNew(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
 		notificationsDB:   notificationsDB,
 		payoutDB:          payoutDB,
 		pricingDB:         pricingDB,
-		secretDB:          secretDB,
+		apiKeysDB:         apiKeysDB,
 
 		SQLDBs: map[string]DBContainer{
 			DeprecatedInfoDBName:  deprecatedInfoDB,
@@ -173,7 +173,7 @@ func OpenNew(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
 			NotificationsDBName:   notificationsDB,
 			HeldAmountDBName:      payoutDB,
 			PricingDBName:         pricingDB,
-			SecretDBName:          secretDB,
+			APIKeysDBName:         apiKeysDB,
 		},
 	}
 
@@ -202,7 +202,7 @@ func OpenExisting(ctx context.Context, log *zap.Logger, config Config) (*DB, err
 	notificationsDB := &notificationDB{}
 	payoutDB := &payoutDB{}
 	pricingDB := &pricingDB{}
-	secretDB := &secretDB{}
+	apiKeysDB := &apiKeysDB{}
 
 	db := &DB{
 		log:    log,
@@ -225,7 +225,7 @@ func OpenExisting(ctx context.Context, log *zap.Logger, config Config) (*DB, err
 		notificationsDB:   notificationsDB,
 		payoutDB:          payoutDB,
 		pricingDB:         pricingDB,
-		secretDB:          secretDB,
+		apiKeysDB:         apiKeysDB,
 
 		SQLDBs: map[string]DBContainer{
 			DeprecatedInfoDBName:  deprecatedInfoDB,
@@ -241,7 +241,7 @@ func OpenExisting(ctx context.Context, log *zap.Logger, config Config) (*DB, err
 			NotificationsDBName:   notificationsDB,
 			HeldAmountDBName:      payoutDB,
 			PricingDBName:         pricingDB,
-			SecretDBName:          secretDB,
+			APIKeysDBName:         apiKeysDB,
 		},
 	}
 
@@ -274,7 +274,7 @@ func (db *DB) openDatabases(ctx context.Context) error {
 		NotificationsDBName,
 		HeldAmountDBName,
 		PricingDBName,
-		SecretDBName,
+		APIKeysDBName,
 	}
 
 	for _, dbName := range dbs {
@@ -534,7 +534,7 @@ func (db *DB) Notifications() notifications.DB {
 }
 
 // Payout returns instance of the SnoPayout database.
-func (db *DB) Payout() payout.DB {
+func (db *DB) Payout() payouts.DB {
 	return db.payoutDB
 }
 
@@ -543,9 +543,9 @@ func (db *DB) Pricing() pricing.DB {
 	return db.pricingDB
 }
 
-// Secret returns instance of the Secret database.
-func (db *DB) Secret() apikeys.DB {
-	return db.secretDB
+// APIKeys returns instance of the APIKeys database.
+func (db *DB) APIKeys() apikeys.DB {
+	return db.apiKeysDB
 }
 
 // RawDatabases are required for testing purposes.
@@ -1812,11 +1812,11 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				}),
 			},
 			{
-				DB:          &db.secretDB.DB,
+				DB:          &db.apiKeysDB.DB,
 				Description: "Create secret table",
 				Version:     46,
 				CreateDB: func(ctx context.Context, log *zap.Logger) error {
-					if err := db.openDatabase(ctx, SecretDBName); err != nil {
+					if err := db.openDatabase(ctx, APIKeysDBName); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
@@ -1828,6 +1828,155 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( token )
 					);`,
+				},
+			},
+			{
+				DB:          &db.reputationDB.DB,
+				Description: "Add audit_history field to reputation db",
+				Version:     47,
+				Action: migrate.SQL{
+					`ALTER TABLE reputation ADD COLUMN audit_history BLOB`,
+				},
+			},
+			{
+				DB:          &db.reputationDB.DB,
+				Description: "drop uptime columns",
+				Version:     48,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					_, err = rtx.Exec(ctx, `
+						CREATE TABLE reputation_new (
+							satellite_id BLOB NOT NULL,
+							audit_success_count INTEGER NOT NULL,
+							audit_total_count INTEGER NOT NULL,
+							audit_reputation_alpha REAL NOT NULL,
+							audit_reputation_beta REAL NOT NULL,
+							audit_reputation_score REAL NOT NULL,
+							audit_unknown_reputation_alpha REAL NOT NULL,
+							audit_unknown_reputation_beta REAL NOT NULL,
+							audit_unknown_reputation_score REAL NOT NULL,
+							online_score REAL NOT NULL,
+							audit_history BLOB,
+							disqualified_at TIMESTAMP,
+							updated_at TIMESTAMP NOT NULL,
+							suspended_at TIMESTAMP,
+							offline_suspended_at TIMESTAMP,
+							offline_under_review_at TIMESTAMP,
+							joined_at TIMESTAMP NOT NULL,
+							PRIMARY KEY (satellite_id)
+						);
+						INSERT INTO reputation_new SELECT
+							satellite_id,
+							audit_success_count,
+							audit_total_count,
+							audit_reputation_alpha,
+							audit_reputation_beta,
+							audit_reputation_score,
+							audit_unknown_reputation_alpha,
+							audit_unknown_reputation_beta,
+							audit_unknown_reputation_score,
+							online_score,
+							audit_history,
+							disqualified_at,
+							updated_at,
+							suspended_at,
+							offline_suspended_at,
+							offline_under_review_at,
+							joined_at
+							FROM reputation;
+						DROP TABLE reputation;
+						ALTER TABLE reputation_new RENAME TO reputation;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          &db.payoutDB.DB,
+				Description: "Add distributed field to paystubs table",
+				Version:     49,
+				Action: migrate.SQL{
+					`ALTER TABLE paystubs ADD COLUMN distributed bigint`,
+				},
+			},
+			{
+				DB:          &db.payoutDB.DB,
+				Description: "Make distributed field in paystubs table not null",
+				Version:     50,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					_, err = rtx.Exec(ctx, `UPDATE paystubs SET distributed = ? WHERE distributed ISNULL`, 0)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `
+						CREATE TABLE paystubs_new (
+							period text NOT NULL,
+							satellite_id bytea NOT NULL,
+							created_at timestamp NOT NULL,
+							codes text NOT NULL,
+							usage_at_rest double precision NOT NULL,
+							usage_get bigint NOT NULL,
+							usage_put bigint NOT NULL,
+							usage_get_repair bigint NOT NULL,
+							usage_put_repair bigint NOT NULL,
+							usage_get_audit bigint NOT NULL,
+							comp_at_rest bigint NOT NULL,
+							comp_get bigint NOT NULL,
+							comp_put bigint NOT NULL,
+							comp_get_repair bigint NOT NULL,
+							comp_put_repair bigint NOT NULL,
+							comp_get_audit bigint NOT NULL,
+							surge_percent bigint NOT NULL,
+							held bigint NOT NULL,
+							owed bigint NOT NULL,
+							disposed bigint NOT NULL,
+							paid bigint NOT NULL,
+							distributed bigint NOT NULL,
+							PRIMARY KEY ( period, satellite_id )
+						);
+						INSERT INTO paystubs_new SELECT
+							period,
+							satellite_id,
+							created_at,
+							codes,
+							usage_at_rest,
+							usage_get,
+							usage_put,
+							usage_get_repair,
+							usage_put_repair,
+							usage_get_audit,
+							comp_at_rest,
+							comp_get,
+							comp_put,
+							comp_get_repair,
+							comp_put_repair,
+							comp_get_audit,
+							surge_percent,
+							held,
+							owed,
+							disposed,
+							paid,
+							distributed
+							FROM paystubs;
+						DROP TABLE paystubs;
+						ALTER TABLE paystubs_new RENAME TO paystubs;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          &db.payoutDB.DB,
+				Description: "Assume distributed == paid for paystubs before 2020-12.",
+				Version:     51,
+				Action: migrate.SQL{
+					`UPDATE paystubs SET distributed = paid WHERE period < '2020-12'`,
 				},
 			},
 		},

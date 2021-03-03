@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="name-step">
+    <div class="name-step" :class="{ 'border-radius': isOnboardingTour }">
         <h1 class="name-step__title">Name Your Access Grant</h1>
         <p class="name-step__sub-title">Enter a name for your new Access grant to get started.</p>
         <HeaderedInput
@@ -14,6 +14,7 @@
         />
         <div class="name-step__buttons-area">
             <VButton
+                v-if="!isOnboardingTour"
                 class="cancel-button"
                 label="Cancel"
                 width="50%"
@@ -41,7 +42,13 @@ import VButton from '@/components/common/VButton.vue';
 
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant } from '@/types/accessGrants';
+import { ProjectFields } from '@/types/projects';
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
+import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 @Component({
     components: {
@@ -84,12 +91,47 @@ export default class NameStep extends Vue {
         }
 
         if (!this.name) {
-            this.errorMessage = 'Access Grant name can`t be empty';
+            this.errorMessage = 'Access Grant name can\'t be empty';
 
             return;
         }
 
         this.isLoading = true;
+
+        // Check if at least one project exists.
+        // Used like backwards compatibility for the old accounts without any project.
+        if (this.$store.getters.projects.length === 0) {
+            try {
+                const FIRST_PAGE = 1;
+                const UNTITLED_PROJECT_NAME = 'Untitled Project';
+                const UNTITLED_PROJECT_DESCRIPTION = '___';
+                const project = new ProjectFields(
+                    UNTITLED_PROJECT_NAME,
+                    UNTITLED_PROJECT_DESCRIPTION,
+                    this.$store.getters.user.id,
+                );
+                const createdProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
+
+                this.$segment.track(SegmentEvent.PROJECT_CREATED, {
+                    project_id: createdProject.id,
+                });
+
+                await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, createdProject.id);
+                await this.$store.dispatch(PM_ACTIONS.CLEAR);
+                await this.$store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
+                await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY);
+                await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
+                await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
+                await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, createdProject.id);
+                await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR);
+                await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
+            } catch (error) {
+                await this.$notify.error(error.message);
+                this.isLoading = false;
+
+                return;
+            }
+        }
 
         let createdAccessGrant: AccessGrant;
         try {
@@ -113,12 +155,31 @@ export default class NameStep extends Vue {
         }
 
         this.isLoading = false;
+
+        if (this.isOnboardingTour) {
+            await this.$router.push({
+                name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantPermissions)).name,
+                params: {
+                    key: this.key,
+                },
+            });
+
+            return;
+        }
+
         await this.$router.push({
             name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.PermissionsStep)).name,
             params: {
                 key: this.key,
             },
         });
+    }
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    public get isOnboardingTour(): boolean {
+        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 }
 </script>
@@ -132,6 +193,8 @@ export default class NameStep extends Vue {
         display: flex;
         flex-direction: column;
         align-items: center;
+        background-color: #fff;
+        border-radius: 0 6px 6px 0;
 
         &__title {
             font-family: 'font_bold', sans-serif;
@@ -152,18 +215,23 @@ export default class NameStep extends Vue {
         }
 
         &__input {
-            width: calc(100% - 10px);
+            width: calc(100% - 12px);
         }
 
         &__buttons-area {
             width: 100%;
             display: flex;
             align-items: center;
-            margin-top: 100px;
+            justify-content: center;
+            margin-top: 130px;
         }
     }
 
     .cancel-button {
         margin-right: 15px;
+    }
+
+    .border-radius {
+        border-radius: 6px;
     }
 </style>

@@ -170,13 +170,15 @@ func TestBilling_TrafficAfterFileDeletion(t *testing.T) {
 			uplink       = planet.Uplinks[0]
 			projectID    = uplink.Projects[0].ID
 		)
+		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], bucketName)
+		require.NoError(t, err)
 
 		// stop any async flushes because we want to be sure when some values are
 		// written to avoid races
 		satelliteSys.Orders.Chore.Loop.Pause()
 
 		data := testrand.Bytes(5 * memory.KiB)
-		err := uplink.Upload(ctx, satelliteSys, bucketName, filePath, data)
+		err = uplink.Upload(ctx, satelliteSys, bucketName, filePath, data)
 		require.NoError(t, err)
 
 		_, err = uplink.Download(ctx, satelliteSys, bucketName, filePath)
@@ -364,6 +366,7 @@ func TestBilling_DownloadTraffic(t *testing.T) {
 		require.NotZero(t, usage.Egress, "billed usage")
 	})
 }
+
 func TestBilling_ExpiredFiles(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -415,7 +418,6 @@ func getTallies(ctx context.Context, t *testing.T, planet *testplanet.Planet, sa
 	tallies, err := sat.DB.ProjectAccounting().GetTallies(ctx)
 	require.NoError(t, err)
 	return tallies
-
 }
 
 func TestBilling_ZombieSegments(t *testing.T) {
@@ -503,11 +505,6 @@ func getProjectTotalFromStorageNodes(
 	}
 
 	sat := planet.Satellites[satelliteIdx]
-	{
-		rollout := sat.Core.Accounting.ReportedRollupChore
-		require.NoError(t, rollout.RunOnce(ctx, since))
-	}
-
 	sat.Accounting.Tally.Loop.TriggerWait()
 
 	// flush rollups write cache

@@ -35,7 +35,7 @@ describe('mutations', () => {
         createLocalVue().use(Vuex);
         notifications = [
             new UINotification(new Notification('1', '1', NotificationTypes.Disqualification, 'title1', 'message1', null)),
-            new UINotification(new Notification('2', '1', NotificationTypes.UptimeCheckFailure, 'title2', 'message2', null)),
+            new UINotification(new Notification('2', '1', NotificationTypes.AuditCheckFailure, 'title2', 'message2', null)),
         ];
     });
 
@@ -75,7 +75,7 @@ describe('actions', () => {
         jest.resetAllMocks();
         notifications = [
             new UINotification(new Notification('1', '1', NotificationTypes.Disqualification, 'title1', 'message1', null)),
-            new UINotification(new Notification('2', '1', NotificationTypes.UptimeCheckFailure, 'title2', 'message2', null)),
+            new UINotification(new Notification('2', '1', NotificationTypes.AuditCheckFailure, 'title2', 'message2', null)),
         ];
     });
 

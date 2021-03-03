@@ -21,7 +21,7 @@ type Config struct {
 	DeleteTallies bool          `help:"option for deleting tallies after they are rolled up" default:"true"`
 }
 
-// Service is the rollup service for totalling data on storage nodes on daily intervals
+// Service is the rollup service for totalling data on storage nodes on daily intervals.
 //
 // architecture: Chore
 type Service struct {
@@ -69,6 +69,11 @@ func (r *Service) Rollup(ctx context.Context) (err error) {
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	// unexpired orders with created at times before the last rollup timestamp could still have been added later
+	if !lastRollup.IsZero() {
+		lastRollup = lastRollup.Add(-r.OrderExpiration)
+	}
+
 	rollupStats := make(accounting.RollupStats)
 	latestTally, err := r.RollupStorage(ctx, lastRollup, rollupStats)
 	if err != nil {
@@ -142,22 +147,10 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 // RollupBW aggregates the bandwidth rollups, modifies rollupStats map.
 func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	var latestTally time.Time
-	bws, err := r.sdb.GetBandwidthSince(ctx, lastRollup.UTC())
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	if len(bws) == 0 {
-		r.logger.Info("Rollup found no new bw rollups")
-		return nil
-	}
-	for _, row := range bws {
+	err = r.sdb.GetBandwidthSince(ctx, lastRollup.UTC(), func(ctx context.Context, row *accounting.StoragenodeBandwidthRollup) error {
 		nodeID := row.NodeID
 		// interval is the time the bw order was saved
 		interval := row.IntervalStart.UTC()
-		if interval.After(latestTally) {
-			latestTally = interval
-		}
 		day := time.Date(interval.Year(), interval.Month(), interval.Day(), 0, 0, 0, 0, interval.Location())
 		if rollupStats[day] == nil {
 			rollupStats[day] = make(map[storj.NodeID]*accounting.Rollup)
@@ -181,6 +174,11 @@ func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStat
 		default:
 			r.logger.Info("delete order type")
 		}
+
+		return nil
+	})
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
 	return nil

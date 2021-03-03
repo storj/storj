@@ -21,7 +21,7 @@ var (
 	mon = monkit.Package()
 )
 
-// Endpoint for querying node stats for the SNO
+// Endpoint for querying node stats for the SNO.
 //
 // architecture: Endpoint
 type Endpoint struct {
@@ -57,6 +57,12 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 		e.log.Error("overlay.Get failed", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
+	auditHistory, err := e.overlay.GetAuditHistory(ctx, peer.ID)
+	// if there is no audit history for the node, that's fine and we can continue with a nil auditHistory struct.
+	if err != nil && !overlay.ErrNodeNotFound.Has(err) {
+		e.log.Error("overlay.GetAuditHistory failed", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
 
 	auditScore := calculateReputationScore(
 		node.Reputation.AuditReputationAlpha,
@@ -67,10 +73,6 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 		node.Reputation.UnknownAuditReputationBeta)
 
 	return &pb.GetStatsResponse{
-		UptimeCheck: &pb.ReputationStats{
-			TotalCount:   node.Reputation.UptimeCount,
-			SuccessCount: node.Reputation.UptimeSuccessCount,
-		},
 		AuditCheck: &pb.ReputationStats{
 			TotalCount:             node.Reputation.AuditCount,
 			SuccessCount:           node.Reputation.AuditSuccessCount,
@@ -86,6 +88,7 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 		Suspended:          node.UnknownAuditSuspended,
 		OfflineSuspended:   node.OfflineSuspended,
 		OfflineUnderReview: node.OfflineUnderReview,
+		AuditHistory:       overlay.AuditHistoryToPB(auditHistory),
 		JoinedAt:           node.CreatedAt,
 	}, nil
 }

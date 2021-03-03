@@ -13,6 +13,7 @@ import (
 	"storj.io/private/version"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
@@ -32,6 +33,7 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	db, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
+		ApplicationName:      "satellite-api",
 		APIKeysLRUOptions:    runCfg.APIKeysLRUOptions(),
 		RevocationLRUOptions: runCfg.RevocationLRUOptions(),
 	})
@@ -42,7 +44,7 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	pointerDB, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), runCfg.Config.Metainfo.DatabaseURL)
+	pointerDB, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), runCfg.Config.Metainfo.DatabaseURL, "satellite-api")
 	if err != nil {
 		return errs.New("Error creating metainfodb connection on satellite api: %+v", err)
 	}
@@ -60,7 +62,13 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 
 	accountingCache, err := live.NewCache(log.Named("live-accounting"), runCfg.LiveAccounting)
 	if err != nil {
-		return errs.New("Error creating live accounting cache on satellite api: %+v", err)
+		if !accounting.ErrSystemOrNetError.Has(err) || accountingCache == nil {
+			return errs.New("Error instantiating live accounting cache: %w", err)
+		}
+
+		log.Warn("Unable to connect to live accounting cache. Verify connection",
+			zap.Error(err),
+		)
 	}
 	defer func() {
 		err = errs.Combine(err, accountingCache.Close())

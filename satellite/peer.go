@@ -16,8 +16,8 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/accounting/projectbwcleanup"
-	"storj.io/storj/satellite/accounting/reportedrollup"
 	"storj.io/storj/satellite/accounting/rollup"
+	"storj.io/storj/satellite/accounting/rolluparchive"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/attribution"
@@ -26,28 +26,24 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/contact"
-	"storj.io/storj/satellite/dbcleanup"
-	"storj.io/storj/satellite/downtime"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
-	"storj.io/storj/satellite/referrals"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/revocation"
-	"storj.io/storj/satellite/rewards"
-	"storj.io/storj/satellite/snopayout"
+	"storj.io/storj/satellite/snopayouts"
 )
 
 var mon = monkit.Package()
@@ -56,7 +52,7 @@ func init() {
 	hw.Register(monkit.Default)
 }
 
-// DB is the master database for the satellite
+// DB is the master database for the satellite.
 //
 // architecture: Master Database
 type DB interface {
@@ -86,8 +82,6 @@ type DB interface {
 	Irreparable() irreparable.DB
 	// Console returns database for satellite console
 	Console() console.DB
-	// Rewards returns database for marketing admin GUI
-	Rewards() rewards.DB
 	// Orders returns database for orders
 	Orders() orders.DB
 	// Containment returns database for containment
@@ -98,10 +92,8 @@ type DB interface {
 	GracefulExit() gracefulexit.DB
 	// StripeCoinPayments returns stripecoinpayments database.
 	StripeCoinPayments() stripecoinpayments.DB
-	// DowntimeTracking returns database for downtime tracking
-	DowntimeTracking() downtime.DB
-	// SnoPayout returns database for payout.
-	SnoPayout() snopayout.DB
+	// SnoPayout returns database for payouts.
+	SNOPayouts() snopayouts.DB
 	// Compoensation tracks storage node compensation
 	Compensation() compensation.DB
 	// Revocation tracks revoked macaroons
@@ -118,8 +110,9 @@ type Config struct {
 
 	Admin admin.Config
 
-	Contact contact.Config
-	Overlay overlay.Config
+	Contact    contact.Config
+	Overlay    overlay.Config
+	StrayNodes straynodes.Config
 
 	Metainfo metainfo.Config
 	Orders   orders.Config
@@ -132,31 +125,23 @@ type Config struct {
 
 	ExpiredDeletion expireddeletion.Config
 
-	DBCleanup dbcleanup.Config
-
 	Tally            tally.Config
 	Rollup           rollup.Config
+	RollupArchive    rolluparchive.Config
 	LiveAccounting   live.Config
-	ReportedRollup   reportedrollup.Config
 	ProjectBWCleanup projectbwcleanup.Config
 
 	Mail mailservice.Config
 
 	Payments paymentsconfig.Config
 
-	Referrals referrals.Config
-
 	Console consoleweb.Config
-
-	Marketing marketingweb.Config
 
 	Version version_checker.Config
 
 	GracefulExit gracefulexit.Config
 
 	Metrics metrics.Config
-
-	Downtime downtime.Config
 
 	Compensation compensation.Config
 

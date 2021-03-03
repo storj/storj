@@ -34,9 +34,13 @@ func TestOrderDBSettle(t *testing.T) {
 		service.Sender.Pause()
 		service.Cleanup.Pause()
 
+		bucketname := "testbucket"
+		err := planet.Uplinks[0].CreateBucket(ctx, satellite, bucketname)
+		require.NoError(t, err)
+
 		_, orderLimits, piecePrivateKey, err := satellite.Orders.Service.CreatePutOrderLimits(
 			ctx,
-			metabase.BucketLocation{ProjectID: planet.Uplinks[0].Projects[0].ID, BucketName: "testbucket"},
+			metabase.BucketLocation{ProjectID: planet.Uplinks[0].Projects[0].ID, BucketName: bucketname},
 			[]*overlay.SelectedNode{
 				{ID: node.ID(), LastIPPort: "fake", Address: new(pb.NodeAddress)},
 			},
@@ -135,10 +139,14 @@ func TestOrderFileStoreAndDBSettle(t *testing.T) {
 		service.Cleanup.Pause()
 		tomorrow := time.Now().Add(24 * time.Hour)
 
+		bucketname := "testbucket"
+		err := uplinkPeer.CreateBucket(ctx, satellite, bucketname)
+		require.NoError(t, err)
+
 		// add orders to orders DB
 		_, orderLimits, piecePrivateKey, err := satellite.Orders.Service.CreatePutOrderLimits(
 			ctx,
-			metabase.BucketLocation{ProjectID: uplinkPeer.Projects[0].ID, BucketName: "testbucket"},
+			metabase.BucketLocation{ProjectID: uplinkPeer.Projects[0].ID, BucketName: bucketname},
 			[]*overlay.SelectedNode{
 				{ID: node.ID(), LastIPPort: "fake", Address: new(pb.NodeAddress)},
 			},

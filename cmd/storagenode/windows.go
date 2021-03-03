@@ -26,13 +26,11 @@ import (
 )
 
 func init() {
-	// Check if session is interactive
-	interactive, err := svc.IsAnInteractiveSession()
+	isService, err := svc.IsWindowsService()
 	if err != nil {
-		zap.L().Fatal("Failed to determine if session is interactive.", zap.Error(err))
+		zap.L().Fatal("Failed to determine if session is a service.", zap.Error(err))
 	}
-
-	if interactive {
+	if !isService {
 		return
 	}
 

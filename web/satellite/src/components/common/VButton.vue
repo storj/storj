@@ -119,6 +119,7 @@ export default class VButton extends Vue {
             line-height: 23px;
             color: #fff;
             margin: 0;
+            white-space: nowrap;
         }
 
         &:hover {

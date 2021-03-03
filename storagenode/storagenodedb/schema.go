@@ -160,6 +160,11 @@ func Schema() map[string]*dbschema.Schema {
 							IsNullable: false,
 						},
 						&dbschema.Column{
+							Name:       "distributed",
+							Type:       "bigint",
+							IsNullable: false,
+						},
+						&dbschema.Column{
 							Name:       "held",
 							Type:       "bigint",
 							IsNullable: false,
@@ -522,6 +527,11 @@ func Schema() map[string]*dbschema.Schema {
 					PrimaryKey: []string{"satellite_id"},
 					Columns: []*dbschema.Column{
 						&dbschema.Column{
+							Name:       "audit_history",
+							Type:       "BLOB",
+							IsNullable: true,
+						},
+						&dbschema.Column{
 							Name:       "audit_reputation_alpha",
 							Type:       "REAL",
 							IsNullable: false,
@@ -599,31 +609,6 @@ func Schema() map[string]*dbschema.Schema {
 						&dbschema.Column{
 							Name:       "updated_at",
 							Type:       "TIMESTAMP",
-							IsNullable: false,
-						},
-						&dbschema.Column{
-							Name:       "uptime_reputation_alpha",
-							Type:       "REAL",
-							IsNullable: false,
-						},
-						&dbschema.Column{
-							Name:       "uptime_reputation_beta",
-							Type:       "REAL",
-							IsNullable: false,
-						},
-						&dbschema.Column{
-							Name:       "uptime_reputation_score",
-							Type:       "REAL",
-							IsNullable: false,
-						},
-						&dbschema.Column{
-							Name:       "uptime_success_count",
-							Type:       "INTEGER",
-							IsNullable: false,
-						},
-						&dbschema.Column{
-							Name:       "uptime_total_count",
-							Type:       "INTEGER",
 							IsNullable: false,
 						},
 					},
@@ -739,3 +724,4 @@ func Schema() map[string]*dbschema.Schema {
 		"used_serial": &dbschema.Schema{},
 	}
 }
+

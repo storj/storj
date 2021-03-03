@@ -180,6 +180,16 @@ func (client *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*pi
 	return piecestore.DialNodeURL(ctx, client.Dialer, destination.NodeURL(), client.Log.Named("uplink>piecestore"), piecestore.DefaultConfig)
 }
 
+// OpenProject opens project with predefined access grant and gives access to pure uplink API.
+func (client *Uplink) OpenProject(ctx context.Context, satellite *Satellite) (*uplink.Project, error) {
+	_, found := testuplink.GetMaxSegmentSize(ctx)
+	if !found {
+		ctx = testuplink.WithMaxSegmentSize(ctx, satellite.Config.Metainfo.MaxSegmentSize)
+	}
+
+	return uplink.OpenProject(ctx, client.Access[satellite.ID()])
+}
+
 // Upload data to specific satellite.
 func (client *Uplink) Upload(ctx context.Context, satellite *Satellite, bucket string, path storj.Path, data []byte) error {
 	return client.UploadWithExpiration(ctx, satellite, bucket, path, data, time.Time{})
@@ -323,6 +333,22 @@ func (client *Uplink) DeleteBucket(ctx context.Context, satellite *Satellite, bu
 		return err
 	}
 	return nil
+}
+
+// ListBuckets returns a list of all buckets in a project.
+func (client *Uplink) ListBuckets(ctx context.Context, satellite *Satellite) ([]*uplink.Bucket, error) {
+	var buckets = []*uplink.Bucket{}
+	project, err := client.GetProject(ctx, satellite)
+	if err != nil {
+		return buckets, err
+	}
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	iter := project.ListBuckets(ctx, &uplink.ListBucketsOptions{})
+	for iter.Next() {
+		buckets = append(buckets, iter.Item())
+	}
+	return buckets, iter.Err()
 }
 
 // GetProject returns a uplink.Project which allows interactions with a specific project.

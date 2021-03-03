@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -19,9 +20,9 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/private/version"
+	"storj.io/storj/private/dbutil/cockroachutil"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/tagsql"
-	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -38,11 +39,28 @@ type overlaycache struct {
 
 // SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes.
 func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
+	for {
+		reputable, new, err = cache.selectAllStorageNodesUpload(ctx, selectionCfg)
+		if err != nil {
+			if cockroachutil.NeedsRetry(err) {
+				continue
+			}
+			return reputable, new, err
+		}
+		break
+	}
+
+	return reputable, new, err
+}
+
+func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	asOf := cache.db.AsOfSystemTimeClause(selectionCfg.AsOfSystemTime.DefaultInterval)
 
 	query := `
 		SELECT id, address, last_net, last_ip_port, vetted_at
-			FROM nodes
+			FROM nodes ` + asOf + `
 			WHERE disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
 			AND exit_initiated_at IS NULL
@@ -101,8 +119,79 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 	return reputableNodes, newNodes, Error.Wrap(rows.Err())
 }
 
+// SelectAllStorageNodesDownload returns all nodes that qualify to store data, organized as reputable nodes and new nodes.
+func (cache *overlaycache) SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) (nodes []*overlay.SelectedNode, err error) {
+	for {
+		nodes, err = cache.selectAllStorageNodesDownload(ctx, onlineWindow, asOf)
+		if err != nil {
+			if cockroachutil.NeedsRetry(err) {
+				continue
+			}
+			return nodes, err
+		}
+		break
+	}
+
+	return nodes, err
+}
+
+func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOfConfig overlay.AsOfSystemTimeConfig) (_ []*overlay.SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	asOf := cache.db.AsOfSystemTimeClause(asOfConfig.DefaultInterval)
+
+	query := `
+		SELECT id, address, last_net, last_ip_port
+			FROM nodes ` + asOf + `
+			WHERE disqualified IS NULL
+			AND exit_finished_at IS NULL
+			AND last_contact_success > $1
+	`
+	args := []interface{}{
+		// $1
+		time.Now().Add(-onlineWindow),
+	}
+
+	rows, err := cache.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var nodes []*overlay.SelectedNode
+	for rows.Next() {
+		var node overlay.SelectedNode
+		node.Address = &pb.NodeAddress{}
+		var lastIPPort sql.NullString
+		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort)
+		if err != nil {
+			return nil, err
+		}
+		if lastIPPort.Valid {
+			node.LastIPPort = lastIPPort.String
+		}
+		nodes = append(nodes, &node)
+	}
+	return nodes, Error.Wrap(rows.Err())
+}
+
 // GetNodesNetwork returns the /24 subnet for each storage node, order is not guaranteed.
 func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error) {
+	for {
+		nodeNets, err = cache.getNodesNetwork(ctx, nodeIDs)
+		if err != nil {
+			if cockroachutil.NeedsRetry(err) {
+				continue
+			}
+			return nodeNets, err
+		}
+		break
+	}
+
+	return nodeNets, err
+}
+
+func (cache *overlaycache) getNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var rows tagsql.Rows
@@ -128,7 +217,7 @@ func (cache *overlaycache) GetNodesNetwork(ctx context.Context, nodeIDs []storj.
 }
 
 // Get looks up the node by nodeID.
-func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (_ *overlay.NodeDossier, err error) {
+func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (dossier *overlay.NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if id.IsZero() {
@@ -147,7 +236,22 @@ func (cache *overlaycache) Get(ctx context.Context, id storj.NodeID) (_ *overlay
 }
 
 // GetOnlineNodesForGetDelete returns a map of nodes for the supplied nodeIDs.
-func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (_ map[storj.NodeID]*overlay.SelectedNode, err error) {
+func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (nodes map[storj.NodeID]*overlay.SelectedNode, err error) {
+	for {
+		nodes, err = cache.getOnlineNodesForGetDelete(ctx, nodeIDs, onlineWindow)
+		if err != nil {
+			if cockroachutil.NeedsRetry(err) {
+				continue
+			}
+			return nodes, err
+		}
+		break
+	}
+
+	return nodes, err
+}
+
+func (cache *overlaycache) getOnlineNodesForGetDelete(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (_ map[storj.NodeID]*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var rows tagsql.Rows
@@ -185,17 +289,34 @@ func (cache *overlaycache) GetOnlineNodesForGetDelete(ctx context.Context, nodeI
 }
 
 // KnownOffline filters a set of nodes to offline nodes.
-func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (offlineNodes storj.NodeIDList, err error) {
+func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIDs storj.NodeIDList) (offlineNodes storj.NodeIDList, err error) {
+	for {
+		offlineNodes, err = cache.knownOffline(ctx, criteria, nodeIDs)
+		if err != nil {
+			if cockroachutil.NeedsRetry(err) {
+				continue
+			}
+			return offlineNodes, err
+		}
+		break
+	}
+
+	return offlineNodes, err
+}
+
+func (cache *overlaycache) knownOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (offlineNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodeIds) == 0 {
 		return nil, Error.New("no ids provided")
 	}
 
+	asOf := cache.db.AsOfSystemTimeClause(criteria.AsOfSystemTimeInterval)
+
 	// get offline nodes
 	var rows tagsql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT id FROM nodes
+		SELECT id FROM nodes `+asOf+`
 			WHERE id = any($1::bytea[])
 			AND last_contact_success < $2
 		`), pgutil.NodeIDArray(nodeIds), time.Now().Add(-criteria.OnlineWindow),
@@ -217,30 +338,47 @@ func (cache *overlaycache) KnownOffline(ctx context.Context, criteria *overlay.N
 }
 
 // KnownUnreliableOrOffline filters a set of nodes to unreliable or offlines node, independent of new.
-func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIds storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
+func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIDs storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
+	for {
+		badNodes, err = cache.knownUnreliableOrOffline(ctx, criteria, nodeIDs)
+		if err != nil {
+			if cockroachutil.NeedsRetry(err) {
+				continue
+			}
+			return badNodes, err
+		}
+		break
+	}
+
+	return badNodes, err
+}
+
+func (cache *overlaycache) knownUnreliableOrOffline(ctx context.Context, criteria *overlay.NodeCriteria, nodeIDs storj.NodeIDList) (badNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if len(nodeIds) == 0 {
+	if len(nodeIDs) == 0 {
 		return nil, Error.New("no ids provided")
 	}
+
+	asOf := cache.db.AsOfSystemTimeClause(criteria.AsOfSystemTimeInterval)
 
 	// get reliable and online nodes
 	var rows tagsql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT id FROM nodes
+		SELECT id FROM nodes `+asOf+`
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success > $2
-		`), pgutil.NodeIDArray(nodeIds), time.Now().Add(-criteria.OnlineWindow),
+		`), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-criteria.OnlineWindow),
 	)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	goodNodes := make(map[storj.NodeID]struct{}, len(nodeIds))
+	goodNodes := make(map[storj.NodeID]struct{}, len(nodeIDs))
 	for rows.Next() {
 		var id storj.NodeID
 		err = rows.Scan(&id)
@@ -249,7 +387,7 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 		}
 		goodNodes[id] = struct{}{}
 	}
-	for _, id := range nodeIds {
+	for _, id := range nodeIDs {
 		if _, ok := goodNodes[id]; !ok {
 			badNodes = append(badNodes, id)
 		}
@@ -259,6 +397,21 @@ func (cache *overlaycache) KnownUnreliableOrOffline(ctx context.Context, criteri
 
 // KnownReliable filters a set of nodes to reliable (online and qualified) nodes.
 func (cache *overlaycache) KnownReliable(ctx context.Context, onlineWindow time.Duration, nodeIDs storj.NodeIDList) (nodes []*pb.Node, err error) {
+	for {
+		nodes, err = cache.knownReliable(ctx, onlineWindow, nodeIDs)
+		if err != nil {
+			if cockroachutil.NeedsRetry(err) {
+				continue
+			}
+			return nodes, err
+		}
+		break
+	}
+
+	return nodes, err
+}
+
+func (cache *overlaycache) knownReliable(ctx context.Context, onlineWindow time.Duration, nodeIDs storj.NodeIDList) (nodes []*pb.Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(nodeIDs) == 0 {
@@ -298,9 +451,26 @@ func (cache *overlaycache) KnownReliable(ctx context.Context, onlineWindow time.
 
 // Reliable returns all reliable nodes.
 func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeCriteria) (nodes storj.NodeIDList, err error) {
+	for {
+		nodes, err = cache.reliable(ctx, criteria)
+		if err != nil {
+			if cockroachutil.NeedsRetry(err) {
+				continue
+			}
+			return nodes, err
+		}
+		break
+	}
+
+	return nodes, err
+}
+
+func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeCriteria) (nodes storj.NodeIDList, err error) {
+	asOf := cache.db.AsOfSystemTimeClause(criteria.AsOfSystemTimeInterval)
+
 	// get reliable and online nodes
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT id FROM nodes
+		SELECT id FROM nodes `+asOf+`
 		WHERE disqualified IS NULL
 		AND unknown_audit_suspended IS NULL
 		AND exit_finished_at IS NULL
@@ -367,13 +537,13 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 				}
 
 				isUp := updateReq.AuditOutcome != overlay.AuditOffline
-				auditHistory, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, now, isUp, updateReq.AuditHistory)
+				auditHistoryResponse, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, now, isUp, updateReq.AuditHistory)
 				if err != nil {
 					doAppendAll = false
 					return err
 				}
 
-				updateNodeStats := cache.populateUpdateNodeStats(dbNode, updateReq, auditHistory, now)
+				updateNodeStats := cache.populateUpdateNodeStats(dbNode, updateReq, auditHistoryResponse, now)
 
 				sql := buildUpdateStatement(updateNodeStats)
 
@@ -446,12 +616,12 @@ func (cache *overlaycache) UpdateStats(ctx context.Context, updateReq *overlay.U
 		}
 
 		isUp := updateReq.AuditOutcome != overlay.AuditOffline
-		auditHistory, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, now, isUp, updateReq.AuditHistory)
+		auditHistoryResponse, err := cache.updateAuditHistoryWithTx(ctx, tx, updateReq.NodeID, now, isUp, updateReq.AuditHistory)
 		if err != nil {
 			return err
 		}
 
-		updateFields := cache.populateUpdateFields(dbNode, updateReq, auditHistory, now)
+		updateFields := cache.populateUpdateFields(dbNode, updateReq, auditHistoryResponse, now)
 		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
 		if err != nil {
 			return err
@@ -485,8 +655,14 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 			updateFields.Type = dbx.Node_Type(int(nodeInfo.Type))
 		}
 		if nodeInfo.Operator != nil {
+			walletFeatures, err := encodeWalletFeatures(nodeInfo.Operator.GetWalletFeatures())
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+
 			updateFields.Wallet = dbx.Node_Wallet(nodeInfo.Operator.GetWallet())
 			updateFields.Email = dbx.Node_Email(nodeInfo.Operator.GetEmail())
+			updateFields.WalletFeatures = dbx.Node_WalletFeatures(walletFeatures)
 		}
 		if nodeInfo.Capacity != nil {
 			updateFields.FreeDisk = dbx.Node_FreeDisk(nodeInfo.Capacity.GetFreeDisk())
@@ -511,77 +687,6 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 	}
 
 	return convertDBNode(ctx, updatedDBNode)
-}
-
-// UpdateUptime updates a single storagenode's uptime stats in the db.
-func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *overlay.NodeStats, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var dbNode *dbx.Node
-	err = cache.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
-		dbNode, err = tx.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
-		if err != nil {
-			return err
-		}
-		// do not update reputation if node is disqualified
-		if dbNode.Disqualified != nil {
-			return nil
-		}
-		// do not update reputation if node has gracefully exited
-		if dbNode.ExitFinishedAt != nil {
-			return nil
-		}
-
-		updateFields := dbx.Node_Update_Fields{}
-		totalUptimeCount := dbNode.TotalUptimeCount
-
-		lastContactSuccess := dbNode.LastContactSuccess
-		lastContactFailure := dbNode.LastContactFailure
-		mon.Meter("uptime_updates").Mark(1)
-		if isUp {
-			totalUptimeCount++
-			updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(dbNode.UptimeSuccessCount + 1)
-			updateFields.LastContactSuccess = dbx.Node_LastContactSuccess(time.Now())
-
-			mon.Meter("uptime_update_successes").Mark(1)
-			// we have seen this node in the past 24 hours
-			if time.Since(lastContactFailure) > time.Hour*24 {
-				mon.Meter("uptime_seen_24h").Mark(1)
-			}
-			// we have seen this node in the past week
-			if time.Since(lastContactFailure) > time.Hour*24*7 {
-				mon.Meter("uptime_seen_week").Mark(1)
-			}
-		} else {
-			updateFields.LastContactFailure = dbx.Node_LastContactFailure(time.Now())
-
-			mon.Meter("uptime_update_failures").Mark(1)
-			// it's been over 24 hours since we've seen this node
-			if time.Since(lastContactSuccess) > time.Hour*24 {
-				mon.Meter("uptime_not_seen_24h").Mark(1)
-			}
-			// it's been over a week since we've seen this node
-			if time.Since(lastContactSuccess) > time.Hour*24*7 {
-				mon.Meter("uptime_not_seen_week").Mark(1)
-			}
-		}
-
-		updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
-		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
-		return err
-	})
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
-	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
-	// but for now we're adding a nil check to prevent a panic.
-	if dbNode == nil {
-		return nil, Error.New("unable to get node by ID: %v", nodeID)
-	}
-
-	return getNodeStats(dbNode), nil
 }
 
 // DisqualifyNode disqualifies a storage node.
@@ -702,6 +807,21 @@ func (cache *overlaycache) UpdatePieceCounts(ctx context.Context, pieceCounts ma
 
 // GetExitingNodes returns nodes who have initiated a graceful exit and is not disqualified, but have not completed it.
 func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes []*overlay.ExitStatus, err error) {
+	for {
+		exitingNodes, err = cache.getExitingNodes(ctx)
+		if err != nil {
+			if cockroachutil.NeedsRetry(err) {
+				continue
+			}
+			return exitingNodes, err
+		}
+		break
+	}
+
+	return exitingNodes, err
+}
+
+func (cache *overlaycache) getExitingNodes(ctx context.Context) (exitingNodes []*overlay.ExitStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
@@ -727,7 +847,22 @@ func (cache *overlaycache) GetExitingNodes(ctx context.Context) (exitingNodes []
 }
 
 // GetExitStatus returns a node's graceful exit status.
-func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeID) (_ *overlay.ExitStatus, err error) {
+func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *overlay.ExitStatus, err error) {
+	for {
+		exitStatus, err = cache.getExitStatus(ctx, nodeID)
+		if err != nil {
+			if cockroachutil.NeedsRetry(err) {
+				continue
+			}
+			return exitStatus, err
+		}
+		break
+	}
+
+	return exitStatus, err
+}
+
+func (cache *overlaycache) getExitStatus(ctx context.Context, nodeID storj.NodeID) (_ *overlay.ExitStatus, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
@@ -753,6 +888,21 @@ func (cache *overlaycache) GetExitStatus(ctx context.Context, nodeID storj.NodeI
 
 // GetGracefulExitCompletedByTimeFrame returns nodes who have completed graceful exit within a time window (time window is around graceful exit completion).
 func (cache *overlaycache) GetGracefulExitCompletedByTimeFrame(ctx context.Context, begin, end time.Time) (exitedNodes storj.NodeIDList, err error) {
+	for {
+		exitedNodes, err = cache.getGracefulExitCompletedByTimeFrame(ctx, begin, end)
+		if err != nil {
+			if cockroachutil.NeedsRetry(err) {
+				continue
+			}
+			return exitedNodes, err
+		}
+		break
+	}
+
+	return exitedNodes, err
+}
+
+func (cache *overlaycache) getGracefulExitCompletedByTimeFrame(ctx context.Context, begin, end time.Time) (exitedNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
@@ -782,6 +932,21 @@ func (cache *overlaycache) GetGracefulExitCompletedByTimeFrame(ctx context.Conte
 
 // GetGracefulExitIncompleteByTimeFrame returns nodes who have initiated, but not completed graceful exit within a time window (time window is around graceful exit initiation).
 func (cache *overlaycache) GetGracefulExitIncompleteByTimeFrame(ctx context.Context, begin, end time.Time) (exitingNodes storj.NodeIDList, err error) {
+	for {
+		exitingNodes, err = cache.getGracefulExitIncompleteByTimeFrame(ctx, begin, end)
+		if err != nil {
+			if cockroachutil.NeedsRetry(err) {
+				continue
+			}
+			return exitingNodes, err
+		}
+		break
+	}
+
+	return exitingNodes, err
+}
+
+func (cache *overlaycache) getGracefulExitIncompleteByTimeFrame(ctx context.Context, begin, end time.Time) (exitingNodes storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
@@ -830,38 +995,6 @@ func (cache *overlaycache) UpdateExitStatus(ctx context.Context, request *overla
 	return convertDBNode(ctx, dbNode)
 }
 
-// GetSuccesfulNodesNotCheckedInSince returns all nodes that last check-in was successful, but haven't checked-in within a given duration.
-func (cache *overlaycache) GetSuccesfulNodesNotCheckedInSince(ctx context.Context, duration time.Duration) (nodeLastContacts []overlay.NodeLastContact, err error) {
-	// get successful nodes that have not checked-in with the hour
-	defer mon.Task()(&ctx)(&err)
-
-	dbxNodes, err := cache.db.DB.All_Node_Id_Node_Address_Node_LastIpPort_Node_LastContactSuccess_Node_LastContactFailure_By_LastContactSuccess_Less_And_LastContactSuccess_Greater_LastContactFailure_And_Disqualified_Is_Null_OrderBy_Asc_LastContactSuccess(
-		ctx, dbx.Node_LastContactSuccess(time.Now().UTC().Add(-duration)))
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	for _, node := range dbxNodes {
-		nodeID, err := storj.NodeIDFromBytes(node.Id)
-		if err != nil {
-			return nil, err
-		}
-
-		nodeLastContact := overlay.NodeLastContact{
-			URL:                storj.NodeURL{ID: nodeID, Address: node.Address},
-			LastContactSuccess: node.LastContactSuccess.UTC(),
-			LastContactFailure: node.LastContactFailure.UTC(),
-		}
-		if node.LastIpPort != nil {
-			nodeLastContact.LastIPPort = *node.LastIpPort
-		}
-
-		nodeLastContacts = append(nodeLastContacts, nodeLastContact)
-	}
-
-	return nodeLastContacts, nil
-}
-
 func populateExitStatusFields(req *overlay.ExitStatusRequest) dbx.Node_Update_Fields {
 	dbxUpdateFields := dbx.Node_Update_Fields{}
 
@@ -877,36 +1010,6 @@ func populateExitStatusFields(req *overlay.ExitStatusRequest) dbx.Node_Update_Fi
 	dbxUpdateFields.ExitSuccess = dbx.Node_ExitSuccess(req.ExitSuccess)
 
 	return dbxUpdateFields
-}
-
-// GetOfflineNodesLimited returns a list of the first N offline nodes ordered by least recently contacted.
-func (cache *overlaycache) GetOfflineNodesLimited(ctx context.Context, limit int) (nodeLastContacts []overlay.NodeLastContact, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	dbxNodes, err := cache.db.DB.Limited_Node_Id_Node_Address_Node_LastIpPort_Node_LastContactSuccess_Node_LastContactFailure_By_LastContactSuccess_Less_LastContactFailure_And_Disqualified_Is_Null_OrderBy_Asc_LastContactFailure(
-		ctx, limit, 0)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	for _, node := range dbxNodes {
-		nodeID, err := storj.NodeIDFromBytes(node.Id)
-		if err != nil {
-			return nil, err
-		}
-
-		nodeLastContact := overlay.NodeLastContact{
-			URL:                storj.NodeURL{ID: nodeID, Address: node.Address},
-			LastContactSuccess: node.LastContactSuccess.UTC(),
-			LastContactFailure: node.LastContactFailure.UTC(),
-		}
-		if node.LastIpPort != nil {
-			nodeLastContact.LastIPPort = *node.LastIpPort
-		}
-
-		nodeLastContacts = append(nodeLastContacts, nodeLastContact)
-	}
-
-	return nodeLastContacts, nil
 }
 
 func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier, err error) {
@@ -939,8 +1042,9 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		},
 		Type: pb.NodeType(info.Type),
 		Operator: pb.NodeOperator{
-			Email:  info.Email,
-			Wallet: info.Wallet,
+			Email:          info.Email,
+			Wallet:         info.Wallet,
+			WalletFeatures: decodeWalletFeatures(info.WalletFeatures),
 		},
 		Capacity: pb.NodeCapacity{
 			FreeDisk: info.FreeDisk,
@@ -969,14 +1073,37 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 	return node, nil
 }
 
+// encodeWalletFeatures encodes wallet features into comma separated list string.
+func encodeWalletFeatures(features []string) (string, error) {
+	var errGroup errs.Group
+
+	for _, feature := range features {
+		if strings.Contains(feature, ",") {
+			errGroup.Add(errs.New("error encoding %s, can not contain separator \",\"", feature))
+		}
+	}
+	if err := errGroup.Err(); err != nil {
+		return "", Error.Wrap(err)
+	}
+
+	return strings.Join(features, ","), nil
+}
+
+// decodeWalletFeatures decodes comma separated wallet features list string.
+func decodeWalletFeatures(encoded string) []string {
+	if encoded == "" {
+		return nil
+	}
+
+	return strings.Split(encoded, ",")
+}
+
 func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 	nodeStats := &overlay.NodeStats{
 		Latency90:                   dbNode.Latency90,
 		VettedAt:                    dbNode.VettedAt,
 		AuditCount:                  dbNode.TotalAuditCount,
 		AuditSuccessCount:           dbNode.AuditSuccessCount,
-		UptimeCount:                 dbNode.TotalUptimeCount,
-		UptimeSuccessCount:          dbNode.UptimeSuccessCount,
 		LastContactSuccess:          dbNode.LastContactSuccess,
 		LastContactFailure:          dbNode.LastContactFailure,
 		AuditReputationAlpha:        dbNode.AuditReputationAlpha,
@@ -1023,13 +1150,6 @@ func buildUpdateStatement(update updateNodeStats) string {
 		atLeastOne = true
 		sql += fmt.Sprintf("total_audit_count = %d", update.TotalAuditCount.value)
 	}
-	if update.TotalUptimeCount.set {
-		if atLeastOne {
-			sql += ","
-		}
-		atLeastOne = true
-		sql += fmt.Sprintf("total_uptime_count = %d", update.TotalUptimeCount.value)
-	}
 	if update.AuditReputationAlpha.set {
 		if atLeastOne {
 			sql += ","
@@ -1075,13 +1195,6 @@ func buildUpdateStatement(update updateNodeStats) string {
 		} else {
 			sql += fmt.Sprintf("unknown_audit_suspended = '%s'", update.UnknownAuditSuspended.value.Format(time.RFC3339Nano))
 		}
-	}
-	if update.UptimeSuccessCount.set {
-		if atLeastOne {
-			sql += ","
-		}
-		atLeastOne = true
-		sql += fmt.Sprintf("uptime_success_count = %d", update.UptimeSuccessCount.value)
 	}
 	if update.LastContactSuccess.set {
 		if atLeastOne {
@@ -1177,14 +1290,12 @@ type updateNodeStats struct {
 	NodeID                      storj.NodeID
 	VettedAt                    timeField
 	TotalAuditCount             int64Field
-	TotalUptimeCount            int64Field
 	AuditReputationAlpha        float64Field
 	AuditReputationBeta         float64Field
 	Disqualified                timeField
 	UnknownAuditReputationAlpha float64Field
 	UnknownAuditReputationBeta  float64Field
 	UnknownAuditSuspended       timeField
-	UptimeSuccessCount          int64Field
 	LastContactSuccess          timeField
 	LastContactFailure          timeField
 	AuditSuccessCount           int64Field
@@ -1194,7 +1305,7 @@ type updateNodeStats struct {
 	OnlineScore                 float64Field
 }
 
-func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditHistory *internalpb.AuditHistory, now time.Time) updateNodeStats {
+func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditHistoryResponse *overlay.UpdateAuditHistoryResponse, now time.Time) updateNodeStats {
 	// there are three audit outcomes: success, failure, and unknown
 	// if a node fails enough audits, it gets disqualified
 	// if a node gets enough "unknown" audits, it gets put into suspension
@@ -1205,7 +1316,6 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	unknownAuditBeta := dbNode.UnknownAuditReputationBeta
 	totalAuditCount := dbNode.TotalAuditCount
 	vettedAt := dbNode.VettedAt
-	auditOnlineScore := auditHistory.Score
 
 	var updatedTotalAuditCount int64
 
@@ -1258,25 +1368,20 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	mon.FloatVal("audit_reputation_beta").Observe(auditBeta)                  //mon:locked
 	mon.FloatVal("unknown_audit_reputation_alpha").Observe(unknownAuditAlpha) //mon:locked
 	mon.FloatVal("unknown_audit_reputation_beta").Observe(unknownAuditBeta)   //mon:locked
-	mon.FloatVal("audit_online_score").Observe(auditOnlineScore)              //mon:locked
+	mon.FloatVal("audit_online_score").Observe(auditHistoryResponse.NewScore) //mon:locked
 
-	totalUptimeCount := dbNode.TotalUptimeCount
 	isUp := updateReq.AuditOutcome != overlay.AuditOffline
-	if isUp {
-		totalUptimeCount++
-	}
 
 	updateFields := updateNodeStats{
 		NodeID:                      updateReq.NodeID,
 		TotalAuditCount:             int64Field{set: true, value: updatedTotalAuditCount},
-		TotalUptimeCount:            int64Field{set: true, value: totalUptimeCount},
 		AuditReputationAlpha:        float64Field{set: true, value: auditAlpha},
 		AuditReputationBeta:         float64Field{set: true, value: auditBeta},
 		UnknownAuditReputationAlpha: float64Field{set: true, value: unknownAuditAlpha},
 		UnknownAuditReputationBeta:  float64Field{set: true, value: unknownAuditBeta},
 	}
 
-	if vettedAt == nil && updatedTotalAuditCount >= updateReq.AuditsRequiredForVetting && totalUptimeCount >= updateReq.UptimesRequiredForVetting {
+	if vettedAt == nil && updatedTotalAuditCount >= updateReq.AuditsRequiredForVetting {
 		updateFields.VettedAt = timeField{set: true, value: now}
 	}
 
@@ -1321,7 +1426,6 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	}
 
 	if isUp {
-		updateFields.UptimeSuccessCount = int64Field{set: true, value: dbNode.UptimeSuccessCount + 1}
 		updateFields.LastContactSuccess = timeField{set: true, value: now}
 	} else {
 		updateFields.LastContactFailure = timeField{set: true, value: now}
@@ -1334,17 +1438,15 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	// Updating node stats always exits it from containment mode
 	updateFields.Contained = boolField{set: true, value: false}
 
-	windowsPerTrackingPeriod := int(updateReq.AuditHistory.TrackingPeriod.Seconds() / updateReq.AuditHistory.WindowSize.Seconds())
-
 	// only penalize node if online score is below threshold and
 	// if it has enough completed windows to fill a tracking period
 	penalizeOfflineNode := false
-	if auditOnlineScore < updateReq.AuditHistory.OfflineThreshold && len(auditHistory.Windows)-1 >= windowsPerTrackingPeriod {
+	if auditHistoryResponse.NewScore < updateReq.AuditHistory.OfflineThreshold && auditHistoryResponse.TrackingPeriodFull {
 		penalizeOfflineNode = true
 	}
 
 	// always update online score
-	updateFields.OnlineScore = float64Field{set: true, value: auditOnlineScore}
+	updateFields.OnlineScore = float64Field{set: true, value: auditHistoryResponse.NewScore}
 
 	// Suspension and disqualification for offline nodes
 	if dbNode.UnderReview != nil {
@@ -1382,18 +1484,15 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	return updateFields
 }
 
-func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditHistory *internalpb.AuditHistory, now time.Time) dbx.Node_Update_Fields {
+func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *overlay.UpdateRequest, auditHistoryResponse *overlay.UpdateAuditHistoryResponse, now time.Time) dbx.Node_Update_Fields {
 
-	update := cache.populateUpdateNodeStats(dbNode, updateReq, auditHistory, now)
+	update := cache.populateUpdateNodeStats(dbNode, updateReq, auditHistoryResponse, now)
 	updateFields := dbx.Node_Update_Fields{}
 	if update.VettedAt.set {
 		updateFields.VettedAt = dbx.Node_VettedAt(update.VettedAt.value)
 	}
 	if update.TotalAuditCount.set {
 		updateFields.TotalAuditCount = dbx.Node_TotalAuditCount(update.TotalAuditCount.value)
-	}
-	if update.TotalUptimeCount.set {
-		updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(update.TotalUptimeCount.value)
 	}
 	if update.AuditReputationAlpha.set {
 		updateFields.AuditReputationAlpha = dbx.Node_AuditReputationAlpha(update.AuditReputationAlpha.value)
@@ -1416,9 +1515,6 @@ func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *ove
 		} else {
 			updateFields.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended(update.UnknownAuditSuspended.value)
 		}
-	}
-	if update.UptimeSuccessCount.set {
-		updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(update.UptimeSuccessCount.value)
 	}
 	if update.LastContactSuccess.set {
 		updateFields.LastContactSuccess = dbx.Node_LastContactSuccess(update.LastContactSuccess.value)
@@ -1457,6 +1553,26 @@ func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *ove
 	return updateFields
 }
 
+// DQNodesLastSeenBefore disqualifies all nodes where last_contact_success < cutoff except those already disqualified
+// or gracefully exited.
+func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	q := `UPDATE nodes SET disqualified = current_timestamp
+			WHERE last_contact_success < $1
+			AND disqualified is NULL
+			AND exit_finished_at is NULL;`
+	results, err := cache.db.ExecContext(ctx, q, cutoff)
+	if err != nil {
+		return err
+	}
+	n, err := results.RowsAffected()
+	if err != nil {
+		return err
+	}
+	mon.IntVal("stray_nodes_dq_count").Observe(n)
+	return err
+}
+
 // UpdateCheckIn updates a single storagenode with info from when the the node last checked in.
 func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, config overlay.NodeSelectionConfig) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1470,23 +1586,27 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		return Error.New("unable to convert version to semVer")
 	}
 
+	walletFeatures, err := encodeWalletFeatures(node.Operator.GetWalletFeatures())
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	query := `
 			INSERT INTO nodes
 			(
 				id, address, last_net, protocol, type,
 				email, wallet, free_disk,
-				uptime_success_count, total_uptime_count,
 				last_contact_success,
 				last_contact_failure,
 				audit_reputation_alpha, audit_reputation_beta,
 				unknown_audit_reputation_alpha, unknown_audit_reputation_beta,
 				major, minor, patch, hash, timestamp, release,
-				last_ip_port
+				last_ip_port,
+				wallet_features
 			)
 			VALUES (
 				$1, $2, $3, $4, $5,
 				$6, $7, $8,
-				$9::bool::int, 1,
 				CASE WHEN $9::bool IS TRUE THEN $18::timestamptz
 					ELSE '0001-01-01 00:00:00+00'::timestamptz
 				END,
@@ -1496,7 +1616,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				$10, $11,
 				$10, $11,
 				$12, $13, $14, $15, $16, $17,
-				$19
+				$19,
+				$20
 			)
 			ON CONFLICT (id)
 			DO UPDATE
@@ -1508,8 +1629,6 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				wallet=$7,
 				free_disk=$8,
 				major=$12, minor=$13, patch=$14, hash=$15, timestamp=$16, release=$17,
-				total_uptime_count=nodes.total_uptime_count+1,
-				uptime_success_count = nodes.uptime_success_count + $9::bool::int,
 				last_contact_success = CASE WHEN $9::bool IS TRUE
 					THEN $18::timestamptz
 					ELSE nodes.last_contact_success
@@ -1518,7 +1637,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 					THEN $18::timestamptz
 					ELSE nodes.last_contact_failure
 				END,
-				last_ip_port=$19;
+				last_ip_port=$19,
+				wallet_features=$20;
 			`
 	_, err = cache.db.ExecContext(ctx, query,
 		// args $1 - $5
@@ -1535,6 +1655,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		timestamp,
 		// args $19
 		node.LastIPPort,
+		// args $20,
+		walletFeatures,
 	)
 	if err != nil {
 		return Error.Wrap(err)
@@ -1566,6 +1688,42 @@ func (cache *overlaycache) TestUnvetNode(ctx context.Context, nodeID storj.NodeI
 	if err != nil {
 		return err
 	}
-	_, err = cache.db.OverlayCache().Get(ctx, nodeID)
+	_, err = cache.Get(ctx, nodeID)
 	return err
+}
+
+// IterateAllNodes will call cb on all known nodes (used in restore trash contexts).
+func (cache *overlaycache) IterateAllNodes(ctx context.Context, cb func(context.Context, *overlay.SelectedNode) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var rows tagsql.Rows
+	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+		SELECT last_net, id, address, last_ip_port
+		FROM nodes
+	`))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		var node overlay.SelectedNode
+		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
+
+		var lastIPPort sql.NullString
+		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		if lastIPPort.Valid {
+			node.LastIPPort = lastIPPort.String
+		}
+
+		err = cb(ctx, &node)
+		if err != nil {
+			return err
+		}
+	}
+
+	return rows.Err()
 }

@@ -104,38 +104,52 @@ func CreateMasterDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.
 // Run method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
 func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db multinode.DB)) {
-	masterDB := Database{
-		Name:    "Postgres",
-		URL:     pgtest.PickPostgres(ignoreSkip{}),
-		Message: "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable.",
+	databases := []Database{
+		{
+			Name:    "Postgres",
+			URL:     pgtest.PickPostgres(ignoreSkip{}),
+			Message: "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable.",
+		},
+		{
+			Name: "Sqlite3",
+			URL:  "sqlite3://file::memory:",
+		},
 	}
 
-	t.Run(masterDB.Name, func(t *testing.T) {
-		t.Parallel()
+	for _, database := range databases {
+		dbConfig := database
 
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
+		t.Run(dbConfig.Name, func(t *testing.T) {
+			t.Parallel()
 
-		if masterDB.URL == "" {
-			t.Skipf("Database %s connection string not provided. %s", masterDB.Name, masterDB.Message)
-		}
+			if dbConfig.URL == "" {
+				t.Skipf("Database %s connection string not provided. %s", dbConfig.Name, dbConfig.Message)
+			}
 
-		db, err := CreateMasterDB(ctx, zaptest.NewLogger(t), t.Name(), "T", 0, masterDB)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer func() {
-			err := db.Close()
+			log := zaptest.NewLogger(t)
+			ctx := testcontext.New(t)
+			defer ctx.Cleanup()
+
+			var db multinode.DB
+			var err error
+
+			if dbConfig.Name == "Postgres" {
+				db, err = CreateMasterDB(ctx, log, t.Name(), "T", 0, dbConfig)
+			} else {
+				db, err = multinodedb.Open(ctx, log, dbConfig.URL)
+			}
 			if err != nil {
 				t.Fatal(err)
 			}
-		}()
 
-		err = db.CreateSchema(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
+			defer ctx.Check(db.Close)
 
-		test(ctx, t, db)
-	})
+			err = db.CreateSchema(ctx)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			test(ctx, t, db)
+		})
+	}
 }

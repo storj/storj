@@ -3,8 +3,7 @@
 exports[`EstimationArea renders correctly with actual values and current period 1`] = `
 <div class="estimation-container">
   <div class="estimation-container__header">
-    <p class="estimation-container__header__title">Info &amp; Estimation,
-      <span class="estimation-container__header__period">Feb 2020</span></p>
+    <p class="estimation-container__header__title">Info &amp; Estimation,<span class="estimation-container__header__period">Feb 2020</span></p>
     <div class="estimation-container__header__selection-area"><button name="Select Current Period" class="estimation-container__header__selection-area__item active">
         <p class="estimation-container__header__selection-area__item__label long-text">
           Current Period
@@ -132,17 +131,17 @@ exports[`EstimationArea renders correctly with actual values and current period 
         <p class="estimation-table-container__net-total-area__text">$8000000.00</p>
       </div>
     </div>
+    <!---->
   </div>
   <!---->
   <!---->
 </div>
 `;
 
-exports[`EstimationArea renders correctly with actual values and current period and not fist day on month 1`] = `
+exports[`EstimationArea renders correctly with actual values and current period and not first day on month 1`] = `
 <div class="estimation-container">
   <div class="estimation-container__header">
-    <p class="estimation-container__header__title">Info &amp; Estimation,
-      <span class="estimation-container__header__period">Feb 2020</span></p>
+    <p class="estimation-container__header__title">Info &amp; Estimation,<span class="estimation-container__header__period">Feb 2020</span></p>
     <div class="estimation-container__header__selection-area"><button name="Select Current Period" class="estimation-container__header__selection-area__item active">
         <p class="estimation-container__header__selection-area__item__label long-text">
           Current Period
@@ -270,6 +269,7 @@ exports[`EstimationArea renders correctly with actual values and current period 
         <p class="estimation-table-container__net-total-area__text">$800000.00</p>
       </div>
     </div>
+    <!---->
   </div>
   <div class="estimation-container__payout-area">
     <div class="estimation-container__payout-area__left-area">
@@ -277,7 +277,7 @@ exports[`EstimationArea renders correctly with actual values and current period 
       <p class="additional-text">At the end of the month if the load keeps the same for the rest of the month.</p>
     </div>
     <div class="estimation-container__payout-area__right-area">
-      <p class="title-text">$1200000.00</p>
+      <p class="title-text">$12000000.00</p>
     </div>
   </div>
   <!---->
@@ -287,8 +287,7 @@ exports[`EstimationArea renders correctly with actual values and current period 
 exports[`EstimationArea renders correctly with actual values and historical period with paystub 1`] = `
 <div class="estimation-container">
   <div class="estimation-container__header">
-    <p class="estimation-container__header__title">Info &amp; Estimation,
-      <span class="estimation-container__header__period">Jan 2020</span></p>
+    <p class="estimation-container__header__title">Info &amp; Estimation,<span class="estimation-container__header__period">Jan 2020</span></p>
     <div class="estimation-container__header__selection-area"><button name="Select Current Period" class="estimation-container__header__selection-area__item">
         <p class="estimation-container__header__selection-area__item__label long-text">
           Current Period
@@ -336,7 +335,7 @@ exports[`EstimationArea renders correctly with actual values and historical peri
         <p class="estimation-table-container__info-area__text">--</p>
       </div>
       <div class="column justify-start column-5">
-        <p class="estimation-table-container__info-area__text">0 Bytes</p>
+        <p class="estimation-table-container__info-area__text">0B</p>
       </div>
       <div class="column justify-end column-6">
         <p class="estimation-table-container__info-area__text">$0.00</p>
@@ -356,7 +355,7 @@ exports[`EstimationArea renders correctly with actual values and historical peri
         <p class="estimation-table-container__info-area__text">--</p>
       </div>
       <div class="column justify-start column-5">
-        <p class="estimation-table-container__info-area__text">0 Bytes</p>
+        <p class="estimation-table-container__info-area__text">0B</p>
       </div>
       <div class="column justify-end column-6">
         <p class="estimation-table-container__info-area__text">$0.00</p>
@@ -373,7 +372,7 @@ exports[`EstimationArea renders correctly with actual values and historical peri
         <p class="estimation-table-container__info-area__text">$1.5 / TBm</p>
       </div>
       <div class="column justify-start column-4">
-        <p class="estimation-table-container__info-area__text">0 Bytesm</p>
+        <p class="estimation-table-container__info-area__text">0Bm</p>
       </div>
       <div class="column justify-start column-5">
         <p class="estimation-table-container__info-area__text">--</p>
@@ -410,14 +409,29 @@ exports[`EstimationArea renders correctly with actual values and historical peri
       <div class="column justify-start column-2"></div>
       <div class="column justify-start column-3"></div>
       <div class="column justify-start column-4">
-        <p class="estimation-table-container__net-total-area__text">0 Bytesm</p>
+        <p class="estimation-table-container__net-total-area__text">0Bm</p>
       </div>
       <div class="column justify-start column-5">
-        <p class="estimation-table-container__net-total-area__text">0 Bytes</p>
+        <p class="estimation-table-container__net-total-area__text">0B</p>
       </div>
       <div class="column justify-end column-6">
         <p class="estimation-table-container__net-total-area__text">$0.56</p>
       </div>
+    </div>
+    <div class="estimation-table-container__distributed-area">
+      <div class="estimation-table-container__distributed-area__left-area">
+        <p class="estimation-table-container__distributed-area__text">Distributed</p>
+        <div class="estimation-table-container__distributed-area__info-area">
+          <checksinfoicon-stub alt="Info icon with question mark" class="checks-area-image"></checksinfoicon-stub>
+          <div class="tooltip" style="display: none;">
+            <div class="tooltip__text-area">
+              <p class="tooltip__text-area__text">If you see $0.00 as your distributed amount, you didn’t reach the minimum payout threshold. Your payout will be distributed along with one of the payouts in the upcoming payout cycles. If you see a distributed amount higher than expected, it means this month you were paid undistributed payouts from previous months in addition to this month’s payout.</p>
+            </div>
+            <div class="tooltip__footer"></div>
+          </div>
+        </div>
+      </div>
+      <p class="estimation-table-container__distributed-area__text">$0.33</p>
     </div>
   </div>
   <!---->
@@ -428,8 +442,7 @@ exports[`EstimationArea renders correctly with actual values and historical peri
 exports[`EstimationArea renders correctly with actual values and historical period without paystub 1`] = `
 <div class="estimation-container">
   <div class="estimation-container__header">
-    <p class="estimation-container__header__title">Info &amp; Estimation,
-      <span class="estimation-container__header__period">Jan 2020</span></p>
+    <p class="estimation-container__header__title">Info &amp; Estimation,<span class="estimation-container__header__period">Jan 2020</span></p>
     <div class="estimation-container__header__selection-area"><button name="Select Current Period" class="estimation-container__header__selection-area__item">
         <p class="estimation-container__header__selection-area__item__label long-text">
           Current Period
@@ -454,8 +467,7 @@ exports[`EstimationArea renders correctly with actual values and historical peri
 exports[`EstimationArea renders correctly with actual values and previous period without paystub 1`] = `
 <div class="estimation-container">
   <div class="estimation-container__header">
-    <p class="estimation-container__header__title">Info &amp; Estimation,
-      <span class="estimation-container__header__period">Jan 2020</span></p>
+    <p class="estimation-container__header__title">Info &amp; Estimation,<span class="estimation-container__header__period">Jan 2020</span></p>
     <div class="estimation-container__header__selection-area"><button name="Select Current Period" class="estimation-container__header__selection-area__item">
         <p class="estimation-container__header__selection-area__item__label long-text">
           Current Period
@@ -583,6 +595,7 @@ exports[`EstimationArea renders correctly with actual values and previous period
         <p class="estimation-table-container__net-total-area__text">$8000000.00</p>
       </div>
     </div>
+    <!---->
   </div>
   <!---->
   <!---->

@@ -2,10 +2,10 @@
 
 # This file contains the second part of Stage 2 for the rolling upgrade test.
 # Description of file functionality:
-#  * Upload an inline, remote, and multisegment file to the network using the master uplink and the new satellite api.
-#  * Upload an inline, remote, and multisegment file to the network using the master uplink and the old satellite api.
-#  * Download the six inline, remote, and multisegment files from the previous two steps using the master uplink and new satellite api.
-#  * Download the six inline, remote, and multisegment files from the previous two steps using the master uplink and old satellite api.
+#  * Upload an inline, remote, and multisegment file to the network using the main uplink and the new satellite api.
+#  * Upload an inline, remote, and multisegment file to the network using the main uplink and the old satellite api.
+#  * Download the six inline, remote, and multisegment files from the previous two steps using the main uplink and new satellite api.
+#  * Download the six inline, remote, and multisegment files from the previous two steps using the main uplink and old satellite api.
 
 set -ueo pipefail
 

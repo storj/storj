@@ -12,6 +12,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/orders"
 )
 
 // RollupStats is a convenience alias.
@@ -138,7 +139,7 @@ type BucketUsageRollup struct {
 	Before time.Time
 }
 
-// StoragenodeAccounting stores information about bandwidth and storage usage for storage nodes
+// StoragenodeAccounting stores information about bandwidth and storage usage for storage nodes.
 //
 // architecture: Database
 type StoragenodeAccounting interface {
@@ -149,7 +150,7 @@ type StoragenodeAccounting interface {
 	// GetTalliesSince retrieves all tallies since latestRollup
 	GetTalliesSince(ctx context.Context, latestRollup time.Time) ([]*StoragenodeStorageTally, error)
 	// GetBandwidthSince retrieves all bandwidth rollup entires since latestRollup
-	GetBandwidthSince(ctx context.Context, latestRollup time.Time) ([]*StoragenodeBandwidthRollup, error)
+	GetBandwidthSince(ctx context.Context, latestRollup time.Time, cb func(context.Context, *StoragenodeBandwidthRollup) error) error
 	// SaveRollup records tally and bandwidth rollup aggregations to the database
 	SaveRollup(ctx context.Context, latestTally time.Time, stats RollupStats) error
 	// LastTimestamp records and returns the latest last tallied time.
@@ -162,9 +163,15 @@ type StoragenodeAccounting interface {
 	QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]StorageNodeUsage, error)
 	// DeleteTalliesBefore deletes all tallies prior to some time
 	DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) error
+	// ArchiveRollupsBefore archives rollups older than a given time and returns num storagenode and bucket bandwidth rollups archived.
+	ArchiveRollupsBefore(ctx context.Context, before time.Time, batchSize int) (numArchivedNodeBW int, err error)
+	// GetRollupsSince retrieves all archived bandwidth rollup records since a given time. A hard limit batch size is used for results.
+	GetRollupsSince(ctx context.Context, since time.Time) ([]StoragenodeBandwidthRollup, error)
+	// GetArchivedRollupsSince retrieves all archived bandwidth rollup records since a given time. A hard limit batch size is used for results.
+	GetArchivedRollupsSince(ctx context.Context, since time.Time) ([]StoragenodeBandwidthRollup, error)
 }
 
-// ProjectAccounting stores information about bandwidth and storage usage for projects
+// ProjectAccounting stores information about bandwidth and storage usage for projects.
 //
 // architecture: Database
 type ProjectAccounting interface {
@@ -199,16 +206,50 @@ type ProjectAccounting interface {
 	GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]BucketUsageRollup, error)
 	// GetBucketTotals returns per bucket usage summary for specified period of time.
 	GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, since, before time.Time) (*BucketUsagePage, error)
+	// ArchiveRollupsBefore archives rollups older than a given time and returns number of bucket bandwidth rollups archived.
+	ArchiveRollupsBefore(ctx context.Context, before time.Time, batchSize int) (numArchivedBucketBW int, err error)
+	// GetRollupsSince retrieves all archived bandwidth rollup records since a given time. A hard limit batch size is used for results.
+	GetRollupsSince(ctx context.Context, since time.Time) ([]orders.BucketBandwidthRollup, error)
+	// GetArchivedRollupsSince retrieves all archived bandwidth rollup records since a given time. A hard limit batch size is used for results.
+	GetArchivedRollupsSince(ctx context.Context, since time.Time) ([]orders.BucketBandwidthRollup, error)
 }
 
 // Cache stores live information about project storage which has not yet been synced to ProjectAccounting.
 //
+// All the implementations must follow the convention of returning errors of one
+// of the classes defined in this package.
+//
+// All the methods return:
+//
+// ErrInvalidArgument: an implementation may return if some parameter contain a
+// value which isn't accepted, nonetheless, not all the implementations impose
+// the same constraints on them.
+//
+// ErrSystemOrNetError: any method will return this if there is an error with
+// the underlining system or the network.
+//
+// ErrKeyNotFound: returned when a key is not found.
+//
+// ErrUnexpectedValue: returned when a key or value stored in the underlying
+// system isn't of the expected format or type according the business domain.
+//
 // architecture: Database
 type Cache interface {
+	// GetProjectStorageUsage  returns the project's storage usage.
 	GetProjectStorageUsage(ctx context.Context, projectID uuid.UUID) (totalUsed int64, err error)
+	// GetProjectBandwidthUsage  returns the project's bandwidth usage.
 	GetProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, now time.Time) (currentUsed int64, err error)
+	// UpdateProjectBandthUsage updates the project's bandwidth usage increasing
+	// it. The projectID is inserted to the increment when it doesn't exists,
+	// hence this method will never return ErrKeyNotFound error's class.
 	UpdateProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, increment int64, ttl time.Duration, now time.Time) error
+	// AddProjectStorageUsage adds to the projects storage usage the spacedUsed.
+	// The projectID is inserted to the spaceUsed when it doesn't exists, hence
+	// this method will never return ErrKeyNotFound.
 	AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) error
+	// GetAllProjectTotals return the total projects' storage used space.
 	GetAllProjectTotals(ctx context.Context) (map[uuid.UUID]int64, error)
+	// Close the client, releasing any open resources. Once it's called any other
+	// method must be called.
 	Close() error
 }

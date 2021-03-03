@@ -4,9 +4,7 @@
 <template>
     <div class="estimation-container">
         <div class="estimation-container__header">
-            <p class="estimation-container__header__title">Info & Estimation,
-                <span class="estimation-container__header__period">{{ currentPeriod }}</span>
-            </p>
+            <p class="estimation-container__header__title">Info & Estimation,<span class="estimation-container__header__period">{{ currentPeriod }}</span></p>
             <div class="estimation-container__header__selection-area">
                 <button
                     name="Select Current Period"
@@ -109,6 +107,21 @@
                     <p class="estimation-table-container__net-total-area__text">{{ totalPayout | centsToDollars }}</p>
                 </div>
             </div>
+            <div class="estimation-table-container__distributed-area" v-if="!isCurrentPeriod && !isLastPeriodWithoutPaystub">
+                <div class="estimation-table-container__distributed-area__left-area">
+                    <p class="estimation-table-container__distributed-area__text">Distributed</p>
+                    <div class="estimation-table-container__distributed-area__info-area">
+                        <ChecksInfoIcon class="checks-area-image" alt="Info icon with question mark" @mouseenter="toggleTooltipVisibility" @mouseleave="toggleTooltipVisibility"/>
+                        <div class="tooltip" v-show="isTooltipVisible">
+                            <div class="tooltip__text-area">
+                                <p class="tooltip__text-area__text">If you see $0.00 as your distributed amount, you didn’t reach the minimum payout threshold. Your payout will be distributed along with one of the payouts in the upcoming payout cycles. If you see a distributed amount higher than expected, it means this month you were paid undistributed payouts from previous months in addition to this month’s payout.</p>
+                            </div>
+                            <div class="tooltip__footer"></div>
+                        </div>
+                    </div>
+                </div>
+                <p class="estimation-table-container__distributed-area__text">{{ totalPaystubForPeriod.distributed | centsToDollars }}</p>
+            </div>
         </div>
         <div class="estimation-container__payout-area" v-if="isCurrentPeriod && !isFirstDayOfCurrentMonth">
             <div class="estimation-container__payout-area__left-area">
@@ -116,7 +129,7 @@
                 <p class="additional-text">At the end of the month if the load keeps the same for the rest of the month.</p>
             </div>
             <div class="estimation-container__payout-area__right-area">
-                <p class="title-text">{{ currentMonthEstimatedPayout | centsToDollars }}</p>
+                <p class="title-text">{{ estimation.currentMonthExpectations | centsToDollars }}</p>
             </div>
         </div>
         <div class="no-data-container" v-if="isPayoutNoDataState">
@@ -132,6 +145,8 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import EstimationPeriodDropdown from '@/app/components/payments/EstimationPeriodDropdown.vue';
 
+import ChecksInfoIcon from '@/../static/images/checksInfo.svg';
+
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import {
     BANDWIDTH_DOWNLOAD_PRICE_PER_TB,
@@ -143,7 +158,7 @@ import {
     monthNames,
     PayoutInfoRange,
 } from '@/app/types/payout';
-import { formatBytes } from '@/app/utils/converter';
+import { Size } from '@/private/memory/size';
 import { EstimatedPayout, PayoutPeriod, TotalPaystubForPeriod } from '@/storagenode/payouts/payouts';
 
 /**
@@ -163,6 +178,7 @@ class EstimationTableRow {
 @Component ({
     components: {
         EstimationPeriodDropdown,
+        ChecksInfoIcon,
     },
 })
 export default class EstimationArea extends Vue {
@@ -297,10 +313,10 @@ export default class EstimationArea extends Vue {
      */
     public get totalDiskSpace(): string {
         if (this.isHistoricalPeriod) {
-            return formatBytes(this.totalPaystubForPeriod.usageAtRest);
+            return Size.toBase10String(this.totalPaystubForPeriod.usageAtRest);
         }
 
-        return formatBytes(this.currentDiskSpace);
+        return Size.toBase10String(this.currentDiskSpace);
     }
 
     /**
@@ -308,14 +324,14 @@ export default class EstimationArea extends Vue {
      */
     public get totalBandwidth(): string {
         if (this.isHistoricalPeriod) {
-            return formatBytes(
+            return Size.toBase10String(
                 this.totalPaystubForPeriod.usageGet +
                 this.totalPaystubForPeriod.usageGetRepair +
                 this.totalPaystubForPeriod.usageGetAudit,
             );
         }
 
-        return formatBytes((this.currentBandwidthAuditAndRepair + this.currentBandwidthDownload));
+        return Size.toBase10String((this.currentBandwidthAuditAndRepair + this.currentBandwidthDownload));
     }
 
     /**
@@ -345,9 +361,9 @@ export default class EstimationArea extends Vue {
     public get tableData(): EstimationTableRow[] {
         if (this.isHistoricalPeriod) {
             return [
-                new EstimationTableRow('Download', 'Egress', `$${BANDWIDTH_DOWNLOAD_PRICE_PER_TB / 100} / TB`, '--', formatBytes(this.totalPaystubForPeriod.usageGet), this.totalPaystubForPeriod.compGet),
-                new EstimationTableRow('Repair & Audit', 'Egress', `$${BANDWIDTH_REPAIR_PRICE_PER_TB / 100} / TB`, '--', formatBytes(this.totalPaystubForPeriod.usageGetRepair + this.totalPaystubForPeriod.usageGetAudit), this.totalPaystubForPeriod.compGetRepair + this.totalPaystubForPeriod.compGetAudit),
-                new EstimationTableRow('Disk Average Month', 'Storage', `$${DISK_SPACE_PRICE_PER_TB / 100} / TBm`, formatBytes(this.totalPaystubForPeriod.usageAtRest) + 'm', '--', this.totalPaystubForPeriod.compAtRest),
+                new EstimationTableRow('Download', 'Egress', `$${BANDWIDTH_DOWNLOAD_PRICE_PER_TB / 100} / TB`, '--', Size.toBase10String(this.totalPaystubForPeriod.usageGet), this.totalPaystubForPeriod.compGet),
+                new EstimationTableRow('Repair & Audit', 'Egress', `$${BANDWIDTH_REPAIR_PRICE_PER_TB / 100} / TB`, '--', Size.toBase10String(this.totalPaystubForPeriod.usageGetRepair + this.totalPaystubForPeriod.usageGetAudit), this.totalPaystubForPeriod.compGetRepair + this.totalPaystubForPeriod.compGetAudit),
+                new EstimationTableRow('Disk Average Month', 'Storage', `$${DISK_SPACE_PRICE_PER_TB / 100} / TBm`, Size.toBase10String(this.totalPaystubForPeriod.usageAtRest) + 'm', '--', this.totalPaystubForPeriod.compAtRest),
             ];
         }
 
@@ -359,7 +375,7 @@ export default class EstimationArea extends Vue {
                 'Egress',
                 `$${BANDWIDTH_DOWNLOAD_PRICE_PER_TB / 100} / TB`,
                 '--',
-                formatBytes(estimatedPayout.egressBandwidth),
+                Size.toBase10String(estimatedPayout.egressBandwidth),
                 estimatedPayout.egressBandwidthPayout,
             ),
             new EstimationTableRow(
@@ -367,14 +383,14 @@ export default class EstimationArea extends Vue {
                 'Egress',
                 `$${BANDWIDTH_REPAIR_PRICE_PER_TB / 100} / TB`,
                 '--',
-                formatBytes(estimatedPayout.egressRepairAudit),
+                Size.toBase10String(estimatedPayout.egressRepairAudit),
                 estimatedPayout.egressRepairAuditPayout,
             ),
             new EstimationTableRow(
                 'Disk Average Month',
                 'Storage',
                 `$${DISK_SPACE_PRICE_PER_TB / 100} / TBm`,
-                formatBytes(estimatedPayout.diskSpace) + 'm',
+                Size.toBase10String(estimatedPayout.diskSpace) + 'm',
                 '--',
                 estimatedPayout.diskSpacePayout,
             ),
@@ -389,13 +405,15 @@ export default class EstimationArea extends Vue {
     }
 
     /**
-     * Returns estimated payout on the end on current month.
+     * Indicates if tooltip needs to be shown.
      */
-    public get currentMonthEstimatedPayout(): number {
-        const currentMonthDaysCount = new Date(this.now.getUTCFullYear(), this.now.getUTCMonth(), 0).getDate();
-        const currentDate = this.now.getUTCDate();
+    public isTooltipVisible: boolean = false;
 
-        return (this.estimation.currentMonth.payout / (currentDate - 1)) * currentMonthDaysCount;
+    /**
+     * Toggles tooltip visibility.
+     */
+    public toggleTooltipVisibility(): void {
+        this.isTooltipVisible = !this.isTooltipVisible;
     }
 
     /**
@@ -592,7 +610,8 @@ export default class EstimationArea extends Vue {
         }
 
         &__net-total-area,
-        &__total-area {
+        &__total-area,
+        &__distributed-area {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -607,8 +626,13 @@ export default class EstimationArea extends Vue {
             }
         }
 
-        &__net-total-area {
+        &__net-total-area,
+        &__distributed-area {
             background-color: var(--estimation-table-total-container-color);
+        }
+
+        &__net-total-area {
+            border-bottom: 1px solid #a9b5c1;
         }
 
         &__total-area {
@@ -618,6 +642,24 @@ export default class EstimationArea extends Vue {
 
             &__text {
                 font-family: 'font_regular', sans-serif;
+            }
+        }
+
+        &__distributed-area {
+            justify-content: space-between;
+            font-family: 'font_regular', sans-serif;
+
+            &__info-area {
+                position: relative;
+                margin-left: 10px;
+                width: 18px;
+                height: 18px;
+            }
+
+            &__left-area {
+                display: flex;
+                align-items: center;
+                justify-content: center;
             }
         }
     }
@@ -688,6 +730,38 @@ export default class EstimationArea extends Vue {
             max-width: 500px;
             text-align: center;
             margin-top: 16px;
+        }
+    }
+
+    .tooltip {
+        position: absolute;
+        bottom: 35px;
+        left: 50%;
+        transform: translate(-50%);
+        height: auto;
+        box-shadow: 0 2px 48px var(--tooltip-shadow-color);
+        border-radius: 12px;
+        background: var(--tooltip-background-color);
+
+        &__text-area {
+            padding: 15px 11px;
+            width: 360px;
+            font-family: 'font_regular', sans-serif;
+            font-size: 11px;
+            line-height: 17px;
+            color: var(--regular-text-color);
+            text-align: center;
+        }
+
+        &__footer {
+            position: absolute;
+            left: 50%;
+            transform: translate(-50%);
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 11.5px 11.5px 0 11.5px;
+            border-color: var(--tooltip-background-color) transparent transparent transparent;
         }
     }
 

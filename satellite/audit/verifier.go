@@ -8,7 +8,6 @@ import (
 	"context"
 	"io"
 	"math/rand"
-	"sync"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -51,7 +50,7 @@ type Share struct {
 	Data     []byte
 }
 
-// Verifier helps verify the correctness of a given stripe
+// Verifier helps verify the correctness of a given stripe.
 //
 // architecture: Worker
 type Verifier struct {
@@ -95,18 +94,10 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		}
 		return Report{}, err
 	}
-	if pointer.ExpirationDate != (time.Time{}) && pointer.ExpirationDate.Before(time.Now()) {
+	if !pointer.ExpirationDate.IsZero() && pointer.ExpirationDate.Before(time.Now()) {
 		verifier.log.Debug("segment expired before Verify")
 		return Report{}, nil
 	}
-
-	defer func() {
-		// if piece hashes have not been verified for this segment, do not mark nodes as failing audit
-		if !pointer.PieceHashesVerified {
-			report.PendingAudits = nil
-			report.Fails = nil
-		}
-	}()
 
 	randomIndex, err := GetRandomStripe(ctx, pointer)
 	if err != nil {
@@ -135,7 +126,6 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 	offlineNodes = getOfflineNodes(pointer, orderLimits, skip)
 	if len(offlineNodes) > 0 {
 		verifier.log.Debug("Verify: order limits not created for some nodes (offline/disqualified)",
-			zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
 			zap.Strings("Node IDs", offlineNodes.Strings()))
 	}
 
@@ -172,7 +162,6 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 				// dial timeout
 				offlineNodes = append(offlineNodes, share.NodeID)
 				verifier.log.Debug("Verify: dial timeout (offline)",
-					zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
 					zap.Stringer("Node ID", share.NodeID),
 					zap.Error(share.Error))
 				continue
@@ -181,7 +170,6 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 				// dial failed -- offline node
 				offlineNodes = append(offlineNodes, share.NodeID)
 				verifier.log.Debug("Verify: dial failed (offline)",
-					zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
 					zap.Stringer("Node ID", share.NodeID),
 					zap.Error(share.Error))
 				continue
@@ -189,7 +177,6 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 			// unknown transport error
 			unknownNodes = append(unknownNodes, share.NodeID)
 			verifier.log.Info("Verify: unknown transport error (skipped)",
-				zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
 				zap.Stringer("Node ID", share.NodeID),
 				zap.Error(share.Error))
 			continue
@@ -199,7 +186,6 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 			// missing share
 			failedNodes = append(failedNodes, share.NodeID)
 			verifier.log.Info("Verify: piece not found (audit failed)",
-				zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
 				zap.Stringer("Node ID", share.NodeID),
 				zap.Error(share.Error))
 			continue
@@ -209,7 +195,6 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 			// dial successful, but download timed out
 			containedNodes[pieceNum] = share.NodeID
 			verifier.log.Info("Verify: download timeout (contained)",
-				zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
 				zap.Stringer("Node ID", share.NodeID),
 				zap.Error(share.Error))
 			continue
@@ -218,7 +203,6 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 		// unknown error
 		unknownNodes = append(unknownNodes, share.NodeID)
 		verifier.log.Info("Verify: unknown error (skipped)",
-			zap.Bool("Piece Hash Verified", pointer.PieceHashesVerified),
 			zap.Stringer("Node ID", share.NodeID),
 			zap.Error(share.Error))
 	}
@@ -366,6 +350,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		failed
 		contained
 		unknown
+		remove
 		erred
 	)
 
@@ -384,47 +369,10 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		}
 		return Report{}, err
 	}
-	if pointer.ExpirationDate != (time.Time{}) && pointer.ExpirationDate.Before(time.Now()) {
+	if !pointer.ExpirationDate.IsZero() && pointer.ExpirationDate.Before(time.Now()) {
 		verifier.log.Debug("Segment expired before Reverify")
 		return Report{}, nil
 	}
-
-	pieceHashesVerified := make(map[storj.NodeID]bool)
-	pieceHashesVerifiedMutex := &sync.Mutex{}
-	defer func() {
-		pieceHashesVerifiedMutex.Lock()
-
-		// for each node in Fails and PendingAudits, remove if piece hashes not verified for that segment
-		// if the piece hashes are not verified, remove the "failed" node from containment
-		newFails := storj.NodeIDList{}
-		newPendingAudits := []*PendingAudit{}
-
-		for _, id := range report.Fails {
-			if pieceHashesVerified[id] {
-				newFails = append(newFails, id)
-			} else {
-				_, errDelete := verifier.containment.Delete(ctx, id)
-				if errDelete != nil {
-					verifier.log.Debug("Error deleting node from containment db", zap.Stringer("Node ID", id), zap.Error(errDelete))
-				}
-			}
-		}
-		for _, pending := range report.PendingAudits {
-			if pieceHashesVerified[pending.NodeID] {
-				newPendingAudits = append(newPendingAudits, pending)
-			} else {
-				_, errDelete := verifier.containment.Delete(ctx, pending.NodeID)
-				if errDelete != nil {
-					verifier.log.Debug("Error deleting node from containment db", zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
-				}
-			}
-		}
-
-		report.Fails = newFails
-		report.PendingAudits = newPendingAudits
-
-		pieceHashesVerifiedMutex.Unlock()
-	}()
 
 	pieces := pointer.GetRemote().GetRemotePieces()
 	ch := make(chan result, len(pieces))
@@ -447,7 +395,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 			pendingPointerBytes, pendingPointer, err := verifier.metainfo.GetWithBytes(ctx, metabase.SegmentKey(pending.Path))
 			if err != nil {
 				if storj.ErrObjectNotFound.Has(err) {
-					ch <- result{nodeID: pending.NodeID, status: skipped}
+					ch <- result{nodeID: pending.NodeID, status: remove}
 					return
 				}
 
@@ -455,19 +403,14 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				verifier.log.Debug("Reverify: error getting pending pointer from metainfo", zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 				return
 			}
-			if pendingPointer.ExpirationDate != (time.Time{}) && pendingPointer.ExpirationDate.Before(time.Now().UTC()) {
+			if !pendingPointer.ExpirationDate.IsZero() && pendingPointer.ExpirationDate.Before(time.Now().UTC()) {
 				verifier.log.Debug("Reverify: segment already expired", zap.Stringer("Node ID", pending.NodeID))
-				ch <- result{nodeID: pending.NodeID, status: skipped}
+				ch <- result{nodeID: pending.NodeID, status: remove}
 				return
 			}
 
-			// set whether piece hashes have been verified for this segment so we know whether to report a failed or pending audit for this node
-			pieceHashesVerifiedMutex.Lock()
-			pieceHashesVerified[pending.NodeID] = pendingPointer.PieceHashesVerified
-			pieceHashesVerifiedMutex.Unlock()
-
 			if pendingPointer.GetRemote().RootPieceId != pending.PieceID {
-				ch <- result{nodeID: pending.NodeID, status: skipped}
+				ch <- result{nodeID: pending.NodeID, status: remove}
 				return
 			}
 			var pieceNum int32
@@ -479,13 +422,13 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				}
 			}
 			if !found {
-				ch <- result{nodeID: pending.NodeID, status: skipped}
+				ch <- result{nodeID: pending.NodeID, status: remove}
 				return
 			}
 
 			segmentLocation, err := metabase.ParseSegmentKey(metabase.SegmentKey(pending.Path)) // TODO: this should be parsed in pending
 			if err != nil {
-				ch <- result{nodeID: pending.NodeID, status: skipped}
+				ch <- result{nodeID: pending.NodeID, status: remove}
 				return
 			}
 
@@ -558,7 +501,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 					// Get the original segment pointer in the metainfo
 					err := verifier.checkIfSegmentAltered(ctx, pending.Path, pendingPointer, pendingPointerBytes)
 					if err != nil {
-						ch <- result{nodeID: pending.NodeID, status: skipped}
+						ch <- result{nodeID: pending.NodeID, status: remove}
 						verifier.log.Debug("Reverify: audit source changed before reverification", zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 						return
 					}
@@ -585,7 +528,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 			} else {
 				err := verifier.checkIfSegmentAltered(ctx, pending.Path, pendingPointer, pendingPointerBytes)
 				if err != nil {
-					ch <- result{nodeID: pending.NodeID, status: skipped}
+					ch <- result{nodeID: pending.NodeID, status: remove}
 					verifier.log.Debug("Reverify: audit source changed before reverification", zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 					return
 				}
@@ -599,6 +542,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 	for range pieces {
 		result := <-ch
 		switch result.status {
+		case skipped:
 		case success:
 			report.Successes = append(report.Successes, result.nodeID)
 		case offline:
@@ -609,13 +553,14 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 			report.PendingAudits = append(report.PendingAudits, result.pendingAudit)
 		case unknown:
 			report.Unknown = append(report.Unknown, result.nodeID)
-		case skipped:
+		case remove:
 			_, errDelete := verifier.containment.Delete(ctx, result.nodeID)
 			if errDelete != nil {
 				verifier.log.Debug("Error deleting node from containment db", zap.Stringer("Node ID", result.nodeID), zap.Error(errDelete))
 			}
 		case erred:
 			err = errs.Combine(err, result.err)
+		default:
 		}
 	}
 

@@ -21,7 +21,7 @@ type Config struct {
 	Interval time.Duration `help:"how frequently bandwidth usage rollups are calculated" default:"1h0m0s"`
 }
 
-// Service implements
+// Service implements the bandwidth usage rollup service.
 //
 // architecture: Chore
 type Service struct {

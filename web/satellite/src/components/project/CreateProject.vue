@@ -65,7 +65,7 @@ import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import { RouteConfig } from '@/router';
-import { API_KEYS_ACTIONS } from '@/store/modules/apiKeys';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
@@ -200,7 +200,7 @@ export default class NewProjectPopup extends Vue {
      * Clears api keys store.
      */
     private clearApiKeys(): void {
-        this.$store.dispatch(API_KEYS_ACTIONS.CLEAR);
+        this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR);
     }
 
     /**

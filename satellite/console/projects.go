@@ -33,6 +33,8 @@ type Projects interface {
 	Update(ctx context.Context, project *Project) error
 	// List returns paginated projects, created before provided timestamp.
 	List(ctx context.Context, offset int64, limit int, before time.Time) (ProjectsPage, error)
+	// ListByOwnerID is a method for querying all projects from the database by ownerID. It also includes the number of members for each project.
+	ListByOwnerID(ctx context.Context, userID uuid.UUID, cursor ProjectsCursor) (ProjectsPage, error)
 
 	// UpdateRateLimit is a method for updating projects rate limit.
 	UpdateRateLimit(ctx context.Context, id uuid.UUID, newLimit int) error
@@ -54,6 +56,7 @@ type Project struct {
 	RateLimit   *int      `json:"rateLimit"`
 	MaxBuckets  *int      `json:"maxBuckets"`
 	CreatedAt   time.Time `json:"createdAt"`
+	MemberCount int       `json:"memberCount"`
 }
 
 // ProjectInfo holds data needed to create/update Project.
@@ -64,6 +67,13 @@ type ProjectInfo struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
+// ProjectsCursor holds info for project
+// cursor pagination.
+type ProjectsCursor struct {
+	Limit int
+	Page  int
+}
+
 // ProjectsPage returns paginated projects,
 // providing next offset if there are more projects
 // to retrieve.
@@ -71,6 +81,13 @@ type ProjectsPage struct {
 	Projects   []Project
 	Next       bool
 	NextOffset int64
+
+	Limit  int
+	Offset int64
+
+	PageCount   int
+	CurrentPage int
+	TotalCount  int64
 }
 
 // ValidateNameAndDescription validates project name and description strings.

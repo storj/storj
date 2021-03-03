@@ -5,6 +5,7 @@ package console
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -18,7 +19,7 @@ import (
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/contact"
-	"storj.io/storj/storagenode/payout/estimatedpayout"
+	"storj.io/storj/storagenode/payouts/estimatedpayouts"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
@@ -49,7 +50,7 @@ type Service struct {
 	pieceStore     *pieces.Store
 	contact        *contact.Service
 
-	estimation *estimatedpayout.Service
+	estimation *estimatedpayouts.Service
 	version    *checker.Service
 	pingStats  *contact.PingStats
 
@@ -64,7 +65,7 @@ type Service struct {
 func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Store, version *checker.Service,
 	allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info, trust *trust.Pool,
 	reputationDB reputation.DB, storageUsageDB storageusage.DB, pricingDB pricing.DB, satelliteDB satellites.DB,
-	pingStats *contact.PingStats, contact *contact.Service, estimation *estimatedpayout.Service, usageCache *pieces.BlobsUsageCache) (*Service, error) {
+	pingStats *contact.PingStats, contact *contact.Service, estimation *estimatedpayouts.Service, usageCache *pieces.BlobsUsageCache) (*Service, error) {
 	if log == nil {
 		return nil, errs.New("log can't be nil")
 	}
@@ -210,6 +211,11 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 		Trash:     trash,
 	}
 
+	overused := s.allocatedDiskSpace.Int64() - pieceTotal - trash
+	if overused < 0 {
+		data.DiskSpace.Overused = int64(math.Abs(float64(overused)))
+	}
+
 	data.Bandwidth = BandwidthInfo{
 		Used: bandwidthUsage,
 	}
@@ -235,9 +241,8 @@ type Satellite struct {
 	EgressSummary      int64                   `json:"egressSummary"`
 	IngressSummary     int64                   `json:"ingressSummary"`
 	CurrentStorageUsed int64                   `json:"currentStorageUsed"`
-	Audit              reputation.Metric       `json:"audit"`
-	Uptime             reputation.Metric       `json:"uptime"`
-	OnlineScore        float64                 `json:"onlineScore"`
+	Audits             Audits                  `json:"audits"`
+	AuditHistory       reputation.AuditHistory `json:"auditHistory"`
 	PriceModel         PriceModel              `json:"priceModel"`
 	NodeJoinedAt       time.Time               `json:"nodeJoinedAt"`
 }
@@ -299,6 +304,12 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 		DiskSpace:       pricingModel.DiskSpace,
 	}
 
+	url, err := s.trust.GetNodeURL(ctx, satelliteID)
+	if err != nil {
+		s.log.Warn("unable to get Satellite URL", zap.String("Satellite ID", satelliteID.String()),
+			zap.Error(SNOServiceErr.Wrap(err)))
+	}
+
 	return &Satellite{
 		ID:                 satelliteID,
 		StorageDaily:       storageDaily,
@@ -308,11 +319,15 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 		CurrentStorageUsed: currentStorageUsed,
 		EgressSummary:      egressSummary.Total(),
 		IngressSummary:     ingressSummary.Total(),
-		Audit:              rep.Audit,
-		Uptime:             rep.Uptime,
-		OnlineScore:        rep.OnlineScore,
-		PriceModel:         satellitePricing,
-		NodeJoinedAt:       rep.JoinedAt,
+		Audits: Audits{
+			AuditScore:      rep.Audit.Score,
+			SuspensionScore: rep.Audit.UnknownScore,
+			OnlineScore:     rep.OnlineScore,
+			SatelliteName:   url.Address,
+		},
+		AuditHistory: reputation.GetAuditHistoryFromPB(rep.AuditHistory),
+		PriceModel:   satellitePricing,
+		NodeJoinedAt: rep.JoinedAt,
 	}, nil
 }
 
@@ -413,21 +428,21 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 	}, nil
 }
 
-// GetSatelliteEstimatedPayout returns estimated payout for current and previous months for selected satellite.
-func (s *Service) GetSatelliteEstimatedPayout(ctx context.Context, satelliteID storj.NodeID) (estimatedPayout estimatedpayout.EstimatedPayout, err error) {
-	estimatedPayout, err = s.estimation.GetSatelliteEstimatedPayout(ctx, satelliteID)
+// GetSatelliteEstimatedPayout returns estimated payouts for current and previous months for selected satellite.
+func (s *Service) GetSatelliteEstimatedPayout(ctx context.Context, satelliteID storj.NodeID, now time.Time) (estimatedPayout estimatedpayouts.EstimatedPayout, err error) {
+	estimatedPayout, err = s.estimation.GetSatelliteEstimatedPayout(ctx, satelliteID, now)
 	if err != nil {
-		return estimatedpayout.EstimatedPayout{}, SNOServiceErr.Wrap(err)
+		return estimatedpayouts.EstimatedPayout{}, SNOServiceErr.Wrap(err)
 	}
 
 	return estimatedPayout, nil
 }
 
-// GetAllSatellitesEstimatedPayout returns estimated payout for current and previous months for all satellites.
-func (s *Service) GetAllSatellitesEstimatedPayout(ctx context.Context) (estimatedPayout estimatedpayout.EstimatedPayout, err error) {
-	estimatedPayout, err = s.estimation.GetAllSatellitesEstimatedPayout(ctx)
+// GetAllSatellitesEstimatedPayout returns estimated payouts for current and previous months for all satellites.
+func (s *Service) GetAllSatellitesEstimatedPayout(ctx context.Context, now time.Time) (estimatedPayout estimatedpayouts.EstimatedPayout, err error) {
+	estimatedPayout, err = s.estimation.GetAllSatellitesEstimatedPayout(ctx, now)
 	if err != nil {
-		return estimatedpayout.EstimatedPayout{}, SNOServiceErr.Wrap(err)
+		return estimatedpayouts.EstimatedPayout{}, SNOServiceErr.Wrap(err)
 	}
 
 	return estimatedPayout, nil

@@ -25,7 +25,7 @@ RUN_TYPE=${RUN_TYPE:-"jenkins"}
 
 # set peers' versions
 # in stage 1: satellite and storagenode use latest release version, uplink uses all highest point release from all major releases starting from v0.15
-# in stage 2: satellite core uses latest release version and satellite api uses master. Storage nodes are split into half on latest release version and half on master. Uplink uses the all versions from stage 1 plus master
+# in stage 2: satellite core uses latest release version and satellite api uses main. Storage nodes are split into half on latest release version and half on main. Uplink uses the all versions from stage 1 plus main
 git fetch --tags
 major_release_tags=$(
     git tag -l --sort -version:refname |                             # get the tag list
@@ -38,9 +38,9 @@ current_release_version=$(echo $major_release_tags | xargs -n 1 | tail -1)
 stage1_sat_version=$current_release_version
 stage1_uplink_versions=$major_release_tags
 stage1_storagenode_versions=$(populate_sno_versions $current_release_version 10)
-stage2_sat_version="master"
-stage2_uplink_versions=$major_release_tags\ "master"
-stage2_storagenode_versions=$(populate_sno_versions $current_release_version 5)\ $(populate_sno_versions "master" 5)
+stage2_sat_version="main"
+stage2_uplink_versions=$major_release_tags\ "main"
+stage2_storagenode_versions=$(populate_sno_versions $current_release_version 5)\ $(populate_sno_versions "main" 5)
 
 echo "stage1_sat_version" $stage1_sat_version
 echo "stage1_uplink_versions" $stage1_uplink_versions
@@ -89,15 +89,11 @@ install_sim(){
     go build -race -v -o ${bin_dir}/certificates storj.io/storj/cmd/certificates >/dev/null 2>&1
 
     if [ -d "${work_dir}/cmd/gateway" ]; then
-        pushd ${work_dir}/cmd/gateway
-            go build -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1
-        popd
+        (cd ${work_dir}/cmd/gateway && go build -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1)
     else
-        rm -rf .build/gateway-tmp
-        mkdir -p .build/gateway-tmp
-        pushd .build/gateway-tmp
-            go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@latest
-        popd
+	mkdir -p ${work_dir}/build/gateway-tmp
+	(cd ${work_dir}/build/gateway-tmp && go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@latest;)
+        rm -rf ${work_dir}/build/gateway-tmp
     fi
 }
 
@@ -119,8 +115,6 @@ setup_stage(){
     ln -f $src_sat_version_dir/bin/satellite $dest_sat_cfg_dir/satellite
     cp $src_sat_cfg_dir/config.yaml $dest_sat_cfg_dir
     replace_in_file "${src_sat_version_dir}" "${test_dir}" "${dest_sat_cfg_dir}/config.yaml"
-
-
 
     counter=0
     for sn_version in ${stage_sn_versions}; do
@@ -165,16 +159,29 @@ fi
 
 echo "Setting up environments for versions" ${unique_versions}
 
+# create a result file for each child process' exit code
+exit_statuses_dir=${TMP}/exit_statuses
+mkdir ${exit_statuses_dir}
+write_exit_status(){
+    # we need to capture the exit status first so it won't be overwritten
+    local exit_status=$?
+    local version=$1
+    echo $exit_status > ${exit_statuses_dir}/${version} # write exit code to a file named with the current installing version
+    echo "installation for ${version} exited with status $exit_status"
+}
 # clean up git worktree
 git worktree prune
 for version in ${unique_versions}; do
+    # run in parallel
+    (
+        trap "write_exit_status ${version}" EXIT
         dir=$(version_dir ${version})
         bin_dir=${dir}/bin
 
         echo -e "\nAdding worktree for ${version} in ${dir}."
-        if [[ $version = "master" ]]
+        if [[ $version = "main" ]]
         then
-            git worktree add -f "$dir" "origin/master"
+            git worktree add -f "$dir" "origin/main"
         else
             git worktree add -f "$dir" "${version}"
         fi
@@ -189,7 +196,7 @@ for version in ${unique_versions}; do
 		EOF
         fi
 
-        if [[ $version = $current_release_version || $version = "master" ]]
+        if [[ $version = $current_release_version || $version = "main" ]]
         then
 
             echo "Installing storj-sim for ${version} in ${dir}."
@@ -216,7 +223,13 @@ for version in ${unique_versions}; do
             echo "Binary shasums:"
             shasum ${bin_dir}/uplink
         fi
+    ) &
 done
+
+wait # wait for all child processes to finish
+# iterate through those result files to check their exit code
+# if there's any exit code that's non-zero, exit the test
+grep -qvwr "0" ${exit_statuses_dir} && exit 1
 
 # Use stage 1 satellite version as the starting state. Create a cp of that
 # version folder so we don't worry about dirty states. Then copy/link/mv
@@ -225,7 +238,7 @@ test_dir=$(version_dir "test_dir")
 cp -r $(version_dir ${stage1_sat_version}) ${test_dir}
 echo -e "\nSetting up stage 1 in ${test_dir}"
 setup_stage "${test_dir}" "${stage1_sat_version}" "${stage1_storagenode_versions}"
-update_access_script_path="$(version_dir "master")/scripts/update-access.go"
+update_access_script_path="$(version_dir "main")/scripts/update-access.go"
 
 # Uploading files to the network using the latest release version for each uplink version
 for ul_version in ${stage1_uplink_versions}; do
@@ -241,7 +254,7 @@ echo -e "\nSetting up stage 2 in ${test_dir}"
 setup_stage "${test_dir}" "${stage2_sat_version}" "${stage2_storagenode_versions}"
 echo -e "\nRunning stage 2."
 
-# Downloading every file uploaded in stage 1 from the network using the latest commit from master branch for each uplink version
+# Downloading every file uploaded in stage 1 from the network using the latest commit from main branch for each uplink version
 for ul_version in ${stage2_uplink_versions}; do
     echo "Stage 2 Uplink version: ${ul_version}"
     src_ul_version_dir=$(version_dir ${ul_version})

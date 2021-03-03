@@ -3,144 +3,62 @@
 
 package repair
 
-import (
-	"math"
-)
+import "math"
 
-// SegmentHealth returns a value corresponding to the health of a segment
-// in the repair queue. Lower health segments should be repaired first.
-func SegmentHealth(numHealthy, minPieces int, failureRate float64) float64 {
-	return 1.0 / SegmentDanger(numHealthy, minPieces, failureRate)
-}
-
-// SegmentDanger returns the chance of a segment with the given minPieces
-// and the given number of healthy pieces of being lost in the next time
-// period.
+// SegmentHealth returns a value corresponding to the health of a segment in the
+// repair queue. Lower health segments should be repaired first.
 //
-// It assumes:
+// This calculation purports to find the number of iterations for which a
+// segment can be expected to survive, with the given failureRate. The number of
+// iterations for the segment to survive (X) can be modeled with the negative
+// binomial distribution, with the number of pieces that must be lost as the
+// success threshold r, and the chance of losing a single piece in a round as
+// the trial success probability p.
 //
-// * Nodes fail at the given failureRate (i.e., each node has a failureRate
-//   chance of going offline within the next time period).
-// * Node failures are entirely independent. Obviously this is not the case,
-//   because many nodes may be operated by a single entity or share network
-//   infrastructure, in which case their failures would be correlated. But we
-//   can't easily model that, so our best hope is to try to avoid putting
-//   pieces for the same segment on related nodes to maximize failure
-//   independence.
+// First, we calculate the expected number of iterations for a segment to
+// survive if we were to lose exactly one node every iteration:
 //
-// (The "time period" we are talking about here could be anything. The returned
-// danger value will be given in terms of whatever time period was used to
-// determine failureRate. If it simplifies things, you can think of the time
-// period as "one repair worker iteration".)
+//     r = numHealthy - minPieces + 1
+//     p = (totalNodes - numHealthy) / totalNodes
+//     X ~ NB(r, p)
 //
-// If those things are true, then the number of nodes holding this segment
-// that will go offline follows the Binomial distribution:
+// Then we take the mean of that distribution to use as our expected value,
+// which is pr/(1-p).
 //
-//     X ~ Binom(numHealthy, failureRate)
-//
-// A segment is lost if the number of nodes that go offline is higher than
-// (numHealthy - minPieces). So we want to find
-//
-//     Pr[X > (numHealthy - minPieces)]
-//
-// If we invert the logic here, we can use the standard CDF for the binomial
-// distribution.
-//
-//     Pr[X > (numHealthy - minPieces)] = 1 - Pr[X <= (numHealthy - minPieces)]
-//
-// And that gives us the danger value.
-func SegmentDanger(numHealthy, minPieces int, failureRate float64) float64 {
-	return 1.0 - binomialCDF(float64(numHealthy-minPieces), float64(numHealthy), failureRate)
-}
-
-// math.Lgamma without the returned sign parameter; it's unneeded here.
-func lnGamma(x float64) float64 {
-	lg, _ := math.Lgamma(x)
-	return lg
-}
-
-// The following functions are based on code from
-// Numerical Recipes in C, Second Edition, Section 6.4 (pp. 227-228).
-
-// betaI calculates the incomplete beta function I_x(a, b).
-func betaI(a, b, x float64) float64 {
-	if x < 0.0 || x > 1.0 {
-		return math.NaN()
+// Finally, to get away from the "one node per iteration" simplification, we
+// just scale the magnitude of the iterations in the model so that there really
+// is one node being lost. For example, if our failureRate and totalNodes imply
+// a churn rate of 3 nodes per day, we just take 1/3 of a day and call that an
+// "iteration" for purposes of the model. To convert iterations in the model to
+// days, we divide the mean of the negative binomial distribution (X, above) by
+// the number of nodes that we estimate will churn in one day.
+func SegmentHealth(numHealthy, minPieces, totalNodes int, failureRate float64) float64 {
+	if totalNodes < minTotalNodes {
+		// this model gives wonky results when there are too few nodes; pretend
+		// there are more nodes than there really are so that the model gives
+		// sane repair priorities
+		totalNodes = minTotalNodes
 	}
-	bt := 0.0
-	if x > 0.0 && x < 1.0 {
-		// factors in front of the continued function
-		bt = math.Exp(lnGamma(a+b) - lnGamma(a) - lnGamma(b) + a*math.Log(x) + b*math.Log(1.0-x))
+	churnPerRound := float64(totalNodes) * failureRate
+	if churnPerRound < minChurnPerRound {
+		// we artificially limit churnPerRound from going too low in cases
+		// where there are not many nodes, so that health values do not
+		// start to approach the floating point maximum
+		churnPerRound = minChurnPerRound
 	}
-	if x < (a+1.0)/(a+b+2.0) {
-		// use continued fraction directly
-		return bt * betaCF(a, b, x) / a
+	p := float64(totalNodes-numHealthy) / float64(totalNodes)
+	if p == 1.0 {
+		// floating point precision is insufficient to represent the difference
+		// from p to 1. there are too many nodes for this model, or else
+		// numHealthy is 0 somehow. we can't proceed with the normal calculation
+		// or we will divide by zero.
+		return math.Inf(1)
 	}
-	// use continued fraction after making the symmetry transformation
-	return 1.0 - bt*betaCF(b, a, 1.0-x)/b
+	mean1 := float64(numHealthy-minPieces+1) * p / (1 - p)
+	return mean1 / churnPerRound
 }
 
 const (
-	// unlikely to go this far, as betaCF is expected to converge quickly for
-	// typical values.
-	maxIter = 100
-
-	// betaI outputs will be accurate to within this amount.
-	epsilon = 1.0e-14
+	minChurnPerRound = 1e-10
+	minTotalNodes    = 100
 )
-
-// betaCF evaluates the continued fraction for the incomplete beta function
-// by a modified Lentz's method.
-func betaCF(a, b, x float64) float64 {
-	avoidZero := func(f float64) float64 {
-		if math.Abs(f) < math.SmallestNonzeroFloat64 {
-			return math.SmallestNonzeroFloat64
-		}
-		return f
-	}
-
-	qab := a + b
-	qap := a + 1.0
-	qam := a - 1.0
-	c := 1.0
-	d := 1.0 / avoidZero(1.0-qab*x/qap)
-	h := d
-
-	for m := 1; m <= maxIter; m++ {
-		m := float64(m)
-		m2 := 2.0 * m
-		aa := m * (b - m) * x / ((qam + m2) * (a + m2))
-		// one step (the even one) of the recurrence
-		d = 1.0 / avoidZero(1.0+aa*d)
-		c = avoidZero(1.0 + aa/c)
-		h *= d * c
-		aa = -(a + m) * (qab + m) * x / ((a + m2) * (qap + m2))
-		// next step of the recurrence (the odd one)
-		d = 1.0 / avoidZero(1.0+aa*d)
-		c = avoidZero(1.0 + aa/c)
-		del := d * c
-		h *= del
-		if math.Abs(del-1.0) < epsilon {
-			return h
-		}
-	}
-	// a or b too big, or maxIter too small
-	return math.NaN()
-}
-
-// binomialCDF evaluates the CDF of the binomial distribution Binom(n, p) at k.
-// This is done using (1-p)**(n-k) when k is 0, or with the incomplete beta
-// function otherwise.
-func binomialCDF(k, n, p float64) float64 {
-	k = math.Floor(k)
-	if k < 0.0 || n < k {
-		return math.NaN()
-	}
-	if k == n {
-		return 1.0
-	}
-	if k == 0 {
-		return math.Pow(1.0-p, n-k)
-	}
-	return betaI(n-k, k+1.0, 1.0-p)
-}

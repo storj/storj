@@ -7,10 +7,13 @@ import {
     ProjectFields,
     ProjectLimits,
     ProjectsApi,
+    ProjectsCursor,
+    ProjectsPage,
 } from '@/types/projects';
 
 export const PROJECTS_ACTIONS = {
     FETCH: 'fetchProjects',
+    FETCH_OWNED: 'fetchOwnedProjects',
     CREATE: 'createProject',
     SELECT: 'selectProject',
     UPDATE_NAME: 'updateProjectName',
@@ -29,14 +32,18 @@ export const PROJECTS_MUTATIONS = {
     SELECT_PROJECT: 'SELECT_PROJECT',
     CLEAR_PROJECTS: 'CLEAR_PROJECTS',
     SET_LIMITS: 'SET_PROJECT_LIMITS',
+    SET_PAGE_NUMBER: 'SET_PAGE_NUMBER',
+    SET_PAGE: 'SET_PAGE',
 };
 
-const defaultSelectedProject = new Project('', '', '', '', '', true);
+const defaultSelectedProject = new Project('', '', '', '', '', true, 0);
 
 export class ProjectsState {
     public projects: Project[] = [];
     public selectedProject: Project = defaultSelectedProject;
     public currentLimits: ProjectLimits = new ProjectLimits();
+    public cursor: ProjectsCursor = new ProjectsCursor();
+    public page: ProjectsPage = new ProjectsPage();
 }
 
 const {
@@ -48,6 +55,7 @@ const {
     DELETE,
     CLEAR,
     GET_LIMITS,
+    FETCH_OWNED,
 } = PROJECTS_ACTIONS;
 
 const {
@@ -59,7 +67,10 @@ const {
     SELECT_PROJECT,
     CLEAR_PROJECTS,
     SET_LIMITS,
+    SET_PAGE_NUMBER,
+    SET_PAGE,
 } = PROJECTS_MUTATIONS;
+const projectsPageLimit = 7;
 
 export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState> {
     return {
@@ -121,6 +132,13 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
                 state.selectedProject = defaultSelectedProject;
                 state.currentLimits = new ProjectLimits();
             },
+            [SET_PAGE_NUMBER](state: ProjectsState, pageNumber: number) {
+                state.cursor.page = pageNumber;
+                state.cursor.limit = projectsPageLimit;
+            },
+            [SET_PAGE](state: ProjectsState, page: ProjectsPage) {
+                state.page = page;
+            },
         },
         actions: {
             [FETCH]: async function ({commit}: any): Promise<Project[]> {
@@ -129,6 +147,14 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
                 commit(SET_PROJECTS, projects);
 
                 return projects;
+            },
+            [FETCH_OWNED]: async function ({commit, state}, pageNumber: number): Promise<ProjectsPage> {
+                commit(SET_PAGE_NUMBER, pageNumber);
+
+                const projectsPage: ProjectsPage = await api.getOwnedProjects(state.cursor);
+                commit(SET_PAGE, projectsPage);
+
+                return projectsPage;
             },
             [CREATE]: async function ({commit}: any, createProjectFields: ProjectFields): Promise<Project> {
                 const project = await api.create(createProjectFields);
@@ -185,7 +211,7 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
             projectsCount: (state: ProjectsState, getters: any): number => {
                 let projectsCount: number = 0;
 
-                state.projects.map((project: Project) => {
+                state.projects.forEach((project: Project) => {
                     if (project.ownerId === getters.user.id) {
                         projectsCount++;
                     }

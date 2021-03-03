@@ -5,6 +5,7 @@
     <div class="buckets-selection">
         <div
             class="buckets-selection__toggle-container"
+            :class="{ disabled: isOnboardingTour }"
             @click.stop="toggleDropdown"
         >
             <h1 class="buckets-selection__toggle-container__name">{{ selectionLabel }}</h1>
@@ -12,12 +13,12 @@
                 class="buckets-selection__toggle-container__expand-icon"
                 alt="Arrow down (expand)"
             />
-            <BucketsDropdown
-                v-show="isDropdownShown"
-                @close="closeDropdown"
-                v-click-outside="closeDropdown"
-            />
         </div>
+        <BucketsDropdown
+            v-if="isDropdownShown"
+            @close="closeDropdown"
+            v-click-outside="closeDropdown"
+        />
     </div>
 </template>
 
@@ -27,6 +28,8 @@ import { Component, Vue } from 'vue-property-decorator';
 import BucketsDropdown from '@/components/accessGrants/permissions/BucketsDropdown.vue';
 
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
+
+import { RouteConfig } from '@/router';
 
 @Component({
     components: {
@@ -41,6 +44,8 @@ export default class BucketsSelection extends Vue {
      * Toggles dropdown visibility.
      */
     public toggleDropdown(): void {
+        if (this.isOnboardingTour) return;
+
         this.isDropdownShown = !this.isDropdownShown;
     }
 
@@ -49,6 +54,13 @@ export default class BucketsSelection extends Vue {
      */
     public closeDropdown(): void {
         this.isDropdownShown = false;
+    }
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    public get isOnboardingTour(): boolean {
+        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 
     /**
@@ -65,24 +77,10 @@ export default class BucketsSelection extends Vue {
     }
 
     /**
-     * Returns selected bucket names from store or all bucket names.
-     */
-    public get selectedBucketNames(): string[] {
-        return this.storedBucketNames.length ? this.storedBucketNames : this.allBucketNames;
-    }
-
-    /**
      * Returns stored selected bucket names.
      */
-    public get storedBucketNames(): string[] {
+    private get storedBucketNames(): string[] {
         return this.$store.state.accessGrantsModule.selectedBucketNames;
-    }
-
-    /**
-     * Returns all bucket names.
-     */
-    public get allBucketNames(): string[] {
-        return this.$store.state.bucketUsageModule.allBucketNames;
     }
 }
 </script>
@@ -96,14 +94,15 @@ export default class BucketsSelection extends Vue {
         border: 1px solid rgba(56, 75, 101, 0.4);
         font-family: 'font_regular', sans-serif;
         width: 235px;
+        position: relative;
 
         &__toggle-container {
-            position: relative;
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 15px 20px;
             width: calc(100% - 40px);
+            border-radius: 6px;
 
             &__name {
                 font-style: normal;
@@ -114,5 +113,11 @@ export default class BucketsSelection extends Vue {
                 margin: 0;
             }
         }
+    }
+
+    .disabled {
+        pointer-events: none;
+        background: #f5f6fa;
+        border: 1px solid rgba(56, 75, 101, 0.4);
     }
 </style>

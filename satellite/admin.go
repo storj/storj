@@ -24,7 +24,7 @@ import (
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
-// Admin is the satellite core process that runs chores
+// Admin is the satellite core process that runs chores.
 //
 // architecture: Peer
 type Admin struct {

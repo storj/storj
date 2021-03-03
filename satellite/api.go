@@ -40,7 +40,6 @@ import (
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
-	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/nodestats"
@@ -48,13 +47,12 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
-	"storj.io/storj/satellite/referrals"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/rewards"
-	"storj.io/storj/satellite/snopayout"
+	"storj.io/storj/satellite/snopayouts"
 )
 
-// API is the satellite API process
+// API is the satellite API process.
 //
 // architecture: Peer
 type API struct {
@@ -65,8 +63,9 @@ type API struct {
 	Servers  *lifecycle.Group
 	Services *lifecycle.Group
 
-	Dialer rpc.Dialer
-	Server *server.Server
+	Dialer          rpc.Dialer
+	Server          *server.Server
+	ExternalAddress string
 
 	Version struct {
 		Chore   *checker.Chore
@@ -134,10 +133,6 @@ type API struct {
 		Stripe   stripecoinpayments.StripeClient
 	}
 
-	Referrals struct {
-		Service *referrals.Service
-	}
-
 	Console struct {
 		Listener net.Listener
 		Service  *console.Service
@@ -146,19 +141,16 @@ type API struct {
 
 	Marketing struct {
 		PartnersService *rewards.PartnersService
-
-		Listener net.Listener
-		Endpoint *marketingweb.Server
 	}
 
 	NodeStats struct {
 		Endpoint *nodestats.Endpoint
 	}
 
-	SnoPayout struct {
-		Endpoint *snopayout.Endpoint
-		Service  *snopayout.Service
-		DB       snopayout.DB
+	SNOPayouts struct {
+		Endpoint *snopayouts.Endpoint
+		Service  *snopayouts.Service
+		DB       snopayouts.DB
 	}
 
 	GracefulExit struct {
@@ -171,9 +163,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache, rollupsWriteCache *orders.RollupsWriteCache,
 	config *Config, versionInfo version.Info, atomicLogLevel *zap.AtomicLevel) (*API, error) {
 	peer := &API{
-		Log:      log,
-		Identity: full,
-		DB:       db,
+		Log:             log,
+		Identity:        full,
+		DB:              db,
+		ExternalAddress: config.Contact.ExternalAddress,
 
 		Servers:  lifecycle.NewGroup(log.Named("servers")),
 		Services: lifecycle.NewGroup(log.Named("services")),
@@ -228,9 +221,14 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
 
-		peer.Server, err = server.New(log.Named("server"), tlsOptions, sc.Address, sc.PrivateAddress)
+		peer.Server, err = server.New(log.Named("server"), tlsOptions, sc)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
+		}
+
+		if peer.ExternalAddress == "" {
+			// not ideal, but better than nothing
+			peer.ExternalAddress = peer.Server.Addr().String()
 		}
 
 		peer.Servers.Add(lifecycle.Item{
@@ -249,7 +247,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup overlay
 		peer.Overlay.DB = peer.DB.OverlayCache()
 
-		peer.Overlay.Service = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay)
+		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
 			Close: peer.Overlay.Service.Close,
@@ -262,11 +263,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup contact service
-		c := config.Contact
-		if c.ExternalAddress == "" {
-			c.ExternalAddress = peer.Addr()
-		}
-
 		pbVersion, err := versionInfo.Proto()
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -276,7 +272,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Node: pb.Node{
 				Id: peer.ID(),
 				Address: &pb.NodeAddress{
-					Address: c.ExternalAddress,
+					Address: peer.Addr(),
 				},
 			},
 			Type:    pb.NodeType_SATELLITE,
@@ -325,17 +321,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Orders Chore", peer.Orders.Chore.Loop))
-
-		satelliteSignee := signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity())
-		peer.Orders.Endpoint = orders.NewEndpoint(
-			peer.Log.Named("orders:endpoint"),
-			satelliteSignee,
-			peer.Orders.DB,
-			peer.DB.NodeAPIVersion(),
-			config.Orders.SettlementBatchSize,
-			config.Orders.WindowEndpointRolloutPhase,
-			config.Orders.OrdersSemaphoreSize,
-		)
 		var err error
 		peer.Orders.Service, err = orders.NewService(
 			peer.Log.Named("orders:service"),
@@ -344,20 +329,27 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Orders.DB,
 			peer.DB.Buckets(),
 			config.Orders,
-			&pb.NodeAddress{
-				Transport: pb.NodeTransport_TCP_TLS_GRPC,
-				Address:   config.Contact.ExternalAddress,
-			},
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
+		satelliteSignee := signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity())
+		peer.Orders.Endpoint = orders.NewEndpoint(
+			peer.Log.Named("orders:endpoint"),
+			satelliteSignee,
+			peer.Orders.DB,
+			peer.DB.NodeAPIVersion(),
+			config.Orders.OrdersSemaphoreSize,
+			peer.Orders.Service,
+		)
+
 		if err := pb.DRPCRegisterOrders(peer.Server.DRPC(), peer.Orders.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 	}
 
-	{ // setup marketing portal
+	{ // setup marketing partners service
 		peer.Marketing.PartnersService = rewards.NewPartnersService(
 			peer.Log.Named("partners"),
 			rewards.DefaultPartnersDB,
@@ -367,28 +359,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				"https://europe-west-1.tardigrade.io/",
 			},
 		)
-
-		peer.Marketing.Listener, err = net.Listen("tcp", config.Marketing.Address)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		peer.Marketing.Endpoint, err = marketingweb.NewServer(
-			peer.Log.Named("marketing:endpoint"),
-			config.Marketing,
-			peer.DB.Rewards(),
-			peer.Marketing.PartnersService,
-			peer.Marketing.Listener,
-		)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		peer.Servers.Add(lifecycle.Item{
-			Name:  "marketing:endpoint",
-			Run:   peer.Marketing.Endpoint.Run,
-			Close: peer.Marketing.Endpoint.Close,
-		})
 	}
 
 	{ // setup metainfo
@@ -592,15 +562,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.New("Auth token secret required")
 		}
 
-		peer.Referrals.Service = referrals.NewService(
-			peer.Log.Named("referrals:service"),
-			signing.SignerFromFullIdentity(peer.Identity),
-			config.Referrals,
-			peer.Dialer,
-			peer.DB.Console().Users(),
-			consoleConfig.PasswordCost,
-		)
-
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
@@ -608,7 +569,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.ProjectAccounting(),
 			peer.Accounting.ProjectUsage,
 			peer.DB.Buckets(),
-			peer.DB.Rewards(),
 			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,
 			consoleConfig.Config,
@@ -623,10 +583,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			consoleConfig,
 			peer.Console.Service,
 			peer.Mail.Service,
-			peer.Referrals.Service,
 			peer.Marketing.PartnersService,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,
+			peer.URL(),
 		)
 
 		peer.Servers.Add(lifecycle.Item{
@@ -649,16 +609,16 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup SnoPayout endpoint
-		peer.SnoPayout.DB = peer.DB.SnoPayout()
-		peer.SnoPayout.Service = snopayout.NewService(
-			peer.Log.Named("payout:service"),
-			peer.SnoPayout.DB)
-		peer.SnoPayout.Endpoint = snopayout.NewEndpoint(
-			peer.Log.Named("payout:endpoint"),
+		peer.SNOPayouts.DB = peer.DB.SNOPayouts()
+		peer.SNOPayouts.Service = snopayouts.NewService(
+			peer.Log.Named("payouts:service"),
+			peer.SNOPayouts.DB)
+		peer.SNOPayouts.Endpoint = snopayouts.NewEndpoint(
+			peer.Log.Named("payouts:endpoint"),
 			peer.DB.StoragenodeAccounting(),
 			peer.Overlay.DB,
-			peer.SnoPayout.Service)
-		if err := pb.DRPCRegisterHeldAmount(peer.Server.DRPC(), peer.SnoPayout.Endpoint); err != nil {
+			peer.SNOPayouts.Service)
+		if err := pb.DRPCRegisterHeldAmount(peer.Server.DRPC(), peer.SNOPayouts.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 	}
@@ -711,7 +671,9 @@ func (peer *API) Close() error {
 func (peer *API) ID() storj.NodeID { return peer.Identity.ID }
 
 // Addr returns the public address.
-func (peer *API) Addr() string { return peer.Server.Addr().String() }
+func (peer *API) Addr() string {
+	return peer.ExternalAddress
+}
 
 // URL returns the storj.NodeURL.
 func (peer *API) URL() storj.NodeURL {

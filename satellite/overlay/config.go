@@ -21,15 +21,20 @@ var (
 // Config is a configuration for overlay service.
 type Config struct {
 	Node                 NodeSelectionConfig
-	NodeSelectionCache   CacheConfig
+	NodeSelectionCache   UploadSelectionCacheConfig
 	UpdateStatsBatchSize int `help:"number of update requests to process per transaction" default:"100"`
 	AuditHistory         AuditHistoryConfig
+}
+
+// AsOfSystemTimeConfig is a configuration struct to enable 'AS OF SYSTEM TIME' for CRDB queries.
+type AsOfSystemTimeConfig struct {
+	Enabled         bool          `help:"enables the use of the AS OF SYSTEM TIME feature in CRDB" default:"true"`
+	DefaultInterval time.Duration `help:"default duration for AS OF SYSTEM TIME" devDefault:"-1µs" releaseDefault:"-10s"`
 }
 
 // NodeSelectionConfig is a configuration struct to determine the minimum
 // values for nodes to select.
 type NodeSelectionConfig struct {
-	UptimeCount      int64         `help:"the number of times a node's uptime has been checked to not be considered a New Node" releaseDefault:"100" devDefault:"0"`
 	AuditCount       int64         `help:"the number of times a node has been audited to not be considered a New Node" releaseDefault:"100" devDefault:"0"`
 	NewNodeFraction  float64       `help:"the fraction of new nodes allowed per request" releaseDefault:"0.05" devDefault:"1"`
 	MinimumVersion   string        `help:"the minimum node software version for node selection queries" default:""`
@@ -44,6 +49,8 @@ type NodeSelectionConfig struct {
 	AuditReputationDQ           float64       `help:"the reputation cut-off for disqualifying SNs based on audit history" default:"0.6"`
 	SuspensionGracePeriod       time.Duration `help:"the time period that must pass before suspended nodes will be disqualified" releaseDefault:"168h" devDefault:"1h"`
 	SuspensionDQEnabled         bool          `help:"whether nodes will be disqualified if they have been suspended for longer than the suspended grace period" releaseDefault:"false" devDefault:"true"`
+
+	AsOfSystemTime AsOfSystemTimeConfig
 }
 
 // AuditHistoryConfig is a configuration struct defining time periods and thresholds for penalizing nodes for being offline.
@@ -54,4 +61,17 @@ type AuditHistoryConfig struct {
 	GracePeriod      time.Duration `help:"The length of time to give suspended SNOs to diagnose and fix issues causing downtime. Afterwards, they will have one tracking period to reach the minimum online score before disqualification" releaseDefault:"168h" devDefault:"1h"`
 	OfflineThreshold float64       `help:"The point below which a node is punished for offline audits. Determined by calculating the ratio of online/total audits within each window and finding the average across windows within the tracking period." default:"0.6"`
 	OfflineDQEnabled bool          `help:"whether nodes will be disqualified if they have low online score after a review period" releaseDefault:"false" devDefault:"true"`
+}
+
+func (aost *AsOfSystemTimeConfig) isValid() error {
+	if aost.Enabled {
+		if aost.DefaultInterval >= 0 {
+			return errs.New("AS OF SYSTEM TIME interval must be a negative number")
+		}
+		if aost.DefaultInterval > -time.Microsecond {
+			return errs.New("AS OF SYSTEM TIME interval cannot be in nanoseconds")
+		}
+	}
+
+	return nil
 }

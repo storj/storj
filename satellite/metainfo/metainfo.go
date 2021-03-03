@@ -83,6 +83,7 @@ type Endpoint struct {
 	revocations          revocation.DB
 	defaultRS            *pb.RedundancyScheme
 	config               Config
+	versionCollector     *versionCollector
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
@@ -136,6 +137,7 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 		revocations:          revocations,
 		defaultRS:            defaultRSScheme,
 		config:               config,
+		versionCollector:     newVersionCollector(),
 	}, nil
 }
 
@@ -223,6 +225,11 @@ func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Poi
 func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRequest) (_ *pb.ProjectInfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:   macaroon.ActionProjectInfo,
 		Time: time.Now(),
@@ -241,6 +248,11 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 // GetBucket returns a bucket.
 func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetRequest) (resp *pb.BucketGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionRead,
@@ -273,6 +285,11 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 // CreateBucket creates a new bucket.
 func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreateRequest) (resp *pb.BucketCreateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionWrite,
@@ -349,6 +366,11 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 // DeleteBucket deletes a bucket.
 func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDeleteRequest) (resp *pb.BucketDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
 
 	now := time.Now()
 
@@ -498,6 +520,12 @@ func (endpoint *Endpoint) deleteByPrefix(ctx context.Context, projectID uuid.UUI
 // ListBuckets returns buckets in a project where the bucket name matches the request cursor.
 func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListRequest) (resp *pb.BucketListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
 	action := macaroon.Action{
 		// TODO: This has to be ActionList, but it seems to be set to
 		// ActionRead as a hacky workaround to make bucket listing possible.
@@ -641,6 +669,11 @@ func convertBucketToProto(bucket storj.Bucket, rs *pb.RedundancyScheme) (pbBucke
 func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRequest) (resp *pb.ObjectBeginResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionWrite,
 		Bucket:        req.Bucket,
@@ -733,6 +766,11 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommitRequest) (resp *pb.ObjectCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
 	return endpoint.commitObject(ctx, req, nil)
 }
 
@@ -816,6 +854,11 @@ func (endpoint *Endpoint) commitObject(ctx context.Context, req *pb.ObjectCommit
 func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetRequest) (resp *pb.ObjectGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionRead,
 		Bucket:        req.Bucket,
@@ -831,7 +874,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	object, err := endpoint.getObject(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedPath, req.Version)
+	object, err := endpoint.getObject(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedPath, req.Version, req.RedundancySchemePerSegment)
 	if err != nil {
 		return nil, err
 	}
@@ -844,7 +887,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	}, nil
 }
 
-func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bucket, encryptedPath []byte, version int32) (*pb.Object, error) {
+func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bucket, encryptedPath []byte, version int32, rsPerSegment bool) (*pb.Object, error) {
 	pointer, _, err := endpoint.getPointer(ctx, projectID, metabase.LastSegmentIndex, bucket, encryptedPath)
 	if err != nil {
 		return nil, err
@@ -878,6 +921,11 @@ func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bu
 			CipherSuite: pb.CipherSuite(streamMeta.EncryptionType),
 			BlockSize:   int64(streamMeta.EncryptionBlockSize),
 		},
+	}
+
+	// don't return redundancy scheme if feature flag RedundancySchemePerSegment is set
+	if rsPerSegment {
+		return object, nil
 	}
 
 	if pointer.Remote != nil {
@@ -924,6 +972,11 @@ func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bu
 // ListObjects list objects according to specific parameters.
 func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListRequest) (resp *pb.ObjectListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionList,
@@ -986,6 +1039,11 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 // BeginDeleteObject begins object deletion process.
 func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectBeginDeleteRequest) (resp *pb.ObjectBeginDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
 
 	now := time.Now()
 
@@ -1065,6 +1123,11 @@ func (endpoint *Endpoint) FinishDeleteObject(ctx context.Context, req *pb.Object
 func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPsRequest) (resp *pb.ObjectGetIPsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionRead,
 		Bucket:        req.Bucket,
@@ -1086,11 +1149,11 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		return nil, err
 	}
 
-	var nodeIDs []storj.NodeID
+	pieceCountByNodeID := map[storj.NodeID]int64{}
 	addPointerToNodeIDs := func(pointer *pb.Pointer) {
 		if pointer.Remote != nil {
 			for _, piece := range pointer.Remote.RemotePieces {
-				nodeIDs = append(nodeIDs, piece.NodeId)
+				pieceCountByNodeID[piece.NodeId]++
 			}
 		}
 	}
@@ -1129,25 +1192,46 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		addPointerToNodeIDs(pointer)
 	}
 
-	nodes, err := endpoint.overlay.GetOnlineNodesForGetDelete(ctx, nodeIDs)
+	nodeIDs := make([]storj.NodeID, 0, len(pieceCountByNodeID))
+	for nodeID := range pieceCountByNodeID {
+		nodeIDs = append(nodeIDs, nodeID)
+	}
+
+	nodeIPMap, err := endpoint.overlay.GetNodeIPs(ctx, nodeIDs)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	resp = &pb.ObjectGetIPsResponse{}
-	for _, node := range nodes {
-		address := node.Address.GetAddress()
-		if address != "" {
-			resp.Ips = append(resp.Ips, []byte(address))
+	nodeIPs := make([][]byte, 0, len(nodeIPMap))
+	pieceCount := int64(0)
+	reliablePieceCount := int64(0)
+	for nodeID, count := range pieceCountByNodeID {
+		pieceCount += count
+
+		ip, reliable := nodeIPMap[nodeID]
+		if !reliable {
+			continue
 		}
+		nodeIPs = append(nodeIPs, []byte(ip))
+		reliablePieceCount += count
 	}
 
-	return resp, nil
+	return &pb.ObjectGetIPsResponse{
+		Ips:                nodeIPs,
+		SegmentCount:       streamMeta.NumberOfSegments,
+		ReliablePieceCount: reliablePieceCount,
+		PieceCount:         pieceCount,
+	}, nil
 }
 
 // BeginSegment begins segment uploading.
 func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBeginRequest) (resp *pb.SegmentBeginResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
 
 	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
 	if err != nil {
@@ -1170,16 +1254,8 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "segment index must be greater then 0")
 	}
 
-	exceeded, limit, err := endpoint.projectUsage.ExceedsStorageUsage(ctx, keyInfo.ProjectID)
-	if err != nil {
-		endpoint.log.Error("Retrieving project storage totals failed.", zap.Error(err))
-	}
-	if exceeded {
-		endpoint.log.Error("Monthly storage limit exceeded.",
-			zap.Stringer("Limit", limit),
-			zap.Stringer("Project ID", keyInfo.ProjectID),
-		)
-		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
+	if err := endpoint.checkExceedsStorageUsage(ctx, keyInfo.ProjectID); err != nil {
+		return nil, err
 	}
 
 	redundancy, err := eestream.NewRedundancyStrategyFromProto(streamID.Redundancy)
@@ -1224,6 +1300,11 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 // CommitSegment commits segment after uploading.
 func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentCommitRequest) (resp *pb.SegmentCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
 
 	_, resp, err = endpoint.commitSegment(ctx, req, true)
 	return resp, err
@@ -1311,16 +1392,8 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, nil, err
 	}
 
-	exceeded, limit, err := endpoint.projectUsage.ExceedsStorageUsage(ctx, keyInfo.ProjectID)
-	if err != nil {
-		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-	if exceeded {
-		endpoint.log.Error("The project limit of storage and bandwidth has been exceeded",
-			zap.Int64("limit", limit.Int64()),
-			zap.Stringer("Project ID", keyInfo.ProjectID),
-		)
-		return nil, nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
+	if err := endpoint.checkExceedsStorageUsage(ctx, keyInfo.ProjectID); err != nil {
+		return nil, nil, err
 	}
 
 	// clear hashes so we don't store them
@@ -1346,12 +1419,13 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 	}
 
 	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, segmentSize); err != nil {
-		endpoint.log.Error("Could not track new storage usage by project",
+		// log it and continue. it's most likely our own fault that we couldn't
+		// track it, and the only thing that will be affected is our per-project
+		// storage limits.
+		endpoint.log.Error("Could not track new project's storage usage",
 			zap.Stringer("Project ID", keyInfo.ProjectID),
 			zap.Error(err),
 		)
-		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
-		// that will be affected is our per-project bandwidth and storage limits.
 	}
 
 	if savePointer {
@@ -1374,6 +1448,11 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 // MakeInlineSegment makes inline segment on satellite.
 func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.SegmentMakeInlineRequest) (resp *pb.SegmentMakeInlineResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
 
 	_, resp, err = endpoint.makeInlineSegment(ctx, req, true)
 	return resp, err
@@ -1407,22 +1486,18 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, fmt.Sprintf("inline segment size cannot be larger than %s", endpoint.config.MaxInlineSegmentSize))
 	}
 
-	exceeded, limit, err := endpoint.projectUsage.ExceedsStorageUsage(ctx, keyInfo.ProjectID)
-	if err != nil {
-		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-	if exceeded {
-		endpoint.log.Error("Monthly storage limit exceeded.",
-			zap.Stringer("Limit", limit),
-			zap.Stringer("Project ID", keyInfo.ProjectID),
-		)
-		return nil, nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
+	if err := endpoint.checkExceedsStorageUsage(ctx, keyInfo.ProjectID); err != nil {
+		return nil, nil, err
 	}
 
 	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, inlineUsed); err != nil {
-		endpoint.log.Error("Could not track new storage usage.", zap.Stringer("Project ID", keyInfo.ProjectID), zap.Error(err))
-		// but continue. it's most likely our own fault that we couldn't track it, and the only thing
-		// that will be affected is our per-project bandwidth and storage limits.
+		// log it and continue. it's most likely our own fault that we couldn't
+		// track it, and the only thing that will be affected is our per-project
+		// bandwidth and storage limits.
+		endpoint.log.Error("Could not track new project's storage usage",
+			zap.Stringer("Project ID", keyInfo.ProjectID),
+			zap.Error(err),
+		)
 	}
 
 	metadata, err := pb.Marshal(&pb.SegmentMeta{
@@ -1481,9 +1556,25 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "not implemented")
 }
 
+// GetPendingObjects returns pending objects.
+func (endpoint *Endpoint) GetPendingObjects(ctx context.Context, req *pb.GetPendingObjectsRequest) (resp *pb.GetPendingObjectsResponse, err error) {
+	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "not implemented")
+}
+
+// ListPendingObjectStreams list pending objects according to specific parameters.
+func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.ObjectListPendingStreamsRequest) (resp *pb.ObjectListPendingStreamsResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Not Implemented")
+}
+
 // DownloadSegment returns data necessary to download segment.
 func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDownloadRequest) (resp *pb.SegmentDownloadResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
 
 	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
 	if err != nil {
@@ -1502,12 +1593,10 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
 
-	exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID)
-	if err != nil {
-		endpoint.log.Error("Retrieving project bandwidth total failed.", zap.Error(err))
-	}
-	if exceeded {
-		endpoint.log.Error("Monthly bandwidth limit exceeded.",
+	if exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID); err != nil {
+		endpoint.log.Error("Retrieving project bandwidth total failed; bandwidth limit won't be enforced", zap.Error(err))
+	} else if exceeded {
+		endpoint.log.Error("Monthly bandwidth limit exceeded",
 			zap.Stringer("Limit", limit),
 			zap.Stringer("Project ID", keyInfo.ProjectID),
 		)
@@ -1520,9 +1609,14 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 
 	// Update the current bandwidth cache value incrementing the SegmentSize.
-	err = endpoint.projectUsage.UpdateProjectBandwidthUsage(ctx, keyInfo.ProjectID, pointer.SegmentSize)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	if err = endpoint.projectUsage.UpdateProjectBandwidthUsage(ctx, keyInfo.ProjectID, pointer.SegmentSize); err != nil {
+		// log it and continue. it's most likely our own fault that we couldn't
+		// track it, and the only thing that will be affected is our per-project
+		// bandwidth limits.
+		endpoint.log.Error("Could not track the new project's bandwidth usage",
+			zap.Stringer("Project ID", keyInfo.ProjectID),
+			zap.Error(err),
+		)
 	}
 
 	segmentID, err := endpoint.packSegmentID(ctx, &internalpb.SegmentID{})
@@ -1608,6 +1702,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 			EncryptedKeyNonce: encryptedKeyNonce,
 			EncryptedKey:      encryptedKey,
+			RedundancyScheme:  pointer.Remote.Redundancy,
 		}, nil
 	}
 
@@ -1819,6 +1914,12 @@ func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, reqs ...*meta
 // RevokeAPIKey handles requests to revoke an api key.
 func (endpoint *Endpoint) RevokeAPIKey(ctx context.Context, req *pb.RevokeAPIKeyRequest) (resp *pb.RevokeAPIKeyResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
 	macToRevoke, err := macaroon.ParseMacaroon(req.GetApiKey())
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "API key to revoke is not a macaroon")
@@ -1835,6 +1936,26 @@ func (endpoint *Endpoint) RevokeAPIKey(ctx context.Context, req *pb.RevokeAPIKey
 	}
 
 	return &pb.RevokeAPIKeyResponse{}, nil
+}
+
+func (endpoint *Endpoint) checkExceedsStorageUsage(ctx context.Context, projectID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	exceeded, limit, err := endpoint.projectUsage.ExceedsStorageUsage(ctx, projectID)
+	if err != nil {
+		endpoint.log.Error(
+			"Retrieving project storage totals failed; storage usage limit won't be enforced",
+			zap.Error(err),
+		)
+	} else if exceeded {
+		endpoint.log.Error("Monthly storage limit exceeded",
+			zap.Stringer("Limit", limit),
+			zap.Stringer("Project ID", projectID),
+		)
+		return rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
+	}
+
+	return nil
 }
 
 // CreatePath creates a segment key.

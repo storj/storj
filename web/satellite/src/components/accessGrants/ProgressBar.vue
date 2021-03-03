@@ -36,28 +36,28 @@ export default class ProgressBar extends Vue {
      * Indicates if current route is on name step.
      */
     public get isNameStep(): boolean {
-        return this.$route.name === RouteConfig.NameStep.name;
+        return this.$route.name === RouteConfig.NameStep.name || this.$route.name === RouteConfig.AccessGrantName.name;
     }
 
     /**
      * Indicates if current route is on permissions step.
      */
     public get isPermissionsStep(): boolean {
-        return this.$route.name === RouteConfig.PermissionsStep.name;
+        return this.$route.name === RouteConfig.PermissionsStep.name || this.$route.name === RouteConfig.AccessGrantPermissions.name;
     }
 
     /**
      * Indicates if current route is on passphrase step.
      */
     public get isPassphraseStep(): boolean {
-        return this.$route.name === RouteConfig.PassphraseStep.name;
+        return this.$route.name === RouteConfig.CreatePassphraseStep.name || this.$route.name === RouteConfig.EnterPassphraseStep.name || this.$route.name === RouteConfig.AccessGrantPassphrase.name;
     }
 
     /**
      * Indicates if current route is on result step.
      */
     public get isResultStep(): boolean {
-        return this.$route.name === RouteConfig.ResultStep.name;
+        return this.$route.name === RouteConfig.ResultStep.name || this.$route.name === RouteConfig.AccessGrantResult.name;
     }
 }
 </script>
@@ -68,8 +68,9 @@ export default class ProgressBar extends Vue {
         display: flex;
         flex-direction: column;
         align-items: flex-start;
+        justify-content: flex-start;
         background: #f5f6fa;
-        height: 360px;
+        height: 380px;
         border-radius: 6px 0 0 6px;
 
         &__item {
@@ -105,7 +106,6 @@ export default class ProgressBar extends Vue {
 
     .checked {
         font-family: 'font_bold', sans-serif;
-        font-weight: bold;
         color: #000;
     }
 

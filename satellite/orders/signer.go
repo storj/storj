@@ -14,6 +14,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metainfo/metabase"
 )
 
@@ -140,25 +141,23 @@ func NewSignerGracefulExit(service *Service, rootPieceID storj.PieceID, orderCre
 func (signer *Signer) Sign(ctx context.Context, node storj.NodeURL, pieceNum int32) (_ *pb.AddressedOrderLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if signer.Service.includeEncryptedMetadata && len(signer.EncryptedMetadata) == 0 {
+	if len(signer.EncryptedMetadata) == 0 {
 		encryptionKey := signer.Service.encryptionKeys.Default
 		if encryptionKey.IsZero() {
 			return nil, ErrSigner.New("default encryption key is missing")
 		}
 
-		bucketID, err := signer.Service.buckets.GetBucketID(ctx, signer.Bucket)
-		if err != nil {
-			return nil, ErrSigner.Wrap(err)
-		}
-
-		metadata, err := pb.Marshal(&pb.OrderLimitMetadata{
-			BucketId: bucketID[:],
-		})
+		encrypted, err := encryptionKey.EncryptMetadata(
+			signer.Serial,
+			&internalpb.OrderLimitMetadata{
+				CompactProjectBucketPrefix: signer.Bucket.CompactPrefix(),
+			},
+		)
 		if err != nil {
 			return nil, ErrSigner.Wrap(err)
 		}
 		signer.EncryptedMetadataKeyID = encryptionKey.ID[:]
-		signer.EncryptedMetadata = encryptionKey.Encrypt(metadata, signer.Serial)
+		signer.EncryptedMetadata = encrypted
 	}
 
 	limit := &pb.OrderLimit{
@@ -174,8 +173,6 @@ func (signer *Signer) Sign(ctx context.Context, node storj.NodeURL, pieceNum int
 		PieceExpiration: signer.PieceExpiration,
 		OrderCreation:   signer.OrderCreation,
 		OrderExpiration: signer.OrderExpiration,
-
-		SatelliteAddress: signer.Service.satelliteAddress,
 
 		EncryptedMetadataKeyId: signer.EncryptedMetadataKeyID,
 		EncryptedMetadata:      signer.EncryptedMetadata,

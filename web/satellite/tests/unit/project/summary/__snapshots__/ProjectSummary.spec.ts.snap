@@ -9,7 +9,7 @@ exports[`ProjectSummary.vue renders correctly 1`] = `
       <p class="summary-item__value" style="color: rgb(0, 0, 0);">0</p>
     </div>
     <div class="summary-item right-indent" style="background-color: rgb(245, 246, 250);">
-      <h1 class="summary-item__title" style="color: rgb(27, 37, 51);">API Keys</h1>
+      <h1 class="summary-item__title" style="color: rgb(27, 37, 51);">Access Grants</h1>
       <p class="summary-item__value" style="color: rgb(0, 0, 0);">0</p>
     </div>
     <div class="summary-item right-indent" style="background-color: rgb(177, 193, 217);">

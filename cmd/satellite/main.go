@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"text/tabwriter"
 	"time"
 
@@ -18,7 +19,11 @@ import (
 
 	"storj.io/common/context2"
 	"storj.io/common/fpath"
+	"storj.io/common/pb"
+	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/rpc"
 	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/common/uuid"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
@@ -29,10 +34,12 @@ import (
 	"storj.io/storj/pkg/revocation"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -136,19 +143,19 @@ var (
 		Args:  cobra.MinimumNArgs(3),
 		RunE:  cmdValueAttribution,
 	}
-	gracefulExitCmd = &cobra.Command{
+	reportsGracefulExitCmd = &cobra.Command{
 		Use:   "graceful-exit [start] [end]",
 		Short: "Generate a graceful exit report",
 		Long:  "Generate a node usage report for a given period to use for payments. Format dates using YYYY-MM-DD. The end date is exclusive.",
 		Args:  cobra.MinimumNArgs(2),
-		RunE:  cmdGracefulExit,
+		RunE:  cmdReportsGracefulExit,
 	}
-	verifyGracefulExitReceiptCmd = &cobra.Command{
+	reportsVerifyGEReceiptCmd = &cobra.Command{
 		Use:   "verify-exit-receipt [storage node ID] [receipt]",
 		Short: "Verify a graceful exit receipt",
 		Long:  "Verify a graceful exit receipt is valid.",
 		Args:  cobra.MinimumNArgs(2),
-		RunE:  cmdVerifyGracefulExitReceipt,
+		RunE:  reportsVerifyGEReceipt,
 	}
 	compensationCmd = &cobra.Command{
 		Use:   "compensation",
@@ -219,6 +226,24 @@ var (
 		Long:  "Ensures that we have a stripe customer for every satellite user.",
 		RunE:  cmdStripeCustomer,
 	}
+	consistencyCmd = &cobra.Command{
+		Use:   "consistency",
+		Short: "Readdress DB consistency issues",
+		Long:  "Readdress DB consistency issues and perform data cleanups for improving the DB performance.",
+	}
+	consistencyGECleanupCmd = &cobra.Command{
+		Use:   "ge-cleanup-orphaned-data",
+		Short: "Cleanup Graceful Exit orphaned data",
+		Long:  "Cleanup Graceful Exit data which is lingering in the transfer queue DB table on nodes which has finished the exit.",
+		RunE:  cmdConsistencyGECleanup,
+	}
+	restoreTrashCmd = &cobra.Command{
+		Use:   "restore-trash [node-id-1 node-id-2 node-id-3 ...]",
+		Short: "Restore trash",
+		Long: "Tell storage nodes to undo garbage collection. " +
+			"If node ids aren't provided, *all* nodes are used.",
+		RunE: cmdRestoreTrash,
+	}
 
 	runCfg   Satellite
 	setupCfg Satellite
@@ -247,13 +272,18 @@ var (
 		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		Output   string `help:"destination of report output" default:""`
 	}
-	gracefulExitCfg struct {
+	reportsGracefulExitCfg struct {
 		Database  string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		Output    string `help:"destination of report output" default:""`
 		Completed bool   `help:"whether to output (initiated and completed) or (initiated and not completed)" default:"false"`
 	}
-	verifyGracefulExitReceiptCfg struct {
+	reportsVerifyGracefulExitReceiptCfg struct {
 	}
+	consistencyGECleanupCfg struct {
+		Database string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
+		Before   string `help:"select only exited nodes before this UTC date formatted like YYYY-MM. Date cannot be newer than the current time (required)"`
+	}
+
 	confDir     string
 	identityDir string
 )
@@ -275,10 +305,12 @@ func init() {
 	rootCmd.AddCommand(reportsCmd)
 	rootCmd.AddCommand(compensationCmd)
 	rootCmd.AddCommand(billingCmd)
+	rootCmd.AddCommand(consistencyCmd)
+	rootCmd.AddCommand(restoreTrashCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
-	reportsCmd.AddCommand(gracefulExitCmd)
-	reportsCmd.AddCommand(verifyGracefulExitReceiptCmd)
+	reportsCmd.AddCommand(reportsGracefulExitCmd)
+	reportsCmd.AddCommand(reportsVerifyGEReceiptCmd)
 	compensationCmd.AddCommand(generateInvoicesCmd)
 	compensationCmd.AddCommand(recordPeriodCmd)
 	compensationCmd.AddCommand(recordOneOffPaymentsCmd)
@@ -288,20 +320,22 @@ func init() {
 	billingCmd.AddCommand(createCustomerInvoicesCmd)
 	billingCmd.AddCommand(finalizeCustomerInvoicesCmd)
 	billingCmd.AddCommand(stripeCustomerCmd)
+	consistencyCmd.AddCommand(consistencyGECleanupCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAdminCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runRepairerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runGCCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(restoreTrashCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(qdiagCmd, &qdiagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(nodeUsageCmd, &nodeUsageCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(generateInvoicesCmd, &generateInvoicesCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(recordPeriodCmd, &recordPeriodCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(recordOneOffPaymentsCmd, &recordOneOffPaymentsCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(gracefulExitCmd, &gracefulExitCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(verifyGracefulExitReceiptCmd, &verifyGracefulExitReceiptCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(reportsGracefulExitCmd, &reportsGracefulExitCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(reportsVerifyGEReceiptCmd, &reportsVerifyGracefulExitReceiptCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(partnerAttributionCmd, &partnerAttribtionCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(prepareCustomerInvoiceRecordsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -309,6 +343,11 @@ func init() {
 	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(finalizeCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(consistencyGECleanupCmd, &consistencyGECleanupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+
+	if err := consistencyGECleanupCmd.MarkFlagRequired("before"); err != nil {
+		panic(err)
+	}
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
@@ -326,7 +365,9 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	db, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
-		ReportedRollupsReadBatchSize: runCfg.Orders.SettlementBatchSize,
+		ApplicationName:     "satellite-core",
+		SaveRollupBatchSize: runCfg.Tally.SaveRollupBatchSize,
+		ReadRollupBatchSize: runCfg.Tally.ReadRollupBatchSize,
 	})
 	if err != nil {
 		return errs.New("Error starting master database on satellite: %+v", err)
@@ -335,7 +376,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	pointerDB, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL)
+	pointerDB, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL, "satellite-core")
 	if err != nil {
 		return errs.New("Error creating metainfodb connection: %+v", err)
 	}
@@ -353,7 +394,13 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	liveAccounting, err := live.NewCache(log.Named("live-accounting"), runCfg.LiveAccounting)
 	if err != nil {
-		return errs.New("Error creating live accounting cache: %+v", err)
+		if !accounting.ErrSystemOrNetError.Has(err) || liveAccounting == nil {
+			return errs.New("Error instantiating live accounting cache: %w", err)
+		}
+
+		log.Warn("Unable to connect to live accounting cache. Verify connection",
+			zap.Error(err),
+		)
 	}
 	defer func() {
 		err = errs.Combine(err, liveAccounting.Close())
@@ -399,7 +446,7 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 	log := zap.L()
 
-	db, err := satellitedb.Open(ctx, log.Named("migration"), runCfg.Database, satellitedb.Options{})
+	db, err := satellitedb.Open(ctx, log.Named("migration"), runCfg.Database, satellitedb.Options{ApplicationName: "satellite-migration"})
 	if err != nil {
 		return errs.New("Error creating new master database connection for satellitedb migration: %+v", err)
 	}
@@ -412,7 +459,7 @@ func cmdMigrationRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error creating tables for master database on satellite: %+v", err)
 	}
 
-	pdb, err := metainfo.OpenStore(ctx, log.Named("migration"), runCfg.Metainfo.DatabaseURL)
+	pdb, err := metainfo.OpenStore(ctx, log.Named("migration"), runCfg.Metainfo.DatabaseURL, "satellite-migration")
 	if err != nil {
 		return errs.New("Error creating pointer database connection on satellite: %+v", err)
 	}
@@ -450,7 +497,7 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
 	// open the master db
-	database, err := satellitedb.Open(ctx, zap.L().Named("db"), qdiagCfg.Database, satellitedb.Options{})
+	database, err := satellitedb.Open(ctx, zap.L().Named("db"), qdiagCfg.Database, satellitedb.Options{ApplicationName: "satellite-qdiag"})
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
 	}
@@ -480,7 +527,7 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 	return w.Flush()
 }
 
-func cmdVerifyGracefulExitReceipt(cmd *cobra.Command, args []string) (err error) {
+func reportsVerifyGEReceipt(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
 	identity, err := runCfg.Identity.Load()
@@ -497,7 +544,7 @@ func cmdVerifyGracefulExitReceipt(cmd *cobra.Command, args []string) (err error)
 	return verifyGracefulExitReceipt(ctx, identity, nodeID, args[1])
 }
 
-func cmdGracefulExit(cmd *cobra.Command, args []string) (err error) {
+func cmdReportsGracefulExit(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
 	start, end, err := reports.ParseRange(args[0], args[1])
@@ -506,12 +553,12 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// send output to stdout
-	if gracefulExitCfg.Output == "" {
-		return generateGracefulExitCSV(ctx, gracefulExitCfg.Completed, start, end, os.Stdout)
+	if reportsGracefulExitCfg.Output == "" {
+		return generateGracefulExitCSV(ctx, reportsGracefulExitCfg.Completed, start, end, os.Stdout)
 	}
 
 	// send output to file
-	file, err := os.Create(gracefulExitCfg.Output)
+	file, err := os.Create(reportsGracefulExitCfg.Output)
 	if err != nil {
 		return err
 	}
@@ -520,7 +567,7 @@ func cmdGracefulExit(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, file.Close())
 	}()
 
-	return generateGracefulExitCSV(ctx, gracefulExitCfg.Completed, start, end, file)
+	return generateGracefulExitCSV(ctx, reportsGracefulExitCfg.Completed, start, end, file)
 }
 
 func cmdNodeUsage(cmd *cobra.Command, args []string) (err error) {
@@ -694,6 +741,127 @@ func cmdStripeCustomer(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
 	return generateStripeCustomers(ctx)
+}
+
+func cmdConsistencyGECleanup(cmd *cobra.Command, args []string) error {
+	ctx, _ := process.Ctx(cmd)
+
+	before, err := time.Parse("2006-01-02", consistencyGECleanupCfg.Before)
+	if err != nil {
+		return errs.New("before flag value isn't of the expected format. %+v", err)
+	}
+
+	if before.After(time.Now()) {
+		return errs.New("before flag value cannot be newer than the current time.")
+	}
+
+	return cleanupGEOrphanedData(ctx, before.UTC())
+}
+
+func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
+	ctx, _ := process.Ctx(cmd)
+	log := zap.L()
+
+	db, err := satellitedb.Open(ctx, log.Named("restore-trash"), runCfg.Database, satellitedb.Options{ApplicationName: "satellite-restore-trash"})
+	if err != nil {
+		return errs.New("Error creating new master database connection: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, db.Close())
+	}()
+
+	identity, err := runCfg.Identity.Load()
+	if err != nil {
+		log.Error("Failed to load identity.", zap.Error(err))
+		return errs.New("Failed to load identity: %+v", err)
+	}
+
+	revocationDB, err := revocation.OpenDBFromCfg(ctx, runCfg.Server.Config)
+	if err != nil {
+		return errs.New("Error creating revocation database: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, revocationDB.Close())
+	}()
+
+	tlsOptions, err := tlsopts.NewOptions(identity, runCfg.Server.Config, revocationDB)
+	if err != nil {
+		return err
+	}
+
+	dialer := rpc.NewDefaultDialer(tlsOptions)
+
+	successes := new(int64)
+	failures := new(int64)
+
+	undelete := func(node *overlay.SelectedNode) {
+		log.Info("starting restore trash", zap.String("Node ID", node.ID.String()))
+
+		conn, err := dialer.DialNodeURL(ctx, storj.NodeURL{
+			ID:      node.ID,
+			Address: node.Address.Address,
+		})
+		if err != nil {
+			atomic.AddInt64(failures, 1)
+			log.Error("unable to connect", zap.String("Node ID", node.ID.String()), zap.Error(err))
+			return
+		}
+		defer func() {
+			err := conn.Close()
+			if err != nil {
+				log.Error("close failure", zap.String("Node ID", node.ID.String()), zap.Error(err))
+			}
+		}()
+
+		client := pb.NewDRPCPiecestoreClient(conn)
+		_, err = client.RestoreTrash(ctx, &pb.RestoreTrashRequest{})
+		if err != nil {
+			atomic.AddInt64(failures, 1)
+			log.Error("unable to restore trash", zap.String("Node ID", node.ID.String()), zap.Error(err))
+			return
+		}
+
+		atomic.AddInt64(successes, 1)
+		log.Info("successful restore trash", zap.String("Node ID", node.ID.String()))
+	}
+
+	var nodes []*overlay.SelectedNode
+	if len(args) == 0 {
+		err = db.OverlayCache().IterateAllNodes(ctx, func(ctx context.Context, node *overlay.SelectedNode) error {
+			nodes = append(nodes, node)
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+	} else {
+		for _, nodeid := range args {
+			parsedNodeID, err := storj.NodeIDFromString(nodeid)
+			if err != nil {
+				return err
+			}
+			dossier, err := db.OverlayCache().Get(ctx, parsedNodeID)
+			if err != nil {
+				return err
+			}
+			nodes = append(nodes, &overlay.SelectedNode{
+				ID:         dossier.Id,
+				Address:    dossier.Address,
+				LastNet:    dossier.LastNet,
+				LastIPPort: dossier.LastIPPort,
+			})
+		}
+	}
+
+	limiter := sync2.NewLimiter(100)
+	for _, node := range nodes {
+		node := node
+		limiter.Go(ctx, func() { undelete(node) })
+	}
+	limiter.Wait()
+
+	log.Sugar().Infof("restore trash complete. %d successes, %d failures", *successes, *failures)
+	return nil
 }
 
 func main() {

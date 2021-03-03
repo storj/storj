@@ -13,7 +13,6 @@ import {
     EgressUsed,
     Ingress,
     IngressUsed,
-    Metric,
     Satellite,
     SatelliteInfo,
     Satellites,
@@ -79,17 +78,15 @@ describe('mutations', () => {
             222,
             50,
             70,
-            new Metric(1, 1, 1, 0, 1, 0, 0, 1),
-            new Metric(2, 1, 1, 0, 1),
+            new SatelliteScores('', 1, 0, 0),
             new Date(2019, 3, 1),
         );
 
         store.commit(NODE_MUTATIONS.SELECT_SATELLITE, satelliteInfo);
 
         expect(state.node.selectedSatellite.id).toBe(satelliteInfo.id);
-        expect(state.node.checks.audit).toBe(0);
-        expect(state.node.checks.uptime).toBe(50);
-        expect(state.node.checks.suspension).toBe(100);
+        expect(state.node.audits.auditScore.label).toBe('100 %');
+        expect(state.node.audits.suspensionScore.label).toBe('0 %');
     });
 
     it('don`t selects wrong satellite', () => {
@@ -143,8 +140,7 @@ describe('mutations', () => {
             222,
             50,
             70,
-            new Metric(1, 1, 1, 0, 1),
-            new Metric(2, 1, 1, 0, 1),
+            new SatelliteScores('', 100, 200, 300),
             new Date(2019, 3, 1),
         );
 
@@ -244,8 +240,7 @@ describe('actions', () => {
                     2221,
                     501,
                     701,
-                    new Metric(1, 1, 1, 0, 1),
-                    new Metric(2, 1, 1, 0, 1),
+                    new SatelliteScores('', 100, 200, 0.2),
                     new Date(2019, 3, 1),
                 ),
             ),
@@ -262,6 +257,7 @@ describe('actions', () => {
         expect(state.node.egressSummary).toBe(501);
         expect(state.node.ingressSummary).toBe(701);
         expect(state.node.storageSummary).toBe(1111);
+        expect(state.node.audits.onlineScore.label).toBe('20 %');
     });
 
     it('fetch all satellites info throws error on api call fail', async () => {
@@ -313,8 +309,7 @@ describe('getters', () => {
             222,
             50,
             70,
-            new Metric(1, 1, 1, 0, 1),
-            new Metric(2, 1, 1, 0, 1),
+            new SatelliteScores('', 100, 200, 300),
             testJoinAt,
         );
 

@@ -11,7 +11,7 @@ import (
 	"storj.io/storj/satellite/internalpb"
 )
 
-// Inspector is a RPC service for inspecting overlay internals
+// Inspector is a RPC service for inspecting overlay internals.
 //
 // architecture: Endpoint
 type Inspector struct {

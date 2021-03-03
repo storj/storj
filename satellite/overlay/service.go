@@ -14,7 +14,6 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/storage"
 )
 
@@ -36,7 +35,7 @@ var ErrNodeFinishedGE = errs.Class("node finished graceful exit")
 // ErrNotEnoughNodes is when selecting nodes failed with the given parameters.
 var ErrNotEnoughNodes = errs.Class("not enough nodes")
 
-// DB implements the database for overlay.Service
+// DB implements the database for overlay.Service.
 //
 // architecture: Database
 type DB interface {
@@ -46,6 +45,8 @@ type DB interface {
 	SelectStorageNodes(ctx context.Context, totalNeededNodes, newNodeCount int, criteria *NodeCriteria) ([]*SelectedNode, error)
 	// SelectAllStorageNodesUpload returns all nodes that qualify to store data, organized as reputable nodes and new nodes
 	SelectAllStorageNodesUpload(ctx context.Context, selectionCfg NodeSelectionConfig) (reputable, new []*SelectedNode, err error)
+	// SelectAllStorageNodesDownload returns a nodes that are ready for downloading
+	SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf AsOfSystemTimeConfig) ([]*SelectedNode, error)
 
 	// Get looks up the node by nodeID
 	Get(ctx context.Context, nodeID storj.NodeID) (*NodeDossier, error)
@@ -63,13 +64,8 @@ type DB interface {
 	UpdateStats(ctx context.Context, request *UpdateRequest, now time.Time) (stats *NodeStats, err error)
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error)
-	// UpdateUptime updates a single storagenode's uptime stats.
-	UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error)
 	// UpdateCheckIn updates a single storagenode's check-in stats.
 	UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time, config NodeSelectionConfig) (err error)
-
-	// UpdateAuditHistory updates a node's audit history with an online or offline audit.
-	UpdateAuditHistory(ctx context.Context, nodeID storj.NodeID, auditTime time.Time, online bool, config AuditHistoryConfig) (auditHistory *internalpb.AuditHistory, err error)
 
 	// AllPieceCounts returns a map of node IDs to piece counts from the db.
 	AllPieceCounts(ctx context.Context) (pieceCounts map[storj.NodeID]int, err error)
@@ -90,13 +86,10 @@ type DB interface {
 	// GetNodesNetwork returns the /24 subnet for each storage node, order is not guaranteed.
 	GetNodesNetwork(ctx context.Context, nodeIDs []storj.NodeID) (nodeNets []string, err error)
 
-	// GetSuccesfulNodesNotCheckedInSince returns all nodes that last check-in was successful, but haven't checked-in within a given duration.
-	GetSuccesfulNodesNotCheckedInSince(ctx context.Context, duration time.Duration) (nodeAddresses []NodeLastContact, err error)
-	// GetOfflineNodesLimited returns a list of the first N offline nodes ordered by least recently contacted.
-	GetOfflineNodesLimited(ctx context.Context, limit int) ([]NodeLastContact, error)
-
 	// DisqualifyNode disqualifies a storage node.
 	DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error)
+	// DQNodesLastSeenBefore disqualifies all nodes where last_contact_success < cutoff.
+	DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time) (err error)
 
 	// SuspendNodeUnknownAudit suspends a storage node for unknown audits.
 	SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
@@ -107,6 +100,12 @@ type DB interface {
 	TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error)
 	// TestUnvetNode directly sets a node's vetted_at timestamp to null to make testing easier
 	TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error)
+
+	// AuditHistoryDB includes operations for interfacing with the audit history table.
+	AuditHistoryDB
+
+	// IterateAllNodes will call cb on all known nodes (used in restore trash contexts).
+	IterateAllNodes(context.Context, func(context.Context, *SelectedNode) error) error
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins.
@@ -131,19 +130,21 @@ type InfoResponse struct {
 
 // FindStorageNodesRequest defines easy request parameters.
 type FindStorageNodesRequest struct {
-	RequestedCount int
-	ExcludedIDs    []storj.NodeID
-	MinimumVersion string // semver or empty
+	RequestedCount         int
+	ExcludedIDs            []storj.NodeID
+	MinimumVersion         string        // semver or empty
+	AsOfSystemTimeInterval time.Duration // only used for CRDB queries
 }
 
 // NodeCriteria are the requirements for selecting nodes.
 type NodeCriteria struct {
-	FreeDisk         int64
-	ExcludedIDs      []storj.NodeID
-	ExcludedNetworks []string // the /24 subnet IPv4 or /64 subnet IPv6 for nodes
-	MinimumVersion   string   // semver or empty
-	OnlineWindow     time.Duration
-	DistinctIP       bool
+	FreeDisk               int64
+	ExcludedIDs            []storj.NodeID
+	ExcludedNetworks       []string // the /24 subnet IPv4 or /64 subnet IPv6 for nodes
+	MinimumVersion         string   // semver or empty
+	OnlineWindow           time.Duration
+	DistinctIP             bool
+	AsOfSystemTimeInterval time.Duration // only used for CRDB queries
 }
 
 // AuditType is an enum representing the outcome of a particular audit reported to the overlay.
@@ -167,14 +168,13 @@ type UpdateRequest struct {
 	// n.b. these are set values from the satellite.
 	// They are part of the UpdateRequest struct in order to be
 	// more easily accessible in satellite/satellitedb/overlaycache.go.
-	AuditLambda               float64
-	AuditWeight               float64
-	AuditDQ                   float64
-	SuspensionGracePeriod     time.Duration
-	SuspensionDQEnabled       bool
-	AuditsRequiredForVetting  int64
-	UptimesRequiredForVetting int64
-	AuditHistory              AuditHistoryConfig
+	AuditLambda              float64
+	AuditWeight              float64
+	AuditDQ                  float64
+	SuspensionGracePeriod    time.Duration
+	SuspensionDQEnabled      bool
+	AuditsRequiredForVetting int64
+	AuditHistory             AuditHistoryConfig
 }
 
 // ExitStatus is used for reading graceful exit status.
@@ -221,8 +221,6 @@ type NodeStats struct {
 	VettedAt                    *time.Time
 	AuditSuccessCount           int64
 	AuditCount                  int64
-	UptimeSuccessCount          int64
-	UptimeCount                 int64
 	LastContactSuccess          time.Time
 	LastContactFailure          time.Time
 	AuditReputationAlpha        float64
@@ -265,26 +263,39 @@ func (node *SelectedNode) Clone() *SelectedNode {
 	}
 }
 
-// Service is used to store and handle node information
+// Service is used to store and handle node information.
 //
 // architecture: Service
 type Service struct {
-	log            *zap.Logger
-	db             DB
-	config         Config
-	SelectionCache *NodeSelectionCache
+	log    *zap.Logger
+	db     DB
+	config Config
+
+	UploadSelectionCache   *UploadSelectionCache
+	DownloadSelectionCache *DownloadSelectionCache
 }
 
 // NewService returns a new Service.
-func NewService(log *zap.Logger, db DB, config Config) *Service {
+func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
+	if err := config.Node.AsOfSystemTime.isValid(); err != nil {
+		return nil, err
+	}
+
 	return &Service{
 		log:    log,
 		db:     db,
 		config: config,
-		SelectionCache: NewNodeSelectionCache(log, db,
+
+		UploadSelectionCache: NewUploadSelectionCache(log, db,
 			config.NodeSelectionCache.Staleness, config.Node,
 		),
-	}
+
+		DownloadSelectionCache: NewDownloadSelectionCache(log, db, DownloadSelectionCacheConfig{
+			Staleness:      config.NodeSelectionCache.Staleness,
+			OnlineWindow:   config.Node.OnlineWindow,
+			AsOfSystemTime: config.Node.AsOfSystemTime,
+		}),
+	}, nil
 }
 
 // Close closes resources.
@@ -313,6 +324,12 @@ func (service *Service) GetOnlineNodesForGetDelete(ctx context.Context, nodeIDs 
 	return service.db.GetOnlineNodesForGetDelete(ctx, nodeIDs, service.config.Node.OnlineWindow)
 }
 
+// GetNodeIPs returns a map of node ip:port for the supplied nodeIDs.
+func (service *Service) GetNodeIPs(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]string, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return service.DownloadSelectionCache.GetNodeIPs(ctx, nodeIDs)
+}
+
 // IsOnline checks if a node is 'online' based on the collected statistics.
 func (service *Service) IsOnline(node *NodeDossier) bool {
 	return time.Since(node.Reputation.LastContactSuccess) < service.config.Node.OnlineWindow
@@ -323,6 +340,9 @@ func (service *Service) IsOnline(node *NodeDossier) bool {
 // The main difference between this method and the normal FindStorageNodes is that here we avoid using the cache.
 func (service *Service) FindStorageNodesForGracefulExit(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
+	if service.config.Node.AsOfSystemTime.Enabled && service.config.Node.AsOfSystemTime.DefaultInterval < 0 {
+		req.AsOfSystemTimeInterval = service.config.Node.AsOfSystemTime.DefaultInterval
+	}
 	return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
 }
 
@@ -332,14 +352,19 @@ func (service *Service) FindStorageNodesForGracefulExit(ctx context.Context, req
 // When the node selection from the cache fails, it falls back to the old implementation.
 func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
+	if service.config.Node.AsOfSystemTime.Enabled && service.config.Node.AsOfSystemTime.DefaultInterval < 0 {
+		req.AsOfSystemTimeInterval = service.config.Node.AsOfSystemTime.DefaultInterval
+	}
+
 	if service.config.NodeSelectionCache.Disabled {
 		return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
 	}
 
-	selectedNodes, err := service.SelectionCache.GetNodes(ctx, req)
+	selectedNodes, err := service.UploadSelectionCache.GetNodes(ctx, req)
 	if err != nil {
 		service.log.Warn("error selecting from node selection cache", zap.String("err", err.Error()))
 	}
+
 	if len(selectedNodes) < req.RequestedCount {
 		mon.Event("default_node_selection")
 		return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
@@ -352,7 +377,6 @@ func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindS
 // This does not use a cache.
 func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req FindStorageNodesRequest, preferences *NodeSelectionConfig) (nodes []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
-
 	// TODO: add sanity limits to requested node count
 	// TODO: add sanity limits to excluded nodes
 	totalNeededNodes := req.RequestedCount
@@ -374,12 +398,13 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 	}
 
 	criteria := NodeCriteria{
-		FreeDisk:         preferences.MinimumDiskSpace.Int64(),
-		ExcludedIDs:      excludedIDs,
-		ExcludedNetworks: excludedNetworks,
-		MinimumVersion:   preferences.MinimumVersion,
-		OnlineWindow:     preferences.OnlineWindow,
-		DistinctIP:       preferences.DistinctIP,
+		FreeDisk:               preferences.MinimumDiskSpace.Int64(),
+		ExcludedIDs:            excludedIDs,
+		ExcludedNetworks:       excludedNetworks,
+		MinimumVersion:         preferences.MinimumVersion,
+		OnlineWindow:           preferences.OnlineWindow,
+		DistinctIP:             preferences.DistinctIP,
+		AsOfSystemTimeInterval: req.AsOfSystemTimeInterval,
 	}
 	nodes, err = service.db.SelectStorageNodes(ctx, totalNeededNodes, newNodeCount, &criteria)
 	if err != nil {
@@ -437,7 +462,6 @@ func (service *Service) BatchUpdateStats(ctx context.Context, requests []*Update
 		request.SuspensionGracePeriod = service.config.Node.SuspensionGracePeriod
 		request.SuspensionDQEnabled = service.config.Node.SuspensionDQEnabled
 		request.AuditsRequiredForVetting = service.config.Node.AuditCount
-		request.UptimesRequiredForVetting = service.config.Node.UptimeCount
 		request.AuditHistory = service.config.AuditHistory
 	}
 	return service.db.BatchUpdateStats(ctx, requests, service.config.UpdateStatsBatchSize, time.Now())
@@ -453,7 +477,6 @@ func (service *Service) UpdateStats(ctx context.Context, request *UpdateRequest)
 	request.SuspensionGracePeriod = service.config.Node.SuspensionGracePeriod
 	request.SuspensionDQEnabled = service.config.Node.SuspensionDQEnabled
 	request.AuditsRequiredForVetting = service.config.Node.AuditCount
-	request.UptimesRequiredForVetting = service.config.Node.UptimeCount
 	request.AuditHistory = service.config.AuditHistory
 
 	return service.db.UpdateStats(ctx, request, time.Now())
@@ -465,23 +488,10 @@ func (service *Service) UpdateNodeInfo(ctx context.Context, node storj.NodeID, n
 	return service.db.UpdateNodeInfo(ctx, node, nodeInfo)
 }
 
-// UpdateUptime updates a single storagenode's uptime stats.
-func (service *Service) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *NodeStats, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return service.db.UpdateUptime(ctx, nodeID, isUp)
-}
-
 // UpdateCheckIn updates a single storagenode's check-in info.
 func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
-}
-
-// GetSuccesfulNodesNotCheckedInSince returns all nodes that last check-in was successful, but haven't checked-in within a given duration.
-func (service *Service) GetSuccesfulNodesNotCheckedInSince(ctx context.Context, duration time.Duration) (nodeLastContacts []NodeLastContact, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return service.db.GetSuccesfulNodesNotCheckedInSince(ctx, duration)
 }
 
 // GetMissingPieces returns the list of offline nodes.
@@ -510,12 +520,6 @@ func (service *Service) GetMissingPieces(ctx context.Context, pieces []*pb.Remot
 func (service *Service) DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return service.db.DisqualifyNode(ctx, nodeID)
-}
-
-// GetOfflineNodesLimited returns a list of the first N offline nodes ordered by least recently contacted.
-func (service *Service) GetOfflineNodesLimited(ctx context.Context, limit int) (offlineNodes []NodeLastContact, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return service.db.GetOfflineNodesLimited(ctx, limit)
 }
 
 // ResolveIPAndNetwork resolves the target address and determines its IP and /24 subnet IPv4 or /64 subnet IPv6.
@@ -554,7 +558,7 @@ func (service *Service) TestVetNode(ctx context.Context, nodeID storj.NodeID) (v
 		service.log.Warn("error vetting node", zap.Stringer("node ID", nodeID))
 		return nil, err
 	}
-	err = service.SelectionCache.Refresh(ctx)
+	err = service.UploadSelectionCache.Refresh(ctx)
 	service.log.Warn("nodecache refresh err", zap.Error(err))
 	return vettedTime, err
 }
@@ -566,7 +570,7 @@ func (service *Service) TestUnvetNode(ctx context.Context, nodeID storj.NodeID) 
 		service.log.Warn("error unvetting node", zap.Stringer("node ID", nodeID), zap.Error(err))
 		return err
 	}
-	err = service.SelectionCache.Refresh(ctx)
+	err = service.UploadSelectionCache.Refresh(ctx)
 	service.log.Warn("nodecache refresh err", zap.Error(err))
 	return err
 }

@@ -24,7 +24,6 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // SatelliteDatabases maybe name can be better.
@@ -99,11 +98,6 @@ func (db *tempMasterDB) Close() error {
 	return errs.Combine(db.DB.Close(), db.tempDB.Close())
 }
 
-// TestDBAccess provides a somewhat regularized access to the underlying DB.
-func (db *tempMasterDB) TestDBAccess() *dbx.DB {
-	return db.DB.(interface{ TestDBAccess() *dbx.DB }).TestDBAccess()
-}
-
 // CreateMasterDB creates a new satellite database for testing.
 func CreateMasterDB(ctx context.Context, log *zap.Logger, name string, category string, index int, dbInfo Database) (db satellite.DB, err error) {
 	if dbInfo.URL == "" {
@@ -125,7 +119,7 @@ func CreateMasterDB(ctx context.Context, log *zap.Logger, name string, category 
 // CreateMasterDBOnTopOf creates a new satellite database on top of an already existing
 // temporary database.
 func CreateMasterDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase) (db satellite.DB, err error) {
-	masterDB, err := satellitedb.Open(ctx, log.Named("db"), tempDB.ConnStr, satellitedb.Options{})
+	masterDB, err := satellitedb.Open(ctx, log.Named("db"), tempDB.ConnStr, satellitedb.Options{ApplicationName: "satellite-satellitdb-test"})
 	return &tempMasterDB{DB: masterDB, tempDB: tempDB}, err
 }
 
@@ -162,7 +156,7 @@ func CreatePointerDB(ctx context.Context, log *zap.Logger, name string, category
 // CreatePointerDBOnTopOf creates a new satellite database on top of an already existing
 // temporary database.
 func CreatePointerDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase) (db metainfo.PointerDB, err error) {
-	pointerDB, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), tempDB.ConnStr)
+	pointerDB, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), tempDB.ConnStr, "satellite-satellitdb-test")
 	if err != nil {
 		return nil, err
 	}

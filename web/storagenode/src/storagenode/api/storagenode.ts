@@ -42,7 +42,7 @@ export class StorageNodeApi {
             return new SatelliteInfo(satellite.id, satellite.url, disqualified, suspended);
         });
 
-        const diskSpace: Traffic = new Traffic(data.diskSpace.used, data.diskSpace.available, data.diskSpace.trash);
+        const diskSpace: Traffic = new Traffic(data.diskSpace.used, data.diskSpace.available, data.diskSpace.trash, data.diskSpace.overused);
         const bandwidth: Traffic = new Traffic(data.bandwidth.used);
 
         return new Dashboard(data.nodeID, data.wallet, satellites, diskSpace, bandwidth,
@@ -66,26 +66,11 @@ export class StorageNodeApi {
 
         const satelliteByDayInfo = new SatelliteByDayInfo(data);
 
-        const audit: Metric = new Metric(
-            data.audit.totalCount,
-            data.audit.successCount,
-            data.audit.alpha,
-            data.audit.beta,
-            data.audit.unknownAlpha,
-            data.audit.unknownBeta,
-            data.audit.score,
-            data.audit.unknownScore,
-        );
-
-        const uptime: Metric = new Metric(
-            data.uptime.totalCount,
-            data.uptime.successCount,
-            data.uptime.alpha,
-            data.uptime.beta,
-            data.uptime.unknownAlpha,
-            data.uptime.unknownBeta,
-            data.uptime.score,
-            data.uptime.unknownScore,
+        const audits: SatelliteScores = new SatelliteScores(
+            data.audits.satelliteName,
+            data.audits.auditScore,
+            data.audits.suspensionScore,
+            data.audits.onlineScore,
         );
 
         return new Satellite(
@@ -98,8 +83,7 @@ export class StorageNodeApi {
             data.bandwidthSummary,
             data.egressSummary,
             data.ingressSummary,
-            audit,
-            uptime,
+            audits,
             new Date(data.nodeJoinedAt),
         );
     }
