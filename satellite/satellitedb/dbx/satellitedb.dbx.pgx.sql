@@ -75,8 +75,20 @@ CREATE TABLE coupons (
 	type integer NOT NULL,
 	status integer NOT NULL,
 	duration bigint NOT NULL,
+	coupon_code_name text,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE coupon_codes (
+	id bytea NOT NULL,
+	name text NOT NULL,
+	amount bigint NOT NULL,
+	description text NOT NULL,
+	type integer NOT NULL,
+	duration bigint NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( name )
 );
 CREATE TABLE coupon_usages (
 	coupon_id bytea NOT NULL,

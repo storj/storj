@@ -395,8 +395,20 @@ CREATE TABLE coupons (
 	type integer NOT NULL,
 	status integer NOT NULL,
 	duration bigint NOT NULL,
+	coupon_code_name text,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE coupon_codes (
+	id bytea NOT NULL,
+	name text NOT NULL,
+	amount bigint NOT NULL,
+	description text NOT NULL,
+	type integer NOT NULL,
+	duration bigint NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( name )
 );
 CREATE TABLE coupon_usages (
 	coupon_id bytea NOT NULL,
@@ -935,8 +947,20 @@ CREATE TABLE coupons (
 	type integer NOT NULL,
 	status integer NOT NULL,
 	duration bigint NOT NULL,
+	coupon_code_name text,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE coupon_codes (
+	id bytea NOT NULL,
+	name text NOT NULL,
+	amount bigint NOT NULL,
+	description text NOT NULL,
+	type integer NOT NULL,
+	duration bigint NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( name )
 );
 CREATE TABLE coupon_usages (
 	coupon_id bytea NOT NULL,
@@ -2351,17 +2375,22 @@ func (f CoinpaymentsTransaction_CreatedAt_Field) value() interface{} {
 func (CoinpaymentsTransaction_CreatedAt_Field) _Column() string { return "created_at" }
 
 type Coupon struct {
-	Id          []byte
-	UserId      []byte
-	Amount      int64
-	Description string
-	Type        int
-	Status      int
-	Duration    int64
-	CreatedAt   time.Time
+	Id             []byte
+	UserId         []byte
+	Amount         int64
+	Description    string
+	Type           int
+	Status         int
+	Duration       int64
+	CouponCodeName *string
+	CreatedAt      time.Time
 }
 
 func (Coupon) _Table() string { return "coupons" }
+
+type Coupon_Create_Fields struct {
+	CouponCodeName Coupon_CouponCodeName_Field
+}
 
 type Coupon_Update_Fields struct {
 	Status Coupon_Status_Field
@@ -2500,6 +2529,38 @@ func (f Coupon_Duration_Field) value() interface{} {
 
 func (Coupon_Duration_Field) _Column() string { return "duration" }
 
+type Coupon_CouponCodeName_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func Coupon_CouponCodeName(v string) Coupon_CouponCodeName_Field {
+	return Coupon_CouponCodeName_Field{_set: true, _value: &v}
+}
+
+func Coupon_CouponCodeName_Raw(v *string) Coupon_CouponCodeName_Field {
+	if v == nil {
+		return Coupon_CouponCodeName_Null()
+	}
+	return Coupon_CouponCodeName(*v)
+}
+
+func Coupon_CouponCodeName_Null() Coupon_CouponCodeName_Field {
+	return Coupon_CouponCodeName_Field{_set: true, _null: true}
+}
+
+func (f Coupon_CouponCodeName_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Coupon_CouponCodeName_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Coupon_CouponCodeName_Field) _Column() string { return "coupon_code_name" }
+
 type Coupon_CreatedAt_Field struct {
 	_set   bool
 	_null  bool
@@ -2518,6 +2579,154 @@ func (f Coupon_CreatedAt_Field) value() interface{} {
 }
 
 func (Coupon_CreatedAt_Field) _Column() string { return "created_at" }
+
+type CouponCode struct {
+	Id          []byte
+	Name        string
+	Amount      int64
+	Description string
+	Type        int
+	Duration    int64
+	CreatedAt   time.Time
+}
+
+func (CouponCode) _Table() string { return "coupon_codes" }
+
+type CouponCode_Update_Fields struct {
+}
+
+type CouponCode_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func CouponCode_Id(v []byte) CouponCode_Id_Field {
+	return CouponCode_Id_Field{_set: true, _value: v}
+}
+
+func (f CouponCode_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CouponCode_Id_Field) _Column() string { return "id" }
+
+type CouponCode_Name_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func CouponCode_Name(v string) CouponCode_Name_Field {
+	return CouponCode_Name_Field{_set: true, _value: v}
+}
+
+func (f CouponCode_Name_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CouponCode_Name_Field) _Column() string { return "name" }
+
+type CouponCode_Amount_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func CouponCode_Amount(v int64) CouponCode_Amount_Field {
+	return CouponCode_Amount_Field{_set: true, _value: v}
+}
+
+func (f CouponCode_Amount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CouponCode_Amount_Field) _Column() string { return "amount" }
+
+type CouponCode_Description_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func CouponCode_Description(v string) CouponCode_Description_Field {
+	return CouponCode_Description_Field{_set: true, _value: v}
+}
+
+func (f CouponCode_Description_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CouponCode_Description_Field) _Column() string { return "description" }
+
+type CouponCode_Type_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func CouponCode_Type(v int) CouponCode_Type_Field {
+	return CouponCode_Type_Field{_set: true, _value: v}
+}
+
+func (f CouponCode_Type_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CouponCode_Type_Field) _Column() string { return "type" }
+
+type CouponCode_Duration_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func CouponCode_Duration(v int64) CouponCode_Duration_Field {
+	return CouponCode_Duration_Field{_set: true, _value: v}
+}
+
+func (f CouponCode_Duration_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CouponCode_Duration_Field) _Column() string { return "duration" }
+
+type CouponCode_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func CouponCode_CreatedAt(v time.Time) CouponCode_CreatedAt_Field {
+	return CouponCode_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f CouponCode_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (CouponCode_CreatedAt_Field) _Column() string { return "created_at" }
 
 type CouponUsage struct {
 	CouponId []byte
@@ -9745,6 +9954,42 @@ func (obj *pgxImpl) Create_StripecoinpaymentsTxConversionRate(ctx context.Contex
 
 }
 
+func (obj *pgxImpl) Create_CouponCode(ctx context.Context,
+	coupon_code_id CouponCode_Id_Field,
+	coupon_code_name CouponCode_Name_Field,
+	coupon_code_amount CouponCode_Amount_Field,
+	coupon_code_description CouponCode_Description_Field,
+	coupon_code_type CouponCode_Type_Field,
+	coupon_code_duration CouponCode_Duration_Field) (
+	coupon_code *CouponCode, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := coupon_code_id.value()
+	__name_val := coupon_code_name.value()
+	__amount_val := coupon_code_amount.value()
+	__description_val := coupon_code_description.value()
+	__type_val := coupon_code_type.value()
+	__duration_val := coupon_code_duration.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coupon_codes ( id, name, amount, description, type, duration, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING coupon_codes.id, coupon_codes.name, coupon_codes.amount, coupon_codes.description, coupon_codes.type, coupon_codes.duration, coupon_codes.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __name_val, __amount_val, __description_val, __type_val, __duration_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	coupon_code = &CouponCode{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon_code.Id, &coupon_code.Name, &coupon_code.Amount, &coupon_code.Description, &coupon_code.Type, &coupon_code.Duration, &coupon_code.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return coupon_code, nil
+
+}
+
 func (obj *pgxImpl) Create_Coupon(ctx context.Context,
 	coupon_id Coupon_Id_Field,
 	coupon_user_id Coupon_UserId_Field,
@@ -9752,7 +9997,8 @@ func (obj *pgxImpl) Create_Coupon(ctx context.Context,
 	coupon_description Coupon_Description_Field,
 	coupon_type Coupon_Type_Field,
 	coupon_status Coupon_Status_Field,
-	coupon_duration Coupon_Duration_Field) (
+	coupon_duration Coupon_Duration_Field,
+	optional Coupon_Create_Fields) (
 	coupon *Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -9764,18 +10010,19 @@ func (obj *pgxImpl) Create_Coupon(ctx context.Context,
 	__type_val := coupon_type.value()
 	__status_val := coupon_status.value()
 	__duration_val := coupon_duration.value()
+	__coupon_code_name_val := optional.CouponCodeName.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coupons ( id, user_id, amount, description, type, status, duration, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coupons ( id, user_id, amount, description, type, status, duration, coupon_code_name, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.coupon_code_name, coupons.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __user_id_val, __amount_val, __description_val, __type_val, __status_val, __duration_val, __created_at_val)
+	__values = append(__values, __id_val, __user_id_val, __amount_val, __description_val, __type_val, __status_val, __duration_val, __coupon_code_name_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	coupon = &Coupon{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CouponCodeName, &coupon.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -12078,12 +12325,34 @@ func (obj *pgxImpl) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx context.C
 
 }
 
+func (obj *pgxImpl) Get_CouponCode_By_Name(ctx context.Context,
+	coupon_code_name CouponCode_Name_Field) (
+	coupon_code *CouponCode, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupon_codes.id, coupon_codes.name, coupon_codes.amount, coupon_codes.description, coupon_codes.type, coupon_codes.duration, coupon_codes.created_at FROM coupon_codes WHERE coupon_codes.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, coupon_code_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	coupon_code = &CouponCode{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon_code.Id, &coupon_code.Name, &coupon_code.Amount, &coupon_code.Description, &coupon_code.Type, &coupon_code.Duration, &coupon_code.CreatedAt)
+	if err != nil {
+		return (*CouponCode)(nil), obj.makeErr(err)
+	}
+	return coupon_code, nil
+
+}
+
 func (obj *pgxImpl) Get_Coupon_By_Id(ctx context.Context,
 	coupon_id Coupon_Id_Field) (
 	coupon *Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.coupon_code_name, coupons.created_at FROM coupons WHERE coupons.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, coupon_id.value())
@@ -12092,7 +12361,7 @@ func (obj *pgxImpl) Get_Coupon_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coupon = &Coupon{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CouponCodeName, &coupon.CreatedAt)
 	if err != nil {
 		return (*Coupon)(nil), obj.makeErr(err)
 	}
@@ -12105,7 +12374,7 @@ func (obj *pgxImpl) All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Cont
 	rows []*Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.user_id = ? ORDER BY coupons.created_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.coupon_code_name, coupons.created_at FROM coupons WHERE coupons.user_id = ? ORDER BY coupons.created_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, coupon_user_id.value())
@@ -12123,7 +12392,7 @@ func (obj *pgxImpl) All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx context.Cont
 
 			for __rows.Next() {
 				coupon := &Coupon{}
-				err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+				err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CouponCodeName, &coupon.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -12151,7 +12420,7 @@ func (obj *pgxImpl) All_Coupon_By_UserId_And_Status_OrderBy_Desc_CreatedAt(ctx c
 	rows []*Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.user_id = ? AND coupons.status = ? ORDER BY coupons.created_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.coupon_code_name, coupons.created_at FROM coupons WHERE coupons.user_id = ? AND coupons.status = ? ORDER BY coupons.created_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, coupon_user_id.value(), coupon_status.value())
@@ -12169,7 +12438,7 @@ func (obj *pgxImpl) All_Coupon_By_UserId_And_Status_OrderBy_Desc_CreatedAt(ctx c
 
 			for __rows.Next() {
 				coupon := &Coupon{}
-				err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+				err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CouponCodeName, &coupon.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -12196,7 +12465,7 @@ func (obj *pgxImpl) All_Coupon_By_Status_OrderBy_Desc_CreatedAt(ctx context.Cont
 	rows []*Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.status = ? ORDER BY coupons.created_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.coupon_code_name, coupons.created_at FROM coupons WHERE coupons.status = ? ORDER BY coupons.created_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, coupon_status.value())
@@ -12214,7 +12483,7 @@ func (obj *pgxImpl) All_Coupon_By_Status_OrderBy_Desc_CreatedAt(ctx context.Cont
 
 			for __rows.Next() {
 				coupon := &Coupon{}
-				err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+				err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CouponCodeName, &coupon.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -12243,7 +12512,7 @@ func (obj *pgxImpl) Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_OrderBy_D
 	rows []*Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.created_at <= ? AND coupons.status = ? ORDER BY coupons.created_at DESC LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.coupon_code_name, coupons.created_at FROM coupons WHERE coupons.created_at <= ? AND coupons.status = ? ORDER BY coupons.created_at DESC LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, coupon_created_at_less_or_equal.value(), coupon_status.value())
@@ -12263,7 +12532,7 @@ func (obj *pgxImpl) Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_OrderBy_D
 
 			for __rows.Next() {
 				coupon := &Coupon{}
-				err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+				err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CouponCodeName, &coupon.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -13485,7 +13754,7 @@ func (obj *pgxImpl) Update_Coupon_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE coupons SET "), __sets, __sqlbundle_Literal(" WHERE coupons.id = ? RETURNING coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE coupons SET "), __sets, __sqlbundle_Literal(" WHERE coupons.id = ? RETURNING coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.coupon_code_name, coupons.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -13509,7 +13778,7 @@ func (obj *pgxImpl) Update_Coupon_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coupon = &Coupon{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CouponCodeName, &coupon.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -13928,6 +14197,33 @@ func (obj *pgxImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_Is
 
 }
 
+func (obj *pgxImpl) Delete_CouponCode_By_Name(ctx context.Context,
+	coupon_code_name CouponCode_Name_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM coupon_codes WHERE coupon_codes.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, coupon_code_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxImpl) Delete_Coupon_By_Id(ctx context.Context,
 	coupon_id Coupon_Id_Field) (
 	deleted bool, err error) {
@@ -14270,6 +14566,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coupon_usages;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coupon_codes;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -15132,6 +15438,42 @@ func (obj *pgxcockroachImpl) Create_StripecoinpaymentsTxConversionRate(ctx conte
 
 }
 
+func (obj *pgxcockroachImpl) Create_CouponCode(ctx context.Context,
+	coupon_code_id CouponCode_Id_Field,
+	coupon_code_name CouponCode_Name_Field,
+	coupon_code_amount CouponCode_Amount_Field,
+	coupon_code_description CouponCode_Description_Field,
+	coupon_code_type CouponCode_Type_Field,
+	coupon_code_duration CouponCode_Duration_Field) (
+	coupon_code *CouponCode, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := coupon_code_id.value()
+	__name_val := coupon_code_name.value()
+	__amount_val := coupon_code_amount.value()
+	__description_val := coupon_code_description.value()
+	__type_val := coupon_code_type.value()
+	__duration_val := coupon_code_duration.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coupon_codes ( id, name, amount, description, type, duration, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ? ) RETURNING coupon_codes.id, coupon_codes.name, coupon_codes.amount, coupon_codes.description, coupon_codes.type, coupon_codes.duration, coupon_codes.created_at")
+
+	var __values []interface{}
+	__values = append(__values, __id_val, __name_val, __amount_val, __description_val, __type_val, __duration_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	coupon_code = &CouponCode{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon_code.Id, &coupon_code.Name, &coupon_code.Amount, &coupon_code.Description, &coupon_code.Type, &coupon_code.Duration, &coupon_code.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return coupon_code, nil
+
+}
+
 func (obj *pgxcockroachImpl) Create_Coupon(ctx context.Context,
 	coupon_id Coupon_Id_Field,
 	coupon_user_id Coupon_UserId_Field,
@@ -15139,7 +15481,8 @@ func (obj *pgxcockroachImpl) Create_Coupon(ctx context.Context,
 	coupon_description Coupon_Description_Field,
 	coupon_type Coupon_Type_Field,
 	coupon_status Coupon_Status_Field,
-	coupon_duration Coupon_Duration_Field) (
+	coupon_duration Coupon_Duration_Field,
+	optional Coupon_Create_Fields) (
 	coupon *Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -15151,18 +15494,19 @@ func (obj *pgxcockroachImpl) Create_Coupon(ctx context.Context,
 	__type_val := coupon_type.value()
 	__status_val := coupon_status.value()
 	__duration_val := coupon_duration.value()
+	__coupon_code_name_val := optional.CouponCodeName.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coupons ( id, user_id, amount, description, type, status, duration, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO coupons ( id, user_id, amount, description, type, status, duration, coupon_code_name, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.coupon_code_name, coupons.created_at")
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __user_id_val, __amount_val, __description_val, __type_val, __status_val, __duration_val, __created_at_val)
+	__values = append(__values, __id_val, __user_id_val, __amount_val, __description_val, __type_val, __status_val, __duration_val, __coupon_code_name_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	coupon = &Coupon{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CouponCodeName, &coupon.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -17465,12 +17809,34 @@ func (obj *pgxcockroachImpl) Get_StripecoinpaymentsTxConversionRate_By_TxId(ctx 
 
 }
 
+func (obj *pgxcockroachImpl) Get_CouponCode_By_Name(ctx context.Context,
+	coupon_code_name CouponCode_Name_Field) (
+	coupon_code *CouponCode, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupon_codes.id, coupon_codes.name, coupon_codes.amount, coupon_codes.description, coupon_codes.type, coupon_codes.duration, coupon_codes.created_at FROM coupon_codes WHERE coupon_codes.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, coupon_code_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	coupon_code = &CouponCode{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon_code.Id, &coupon_code.Name, &coupon_code.Amount, &coupon_code.Description, &coupon_code.Type, &coupon_code.Duration, &coupon_code.CreatedAt)
+	if err != nil {
+		return (*CouponCode)(nil), obj.makeErr(err)
+	}
+	return coupon_code, nil
+
+}
+
 func (obj *pgxcockroachImpl) Get_Coupon_By_Id(ctx context.Context,
 	coupon_id Coupon_Id_Field) (
 	coupon *Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.coupon_code_name, coupons.created_at FROM coupons WHERE coupons.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, coupon_id.value())
@@ -17479,7 +17845,7 @@ func (obj *pgxcockroachImpl) Get_Coupon_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coupon = &Coupon{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CouponCodeName, &coupon.CreatedAt)
 	if err != nil {
 		return (*Coupon)(nil), obj.makeErr(err)
 	}
@@ -17492,7 +17858,7 @@ func (obj *pgxcockroachImpl) All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx con
 	rows []*Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.user_id = ? ORDER BY coupons.created_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.coupon_code_name, coupons.created_at FROM coupons WHERE coupons.user_id = ? ORDER BY coupons.created_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, coupon_user_id.value())
@@ -17510,7 +17876,7 @@ func (obj *pgxcockroachImpl) All_Coupon_By_UserId_OrderBy_Desc_CreatedAt(ctx con
 
 			for __rows.Next() {
 				coupon := &Coupon{}
-				err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+				err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CouponCodeName, &coupon.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -17538,7 +17904,7 @@ func (obj *pgxcockroachImpl) All_Coupon_By_UserId_And_Status_OrderBy_Desc_Create
 	rows []*Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.user_id = ? AND coupons.status = ? ORDER BY coupons.created_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.coupon_code_name, coupons.created_at FROM coupons WHERE coupons.user_id = ? AND coupons.status = ? ORDER BY coupons.created_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, coupon_user_id.value(), coupon_status.value())
@@ -17556,7 +17922,7 @@ func (obj *pgxcockroachImpl) All_Coupon_By_UserId_And_Status_OrderBy_Desc_Create
 
 			for __rows.Next() {
 				coupon := &Coupon{}
-				err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+				err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CouponCodeName, &coupon.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -17583,7 +17949,7 @@ func (obj *pgxcockroachImpl) All_Coupon_By_Status_OrderBy_Desc_CreatedAt(ctx con
 	rows []*Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.status = ? ORDER BY coupons.created_at DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.coupon_code_name, coupons.created_at FROM coupons WHERE coupons.status = ? ORDER BY coupons.created_at DESC")
 
 	var __values []interface{}
 	__values = append(__values, coupon_status.value())
@@ -17601,7 +17967,7 @@ func (obj *pgxcockroachImpl) All_Coupon_By_Status_OrderBy_Desc_CreatedAt(ctx con
 
 			for __rows.Next() {
 				coupon := &Coupon{}
-				err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+				err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CouponCodeName, &coupon.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -17630,7 +17996,7 @@ func (obj *pgxcockroachImpl) Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_
 	rows []*Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at FROM coupons WHERE coupons.created_at <= ? AND coupons.status = ? ORDER BY coupons.created_at DESC LIMIT ? OFFSET ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.coupon_code_name, coupons.created_at FROM coupons WHERE coupons.created_at <= ? AND coupons.status = ? ORDER BY coupons.created_at DESC LIMIT ? OFFSET ?")
 
 	var __values []interface{}
 	__values = append(__values, coupon_created_at_less_or_equal.value(), coupon_status.value())
@@ -17650,7 +18016,7 @@ func (obj *pgxcockroachImpl) Limited_Coupon_By_CreatedAt_LessOrEqual_And_Status_
 
 			for __rows.Next() {
 				coupon := &Coupon{}
-				err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+				err = __rows.Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CouponCodeName, &coupon.CreatedAt)
 				if err != nil {
 					return nil, err
 				}
@@ -18872,7 +19238,7 @@ func (obj *pgxcockroachImpl) Update_Coupon_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE coupons SET "), __sets, __sqlbundle_Literal(" WHERE coupons.id = ? RETURNING coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE coupons SET "), __sets, __sqlbundle_Literal(" WHERE coupons.id = ? RETURNING coupons.id, coupons.user_id, coupons.amount, coupons.description, coupons.type, coupons.status, coupons.duration, coupons.coupon_code_name, coupons.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -18896,7 +19262,7 @@ func (obj *pgxcockroachImpl) Update_Coupon_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	coupon = &Coupon{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&coupon.Id, &coupon.UserId, &coupon.Amount, &coupon.Description, &coupon.Type, &coupon.Status, &coupon.Duration, &coupon.CouponCodeName, &coupon.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -19315,6 +19681,33 @@ func (obj *pgxcockroachImpl) Delete_GracefulExitTransferQueue_By_NodeId_And_Fini
 
 }
 
+func (obj *pgxcockroachImpl) Delete_CouponCode_By_Name(ctx context.Context,
+	coupon_code_name CouponCode_Name_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM coupon_codes WHERE coupon_codes.name = ?")
+
+	var __values []interface{}
+	__values = append(__values, coupon_code_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_Coupon_By_Id(ctx context.Context,
 	coupon_id Coupon_Id_Field) (
 	deleted bool, err error) {
@@ -19657,6 +20050,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coupon_usages;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM coupon_codes;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -20156,13 +20559,30 @@ func (rx *Rx) Create_Coupon(ctx context.Context,
 	coupon_description Coupon_Description_Field,
 	coupon_type Coupon_Type_Field,
 	coupon_status Coupon_Status_Field,
-	coupon_duration Coupon_Duration_Field) (
+	coupon_duration Coupon_Duration_Field,
+	optional Coupon_Create_Fields) (
 	coupon *Coupon, err error) {
 	var tx *Tx
 	if tx, err = rx.getTx(ctx); err != nil {
 		return
 	}
-	return tx.Create_Coupon(ctx, coupon_id, coupon_user_id, coupon_amount, coupon_description, coupon_type, coupon_status, coupon_duration)
+	return tx.Create_Coupon(ctx, coupon_id, coupon_user_id, coupon_amount, coupon_description, coupon_type, coupon_status, coupon_duration, optional)
+
+}
+
+func (rx *Rx) Create_CouponCode(ctx context.Context,
+	coupon_code_id CouponCode_Id_Field,
+	coupon_code_name CouponCode_Name_Field,
+	coupon_code_amount CouponCode_Amount_Field,
+	coupon_code_description CouponCode_Description_Field,
+	coupon_code_type CouponCode_Type_Field,
+	coupon_code_duration CouponCode_Duration_Field) (
+	coupon_code *CouponCode, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Create_CouponCode(ctx, coupon_code_id, coupon_code_name, coupon_code_amount, coupon_code_description, coupon_code_type, coupon_code_duration)
 
 }
 
@@ -20338,6 +20758,16 @@ func (rx *Rx) Delete_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 		return
 	}
 	return tx.Delete_BucketMetainfo_By_ProjectId_And_Name(ctx, bucket_metainfo_project_id, bucket_metainfo_name)
+}
+
+func (rx *Rx) Delete_CouponCode_By_Name(ctx context.Context,
+	coupon_code_name CouponCode_Name_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_CouponCode_By_Name(ctx, coupon_code_name)
 }
 
 func (rx *Rx) Delete_Coupon_By_Id(ctx context.Context,
@@ -20527,6 +20957,16 @@ func (rx *Rx) Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx context.Context,
 		return
 	}
 	return tx.Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx, bucket_metainfo_project_id, bucket_metainfo_name)
+}
+
+func (rx *Rx) Get_CouponCode_By_Name(ctx context.Context,
+	coupon_code_name CouponCode_Name_Field) (
+	coupon_code *CouponCode, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_CouponCode_By_Name(ctx, coupon_code_name)
 }
 
 func (rx *Rx) Get_Coupon_By_Id(ctx context.Context,
@@ -21390,8 +21830,18 @@ type Methods interface {
 		coupon_description Coupon_Description_Field,
 		coupon_type Coupon_Type_Field,
 		coupon_status Coupon_Status_Field,
-		coupon_duration Coupon_Duration_Field) (
+		coupon_duration Coupon_Duration_Field,
+		optional Coupon_Create_Fields) (
 		coupon *Coupon, err error)
+
+	Create_CouponCode(ctx context.Context,
+		coupon_code_id CouponCode_Id_Field,
+		coupon_code_name CouponCode_Name_Field,
+		coupon_code_amount CouponCode_Amount_Field,
+		coupon_code_description CouponCode_Description_Field,
+		coupon_code_type CouponCode_Type_Field,
+		coupon_code_duration CouponCode_Duration_Field) (
+		coupon_code *CouponCode, err error)
 
 	Create_CouponUsage(ctx context.Context,
 		coupon_usage_coupon_id CouponUsage_CouponId_Field,
@@ -21478,6 +21928,10 @@ type Methods interface {
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
 		deleted bool, err error)
 
+	Delete_CouponCode_By_Name(ctx context.Context,
+		coupon_code_name CouponCode_Name_Field) (
+		deleted bool, err error)
+
 	Delete_Coupon_By_Id(ctx context.Context,
 		coupon_id Coupon_Id_Field) (
 		deleted bool, err error)
@@ -21555,6 +22009,10 @@ type Methods interface {
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
 		row *Id_Row, err error)
+
+	Get_CouponCode_By_Name(ctx context.Context,
+		coupon_code_name CouponCode_Name_Field) (
+		coupon_code *CouponCode, err error)
 
 	Get_Coupon_By_Id(ctx context.Context,
 		coupon_id Coupon_Id_Field) (

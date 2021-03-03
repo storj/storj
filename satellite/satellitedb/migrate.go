@@ -1271,6 +1271,25 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Version:     148,
 				Action:      migrate.SQL{},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add coupon_codes table and add nullable coupon_code_name to coupons table",
+				Version:     149,
+				Action: migrate.SQL{
+					`CREATE TABLE coupon_codes (
+						id bytea NOT NULL,
+						name text NOT NULL,
+						amount bigint NOT NULL,
+						description text NOT NULL,
+						type integer NOT NULL,
+						duration bigint NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( id ),
+						UNIQUE ( name )
+					);`,
+					`ALTER TABLE coupons ADD COLUMN coupon_code_name text;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

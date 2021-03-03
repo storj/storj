@@ -51,6 +51,7 @@ func (coupons *coupons) Insert(ctx context.Context, coupon payments.Coupon) (_ p
 		dbx.Coupon_Type(int(coupon.Type)),
 		dbx.Coupon_Status(int(coupon.Status)),
 		dbx.Coupon_Duration(int64(coupon.Duration)),
+		dbx.Coupon_Create_Fields{},
 	)
 	if err != nil {
 		return payments.Coupon{}, err
