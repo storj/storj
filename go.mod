@@ -10,6 +10,7 @@ require (
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/fatih/color v1.9.0
 	github.com/go-redis/redis v6.15.9+incompatible
+	github.com/go-rod/rod v0.94.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang-migrate/migrate/v4 v4.7.0
 	github.com/google/go-cmp v0.5.2

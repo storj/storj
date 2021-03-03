@@ -33,7 +33,7 @@ fi
 # update satellite settings
 SATELLITE_CONFIG="$(storj-sim network env SATELLITE_0_DIR)"/config.yaml
 
-sed -i 's/console.static-dir: ""/console.static-dir: "$SCRIPTDIR/../web/satellite"/g' "$SATELLITE_CONFIG"
+sed -i 's#console.static-dir: ""#console.static-dir: "'$SCRIPTDIR'/../web/satellite"#g' $SATELLITE_CONFIG
 
 # run UI tests
 echo "section tests start"
