@@ -10,41 +10,6 @@ cleanup(){
 	rm -rf "$TMP"
 }
 trap cleanup EXIT
-# mirroring install-sim from the Makefile since it won't work on private Jenkins
-install_sim(){
-    local bin_dir="${TMP}/bin"
-    mkdir -p ${bin_dir}
-
-    go build -race -v -o ${bin_dir}/storagenode ./cmd/storagenode >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/satellite ./cmd/satellite >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/storj-sim ./cmd/storj-sim >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/versioncontrol ./cmd/versioncontrol >/dev/null 2>&1
-
-    go build -race -v -o ${bin_dir}/uplink ./cmd/uplink >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/identity ./cmd/identity >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/certificates ./cmd/certificates >/dev/null 2>&1
-
-    rm -rf .build/gateway-tmp
-    mkdir -p .build/gateway-tmp
-    pushd .build/gateway-tmp
-        go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@latest
-    popd
-}
-
-pushd $SCRIPTDIR
-    echo "Running test-sim"
-    
-    if [ -d "$SCRIPTDIR/storj" ]; then 
-      rm -Rf $SCRIPTDIR/storj; 
-    fi
-    
-    git clone https://github.com/storj/storj.git --depth 1
-#    git clone https://github.com/storj/storj.git#main
-
-    pushd ./storj
-        install_sim
-    popd
-popd
 
 export PATH=$TMP/bin:$PATH
 echo "Running test-sim"
@@ -56,7 +21,7 @@ STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
 STORJ_SIM_POSTGRES=${STORJ_SIM_POSTGRES:-""}
 STORJ_SIM_REDIS=${STORJ_SIM_REDIS:-""}
 # STORJ_CONSOLE_payments_stripe-coin-payments_coinpayments-private-key="5366b14A7Dc5A1b0FCc3C8845c5d903E8c6b6360de5f3667AD8B58f5E8cC017c"
-# STORJ_CONSOLE_STATIC_DIR="/var/jenkins_home/workspace/SatelliteUITestGithub/web/satellite"
+STORJ_CONSOLE_STATIC_DIR="$SCRIPTDIR/../web/satellite"
 # setup the network
 # if postgres connection string is set as STORJ_SIM_POSTGRES then use that for testing
 if [ -z ${STORJ_SIM_POSTGRES} ]; then
@@ -69,18 +34,19 @@ fi
 echo "section tests start"
 apt-get -y install chromium
 export DEBIAN_FRONTEND="noninteractive"
-apt-get -y install xorg xvfb gtk2-engines-pixbuf
-apt-get -y install dbus-x11 xfonts-base xfonts-100dpi xfonts-75dpi xfonts-cyrillic xfonts-scalable
-apt-get -y install imagemagick x11-apps
-echo "install nodeJs starts.................................................................................."
-apt-get -y install nodejs
-echo "npm install starts..........................................................................................."
-npm install --prefix "$SCRIPTDIR"/storj/web/satellite/.
-echo "npm run build starts...................................................................................................."
-npm run build --prefix "$SCRIPTDIR"/storj/web/satellite/.
+apt-get -y install xorg xvfb gtk2-engines-pixbuf dbus-x11 xfonts-base xfonts-100dpi xfonts-75dpi xfonts-cyrillic xfonts-scalable imagemagick x11-apps
+
 echo "wormhole installing ..............................................................................................."
 apt-get -y install wormhole
 Xvfb -ac :99 -screen 0 1280x1024x16 & export DISPLAY=:99
+
+pushd "$SCRIPTDIR/../web/satellite/"
+echo "npm install starts..........................................................................................."
+npm install
+echo "npm run build starts...................................................................................................."
+npm run build
+popd
+
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network run &
 go test "$SCRIPTDIR"/tests/UITests/.
 wormhole send "$SCRIPTDIR"/tests/UITests/screenshots/my1.png
