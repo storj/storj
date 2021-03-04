@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // ErrNoCustomer is error class defining that there is no customer for user.
@@ -23,6 +24,9 @@ type CustomersDB interface {
 	GetCustomerID(ctx context.Context, userID uuid.UUID) (string, error)
 	// List returns page with customers ids created before specified date.
 	List(ctx context.Context, offset int64, limit int, before time.Time) (CustomersPage, error)
+
+	// TODO: get rid of this.
+	Raw() *dbx.DB
 }
 
 // Customer holds customer id and user id.

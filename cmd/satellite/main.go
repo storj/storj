@@ -42,7 +42,6 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 // Satellite defines satellite configuration.
@@ -686,7 +685,7 @@ func cmdPrepareCustomerInvoiceRecords(cmd *cobra.Command, args []string) (err er
 		return errs.New("invalid period specified: %v", err)
 	}
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ *dbx.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
 		return payments.PrepareInvoiceProjectRecords(ctx, period)
 	})
 }
@@ -699,7 +698,7 @@ func cmdCreateCustomerInvoiceItems(cmd *cobra.Command, args []string) (err error
 		return errs.New("invalid period specified: %v", err)
 	}
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ *dbx.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
 		return payments.InvoiceApplyProjectRecords(ctx, period)
 	})
 }
@@ -712,7 +711,7 @@ func cmdCreateCustomerInvoiceCoupons(cmd *cobra.Command, args []string) (err err
 		return errs.New("invalid period specified: %v", err)
 	}
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ *dbx.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
 		return payments.InvoiceApplyCoupons(ctx, period)
 	})
 }
@@ -725,7 +724,7 @@ func cmdCreateCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("invalid period specified: %v", err)
 	}
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ *dbx.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
 		return payments.CreateInvoices(ctx, period)
 	})
 }
@@ -733,7 +732,7 @@ func cmdCreateCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 func cmdFinalizeCustomerInvoices(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ *dbx.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, _ satellite.DB) error {
 		return payments.FinalizeInvoices(ctx)
 	})
 }
