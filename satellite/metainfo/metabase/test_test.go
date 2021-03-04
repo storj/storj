@@ -274,15 +274,28 @@ func (step ListSegments) Check(ctx *testcontext.Context, t testing.TB, db *metab
 	require.Zero(t, diff)
 }
 
-type ListObjectsSegments struct {
-	Opts     metabase.ListObjectsSegments
-	Result   metabase.ListObjectsSegmentsResult
+type IterateLoopStreams struct {
+	Opts     metabase.IterateLoopStreams
+	Result   map[uuid.UUID][]metabase.LoopSegmentEntry
 	ErrClass *errs.Class
 	ErrText  string
 }
 
-func (step ListObjectsSegments) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	result, err := db.ListObjectsSegments(ctx, step.Opts)
+func (step IterateLoopStreams) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result := make(map[uuid.UUID][]metabase.LoopSegmentEntry)
+	err := db.IterateLoopStreams(ctx, step.Opts,
+		func(ctx context.Context, streamID uuid.UUID, next metabase.SegmentIterator) error {
+			var segments []metabase.LoopSegmentEntry
+			for {
+				var segment metabase.LoopSegmentEntry
+				if !next(&segment) {
+					break
+				}
+				segments = append(segments, segment)
+			}
+			result[streamID] = segments
+			return nil
+		})
 	checkError(t, err, step.ErrClass, step.ErrText)
 
 	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
@@ -388,10 +401,10 @@ func (coll *IterateCollector) Add(ctx context.Context, it metabase.ObjectsIterat
 	return nil
 }
 
-type FullIterateCollector []metabase.FullObjectEntry
+type LoopIterateCollector []metabase.LoopObjectEntry
 
-func (coll *FullIterateCollector) Add(ctx context.Context, it metabase.FullObjectsIterator) error {
-	var item metabase.FullObjectEntry
+func (coll *LoopIterateCollector) Add(ctx context.Context, it metabase.LoopObjectsIterator) error {
+	var item metabase.LoopObjectEntry
 
 	for it.Next(ctx, &item) {
 		*coll = append(*coll, item)
@@ -459,21 +472,21 @@ func (step IterateObjectsWithStatus) Check(ctx *testcontext.Context, t testing.T
 	require.Zero(t, diff)
 }
 
-type FullIterateObjects struct {
-	Opts metabase.FullIterateObjects
+type IterateLoopObjects struct {
+	Opts metabase.IterateLoopObjects
 
-	Result   []metabase.FullObjectEntry
+	Result   []metabase.LoopObjectEntry
 	ErrClass *errs.Class
 	ErrText  string
 }
 
-func (step FullIterateObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	var result FullIterateCollector
+func (step IterateLoopObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	var result LoopIterateCollector
 
-	err := db.FullIterateObjects(ctx, step.Opts, result.Add)
+	err := db.IterateLoopObjects(ctx, step.Opts, result.Add)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	diff := cmp.Diff(step.Result, []metabase.FullObjectEntry(result), cmpopts.EquateApproxTime(5*time.Second))
+	diff := cmp.Diff(step.Result, []metabase.LoopObjectEntry(result), cmpopts.EquateApproxTime(5*time.Second))
 	require.Zero(t, diff)
 }
 

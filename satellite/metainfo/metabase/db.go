@@ -28,8 +28,9 @@ var (
 
 // DB implements a database for storing objects and segments.
 type DB struct {
-	log *zap.Logger
-	db  tagsql.DB
+	log            *zap.Logger
+	db             tagsql.DB
+	implementation dbutil.Implementation
 
 	aliasCache *NodeAliasCache
 }
@@ -44,6 +45,11 @@ func Open(ctx context.Context, log *zap.Logger, driverName, connstr string) (*DB
 
 	db := &DB{log: log, db: postgresRebind{rawdb}}
 	db.aliasCache = NewNodeAliasCache(db)
+
+	_, _, db.implementation, err = dbutil.SplitConnStr(connstr)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
 	return db, nil
 }
@@ -84,6 +90,12 @@ func (db *DB) DestroyTables(ctx context.Context) error {
 func (db *DB) MigrateToLatest(ctx context.Context) error {
 	migration := db.PostgresMigration()
 	return migration.Run(ctx, db.log.Named("migrate"))
+}
+
+// CheckVersion checks the database is the correct version.
+func (db *DB) CheckVersion(ctx context.Context) error {
+	migration := db.PostgresMigration()
+	return migration.ValidateVersions(ctx, db.log)
 }
 
 // PostgresMigration returns steps needed for migrating postgres database.

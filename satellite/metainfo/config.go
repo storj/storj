@@ -167,8 +167,12 @@ func OpenStore(ctx context.Context, logger *zap.Logger, dbURLString string, app 
 // MetabaseDB stores objects and segments.
 type MetabaseDB interface {
 	io.Closer
+
 	// MigrateToLatest migrates to latest schema version.
 	MigrateToLatest(ctx context.Context) error
+	// CheckVersion checks the database is the correct version
+	CheckVersion(ctx context.Context) error
+
 	// DeleteObjectAnyStatusAllVersions deletes all object versions.
 	DeleteObjectAnyStatusAllVersions(ctx context.Context, opts metabase.DeleteObjectAnyStatusAllVersions) (result metabase.DeleteObjectResult, err error)
 	// DeleteObjectsAllVersions deletes all versions of multiple objects from the same bucket.
@@ -201,16 +205,16 @@ type MetabaseDB interface {
 	GetLatestObjectLastSegment(ctx context.Context, opts metabase.GetLatestObjectLastSegment) (segment metabase.Segment, err error)
 	// ListSegments lists specified stream segments.
 	ListSegments(ctx context.Context, opts metabase.ListSegments) (result metabase.ListSegmentsResult, err error)
-	// ListObjectsSegments lists multiple streams segments.
-	ListObjectsSegments(ctx context.Context, opts metabase.ListObjectsSegments) (result metabase.ListObjectsSegmentsResult, err error)
 	// IterateObjectsAllVersions iterates through all versions of all objects.
 	IterateObjectsAllVersions(ctx context.Context, opts metabase.IterateObjects, fn func(context.Context, metabase.ObjectsIterator) error) (err error)
 	// IterateObjectsAllVersionsWithStatus iterates through all versions of all objects with specified status.
 	IterateObjectsAllVersionsWithStatus(ctx context.Context, opts metabase.IterateObjectsWithStatus, fn func(context.Context, metabase.ObjectsIterator) error) (err error)
 	// IteratePendingObjectsByKey iterates through all StreamID for a given ObjectKey.
 	IteratePendingObjectsByKey(ctx context.Context, opts metabase.IteratePendingObjectsByKey, fn func(context.Context, metabase.ObjectsIterator) error) (err error)
-	// FullIterateObjects iterates through all objects in metabase.
-	FullIterateObjects(ctx context.Context, opts metabase.FullIterateObjects, fn func(context.Context, metabase.FullObjectsIterator) error) (err error)
+	// IterateLoopObjects iterates through all objects in metabase for metainfo loop purpose.
+	IterateLoopObjects(ctx context.Context, opts metabase.IterateLoopObjects, fn func(context.Context, metabase.LoopObjectsIterator) error) (err error)
+	// IterateLoopStreams iterates through all streams passed in as arguments.
+	IterateLoopStreams(ctx context.Context, opts metabase.IterateLoopStreams, handleStream func(ctx context.Context, streamID uuid.UUID, next metabase.SegmentIterator) error) (err error)
 	// BucketEmpty returns true if bucket does not contain objects (pending or committed).
 	// This method doesn't check bucket existence.
 	BucketEmpty(ctx context.Context, opts metabase.BucketEmpty) (empty bool, err error)

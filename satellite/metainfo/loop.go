@@ -13,10 +13,11 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/time/rate"
 
-	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metainfo/metabase"
 )
+
+const batchsizeLimit = 2500
 
 var (
 	// LoopError is a standard error class for this component.
@@ -26,31 +27,21 @@ var (
 )
 
 // Object is the object info passed to Observer by metainfo loop.
-type Object struct {
-	Location       metabase.ObjectLocation // tally
-	StreamID       uuid.UUID               // metrics, repair
-	SegmentCount   int                     // metrics
-	MetadataSize   int                     // tally
-	expirationDate time.Time               // tally
-}
+type Object metabase.LoopObjectEntry
 
-// Expired checks if object is expired relative to now.
+// Expired checks if object expired relative to now.
 func (object *Object) Expired(now time.Time) bool {
-	return !object.expirationDate.IsZero() && object.expirationDate.Before(now)
+	return object.ExpiresAt != nil && object.ExpiresAt.Before(now)
 }
 
 // Segment is the segment info passed to Observer by metainfo loop.
 type Segment struct {
 	Location       metabase.SegmentLocation // tally, repair, graceful exit, audit
-	StreamID       uuid.UUID                // audit
-	DataSize       int                      // tally, graceful exit
-	Inline         bool                     // metrics
-	Redundancy     storj.RedundancyScheme   // tally, graceful exit, repair
-	RootPieceID    storj.PieceID            // gc, graceful exit
-	Pieces         metabase.Pieces          // tally, audit, gc, graceful exit, repair
 	CreationDate   time.Time                // repair
 	ExpirationDate time.Time                // tally, repair
 	LastRepaired   time.Time                // repair
+
+	metabase.LoopSegmentEntry
 }
 
 // Expired checks if segment is expired relative to now.
@@ -167,18 +158,14 @@ type LoopConfig struct {
 // architecture: Service
 type Loop struct {
 	config     LoopConfig
-	db         PointerDB
-	bucketsDB  BucketsDB
 	metabaseDB MetabaseDB
 	join       chan []*observerContext
 	done       chan struct{}
 }
 
 // NewLoop creates a new metainfo loop service.
-func NewLoop(config LoopConfig, db PointerDB, bucketsDB BucketsDB, metabaseDB MetabaseDB) *Loop {
+func NewLoop(config LoopConfig, metabaseDB MetabaseDB) *Loop {
 	return &Loop{
-		db:         db,
-		bucketsDB:  bucketsDB,
 		metabaseDB: metabaseDB,
 		config:     config,
 		join:       make(chan []*observerContext),
@@ -220,7 +207,7 @@ func (loop *Loop) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for {
-		err := loop.runOnce(ctx)
+		err := loop.RunOnce(ctx)
 		if err != nil {
 			return err
 		}
@@ -233,8 +220,10 @@ func (loop *Loop) Close() (err error) {
 	return nil
 }
 
-// runOnce goes through metainfo one time and sends information to observers.
-func (loop *Loop) runOnce(ctx context.Context) (err error) {
+// RunOnce goes through metainfo one time and sends information to observers.
+//
+// It is not safe to call this concurrently with Run.
+func (loop *Loop) RunOnce(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var observers []*observerContext
@@ -261,18 +250,18 @@ waitformore:
 			return ctx.Err()
 		}
 	}
-	return iterateDatabase(ctx, loop.db, loop.bucketsDB, loop.metabaseDB, observers, loop.config.ListLimit, rate.NewLimiter(rate.Limit(loop.config.RateLimit), 1))
+	return iterateDatabase(ctx, loop.metabaseDB, observers, loop.config.ListLimit, rate.NewLimiter(rate.Limit(loop.config.RateLimit), 1))
 }
 
 // IterateDatabase iterates over PointerDB and notifies specified observers about results.
 //
 // It uses 10000 as the lookup limit for iterating.
-func IterateDatabase(ctx context.Context, rateLimit float64, db PointerDB, bucketsDB BucketsDB, metabaseDB MetabaseDB, observers ...Observer) error {
+func IterateDatabase(ctx context.Context, rateLimit float64, metabaseDB MetabaseDB, observers ...Observer) error {
 	obsContexts := make([]*observerContext, len(observers))
 	for i, observer := range observers {
 		obsContexts[i] = newObserverContext(ctx, observer)
 	}
-	return iterateDatabase(ctx, db, bucketsDB, metabaseDB, obsContexts, 10000, rate.NewLimiter(rate.Limit(rateLimit), 1))
+	return iterateDatabase(ctx, metabaseDB, obsContexts, 10000, rate.NewLimiter(rate.Limit(rateLimit), 1))
 }
 
 // Wait waits for run to be finished.
@@ -281,7 +270,7 @@ func (loop *Loop) Wait() {
 	<-loop.done
 }
 
-func iterateDatabase(ctx context.Context, db PointerDB, bucketsDB BucketsDB, metabaseDB MetabaseDB, observers []*observerContext, limit int, rateLimiter *rate.Limiter) (err error) {
+func iterateDatabase(ctx context.Context, metabaseDB MetabaseDB, observers []*observerContext, limit int, rateLimiter *rate.Limiter) (err error) {
 	defer func() {
 		if err != nil {
 			for _, observer := range observers {
@@ -303,11 +292,17 @@ func iterateDatabase(ctx context.Context, db PointerDB, bucketsDB BucketsDB, met
 func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*observerContext, limit int, rateLimiter *rate.Limiter) (_ []*observerContext, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if limit <= 0 || limit > batchsizeLimit {
+		limit = batchsizeLimit
+	}
+
+	startingTime := time.Now()
+
 	noObserversErr := errs.New("no observers")
 
 	// TODO we may consider keeping only expiration time as its
 	// only thing we need to handle segments
-	objectsMap := make(map[uuid.UUID]metabase.FullObjectEntry)
+	objectsMap := make(map[uuid.UUID]metabase.LoopObjectEntry)
 	ids := make([]uuid.UUID, 0, limit)
 
 	processBatch := func() error {
@@ -315,91 +310,73 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 			return nil
 		}
 
-		segments, err := metabaseDB.ListObjectsSegments(ctx, metabase.ListObjectsSegments{
-			StreamIDs: ids,
-		})
-		if err != nil {
-			return err
-		}
-
-		var lastObject metabase.FullObjectEntry
-		for _, segment := range segments.Segments {
-			if err := rateLimiter.Wait(ctx); err != nil {
-				// We don't really execute concurrent batches so we should never
-				// exceed the burst size of 1 and this should never happen.
-				// We can also enter here if the context is cancelled.
+		err := metabaseDB.IterateLoopStreams(ctx, metabase.IterateLoopStreams{
+			StreamIDs:      ids,
+			AsOfSystemTime: startingTime,
+		}, func(ctx context.Context, streamID uuid.UUID, next metabase.SegmentIterator) error {
+			if err := ctx.Err(); err != nil {
 				return err
 			}
 
-			if segment.StreamID != lastObject.StreamID {
-				var ok bool
-				lastObject, ok = objectsMap[segment.StreamID]
-				if !ok {
-					return errs.New("unable to find corresponding object: %v", segment.StreamID)
-				}
+			obj, ok := objectsMap[streamID]
+			if !ok {
+				return Error.New("unable to find corresponding object: %v", streamID)
+			}
+			delete(objectsMap, streamID)
 
-				delete(objectsMap, lastObject.StreamID)
+			observers = withObservers(observers, func(observer *observerContext) bool {
+				object := Object(obj)
+				return handleObject(ctx, observer, &object)
+			})
+			if len(observers) == 0 {
+				return noObserversErr
+			}
 
-				// TODO should we move this directly to iterator to have object
-				// state as close as possible to time of reading
-				observers = withObservers(observers, func(observer *observerContext) bool {
-					return handleObject(ctx, observer, lastObject)
-				})
-				if len(observers) == 0 {
-					return noObserversErr
-				}
-
+			for {
 				// if context has been canceled exit. Otherwise, continue
 				if err := ctx.Err(); err != nil {
 					return err
 				}
+
+				var segment metabase.LoopSegmentEntry
+				if !next(&segment) {
+					break
+				}
+
+				location := metabase.SegmentLocation{
+					ProjectID:  obj.ProjectID,
+					BucketName: obj.BucketName,
+					ObjectKey:  obj.ObjectKey,
+					Position:   segment.Position,
+				}
+
+				observers = withObservers(observers, func(observer *observerContext) bool {
+					return handleSegment(ctx, observer, location, segment, obj.ExpiresAt)
+				})
+				if len(observers) == 0 {
+					return noObserversErr
+				}
 			}
 
-			location := metabase.SegmentLocation{
-				ProjectID:  lastObject.ProjectID,
-				BucketName: lastObject.BucketName,
-				ObjectKey:  lastObject.ObjectKey,
-				Position:   segment.Position,
-			}
-			segment := segment
-			observers = withObservers(observers, func(observer *observerContext) bool {
-				return handleSegment(ctx, observer, location, segment, lastObject.ExpiresAt)
-			})
-			if len(observers) == 0 {
-				return noObserversErr
-			}
-
-			// if context has been canceled exit. Otherwise, continue
-			if err := ctx.Err(); err != nil {
-				return err
-			}
+			return nil
+		})
+		if err != nil {
+			return Error.Wrap(err)
 		}
 
-		// we have now only objects without segments
-		for id, object := range objectsMap {
-			delete(objectsMap, id)
-
-			object := object
-			observers = withObservers(observers, func(observer *observerContext) bool {
-				return handleObject(ctx, observer, object)
-			})
-			if len(observers) == 0 {
-				return noObserversErr
-			}
-
-			// if context has been canceled exit. Otherwise, continue
-			if err := ctx.Err(); err != nil {
-				return err
-			}
+		if len(objectsMap) > 0 {
+			return Error.New("unhandled objects %#v", objectsMap)
 		}
+
 		return nil
 	}
 
 	segmentsInBatch := int32(0)
-	err = metabaseDB.FullIterateObjects(ctx, metabase.FullIterateObjects{
-		BatchSize: limit,
-	}, func(ctx context.Context, it metabase.FullObjectsIterator) error {
-		var entry metabase.FullObjectEntry
+	err = metabaseDB.IterateLoopObjects(ctx, metabase.IterateLoopObjects{
+		BatchSize:      limit,
+		AsOfSystemTime: startingTime,
+	}, func(ctx context.Context, it metabase.LoopObjectsIterator) error {
+		var entry metabase.LoopObjectEntry
 		for it.Next(ctx, &entry) {
 			if err := rateLimiter.Wait(ctx); err != nil {
 				// We don't really execute concurrent batches so we should never
@@ -452,19 +429,8 @@ func withObservers(observers []*observerContext, handleObserver func(observer *o
 	return nextObservers
 }
 
-func handleObject(ctx context.Context, observer *observerContext, object metabase.FullObjectEntry) bool {
-	expirationDate := time.Time{}
-	if object.ExpiresAt != nil {
-		expirationDate = *object.ExpiresAt
-	}
-
-	if observer.HandleError(observer.Object(ctx, &Object{
-		Location:       object.Location(),
-		StreamID:       object.StreamID,
-		SegmentCount:   int(object.SegmentCount),
-		MetadataSize:   len(object.EncryptedMetadata),
-		expirationDate: expirationDate,
-	})) {
+func handleObject(ctx context.Context, observer *observerContext, object *Object) bool {
+	if observer.HandleError(observer.Object(ctx, object)) {
 		return false
 	}
 
@@ -478,26 +444,28 @@ func handleObject(ctx context.Context, observer *observerContext, object metabas
 	return true
 }
 
-func handleSegment(ctx context.Context, observer *observerContext, location metabase.SegmentLocation, segment metabase.Segment, expiresAt *time.Time) bool {
+func handleSegment(ctx context.Context, observer *observerContext, location metabase.SegmentLocation, segment metabase.LoopSegmentEntry, expirationDate *time.Time) bool {
 	loopSegment := &Segment{
 		Location: location,
+		// TODO we are not setting this since multipart-upload branch, we need to
+		// check if thats affecting anything and if we need to set it correctly
+		// or just replace it with something else
+		CreationDate: time.Time{},
+		// TODO we are not setting this and we need to decide what to do with this
+		LastRepaired: time.Time{},
+
+		LoopSegmentEntry: segment,
 	}
 
-	if expiresAt != nil {
-		loopSegment.ExpirationDate = *expiresAt
+	if expirationDate != nil {
+		loopSegment.ExpirationDate = *expirationDate
 	}
 
-	loopSegment.StreamID = segment.StreamID
-	loopSegment.DataSize = int(segment.EncryptedSize)
-	if segment.Inline() {
-		loopSegment.Inline = true
+	if loopSegment.Inline() {
 		if observer.HandleError(observer.InlineSegment(ctx, loopSegment)) {
 			return false
 		}
 	} else {
-		loopSegment.RootPieceID = segment.RootPieceID
-		loopSegment.Redundancy = segment.Redundancy
-		loopSegment.Pieces = segment.Pieces
 		if observer.HandleError(observer.RemoteSegment(ctx, loopSegment)) {
 			return false
 		}
