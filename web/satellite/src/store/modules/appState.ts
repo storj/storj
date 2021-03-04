@@ -28,7 +28,6 @@ export const appStateModule = {
             isChangePasswordPopupShown: false,
             isPaymentSelectionShown: false,
             isCreateProjectButtonShown: false,
-            isSaveApiKeyModalShown: false,
         },
         satelliteName: '',
         isBetaSatellite: false,
@@ -37,10 +36,6 @@ export const appStateModule = {
         // Mutation changing add projectMembers members popup visibility
         [APP_STATE_MUTATIONS.TOGGLE_ADD_TEAMMEMBER_POPUP](state: any): void {
             state.appState.isAddTeamMembersPopupShown = !state.appState.isAddTeamMembersPopupShown;
-        },
-        // Mutation changing save api key modal visibility
-        [APP_STATE_MUTATIONS.TOGGLE_SAVE_API_KEY_MODAL](state: any): void {
-            state.appState.isSaveApiKeyModalShown = !state.appState.isSaveApiKeyModalShown;
         },
         // Mutation changing account dropdown visibility
         [APP_STATE_MUTATIONS.TOGGLE_ACCOUNT_DROPDOWN](state: any): void {
@@ -143,13 +138,6 @@ export const appStateModule = {
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_ADD_TEAMMEMBER_POPUP);
-        },
-        [APP_STATE_ACTIONS.TOGGLE_SAVE_API_KEY_MODAL]: function ({commit, state}: any): void {
-            if (!state.appState.isSaveApiKeyModalShown) {
-                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
-            }
-
-            commit(APP_STATE_MUTATIONS.TOGGLE_SAVE_API_KEY_MODAL);
         },
         [APP_STATE_ACTIONS.TOGGLE_ACCOUNT]: function ({commit, state}: any): void {
             if (!state.appState.isAccountDropdownShown) {
