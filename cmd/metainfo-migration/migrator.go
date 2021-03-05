@@ -64,6 +64,7 @@ type Config struct {
 	WriteParallelLimit    int
 	Nodes                 string
 	InvalidObjectsFile    string
+	NumberOfRetries       int
 }
 
 // Migrator defines metainfo migrator.
@@ -95,6 +96,9 @@ func NewMigrator(log *zap.Logger, pointerDBStr, metabaseDBStr string, config Con
 	}
 	if config.PreGeneratedStreamIDs == 0 {
 		config.PreGeneratedStreamIDs = defaultPreGeneratedStreamIDs
+	}
+	if config.NumberOfRetries == 0 {
+		config.NumberOfRetries = 5
 	}
 	return &Migrator{
 		log:           log,
@@ -214,13 +218,17 @@ func (m *Migrator) MigrateProjects(ctx context.Context) (err error) {
 		err = func() error {
 			var rows pgx.Rows
 			if len(lastFullPath) == 0 {
-				rows, err = pointerDBConn.Query(ctx, `SELECT fullpath, metadata FROM pathdata ORDER BY fullpath ASC LIMIT $1`, m.config.ReadBatchSize)
+				m.withRetry(ctx, func() (err error) {
+					rows, err = pointerDBConn.Query(ctx, `SELECT fullpath, metadata FROM pathdata ORDER BY fullpath ASC LIMIT $1`, m.config.ReadBatchSize)
+					return err
+				})
 			} else {
-				rows, err = pointerDBConn.Query(ctx, `SELECT fullpath, metadata FROM pathdata WHERE fullpath > $1 ORDER BY fullpath ASC LIMIT $2`, lastFullPath, m.config.ReadBatchSize)
+				m.withRetry(ctx, func() (err error) {
+					rows, err = pointerDBConn.Query(ctx, `SELECT fullpath, metadata FROM pathdata WHERE fullpath > $1 ORDER BY fullpath ASC LIMIT $2`, lastFullPath, m.config.ReadBatchSize)
+					return err
+				})
 			}
-			if err != nil {
-				return err
-			}
+
 			defer func() { rows.Close() }()
 
 			for rows.Next() {
@@ -526,11 +534,10 @@ func (m *Migrator) flushObjects(ctx context.Context, conn *pgxpool.Pool) error {
 
 	m.metabaseLimiter.Go(ctx, func() {
 		params := params
-		_, err := conn.Exec(ctx, objectsSQL, params...)
-		// TODO handle this error correctly
-		if err != nil {
-			m.log.Error("error", zap.Error(err))
-		}
+		m.withRetry(ctx, func() error {
+			_, err := conn.Exec(ctx, objectsSQL, params...)
+			return err
+		})
 	})
 
 	m.objects = m.objects[:0]
@@ -555,11 +562,10 @@ func (m *Migrator) flushSegments(ctx context.Context, conn *pgxpool.Pool) error 
 
 	m.metabaseLimiter.Go(ctx, func() {
 		params := params
-		_, err := conn.Exec(ctx, segmentsSQL, params...)
-		if err != nil {
-			// TODO handle this error correctly
-			m.log.Error("error", zap.Error(err))
-		}
+		m.withRetry(ctx, func() error {
+			_, err := conn.Exec(ctx, segmentsSQL, params...)
+			return err
+		})
 	})
 
 	m.segments = m.segments[:0]
@@ -671,4 +677,23 @@ func (m *Migrator) aliasNodes(ctx context.Context, mb metainfo.MetabaseDB) error
 	}
 	m.log.Info("Finished aliasing nodes", zap.Duration("took", time.Since(start)))
 	return nil
+}
+
+func (m *Migrator) withRetry(ctx context.Context, fn func() error) {
+	var err error
+	for i := 0; i < m.config.NumberOfRetries; i++ {
+		err = fn()
+		if err != nil {
+			m.log.Error("error occur", zap.Int("retry", i), zap.Error(err))
+
+			if !sync2.Sleep(ctx, 3*time.Second) {
+				m.log.Fatal("context error", zap.Error(ctx.Err()))
+			}
+			continue
+		}
+		return
+	}
+
+	// make no sense to continue if even single query to DB fails
+	m.log.Fatal("query failed after retries", zap.Error(err))
 }
