@@ -57,7 +57,6 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 	}
 
 	object := Object{}
-	// TODO handle encryption column
 	err = db.db.QueryRow(ctx, `
 		SELECT
 			stream_id,

@@ -26,8 +26,6 @@ var _ struct {
 	BlockSize   int32
 } = storj.EncryptionParameters{}
 
-// TODO: do we want to use this encoding? do we want it to be extensible?
-
 // Value implements sql/driver.Valuer interface.
 func (params encryptionParameters) Value() (driver.Value, error) {
 	var bytes [8]byte
@@ -80,8 +78,6 @@ var _ struct {
 	TotalShares    int16
 } = storj.RedundancyScheme{}
 
-// TODO: maybe should use protobuf here instead?
-
 func (params redundancyScheme) Value() (driver.Value, error) {
 	switch {
 	case params.ShareSize < 0 || params.ShareSize >= 1<<24:
@@ -133,8 +129,6 @@ func (params redundancyScheme) Scan(value interface{}) error {
 		return Error.New("unable to scan %T into RedundancyScheme", value)
 	}
 }
-
-// TODO: should we use some other encoding?
 
 // Value implements sql/driver.Valuer interface.
 func (pieces Pieces) Value() (driver.Value, error) {

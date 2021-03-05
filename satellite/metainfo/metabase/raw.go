@@ -51,7 +51,6 @@ type RawSegment struct {
 	EncryptedSize int32 // size of the whole segment (not a piece)
 	PlainSize     int32
 	PlainOffset   int64
-	// TODO: add fields for proofs/chains
 
 	Redundancy storj.RedundancyScheme
 
