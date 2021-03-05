@@ -25,6 +25,10 @@ type gracefulexitDB struct {
 	db *satelliteDB
 }
 
+const (
+	deleteExitProgressBatchSize = 1000
+)
+
 // IncrementProgress increments transfer stats for a node.
 func (db *gracefulexitDB) IncrementProgress(ctx context.Context, nodeID storj.NodeID, bytes int64, successfulTransfers int64, failedTransfers int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -181,6 +185,74 @@ func (db *gracefulexitDB) DeleteAllFinishedTransferQueueItems(
 	}
 
 	return count, nil
+}
+
+// DeleteFinishedExitProgress deletes exit progress entries for nodes that
+// finished exiting before the indicated time, returns number of deleted entries.
+func (db *gracefulexitDB) DeleteFinishedExitProgress(
+	ctx context.Context, before time.Time) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	finishedNodes, err := db.GetFinishedExitNodes(ctx, before)
+	if err != nil {
+		return 0, err
+	}
+	return db.DeleteBatchExitProgress(ctx, finishedNodes)
+}
+
+// GetFinishedExitNodes gets nodes that are marked having finished graceful exit before a given time.
+func (db *gracefulexitDB) GetFinishedExitNodes(ctx context.Context, before time.Time) (finishedNodes []storj.NodeID, err error) {
+	defer mon.Task()(&ctx)(&err)
+	stmt := db.db.Rebind(
+		` SELECT id FROM nodes
+			WHERE exit_finished_at IS NOT NULL
+			AND exit_finished_at < ?`,
+	)
+	rows, err := db.db.Query(ctx, stmt, before.UTC())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer func() {
+		err = Error.Wrap(errs.Combine(err, rows.Close()))
+	}()
+
+	for rows.Next() {
+		var id storj.NodeID
+		err = rows.Scan(&id)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		finishedNodes = append(finishedNodes, id)
+	}
+	return finishedNodes, Error.Wrap(rows.Err())
+}
+
+// DeleteBatchExitProgress batch deletes from exit progress. This is separate from
+// getting the node IDs because the combined query is slow in CRDB. It's safe to do
+// separately because if nodes are deleted between the get and delete, it doesn't
+// affect correctness.
+func (db *gracefulexitDB) DeleteBatchExitProgress(ctx context.Context, nodeIDs []storj.NodeID) (deleted int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	stmt := `DELETE from graceful_exit_progress
+			WHERE node_id = ANY($1)`
+	for len(nodeIDs) > 0 {
+		numToSubmit := len(nodeIDs)
+		if numToSubmit > deleteExitProgressBatchSize {
+			numToSubmit = deleteExitProgressBatchSize
+		}
+		nodesToSubmit := nodeIDs[:numToSubmit]
+		res, err := db.db.ExecContext(ctx, stmt, pgutil.NodeIDArray(nodesToSubmit))
+		if err != nil {
+			return deleted, Error.Wrap(err)
+		}
+		count, err := res.RowsAffected()
+		if err != nil {
+			return deleted, Error.Wrap(err)
+		}
+		deleted += count
+		nodeIDs = nodeIDs[numToSubmit:]
+	}
+	return deleted, Error.Wrap(err)
 }
 
 // GetTransferQueueItem gets a graceful exit transfer queue entry.

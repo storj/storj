@@ -34,7 +34,7 @@ exports[`PayoutHistoryTableItem renders correctly with actual values (eth) 2`] =
         <div class="payout-history-item__expanded-area__left-area__info-area">
           <div class="payout-history-item__expanded-area__left-area__info-area__item flex-start">
             <p class="payout-history-item__expanded-area__left-area__info-area__item__label extra-margin">Node Age</p>
-            <p class="payout-history-item__expanded-area__left-area__info-area__item__value">1 Month</p>
+            <p class="payout-history-item__expanded-area__left-area__info-area__item__value">2 Months</p>
           </div>
           <div class="payout-history-item__expanded-area__left-area__info-area__item flex-start">
             <p class="payout-history-item__expanded-area__left-area__info-area__item__label extra-margin">Earned</p>
@@ -73,6 +73,10 @@ exports[`PayoutHistoryTableItem renders correctly with actual values (eth) 2`] =
         <div class="payout-history-item__expanded-area__right-area__info-item">
           <p class="payout-history-item__expanded-area__right-area__info-item__label">Held Returned</p>
           <p class="payout-history-item__expanded-area__right-area__info-item__value">$0.20</p>
+        </div>
+        <div class="payout-history-item__expanded-area__right-area__info-item">
+          <p class="payout-history-item__expanded-area__right-area__info-item__label">Distributed</p>
+          <p class="payout-history-item__expanded-area__right-area__info-item__value">$0.30</p>
         </div>
         <div class="payout-history-item__expanded-area__right-area__divider"></div>
         <div class="payout-history-item__expanded-area__right-area__footer">
@@ -145,6 +149,10 @@ exports[`PayoutHistoryTableItem renders correctly with actual values (zksync) 1`
         <div class="payout-history-item__expanded-area__right-area__info-item">
           <p class="payout-history-item__expanded-area__right-area__info-item__label">Held Returned</p>
           <p class="payout-history-item__expanded-area__right-area__info-item__value">$0.20</p>
+        </div>
+        <div class="payout-history-item__expanded-area__right-area__info-item">
+          <p class="payout-history-item__expanded-area__right-area__info-item__label">Distributed</p>
+          <p class="payout-history-item__expanded-area__right-area__info-item__value">$0.30</p>
         </div>
         <div class="payout-history-item__expanded-area__right-area__divider"></div>
         <div class="payout-history-item__expanded-area__right-area__footer">

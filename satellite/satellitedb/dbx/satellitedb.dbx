@@ -11,10 +11,6 @@ model value_attribution (
 )
 
 create value_attribution ()
-delete value_attribution (
-	where value_attribution.project_id = ?
-	where value_attribution.bucket_name = ?
-)
 
 read one (
     select value_attribution
@@ -35,8 +31,6 @@ model pending_audits (
 	field path                blob
 )
 
-create pending_audits ( )
-update pending_audits ( where pending_audits.node_id = ? )
 delete pending_audits ( where pending_audits.node_id = ? )
 read one (
 	select pending_audits
@@ -110,11 +104,6 @@ model accounting_rollup (
 
 create accounting_rollup ( noreturn, replace )
 
-read all (
-	select accounting_rollup
-	where  accounting_rollup.start_time >= ?
-)
-
 //--- overlay cache ---//
 
 model node (
@@ -157,7 +146,7 @@ model node (
 	field vetted_at            timestamp ( updatable, nullable )
 	field uptime_success_count int64   ( updatable, default 0 )
 	field total_uptime_count   int64   ( updatable, default 0 )
-
+	
 	field created_at           timestamp ( autoinsert, default current_timestamp )
 	field updated_at           timestamp ( autoinsert, autoupdate, default current_timestamp )
 	field last_contact_success timestamp ( updatable, default "epoch" )
@@ -182,9 +171,6 @@ model node (
 	// unknown_audit_reputation fields track information related to successful vs. unknown error audits
 	field unknown_audit_reputation_alpha  float64 ( updatable, default 1 )
 	field unknown_audit_reputation_beta   float64 ( updatable, default 0 )
-	// TODO remove uptime alpha/beta once old uptime dq code is removed
-	field uptime_reputation_alpha float64 ( updatable, default 1 )
-	field uptime_reputation_beta  float64 ( updatable, default 0 )
 
     field exit_initiated_at         timestamp ( updatable, nullable )
     field exit_loop_completed_at    timestamp ( updatable, nullable )
@@ -192,13 +178,11 @@ model node (
     field exit_success              bool ( updatable, default false )
 )
 
-create node ( noreturn )
 update node ( where node.id = ? )
 update node (
 	where node.id = ?
 	noreturn
 )
-delete node ( where node.id = ? )
 
 // "Get" query; fails if node not found
 read one (
@@ -210,30 +194,9 @@ read all (
 	select node.id
 )
 
-read limitoffset (
-	select node
-	where  node.id >= ?
-	orderby asc node.id
-)
-
 read all (
     select node.id node.piece_count
     where node.piece_count != 0
-)
-
-read limitoffset (
-	select node.id node.address node.last_ip_port node.last_contact_success node.last_contact_failure
-    where node.last_contact_success < node.last_contact_failure
-	where  node.disqualified = null
-	orderby asc node.last_contact_failure
-)
-
-read all (
-	select node.id node.address node.last_ip_port node.last_contact_success node.last_contact_failure
-	where node.last_contact_success < ?
-	where node.last_contact_success > node.last_contact_failure
-	where  node.disqualified = null
-	orderby asc node.last_contact_success
 )
 
 //--- audit history ---//
@@ -406,10 +369,6 @@ read all (
     select project_member
     where project_member.member_id = ?
 )
-read limitoffset (
-    select project_member
-    where project_member.project_id = ?
-)
 
 model api_key (
     key    id
@@ -445,11 +404,6 @@ read one (
     where api_key.name = ?
     where api_key.project_id = ?
 )
-read all (
-    select api_key
-    where api_key.project_id = ?
-    orderby asc api_key.name
-)
 
 // --- bucket accounting tables --- //
 
@@ -474,14 +428,6 @@ model bucket_bandwidth_rollup (
 	field inline    uint64 ( updatable )
 	field allocated uint64 ( updatable )
 	field settled   uint64 ( updatable )
-)
-
-read scalar (
-	select bucket_bandwidth_rollup
-	where  bucket_bandwidth_rollup.bucket_name = ?
-	where  bucket_bandwidth_rollup.project_id = ?
-	where  bucket_bandwidth_rollup.interval_start = ?
-	where  bucket_bandwidth_rollup.action = ?
 )
 
 read paged (
@@ -533,12 +479,6 @@ model project_bandwidth_rollup (
 	field egress_allocated uint64 ( updatable )
 )
 
-read scalar (
-	select project_bandwidth_rollup
-	where  project_bandwidth_rollup.project_id = ?
-	where  project_bandwidth_rollup.interval_month = ?
-)
-
 model bucket_storage_tally (
 	key    bucket_name project_id interval_start
 
@@ -563,12 +503,6 @@ model bucket_storage_tally (
 )
 
 create bucket_storage_tally ( noreturn )
-
-read first (
-    select bucket_storage_tally
-    where bucket_storage_tally.project_id = ?
-    orderby desc bucket_storage_tally.interval_start
-)
 
 read all (
     select bucket_storage_tally
@@ -661,8 +595,6 @@ model storagenode_bandwidth_rollup_phase2 (
 	field settled   uint64 ( updatable )
 )
 
-create storagenode_bandwidth_rollup_phase2 ( )
-
 read paged (
   select storagenode_bandwidth_rollup_phase2
   where storagenode_bandwidth_rollup_phase2.storagenode_id = ?
@@ -734,7 +666,7 @@ model storagenode_paystub (
 	field distributed int64                   // in micro-units of currency
 )
 
-create storagenode_paystub ( noreturn )
+create storagenode_paystub ( noreturn, replace )
 
 read one (
 	select storagenode_paystub
@@ -775,6 +707,11 @@ read all (
 	where storagenode_payment.node_id = ?
 )
 
+read all (
+	select storagenode_payment
+	where storagenode_payment.node_id = ?
+	where storagenode_payment.period  = ?
+)
 
 //--- peer_identity ---//
 
@@ -877,23 +814,6 @@ model offer (
 	field type int ( updatable )
 )
 
-read one (
-    select offer
-    where offer.id = ?
-)
-
-read all (
-	select offer
-	orderby asc offer.id
-)
-
-update offer (
-	where offer.id = ?
-	noreturn
-)
-
-create offer ( )
-
 
 //--- user credit table ---//
 
@@ -919,21 +839,6 @@ model user_credit (
 	field expires_at timestamp ( updatable )
 	field created_at timestamp ( autoinsert )
 )
-
-read all (
-	select user_credit
-	where user_credit.user_id = ?
-    where user_credit.expires_at > ?
-    where user_credit.credits_used_in_cents < user_credit.credits_earned_in_cents
-    orderby asc user_credit.expires_at
-)
-
-read count (
-    select user_credit
-    where user_credit.referred_by = ?
-)
-
-create user_credit ()
 
 //--- metainfo buckets ---//
 
@@ -1018,12 +923,6 @@ model graceful_exit_progress (
 	field updated_at         timestamp ( autoinsert, autoupdate )
 )
 
-create graceful_exit_progress ( noreturn )
-update graceful_exit_progress (
-	where graceful_exit_progress.node_id = ?
-	noreturn
-)
-delete graceful_exit_progress ( where graceful_exit_progress.node_id = ? )
 read one (
 	select graceful_exit_progress
 	where graceful_exit_progress.node_id = ?
@@ -1054,7 +953,6 @@ model graceful_exit_transfer_queue (
 	)
 )
 
-create graceful_exit_transfer_queue ( noreturn )
 update graceful_exit_transfer_queue (
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.path = ?
@@ -1129,12 +1027,6 @@ read all (
     where coinpayments_transaction.user_id = ?
     orderby desc coinpayments_transaction.created_at
 )
-read limitoffset (
-    select coinpayments_transaction
-    where coinpayments_transaction.created_at <= ?
-    where coinpayments_transaction.status = ?
-    orderby desc coinpayments_transaction.created_at
-)
 
 model stripecoinpayments_apply_balance_intent (
     key tx_id
@@ -1143,14 +1035,6 @@ model stripecoinpayments_apply_balance_intent (
     field state int                          ( updatable )
 
     field created_at timestamp ( autoinsert )
-)
-
-create stripecoinpayments_apply_balance_intent ()
-update stripecoinpayments_apply_balance_intent (
-    where stripecoinpayments_apply_balance_intent.tx_id = ?
-)
-delete stripecoinpayments_apply_balance_intent (
-    where stripecoinpayments_apply_balance_intent.tx_id = ?
 )
 
 model stripecoinpayments_invoice_project_record (
@@ -1174,10 +1058,6 @@ create stripecoinpayments_invoice_project_record ()
 update stripecoinpayments_invoice_project_record (
     where stripecoinpayments_invoice_project_record.id = ?
 )
-delete stripecoinpayments_invoice_project_record (
-    where stripecoinpayments_invoice_project_record.id = ?
-)
-
 read one (
     select stripecoinpayments_invoice_project_record
     where stripecoinpayments_invoice_project_record.project_id = ?

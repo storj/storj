@@ -31,6 +31,7 @@ export const appStateModule = {
             isSaveApiKeyModalShown: false,
         },
         satelliteName: '',
+        isBetaSatellite: false,
     },
     mutations: {
         // Mutation changing add projectMembers members popup visibility
@@ -127,8 +128,11 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_PAYMENT_SELECTION](state: any, value: boolean): void {
             state.appState.isPaymentSelectionShown = value;
         },
-        [APP_STATE_MUTATIONS.SET_NAME](state: any, satelliteName: string): void {
+        [APP_STATE_MUTATIONS.SET_SATELLITE_NAME](state: any, satelliteName: string): void {
             state.satelliteName = satelliteName;
+        },
+        [APP_STATE_MUTATIONS.SET_SATELLITE_STATUS](state: any, isBetaSatellite: boolean): void {
+            state.isBetaSatellite = isBetaSatellite;
         },
     },
     actions: {
@@ -271,7 +275,10 @@ export const appStateModule = {
             commit(APP_STATE_MUTATIONS.CHANGE_STATE, newFetchState);
         },
         [APP_STATE_ACTIONS.SET_SATELLITE_NAME]: function ({commit}: any, satelliteName: string): void {
-            commit(APP_STATE_MUTATIONS.SET_NAME, satelliteName);
+            commit(APP_STATE_MUTATIONS.SET_SATELLITE_NAME, satelliteName);
+        },
+        [APP_STATE_ACTIONS.SET_SATELLITE_STATUS]: function ({commit}: any, isBetaSatellite: boolean): void {
+            commit(APP_STATE_MUTATIONS.SET_SATELLITE_STATUS, isBetaSatellite);
         },
     },
 };

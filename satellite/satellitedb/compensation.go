@@ -47,27 +47,66 @@ func (comp *compensationDB) QueryTotalAmounts(ctx context.Context, nodeID storj.
 
 func (comp *compensationDB) RecordPeriod(ctx context.Context, paystubs []compensation.Paystub, payments []compensation.Payment) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return Error.Wrap(comp.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		if err := recordPaystubs(ctx, tx, paystubs); err != nil {
-			return err
-		}
-		if err := recordPayments(ctx, tx, payments); err != nil {
-			return err
-		}
-		return nil
-	}))
+	if err := comp.RecordPaystubs(ctx, paystubs); err != nil {
+		return err
+	}
+	if err := comp.RecordPayments(ctx, payments); err != nil {
+		return err
+	}
+	return nil
+}
+
+func stringPointersEqual(a, b *string) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }
 
 func (comp *compensationDB) RecordPayments(ctx context.Context, payments []compensation.Payment) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return Error.Wrap(comp.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-		return recordPayments(ctx, tx, payments)
-	}))
+
+	for _, payment := range payments {
+		payment := payment // to satisfy linting
+
+		err := comp.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			existingPayments, err := tx.All_StoragenodePayment_By_NodeId_And_Period(ctx,
+				dbx.StoragenodePayment_NodeId(payment.NodeID.Bytes()),
+				dbx.StoragenodePayment_Period(payment.Period.String()))
+			if err != nil {
+				return Error.Wrap(err)
+			}
+
+			// check if the payment already exists. we know period and node id already match.
+			for _, existingPayment := range existingPayments {
+				if existingPayment.Amount == payment.Amount.Value() &&
+					stringPointersEqual(existingPayment.Receipt, payment.Receipt) &&
+					stringPointersEqual(existingPayment.Notes, payment.Notes) {
+					return nil
+				}
+			}
+
+			return Error.Wrap(tx.CreateNoReturn_StoragenodePayment(ctx,
+				dbx.StoragenodePayment_NodeId(payment.NodeID.Bytes()),
+				dbx.StoragenodePayment_Period(payment.Period.String()),
+				dbx.StoragenodePayment_Amount(payment.Amount.Value()),
+				dbx.StoragenodePayment_Create_Fields{
+					Receipt: dbx.StoragenodePayment_Receipt_Raw(payment.Receipt),
+					Notes:   dbx.StoragenodePayment_Notes_Raw(payment.Notes),
+				},
+			))
+		})
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
-func recordPaystubs(ctx context.Context, tx *dbx.Tx, paystubs []compensation.Paystub) error {
+func (comp *compensationDB) RecordPaystubs(ctx context.Context, paystubs []compensation.Paystub) error {
 	for _, paystub := range paystubs {
-		err := tx.CreateNoReturn_StoragenodePaystub(ctx,
+		err := comp.db.ReplaceNoReturn_StoragenodePaystub(ctx,
 			dbx.StoragenodePaystub_Period(paystub.Period.String()),
 			dbx.StoragenodePaystub_NodeId(paystub.NodeID.Bytes()),
 			dbx.StoragenodePaystub_Codes(paystub.Codes.String()),
@@ -89,28 +128,6 @@ func recordPaystubs(ctx context.Context, tx *dbx.Tx, paystubs []compensation.Pay
 			dbx.StoragenodePaystub_Disposed(paystub.Disposed.Value()),
 			dbx.StoragenodePaystub_Paid(paystub.Paid.Value()),
 			dbx.StoragenodePaystub_Distributed(paystub.Distributed.Value()),
-		)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func recordPayments(ctx context.Context, tx *dbx.Tx, payments []compensation.Payment) error {
-	for _, payment := range payments {
-		opts := dbx.StoragenodePayment_Create_Fields{}
-		if payment.Receipt != nil {
-			opts.Receipt = dbx.StoragenodePayment_Receipt(*payment.Receipt)
-		}
-		if payment.Notes != nil {
-			opts.Notes = dbx.StoragenodePayment_Notes(*payment.Notes)
-		}
-		err := tx.CreateNoReturn_StoragenodePayment(ctx,
-			dbx.StoragenodePayment_NodeId(payment.NodeID.Bytes()),
-			dbx.StoragenodePayment_Period(payment.Period.String()),
-			dbx.StoragenodePayment_Amount(payment.Amount.Value()),
-			opts,
 		)
 		if err != nil {
 			return err

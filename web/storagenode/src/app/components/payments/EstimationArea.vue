@@ -107,6 +107,21 @@
                     <p class="estimation-table-container__net-total-area__text">{{ totalPayout | centsToDollars }}</p>
                 </div>
             </div>
+            <div class="estimation-table-container__distributed-area" v-if="!isCurrentPeriod && !isLastPeriodWithoutPaystub">
+                <div class="estimation-table-container__distributed-area__left-area">
+                    <p class="estimation-table-container__distributed-area__text">Distributed</p>
+                    <div class="estimation-table-container__distributed-area__info-area">
+                        <ChecksInfoIcon class="checks-area-image" alt="Info icon with question mark" @mouseenter="toggleTooltipVisibility" @mouseleave="toggleTooltipVisibility"/>
+                        <div class="tooltip" v-show="isTooltipVisible">
+                            <div class="tooltip__text-area">
+                                <p class="tooltip__text-area__text">If you see $0.00 as your distributed amount, you didn’t reach the minimum payout threshold. Your payout will be distributed along with one of the payouts in the upcoming payout cycles. If you see a distributed amount higher than expected, it means this month you were paid undistributed payouts from previous months in addition to this month’s payout.</p>
+                            </div>
+                            <div class="tooltip__footer"></div>
+                        </div>
+                    </div>
+                </div>
+                <p class="estimation-table-container__distributed-area__text">{{ totalPaystubForPeriod.distributed | centsToDollars }}</p>
+            </div>
         </div>
         <div class="estimation-container__payout-area" v-if="isCurrentPeriod && !isFirstDayOfCurrentMonth">
             <div class="estimation-container__payout-area__left-area">
@@ -129,6 +144,8 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import EstimationPeriodDropdown from '@/app/components/payments/EstimationPeriodDropdown.vue';
+
+import ChecksInfoIcon from '@/../static/images/checksInfo.svg';
 
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import {
@@ -161,6 +178,7 @@ class EstimationTableRow {
 @Component ({
     components: {
         EstimationPeriodDropdown,
+        ChecksInfoIcon,
     },
 })
 export default class EstimationArea extends Vue {
@@ -387,6 +405,18 @@ export default class EstimationArea extends Vue {
     }
 
     /**
+     * Indicates if tooltip needs to be shown.
+     */
+    public isTooltipVisible: boolean = false;
+
+    /**
+     * Toggles tooltip visibility.
+     */
+    public toggleTooltipVisibility(): void {
+        this.isTooltipVisible = !this.isTooltipVisible;
+    }
+
+    /**
      * Selects current month as selected payout period.
      */
     public async selectCurrentPeriod(): Promise<void> {
@@ -580,7 +610,8 @@ export default class EstimationArea extends Vue {
         }
 
         &__net-total-area,
-        &__total-area {
+        &__total-area,
+        &__distributed-area {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -595,8 +626,13 @@ export default class EstimationArea extends Vue {
             }
         }
 
-        &__net-total-area {
+        &__net-total-area,
+        &__distributed-area {
             background-color: var(--estimation-table-total-container-color);
+        }
+
+        &__net-total-area {
+            border-bottom: 1px solid #a9b5c1;
         }
 
         &__total-area {
@@ -606,6 +642,24 @@ export default class EstimationArea extends Vue {
 
             &__text {
                 font-family: 'font_regular', sans-serif;
+            }
+        }
+
+        &__distributed-area {
+            justify-content: space-between;
+            font-family: 'font_regular', sans-serif;
+
+            &__info-area {
+                position: relative;
+                margin-left: 10px;
+                width: 18px;
+                height: 18px;
+            }
+
+            &__left-area {
+                display: flex;
+                align-items: center;
+                justify-content: center;
             }
         }
     }
@@ -676,6 +730,38 @@ export default class EstimationArea extends Vue {
             max-width: 500px;
             text-align: center;
             margin-top: 16px;
+        }
+    }
+
+    .tooltip {
+        position: absolute;
+        bottom: 35px;
+        left: 50%;
+        transform: translate(-50%);
+        height: auto;
+        box-shadow: 0 2px 48px var(--tooltip-shadow-color);
+        border-radius: 12px;
+        background: var(--tooltip-background-color);
+
+        &__text-area {
+            padding: 15px 11px;
+            width: 360px;
+            font-family: 'font_regular', sans-serif;
+            font-size: 11px;
+            line-height: 17px;
+            color: var(--regular-text-color);
+            text-align: center;
+        }
+
+        &__footer {
+            position: absolute;
+            left: 50%;
+            transform: translate(-50%);
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 11.5px 11.5px 0 11.5px;
+            border-color: var(--tooltip-background-color) transparent transparent transparent;
         }
     }
 

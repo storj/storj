@@ -30,8 +30,8 @@ describe('PayoutHistoryTableItem', (): void => {
             store,
             localVue,
             propsData: {
-                historyItem: new SatellitePayoutForPeriod('1', 'name1', 1, 100000, 1200000, 140,
-                    500000, 600000, 200000, 800000, 'eth:receipt1', false, 75,
+                historyItem: new SatellitePayoutForPeriod('1', 'name1', 2, 100000, 1200000, 140,
+                    500000, 600000, 200000, 800000, 'eth:receipt1', false, 75, 300000,
                 ),
             },
         });
@@ -50,7 +50,7 @@ describe('PayoutHistoryTableItem', (): void => {
             localVue,
             propsData: {
                 historyItem: new SatellitePayoutForPeriod('1', 'name1', 1, 100000, 1200000, 140,
-                    500000, 600000, 200000, 800000, 'zksync:receipt1', false, 75,
+                    500000, 600000, 200000, 800000, 'zksync:receipt1', false, 75, 300000,
                 ),
             },
         });

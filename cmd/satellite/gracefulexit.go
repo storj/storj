@@ -211,13 +211,18 @@ func cleanupGEOrphanedData(ctx context.Context, before time.Time) (err error) {
 		return nil
 	}
 
-	total, err := db.GracefulExit().DeleteAllFinishedTransferQueueItems(ctx, before)
+	queueTotal, err := db.GracefulExit().DeleteAllFinishedTransferQueueItems(ctx, before)
 	if err != nil {
-		fmt.Println("Error, NO ITEMS have been deleted")
+		fmt.Println("Error, NO ITEMS have been deleted from transfer queue")
+		return err
+	}
+	progressTotal, err := db.GracefulExit().DeleteFinishedExitProgress(ctx, before)
+	if err != nil {
+		fmt.Printf("Error, %d stale entries were deleted from exit progress table. More stale entries might remain.\n", progressTotal)
 		return err
 	}
 
-	fmt.Printf("%d number of items have been deleted from\n", total)
+	fmt.Printf("%d items have been deleted from transfer queue and %d items deleted from exit progress\n", queueTotal, progressTotal)
 	return nil
 }
 

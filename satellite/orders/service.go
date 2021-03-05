@@ -34,7 +34,7 @@ var (
 type Config struct {
 	EncryptionKeys      EncryptionKeys `help:"encryption keys to encrypt info in orders" default:""`
 	Expiration          time.Duration  `help:"how long until an order expires" default:"48h"` // 2 days
-	FlushBatchSize      int            `help:"how many items in the rollups write cache before they are flushed to the database" devDefault:"20" releaseDefault:"10000"`
+	FlushBatchSize      int            `help:"how many items in the rollups write cache before they are flushed to the database" devDefault:"20" releaseDefault:"1000"`
 	FlushInterval       time.Duration  `help:"how often to flush the rollups write cache to the database" devDefault:"30s" releaseDefault:"1m"`
 	NodeStatusLogging   bool           `hidden:"true" help:"deprecated, log the offline/disqualification status of nodes" default:"false"`
 	OrdersSemaphoreSize int            `help:"how many concurrent orders to process at once. zero is unlimited" default:"2"`
