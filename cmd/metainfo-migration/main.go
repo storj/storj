@@ -27,6 +27,7 @@ var (
 	writeParallelLimit    = flag.Int("writeParallelLimit", defaultWriteParallelLimit, "limit of parallel batch writes")
 	preGeneratedStreamIDs = flag.Int("preGeneratedStreamIDs", defaultPreGeneratedStreamIDs, "number of pre generated stream ids for segment")
 	nodes                 = flag.String("nodes", "", "file with nodes ids")
+	invalidObjects        = flag.String("invalidObjects", "", "file for storing invalid objects")
 
 	pointerdb  = flag.String("pointerdb", "", "connection URL for PointerDB")
 	metabasedb = flag.String("metabasedb", "", "connection URL for MetabaseDB")
@@ -72,6 +73,7 @@ func main() {
 		WriteBatchSize:        *writeBatchSize,
 		WriteParallelLimit:    *writeParallelLimit,
 		Nodes:                 *nodes,
+		InvalidObjectsFile:    *invalidObjects,
 	}
 	migrator := NewMigrator(log, *pointerdb, *metabasedb, config)
 	err = migrator.MigrateProjects(ctx)
