@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	"encoding/csv"
 	"encoding/hex"
 	"errors"
 	"os"
@@ -62,6 +63,7 @@ type Config struct {
 	WriteBatchSize        int
 	WriteParallelLimit    int
 	Nodes                 string
+	InvalidObjectsFile    string
 }
 
 // Migrator defines metainfo migrator.
@@ -166,6 +168,24 @@ func (m *Migrator) MigrateProjects(ctx context.Context) (err error) {
 	var fullpath, lastFullPath, metadata []byte
 	var allObjects, allSegments, zombieSegments int64
 
+	var invalidObjectsWriter *csv.Writer
+	if m.config.InvalidObjectsFile != "" {
+		objFile, err := os.Create(m.config.InvalidObjectsFile)
+		if err != nil {
+			return err
+		}
+		defer func() { err = errs.Combine(err, objFile.Close()) }()
+
+		invalidObjectsWriter = csv.NewWriter(objFile)
+	} else {
+		invalidObjectsWriter = csv.NewWriter(os.Stdout)
+	}
+
+	err = invalidObjectsWriter.Write([]string{"project_id", "bucket_name", "object_key", "stream_id", "expected_segments", "read_segments"})
+	if err != nil {
+		return err
+	}
+
 	start := time.Now()
 	if m.config.Nodes != "" {
 		err = m.aliasNodes(ctx, mb)
@@ -215,11 +235,31 @@ func (m *Migrator) MigrateProjects(ctx context.Context) (err error) {
 					return err
 				}
 				if !bytes.Equal(currentProject[:], segmentKey.ProjectID[:]) {
-					currentProject = segmentKey.ProjectID
-
 					if len(objects) != 0 {
-						return errs.New("Object map should be empty after processing whole project")
+						// TODO should we add such incomplete object into metabase?
+						for key, object := range objects {
+							err = invalidObjectsWriter.Write([]string{
+								currentProject.String(),
+								key.Bucket,
+								hex.EncodeToString([]byte(key.Key)),
+								object.StreamID.String(),
+								strconv.FormatInt(object.SegmentsExpected, 10),
+								strconv.FormatInt(object.SegmentsRead, 10),
+							})
+							if err != nil {
+								return err
+							}
+						}
+						invalidObjectsWriter.Flush()
+
+						if err := invalidObjectsWriter.Error(); err != nil {
+							return err
+						}
+
+						m.log.Warn("Object map should be empty after processing whole project", zap.String("ProjectID", currentProject.String()), zap.Int("Number of objects", len(objects)))
 					}
+
+					currentProject = segmentKey.ProjectID
 
 					for b := range objects {
 						delete(objects, b)
