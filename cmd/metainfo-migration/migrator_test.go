@@ -178,6 +178,7 @@ func test(t *testing.T, createPointers func(t *testing.T, ctx context.Context, p
 				PreGeneratedStreamIDs: 1000,
 				WriteBatchSize:        3,
 				WriteParallelLimit:    6,
+				InvalidObjectsFile:    ctx.File(satelliteDB.Name + "_invalid_objects.csv"),
 			})
 			err = migrator.MigrateProjects(ctx)
 			require.NoError(t, err)
