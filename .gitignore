@@ -36,3 +36,11 @@ resource.syso
 *.resource.go
 
 .build
+
+# ignore NPM folders
+**/dist/
+**/node_modules/
+
+# wasm
+**/access.wasm
+**/wasm_exec.js
