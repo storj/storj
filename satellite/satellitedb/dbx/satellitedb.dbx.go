@@ -20792,18 +20792,6 @@ func (rx *Rx) Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_OrderBy_Asc_N
 	return tx.Limited_BucketMetainfo_By_ProjectId_And_Name_Greater_OrderBy_Asc_Name(ctx, bucket_metainfo_project_id, bucket_metainfo_name_greater, limit, offset)
 }
 
-func (rx *Rx) Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
-	coinpayments_transaction_created_at_less_or_equal CoinpaymentsTransaction_CreatedAt_Field,
-	coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
-	limit int, offset int64) (
-	rows []*CoinpaymentsTransaction, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx, coinpayments_transaction_created_at_less_or_equal, coinpayments_transaction_status, limit, offset)
-}
-
 func (rx *Rx) Limited_CouponUsage_By_Period_And_Status_Equal_Number(ctx context.Context,
 	coupon_usage_period CouponUsage_Period_Field,
 	limit int, offset int64) (
@@ -21668,12 +21656,6 @@ type Methods interface {
 		bucket_metainfo_name_greater BucketMetainfo_Name_Field,
 		limit int, offset int64) (
 		rows []*BucketMetainfo, err error)
-
-	Limited_CoinpaymentsTransaction_By_CreatedAt_LessOrEqual_And_Status_OrderBy_Desc_CreatedAt(ctx context.Context,
-		coinpayments_transaction_created_at_less_or_equal CoinpaymentsTransaction_CreatedAt_Field,
-		coinpayments_transaction_status CoinpaymentsTransaction_Status_Field,
-		limit int, offset int64) (
-		rows []*CoinpaymentsTransaction, err error)
 
 	Limited_CouponUsage_By_Period_And_Status_Equal_Number(ctx context.Context,
 		coupon_usage_period CouponUsage_Period_Field,
