@@ -312,5 +312,9 @@ func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, h
 		}
 	}
 
+	if !noMoreData {
+		return Error.New("expected rows to be completely read")
+	}
+
 	return nil
 }
