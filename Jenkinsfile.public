@@ -150,6 +150,22 @@ pipeline {
                     }
                 }
 
+                stage('Integration Redis unavailability') {
+                    environment {
+                        // use different hostname to avoid port conflicts
+                        STORJ_NETWORK_HOST4 = '127.0.0.6'
+                        STORJ_NETWORK_HOST6 = '127.0.0.6'
+                        STORJ_REDIS_PORT = '7379'
+
+                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj6?sslmode=disable'
+                    }
+
+                    steps {
+                        sh 'psql -U postgres -c \'create database teststorj6;\''
+                        sh 'make test-sim-redis-unavailability'
+                    }
+                }
+
                 stage('Backwards Compatibility') {
                     environment {
                         STORJ_NETWORK_HOST4 = '127.0.0.3'
