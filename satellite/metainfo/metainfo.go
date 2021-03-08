@@ -1694,7 +1694,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	result, err := endpoint.metainfo.metabaseDB.ListSegments(ctx, metabase.ListSegments{
+	result, err := endpoint.metainfo.metabaseDB.ListStreamPositions(ctx, metabase.ListStreamPositions{
 		StreamID: id,
 		Cursor: metabase.SegmentPosition{
 			Part:  uint32(cursor.PartNumber),
