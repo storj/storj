@@ -73,6 +73,11 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 		nodes[i] = testrand.NodeID()
 	}
 
+	prefixes := make([]string, len(s.projectID))
+	for i := range prefixes {
+		prefixes[i] = testrand.Path()
+	}
+
 	b.Run("Upload", func(b *testing.B) {
 		totalUpload := make(Metrics, 0, b.N*s.projects*s.objects)
 		beginObject := make(Metrics, 0, b.N*s.projects*s.objects)
@@ -100,12 +105,12 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 			b.StartTimer()
 
 			s.objectStream = nil
-			for _, projectID := range s.projectID {
+			for i, projectID := range s.projectID {
 				for objectIndex := 0; objectIndex < s.objects; objectIndex++ {
 					objectStream := metabase.ObjectStream{
 						ProjectID:  projectID,
 						BucketName: "bucket",
-						ObjectKey:  metabase.ObjectKey(testrand.Path() + "/" + testrand.UUID().String()),
+						ObjectKey:  metabase.ObjectKey(prefixes[i] + "/" + testrand.UUID().String()),
 						Version:    1,
 						StreamID:   testrand.UUID(),
 					}
@@ -211,6 +216,29 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 					err := db.IterateObjectsAllVersions(ctx, metabase.IterateObjects{
 						ProjectID:  projectID,
 						BucketName: "bucket",
+					}, func(ctx context.Context, it metabase.ObjectsIterator) error {
+						var entry metabase.ObjectEntry
+						for it.Next(ctx, &entry) {
+						}
+						return nil
+					})
+					require.NoError(b, err)
+				})
+			}
+		}
+	})
+
+	b.Run("Iterate with prefix", func(b *testing.B) {
+		m := make(Metrics, 0, b.N*s.projects)
+		defer m.Report(b, "ns/proj")
+
+		for i := 0; i < b.N; i++ {
+			for i, projectID := range s.projectID {
+				m.Record(func() {
+					err := db.IterateObjectsAllVersions(ctx, metabase.IterateObjects{
+						ProjectID:  projectID,
+						BucketName: "bucket",
+						Prefix:     metabase.ObjectKey(prefixes[i]),
 					}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 						var entry metabase.ObjectEntry
 						for it.Next(ctx, &entry) {
