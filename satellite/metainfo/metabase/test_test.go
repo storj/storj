@@ -289,6 +289,21 @@ func (step ListStreamPositions) Check(ctx *testcontext.Context, t testing.TB, db
 	require.Zero(t, diff)
 }
 
+type GetStreamPieceCountByNodeID struct {
+	Opts     metabase.GetStreamPieceCountByNodeID
+	Result   map[storj.NodeID]int64
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+func (step GetStreamPieceCountByNodeID) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.GetStreamPieceCountByNodeID(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result)
+	require.Zero(t, diff)
+}
+
 type IterateLoopStreams struct {
 	Opts     metabase.IterateLoopStreams
 	Result   map[uuid.UUID][]metabase.LoopSegmentEntry

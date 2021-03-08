@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/metainfo/metabase"
@@ -203,6 +204,8 @@ type MetabaseDB interface {
 	GetSegmentByPosition(ctx context.Context, opts metabase.GetSegmentByPosition) (segment metabase.Segment, err error)
 	// GetLatestObjectLastSegment returns an object last segment information.
 	GetLatestObjectLastSegment(ctx context.Context, opts metabase.GetLatestObjectLastSegment) (segment metabase.Segment, err error)
+	// GetStreamPieceCountByNodeID returns piece count by node id.
+	GetStreamPieceCountByNodeID(ctx context.Context, opts metabase.GetStreamPieceCountByNodeID) (result map[storj.NodeID]int64, err error)
 	// ListSegments lists specified stream segments.
 	ListSegments(ctx context.Context, opts metabase.ListSegments) (result metabase.ListSegmentsResult, err error)
 	// ListStreamPositions lists specified stream segment positions.

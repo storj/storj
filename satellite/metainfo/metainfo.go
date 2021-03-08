@@ -1241,26 +1241,13 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	more := true
-	cursor := metabase.SegmentPosition{}
-	pieceCountByNodeID := map[storj.NodeID]int64{}
-	for more {
-		list, err := endpoint.metainfo.metabaseDB.ListSegments(ctx, metabase.ListSegments{
+	pieceCountByNodeID, err := endpoint.metainfo.metabaseDB.GetStreamPieceCountByNodeID(ctx,
+		metabase.GetStreamPieceCountByNodeID{
 			StreamID: object.StreamID,
-			Cursor:   cursor,
 		})
-		if err != nil {
-			endpoint.log.Error("internal", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
-
-		for _, segment := range list.Segments {
-			for _, piece := range segment.Pieces {
-				pieceCountByNodeID[piece.StorageNode]++
-			}
-			cursor = segment.Position
-		}
-		more = list.More
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	nodeIDs := make([]storj.NodeID, 0, len(pieceCountByNodeID))
