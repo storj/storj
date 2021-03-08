@@ -274,6 +274,21 @@ func (step ListSegments) Check(ctx *testcontext.Context, t testing.TB, db *metab
 	require.Zero(t, diff)
 }
 
+type ListStreamPositions struct {
+	Opts     metabase.ListStreamPositions
+	Result   metabase.ListStreamPositionsResult
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+func (step ListStreamPositions) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.ListStreamPositions(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	require.Zero(t, diff)
+}
+
 type IterateLoopStreams struct {
 	Opts     metabase.IterateLoopStreams
 	Result   map[uuid.UUID][]metabase.LoopSegmentEntry
