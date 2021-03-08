@@ -107,6 +107,12 @@ test-sim: ## Test source with storj-sim (jenkins)
 	@echo "Running ${@}"
 	@./scripts/test-sim.sh
 
+.PHONY: test-sim-redis-unavailability
+test-sim-redis-unavailability: ## Test source with Redis availability with storj-sim (jenkins)
+	@echo "Running ${@}"
+	@./scripts/test-sim-redis-up-and-down.sh
+
+
 .PHONY: test-certificates
 test-certificates: ## Test certificate signing service and storagenode setup (jenkins)
 	@echo "Running ${@}"

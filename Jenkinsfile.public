@@ -2,8 +2,8 @@ pipeline {
     agent {
         docker {
             label 'main'
-            image docker.build("storj-ci", "--pull git://github.com/storj/ci.git#main").id
-            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/npm --tmpfs "/tmp:exec,mode=777"'
+            image docker.build("storj-ci", "--pull git://github.com/storj/ci.git#if/in-210").id
+            args '-u root:root --cap-add SYS_PTRACE -v "/tmp/gomod":/go/pkg/mod -v "/tmp/npm":/npm -v "/var/run/docker.sock:/var/run/docker.sock" --tmpfs "/tmp:exec,mode=777"'
         }
     }
     options {
@@ -129,7 +129,7 @@ pipeline {
                     }
 
                     steps {
-                        sh 'psql -U postgres -c \'create database teststorj2;\''
+                        sh 'psql -U postgres -c \'create database teststorj2;\' '
                         sh 'make test-sim'
                         // sh 'make test-certificates' // flaky
                     }
@@ -147,6 +147,21 @@ pipeline {
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach4;\''
                         sh 'make test-sim'
                         sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach4;\''
+                    }
+                }
+
+                stage('Integration Redis unavailability') {
+                    environment {
+                        // use different hostname to avoid port conflicts
+                        STORJ_NETWORK_HOST4 = '127.0.0.6'
+                        STORJ_NETWORK_HOST6 = '127.0.0.6'
+
+                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj6?sslmode=disable'
+                    }
+
+                    steps {
+                        sh 'psql -U postgres -c \'create database teststorj6;\' '
+                        sh 'make test-sim-redis-unavailability'
                     }
                 }
 
