@@ -15,6 +15,7 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/private/testredis"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
@@ -26,7 +27,6 @@ import (
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/storage/redis/redisserver"
 )
 
 func TestGraphqlQuery(t *testing.T) {
@@ -43,7 +43,7 @@ func TestGraphqlQuery(t *testing.T) {
 			},
 		)
 
-		redis, err := redisserver.Mini(ctx)
+		redis, err := testredis.Mini(ctx)
 		require.NoError(t, err)
 		defer ctx.Check(redis.Close)
 
@@ -219,7 +219,6 @@ func TestGraphqlQuery(t *testing.T) {
 			err = service.ActivateAccount(ctx, activationToken1)
 			require.NoError(t, err)
 			user1.Email = "muu1@mail.test"
-
 		})
 
 		regTokenUser2, err := service.CreateRegToken(ctx, 2)

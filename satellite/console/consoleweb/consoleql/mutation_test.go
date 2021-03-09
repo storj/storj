@@ -18,6 +18,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/post"
+	"storj.io/storj/private/testredis"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
@@ -29,7 +30,6 @@ import (
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/storage/redis/redisserver"
 )
 
 // discardSender discard sending of an actual email.
@@ -59,7 +59,7 @@ func TestGraphqlMutation(t *testing.T) {
 			},
 		)
 
-		redis, err := redisserver.Mini(ctx)
+		redis, err := testredis.Mini(ctx)
 		require.NoError(t, err)
 		defer ctx.Check(redis.Close)
 
