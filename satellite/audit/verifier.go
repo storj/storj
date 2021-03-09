@@ -233,6 +233,8 @@ func (verifier *Verifier) Verify(ctx context.Context, path storj.Path, skip map[
 	}
 
 	for _, pieceNum := range pieceNums {
+		verifier.log.Info("Verify: share data altered (audit failed)",
+			zap.Stringer("Node ID", shares[pieceNum].NodeID))
 		failedNodes = append(failedNodes, shares[pieceNum].NodeID)
 	}
 

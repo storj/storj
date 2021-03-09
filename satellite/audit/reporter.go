@@ -213,8 +213,12 @@ func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits
 				failed = append(failed, pendingAudit)
 				errlist.Add(err)
 			}
+			reporter.log.Info("Audit pending",
+				zap.Stringer("Piece ID", pendingAudit.PieceID),
+				zap.Stringer("Node ID", pendingAudit.NodeID))
 		} else {
 			// record failure -- max reverify count reached
+			reporter.log.Info("max reverify count reached (audit failed)", zap.Stringer("Node ID", pendingAudit.NodeID))
 			updateRequests = append(updateRequests, &overlay.UpdateRequest{
 				NodeID:       pendingAudit.NodeID,
 				AuditOutcome: overlay.AuditFailure,
