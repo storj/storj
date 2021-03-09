@@ -8,6 +8,7 @@ import (
 	"errors"
 	"flag"
 	"os"
+	"runtime"
 	"runtime/pprof"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
+	"storj.io/common/memory"
 	"storj.io/storj/satellite/metainfo"
 )
 
@@ -141,6 +143,15 @@ func (progress *ProgressObserver) Report() {
 		zap.Int64("objects", progress.ObjectCount),
 		zap.Int64("remote segments", progress.RemoteSegmentCount),
 		zap.Int64("inline segments", progress.InlineSegmentCount),
+	)
+
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	progress.Log.Debug("memory",
+		zap.String("Alloc", memory.Size(int64(m.Alloc)).String()),
+		zap.String("TotalAlloc", memory.Size(int64(m.TotalAlloc)).String()),
+		zap.String("Sys", memory.Size(int64(m.Sys)).String()),
+		zap.Uint32("NumGC", m.NumGC),
 	)
 }
 
