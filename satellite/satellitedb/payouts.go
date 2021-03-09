@@ -155,7 +155,7 @@ func derefStringOr(v *string, def string) string {
 
 // TestCreatePaystub inserts storagenode_paystub into database. Only used for tests.
 func (db *snopayoutsDB) TestCreatePaystub(ctx context.Context, stub snopayouts.Paystub) (err error) {
-	return db.db.CreateNoReturn_StoragenodePaystub(ctx,
+	return db.db.ReplaceNoReturn_StoragenodePaystub(ctx,
 		dbx.StoragenodePaystub_Period(stub.Period),
 		dbx.StoragenodePaystub_NodeId(stub.NodeID.Bytes()),
 		dbx.StoragenodePaystub_Codes(stub.Codes),

@@ -11,6 +11,8 @@ exports[`ApiKeysCreationPopup renders correctly 1`] = `
     </div> <input placeholder="Enter API Key Name" type="text" class="headerless-input" style="width: 100%; height: 48px;">
     <!---->
     <!---->
+    <!---->
+    <!---->
   </div>
   <div class="next-button container" style="width: 128px; height: 48px;"><span class="label">Next &gt;</span></div>
   <div class="new-api-key__close-cross-container"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">

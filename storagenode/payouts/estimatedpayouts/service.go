@@ -61,22 +61,12 @@ func (s *Service) GetSatelliteEstimatedPayout(ctx context.Context, satelliteID s
 		return EstimatedPayout{}, EstimationServiceErr.Wrap(err)
 	}
 
-	payout.CurrentMonth = currentMonthPayout
-	payout.PreviousMonth = previousMonthPayout
-
 	stats, err := s.reputationDB.Get(ctx, satelliteID)
 	if err != nil {
 		return EstimatedPayout{}, EstimationServiceErr.Wrap(err)
 	}
 
-	daysSinceJoined := now.Sub(stats.JoinedAt).Hours() / 24
-	if daysSinceJoined >= float64(now.Day()) {
-		payout.SetExpectedMonth(now)
-
-		return payout, nil
-	}
-
-	payout.CurrentMonthExpectations = (payout.CurrentMonth.Payout / daysSinceJoined) * float64(date.UTCEndOfMonth(now).Day())
+	payout.Set(currentMonthPayout, previousMonthPayout, now, stats.JoinedAt)
 	return payout, nil
 }
 
@@ -91,25 +81,16 @@ func (s *Service) GetAllSatellitesEstimatedPayout(ctx context.Context, now time.
 			return EstimatedPayout{}, EstimationServiceErr.Wrap(err)
 		}
 
-		payout.CurrentMonth.Payout += current.Payout
-		payout.CurrentMonth.EgressRepairAuditPayout += current.EgressRepairAuditPayout
-		payout.CurrentMonth.DiskSpacePayout += current.DiskSpacePayout
-		payout.CurrentMonth.DiskSpace += current.DiskSpace
-		payout.CurrentMonth.EgressBandwidth += current.EgressBandwidth
-		payout.CurrentMonth.EgressBandwidthPayout += current.EgressBandwidthPayout
-		payout.CurrentMonth.EgressRepairAudit += current.EgressRepairAudit
-		payout.CurrentMonth.Held += current.Held
-		payout.PreviousMonth.Payout += previous.Payout
-		payout.PreviousMonth.DiskSpacePayout += previous.DiskSpacePayout
-		payout.PreviousMonth.DiskSpace += previous.DiskSpace
-		payout.PreviousMonth.EgressBandwidth += previous.EgressBandwidth
-		payout.PreviousMonth.EgressBandwidthPayout += previous.EgressBandwidthPayout
-		payout.PreviousMonth.EgressRepairAuditPayout += previous.EgressRepairAuditPayout
-		payout.PreviousMonth.EgressRepairAudit += previous.EgressRepairAudit
-		payout.PreviousMonth.Held += previous.Held
-	}
+		var satellitePayout EstimatedPayout
 
-	payout.SetExpectedMonth(now)
+		stats, err := s.reputationDB.Get(ctx, satelliteIDs[i])
+		if err != nil {
+			return EstimatedPayout{}, EstimationServiceErr.Wrap(err)
+		}
+
+		satellitePayout.Set(current, previous, now, stats.JoinedAt)
+		payout.Add(satellitePayout)
+	}
 
 	return payout, nil
 }

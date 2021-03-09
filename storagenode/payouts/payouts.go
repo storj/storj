@@ -115,6 +115,7 @@ type SatellitePayoutForPeriod struct {
 	Paid           int64   `json:"paid"`
 	Receipt        string  `json:"receipt"`
 	IsExitComplete bool    `json:"isExitComplete"`
+	Distributed    int64   `json:"distributed"`
 }
 
 // Period is a string that represents paystub period type in format yyyy-mm.

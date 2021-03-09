@@ -211,7 +211,7 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
             projectsCount: (state: ProjectsState, getters: any): number => {
                 let projectsCount: number = 0;
 
-                state.projects.map((project: Project) => {
+                state.projects.forEach((project: Project) => {
                     if (project.ownerId === getters.user.id) {
                         projectsCount++;
                     }
