@@ -6,6 +6,7 @@ package metabase_test
 import (
 	"context"
 	"errors"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -188,6 +189,32 @@ func TestNodeAliasMap(t *testing.T) {
 		require.Equal(t, []storj.NodeID{n1, n2, n3}, missing)
 	}
 
+	{
+		aggregate := metabase.NewNodeAliasMap(nil)
+		alpha := metabase.NewNodeAliasMap([]metabase.NodeAliasEntry{
+			{ID: n1, Alias: 1},
+			{ID: n2, Alias: 2},
+		})
+		aggregate.Merge(alpha)
+		beta := metabase.NewNodeAliasMap([]metabase.NodeAliasEntry{
+			{ID: n3, Alias: 5},
+		})
+		aggregate.Merge(beta)
+
+		aliases, missing := aggregate.Aliases([]storj.NodeID{n1, n2, n3})
+		require.Empty(t, missing)
+		require.Equal(t, []metabase.NodeAlias{1, 2, 5}, aliases)
+
+		nodes2, missing2 := aggregate.Nodes([]metabase.NodeAlias{1, 2, 5})
+		require.Empty(t, missing2)
+		require.Equal(t, []storj.NodeID{n1, n2, n3}, nodes2)
+
+		nodes3, missing3 := aggregate.Nodes([]metabase.NodeAlias{3, 4})
+		require.Empty(t, nodes3)
+		require.Equal(t, []metabase.NodeAlias{3, 4}, missing3)
+
+	}
+
 	m := metabase.NewNodeAliasMap([]metabase.NodeAliasEntry{
 		{n1, 1},
 		{n2, 2},
@@ -261,6 +288,36 @@ func TestNodeAliasMap(t *testing.T) {
 
 		require.EqualValues(t, test.out, out)
 		require.EqualValues(t, test.missing, missing)
+	}
+}
+
+func BenchmarkNodeAliasCache_ConvertAliasesToPieces(b *testing.B) {
+	ctx := context.Background()
+
+	aliasDB := &NodeAliasDB{}
+	cache := metabase.NewNodeAliasCache(aliasDB)
+
+	nodeIDs := make([]storj.NodeID, 80)
+	for i := range nodeIDs {
+		nodeIDs[i] = testrand.NodeID()
+	}
+	aliases, err := cache.Aliases(ctx, nodeIDs)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	aliasPieces := make([]metabase.AliasPiece, len(aliases))
+	for i, alias := range aliases {
+		aliasPieces[i] = metabase.AliasPiece{Number: uint16(i), Alias: alias}
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		pieces, err := cache.ConvertAliasesToPieces(ctx, aliasPieces)
+		if err != nil {
+			b.Fatal(err)
+		}
+		runtime.KeepAlive(pieces)
 	}
 }
 

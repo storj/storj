@@ -163,18 +163,36 @@ func (cache *NodeAliasCache) ConvertPiecesToAliases(ctx context.Context, pieces 
 func (cache *NodeAliasCache) ConvertAliasesToPieces(ctx context.Context, aliasPieces AliasPieces) (_ Pieces, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	aliases := make([]NodeAlias, len(aliasPieces))
+	latest := cache.getLatest()
+
 	pieces := make(Pieces, len(aliasPieces))
+	var missing []NodeAlias
+
 	for i, aliasPiece := range aliasPieces {
-		pieces[i].Number, aliases[i] = aliasPiece.Number, aliasPiece.Alias
+		node, ok := latest.Node(aliasPiece.Alias)
+		if !ok {
+			missing = append(missing, aliasPiece.Alias)
+			continue
+		}
+		pieces[i].Number = aliasPiece.Number
+		pieces[i].StorageNode = node
 	}
 
-	nodes, err := cache.Nodes(ctx, aliases)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	for i, n := range nodes {
-		pieces[i].StorageNode = n
+	if len(missing) > 0 {
+		var err error
+		latest, err = cache.refresh(ctx, nil, missing)
+		if err != nil {
+			return nil, Error.New("failed to refresh node alias db: %w", err)
+		}
+
+		for i, aliasPiece := range aliasPieces {
+			node, ok := latest.Node(aliasPiece.Alias)
+			if !ok {
+				return nil, Error.New("aliases missing in database: %v", missing)
+			}
+			pieces[i].Number = aliasPiece.Number
+			pieces[i].StorageNode = node
+		}
 	}
 
 	return pieces, nil
@@ -182,38 +200,57 @@ func (cache *NodeAliasCache) ConvertAliasesToPieces(ctx context.Context, aliasPi
 
 // NodeAliasMap contains bidirectional mapping between node ID and a NodeAlias.
 type NodeAliasMap struct {
-	node  map[NodeAlias]storj.NodeID
+	node  []storj.NodeID
 	alias map[storj.NodeID]NodeAlias
 }
 
 // NewNodeAliasMap creates a new alias map from the given entries.
 func NewNodeAliasMap(entries []NodeAliasEntry) *NodeAliasMap {
 	m := &NodeAliasMap{
-		node:  make(map[NodeAlias]storj.NodeID, len(entries)),
+		node:  make([]storj.NodeID, len(entries)),
 		alias: make(map[storj.NodeID]NodeAlias, len(entries)),
 	}
 	for _, e := range entries {
-		m.node[e.Alias] = e.ID
+		m.setNode(e.Alias, e.ID)
 		m.alias[e.ID] = e.Alias
 	}
 	return m
 }
 
+// setNode sets a value in `m.node` and increases the size when necessary.
+func (m *NodeAliasMap) setNode(alias NodeAlias, value storj.NodeID) {
+	if int(alias) >= len(m.node) {
+		m.node = append(m.node, make([]storj.NodeID, int(alias)-len(m.node)+1)...)
+	}
+	m.node[alias] = value
+}
+
 // Merge merges the other map into m.
 func (m *NodeAliasMap) Merge(other *NodeAliasMap) {
 	for k, v := range other.node {
-		m.node[k] = v
+		if !v.IsZero() {
+			m.setNode(NodeAlias(k), v)
+		}
 	}
 	for k, v := range other.alias {
 		m.alias[k] = v
 	}
 }
 
+// Node returns NodeID for the given alias.
+func (m *NodeAliasMap) Node(alias NodeAlias) (x storj.NodeID, ok bool) {
+	if int(alias) >= len(m.node) {
+		return storj.NodeID{}, false
+	}
+	v := m.node[alias]
+	return v, !v.IsZero()
+}
+
 // Nodes returns NodeID-s for the given aliases and aliases that are not in this map.
 func (m *NodeAliasMap) Nodes(aliases []NodeAlias) (xs []storj.NodeID, missing []NodeAlias) {
 	xs = make([]storj.NodeID, 0, len(aliases))
 	for _, p := range aliases {
-		if x, ok := m.node[p]; ok {
+		if x, ok := m.Node(p); ok {
 			xs = append(xs, x)
 		} else {
 			missing = append(missing, p)
@@ -243,7 +280,7 @@ func (m *NodeAliasMap) ContainsAll(nodeIDs []storj.NodeID, nodeAliases []NodeAli
 		}
 	}
 	for _, alias := range nodeAliases {
-		if _, ok := m.node[alias]; !ok {
+		if _, ok := m.Node(alias); !ok {
 			return false
 		}
 	}
@@ -255,5 +292,5 @@ func (m *NodeAliasMap) Size() int {
 	if m == nil {
 		return 0
 	}
-	return len(m.node)
+	return len(m.alias)
 }
