@@ -4,53 +4,43 @@
 package main
 
 import (
-	"context"
-	"flag"
-	"fmt"
-	"os"
-
+	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+
+	"storj.io/private/process"
 )
 
-func main() {
-	var bench Bench
-	bench.BindFlags(flag.CommandLine)
-	flag.Parse()
+var (
+	rootCmd = &cobra.Command{
+		Use:   "metainfo-loop-benchmark",
+		Short: "metainfo-loop-benchmark",
+	}
+
+	runCmd = &cobra.Command{
+		Use:   "run",
+		Short: "run metainfo-loop-benchmark",
+		RunE:  run,
+	}
+
+	bench Bench
+)
+
+func init() {
+	rootCmd.AddCommand(runCmd)
+
+	bench.BindFlags(runCmd.Flags())
+}
+
+func run(cmd *cobra.Command, args []string) error {
 	if err := bench.VerifyFlags(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		return err
 	}
 
-	ctx := context.Background()
+	ctx, _ := process.Ctx(cmd)
+	log := zap.L()
+	return bench.Run(ctx, log)
+}
 
-	log, err := zap.Config{
-		Encoding:         "console",
-		Level:            zap.NewAtomicLevelAt(zapcore.DebugLevel),
-		OutputPaths:      []string{"stdout"},
-		ErrorOutputPaths: []string{"stdout"},
-		EncoderConfig: zapcore.EncoderConfig{
-			LevelKey:       "L",
-			NameKey:        "N",
-			TimeKey:        "T",
-			CallerKey:      "C",
-			MessageKey:     "M",
-			StacktraceKey:  "S",
-			LineEnding:     zapcore.DefaultLineEnding,
-			EncodeLevel:    zapcore.CapitalLevelEncoder,
-			EncodeTime:     zapcore.ISO8601TimeEncoder,
-			EncodeDuration: zapcore.StringDurationEncoder,
-			EncodeCaller:   zapcore.ShortCallerEncoder,
-		},
-	}.Build()
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-
-	if err := bench.Run(ctx, log); err != nil {
-		_ = log.Sync()
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
+func main() {
+	process.Exec(rootCmd)
 }

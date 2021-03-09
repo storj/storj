@@ -6,13 +6,13 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"os"
 	"runtime"
 	"runtime/pprof"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
+	flag "github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
