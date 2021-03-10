@@ -4,7 +4,7 @@
 import { ActionContext, ActionTree, GetterTree, Module, MutationTree } from 'vuex';
 
 import { RootState } from '@/app/store/index';
-import { CreateNodeFields, Node, NodeURL } from '@/nodes';
+import { CreateNodeFields, Node, NodeURL, UpdateNodeModel } from '@/nodes';
 import { Nodes } from '@/nodes/service';
 
 /**
@@ -44,6 +44,7 @@ export class NodesModule implements Module<NodesState, RootState> {
             delete: this.delete.bind(this),
             trustedSatellites: this.trustedSatellites.bind(this),
             selectSatellite: this.selectSatellite.bind(this),
+            updateName: this.updateName.bind(this),
         };
     }
 
@@ -100,6 +101,16 @@ export class NodesModule implements Module<NodesState, RootState> {
      */
     public async delete(ctx: ActionContext<NodesState, RootState>, nodeId: string): Promise<void> {
         await this.nodes.delete(nodeId);
+        await this.fetch(ctx);
+    }
+
+    /**
+     * Update node from multinode list.
+     * @param ctx - context of the Vuex action.
+     * @param node - updated node info.
+     */
+    public async updateName(ctx: ActionContext<NodesState, RootState>, node: UpdateNodeModel): Promise<void> {
+        await this.nodes.updateName(node.id, node.name);
         await this.fetch(ctx);
     }
 

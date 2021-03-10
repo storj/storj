@@ -13,7 +13,6 @@ import (
 	"sync"
 	"syscall"
 
-	quicgo "github.com/lucas-clemente/quic-go"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -171,7 +170,7 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	}
 
 	if p.public.udpConn != nil {
-		p.public.quicListener, err = quic.NewListener(p.public.udpConn, p.tlsOptions.ServerTLSConfig(), &quicgo.Config{MaxIdleTimeout: defaultUserTimeout})
+		p.public.quicListener, err = quic.NewListener(p.public.udpConn, p.tlsOptions.ServerTLSConfig(), defaultQUICConfig())
 		if err != nil {
 			return err
 		}

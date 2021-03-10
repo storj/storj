@@ -7,6 +7,7 @@ import (
 	"net"
 	"time"
 
+	quicgo "github.com/lucas-clemente/quic-go"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/netutil"
@@ -16,6 +17,18 @@ import (
 
 // defaultUserTimeout is the value we use for the TCP_USER_TIMEOUT setting.
 const defaultUserTimeout = 60 * time.Second
+
+// defaultQUICConfig is the value we use for QUIC setting.
+func defaultQUICConfig() *quicgo.Config {
+	return &quicgo.Config{
+		MaxIdleTimeout: defaultUserTimeout,
+		// disable address validation in QUIC (it costs an extra round-trip, and we believe
+		// it to be unnecessary given the low potential for traffic amplification attacks).
+		AcceptToken: func(clientAddr net.Addr, token *quicgo.Token) bool {
+			return true
+		},
+	}
+}
 
 // wrapListener wraps the provided net.Listener in one that sets timeouts
 // and monitors if the returned connections are closed or leaked.

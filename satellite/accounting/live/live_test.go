@@ -17,9 +17,9 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/testredis"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
-	"storj.io/storj/storage/redis/redisserver"
 )
 
 func TestAddGetProjectStorageAndBandwidthUsage(t *testing.T) {
@@ -33,7 +33,7 @@ func TestAddGetProjectStorageAndBandwidthUsage(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	redis, err := redisserver.Start(ctx)
+	redis, err := testredis.Start(ctx)
 	require.NoError(t, err)
 	defer ctx.Check(redis.Close)
 
@@ -107,7 +107,7 @@ func TestGetAllProjectTotals(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	redis, err := redisserver.Start(ctx)
+	redis, err := testredis.Start(ctx)
 	require.NoError(t, err)
 	defer ctx.Check(redis.Close)
 
@@ -159,7 +159,7 @@ func TestLiveAccountingCache_ProjectBandwidthUsage_expiration(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	redis, err := redisserver.Start(ctx)
+	redis, err := testredis.Start(ctx)
 	require.NoError(t, err)
 
 	defer ctx.Check(redis.Close)
@@ -188,7 +188,7 @@ func TestLiveAccountingCache_ProjectBandwidthUsage_expiration(t *testing.T) {
 			require.NoError(t, err)
 
 			if tt.backend == "redis" {
-				redis.TestingFastForward(time.Second)
+				redis.FastForward(time.Second)
 			}
 
 			time.Sleep(2 * time.Second)

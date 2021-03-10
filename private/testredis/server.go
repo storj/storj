@@ -1,8 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// Package redisserver is package for starting a redis test server
-package redisserver
+// Package testredis is package for starting a redis test server
+package testredis
 
 import (
 	"bufio"
@@ -36,13 +36,13 @@ const (
 type Server interface {
 	Addr() string
 	Close() error
-	// TestingFastForward is a function for enforce the TTL of keys in
+	// FastForward is a function for enforce the TTL of keys in
 	// implementations what they have not exercise the expiration by themselves
 	// (e.g. Minitredis). This method is a no-op in implementations which support
 	// the expiration as usual.
 	//
 	// All the keys whose TTL minus d become <= 0 will be removed.
-	TestingFastForward(d time.Duration)
+	FastForward(d time.Duration)
 }
 
 func freeport() (addr string, port int) {
@@ -167,7 +167,7 @@ func (process *process) Close() error {
 	return nil
 }
 
-func (process *process) TestingFastForward(_ time.Duration) {}
+func (process *process) FastForward(_ time.Duration) {}
 
 func pingServer(addr string) error {
 	client := redis.NewClient(&redis.Options{Addr: addr, DB: 1})
@@ -200,6 +200,6 @@ func (s *miniserver) Close() error {
 	return nil
 }
 
-func (s *miniserver) TestingFastForward(d time.Duration) {
-	s.FastForward(d)
+func (s *miniserver) FastForward(d time.Duration) {
+	s.Miniredis.FastForward(d)
 }
