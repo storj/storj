@@ -18,7 +18,6 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/date"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/storagenode/payouts/estimatedpayouts"
@@ -96,12 +95,9 @@ func TestStorageNodeApi(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			now2 := time.Now().UTC()
-			daysPerMonth := date.UTCEndOfMonth(now2).Day()
-
 			err = reputationdb.Store(ctx, reputation.Stats{
 				SatelliteID: satellite.ID(),
-				JoinedAt:    now.AddDate(0, 0, -daysPerMonth+3),
+				JoinedAt:    now.AddDate(0, -2, 0),
 			})
 			require.NoError(t, err)
 
@@ -134,8 +130,8 @@ func TestStorageNodeApi(t *testing.T) {
 				require.NoError(t, err)
 
 				// round CurrentMonthExpectations to 3 decimal places to resolve precision issues
-				bodyPayout.CurrentMonthExpectations = math.Floor(bodyPayout.CurrentMonthExpectations*1000) / 1000
-				expectedPayout.CurrentMonthExpectations = math.Floor(expectedPayout.CurrentMonthExpectations*1000) / 1000
+				bodyPayout.CurrentMonthExpectations = math.Round(bodyPayout.CurrentMonthExpectations*100) / 100
+				expectedPayout.CurrentMonthExpectations = math.Round(expectedPayout.CurrentMonthExpectations*100) / 100
 
 				require.EqualValues(t, expectedPayout, bodyPayout)
 			})
