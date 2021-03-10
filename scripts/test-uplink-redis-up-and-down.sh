@@ -1,15 +1,10 @@
 #!/usr/bin/env bash
-set -ueo pipefail
-
-redis_container_name="${1-}"
-
-# Required positional arguments
-if [ -z "${redis_container_name}" ]; then
-	echo "redis container name is required as a first positional script argument"
-	exit 1
-fi
+set -Eeo pipefail
+set +x
 
 # constants
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+readonly SCRIPT_DIR
 BUCKET="bucket-123"
 readonly BUCKET
 UPLINK_DEBUG_ADDR=""
@@ -43,14 +38,6 @@ compare_files() {
 		echo "${name} does not match uploaded file"
 		exit 1
 	fi
-}
-
-redis_start() {
-	docker container start "${redis_container_name}"
-}
-
-redis_stop() {
-	docker container stop "${redis_container_name}"
 }
 
 uplink_test() {
@@ -146,5 +133,5 @@ uplink_test() {
 uplink_test
 
 # Run the test with Redis container not running
-redis_stop
+"${SCRIPT_DIR}/redis-server.sh" stop
 uplink_test

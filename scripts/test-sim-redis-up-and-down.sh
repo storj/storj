@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -Eeuo pipefail
+set -Eeo pipefail
 set +x
 
 # Required environment variables
@@ -8,22 +8,28 @@ if [ -z "${STORJ_SIM_POSTGRES}" ]; then
 	exit 1
 fi
 
+if [ -z "${STORJ_REDIS_PORT}" ]; then
+	echo STORJ_REDIS_PORT env var is required
+	exit 1
+fi
+
 # constants
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 readonly SCRIPT_DIR
-REDIS_CONTAINER_NAME=storj_sim_redis
-readonly REDIS_CONTAINER_NAME
 TMP_DIR=$(mktemp -d -t tmp.XXXXXXXXXX)
 readonly TMP_DIR
+STORJ_REDIS_DIR=$(mktemp -d -p /tmp test-sim-redis.XXXX)
+readonly STORJ_REDIS_DIR
+export STORJ_REDIS_DIR
 
-# setup tmpdir for testfiles and cleanup
 cleanup() {
-	trap - EXIT
+	trap - EXIT ERR
 
+	"${SCRIPT_DIR}/redis-server.sh" stop
 	rm -rf "${TMP_DIR}"
-	docker container rm -f "${REDIS_CONTAINER_NAME}" >/dev/null 2>&1 || true
+	rm -rf "${STORJ_REDIS_DIR}"
 }
-trap cleanup EXIT
+trap cleanup ERR EXIT
 
 echo "install sim"
 make -C "$SCRIPT_DIR"/.. install-sim
@@ -36,37 +42,18 @@ export PATH="${TMP_DIR}:${PATH}"
 export STORJ_NETWORK_DIR="${TMP_DIR}"
 
 STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.1}
-
-redis_run() {
-	local retries=10
-
-	docker container run -d -p 6379:6379 --name "${REDIS_CONTAINER_NAME}" redis:5.0-alpine
-	until docker container exec "${REDIS_CONTAINER_NAME}" redis-cli ping >/dev/null 2>&1 ||
-		[ ${retries} -eq 0 ]; do
-		echo "waiting for Redis server to be ready, $((retries--)) remaining attemps..."
-		sleep 1
-	done
-
-	if [ ${retries} -eq 0 ]; then
-		echo "aborting, Redis server is not ready after several retrials"
-		exit 1
-	fi
-}
-
-redis_stop() {
-	docker container stop "${REDIS_CONTAINER_NAME}"
-}
+export STORJ_REDIS_HOST=${STORJ_NETWORK_HOST4}
 
 # setup the network
+"${SCRIPT_DIR}/redis-server.sh" start
 storj-sim --failfast -x --satellites 1 --host "${STORJ_NETWORK_HOST4}" network \
-	--postgres="${STORJ_SIM_POSTGRES}" --redis="127.0.0.1:6379" setup
+	--postgres="${STORJ_SIM_POSTGRES}" --redis="${STORJ_REDIS_HOST}:${STORJ_REDIS_PORT}" setup
 
 # run test that checks that the satellite runs when Redis is up and down
-redis_run
 storj-sim --failfast -x --satellites 1 --host "${STORJ_NETWORK_HOST4}" network \
 	--redis="127.0.0.1:6379" test bash "${SCRIPT_DIR}/test-uplink-redis-up-and-down.sh" "${REDIS_CONTAINER_NAME}"
 
 # run test that checks that the satellite runs despite of not being able to connect to Redis
-redis_stop
+"${SCRIPT_DIR}/redis-server.sh" stop
 storj-sim --failfast -x --satellites 1 --host "${STORJ_NETWORK_HOST4}" network \
 	--redis="127.0.0.1:6379" test bash "${SCRIPT_DIR}/test-uplink.sh"
