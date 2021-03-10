@@ -21,7 +21,6 @@ import DashboardArea from '@/views/DashboardArea.vue';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { AccessGrantsMock } from '../mock/api/accessGrants';
-import { ApiKeysMock } from '../mock/api/apiKeys';
 import { BucketsMock } from '../mock/api/buckets';
 import { PaymentsMock } from '../mock/api/payments';
 import { ProjectMembersApiMock } from '../mock/api/projectMembers';

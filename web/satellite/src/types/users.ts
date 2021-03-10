@@ -34,6 +34,10 @@ export class User {
         public partnerId: string = '',
         public password: string = '',
         public projectLimit: number = 0,
+        public isProfessional: boolean = false,
+        public position: string = '',
+        public companyName: string = '',
+        public employeeCount: string = '',
     ) {}
 
     public getFullName(): string {

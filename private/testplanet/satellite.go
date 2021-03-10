@@ -28,6 +28,7 @@ import (
 	"storj.io/private/version"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/private/testredis"
 	versionchecker "storj.io/storj/private/version/checker"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite"
@@ -61,7 +62,6 @@ import (
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/storage/redis/redisserver"
 )
 
 // Satellite contains all the processes needed to run a full Satellite setup.
@@ -386,7 +386,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	}
 	planet.databases = append(planet.databases, metabaseDB)
 
-	redis, err := redisserver.Mini(ctx)
+	redis, err := testredis.Mini(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -5,7 +5,6 @@ import Vue from 'vue';
 import Vuex from 'vuex';
 
 import { AccessGrantsApiGql } from '@/api/accessGrants';
-import { ApiKeysApiGql } from '@/api/apiKeys';
 import { AuthHttpApi } from '@/api/auth';
 import { BucketsApiGql } from '@/api/buckets';
 import { PaymentsHttpApi } from '@/api/payments';
@@ -13,7 +12,6 @@ import { ProjectMembersApiGql } from '@/api/projectMembers';
 import { ProjectsApiGql } from '@/api/projects';
 import { notProjectRelatedRoutes, router } from '@/router';
 import { AccessGrantsState, makeAccessGrantsModule } from '@/store/modules/accessGrants';
-import { ApiKeysState, makeApiKeysModule } from '@/store/modules/apiKeys';
 import { appStateModule } from '@/store/modules/appState';
 import { makeBucketsModule } from '@/store/modules/buckets';
 import { makeNotificationsModule, NotificationsState } from '@/store/modules/notifications';
@@ -34,7 +32,6 @@ export class StoreModule<S> {
 
 // TODO: remove it after we will use modules as classes and use some DI framework
 const authApi = new AuthHttpApi();
-const apiKeysApi = new ApiKeysApiGql();
 const accessGrantsApi = new AccessGrantsApiGql();
 const bucketsApi = new BucketsApiGql();
 const projectMembersApi = new ProjectMembersApiGql();
@@ -43,7 +40,6 @@ const paymentsApi = new PaymentsHttpApi();
 
 class ModulesState {
     public notificationsModule: NotificationsState;
-    public apiKeysModule: ApiKeysState;
     public accessGrantsModule: AccessGrantsState;
     public appStateModule;
     public projectMembersModule: ProjectMembersState;
@@ -56,7 +52,6 @@ class ModulesState {
 export const store = new Vuex.Store<ModulesState>({
     modules: {
         notificationsModule: makeNotificationsModule(),
-        apiKeysModule: makeApiKeysModule(apiKeysApi),
         accessGrantsModule: makeAccessGrantsModule(accessGrantsApi),
         appStateModule,
         projectMembersModule: makeProjectMembersModule(projectMembersApi),

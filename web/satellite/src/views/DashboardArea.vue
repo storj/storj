@@ -6,7 +6,12 @@
         <div v-if="isLoading" class="loading-overlay active">
             <img class="loading-image" src="@/../static/images/register/Loading.gif" alt="Company logo loading gif">
         </div>
-        <NoPaywallInfoBar v-if="isNoPaywallInfoBarShown && !isLoading"/>
+        <div v-if="isBetaSatellite" class="dashboard__beta-banner">
+            <p class="dashboard__beta-banner__message">
+                Please be aware that this is a beta satellite. Data uploaded may be deleted at any point in time.
+            </p>
+        </div>
+        <NoPaywallInfoBar v-if="isNoPaywallInfoBarShown && !isLoading && !isBetaSatellite"/>
         <div v-if="!isLoading" class="dashboard__wrap">
             <DashboardHeader/>
             <div class="dashboard__wrap__main-area">
@@ -235,6 +240,13 @@ export default class DashboardArea extends Vue {
     }
 
     /**
+     * Indicates if satellite is in beta.
+     */
+    public get isBetaSatellite(): boolean {
+        return this.$store.state.appStateModule.isBetaSatellite;
+    }
+
+    /**
      * Indicates if billing info bar is shown.
      */
     public get isBillingInfoBarShown(): boolean {
@@ -380,6 +392,23 @@ export default class DashboardArea extends Vue {
         background-color: #f5f6fa;
         display: flex;
         flex-direction: column;
+
+        &__beta-banner {
+            width: calc(100% - 60px);
+            padding: 0 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-family: 'font_regular', sans-serif;
+            background-color: red;
+
+            &__message {
+                font-weight: normal;
+                font-size: 14px;
+                line-height: 12px;
+                color: #fff;
+            }
+        }
 
         &__wrap {
             display: flex;

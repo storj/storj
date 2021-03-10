@@ -349,6 +349,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 		failed
 		contained
 		unknown
+		remove
 		erred
 	)
 
@@ -400,7 +401,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 			})
 			if err != nil {
 				if storj.ErrObjectNotFound.Has(err) {
-					ch <- result{nodeID: pending.NodeID, status: skipped}
+					ch <- result{nodeID: pending.NodeID, status: remove}
 					return
 				}
 
@@ -411,7 +412,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 
 			if pendingObject.ExpiresAt != nil && !pendingObject.ExpiresAt.IsZero() && pendingObject.ExpiresAt.Before(verifier.nowFn()) {
 				verifier.log.Debug("Reverify: segment already expired", zap.Stringer("Node ID", pending.NodeID))
-				ch <- result{nodeID: pending.NodeID, status: skipped}
+				ch <- result{nodeID: pending.NodeID, status: remove}
 				return
 			}
 
@@ -432,7 +433,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 
 			// TODO: is this check still necessary? If the segment was found by its StreamID and position, the RootPieceID should not had changed.
 			if pendingSegmentInfo.RootPieceID != pending.PieceID {
-				ch <- result{nodeID: pending.NodeID, status: skipped}
+				ch <- result{nodeID: pending.NodeID, status: remove}
 				return
 			}
 			var pieceNum uint16
@@ -444,7 +445,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 				}
 			}
 			if !found {
-				ch <- result{nodeID: pending.NodeID, status: skipped}
+				ch <- result{nodeID: pending.NodeID, status: remove}
 				return
 			}
 
@@ -517,7 +518,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 					// Get the original segment
 					err := verifier.checkIfSegmentAltered(ctx, pending.Segment, pendingSegmentInfo)
 					if err != nil {
-						ch <- result{nodeID: pending.NodeID, status: skipped}
+						ch <- result{nodeID: pending.NodeID, status: remove}
 						verifier.log.Debug("Reverify: audit source changed before reverification", zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 						return
 					}
@@ -544,7 +545,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 			} else {
 				err := verifier.checkIfSegmentAltered(ctx, pending.Segment, pendingSegmentInfo)
 				if err != nil {
-					ch <- result{nodeID: pending.NodeID, status: skipped}
+					ch <- result{nodeID: pending.NodeID, status: remove}
 					verifier.log.Debug("Reverify: audit source changed before reverification", zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 					return
 				}
@@ -558,6 +559,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 	for range pieces {
 		result := <-ch
 		switch result.status {
+		case skipped:
 		case success:
 			report.Successes = append(report.Successes, result.nodeID)
 		case offline:
@@ -568,13 +570,14 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 			report.PendingAudits = append(report.PendingAudits, result.pendingAudit)
 		case unknown:
 			report.Unknown = append(report.Unknown, result.nodeID)
-		case skipped:
+		case remove:
 			_, errDelete := verifier.containment.Delete(ctx, result.nodeID)
 			if errDelete != nil {
 				verifier.log.Debug("Error deleting node from containment db", zap.Stringer("Node ID", result.nodeID), zap.Error(errDelete))
 			}
 		case erred:
 			err = errs.Combine(err, result.err)
+		default:
 		}
 	}
 

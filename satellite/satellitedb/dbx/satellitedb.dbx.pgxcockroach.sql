@@ -163,8 +163,6 @@ CREATE TABLE nodes (
 	audit_reputation_beta double precision NOT NULL DEFAULT 0,
 	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
 	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
-	uptime_reputation_alpha double precision NOT NULL DEFAULT 1,
-	uptime_reputation_beta double precision NOT NULL DEFAULT 0,
 	exit_initiated_at timestamp with time zone,
 	exit_loop_completed_at timestamp with time zone,
 	exit_finished_at timestamp with time zone,

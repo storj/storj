@@ -13,7 +13,7 @@
         <div class="payout-history-table__table-container">
             <div class="payout-history-table__table-container__labels-area">
                 <p class="payout-history-table__table-container__labels-area__label">Satellite</p>
-                <p class="payout-history-table__table-container__labels-area__label">Paid</p>
+                <p class="payout-history-table__table-container__labels-area__label">Payout</p>
             </div>
             <PayoutHistoryTableItem v-for="historyItem in payoutHistory" :key="historyItem.satelliteID" :history-item="historyItem" />
             <div class="payout-history-table__table-container__totals-area">

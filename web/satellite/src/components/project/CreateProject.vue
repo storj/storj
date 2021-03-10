@@ -164,7 +164,7 @@ export default class NewProjectPopup extends Vue {
             await this.$notify.error(`Unable to create project. ${error.message}`);
         }
 
-        this.clearApiKeys();
+        this.clearAccessGrants();
 
         this.clearBucketUsage();
 
@@ -197,9 +197,9 @@ export default class NewProjectPopup extends Vue {
     }
 
     /**
-     * Clears api keys store.
+     * Clears access grants store.
      */
-    private clearApiKeys(): void {
+    private clearAccessGrants(): void {
         this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR);
     }
 
