@@ -36,6 +36,10 @@ func TestMigrator_SingleSegmentObj(t *testing.T) {
 		var err error
 		pointer, err = createLastSegment(ctx, pointerDB, expectedProjectID, expectedBucket, expectedObjectKey, 1)
 		require.NoError(t, err)
+
+		// create invalid segment key which should be ignored during migration
+		err = pointerDB.Put(ctx, storage.Key("ff5b056b-5763-41f8-a928-286723cfefc9/l/test_bucket"), storage.Value([]byte{}))
+		require.NoError(t, err)
 	}
 
 	checkMigration := func(t *testing.T, ctx context.Context, metabaseDB metainfo.MetabaseDB) {
@@ -106,6 +110,10 @@ func TestMigrator_ManyOneSegObj(t *testing.T) {
 			_, err := createLastSegment(ctx, pointerDB, projectID, []byte("bucket-name"), []byte("encrypted-key"+strconv.Itoa(i)), 1)
 			require.NoError(t, err)
 		}
+
+		// create invalid segment key which should be ignored during migration
+		err := pointerDB.Put(ctx, storage.Key("005b056b-5763-41f8-a928-286723cfefc9/l/test_bucket"), storage.Value([]byte{}))
+		require.NoError(t, err)
 	}
 
 	checkMigration := func(t *testing.T, ctx context.Context, metabaseDB metainfo.MetabaseDB) {

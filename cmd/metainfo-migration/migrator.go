@@ -238,10 +238,16 @@ func (m *Migrator) MigrateProjects(ctx context.Context) (err error) {
 					return err
 				}
 
+				lastFullPath = fullpath
+
 				segmentKey, err := metabase.ParseSegmentKey(metabase.SegmentKey(fullpath))
 				if err != nil {
-					return err
+					// we should skip such errors as it looks we can have outdated entries
+					// in pointerdb like `project_id/l/bucket_name` without object key
+					m.log.Warn("unable to parse segment key", zap.Error(err))
+					continue
 				}
+
 				if !bytes.Equal(currentProject[:], segmentKey.ProjectID[:]) {
 					if len(objects) != 0 {
 						// TODO should we add such incomplete object into metabase?
@@ -384,7 +390,7 @@ func (m *Migrator) MigrateProjects(ctx context.Context) (err error) {
 						}
 					}
 				}
-				lastFullPath = fullpath
+
 				allSegments++
 			}
 
