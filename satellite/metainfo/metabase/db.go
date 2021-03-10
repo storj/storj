@@ -282,6 +282,23 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE segments DROP COLUMN remote_pieces`,
 				},
 			},
+			{
+				DB:          &db.db,
+				Description: "add created_at and repaired_at columns to segments table",
+				Version:     7,
+				Action: migrate.SQL{
+					`ALTER TABLE segments ADD COLUMN created_at TIMESTAMPTZ`,
+					`ALTER TABLE segments ADD COLUMN repaired_at TIMESTAMPTZ`,
+				},
+			},
+			{
+				DB:          &db.db,
+				Description: "change default of created_at column in segments table to now()",
+				Version:     8,
+				Action: migrate.SQL{
+					`ALTER TABLE segments ALTER COLUMN created_at SET DEFAULT now()`,
+				},
+			},
 		},
 	}
 }
