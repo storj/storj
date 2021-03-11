@@ -331,8 +331,15 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 .PHONY: binaries-upload
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
 	cd "release/${TAG}"; for f in *; do \
-		zipname=$$(echo $${f} | sed 's/.exe//g') && \
-		zip -r "$${zipname}.zip" "$${f}" \
+		zipname=$$(echo $${f} | sed 's/.exe//g') \
+		&& filename=$$(echo $${f} | sed 's/_.*\.exe/.exe/g' | sed 's/_.*//g') \
+		&& if [ "$${f}" != "$${filename}" ]; then \
+			ln $${f} $${filename} \
+			&& zip -r "$${zipname}.zip" "$${filename}" \
+			&& rm $${filename} \
+		; else \
+			zip -r "$${zipname}.zip" "$${filename}" \
+		; fi \
 	; done
 	cd "release/${TAG}"; gsutil -m cp -r *.zip "gs://storj-v3-alpha-builds/${TAG}/"
 
