@@ -24,7 +24,6 @@ import (
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/pkg/server"
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -83,8 +82,6 @@ type Planet struct {
 	Satellites     []*Satellite
 	StorageNodes   []*StorageNode
 	Uplinks        []*Uplink
-
-	ReferralManager *server.Server
 
 	identities    *testidentity.Identities
 	whitelistPath string // TODO: in-memory
@@ -159,11 +156,6 @@ func NewCustom(ctx context.Context, log *zap.Logger, config Config, satelliteDat
 		return nil, errs.Combine(err, planet.Shutdown())
 	}
 
-	planet.ReferralManager, err = planet.newReferralManager()
-	if err != nil {
-		return nil, errs.Combine(err, planet.Shutdown())
-	}
-
 	planet.Satellites, err = planet.newSatellites(ctx, config.SatelliteCount, satelliteDatabases)
 	if err != nil {
 		return nil, errs.Combine(err, planet.Shutdown())
@@ -197,14 +189,6 @@ func (planet *Planet) Start(ctx context.Context) {
 			return planet.VersionControl.Run(ctx)
 		})
 	})
-
-	if planet.ReferralManager != nil {
-		pprof.Do(ctx, pprof.Labels("peer", "referral-manager"), func(ctx context.Context) {
-			planet.run.Go(func() error {
-				return planet.ReferralManager.Run(ctx)
-			})
-		})
-	}
 
 	for i := range planet.peers {
 		peer := &planet.peers[i]
@@ -330,10 +314,6 @@ func (planet *Planet) Shutdown() error {
 	for i := len(planet.databases) - 1; i >= 0; i-- {
 		db := planet.databases[i]
 		errlist.Add(db.Close())
-	}
-
-	if planet.ReferralManager != nil {
-		errlist.Add(planet.ReferralManager.Close())
 	}
 
 	errlist.Add(planet.VersionControl.Close())

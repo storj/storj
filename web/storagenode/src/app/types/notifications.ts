@@ -29,7 +29,7 @@ export class UINotification {
     public title: string;
     public message: string;
     public readAt: Date | null;
-    public createdAt: Date;
+    public createdAt: Date = new Date();
 
     public constructor(notification: Partial<UINotification> = new Notification()) {
         Object.assign(this, notification);
@@ -53,7 +53,7 @@ export class UINotification {
             case differenceInSeconds < 86400 * 2:
                 return `Yesterday`;
             default:
-                return this.createdAt.toDateString();
+                return new Date(this.createdAt).toDateString();
         }
     }
 
@@ -71,9 +71,6 @@ export class UINotification {
         switch (this.type) {
             case NotificationTypes.AuditCheckFailure:
                 this.icon = NotificationIcon.FAIL;
-                break;
-            case NotificationTypes.UptimeCheckFailure:
-                this.icon = NotificationIcon.DISQUALIFIED;
                 break;
             case NotificationTypes.Disqualification:
                 this.icon = NotificationIcon.SOFTWARE_UPDATE;

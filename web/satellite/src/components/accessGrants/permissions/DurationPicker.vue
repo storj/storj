@@ -48,9 +48,12 @@ export default class DurationPicker extends Vue {
      * @param dateRange
      */
     public onCustomRangePick(dateRange: Date[]): void {
-        const permission: DurationPermission = new DurationPermission(dateRange[0], dateRange[1]);
-        const fromFormattedString = dateRange[0].toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
-        const toFormattedString = dateRange[1].toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+        const before = dateRange[0];
+        const after = new Date(dateRange[1].getFullYear(), dateRange[1].getMonth(), dateRange[1].getDate(), 23, 59, 59);
+
+        const permission: DurationPermission = new DurationPermission(before, after);
+        const fromFormattedString = before.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+        const toFormattedString = after.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
         const rangeLabel = `${fromFormattedString} - ${toFormattedString}`;
 
         this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);

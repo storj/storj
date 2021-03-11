@@ -13,18 +13,18 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/overlay"
 )
 
 func TestAuditHistoryBasic(t *testing.T) {
-	var auditHistoryConfig overlay.AuditHistoryConfig
+	const windowSize = time.Hour
+	const trackingPeriod = 2 * time.Hour
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.AuditHistory.WindowSize = time.Hour
-				config.Overlay.AuditHistory.TrackingPeriod = 2 * time.Hour
-				auditHistoryConfig = config.Overlay.AuditHistory
+				config.Overlay.AuditHistory.WindowSize = windowSize
+				config.Overlay.AuditHistory.TrackingPeriod = trackingPeriod
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -32,7 +32,7 @@ func TestAuditHistoryBasic(t *testing.T) {
 		cache := planet.Satellites[0].Overlay.Service
 
 		startingWindow := time.Now().Truncate(time.Hour)
-		windowsInTrackingPeriod := int(auditHistoryConfig.TrackingPeriod.Seconds() / auditHistoryConfig.WindowSize.Seconds())
+		windowsInTrackingPeriod := int(trackingPeriod.Seconds() / windowSize.Seconds())
 		currentWindow := startingWindow
 
 		// online score should be 1 until the first window is finished

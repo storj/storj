@@ -3,7 +3,14 @@
 
 import { BaseGql } from '@/api/baseGql';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { Project, ProjectFields, ProjectLimits, ProjectsApi } from '@/types/projects';
+import {
+    Project,
+    ProjectFields,
+    ProjectLimits,
+    ProjectsApi,
+    ProjectsCursor,
+    ProjectsPage,
+} from '@/types/projects';
 import { HttpClient } from '@/utils/httpClient';
 
 export class ProjectsApiGql extends BaseGql implements ProjectsApi {
@@ -143,4 +150,64 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
 
         throw new Error('can not get usage limits');
     }
+
+    /**
+     * Fetch owned projects.
+     *
+     * @returns ProjectsPage
+     * @throws Error
+     */
+    public async getOwnedProjects(cursor: ProjectsCursor): Promise<ProjectsPage> {
+        const query =
+            `query($limit: Int!, $page: Int!) {
+                ownedProjects( cursor: { limit: $limit, page: $page } ) {
+                    projects {
+                        id,
+                        name,
+                        ownerId,
+                        description,
+                        createdAt,
+                        memberCount
+                    },
+                    limit,
+                    offset,
+                    pageCount,
+                    currentPage,
+                    totalCount
+                 }
+             }`;
+
+        const variables = {
+            limit: cursor.limit,
+            page: cursor.page,
+        };
+
+        const response = await this.query(query, variables);
+
+        return this.getProjectsPage(response.data.ownedProjects);
+    }
+
+    /**
+     * Method for mapping projects page from json to ProjectsPage type.
+     *
+     * @param page anonymous object from json
+     */
+    private getProjectsPage(page: any): ProjectsPage {
+        if (!page) {
+            return new ProjectsPage();
+        }
+
+        const projects: Project[] = page.projects.map(key =>
+            new Project(
+                key.id,
+                key.name,
+                key.description,
+                key.createdAt,
+                key.ownerId,
+                false,
+                key.memberCount));
+
+        return new ProjectsPage(projects, page.limit, page.offset, page.pageCount, page.currentPage, page.totalCount);
+    }
+
 }

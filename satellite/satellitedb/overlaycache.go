@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -116,6 +117,62 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 	}
 
 	return reputableNodes, newNodes, Error.Wrap(rows.Err())
+}
+
+// SelectAllStorageNodesDownload returns all nodes that qualify to store data, organized as reputable nodes and new nodes.
+func (cache *overlaycache) SelectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOf overlay.AsOfSystemTimeConfig) (nodes []*overlay.SelectedNode, err error) {
+	for {
+		nodes, err = cache.selectAllStorageNodesDownload(ctx, onlineWindow, asOf)
+		if err != nil {
+			if cockroachutil.NeedsRetry(err) {
+				continue
+			}
+			return nodes, err
+		}
+		break
+	}
+
+	return nodes, err
+}
+
+func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOfConfig overlay.AsOfSystemTimeConfig) (_ []*overlay.SelectedNode, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	asOf := cache.db.AsOfSystemTimeClause(asOfConfig.DefaultInterval)
+
+	query := `
+		SELECT id, address, last_net, last_ip_port
+			FROM nodes ` + asOf + `
+			WHERE disqualified IS NULL
+			AND exit_finished_at IS NULL
+			AND last_contact_success > $1
+	`
+	args := []interface{}{
+		// $1
+		time.Now().Add(-onlineWindow),
+	}
+
+	rows, err := cache.db.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var nodes []*overlay.SelectedNode
+	for rows.Next() {
+		var node overlay.SelectedNode
+		node.Address = &pb.NodeAddress{}
+		var lastIPPort sql.NullString
+		err = rows.Scan(&node.ID, &node.Address.Address, &node.LastNet, &lastIPPort)
+		if err != nil {
+			return nil, err
+		}
+		if lastIPPort.Valid {
+			node.LastIPPort = lastIPPort.String
+		}
+		nodes = append(nodes, &node)
+	}
+	return nodes, Error.Wrap(rows.Err())
 }
 
 // GetNodesNetwork returns the /24 subnet for each storage node, order is not guaranteed.
@@ -598,8 +655,14 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 			updateFields.Type = dbx.Node_Type(int(nodeInfo.Type))
 		}
 		if nodeInfo.Operator != nil {
+			walletFeatures, err := encodeWalletFeatures(nodeInfo.Operator.GetWalletFeatures())
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+
 			updateFields.Wallet = dbx.Node_Wallet(nodeInfo.Operator.GetWallet())
 			updateFields.Email = dbx.Node_Email(nodeInfo.Operator.GetEmail())
+			updateFields.WalletFeatures = dbx.Node_WalletFeatures(walletFeatures)
 		}
 		if nodeInfo.Capacity != nil {
 			updateFields.FreeDisk = dbx.Node_FreeDisk(nodeInfo.Capacity.GetFreeDisk())
@@ -624,77 +687,6 @@ func (cache *overlaycache) UpdateNodeInfo(ctx context.Context, nodeID storj.Node
 	}
 
 	return convertDBNode(ctx, updatedDBNode)
-}
-
-// UpdateUptime updates a single storagenode's uptime stats in the db.
-func (cache *overlaycache) UpdateUptime(ctx context.Context, nodeID storj.NodeID, isUp bool) (stats *overlay.NodeStats, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var dbNode *dbx.Node
-	err = cache.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
-		dbNode, err = tx.Get_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()))
-		if err != nil {
-			return err
-		}
-		// do not update reputation if node is disqualified
-		if dbNode.Disqualified != nil {
-			return nil
-		}
-		// do not update reputation if node has gracefully exited
-		if dbNode.ExitFinishedAt != nil {
-			return nil
-		}
-
-		updateFields := dbx.Node_Update_Fields{}
-		totalUptimeCount := dbNode.TotalUptimeCount
-
-		lastContactSuccess := dbNode.LastContactSuccess
-		lastContactFailure := dbNode.LastContactFailure
-		mon.Meter("uptime_updates").Mark(1)
-		if isUp {
-			totalUptimeCount++
-			updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(dbNode.UptimeSuccessCount + 1)
-			updateFields.LastContactSuccess = dbx.Node_LastContactSuccess(time.Now())
-
-			mon.Meter("uptime_update_successes").Mark(1)
-			// we have seen this node in the past 24 hours
-			if time.Since(lastContactFailure) > time.Hour*24 {
-				mon.Meter("uptime_seen_24h").Mark(1)
-			}
-			// we have seen this node in the past week
-			if time.Since(lastContactFailure) > time.Hour*24*7 {
-				mon.Meter("uptime_seen_week").Mark(1)
-			}
-		} else {
-			updateFields.LastContactFailure = dbx.Node_LastContactFailure(time.Now())
-
-			mon.Meter("uptime_update_failures").Mark(1)
-			// it's been over 24 hours since we've seen this node
-			if time.Since(lastContactSuccess) > time.Hour*24 {
-				mon.Meter("uptime_not_seen_24h").Mark(1)
-			}
-			// it's been over a week since we've seen this node
-			if time.Since(lastContactSuccess) > time.Hour*24*7 {
-				mon.Meter("uptime_not_seen_week").Mark(1)
-			}
-		}
-
-		updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(totalUptimeCount)
-		dbNode, err = tx.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
-		return err
-	})
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	// TODO: Allegedly tx.Get_Node_By_Id and tx.Update_Node_By_Id should never return a nil value for dbNode,
-	// however we've seen from some crashes that it does. We need to track down the cause of these crashes
-	// but for now we're adding a nil check to prevent a panic.
-	if dbNode == nil {
-		return nil, Error.New("unable to get node by ID: %v", nodeID)
-	}
-
-	return getNodeStats(dbNode), nil
 }
 
 // DisqualifyNode disqualifies a storage node.
@@ -1050,8 +1042,9 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		},
 		Type: pb.NodeType(info.Type),
 		Operator: pb.NodeOperator{
-			Email:  info.Email,
-			Wallet: info.Wallet,
+			Email:          info.Email,
+			Wallet:         info.Wallet,
+			WalletFeatures: decodeWalletFeatures(info.WalletFeatures),
 		},
 		Capacity: pb.NodeCapacity{
 			FreeDisk: info.FreeDisk,
@@ -1080,14 +1073,37 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 	return node, nil
 }
 
+// encodeWalletFeatures encodes wallet features into comma separated list string.
+func encodeWalletFeatures(features []string) (string, error) {
+	var errGroup errs.Group
+
+	for _, feature := range features {
+		if strings.Contains(feature, ",") {
+			errGroup.Add(errs.New("error encoding %s, can not contain separator \",\"", feature))
+		}
+	}
+	if err := errGroup.Err(); err != nil {
+		return "", Error.Wrap(err)
+	}
+
+	return strings.Join(features, ","), nil
+}
+
+// decodeWalletFeatures decodes comma separated wallet features list string.
+func decodeWalletFeatures(encoded string) []string {
+	if encoded == "" {
+		return nil
+	}
+
+	return strings.Split(encoded, ",")
+}
+
 func getNodeStats(dbNode *dbx.Node) *overlay.NodeStats {
 	nodeStats := &overlay.NodeStats{
 		Latency90:                   dbNode.Latency90,
 		VettedAt:                    dbNode.VettedAt,
 		AuditCount:                  dbNode.TotalAuditCount,
 		AuditSuccessCount:           dbNode.AuditSuccessCount,
-		UptimeCount:                 dbNode.TotalUptimeCount,
-		UptimeSuccessCount:          dbNode.UptimeSuccessCount,
 		LastContactSuccess:          dbNode.LastContactSuccess,
 		LastContactFailure:          dbNode.LastContactFailure,
 		AuditReputationAlpha:        dbNode.AuditReputationAlpha,
@@ -1134,13 +1150,6 @@ func buildUpdateStatement(update updateNodeStats) string {
 		atLeastOne = true
 		sql += fmt.Sprintf("total_audit_count = %d", update.TotalAuditCount.value)
 	}
-	if update.TotalUptimeCount.set {
-		if atLeastOne {
-			sql += ","
-		}
-		atLeastOne = true
-		sql += fmt.Sprintf("total_uptime_count = %d", update.TotalUptimeCount.value)
-	}
 	if update.AuditReputationAlpha.set {
 		if atLeastOne {
 			sql += ","
@@ -1186,13 +1195,6 @@ func buildUpdateStatement(update updateNodeStats) string {
 		} else {
 			sql += fmt.Sprintf("unknown_audit_suspended = '%s'", update.UnknownAuditSuspended.value.Format(time.RFC3339Nano))
 		}
-	}
-	if update.UptimeSuccessCount.set {
-		if atLeastOne {
-			sql += ","
-		}
-		atLeastOne = true
-		sql += fmt.Sprintf("uptime_success_count = %d", update.UptimeSuccessCount.value)
 	}
 	if update.LastContactSuccess.set {
 		if atLeastOne {
@@ -1288,14 +1290,12 @@ type updateNodeStats struct {
 	NodeID                      storj.NodeID
 	VettedAt                    timeField
 	TotalAuditCount             int64Field
-	TotalUptimeCount            int64Field
 	AuditReputationAlpha        float64Field
 	AuditReputationBeta         float64Field
 	Disqualified                timeField
 	UnknownAuditReputationAlpha float64Field
 	UnknownAuditReputationBeta  float64Field
 	UnknownAuditSuspended       timeField
-	UptimeSuccessCount          int64Field
 	LastContactSuccess          timeField
 	LastContactFailure          timeField
 	AuditSuccessCount           int64Field
@@ -1370,23 +1370,18 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	mon.FloatVal("unknown_audit_reputation_beta").Observe(unknownAuditBeta)   //mon:locked
 	mon.FloatVal("audit_online_score").Observe(auditHistoryResponse.NewScore) //mon:locked
 
-	totalUptimeCount := dbNode.TotalUptimeCount
 	isUp := updateReq.AuditOutcome != overlay.AuditOffline
-	if isUp {
-		totalUptimeCount++
-	}
 
 	updateFields := updateNodeStats{
 		NodeID:                      updateReq.NodeID,
 		TotalAuditCount:             int64Field{set: true, value: updatedTotalAuditCount},
-		TotalUptimeCount:            int64Field{set: true, value: totalUptimeCount},
 		AuditReputationAlpha:        float64Field{set: true, value: auditAlpha},
 		AuditReputationBeta:         float64Field{set: true, value: auditBeta},
 		UnknownAuditReputationAlpha: float64Field{set: true, value: unknownAuditAlpha},
 		UnknownAuditReputationBeta:  float64Field{set: true, value: unknownAuditBeta},
 	}
 
-	if vettedAt == nil && updatedTotalAuditCount >= updateReq.AuditsRequiredForVetting && totalUptimeCount >= updateReq.UptimesRequiredForVetting {
+	if vettedAt == nil && updatedTotalAuditCount >= updateReq.AuditsRequiredForVetting {
 		updateFields.VettedAt = timeField{set: true, value: now}
 	}
 
@@ -1431,7 +1426,6 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	}
 
 	if isUp {
-		updateFields.UptimeSuccessCount = int64Field{set: true, value: dbNode.UptimeSuccessCount + 1}
 		updateFields.LastContactSuccess = timeField{set: true, value: now}
 	} else {
 		updateFields.LastContactFailure = timeField{set: true, value: now}
@@ -1500,9 +1494,6 @@ func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *ove
 	if update.TotalAuditCount.set {
 		updateFields.TotalAuditCount = dbx.Node_TotalAuditCount(update.TotalAuditCount.value)
 	}
-	if update.TotalUptimeCount.set {
-		updateFields.TotalUptimeCount = dbx.Node_TotalUptimeCount(update.TotalUptimeCount.value)
-	}
 	if update.AuditReputationAlpha.set {
 		updateFields.AuditReputationAlpha = dbx.Node_AuditReputationAlpha(update.AuditReputationAlpha.value)
 	}
@@ -1524,9 +1515,6 @@ func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *ove
 		} else {
 			updateFields.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended(update.UnknownAuditSuspended.value)
 		}
-	}
-	if update.UptimeSuccessCount.set {
-		updateFields.UptimeSuccessCount = dbx.Node_UptimeSuccessCount(update.UptimeSuccessCount.value)
 	}
 	if update.LastContactSuccess.set {
 		updateFields.LastContactSuccess = dbx.Node_LastContactSuccess(update.LastContactSuccess.value)
@@ -1565,6 +1553,26 @@ func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *ove
 	return updateFields
 }
 
+// DQNodesLastSeenBefore disqualifies all nodes where last_contact_success < cutoff except those already disqualified
+// or gracefully exited.
+func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	q := `UPDATE nodes SET disqualified = current_timestamp
+			WHERE last_contact_success < $1
+			AND disqualified is NULL
+			AND exit_finished_at is NULL;`
+	results, err := cache.db.ExecContext(ctx, q, cutoff)
+	if err != nil {
+		return err
+	}
+	n, err := results.RowsAffected()
+	if err != nil {
+		return err
+	}
+	mon.IntVal("stray_nodes_dq_count").Observe(n)
+	return err
+}
+
 // UpdateCheckIn updates a single storagenode with info from when the the node last checked in.
 func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, config overlay.NodeSelectionConfig) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1578,23 +1586,27 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		return Error.New("unable to convert version to semVer")
 	}
 
+	walletFeatures, err := encodeWalletFeatures(node.Operator.GetWalletFeatures())
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	query := `
 			INSERT INTO nodes
 			(
 				id, address, last_net, protocol, type,
 				email, wallet, free_disk,
-				uptime_success_count, total_uptime_count,
 				last_contact_success,
 				last_contact_failure,
 				audit_reputation_alpha, audit_reputation_beta,
 				unknown_audit_reputation_alpha, unknown_audit_reputation_beta,
 				major, minor, patch, hash, timestamp, release,
-				last_ip_port
+				last_ip_port,
+				wallet_features
 			)
 			VALUES (
 				$1, $2, $3, $4, $5,
 				$6, $7, $8,
-				$9::bool::int, 1,
 				CASE WHEN $9::bool IS TRUE THEN $18::timestamptz
 					ELSE '0001-01-01 00:00:00+00'::timestamptz
 				END,
@@ -1604,7 +1616,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				$10, $11,
 				$10, $11,
 				$12, $13, $14, $15, $16, $17,
-				$19
+				$19,
+				$20
 			)
 			ON CONFLICT (id)
 			DO UPDATE
@@ -1616,8 +1629,6 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				wallet=$7,
 				free_disk=$8,
 				major=$12, minor=$13, patch=$14, hash=$15, timestamp=$16, release=$17,
-				total_uptime_count=nodes.total_uptime_count+1,
-				uptime_success_count = nodes.uptime_success_count + $9::bool::int,
 				last_contact_success = CASE WHEN $9::bool IS TRUE
 					THEN $18::timestamptz
 					ELSE nodes.last_contact_success
@@ -1626,7 +1637,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 					THEN $18::timestamptz
 					ELSE nodes.last_contact_failure
 				END,
-				last_ip_port=$19;
+				last_ip_port=$19,
+				wallet_features=$20;
 			`
 	_, err = cache.db.ExecContext(ctx, query,
 		// args $1 - $5
@@ -1643,6 +1655,8 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		timestamp,
 		// args $19
 		node.LastIPPort,
+		// args $20,
+		walletFeatures,
 	)
 	if err != nil {
 		return Error.Wrap(err)
@@ -1676,4 +1690,40 @@ func (cache *overlaycache) TestUnvetNode(ctx context.Context, nodeID storj.NodeI
 	}
 	_, err = cache.Get(ctx, nodeID)
 	return err
+}
+
+// IterateAllNodes will call cb on all known nodes (used in restore trash contexts).
+func (cache *overlaycache) IterateAllNodes(ctx context.Context, cb func(context.Context, *overlay.SelectedNode) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var rows tagsql.Rows
+	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+		SELECT last_net, id, address, last_ip_port
+		FROM nodes
+	`))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		var node overlay.SelectedNode
+		node.Address = &pb.NodeAddress{Transport: pb.NodeTransport_TCP_TLS_GRPC}
+
+		var lastIPPort sql.NullString
+		err = rows.Scan(&node.LastNet, &node.ID, &node.Address.Address, &lastIPPort)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		if lastIPPort.Valid {
+			node.LastIPPort = lastIPPort.String
+		}
+
+		err = cb(ctx, &node)
+		if err != nil {
+			return err
+		}
+	}
+
+	return rows.Err()
 }

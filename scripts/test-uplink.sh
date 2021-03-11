@@ -84,6 +84,8 @@ uplink cp  "sj://$BUCKET/diff-size-segments"           "$DST_DIR" --progress=fal
 uplink cp  "sj://$BUCKET/put-file"                     "$DST_DIR" --progress=false
 uplink cat "sj://$BUCKET/put-file" >>                  "$DST_DIR/put-file-from-cat"
 
+uplink ls "sj://$BUCKET/small-upload-testfile" | grep "small-upload-testfile"
+
 uplink rm "sj://$BUCKET/small-upload-testfile"
 uplink rm "sj://$BUCKET/big-upload-testfile"
 uplink rm "sj://$BUCKET/multisegment-upload-testfile"

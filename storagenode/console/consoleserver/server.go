@@ -20,7 +20,7 @@ import (
 	"storj.io/storj/storagenode/console"
 	"storj.io/storj/storagenode/console/consoleapi"
 	"storj.io/storj/storagenode/notifications"
-	"storj.io/storj/storagenode/payout"
+	"storj.io/storj/storagenode/payouts"
 )
 
 var (
@@ -43,14 +43,14 @@ type Server struct {
 
 	service       *console.Service
 	notifications *notifications.Service
-	payout        *payout.Service
+	payout        *payouts.Service
 	listener      net.Listener
 
 	server http.Server
 }
 
 // NewServer creates new instance of storagenode console web server.
-func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifications.Service, service *console.Service, payout *payout.Service, listener net.Listener) *Server {
+func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifications.Service, service *console.Service, payout *payouts.Service, listener net.Listener) *Server {
 	server := Server{
 		log:           logger,
 		service:       service,

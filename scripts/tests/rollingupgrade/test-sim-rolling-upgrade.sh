@@ -270,7 +270,12 @@ setup_stage "${test_dir}" "${stage2_sat_version}" "${stage2_storagenode_versions
 echo -e "\nRunning stage 2."
 
 # Starting old satellite api in the background
-old_api_cmd="${test_dir}/local-network/satellite/0/old_satellite run api --config-dir ${test_dir}/local-network/satellite/0/ --debug.addr 127.0.0.1:30009 --server.address 127.0.0.1:30000 --server.private-address 127.0.0.1:30001 --console.address 127.0.0.1:30002 --marketing.address 127.0.0.1:30003"
+has_marketing_server=$(echo $stage1_sat_version | awk 'BEGIN{FS="[v.]"} ($2 == 1 && $3 <= 22) || $2 == 0 {print $0}')
+if [ "$has_marketing_server" != "" ]; then
+    old_api_cmd="${test_dir}/local-network/satellite/0/old_satellite run api --config-dir ${test_dir}/local-network/satellite/0/ --debug.addr 127.0.0.1:30009 --server.address 127.0.0.1:30000 --server.private-address 127.0.0.1:30001 --console.address 127.0.0.1:30002 --marketing.address 127.0.0.1:30003 --marketing.static-dir $(version_dir ${stage1_sat_version})/web/marketing/"
+else
+    old_api_cmd="${test_dir}/local-network/satellite/0/old_satellite run api --config-dir ${test_dir}/local-network/satellite/0/ --debug.addr 127.0.0.1:30009 --server.address 127.0.0.1:30000 --server.private-address 127.0.0.1:30001 --console.address 127.0.0.1:30002"
+fi
 nohup $old_api_cmd &
 # Storing the background process' PID.
 old_api_pid=$!
@@ -291,8 +296,7 @@ for ul_version in ${stage2_uplink_versions}; do
     ln -f ${src_ul_version_dir}/bin/uplink $test_dir/bin/uplink
     PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-rolling-upgrade.sh" "${test_dir}/local-network"  "${stage1_uplink_version}" "$update_access_script_path"
 
-    if [[ $ul_version == $current_commit ]]
-    then
+    if [[ $ul_version == $current_commit ]];then
         echo "Running final upload/download test on $current_commit"
         PATH=$test_dir/bin:$PATH storj-sim -x --host "${STORJ_NETWORK_HOST4}" --config-dir "${test_dir}/local-network" network test bash "${scriptdir}/test-rolling-upgrade-final-upload.sh" "${test_dir}/local-network"
     fi

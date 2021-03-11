@@ -6,7 +6,6 @@ package satellitedb
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -17,6 +16,8 @@ import (
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/private/tagsql"
 )
+
+//go:generate go run migrate_gen.go
 
 var (
 	// ErrMigrate is for tracking migration errors.
@@ -121,12 +122,8 @@ func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
 			return ErrMigrateMinVersion.New("the database must be empty, got version %d", dbVersion)
 		}
 
-		flattened, err := flattenMigration(migration)
-		if err != nil {
-			return ErrMigrateMinVersion.Wrap(err)
-		}
-
-		return flattened.Run(ctx, db.log.Named("migrate"))
+		testMigration := db.TestPostgresMigration()
+		return testMigration.Run(ctx, db.log.Named("migrate"))
 	default:
 		return migrate.Create(ctx, "database", db.DB)
 	}
@@ -144,59 +141,9 @@ func (db *satelliteDB) CheckVersion(ctx context.Context) error {
 	}
 }
 
-// flattenMigration joins the migration sql queries from
-// each migration step to speed up the database setup.
-//
-// Steps with "SeparateTx" end up as separate migration transactions.
-// Cockroach requires schema changes and updates to the values of that
-// schema change to be in a different transaction.
-func flattenMigration(m *migrate.Migration) (*migrate.Migration, error) {
-	var db tagsql.DB
-	var version int
-	var statements migrate.SQL
-	var steps []*migrate.Step
-
-	pushMerged := func() {
-		if len(statements) == 0 {
-			return
-		}
-
-		steps = append(steps, &migrate.Step{
-			DB:          &db,
-			Description: "Setup",
-			Version:     version,
-			Action:      migrate.SQL{strings.Join(statements, ";\n")},
-		})
-
-		statements = nil
-	}
-
-	for _, step := range m.Steps {
-		if db == nil {
-			db = *step.DB
-		} else if db != *step.DB {
-			return nil, errs.New("multiple databases not supported")
-		}
-
-		if sql, ok := step.Action.(migrate.SQL); ok {
-			if step.SeparateTx {
-				pushMerged()
-			}
-
-			version = step.Version
-			statements = append(statements, sql...)
-		} else {
-			pushMerged()
-			steps = append(steps, step)
-		}
-	}
-
-	pushMerged()
-
-	return &migrate.Migration{
-		Table: "versions",
-		Steps: steps,
-	}, nil
+// TestPostgresMigration returns steps needed for migrating test postgres database.
+func (db *satelliteDB) TestPostgresMigration() *migrate.Migration {
+	return db.testMigration()
 }
 
 // PostgresMigration returns steps needed for migrating postgres database.
@@ -1176,6 +1123,156 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes ALTER COLUMN total_uptime_count SET DEFAULT 0;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add distributed column to storagenode_paystubs table",
+				Version:     140,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+					_, err := db.Exec(ctx, `
+							ALTER TABLE storagenode_paystubs ADD COLUMN distributed BIGINT;
+						`)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+
+					_, err = db.Exec(ctx, `
+							UPDATE storagenode_paystubs ps
+							SET distributed = coalesce((
+								SELECT sum(amount)::bigint
+								FROM storagenode_payments pm
+								WHERE pm.period = ps.period
+								  AND pm.node_id = ps.node_id
+							), 0);
+						`)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+
+					_, err = db.Exec(ctx, `
+							ALTER TABLE storagenode_paystubs ALTER COLUMN distributed SET NOT NULL;
+						`)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add columns for professional users",
+				Version:     141,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN position text;`,
+					`ALTER TABLE users ADD COLUMN company_name text;`,
+					`ALTER TABLE users ADD COLUMN working_on text;`,
+					`ALTER TABLE users ADD COLUMN company_size int;`,
+					`ALTER TABLE users ADD COLUMN is_professional boolean NOT NULL DEFAULT false;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop the obsolete (name, project_id) index from bucket_metainfos table.",
+				Version:     142,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+					if _, ok := db.Driver().(*cockroachutil.Driver); ok {
+						_, err := db.Exec(ctx,
+							`DROP INDEX bucket_metainfos_name_project_id_key CASCADE;`,
+						)
+						if err != nil {
+							return ErrMigrate.Wrap(err)
+						}
+						return nil
+					}
+
+					_, err := db.Exec(ctx,
+						`ALTER TABLE bucket_metainfos DROP CONSTRAINT bucket_metainfos_name_project_id_key;`,
+					)
+					if err != nil {
+						return ErrMigrate.Wrap(err)
+					}
+					return nil
+				}),
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add storagenode_bandwidth_rollups_archives and bucket_bandwidth_rollup_archives",
+				Version:     143,
+				SeparateTx:  true,
+				Action: migrate.SQL{`
+                    CREATE TABLE storagenode_bandwidth_rollup_archives (
+                        storagenode_id bytea NOT NULL,
+                        interval_start timestamp with time zone NOT NULL,
+                        interval_seconds integer NOT NULL,
+                        action integer NOT NULL,
+                        allocated bigint DEFAULT 0,
+                        settled bigint NOT NULL,
+                        PRIMARY KEY ( storagenode_id, interval_start, action )
+                    );`,
+					`CREATE TABLE bucket_bandwidth_rollup_archives (
+                        bucket_name bytea NOT NULL,
+                        project_id bytea NOT NULL,
+                        interval_start timestamp with time zone NOT NULL,
+                        interval_seconds integer NOT NULL,
+                        action integer NOT NULL,
+                        inline bigint NOT NULL,
+                        allocated bigint NOT NULL,
+                        settled bigint NOT NULL,
+                        PRIMARY KEY ( bucket_name, project_id, interval_start, action )
+                    );`,
+					`CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start );`,
+					`CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id );`,
+					`CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives (interval_start);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "delete deprecated and unused serial tables",
+				Version:     144,
+				Action: migrate.SQL{
+					`DROP TABLE used_serials;`,
+					`DROP TABLE reported_serials;`,
+					`DROP TABLE pending_serial_queue;`,
+					`DROP TABLE serial_numbers;`,
+					`DROP TABLE consumed_serials;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create new index on bucket_storage_tallies to improve get tallies by project ID and bucket name lookups by time interval. This replaces bucket_storage_tallies_project_id_index.",
+				Version:     145,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`
+					CREATE INDEX IF NOT EXISTS bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start );
+					DROP INDEX IF EXISTS bucket_storage_tallies_project_id_index;
+					`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "nodes add wallet_features column",
+				Version:     146,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN wallet_features text NOT NULL DEFAULT '';`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add employee_count column on users",
+				Version:     147,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN employee_count text;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "empty migration to fix backwards compat test discrepancy with release tag",
+				Version:     148,
+				Action:      migrate.SQL{},
+			},
+			// NB: after updating testdata in `testdata`, run
+			//     `go generate` to update `migratez.go`.
 		},
 	}
 }

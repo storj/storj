@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/storj"
@@ -51,43 +51,43 @@ func TestNotificationsDB(t *testing.T) {
 		}
 
 		notificationFromDB0, err := notificationsdb.Insert(ctx, expectedNotification0)
-		assert.NoError(t, err)
-		assert.Equal(t, expectedNotification0.SenderID, notificationFromDB0.SenderID)
-		assert.Equal(t, expectedNotification0.Type, notificationFromDB0.Type)
-		assert.Equal(t, expectedNotification0.Title, notificationFromDB0.Title)
-		assert.Equal(t, expectedNotification0.Message, notificationFromDB0.Message)
+		require.NoError(t, err)
+		require.Equal(t, expectedNotification0.SenderID, notificationFromDB0.SenderID)
+		require.Equal(t, expectedNotification0.Type, notificationFromDB0.Type)
+		require.Equal(t, expectedNotification0.Title, notificationFromDB0.Title)
+		require.Equal(t, expectedNotification0.Message, notificationFromDB0.Message)
 		// Ensure that every insert gets a different "created at" time.
 		waitForTimeToChange()
 
 		notificationFromDB1, err := notificationsdb.Insert(ctx, expectedNotification1)
-		assert.NoError(t, err)
-		assert.Equal(t, expectedNotification1.SenderID, notificationFromDB1.SenderID)
-		assert.Equal(t, expectedNotification1.Type, notificationFromDB1.Type)
-		assert.Equal(t, expectedNotification1.Title, notificationFromDB1.Title)
-		assert.Equal(t, expectedNotification1.Message, notificationFromDB1.Message)
+		require.NoError(t, err)
+		require.Equal(t, expectedNotification1.SenderID, notificationFromDB1.SenderID)
+		require.Equal(t, expectedNotification1.Type, notificationFromDB1.Type)
+		require.Equal(t, expectedNotification1.Title, notificationFromDB1.Title)
+		require.Equal(t, expectedNotification1.Message, notificationFromDB1.Message)
 		waitForTimeToChange()
 
 		notificationFromDB2, err := notificationsdb.Insert(ctx, expectedNotification2)
-		assert.NoError(t, err)
-		assert.Equal(t, expectedNotification2.SenderID, notificationFromDB2.SenderID)
-		assert.Equal(t, expectedNotification2.Type, notificationFromDB2.Type)
-		assert.Equal(t, expectedNotification2.Title, notificationFromDB2.Title)
-		assert.Equal(t, expectedNotification2.Message, notificationFromDB2.Message)
+		require.NoError(t, err)
+		require.Equal(t, expectedNotification2.SenderID, notificationFromDB2.SenderID)
+		require.Equal(t, expectedNotification2.Type, notificationFromDB2.Type)
+		require.Equal(t, expectedNotification2.Title, notificationFromDB2.Title)
+		require.Equal(t, expectedNotification2.Message, notificationFromDB2.Message)
 
 		page := notifications.Page{}
 
 		// test List method to return right form of page depending on cursor.
 		t.Run("test paged list", func(t *testing.T) {
 			page, err = notificationsdb.List(ctx, notificationCursor)
-			assert.NoError(t, err)
-			assert.Equal(t, 2, len(page.Notifications))
-			assert.Equal(t, notificationFromDB1, page.Notifications[1])
-			assert.Equal(t, notificationFromDB2, page.Notifications[0])
-			assert.Equal(t, notificationCursor.Limit, page.Limit)
-			assert.Equal(t, uint64(0), page.Offset)
-			assert.Equal(t, uint(2), page.PageCount)
-			assert.Equal(t, uint64(3), page.TotalCount)
-			assert.Equal(t, uint(1), page.CurrentPage)
+			require.NoError(t, err)
+			require.Equal(t, 2, len(page.Notifications))
+			require.Equal(t, notificationFromDB1, page.Notifications[1])
+			require.Equal(t, notificationFromDB2, page.Notifications[0])
+			require.Equal(t, notificationCursor.Limit, page.Limit)
+			require.Equal(t, uint64(0), page.Offset)
+			require.Equal(t, uint(2), page.PageCount)
+			require.Equal(t, uint64(3), page.TotalCount)
+			require.Equal(t, uint(1), page.CurrentPage)
 		})
 
 		notificationCursor = notifications.Cursor{
@@ -98,32 +98,32 @@ func TestNotificationsDB(t *testing.T) {
 		// test Read method to make specific notification's status as read.
 		t.Run("test notification read", func(t *testing.T) {
 			err = notificationsdb.Read(ctx, notificationFromDB0.ID)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			page, err = notificationsdb.List(ctx, notificationCursor)
-			assert.NoError(t, err)
-			assert.NotEqual(t, page.Notifications[2].ReadAt, (*time.Time)(nil))
+			require.NoError(t, err)
+			require.NotEqual(t, page.Notifications[2].ReadAt, (*time.Time)(nil))
 
 			err = notificationsdb.Read(ctx, notificationFromDB1.ID)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			page, err = notificationsdb.List(ctx, notificationCursor)
-			assert.NoError(t, err)
-			assert.NotEqual(t, page.Notifications[1].ReadAt, (*time.Time)(nil))
+			require.NoError(t, err)
+			require.NotEqual(t, page.Notifications[1].ReadAt, (*time.Time)(nil))
 
-			assert.Equal(t, page.Notifications[0].ReadAt, (*time.Time)(nil))
+			require.Equal(t, page.Notifications[0].ReadAt, (*time.Time)(nil))
 		})
 
 		// test ReadAll method to make all notifications' status as read.
 		t.Run("test notification read all", func(t *testing.T) {
 			err = notificationsdb.ReadAll(ctx)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			page, err = notificationsdb.List(ctx, notificationCursor)
-			assert.NoError(t, err)
-			assert.NotEqual(t, page.Notifications[2].ReadAt, (*time.Time)(nil))
-			assert.NotEqual(t, page.Notifications[1].ReadAt, (*time.Time)(nil))
-			assert.NotEqual(t, page.Notifications[0].ReadAt, (*time.Time)(nil))
+			require.NoError(t, err)
+			require.NotEqual(t, page.Notifications[2].ReadAt, (*time.Time)(nil))
+			require.NotEqual(t, page.Notifications[1].ReadAt, (*time.Time)(nil))
+			require.NotEqual(t, page.Notifications[0].ReadAt, (*time.Time)(nil))
 		})
 	})
 }
@@ -140,25 +140,25 @@ func TestEmptyNotificationsDB(t *testing.T) {
 		// test List method to return right form of page depending on cursor with empty database.
 		t.Run("test empty paged list", func(t *testing.T) {
 			page, err := notificationsdb.List(ctx, notificationCursor)
-			assert.NoError(t, err)
-			assert.Equal(t, len(page.Notifications), 0)
-			assert.Equal(t, page.Limit, notificationCursor.Limit)
-			assert.Equal(t, page.Offset, uint64(0))
-			assert.Equal(t, page.PageCount, uint(0))
-			assert.Equal(t, page.TotalCount, uint64(0))
-			assert.Equal(t, page.CurrentPage, uint(0))
+			require.NoError(t, err)
+			require.Equal(t, len(page.Notifications), 0)
+			require.Equal(t, page.Limit, notificationCursor.Limit)
+			require.Equal(t, page.Offset, uint64(0))
+			require.Equal(t, page.PageCount, uint(0))
+			require.Equal(t, page.TotalCount, uint64(0))
+			require.Equal(t, page.CurrentPage, uint(0))
 		})
 
 		// test notification read with not existing id.
 		t.Run("test notification read with not existing id", func(t *testing.T) {
 			err := notificationsdb.Read(ctx, testrand.UUID())
-			assert.Error(t, err, "no rows affected")
+			require.Error(t, err, "no rows affected")
 		})
 
 		// test read for all notifications if they don't exist.
 		t.Run("test notification readAll on empty page", func(t *testing.T) {
 			err := notificationsdb.ReadAll(ctx)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		})
 	})
 }

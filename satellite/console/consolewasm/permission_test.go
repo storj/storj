@@ -94,7 +94,7 @@ func TestSetPermissionWithBuckets(t *testing.T) {
 		err = uplinkPeer.Upload(ctx, satellitePeer, testbucket1, "file2", testdata)
 		require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
 		_, err = uplinkPeer.Download(ctx, satellitePeer, testbucket2, testfilename)
-		require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+		require.Error(t, err)
 	})
 }
 

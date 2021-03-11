@@ -9,20 +9,29 @@
             <div class="add-new-node__body" slot="body">
                 <headered-input
                     class="add-new-node__body__input"
+                    label="Node ID"
+                    placeholder="Enter Node ID"
+                    :error="idError"
+                    @setData="setNodeId"
+                />
+                <headered-input
+                    class="add-new-node__body__input"
                     label="Public IP Address"
+                    placeholder="Enter Public IP Address"
+                    :error="publicIPError"
+                    @setData="setPublicIP"
                 />
                 <headered-input
                     class="add-new-node__body__input"
                     label="API Key"
-                />
-                <headered-input
-                    class="add-new-node__body__input"
-                    label="Displayed Name"
+                    placeholder="Enter API Key"
+                    :error="apiKeyError"
+                    @setData="setApiKey"
                 />
             </div>
             <div class="add-new-node__footer" slot="footer">
                 <v-button label="Cancel" :is-white="true" width="205px" :on-press="closeModal" />
-                <v-button label="Continue" width="205px" />
+                <v-button label="Create" width="205px" :on-press="onCreate"/>
             </div>
         </v-modal>
     </div>
@@ -36,6 +45,8 @@ import HeaderedInput from '@/app/components/common/HeaderedInput.vue';
 import VButton from '@/app/components/common/VButton.vue';
 import VModal from '@/app/components/common/VModal.vue';
 
+import { CreateNodeFields } from '@/nodes';
+
 @Component({
     components: {
         VButton,
@@ -45,13 +56,91 @@ import VModal from '@/app/components/common/VModal.vue';
 })
 export default class AddNewNode extends Vue {
     public isAddNewNodeModalShown: boolean = false;
+    private nodeToAdd: CreateNodeFields = new CreateNodeFields();
+
+    private isLoading: boolean = false;
+    // errors
+    private idError: string = '';
+    private publicIPError: string = '';
+    private apiKeyError: string = '';
 
     public openModal(): void {
         this.isAddNewNodeModalShown = true;
     }
 
     public closeModal(): void {
+        this.nodeToAdd = new CreateNodeFields();
+        this.idError = '';
+        this.publicIPError = '';
+        this.apiKeyError = '';
+        this.isLoading = false;
         this.isAddNewNodeModalShown = false;
+    }
+
+    /**
+     * Sets node id field from value string.
+     */
+    public setNodeId(value: string): void {
+        this.nodeToAdd.id = value.trim();
+        this.idError = '';
+    }
+
+    /**
+     * Sets node public ip field from value string.
+     */
+    public setPublicIP(value: string): void {
+        this.nodeToAdd.publicAddress = value.trim();
+        this.publicIPError = '';
+    }
+
+    /**
+     * Sets API key field from value string.
+     */
+    public setApiKey(value: string): void {
+        this.nodeToAdd.apiSecret = value.trim();
+        this.apiKeyError = '';
+    }
+
+    public async onCreate(): Promise<void> {
+        if (this.isLoading) return;
+
+        this.isLoading = true;
+
+        if (!this.validateFields()) {
+            this.isLoading = false;
+
+            return;
+        }
+
+        try {
+            await this.$store.dispatch('nodes/add', this.nodeToAdd);
+        } catch (error) {
+            console.error(error.message);
+            this.isLoading = false;
+        }
+
+        this.closeModal();
+    }
+
+    private validateFields(): boolean {
+        let hasNoErrors: boolean = true;
+
+        if (!this.nodeToAdd.id) {
+            this.idError = 'This field is required. Please enter a valid node ID';
+            hasNoErrors = false;
+        }
+
+        if (!this.nodeToAdd.publicAddress) {
+            this.publicIPError = 'This field is required. Please enter a valid node Public Address';
+            hasNoErrors = false;
+        }
+
+        if (!this.nodeToAdd.apiSecret) {
+            this.apiKeyError = 'This field is required. Please enter a valid API Key';
+            hasNoErrors = false;
+        }
+
+        return hasNoErrors;
     }
 }
 </script>

@@ -12,7 +12,6 @@ import EnterPassphraseStep from '@/components/accessGrants/steps/EnterPassphrase
 import NameStep from '@/components/accessGrants/steps/NameStep.vue';
 import PermissionsStep from '@/components/accessGrants/steps/PermissionsStep.vue';
 import ResultStep from '@/components/accessGrants/steps/ResultStep.vue';
-import UploadStep from '@/components/accessGrants/steps/UploadStep.vue';
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
 import DetailedHistory from '@/components/account/billing/depositAndBillingHistory/DetailedHistory.vue';
@@ -26,10 +25,12 @@ import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
 import CreateProject from '@/components/project/CreateProject.vue';
 import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 import ProjectDashboard from '@/components/project/ProjectDashboard.vue';
+import ProjectsList from '@/components/projectsList/ProjectsList.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
 import store from '@/store';
 import { NavigationLink } from '@/types/navigation';
+
 const DashboardArea = () => import('@/views/DashboardArea.vue');
 const ForgotPassword = () => import('@/views/forgotPassword/ForgotPassword.vue');
 const LoginArea = () => import('@/views/login/LoginArea.vue');
@@ -53,6 +54,7 @@ export abstract class RouteConfig {
     public static CreateProject = new NavigationLink('/create-project', 'Create Project');
     public static EditProjectDetails = new NavigationLink('/edit-project-details', 'Edit Project Details');
     public static AccessGrants = new NavigationLink('/access-grants', 'Access Grants');
+    public static ProjectsList = new NavigationLink('/projects', 'Projects');
 
     // account child paths
     public static Settings = new NavigationLink('settings', 'Settings');
@@ -69,7 +71,6 @@ export abstract class RouteConfig {
     public static EnterPassphraseStep = new NavigationLink('enter-passphrase', 'Access Grant Enter Passphrase');
     public static ResultStep = new NavigationLink('result', 'Access Grant Result');
     public static CLIStep = new NavigationLink('cli', 'Access Grant In CLI');
-    public static UploadStep = new NavigationLink('upload', 'Access Grant Upload Data');
 
     // onboarding tour child paths
     public static OverviewStep = new NavigationLink('overview', 'Onboarding Overview');
@@ -80,12 +81,6 @@ export abstract class RouteConfig {
     public static AccessGrantCLI = new NavigationLink('cli', 'Onboarding Access Grant CLI');
     public static AccessGrantPassphrase = new NavigationLink('create-passphrase', 'Onboarding Access Grant Create Passphrase');
     public static AccessGrantResult = new NavigationLink('result', 'Onboarding Access Grant Result');
-
-    // TODO: disabled until implementation
-    // public static Referral = new NavigationLink('referral', 'Referral');
-
-    // not in project yet
-    // public static Referral = new NavigationLink('//ref/:ids', 'Referral');
 }
 
 export const notProjectRelatedRoutes = [
@@ -97,8 +92,6 @@ export const notProjectRelatedRoutes = [
     RouteConfig.DepositHistory.name,
     RouteConfig.CreditsHistory.name,
     RouteConfig.Settings.name,
-    RouteConfig.AccessGrants.name,
-    // RouteConfig.Referral.name,
 ];
 
 export const router = new Router({
@@ -156,11 +149,6 @@ export const router = new Router({
                             name: RouteConfig.CreditsHistory.name,
                             component: CreditsHistory,
                         },
-                        // {
-                        //     path: RouteConfig.Referral.path,
-                        //     name: RouteConfig.Referral.name,
-                        //     component: ReferralArea,
-                        // },
                     ],
                 },
                 {
@@ -286,17 +274,17 @@ export const router = new Router({
                                     component: CLIStep,
                                     props: true,
                                 },
-                                {
-                                    path: RouteConfig.UploadStep.path,
-                                    name: RouteConfig.UploadStep.name,
-                                    component: UploadStep,
-                                },
                             ],
                         },
                     ],
                 },
-],
-            },
+                {
+                    path: RouteConfig.ProjectsList.path,
+                    name: RouteConfig.ProjectsList.name,
+                    component: ProjectsList,
+                },
+            ],
+        },
         {
             path: '*',
             name: '404',
@@ -339,7 +327,7 @@ router.beforeEach((to, from, next) => {
     next();
 });
 
-router.afterEach(({name}, from) => {
+router.afterEach(({ name }, from) => {
     if (!name) {
         return;
     }

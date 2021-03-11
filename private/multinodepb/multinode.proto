@@ -98,6 +98,7 @@ message TrustedSatellitesResponse {
 
 service Payout {
   rpc Earned(EarnedRequest) returns (EarnedResponse);
+  rpc EarnedPerSatellite(EarnedPerSatelliteRequest) returns (EarnedPerSatelliteResponse);
 }
 
 message EarnedRequest {
@@ -106,4 +107,15 @@ message EarnedRequest {
 
 message EarnedResponse {
   int64 total = 1;
+}
+
+message EarnedPerSatelliteRequest {
+  RequestHeader header = 1;
+}
+message EarnedPerSatelliteResponse {
+  repeated EarnedSatellite earned_satellite = 1;
+}
+message EarnedSatellite {
+  int64 total = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }

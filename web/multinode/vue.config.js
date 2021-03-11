@@ -5,7 +5,7 @@ const path = require('path');
 const StyleLintPlugin = require('stylelint-webpack-plugin');
 
 module.exports = {
-    // publicPath: "/static/dist",
+    publicPath: "/static/dist",
     productionSourceMap: false,
     parallel: true,
     configureWebpack: {

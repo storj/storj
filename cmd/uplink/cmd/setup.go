@@ -9,12 +9,14 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/zeebo/errs"
 
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 	"storj.io/storj/cmd/internal/wizard"
 	"storj.io/uplink"
 	"storj.io/uplink/backcomp"
+	"storj.io/uplink/private/access2"
 )
 
 var (
@@ -108,7 +110,12 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 		access, err = backcomp.RequestAccessWithPassphraseAndConcurrency(ctx, uplinkConfig, satelliteAddress, apiKeyString, passphrase, uint8(setupCfg.PBKDFConcurrency))
 	}
 	if err != nil {
-		return Error.Wrap(err)
+		_, err2 := access2.ParseAccess(apiKeyString)
+		if err2 == nil {
+			err2 = Error.New("API key appears to be an access grant: try running `uplink import` instead")
+		}
+
+		return errs.Combine(err, err2)
 	}
 	accessData, err := access.Serialize()
 	if err != nil {

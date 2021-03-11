@@ -48,7 +48,7 @@ func TestAPI(t *testing.T) {
 		t.Run("GetProject", func(t *testing.T) {
 			require.NoError(t, err)
 			expected := fmt.Sprintf(
-				`{"id":"%s","name":"%s","description":"%s","partnerId":"%s","ownerId":"%s","rateLimit":null,"maxBuckets":null,"createdAt":"%s"}`,
+				`{"id":"%s","name":"%s","description":"%s","partnerId":"%s","ownerId":"%s","rateLimit":null,"maxBuckets":null,"createdAt":"%s","memberCount":0}`,
 				project.ID.String(),
 				project.Name,
 				project.Description,

@@ -50,7 +50,7 @@ func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io
 
 	invoices := make([]compensation.Invoice, 0, len(periodUsage))
 	for _, usage := range periodUsage {
-		withheldAmounts, err := db.Compensation().QueryWithheldAmounts(ctx, usage.NodeID)
+		totalAmounts, err := db.Compensation().QueryTotalAmounts(ctx, usage.NodeID)
 		if err != nil {
 			return err
 		}
@@ -76,11 +76,6 @@ func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io
 			}
 		}
 
-		paidYTD, err := db.Compensation().QueryPaidInYear(ctx, usage.NodeID, period.Year)
-		if err != nil {
-			return err
-		}
-
 		nodeInfo := compensation.NodeInfo{
 			ID:                 usage.NodeID,
 			CreatedAt:          node.CreatedAt,
@@ -93,17 +88,19 @@ func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io
 			UsageGetRepair:     usage.GetRepairTotal,
 			UsagePutRepair:     usage.PutRepairTotal,
 			UsageGetAudit:      usage.GetAuditTotal,
-			TotalHeld:          withheldAmounts.TotalHeld,
-			TotalDisposed:      withheldAmounts.TotalDisposed,
+			TotalHeld:          totalAmounts.TotalHeld,
+			TotalDisposed:      totalAmounts.TotalDisposed,
+			TotalPaid:          totalAmounts.TotalPaid,
+			TotalDistributed:   totalAmounts.TotalDistributed,
 		}
 
 		invoice := compensation.Invoice{
-			Period:      period,
-			NodeID:      compensation.NodeID(usage.NodeID),
-			NodeWallet:  node.Operator.Wallet,
-			NodeAddress: nodeAddress,
-			NodeLastIP:  nodeLastIP,
-			PaidYTD:     paidYTD,
+			Period:             period,
+			NodeID:             compensation.NodeID(usage.NodeID),
+			NodeWallet:         node.Operator.Wallet,
+			NodeWalletFeatures: node.Operator.WalletFeatures,
+			NodeAddress:        nodeAddress,
+			NodeLastIP:         nodeLastIP,
 		}
 
 		if err := invoice.MergeNodeInfo(nodeInfo); err != nil {

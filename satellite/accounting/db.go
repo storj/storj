@@ -12,6 +12,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/orders"
 )
 
 // RollupStats is a convenience alias.
@@ -162,6 +163,12 @@ type StoragenodeAccounting interface {
 	QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]StorageNodeUsage, error)
 	// DeleteTalliesBefore deletes all tallies prior to some time
 	DeleteTalliesBefore(ctx context.Context, latestRollup time.Time) error
+	// ArchiveRollupsBefore archives rollups older than a given time and returns num storagenode and bucket bandwidth rollups archived.
+	ArchiveRollupsBefore(ctx context.Context, before time.Time, batchSize int) (numArchivedNodeBW int, err error)
+	// GetRollupsSince retrieves all archived bandwidth rollup records since a given time. A hard limit batch size is used for results.
+	GetRollupsSince(ctx context.Context, since time.Time) ([]StoragenodeBandwidthRollup, error)
+	// GetArchivedRollupsSince retrieves all archived bandwidth rollup records since a given time. A hard limit batch size is used for results.
+	GetArchivedRollupsSince(ctx context.Context, since time.Time) ([]StoragenodeBandwidthRollup, error)
 }
 
 // ProjectAccounting stores information about bandwidth and storage usage for projects.
@@ -199,6 +206,12 @@ type ProjectAccounting interface {
 	GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID, since, before time.Time) ([]BucketUsageRollup, error)
 	// GetBucketTotals returns per bucket usage summary for specified period of time.
 	GetBucketTotals(ctx context.Context, projectID uuid.UUID, cursor BucketUsageCursor, since, before time.Time) (*BucketUsagePage, error)
+	// ArchiveRollupsBefore archives rollups older than a given time and returns number of bucket bandwidth rollups archived.
+	ArchiveRollupsBefore(ctx context.Context, before time.Time, batchSize int) (numArchivedBucketBW int, err error)
+	// GetRollupsSince retrieves all archived bandwidth rollup records since a given time. A hard limit batch size is used for results.
+	GetRollupsSince(ctx context.Context, since time.Time) ([]orders.BucketBandwidthRollup, error)
+	// GetArchivedRollupsSince retrieves all archived bandwidth rollup records since a given time. A hard limit batch size is used for results.
+	GetArchivedRollupsSince(ctx context.Context, since time.Time) ([]orders.BucketBandwidthRollup, error)
 }
 
 // Cache stores live information about project storage which has not yet been synced to ProjectAccounting.

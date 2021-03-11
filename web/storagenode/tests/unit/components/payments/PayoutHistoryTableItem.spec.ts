@@ -25,13 +25,13 @@ const payoutModule = newPayoutModule(payoutService);
 const store = new Vuex.Store({ modules: { payoutModule }});
 
 describe('PayoutHistoryTableItem', (): void => {
-    it('renders correctly with actual values', async (): Promise<void> => {
+    it('renders correctly with actual values (eth)', async (): Promise<void> => {
         const wrapper = shallowMount(PayoutHistoryTableItem, {
             store,
             localVue,
             propsData: {
-                historyItem: new SatellitePayoutForPeriod('1', 'name1', 1, 100000, 1200000, 140,
-                    500000, 600000, 200000, 800000, 'eth:receipt1', false, 75,
+                historyItem: new SatellitePayoutForPeriod('1', 'name1', 2, 100000, 1200000, 140,
+                    500000, 600000, 200000, 800000, 'eth:receipt1', false, 75, 300000,
                 ),
             },
         });
@@ -41,6 +41,21 @@ describe('PayoutHistoryTableItem', (): void => {
         await wrapper.find('.payout-history-item__header').trigger('click');
 
         expect(wrapper.vm.isExpanded).toBe(true);
+        expect(wrapper).toMatchSnapshot();
+    });
+
+    it('renders correctly with actual values (zksync)', async (): Promise<void> => {
+        const wrapper = shallowMount(PayoutHistoryTableItem, {
+            store,
+            localVue,
+            propsData: {
+                historyItem: new SatellitePayoutForPeriod('1', 'name1', 1, 100000, 1200000, 140,
+                    500000, 600000, 200000, 800000, 'zksync:receipt1', false, 75, 300000,
+                ),
+            },
+        });
+
+        await wrapper.find('.payout-history-item__header').trigger('click');
         expect(wrapper).toMatchSnapshot();
     });
 });

@@ -33,14 +33,13 @@ All of our code for Storj v3 is open source. Have a code change you think would 
 
 Have comments or bug reports? Want to propose a PR before hand-crafting it? Jump on to our [forum](https://forum.storj.io) and join the [Engineering Discussions](https://forum.storj.io/c/engineer-amas) to say hi to the developer community and to talk to the Storj core team.
 
-Want to vote on or suggest new features? Post it on [ideas.storj.io](https://ideas.storj.io).
+Want to vote on or suggest new features? Post it on the [forum](https://forum.storj.io/c/parent-cat/5).
 
 ### Issue tracking and roadmap
 
 See the breakdown of what we're building by checking out the following resources:
 
  * [White paper](https://storj.io/whitepaper)
- * [Aha! Roadmap](https://storjlabs.aha.io/published/bc0db77dc0580bb10c0faf2b383d0529?page=1)
 
 ### Install required packages
 

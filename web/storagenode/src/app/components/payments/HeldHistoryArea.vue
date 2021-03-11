@@ -40,8 +40,6 @@ import { Component, Vue } from 'vue-property-decorator';
 import HeldHistoryAllStatsTable from '@/app/components/payments/HeldHistoryAllStatsTable.vue';
 import HeldHistoryMonthlyBreakdownTable from '@/app/components/payments/HeldHistoryMonthlyBreakdownTable.vue';
 
-import { PAYOUT_ACTIONS } from '@/app/store/modules/payout';
-
 @Component({
     components: {
         HeldHistoryAllStatsTable,
@@ -53,14 +51,6 @@ export default class HeldHistoryArea extends Vue {
      * Indicates if All Stats state is active.
      */
     public isAllStatsShown: boolean = true;
-
-    /**
-     * Lifecycle hook before component render.
-     * Fetches held history information.
-     */
-    public beforeMount(): void {
-        this.$store.dispatch(PAYOUT_ACTIONS.GET_HELD_HISTORY);
-    }
 
     /**
      * Sets held history table state to All Stats.

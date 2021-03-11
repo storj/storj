@@ -215,3 +215,23 @@ type Piece struct {
 	Number      uint16
 	StorageNode storj.NodeID
 }
+
+// ObjectEntry contains information about an object in a bucket.
+type ObjectEntry struct {
+	ObjectKey ObjectKey
+
+	// TODO copy more fields from metabase multipart-upload package if needed
+}
+
+// SegmentPosition is segment part and index combined.
+type SegmentPosition struct {
+	Part  uint32
+	Index uint32
+}
+
+// Segment segment metadata.
+type Segment struct {
+	Position SegmentPosition
+
+	// TODO copy more fields from metabase multipart-upload package if needed
+}

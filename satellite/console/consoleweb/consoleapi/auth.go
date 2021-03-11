@@ -117,6 +117,10 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		Password       string `json:"password"`
 		SecretInput    string `json:"secret"`
 		ReferrerUserID string `json:"referrerUserId"`
+		IsProfessional bool   `json:"isProfessional"`
+		Position       string `json:"position"`
+		CompanyName    string `json:"companyName"`
+		EmployeeCount  string `json:"employeeCount"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&registerData)
@@ -142,14 +146,17 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 
 	user, err := a.service.CreateUser(ctx,
 		console.CreateUser{
-			FullName:  registerData.FullName,
-			ShortName: registerData.ShortName,
-			Email:     registerData.Email,
-			PartnerID: registerData.PartnerID,
-			Password:  registerData.Password,
+			FullName:       registerData.FullName,
+			ShortName:      registerData.ShortName,
+			Email:          registerData.Email,
+			PartnerID:      registerData.PartnerID,
+			Password:       registerData.Password,
+			IsProfessional: registerData.IsProfessional,
+			Position:       registerData.Position,
+			CompanyName:    registerData.CompanyName,
+			EmployeeCount:  registerData.EmployeeCount,
 		},
 		secret,
-		registerData.ReferrerUserID,
 	)
 	if err != nil {
 		a.serveJSONError(w, err)
@@ -215,12 +222,16 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	var user struct {
-		ID           uuid.UUID `json:"id"`
-		FullName     string    `json:"fullName"`
-		ShortName    string    `json:"shortName"`
-		Email        string    `json:"email"`
-		PartnerID    uuid.UUID `json:"partnerId"`
-		ProjectLimit int       `json:"projectLimit"`
+		ID             uuid.UUID `json:"id"`
+		FullName       string    `json:"fullName"`
+		ShortName      string    `json:"shortName"`
+		Email          string    `json:"email"`
+		PartnerID      uuid.UUID `json:"partnerId"`
+		ProjectLimit   int       `json:"projectLimit"`
+		IsProfessional bool      `json:"isProfessional"`
+		Position       string    `json:"position"`
+		CompanyName    string    `json:"companyName"`
+		EmployeeCount  string    `json:"employeeCount"`
 	}
 
 	auth, err := console.GetAuth(ctx)
@@ -235,6 +246,10 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.ID = auth.User.ID
 	user.PartnerID = auth.User.PartnerID
 	user.ProjectLimit = auth.User.ProjectLimit
+	user.IsProfessional = auth.User.IsProfessional
+	user.CompanyName = auth.User.CompanyName
+	user.Position = auth.User.Position
+	user.EmployeeCount = auth.User.EmployeeCount
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(&user)

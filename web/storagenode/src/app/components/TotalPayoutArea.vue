@@ -37,11 +37,11 @@ import SingleInfo from '@/app/components/payments/SingleInfo.vue';
 })
 export default class TotalPayoutArea extends Vue {
     public get totalEarnings(): number {
-        return this.$store.state.payoutModule.totalHeldAndPaid.paid;
+        return this.$store.state.payoutModule.totalPayments.paid;
     }
 
     public get totalHeld(): number {
-        return this.$store.state.payoutModule.totalHeldAndPaid.held;
+        return this.$store.state.payoutModule.totalPayments.held;
     }
 
     public get currentEarnings(): number {

@@ -126,8 +126,9 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 			LocalTimeCheck: false,
 		},
 		Operator: storagenode.OperatorConfig{
-			Email:  prefix + "@mail.test",
-			Wallet: "0x" + strings.Repeat("00", 20),
+			Email:          prefix + "@mail.test",
+			Wallet:         "0x" + strings.Repeat("00", 20),
+			WalletFeatures: nil,
 		},
 		Storage: piecestore.OldConfig{
 			Path:                   filepath.Join(storageDir, "pieces/"),

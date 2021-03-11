@@ -66,26 +66,11 @@ export class StorageNodeApi {
 
         const satelliteByDayInfo = new SatelliteByDayInfo(data);
 
-        const audit: Metric = new Metric(
-            data.audit.totalCount,
-            data.audit.successCount,
-            data.audit.alpha,
-            data.audit.beta,
-            data.audit.unknownAlpha,
-            data.audit.unknownBeta,
-            data.audit.score,
-            data.audit.unknownScore,
-        );
-
-        const uptime: Metric = new Metric(
-            data.uptime.totalCount,
-            data.uptime.successCount,
-            data.uptime.alpha,
-            data.uptime.beta,
-            data.uptime.unknownAlpha,
-            data.uptime.unknownBeta,
-            data.uptime.score,
-            data.uptime.unknownScore,
+        const audits: SatelliteScores = new SatelliteScores(
+            data.audits.satelliteName,
+            data.audits.auditScore,
+            data.audits.suspensionScore,
+            data.audits.onlineScore,
         );
 
         return new Satellite(
@@ -98,8 +83,7 @@ export class StorageNodeApi {
             data.bandwidthSummary,
             data.egressSummary,
             data.ingressSummary,
-            audit,
-            uptime,
+            audits,
             new Date(data.nodeJoinedAt),
         );
     }

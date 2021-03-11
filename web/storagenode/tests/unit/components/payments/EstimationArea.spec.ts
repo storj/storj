@@ -77,7 +77,7 @@ describe('EstimationArea', (): void => {
         wrapper.destroy();
     });
 
-    it('renders correctly with actual values and current period and not fist day on month', async (): Promise<void> => {
+    it('renders correctly with actual values and current period and not first day on month', async (): Promise<void> => {
         const _Date = Date;
         const mockedDate1 = new Date(1580722290000); // Sat Feb 03 2020
         const mockedDate2 = new Date(1577982290000); // Thu Jan 02 2020
@@ -97,6 +97,8 @@ describe('EstimationArea', (): void => {
                 80000000,
                 90000000,
             ),
+            new PreviousMonthEstimatedPayout(),
+            1200000000,
         );
 
         await store.commit(PAYOUT_MUTATIONS.SET_ESTIMATION, estimatedPayout);
@@ -167,6 +169,7 @@ describe('EstimationArea', (): void => {
         paystub.held = 777777;
         paystub.paid = 555555;
         paystub.surgePercent = 300;
+        paystub.distributed = 333333;
         const totalPaystubForPeriod = new TotalPaystubForPeriod([paystub]);
 
         await store.commit(PAYOUT_MUTATIONS.SET_PERIODS, [payoutPeriod]);

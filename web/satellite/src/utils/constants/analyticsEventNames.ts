@@ -19,4 +19,5 @@ export enum SegmentEvent {
     TEAM_MEMBER_INVITED = 'Team Member Invited',
     TEAM_VIEWED = 'Team Viewed',
     CLI_DOCS_VIEWED = 'Uplink CLI Docs Viewed',
+    GENERATE_GATEWAY_CREDENTIALS_CLICKED = 'Generate Gateway Credentials Clicked',
 }

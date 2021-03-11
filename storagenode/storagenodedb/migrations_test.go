@@ -21,12 +21,34 @@ import (
 	"storj.io/storj/storagenode/storagenodedb/testdata"
 )
 
+// insertOldData will insert any OldData from the MultiDBState into the
+// appropriate rawDB. This prepares the rawDB for the test comparing schema and
+// data and any changes to rows.
+func insertOldData(ctx context.Context, mdbs *testdata.MultiDBState, rawDBs map[string]storagenodedb.DBContainer) error {
+	for dbName, dbState := range mdbs.DBStates {
+		if dbState.OldData == "" {
+			continue
+		}
+
+		rawDB, ok := rawDBs[dbName]
+		if !ok {
+			return errs.New("Failed to find DB %s", dbName)
+		}
+		_, err := rawDB.GetDB().ExecContext(ctx, dbState.OldData)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // insertNewData will insert any NewData from the MultiDBState into the
 // appropriate rawDB. This prepares the rawDB for the test comparing schema and
-// data.
+// data. It will not insert NewData if OldData is set: the migration is expected
+// to convert OldData into what NewData would insert.
 func insertNewData(ctx context.Context, mdbs *testdata.MultiDBState, rawDBs map[string]storagenodedb.DBContainer) error {
 	for dbName, dbState := range mdbs.DBStates {
-		if dbState.NewData == "" {
+		if dbState.NewData == "" || dbState.OldData != "" {
 			continue
 		}
 
@@ -104,6 +126,7 @@ func TestMigrate(t *testing.T) {
 	db, err := storagenodedb.OpenNew(ctx, log, cfg)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, db.Close()) }()
+	rawDBs := db.RawDatabases()
 
 	// get migration for this database
 	migrations := db.Migration(ctx)
@@ -111,15 +134,17 @@ func TestMigrate(t *testing.T) {
 		// the schema is different when migration step is before the step, cannot test the layout
 		tag := fmt.Sprintf("#%d - v%d", i, step.Version)
 
-		// run migration up to a specific version
-		err := migrations.TargetVersion(step.Version).Run(ctx, log.Named("migrate"))
-		require.NoError(t, err, tag)
-
 		// find the matching expected version
 		expected, ok := testdata.States.FindVersion(step.Version)
 		require.True(t, ok)
 
-		rawDBs := db.RawDatabases()
+		// insert old data for any tables
+		err = insertOldData(ctx, expected, rawDBs)
+		require.NoError(t, err, tag)
+
+		// run migration up to a specific version
+		err := migrations.TargetVersion(step.Version).Run(ctx, log.Named("migrate"))
+		require.NoError(t, err, tag)
 
 		// insert data for new tables
 		err = insertNewData(ctx, expected, rawDBs)

@@ -118,44 +118,62 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 
 		update, err := cache.UpdateNodeInfo(ctx, nodeID, &overlay.InfoResponse{
 			Operator: &pb.NodeOperator{
-				Wallet: "0x1111111111111111111111111111111111111111",
-				Email:  "abc123@mail.test",
+				Wallet:         "0x1111111111111111111111111111111111111111",
+				Email:          "abc123@mail.test",
+				WalletFeatures: []string{"wallet_features"},
 			},
 		})
 		require.NoError(t, err)
 		require.NotNil(t, update)
 		require.Equal(t, "0x1111111111111111111111111111111111111111", update.Operator.Wallet)
 		require.Equal(t, "abc123@mail.test", update.Operator.Email)
+		require.Equal(t, []string{"wallet_features"}, update.Operator.WalletFeatures)
 
 		found, err := cache.Get(ctx, nodeID)
 		require.NoError(t, err)
 		require.NotNil(t, found)
 		require.Equal(t, "0x1111111111111111111111111111111111111111", found.Operator.Wallet)
 		require.Equal(t, "abc123@mail.test", found.Operator.Email)
+		require.Equal(t, []string{"wallet_features"}, found.Operator.WalletFeatures)
 
 		updateEmail, err := cache.UpdateNodeInfo(ctx, nodeID, &overlay.InfoResponse{
 			Operator: &pb.NodeOperator{
-				Wallet: update.Operator.Wallet,
-				Email:  "def456@mail.test",
+				Wallet:         update.Operator.Wallet,
+				Email:          "def456@mail.test",
+				WalletFeatures: update.Operator.WalletFeatures,
 			},
 		})
-
 		require.NoError(t, err)
 		assert.NotNil(t, updateEmail)
 		assert.Equal(t, "0x1111111111111111111111111111111111111111", updateEmail.Operator.Wallet)
 		assert.Equal(t, "def456@mail.test", updateEmail.Operator.Email)
+		assert.Equal(t, []string{"wallet_features"}, updateEmail.Operator.WalletFeatures)
 
 		updateWallet, err := cache.UpdateNodeInfo(ctx, nodeID, &overlay.InfoResponse{
 			Operator: &pb.NodeOperator{
-				Wallet: "0x2222222222222222222222222222222222222222",
-				Email:  updateEmail.Operator.Email,
+				Wallet:         "0x2222222222222222222222222222222222222222",
+				Email:          updateEmail.Operator.Email,
+				WalletFeatures: update.Operator.WalletFeatures,
 			},
 		})
-
 		require.NoError(t, err)
 		assert.NotNil(t, updateWallet)
 		assert.Equal(t, "0x2222222222222222222222222222222222222222", updateWallet.Operator.Wallet)
 		assert.Equal(t, "def456@mail.test", updateWallet.Operator.Email)
+		assert.Equal(t, []string{"wallet_features"}, updateWallet.Operator.WalletFeatures)
+
+		updateWalletFeatures, err := cache.UpdateNodeInfo(ctx, nodeID, &overlay.InfoResponse{
+			Operator: &pb.NodeOperator{
+				Wallet:         updateWallet.Operator.Wallet,
+				Email:          updateEmail.Operator.Email,
+				WalletFeatures: []string{"wallet_features_updated"},
+			},
+		})
+		require.NoError(t, err)
+		assert.NotNil(t, updateWalletFeatures)
+		assert.Equal(t, "0x2222222222222222222222222222222222222222", updateWalletFeatures.Operator.Wallet)
+		assert.Equal(t, "def456@mail.test", updateWalletFeatures.Operator.Email)
+		assert.Equal(t, []string{"wallet_features_updated"}, updateWalletFeatures.Operator.WalletFeatures)
 	}
 
 	{ // TestUpdateExists

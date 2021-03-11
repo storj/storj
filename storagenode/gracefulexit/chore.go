@@ -64,9 +64,6 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		for _, satellite := range geSatellites {
 			mon.Meter("satellite_gracefulexit_request").Mark(1) //mon:locked
 			satellite := satellite
-			if satellite.FinishedAt != nil {
-				continue
-			}
 
 			worker := NewWorker(chore.log, chore.service, chore.transferService, chore.dialer, satellite.NodeURL, chore.config)
 			if _, ok := chore.exitingMap.LoadOrStore(satellite.SatelliteID, worker); ok {

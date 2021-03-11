@@ -155,7 +155,7 @@ func (m *mockCustomers) repopulate() error {
 		}
 
 		for cusPage.Next {
-			cusPage, err := m.customersDB.List(ctx, cusPage.NextOffset, limit, time.Now())
+			cusPage, err = m.customersDB.List(ctx, cusPage.NextOffset, limit, time.Now())
 			if err != nil {
 				return err
 			}

@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { GB, KB, MB, PB, TB } from '@/app/utils/converter';
+import { SizeBreakpoints } from '@/private/memory/size';
 import { BandwidthUsed, Stamp } from '@/storagenode/sno/sno';
 
 const shortMonthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
@@ -18,19 +18,19 @@ export class ChartUtils {
     public static normalizeChartData(data: number[]): number[] {
         const maxBytes = Math.ceil(Math.max(...data));
 
-        let divider: number = PB;
+        let divider: number = SizeBreakpoints.PB;
         switch (true) {
-            case maxBytes < MB:
-                divider = KB;
+            case maxBytes < SizeBreakpoints.MB:
+                divider = SizeBreakpoints.KB;
                 break;
-            case maxBytes < GB:
-                divider = MB;
+            case maxBytes < SizeBreakpoints.GB:
+                divider = SizeBreakpoints.MB;
                 break;
-            case maxBytes < TB:
-                divider = GB;
+            case maxBytes < SizeBreakpoints.TB:
+                divider = SizeBreakpoints.GB;
                 break;
-            case maxBytes < PB:
-                divider = TB;
+            case maxBytes < SizeBreakpoints.PB:
+                divider = SizeBreakpoints.TB;
                 break;
         }
 
@@ -47,16 +47,16 @@ export class ChartUtils {
 
         let dataDimension: string;
         switch (true) {
-            case maxBytes < MB:
+            case maxBytes < SizeBreakpoints.MB:
                 dataDimension = 'KB';
                 break;
-            case maxBytes < GB:
+            case maxBytes < SizeBreakpoints.GB:
                 dataDimension = 'MB';
                 break;
-            case maxBytes < TB:
+            case maxBytes < SizeBreakpoints.TB:
                 dataDimension = 'GB';
                 break;
-            case maxBytes < PB:
+            case maxBytes < SizeBreakpoints.PB:
                 dataDimension = 'TB';
                 break;
             default:

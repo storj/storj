@@ -350,6 +350,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 		failed
 		contained
 		unknown
+		remove
 		erred
 	)
 
@@ -394,7 +395,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 			pendingPointerBytes, pendingPointer, err := verifier.metainfo.GetWithBytes(ctx, metabase.SegmentKey(pending.Path))
 			if err != nil {
 				if storj.ErrObjectNotFound.Has(err) {
-					ch <- result{nodeID: pending.NodeID, status: skipped}
+					ch <- result{nodeID: pending.NodeID, status: remove}
 					return
 				}
 
@@ -404,12 +405,12 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 			}
 			if !pendingPointer.ExpirationDate.IsZero() && pendingPointer.ExpirationDate.Before(time.Now().UTC()) {
 				verifier.log.Debug("Reverify: segment already expired", zap.Stringer("Node ID", pending.NodeID))
-				ch <- result{nodeID: pending.NodeID, status: skipped}
+				ch <- result{nodeID: pending.NodeID, status: remove}
 				return
 			}
 
 			if pendingPointer.GetRemote().RootPieceId != pending.PieceID {
-				ch <- result{nodeID: pending.NodeID, status: skipped}
+				ch <- result{nodeID: pending.NodeID, status: remove}
 				return
 			}
 			var pieceNum int32
@@ -421,13 +422,13 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 				}
 			}
 			if !found {
-				ch <- result{nodeID: pending.NodeID, status: skipped}
+				ch <- result{nodeID: pending.NodeID, status: remove}
 				return
 			}
 
 			segmentLocation, err := metabase.ParseSegmentKey(metabase.SegmentKey(pending.Path)) // TODO: this should be parsed in pending
 			if err != nil {
-				ch <- result{nodeID: pending.NodeID, status: skipped}
+				ch <- result{nodeID: pending.NodeID, status: remove}
 				return
 			}
 
@@ -500,7 +501,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 					// Get the original segment pointer in the metainfo
 					err := verifier.checkIfSegmentAltered(ctx, pending.Path, pendingPointer, pendingPointerBytes)
 					if err != nil {
-						ch <- result{nodeID: pending.NodeID, status: skipped}
+						ch <- result{nodeID: pending.NodeID, status: remove}
 						verifier.log.Debug("Reverify: audit source changed before reverification", zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 						return
 					}
@@ -527,7 +528,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 			} else {
 				err := verifier.checkIfSegmentAltered(ctx, pending.Path, pendingPointer, pendingPointerBytes)
 				if err != nil {
-					ch <- result{nodeID: pending.NodeID, status: skipped}
+					ch <- result{nodeID: pending.NodeID, status: remove}
 					verifier.log.Debug("Reverify: audit source changed before reverification", zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 					return
 				}
@@ -541,6 +542,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 	for range pieces {
 		result := <-ch
 		switch result.status {
+		case skipped:
 		case success:
 			report.Successes = append(report.Successes, result.nodeID)
 		case offline:
@@ -551,13 +553,14 @@ func (verifier *Verifier) Reverify(ctx context.Context, path storj.Path) (report
 			report.PendingAudits = append(report.PendingAudits, result.pendingAudit)
 		case unknown:
 			report.Unknown = append(report.Unknown, result.nodeID)
-		case skipped:
+		case remove:
 			_, errDelete := verifier.containment.Delete(ctx, result.nodeID)
 			if errDelete != nil {
 				verifier.log.Debug("Error deleting node from containment db", zap.Stringer("Node ID", result.nodeID), zap.Error(errDelete))
 			}
 		case erred:
 			err = errs.Combine(err, result.err)
+		default:
 		}
 	}
 

@@ -21,7 +21,7 @@ import (
 
 // Config defines multinode configuration.
 type Config struct {
-	Database string `help:"multinode database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
+	Database string `help:"multinode database connection string" default:"sqlite3://file:$CONFDIR/master.db"`
 
 	multinode.Config
 }

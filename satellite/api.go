@@ -40,7 +40,6 @@ import (
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
-	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/nodestats"
@@ -48,10 +47,9 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
-	"storj.io/storj/satellite/referrals"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/rewards"
-	"storj.io/storj/satellite/snopayout"
+	"storj.io/storj/satellite/snopayouts"
 )
 
 // API is the satellite API process.
@@ -135,10 +133,6 @@ type API struct {
 		Stripe   stripecoinpayments.StripeClient
 	}
 
-	Referrals struct {
-		Service *referrals.Service
-	}
-
 	Console struct {
 		Listener net.Listener
 		Service  *console.Service
@@ -147,19 +141,16 @@ type API struct {
 
 	Marketing struct {
 		PartnersService *rewards.PartnersService
-
-		Listener net.Listener
-		Endpoint *marketingweb.Server
 	}
 
 	NodeStats struct {
 		Endpoint *nodestats.Endpoint
 	}
 
-	SnoPayout struct {
-		Endpoint *snopayout.Endpoint
-		Service  *snopayout.Service
-		DB       snopayout.DB
+	SNOPayouts struct {
+		Endpoint *snopayouts.Endpoint
+		Service  *snopayouts.Service
+		DB       snopayouts.DB
 	}
 
 	GracefulExit struct {
@@ -171,7 +162,6 @@ type API struct {
 func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache, rollupsWriteCache *orders.RollupsWriteCache,
 	config *Config, versionInfo version.Info, atomicLogLevel *zap.AtomicLevel) (*API, error) {
-
 	peer := &API{
 		Log:             log,
 		Identity:        full,
@@ -231,7 +221,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
 
-		peer.Server, err = server.New(log.Named("server"), tlsOptions, sc.Address, sc.PrivateAddress)
+		peer.Server, err = server.New(log.Named("server"), tlsOptions, sc)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -350,8 +340,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			satelliteSignee,
 			peer.Orders.DB,
 			peer.DB.NodeAPIVersion(),
-			config.Orders.SettlementBatchSize,
-			config.Orders.WindowEndpointRolloutPhase,
 			config.Orders.OrdersSemaphoreSize,
 			peer.Orders.Service,
 		)
@@ -361,7 +349,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 	}
 
-	{ // setup marketing portal
+	{ // setup marketing partners service
 		peer.Marketing.PartnersService = rewards.NewPartnersService(
 			peer.Log.Named("partners"),
 			rewards.DefaultPartnersDB,
@@ -371,28 +359,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				"https://europe-west-1.tardigrade.io/",
 			},
 		)
-
-		peer.Marketing.Listener, err = net.Listen("tcp", config.Marketing.Address)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		peer.Marketing.Endpoint, err = marketingweb.NewServer(
-			peer.Log.Named("marketing:endpoint"),
-			config.Marketing,
-			peer.DB.Rewards(),
-			peer.Marketing.PartnersService,
-			peer.Marketing.Listener,
-		)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		peer.Servers.Add(lifecycle.Item{
-			Name:  "marketing:endpoint",
-			Run:   peer.Marketing.Endpoint.Run,
-			Close: peer.Marketing.Endpoint.Close,
-		})
 	}
 
 	{ // setup metainfo
@@ -596,15 +562,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.New("Auth token secret required")
 		}
 
-		peer.Referrals.Service = referrals.NewService(
-			peer.Log.Named("referrals:service"),
-			signing.SignerFromFullIdentity(peer.Identity),
-			config.Referrals,
-			peer.Dialer,
-			peer.DB.Console().Users(),
-			consoleConfig.PasswordCost,
-		)
-
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			&consoleauth.Hmac{Secret: []byte(consoleConfig.AuthTokenSecret)},
@@ -612,7 +569,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.ProjectAccounting(),
 			peer.Accounting.ProjectUsage,
 			peer.DB.Buckets(),
-			peer.DB.Rewards(),
 			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,
 			consoleConfig.Config,
@@ -627,7 +583,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			consoleConfig,
 			peer.Console.Service,
 			peer.Mail.Service,
-			peer.Referrals.Service,
 			peer.Marketing.PartnersService,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,
@@ -654,16 +609,16 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup SnoPayout endpoint
-		peer.SnoPayout.DB = peer.DB.SnoPayout()
-		peer.SnoPayout.Service = snopayout.NewService(
-			peer.Log.Named("payout:service"),
-			peer.SnoPayout.DB)
-		peer.SnoPayout.Endpoint = snopayout.NewEndpoint(
-			peer.Log.Named("payout:endpoint"),
+		peer.SNOPayouts.DB = peer.DB.SNOPayouts()
+		peer.SNOPayouts.Service = snopayouts.NewService(
+			peer.Log.Named("payouts:service"),
+			peer.SNOPayouts.DB)
+		peer.SNOPayouts.Endpoint = snopayouts.NewEndpoint(
+			peer.Log.Named("payouts:endpoint"),
 			peer.DB.StoragenodeAccounting(),
 			peer.Overlay.DB,
-			peer.SnoPayout.Service)
-		if err := pb.DRPCRegisterHeldAmount(peer.Server.DRPC(), peer.SnoPayout.Endpoint); err != nil {
+			peer.SNOPayouts.Service)
+		if err := pb.DRPCRegisterHeldAmount(peer.Server.DRPC(), peer.SNOPayouts.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 	}

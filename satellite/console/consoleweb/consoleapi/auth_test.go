@@ -59,12 +59,20 @@ func TestAuth_Register(t *testing.T) {
 					Password       string `json:"password"`
 					SecretInput    string `json:"secret"`
 					ReferrerUserID string `json:"referrerUserId"`
+					IsProfessional bool   `json:"isProfessional"`
+					Position       string `json:"Position"`
+					CompanyName    string `json:"CompanyName"`
+					EmployeeCount  string `json:"EmployeeCount"`
 				}{
-					FullName:  "testuser" + strconv.Itoa(i),
-					ShortName: "test",
-					Email:     "user@test" + strconv.Itoa(i),
-					Partner:   test.Partner,
-					Password:  "abc123",
+					FullName:       "testuser" + strconv.Itoa(i),
+					ShortName:      "test",
+					Email:          "user@test" + strconv.Itoa(i),
+					Partner:        test.Partner,
+					Password:       "abc123",
+					IsProfessional: true,
+					Position:       "testposition",
+					CompanyName:    "companytestname",
+					EmployeeCount:  "0",
 				}
 
 				jsonBody, err := json.Marshal(registerData)

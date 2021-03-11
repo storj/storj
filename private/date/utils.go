@@ -51,3 +51,10 @@ func MonthsBetweenDates(from time.Time, to time.Time) int {
 func TruncateToHourInNano(t time.Time) int64 {
 	return t.Truncate(1 * time.Hour).UnixNano()
 }
+
+// UTCEndOfMonth returns utc end of month (f.e. to get last day in month).
+func UTCEndOfMonth(now time.Time) time.Time {
+	now = now.UTC()
+	y, m, _ := now.Date()
+	return time.Date(y, m+1, 1, 0, 0, 0, 0, &time.Location{}).Add(-time.Nanosecond)
+}

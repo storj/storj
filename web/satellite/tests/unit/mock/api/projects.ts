@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { Project, ProjectFields, ProjectLimits, ProjectsApi } from '@/types/projects';
+import { Project, ProjectFields, ProjectLimits, ProjectsApi, ProjectsCursor, ProjectsPage } from '@/types/projects';
 
 /**
  * Mock for ProjectsApi
@@ -9,6 +9,7 @@ import { Project, ProjectFields, ProjectLimits, ProjectsApi } from '@/types/proj
 export class ProjectsApiMock implements ProjectsApi {
     private mockProjects: Project[];
     private mockLimits: ProjectLimits;
+    private mockProjectsPage: ProjectsPage;
 
     public setMockProjects(mockProjects: Project[]): void {
         this.mockProjects = mockProjects;
@@ -28,6 +29,10 @@ export class ProjectsApiMock implements ProjectsApi {
 
     get(): Promise<Project[]> {
         return Promise.resolve(this.mockProjects);
+    }
+
+    getOwnedProjects(cursor: ProjectsCursor): Promise<ProjectsPage> {
+        return Promise.resolve(this.mockProjectsPage);
     }
 
     update(projectId: string, name: string, description: string): Promise<void> {

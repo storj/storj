@@ -347,13 +347,12 @@ func TestOfflineSuspend(t *testing.T) {
 				OfflineDQEnabled: true,
 			},
 
-			AuditLambda:               0.95,
-			AuditWeight:               1,
-			AuditDQ:                   0.6,
-			SuspensionGracePeriod:     time.Hour,
-			SuspensionDQEnabled:       true,
-			AuditsRequiredForVetting:  0,
-			UptimesRequiredForVetting: 0,
+			AuditLambda:              0.95,
+			AuditWeight:              1,
+			AuditDQ:                  0.6,
+			SuspensionGracePeriod:    time.Hour,
+			SuspensionDQEnabled:      true,
+			AuditsRequiredForVetting: 0,
 		}
 
 		// give node an offline audit

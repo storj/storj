@@ -73,10 +73,6 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 		node.Reputation.UnknownAuditReputationBeta)
 
 	return &pb.GetStatsResponse{
-		UptimeCheck: &pb.ReputationStats{
-			TotalCount:   node.Reputation.UptimeCount,
-			SuccessCount: node.Reputation.UptimeSuccessCount,
-		},
 		AuditCheck: &pb.ReputationStats{
 			TotalCount:             node.Reputation.AuditCount,
 			SuccessCount:           node.Reputation.AuditSuccessCount,

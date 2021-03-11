@@ -28,14 +28,15 @@ import (
 	"storj.io/private/version"
 	"storj.io/storj/pkg/revocation"
 	"storj.io/storj/pkg/server"
+	"storj.io/storj/private/testredis"
 	versionchecker "storj.io/storj/private/version/checker"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/accounting/projectbwcleanup"
-	"storj.io/storj/satellite/accounting/reportedrollup"
 	"storj.io/storj/satellite/accounting/rollup"
+	"storj.io/storj/satellite/accounting/rolluparchive"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/audit"
@@ -47,7 +48,6 @@ import (
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/marketingweb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metainfo/objectdeletion"
@@ -56,13 +56,13 @@ import (
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/storage/redis/redisserver"
 )
 
 // Satellite contains all the processes needed to run a full Satellite setup.
@@ -92,9 +92,10 @@ type Satellite struct {
 	}
 
 	Overlay struct {
-		DB        overlay.DB
-		Service   *overlay.Service
-		Inspector *overlay.Inspector
+		DB           overlay.DB
+		Service      *overlay.Service
+		Inspector    *overlay.Inspector
+		DQStrayNodes *straynodes.Chore
 	}
 
 	Metainfo struct {
@@ -102,6 +103,7 @@ type Satellite struct {
 		Service   *metainfo.Service
 		Endpoint2 *metainfo.Endpoint
 		Loop      *metainfo.Loop
+		Metabase  *metainfo.PointerDBMetabase
 	}
 
 	Inspector struct {
@@ -120,6 +122,7 @@ type Satellite struct {
 		Repairer  *repairer.Service
 		Inspector *irreparable.Inspector
 	}
+
 	Audit struct {
 		Queues   *audit.Queues
 		Worker   *audit.Worker
@@ -140,8 +143,8 @@ type Satellite struct {
 		Tally            *tally.Service
 		Rollup           *rollup.Service
 		ProjectUsage     *accounting.Service
-		ReportedRollup   *reportedrollup.Chore
 		ProjectBWCleanup *projectbwcleanup.Chore
+		RollupArchive    *rolluparchive.Chore
 	}
 
 	LiveAccounting struct {
@@ -160,11 +163,6 @@ type Satellite struct {
 		Listener net.Listener
 		Service  *console.Service
 		Endpoint *consoleweb.Server
-	}
-
-	Marketing struct {
-		Listener net.Listener
-		Endpoint *marketingweb.Server
 	}
 
 	NodeStats struct {
@@ -207,7 +205,7 @@ func (system *Satellite) AddUser(ctx context.Context, newUser console.CreateUser
 	}
 
 	newUser.Password = newUser.FullName
-	user, err := system.API.Console.Service.CreateUser(ctx, newUser, regToken.Secret, "")
+	user, err := system.API.Console.Service.CreateUser(ctx, newUser, regToken.Secret)
 	if err != nil {
 		return nil, err
 	}
@@ -374,7 +372,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	}
 	planet.databases = append(planet.databases, pointerDB)
 
-	redis, err := redisserver.Mini(ctx)
+	redis, err := testredis.Mini(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -413,7 +411,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		},
 		Overlay: overlay.Config{
 			Node: overlay.NodeSelectionConfig{
-				UptimeCount:      0,
 				AuditCount:       0,
 				NewNodeFraction:  1,
 				OnlineWindow:     time.Minute,
@@ -428,7 +425,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 				SuspensionGracePeriod:       time.Hour,
 				SuspensionDQEnabled:         true,
 			},
-			NodeSelectionCache: overlay.CacheConfig{
+			NodeSelectionCache: overlay.UploadSelectionCacheConfig{
 				Staleness: 3 * time.Minute,
 			},
 			UpdateStatsBatchSize: 100,
@@ -438,6 +435,11 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 				GracePeriod:      time.Hour,
 				OfflineThreshold: 0.6,
 			},
+		},
+		StrayNodes: straynodes.Config{
+			EnableDQ:                  true,
+			Interval:                  time.Minute,
+			MaxDurationWithoutContact: 30 * time.Second,
 		},
 		Metainfo: metainfo.Config{
 			DatabaseURL:          "", // not used
@@ -487,13 +489,11 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			},
 		},
 		Orders: orders.Config{
-			Expiration:                 7 * 24 * time.Hour,
-			SettlementBatchSize:        10,
-			FlushBatchSize:             10,
-			FlushInterval:              defaultInterval,
-			NodeStatusLogging:          true,
-			WindowEndpointRolloutPhase: orders.WindowEndpointRolloutPhase3,
-			EncryptionKeys:             *encryptionKeys,
+			Expiration:        7 * 24 * time.Hour,
+			FlushBatchSize:    10,
+			FlushInterval:     defaultInterval,
+			NodeStatusLogging: true,
+			EncryptionKeys:    *encryptionKeys,
 		},
 		Checker: checker.Config{
 			Interval:                  defaultInterval,
@@ -553,8 +553,11 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			Interval:      defaultInterval,
 			DeleteTallies: false,
 		},
-		ReportedRollup: reportedrollup.Config{
-			Interval: defaultInterval,
+		RollupArchive: rolluparchive.Config{
+			Interval:   defaultInterval,
+			ArchiveAge: time.Hour * 24,
+			BatchSize:  1000,
+			Enabled:    true,
 		},
 		ProjectBWCleanup: projectbwcleanup.Config{
 			Interval:     defaultInterval,
@@ -585,10 +588,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 				NumLimits: 10,
 			},
 		},
-		Marketing: marketingweb.Config{
-			Address:   "127.0.0.1:0",
-			StaticDir: filepath.Join(developmentRoot, "web/marketing"),
-		},
 		Version: planet.NewVersionConfig(),
 		GracefulExit: gracefulexit.Config{
 			Enabled: true,
@@ -609,12 +608,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		},
 	}
 
-	if planet.ReferralManager != nil {
-		config.Referrals.ReferralManagerURL = storj.NodeURL{
-			ID:      planet.ReferralManager.Identity().ID,
-			Address: planet.ReferralManager.Addr().String(),
-		}
-	}
 	if planet.config.Reconfigure.Satellite != nil {
 		planet.config.Reconfigure.Satellite(log, index, &config)
 	}
@@ -696,11 +689,13 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Overlay.DB = api.Overlay.DB
 	system.Overlay.Service = api.Overlay.Service
 	system.Overlay.Inspector = api.Overlay.Inspector
+	system.Overlay.DQStrayNodes = peer.Overlay.DQStrayNodes
 
 	system.Metainfo.Database = api.Metainfo.Database
 	system.Metainfo.Service = peer.Metainfo.Service
 	system.Metainfo.Endpoint2 = api.Metainfo.Endpoint2
 	system.Metainfo.Loop = peer.Metainfo.Loop
+	system.Metainfo.Metabase = metainfo.NewPointerDBMetabase(system.Metainfo.Service)
 
 	system.Inspector.Endpoint = api.Inspector.Endpoint
 
@@ -726,15 +721,12 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Accounting.Tally = peer.Accounting.Tally
 	system.Accounting.Rollup = peer.Accounting.Rollup
 	system.Accounting.ProjectUsage = api.Accounting.ProjectUsage
-	system.Accounting.ReportedRollup = peer.Accounting.ReportedRollupChore
 	system.Accounting.ProjectBWCleanup = peer.Accounting.ProjectBWCleanupChore
+	system.Accounting.RollupArchive = peer.Accounting.RollupArchiveChore
 
 	system.LiveAccounting = peer.LiveAccounting
 
 	system.ProjectLimits.Cache = api.ProjectLimits.Cache
-
-	system.Marketing.Listener = api.Marketing.Listener
-	system.Marketing.Endpoint = api.Marketing.Endpoint
 
 	system.GracefulExit.Chore = peer.GracefulExit.Chore
 	system.GracefulExit.Endpoint = api.GracefulExit.Endpoint

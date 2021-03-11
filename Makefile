@@ -1,4 +1,4 @@
-GO_VERSION ?= 1.15.6
+GO_VERSION ?= 1.15.7
 GOOS ?= linux
 GOARCH ?= amd64
 GOPATH ?= $(shell go env GOPATH)
@@ -128,6 +128,11 @@ check-monitoring: ## Check for locked monkit calls that have changed
 	@check-monitoring ./... | diff -U0 ./monkit.lock - \
 	|| (echo "Locked monkit metrics have been changed. Notify #data-science and run \`go run github.com/storj/ci/check-monitoring -out monkit.lock ./...\` to update monkit.lock file." \
 	&& exit 1)
+
+.PHONY: test-wasm-size
+test-wasm-size: ## Test that the built .wasm code has not increased in size
+	@echo "Running ${@}"
+	@./scripts/test-wasm-size.sh
 
 ##@ Build
 
@@ -326,8 +331,15 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 .PHONY: binaries-upload
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
 	cd "release/${TAG}"; for f in *; do \
-		zipname=$$(echo $${f} | sed 's/.exe//g') && \
-		zip -r "$${zipname}.zip" "$${f}" \
+		zipname=$$(echo $${f} | sed 's/.exe//g') \
+		&& filename=$$(echo $${f} | sed 's/_.*\.exe/.exe/g' | sed 's/_.*//g') \
+		&& if [ "$${f}" != "$${filename}" ]; then \
+			ln $${f} $${filename} \
+			&& zip -r "$${zipname}.zip" "$${filename}" \
+			&& rm $${filename} \
+		; else \
+			zip -r "$${zipname}.zip" "$${filename}" \
+		; fi \
 	; done
 	cd "release/${TAG}"; gsutil -m cp -r *.zip "gs://storj-v3-alpha-builds/${TAG}/"
 

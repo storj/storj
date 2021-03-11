@@ -4,9 +4,11 @@
 import Vue from 'vue';
 import Vuex, { ModuleTree, Store, StoreOptions } from 'vuex';
 
+import { NodesClient } from '@/api/nodes';
 import { NodesModule, NodesState } from '@/app/store/nodes';
+import { Nodes } from '@/nodes/service';
 
-Vue.use(Vuex); // TODO: place to main.ts when initialization of everything will be there.
+Vue.use(Vuex);
 
 /**
  * RootState is a representation of global state.
@@ -18,7 +20,7 @@ export class RootState {
 /**
  * MultinodeStoreOptions contains all needed data for store creation.
  */
-class MultinodeStoreOptions implements StoreOptions<RootState> {
+export class MultinodeStoreOptions implements StoreOptions<RootState> {
     public readonly strict: boolean;
     public readonly state: RootState;
     public readonly modules: ModuleTree<RootState>;
@@ -34,6 +36,14 @@ class MultinodeStoreOptions implements StoreOptions<RootState> {
     }
 }
 
+// Services
+const nodesClient: NodesClient = new NodesClient();
+const nodesService: Nodes = new Nodes(nodesClient);
+
+// Modules
+const nodesModule: NodesModule = new NodesModule(nodesService);
+
+// Store
 export const store: Store<RootState> = new Vuex.Store<RootState>(
-    new MultinodeStoreOptions(new NodesModule()),
+    new MultinodeStoreOptions(nodesModule),
 );

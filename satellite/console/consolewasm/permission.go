@@ -60,14 +60,14 @@ func SetPermission(key string, buckets []string, permission Permission) (*macaro
 		return nil, errs.New("invalid time range")
 	}
 
-	caveat := macaroon.Caveat{
+	caveat := macaroon.WithNonce(macaroon.Caveat{
 		DisallowReads:   !permission.AllowDownload,
 		DisallowWrites:  !permission.AllowUpload,
 		DisallowLists:   !permission.AllowList,
 		DisallowDeletes: !permission.AllowDelete,
 		NotBefore:       notBefore,
 		NotAfter:        notAfter,
-	}
+	})
 
 	for _, b := range buckets {
 		caveat.AllowedPaths = append(caveat.AllowedPaths, &macaroon.Caveat_Path{

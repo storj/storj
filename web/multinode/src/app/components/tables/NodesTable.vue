@@ -6,24 +6,24 @@
         <thead>
             <tr>
                 <th class="align-left">NODE</th>
-                <th>DISK SPACE USED</th>
-                <th>DISK SPACE LEFT</th>
-                <th>BANDWIDTH USED</th>
+                <template v-if="isSatelliteSelected">
+                    <th>SUSPENSION</th>
+                    <th>AUDIT</th>
+                    <th>UPTIME</th>
+                </template>
+                <template v-else>
+                    <th>DISK SPACE USED</th>
+                    <th>DISK SPACE LEFT</th>
+                    <th>BANDWIDTH USED</th>
+                </template>
                 <th>EARNED</th>
                 <th>VERSION</th>
                 <th>STATUS</th>
+                <th></th>
             </tr>
         </thead>
         <tbody>
-            <tr v-for="node in nodes" :key="node.id">
-                <th class="align-left">{{ node.name }}</th>
-                <th>{{ node.diskSpaceUsed | bytesToBase10String }}</th>
-                <th>{{ node.diskSpaceLeft | bytesToBase10String }}</th>
-                <th>{{ node.bandwidthUsed | bytesToBase10String }}</th>
-                <th>{{ node.earned | centsToDollars }}</th>
-                <th>{{ node.version }}</th>
-                <th :class="node.status">{{ node.status }}</th>
-            </tr>
+            <node-item v-for="node in nodes" :key="node.id" :node="node" />
         </tbody>
     </table>
 </template>
@@ -31,11 +31,23 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import NodeItem from '@/app/components/tables/NodeItem.vue';
+
 import { Node } from '@/nodes';
 
-@Component
+@Component({
+    components: {
+        NodeItem,
+    },
+})
 export default class NodesTable extends Vue {
-    public nodes: Node[] = [];
+    public get nodes(): Node[] {
+        return this.$store.state.nodes.nodes;
+    }
+
+    public get isSatelliteSelected(): boolean {
+        return !!this.$store.state.nodes.selectedSatellite;
+    }
 }
 </script>
 
@@ -45,7 +57,6 @@ export default class NodesTable extends Vue {
         border: 1px solid var(--c-gray--light);
         border-radius: var(--br-table);
         font-family: 'font_semiBold', sans-serif;
-        overflow: hidden;
 
         th {
             box-sizing: border-box;
@@ -65,32 +76,6 @@ export default class NodesTable extends Vue {
                 color: var(--c-gray);
                 border-radius: var(--br-table);
                 text-align: right;
-            }
-        }
-
-        tbody {
-
-            tr {
-                height: 56px;
-                text-align: right;
-                font-size: 16px;
-                color: var(--c-line);
-
-                &:nth-of-type(even) {
-                    background: var(--c-block-gray);
-                }
-
-                th:not(:first-of-type) {
-                    font-family: 'font_medium', sans-serif;
-                }
-            }
-
-            .online {
-                color: var(--c-success);
-            }
-
-            .offline {
-                color: var(--c-error);
             }
         }
 

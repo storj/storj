@@ -42,7 +42,7 @@ export default class CreateAccessGrant extends Vue {
      * Indicates if progress bar is hidden.
      */
     public get isProgressBarHidden(): boolean {
-        return this.$route.name === RouteConfig.CLIStep.name || this.$route.name === RouteConfig.UploadStep.name;
+        return this.$route.name === RouteConfig.CLIStep.name;
     }
 }
 </script>

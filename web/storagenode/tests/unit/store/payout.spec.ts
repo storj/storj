@@ -16,7 +16,7 @@ import {
     PreviousMonthEstimatedPayout,
     SatelliteHeldHistory,
     SatellitePayoutForPeriod,
-    TotalHeldAndPaid,
+    TotalPayments,
     TotalPaystubForPeriod,
 } from '@/storagenode/payouts/payouts';
 import { PayoutService } from '@/storagenode/payouts/service';
@@ -58,15 +58,17 @@ describe('mutations', (): void => {
         paystub.held = 600000;
         paystub.disposed = 100000;
         paystub.paid = 1000000;
+        paystub.distributed = 500000;
 
-        const totalHeldAndPaid = new TotalHeldAndPaid([paystub]);
-        totalHeldAndPaid.setCurrentMonthEarnings(22);
+        const totalPayments = new TotalPayments([paystub]);
+        totalPayments.setCurrentMonthEarnings(22);
 
-        store.commit(PAYOUT_MUTATIONS.SET_TOTAL, totalHeldAndPaid);
+        store.commit(PAYOUT_MUTATIONS.SET_TOTAL, totalPayments);
 
-        expect(state.payoutModule.totalHeldAndPaid.held).toBe(50);
-        expect(state.payoutModule.totalHeldAndPaid.paid).toBe(100);
-        expect(state.payoutModule.totalHeldAndPaid.disposed).toBe(10);
+        expect(state.payoutModule.totalPayments.held).toBe(50);
+        expect(state.payoutModule.totalPayments.paid).toBe(100);
+        expect(state.payoutModule.totalPayments.disposed).toBe(10);
+        expect(state.payoutModule.totalPayments.balance).toBe(50);
         expect(state.payoutModule.currentMonthEarnings).toBe(22);
     });
 
@@ -260,7 +262,8 @@ describe('actions', () => {
         const paystub = new Paystub();
         paystub.held = 100000;
         paystub.disposed = 50000;
-        paystub.paid = 200000;
+        paystub.paid = 2000000;
+        paystub.distributed = 500000;
 
         jest.spyOn(payoutApi, 'getPaystubsForPeriod').mockReturnValue(
             Promise.resolve([paystub]),
@@ -268,9 +271,10 @@ describe('actions', () => {
 
         await store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
 
-        expect(state.payoutModule.totalHeldAndPaid.held).toBe(5);
-        expect(state.payoutModule.totalHeldAndPaid.paid).toBe(20);
-        expect(state.payoutModule.totalHeldAndPaid.disposed).toBe(5);
+        expect(state.payoutModule.totalPayments.held).toBe(5);
+        expect(state.payoutModule.totalPayments.paid).toBe(200);
+        expect(state.payoutModule.totalPayments.disposed).toBe(5);
+        expect(state.payoutModule.totalPayments.balance).toBe(150);
         expect(state.payoutModule.currentMonthEarnings).toBe(0);
     });
 
@@ -281,8 +285,9 @@ describe('actions', () => {
             await store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
             expect(true).toBe(false);
         } catch (error) {
-            expect(state.payoutModule.totalHeldAndPaid.held).toBe(5);
-            expect(state.payoutModule.totalHeldAndPaid.paid).toBe(20);
+            expect(state.payoutModule.totalPayments.held).toBe(5);
+            expect(state.payoutModule.totalPayments.paid).toBe(200);
+            expect(state.payoutModule.totalPayments.balance).toBe(150);
             expect(state.payoutModule.currentMonthEarnings).toBe(0);
         }
     });

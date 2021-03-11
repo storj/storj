@@ -42,19 +42,16 @@ export class Traffic {
 }
 
 /**
- * Holds uptime, audit and suspension checks.
+ * Holds audit and suspension checks.
  */
 export class Checks {
-    public uptime: number = 0;
     public audit: number = 0;
     public suspension: number = 0;
 
     public constructor(
-        uptime: Metric = new Metric(),
         audit: Metric = new Metric(),
     ) {
         this.audit = parseFloat(parseFloat(`${audit.score * 100}`).toFixed(1));
-        this.uptime = uptime.totalCount === 0 ? 100 : uptime.successCount / uptime.totalCount * 100;
         this.suspension = audit.unknownScore * 100;
     }
 }
@@ -104,8 +101,7 @@ export class Satellite {
         public bandwidthSummary: number = 0,
         public egressSummary: number = 0,
         public ingressSummary: number = 0,
-        public audit: Metric = new Metric(),
-        public uptime: Metric = new Metric(),
+        public audits: SatelliteScores = new SatelliteScores(),
         public joinDate: Date = new Date(),
     ) {}
 }

@@ -26,7 +26,7 @@ type Config struct {
 }
 
 // Service is the contact service between storage nodes and satellites.
-// It is responsible for updating general node information like address, capacity, and uptime.
+// It is responsible for updating general node information like address and capacity.
 // It is also responsible for updating peer identity information for verifying signatures from that node.
 //
 // architecture: Service

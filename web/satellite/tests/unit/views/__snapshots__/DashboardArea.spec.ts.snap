@@ -4,6 +4,7 @@ exports[`Dashboard renders correctly when data is loaded 1`] = `
 <div class="dashboard">
   <!---->
   <!---->
+  <!---->
   <div class="dashboard__wrap">
     <dashboardheader-stub></dashboardheader-stub>
     <div class="dashboard__wrap__main-area">
@@ -11,7 +12,7 @@ exports[`Dashboard renders correctly when data is loaded 1`] = `
       <div class="dashboard__wrap__main-area__content">
         <div class="dashboard__wrap__main-area__content__bar-area">
           <!---->
-          <vinfobar-stub firstvalue="You have used 0" secondvalue="1" firstdescription="of your" seconddescription="available projects." link="" linklabel="Request Project Limit Increase" path="" isblue="true"></vinfobar-stub>
+          <!---->
         </div>
         <router-view-stub name="default"></router-view-stub>
       </div>
@@ -23,6 +24,7 @@ exports[`Dashboard renders correctly when data is loaded 1`] = `
 exports[`Dashboard renders correctly when data is loading 1`] = `
 <div class="dashboard">
   <div class="loading-overlay active"><img src="@/../static/images/register/Loading.gif" alt="Company logo loading gif" class="loading-image"></div>
+  <!---->
   <!---->
   <!---->
 </div>

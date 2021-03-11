@@ -49,6 +49,8 @@ type NodeInfo struct {
 	UsageGetAudit      int64
 	TotalHeld          currency.MicroUnit
 	TotalDisposed      currency.MicroUnit
+	TotalPaid          currency.MicroUnit
+	TotalDistributed   currency.MicroUnit
 }
 
 // Statement is the computed amounts and codes from a node.

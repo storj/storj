@@ -27,7 +27,6 @@ type DB interface {
 type Stats struct {
 	SatelliteID storj.NodeID
 
-	Uptime      Metric
 	Audit       Metric
 	OnlineScore float64
 

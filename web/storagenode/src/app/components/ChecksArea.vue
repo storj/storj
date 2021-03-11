@@ -15,20 +15,17 @@
                 </div>
             </div>
         </div>
-        <p class="checks-area-container__amount"><b>{{ value }}%</b></p>
+        <p class="checks-area-container__amount"><b>{{ amount }}</b></p>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import VInfo from '@/app/components/VInfo.vue';
-
 import ChecksInfoIcon from '@/../static/images/checksInfo.svg';
 
 @Component ({
     components: {
-        VInfo,
         ChecksInfoIcon,
     },
 })
@@ -36,7 +33,7 @@ export default class ChecksArea extends Vue {
     @Prop({default: ''})
     private readonly label: string;
     @Prop({default: ''})
-    private readonly amount: number;
+    private readonly amount: string;
     @Prop({default: ''})
     private readonly infoText: string;
 
@@ -50,10 +47,6 @@ export default class ChecksArea extends Vue {
      */
     public toggleTooltipVisibility(): void {
         this.isTooltipVisible = !this.isTooltipVisible;
-    }
-
-    public get value(): string {
-        return this.amount.toFixed(2);
     }
 }
 </script>

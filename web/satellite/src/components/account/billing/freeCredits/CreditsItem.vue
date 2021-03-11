@@ -32,13 +32,12 @@ export default class CreditsItem extends Vue {
      */
     public get creditType(): string {
         const trial = 'Trial Credit';
-        const referral = 'Referral Credit';
 
         if (this.creditsItem.type === PaymentsHistoryItemType.Coupon) {
             return trial;
         }
 
-        return referral;
+        return '';
     }
 
     /**

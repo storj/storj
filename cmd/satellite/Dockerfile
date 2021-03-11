@@ -3,7 +3,6 @@ ARG DOCKER_ARCH
 FROM node:14.15.3 as ui
 WORKDIR /app
 COPY web/satellite/ /app
-COPY web/marketing/ /app/marketing
 # Need to clean up (or ignore) local folders like node_modules, etc...
 RUN npm install
 RUN npm run build
@@ -24,7 +23,6 @@ EXPOSE 10100
 WORKDIR /app
 COPY --from=ui /app/static /app/static
 COPY --from=ui /app/dist /app/dist
-COPY --from=ui /app/marketing /app/marketing
 COPY --from=ca-cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY release/${TAG}/wasm/access.wasm /app/static/wasm/
 COPY release/${TAG}/wasm/wasm_exec.js /app/static/wasm/

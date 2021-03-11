@@ -23,7 +23,7 @@ import BaseChart from '@/app/components/BaseChart.vue';
 import { ChartData } from '@/app/types/chartData';
 import { Tooltip, TooltipParams } from '@/app/types/tooltip';
 import { ChartUtils } from '@/app/utils/chart';
-import { formatBytes } from '@/app/utils/converter';
+import { Size } from '@/private/memory/size';
 import { Stamp } from '@/storagenode/sno/sno';
 
 /**
@@ -34,7 +34,7 @@ class StampTooltip {
     public date: string;
 
     public constructor(stamp: Stamp) {
-        this.atRestTotal = formatBytes(stamp.atRestTotal);
+        this.atRestTotal = Size.toBase10String(stamp.atRestTotal);
         this.date = stamp.intervalStart.toUTCString().slice(0, 16);
     }
 }

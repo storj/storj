@@ -20,13 +20,11 @@ const payoutModule = newPayoutModule(payoutService);
 const store = new Vuex.Store({ modules: { payoutModule }});
 
 describe('HeldHistoryArea', (): void => {
-    it('renders correctly',  async (): Promise<void> => {
+    it('renders correctly',  (): void => {
         const wrapper = shallowMount(HeldHistoryArea, {
             store,
             localVue,
         });
-
-        await localVue.nextTick();
 
         expect(wrapper).toMatchSnapshot();
     });
@@ -37,15 +35,11 @@ describe('HeldHistoryArea', (): void => {
             localVue,
         });
 
-        wrapper.findAll('.held-history-container__header__selection-area__item').at(1).trigger('click');
-
-        await localVue.nextTick();
+        await wrapper.findAll('.held-history-container__header__selection-area__item').at(1).trigger('click');
 
         expect(wrapper).toMatchSnapshot();
 
-        wrapper.findAll('.held-history-container__header__selection-area__item').at(0).trigger('click');
-
-        await localVue.nextTick();
+        await wrapper.findAll('.held-history-container__header__selection-area__item').at(0).trigger('click');
 
         expect(wrapper).toMatchSnapshot();
     });

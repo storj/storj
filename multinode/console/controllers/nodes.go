@@ -133,32 +133,15 @@ func (controller *Nodes) Get(w http.ResponseWriter, r *http.Request) {
 	node, err := controller.service.Get(ctx, nodeID)
 	if err != nil {
 		controller.log.Error("get node not found error", zap.Error(err))
-		controller.serveError(w, http.StatusNotFound, ErrNodes.Wrap(err))
-		return
-	}
-
-	if err = json.NewEncoder(w).Encode(node); err != nil {
-		controller.log.Error("failed to write json response", zap.Error(err))
-		return
-	}
-}
-
-// List handles retrieving list of nodes.
-func (controller *Nodes) List(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	w.Header().Add("Content-Type", "application/json")
-
-	list, err := controller.service.List(ctx)
-	if err != nil {
-		controller.log.Error("list nodes internal error", zap.Error(err))
+		if nodes.ErrNoNode.Has(err) {
+			controller.serveError(w, http.StatusNotFound, ErrNodes.Wrap(err))
+			return
+		}
 		controller.serveError(w, http.StatusInternalServerError, ErrNodes.Wrap(err))
 		return
 	}
 
-	if err = json.NewEncoder(w).Encode(list); err != nil {
+	if err = json.NewEncoder(w).Encode(node); err != nil {
 		controller.log.Error("failed to write json response", zap.Error(err))
 		return
 	}

@@ -103,7 +103,7 @@ func removeUplinkUserAgent(entries []useragent.Entry) []useragent.Entry {
 	var xs []useragent.Entry
 	for i := 0; i < len(entries); i++ {
 		// If it's "uplink" then skip it.
-		if strings.EqualFold(entries[i].Product, "uplink") {
+		if strings.EqualFold(entries[i].Product, uplinkProduct) {
 			// also skip any associated comments
 			for i+1 < len(entries) && entries[i+1].Comment != "" {
 				i++

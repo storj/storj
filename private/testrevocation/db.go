@@ -11,8 +11,8 @@ import (
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/testcontext"
 	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/private/testredis"
 	"storj.io/storj/storage"
-	"storj.io/storj/storage/redis/redisserver"
 )
 
 // RunDBs runs the passed test function with each type of revocation database.
@@ -21,7 +21,7 @@ func RunDBs(t *testing.T, test func(*testing.T, extensions.RevocationDB, storage
 		ctx := testcontext.New(t)
 		defer ctx.Cleanup()
 
-		redis, err := redisserver.Mini(ctx)
+		redis, err := testredis.Mini(ctx)
 		require.NoError(t, err)
 		defer ctx.Check(redis.Close)
 

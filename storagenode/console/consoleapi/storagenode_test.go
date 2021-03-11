@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"testing"
 	"time"
@@ -17,9 +18,10 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/storj/private/date"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
-	"storj.io/storj/storagenode/payout/estimatedpayout"
+	"storj.io/storj/storagenode/payouts/estimatedpayouts"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/storageusage"
@@ -94,15 +96,19 @@ func TestStorageNodeApi(t *testing.T) {
 			})
 			require.NoError(t, err)
 
+			now2 := time.Now().UTC()
+			daysPerMonth := date.UTCEndOfMonth(now2).Day()
+
 			err = reputationdb.Store(ctx, reputation.Stats{
 				SatelliteID: satellite.ID(),
-				JoinedAt:    time.Now().UTC(),
+				JoinedAt:    now.AddDate(0, 0, -daysPerMonth+3),
 			})
 			require.NoError(t, err)
 
 			t.Run("test EstimatedPayout", func(t *testing.T) {
 				// should return estimated payout for both satellites in current month and empty for previous
 				url := fmt.Sprintf("%s/estimated-payout", baseURL)
+
 				res, err := http.Get(url)
 				require.NoError(t, err)
 				require.NotNil(t, res)
@@ -115,15 +121,23 @@ func TestStorageNodeApi(t *testing.T) {
 				body, err := ioutil.ReadAll(res.Body)
 				require.NoError(t, err)
 
-				estimation, err := sno.Console.Service.GetAllSatellitesEstimatedPayout(ctx)
-				require.NoError(t, err)
-				expected, err := json.Marshal(estimatedpayout.EstimatedPayout{
-					CurrentMonth:  estimation.CurrentMonth,
-					PreviousMonth: estimation.PreviousMonth,
-				})
+				bodyPayout := &estimatedpayouts.EstimatedPayout{}
+				require.NoError(t, json.Unmarshal(body, bodyPayout))
 
+				estimation, err := sno.Console.Service.GetAllSatellitesEstimatedPayout(ctx, time.Now())
 				require.NoError(t, err)
-				require.Equal(t, string(expected)+"\n", string(body))
+				expectedPayout := &estimatedpayouts.EstimatedPayout{
+					CurrentMonth:             estimation.CurrentMonth,
+					PreviousMonth:            estimation.PreviousMonth,
+					CurrentMonthExpectations: estimation.CurrentMonthExpectations,
+				}
+				require.NoError(t, err)
+
+				// round CurrentMonthExpectations to 3 decimal places to resolve precision issues
+				bodyPayout.CurrentMonthExpectations = math.Floor(bodyPayout.CurrentMonthExpectations*1000) / 1000
+				expectedPayout.CurrentMonthExpectations = math.Floor(expectedPayout.CurrentMonthExpectations*1000) / 1000
+
+				require.EqualValues(t, expectedPayout, bodyPayout)
 			})
 		},
 	)

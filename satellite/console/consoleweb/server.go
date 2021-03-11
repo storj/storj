@@ -40,7 +40,6 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/referrals"
 	"storj.io/storj/satellite/rewards"
 )
 
@@ -77,12 +76,13 @@ type Config struct {
 	TermsAndConditionsURL           string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
 	SegmentIOPublicKey              string `help:"used to initialize segment.io at web satellite console" default:""`
 	AccountActivationRedirectURL    string `help:"url link for account activation redirect" default:""`
-	VerificationPageURL             string `help:"url link to sign up verification page" default:"https://tardigrade.io/verify"`
+	VerificationPageURL             string `help:"url link to sign up verification page" devDefault:"" releaseDefault:"https://tardigrade.io/verify"`
 	PartneredSatelliteNames         string `help:"names of partnered satellites" default:"US-Central-1,Europe-West-1,Asia-East-1"`
 	GoogleTagManagerID              string `help:"id for google tag manager" default:""`
 	GeneralRequestURL               string `help:"url link to general request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
 	ProjectLimitsIncreaseRequestURL string `help:"url link to project limit increase request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
 	GatewayCredentialsRequestURL    string `help:"url link for gateway credentials requests" default:"https://auth.tardigradeshare.io"`
+	IsBetaSatellite                 bool   `help:"indicates if satellite is in beta" default:"false"`
 
 	RateLimit web.IPRateLimiterConfig
 
@@ -95,11 +95,10 @@ type Config struct {
 type Server struct {
 	log *zap.Logger
 
-	config           Config
-	service          *console.Service
-	mailService      *mailservice.Service
-	referralsService *referrals.Service
-	partners         *rewards.PartnersService
+	config      Config
+	service     *console.Service
+	mailService *mailservice.Service
+	partners    *rewards.PartnersService
 
 	listener    net.Listener
 	server      http.Server
@@ -122,18 +121,17 @@ type Server struct {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, referralsService *referrals.Service, partners *rewards.PartnersService, listener net.Listener, stripePublicKey string, nodeURL storj.NodeURL) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, partners *rewards.PartnersService, listener net.Listener, stripePublicKey string, nodeURL storj.NodeURL) *Server {
 	server := Server{
-		log:              logger,
-		config:           config,
-		listener:         listener,
-		service:          service,
-		mailService:      mailService,
-		referralsService: referralsService,
-		partners:         partners,
-		stripePublicKey:  stripePublicKey,
-		rateLimiter:      web.NewIPRateLimiter(config.RateLimit),
-		nodeURL:          nodeURL,
+		log:             logger,
+		config:          config,
+		listener:        listener,
+		service:         service,
+		mailService:     mailService,
+		partners:        partners,
+		stripePublicKey: stripePublicKey,
+		rateLimiter:     web.NewIPRateLimiter(config.RateLimit),
+		nodeURL:         nodeURL,
 	}
 
 	logger.Debug("Starting Satellite UI.", zap.Stringer("Address", server.listener.Addr()))
@@ -168,11 +166,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		"/api/v0/projects/{id}/usage-limits",
 		server.withAuth(http.HandlerFunc(server.projectUsageLimitsHandler)),
 	).Methods(http.MethodGet)
-
-	referralsController := consoleapi.NewReferrals(logger, referralsService, service, mailService, server.config.ExternalAddress)
-	referralsRouter := router.PathPrefix("/api/v0/referrals").Subrouter()
-	referralsRouter.Handle("/tokens", server.withAuth(http.HandlerFunc(referralsController.GetTokens))).Methods(http.MethodGet)
-	referralsRouter.HandleFunc("/register", referralsController.Register).Methods(http.MethodPost)
 
 	authController := consoleapi.NewAuth(logger, service, mailService, server.cookieAuth, partners, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
@@ -284,6 +277,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
 	var data struct {
+		ExternalAddress                 string
 		SatelliteName                   string
 		SatelliteNodeURL                string
 		SegmentIOPublicKey              string
@@ -295,8 +289,10 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		GeneralRequestURL               string
 		ProjectLimitsIncreaseRequestURL string
 		GatewayCredentialsRequestURL    string
+		IsBetaSatellite                 bool
 	}
 
+	data.ExternalAddress = server.config.ExternalAddress
 	data.SatelliteName = server.config.SatelliteName
 	data.SatelliteNodeURL = server.nodeURL.String()
 	data.SegmentIOPublicKey = server.config.SegmentIOPublicKey
@@ -308,6 +304,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.GeneralRequestURL = server.config.GeneralRequestURL
 	data.ProjectLimitsIncreaseRequestURL = server.config.ProjectLimitsIncreaseRequestURL
 	data.GatewayCredentialsRequestURL = server.config.GatewayCredentialsRequestURL
+	data.IsBetaSatellite = server.config.IsBetaSatellite
 
 	if server.templates.index == nil {
 		server.log.Error("index template is not set")

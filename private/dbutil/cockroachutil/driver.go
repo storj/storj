@@ -9,7 +9,9 @@ import (
 	"database/sql/driver"
 	"errors"
 	"io"
+	"net"
 	"strings"
+	"syscall"
 
 	"github.com/jackc/pgx/v4/stdlib"
 	"github.com/zeebo/errs"
@@ -331,6 +333,26 @@ func translateName(name string) string {
 // NeedsRetry checks if the error code means a retry is needed,
 // borrowed from code in crdb.
 func NeedsRetry(err error) bool {
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		mon.Event("crdb_error_eof")
+		// Currently we don't retry with EOF because it's unclear if
+		// a query succeeded or failed.
+		return false
+	}
+	if errors.Is(err, syscall.ECONNRESET) {
+		mon.Event("crdb_error_conn_reset_needed_retry")
+		return true
+	}
+	if errors.Is(err, syscall.ECONNREFUSED) {
+		mon.Event("crdb_error_conn_refused_needed_retry")
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		mon.Event("crdb_net_error_needed_retry")
+		return true
+	}
+
 	code := pgerrcode.FromError(err)
 
 	// 57P01 occurs when a CRDB node rejoins the cluster but is not ready to accept connections

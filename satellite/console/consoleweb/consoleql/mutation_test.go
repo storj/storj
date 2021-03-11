@@ -18,6 +18,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/post"
+	"storj.io/storj/private/testredis"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
@@ -29,7 +30,6 @@ import (
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/storage/redis/redisserver"
 )
 
 // discardSender discard sending of an actual email.
@@ -59,7 +59,7 @@ func TestGraphqlMutation(t *testing.T) {
 			},
 		)
 
-		redis, err := redisserver.Mini(ctx)
+		redis, err := testredis.Mini(ctx)
 		require.NoError(t, err)
 		defer ctx.Check(redis.Close)
 
@@ -106,7 +106,6 @@ func TestGraphqlMutation(t *testing.T) {
 			db.ProjectAccounting(),
 			projectUsage,
 			db.Buckets(),
-			db.Rewards(),
 			partnersService,
 			paymentsService.Accounts(),
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
@@ -136,12 +135,11 @@ func TestGraphqlMutation(t *testing.T) {
 			PartnerID: "120bf202-8252-437e-ac12-0e364bee852e",
 			Password:  "123a123",
 		}
-		refUserID := ""
 
 		regToken, err := service.CreateRegToken(ctx, 1)
 		require.NoError(t, err)
 
-		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret, refUserID)
+		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret)
 		require.NoError(t, err)
 		require.Equal(t, createUser.PartnerID, rootUser.PartnerID.String())
 
@@ -227,7 +225,7 @@ func TestGraphqlMutation(t *testing.T) {
 			FullName: "User1",
 			Email:    "u1@mail.test",
 			Password: "123a123",
-		}, regTokenUser1.Secret, refUserID)
+		}, regTokenUser1.Secret)
 		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {
@@ -251,7 +249,7 @@ func TestGraphqlMutation(t *testing.T) {
 			FullName: "User1",
 			Email:    "u2@mail.test",
 			Password: "123a123",
-		}, regTokenUser2.Secret, refUserID)
+		}, regTokenUser2.Secret)
 		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {

@@ -62,6 +62,10 @@ var States = MultiDBStates{
 		&v45,
 		&v46,
 		&v47,
+		&v48,
+		&v49,
+		&v50,
+		&v51,
 	},
 }
 
@@ -93,9 +97,12 @@ type DBStates map[string]*DBState
 // DBState allows you to define the desired state of the DB using SQl commands.
 // Both the SQl and NewData fields contains SQL that will be executed to create
 // the expected DB. The NewData SQL additionally will be executed on the testDB
-// to ensure data is consistent.
+// to ensure data is consistent. If OldData is not empty, it is executed on the
+// testDB before the migration is run, and NewData is not run on the testDB. This
+// is used to assert that a migration that modifies data runs as expected.
 type DBState struct {
 	SQL     string
+	OldData string
 	NewData string
 }
 
@@ -122,7 +129,7 @@ type DBSnapshot struct {
 }
 
 // LoadMultiDBSnapshot converts a MultiDBState into a MultiDBSnapshot. It
-// executes the SQL and stores the shema and data.
+// executes the SQL and stores the schema and data.
 func LoadMultiDBSnapshot(ctx context.Context, multiDBState *MultiDBState) (*MultiDBSnapshot, error) {
 	multiDBSnapshot := NewMultiDBSnapshot()
 	for dbName, dbState := range multiDBState.DBStates {

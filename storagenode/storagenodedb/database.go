@@ -29,7 +29,7 @@ import (
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
-	"storj.io/storj/storagenode/payout"
+	"storj.io/storj/storagenode/payouts"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
@@ -534,7 +534,7 @@ func (db *DB) Notifications() notifications.DB {
 }
 
 // Payout returns instance of the SnoPayout database.
-func (db *DB) Payout() payout.DB {
+func (db *DB) Payout() payouts.DB {
 	return db.payoutDB
 }
 
@@ -1836,6 +1836,147 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Version:     47,
 				Action: migrate.SQL{
 					`ALTER TABLE reputation ADD COLUMN audit_history BLOB`,
+				},
+			},
+			{
+				DB:          &db.reputationDB.DB,
+				Description: "drop uptime columns",
+				Version:     48,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					_, err = rtx.Exec(ctx, `
+						CREATE TABLE reputation_new (
+							satellite_id BLOB NOT NULL,
+							audit_success_count INTEGER NOT NULL,
+							audit_total_count INTEGER NOT NULL,
+							audit_reputation_alpha REAL NOT NULL,
+							audit_reputation_beta REAL NOT NULL,
+							audit_reputation_score REAL NOT NULL,
+							audit_unknown_reputation_alpha REAL NOT NULL,
+							audit_unknown_reputation_beta REAL NOT NULL,
+							audit_unknown_reputation_score REAL NOT NULL,
+							online_score REAL NOT NULL,
+							audit_history BLOB,
+							disqualified_at TIMESTAMP,
+							updated_at TIMESTAMP NOT NULL,
+							suspended_at TIMESTAMP,
+							offline_suspended_at TIMESTAMP,
+							offline_under_review_at TIMESTAMP,
+							joined_at TIMESTAMP NOT NULL,
+							PRIMARY KEY (satellite_id)
+						);
+						INSERT INTO reputation_new SELECT
+							satellite_id,
+							audit_success_count,
+							audit_total_count,
+							audit_reputation_alpha,
+							audit_reputation_beta,
+							audit_reputation_score,
+							audit_unknown_reputation_alpha,
+							audit_unknown_reputation_beta,
+							audit_unknown_reputation_score,
+							online_score,
+							audit_history,
+							disqualified_at,
+							updated_at,
+							suspended_at,
+							offline_suspended_at,
+							offline_under_review_at,
+							joined_at
+							FROM reputation;
+						DROP TABLE reputation;
+						ALTER TABLE reputation_new RENAME TO reputation;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          &db.payoutDB.DB,
+				Description: "Add distributed field to paystubs table",
+				Version:     49,
+				Action: migrate.SQL{
+					`ALTER TABLE paystubs ADD COLUMN distributed bigint`,
+				},
+			},
+			{
+				DB:          &db.payoutDB.DB,
+				Description: "Make distributed field in paystubs table not null",
+				Version:     50,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					_, err = rtx.Exec(ctx, `UPDATE paystubs SET distributed = ? WHERE distributed ISNULL`, 0)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `
+						CREATE TABLE paystubs_new (
+							period text NOT NULL,
+							satellite_id bytea NOT NULL,
+							created_at timestamp NOT NULL,
+							codes text NOT NULL,
+							usage_at_rest double precision NOT NULL,
+							usage_get bigint NOT NULL,
+							usage_put bigint NOT NULL,
+							usage_get_repair bigint NOT NULL,
+							usage_put_repair bigint NOT NULL,
+							usage_get_audit bigint NOT NULL,
+							comp_at_rest bigint NOT NULL,
+							comp_get bigint NOT NULL,
+							comp_put bigint NOT NULL,
+							comp_get_repair bigint NOT NULL,
+							comp_put_repair bigint NOT NULL,
+							comp_get_audit bigint NOT NULL,
+							surge_percent bigint NOT NULL,
+							held bigint NOT NULL,
+							owed bigint NOT NULL,
+							disposed bigint NOT NULL,
+							paid bigint NOT NULL,
+							distributed bigint NOT NULL,
+							PRIMARY KEY ( period, satellite_id )
+						);
+						INSERT INTO paystubs_new SELECT
+							period,
+							satellite_id,
+							created_at,
+							codes,
+							usage_at_rest,
+							usage_get,
+							usage_put,
+							usage_get_repair,
+							usage_put_repair,
+							usage_get_audit,
+							comp_at_rest,
+							comp_get,
+							comp_put,
+							comp_get_repair,
+							comp_put_repair,
+							comp_get_audit,
+							surge_percent,
+							held,
+							owed,
+							disposed,
+							paid,
+							distributed
+							FROM paystubs;
+						DROP TABLE paystubs;
+						ALTER TABLE paystubs_new RENAME TO paystubs;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          &db.payoutDB.DB,
+				Description: "Assume distributed == paid for paystubs before 2020-12.",
+				Version:     51,
+				Action: migrate.SQL{
+					`UPDATE paystubs SET distributed = paid WHERE period < '2020-12'`,
 				},
 			},
 		},

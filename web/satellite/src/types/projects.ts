@@ -44,6 +44,14 @@ export interface ProjectsApi {
      * throws Error
      */
     getLimits(projectId: string): Promise<ProjectLimits>;
+
+    /**
+     * Fetch owned projects.
+     *
+     * @returns ProjectsPage
+     * @throws Error
+     */
+    getOwnedProjects(cursor: ProjectsCursor): Promise<ProjectsPage>;
 }
 
 /**
@@ -67,7 +75,18 @@ export class Project {
         public createdAt: string = '',
         public ownerId: string = '',
         public isSelected: boolean = false,
+        public memberCount: number = 0,
     ) {}
+
+    /**
+     * Returns created date as a local string.
+     */
+    public createdDate(): string {
+        const createdAt = new Date(this.createdAt);
+        const options = { year: 'numeric', month: 'short', day: 'numeric' };
+
+        return createdAt.toLocaleString('en-US', options);
+    }
 }
 
 /**
@@ -116,5 +135,38 @@ export class ProjectLimits {
         public bandwidthUsed: number = 0,
         public storageLimit: number = 0,
         public storageUsed: number = 0,
+    ) {}
+}
+
+export class ProjectPage {
+    public constructor(
+        public projects: Project[] = [],
+        public pageCount: number = 0,
+        public currentPage: number = 0,
+        public totalCount: number = 0,
+    ) {}
+}
+
+/**
+ * ProjectsPage class, used to describe paged projects list.
+ */
+export class ProjectsPage {
+    public constructor(
+        public projects: Project[] = [],
+        public limit: number = 0,
+        public offset: number = 0,
+        public pageCount: number = 0,
+        public currentPage: number = 0,
+        public totalCount: number = 0,
+    ) {}
+}
+
+/**
+ * ProjectsPage class, used to describe paged projects list.
+ */
+export class ProjectsCursor {
+    public constructor(
+        public limit: number = 0,
+        public page: number = 0,
     ) {}
 }

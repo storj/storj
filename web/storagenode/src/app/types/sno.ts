@@ -32,5 +32,5 @@ export class StorageNodeState {
     public egressSummary: number = 0;
     public ingressSummary: number = 0;
     public satellitesScores: SatelliteScores[] = [];
-    public checks: Checks = new Checks();
+    public audits: SatelliteScores = new SatelliteScores();
 }

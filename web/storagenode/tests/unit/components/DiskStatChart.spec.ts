@@ -6,7 +6,7 @@ import Vuex from 'vuex';
 import DiskStatChart from '@/app/components/DiskStatChart.vue';
 
 import { newNodeModule, NODE_ACTIONS } from '@/app/store/modules/node';
-import { formatBytes } from '@/app/utils/converter';
+import { Size } from '@/private/memory/size';
 import { StorageNodeApi } from '@/storagenode/api/storagenode';
 import { StorageNodeService } from '@/storagenode/sno/service';
 import { Dashboard, SatelliteInfo, Traffic } from '@/storagenode/sno/sno';
@@ -16,7 +16,7 @@ const localVue = createLocalVue();
 localVue.use(Vuex);
 
 localVue.filter('bytesToBase10String', (amountInBytes: number): string => {
-    return `${formatBytes(amountInBytes)}`;
+    return `${Size.toBase10String(amountInBytes)}`;
 });
 
 const nodeApi = new StorageNodeApi();

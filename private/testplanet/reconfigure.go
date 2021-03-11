@@ -10,7 +10,6 @@ import (
 
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/memory"
-	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
@@ -23,8 +22,6 @@ type Reconfigure struct {
 	SatelliteDB        func(log *zap.Logger, index int, db satellite.DB) (satellite.DB, error)
 	SatellitePointerDB func(log *zap.Logger, index int, db metainfo.PointerDB) (metainfo.PointerDB, error)
 	Satellite          func(log *zap.Logger, index int, config *satellite.Config)
-
-	ReferralManagerServer func(log *zap.Logger) pb.DRPCReferralManagerServer
 
 	StorageNodeDB func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error)
 	StorageNode   func(index int, config *storagenode.Config)
@@ -85,4 +82,26 @@ var MaxMetadataSize = func(maxMetadataSize memory.Size) func(log *zap.Logger, in
 	return func(log *zap.Logger, index int, config *satellite.Config) {
 		config.Metainfo.MaxMetadataSize = maxMetadataSize
 	}
+}
+
+// DisableTCP prevents both satellite and storagenode being able to accept new
+// tcp connections.
+var DisableTCP = Reconfigure{
+	Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+		config.Server.DisableTCPTLS = true
+	},
+	StorageNode: func(index int, config *storagenode.Config) {
+		config.Server.DisableTCPTLS = true
+	},
+}
+
+// DisableQUIC prevents both satellite and storagenode being able to accept new
+// quic connections.
+var DisableQUIC = Reconfigure{
+	Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+		config.Server.DisableQUIC = true
+	},
+	StorageNode: func(index int, config *storagenode.Config) {
+		config.Server.DisableQUIC = true
+	},
 }

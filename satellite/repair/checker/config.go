@@ -19,7 +19,7 @@ type Config struct {
 	IrreparableInterval time.Duration `help:"how frequently irrepairable checker should check for lost pieces" releaseDefault:"30m" devDefault:"0h0m5s"`
 
 	ReliabilityCacheStaleness time.Duration   `help:"how stale reliable node cache can be" releaseDefault:"5m" devDefault:"5m"`
-	RepairOverrides           RepairOverrides `help:"comma-separated override values for repair threshold in the format k/o/n-override (min/optimal/total-override)" releaseDefault:"29/80/110-52,29/80/95-52" devDefault:""`
+	RepairOverrides           RepairOverrides `help:"comma-separated override values for repair threshold in the format k/o/n-override (min/optimal/total-override)" releaseDefault:"29/80/110-52,29/80/95-52,29/80/130-52" devDefault:""`
 	// Node failure rate is an estimation based on a 6 hour checker run interval (4 checker iterations per day), a network of about 9200 nodes, and about 2 nodes churning per day.
 	// This results in `2/9200/4 = 0.00005435` being the probability of any single node going down in the interval of one checker iteration.
 	NodeFailureRate float64 `help:"the probability of a single node going down within the next checker iteration" default:"0.00005435"`

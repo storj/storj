@@ -30,23 +30,14 @@ import (
 //
 // architecture: Database
 type DB interface {
-	// CreateSerialInfo creates serial number entry in database.
-	CreateSerialInfo(ctx context.Context, serialNumber storj.SerialNumber, bucketID []byte, limitExpiration time.Time) error
-	// UseSerialNumber creates a used serial number entry in database from an
-	// existing serial number.
-	// It returns the bucket ID associated to serialNumber.
-	UseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) ([]byte, error)
-	// UnuseSerialNumber removes pair serial number -> storage node id from database
-	UnuseSerialNumber(ctx context.Context, serialNumber storj.SerialNumber, storageNodeID storj.NodeID) error
-	// GetBucketIDFromSerialNumber returns the bucket ID associated with the serial number
-	GetBucketIDFromSerialNumber(ctx context.Context, serialNumber storj.SerialNumber) ([]byte, error)
-
 	// UpdateBucketBandwidthAllocation updates 'allocated' bandwidth for given bucket
 	UpdateBucketBandwidthAllocation(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
 	// UpdateBucketBandwidthSettle updates 'settled' bandwidth for given bucket
 	UpdateBucketBandwidthSettle(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
 	// UpdateBucketBandwidthInline updates 'inline' bandwidth for given bucket
 	UpdateBucketBandwidthInline(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error
+	// UpdateBucketBandwidthBatch updates all the bandwidth rollups in the database
+	UpdateBucketBandwidthBatch(ctx context.Context, intervalStart time.Time, rollups []BucketBandwidthRollup) error
 
 	// UpdateStoragenodeBandwidthSettle updates 'settled' bandwidth for given storage node
 	UpdateStoragenodeBandwidthSettle(ctx context.Context, storageNode storj.NodeID, action pb.PieceAction, amount int64, intervalStart time.Time) error
@@ -57,42 +48,11 @@ type DB interface {
 	GetBucketBandwidth(ctx context.Context, projectID uuid.UUID, bucketName []byte, from, to time.Time) (int64, error)
 	// GetStorageNodeBandwidth gets total storage node bandwidth from period of time
 	GetStorageNodeBandwidth(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (int64, error)
-
-	// ProcessOrders takes a list of order requests and processes them in a batch
-	ProcessOrders(ctx context.Context, requests []*ProcessOrderRequest) (responses []*ProcessOrderResponse, err error)
-
-	// WithTransaction runs the callback and provides it with a Transaction.
-	WithTransaction(ctx context.Context, cb func(ctx context.Context, tx Transaction) error) error
-	// WithQueue runs the callback and provides it with a Queue. When the callback returns with
-	// no error, any pending serials returned by the queue are removed from it.
-	WithQueue(ctx context.Context, cb func(ctx context.Context, queue Queue) error) error
 }
 
 // SerialDeleteOptions are option when deleting from serial tables.
 type SerialDeleteOptions struct {
 	BatchSize int
-}
-
-// Transaction represents a database transaction but with higher level actions.
-type Transaction interface {
-	// UpdateBucketBandwidthBatch updates all the bandwidth rollups in the database
-	UpdateBucketBandwidthBatch(ctx context.Context, intervalStart time.Time, rollups []BucketBandwidthRollup) error
-
-	// UpdateStoragenodeBandwidthBatchPhase2 updates all the bandwidth rollups in the database
-	UpdateStoragenodeBandwidthBatchPhase2(ctx context.Context, intervalStart time.Time, rollups []StoragenodeBandwidthRollup) error
-
-	// CreateConsumedSerialsBatch creates the batch of ConsumedSerials.
-	CreateConsumedSerialsBatch(ctx context.Context, consumedSerials []ConsumedSerial) (err error)
-
-	// HasConsumedSerial returns true if the node and serial number have been consumed.
-	HasConsumedSerial(ctx context.Context, nodeID storj.NodeID, serialNumber storj.SerialNumber) (bool, error)
-}
-
-// Queue is an abstraction around a queue of pending serials.
-type Queue interface {
-	// GetPendingSerialsBatch returns a batch of pending serials containing at most size
-	// entries. It returns a boolean indicating true if the queue is empty.
-	GetPendingSerialsBatch(ctx context.Context, size int) ([]PendingSerial, bool, error)
 }
 
 // ConsumedSerial is a serial that has been consumed and its bandwidth recorded.
@@ -118,8 +78,6 @@ var (
 	Error = errs.Class("orders error")
 	// ErrUsingSerialNumber error class for serial number.
 	ErrUsingSerialNumber = errs.Class("serial number")
-
-	errExpiredOrder = errs.Class("order limit expired")
 
 	mon = monkit.Package()
 )
@@ -184,30 +142,16 @@ func SortStoragenodeBandwidthRollups(rollups []StoragenodeBandwidthRollup) {
 	})
 }
 
-// ProcessOrderRequest for batch order processing.
-type ProcessOrderRequest struct {
-	Order      *pb.Order
-	OrderLimit *pb.OrderLimit
-}
-
-// ProcessOrderResponse for batch order processing responses.
-type ProcessOrderResponse struct {
-	SerialNumber storj.SerialNumber
-	Status       pb.SettlementResponse_Status
-}
-
 // Endpoint for orders receiving.
 //
 // architecture: Endpoint
 type Endpoint struct {
-	log                        *zap.Logger
-	satelliteSignee            signing.Signee
-	DB                         DB
-	nodeAPIVersionDB           nodeapiversion.DB
-	settlementBatchSize        int
-	windowEndpointRolloutPhase WindowEndpointRolloutPhase
-	ordersSemaphore            chan struct{}
-	ordersService              *Service
+	log              *zap.Logger
+	satelliteSignee  signing.Signee
+	DB               DB
+	nodeAPIVersionDB nodeapiversion.DB
+	ordersSemaphore  chan struct{}
+	ordersService    *Service
 }
 
 // NewEndpoint new orders receiving endpoint.
@@ -215,209 +159,20 @@ type Endpoint struct {
 // ordersSemaphoreSize controls the number of concurrent clients allowed to submit orders at once.
 // A value of zero means unlimited.
 func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB,
-	settlementBatchSize int, windowEndpointRolloutPhase WindowEndpointRolloutPhase,
 	ordersSemaphoreSize int, ordersService *Service) *Endpoint {
-
 	var ordersSemaphore chan struct{}
 	if ordersSemaphoreSize > 0 {
 		ordersSemaphore = make(chan struct{}, ordersSemaphoreSize)
 	}
 
 	return &Endpoint{
-		log:                        log,
-		satelliteSignee:            satelliteSignee,
-		DB:                         db,
-		nodeAPIVersionDB:           nodeAPIVersionDB,
-		settlementBatchSize:        settlementBatchSize,
-		windowEndpointRolloutPhase: windowEndpointRolloutPhase,
-		ordersSemaphore:            ordersSemaphore,
-		ordersService:              ordersService,
+		log:              log,
+		satelliteSignee:  satelliteSignee,
+		DB:               db,
+		nodeAPIVersionDB: nodeAPIVersionDB,
+		ordersSemaphore:  ordersSemaphore,
+		ordersService:    ordersService,
 	}
-}
-
-func monitoredSettlementStreamReceive(ctx context.Context, stream pb.DRPCOrders_SettlementStream) (_ *pb.SettlementRequest, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return stream.Recv()
-}
-
-func monitoredSettlementStreamSend(ctx context.Context, stream pb.DRPCOrders_SettlementStream, resp *pb.SettlementResponse) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	switch resp.Status {
-	case pb.SettlementResponse_ACCEPTED:
-		mon.Event("settlement_response_accepted")
-	case pb.SettlementResponse_REJECTED:
-		mon.Event("settlement_response_rejected")
-	default:
-		mon.Event("settlement_response_unknown")
-	}
-	return stream.Send(resp)
-}
-
-// withOrdersSemaphore acquires a slot with the ordersSemaphore if one exists and returns
-// a function to exit it. If the context expires, it returns an error.
-func (endpoint *Endpoint) withOrdersSemaphore(ctx context.Context, cb func(ctx context.Context) error) error {
-	if endpoint.ordersSemaphore == nil {
-		return cb(ctx)
-	}
-	select {
-	case endpoint.ordersSemaphore <- struct{}{}:
-		err := cb(ctx)
-		<-endpoint.ordersSemaphore
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
-// Settlement receives orders and handles them in batches.
-func (endpoint *Endpoint) Settlement(stream pb.DRPCOrders_SettlementStream) (err error) {
-	ctx := stream.Context()
-	defer mon.Task()(&ctx)(&err)
-
-	switch endpoint.windowEndpointRolloutPhase {
-	case WindowEndpointRolloutPhase1:
-	case WindowEndpointRolloutPhase2, WindowEndpointRolloutPhase3:
-		return rpcstatus.Error(rpcstatus.Unavailable, "endpoint disabled")
-	default:
-		return rpcstatus.Error(rpcstatus.Internal, "invalid window endpoint rollout phase")
-	}
-
-	peer, err := identity.PeerIdentityFromContext(ctx)
-	if err != nil {
-		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
-	}
-
-	formatError := func(err error) error {
-		if errors.Is(err, io.EOF) {
-			return nil
-		}
-		return rpcstatus.Error(rpcstatus.Unknown, err.Error())
-	}
-
-	log := endpoint.log.Named(peer.ID.String())
-	log.Debug("Settlement")
-
-	requests := make([]*ProcessOrderRequest, 0, endpoint.settlementBatchSize)
-
-	defer func() {
-		if len(requests) > 0 {
-			err = errs.Combine(err, endpoint.processOrders(ctx, stream, requests))
-			if err != nil {
-				err = formatError(err)
-			}
-		}
-	}()
-
-	var expirationCount int64
-	defer func() {
-		if expirationCount > 0 {
-			log.Debug("order verification found expired orders", zap.Int64("amount", expirationCount))
-		}
-	}()
-
-	for {
-		request, err := monitoredSettlementStreamReceive(ctx, stream)
-		if err != nil {
-			return formatError(err)
-		}
-
-		if request == nil {
-			return rpcstatus.Error(rpcstatus.InvalidArgument, "request missing")
-		}
-		if request.Limit == nil {
-			return rpcstatus.Error(rpcstatus.InvalidArgument, "order limit missing")
-		}
-		if request.Order == nil {
-			return rpcstatus.Error(rpcstatus.InvalidArgument, "order missing")
-		}
-
-		orderLimit := request.Limit
-		order := request.Order
-
-		rejectErr := func() error {
-			if orderLimit.StorageNodeId != peer.ID {
-				return rpcstatus.Error(rpcstatus.Unauthenticated, "only specified storage node can settle order")
-			}
-
-			// check expiration first before the signatures so that we can throw out the large
-			// amount of expired orders being sent to us before doing expensive signature
-			// verification.
-			if orderLimit.OrderExpiration.Before(time.Now()) {
-				mon.Event("order_verification_failed_expired")
-				expirationCount++
-				return errExpiredOrder.New("order limit expired")
-			}
-
-			// satellite verifies that it signed the order limit
-			if err := signing.VerifyOrderLimitSignature(ctx, endpoint.satelliteSignee, orderLimit); err != nil {
-				mon.Event("order_verification_failed_satellite_signature")
-				return Error.New("unable to verify order limit")
-			}
-
-			// satellite verifies that the order signature matches pub key in order limit
-			if err := signing.VerifyUplinkOrderSignature(ctx, orderLimit.UplinkPublicKey, order); err != nil {
-				mon.Event("order_verification_failed_uplink_signature")
-				return Error.New("unable to verify order")
-			}
-
-			// TODO should this reject or just error ??
-			if orderLimit.SerialNumber != order.SerialNumber {
-				mon.Event("order_verification_failed_serial_mismatch")
-				return Error.New("invalid serial number")
-			}
-			return nil
-		}()
-		if rejectErr != nil {
-			mon.Event("order_verification_failed")
-			if !errExpiredOrder.Has(rejectErr) {
-				log.Debug("order limit/order verification failed", zap.Stringer("serial", orderLimit.SerialNumber), zap.Error(rejectErr))
-			}
-			err := monitoredSettlementStreamSend(ctx, stream, &pb.SettlementResponse{
-				SerialNumber: orderLimit.SerialNumber,
-				Status:       pb.SettlementResponse_REJECTED,
-			})
-			if err != nil {
-				return formatError(err)
-			}
-			continue
-		}
-
-		requests = append(requests, &ProcessOrderRequest{Order: order, OrderLimit: orderLimit})
-
-		if len(requests) >= endpoint.settlementBatchSize {
-			err = endpoint.processOrders(ctx, stream, requests)
-			requests = requests[:0]
-			if err != nil {
-				return formatError(err)
-			}
-		}
-	}
-}
-
-func (endpoint *Endpoint) processOrders(ctx context.Context, stream pb.DRPCOrders_SettlementStream, requests []*ProcessOrderRequest) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var responses []*ProcessOrderResponse
-	err = endpoint.withOrdersSemaphore(ctx, func(ctx context.Context) error {
-		responses, err = endpoint.DB.ProcessOrders(ctx, requests)
-		return err
-	})
-	if err != nil {
-		return err
-	}
-
-	for _, response := range responses {
-		r := &pb.SettlementResponse{
-			SerialNumber: response.SerialNumber,
-			Status:       response.Status,
-		}
-		err = monitoredSettlementStreamSend(ctx, stream, r)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 type bucketIDAction struct {
@@ -430,134 +185,7 @@ type bucketIDAction struct {
 // Only one window is processed at a time.
 // Batches are atomic, all orders are settled successfully or they all fail.
 func (endpoint *Endpoint) SettlementWithWindow(stream pb.DRPCOrders_SettlementWithWindowStream) (err error) {
-	switch endpoint.windowEndpointRolloutPhase {
-	case WindowEndpointRolloutPhase1, WindowEndpointRolloutPhase2:
-		return endpoint.SettlementWithWindowMigration(stream)
-	case WindowEndpointRolloutPhase3:
-		return endpoint.SettlementWithWindowFinal(stream)
-	default:
-		return rpcstatus.Error(rpcstatus.Internal, "invalid window endpoint rollout phase")
-	}
-}
-
-// SettlementWithWindowMigration implements phase 1 and phase 2 of the windowed order rollout where
-// it uses the same backend as the non-windowed settlement and inserts entries containing 0 for
-// the window which ensures that it is either entirely handled by the queue or entirely handled by
-// the phase 3 endpoint.
-func (endpoint *Endpoint) SettlementWithWindowMigration(stream pb.DRPCOrders_SettlementWithWindowStream) (err error) {
-	ctx := stream.Context()
-	defer mon.Task()(&ctx)(&err)
-
-	peer, err := identity.PeerIdentityFromContext(ctx)
-	if err != nil {
-		endpoint.log.Debug("err peer identity from context", zap.Error(err))
-		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
-	}
-
-	// update the node api version inside of the semaphore
-	err = endpoint.withOrdersSemaphore(ctx, func(ctx context.Context) error {
-		return endpoint.nodeAPIVersionDB.UpdateVersionAtLeast(ctx, peer.ID, nodeapiversion.HasWindowedOrders)
-	})
-	if err != nil {
-		return rpcstatus.Wrap(rpcstatus.Internal, err)
-	}
-
-	log := endpoint.log.Named(peer.ID.String())
-	log.Debug("SettlementWithWindow")
-
-	var receivedCount int
-	var window int64
-	actions := map[pb.PieceAction]struct{}{}
-	var requests []*ProcessOrderRequest
-	var finished bool
-
-	for !finished {
-		requests = requests[:0]
-
-		for len(requests) < endpoint.settlementBatchSize {
-			request, err := stream.Recv()
-			if err != nil {
-				if errors.Is(err, io.EOF) {
-					finished = true
-					break
-				}
-				log.Debug("err streaming order request", zap.Error(err))
-				return rpcstatus.Error(rpcstatus.Unknown, err.Error())
-			}
-			receivedCount++
-
-			orderLimit := request.Limit
-			if orderLimit == nil {
-				log.Debug("request.OrderLimit is nil")
-				continue
-			}
-
-			order := request.Order
-			if order == nil {
-				log.Debug("request.Order is nil")
-				continue
-			}
-
-			if window == 0 {
-				window = date.TruncateToHourInNano(orderLimit.OrderCreation)
-			}
-
-			// don't process orders that aren't valid
-			if !endpoint.isValid(ctx, log, order, orderLimit, peer.ID, window) {
-				continue
-			}
-
-			actions[orderLimit.Action] = struct{}{}
-
-			requests = append(requests, &ProcessOrderRequest{
-				Order:      order,
-				OrderLimit: orderLimit,
-			})
-		}
-
-		// process all of the orders in the old way inside of the semaphore
-		err := endpoint.withOrdersSemaphore(ctx, func(ctx context.Context) error {
-			_, err = endpoint.DB.ProcessOrders(ctx, requests)
-			return err
-		})
-		if err != nil {
-			return rpcstatus.Wrap(rpcstatus.Internal, err)
-		}
-	}
-
-	// if we received no valid orders, then respond with rejected
-	if len(actions) == 0 || window == 0 {
-		return stream.SendAndClose(&pb.SettlementWithWindowResponse{
-			Status: pb.SettlementWithWindowResponse_REJECTED,
-		})
-	}
-
-	// insert zero rows for every action involved in the set of orders. this prevents
-	// many problems (double spends and underspends) by ensuring that any window is
-	// either handled entirely by the queue or entirely with the phase 3 windowed endpoint.
-	// enter the semaphore for the duration of the updates.
-
-	windowTime := time.Unix(0, window)
-	err = endpoint.withOrdersSemaphore(ctx, func(ctx context.Context) error {
-		for action := range actions {
-			if err := endpoint.DB.UpdateStoragenodeBandwidthSettle(ctx, peer.ID, action, 0, windowTime); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return rpcstatus.Wrap(rpcstatus.Internal, err)
-	}
-
-	log.Debug("orders processed",
-		zap.Int("total orders received", receivedCount),
-		zap.Time("window", windowTime),
-	)
-
-	return stream.SendAndClose(&pb.SettlementWithWindowResponse{
-		Status: pb.SettlementWithWindowResponse_ACCEPTED,
-	})
+	return endpoint.SettlementWithWindowFinal(stream)
 }
 
 func trackFinalStatus(status pb.SettlementWithWindowResponse_Status) {
@@ -733,7 +361,6 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 
 func (endpoint *Endpoint) isValid(ctx context.Context, log *zap.Logger, order *pb.Order,
 	orderLimit *pb.OrderLimit, peerID storj.NodeID, window int64) bool {
-
 	if orderLimit.StorageNodeId != peerID {
 		log.Debug("storage node id mismatch")
 		mon.Event("order_not_valid_storagenodeid")
