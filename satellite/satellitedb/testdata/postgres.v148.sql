@@ -125,49 +125,51 @@ CREATE TABLE irreparabledbs (
 	PRIMARY KEY ( segmentpath )
 );
 CREATE TABLE nodes (
-	id bytea NOT NULL,
-	address text NOT NULL DEFAULT '',
-	last_net text NOT NULL,
-	last_ip_port text,
-	protocol integer NOT NULL DEFAULT 0,
-	type integer NOT NULL DEFAULT 0,
-	email text NOT NULL,
-	wallet text NOT NULL,
-	wallet_features text NOT NULL DEFAULT '',
-	free_disk bigint NOT NULL DEFAULT -1,
-	piece_count bigint NOT NULL DEFAULT 0,
-	major bigint NOT NULL DEFAULT 0,
-	minor bigint NOT NULL DEFAULT 0,
-	patch bigint NOT NULL DEFAULT 0,
-	hash text NOT NULL DEFAULT '',
-	timestamp timestamp with time zone NOT NULL DEFAULT '0001-01-01 00:00:00+00',
-	release boolean NOT NULL DEFAULT false,
-	latency_90 bigint NOT NULL DEFAULT 0,
-	audit_success_count bigint NOT NULL DEFAULT 0,
-	total_audit_count bigint NOT NULL DEFAULT 0,
-	vetted_at timestamp with time zone,
-	uptime_success_count bigint NOT NULL DEFAULT 0,
-	total_uptime_count bigint NOT NULL DEFAULT 0,
-	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
-	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
-	last_contact_success timestamp with time zone NOT NULL DEFAULT 'epoch',
-	last_contact_failure timestamp with time zone NOT NULL DEFAULT 'epoch',
-	contained boolean NOT NULL DEFAULT false,
-	disqualified timestamp with time zone,
-	suspended timestamp with time zone,
-	unknown_audit_suspended timestamp with time zone,
-	offline_suspended timestamp with time zone,
-	under_review timestamp with time zone,
-	online_score double precision NOT NULL DEFAULT 1,
-	audit_reputation_alpha double precision NOT NULL DEFAULT 1,
-	audit_reputation_beta double precision NOT NULL DEFAULT 0,
-	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
-	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
-	exit_initiated_at timestamp with time zone,
-	exit_loop_completed_at timestamp with time zone,
-	exit_finished_at timestamp with time zone,
-	exit_success boolean NOT NULL DEFAULT false,
-	PRIMARY KEY ( id )
+    id bytea NOT NULL,
+    address text NOT NULL DEFAULT '',
+    last_net text NOT NULL,
+    last_ip_port text,
+    protocol integer NOT NULL DEFAULT 0,
+    type integer NOT NULL DEFAULT 0,
+    email text NOT NULL,
+    wallet text NOT NULL,
+    wallet_features text NOT NULL DEFAULT '',
+    free_disk bigint NOT NULL DEFAULT -1,
+    piece_count bigint NOT NULL DEFAULT 0,
+    major bigint NOT NULL DEFAULT 0,
+    minor bigint NOT NULL DEFAULT 0,
+    patch bigint NOT NULL DEFAULT 0,
+    hash text NOT NULL DEFAULT '',
+    timestamp timestamp with time zone NOT NULL DEFAULT '0001-01-01 00:00:00+00',
+    release boolean NOT NULL DEFAULT false,
+    latency_90 bigint NOT NULL DEFAULT 0,
+    audit_success_count bigint NOT NULL DEFAULT 0,
+    total_audit_count bigint NOT NULL DEFAULT 0,
+    vetted_at timestamp with time zone,
+    uptime_success_count bigint NOT NULL DEFAULT 0,
+    total_uptime_count bigint NOT NULL DEFAULT 0,
+    created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+    updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+    last_contact_success timestamp with time zone NOT NULL DEFAULT 'epoch',
+    last_contact_failure timestamp with time zone NOT NULL DEFAULT 'epoch',
+    contained boolean NOT NULL DEFAULT false,
+    disqualified timestamp with time zone,
+    suspended timestamp with time zone,
+    unknown_audit_suspended timestamp with time zone,
+    offline_suspended timestamp with time zone,
+    under_review timestamp with time zone,
+    online_score double precision NOT NULL DEFAULT 1,
+    audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+    audit_reputation_beta double precision NOT NULL DEFAULT 0,
+    unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+    unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
+    uptime_reputation_alpha double precision NOT NULL DEFAULT 1,
+    uptime_reputation_beta double precision NOT NULL DEFAULT 0,
+    exit_initiated_at timestamp with time zone,
+    exit_loop_completed_at timestamp with time zone,
+    exit_finished_at timestamp with time zone,
+    exit_success boolean NOT NULL DEFAULT false,
+    PRIMARY KEY ( id )
 );
 CREATE TABLE node_api_versions (
 	id bytea NOT NULL,
@@ -354,10 +356,10 @@ CREATE TABLE users (
 	project_limit integer NOT NULL DEFAULT 0,
 	position text,
 	company_name text,
-	company_size integer,
+	company_size int,
 	working_on text,
 	is_professional boolean NOT NULL DEFAULT false,
-	employee_count text,
+    employee_count text,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (
@@ -442,7 +444,6 @@ CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_i
 CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id );
 CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits ( id, offer_id );
 
-
 INSERT INTO "offers" ("id", "name", "description", "award_credit_in_cents", "invitee_credit_in_cents", "expires_at", "created_at", "status", "type", "award_credit_duration_days", "invitee_credit_duration_days") VALUES (1, 'Default referral offer', 'Is active when no other active referral offer', 300, 600, '2119-03-14 08:28:24.636949+00', '2019-07-14 08:28:24.636949+00', 1, 2, 365, 14);
 INSERT INTO "offers" ("id", "name", "description", "award_credit_in_cents", "invitee_credit_in_cents", "expires_at", "created_at", "status", "type", "award_credit_duration_days", "invitee_credit_duration_days") VALUES (2, 'Default free credit offer', 'Is active when no active free credit offer', 0, 300, '2119-03-14 08:28:24.636949+00', '2019-07-14 08:28:24.636949+00', 1, 1, NULL, 14);
 
@@ -454,15 +455,15 @@ INSERT INTO "accounting_timestamps" VALUES ('LastAtRestTally', '0001-01-01 00:00
 INSERT INTO "accounting_timestamps" VALUES ('LastRollup', '0001-01-01 00:00:00+00');
 INSERT INTO "accounting_timestamps" VALUES ('LastBandwidthTally', '0001-01-01 00:00:00+00');
 
-INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "exit_success", "online_score") VALUES (E'\\153\\313\\233\\074\\327\\177\\136\\070\\346\\001', '127.0.0.1:55516', '', 0, 4, '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 5, 0, 5, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 50, 0, 1, 0, false, 1);
-INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "exit_success", "online_score") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', '127.0.0.1:55518', '', 0, 4, '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 0, 3, 3, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 50, 0, 1, 0, false, 1);
-INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "exit_success", "online_score") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014', '127.0.0.1:55517', '', 0, 4, '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 0, 0, 0, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 50, 0, 1, 0, false, 1);
-INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "exit_success", "online_score") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\015', '127.0.0.1:55519', '', 0, 4, '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 1, 2, 1, 2, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 50, 0, 1, 0, false, 1);
-INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "exit_success", "vetted_at", "online_score") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\016', '127.0.0.1:55520', '', 0, 4, '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 300, 400, 300, 400, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 300, 0, 1, 0, false, '2020-03-18 12:00:00.000000+00', 1);
-INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "exit_success", "online_score") VALUES (E'\\154\\313\\233\\074\\327\\177\\136\\070\\346\\001', '127.0.0.1:55516', '', 0, 4, '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 5, 0, 5, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 50, 0, 75, 25, false, 1);
-INSERT INTO "nodes"("id", "address", "last_net", "last_ip_port", "protocol", "type", "email", "wallet", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "exit_success", "online_score") VALUES (E'\\154\\313\\233\\074\\327\\177\\136\\070\\346\\002', '127.0.0.1:55516', '127.0.0.0', '127.0.0.1:55516', 0, 4, '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 5, 0, 5, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 50, 0, 75, 25, false, 1);
-INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "exit_success", "online_score") VALUES (E'\\363\\341\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\016', '127.0.0.1:55516', '', 0, 4, '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 5, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 50, 0, 1, 0, false, 1);
-INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "wallet_features", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "exit_success", "online_score") VALUES (E'\\362\\341\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\016', '127.0.0.1:55516', '', 0, 4, '', '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 5, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 50, 0, 1, 0, false, 1);
+INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "uptime_reputation_alpha", "uptime_reputation_beta", "exit_success", "online_score") VALUES (E'\\153\\313\\233\\074\\327\\177\\136\\070\\346\\001', '127.0.0.1:55516', '', 0, 4, '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 5, 0, 5, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 50, 0, 1, 0, 100, 5, false, 1);
+INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "uptime_reputation_alpha", "uptime_reputation_beta", "exit_success", "online_score") VALUES (E'\\006\\223\\250R\\221\\005\\365\\377v>0\\266\\365\\216\\255?\\347\\244\\371?2\\264\\262\\230\\007<\\001\\262\\263\\237\\247n', '127.0.0.1:55518', '', 0, 4, '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 0, 3, 3, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 50, 0, 1, 0, 100, 0, false, 1);
+INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "uptime_reputation_alpha", "uptime_reputation_beta", "exit_success", "online_score") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\014', '127.0.0.1:55517', '', 0, 4, '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 0, 0, 0, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 50, 0, 1, 0, 100, 0, false, 1);
+INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "uptime_reputation_alpha", "uptime_reputation_beta", "exit_success", "online_score") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\015', '127.0.0.1:55519', '', 0, 4, '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 1, 2, 1, 2, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 50, 0, 1, 0, 100, 1, false, 1);
+INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "uptime_reputation_alpha", "uptime_reputation_beta", "exit_success", "vetted_at", "online_score") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\016', '127.0.0.1:55520', '', 0, 4, '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 300, 400, 300, 400, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 300, 0, 1, 0, 300, 100, false, '2020-03-18 12:00:00.000000+00', 1);
+INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "uptime_reputation_alpha", "uptime_reputation_beta", "exit_success", "online_score") VALUES (E'\\154\\313\\233\\074\\327\\177\\136\\070\\346\\001', '127.0.0.1:55516', '', 0, 4, '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 5, 0, 5, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 50, 0, 75, 25, 100, 5, false, 1);
+INSERT INTO "nodes"("id", "address", "last_net", "last_ip_port", "protocol", "type", "email", "wallet", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "uptime_reputation_alpha", "uptime_reputation_beta", "exit_success", "online_score") VALUES (E'\\154\\313\\233\\074\\327\\177\\136\\070\\346\\002', '127.0.0.1:55516', '127.0.0.0', '127.0.0.1:55516', 0, 4, '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 5, 0, 5, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 50, 0, 75, 25, 100, 5, false, 1);
+INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "uptime_reputation_alpha", "uptime_reputation_beta", "exit_success", "online_score") VALUES (E'\\363\\341\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\016', '127.0.0.1:55516', '', 0, 4, '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 5, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 50, 0, 1, 0, 100, 5, false, 1);
+INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "wallet_features", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "uptime_reputation_alpha", "uptime_reputation_beta", "exit_success", "online_score") VALUES (E'\\362\\341\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\016', '127.0.0.1:55516', '', 0, 4, '', '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 5, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 50, 0, 1, 0, 100, 5, false, 1);
 
 INSERT INTO "users"("id", "full_name", "short_name", "email", "normalized_email", "password_hash", "status", "partner_id", "created_at", "is_professional") VALUES (E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, 'Noahson', 'William', '1email1@mail.test', '1EMAIL1@MAIL.TEST', E'some_readable_hash'::bytea, 1, NULL, '2019-02-14 08:28:24.614594+00', false);
 INSERT INTO "projects"("id", "name", "description", "usage_limit", "bandwidth_limit", "max_buckets", "partner_id", "owner_id", "created_at") VALUES (E'\\022\\217/\\014\\376!K\\023\\276\\031\\311}m\\236\\205\\300'::bytea, 'ProjectName', 'projects description', NULL, NULL, NULL, NULL, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, '2019-02-14 08:28:24.254934+00');
@@ -534,7 +535,7 @@ INSERT INTO "project_bandwidth_rollups"("project_id", "interval_month", egress_a
 INSERT INTO "projects"("id", "name", "description", "usage_limit", "bandwidth_limit", "max_buckets","rate_limit", "partner_id", "owner_id", "created_at") VALUES (E'\\363\\342\\363\\371>+F\\256\\263\\300\\273|\\342N\\347\\345'::bytea, 'egress101', 'High Bandwidth Project', NULL, NULL, NULL, 2000000, NULL, E'\\363\\311\\033w\\222\\303Ci\\265\\343U\\303\\312\\204",'::bytea, '2020-05-15 08:46:24.000000+00');
 
 INSERT INTO "storagenode_paystubs"("period", "node_id", "created_at", "codes", "usage_at_rest", "usage_get", "usage_put", "usage_get_repair", "usage_put_repair", "usage_get_audit", "comp_at_rest", "comp_get", "comp_put", "comp_get_repair", "comp_put_repair", "comp_get_audit", "surge_percent", "held", "owed", "disposed", "paid", "distributed") VALUES ('2020-01', '\xf2a3b4c4dfdf7221310382fd5db5aa73e1d227d6df09734ec4e5305000000000', '2020-04-07T20:14:21.479141Z', '', 1327959864508416, 294054066688, 159031363328, 226751, 0, 836608, 2861984, 5881081, 0, 226751, 0, 8, 300, 0, 26909472, 0, 26909472, 0);
-INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "exit_success", "unknown_audit_suspended", "offline_suspended", "under_review") VALUES (E'\\153\\313\\233\\074\\327\\255\\136\\070\\346\\001', '127.0.0.1:55516', '', 0, 4, '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 5, 0, 5, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 50, 0, 1, 0, false, '2019-02-14 08:07:31.108963+00', '2019-02-14 08:07:31.108963+00', '2019-02-14 08:07:31.108963+00');
+INSERT INTO "nodes"("id", "address", "last_net", "protocol", "type", "email", "wallet", "free_disk", "piece_count", "major", "minor", "patch", "hash", "timestamp", "release","latency_90", "audit_success_count", "total_audit_count", "uptime_success_count", "total_uptime_count", "created_at", "updated_at", "last_contact_success", "last_contact_failure", "contained", "disqualified", "suspended", "audit_reputation_alpha", "audit_reputation_beta", "unknown_audit_reputation_alpha", "unknown_audit_reputation_beta", "uptime_reputation_alpha", "uptime_reputation_beta", "exit_success", "unknown_audit_suspended", "offline_suspended", "under_review") VALUES (E'\\153\\313\\233\\074\\327\\255\\136\\070\\346\\001', '127.0.0.1:55516', '', 0, 4, '', '', -1, 0, 0, 1, 0, '', 'epoch', false, 0, 0, 5, 0, 5, '2019-02-14 08:07:31.028103+00', '2019-02-14 08:07:31.108963+00', 'epoch', 'epoch', false, NULL, NULL, 50, 0, 1, 0, 100, 5, false, '2019-02-14 08:07:31.108963+00', '2019-02-14 08:07:31.108963+00', '2019-02-14 08:07:31.108963+00');
 
 INSERT INTO "audit_histories" ("node_id", "history") VALUES (E'\\153\\313\\233\\074\\327\\177\\136\\070\\346\\001', '\x0a23736f2f6d616e792f69636f6e69632f70617468732f746f2f63686f6f73652f66726f6d120a0102030405060708090a');
 
