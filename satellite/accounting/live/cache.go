@@ -4,6 +4,7 @@
 package live
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -37,7 +38,7 @@ type Config struct {
 // For this reason, the components that uses the cache should operate despite
 // the backend is not responding successfully although their service is
 // degraded.
-func NewCache(log *zap.Logger, config Config) (accounting.Cache, error) {
+func NewCache(ctx context.Context, log *zap.Logger, config Config) (accounting.Cache, error) {
 	parts := strings.SplitN(config.StorageBackend, ":", 2)
 	var backendType string
 	if len(parts) == 0 || parts[0] == "" {
@@ -47,7 +48,7 @@ func NewCache(log *zap.Logger, config Config) (accounting.Cache, error) {
 	backendType = parts[0]
 	switch backendType {
 	case "redis":
-		return newRedisLiveAccounting(config.StorageBackend)
+		return newRedisLiveAccounting(ctx, config.StorageBackend)
 	default:
 		return nil, Error.New("unrecognized live accounting backend specifier %q. Currently only redis is supported", backendType)
 	}

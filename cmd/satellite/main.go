@@ -392,7 +392,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	liveAccounting, err := live.NewCache(log.Named("live-accounting"), runCfg.LiveAccounting)
+	liveAccounting, err := live.NewCache(ctx, log.Named("live-accounting"), runCfg.LiveAccounting)
 	if err != nil {
 		if !accounting.ErrSystemOrNetError.Has(err) || liveAccounting == nil {
 			return errs.New("Error instantiating live accounting cache: %w", err)

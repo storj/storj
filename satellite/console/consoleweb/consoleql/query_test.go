@@ -47,7 +47,7 @@ func TestGraphqlQuery(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(redis.Close)
 
-		cache, err := live.NewCache(log.Named("cache"), live.Config{StorageBackend: "redis://" + redis.Addr() + "?db=0"})
+		cache, err := live.NewCache(ctx, log.Named("cache"), live.Config{StorageBackend: "redis://" + redis.Addr() + "?db=0"})
 		require.NoError(t, err)
 
 		projectLimitCache := accounting.NewProjectLimitCache(db.ProjectAccounting(), 0, 0, accounting.ProjectLimitConfig{CacheCapacity: 100})

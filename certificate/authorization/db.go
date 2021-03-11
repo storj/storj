@@ -74,13 +74,13 @@ func OpenDB(ctx context.Context, dbURL string, overwrite bool) (*DB, error) {
 			return nil, ErrDB.Wrap(err)
 		}
 	case "redis":
-		redisClient, err := redis.NewClientFrom(dbURL)
+		redisClient, err := redis.NewClientFrom(ctx, dbURL)
 		if err != nil {
 			return nil, ErrDB.Wrap(err)
 		}
 
 		if overwrite {
-			if err := redisClient.FlushDB(); err != nil {
+			if err := redisClient.FlushDB(ctx); err != nil {
 				return nil, err
 			}
 		}

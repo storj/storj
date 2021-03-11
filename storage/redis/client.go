@@ -12,7 +12,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
@@ -39,7 +39,7 @@ type Client struct {
 }
 
 // NewClient returns a configured Client instance, verifying a successful connection to redis.
-func NewClient(address, password string, db int) (*Client, error) {
+func NewClient(ctx context.Context, address, password string, db int) (*Client, error) {
 	client := &Client{
 		db: redis.NewClient(&redis.Options{
 			Addr:     address,
@@ -51,7 +51,7 @@ func NewClient(address, password string, db int) (*Client, error) {
 	}
 
 	// ping here to verify we are able to connect to redis with the initialized client.
-	if err := client.db.Ping().Err(); err != nil {
+	if err := client.db.Ping(ctx).Err(); err != nil {
 		return nil, Error.New("ping failed: %v", err)
 	}
 
@@ -59,7 +59,7 @@ func NewClient(address, password string, db int) (*Client, error) {
 }
 
 // NewClientFrom returns a configured Client instance from a redis address, verifying a successful connection to redis.
-func NewClientFrom(address string) (*Client, error) {
+func NewClientFrom(ctx context.Context, address string) (*Client, error) {
 	redisurl, err := url.Parse(address)
 	if err != nil {
 		return nil, err
@@ -76,7 +76,7 @@ func NewClientFrom(address string) (*Client, error) {
 		return nil, err
 	}
 
-	return NewClient(redisurl.Host, q.Get("password"), db)
+	return NewClient(ctx, redisurl.Host, q.Get("password"), db)
 }
 
 // SetLookupLimit sets the lookup limit.
@@ -109,7 +109,7 @@ func (client *Client) IncrBy(ctx context.Context, key storage.Key, value int64) 
 	if key.IsZero() {
 		return storage.ErrEmptyKey.New("")
 	}
-	_, err = client.db.IncrBy(key.String(), value).Result()
+	_, err = client.db.IncrBy(ctx, key.String(), value).Result()
 	return err
 }
 
@@ -163,7 +163,7 @@ func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.
 		keyStrings[i] = v.String()
 	}
 
-	results, err := client.db.MGet(keyStrings...).Result()
+	results, err := client.db.MGet(ctx, keyStrings...).Result()
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +179,6 @@ func (client *Client) GetAll(ctx context.Context, keys storage.Keys) (_ storage.
 			}
 			values = append(values, storage.Value(s))
 		}
-
 	}
 	return values, nil
 }
@@ -198,7 +197,7 @@ func (client *Client) Iterate(ctx context.Context, opts storage.IterateOptions, 
 func (client *Client) IterateWithoutLookupLimit(ctx context.Context, opts storage.IterateOptions, fn func(context.Context, storage.Iterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	all, err := client.allPrefixedItems(opts.Prefix, opts.First, nil, opts.Limit)
+	all, err := client.allPrefixedItems(ctx, opts.Prefix, opts.First, nil, opts.Limit)
 	if err != nil {
 		return err
 	}
@@ -213,18 +212,18 @@ func (client *Client) IterateWithoutLookupLimit(ctx context.Context, opts storag
 }
 
 // FlushDB deletes all keys in the currently selected DB.
-func (client *Client) FlushDB() error {
-	_, err := client.db.FlushDB().Result()
+func (client *Client) FlushDB(ctx context.Context) error {
+	_, err := client.db.FlushDB(ctx).Result()
 	return err
 }
 
-func (client *Client) allPrefixedItems(prefix, first, last storage.Key, limit int) (storage.Items, error) {
+func (client *Client) allPrefixedItems(ctx context.Context, prefix, first, last storage.Key, limit int) (storage.Items, error) {
 	var all storage.Items
 	seen := map[string]struct{}{}
 
 	match := string(escapeMatch([]byte(prefix))) + "*"
-	it := client.db.Scan(0, match, 0).Iterator()
-	for it.Next() {
+	it := client.db.Scan(ctx, 0, match, 0).Iterator()
+	for it.Next(ctx) {
 		key := it.Val()
 		if !first.IsZero() && storage.Key(key).Less(first) {
 			continue
@@ -238,7 +237,7 @@ func (client *Client) allPrefixedItems(prefix, first, last storage.Key, limit in
 		}
 		seen[key] = struct{}{}
 
-		value, err := client.db.Get(key).Bytes()
+		value, err := client.db.Get(ctx, key).Bytes()
 		if err != nil {
 			return nil, err
 		}
@@ -274,7 +273,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 			}
 
 			// runs only if the watched keys remain unchanged
-			_, err = tx.Pipelined(func(pipe redis.Pipeliner) error {
+			_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
 				return put(ctx, pipe, key, newValue, client.TTL)
 			})
 			return err
@@ -288,7 +287,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 		}
 
 		// runs only if the watched keys remain unchanged
-		_, err = tx.Pipelined(func(pipe redis.Pipeliner) error {
+		_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
 			if newValue == nil {
 				return delete(ctx, pipe, key)
 			}
@@ -298,7 +297,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 		return err
 	}
 
-	err = client.db.Watch(txf, key.String())
+	err = client.db.Watch(ctx, txf, key.String())
 	if errors.Is(err, redis.TxFailedErr) {
 		return storage.ErrValueChanged.New("%q", key)
 	}
@@ -307,7 +306,7 @@ func (client *Client) CompareAndSwap(ctx context.Context, key storage.Key, oldVa
 
 func get(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (_ storage.Value, err error) {
 	defer mon.Task()(&ctx)(&err)
-	value, err := cmdable.Get(string(key)).Bytes()
+	value, err := cmdable.Get(ctx, string(key)).Bytes()
 	if errors.Is(err, redis.Nil) {
 		return nil, storage.ErrKeyNotFound.New("%q", key)
 	}
@@ -319,7 +318,7 @@ func get(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (_ storage
 
 func put(ctx context.Context, cmdable redis.Cmdable, key storage.Key, value storage.Value, ttl time.Duration) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = cmdable.Set(key.String(), []byte(value), ttl).Err()
+	err = cmdable.Set(ctx, key.String(), []byte(value), ttl).Err()
 	if err != nil && !errors.Is(err, redis.TxFailedErr) {
 		return Error.New("put error: %v", err)
 	}
@@ -328,7 +327,7 @@ func put(ctx context.Context, cmdable redis.Cmdable, key storage.Key, value stor
 
 func delete(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = cmdable.Del(key.String()).Err()
+	err = cmdable.Del(ctx, key.String()).Err()
 	if err != nil && !errors.Is(err, redis.TxFailedErr) {
 		return Error.New("delete error: %v", err)
 	}
@@ -337,7 +336,7 @@ func delete(ctx context.Context, cmdable redis.Cmdable, key storage.Key) (err er
 
 func eval(ctx context.Context, cmdable redis.Cmdable, script string, keys []string) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = cmdable.Eval(script, keys, nil).Err()
+	err = cmdable.Eval(ctx, script, keys, nil).Err()
 	if err != nil && !errors.Is(err, redis.TxFailedErr) {
 		return Error.New("eval error: %v", err)
 	}

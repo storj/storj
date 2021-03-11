@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
@@ -31,7 +31,7 @@ type redisLiveAccounting struct {
 // it fails then it returns an instance and accounting.ErrSystemOrNetError
 // because it means that Redis may not be operative at this precise moment but
 // it may be in future method calls as it handles automatically reconnects.
-func newRedisLiveAccounting(address string) (*redisLiveAccounting, error) {
+func newRedisLiveAccounting(ctx context.Context, address string) (*redisLiveAccounting, error) {
 	redisurl, err := url.Parse(address)
 	if err != nil {
 		return nil, accounting.ErrInvalidArgument.New("address: invalid URL; %w", err)
@@ -63,7 +63,7 @@ func newRedisLiveAccounting(address string) (*redisLiveAccounting, error) {
 	}
 
 	// ping here to verify we are able to connect to Redis with the initialized client.
-	if err := client.Ping().Err(); err != nil {
+	if err := client.Ping(ctx).Err(); err != nil {
 		return cache, accounting.ErrSystemOrNetError.New("Redis ping failed: %w", err)
 	}
 
@@ -106,7 +106,7 @@ func (cache *redisLiveAccounting) UpdateProjectBandwidthUsage(ctx context.Contex
 	`, increment, increment, int(ttl.Seconds()))
 
 	key := createBandwidthProjectIDKey(projectID, now)
-	err = cache.client.Eval(script, []string{key}).Err()
+	err = cache.client.Eval(ctx, script, []string{key}).Err()
 	if err != nil {
 		return accounting.ErrSystemOrNetError.New("Redis eval failed: %w", err)
 	}
@@ -120,7 +120,7 @@ func (cache *redisLiveAccounting) UpdateProjectBandwidthUsage(ctx context.Contex
 func (cache *redisLiveAccounting) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) (err error) {
 	defer mon.Task()(&ctx, projectID, spaceUsed)(&err)
 
-	_, err = cache.client.IncrBy(string(projectID[:]), spaceUsed).Result()
+	_, err = cache.client.IncrBy(ctx, string(projectID[:]), spaceUsed).Result()
 	if err != nil {
 		return accounting.ErrSystemOrNetError.New("Redis incrby failed: %w", err)
 	}
@@ -136,8 +136,8 @@ func (cache *redisLiveAccounting) GetAllProjectTotals(ctx context.Context) (_ ma
 	defer mon.Task()(&ctx)(&err)
 
 	projects := make(map[uuid.UUID]int64)
-	it := cache.client.Scan(0, "*", 0).Iterator()
-	for it.Next() {
+	it := cache.client.Scan(ctx, 0, "*", 0).Iterator()
+	for it.Next(ctx) {
 		key := it.Val()
 
 		// skip bandwidth keys
@@ -182,7 +182,7 @@ func (cache *redisLiveAccounting) Close() error {
 func (cache *redisLiveAccounting) getInt64(ctx context.Context, key string) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	val, err := cache.client.Get(key).Bytes()
+	val, err := cache.client.Get(ctx, key).Bytes()
 	if err != nil {
 		if errors.Is(err, redis.Nil) {
 			return 0, accounting.ErrKeyNotFound.New("%q", key)

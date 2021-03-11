@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
-	"github.com/go-redis/redis"
+	"github.com/go-redis/redis/v8"
 
 	"storj.io/common/processgroup"
 )
@@ -145,7 +145,7 @@ func Process(ctx context.Context) (Server, error) {
 	}
 
 	// test whether we can actually connect
-	if err := pingServer(addr); err != nil {
+	if err := pingServer(ctx, addr); err != nil {
 		cleanup()
 		return nil, fmt.Errorf("unable to ping: %v", err)
 	}
@@ -169,10 +169,10 @@ func (process *process) Close() error {
 
 func (process *process) FastForward(_ time.Duration) {}
 
-func pingServer(addr string) error {
+func pingServer(ctx context.Context, addr string) error {
 	client := redis.NewClient(&redis.Options{Addr: addr, DB: 1})
 	defer func() { _ = client.Close() }()
-	return client.Ping().Err()
+	return client.Ping(ctx).Err()
 }
 
 // Mini starts miniredis server.
