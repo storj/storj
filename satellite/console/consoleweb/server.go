@@ -83,6 +83,8 @@ type Config struct {
 	ProjectLimitsIncreaseRequestURL string `help:"url link to project limit increase request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
 	GatewayCredentialsRequestURL    string `help:"url link for gateway credentials requests" default:"https://auth.tardigradeshare.io"`
 	IsBetaSatellite                 bool   `help:"indicates if satellite is in beta" default:"false"`
+	BetaSatelliteFeedbackURL        string `help:"url link for for beta satellite feedback" default:""`
+	BetaSatelliteSupportURL         string `help:"url link for for beta satellite support" default:""`
 
 	RateLimit web.IPRateLimiterConfig
 
@@ -290,6 +292,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		ProjectLimitsIncreaseRequestURL string
 		GatewayCredentialsRequestURL    string
 		IsBetaSatellite                 bool
+		BetaSatelliteFeedbackURL        string
+		BetaSatelliteSupportURL         string
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -305,6 +309,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.ProjectLimitsIncreaseRequestURL = server.config.ProjectLimitsIncreaseRequestURL
 	data.GatewayCredentialsRequestURL = server.config.GatewayCredentialsRequestURL
 	data.IsBetaSatellite = server.config.IsBetaSatellite
+	data.BetaSatelliteFeedbackURL = server.config.BetaSatelliteFeedbackURL
+	data.BetaSatelliteSupportURL = server.config.BetaSatelliteSupportURL
 
 	if server.templates.index == nil {
 		server.log.Error("index template is not set")
