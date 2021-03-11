@@ -255,7 +255,9 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 		return ErrInvalidRequest.New("Redundancy zero")
 	}
 
-	// TODO: verify opts.Pieces is compatible with opts.Redundancy
+	if len(opts.Pieces) < int(opts.Redundancy.OptimalShares) {
+		return ErrInvalidRequest.New("number of pieces is less than redundancy optimal shares value")
+	}
 
 	aliasPieces, err := db.aliasCache.ConvertPiecesToAliases(ctx, opts.Pieces)
 	if err != nil {

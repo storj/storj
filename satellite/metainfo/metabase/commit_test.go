@@ -20,10 +20,10 @@ import (
 var defaultTestRedundancy = storj.RedundancyScheme{
 	Algorithm:      storj.ReedSolomon,
 	ShareSize:      2048,
-	RequiredShares: 4,
-	RepairShares:   5,
-	OptimalShares:  6,
-	TotalShares:    7,
+	RequiredShares: 1,
+	RepairShares:   1,
+	OptimalShares:  1,
+	TotalShares:    1,
 }
 
 var defaultTestEncryption = storj.EncryptionParameters{
@@ -1143,6 +1143,32 @@ func TestCommitSegment(t *testing.T) {
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "Redundancy zero",
+			}.Check(ctx, t, db)
+
+			redundancy := storj.RedundancyScheme{
+				OptimalShares: 2,
+			}
+
+			CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+					Pieces: []metabase.Piece{
+						{
+							Number:      1,
+							StorageNode: testrand.NodeID(),
+						},
+					},
+					RootPieceID:       testrand.PieceID(),
+					Redundancy:        redundancy,
+					EncryptedKey:      testrand.Bytes(32),
+					EncryptedKeyNonce: testrand.Bytes(32),
+
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "number of pieces is less than redundancy optimal shares value",
 			}.Check(ctx, t, db)
 
 			Verify{
