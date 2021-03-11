@@ -1267,12 +1267,9 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 			},
 			{
 				DB:          &db.migrationDB,
-				Description: "drop unused columns uptime_reputation_alpha and uptime_reputation_beta from nodes table",
+				Description: "empty migration to fix backwards compat test discrepancy with release tag",
 				Version:     148,
-				Action: migrate.SQL{
-					`ALTER TABLE nodes DROP COLUMN uptime_reputation_alpha;`,
-					`ALTER TABLE nodes DROP COLUMN uptime_reputation_beta;`,
-				},
+				Action:      migrate.SQL{},
 			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.

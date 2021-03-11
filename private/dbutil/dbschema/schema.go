@@ -157,6 +157,16 @@ func (schema *Schema) DropTable(tableName string) {
 	schema.Indexes = schema.Indexes[:j:j]
 }
 
+// FindTable returns the specified table.
+func (schema *Schema) FindTable(tableName string) (*Table, bool) {
+	for _, table := range schema.Tables {
+		if table.Name == tableName {
+			return table, true
+		}
+	}
+	return nil, false
+}
+
 // FindIndex finds index in the schema.
 func (schema *Schema) FindIndex(name string) (*Index, bool) {
 	for _, idx := range schema.Indexes {
@@ -181,6 +191,16 @@ func (schema *Schema) DropIndex(name string) {
 // AddColumn adds the column to the table.
 func (table *Table) AddColumn(column *Column) {
 	table.Columns = append(table.Columns, column)
+}
+
+// RemoveColumn removes the column from the table.
+func (table *Table) RemoveColumn(columnName string) {
+	for i, column := range table.Columns {
+		if column.Name == columnName {
+			table.Columns = append(table.Columns[:i], table.Columns[i+1:]...)
+			return
+		}
+	}
 }
 
 // FindColumn finds a column in the table.
