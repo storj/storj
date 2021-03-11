@@ -6,16 +6,14 @@ package metabase
 import (
 	"bytes"
 	"context"
-	"database/sql"
-	"errors"
 	"sort"
 
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/pgutil"
-	"storj.io/storj/private/dbutil/txutil"
 	"storj.io/storj/private/tagsql"
 )
 
@@ -102,52 +100,49 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 	if err := opts.Verify(); err != nil {
 		return DeleteObjectResult{}, err
 	}
-	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
-		rows, err := tx.Query(ctx, `
-			DELETE FROM objects
-			WHERE
-				project_id   = $1 AND
-				bucket_name  = $2 AND
-				object_key   = $3 AND
-				version      = $4 AND
-				status       = `+committedStatus+`
-			RETURNING
-				version, stream_id,
-				created_at, expires_at,
-				status, segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
-				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption;
-		`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
-			}
-			return Error.New("unable to delete object: %w", err)
-		}
-
-		result.Objects, err = scanObjectDeletion(opts.ObjectLocation, rows)
-		if err != nil {
-			return err
-		}
-
-		if len(result.Objects) == 0 {
-			return storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
-		}
-
-		segmentInfos, err := db.deleteSegments(ctx, tx, result.Objects)
-		if err != nil {
-			return err
-		}
-
-		if len(segmentInfos) != 0 {
-			result.Segments = segmentInfos
-		}
-		return nil
+	err = withRows(db.db.Query(ctx, `
+			WITH deleted_objects AS (
+				DELETE FROM objects
+				WHERE
+					project_id   = $1 AND
+					bucket_name  = $2 AND
+					object_key   = $3 AND
+					version      = $4 AND
+					status       = `+committedStatus+`
+				RETURNING
+					version, stream_id,
+					created_at, expires_at,
+					status, segment_count,
+					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+					total_plain_size, total_encrypted_size, fixed_segment_size,
+					encryption
+			), deleted_segments AS (
+				DELETE FROM segments
+				WHERE segments.stream_id in (SELECT deleted_objects.stream_id FROM deleted_objects)
+				RETURNING segments.stream_id,segments.root_piece_id, segments.remote_alias_pieces
+			)
+			SELECT
+				deleted_objects.version, deleted_objects.stream_id,
+				deleted_objects.created_at, deleted_objects.expires_at,
+				deleted_objects.status, deleted_objects.segment_count,
+				deleted_objects.encrypted_metadata_nonce, deleted_objects.encrypted_metadata, deleted_objects.encrypted_metadata_encrypted_key,
+				deleted_objects.total_plain_size, deleted_objects.total_encrypted_size, deleted_objects.fixed_segment_size,
+				deleted_objects.encryption,
+				deleted_segments.root_piece_id, deleted_segments.remote_alias_pieces
+			FROM deleted_objects
+			LEFT JOIN deleted_segments ON deleted_objects.stream_id = deleted_segments.stream_id
+		`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version))(func(rows tagsql.Rows) error {
+		result.Objects, result.Segments, err = db.scanObjectDeletion(ctx, opts.ObjectLocation, rows)
+		return err
 	})
 	if err != nil {
 		return DeleteObjectResult{}, err
 	}
+
+	if len(result.Objects) == 0 {
+		return DeleteObjectResult{}, storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
+	}
+
 	return result, nil
 }
 
@@ -181,53 +176,52 @@ func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject)
 	if err := opts.Verify(); err != nil {
 		return DeleteObjectResult{}, err
 	}
-	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
-		rows, err := tx.Query(ctx, `
-			DELETE FROM objects
-			WHERE
-				project_id   = $1 AND
-				bucket_name  = $2 AND
-				object_key   = $3 AND
-				version      = $4 AND
-				stream_id    = $5 AND
-				status       = `+pendingStatus+`
-			RETURNING
-				version, stream_id,
-				created_at, expires_at,
-				status, segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
-				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption;
-		`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
-			}
-			return Error.New("unable to delete object: %w", err)
-		}
 
-		result.Objects, err = scanObjectDeletion(opts.ObjectLocation, rows)
-		if err != nil {
-			return err
-		}
-
-		if len(result.Objects) == 0 {
-			return storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
-		}
-
-		segmentInfos, err := db.deleteSegments(ctx, tx, result.Objects)
-		if err != nil {
-			return err
-		}
-
-		if len(segmentInfos) != 0 {
-			result.Segments = segmentInfos
-		}
-		return nil
+	err = withRows(db.db.Query(ctx, `
+			WITH deleted_objects AS (
+				DELETE FROM objects
+				WHERE
+					project_id   = $1 AND
+					bucket_name  = $2 AND
+					object_key   = $3 AND
+					version      = $4 AND
+					stream_id    = $5 AND
+					status       = `+pendingStatus+`
+				RETURNING
+					version, stream_id,
+					created_at, expires_at,
+					status, segment_count,
+					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+					total_plain_size, total_encrypted_size, fixed_segment_size,
+					encryption
+			), deleted_segments AS (
+				DELETE FROM segments
+				WHERE segments.stream_id in (SELECT deleted_objects.stream_id FROM deleted_objects)
+				RETURNING segments.stream_id,segments.root_piece_id, segments.remote_alias_pieces
+			)
+			SELECT
+				deleted_objects.version, deleted_objects.stream_id,
+				deleted_objects.created_at, deleted_objects.expires_at,
+				deleted_objects.status, deleted_objects.segment_count,
+				deleted_objects.encrypted_metadata_nonce, deleted_objects.encrypted_metadata, deleted_objects.encrypted_metadata_encrypted_key,
+				deleted_objects.total_plain_size, deleted_objects.total_encrypted_size, deleted_objects.fixed_segment_size,
+				deleted_objects.encryption,
+				deleted_segments.root_piece_id, deleted_segments.remote_alias_pieces
+			FROM deleted_objects
+			LEFT JOIN deleted_segments ON deleted_objects.stream_id = deleted_segments.stream_id
+		`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID))(func(rows tagsql.Rows) error {
+		result.Objects, result.Segments, err = db.scanObjectDeletion(ctx, opts.ObjectLocation, rows)
+		return err
 	})
+
 	if err != nil {
 		return DeleteObjectResult{}, err
 	}
+
+	if len(result.Objects) == 0 {
+		return DeleteObjectResult{}, storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
+	}
+
 	return result, nil
 }
 
@@ -239,75 +233,99 @@ func (db *DB) DeleteObjectLatestVersion(ctx context.Context, opts DeleteObjectLa
 		return DeleteObjectResult{}, err
 	}
 
-	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
-		// TODO different sql for Postgres and CockroachDB
-		// version ONLY for cockroachdb
-		// Postgres doesn't support ORDER BY and LIMIT in DELETE
-		// rows, err = tx.Query(ctx, `
-		// DELETE FROM objects
-		// WHERE
-		// 	project_id   = $1 AND
-		// 	bucket_name  = $2 AND
-		// 	object_key   = $3 AND
-		// 	status       = 1
-		// ORDER BY version DESC
-		// LIMIT 1
-		// RETURNING stream_id;
-		// `, opts.ProjectID, []byte(opts.BucketName), opts.ObjectKey)
-
-		// version for Postgres and Cockroachdb (but slow for Cockroachdb)
-		rows, err := tx.Query(ctx, `
-			DELETE FROM objects
-			WHERE
-				project_id   = $1 AND
-				bucket_name  = $2 AND
-				object_key   = $3 AND
-				version      IN (SELECT version FROM objects WHERE
+	var query string
+	switch db.implementation {
+	case dbutil.Cockroach:
+		query = `
+			WITH deleted_objects AS (
+				DELETE FROM objects
+				WHERE
 					project_id   = $1 AND
 					bucket_name  = $2 AND
 					object_key   = $3 AND
-					status       = `+committedStatus+`
-					ORDER BY version DESC LIMIT 1
-				) AND
-				status       = `+committedStatus+`
-			RETURNING
-				version, stream_id,
-				created_at, expires_at,
-				status, segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
-				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption;
-		`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey))
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
-			}
-			return Error.New("unable to delete object: %w", err)
-		}
-
-		result.Objects, err = scanObjectDeletion(opts.ObjectLocation, rows)
-		if err != nil {
-			return err
-		}
-
-		if len(result.Objects) == 0 {
-			return storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
-		}
-
-		segmentInfos, err := db.deleteSegments(ctx, tx, result.Objects)
-		if err != nil {
-			return err
-		}
-
-		if len(segmentInfos) != 0 {
-			result.Segments = segmentInfos
-		}
-		return nil
+					status       = ` + committedStatus + `
+				ORDER BY version DESC
+				LIMIT 1
+				RETURNING
+					version, stream_id,
+					created_at, expires_at,
+					status, segment_count,
+					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+					total_plain_size, total_encrypted_size, fixed_segment_size,
+					encryption
+			), deleted_segments AS (
+				DELETE FROM segments
+				WHERE segments.stream_id in (SELECT deleted_objects.stream_id FROM deleted_objects)
+				RETURNING segments.stream_id,segments.root_piece_id, segments.remote_alias_pieces
+			)
+			SELECT
+				deleted_objects.version, deleted_objects.stream_id,
+				deleted_objects.created_at, deleted_objects.expires_at,
+				deleted_objects.status, deleted_objects.segment_count,
+				deleted_objects.encrypted_metadata_nonce, deleted_objects.encrypted_metadata, deleted_objects.encrypted_metadata_encrypted_key,
+				deleted_objects.total_plain_size, deleted_objects.total_encrypted_size, deleted_objects.fixed_segment_size,
+				deleted_objects.encryption,
+				deleted_segments.root_piece_id, deleted_segments.remote_alias_pieces
+			FROM deleted_objects
+			LEFT JOIN deleted_segments ON deleted_objects.stream_id = deleted_segments.stream_id
+		`
+	case dbutil.Postgres:
+		query = `
+			WITH deleted_objects AS (
+				DELETE FROM objects
+				WHERE
+					project_id   = $1 AND
+					bucket_name  = $2 AND
+					object_key   = $3 AND
+					version IN (
+						SELECT version FROM objects
+						WHERE
+							project_id   = $1 AND
+							bucket_name  = $2 AND
+							object_key   = $3 AND
+							status       = ` + committedStatus + `
+						ORDER BY version DESC LIMIT 1
+					) AND
+					status       = ` + committedStatus + `
+				RETURNING
+					version, stream_id,
+					created_at, expires_at,
+					status, segment_count,
+					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+					total_plain_size, total_encrypted_size, fixed_segment_size,
+					encryption
+			), deleted_segments AS (
+				DELETE FROM segments
+				WHERE segments.stream_id in (SELECT deleted_objects.stream_id FROM deleted_objects)
+				RETURNING segments.stream_id,segments.root_piece_id, segments.remote_alias_pieces
+			)
+			SELECT
+				deleted_objects.version, deleted_objects.stream_id,
+				deleted_objects.created_at, deleted_objects.expires_at,
+				deleted_objects.status, deleted_objects.segment_count,
+				deleted_objects.encrypted_metadata_nonce, deleted_objects.encrypted_metadata, deleted_objects.encrypted_metadata_encrypted_key,
+				deleted_objects.total_plain_size, deleted_objects.total_encrypted_size, deleted_objects.fixed_segment_size,
+				deleted_objects.encryption,
+				deleted_segments.root_piece_id, deleted_segments.remote_alias_pieces
+			FROM deleted_objects
+			LEFT JOIN deleted_segments ON deleted_objects.stream_id = deleted_segments.stream_id
+		`
+	default:
+		return DeleteObjectResult{}, Error.New("invalid dbType: %v", db.implementation)
+	}
+	err = withRows(db.db.Query(ctx, query, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey)))(func(rows tagsql.Rows) error {
+		result.Objects, result.Segments, err = db.scanObjectDeletion(ctx, opts.ObjectLocation, rows)
+		return err
 	})
 
 	if err != nil {
 		return DeleteObjectResult{}, err
 	}
+
+	if len(result.Objects) == 0 {
+		return DeleteObjectResult{}, storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
+	}
+
 	return result, nil
 }
 
@@ -318,51 +336,49 @@ func (db *DB) DeleteObjectAnyStatusAllVersions(ctx context.Context, opts DeleteO
 	if err := opts.Verify(); err != nil {
 		return DeleteObjectResult{}, err
 	}
-	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
-		rows, err := tx.Query(ctx, `
-			DELETE FROM objects
-			WHERE
+
+	err = withRows(db.db.Query(ctx, `
+			WITH deleted_objects AS (
+				DELETE FROM objects
+				WHERE
 				project_id   = $1 AND
 				bucket_name  = $2 AND
 				object_key   = $3
-			RETURNING
-				version, stream_id,
-				created_at, expires_at,
-				status, segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
-				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption;
-		`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey))
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
-			}
-			return Error.New("unable to delete object: %w", err)
-		}
-
-		result.Objects, err = scanObjectDeletion(opts.ObjectLocation, rows)
-		if err != nil {
-			return err
-		}
-
-		if len(result.Objects) == 0 {
-			return storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
-		}
-
-		segmentInfos, err := db.deleteSegments(ctx, tx, result.Objects)
-		if err != nil {
-			return err
-		}
-
-		if len(segmentInfos) != 0 {
-			result.Segments = segmentInfos
-		}
-
-		return nil
+				RETURNING
+					version, stream_id,
+					created_at, expires_at,
+					status, segment_count,
+					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+					total_plain_size, total_encrypted_size, fixed_segment_size,
+					encryption
+			), deleted_segments AS (
+				DELETE FROM segments
+				WHERE segments.stream_id in (SELECT deleted_objects.stream_id FROM deleted_objects)
+				RETURNING segments.stream_id,segments.root_piece_id, segments.remote_alias_pieces
+			)
+			SELECT
+				deleted_objects.version, deleted_objects.stream_id,
+				deleted_objects.created_at, deleted_objects.expires_at,
+				deleted_objects.status, deleted_objects.segment_count,
+				deleted_objects.encrypted_metadata_nonce, deleted_objects.encrypted_metadata, deleted_objects.encrypted_metadata_encrypted_key,
+				deleted_objects.total_plain_size, deleted_objects.total_encrypted_size, deleted_objects.fixed_segment_size,
+				deleted_objects.encryption,
+				deleted_segments.root_piece_id, deleted_segments.remote_alias_pieces
+			FROM deleted_objects
+			LEFT JOIN deleted_segments ON deleted_objects.stream_id = deleted_segments.stream_id
+		`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey)))(func(rows tagsql.Rows) error {
+		result.Objects, result.Segments, err = db.scanObjectDeletion(ctx, opts.ObjectLocation, rows)
+		return err
 	})
+
 	if err != nil {
 		return DeleteObjectResult{}, err
 	}
+
+	if len(result.Objects) == 0 {
+		return DeleteObjectResult{}, storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
+	}
+
 	return result, nil
 }
 
@@ -379,77 +395,76 @@ func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAl
 		return DeleteObjectResult{}, err
 	}
 
-	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
-		// It is aleady verified that all object locations are in the same bucket
-		projectID := opts.Locations[0].ProjectID
-		bucketName := opts.Locations[0].BucketName
+	// It is aleady verified that all object locations are in the same bucket
+	projectID := opts.Locations[0].ProjectID
+	bucketName := opts.Locations[0].BucketName
 
-		objectKeys := make([][]byte, len(opts.Locations))
-		for i := range opts.Locations {
-			objectKeys[i] = []byte(opts.Locations[i].ObjectKey)
-		}
+	objectKeys := make([][]byte, len(opts.Locations))
+	for i := range opts.Locations {
+		objectKeys[i] = []byte(opts.Locations[i].ObjectKey)
+	}
 
-		// Sorting the object keys just in case.
-		// TODO: Check if this is really necessary for the SQL query.
-		sort.Slice(objectKeys, func(i, j int) bool {
-			return bytes.Compare(objectKeys[i], objectKeys[j]) < 0
-		})
-
-		rows, err := tx.Query(ctx, `
-			DELETE FROM objects
-				WHERE
+	// Sorting the object keys just in case.
+	// TODO: Check if this is really necessary for the SQL query.
+	sort.Slice(objectKeys, func(i, j int) bool {
+		return bytes.Compare(objectKeys[i], objectKeys[j]) < 0
+	})
+	err = withRows(db.db.Query(ctx, `
+				WITH deleted_objects AS (
+					DELETE FROM objects
+					WHERE
 					project_id   = $1 AND
 					bucket_name  = $2 AND
 					object_key   = ANY ($3) AND
 					status       = `+committedStatus+`
-				RETURNING
-					project_id, bucket_name,
-					object_key, version, stream_id,
-					created_at, expires_at,
-					status, segment_count,
-					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
-					total_plain_size, total_encrypted_size, fixed_segment_size,
-					encryption;
-		`, projectID, []byte(bucketName), pgutil.ByteaArray(objectKeys))
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return storj.ErrObjectNotFound.Wrap(Error.Wrap(err))
-			}
-			return Error.New("unable to delete object: %w", err)
-		}
-
-		result.Objects, err = scanMultipleObjectsDeletion(rows)
-		if err != nil {
-			return err
-		}
-
-		if len(result.Objects) == 0 {
-			// nothing was delete, no error
-			return nil
-		}
-
-		segmentInfos, err := db.deleteSegments(ctx, tx, result.Objects)
-		if err != nil {
-			return err
-		}
-
-		if len(segmentInfos) != 0 {
-			result.Segments = segmentInfos
-		}
-		return nil
+					RETURNING
+						project_id, bucket_name,
+						object_key, version, stream_id,
+						created_at, expires_at,
+						status, segment_count,
+						encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key,
+						total_plain_size, total_encrypted_size, fixed_segment_size,
+						encryption
+				), deleted_segments AS (
+					DELETE FROM segments
+					WHERE segments.stream_id in (SELECT deleted_objects.stream_id FROM deleted_objects)
+					RETURNING segments.stream_id,segments.root_piece_id, segments.remote_alias_pieces
+				)
+				SELECT
+					deleted_objects.project_id, deleted_objects.bucket_name,
+					deleted_objects.object_key,deleted_objects.version, deleted_objects.stream_id,
+					deleted_objects.created_at, deleted_objects.expires_at,
+					deleted_objects.status, deleted_objects.segment_count,
+					deleted_objects.encrypted_metadata_nonce, deleted_objects.encrypted_metadata, deleted_objects.encrypted_metadata_encrypted_key,
+					deleted_objects.total_plain_size, deleted_objects.total_encrypted_size, deleted_objects.fixed_segment_size,
+					deleted_objects.encryption,
+					deleted_segments.root_piece_id, deleted_segments.remote_alias_pieces
+				FROM deleted_objects
+				LEFT JOIN deleted_segments ON deleted_objects.stream_id = deleted_segments.stream_id
+			`, projectID, []byte(bucketName), pgutil.ByteaArray(objectKeys)))(func(rows tagsql.Rows) error {
+		result.Objects, result.Segments, err = db.scanMultipleObjectsDeletion(ctx, rows)
+		return err
 	})
+
 	if err != nil {
 		return DeleteObjectResult{}, err
 	}
 	return result, nil
 }
 
-func scanObjectDeletion(location ObjectLocation, rows tagsql.Rows) (objects []Object, err error) {
+func (db *DB) scanObjectDeletion(ctx context.Context, location ObjectLocation, rows tagsql.Rows) (objects []Object, segments []DeletedSegmentInfo, err error) {
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	objects = make([]Object, 0, 10)
+	segments = make([]DeletedSegmentInfo, 0, 10)
+
+	var rootPieceID *storj.PieceID
+	var object Object
+	var segment DeletedSegmentInfo
+	var aliasPieces AliasPieces
+
 	for rows.Next() {
-		var object Object
+
 		object.ProjectID = location.ProjectID
 		object.BucketName = location.BucketName
 		object.ObjectKey = location.ObjectKey
@@ -459,98 +474,83 @@ func scanObjectDeletion(location ObjectLocation, rows tagsql.Rows) (objects []Ob
 			&object.Status, &object.SegmentCount,
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
-			encryptionParameters{&object.Encryption})
+			encryptionParameters{&object.Encryption}, &rootPieceID, &aliasPieces)
 		if err != nil {
-			return nil, Error.New("unable to delete object: %w", err)
+			return nil, nil, Error.New("unable to delete object: %w", err)
 		}
-
-		objects = append(objects, object)
+		if len(objects) == 0 || objects[len(objects)-1].StreamID != object.StreamID {
+			objects = append(objects, object)
+		}
+		if rootPieceID != nil {
+			segment.RootPieceID = *rootPieceID
+			segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+			if err != nil {
+				return nil, nil, Error.Wrap(err)
+			}
+			if len(segment.Pieces) > 0 {
+				segments = append(segments, segment)
+			}
+		}
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, Error.New("unable to delete object: %w", err)
+		return nil, nil, Error.New("unable to delete object: %w", err)
 	}
 
-	return objects, nil
+	if len(segments) == 0 {
+		return objects, nil, nil
+	}
+	return objects, segments, nil
 }
 
-func scanMultipleObjectsDeletion(rows tagsql.Rows) (objects []Object, err error) {
+func (db *DB) scanMultipleObjectsDeletion(ctx context.Context, rows tagsql.Rows) (objects []Object, segments []DeletedSegmentInfo, err error) {
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	objects = make([]Object, 0, 10)
+	segments = make([]DeletedSegmentInfo, 0, 10)
+
+	var rootPieceID *storj.PieceID
+	var object Object
+	var segment DeletedSegmentInfo
+	var aliasPieces AliasPieces
+
 	for rows.Next() {
-		var object Object
 		err = rows.Scan(&object.ProjectID, &object.BucketName,
 			&object.ObjectKey, &object.Version, &object.StreamID,
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.Status, &object.SegmentCount,
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
-			encryptionParameters{&object.Encryption})
+			encryptionParameters{&object.Encryption}, &rootPieceID, &aliasPieces)
 		if err != nil {
-			return nil, Error.New("unable to delete object: %w", err)
+			return nil, nil, Error.New("unable to delete object: %w", err)
 		}
-		objects = append(objects, object)
+
+		if len(objects) == 0 || objects[len(objects)-1].StreamID != object.StreamID {
+			objects = append(objects, object)
+		}
+		if rootPieceID != nil {
+			segment.RootPieceID = *rootPieceID
+			segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+			if err != nil {
+				return nil, nil, Error.Wrap(err)
+			}
+			if len(segment.Pieces) > 0 {
+				segments = append(segments, segment)
+			}
+		}
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, Error.New("unable to delete object: %w", err)
+		return nil, nil, Error.New("unable to delete object: %w", err)
 	}
 
 	if len(objects) == 0 {
 		objects = nil
 	}
-
-	return objects, nil
-}
-
-func (db *DB) deleteSegments(ctx context.Context, tx tagsql.Tx, objects []Object) (_ []DeletedSegmentInfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	// TODO we need to figure out how integrate this with piece deletion code
-	// one issue is that with this approach we need to return all pieces SN ids at once
-
-	streamIDs := make([][]byte, len(objects))
-	for i := range objects {
-		streamIDs[i] = objects[i].StreamID[:]
+	if len(segments) == 0 {
+		return objects, nil, nil
 	}
 
-	// Sorting the stream IDs just in case.
-	// TODO: Check if this is really necessary for the SQL query.
-	sort.Slice(streamIDs, func(i, j int) bool {
-		return bytes.Compare(streamIDs[i], streamIDs[j]) < 0
-	})
-
-	segmentsRows, err := tx.Query(ctx, `
-			DELETE FROM segments
-			WHERE stream_id = ANY ($1)
-			RETURNING root_piece_id, remote_alias_pieces;
-		`, pgutil.ByteaArray(streamIDs))
-	if err != nil {
-		return []DeletedSegmentInfo{}, Error.New("unable to delete object: %w", err)
-	}
-	defer func() { err = errs.Combine(err, segmentsRows.Close()) }()
-
-	infos := make([]DeletedSegmentInfo, 0, len(objects))
-	for segmentsRows.Next() {
-		var segmentInfo DeletedSegmentInfo
-		var aliasPieces AliasPieces
-		err = segmentsRows.Scan(&segmentInfo.RootPieceID, &aliasPieces)
-		if err != nil {
-			return []DeletedSegmentInfo{}, Error.New("unable to delete object: %w", err)
-		}
-
-		segmentInfo.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
-		if err != nil {
-			return []DeletedSegmentInfo{}, Error.New("failed to convert aliases: %w", err)
-		}
-		if len(segmentInfo.Pieces) != 0 {
-			infos = append(infos, segmentInfo)
-		}
-	}
-	if err := segmentsRows.Err(); err != nil {
-		return []DeletedSegmentInfo{}, Error.New("unable to delete object: %w", err)
-	}
-
-	return infos, nil
+	return objects, segments, nil
 }
