@@ -1706,6 +1706,9 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 			},
 			PlainSize: int64(item.PlainSize),
 		}
+		if item.CreatedAt != nil {
+			items[i].CreatedAt = *item.CreatedAt
+		}
 	}
 
 	return &pb.SegmentListResponse{
