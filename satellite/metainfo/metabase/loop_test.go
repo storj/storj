@@ -335,6 +335,8 @@ func TestIterateLoopStreams(t *testing.T) {
 		t.Run("List objects segments", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
+			now := time.Now()
+
 			expectedObject00 := createObject(ctx, t, db, randObjectStream(), 0)
 			expectedObject01 := createObject(ctx, t, db, randObjectStream(), 1)
 			expectedObject02 := createObject(ctx, t, db, randObjectStream(), 5)
@@ -372,6 +374,7 @@ func TestIterateLoopStreams(t *testing.T) {
 					expectedRawSegments = append(expectedRawSegments, metabase.RawSegment{
 						StreamID:          segment.StreamID,
 						Position:          segment.Position,
+						CreatedAt:         &now,
 						EncryptedSize:     segment.EncryptedSize,
 						Pieces:            segment.Pieces,
 						Redundancy:        segment.Redundancy,

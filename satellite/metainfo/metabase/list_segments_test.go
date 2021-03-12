@@ -5,6 +5,7 @@ package metabase_test
 
 import (
 	"testing"
+	"time"
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -15,6 +16,7 @@ import (
 func TestListSegments(t *testing.T) {
 	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := randObjectStream()
+		now := time.Now()
 
 		t.Run("StreamID missing", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
@@ -67,6 +69,7 @@ func TestListSegments(t *testing.T) {
 				Position: metabase.SegmentPosition{
 					Index: 0,
 				},
+				CreatedAt:         &now,
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
@@ -182,6 +185,7 @@ func TestListSegments(t *testing.T) {
 
 			expectedSegment := metabase.Segment{
 				StreamID:          obj.StreamID,
+				CreatedAt:         &now,
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
@@ -263,6 +267,7 @@ func TestListSegments(t *testing.T) {
 func TestListStreamPositions(t *testing.T) {
 	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := randObjectStream()
+		now := time.Now()
 
 		t.Run("StreamID missing", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
@@ -315,6 +320,7 @@ func TestListStreamPositions(t *testing.T) {
 				Position: metabase.SegmentPosition{
 					Index: 0,
 				},
+				CreatedAt:         &now,
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
@@ -332,6 +338,7 @@ func TestListStreamPositions(t *testing.T) {
 				expectedSegments[i] = metabase.SegmentPositionInfo{
 					Position:  expectedSegment.Position,
 					PlainSize: expectedSegment.PlainSize,
+					CreatedAt: &now,
 				}
 			}
 
@@ -497,6 +504,7 @@ func TestListStreamPositions(t *testing.T) {
 					expectedSegments[i] = metabase.SegmentPositionInfo{
 						Position:  pos,
 						PlainSize: expectedSegment.PlainSize,
+						CreatedAt: &now,
 					}
 				}
 

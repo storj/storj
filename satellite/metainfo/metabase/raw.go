@@ -44,6 +44,8 @@ type RawSegment struct {
 	StreamID uuid.UUID
 	Position SegmentPosition
 
+	CreatedAt *time.Time // TODO: make it non-nilable after we migrate all existing segments to have creation time
+
 	RootPieceID       storj.PieceID
 	EncryptedKeyNonce []byte
 	EncryptedKey      []byte
@@ -161,6 +163,7 @@ func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err er
 	rows, err := db.db.Query(ctx, `
 		SELECT
 			stream_id, position,
+			created_at,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size,
 			plain_offset, plain_size,
@@ -179,6 +182,8 @@ func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err er
 		err := rows.Scan(
 			&seg.StreamID,
 			&seg.Position,
+
+			&seg.CreatedAt,
 
 			&seg.RootPieceID,
 			&seg.EncryptedKeyNonce,

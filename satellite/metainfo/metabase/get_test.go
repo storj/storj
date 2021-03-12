@@ -378,6 +378,7 @@ func TestGetSegmentByLocation(t *testing.T) {
 				Position: metabase.SegmentPosition{
 					Index: 0,
 				},
+				CreatedAt:         &now,
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
@@ -475,6 +476,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 				Position: metabase.SegmentPosition{
 					Index: 0,
 				},
+				CreatedAt:         &now,
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
@@ -575,6 +577,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 				Position: metabase.SegmentPosition{
 					Index: 1,
 				},
+				CreatedAt:         &now,
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
@@ -681,6 +684,7 @@ func TestGetSegmentByOffset(t *testing.T) {
 					Position: metabase.SegmentPosition{
 						Index: uint32(i),
 					},
+					CreatedAt:         &now,
 					RootPieceID:       storj.PieceID{1},
 					EncryptedKey:      []byte{3},
 					EncryptedKeyNonce: []byte{4},

@@ -937,6 +937,7 @@ func TestBeginSegment(t *testing.T) {
 func TestCommitSegment(t *testing.T) {
 	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := randObjectStream()
+		now := time.Now()
 
 		for _, test := range invalidObjectStreams(obj) {
 			test := test
@@ -1258,8 +1259,9 @@ func TestCommitSegment(t *testing.T) {
 				},
 				Segments: []metabase.RawSegment{
 					{
-						StreamID: obj.StreamID,
-						Position: metabase.SegmentPosition{Part: 0, Index: 0},
+						StreamID:  obj.StreamID,
+						Position:  metabase.SegmentPosition{Part: 0, Index: 0},
+						CreatedAt: &now,
 
 						RootPieceID:       rootPieceID,
 						EncryptedKey:      encryptedKey,
@@ -1405,7 +1407,8 @@ func TestCommitSegment(t *testing.T) {
 				},
 				Segments: []metabase.RawSegment{
 					{
-						StreamID: obj.StreamID,
+						StreamID:  obj.StreamID,
+						CreatedAt: &now,
 
 						RootPieceID:       rootPieceID,
 						EncryptedKey:      encryptedKey,
@@ -1427,6 +1430,7 @@ func TestCommitSegment(t *testing.T) {
 func TestCommitInlineSegment(t *testing.T) {
 	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := randObjectStream()
+		now := time.Now()
 
 		for _, test := range invalidObjectStreams(obj) {
 			test := test
@@ -1574,8 +1578,9 @@ func TestCommitInlineSegment(t *testing.T) {
 				},
 				Segments: []metabase.RawSegment{
 					{
-						StreamID: obj.StreamID,
-						Position: metabase.SegmentPosition{Part: 0, Index: 0},
+						StreamID:  obj.StreamID,
+						Position:  metabase.SegmentPosition{Part: 0, Index: 0},
+						CreatedAt: &now,
 
 						EncryptedKey:      encryptedKey,
 						EncryptedKeyNonce: encryptedKeyNonce,
@@ -1688,7 +1693,8 @@ func TestCommitInlineSegment(t *testing.T) {
 				},
 				Segments: []metabase.RawSegment{
 					{
-						StreamID: obj.StreamID,
+						StreamID:  obj.StreamID,
+						CreatedAt: &now,
 
 						EncryptedKey:      encryptedKey,
 						EncryptedKeyNonce: encryptedKeyNonce,
@@ -1741,7 +1747,8 @@ func TestCommitInlineSegment(t *testing.T) {
 				},
 				Segments: []metabase.RawSegment{
 					{
-						StreamID: obj.StreamID,
+						StreamID:  obj.StreamID,
+						CreatedAt: &now,
 
 						EncryptedKey:      encryptedKey,
 						EncryptedKeyNonce: encryptedKeyNonce,
@@ -1929,8 +1936,9 @@ func TestCommitObject(t *testing.T) {
 			Verify{
 				Segments: []metabase.RawSegment{
 					{
-						StreamID: obj.StreamID,
-						Position: metabase.SegmentPosition{Index: 0},
+						StreamID:  obj.StreamID,
+						Position:  metabase.SegmentPosition{Index: 0},
+						CreatedAt: &now,
 
 						RootPieceID:       rootPieceID,
 						EncryptedKey:      encryptedKey,
@@ -1944,8 +1952,9 @@ func TestCommitObject(t *testing.T) {
 						Pieces: pieces,
 					},
 					{
-						StreamID: obj.StreamID,
-						Position: metabase.SegmentPosition{Index: 1},
+						StreamID:  obj.StreamID,
+						Position:  metabase.SegmentPosition{Index: 1},
+						CreatedAt: &now,
 
 						RootPieceID:       rootPieceID,
 						EncryptedKey:      encryptedKey,

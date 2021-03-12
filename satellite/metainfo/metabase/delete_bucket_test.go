@@ -189,8 +189,9 @@ func TestDeleteBucketObjects(t *testing.T) {
 				},
 				Segments: []metabase.RawSegment{
 					{
-						StreamID: objX.StreamID,
-						Position: metabase.SegmentPosition{Part: 0, Index: 0},
+						StreamID:  objX.StreamID,
+						Position:  metabase.SegmentPosition{Part: 0, Index: 0},
+						CreatedAt: &now,
 
 						RootPieceID:       storj.PieceID{1},
 						Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
@@ -204,8 +205,9 @@ func TestDeleteBucketObjects(t *testing.T) {
 						Redundancy: defaultTestRedundancy,
 					},
 					{
-						StreamID: objY.StreamID,
-						Position: metabase.SegmentPosition{Part: 0, Index: 0},
+						StreamID:  objY.StreamID,
+						Position:  metabase.SegmentPosition{Part: 0, Index: 0},
+						CreatedAt: &now,
 
 						RootPieceID:       storj.PieceID{1},
 						Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},

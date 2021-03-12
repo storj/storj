@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/private/tagsql"
@@ -44,6 +45,7 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 	err = withRows(db.db.Query(ctx, `
 		SELECT
 			position,
+			created_at,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size, plain_offset, plain_size,
 			redundancy,
@@ -60,6 +62,7 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 			var aliasPieces AliasPieces
 			err = rows.Scan(
 				&segment.Position,
+				&segment.CreatedAt,
 				&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 				&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
 				redundancyScheme{&segment.Redundancy},
@@ -111,6 +114,7 @@ type ListStreamPositionsResult struct {
 type SegmentPositionInfo struct {
 	Position  SegmentPosition
 	PlainSize int32
+	CreatedAt *time.Time // TODO: make it non-nilable after we migrate all existing segments to have creation time
 }
 
 // ListStreamPositions lists specified stream segment positions.
@@ -131,7 +135,7 @@ func (db *DB) ListStreamPositions(ctx context.Context, opts ListStreamPositions)
 
 	err = withRows(db.db.Query(ctx, `
 		SELECT
-			position, plain_size
+			position, plain_size, created_at
 		FROM segments
 		WHERE
 			stream_id = $1 AND
@@ -141,7 +145,7 @@ func (db *DB) ListStreamPositions(ctx context.Context, opts ListStreamPositions)
 	`, opts.StreamID, opts.Cursor, opts.Limit+1))(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var segment SegmentPositionInfo
-			err = rows.Scan(&segment.Position, &segment.PlainSize)
+			err = rows.Scan(&segment.Position, &segment.PlainSize, &segment.CreatedAt)
 			if err != nil {
 				return Error.New("failed to scan segments: %w", err)
 			}
