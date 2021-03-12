@@ -394,8 +394,9 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		StreamID: segment.StreamID,
 		Position: segmentLocation.Position,
 
-		OldPieces: segment.Pieces,
-		NewPieces: newPieces,
+		OldPieces:     segment.Pieces,
+		NewRedundancy: segment.Redundancy,
+		NewPieces:     newPieces,
 	})
 	if err != nil {
 		return false, metainfoPutError.Wrap(err)

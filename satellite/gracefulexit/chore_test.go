@@ -208,8 +208,9 @@ func TestDurabilityRatio(t *testing.T) {
 				StreamID: segment.StreamID,
 				Position: segment.Position,
 
-				OldPieces: segment.Pieces,
-				NewPieces: newPieces,
+				OldPieces:     segment.Pieces,
+				NewPieces:     newPieces,
+				NewRedundancy: segment.Redundancy,
 			})
 			require.NoError(t, err)
 		}

@@ -988,8 +988,9 @@ func (endpoint *Endpoint) UpdatePiecesCheckDuplicates(ctx context.Context, segme
 		StreamID: segment.StreamID,
 		Position: segment.Position,
 
-		OldPieces: segment.Pieces,
-		NewPieces: pieces,
+		OldPieces:     segment.Pieces,
+		NewRedundancy: segment.Redundancy,
+		NewPieces:     pieces,
 	})
 	if err != nil {
 		if metabase.ErrSegmentNotFound.Has(err) {

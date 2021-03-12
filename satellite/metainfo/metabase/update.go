@@ -10,6 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/storage"
 )
@@ -20,7 +21,9 @@ type UpdateSegmentPieces struct {
 	Position SegmentPosition
 
 	OldPieces Pieces
-	NewPieces Pieces
+
+	NewRedundancy storj.RedundancyScheme
+	NewPieces     Pieces
 }
 
 // UpdateSegmentPieces updates pieces for specified segment. If provided old pieces
@@ -37,6 +40,16 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 			return ErrInvalidRequest.New("OldPieces: %v", errs.Unwrap(err))
 		}
 		return err
+	}
+
+	if opts.NewRedundancy.IsZero() {
+		return ErrInvalidRequest.New("NewRedundancy zero")
+	}
+
+	// its possible that in this method we will have less pieces
+	// than optimal shares (e.g. after repair)
+	if len(opts.NewPieces) < int(opts.NewRedundancy.RepairShares) {
+		return ErrInvalidRequest.New("number of new pieces is less than new redundancy repair shares value")
 	}
 
 	if err := opts.NewPieces.Verify(); err != nil {
@@ -62,12 +75,17 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 			remote_alias_pieces = CASE
 				WHEN remote_alias_pieces = $3 THEN $4
 				ELSE remote_alias_pieces
+			END,
+			redundancy = CASE
+				WHEN remote_alias_pieces = $3 THEN $5
+				ELSE redundancy
 			END
 		WHERE
 			stream_id     = $1 AND
 			position      = $2
 		RETURNING remote_alias_pieces
-		`, opts.StreamID, opts.Position, oldPieces, newPieces).Scan(&resultPieces)
+		`, opts.StreamID, opts.Position, oldPieces, newPieces, redundancyScheme{&opts.NewRedundancy}).
+		Scan(&resultPieces)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrSegmentNotFound.New("segment missing")

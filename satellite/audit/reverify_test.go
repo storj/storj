@@ -593,10 +593,11 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		// remove a piece from the file (a piece that the contained node isn't holding)
 		audits.Verifier.OnTestingCheckSegmentAlteredHook = func() {
 			err = satellite.Metainfo.Metabase.UpdateSegmentPieces(ctx, metabase.UpdateSegmentPieces{
-				StreamID:  queueSegment.StreamID,
-				Position:  queueSegment.Position,
-				OldPieces: segment.Pieces,
-				NewPieces: append([]metabase.Piece{segment.Pieces[0]}, segment.Pieces[2:]...),
+				StreamID:      queueSegment.StreamID,
+				Position:      queueSegment.Position,
+				OldPieces:     segment.Pieces,
+				NewPieces:     append([]metabase.Piece{segment.Pieces[0]}, segment.Pieces[2:]...),
+				NewRedundancy: segment.Redundancy,
 			})
 			require.NoError(t, err)
 		}
