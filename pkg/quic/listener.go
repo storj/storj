@@ -30,6 +30,7 @@ func NewListener(conn *net.UDPConn, tlsConfig *tls.Config, quicConfig *quic.Conf
 	if tlsConfig == nil {
 		return nil, Error.New("tls config is not set")
 	}
+
 	tlsConfigCopy := tlsConfig.Clone()
 	tlsConfigCopy.NextProtos = []string{tlsopts.StorjApplicationProtocol}
 

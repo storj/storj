@@ -399,6 +399,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 					WhitelistSignedLeaf: false,
 				},
 			},
+			DisableQUIC: "false",
 		},
 		Debug: debug.Config{
 			Address: "",

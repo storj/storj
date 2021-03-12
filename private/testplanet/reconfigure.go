@@ -99,9 +99,9 @@ var DisableTCP = Reconfigure{
 // quic connections.
 var DisableQUIC = Reconfigure{
 	Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-		config.Server.DisableQUIC = true
+		config.Server.DisableQUIC = "true"
 	},
 	StorageNode: func(index int, config *storagenode.Config) {
-		config.Server.DisableQUIC = true
+		config.Server.DisableQUIC = "true"
 	},
 }

@@ -33,19 +33,21 @@ type Config struct {
 	tlsopts.Config
 	Address        string `user:"true" help:"public address to listen on" default:":7777"`
 	PrivateAddress string `user:"true" help:"private address to listen on" default:"127.0.0.1:7778"`
-	DisableQUIC    bool   `help:"disable QUIC listener on a server" hidden:"true" default:"false"`
+	// `auto` means quic will be disable if udp buffer size isn't sufficient
+	// `true/false` means it will ignore the udp buffer size check
+	DisableQUIC string `help:"whether to disable QUIC listener on a server" hidden:"true" releaseDefault:"auto" devDefault:"false"`
 
 	DisableTCPTLS   bool `help:"disable TCP/TLS listener on a server" internal:"true"`
 	DebugLogTraffic bool `hidden:"true" default:"false"` // Deprecated
 }
 
 type public struct {
-	tcpListener   net.Listener
-	udpConn       *net.UDPConn
-	quicListener  net.Listener
-	addr          net.Addr
-	disableTCPTLS bool
-	disableQUIC   bool
+	tcpListener  net.Listener
+	udpConn      *net.UDPConn
+	quicListener net.Listener
+	addr         net.Addr
+
+	quicSetting quicSetting
 
 	drpc *drpcserver.Server
 	mux  *drpcmux.Mux
@@ -80,7 +82,7 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, config Config) (_ *Server
 		done:       make(chan struct{}),
 	}
 
-	server.public, err = newPublic(config.Address, config.DisableTCPTLS, config.DisableQUIC)
+	server.public, err = newPublic(config.Address, config.DisableTCPTLS, quicSetting(config.DisableQUIC))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -170,10 +172,21 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	}
 
 	if p.public.udpConn != nil {
-		p.public.quicListener, err = quic.NewListener(p.public.udpConn, p.tlsOptions.ServerTLSConfig(), defaultQUICConfig())
+		quicListner, err := quic.NewListener(p.public.udpConn, p.tlsOptions.ServerTLSConfig(), defaultQUICConfig())
 		if err != nil {
 			return err
 		}
+
+		if p.public.quicSetting.isAuto() {
+			if quic.HasSufficientUDPReceiveBufferSize(p.public.udpConn) {
+				p.public.quicListener = quicListner
+			} else {
+				_ = p.public.udpConn.Close()
+			}
+		} else {
+			p.public.quicListener = quicListner
+		}
+
 	}
 
 	privateMux := listenmux.New(p.private.listener, len(drpcHeader))
@@ -239,7 +252,7 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	return errs.Combine(err, muxGroup.Wait())
 }
 
-func newPublic(publicAddr string, disableTCPTLS, disableQUIC bool) (public, error) {
+func newPublic(publicAddr string, disableTCPTLS bool, quicSetting quicSetting) (public, error) {
 	var (
 		err               error
 		publicTCPListener net.Listener
@@ -257,7 +270,7 @@ func newPublic(publicAddr string, disableTCPTLS, disableQUIC bool) (public, erro
 			addr = publicTCPListener.Addr().String()
 		}
 
-		if !disableQUIC {
+		if !quicSetting.Disabled() {
 			udpAddr, err := net.ResolveUDPAddr("udp", addr)
 			if err != nil {
 				return public{}, err
@@ -298,13 +311,12 @@ func newPublic(publicAddr string, disableTCPTLS, disableQUIC bool) (public, erro
 	}
 
 	return public{
-		tcpListener:   wrapListener(publicTCPListener),
-		udpConn:       publicUDPConn,
-		addr:          netAddr,
-		drpc:          drpcserver.NewWithOptions(publicTracingHandler, serverOptions),
-		mux:           publicMux,
-		disableTCPTLS: disableTCPTLS,
-		disableQUIC:   disableQUIC,
+		tcpListener: wrapListener(publicTCPListener),
+		udpConn:     publicUDPConn,
+		addr:        netAddr,
+		drpc:        drpcserver.NewWithOptions(publicTracingHandler, serverOptions),
+		mux:         publicMux,
+		quicSetting: quicSetting,
 	}, nil
 }
 
@@ -341,4 +353,14 @@ func isErrorAddressAlreadyInUse(err error) bool {
 		return true
 	}
 	return false
+}
+
+type quicSetting string
+
+func (s quicSetting) isAuto() bool {
+	return s == "auto"
+}
+
+func (s quicSetting) Disabled() bool {
+	return s == "true"
 }

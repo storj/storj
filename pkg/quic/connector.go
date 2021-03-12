@@ -6,6 +6,7 @@ package quic
 import (
 	"context"
 	"crypto/tls"
+	"net"
 	"time"
 
 	"github.com/lucas-clemente/quic-go"
@@ -45,9 +46,22 @@ func (c Connector) DialContext(ctx context.Context, tlsConfig *tls.Config, addre
 	tlsConfigCopy := tlsConfig.Clone()
 	tlsConfigCopy.NextProtos = []string{tlsopts.StorjApplicationProtocol}
 
-	sess, err := quic.DialAddrContext(ctx, address, tlsConfigCopy, c.config)
+	udpAddr, err := net.ResolveUDPAddr("udp", address)
 	if err != nil {
 		return nil, Error.Wrap(err)
+	}
+	rawConn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
+	if err != nil {
+		return nil, err
+	}
+
+	sess, err := quic.DialContext(ctx, rawConn, udpAddr, udpAddr.IP.String(), tlsConfigCopy, c.config)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	if !HasSufficientUDPReceiveBufferSize(rawConn) {
+		return nil, Error.New("failed to increase udp receive buffer size")
 	}
 
 	stream, err := sess.OpenStreamSync(ctx)
