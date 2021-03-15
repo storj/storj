@@ -1553,24 +1553,46 @@ func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *ove
 	return updateFields
 }
 
-// DQNodesLastSeenBefore disqualifies all nodes where last_contact_success < cutoff except those already disqualified
+// DQNodesLastSeenBefore disqualifies a limited number of nodes where last_contact_success < cutoff except those already disqualified
 // or gracefully exited.
-func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time) (err error) {
+func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (count int, err error) {
 	defer mon.Task()(&ctx)(&err)
-	q := `UPDATE nodes SET disqualified = current_timestamp
+
+	q := `WITH cte AS (
+			SELECT id, last_contact_success
+			FROM nodes
 			WHERE last_contact_success < $1
 			AND disqualified is NULL
-			AND exit_finished_at is NULL;`
-	results, err := cache.db.ExecContext(ctx, q, cutoff)
+			AND exit_finished_at is NULL 
+			LIMIT $2
+			)
+	 	UPDATE nodes n
+	 	SET    disqualified = current_timestamp 
+	 	FROM   cte
+	 	WHERE  n.id = cte.id
+	 	RETURNING n.id, n.last_contact_success;`
+
+	rows, err := cache.db.Query(ctx, q, cutoff, limit)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	n, err := results.RowsAffected()
-	if err != nil {
-		return err
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		var id storj.NodeID
+		var lcs time.Time
+		err = rows.Scan(&id, &lcs)
+		if err != nil {
+			return count, err
+		}
+		cache.db.log.Info("Disqualified",
+			zap.String("DQ type", "stray node"),
+			zap.Stringer("Node ID", id),
+			zap.Stringer("Last contacted", lcs))
+
+		count++
 	}
-	mon.IntVal("stray_nodes_dq_count").Observe(n)
-	return err
+	return count, rows.Err()
 }
 
 // UpdateCheckIn updates a single storagenode with info from when the the node last checked in.

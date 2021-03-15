@@ -50,7 +50,9 @@ func TestDQNodesLastSeenBefore(t *testing.T) {
 		require.NotNil(t, dossier.ExitStatus.ExitFinishedAt)
 
 		// check that node1 is disqualified and node2 is not
-		require.NoError(t, cache.DQNodesLastSeenBefore(ctx, time.Now()))
+		n, err := cache.DQNodesLastSeenBefore(ctx, time.Now(), 100)
+		require.NoError(t, err)
+		require.Equal(t, n, 1)
 
 		n1Info, err = cache.Get(ctx, node1.ID())
 		require.NoError(t, err)
@@ -61,8 +63,10 @@ func TestDQNodesLastSeenBefore(t *testing.T) {
 		require.NoError(t, err)
 		require.Nil(t, n2Info.Disqualified)
 
-		// check that node1 DQ time is not overwritten
-		require.NoError(t, cache.DQNodesLastSeenBefore(ctx, time.Now()))
+		// check that node1 is not DQd again
+		n, err = cache.DQNodesLastSeenBefore(ctx, time.Now(), 100)
+		require.NoError(t, err)
+		require.Equal(t, n, 0)
 
 		n1Info, err = cache.Get(ctx, node1.ID())
 		require.NoError(t, err)

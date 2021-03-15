@@ -440,6 +440,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			EnableDQ:                  true,
 			Interval:                  time.Minute,
 			MaxDurationWithoutContact: 30 * time.Second,
+			Limit:                     1000,
 		},
 		Metainfo: metainfo.Config{
 			DatabaseURL:          "", // not used

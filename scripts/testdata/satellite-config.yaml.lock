@@ -652,6 +652,9 @@ server.private-address: 127.0.0.1:7778
 # how often to check for and DQ stray nodes
 # stray-nodes.interval: 168h0m0s
 
+# Max number of nodes to return in a single query. Chore will iterate until rows returned is less than limit
+# stray-nodes.limit: 1000
+
 # length of time a node can go without contacting satellite before being disqualified
 # stray-nodes.max-duration-without-contact: 720h0m0s
 
