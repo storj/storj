@@ -77,5 +77,12 @@ func (chore *Chore) deleteExpiredObjects(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	chore.log.Debug("deleting expired objects")
 
-	return chore.metabase.DeleteExpiredObjects(ctx, chore.nowFn())
+	// TODO log error instead of crashing core until we will be sure
+	// that queries for deleting expired objects are stable
+	err = chore.metabase.DeleteExpiredObjects(ctx, chore.nowFn())
+	if err != nil {
+		chore.log.Error("deleting expired objects failed", zap.Error(err))
+	}
+
+	return nil
 }
