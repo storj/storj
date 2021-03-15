@@ -647,7 +647,7 @@ server.private-address: 127.0.0.1:7778
 # server.use-peer-ca-whitelist: true
 
 # whether nodes will be disqualified if they have not been contacted in some time
-# stray-nodes.enable-dq: false
+# stray-nodes.enable-dq: true
 
 # how often to check for and DQ stray nodes
 # stray-nodes.interval: 168h0m0s
