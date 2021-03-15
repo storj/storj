@@ -24,9 +24,11 @@ import (
 	"storj.io/common/storj"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
+	"storj.io/storj/pkg/server"
 	"storj.io/storj/private/version/checker"
 	"storj.io/uplink"
 	privateAccess "storj.io/uplink/private/access"
+	"storj.io/uplink/private/transport"
 )
 
 const advancedFlagName = "advanced"
@@ -92,6 +94,9 @@ func (cliCfg *UplinkFlags) getProject(ctx context.Context, encryptionBypass bool
 	uplinkCfg := uplink.Config{}
 	uplinkCfg.UserAgent = cliCfg.Client.UserAgent
 	uplinkCfg.DialTimeout = cliCfg.Client.DialTimeout
+	if cliCfg.Client.EnableQUIC {
+		transport.SetConnector(&uplinkCfg, server.NewDefaultHybridConnector(nil, nil))
+	}
 
 	if encryptionBypass {
 		err = privateAccess.EnablePathEncryptionBypass(access)

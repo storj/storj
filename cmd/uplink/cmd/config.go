@@ -18,6 +18,7 @@ var mon = monkit.Package()
 type ClientConfig struct {
 	UserAgent   string        `help:"User-Agent used for connecting to the satellite" default:""`
 	DialTimeout time.Duration `help:"timeout for dials" default:"0h2m00s"`
+	EnableQUIC  bool          `help:"Use QUIC as the transport protocol when it's available, otherwise, fallback to TCP" default:"false"`
 }
 
 // Config uplink configuration.
