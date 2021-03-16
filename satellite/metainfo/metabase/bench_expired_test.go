@@ -188,7 +188,9 @@ func (s *expiredScenario) run(ctx *testcontext.Context, b *testing.B, db *metaba
 			}
 
 			m.Record(func() {
-				err := db.DeleteExpiredObjects(ctx, now)
+				err := db.DeleteExpiredObjects(ctx, metabase.DeleteExpiredObjects{
+					ExpiredBefore: now,
+				})
 				require.NoError(b, err)
 			})
 		}

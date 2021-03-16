@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 var (
@@ -79,7 +80,9 @@ func (chore *Chore) deleteExpiredObjects(ctx context.Context) (err error) {
 
 	// TODO log error instead of crashing core until we will be sure
 	// that queries for deleting expired objects are stable
-	err = chore.metabase.DeleteExpiredObjects(ctx, chore.nowFn())
+	err = chore.metabase.DeleteExpiredObjects(ctx, metabase.DeleteExpiredObjects{
+		ExpiredBefore: chore.nowFn(),
+	})
 	if err != nil {
 		chore.log.Error("deleting expired objects failed", zap.Error(err))
 	}
