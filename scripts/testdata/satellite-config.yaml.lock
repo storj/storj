@@ -76,6 +76,12 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # secret used to sign auth tokens
 # console.auth-token-secret: ""
 
+# url link for for beta satellite feedback
+# console.beta-satellite-feedback-url: ""
+
+# url link for for beta satellite support
+# console.beta-satellite-support-url: ""
+
 # url link to contacts page
 # console.contact-info-url: https://forum.storj.io
 
