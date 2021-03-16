@@ -202,6 +202,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	bucketsRouter.Use(server.withAuth)
 	bucketsRouter.HandleFunc("/bucket-names", bucketsController.AllBucketNames).Methods(http.MethodGet)
 
+	apiKeysController := consoleapi.NewAPIKeys(logger, service)
+	apiKeysRouter := router.PathPrefix("/api/v0/api-keys").Subrouter()
+	apiKeysRouter.Use(server.withAuth)
+	apiKeysRouter.HandleFunc("/delete-by-name", apiKeysController.DeleteByNameAndProjectID).Methods(http.MethodDelete)
+
 	if server.config.StaticDir != "" {
 		router.HandleFunc("/activation/", server.accountActivationHandler)
 		router.HandleFunc("/password-recovery/", server.passwordRecoveryHandler)

@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import { BaseGql } from '@/api/baseGql';
+import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import {
     AccessGrant,
     AccessGrantCursor,
@@ -18,6 +19,7 @@ import { MetaUtils } from '@/utils/meta';
  */
 export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
     private readonly client: HttpClient = new HttpClient();
+    private readonly ROOT_PATH: string = '/api/v0/api-keys';
 
     /**
      * Fetch access grants.
@@ -126,6 +128,28 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
         const response = await this.mutate(query, variables);
 
         return response.data.deleteAPIKeys;
+    }
+
+    /**
+     * Used to delete access grant access grant by name and project ID.
+     *
+     * @param name - name of the access grant that will be deleted
+     * @param projectID - id of the project where access grant was created
+     * @throws Error
+     */
+    public async deleteByNameAndProjectID(name: string, projectID: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/delete-by-name?name=${name}&projectID=${projectID}`;
+        const response = await this.client.delete(path);
+
+        if (response.ok) {
+            return;
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('can not delete access grant');
     }
 
     /**

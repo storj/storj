@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/macaroon"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -175,6 +176,38 @@ func TestService(t *testing.T) {
 				bucketsForUnauthorizedUser, err := service.GetAllBucketNames(authCtx1, up2Pro1.ID)
 				require.Error(t, err)
 				require.Nil(t, bucketsForUnauthorizedUser)
+			})
+
+			t.Run("TestDeleteAPIKeyByNameAndProjectID", func(t *testing.T) {
+				secret, err := macaroon.NewSecret()
+				require.NoError(t, err)
+
+				key, err := macaroon.NewAPIKey(secret)
+				require.NoError(t, err)
+
+				apikey := console.APIKeyInfo{
+					Name:      "test",
+					ProjectID: up2Pro1.ID,
+					Secret:    secret,
+				}
+
+				createdKey, err := sat.DB.Console().APIKeys().Create(ctx, key.Head(), apikey)
+				require.NoError(t, err)
+
+				info, err := sat.DB.Console().APIKeys().Get(ctx, createdKey.ID)
+				require.NoError(t, err)
+				require.NotNil(t, info)
+
+				// Deleting someone else api keys should not work
+				err = service.DeleteAPIKeyByNameAndProjectID(authCtx1, apikey.Name, up2Pro1.ID)
+				require.Error(t, err)
+
+				err = service.DeleteAPIKeyByNameAndProjectID(authCtx2, apikey.Name, up2Pro1.ID)
+				require.NoError(t, err)
+
+				info, err = sat.DB.Console().APIKeys().Get(ctx, createdKey.ID)
+				require.Error(t, err)
+				require.Nil(t, info)
 			})
 		})
 }
