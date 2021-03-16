@@ -416,7 +416,9 @@ type DeleteExpiredObjects struct {
 }
 
 func (step DeleteExpiredObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	err := db.DeleteExpiredObjects(ctx, time.Now())
+	err := db.DeleteExpiredObjects(ctx, metabase.DeleteExpiredObjects{
+		ExpiredBefore: time.Now(),
+	})
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
 
