@@ -256,46 +256,84 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 			rollups = append(rollups, ar)
 		}
 	}
-	finished := false
 
-	for !finished {
-		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-			for i := 0; i < batchSize && len(rollups) > 0; i++ {
-				ar := rollups[0]
-				rollups = rollups[1:]
+	insertBatch := func(ctx context.Context, db *dbx.DB, batch []*accounting.Rollup) (err error) {
+		defer mon.Task()(&ctx)(&err)
+		n := len(batch)
 
-				nID := dbx.AccountingRollup_NodeId(ar.NodeID.Bytes())
-				start := dbx.AccountingRollup_StartTime(ar.StartTime)
-				put := dbx.AccountingRollup_PutTotal(ar.PutTotal)
-				get := dbx.AccountingRollup_GetTotal(ar.GetTotal)
-				audit := dbx.AccountingRollup_GetAuditTotal(ar.GetAuditTotal)
-				getRepair := dbx.AccountingRollup_GetRepairTotal(ar.GetRepairTotal)
-				putRepair := dbx.AccountingRollup_PutRepairTotal(ar.PutRepairTotal)
-				atRest := dbx.AccountingRollup_AtRestTotal(ar.AtRestTotal)
+		nodeID := make([]storj.NodeID, n)
+		startTime := make([]time.Time, n)
+		putTotal := make([]int64, n)
+		getTotal := make([]int64, n)
+		getAuditTotal := make([]int64, n)
+		getRepairTotal := make([]int64, n)
+		putRepairTotal := make([]int64, n)
+		atRestTotal := make([]float64, n)
 
-				err := tx.ReplaceNoReturn_AccountingRollup(ctx, nID, start, put, get, audit, getRepair, putRepair, atRest)
-				if err != nil {
-					return err
-				}
-			}
+		for i, ar := range batch {
+			nodeID[i] = ar.NodeID
+			startTime[i] = ar.StartTime
+			putTotal[i] = ar.PutTotal
+			getTotal[i] = ar.GetTotal
+			getAuditTotal[i] = ar.GetAuditTotal
+			getRepairTotal[i] = ar.GetRepairTotal
+			putRepairTotal[i] = ar.PutRepairTotal
+			atRestTotal[i] = ar.AtRestTotal
+		}
 
-			if len(rollups) == 0 {
-				finished = true
-				return tx.UpdateNoReturn_AccountingTimestamps_By_Name(ctx,
-					dbx.AccountingTimestamps_Name(accounting.LastRollup),
-					dbx.AccountingTimestamps_Update_Fields{
-						Value: dbx.AccountingTimestamps_Value(latestRollup),
-					},
-				)
-			}
+		_, err = db.ExecContext(ctx, `
+			INSERT INTO accounting_rollups (
+				node_id, start_time,
+				put_total, get_total,
+				get_audit_total, get_repair_total, put_repair_total,
+				at_rest_total
+			)
+			SELECT * FROM unnest(
+				$1::bytea[], $2::timestamptz[],
+				$3::int8[], $4::int8[],
+				$5::int8[], $6::int8[], $7::int8[],
+				$8::float8[]
+			)
+			ON CONFLICT ( node_id, start_time )
+			DO UPDATE SET
+				put_total = EXCLUDED.put_total,
+				get_total = EXCLUDED.get_total,
+				get_audit_total = EXCLUDED.get_audit_total,
+				get_repair_total = EXCLUDED.get_repair_total,
+				put_repair_total = EXCLUDED.put_repair_total,
+				at_rest_total = EXCLUDED.at_rest_total
+		`, pgutil.NodeIDArray(nodeID), pgutil.TimestampTZArray(startTime),
+			pgutil.Int8Array(putTotal), pgutil.Int8Array(getTotal),
+			pgutil.Int8Array(getAuditTotal), pgutil.Int8Array(getRepairTotal), pgutil.Int8Array(putRepairTotal),
+			pgutil.Float8Array(atRestTotal))
 
-			return nil
-		})
-		if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// Note: we do not need here a transaction because we will "update" the
+	// columns when we do not update accounting.LastRollup. We will end up
+	// with partial data in the database, however in the next runs, we will
+	// try to fix them.
+
+	for len(rollups) > 0 {
+		batch := rollups
+		if len(batch) > batchSize {
+			batch = batch[:batchSize]
+		}
+		rollups = rollups[len(batch):]
+
+		if err := insertBatch(ctx, db.db.DB, batch); err != nil {
 			return Error.Wrap(err)
 		}
 	}
-	return nil
+
+	err = db.db.UpdateNoReturn_AccountingTimestamps_By_Name(ctx,
+		dbx.AccountingTimestamps_Name(accounting.LastRollup),
+		dbx.AccountingTimestamps_Update_Fields{
+			Value: dbx.AccountingTimestamps_Value(latestRollup),
+		},
+	)
+	return Error.Wrap(err)
 }
 
 // LastTimestamp records the greatest last tallied time.
