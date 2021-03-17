@@ -373,18 +373,6 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 	// add pieces that failed piece hashes verification to the removal list
 	toRemove = append(toRemove, failedPieces...)
 
-	var segmentAge time.Duration
-	var repairCount int64
-	// TODO what to do with segmentAge and RepairCount
-	// if pointer.CreationDate.Before(pointer.LastRepaired) {
-	// 	segmentAge = time.Since(pointer.LastRepaired)
-	// } else {
-	// 	segmentAge = time.Since(pointer.CreationDate)
-	// }
-
-	// pointer.LastRepaired = time.Now().UTC()
-	// pointer.RepairCount++
-
 	newPieces, err := updatePieces(segment.Pieces, repairedPieces, toRemove)
 	if err != nil {
 		return false, repairPutError.Wrap(err)
@@ -397,12 +385,33 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		OldPieces:     segment.Pieces,
 		NewRedundancy: segment.Redundancy,
 		NewPieces:     newPieces,
+
+		NewRepairedAt: time.Now(),
 	})
 	if err != nil {
 		return false, metainfoPutError.Wrap(err)
 	}
 
-	// TODO all values bellow are zero
+	createdAt := time.Time{}
+	if segment.CreatedAt != nil {
+		createdAt = *segment.CreatedAt
+	}
+	repairedAt := time.Time{}
+	if segment.RepairedAt != nil {
+		repairedAt = *segment.RepairedAt
+	}
+
+	var segmentAge time.Duration
+	if createdAt.Before(repairedAt) {
+		segmentAge = time.Since(repairedAt)
+	} else {
+		segmentAge = time.Since(createdAt)
+	}
+
+	// TODO what to do with RepairCount
+	var repairCount int64
+	// pointer.RepairCount++
+
 	mon.IntVal("segment_time_until_repair").Observe(int64(segmentAge.Seconds())) //mon:locked
 	stats.segmentTimeUntilRepair.Observe((int64(segmentAge.Seconds())))
 	mon.IntVal("segment_repair_count").Observe(repairCount) //mon:locked
