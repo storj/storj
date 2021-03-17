@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/contact"
+	"storj.io/storj/storagenode/operator"
 	"storj.io/storj/storagenode/payouts/estimatedpayouts"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/pricing"
@@ -56,16 +57,17 @@ type Service struct {
 
 	allocatedDiskSpace memory.Size
 
-	walletAddress string
-	startedAt     time.Time
-	versionInfo   version.Info
+	walletAddress  string
+	walletFeatures operator.WalletFeatures
+	startedAt      time.Time
+	versionInfo    version.Info
 }
 
 // NewService returns new instance of Service.
 func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Store, version *checker.Service,
 	allocatedDiskSpace memory.Size, walletAddress string, versionInfo version.Info, trust *trust.Pool,
 	reputationDB reputation.DB, storageUsageDB storageusage.DB, pricingDB pricing.DB, satelliteDB satellites.DB,
-	pingStats *contact.PingStats, contact *contact.Service, estimation *estimatedpayouts.Service, usageCache *pieces.BlobsUsageCache) (*Service, error) {
+	pingStats *contact.PingStats, contact *contact.Service, estimation *estimatedpayouts.Service, usageCache *pieces.BlobsUsageCache, walletFeatures operator.WalletFeatures) (*Service, error) {
 	if log == nil {
 		return nil, errs.New("log can't be nil")
 	}
@@ -116,6 +118,7 @@ func NewService(log *zap.Logger, bandwidth bandwidth.DB, pieceStore *pieces.Stor
 		walletAddress:      walletAddress,
 		startedAt:          time.Now(),
 		versionInfo:        versionInfo,
+		walletFeatures:     walletFeatures,
 	}, nil
 }
 
@@ -130,8 +133,9 @@ type SatelliteInfo struct {
 
 // Dashboard encapsulates dashboard stale data.
 type Dashboard struct {
-	NodeID storj.NodeID `json:"nodeID"`
-	Wallet string       `json:"wallet"`
+	NodeID         storj.NodeID `json:"nodeID"`
+	Wallet         string       `json:"wallet"`
+	WalletFeatures []string     `json:"walletFeatures"`
 
 	Satellites []SatelliteInfo `json:"satellites"`
 
@@ -154,6 +158,7 @@ func (s *Service) GetDashboardData(ctx context.Context) (_ *Dashboard, err error
 
 	data.NodeID = s.contact.Local().ID
 	data.Wallet = s.walletAddress
+	data.WalletFeatures = s.walletFeatures
 	data.Version = s.versionInfo.Version
 	data.StartedAt = s.startedAt
 

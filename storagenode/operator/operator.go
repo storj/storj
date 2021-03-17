@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package storagenode
+package operator
 
 import (
 	"fmt"
@@ -14,15 +14,15 @@ import (
 	"storj.io/storj/private/nodeoperator"
 )
 
-// OperatorConfig defines properties related to storage node operator metadata.
-type OperatorConfig struct {
+// Config defines properties related to storage node operator metadata.
+type Config struct {
 	Email          string         `user:"true" help:"operator email address" default:""`
 	Wallet         string         `user:"true" help:"operator wallet address" default:""`
 	WalletFeatures WalletFeatures `user:"true" help:"operator wallet features" default:""`
 }
 
 // Verify verifies whether operator config is valid.
-func (c OperatorConfig) Verify(log *zap.Logger) error {
+func (c Config) Verify(log *zap.Logger) error {
 	if err := isOperatorEmailValid(log, c.Email); err != nil {
 		return err
 	}
