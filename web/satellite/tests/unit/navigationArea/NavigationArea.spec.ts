@@ -28,6 +28,7 @@ const store = new Vuex.Store({ modules: { projectsModule } });
 
 const expectedLinks: NavigationLink[] = [
     RouteConfig.ProjectDashboard,
+    RouteConfig.Objects,
     RouteConfig.AccessGrants,
     RouteConfig.Users,
 ];
@@ -80,7 +81,7 @@ describe('NavigationArea', () => {
 
         const navigationElements = wrapper.findAll('.navigation-area__item-container');
 
-        expect(navigationElements.length).toBe(3);
+        expect(navigationElements.length).toBe(4);
         expect(wrapper).toMatchSnapshot();
     });
 

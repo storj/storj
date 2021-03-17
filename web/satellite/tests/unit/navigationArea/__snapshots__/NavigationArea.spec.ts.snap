@@ -7,19 +7,25 @@ exports[`NavigationArea snapshot not changed with project 1`] = `
   <editprojectdropdown-stub></editprojectdropdown-stub>
   <router-link-stub to="/project-dashboard" tag="a" ariacurrentvalue="page" event="click" aria-label="Dashboard" class="navigation-area__item-container">
     <div class="navigation-area__item-container__link">
-      <anonymous-stub></anonymous-stub>
+      <anonymous-stub class="navigation-area__item-container__link__icon"></anonymous-stub>
       <p class="navigation-area__item-container__link__title">Dashboard</p>
     </div>
   </router-link-stub>
-  <router-link-stub to="/access-grants" tag="a" ariacurrentvalue="page" event="click" aria-label="Access Grants" class="navigation-area__item-container">
+  <router-link-stub to="/objects" tag="a" ariacurrentvalue="page" event="click" aria-label="Objects" class="navigation-area__item-container">
     <div class="navigation-area__item-container__link">
-      <anonymous-stub></anonymous-stub>
-      <p class="navigation-area__item-container__link__title">Access Grants</p>
+      <anonymous-stub class="navigation-area__item-container__link__icon"></anonymous-stub>
+      <p class="navigation-area__item-container__link__title">Objects</p>
+    </div>
+  </router-link-stub>
+  <router-link-stub to="/access-grants" tag="a" ariacurrentvalue="page" event="click" aria-label="Access" class="navigation-area__item-container">
+    <div class="navigation-area__item-container__link">
+      <anonymous-stub class="navigation-area__item-container__link__icon"></anonymous-stub>
+      <p class="navigation-area__item-container__link__title">Access</p>
     </div>
   </router-link-stub>
   <router-link-stub to="/project-members" tag="a" ariacurrentvalue="page" event="click" aria-label="Users" class="navigation-area__item-container">
     <div class="navigation-area__item-container__link">
-      <anonymous-stub></anonymous-stub>
+      <anonymous-stub class="navigation-area__item-container__link__icon"></anonymous-stub>
       <p class="navigation-area__item-container__link__title">Users</p>
     </div>
   </router-link-stub>
