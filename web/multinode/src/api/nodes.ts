@@ -128,7 +128,7 @@ export class NodesClient {
      */
     public async updateName(id: string, name: string): Promise<void> {
         const path = `${this.ROOT_PATH}/${id}`;
-        const response = await this.http.patch(path, JSON.stringify({name: name}));
+        const response = await this.http.patch(path, JSON.stringify({ name }));
 
         if (!response.ok) {
             await this.handleError(response);

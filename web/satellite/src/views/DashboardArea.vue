@@ -8,7 +8,10 @@
         </div>
         <div v-if="isBetaSatellite" class="dashboard__beta-banner">
             <p class="dashboard__beta-banner__message">
-                Please be aware that this is a beta satellite. Data uploaded may be deleted at any point in time.
+                Thanks for testing the {{satelliteName}} Beta satellite | Data may be deleted during this beta | Submit testing feedback
+                <a class="dashboard__beta-banner__message__link" :href="betaFeedbackURL" target="_blank" rel="noopener noreferrer">here</a>
+                | Request support
+                <a class="dashboard__beta-banner__message__link" :href="betaSupportURL" target="_blank" rel="noopener noreferrer">here</a>
             </p>
         </div>
         <NoPaywallInfoBar v-if="isNoPaywallInfoBarShown && !isLoading && !isBetaSatellite"/>
@@ -229,6 +232,27 @@ export default class DashboardArea extends Vue {
     }
 
     /**
+     * Returns satellite name from store (config).
+     */
+    public get satelliteName(): string {
+        return MetaUtils.getMetaContent('satellite-name');
+    }
+
+    /**
+     * Returns feedback URL from config for beta satellites.
+     */
+    public get betaFeedbackURL(): string {
+        return MetaUtils.getMetaContent('beta-satellite-feedback-url');
+    }
+
+    /**
+     * Returns support URL from config for beta satellites.
+     */
+    public get betaSupportURL(): string {
+        return MetaUtils.getMetaContent('beta-satellite-support-url');
+    }
+
+    /**
      * Indicates if no paywall info bar is shown.
      */
     public get isNoPaywallInfoBarShown(): boolean {
@@ -405,8 +429,19 @@ export default class DashboardArea extends Vue {
             &__message {
                 font-weight: normal;
                 font-size: 14px;
-                line-height: 12px;
+                line-height: 16px;
                 color: #fff;
+
+                &__link {
+                    font-size: 14px;
+                    line-height: 16px;
+                    color: #fff;
+                    text-decoration: underline;
+
+                    &:hover {
+                        text-decoration: none;
+                    }
+                }
             }
         }
 

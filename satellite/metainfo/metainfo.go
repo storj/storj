@@ -1717,6 +1717,12 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 	}, nil
 }
 
+// DownloadObject returns all the information necessary to begin downloading an object in a single request.
+func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDownloadRequest) (resp *pb.ObjectDownloadResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Not Implemented")
+}
+
 // DownloadSegment returns data necessary to download segment.
 func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDownloadRequest) (resp *pb.SegmentDownloadResponse, err error) {
 	defer mon.Task()(&ctx)(&err)

@@ -97,7 +97,7 @@ func (estimatedPayout *EstimatedPayout) Set(current, previous PayoutMonthly, now
 		return
 	}
 
-	estimatedPayout.CurrentMonthExpectations += estimatedPayout.CurrentMonth.Payout / daysSinceJoined * daysPerMonth
+	estimatedPayout.CurrentMonthExpectations += estimatedPayout.CurrentMonth.Payout / math.Round(daysSinceJoined) * daysPerMonth
 }
 
 // Add adds estimate into the receiver.

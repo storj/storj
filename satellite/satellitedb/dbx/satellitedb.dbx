@@ -89,7 +89,7 @@ read scalar (
 )
 
 model accounting_rollup (
-    key node_id start_time
+	key node_id start_time
 	index ( fields start_time )
 
 	field node_id          blob
@@ -101,8 +101,6 @@ model accounting_rollup (
 	field put_repair_total int64
 	field at_rest_total    float64
 )
-
-create accounting_rollup ( noreturn, replace )
 
 //--- overlay cache ---//
 
@@ -261,7 +259,6 @@ model user (
     field working_on       text      ( updatable, nullable )
     field is_professional  bool      ( updatable, default false )
     field employee_count   text      ( updatable, nullable )
-
 )
 
 create user ( )

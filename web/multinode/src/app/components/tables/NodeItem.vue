@@ -24,6 +24,7 @@
             <div class="node-item__options" v-if="areOptionsShown" v-click-outside="closeOptions">
                 <div @click.stop="() => onCopy(node.id)" class="node-item__options__item">Copy Node ID</div>
                 <delete-node :node-id="node.id" />
+                <update-name :node-id="node.id" />
             </div>
         </th>
     </tr>
@@ -33,6 +34,7 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import DeleteNode from '@/app/components/modals/DeleteNode.vue';
+import UpdateName from '@/app/components/modals/UpdateName.vue';
 
 import MoreIcon from '@/../static/images/icons/more.svg';
 
@@ -40,6 +42,7 @@ import { Node } from '@/nodes';
 
 @Component({
     components: {
+        UpdateName,
         DeleteNode,
         MoreIcon,
     },
