@@ -299,6 +299,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE segments ALTER COLUMN created_at SET DEFAULT now()`,
 				},
 			},
+			{
+				DB:          &db.db,
+				Description: "add etag column to segments table",
+				Version:     9,
+				Action: migrate.SQL{
+					`ALTER TABLE segments ADD COLUMN etag BYTEA default NULL`,
+				},
+			},
 		},
 	}
 }
