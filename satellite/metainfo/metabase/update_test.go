@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/storj"
@@ -366,8 +368,8 @@ func TestUpdateSegmentPieces(t *testing.T) {
 					StreamID:      obj.StreamID,
 					Position:      metabase.SegmentPosition{Index: 0},
 					OldPieces:     segment.Pieces,
+					NewRedundancy: segment.Redundancy,
 					NewPieces:     expectedPieces,
-					NewRedundancy: defaultTestRedundancy,
 					NewRepairedAt: repairedAt,
 				},
 			}.Check(ctx, t, db)
@@ -375,6 +377,35 @@ func TestUpdateSegmentPieces(t *testing.T) {
 			expectedSegment := segment
 			expectedSegment.Pieces = expectedPieces
 			expectedSegment.RepairedAt = &repairedAt
+
+			segment, err = db.GetSegmentByLocation(ctx, metabase.GetSegmentByLocation{
+				SegmentLocation: metabase.SegmentLocation{
+					ProjectID:  object.ProjectID,
+					BucketName: object.BucketName,
+					ObjectKey:  object.ObjectKey,
+					Position:   metabase.SegmentPosition{Index: 0},
+				},
+			})
+			require.NoError(t, err)
+			diff := cmp.Diff(expectedSegment, segment, cmpopts.EquateApproxTime(5*time.Second))
+			require.Zero(t, diff)
+
+			segment, err = db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: object.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+			diff = cmp.Diff(expectedSegment, segment, cmpopts.EquateApproxTime(5*time.Second))
+			require.Zero(t, diff)
+
+			segment, err = db.GetSegmentByOffset(ctx, metabase.GetSegmentByOffset{
+				ObjectLocation: object.Location(),
+				PlainOffset:    0,
+			})
+			require.NoError(t, err)
+			diff = cmp.Diff(expectedSegment, segment, cmpopts.EquateApproxTime(5*time.Second))
+			require.Zero(t, diff)
+
 			Verify{
 				Objects: []metabase.RawObject{
 					{
