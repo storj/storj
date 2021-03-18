@@ -50,3 +50,5 @@ require (
 	storj.io/private v0.0.0-20210203200143-9d2ec06f0d3c
 	storj.io/uplink v1.4.6-0.20210212112107-f7f8a3c8321a
 )
+
+replace github.com/lucas-clemente/quic-go => github.com/VinozzZ/quic-go v0.7.1-0.20210318212040-ad1391a8002d
