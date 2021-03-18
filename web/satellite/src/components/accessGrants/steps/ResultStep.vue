@@ -261,7 +261,7 @@ export default class ResultStep extends Vue {
         this.isLoading = true;
 
         try {
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, this.access);
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: this.access});
 
             await this.$notify.success('Gateway credentials were generated successfully');
             this.areKeysVisible = true;

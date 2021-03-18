@@ -47,7 +47,7 @@ export interface AccessGrantsApi {
      * @returns GatewayCredentials
      * @throws Error
      */
-    getGatewayCredentials(accessGrant: string): Promise<GatewayCredentials>;
+    getGatewayCredentials(accessGrant: string, optionalURL?: string): Promise<GatewayCredentials>;
 }
 
 /**

@@ -156,10 +156,11 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
      * Used to get gateway credentials using access grant.
      *
      * @param accessGrant - generated access grant
+     * @param optionalURL - optional requestURL
      * @throws Error
      */
-    public async getGatewayCredentials(accessGrant: string): Promise<GatewayCredentials> {
-        const requestURL: string = MetaUtils.getMetaContent('gateway-credentials-request-url');
+    public async getGatewayCredentials(accessGrant: string, optionalURL?: string): Promise<GatewayCredentials> {
+        const requestURL: string = optionalURL || MetaUtils.getMetaContent('gateway-credentials-request-url');
         if (!requestURL) throw new Error('Cannot get gateway credentials: request URL is not provided');
 
         const path = `${requestURL}/v1/access`;

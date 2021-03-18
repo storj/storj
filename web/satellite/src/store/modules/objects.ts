@@ -6,7 +6,7 @@ import { GatewayCredentials } from '@/types/accessGrants';
 
 export const OBJECTS_ACTIONS = {
     CLEAR: 'clearObjects',
-    GET_GATEWAY_CREDENTIALS: 'getGatewayCredentials',
+    SET_GATEWAY_CREDENTIALS: 'setGatewayCredentials',
     SET_ACCESS_GRANT: 'setAccessGrant',
 };
 

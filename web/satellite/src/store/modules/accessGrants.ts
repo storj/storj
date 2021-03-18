@@ -214,8 +214,8 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
             deleteAccessGrantsByNameAndProjectID: async function({state, rootGetters}: any, name: string): Promise<void> {
                 await api.deleteByNameAndProjectID(name, rootGetters.selectedProject.id);
             },
-            getGatewayCredentials: async function({state, commit}: any, accessGrant: string): Promise<GatewayCredentials> {
-                const credentials: GatewayCredentials = await api.getGatewayCredentials(accessGrant);
+            getGatewayCredentials: async function({commit}: any, payload): Promise<GatewayCredentials> {
+                const credentials: GatewayCredentials = await api.getGatewayCredentials(payload.accessGrant, payload.optionalURL);
 
                 commit(SET_GATEWAY_CREDENTIALS, credentials);
 
