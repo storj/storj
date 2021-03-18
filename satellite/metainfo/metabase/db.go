@@ -301,10 +301,10 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 			},
 			{
 				DB:          &db.db,
-				Description: "add etag column to segments table",
+				Description: "add encrypted_etag column to segments table",
 				Version:     9,
 				Action: migrate.SQL{
-					`ALTER TABLE segments ADD COLUMN etag BYTEA default NULL`,
+					`ALTER TABLE segments ADD COLUMN encrypted_etag BYTEA default NULL`,
 				},
 			},
 		},
