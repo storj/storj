@@ -3,9 +3,6 @@
 
 <template>
     <div class="objects-area">
-        <div class="objects-area__header">
-            <h1 class="objects-area__header__title">Objects</h1>
-        </div>
         <router-view/>
     </div>
 </template>
@@ -55,25 +52,5 @@ export default class ObjectsArea extends Vue {
 <style scoped lang="scss">
     .objects-area {
         padding: 20px 45px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-
-        &__header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            width: 100%;
-
-            &__title {
-                font-family: 'font_medium', sans-serif;
-                font-style: normal;
-                font-weight: bold;
-                font-size: 18px;
-                line-height: 26px;
-                color: #232b34;
-                margin: 0;
-            }
-        }
     }
 </style>

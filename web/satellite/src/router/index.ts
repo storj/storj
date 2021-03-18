@@ -18,6 +18,7 @@ import DetailedHistory from '@/components/account/billing/depositAndBillingHisto
 import CreditsHistory from '@/components/account/billing/freeCredits/CreditsHistory.vue';
 import SettingsArea from '@/components/account/SettingsArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
+import BucketsView from '@/components/objects/BucketsView.vue';
 import CreatePassphrase from '@/components/objects/CreatePassphrase.vue';
 import EnterPassphrase from '@/components/objects/EnterPassphrase.vue';
 import ObjectsArea from '@/components/objects/ObjectsArea.vue';
@@ -90,6 +91,7 @@ export abstract class RouteConfig {
     // objects child paths.
     public static CreatePassphrase = new NavigationLink('create-passphrase', 'Objects Create Passphrase');
     public static EnterPassphrase = new NavigationLink('enter-passphrase', 'Objects Enter Passphrase');
+    public static BucketsManagement = new NavigationLink('buckets', 'Buckets Management');
     public static UploadFile = new NavigationLink('upload', 'Objects Upload');
 }
 
@@ -307,6 +309,12 @@ export const router = new Router({
                             path: RouteConfig.EnterPassphrase.path,
                             name: RouteConfig.EnterPassphrase.name,
                             component: EnterPassphrase,
+                        },
+                        {
+                            path: RouteConfig.BucketsManagement.path,
+                            name: RouteConfig.BucketsManagement.name,
+                            component: BucketsView,
+                            props: true,
                         },
                         {
                             path: RouteConfig.UploadFile.path,

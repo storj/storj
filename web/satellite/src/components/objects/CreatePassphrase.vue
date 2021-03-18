@@ -3,11 +3,14 @@
 
 <template>
     <div class="create-pass">
-        <GeneratePassphrase
-            :is-loading="isLoading"
-            :on-button-click="onNextClick"
-            :set-parent-passphrase="setPassphrase"
-        />
+        <h1 class="create-pass__title">Objects</h1>
+        <div class="create-pass__container">
+            <GeneratePassphrase
+                :is-loading="isLoading"
+                :on-button-click="onNextClick"
+                :set-parent-passphrase="setPassphrase"
+            />
+        </div>
     </div>
 </template>
 
@@ -54,13 +57,36 @@ export default class CreatePassphrase extends Vue {
 
         this.isLoading = false;
 
-        this.$router.push(RouteConfig.UploadFile.path);
+        this.$router.push({
+            name: RouteConfig.BucketsManagement.name,
+            params: {
+                passphrase: this.passphrase,
+            },
+        });
     }
 }
 </script>
 
 <style scoped lang="scss">
     .create-pass {
-        margin-top: 100px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+
+        &__title {
+            font-family: 'font_medium', sans-serif;
+            font-style: normal;
+            font-weight: bold;
+            font-size: 18px;
+            line-height: 26px;
+            color: #232b34;
+            margin: 0;
+            width: 100%;
+            text-align: left;
+        }
+
+        &__container {
+            margin-top: 100px;
+        }
     }
 </style>

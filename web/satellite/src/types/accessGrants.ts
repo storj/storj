@@ -34,6 +34,14 @@ export interface AccessGrantsApi {
     delete(ids: string[]): Promise<void>;
 
     /**
+     * Delete existing access grant by name and project id
+     *
+     * @returns null
+     * @throws Error
+     */
+    deleteByNameAndProjectID(name: string, projectID: string): Promise<void>;
+
+    /**
      * Get gateway credentials using access grant
      *
      * @returns GatewayCredentials
