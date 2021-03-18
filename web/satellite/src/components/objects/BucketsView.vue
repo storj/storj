@@ -95,6 +95,7 @@ export default class BucketsView extends Vue {
                     const gatewayURL = 'https://auth.tardigradeshare.io';
                     const gatewayCredentials: GatewayCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: this.accessGrant, optionalURL: gatewayURL});
                     await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
+                    await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
                 }, 1000);
             }, 1000);
         } catch (error) {
