@@ -1310,6 +1310,16 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`UPDATE projects SET bandwidth_limit = 500000000000 WHERE bandwidth_limit IS NULL;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add offline_suspended to index on nodes",
+				Version:     152,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS nodes_dis_unk_off_exit_fin_last_success_index ON nodes (disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success);`,
+					`DROP INDEX IF EXISTS nodes_dis_unk_exit_fin_last_success_index;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

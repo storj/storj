@@ -445,10 +445,11 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			},
 			UpdateStatsBatchSize: 100,
 			AuditHistory: overlay.AuditHistoryConfig{
-				WindowSize:       10 * time.Minute,
-				TrackingPeriod:   time.Hour,
-				GracePeriod:      time.Hour,
-				OfflineThreshold: 0.6,
+				WindowSize:               10 * time.Minute,
+				TrackingPeriod:           time.Hour,
+				GracePeriod:              time.Hour,
+				OfflineThreshold:         0.6,
+				OfflineSuspensionEnabled: true,
 			},
 		},
 		StrayNodes: straynodes.Config{

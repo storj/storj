@@ -63,6 +63,7 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 			FROM nodes ` + asOf + `
 			WHERE disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
+			AND offline_suspended IS NULL
 			AND exit_initiated_at IS NULL
 			AND type = $1
 			AND free_disk >= $2
@@ -369,6 +370,7 @@ func (cache *overlaycache) knownUnreliableOrOffline(ctx context.Context, criteri
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
+			AND offline_suspended IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success > $2
 		`), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-criteria.OnlineWindow),
@@ -425,6 +427,7 @@ func (cache *overlaycache) knownReliable(ctx context.Context, onlineWindow time.
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
+			AND offline_suspended IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success > $2
 		`), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-onlineWindow),
@@ -473,6 +476,7 @@ func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeC
 		SELECT id FROM nodes `+asOf+`
 		WHERE disqualified IS NULL
 		AND unknown_audit_suspended IS NULL
+		AND offline_suspended IS NULL
 		AND exit_finished_at IS NULL
 		AND last_contact_success > ?
 	`), time.Now().Add(-criteria.OnlineWindow))
