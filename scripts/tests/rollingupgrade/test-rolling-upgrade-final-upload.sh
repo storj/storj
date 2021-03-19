@@ -56,19 +56,22 @@ uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "${test_files_d
 uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "${test_files_dir}/big-upload-testfile" "sj://$bucket_name/"
 uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "${test_files_dir}/multisegment-upload-testfile" "sj://$bucket_name/"
 
+# TODO we should be able to uncomment those cases when we will have at least one point release of multipart satellite after merging to main
 # old api uploads
-uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "${test_files_dir}/small-upload-testfile" "sj://$old_api_bucket_name/"
-uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "${test_files_dir}/big-upload-testfile" "sj://$old_api_bucket_name/"
-uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "${test_files_dir}/multisegment-upload-testfile" "sj://$old_api_bucket_name/"
+# uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "${test_files_dir}/small-upload-testfile" "sj://$old_api_bucket_name/"
+# uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "${test_files_dir}/big-upload-testfile" "sj://$old_api_bucket_name/"
+# uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "${test_files_dir}/multisegment-upload-testfile" "sj://$old_api_bucket_name/"
 
 # new api downloads of new api uploaded files
 uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$bucket_name/small-upload-testfile" "${download_dst_dir}"
 uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$bucket_name/big-upload-testfile" "${download_dst_dir}"
 uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$bucket_name/multisegment-upload-testfile" "${download_dst_dir}"
+
+# TODO we should be able to uncomment those cases when we will have at least one point release of multipart satellite after merging to main
 # new api downloads of old api uploaded files
-uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$old_api_bucket_name/small-upload-testfile" "${download_dst_dir2}"
-uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$old_api_bucket_name/big-upload-testfile" "${download_dst_dir2}"
-uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$old_api_bucket_name/multisegment-upload-testfile" "${download_dst_dir2}"
+# uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$old_api_bucket_name/small-upload-testfile" "${download_dst_dir2}"
+# uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$old_api_bucket_name/big-upload-testfile" "${download_dst_dir2}"
+# uplink cp --config-dir="${main_cfg_dir}/uplink" --progress=false "sj://$old_api_bucket_name/multisegment-upload-testfile" "${download_dst_dir2}"
 
 echo "checking files uploaded with new api and downloaded with new api"
 if cmp "${test_files_dir}/small-upload-testfile" "${download_dst_dir}/small-upload-testfile"
@@ -93,83 +96,85 @@ else
     exit 1
 fi
 
-echo "checking files uploaded with old api and downloaded with new api"
-if cmp "${test_files_dir}/small-upload-testfile" "${download_dst_dir2}/small-upload-testfile"
-then
-    echo "download test on current branch: small upload testfile matches uploaded file"
-else
-    echo "download test on current branch: small upload testfile does not match uploaded file"
-    exit 1
-fi
-if cmp "${test_files_dir}/big-upload-testfile" "${download_dst_dir2}/big-upload-testfile"
-then
-    echo "download test on current branch: big upload testfile matches uploaded file"
-else
-    echo "download test on current branch: big upload testfile does not match uploaded file"
-    exit 1
-fi
-if cmp "${test_files_dir}/multisegment-upload-testfile" "${download_dst_dir2}/multisegment-upload-testfile"
-then
-    echo "download test on current branch: multisegment upload testfile matches uploaded file"
-else
-    echo "download test on current branch: multisegment upload testfile does not match uploaded file"
-    exit 1
-fi
+# TODO we should be able to uncomment those cases when we will have at least one point release of multipart satellite after merging to main
+# echo "checking files uploaded with old api and downloaded with new api"
+# if cmp "${test_files_dir}/small-upload-testfile" "${download_dst_dir2}/small-upload-testfile"
+# then
+#     echo "download test on current branch: small upload testfile matches uploaded file"
+# else
+#     echo "download test on current branch: small upload testfile does not match uploaded file"
+#     exit 1
+# fi
+# if cmp "${test_files_dir}/big-upload-testfile" "${download_dst_dir2}/big-upload-testfile"
+# then
+#     echo "download test on current branch: big upload testfile matches uploaded file"
+# else
+#     echo "download test on current branch: big upload testfile does not match uploaded file"
+#     exit 1
+# fi
+# if cmp "${test_files_dir}/multisegment-upload-testfile" "${download_dst_dir2}/multisegment-upload-testfile"
+# then
+#     echo "download test on current branch: multisegment upload testfile matches uploaded file"
+# else
+#     echo "download test on current branch: multisegment upload testfile does not match uploaded file"
+#     exit 1
+# fi
 
+# TODO we should be able to uncomment those cases when we will have at least one point release of multipart satellite after merging to main
 # old api downloads of new api uploaded files
-uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "sj://$bucket_name/small-upload-testfile" "${old_api_download_dst_dir}"
-uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "sj://$bucket_name/big-upload-testfile" "${old_api_download_dst_dir}"
-uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "sj://$bucket_name/multisegment-upload-testfile" "${old_api_download_dst_dir}"
+# uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "sj://$bucket_name/small-upload-testfile" "${old_api_download_dst_dir}"
+# uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "sj://$bucket_name/big-upload-testfile" "${old_api_download_dst_dir}"
+# uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "sj://$bucket_name/multisegment-upload-testfile" "${old_api_download_dst_dir}"
 # old api downloads of old api uploaded files
-uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "sj://$old_api_bucket_name/small-upload-testfile" "${old_api_download_dst_dir2}"
-uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "sj://$old_api_bucket_name/big-upload-testfile" "${old_api_download_dst_dir2}"
-uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "sj://$old_api_bucket_name/multisegment-upload-testfile" "${old_api_download_dst_dir2}"
+# uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "sj://$old_api_bucket_name/small-upload-testfile" "${old_api_download_dst_dir2}"
+# uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "sj://$old_api_bucket_name/big-upload-testfile" "${old_api_download_dst_dir2}"
+# uplink cp --config-dir="${main_cfg_dir}/uplink-old-api" --progress=false "sj://$old_api_bucket_name/multisegment-upload-testfile" "${old_api_download_dst_dir2}"
 
-echo "checking files uploaded with new api and downloaded with old api"
-if cmp "${test_files_dir}/small-upload-testfile" "${old_api_download_dst_dir}/small-upload-testfile"
-then
-    echo "download test on current branch: small upload testfile matches uploaded file"
-else
-    echo "download test on current branch: small upload testfile does not match uploaded file"
-    exit 1
-fi
-if cmp "${test_files_dir}/big-upload-testfile" "${old_api_download_dst_dir}/big-upload-testfile"
-then
-    echo "download test on current branch: big upload testfile matches uploaded file"
-else
-    echo "download test on current branch: big upload testfile does not match uploaded file"
-    exit 1
-fi
-if cmp "${test_files_dir}/multisegment-upload-testfile" "${old_api_download_dst_dir}/multisegment-upload-testfile"
-then
-    echo "download test on current branch: multisegment upload testfile matches uploaded file"
-else
-    echo "download test on current branch: multisegment upload testfile does not match uploaded file"
-    exit 1
-fi
+# echo "checking files uploaded with new api and downloaded with old api"
+# if cmp "${test_files_dir}/small-upload-testfile" "${old_api_download_dst_dir}/small-upload-testfile"
+# then
+#     echo "download test on current branch: small upload testfile matches uploaded file"
+# else
+#     echo "download test on current branch: small upload testfile does not match uploaded file"
+#     exit 1
+# fi
+# if cmp "${test_files_dir}/big-upload-testfile" "${old_api_download_dst_dir}/big-upload-testfile"
+# then
+#     echo "download test on current branch: big upload testfile matches uploaded file"
+# else
+#     echo "download test on current branch: big upload testfile does not match uploaded file"
+#     exit 1
+# fi
+# if cmp "${test_files_dir}/multisegment-upload-testfile" "${old_api_download_dst_dir}/multisegment-upload-testfile"
+# then
+#     echo "download test on current branch: multisegment upload testfile matches uploaded file"
+# else
+#     echo "download test on current branch: multisegment upload testfile does not match uploaded file"
+#     exit 1
+# fi
 
-echo "checking files uploaded with old api and downloaded with old api"
-if cmp "${test_files_dir}/small-upload-testfile" "${old_api_download_dst_dir2}/small-upload-testfile"
-then
-    echo "download test on current branch: small upload testfile matches uploaded file"
-else
-    echo "download test on current branch: small upload testfile does not match uploaded file"
-    exit 1
-fi
-if cmp "${test_files_dir}/big-upload-testfile" "${old_api_download_dst_dir2}/big-upload-testfile"
-then
-    echo "download test on current branch: big upload testfile matches uploaded file"
-else
-    echo "download test on current branch: big upload testfile does not match uploaded file"
-    exit 1
-fi
-if cmp "${test_files_dir}/multisegment-upload-testfile" "${old_api_download_dst_dir2}/multisegment-upload-testfile"
-then
-    echo "download test on current branch: multisegment upload testfile matches uploaded file"
-else
-    echo "download test on current branch: multisegment upload testfile does not match uploaded file"
-    exit 1
-fi
+# echo "checking files uploaded with old api and downloaded with old api"
+# if cmp "${test_files_dir}/small-upload-testfile" "${old_api_download_dst_dir2}/small-upload-testfile"
+# then
+#     echo "download test on current branch: small upload testfile matches uploaded file"
+# else
+#     echo "download test on current branch: small upload testfile does not match uploaded file"
+#     exit 1
+# fi
+# if cmp "${test_files_dir}/big-upload-testfile" "${old_api_download_dst_dir2}/big-upload-testfile"
+# then
+#     echo "download test on current branch: big upload testfile matches uploaded file"
+# else
+#     echo "download test on current branch: big upload testfile does not match uploaded file"
+#     exit 1
+# fi
+# if cmp "${test_files_dir}/multisegment-upload-testfile" "${old_api_download_dst_dir2}/multisegment-upload-testfile"
+# then
+#     echo "download test on current branch: multisegment upload testfile matches uploaded file"
+# else
+#     echo "download test on current branch: multisegment upload testfile does not match uploaded file"
+#     exit 1
+# fi
 
 rm -rf ${download_dst_dir}
 rm -rf ${download_dst_dir2}
@@ -179,7 +184,8 @@ uplink rm --config-dir="${main_cfg_dir}/uplink" "sj://$bucket_name/big-upload-te
 uplink rm --config-dir="${main_cfg_dir}/uplink" "sj://$bucket_name/multisegment-upload-testfile"
 uplink rb --config-dir="${main_cfg_dir}/uplink" "sj://$bucket_name"
 
-uplink rm --config-dir="${main_cfg_dir}/uplink-old-api" "sj://$old_api_bucket_name/small-upload-testfile"
-uplink rm --config-dir="${main_cfg_dir}/uplink-old-api" "sj://$old_api_bucket_name/big-upload-testfile"
-uplink rm --config-dir="${main_cfg_dir}/uplink-old-api" "sj://$old_api_bucket_name/multisegment-upload-testfile"
-uplink rb --config-dir="${main_cfg_dir}/uplink-old-api" "sj://$old_api_bucket_name"
+# TODO we should be able to uncomment those cases when we will have at least one point release of multipart satellite after merging to main
+# uplink rm --config-dir="${main_cfg_dir}/uplink-old-api" "sj://$old_api_bucket_name/small-upload-testfile"
+# uplink rm --config-dir="${main_cfg_dir}/uplink-old-api" "sj://$old_api_bucket_name/big-upload-testfile"
+# uplink rm --config-dir="${main_cfg_dir}/uplink-old-api" "sj://$old_api_bucket_name/multisegment-upload-testfile"
+# uplink rb --config-dir="${main_cfg_dir}/uplink-old-api" "sj://$old_api_bucket_name"
