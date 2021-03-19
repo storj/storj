@@ -1290,6 +1290,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE coupons ADD COLUMN coupon_code_name text;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop columns uptime_reputation_alpha and uptime_reputation_beta",
+				Version:     150,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes DROP COLUMN uptime_reputation_alpha;`,
+					`ALTER TABLE nodes DROP COLUMN uptime_reputation_beta;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
