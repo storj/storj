@@ -1091,6 +1091,29 @@ read one (
     where stripecoinpayments_tx_conversion_rate.tx_id = ?
 )
 
+model coupon_code (
+    key    id
+    unique name
+
+    field id          blob
+    field name        text
+    field amount      int64
+    field description text
+    field type        int
+    field duration    int64
+
+    field created_at timestamp ( autoinsert )
+)
+
+create coupon_code ()
+delete coupon_code (
+    where coupon_code.name = ?
+)
+read one (
+    select coupon_code
+    where coupon_code.name = ?
+)
+
 model coupon (
     key id
 
@@ -1101,6 +1124,7 @@ model coupon (
     field type             int
     field status           int   ( updatable )
     field duration         int64
+    field coupon_code_name text  ( nullable )
 
     field created_at timestamp ( autoinsert )
 )
