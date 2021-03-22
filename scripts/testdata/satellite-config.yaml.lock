@@ -536,7 +536,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.object-price: "0.0000022"
 
 # proportion of users which require a balance to create projects [0-1]
-# payments.paywall-proportion: 1
+# payments.paywall-proportion: 0
 
 # payments provider to use
 # payments.provider: ""
