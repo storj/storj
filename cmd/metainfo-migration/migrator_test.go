@@ -161,6 +161,9 @@ func test(t *testing.T, createPointers func(t *testing.T, ctx context.Context, p
 
 	for _, satelliteDB := range satellitedbtest.Databases() {
 		satelliteDB := satelliteDB
+		if strings.EqualFold(satelliteDB.MasterDB.URL, "omit") {
+			continue
+		}
 		t.Run(satelliteDB.Name, func(t *testing.T) {
 			schemaSuffix := satellitedbtest.SchemaSuffix()
 			schema := satellitedbtest.SchemaName(t.Name(), "category", 0, schemaSuffix)
