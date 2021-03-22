@@ -99,7 +99,8 @@ type Service struct {
 type Config struct {
 	PasswordCost            int  `help:"password hashing cost (0=automatic)" internal:"true"`
 	OpenRegistrationEnabled bool `help:"enable open registration" default:"false"`
-	DefaultProjectLimit     int  `help:"default project limits for users" default:"10"`
+	DefaultProjectLimit     int  `help:"default project limits for users" default:"3"`
+	UsageLimits             UsageLimitsConfig
 }
 
 // PaymentsService separates all payment related functionality.
@@ -573,6 +574,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 		if registrationToken != nil {
 			newUser.ProjectLimit = registrationToken.ProjectLimit
+		} else {
+			newUser.ProjectLimit = s.config.DefaultProjectLimit
 		}
 
 		u, err = tx.Users().Insert(ctx,
@@ -1003,10 +1006,12 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		p, err = tx.Projects().Insert(ctx,
 			&Project{
-				Description: projectInfo.Description,
-				Name:        projectInfo.Name,
-				OwnerID:     auth.User.ID,
-				PartnerID:   auth.User.PartnerID,
+				Description:    projectInfo.Description,
+				Name:           projectInfo.Name,
+				OwnerID:        auth.User.ID,
+				PartnerID:      auth.User.PartnerID,
+				StorageLimit:   &s.config.UsageLimits.DefaultStorageLimit,
+				BandwidthLimit: &s.config.UsageLimits.DefaultBandwidthLimit,
 			},
 		)
 		if err != nil {

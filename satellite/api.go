@@ -298,8 +298,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup project limits
 		peer.ProjectLimits.Cache = accounting.NewProjectLimitCache(peer.DB.ProjectAccounting(),
-			config.Metainfo.ProjectLimits.DefaultMaxUsage,
-			config.Metainfo.ProjectLimits.DefaultMaxBandwidth,
+			config.Console.Config.UsageLimits.DefaultStorageLimit,
+			config.Console.Config.UsageLimits.DefaultBandwidthLimit,
 			config.ProjectLimit,
 		)
 	}

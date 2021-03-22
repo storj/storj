@@ -86,7 +86,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.contact-info-url: https://forum.storj.io
 
 # default project limits for users
-# console.default-project-limit: 10
+# console.default-project-limit: 3
 
 # url link to documentation
 # console.documentation-url: https://documentation.tardigrade.io/
@@ -147,6 +147,12 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # url link to terms and conditions page
 # console.terms-and-conditions-url: https://storj.io/storage-sla/
+
+# the default bandwidth usage limit
+# console.usage-limits.default-bandwidth-limit: 50.00 GB
+
+# the default storage usage limit
+# console.usage-limits.default-storage-limit: 50.00 GB
 
 # url link to sign up verification page
 # console.verification-page-url: https://tardigrade.io/verify
@@ -366,12 +372,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # timeout for a single delete request
 # metainfo.piece-deletion.request-timeout: 1m0s
-
-# the default bandwidth usage limit
-# metainfo.project-limits.default-max-bandwidth: 500.00 GB
-
-# the default storage usage limit
-# metainfo.project-limits.default-max-usage: 500.00 GB
 
 # max bucket count for a project.
 # metainfo.project-limits.max-buckets: 100

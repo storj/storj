@@ -483,9 +483,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 				CacheExpiration: 10 * time.Second,
 			},
 			ProjectLimits: metainfo.ProjectLimitConfig{
-				MaxBuckets:          10,
-				DefaultMaxUsage:     25 * memory.GB,
-				DefaultMaxBandwidth: 25 * memory.GB,
+				MaxBuckets: 10,
 			},
 			PieceDeletion: piecedeletion.Config{
 				MaxConcurrency:      100,
@@ -592,6 +590,10 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			Config: console.Config{
 				PasswordCost:        console.TestPasswordCost,
 				DefaultProjectLimit: 5,
+				UsageLimits: console.UsageLimitsConfig{
+					DefaultStorageLimit:   25 * memory.GB,
+					DefaultBandwidthLimit: 25 * memory.GB,
+				},
 			},
 			RateLimit: web.IPRateLimiterConfig{
 				Duration:  5 * time.Minute,
