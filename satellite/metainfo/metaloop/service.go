@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package metainfo
+package metaloop
 
 import (
 	"context"
@@ -20,10 +20,12 @@ import (
 const batchsizeLimit = 2500
 
 var (
-	// LoopError is a standard error class for this component.
-	LoopError = errs.Class("metainfo loop error")
-	// LoopClosedError is a loop closed error.
-	LoopClosedError = LoopError.New("loop closed")
+	mon = monkit.Package()
+
+	// Error is a standard error class for this component.
+	Error = errs.Class("metainfo loop error")
+	// ErrClosed is a loop closed error.
+	ErrClosed = Error.New("loop closed")
 )
 
 // Object is the object info passed to Observer by metainfo loop.
@@ -146,26 +148,34 @@ func (observer *observerContext) Wait() error {
 	return <-observer.done
 }
 
-// LoopConfig contains configurable values for the metainfo loop.
-type LoopConfig struct {
+// Config contains configurable values for the metainfo loop.
+type Config struct {
 	CoalesceDuration time.Duration `help:"how long to wait for new observers before starting iteration" releaseDefault:"5s" devDefault:"5s"`
 	RateLimit        float64       `help:"rate limit (default is 0 which is unlimited segments per second)" default:"0"`
 	ListLimit        int           `help:"how many items to query in a batch" default:"2500"`
 }
 
-// Loop is a metainfo loop service.
+// MetabaseDB contains iterators for the metabase data.
+type MetabaseDB interface {
+	// IterateLoopObjects iterates through all objects in metabase for metainfo loop purpose.
+	IterateLoopObjects(ctx context.Context, opts metabase.IterateLoopObjects, fn func(context.Context, metabase.LoopObjectsIterator) error) (err error)
+	// IterateLoopStreams iterates through all streams passed in as arguments.
+	IterateLoopStreams(ctx context.Context, opts metabase.IterateLoopStreams, handleStream func(ctx context.Context, streamID uuid.UUID, next metabase.SegmentIterator) error) (err error)
+}
+
+// Service is a metainfo loop service.
 //
 // architecture: Service
-type Loop struct {
-	config     LoopConfig
+type Service struct {
+	config     Config
 	metabaseDB MetabaseDB
 	join       chan []*observerContext
 	done       chan struct{}
 }
 
-// NewLoop creates a new metainfo loop service.
-func NewLoop(config LoopConfig, metabaseDB MetabaseDB) *Loop {
-	return &Loop{
+// New creates a new metainfo loop service.
+func New(config Config, metabaseDB MetabaseDB) *Service {
+	return &Service{
 		metabaseDB: metabaseDB,
 		config:     config,
 		join:       make(chan []*observerContext),
@@ -177,7 +187,7 @@ func NewLoop(config LoopConfig, metabaseDB MetabaseDB) *Loop {
 // On ctx cancel the observer will return without completely finishing.
 // Only on full complete iteration it will return nil.
 // Safe to be called concurrently.
-func (loop *Loop) Join(ctx context.Context, observers ...Observer) (err error) {
+func (loop *Service) Join(ctx context.Context, observers ...Observer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	obsContexts := make([]*observerContext, len(observers))
@@ -190,7 +200,7 @@ func (loop *Loop) Join(ctx context.Context, observers ...Observer) (err error) {
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-loop.done:
-		return LoopClosedError
+		return ErrClosed
 	}
 
 	var errList errs.Group
@@ -203,7 +213,7 @@ func (loop *Loop) Join(ctx context.Context, observers ...Observer) (err error) {
 
 // Run starts the looping service.
 // It can only be called once, otherwise a panic will occur.
-func (loop *Loop) Run(ctx context.Context) (err error) {
+func (loop *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for {
@@ -215,7 +225,7 @@ func (loop *Loop) Run(ctx context.Context) (err error) {
 }
 
 // Close closes the looping services.
-func (loop *Loop) Close() (err error) {
+func (loop *Service) Close() (err error) {
 	close(loop.done)
 	return nil
 }
@@ -223,7 +233,7 @@ func (loop *Loop) Close() (err error) {
 // RunOnce goes through metainfo one time and sends information to observers.
 //
 // It is not safe to call this concurrently with Run.
-func (loop *Loop) RunOnce(ctx context.Context) (err error) {
+func (loop *Service) RunOnce(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var observers []*observerContext
@@ -255,7 +265,7 @@ waitformore:
 
 // Wait waits for run to be finished.
 // Safe to be called concurrently.
-func (loop *Loop) Wait() {
+func (loop *Service) Wait() {
 	<-loop.done
 }
 
@@ -272,7 +282,7 @@ func iterateDatabase(ctx context.Context, metabaseDB MetabaseDB, observers []*ob
 
 	observers, err = iterateObjects(ctx, metabaseDB, observers, limit, rateLimiter)
 	if err != nil {
-		return LoopError.Wrap(err)
+		return Error.Wrap(err)
 	}
 
 	return err

@@ -19,6 +19,7 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/memory"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metaloop"
 )
 
 var mon = monkit.Package()
@@ -35,7 +36,7 @@ type Bench struct {
 
 	ProgressPrintFrequency int64
 
-	Loop metainfo.LoopConfig
+	Loop metaloop.Config
 }
 
 // BindFlags adds bench flags to the the flagset.
@@ -100,8 +101,7 @@ func (bench *Bench) Run(ctx context.Context, log *zap.Logger) (err error) {
 
 	var group errs2.Group
 
-	// Passing PointerDB as nil, since metainfo.Loop actually doesn't need it.
-	loop := metainfo.NewLoop(bench.Loop, mdb)
+	loop := metaloop.New(bench.Loop, mdb)
 
 	group.Go(func() error {
 		progress := &ProgressObserver{
@@ -156,7 +156,7 @@ func (progress *ProgressObserver) Report() {
 }
 
 // Object implements the Observer interface.
-func (progress *ProgressObserver) Object(context.Context, *metainfo.Object) error {
+func (progress *ProgressObserver) Object(context.Context, *metaloop.Object) error {
 	progress.ObjectCount++
 	if progress.ObjectCount%progress.ProgressPrintFrequency == 0 {
 		progress.Report()
@@ -165,13 +165,13 @@ func (progress *ProgressObserver) Object(context.Context, *metainfo.Object) erro
 }
 
 // RemoteSegment implements the Observer interface.
-func (progress *ProgressObserver) RemoteSegment(context.Context, *metainfo.Segment) error {
+func (progress *ProgressObserver) RemoteSegment(context.Context, *metaloop.Segment) error {
 	progress.RemoteSegmentCount++
 	return nil
 }
 
 // InlineSegment implements the Observer interface.
-func (progress *ProgressObserver) InlineSegment(context.Context, *metainfo.Segment) error {
+func (progress *ProgressObserver) InlineSegment(context.Context, *metaloop.Segment) error {
 	progress.InlineSegmentCount++
 	return nil
 }

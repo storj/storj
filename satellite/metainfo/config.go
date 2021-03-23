@@ -18,6 +18,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metainfo/metaloop"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/cockroachkv"
@@ -125,7 +126,7 @@ type Config struct {
 	MaxCommitInterval    time.Duration        `default:"48h" help:"maximum time allowed to pass between creating and committing a segment"`
 	Overlay              bool                 `default:"true" help:"toggle flag if overlay is enabled"`
 	RS                   RSConfig             `releaseDefault:"29/35/80/110-256B" devDefault:"4/6/8/10-256B" help:"redundancy scheme configuration in the format k/m/o/n-sharesize"`
-	Loop                 LoopConfig           `help:"loop configuration"`
+	Loop                 metaloop.Config      `help:"loop configuration"`
 	RateLimiter          RateLimiterConfig    `help:"rate limiter configuration"`
 	ProjectLimits        ProjectLimitConfig   `help:"project limit configuration"`
 	PieceDeletion        piecedeletion.Config `help:"piece deletion configuration"`

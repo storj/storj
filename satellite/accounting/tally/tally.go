@@ -15,8 +15,8 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metainfo/metaloop"
 )
 
 // Error is a standard error class for this package.
@@ -39,7 +39,7 @@ type Service struct {
 	log  *zap.Logger
 	Loop *sync2.Cycle
 
-	metainfoLoop            *metainfo.Loop
+	metainfoLoop            *metaloop.Service
 	liveAccounting          accounting.Cache
 	storagenodeAccountingDB accounting.StoragenodeAccounting
 	projectAccountingDB     accounting.ProjectAccounting
@@ -47,7 +47,7 @@ type Service struct {
 }
 
 // New creates a new tally Service.
-func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting accounting.Cache, metainfoLoop *metainfo.Loop, interval time.Duration) *Service {
+func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting accounting.Cache, metainfoLoop *metaloop.Service, interval time.Duration) *Service {
 	return &Service{
 		log:  log,
 		Loop: sync2.NewCycle(interval),
@@ -239,7 +239,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	return errs.Combine(errAtRest, errBucketInfo)
 }
 
-var _ metainfo.Observer = (*Observer)(nil)
+var _ metaloop.Observer = (*Observer)(nil)
 
 // Observer observes metainfo and adds up tallies for nodes and buckets.
 type Observer struct {
@@ -274,7 +274,7 @@ func (observer *Observer) ensureBucket(ctx context.Context, location metabase.Ob
 }
 
 // Object is called for each object once.
-func (observer *Observer) Object(ctx context.Context, object *metainfo.Object) (err error) {
+func (observer *Observer) Object(ctx context.Context, object *metaloop.Object) (err error) {
 	if object.Expired(observer.Now) {
 		return nil
 	}
@@ -287,7 +287,7 @@ func (observer *Observer) Object(ctx context.Context, object *metainfo.Object) (
 }
 
 // InlineSegment is called for each inline segment.
-func (observer *Observer) InlineSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
+func (observer *Observer) InlineSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
 	if segment.Expired(observer.Now) {
 		return nil
 	}
@@ -300,7 +300,7 @@ func (observer *Observer) InlineSegment(ctx context.Context, segment *metainfo.S
 }
 
 // RemoteSegment is called for each remote segment.
-func (observer *Observer) RemoteSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
+func (observer *Observer) RemoteSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
 	if segment.Expired(observer.Now) {
 		return nil
 	}

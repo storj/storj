@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metaloop"
 )
 
 // Counter implements the metainfo loop observer interface for data science metrics collection.
@@ -26,7 +26,7 @@ func NewCounter() *Counter {
 }
 
 // Object increments the count for total objects and for inline objects in case the object has no segments.
-func (counter *Counter) Object(ctx context.Context, object *metainfo.Object) (err error) {
+func (counter *Counter) Object(ctx context.Context, object *metaloop.Object) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	counter.ObjectCount++
@@ -35,7 +35,7 @@ func (counter *Counter) Object(ctx context.Context, object *metainfo.Object) (er
 }
 
 // RemoteSegment increments the count for objects with remote segments.
-func (counter *Counter) RemoteSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
+func (counter *Counter) RemoteSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if counter.checkObjectRemoteness == segment.StreamID {
@@ -47,7 +47,7 @@ func (counter *Counter) RemoteSegment(ctx context.Context, segment *metainfo.Seg
 }
 
 // InlineSegment increments the count for inline objects.
-func (counter *Counter) InlineSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
+func (counter *Counter) InlineSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
 	return nil
 }
 

@@ -35,6 +35,7 @@ import (
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
+	"storj.io/storj/satellite/metainfo/metaloop"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -83,7 +84,7 @@ type Core struct {
 		Database metainfo.PointerDB // TODO: move into pointerDB
 		Metabase metainfo.MetabaseDB
 		Service  *metainfo.Service
-		Loop     *metainfo.Loop
+		Loop     *metaloop.Service
 	}
 
 	Orders struct {
@@ -280,7 +281,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Buckets(),
 			peer.Metainfo.Metabase,
 		)
-		peer.Metainfo.Loop = metainfo.NewLoop(
+		peer.Metainfo.Loop = metaloop.New(
 			config.Metainfo.Loop,
 			peer.Metainfo.Metabase,
 		)

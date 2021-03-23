@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metaloop"
 )
 
 // Chore populates reservoirs and the audit queue.
@@ -23,12 +23,12 @@ type Chore struct {
 	queues *Queues
 	Loop   *sync2.Cycle
 
-	metainfoLoop *metainfo.Loop
+	metainfoLoop *metaloop.Service
 	config       Config
 }
 
 // NewChore instantiates Chore.
-func NewChore(log *zap.Logger, queues *Queues, metaLoop *metainfo.Loop, config Config) *Chore {
+func NewChore(log *zap.Logger, queues *Queues, metaLoop *metaloop.Service, config Config) *Chore {
 	return &Chore{
 		log:    log,
 		rand:   rand.New(rand.NewSource(time.Now().Unix())),

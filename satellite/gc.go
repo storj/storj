@@ -24,6 +24,7 @@ import (
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metaloop"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/overlay"
 )
@@ -57,7 +58,7 @@ type GarbageCollection struct {
 
 	Metainfo struct {
 		Database metainfo.PointerDB
-		Loop     *metainfo.Loop
+		Loop     *metaloop.Service
 	}
 
 	GarbageCollection struct {
@@ -140,7 +141,7 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 		// GC runs infrequently, this shouldn't add too much extra load on the metainfo db.
 		// As long as garbage collection is the only observer joining the metainfo loop, then by default
 		// the metainfo loop will only run when the garbage collection joins (which happens every GarbageCollection.Interval)
-		peer.Metainfo.Loop = metainfo.NewLoop(
+		peer.Metainfo.Loop = metaloop.New(
 			config.Metainfo.Loop,
 			metabaseDB,
 		)

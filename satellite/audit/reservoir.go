@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metainfo/metaloop"
 )
 
 const maxReservoirSize = 3
@@ -56,7 +56,7 @@ type Segment struct {
 }
 
 // NewSegment creates a new segment to audit from a metainfo loop segment.
-func NewSegment(loopSegment *metainfo.Segment) Segment {
+func NewSegment(loopSegment *metaloop.Segment) Segment {
 	return Segment{
 		SegmentLocation: loopSegment.Location,
 		StreamID:        loopSegment.StreamID,

@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metaloop"
 )
 
 var (
@@ -33,12 +33,12 @@ type Chore struct {
 	log          *zap.Logger
 	config       Config
 	Loop         *sync2.Cycle
-	metainfoLoop *metainfo.Loop
+	metainfoLoop *metaloop.Service
 	Counter      *Counter
 }
 
 // NewChore creates a new instance of the metrics chore.
-func NewChore(log *zap.Logger, config Config, loop *metainfo.Loop) *Chore {
+func NewChore(log *zap.Logger, config Config, loop *metaloop.Service) *Chore {
 	return &Chore{
 		log:          log,
 		config:       config,

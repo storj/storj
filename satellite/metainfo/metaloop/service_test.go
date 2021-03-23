@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package metainfo_test
+package metaloop_test
 
 import (
 	"context"
@@ -23,8 +23,8 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metainfo/metaloop"
 	"storj.io/uplink/private/multipart"
 )
 
@@ -313,7 +313,7 @@ func TestLoopCancel(t *testing.T) {
 		}
 
 		// create a new metainfo loop
-		metaLoop := metainfo.NewLoop(metainfo.LoopConfig{
+		metaLoop := metaloop.New(metaloop.Config{
 			CoalesceDuration: 1 * time.Second,
 			ListLimit:        10000,
 		}, satellite.Metainfo.Metabase)
@@ -399,7 +399,7 @@ func newTestObserver(onSegment func(context.Context) error) *testObserver {
 	}
 }
 
-func (obs *testObserver) RemoteSegment(ctx context.Context, segment *metainfo.Segment) error {
+func (obs *testObserver) RemoteSegment(ctx context.Context, segment *metaloop.Segment) error {
 	obs.remoteSegCount++
 
 	key := segment.Location.Encode()
@@ -416,13 +416,13 @@ func (obs *testObserver) RemoteSegment(ctx context.Context, segment *metainfo.Se
 	return nil
 }
 
-func (obs *testObserver) Object(ctx context.Context, object *metainfo.Object) error {
+func (obs *testObserver) Object(ctx context.Context, object *metaloop.Object) error {
 	obs.objectCount++
 	obs.totalMetadataSize += object.EncryptedMetadataSize
 	return nil
 }
 
-func (obs *testObserver) InlineSegment(ctx context.Context, segment *metainfo.Segment) error {
+func (obs *testObserver) InlineSegment(ctx context.Context, segment *metaloop.Segment) error {
 	obs.inlineSegCount++
 	key := segment.Location.Encode()
 	if _, ok := obs.uniquePaths[string(key)]; ok {

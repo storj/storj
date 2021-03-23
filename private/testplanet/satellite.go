@@ -50,6 +50,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
+	"storj.io/storj/satellite/metainfo/metaloop"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodestats"
@@ -102,7 +103,7 @@ type Satellite struct {
 		Metabase  metainfo.MetabaseDB
 		Service   *metainfo.Service
 		Endpoint2 *metainfo.Endpoint
-		Loop      *metainfo.Loop
+		Loop      *metaloop.Service
 	}
 
 	Inspector struct {
@@ -471,7 +472,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 				Success:          atLeastOne(planet.config.StorageNodeCount * 3 / 5),
 				Total:            atLeastOne(planet.config.StorageNodeCount * 4 / 5),
 			},
-			Loop: metainfo.LoopConfig{
+			Loop: metaloop.Config{
 				CoalesceDuration: 1 * time.Second,
 				ListLimit:        10000,
 			},

@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metainfo/metaloop"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair"
 	"storj.io/storj/satellite/repair/irreparable"
@@ -39,7 +40,7 @@ type Checker struct {
 	repairQueue     queue.RepairQueue
 	irrdb           irreparable.DB
 	metabase        metainfo.MetabaseDB
-	metaLoop        *metainfo.Loop
+	metaLoop        *metaloop.Service
 	nodestate       *ReliabilityCache
 	statsCollector  *statsCollector
 	repairOverrides RepairOverridesMap
@@ -49,7 +50,7 @@ type Checker struct {
 }
 
 // NewChecker creates a new instance of checker.
-func NewChecker(logger *zap.Logger, repairQueue queue.RepairQueue, irrdb irreparable.DB, metabase metainfo.MetabaseDB, metaLoop *metainfo.Loop, overlay *overlay.Service, config Config) *Checker {
+func NewChecker(logger *zap.Logger, repairQueue queue.RepairQueue, irrdb irreparable.DB, metabase metainfo.MetabaseDB, metaLoop *metaloop.Service, overlay *overlay.Service, config Config) *Checker {
 	return &Checker{
 		logger: logger,
 
@@ -260,7 +261,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, key 
 	return nil
 }
 
-var _ metainfo.Observer = (*checkerObserver)(nil)
+var _ metaloop.Observer = (*checkerObserver)(nil)
 
 // checkerObserver implements the metainfo loop Observer interface.
 //
@@ -294,7 +295,7 @@ func (obs *checkerObserver) loadRedundancy(redundancy storj.RedundancyScheme) (i
 	return int(redundancy.RequiredShares), repair, int(redundancy.OptimalShares), int(redundancy.TotalShares)
 }
 
-func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
+func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// ignore segment if expired
@@ -453,7 +454,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metainfo
 	return nil
 }
 
-func (obs *checkerObserver) Object(ctx context.Context, object *metainfo.Object) (err error) {
+func (obs *checkerObserver) Object(ctx context.Context, object *metaloop.Object) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	obs.monStats.objectsChecked++
@@ -470,7 +471,7 @@ func (obs *checkerObserver) Object(ctx context.Context, object *metainfo.Object)
 	return nil
 }
 
-func (obs *checkerObserver) InlineSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
+func (obs *checkerObserver) InlineSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO: check for expired segments
