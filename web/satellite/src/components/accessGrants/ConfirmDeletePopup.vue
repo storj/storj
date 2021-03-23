@@ -173,6 +173,7 @@ export default class ConfirmDeletePopup extends Vue {
                     &__item {
                         padding: 25px;
                         width: calc(100% - 50px);
+                        max-width: calc(100% - 50px);
                         background: rgba(245, 246, 250, 0.6);
 
                         &__name {
@@ -182,6 +183,7 @@ export default class ConfirmDeletePopup extends Vue {
                             font-size: 14px;
                             line-height: 19px;
                             color: #1b2533;
+                            overflow: hidden;
                             text-overflow: ellipsis;
                             white-space: nowrap;
                         }

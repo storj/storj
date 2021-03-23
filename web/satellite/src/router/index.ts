@@ -388,6 +388,12 @@ router.beforeEach((to, from, next) => {
         return;
     }
 
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.Objects)) {
+        next(RouteConfig.Objects.with(RouteConfig.CreatePassphrase).path);
+
+        return;
+    }
+
     if (to.name === 'default') {
         next(RouteConfig.ProjectDashboard.path);
 

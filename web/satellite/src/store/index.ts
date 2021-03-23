@@ -1,6 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { files } from 'browser';
 import Vue from 'vue';
 import Vuex from 'vuex';
 
@@ -62,6 +63,7 @@ export const store = new Vuex.Store<ModulesState>({
         projectsModule: makeProjectsModule(projectsApi),
         bucketUsageModule: makeBucketsModule(bucketsApi),
         objectsModule: makeObjectsModule(),
+        files,
     },
 });
 

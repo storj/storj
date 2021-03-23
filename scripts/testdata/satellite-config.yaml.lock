@@ -103,6 +103,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # external endpoint of the satellite if hosted
 # console.external-address: ""
 
+# indicates if file browser flow is disabled
+# console.file-browser-flow-disabled: true
+
 # allow domains to embed the satellite in a frame, space separated
 # console.frame-ancestors: tardigrade.io
 
