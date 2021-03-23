@@ -60,6 +60,11 @@ func (keys *APIKeys) DeleteByNameAndProjectID(w http.ResponseWriter, r *http.Req
 			return
 		}
 
+		if console.ErrNoAPIKey.Has(err) {
+			keys.serveJSONError(w, http.StatusNoContent, err)
+			return
+		}
+
 		keys.serveJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
@@ -67,13 +72,17 @@ func (keys *APIKeys) DeleteByNameAndProjectID(w http.ResponseWriter, r *http.Req
 
 // serveJSONError writes JSON error to response output stream.
 func (keys *APIKeys) serveJSONError(w http.ResponseWriter, status int, err error) {
+	w.WriteHeader(status)
+
+	if status == http.StatusNoContent {
+		return
+	}
+
 	if status == http.StatusInternalServerError {
 		keys.log.Error("returning internal server error to client", zap.Int("code", status), zap.Error(err))
 	} else {
 		keys.log.Debug("returning error to client", zap.Int("code", status), zap.Error(err))
 	}
-
-	w.WriteHeader(status)
 
 	var response struct {
 		Error string `json:"error"`

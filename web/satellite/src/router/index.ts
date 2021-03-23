@@ -92,7 +92,7 @@ export abstract class RouteConfig {
     public static CreatePassphrase = new NavigationLink('create-passphrase', 'Objects Create Passphrase');
     public static EnterPassphrase = new NavigationLink('enter-passphrase', 'Objects Enter Passphrase');
     public static BucketsManagement = new NavigationLink('buckets', 'Buckets Management');
-    public static UploadFile = new NavigationLink('upload', 'Objects Upload');
+    public static UploadFile = new NavigationLink('upload/', 'Objects Upload');
 }
 
 export const notProjectRelatedRoutes = [
@@ -320,6 +320,12 @@ export const router = new Router({
                             path: RouteConfig.UploadFile.path,
                             name: RouteConfig.UploadFile.name,
                             component: UploadFile,
+                            children: [
+                                {
+                                    path: '*',
+                                    component: UploadFile,
+                                },
+                            ],
                         },
                     ],
                 },

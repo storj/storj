@@ -49,6 +49,7 @@ const (
 	passwordIncorrectErrMsg              = "Your password needs at least %d characters long"
 	projectOwnerDeletionForbiddenErrMsg  = "%s is a project owner and can not be deleted"
 	apiKeyWithNameExistsErrMsg           = "An API Key with this name already exists in this project, please use a different name"
+	apiKeyWithNameDoesntExistErrMsg      = "An API Key with this name doesn't exist in this project."
 	teamMemberDoesNotExistErrMsg         = `There is no account on this Satellite for the user(s) you have entered.
 									     Please add team members with active accounts`
 
@@ -74,6 +75,9 @@ var (
 
 	// ErrEmailUsed is error type that occurs on repeating auth attempts with email.
 	ErrEmailUsed = errs.Class("email used")
+
+	// ErrNoAPIKey is error type that occurs when there is no api key found.
+	ErrNoAPIKey = errs.Class("no api key found")
 )
 
 // Service is handling accounts related logic.
@@ -1346,7 +1350,7 @@ func (s *Service) DeleteAPIKeyByNameAndProjectID(ctx context.Context, name strin
 
 	key, err := s.store.APIKeys().GetByNameAndProjectID(ctx, name, projectID)
 	if err != nil {
-		return Error.Wrap(err)
+		return ErrNoAPIKey.New(apiKeyWithNameDoesntExistErrMsg)
 	}
 
 	err = s.store.APIKeys().Delete(ctx, key.ID)

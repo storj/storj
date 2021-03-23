@@ -93,8 +93,8 @@ export default class HeaderlessInput extends Vue {
     protected readonly error: string;
     @Prop({default: Number.MAX_SAFE_INTEGER})
     protected readonly maxSymbols: number;
-    @Prop({default: []})
-    protected readonly optionsList: [string];
+    @Prop({default: () => []})
+    protected readonly optionsList: string[];
     @Prop({default: false})
     protected optionsShown: boolean;
     @Prop({default: false})

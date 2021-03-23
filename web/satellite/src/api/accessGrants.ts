@@ -141,7 +141,7 @@ export class AccessGrantsApiGql extends BaseGql implements AccessGrantsApi {
         const path = `${this.ROOT_PATH}/delete-by-name?name=${name}&projectID=${projectID}`;
         const response = await this.client.delete(path);
 
-        if (response.ok) {
+        if (response.ok || response.status === 204) {
             return;
         }
 

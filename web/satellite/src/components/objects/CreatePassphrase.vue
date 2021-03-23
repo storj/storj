@@ -21,6 +21,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import GeneratePassphrase from '@/components/common/GeneratePassphrase.vue';
 
 import { RouteConfig } from '@/router';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { LocalData } from '@/utils/localData';
 
 @Component({
@@ -57,12 +58,8 @@ export default class CreatePassphrase extends Vue {
 
         this.isLoading = false;
 
-        this.$router.push({
-            name: RouteConfig.BucketsManagement.name,
-            params: {
-                passphrase: this.passphrase,
-            },
-        });
+        this.$store.dispatch(OBJECTS_ACTIONS.SET_PASSPHRASE, this.passphrase);
+        this.$router.push({name: RouteConfig.BucketsManagement.name});
     }
 }
 </script>

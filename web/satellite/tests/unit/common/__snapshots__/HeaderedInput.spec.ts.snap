@@ -8,6 +8,7 @@ exports[`HeaderedInput.vue renders correctly with default props 1`] = `
       <h3 class="label-container__main__label"></h3>
       <h3 class="label-container__main__label add-label"></h3>
       <!---->
+      <!---->
     </div>
     <!---->
   </div>
@@ -24,6 +25,7 @@ exports[`HeaderedInput.vue renders correctly with input error 1`] = `
       <!---->
       <!---->
       <h3 class="label-container__main__error">testError</h3>
+      <!---->
     </div>
     <!---->
   </div>
@@ -39,6 +41,7 @@ exports[`HeaderedInput.vue renders correctly with isMultiline props 1`] = `
       <!---->
       <h3 class="label-container__main__label"></h3>
       <h3 class="label-container__main__label add-label"></h3>
+      <!---->
       <!---->
     </div>
     <!---->

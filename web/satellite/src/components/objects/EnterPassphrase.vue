@@ -73,6 +73,7 @@ import VButton from '@/components/common/VButton.vue';
 import WarningIcon from '@/../static/images/common/greyWarning.svg';
 
 import { RouteConfig } from '@/router';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { LocalData, UserIDPassSalt } from '@/utils/localData';
 import { MetaUtils } from '@/utils/meta';
 
@@ -115,12 +116,8 @@ export default class EnterPassphrase extends Vue {
             switch (true) {
                 case areHashesEqual() ||
                 !areHashesEqual() && this.isError && this.isCheckboxChecked:
-                    this.$router.push({
-                        name: RouteConfig.BucketsManagement.name,
-                        params: {
-                            passphrase: this.passphrase,
-                        },
-                    });
+                    this.$store.dispatch(OBJECTS_ACTIONS.SET_PASSPHRASE, this.passphrase);
+                    this.$router.push({name: RouteConfig.BucketsManagement.name});
 
                     return;
                 case !areHashesEqual() && this.isError && !this.isCheckboxChecked:

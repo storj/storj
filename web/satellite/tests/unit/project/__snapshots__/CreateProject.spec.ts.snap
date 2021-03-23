@@ -11,6 +11,7 @@ exports[`CreateProject.vue renders correctly 1`] = `
           <h3 class="label-container__main__label">Project Name</h3>
           <h3 class="label-container__main__label add-label">Up To 20 Characters</h3>
           <!---->
+          <!---->
         </div>
         <h3 class="label-container__limit">0/20</h3>
       </div>
@@ -23,6 +24,7 @@ exports[`CreateProject.vue renders correctly 1`] = `
           <!---->
           <h3 class="label-container__main__label">Description</h3>
           <h3 class="label-container__main__label add-label">Optional</h3>
+          <!---->
           <!---->
         </div>
         <h3 class="label-container__limit">0/100</h3>
