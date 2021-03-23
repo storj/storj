@@ -46,7 +46,7 @@ func NewReporter(log *zap.Logger, overlay *overlay.Service, containment Containm
 // RecordAudits saves audit results to overlay. When no error, it returns
 // nil for both return values, otherwise it returns the report with the fields
 // set to the values which have been saved and the error.
-func (reporter *Reporter) RecordAudits(ctx context.Context, req Report, path storj.Path) (_ Report, err error) {
+func (reporter *Reporter) RecordAudits(ctx context.Context, req Report) (_ Report, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	successes := req.Successes
@@ -245,7 +245,7 @@ func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits
 
 	if len(failed) > 0 {
 		for _, v := range failed {
-			reporter.log.Debug("failed to record Pending Nodes ", zap.Stringer("NodeID", v.NodeID), zap.String("Path", v.Path))
+			reporter.log.Debug("failed to record Pending Nodes ", zap.Stringer("NodeID", v.NodeID), zap.ByteString("Segment Location", []byte(v.Segment.Encode())))
 		}
 		return failed, errs.Combine(Error.New("failed to record some pending audits"), errlist.Err())
 	}

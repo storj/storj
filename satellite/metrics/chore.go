@@ -62,8 +62,8 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			return nil
 		}
 		mon.IntVal("remote_dependent_object_count").Observe(chore.Counter.RemoteDependent)
-		mon.IntVal("inline_object_count").Observe(chore.Counter.Inline)
-		mon.IntVal("total_object_count").Observe(chore.Counter.Total)
+		mon.IntVal("inline_object_count").Observe(chore.Counter.InlineObjectCount())
+		mon.IntVal("total_object_count").Observe(chore.Counter.ObjectCount)
 
 		return nil
 	})

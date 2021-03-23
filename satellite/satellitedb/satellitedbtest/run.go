@@ -28,9 +28,10 @@ import (
 
 // SatelliteDatabases maybe name can be better.
 type SatelliteDatabases struct {
-	Name      string
-	MasterDB  Database
-	PointerDB Database
+	Name       string
+	MasterDB   Database
+	PointerDB  Database
+	MetabaseDB Database
 }
 
 // Database describes a test database.
@@ -50,14 +51,16 @@ func Databases() []SatelliteDatabases {
 	postgresConnStr := pgtest.PickPostgres(ignoreSkip{})
 	return []SatelliteDatabases{
 		{
-			Name:      "Postgres",
-			MasterDB:  Database{"Postgres", postgresConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable."},
-			PointerDB: Database{"Postgres", postgresConnStr, ""},
+			Name:       "Postgres",
+			MasterDB:   Database{"Postgres", postgresConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable."},
+			PointerDB:  Database{"Postgres", postgresConnStr, ""},
+			MetabaseDB: Database{"Postgres", postgresConnStr, ""},
 		},
 		{
-			Name:      "Cockroach",
-			MasterDB:  Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCockroach + " or use STORJ_TEST_COCKROACH environment variable."},
-			PointerDB: Database{"Cockroach", cockroachConnStr, ""},
+			Name:       "Cockroach",
+			MasterDB:   Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCockroach + " or use STORJ_TEST_COCKROACH environment variable."},
+			PointerDB:  Database{"Cockroach", cockroachConnStr, ""},
+			MetabaseDB: Database{"Cockroach", cockroachConnStr, ""},
 		},
 	}
 }
@@ -162,6 +165,46 @@ func CreatePointerDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil
 	}
 	err = pointerDB.MigrateToLatest(ctx)
 	return &tempPointerDB{PointerDB: pointerDB, tempDB: tempDB}, err
+}
+
+// tempMetabaseDB is a metabase.DB-implementing type that cleans up after itself when closed.
+type tempMetabaseDB struct {
+	metainfo.MetabaseDB
+	tempDB *dbutil.TempDatabase
+}
+
+// Close closes a tempPointerDB and cleans it up afterward.
+func (db *tempMetabaseDB) Close() error {
+	return errs.Combine(db.MetabaseDB.Close(), db.tempDB.Close())
+}
+
+// CreateMetabaseDB creates a new satellite metabase for testing.
+func CreateMetabaseDB(ctx context.Context, log *zap.Logger, name string, category string, index int, dbInfo Database) (db metainfo.MetabaseDB, err error) {
+	if dbInfo.URL == "" {
+		return nil, fmt.Errorf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
+	}
+
+	schemaSuffix := SchemaSuffix()
+	log.Debug("creating", zap.String("suffix", schemaSuffix))
+
+	schema := SchemaName(name, category, index, schemaSuffix)
+
+	tempDB, err := tempdb.OpenUnique(ctx, dbInfo.URL, schema)
+	if err != nil {
+		return nil, err
+	}
+
+	return CreateMetabaseDBOnTopOf(ctx, log, tempDB)
+}
+
+// CreateMetabaseDBOnTopOf creates a new metabase on top of an already existing
+// temporary database.
+func CreateMetabaseDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase) (db metainfo.MetabaseDB, err error) {
+	metabaseDB, err := metainfo.OpenMetabase(ctx, log.Named("metabase"), tempDB.ConnStr)
+	if err != nil {
+		return nil, err
+	}
+	return &tempMetabaseDB{MetabaseDB: metabaseDB, tempDB: tempDB}, err
 }
 
 // Run method will iterate over all supported databases. Will establish

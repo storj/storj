@@ -27,7 +27,7 @@ type PieceTracker struct {
 	// TODO: should we use int or int64 consistently for piece count (db type is int64)?
 	pieceCounts map[storj.NodeID]int
 
-	retainInfos map[storj.NodeID]*RetainInfo
+	RetainInfos map[storj.NodeID]*RetainInfo
 }
 
 // NewPieceTracker instantiates a new gc piece tracker to be subscribed to the metainfo loop.
@@ -38,7 +38,7 @@ func NewPieceTracker(log *zap.Logger, config Config, pieceCounts map[storj.NodeI
 		creationDate: time.Now().UTC(),
 		pieceCounts:  pieceCounts,
 
-		retainInfos: make(map[storj.NodeID]*RetainInfo, len(pieceCounts)),
+		RetainInfos: make(map[storj.NodeID]*RetainInfo, len(pieceCounts)),
 	}
 }
 
@@ -66,7 +66,7 @@ func (pieceTracker *PieceTracker) InlineSegment(ctx context.Context, segment *me
 
 // adds a pieceID to the relevant node's RetainInfo.
 func (pieceTracker *PieceTracker) add(nodeID storj.NodeID, pieceID storj.PieceID) {
-	if _, ok := pieceTracker.retainInfos[nodeID]; !ok {
+	if _, ok := pieceTracker.RetainInfos[nodeID]; !ok {
 		// If we know how many pieces a node should be storing, use that number. Otherwise use default.
 		numPieces := pieceTracker.config.InitialPieces
 		if pieceTracker.pieceCounts[nodeID] > 0 {
@@ -74,12 +74,12 @@ func (pieceTracker *PieceTracker) add(nodeID storj.NodeID, pieceID storj.PieceID
 		}
 		// limit size of bloom filter to ensure we are under the limit for RPC
 		filter := bloomfilter.NewOptimalMaxSize(numPieces, pieceTracker.config.FalsePositiveRate, 2*memory.MiB)
-		pieceTracker.retainInfos[nodeID] = &RetainInfo{
+		pieceTracker.RetainInfos[nodeID] = &RetainInfo{
 			Filter:       filter,
 			CreationDate: pieceTracker.creationDate,
 		}
 	}
 
-	pieceTracker.retainInfos[nodeID].Filter.Add(pieceID)
-	pieceTracker.retainInfos[nodeID].Count++
+	pieceTracker.RetainInfos[nodeID].Filter.Add(pieceID)
+	pieceTracker.RetainInfos[nodeID].Count++
 }

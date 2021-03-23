@@ -11,7 +11,6 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -198,63 +197,6 @@ func (db *bucketsDB) ListBuckets(ctx context.Context, projectID uuid.UUID, listO
 				Limit:     listOpts.Limit,
 				Direction: storj.After,
 			}
-			continue
-		}
-		break
-	}
-
-	return bucketList, nil
-}
-
-// ListAllBuckets returns a list of all buckets.
-func (db *bucketsDB) ListAllBuckets(ctx context.Context, listOpts metainfo.ListAllBucketsOptions) (bucketList storj.BucketList, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	const defaultListLimit = 10000
-	if listOpts.Limit < 1 || listOpts.Limit > defaultListLimit {
-		listOpts.Limit = defaultListLimit
-	}
-	limit := listOpts.Limit + 1 // add one to detect More
-
-	if listOpts.Cursor.BucketName == nil {
-		listOpts.Cursor.BucketName = []byte{}
-	}
-
-	for {
-		dbxBuckets, err := db.db.Limited_BucketMetainfo_By_ProjectId_GreaterOrEqual_And_Name_Greater_OrderBy_Asc_ProjectId_Name(ctx,
-			dbx.BucketMetainfo_ProjectId(listOpts.Cursor.ProjectID[:]),
-			dbx.BucketMetainfo_Name(listOpts.Cursor.BucketName),
-			limit,
-			0,
-		)
-		if err != nil {
-			return bucketList, storj.ErrBucket.Wrap(err)
-		}
-
-		bucketList.More = len(dbxBuckets) > listOpts.Limit
-		if bucketList.More {
-			// If there are more buckets than listOpts.limit returned,
-			// then remove the extra buckets so that we do not return
-			// more then the limit
-			dbxBuckets = dbxBuckets[0:listOpts.Limit]
-		}
-
-		if bucketList.Items == nil {
-			bucketList.Items = make([]storj.Bucket, 0, len(dbxBuckets))
-		}
-
-		for _, dbxBucket := range dbxBuckets {
-			item, err := convertDBXtoBucket(dbxBucket)
-			if err != nil {
-				return bucketList, storj.ErrBucket.Wrap(err)
-			}
-			bucketList.Items = append(bucketList.Items, item)
-		}
-
-		if len(bucketList.Items) < listOpts.Limit && bucketList.More {
-			lastBucket := bucketList.Items[len(bucketList.Items)-1]
-			listOpts.Cursor.ProjectID = lastBucket.ProjectID
-			listOpts.Cursor.BucketName = []byte(lastBucket.Name)
 			continue
 		}
 		break

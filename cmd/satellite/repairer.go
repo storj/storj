@@ -47,6 +47,14 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, pointerDB.Close())
 	}()
 
+	metabaseDB, err := metainfo.OpenMetabase(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL)
+	if err != nil {
+		return errs.New("Error creating metabase connection: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, metabaseDB.Close())
+	}()
+
 	revocationDB, err := revocation.OpenDBFromCfg(ctx, runCfg.Server.Config)
 	if err != nil {
 		return errs.New("Error creating revocation database: %+v", err)
@@ -64,6 +72,7 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		log,
 		identity,
 		pointerDB,
+		metabaseDB,
 		revocationDB,
 		db.RepairQueue(),
 		db.Buckets(),
@@ -90,6 +99,11 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 	err = pointerDB.MigrateToLatest(ctx)
 	if err != nil {
 		return errs.New("Error creating tables for metainfo database: %+v", err)
+	}
+
+	err = metabaseDB.MigrateToLatest(ctx)
+	if err != nil {
+		return errs.New("Error creating tables for metabase: %+v", err)
 	}
 
 	err = db.CheckVersion(ctx)

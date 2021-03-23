@@ -6,6 +6,7 @@ package metrics
 import (
 	"context"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metainfo"
 )
 
@@ -13,9 +14,10 @@ import (
 //
 // architecture: Observer
 type Counter struct {
+	ObjectCount     int64
 	RemoteDependent int64
-	Inline          int64
-	Total           int64
+
+	checkObjectRemoteness uuid.UUID
 }
 
 // NewCounter instantiates a new counter to be subscribed to the metainfo loop.
@@ -23,24 +25,33 @@ func NewCounter() *Counter {
 	return &Counter{}
 }
 
-// Object increments counts for inline objects and remote dependent objects.
+// Object increments the count for total objects and for inline objects in case the object has no segments.
 func (counter *Counter) Object(ctx context.Context, object *metainfo.Object) (err error) {
-	if object.SegmentCount == 1 && object.LastSegment.Inline {
-		counter.Inline++
-	} else {
-		counter.RemoteDependent++
-	}
-	counter.Total++
+	defer mon.Task()(&ctx)(&err)
 
+	counter.ObjectCount++
+	counter.checkObjectRemoteness = object.StreamID
 	return nil
 }
 
-// RemoteSegment returns nil because counter does not interact with remote segments this way for now.
+// RemoteSegment increments the count for objects with remote segments.
 func (counter *Counter) RemoteSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if counter.checkObjectRemoteness == segment.StreamID {
+		counter.RemoteDependent++
+		// we need to count this only once
+		counter.checkObjectRemoteness = uuid.UUID{}
+	}
 	return nil
 }
 
-// InlineSegment returns nil because counter does not interact with inline segments this way for now.
+// InlineSegment increments the count for inline objects.
 func (counter *Counter) InlineSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
 	return nil
+}
+
+// InlineObjectCount returns the count of objects that are inline only.
+func (counter *Counter) InlineObjectCount() int64 {
+	return counter.ObjectCount - counter.RemoteDependent
 }

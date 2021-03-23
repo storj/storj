@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/uplink/private/multipart"
 )
 
 // TestLoop does the following
@@ -105,7 +106,96 @@ func TestLoop(t *testing.T) {
 				assert.EqualValues(t, path.BucketName, "bucket")
 				assert.EqualValues(t, path.ProjectID, projectID)
 			}
+			// TODO we need better calulation
+			assert.NotZero(t, obs.totalMetadataSize)
 		}
+	})
+}
+
+func TestLoop_AllData(t *testing.T) {
+	segmentSize := 8 * memory.KiB
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 4,
+		UplinkCount:      3,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.Loop.CoalesceDuration = 1 * time.Second
+				config.Metainfo.Loop.ListLimit = 2
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		bucketNames := strings.Split("abc", "")
+
+		data := testrand.Bytes(segmentSize)
+		for _, up := range planet.Uplinks {
+			for _, bucketName := range bucketNames {
+				err := up.Upload(ctx, planet.Satellites[0], "zzz"+bucketName, "1", data)
+				require.NoError(t, err)
+			}
+		}
+
+		metaLoop := planet.Satellites[0].Metainfo.Loop
+
+		obs := newTestObserver(nil)
+		err := metaLoop.Join(ctx, obs)
+		require.NoError(t, err)
+
+		gotItems := len(obs.uniquePaths)
+		require.Equal(t, len(bucketNames)*len(planet.Uplinks), gotItems)
+	})
+}
+
+func TestLoop_ObjectNoSegments(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 4,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.Loop.CoalesceDuration = 1 * time.Second
+				config.Metainfo.Loop.ListLimit = 2
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "abcd")
+		require.NoError(t, err)
+
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		expectedNumberOfObjects := 5
+		for i := 0; i < expectedNumberOfObjects; i++ {
+			info, err := multipart.NewMultipartUpload(ctx, project, "abcd", "t"+strconv.Itoa(i), nil)
+			require.NoError(t, err)
+
+			_, err = multipart.CompleteMultipartUpload(ctx, project, "abcd", "t"+strconv.Itoa(i), info.StreamID, nil)
+			require.NoError(t, err)
+		}
+
+		metaLoop := planet.Satellites[0].Metainfo.Loop
+
+		obs := newTestObserver(nil)
+		err = metaLoop.Join(ctx, obs)
+		require.NoError(t, err)
+
+		require.Equal(t, expectedNumberOfObjects, obs.objectCount)
+		require.Zero(t, obs.inlineSegCount)
+		require.Zero(t, obs.remoteSegCount)
+
+		// add object with single segment
+		data := testrand.Bytes(8 * memory.KiB)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "dcba", "1", data)
+		require.NoError(t, err)
+
+		obs = newTestObserver(nil)
+		err = metaLoop.Join(ctx, obs)
+		require.NoError(t, err)
+
+		require.Equal(t, expectedNumberOfObjects+1, obs.objectCount)
+		require.Zero(t, obs.inlineSegCount)
+		require.Equal(t, 1, obs.remoteSegCount)
 	})
 }
 
@@ -226,7 +316,7 @@ func TestLoopCancel(t *testing.T) {
 		metaLoop := metainfo.NewLoop(metainfo.LoopConfig{
 			CoalesceDuration: 1 * time.Second,
 			ListLimit:        10000,
-		}, satellite.Metainfo.Database)
+		}, satellite.Metainfo.Metabase)
 
 		// create a cancelable context to pass into metaLoop.Run
 		loopCtx, cancel := context.WithCancel(ctx)
@@ -290,20 +380,22 @@ func TestLoopCancel(t *testing.T) {
 }
 
 type testObserver struct {
-	objectCount    int
-	remoteSegCount int
-	inlineSegCount int
-	uniquePaths    map[string]metabase.SegmentLocation
-	onSegment      func(context.Context) error // if set, run this during RemoteSegment()
+	objectCount       int
+	remoteSegCount    int
+	inlineSegCount    int
+	totalMetadataSize int
+	uniquePaths       map[string]metabase.SegmentLocation
+	onSegment         func(context.Context) error // if set, run this during RemoteSegment()
 }
 
 func newTestObserver(onSegment func(context.Context) error) *testObserver {
 	return &testObserver{
-		objectCount:    0,
-		remoteSegCount: 0,
-		inlineSegCount: 0,
-		uniquePaths:    make(map[string]metabase.SegmentLocation),
-		onSegment:      onSegment,
+		objectCount:       0,
+		remoteSegCount:    0,
+		inlineSegCount:    0,
+		totalMetadataSize: 0,
+		uniquePaths:       make(map[string]metabase.SegmentLocation),
+		onSegment:         onSegment,
 	}
 }
 
@@ -326,6 +418,7 @@ func (obs *testObserver) RemoteSegment(ctx context.Context, segment *metainfo.Se
 
 func (obs *testObserver) Object(ctx context.Context, object *metainfo.Object) error {
 	obs.objectCount++
+	obs.totalMetadataSize += object.EncryptedMetadataSize
 	return nil
 }
 

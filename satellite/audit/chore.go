@@ -10,7 +10,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/metainfo"
 )
@@ -53,30 +52,30 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			return err
 		}
 
-		pathCollector := NewPathCollector(chore.config.Slots, chore.rand)
-		err = chore.metainfoLoop.Join(ctx, pathCollector)
+		collector := NewCollector(chore.config.Slots, chore.rand)
+		err = chore.metainfoLoop.Join(ctx, collector)
 		if err != nil {
 			chore.log.Error("error joining metainfoloop", zap.Error(err))
 			return nil
 		}
 
-		var newQueue []storj.Path
-		queuePaths := make(map[storj.Path]struct{})
+		var newQueue []Segment
+		queueSegments := make(map[Segment]struct{})
 
-		// Add reservoir paths to queue in pseudorandom order.
+		// Add reservoir segments to queue in pseudorandom order.
 		for i := 0; i < chore.config.Slots; i++ {
-			for _, res := range pathCollector.Reservoirs {
-				// Skip reservoir if no path at this index.
-				if len(res.Paths) <= i {
+			for _, res := range collector.Reservoirs {
+				// Skip reservoir if no segment at this index.
+				if len(res.Segments) <= i {
 					continue
 				}
-				path := res.Paths[i]
-				if path == "" {
+				segment := res.Segments[i]
+				if segment == (Segment{}) {
 					continue
 				}
-				if _, ok := queuePaths[path]; !ok {
-					newQueue = append(newQueue, path)
-					queuePaths[path] = struct{}{}
+				if _, ok := queueSegments[segment]; !ok {
+					newQueue = append(newQueue, segment)
+					queueSegments[segment] = struct{}{}
 				}
 			}
 		}

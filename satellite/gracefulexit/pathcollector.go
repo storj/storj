@@ -73,7 +73,7 @@ func (collector *PathCollector) RemoteSegment(ctx context.Context, segment *meta
 		if err != nil {
 			return err
 		}
-		pieceSize := eestream.CalcPieceSize(int64(segment.DataSize), redundancy)
+		pieceSize := eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy)
 		collector.nodeIDStorage[piece.StorageNode] += pieceSize
 
 		item := TransferQueueItem{

@@ -1,4 +1,3 @@
-storj.io/storj/cmd/segment-reaper."zombie_segments" IntVal
 storj.io/storj/satellite/accounting/tally."bucket_bytes" IntVal
 storj.io/storj/satellite/accounting/tally."bucket_inline_bytes" IntVal
 storj.io/storj/satellite/accounting/tally."bucket_inline_segments" IntVal

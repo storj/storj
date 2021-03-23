@@ -6,7 +6,6 @@ package metainfo
 import (
 	"context"
 	"crypto/sha256"
-	"errors"
 	"fmt"
 	"time"
 
@@ -29,7 +28,6 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metainfo/metabase"
-	"storj.io/storj/satellite/metainfo/objectdeletion"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/metainfo/pointerverification"
 	"storj.io/storj/satellite/orders"
@@ -37,7 +35,6 @@ import (
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/uplink/private/eestream"
-	"storj.io/uplink/private/storage/meta"
 )
 
 const (
@@ -68,7 +65,6 @@ type Endpoint struct {
 	log                  *zap.Logger
 	metainfo             *Service
 	deletePieces         *piecedeletion.Service
-	deleteObjects        *objectdeletion.Service
 	orders               *orders.Service
 	overlay              *overlay.Service
 	attributions         attribution.DB
@@ -101,10 +97,6 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 	if err != nil {
 		return nil, err
 	}
-	objectDeletion, err := objectdeletion.NewService(log, metainfo, config.ObjectDeletion)
-	if err != nil {
-		return nil, err
-	}
 
 	defaultRSScheme := &pb.RedundancyScheme{
 		Type:             pb.RedundancyScheme_RS,
@@ -119,7 +111,6 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 		log:                 log,
 		metainfo:            metainfo,
 		deletePieces:        deletePieces,
-		deleteObjects:       objectDeletion,
 		orders:              orders,
 		overlay:             cache,
 		attributions:        attributions,
@@ -144,21 +135,9 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 // Close closes resources.
 func (endpoint *Endpoint) Close() error { return nil }
 
-func calculateSpaceUsed(ptr *pb.Pointer) (segmentSize, totalStored int64) {
-	inline := ptr.GetInlineSegment()
-	if inline != nil {
-		inlineSize := int64(len(inline))
-		return inlineSize, inlineSize
-	}
-	segmentSize = ptr.GetSegmentSize()
-	remote := ptr.GetRemote()
-	if remote == nil {
-		return 0, 0
-	}
-	minReq := remote.GetRedundancy().GetMinReq()
-	pieceSize := segmentSize / int64(minReq)
-	pieces := remote.GetRemotePieces()
-	return segmentSize, pieceSize * int64(len(pieces))
+func calculateSpaceUsed(segmentSize int64, numberOfPieces int, rs storj.RedundancyScheme) (totalStored int64) {
+	pieceSize := segmentSize / int64(rs.RequiredShares)
+	return pieceSize * int64(numberOfPieces)
 }
 
 // filterValidPieces filter out the invalid remote pieces held by pointer.
@@ -168,58 +147,58 @@ func calculateSpaceUsed(ptr *pb.Pointer) (segmentSize, totalStored int64) {
 //
 // The method always return a gRPC status error so the caller can directly
 // return it to the client.
-func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Pointer, originalLimits []*pb.OrderLimit) (err error) {
-	defer mon.Task()(&ctx)(&err)
+// func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Pointer, originalLimits []*pb.OrderLimit) (err error) {
+// 	defer mon.Task()(&ctx)(&err)
 
-	if pointer.Type != pb.Pointer_REMOTE {
-		return nil
-	}
+// 	if pointer.Type != pb.Pointer_REMOTE {
+// 		return nil
+// 	}
 
-	// verify that the piece sizes matches what we would expect.
-	err = endpoint.pointerVerification.VerifySizes(ctx, pointer)
-	if err != nil {
-		endpoint.log.Debug("piece sizes are invalid", zap.Error(err))
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "piece sizes are invalid: %v", err)
-	}
+// 	// verify that the piece sizes matches what we would expect.
+// 	err = endpoint.pointerVerification.VerifySizes(ctx, pointer)
+// 	if err != nil {
+// 		endpoint.log.Debug("piece sizes are invalid", zap.Error(err))
+// 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "piece sizes are invalid: %v", err)
+// 	}
 
-	validPieces, invalidPieces, err := endpoint.pointerVerification.SelectValidPieces(ctx, pointer, originalLimits)
-	if err != nil {
-		endpoint.log.Debug("pointer verification failed", zap.Error(err))
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "pointer verification failed: %s", err)
-	}
+// 	validPieces, invalidPieces, err := endpoint.pointerVerification.SelectValidPieces(ctx, pointer, originalLimits)
+// 	if err != nil {
+// 		endpoint.log.Debug("pointer verification failed", zap.Error(err))
+// 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "pointer verification failed: %s", err)
+// 	}
 
-	remote := pointer.Remote
+// 	remote := pointer.Remote
 
-	if int32(len(validPieces)) < remote.Redundancy.SuccessThreshold {
-		endpoint.log.Debug("Number of valid pieces is less than the success threshold",
-			zap.Int("totalReceivedPieces", len(remote.RemotePieces)),
-			zap.Int("validPieces", len(validPieces)),
-			zap.Int("invalidPieces", len(invalidPieces)),
-			zap.Int32("successThreshold", remote.Redundancy.SuccessThreshold),
-		)
+// 	if int32(len(validPieces)) < remote.Redundancy.SuccessThreshold {
+// 		endpoint.log.Debug("Number of valid pieces is less than the success threshold",
+// 			zap.Int("totalReceivedPieces", len(remote.RemotePieces)),
+// 			zap.Int("validPieces", len(validPieces)),
+// 			zap.Int("invalidPieces", len(invalidPieces)),
+// 			zap.Int32("successThreshold", remote.Redundancy.SuccessThreshold),
+// 		)
 
-		errMsg := fmt.Sprintf("Number of valid pieces (%d) is less than the success threshold (%d). Found %d invalid pieces",
-			len(validPieces),
-			remote.Redundancy.SuccessThreshold,
-			len(remote.RemotePieces),
-		)
-		if len(invalidPieces) > 0 {
-			errMsg = fmt.Sprintf("%s. Invalid Pieces:", errMsg)
+// 		errMsg := fmt.Sprintf("Number of valid pieces (%d) is less than the success threshold (%d). Found %d invalid pieces",
+// 			len(validPieces),
+// 			remote.Redundancy.SuccessThreshold,
+// 			len(remote.RemotePieces),
+// 		)
+// 		if len(invalidPieces) > 0 {
+// 			errMsg = fmt.Sprintf("%s. Invalid Pieces:", errMsg)
 
-			for _, p := range invalidPieces {
-				errMsg = fmt.Sprintf("%s\nNodeID: %v, PieceNum: %d, Reason: %s",
-					errMsg, p.NodeID, p.PieceNum, p.Reason,
-				)
-			}
-		}
+// 			for _, p := range invalidPieces {
+// 				errMsg = fmt.Sprintf("%s\nNodeID: %v, PieceNum: %d, Reason: %s",
+// 					errMsg, p.NodeID, p.PieceNum, p.Reason,
+// 				)
+// 			}
+// 		}
 
-		return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
-	}
+// 		return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
+// 	}
 
-	remote.RemotePieces = validPieces
+// 	remote.RemotePieces = validPieces
 
-	return nil
-}
+// 	return nil
+// }
 
 // ProjectInfo returns allowed ProjectInfo for the provided API key.
 func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRequest) (_ *pb.ProjectInfoResponse, err error) {
@@ -439,7 +418,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 				return nil, err
 			}
 
-			return &pb.BucketDeleteResponse{Bucket: convBucket, DeletedObjectsCount: int64(deletedObjCount)}, nil
+			return &pb.BucketDeleteResponse{Bucket: convBucket, DeletedObjectsCount: deletedObjCount}, nil
 		}
 		if storj.ErrBucketNotFound.Has(err) {
 			return &pb.BucketDeleteResponse{Bucket: convBucket}, nil
@@ -450,19 +429,12 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	return &pb.BucketDeleteResponse{Bucket: convBucket}, nil
 }
 
-// deleteBucketNotEmpty deletes all objects that're complete or have first segment.
-// On success, it returns only the number of complete objects that has been deleted
-// since from the user's perspective, objects without last segment are invisible.
-func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uuid.UUID, bucketName []byte) ([]byte, int, error) {
-	// Delete all objects that has last segment.
-	deletedCount, err := endpoint.deleteByPrefix(ctx, projectID, bucketName, metabase.LastSegmentIndex)
+// deleteBucketNotEmpty deletes all objects from bucket and deletes this bucket.
+// On success, it returns only the number of deleted objects.
+func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uuid.UUID, bucketName []byte) ([]byte, int64, error) {
+	deletedCount, err := endpoint.deleteBucketObjects(ctx, projectID, bucketName)
 	if err != nil {
 		return nil, 0, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-	// Delete all zombie objects that have first segment.
-	_, err = endpoint.deleteByPrefix(ctx, projectID, bucketName, metabase.FirstSegmentIndex)
-	if err != nil {
-		return nil, deletedCount, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	err = endpoint.metainfo.DeleteBucket(ctx, bucketName, projectID)
@@ -479,42 +451,20 @@ func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uu
 	return bucketName, deletedCount, nil
 }
 
-// deleteByPrefix deletes all objects that matches with a prefix.
-func (endpoint *Endpoint) deleteByPrefix(ctx context.Context, projectID uuid.UUID, bucketName []byte, segmentIdx int64) (deletedCount int, err error) {
+// deleteBucketObjects deletes all objects in a bucket.
+func (endpoint *Endpoint) deleteBucketObjects(ctx context.Context, projectID uuid.UUID, bucketName []byte) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	location, err := CreatePath(ctx, projectID, segmentIdx, bucketName, []byte{})
-	if err != nil {
-		return deletedCount, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
+	bucketLocation := metabase.BucketLocation{ProjectID: projectID, BucketName: string(bucketName)}
+	deletedObjects, err := endpoint.metainfo.metabaseDB.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
+		Bucket: bucketLocation,
+		DeletePieces: func(ctx context.Context, deleted []metabase.DeletedSegmentInfo) error {
+			endpoint.deleteSegmentPieces(ctx, deleted)
+			return nil
+		},
+	})
 
-	prefix := location.Encode()
-	for {
-		segments, more, err := endpoint.metainfo.List(ctx, prefix, "", true, 0, meta.None)
-		if err != nil {
-			return deletedCount, err
-		}
-
-		deleteReqs := make([]*metabase.ObjectLocation, len(segments))
-		for i, segment := range segments {
-			deleteReqs[i] = &metabase.ObjectLocation{
-				ProjectID:  projectID,
-				BucketName: string(bucketName),
-				ObjectKey:  metabase.ObjectKey(segment.Path),
-			}
-		}
-		rep, err := endpoint.deleteObjectsPieces(ctx, deleteReqs...)
-		if err != nil {
-			return deletedCount, err
-		}
-
-		deletedCount += len(rep.Deleted)
-
-		if !more {
-			break
-		}
-	}
-	return deletedCount, nil
+	return deletedObjects, Error.Wrap(err)
 }
 
 // ListBuckets returns buckets in a project where the bucket name matches the request cursor.
@@ -704,25 +654,6 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.Bucket); err != nil {
-		return nil, err
-	}
-
-	// use only satellite values for Redundancy Scheme
-	pbRS := endpoint.defaultRS
-
-	streamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
-		Bucket:         req.Bucket,
-		EncryptedPath:  req.EncryptedPath,
-		Version:        req.Version,
-		Redundancy:     pbRS,
-		CreationDate:   time.Now(),
-		ExpirationDate: req.ExpiresAt,
-	})
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-
 	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionDelete,
 		Bucket:        req.Bucket,
@@ -732,22 +663,80 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	canDelete := err == nil
 
 	if canDelete {
-		_, err = endpoint.DeleteObjectPieces(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedPath)
-		if err != nil {
+		_, err = endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(req.Bucket),
+			ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+		})
+		if err != nil && !storj.ErrObjectNotFound.Has(err) {
 			return nil, err
 		}
 	} else {
-		location, err := CreatePath(ctx, keyInfo.ProjectID, metabase.LastSegmentIndex, req.Bucket, req.EncryptedPath)
-		if err != nil {
-			endpoint.log.Error("unable to create path", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
-
-		// TODO maybe we can have different Get without pointer unmarshaling
-		_, _, err = endpoint.metainfo.GetWithBytes(ctx, location.Encode())
+		_, err = endpoint.metainfo.metabaseDB.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
+			ObjectLocation: metabase.ObjectLocation{
+				ProjectID:  keyInfo.ProjectID,
+				BucketName: string(req.Bucket),
+				ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+			},
+		})
 		if err == nil {
 			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, "Unauthorized API credentials")
 		}
+	}
+
+	if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.Bucket); err != nil {
+		return nil, err
+	}
+
+	// use only satellite values for Redundancy Scheme
+	pbRS := endpoint.defaultRS
+	streamID, err := uuid.New()
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	// TODO this will work only with newsest uplink
+	// figue out what to do with this
+	encryptionParameters := storj.EncryptionParameters{
+		CipherSuite: storj.CipherSuite(req.EncryptionParameters.CipherSuite),
+		BlockSize:   int32(req.EncryptionParameters.BlockSize), // TODO check conversion
+	}
+
+	var expiresAt *time.Time
+	if req.ExpiresAt.IsZero() {
+		expiresAt = nil
+	} else {
+		expiresAt = &req.ExpiresAt
+	}
+
+	object, err := endpoint.metainfo.metabaseDB.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+		ObjectStream: metabase.ObjectStream{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(req.Bucket),
+			ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+			StreamID:   streamID,
+			Version:    metabase.Version(1),
+		},
+		ExpiresAt:  expiresAt,
+		Encryption: encryptionParameters,
+	})
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
+		Bucket:          req.Bucket,
+		EncryptedPath:   req.EncryptedPath,
+		Version:         int32(object.Version),
+		Redundancy:      pbRS,
+		CreationDate:    object.CreatedAt,
+		ExpirationDate:  req.ExpiresAt,
+		StreamId:        streamID[:],
+		MultipartObject: object.FixedSegmentSize <= 0,
+	})
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	endpoint.log.Info("Object Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "object"))
@@ -757,7 +746,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		Bucket:           req.Bucket,
 		EncryptedPath:    req.EncryptedPath,
 		Version:          req.Version,
-		StreamId:         streamID,
+		StreamId:         satStreamID,
 		RedundancyScheme: pbRS,
 	}, nil
 }
@@ -796,61 +785,45 @@ func (endpoint *Endpoint) commitObject(ctx context.Context, req *pb.ObjectCommit
 	if metadataSize > endpoint.config.MaxMetadataSize {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, fmt.Sprintf("Metadata is too large, got %v, maximum allowed is %v", metadataSize, endpoint.config.MaxMetadataSize))
 	}
-	streamMeta := pb.StreamMeta{}
-	err = pb.Unmarshal(req.EncryptedMetadata, &streamMeta)
+
+	id, err := uuid.FromBytes(streamID.StreamId)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "invalid metadata structure")
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	lastSegmentPointer := pointer
-	if pointer == nil {
-		lastSegmentIndex := streamMeta.NumberOfSegments - 1
-		lastSegmentLocation, err := CreatePath(ctx, keyInfo.ProjectID, lastSegmentIndex, streamID.Bucket, streamID.EncryptedPath)
-		if err != nil {
-			return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "unable to create segment path: %s", err.Error())
-		}
-
-		var lastSegmentPointerBytes []byte
-		lastSegmentKey := lastSegmentLocation.Encode()
-		lastSegmentPointerBytes, lastSegmentPointer, err = endpoint.metainfo.GetWithBytes(ctx, lastSegmentKey)
-		if err != nil {
-			endpoint.log.Error("unable to get pointer", zap.ByteString("segmentPath", lastSegmentKey), zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to commit object")
-		}
-		if lastSegmentPointer == nil {
-			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "unable to find object: %q/%q", streamID.Bucket, streamID.EncryptedPath)
-		}
-
-		err = endpoint.metainfo.Delete(ctx, lastSegmentKey, lastSegmentPointerBytes)
-		if err != nil {
-			endpoint.log.Error("unable to delete pointer", zap.ByteString("segmentPath", lastSegmentKey), zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, "unable to commit object")
-		}
+	// for old uplinks get Encryption from StreamMeta
+	streamMeta := &pb.StreamMeta{}
+	encryption := storj.EncryptionParameters{}
+	err = pb.Unmarshal(req.EncryptedMetadata, streamMeta)
+	if err == nil {
+		encryption.CipherSuite = storj.CipherSuite(streamMeta.EncryptionType)
+		encryption.BlockSize = streamMeta.EncryptionBlockSize
 	}
 
-	if lastSegmentPointer.Remote == nil {
-		lastSegmentPointer.Remote = &pb.RemoteSegment{}
-	}
-	// RS is set always for last segment to emulate RS per object
-	lastSegmentPointer.Remote.Redundancy = streamID.Redundancy
-	lastSegmentPointer.Metadata = req.EncryptedMetadata
+	_, err = endpoint.metainfo.metabaseDB.CommitObject(ctx, metabase.CommitObject{
+		ObjectStream: metabase.ObjectStream{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(streamID.Bucket),
+			ObjectKey:  metabase.ObjectKey(streamID.EncryptedPath),
+			StreamID:   id,
+			Version:    metabase.Version(1),
+		},
+		EncryptedMetadata:             req.EncryptedMetadata,
+		EncryptedMetadataNonce:        req.EncryptedMetadataNonce[:],
+		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
 
-	lastSegmentLocation, err := CreatePath(ctx, keyInfo.ProjectID, int64(metabase.LastSegmentIndex), streamID.Bucket, streamID.EncryptedPath)
+		Encryption: encryption,
+	})
 	if err != nil {
-		endpoint.log.Error("unable to create path", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to commit object")
-	}
-
-	err = endpoint.metainfo.UnsynchronizedPut(ctx, lastSegmentLocation.Encode(), lastSegmentPointer)
-	if err != nil {
-		endpoint.log.Error("unable to put pointer", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, "unable to commit object")
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	return &pb.ObjectCommitResponse{}, nil
 }
 
-// GetObject gets single object.
+// GetObject gets single object metadata.
 func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetRequest) (resp *pb.ObjectGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -874,109 +847,65 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	object, err := endpoint.getObject(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedPath, req.Version, req.RedundancySchemePerSegment)
+	mbObject, err := endpoint.metainfo.metabaseDB.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
+		ObjectLocation: metabase.ObjectLocation{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(req.Bucket),
+			ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+		},
+	})
 	if err != nil {
-		return nil, err
+		if storj.ErrObjectNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	var segmentRS *pb.RedundancyScheme
+	// TODO we may try to avoid additional request for inline objects
+	if !req.RedundancySchemePerSegment && mbObject.SegmentCount > 0 {
+		segmentRS = endpoint.defaultRS
+		segment, err := endpoint.metainfo.metabaseDB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: mbObject.StreamID,
+			Position: metabase.SegmentPosition{
+				Index: 0,
+			},
+		})
+		if err != nil {
+			// don't fail because its possible that its multipart object
+			endpoint.log.Error("internal", zap.Error(err))
+		} else {
+			segmentRS = &pb.RedundancyScheme{
+				Type:             pb.RedundancyScheme_SchemeType(segment.Redundancy.Algorithm),
+				ErasureShareSize: segment.Redundancy.ShareSize,
+
+				MinReq:           int32(segment.Redundancy.RequiredShares),
+				RepairThreshold:  int32(segment.Redundancy.RepairShares),
+				SuccessThreshold: int32(segment.Redundancy.OptimalShares),
+				Total:            int32(segment.Redundancy.TotalShares),
+			}
+		}
+
+		// monitor how many uplinks is still using this additional code
+		mon.Meter("req_get_object_rs_per_object").Mark(1)
+	}
+
+	object, err := endpoint.objectToProto(ctx, mbObject, segmentRS)
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	endpoint.log.Info("Object Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "object"))
 	mon.Meter("req_get_object").Mark(1)
 
-	return &pb.ObjectGetResponse{
-		Object: object,
-	}, nil
-}
-
-func (endpoint *Endpoint) getObject(ctx context.Context, projectID uuid.UUID, bucket, encryptedPath []byte, version int32, rsPerSegment bool) (*pb.Object, error) {
-	pointer, _, err := endpoint.getPointer(ctx, projectID, metabase.LastSegmentIndex, bucket, encryptedPath)
-	if err != nil {
-		return nil, err
-	}
-
-	streamMeta := &pb.StreamMeta{}
-	err = pb.Unmarshal(pointer.Metadata, streamMeta)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-
-	streamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
-		Bucket:        bucket,
-		EncryptedPath: encryptedPath,
-		Version:       version,
-		CreationDate:  time.Now(),
-	})
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-
-	object := &pb.Object{
-		Bucket:            bucket,
-		EncryptedPath:     encryptedPath,
-		Version:           -1,
-		StreamId:          streamID,
-		ExpiresAt:         pointer.ExpirationDate,
-		CreatedAt:         pointer.CreationDate,
-		EncryptedMetadata: pointer.Metadata,
-		EncryptionParameters: &pb.EncryptionParameters{
-			CipherSuite: pb.CipherSuite(streamMeta.EncryptionType),
-			BlockSize:   int64(streamMeta.EncryptionBlockSize),
-		},
-	}
-
-	// don't return redundancy scheme if feature flag RedundancySchemePerSegment is set
-	if rsPerSegment {
-		return object, nil
-	}
-
-	if pointer.Remote != nil {
-		object.RedundancyScheme = pointer.Remote.Redundancy
-
-		// NumberOfSegments == 0 - pointer with encrypted num of segments
-		// NumberOfSegments > 1 - pointer with unencrypted num of segments and multiple segments
-	} else if streamMeta.NumberOfSegments == 0 || streamMeta.NumberOfSegments > 1 {
-		// workaround
-		// The new metainfo API redundancy scheme is on object level (not per segment).
-		// Because of that, RS is always taken from the last segment.
-		// The old implementation saves RS per segment, and in some cases
-		// when the remote file's last segment is an inline segment, we end up
-		// missing an RS scheme. This loop will search for RS in segments other than the last one.
-
-		index := int64(0)
-		for {
-			location, err := CreatePath(ctx, projectID, index, bucket, encryptedPath)
-			if err != nil {
-				endpoint.log.Error("unable to get pointer path", zap.Error(err))
-				return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get object")
-			}
-
-			pointer, err = endpoint.metainfo.Get(ctx, location.Encode())
-			if err != nil {
-				if storj.ErrObjectNotFound.Has(err) {
-					break
-				}
-
-				endpoint.log.Error("unable to get pointer", zap.Error(err))
-				return nil, rpcstatus.Error(rpcstatus.Internal, "unable to get object")
-			}
-			if pointer.Remote != nil {
-				object.RedundancyScheme = pointer.Remote.Redundancy
-				break
-			}
-			index++
-		}
-	}
-
-	return object, nil
+	return &pb.ObjectGetResponse{Object: object}, nil
 }
 
 // ListObjects list objects according to specific parameters.
 func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListRequest) (resp *pb.ObjectListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-	if err != nil {
-		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
-	}
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:            macaroon.ActionList,
@@ -999,41 +928,178 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		if storj.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
-
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	prefix, err := CreatePath(ctx, keyInfo.ProjectID, metabase.LastSegmentIndex, req.Bucket, req.EncryptedPrefix)
+	limit := int(req.Limit)
+	if limit < 0 {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "limit is negative")
+	}
+	if limit == 0 {
+		limit = metabase.MaxListLimit
+	}
+
+	var prefix metabase.ObjectKey
+	if len(req.EncryptedPrefix) != 0 {
+		prefix = metabase.ObjectKey(req.EncryptedPrefix)
+		if prefix[len(prefix)-1] != metabase.Delimiter {
+			prefix += metabase.ObjectKey(metabase.Delimiter)
+		}
+	}
+
+	// Default to Commmitted status for backward-compatibility with older uplinks.
+	status := metabase.Committed
+	if req.Status != pb.Object_INVALID {
+		status = metabase.ObjectStatus(req.Status)
+	}
+
+	cursor := string(req.EncryptedCursor)
+	if len(cursor) != 0 {
+		cursor = string(prefix) + cursor
+	}
+
+	resp = &pb.ObjectListResponse{}
+	// TODO: Replace with IterateObjectsLatestVersion when ready
+	err = endpoint.metainfo.metabaseDB.IterateObjectsAllVersionsWithStatus(ctx,
+		metabase.IterateObjectsWithStatus{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(req.Bucket),
+			Prefix:     prefix,
+			Cursor: metabase.IterateCursor{
+				Key:     metabase.ObjectKey(cursor),
+				Version: 1, // TODO: set to a the version from the protobuf request when it supports this
+			},
+			Recursive: req.Recursive,
+			BatchSize: limit + 1,
+			Status:    status,
+		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
+			entry := metabase.ObjectEntry{}
+			for len(resp.Items) < limit && it.Next(ctx, &entry) {
+				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix)
+				if err != nil {
+					return err
+				}
+				resp.Items = append(resp.Items, item)
+			}
+			resp.More = it.Next(ctx, &entry)
+			return nil
+		},
+	)
+	if err != nil {
+		if metabase.ErrInvalidRequest.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		}
+		endpoint.log.Error("unable to list objects", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	endpoint.log.Info("Object List", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "list"), zap.String("type", "object"))
+	mon.Meter("req_list_object").Mark(1)
+
+	return resp, nil
+}
+
+// GetPendingObjects get pending objects according to specific parameters.
+func (endpoint *Endpoint) GetPendingObjects(ctx context.Context, req *pb.GetPendingObjectsRequest) (resp *pb.GetPendingObjectsResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Not Implemented")
+}
+
+// ListPendingObjectStreams list pending objects according to specific parameters.
+func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.ObjectListPendingStreamsRequest) (resp *pb.ObjectListPendingStreamsResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:            macaroon.ActionList,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.EncryptedPath,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	err = endpoint.validateBucket(ctx, req.Bucket)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	metaflags := meta.All
-	// TODO use flags
-	segments, more, err := endpoint.metainfo.List(ctx, prefix.Encode(), string(req.EncryptedCursor), req.Recursive, req.Limit, metaflags)
+	// TODO this needs to be optimized to avoid DB call on each request
+	_, err = endpoint.metainfo.GetBucket(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
+		if storj.ErrBucketNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+		endpoint.log.Error("unable to check bucket", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	items := make([]*pb.ObjectListItem, len(segments))
-	for i, segment := range segments {
-		items[i] = &pb.ObjectListItem{
-			EncryptedPath: []byte(segment.Path),
+	cursor := metabase.StreamIDCursor{}
+	if req.StreamIdCursor != nil {
+		streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamIdCursor)
+		if err != nil {
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 		}
-		if segment.Pointer != nil {
-			items[i].EncryptedMetadata = segment.Pointer.Metadata
-			items[i].CreatedAt = segment.Pointer.CreationDate
-			items[i].ExpiresAt = segment.Pointer.ExpirationDate
+		cursor.StreamID, err = uuid.FromBytes(streamID.StreamId)
+		if err != nil {
+			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 	}
-	endpoint.log.Info("Object List", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "list"), zap.String("type", "object"))
-	mon.Meter("req_list_object").Mark(1)
 
-	return &pb.ObjectListResponse{
-		Items: items,
-		More:  more,
-	}, nil
+	limit := int(req.Limit)
+	if limit < 0 {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "limit is negative")
+	}
+
+	if limit == 0 {
+		limit = metabase.MaxListLimit
+	}
+
+	resp = &pb.ObjectListPendingStreamsResponse{}
+	resp.Items = []*pb.ObjectListItem{}
+	err = endpoint.metainfo.metabaseDB.IteratePendingObjectsByKey(ctx,
+		metabase.IteratePendingObjectsByKey{
+			ObjectLocation: metabase.ObjectLocation{
+				ProjectID:  keyInfo.ProjectID,
+				BucketName: string(req.Bucket),
+				ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+			},
+			BatchSize: limit + 1,
+			Cursor:    cursor,
+		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
+			entry := metabase.ObjectEntry{}
+			for len(resp.Items) < limit && it.Next(ctx, &entry) {
+				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, "")
+				if err != nil {
+					return err
+				}
+				resp.Items = append(resp.Items, item)
+			}
+			resp.More = it.Next(ctx, &entry)
+			return nil
+		},
+	)
+
+	if err != nil {
+		if metabase.ErrInvalidRequest.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		}
+		endpoint.log.Error("unable to list pending object streams", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	endpoint.log.Info("List pending object streams", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "list"), zap.String("type", "object"))
+
+	mon.Meter("req_list_pending_object_streams").Mark(1)
+
+	return resp, nil
 }
 
 // BeginDeleteObject begins object deletion process.
@@ -1078,7 +1144,24 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 	})
 	canList := err == nil
 
-	report, err := endpoint.DeleteObjectPieces(ctx, keyInfo.ProjectID, req.Bucket, req.EncryptedPath)
+	var deletedObjects []*pb.Object
+
+	if req.GetStatus() == int32(metabase.Pending) {
+		if req.StreamId == nil {
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "StreamID missing")
+		}
+		var pbStreamID *internalpb.StreamID
+		pbStreamID, err = endpoint.unmarshalSatStreamID(ctx, *(req.StreamId))
+		if err == nil {
+			var streamID uuid.UUID
+			streamID, err = uuid.FromBytes(pbStreamID.StreamId)
+			if err == nil {
+				deletedObjects, err = endpoint.DeletePendingObject(ctx, keyInfo.ProjectID, string(req.Bucket), metabase.ObjectKey(req.EncryptedPath), req.GetVersion(), streamID)
+			}
+		}
+	} else {
+		deletedObjects, err = endpoint.DeleteCommittedObject(ctx, keyInfo.ProjectID, string(req.Bucket), metabase.ObjectKey(req.EncryptedPath))
+	}
 	if err != nil {
 		if !canRead && !canList {
 			// No error info is returned if neither Read, nor List permission is granted
@@ -1090,7 +1173,6 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 	var object *pb.Object
 	if canRead || canList {
 		// Info about deleted object is returned only if either Read, or List permission is granted
-		deletedObjects, err := report.DeletedObjects()
 		if err != nil {
 			endpoint.log.Error("failed to construct deleted object information",
 				zap.Stringer("Project ID", keyInfo.ProjectID),
@@ -1143,53 +1225,29 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	lastPointer, _, err := endpoint.getPointer(ctx, keyInfo.ProjectID, metabase.LastSegmentIndex, req.Bucket, req.EncryptedPath)
+	// TODO we may need custom metabase request to avoid two DB calls
+	object, err := endpoint.metainfo.metabaseDB.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
+		ObjectLocation: metabase.ObjectLocation{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(req.Bucket),
+			ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+		},
+	})
 	if err != nil {
-		// endpoint.getPointer already returns valid rpcstatus errors
-		return nil, err
-	}
-
-	pieceCountByNodeID := map[storj.NodeID]int64{}
-	addPointerToNodeIDs := func(pointer *pb.Pointer) {
-		if pointer.Remote != nil {
-			for _, piece := range pointer.Remote.RemotePieces {
-				pieceCountByNodeID[piece.NodeId]++
-			}
+		if storj.ErrObjectNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
-	}
-
-	addPointerToNodeIDs(lastPointer)
-
-	streamMeta := &pb.StreamMeta{}
-	err = pb.Unmarshal(lastPointer.Metadata, streamMeta)
-	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	numSegmentsKnown := streamMeta.NumberOfSegments > 0
-	numberOfSegmentsToFetch := int(streamMeta.NumberOfSegments) - 1 // remove last segment since we've already fetch manually
-
-	// If we do not know the number of segments from the streamMeta, we want to
-	// continue to run this loop until it cannot find another segment (the
-	// break condition in the loop).
-	//
-	// If we do know the number of segments, we want to run the loop as long as
-	// the numberOfSegmentsToFetch is > 0 and until we have fetched that many
-	// segments.
-	for i := metabase.FirstSegmentIndex; !numSegmentsKnown || (numSegmentsKnown && numberOfSegmentsToFetch > 0 && i < numberOfSegmentsToFetch); i++ {
-		location, err := CreatePath(ctx, keyInfo.ProjectID, int64(i), req.Bucket, req.EncryptedPath)
-		if err != nil {
-			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		}
-
-		pointer, err := endpoint.metainfo.Get(ctx, location.Encode())
-		if err != nil {
-			if storj.ErrObjectNotFound.Has(err) {
-				break
-			}
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
-		addPointerToNodeIDs(pointer)
+	pieceCountByNodeID, err := endpoint.metainfo.metabaseDB.GetStreamPieceCountByNodeID(ctx,
+		metabase.GetStreamPieceCountByNodeID{
+			StreamID: object.StreamID,
+		})
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	nodeIDs := make([]storj.NodeID, 0, len(pieceCountByNodeID))
@@ -1218,7 +1276,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 
 	return &pb.ObjectGetIPsResponse{
 		Ips:                nodeIPs,
-		SegmentCount:       streamMeta.NumberOfSegments,
+		SegmentCount:       int64(object.SegmentCount),
 		ReliablePieceCount: reliablePieceCount,
 		PieceCount:         pieceCount,
 	}, nil
@@ -1279,8 +1337,41 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
+	id, err := uuid.FromBytes(streamID.StreamId)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	pieces := metabase.Pieces{}
+	for i, limit := range addressedLimits {
+		pieces = append(pieces, metabase.Piece{
+			Number:      uint16(i),
+			StorageNode: limit.Limit.StorageNodeId,
+		})
+	}
+	err = endpoint.metainfo.metabaseDB.BeginSegment(ctx, metabase.BeginSegment{
+		ObjectStream: metabase.ObjectStream{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(streamID.Bucket),
+			ObjectKey:  metabase.ObjectKey(streamID.EncryptedPath),
+			StreamID:   id,
+			Version:    1,
+		},
+		Position: metabase.SegmentPosition{
+			Part:  uint32(req.Position.PartNumber),
+			Index: uint32(req.Position.Index),
+		},
+		RootPieceID: rootPieceID,
+		Pieces:      pieces,
+	})
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
 	segmentID, err := endpoint.packSegmentID(ctx, &internalpb.SegmentID{
 		StreamId:            streamID,
+		PartNumber:          req.Position.PartNumber,
 		Index:               req.Position.Index,
 		OriginalOrderLimits: addressedLimits,
 		RootPieceId:         rootPieceID,
@@ -1291,9 +1382,10 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 	mon.Meter("req_put_remote").Mark(1)
 
 	return &pb.SegmentBeginResponse{
-		SegmentId:       segmentID,
-		AddressedLimits: addressedLimits,
-		PrivateKey:      piecePrivateKey,
+		SegmentId:        segmentID,
+		AddressedLimits:  addressedLimits,
+		PrivateKey:       piecePrivateKey,
+		RedundancyScheme: endpoint.defaultRS,
 	}, nil
 }
 
@@ -1310,7 +1402,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	return resp, err
 }
 
-func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentCommitRequest, savePointer bool) (pointer *pb.Pointer, resp *pb.SegmentCommitResponse, err error) {
+func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentCommitRequest, savePointer bool) (_ *pb.Pointer, resp *pb.SegmentCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	segmentID, err := endpoint.unmarshalSatSegmentID(ctx, req.SegmentId)
@@ -1342,80 +1434,59 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 		)
 	}
 
-	pieces := make([]*pb.RemotePiece, len(req.UploadResult))
-	for i, result := range req.UploadResult {
-		pieces[i] = &pb.RemotePiece{
-			PieceNum: result.PieceNum,
-			NodeId:   result.NodeId,
-			Hash:     result.Hash,
-		}
-	}
-	remote := &pb.RemoteSegment{
-		Redundancy:   streamID.Redundancy,
-		RootPieceId:  segmentID.RootPieceId,
-		RemotePieces: pieces,
-	}
+	// TODO bring back validation
 
-	metadata, err := pb.Marshal(&pb.SegmentMeta{
-		EncryptedKey: req.EncryptedKey,
-		KeyNonce:     req.EncryptedKeyNonce.Bytes(),
-	})
-	if err != nil {
-		endpoint.log.Error("unable to marshal segment metadata", zap.Error(err))
-		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
+	// orderLimits := make([]*pb.OrderLimit, len(segmentID.OriginalOrderLimits))
+	// for i, orderLimit := range segmentID.OriginalOrderLimits {
+	// 	orderLimits[i] = orderLimit.Limit
+	// }
 
-	pointer = &pb.Pointer{
-		Type:        pb.Pointer_REMOTE,
-		Remote:      remote,
-		SegmentSize: req.SizeEncryptedData,
+	// err = endpoint.validatePointer(ctx, pointer, orderLimits)
+	// if err != nil {
+	// 	return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	// }
 
-		CreationDate:   streamID.CreationDate,
-		ExpirationDate: streamID.ExpirationDate,
-		Metadata:       metadata,
-
-		PieceHashesVerified: true,
-	}
-
-	orderLimits := make([]*pb.OrderLimit, len(segmentID.OriginalOrderLimits))
-	for i, orderLimit := range segmentID.OriginalOrderLimits {
-		orderLimits[i] = orderLimit.Limit
-	}
-
-	err = endpoint.validatePointer(ctx, pointer, orderLimits)
-	if err != nil {
-		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
-
-	err = endpoint.filterValidPieces(ctx, pointer, orderLimits)
-	if err != nil {
-		return nil, nil, err
-	}
+	// err = endpoint.filterValidPieces(ctx, pointer, orderLimits)
+	// if err != nil {
+	// 	return nil, nil, err
+	// }
 
 	if err := endpoint.checkExceedsStorageUsage(ctx, keyInfo.ProjectID); err != nil {
 		return nil, nil, err
 	}
 
-	// clear hashes so we don't store them
-	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		piece.Hash = nil
+	pieces := metabase.Pieces{}
+	for _, result := range req.UploadResult {
+		pieces = append(pieces, metabase.Piece{
+			Number:      uint16(result.PieceNum),
+			StorageNode: result.NodeId,
+		})
 	}
 
-	segmentSize, totalStored := calculateSpaceUsed(pointer)
+	rs := storj.RedundancyScheme{
+		Algorithm:      storj.RedundancyAlgorithm(endpoint.defaultRS.Type),
+		RequiredShares: int16(endpoint.defaultRS.MinReq),
+		RepairShares:   int16(endpoint.defaultRS.RepairThreshold),
+		OptimalShares:  int16(endpoint.defaultRS.SuccessThreshold),
+		TotalShares:    int16(endpoint.defaultRS.Total),
+		ShareSize:      endpoint.defaultRS.ErasureShareSize,
+	}
+
+	segmentSize := req.SizeEncryptedData
+	totalStored := calculateSpaceUsed(segmentSize, len(pieces), rs)
 
 	// ToDo: Replace with hash & signature validation
 	// Ensure neither uplink or storage nodes are cheating on us
-	if pointer.Type == pb.Pointer_REMOTE {
-		// We cannot have more redundancy than total/min
-		if float64(totalStored) > (float64(pointer.SegmentSize)/float64(pointer.Remote.Redundancy.MinReq))*float64(pointer.Remote.Redundancy.Total) {
-			endpoint.log.Debug("data size mismatch",
-				zap.Int64("segment", pointer.SegmentSize),
-				zap.Int64("pieces", totalStored),
-				zap.Int32("redundancy minimum requested", pointer.Remote.Redundancy.MinReq),
-				zap.Int32("redundancy total", pointer.Remote.Redundancy.Total),
-			)
-			return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, "mismatched segment size and piece usage")
-		}
+
+	// We cannot have more redundancy than total/min
+	if float64(totalStored) > (float64(segmentSize)/float64(rs.RequiredShares))*float64(rs.TotalShares) {
+		endpoint.log.Debug("data size mismatch",
+			zap.Int64("segment", segmentSize),
+			zap.Int64("pieces", totalStored),
+			zap.Int16("redundancy minimum requested", rs.RequiredShares),
+			zap.Int16("redundancy total", rs.TotalShares),
+		)
+		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, "mismatched segment size and piece usage")
 	}
 
 	if err := endpoint.projectUsage.AddProjectStorageUsage(ctx, keyInfo.ProjectID, segmentSize); err != nil {
@@ -1428,20 +1499,43 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 		)
 	}
 
-	if savePointer {
-		location, err := CreatePath(ctx, keyInfo.ProjectID, int64(segmentID.Index), streamID.Bucket, streamID.EncryptedPath)
-		if err != nil {
-			return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-		}
-
-		err = endpoint.metainfo.UnsynchronizedPut(ctx, location.Encode(), pointer)
-		if err != nil {
-			return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
+	id, err := uuid.FromBytes(streamID.StreamId)
+	if err != nil {
+		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	return pointer, &pb.SegmentCommitResponse{
-		SuccessfulPieces: int32(len(pointer.Remote.RemotePieces)),
+	err = endpoint.metainfo.metabaseDB.CommitSegment(ctx, metabase.CommitSegment{
+		ObjectStream: metabase.ObjectStream{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(streamID.Bucket),
+			ObjectKey:  metabase.ObjectKey(streamID.EncryptedPath),
+			StreamID:   id,
+			Version:    1,
+		},
+		EncryptedKey:      req.EncryptedKey,
+		EncryptedKeyNonce: req.EncryptedKeyNonce[:],
+
+		EncryptedSize: int32(req.SizeEncryptedData), // TODO incompatible types int32 vs int64
+		PlainSize:     int32(req.PlainSize),         // TODO incompatible types int32 vs int64
+
+		Position: metabase.SegmentPosition{
+			Part:  uint32(segmentID.PartNumber),
+			Index: uint32(segmentID.Index),
+		},
+		RootPieceID: segmentID.RootPieceId,
+		Redundancy:  rs,
+		Pieces:      pieces,
+	})
+	if err != nil {
+		if metabase.ErrInvalidRequest.Has(err) {
+			return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		}
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	return nil, &pb.SegmentCommitResponse{
+		SuccessfulPieces: int32(len(pieces)),
 	}, nil
 }
 
@@ -1458,7 +1552,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 	return resp, err
 }
 
-// MakeInlineSegment makes inline segment on satellite.
+// makeInlineSegment makes inline segment on satellite.
 func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.SegmentMakeInlineRequest, savePointer bool) (pointer *pb.Pointer, resp *pb.SegmentMakeInlineResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1500,30 +1594,37 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 		)
 	}
 
-	metadata, err := pb.Marshal(&pb.SegmentMeta{
-		EncryptedKey: req.EncryptedKey,
-		KeyNonce:     req.EncryptedKeyNonce.Bytes(),
-	})
-
-	pointer = &pb.Pointer{
-		Type:           pb.Pointer_INLINE,
-		SegmentSize:    inlineUsed,
-		CreationDate:   streamID.CreationDate,
-		ExpirationDate: streamID.ExpirationDate,
-		InlineSegment:  req.EncryptedInlineData,
-		Metadata:       metadata,
+	id, err := uuid.FromBytes(streamID.StreamId)
+	if err != nil {
+		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	if savePointer {
-		location, err := CreatePath(ctx, keyInfo.ProjectID, int64(req.Position.Index), streamID.Bucket, streamID.EncryptedPath)
-		if err != nil {
+	err = endpoint.metainfo.metabaseDB.CommitInlineSegment(ctx, metabase.CommitInlineSegment{
+		ObjectStream: metabase.ObjectStream{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(streamID.Bucket),
+			ObjectKey:  metabase.ObjectKey(streamID.EncryptedPath),
+			StreamID:   id,
+			Version:    1,
+		},
+		EncryptedKey:      req.EncryptedKey,
+		EncryptedKeyNonce: req.EncryptedKeyNonce.Bytes(),
+
+		Position: metabase.SegmentPosition{
+			Part:  uint32(req.Position.PartNumber),
+			Index: uint32(req.Position.Index),
+		},
+
+		PlainSize: int32(req.PlainSize), // TODO incompatible types int32 vs int64
+
+		InlineData: req.EncryptedInlineData,
+	})
+	if err != nil {
+		if metabase.ErrInvalidRequest.Has(err) {
 			return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 		}
-
-		err = endpoint.metainfo.UnsynchronizedPut(ctx, location.Encode(), pointer)
-		if err != nil {
-			return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
@@ -1535,7 +1636,7 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 	endpoint.log.Info("Inline Segment Upload", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "put"), zap.String("type", "inline"))
 	mon.Meter("req_put_inline").Mark(1)
 
-	return pointer, &pb.SegmentMakeInlineResponse{}, nil
+	return nil, &pb.SegmentMakeInlineResponse{}, nil
 }
 
 // BeginDeleteSegment begins segment deletion process.
@@ -1552,19 +1653,68 @@ func (endpoint *Endpoint) FinishDeleteSegment(ctx context.Context, req *pb.Segme
 
 // ListSegments list object segments.
 func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListRequest) (resp *pb.SegmentListResponse, err error) {
-	// nothing is using this method
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "not implemented")
-}
-
-// GetPendingObjects returns pending objects.
-func (endpoint *Endpoint) GetPendingObjects(ctx context.Context, req *pb.GetPendingObjectsRequest) (resp *pb.GetPendingObjectsResponse, err error) {
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "not implemented")
-}
-
-// ListPendingObjectStreams list pending objects according to specific parameters.
-func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.ObjectListPendingStreamsRequest) (resp *pb.ObjectListPendingStreamsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Not Implemented")
+
+	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:            macaroon.ActionRead,
+		Bucket:        streamID.Bucket,
+		EncryptedPath: streamID.EncryptedPath,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	cursor := req.CursorPosition
+	if cursor == nil {
+		cursor = &pb.SegmentPosition{}
+	}
+
+	id, err := uuid.FromBytes(streamID.StreamId)
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	result, err := endpoint.metainfo.metabaseDB.ListStreamPositions(ctx, metabase.ListStreamPositions{
+		StreamID: id,
+		Cursor: metabase.SegmentPosition{
+			Part:  uint32(cursor.PartNumber),
+			Index: uint32(cursor.Index),
+		},
+		Limit: int(req.Limit),
+	})
+	if err != nil {
+		if storj.ErrObjectNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	items := make([]*pb.SegmentListItem, len(result.Segments))
+	for i, item := range result.Segments {
+		items[i] = &pb.SegmentListItem{
+			Position: &pb.SegmentPosition{
+				PartNumber: int32(item.Position.Part),
+				Index:      int32(item.Position.Index),
+			},
+			PlainSize: int64(item.PlainSize),
+		}
+		if item.CreatedAt != nil {
+			items[i].CreatedAt = *item.CreatedAt
+		}
+	}
+
+	return &pb.SegmentListResponse{
+		Items: items,
+		More:  result.More,
+	}, nil
 }
 
 // DownloadObject returns all the information necessary to begin downloading an object in a single request.
@@ -1609,13 +1759,40 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
 	}
 
-	pointer, _, err := endpoint.getPointer(ctx, keyInfo.ProjectID, int64(req.CursorPosition.Index), streamID.Bucket, streamID.EncryptedPath)
+	id, err := uuid.FromBytes(streamID.StreamId)
 	if err != nil {
-		return nil, err
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	var segment metabase.Segment
+	if req.CursorPosition.PartNumber == 0 && req.CursorPosition.Index == -1 {
+		if streamID.MultipartObject {
+			return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Used uplink version cannot download multipart objects.")
+		}
+
+		segment, err = endpoint.metainfo.metabaseDB.GetLatestObjectLastSegment(ctx, metabase.GetLatestObjectLastSegment{
+			ObjectLocation: metabase.ObjectLocation{
+				ProjectID:  keyInfo.ProjectID,
+				BucketName: string(streamID.Bucket),
+				ObjectKey:  metabase.ObjectKey(streamID.EncryptedPath),
+			},
+		})
+	} else {
+		segment, err = endpoint.metainfo.metabaseDB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: id,
+			Position: metabase.SegmentPosition{
+				Part:  uint32(req.CursorPosition.PartNumber),
+				Index: uint32(req.CursorPosition.Index),
+			},
+		})
+	}
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	// Update the current bandwidth cache value incrementing the SegmentSize.
-	if err = endpoint.projectUsage.UpdateProjectBandwidthUsage(ctx, keyInfo.ProjectID, pointer.SegmentSize); err != nil {
+	err = endpoint.projectUsage.UpdateProjectBandwidthUsage(ctx, keyInfo.ProjectID, int64(segment.EncryptedSize))
+	if err != nil {
 		// log it and continue. it's most likely our own fault that we couldn't
 		// track it, and the only thing that will be affected is our per-project
 		// bandwidth limits.
@@ -1625,42 +1802,14 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		)
 	}
 
-	segmentID, err := endpoint.packSegmentID(ctx, &internalpb.SegmentID{})
+	encryptedKeyNonce, err := storj.NonceFromBytes(segment.EncryptedKeyNonce)
 	if err != nil {
+		endpoint.log.Error("unable to get encryption key nonce from metadata", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	var encryptedKeyNonce storj.Nonce
-	var encryptedKey []byte
-	if len(pointer.Metadata) != 0 {
-		var segmentMeta *pb.SegmentMeta
-		if req.CursorPosition.Index == metabase.LastSegmentIndex {
-			streamMeta := &pb.StreamMeta{}
-			err = pb.Unmarshal(pointer.Metadata, streamMeta)
-			if err != nil {
-				return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-			}
-			segmentMeta = streamMeta.LastSegmentMeta
-		} else {
-			segmentMeta = &pb.SegmentMeta{}
-			err = pb.Unmarshal(pointer.Metadata, segmentMeta)
-			if err != nil {
-				return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-			}
-		}
-		if segmentMeta != nil {
-			encryptedKeyNonce, err = storj.NonceFromBytes(segmentMeta.KeyNonce)
-			if err != nil {
-				endpoint.log.Error("unable to get encryption key nonce from metadata", zap.Error(err))
-				return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-			}
-
-			encryptedKey = segmentMeta.EncryptedKey
-		}
-	}
-
-	if pointer.Type == pb.Pointer_INLINE {
-		err := endpoint.orders.UpdateGetInlineOrder(ctx, bucket, int64(len(pointer.InlineSegment)))
+	if segment.Inline() {
+		err := endpoint.orders.UpdateGetInlineOrder(ctx, bucket, int64(len(segment.InlineData)))
 		if err != nil {
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
@@ -1668,81 +1817,63 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		mon.Meter("req_get_inline").Mark(1)
 
 		return &pb.SegmentDownloadResponse{
-			SegmentId:           segmentID,
-			SegmentSize:         pointer.SegmentSize,
-			EncryptedInlineData: pointer.InlineSegment,
+			SegmentSize:         int64(segment.EncryptedSize),
+			EncryptedInlineData: segment.InlineData,
 
 			EncryptedKeyNonce: encryptedKeyNonce,
-			EncryptedKey:      encryptedKey,
-		}, nil
-	} else if pointer.Type == pb.Pointer_REMOTE && pointer.Remote != nil {
-		limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, bucket, pointer)
-		if err != nil {
-			if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
-				endpoint.log.Error("Unable to create order limits.",
-					zap.Stringer("Project ID", keyInfo.ProjectID),
-					zap.Stringer("API Key ID", keyInfo.ID),
-					zap.Error(err),
-				)
-			}
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
-
-		limits = sortLimits(limits, pointer)
-
-		// workaround to avoid sending nil values on top level
-		for i := range limits {
-			if limits[i] == nil {
-				limits[i] = &pb.AddressedOrderLimit{}
-			}
-		}
-
-		endpoint.log.Info("Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "remote"))
-		mon.Meter("req_get_remote").Mark(1)
-
-		return &pb.SegmentDownloadResponse{
-			SegmentId:       segmentID,
-			AddressedLimits: limits,
-			PrivateKey:      privateKey,
-			SegmentSize:     pointer.SegmentSize,
-
-			EncryptedKeyNonce: encryptedKeyNonce,
-			EncryptedKey:      encryptedKey,
-			RedundancyScheme:  pointer.Remote.Redundancy,
+			EncryptedKey:      segment.EncryptedKey,
 		}, nil
 	}
 
-	return &pb.SegmentDownloadResponse{}, rpcstatus.Error(rpcstatus.Internal, "invalid type of pointer")
-}
-
-// getPointer returns the pointer and the segment path projectID, bucket and
-// encryptedPath. It returns an error with a specific RPC status.
-func (endpoint *Endpoint) getPointer(
-	ctx context.Context, projectID uuid.UUID, segmentIndex int64, bucket, encryptedPath []byte,
-) (pointer *pb.Pointer, location metabase.SegmentLocation, err error) {
-	defer mon.Task()(&ctx, projectID.String(), segmentIndex, bucket, encryptedPath)(&err)
-	location, err = CreatePath(ctx, projectID, segmentIndex, bucket, encryptedPath)
+	// Remote segment
+	limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, bucket, segment)
 	if err != nil {
-		return nil, location, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	}
-
-	pointer, err = endpoint.metainfo.Get(ctx, location.Encode())
-	if err != nil {
-		if storj.ErrObjectNotFound.Has(err) {
-			return nil, location, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
+			endpoint.log.Error("Unable to create order limits.",
+				zap.Stringer("Project ID", keyInfo.ProjectID),
+				zap.Stringer("API Key ID", keyInfo.ID),
+				zap.Error(err),
+			)
 		}
-
-		endpoint.log.Error("error getting the pointer from metainfo service", zap.Error(err))
-		return nil, location, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
-	return pointer, location, nil
+
+	limits = sortLimits(limits, segment)
+
+	// workaround to avoid sending nil values on top level
+	for i := range limits {
+		if limits[i] == nil {
+			limits[i] = &pb.AddressedOrderLimit{}
+		}
+	}
+
+	endpoint.log.Info("Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "remote"))
+	mon.Meter("req_get_remote").Mark(1)
+
+	return &pb.SegmentDownloadResponse{
+		AddressedLimits: limits,
+		PrivateKey:      privateKey,
+		SegmentSize:     int64(segment.EncryptedSize),
+
+		EncryptedKeyNonce: encryptedKeyNonce,
+		EncryptedKey:      segment.EncryptedKey,
+		RedundancyScheme: &pb.RedundancyScheme{
+			Type:             pb.RedundancyScheme_SchemeType(segment.Redundancy.Algorithm),
+			ErasureShareSize: segment.Redundancy.ShareSize,
+
+			MinReq:           int32(segment.Redundancy.RequiredShares),
+			RepairThreshold:  int32(segment.Redundancy.RepairShares),
+			SuccessThreshold: int32(segment.Redundancy.OptimalShares),
+			Total:            int32(segment.Redundancy.TotalShares),
+		},
+	}, nil
 }
 
 // sortLimits sorts order limits and fill missing ones with nil values.
-func sortLimits(limits []*pb.AddressedOrderLimit, pointer *pb.Pointer) []*pb.AddressedOrderLimit {
-	sorted := make([]*pb.AddressedOrderLimit, pointer.GetRemote().GetRedundancy().GetTotal())
-	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		sorted[piece.GetPieceNum()] = getLimitByStorageNodeID(limits, piece.NodeId)
+func sortLimits(limits []*pb.AddressedOrderLimit, segment metabase.Segment) []*pb.AddressedOrderLimit {
+	sorted := make([]*pb.AddressedOrderLimit, segment.Redundancy.TotalShares)
+	for _, piece := range segment.Pieces {
+		sorted[piece.Number] = getLimitByStorageNodeID(limits, piece.StorageNode)
 	}
 	return sorted
 }
@@ -1814,10 +1945,6 @@ func (endpoint *Endpoint) unmarshalSatStreamID(ctx context.Context, streamID sto
 		return nil, err
 	}
 
-	if satStreamID.CreationDate.Before(time.Now().Add(-satIDExpiration)) {
-		return nil, errs.New("stream ID expired")
-	}
-
 	return satStreamID, nil
 }
 
@@ -1845,76 +1972,304 @@ func (endpoint *Endpoint) unmarshalSatSegmentID(ctx context.Context, segmentID s
 	return satSegmentID, nil
 }
 
-// DeleteObjectPieces deletes all the pieces of the storage nodes that belongs
+// DeleteCommittedObject deletes all the pieces of the storage nodes that belongs
 // to the specified object.
 //
 // NOTE: this method is exported for being able to individually test it without
 // having import cycles.
-func (endpoint *Endpoint) DeleteObjectPieces(
-	ctx context.Context, projectID uuid.UUID, bucket, encryptedPath []byte,
-) (report objectdeletion.Report, err error) {
-	defer mon.Task()(&ctx, projectID.String(), bucket, encryptedPath)(&err)
+func (endpoint *Endpoint) DeleteCommittedObject(
+	ctx context.Context, projectID uuid.UUID, bucket string, object metabase.ObjectKey,
+) (deletedObjects []*pb.Object, err error) {
+	defer mon.Task()(&ctx, projectID.String(), bucket, object)(&err)
 
-	req := &metabase.ObjectLocation{
+	req := metabase.ObjectLocation{
 		ProjectID:  projectID,
-		BucketName: string(bucket),
-		ObjectKey:  metabase.ObjectKey(encryptedPath),
+		BucketName: bucket,
+		ObjectKey:  object,
 	}
 
-	report, err = endpoint.deleteObjectsPieces(ctx, req)
+	result, err := endpoint.metainfo.metabaseDB.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{Locations: []metabase.ObjectLocation{req}})
+	if err != nil {
+		return nil, err
+	}
+
+	deletedObjects, err = endpoint.deleteObjectsPieces(ctx, result)
 	if err != nil {
 		endpoint.log.Error("failed to delete pointers",
-			zap.Stringer("project_id", projectID),
-			zap.ByteString("bucket_name", bucket),
-			zap.Binary("encrypted_path", encryptedPath),
+			zap.Stringer("project", projectID),
+			zap.String("bucket", bucket),
+			zap.Binary("object", []byte(object)),
 			zap.Error(err),
 		)
-		// Only return an error if we failed to delete the pointers. If we failed
-		// to delete pieces, let garbage collector take care of it.
-		if objectdeletion.Error.Has(err) {
-			return report, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
+		return deletedObjects, err
 	}
 
-	return report, nil
+	return deletedObjects, nil
 }
 
-func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, reqs ...*metabase.ObjectLocation) (report objectdeletion.Report, err error) {
+// DeleteObjectAnyStatus deletes all the pieces of the storage nodes that belongs
+// to the specified object.
+//
+// NOTE: this method is exported for being able to individually test it without
+// having import cycles.
+func (endpoint *Endpoint) DeleteObjectAnyStatus(ctx context.Context, location metabase.ObjectLocation,
+) (deletedObjects []*pb.Object, err error) {
+	defer mon.Task()(&ctx, location.ProjectID.String(), location.BucketName, location.ObjectKey)(&err)
+
+	result, err := endpoint.metainfo.metabaseDB.DeleteObjectAnyStatusAllVersions(ctx, metabase.DeleteObjectAnyStatusAllVersions{
+		ObjectLocation: location,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	deletedObjects, err = endpoint.deleteObjectsPieces(ctx, result)
+	if err != nil {
+		endpoint.log.Error("failed to delete pointers",
+			zap.Stringer("project", location.ProjectID),
+			zap.String("bucket", location.BucketName),
+			zap.Binary("object", []byte(location.ObjectKey)),
+			zap.Error(err),
+		)
+		return deletedObjects, err
+	}
+
+	return deletedObjects, nil
+}
+
+// DeletePendingObject deletes all the pieces of the storage nodes that belongs
+// to the specified pending object.
+//
+// NOTE: this method is exported for being able to individually test it without
+// having import cycles.
+func (endpoint *Endpoint) DeletePendingObject(ctx context.Context, projectID uuid.UUID, bucket string, objectKey metabase.ObjectKey, version int32, streamID uuid.UUID) (deletedObjects []*pb.Object, err error) {
+	req := metabase.DeletePendingObject{
+		ObjectLocation: metabase.ObjectLocation{
+			ProjectID:  projectID,
+			BucketName: bucket,
+			ObjectKey:  objectKey,
+		},
+		Version:  metabase.Version(version),
+		StreamID: streamID,
+	}
+	result, err := endpoint.metainfo.metabaseDB.DeletePendingObject(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	return endpoint.deleteObjectsPieces(ctx, result)
+}
+
+func (endpoint *Endpoint) deleteObjectsPieces(ctx context.Context, result metabase.DeleteObjectResult) (deletedObjects []*pb.Object, err error) {
 	// We should ignore client cancelling and always try to delete segments.
 	ctx = context2.WithoutCancellation(ctx)
 
-	results, err := endpoint.deleteObjects.Delete(ctx, reqs...)
-	if err != nil {
-		return report, err
+	deletedObjects = make([]*pb.Object, len(result.Objects))
+	for i, object := range result.Objects {
+		deletedObject, err := endpoint.objectToProto(ctx, object, endpoint.defaultRS)
+		if err != nil {
+			return nil, err
+		}
+		deletedObjects[i] = deletedObject
 	}
+
+	endpoint.deleteSegmentPieces(ctx, result.Segments)
+
+	return deletedObjects, nil
+}
+
+func (endpoint *Endpoint) deleteSegmentPieces(ctx context.Context, segments []metabase.DeletedSegmentInfo) {
+	nodesPieces := groupPiecesByNodeID(segments)
 
 	var requests []piecedeletion.Request
-	for _, r := range results {
-		pointers := r.DeletedPointers()
-		report.Deleted = append(report.Deleted, r.Deleted...)
-		report.Failed = append(report.Failed, r.Failed...)
-
-		nodesPieces := objectdeletion.GroupPiecesByNodeID(pointers)
-
-		if len(nodesPieces) == 0 {
-			continue
-		}
-
-		for node, pieces := range nodesPieces {
-			requests = append(requests, piecedeletion.Request{
-				Node: storj.NodeURL{
-					ID: node,
-				},
-				Pieces: pieces,
-			})
-		}
+	for node, pieces := range nodesPieces {
+		requests = append(requests, piecedeletion.Request{
+			Node: storj.NodeURL{
+				ID: node,
+			},
+			Pieces: pieces,
+		})
 	}
 
+	// Only return an error if we failed to delete the objects. If we failed
+	// to delete pieces, let garbage collector take care of it.
 	if err := endpoint.deletePieces.Delete(ctx, requests, deleteObjectPiecesSuccessThreshold); err != nil {
 		endpoint.log.Error("failed to delete pieces", zap.Error(err))
 	}
+}
 
-	return report, nil
+func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Object, rs *pb.RedundancyScheme) (*pb.Object, error) {
+	expires := time.Time{}
+	if object.ExpiresAt != nil {
+		expires = *object.ExpiresAt
+	}
+
+	// TotalPlainSize != 0 means object was uploaded with newer uplink
+	multipartObject := object.TotalPlainSize != 0 && object.FixedSegmentSize <= 0
+	streamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
+		Bucket:          []byte(object.BucketName),
+		EncryptedPath:   []byte(object.ObjectKey),
+		Version:         int32(object.Version), // TODO incomatible types
+		CreationDate:    object.CreatedAt,
+		ExpirationDate:  expires,
+		StreamId:        object.StreamID[:],
+		MultipartObject: multipartObject,
+		Redundancy:      rs,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var nonce storj.Nonce
+	if len(object.EncryptedMetadataNonce) > 0 {
+		nonce, err = storj.NonceFromBytes(object.EncryptedMetadataNonce)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	streamMeta := &pb.StreamMeta{}
+	err = pb.Unmarshal(object.EncryptedMetadata, streamMeta)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO is this enough to handle old uplinks
+	if streamMeta.EncryptionBlockSize == 0 {
+		streamMeta.EncryptionBlockSize = object.Encryption.BlockSize
+	}
+	if streamMeta.EncryptionType == 0 {
+		streamMeta.EncryptionType = int32(object.Encryption.CipherSuite)
+	}
+	if streamMeta.NumberOfSegments == 0 {
+		streamMeta.NumberOfSegments = int64(object.SegmentCount)
+	}
+	if streamMeta.LastSegmentMeta == nil {
+		streamMeta.LastSegmentMeta = &pb.SegmentMeta{
+			EncryptedKey: object.EncryptedMetadataEncryptedKey,
+			KeyNonce:     object.EncryptedMetadataNonce,
+		}
+	}
+
+	metadataBytes, err := pb.Marshal(streamMeta)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &pb.Object{
+		Bucket:        []byte(object.BucketName),
+		EncryptedPath: []byte(object.ObjectKey),
+		Version:       int32(object.Version), // TODO incomatible types
+		StreamId:      streamID,
+		ExpiresAt:     expires,
+		CreatedAt:     object.CreatedAt,
+
+		TotalSize: object.TotalEncryptedSize,
+		PlainSize: object.TotalPlainSize,
+
+		EncryptedMetadata:             metadataBytes,
+		EncryptedMetadataNonce:        nonce,
+		EncryptedMetadataEncryptedKey: object.EncryptedMetadataEncryptedKey,
+		EncryptionParameters: &pb.EncryptionParameters{
+			CipherSuite: pb.CipherSuite(object.Encryption.CipherSuite),
+			BlockSize:   int64(object.Encryption.BlockSize),
+		},
+
+		RedundancyScheme: rs,
+	}
+
+	return result, nil
+}
+
+func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket []byte, entry metabase.ObjectEntry, prefixToPrependInSatStreamID metabase.ObjectKey) (item *pb.ObjectListItem, err error) {
+	expires := time.Time{}
+	if entry.ExpiresAt != nil {
+		expires = *entry.ExpiresAt
+	}
+
+	var nonce storj.Nonce
+	if len(entry.EncryptedMetadataNonce) > 0 {
+		nonce, err = storj.NonceFromBytes(entry.EncryptedMetadataNonce)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	streamMeta := &pb.StreamMeta{}
+	err = pb.Unmarshal(entry.EncryptedMetadata, streamMeta)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO is this enough to handle old uplinks
+	if streamMeta.EncryptionBlockSize == 0 {
+		streamMeta.EncryptionBlockSize = entry.Encryption.BlockSize
+	}
+	if streamMeta.EncryptionType == 0 {
+		streamMeta.EncryptionType = int32(entry.Encryption.CipherSuite)
+	}
+	if streamMeta.NumberOfSegments == 0 {
+		streamMeta.NumberOfSegments = int64(entry.SegmentCount)
+	}
+	if streamMeta.LastSegmentMeta == nil {
+		streamMeta.LastSegmentMeta = &pb.SegmentMeta{
+			EncryptedKey: entry.EncryptedMetadataEncryptedKey,
+			KeyNonce:     entry.EncryptedMetadataNonce,
+		}
+	}
+
+	metadataBytes, err := pb.Marshal(streamMeta)
+	if err != nil {
+		return nil, err
+	}
+
+	item = &pb.ObjectListItem{
+		EncryptedPath:          []byte(entry.ObjectKey),
+		Version:                int32(entry.Version), // TODO incomatible types
+		Status:                 pb.Object_Status(entry.Status),
+		ExpiresAt:              expires,
+		CreatedAt:              entry.CreatedAt,
+		PlainSize:              entry.TotalPlainSize,
+		EncryptedMetadata:      metadataBytes,
+		EncryptedMetadataNonce: nonce,
+	}
+
+	// Add Stream ID to list items if listing is for pending objects.
+	// The client requires the Stream ID to use in the MultipartInfo.
+	if entry.Status == metabase.Pending {
+		satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
+			Bucket:          bucket,
+			EncryptedPath:   append([]byte(prefixToPrependInSatStreamID), item.EncryptedPath...),
+			Version:         item.Version,
+			CreationDate:    item.CreatedAt,
+			ExpirationDate:  item.ExpiresAt,
+			StreamId:        entry.StreamID[:],
+			MultipartObject: entry.FixedSegmentSize <= 0,
+			// TODO: defaultRS may change while the upload is pending.
+			// Ideally, we should remove redundancy from satStreamID.
+			Redundancy: endpoint.defaultRS,
+		})
+		if err != nil {
+			return nil, err
+		}
+		item.StreamId = &satStreamID
+	}
+
+	return item, nil
+}
+
+// groupPiecesByNodeID returns a map that contains pieces with node id as the key.
+func groupPiecesByNodeID(segments []metabase.DeletedSegmentInfo) map[storj.NodeID][]storj.PieceID {
+	piecesToDelete := map[storj.NodeID][]storj.PieceID{}
+
+	for _, segment := range segments {
+		for _, piece := range segment.Pieces {
+			pieceID := segment.RootPieceID.Derive(piece.StorageNode, int32(piece.Number))
+			piecesToDelete[piece.StorageNode] = append(piecesToDelete[piece.StorageNode], pieceID)
+		}
+	}
+
+	return piecesToDelete
 }
 
 // RevokeAPIKey handles requests to revoke an api key.
@@ -1965,16 +2320,13 @@ func (endpoint *Endpoint) checkExceedsStorageUsage(ctx context.Context, projectI
 }
 
 // CreatePath creates a segment key.
-func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex int64, bucket, path []byte) (_ metabase.SegmentLocation, err error) {
+func CreatePath(ctx context.Context, projectID uuid.UUID, segmentIndex uint32, bucket, path []byte) (_ metabase.SegmentLocation, err error) {
 	// TODO rename to CreateLocation
 	defer mon.Task()(&ctx)(&err)
-	if segmentIndex < metabase.LastSegmentIndex {
-		return metabase.SegmentLocation{}, errors.New("invalid segment index")
-	}
 	return metabase.SegmentLocation{
 		ProjectID:  projectID,
 		BucketName: string(bucket),
-		Index:      segmentIndex,
+		Position:   metabase.SegmentPosition{Index: segmentIndex},
 		ObjectKey:  metabase.ObjectKey(path),
 	}, nil
 }

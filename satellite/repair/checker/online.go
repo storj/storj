@@ -9,8 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -63,7 +63,7 @@ func (cache *ReliabilityCache) NumNodes(ctx context.Context) (numNodes int, err 
 }
 
 // MissingPieces returns piece indices that are unreliable with the given staleness period.
-func (cache *ReliabilityCache) MissingPieces(ctx context.Context, created time.Time, pieces []*pb.RemotePiece) (_ []int32, err error) {
+func (cache *ReliabilityCache) MissingPieces(ctx context.Context, created time.Time, pieces metabase.Pieces) (_ []int32, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	state, err := cache.loadFast(ctx, created)
@@ -72,8 +72,8 @@ func (cache *ReliabilityCache) MissingPieces(ctx context.Context, created time.T
 	}
 	var unreliable []int32
 	for _, piece := range pieces {
-		if _, ok := state.reliable[piece.NodeId]; !ok {
-			unreliable = append(unreliable, piece.PieceNum)
+		if _, ok := state.reliable[piece.StorageNode]; !ok {
+			unreliable = append(unreliable, int32(piece.Number))
 		}
 	}
 	return unreliable, nil
