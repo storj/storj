@@ -27,6 +27,7 @@ require (
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/nsf/jsondiff v0.0.0-20200515183724-f29ed568f4ce
 	github.com/nsf/termbox-go v0.0.0-20200418040025-38ba6e5628f1
+	github.com/segmentio/backo-go v0.0.0-20200129164019-23eae7c10bd3 // indirect
 	github.com/shopspring/decimal v1.2.0
 	github.com/spacemonkeygo/monkit/v3 v3.0.10
 	github.com/spf13/cobra v1.0.0
@@ -35,6 +36,7 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/stripe/stripe-go v70.15.0+incompatible
 	github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3
+	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
 	github.com/zeebo/assert v1.3.0
 	github.com/zeebo/errs v1.2.2
 	go.etcd.io/bbolt v1.3.5
@@ -45,6 +47,7 @@ require (
 	golang.org/x/term v0.0.0-20201117132131-f5c789dd3221
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	google.golang.org/api v0.20.0 // indirect
+	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	storj.io/common v0.0.0-20210324105846-0a39fd4f6781
 	storj.io/drpc v0.0.20
 	storj.io/monkit-jaeger v0.0.0-20210225162224-66fb37637bf6

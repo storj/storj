@@ -34,6 +34,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
@@ -102,6 +103,7 @@ type Server struct {
 	service     *console.Service
 	mailService *mailservice.Service
 	partners    *rewards.PartnersService
+	analytics   *analytics.Service
 
 	listener    net.Listener
 	server      http.Server
@@ -124,7 +126,7 @@ type Server struct {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, partners *rewards.PartnersService, listener net.Listener, stripePublicKey string, nodeURL storj.NodeURL) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, listener net.Listener, stripePublicKey string, nodeURL storj.NodeURL) *Server {
 	server := Server{
 		log:             logger,
 		config:          config,
@@ -132,6 +134,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		service:         service,
 		mailService:     mailService,
 		partners:        partners,
+		analytics:       analytics,
 		stripePublicKey: stripePublicKey,
 		rateLimiter:     web.NewIPRateLimiter(config.RateLimit),
 		nodeURL:         nodeURL,
@@ -170,7 +173,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		server.withAuth(http.HandlerFunc(server.projectUsageLimitsHandler)),
 	).Methods(http.MethodGet)
 
-	authController := consoleapi.NewAuth(logger, service, mailService, server.cookieAuth, partners, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
+	authController := consoleapi.NewAuth(logger, service, mailService, server.cookieAuth, partners, server.analytics, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch)

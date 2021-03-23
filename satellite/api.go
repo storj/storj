@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/private/post/oauth2"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
@@ -156,6 +157,10 @@ type API struct {
 
 	GracefulExit struct {
 		Endpoint *gracefulexit.Endpoint
+	}
+
+	Analytics struct {
+		Service *analytics.Service
 	}
 }
 
@@ -556,6 +561,15 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
+	{ // setup analytics service
+		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "analytics:service",
+			Close: peer.Analytics.Service.Close,
+		})
+	}
+
 	{ // setup console
 		consoleConfig := config.Console
 		peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
@@ -588,6 +602,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Console.Service,
 			peer.Mail.Service,
 			peer.Marketing.PartnersService,
+			peer.Analytics.Service,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,
 			peer.URL(),
