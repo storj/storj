@@ -4,7 +4,6 @@
 package internalpb
 
 import (
-	context "context"
 	fmt "fmt"
 	math "math"
 	time "time"
@@ -12,7 +11,6 @@ import (
 	proto "github.com/gogo/protobuf/proto"
 
 	pb "storj.io/common/pb"
-	drpc "storj.io/drpc"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -381,76 +379,3 @@ var fileDescriptor_04d00d18c724d5a7 = []byte{
 	0xfd, 0x18, 0x4c, 0x0f, 0x18, 0xd8, 0x1c, 0x73, 0x12, 0xa7, 0x41, 0x50, 0xb5, 0xc9, 0x79, 0xfc,
 	0x37, 0x00, 0x00, 0xff, 0xff, 0xf7, 0x7f, 0xbc, 0x37, 0x84, 0x05, 0x00, 0x00,
 }
-
-// --- DRPC BEGIN ---
-
-type DRPCRepairCoordinatorClient interface {
-	DRPCConn() drpc.Conn
-
-	RepairJob(ctx context.Context, in *RepairJobRequest) (*RepairJobResponse, error)
-}
-
-type drpcRepairCoordinatorClient struct {
-	cc drpc.Conn
-}
-
-func NewDRPCRepairCoordinatorClient(cc drpc.Conn) DRPCRepairCoordinatorClient {
-	return &drpcRepairCoordinatorClient{cc}
-}
-
-func (c *drpcRepairCoordinatorClient) DRPCConn() drpc.Conn { return c.cc }
-
-func (c *drpcRepairCoordinatorClient) RepairJob(ctx context.Context, in *RepairJobRequest) (*RepairJobResponse, error) {
-	out := new(RepairJobResponse)
-	err := c.cc.Invoke(ctx, "/satellite.delegated_repair.RepairCoordinator/RepairJob", in, out)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-type DRPCRepairCoordinatorServer interface {
-	RepairJob(context.Context, *RepairJobRequest) (*RepairJobResponse, error)
-}
-
-type DRPCRepairCoordinatorDescription struct{}
-
-func (DRPCRepairCoordinatorDescription) NumMethods() int { return 1 }
-
-func (DRPCRepairCoordinatorDescription) Method(n int) (string, drpc.Receiver, interface{}, bool) {
-	switch n {
-	case 0:
-		return "/satellite.delegated_repair.RepairCoordinator/RepairJob",
-			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
-				return srv.(DRPCRepairCoordinatorServer).
-					RepairJob(
-						ctx,
-						in1.(*RepairJobRequest),
-					)
-			}, DRPCRepairCoordinatorServer.RepairJob, true
-	default:
-		return "", nil, nil, false
-	}
-}
-
-func DRPCRegisterRepairCoordinator(mux drpc.Mux, impl DRPCRepairCoordinatorServer) error {
-	return mux.Register(impl, DRPCRepairCoordinatorDescription{})
-}
-
-type DRPCRepairCoordinator_RepairJobStream interface {
-	drpc.Stream
-	SendAndClose(*RepairJobResponse) error
-}
-
-type drpcRepairCoordinatorRepairJobStream struct {
-	drpc.Stream
-}
-
-func (x *drpcRepairCoordinatorRepairJobStream) SendAndClose(m *RepairJobResponse) error {
-	if err := x.MsgSend(m); err != nil {
-		return err
-	}
-	return x.CloseSend()
-}
-
-// --- DRPC END ---
