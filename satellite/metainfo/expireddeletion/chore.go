@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 var (
@@ -23,8 +24,9 @@ var (
 
 // Config contains configurable values for expired segment cleanup.
 type Config struct {
-	Interval time.Duration `help:"the time between each attempt to go through the db and clean up expired segments" releaseDefault:"120h" devDefault:"10s"`
-	Enabled  bool          `help:"set if expired segment cleanup is enabled or not" releaseDefault:"true" devDefault:"true"`
+	Interval  time.Duration `help:"the time between each attempt to go through the db and clean up expired segments" releaseDefault:"120h" devDefault:"10s"`
+	Enabled   bool          `help:"set if expired segment cleanup is enabled or not" releaseDefault:"true" devDefault:"true"`
+	ListLimit int           `help:"how many expired objects to query in a batch" default:"100"`
 }
 
 // Chore implements the expired segment cleanup chore.
@@ -77,5 +79,15 @@ func (chore *Chore) deleteExpiredObjects(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	chore.log.Debug("deleting expired objects")
 
-	return chore.metabase.DeleteExpiredObjects(ctx, chore.nowFn())
+	// TODO log error instead of crashing core until we will be sure
+	// that queries for deleting expired objects are stable
+	err = chore.metabase.DeleteExpiredObjects(ctx, metabase.DeleteExpiredObjects{
+		ExpiredBefore: chore.nowFn(),
+		BatchSize:     chore.config.ListLimit,
+	})
+	if err != nil {
+		chore.log.Error("deleting expired objects failed", zap.Error(err))
+	}
+
+	return nil
 }
