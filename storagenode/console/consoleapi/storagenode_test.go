@@ -70,6 +70,9 @@ func TestStorageNodeApi(t *testing.T) {
 			reputationdb := sno.DB.Reputation()
 			baseURL := fmt.Sprintf("http://%s/api/sno", console.Listener.Addr())
 
+			// pause nodestats reputation cache because later tests assert a specific joinedat.
+			sno.NodeStats.Cache.Reputation.Pause()
+
 			now := time.Now().UTC().Add(-2 * time.Hour)
 
 			for _, action := range actions {
@@ -84,6 +87,12 @@ func TestStorageNodeApi(t *testing.T) {
 			err := storageusagedb.Store(ctx, stamps)
 			require.NoError(t, err)
 
+			err = reputationdb.Store(ctx, reputation.Stats{
+				SatelliteID: satellite.ID(),
+				JoinedAt:    now.AddDate(0, -2, 0),
+			})
+			require.NoError(t, err)
+
 			egressPrice, repairPrice, auditPrice, diskPrice := int64(2000), int64(1000), int64(1000), int64(150)
 
 			err = pricingdb.Store(ctx, pricing.Pricing{
@@ -95,14 +104,7 @@ func TestStorageNodeApi(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			err = reputationdb.Store(ctx, reputation.Stats{
-				SatelliteID: satellite.ID(),
-				JoinedAt:    now.AddDate(0, -2, 0),
-			})
-			require.NoError(t, err)
-
 			t.Run("test EstimatedPayout", func(t *testing.T) {
-				t.Skip("disabled until flakiness fixed")
 				// should return estimated payout for both satellites in current month and empty for previous
 				url := fmt.Sprintf("%s/estimated-payout", baseURL)
 
