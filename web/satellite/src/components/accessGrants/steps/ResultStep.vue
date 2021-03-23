@@ -35,7 +35,7 @@
             </div>
             <div class="generate-grant__gateway-area__container" v-if="areGatewayCredentialsVisible">
                 <div class="generate-grant__gateway-area__container__beta">
-                    <p class="generate-grant__gateway-area__container__beta__message">Gateway MT is currently in Beta</p>
+                    <p class="generate-grant__gateway-area__container__beta__message">This feature is currently in Beta</p>
                     <a
                         class="generate-grant__gateway-area__container__beta__link"
                         href="https://forum.storj.io/t/gateway-mt-beta-looking-for-testers/11324"
