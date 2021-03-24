@@ -74,7 +74,7 @@ func OpenDB(ctx context.Context, dbURL string, overwrite bool) (*DB, error) {
 			return nil, ErrDB.Wrap(err)
 		}
 	case "redis":
-		redisClient, err := redis.NewClientFrom(ctx, dbURL)
+		redisClient, err := redis.OpenClientFrom(ctx, dbURL)
 		if err != nil {
 			return nil, ErrDB.Wrap(err)
 		}

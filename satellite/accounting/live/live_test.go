@@ -49,7 +49,7 @@ func TestAddGetProjectStorageAndBandwidthUsage(t *testing.T) {
 				}
 			}
 
-			cache, err := live.NewCache(ctx, zaptest.NewLogger(t).Named("live-accounting"), config)
+			cache, err := live.OpenCache(ctx, zaptest.NewLogger(t).Named("live-accounting"), config)
 			require.NoError(t, err)
 			defer ctx.Check(cache.Close)
 
@@ -123,7 +123,7 @@ func TestGetAllProjectTotals(t *testing.T) {
 				}
 			}
 
-			cache, err := live.NewCache(ctx, zaptest.NewLogger(t).Named("live-accounting"), config)
+			cache, err := live.OpenCache(ctx, zaptest.NewLogger(t).Named("live-accounting"), config)
 			require.NoError(t, err)
 			defer ctx.Check(cache.Close)
 
@@ -176,7 +176,7 @@ func TestLiveAccountingCache_ProjectBandwidthUsage_expiration(t *testing.T) {
 				}
 			}
 
-			cache, err := live.NewCache(ctx, zaptest.NewLogger(t).Named("live-accounting"), config)
+			cache, err := live.OpenCache(ctx, zaptest.NewLogger(t).Named("live-accounting"), config)
 			require.NoError(t, err)
 			defer ctx.Check(cache.Close)
 

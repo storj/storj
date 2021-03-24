@@ -634,7 +634,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 
 	planet.databases = append(planet.databases, revocationDB)
 
-	liveAccounting, err := live.NewCache(ctx, log.Named("live-accounting"), config.LiveAccounting)
+	liveAccounting, err := live.OpenCache(ctx, log.Named("live-accounting"), config.LiveAccounting)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -765,7 +765,7 @@ func (planet *Planet) newAPI(ctx context.Context, index int, identity *identity.
 	}
 	planet.databases = append(planet.databases, revocationDB)
 
-	liveAccounting, err := live.NewCache(ctx, log.Named("live-accounting"), config.LiveAccounting)
+	liveAccounting, err := live.OpenCache(ctx, log.Named("live-accounting"), config.LiveAccounting)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}

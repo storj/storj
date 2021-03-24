@@ -24,7 +24,7 @@ func TestSuite(t *testing.T) {
 	}
 	defer func() { require.NoError(t, redis.Close()) }()
 
-	client, err := NewClient(ctx, redis.Addr(), "", 1)
+	client, err := OpenClient(ctx, redis.Addr(), "", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func TestSuite(t *testing.T) {
 }
 
 func TestInvalidConnection(t *testing.T) {
-	_, err := NewClient(context.Background(), "", "", 1)
+	_, err := OpenClient(context.Background(), "", "", 1)
 	if err == nil {
 		t.Fatal("expected connection error")
 	}
@@ -49,7 +49,7 @@ func BenchmarkSuite(b *testing.B) {
 	}
 	defer func() { require.NoError(b, redis.Close()) }()
 
-	client, err := NewClient(ctx, redis.Addr(), "", 1)
+	client, err := OpenClient(ctx, redis.Addr(), "", 1)
 	if err != nil {
 		b.Fatal(err)
 	}
