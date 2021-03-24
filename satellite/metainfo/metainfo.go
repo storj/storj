@@ -726,14 +726,15 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	satStreamID, err := endpoint.packStreamID(ctx, &internalpb.StreamID{
-		Bucket:          req.Bucket,
-		EncryptedPath:   req.EncryptedPath,
-		Version:         int32(object.Version),
-		Redundancy:      pbRS,
-		CreationDate:    object.CreatedAt,
-		ExpirationDate:  req.ExpiresAt,
-		StreamId:        streamID[:],
-		MultipartObject: object.FixedSegmentSize <= 0,
+		Bucket:               req.Bucket,
+		EncryptedPath:        req.EncryptedPath,
+		Version:              int32(object.Version),
+		Redundancy:           pbRS,
+		CreationDate:         object.CreatedAt,
+		ExpirationDate:       req.ExpiresAt,
+		StreamId:             streamID[:],
+		MultipartObject:      object.FixedSegmentSize <= 0,
+		EncryptionParameters: req.EncryptionParameters,
 	})
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -2115,6 +2116,10 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		StreamId:        object.StreamID[:],
 		MultipartObject: multipartObject,
 		Redundancy:      rs,
+		EncryptionParameters: &pb.EncryptionParameters{
+			CipherSuite: pb.CipherSuite(object.Encryption.CipherSuite),
+			BlockSize:   int64(object.Encryption.BlockSize),
+		},
 	})
 	if err != nil {
 		return nil, err
@@ -2248,6 +2253,10 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 			// TODO: defaultRS may change while the upload is pending.
 			// Ideally, we should remove redundancy from satStreamID.
 			Redundancy: endpoint.defaultRS,
+			EncryptionParameters: &pb.EncryptionParameters{
+				CipherSuite: pb.CipherSuite(entry.Encryption.CipherSuite),
+				BlockSize:   int64(entry.Encryption.BlockSize),
+			},
 		})
 		if err != nil {
 			return nil, err
