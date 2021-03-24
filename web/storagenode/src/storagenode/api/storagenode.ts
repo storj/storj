@@ -45,7 +45,7 @@ export class StorageNodeApi {
         const diskSpace: Traffic = new Traffic(data.diskSpace.used, data.diskSpace.available, data.diskSpace.trash, data.diskSpace.overused);
         const bandwidth: Traffic = new Traffic(data.bandwidth.used);
 
-        return new Dashboard(data.nodeID, data.wallet, satellites, diskSpace, bandwidth,
+        return new Dashboard(data.nodeID, data.wallet, data.walletFeatures || [], satellites, diskSpace, bandwidth,
             new Date(data.lastPinged), new Date(data.startedAt), data.version, data.allowedVersion, data.upToDate);
     }
 

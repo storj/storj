@@ -15,6 +15,7 @@ export class Node {
         public version: string = '',
         public allowedVersion: string = '',
         public wallet: string = '',
+        public walletFeatures: string[] = [],
         public isLastVersion: boolean = false,
     ) {}
 }
@@ -63,6 +64,7 @@ export class Dashboard {
     public constructor(
         public nodeID: string,
         public wallet: string,
+        public walletFeatures: string[],
         public satellites: SatelliteInfo[],
         public diskSpace: Traffic,
         public bandwidth: Traffic,
