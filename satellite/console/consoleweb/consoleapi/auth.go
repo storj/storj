@@ -78,12 +78,14 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := a.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
+	token, user, err := a.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
 	if err != nil {
 		a.log.Info("Error authenticating token request", zap.String("email", tokenRequest.Email), zap.Error(ErrAuthAPI.Wrap(err)))
 		a.serveJSONError(w, err)
 		return
 	}
+
+	a.analytics.TrackSignedIn(user.ID, tokenRequest.Email)
 
 	a.cookieAuth.SetTokenCookie(w, token)
 
