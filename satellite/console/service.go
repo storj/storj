@@ -753,17 +753,17 @@ func (s *Service) RevokeResetPasswordToken(ctx context.Context, resetPasswordTok
 }
 
 // Token authenticates User by credentials and returns auth token.
-func (s *Service) Token(ctx context.Context, email, password string) (token string, err error) {
+func (s *Service) Token(ctx context.Context, email, password string) (token string, user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.store.Users().GetByEmail(ctx, email)
+	user, err = s.store.Users().GetByEmail(ctx, email)
 	if err != nil {
-		return "", ErrUnauthorized.New(credentialsErrMsg)
+		return "",nil, ErrUnauthorized.New(credentialsErrMsg)
 	}
 
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(password))
 	if err != nil {
-		return "", ErrUnauthorized.New(credentialsErrMsg)
+		return "",nil, ErrUnauthorized.New(credentialsErrMsg)
 	}
 
 	claims := consoleauth.Claims{
@@ -773,11 +773,11 @@ func (s *Service) Token(ctx context.Context, email, password string) (token stri
 
 	token, err = s.createToken(ctx, &claims)
 	if err != nil {
-		return "", err
+		return "",nil, err
 	}
 	s.auditLog(ctx, "login", &user.ID, user.Email)
 
-	return token, nil
+	return token, user, nil
 }
 
 // GetUser returns User by id.

@@ -12,6 +12,7 @@ import (
 
 const (
 	eventAccountCreated = "Account Created"
+	eventSignedIn = "Signed In"
 )
 
 // Config is a configuration struct for analytics Service.
@@ -96,6 +97,32 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 	err = service.segment.Enqueue(segment.Track{
 		UserId:     fields.ID.String(),
 		Event:      eventAccountCreated,
+		Properties: props,
+	})
+	if err != nil {
+		service.log.Error("Error with track event", zap.Error(err))
+	}
+}
+
+func (service *Service) TrackSignedIn(userID uuid.UUID, email string) {
+	traits := segment.NewTraits()
+	traits.SetEmail(email)
+
+	err := service.segment.Enqueue(segment.Identify{
+		UserId: userID.String(),
+		Traits: traits,
+	})
+	if err != nil {
+		service.log.Error("Error with identify event", zap.Error(err))
+	}
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+
+
+	err = service.segment.Enqueue(segment.Track{
+		UserId:     userID.String(),
+		Event:      eventSignedIn,
 		Properties: props,
 	})
 	if err != nil {
