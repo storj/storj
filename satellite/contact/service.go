@@ -16,6 +16,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
+	"storj.io/storj/pkg/quic"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -66,7 +67,7 @@ func (service *Service) Local() overlay.NodeDossier {
 func (service *Service) Close() error { return nil }
 
 // PingBack pings the node to test connectivity.
-func (service *Service) PingBack(ctx context.Context, nodeurl storj.NodeURL) (_ bool, _ string, err error) {
+func (service *Service) PingBack(ctx context.Context, nodeurl storj.NodeURL) (_ bool, _ bool, _ string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if service.timeout > 0 {
@@ -77,6 +78,7 @@ func (service *Service) PingBack(ctx context.Context, nodeurl storj.NodeURL) (_ 
 
 	pingNodeSuccess := true
 	var pingErrorMessage string
+	var pingNodeSuccessQUIC bool
 
 	client, err := dialNodeURL(ctx, service.dialer, nodeurl)
 	if err != nil {
@@ -91,7 +93,7 @@ func (service *Service) PingBack(ctx context.Context, nodeurl storj.NodeURL) (_ 
 		service.log.Debug("pingBack failed to dial storage node",
 			zap.String("pingErrorMessage", pingErrorMessage),
 		)
-		return pingNodeSuccess, pingErrorMessage, nil
+		return pingNodeSuccess, pingNodeSuccessQUIC, pingErrorMessage, nil
 	}
 	defer func() { err = errs.Combine(err, client.Close()) }()
 
@@ -104,7 +106,39 @@ func (service *Service) PingBack(ctx context.Context, nodeurl storj.NodeURL) (_ 
 			zap.Stringer("Node ID", nodeurl.ID),
 			zap.String("pingErrorMessage", pingErrorMessage),
 		)
+
+		return pingNodeSuccess, pingNodeSuccessQUIC, pingErrorMessage, nil
 	}
 
-	return pingNodeSuccess, pingErrorMessage, nil
+	pingNodeSuccessQUIC = true
+	err = service.pingNodeQUIC(ctx, nodeurl)
+	if err != nil {
+		// udp ping back is optional right now, it shouldn't affect contact service's
+		// control flow
+		pingNodeSuccessQUIC = false
+		pingErrorMessage = err.Error()
+	}
+
+	return pingNodeSuccess, pingNodeSuccessQUIC, pingErrorMessage, nil
+}
+
+func (service *Service) pingNodeQUIC(ctx context.Context, nodeurl storj.NodeURL) error {
+	udpDialer := service.dialer
+	udpDialer.Connector = quic.NewDefaultConnector(nil)
+	udpClient, err := dialNodeURL(ctx, udpDialer, nodeurl)
+	if err != nil {
+		mon.Event("failed_dial_quic")
+		return Error.New("failed to dial storage node (ID: %s) at address %s using QUIC: %q", nodeurl.ID.String(), nodeurl.Address, err)
+	}
+	defer func() {
+		_ = udpClient.Close()
+	}()
+
+	_, err = udpClient.pingNode(ctx, &pb.ContactPingRequest{})
+	if err != nil {
+		mon.Event("failed_ping_node_quic")
+		return Error.New("failed to ping storage node using QUIC, your node indicated error code: %d, %q", rpcstatus.Code(err), err)
+	}
+
+	return nil
 }
