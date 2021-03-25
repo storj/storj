@@ -24,10 +24,10 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/rewards"
-	"storj.io/storj/satellite/analytics"
 )
 
 var mon = monkit.Package()
@@ -94,7 +94,7 @@ type Service struct {
 	buckets           Buckets
 	partners          *rewards.PartnersService
 	accounts          payments.Accounts
-	analytics		  *analytics.Service
+	analytics         *analytics.Service
 
 	config Config
 
@@ -756,17 +756,17 @@ func (s *Service) RevokeResetPasswordToken(ctx context.Context, resetPasswordTok
 }
 
 // Token authenticates User by credentials and returns auth token.
-func (s *Service) Token(ctx context.Context, email, password string) (token string, user *User, err error) {
+func (s *Service) Token(ctx context.Context, email, password string) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err = s.store.Users().GetByEmail(ctx, email)
+	user, err := s.store.Users().GetByEmail(ctx, email)
 	if err != nil {
-		return "",nil, ErrUnauthorized.New(credentialsErrMsg)
+		return "", ErrUnauthorized.New(credentialsErrMsg)
 	}
 
 	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(password))
 	if err != nil {
-		return "",nil, ErrUnauthorized.New(credentialsErrMsg)
+		return "", ErrUnauthorized.New(credentialsErrMsg)
 	}
 
 	claims := consoleauth.Claims{
@@ -776,11 +776,13 @@ func (s *Service) Token(ctx context.Context, email, password string) (token stri
 
 	token, err = s.createToken(ctx, &claims)
 	if err != nil {
-		return "",nil, err
+		return "", err
 	}
 	s.auditLog(ctx, "login", &user.ID, user.Email)
 
-	return token, user, nil
+	s.analytics.TrackSignedIn(user.ID, user.Email)
+
+	return token, nil
 }
 
 // GetUser returns User by id.
@@ -1032,12 +1034,12 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 
 		return nil
 	})
-		
+
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	s.analytics.TrackProjectCreated(auth.User.ID,currentProjectCount)
+	s.analytics.TrackProjectCreated(auth.User.ID, currentProjectCount+1)
 
 	// ToDo: check if this is actually the right place.
 	err = s.accounts.Coupons().AddPromotionalCoupon(ctx, auth.User.ID)
@@ -1590,12 +1592,12 @@ func (s *Service) checkProjectCanBeDeleted(ctx context.Context, project uuid.UUI
 }
 
 // checkProjectLimit is used to check if user is able to create a new project.
-func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (currentProjects int,err error) {
+func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (currentProjects int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	limit, err := s.store.Users().GetProjectLimit(ctx, userID)
 	if err != nil {
-		return 0,Error.Wrap(err)
+		return 0, Error.Wrap(err)
 	}
 	if limit == 0 {
 		limit = s.config.DefaultProjectLimit
@@ -1603,14 +1605,14 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (curr
 
 	projects, err := s.GetUsersProjects(ctx)
 	if err != nil {
-		return 0,Error.Wrap(err)
+		return 0, Error.Wrap(err)
 	}
 
 	if len(projects) >= limit {
-		return 0,ErrProjLimit.New(projLimitErrMsg)
+		return 0, ErrProjLimit.New(projLimitErrMsg)
 	}
 
-	return len(projects),nil
+	return len(projects), nil
 }
 
 // CreateRegToken creates new registration token. Needed for testing.

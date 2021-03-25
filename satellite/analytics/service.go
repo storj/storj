@@ -12,8 +12,8 @@ import (
 
 const (
 	eventAccountCreated = "Account Created"
-	eventSignedIn = "Signed In"
-	eventProjectCreated = "ProjectCreated"
+	eventSignedIn       = "Signed In"
+	eventProjectCreated = "Project Created"
 )
 
 // Config is a configuration struct for analytics Service.
@@ -120,7 +120,6 @@ func (service *Service) TrackSignedIn(userID uuid.UUID, email string) {
 	props := segment.NewProperties()
 	props.Set("email", email)
 
-
 	err = service.segment.Enqueue(segment.Track{
 		UserId:     userID.String(),
 		Event:      eventSignedIn,
@@ -131,12 +130,10 @@ func (service *Service) TrackSignedIn(userID uuid.UUID, email string) {
 	}
 }
 
-
 func (service *Service) TrackProjectCreated(userID uuid.UUID, currentProjectCount int) {
 
 	props := segment.NewProperties()
-	props.Set("project_count", currentProjectCount+1)
-
+	props.Set("project_count", currentProjectCount)
 
 	err := service.segment.Enqueue(segment.Track{
 		UserId:     userID.String(),
