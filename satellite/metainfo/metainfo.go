@@ -1519,6 +1519,8 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 		EncryptedSize: int32(req.SizeEncryptedData), // TODO incompatible types int32 vs int64
 		PlainSize:     int32(req.PlainSize),         // TODO incompatible types int32 vs int64
 
+		EncryptedETag: req.EncryptedETag,
+
 		Position: metabase.SegmentPosition{
 			Part:  uint32(segmentID.PartNumber),
 			Index: uint32(segmentID.Index),
@@ -1616,7 +1618,8 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 			Index: uint32(req.Position.Index),
 		},
 
-		PlainSize: int32(req.PlainSize), // TODO incompatible types int32 vs int64
+		PlainSize:     int32(req.PlainSize), // TODO incompatible types int32 vs int64
+		EncryptedETag: req.EncryptedETag,
 
 		InlineData: req.EncryptedInlineData,
 	})
@@ -1710,11 +1713,19 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		if item.CreatedAt != nil {
 			items[i].CreatedAt = *item.CreatedAt
 		}
+		items[i].EncryptedETag = item.EncryptedETag
+		items[i].EncryptedKeyNonce, err = storj.NonceFromBytes(item.EncryptedKeyNonce)
+		if err != nil {
+			endpoint.log.Error("unable to get encryption key nonce from metadata", zap.Error(err))
+			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
+		items[i].EncryptedKey = item.EncryptedKey
 	}
 
 	return &pb.SegmentListResponse{
-		Items: items,
-		More:  result.More,
+		Items:                items,
+		More:                 result.More,
+		EncryptionParameters: streamID.EncryptionParameters,
 	}, nil
 }
 
