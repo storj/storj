@@ -720,6 +720,7 @@ func TestDeleteObjectLatestVersion(t *testing.T) {
 						Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
 						EncryptedKey:      []byte{3},
 						EncryptedKeyNonce: []byte{4},
+						EncryptedETag:     []byte{5},
 
 						EncryptedSize: 1024,
 						PlainSize:     512,
@@ -1250,6 +1251,7 @@ func createPendingObject(ctx *testcontext.Context, t *testing.T, db *metabase.DB
 
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
+				EncryptedETag:     []byte{5},
 
 				EncryptedSize: 1024,
 				PlainSize:     512,
@@ -1291,6 +1293,7 @@ func createObject(ctx *testcontext.Context, t *testing.T, db *metabase.DB, obj m
 
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
+				EncryptedETag:     []byte{5},
 
 				EncryptedSize: 1024,
 				PlainSize:     512,

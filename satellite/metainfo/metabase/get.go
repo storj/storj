@@ -174,6 +174,7 @@ func (db *DB) GetSegmentByLocation(ctx context.Context, opts GetSegmentByLocatio
 				created_at,
 				root_piece_id, encrypted_key_nonce, encrypted_key,
 				encrypted_size, plain_offset, plain_size,
+				encrypted_etag,
 				redundancy,
 				inline_data, remote_alias_pieces
 			FROM segments
@@ -192,6 +193,7 @@ func (db *DB) GetSegmentByLocation(ctx context.Context, opts GetSegmentByLocatio
 			&segment.CreatedAt,
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
+			&segment.EncryptedETag,
 			redundancyScheme{&segment.Redundancy},
 			&segment.InlineData, &aliasPieces,
 		)
@@ -239,6 +241,7 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 			created_at,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size, plain_offset, plain_size,
+			encrypted_etag,
 			redundancy,
 			inline_data, remote_alias_pieces
 		FROM segments
@@ -250,6 +253,7 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 			&segment.CreatedAt,
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
+			&segment.EncryptedETag,
 			redundancyScheme{&segment.Redundancy},
 			&segment.InlineData, &aliasPieces,
 		)
@@ -291,6 +295,7 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 			created_at,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size, plain_offset, plain_size,
+			encrypted_etag,
 			redundancy,
 			inline_data, remote_alias_pieces
 		FROM segments
@@ -311,6 +316,7 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 			&segment.CreatedAt,
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
+			&segment.EncryptedETag,
 			redundancyScheme{&segment.Redundancy},
 			&segment.InlineData, &aliasPieces,
 		)
@@ -354,6 +360,7 @@ func (db *DB) GetSegmentByOffset(ctx context.Context, opts GetSegmentByOffset) (
 			created_at,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size, plain_offset, plain_size,
+			encrypted_etag,
 			redundancy,
 			inline_data, remote_alias_pieces
 		FROM segments
@@ -376,6 +383,7 @@ func (db *DB) GetSegmentByOffset(ctx context.Context, opts GetSegmentByOffset) (
 			&segment.CreatedAt,
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
+			&segment.EncryptedETag,
 			redundancyScheme{&segment.Redundancy},
 			&segment.InlineData, &aliasPieces,
 		)

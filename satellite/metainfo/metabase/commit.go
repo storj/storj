@@ -221,6 +221,8 @@ type CommitSegment struct {
 	PlainSize     int32 // size before encryption
 	EncryptedSize int32 // segment size after encryption
 
+	EncryptedETag []byte
+
 	Redundancy storj.RedundancyScheme
 
 	Pieces Pieces
@@ -269,26 +271,26 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 		INSERT INTO segments (
 			stream_id, position,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
-			encrypted_size, plain_offset, plain_size,
+			encrypted_size, plain_offset, plain_size, encrypted_etag,
 			redundancy,
 			remote_alias_pieces
 		) VALUES (
 			(SELECT stream_id
 				FROM objects WHERE
-					project_id   = $10 AND
-					bucket_name  = $11 AND
-					object_key   = $12 AND
-					version      = $13 AND
-					stream_id    = $14 AND
+					project_id   = $11 AND
+					bucket_name  = $12 AND
+					object_key   = $13 AND
+					version      = $14 AND
+					stream_id    = $15 AND
 					status       = `+pendingStatus+
 		`	), $1,
 			$2, $3, $4,
-			$5, $6, $7,
-			$8,
-			$9
+			$5, $6, $7, $8,
+			$9,
+			$10
 		)`, opts.Position,
 		opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
-		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize,
+		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
 		redundancyScheme{&opts.Redundancy},
 		aliasPieces,
 		opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID,
@@ -314,8 +316,9 @@ type CommitInlineSegment struct {
 	EncryptedKeyNonce []byte
 	EncryptedKey      []byte
 
-	PlainOffset int64 // offset in the original data stream
-	PlainSize   int32 // size before encryption
+	PlainOffset   int64 // offset in the original data stream
+	PlainSize     int32 // size before encryption
+	EncryptedETag []byte
 
 	InlineData []byte
 }
@@ -347,24 +350,24 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 		INSERT INTO segments (
 			stream_id, position,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
-			encrypted_size, plain_offset, plain_size,
+			encrypted_size, plain_offset, plain_size, encrypted_etag,
 			inline_data
 		) VALUES (
 			(SELECT stream_id
 				FROM objects WHERE
-					project_id   = $9 AND
-					bucket_name  = $10 AND
-					object_key   = $11 AND
-					version      = $12 AND
-					stream_id    = $13 AND
+					project_id   = $10 AND
+					bucket_name  = $11 AND
+					object_key   = $12 AND
+					version      = $13 AND
+					stream_id    = $14 AND
 					status       = `+pendingStatus+
 		`	), $1,
 			$2, $3, $4,
-			$5, $6, $7,
-			$8
+			$5, $6, $7, $8,
+			$9
 		)`, opts.Position,
 		storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
-		len(opts.InlineData), opts.PlainOffset, opts.PlainSize,
+		len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
 		opts.InlineData,
 		opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID,
 	)

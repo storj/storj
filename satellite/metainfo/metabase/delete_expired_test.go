@@ -109,6 +109,7 @@ func TestDeleteExpiredObjects(t *testing.T) {
 				CreatedAt:         &now,
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
+				EncryptedETag:     []byte{5},
 				EncryptedSize:     1060,
 				PlainSize:         512,
 				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},

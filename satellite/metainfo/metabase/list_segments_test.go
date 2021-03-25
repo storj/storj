@@ -73,6 +73,7 @@ func TestListSegments(t *testing.T) {
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
+				EncryptedETag:     []byte{5},
 				EncryptedSize:     1024,
 				PlainSize:         512,
 				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
@@ -189,6 +190,7 @@ func TestListSegments(t *testing.T) {
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
+				EncryptedETag:     []byte{5},
 				EncryptedSize:     1024,
 				PlainSize:         512,
 				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
@@ -228,6 +230,7 @@ func TestListSegments(t *testing.T) {
 
 							EncryptedKey:      []byte{3},
 							EncryptedKeyNonce: []byte{4},
+							EncryptedETag:     []byte{5},
 
 							EncryptedSize: 1024,
 							PlainSize:     512,
@@ -324,6 +327,7 @@ func TestListStreamPositions(t *testing.T) {
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
+				EncryptedETag:     []byte{5},
 				EncryptedSize:     1024,
 				PlainSize:         512,
 				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
@@ -336,9 +340,12 @@ func TestListStreamPositions(t *testing.T) {
 				expectedSegment.Position.Index = uint32(i)
 				expectedRawSegments[i] = metabase.RawSegment(expectedSegment)
 				expectedSegments[i] = metabase.SegmentPositionInfo{
-					Position:  expectedSegment.Position,
-					PlainSize: expectedSegment.PlainSize,
-					CreatedAt: &now,
+					Position:          expectedSegment.Position,
+					PlainSize:         expectedSegment.PlainSize,
+					CreatedAt:         &now,
+					EncryptedKey:      expectedSegment.EncryptedKey,
+					EncryptedKeyNonce: expectedSegment.EncryptedKeyNonce,
+					EncryptedETag:     expectedSegment.EncryptedETag,
 				}
 			}
 
@@ -443,6 +450,7 @@ func TestListStreamPositions(t *testing.T) {
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
+				EncryptedETag:     []byte{5},
 				EncryptedSize:     1024,
 				PlainSize:         512,
 				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
@@ -482,6 +490,7 @@ func TestListStreamPositions(t *testing.T) {
 
 							EncryptedKey:      []byte{3},
 							EncryptedKeyNonce: []byte{4},
+							EncryptedETag:     []byte{5},
 
 							EncryptedSize: 1024,
 							PlainSize:     512,
@@ -502,9 +511,12 @@ func TestListStreamPositions(t *testing.T) {
 					pos := expectedSegment.Position
 					pos.Part = uint32(i)
 					expectedSegments[i] = metabase.SegmentPositionInfo{
-						Position:  pos,
-						PlainSize: expectedSegment.PlainSize,
-						CreatedAt: &now,
+						Position:          pos,
+						PlainSize:         expectedSegment.PlainSize,
+						CreatedAt:         &now,
+						EncryptedKey:      expectedSegment.EncryptedKey,
+						EncryptedKeyNonce: expectedSegment.EncryptedKeyNonce,
+						EncryptedETag:     expectedSegment.EncryptedETag,
 					}
 				}
 

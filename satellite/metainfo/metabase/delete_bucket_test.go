@@ -197,6 +197,7 @@ func TestDeleteBucketObjects(t *testing.T) {
 						Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
 						EncryptedKey:      []byte{3},
 						EncryptedKeyNonce: []byte{4},
+						EncryptedETag:     []byte{5},
 
 						EncryptedSize: 1024,
 						PlainSize:     512,
@@ -213,6 +214,7 @@ func TestDeleteBucketObjects(t *testing.T) {
 						Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
 						EncryptedKey:      []byte{3},
 						EncryptedKeyNonce: []byte{4},
+						EncryptedETag:     []byte{5},
 
 						EncryptedSize: 1024,
 						PlainSize:     512,

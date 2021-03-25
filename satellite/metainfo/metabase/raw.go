@@ -54,6 +54,7 @@ type RawSegment struct {
 	EncryptedSize int32 // size of the whole segment (not a piece)
 	PlainSize     int32
 	PlainOffset   int64
+	EncryptedETag []byte
 
 	Redundancy storj.RedundancyScheme
 
@@ -168,6 +169,7 @@ func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err er
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size,
 			plain_offset, plain_size,
+			encrypted_etag,
 			redundancy,
 			inline_data, remote_alias_pieces
 		FROM segments
@@ -194,6 +196,7 @@ func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err er
 			&seg.EncryptedSize,
 			&seg.PlainOffset,
 			&seg.PlainSize,
+			&seg.EncryptedETag,
 
 			redundancyScheme{&seg.Redundancy},
 

@@ -382,6 +382,7 @@ func TestIterateLoopStreams(t *testing.T) {
 						PlainSize:         512,
 						EncryptedKey:      []byte{3},
 						EncryptedKeyNonce: []byte{4},
+						EncryptedETag:     []byte{5},
 					})
 				}
 				expectedMap[object.StreamID] = expectedSegments

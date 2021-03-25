@@ -1369,6 +1369,7 @@ func TestCommitSegment(t *testing.T) {
 			pieces := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
 			encryptedKey := testrand.Bytes(32)
 			encryptedKeyNonce := testrand.Bytes(32)
+			encryptedETag := testrand.Bytes(32)
 
 			now := time.Now()
 			BeginObjectExactVersion{
@@ -1392,6 +1393,7 @@ func TestCommitSegment(t *testing.T) {
 					PlainSize:     512,
 					PlainOffset:   0,
 					Redundancy:    defaultTestRedundancy,
+					EncryptedETag: encryptedETag,
 				},
 			}.Check(ctx, t, db)
 
@@ -1417,6 +1419,7 @@ func TestCommitSegment(t *testing.T) {
 						EncryptedSize: 1024,
 						PlainOffset:   0,
 						PlainSize:     512,
+						EncryptedETag: encryptedETag,
 
 						Redundancy: defaultTestRedundancy,
 
@@ -1660,6 +1663,7 @@ func TestCommitInlineSegment(t *testing.T) {
 
 			encryptedKey := testrand.Bytes(32)
 			encryptedKeyNonce := testrand.Bytes(32)
+			encryptedETag := testrand.Bytes(32)
 
 			now := time.Now()
 			BeginObjectExactVersion{
@@ -1677,8 +1681,9 @@ func TestCommitInlineSegment(t *testing.T) {
 					EncryptedKey:      encryptedKey,
 					EncryptedKeyNonce: encryptedKeyNonce,
 
-					PlainSize:   0,
-					PlainOffset: 0,
+					PlainSize:     0,
+					PlainOffset:   0,
+					EncryptedETag: encryptedETag,
 				},
 			}.Check(ctx, t, db)
 
@@ -1703,6 +1708,7 @@ func TestCommitInlineSegment(t *testing.T) {
 						PlainSize:   0,
 
 						EncryptedSize: 0,
+						EncryptedETag: encryptedETag,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -1713,6 +1719,7 @@ func TestCommitInlineSegment(t *testing.T) {
 
 			encryptedKey := testrand.Bytes(32)
 			encryptedKeyNonce := testrand.Bytes(32)
+			encryptedETag := testrand.Bytes(32)
 
 			now := time.Now()
 			BeginObjectExactVersion{
@@ -1731,8 +1738,9 @@ func TestCommitInlineSegment(t *testing.T) {
 					EncryptedKey:      encryptedKey,
 					EncryptedKeyNonce: encryptedKeyNonce,
 
-					PlainSize:   512,
-					PlainOffset: 0,
+					PlainSize:     512,
+					PlainOffset:   0,
+					EncryptedETag: encryptedETag,
 				},
 			}.Check(ctx, t, db)
 
@@ -1758,6 +1766,7 @@ func TestCommitInlineSegment(t *testing.T) {
 
 						InlineData:    []byte{1, 2, 3},
 						EncryptedSize: 3,
+						EncryptedETag: encryptedETag,
 					},
 				},
 			}.Check(ctx, t, db)
