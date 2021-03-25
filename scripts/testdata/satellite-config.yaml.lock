@@ -163,6 +163,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to sign up verification page
 # console.verification-page-url: https://tardigrade.io/verify
 
+# indicates if user can add coupon codes to account
+# console.coupon-code-ui-enabled: false
+
 # the public address of the node, useful for nodes behind NAT
 contact.external-address: ""
 
