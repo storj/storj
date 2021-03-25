@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/rewards"
+	"storj.io/storj/satellite/analytics"
 )
 
 var mon = monkit.Package()
@@ -93,6 +94,7 @@ type Service struct {
 	buckets           Buckets
 	partners          *rewards.PartnersService
 	accounts          payments.Accounts
+	analytics		  *analytics.Service
 
 	config Config
 
@@ -113,7 +115,7 @@ type PaymentsService struct {
 }
 
 // NewService returns new instance of Service.
-func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, partners *rewards.PartnersService, accounts payments.Accounts, config Config, minCoinPayment int64) (*Service, error) {
+func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting accounting.ProjectAccounting, projectUsage *accounting.Service, buckets Buckets, partners *rewards.PartnersService, accounts payments.Accounts, analytics *analytics.Service, config Config, minCoinPayment int64) (*Service, error) {
 	if signer == nil {
 		return nil, errs.New("signer can't be nil")
 	}
@@ -137,6 +139,7 @@ func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting acco
 		buckets:           buckets,
 		partners:          partners,
 		accounts:          accounts,
+		analytics:         analytics,
 		config:            config,
 		minCoinPayment:    minCoinPayment,
 	}, nil
@@ -976,7 +979,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return nil, Error.Wrap(err)
 	}
 
-	err = s.checkProjectLimit(ctx, auth.User.ID)
+	currentProjectCount, err := s.checkProjectLimit(ctx, auth.User.ID)
 	if err != nil {
 		return nil, ErrProjLimit.Wrap(err)
 	}
@@ -1029,9 +1032,12 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 
 		return nil
 	})
+		
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+
+	s.analytics.TrackProjectCreated(auth.User.ID,currentProjectCount)
 
 	// ToDo: check if this is actually the right place.
 	err = s.accounts.Coupons().AddPromotionalCoupon(ctx, auth.User.ID)
@@ -1584,12 +1590,12 @@ func (s *Service) checkProjectCanBeDeleted(ctx context.Context, project uuid.UUI
 }
 
 // checkProjectLimit is used to check if user is able to create a new project.
-func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (err error) {
+func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (currentProjects int,err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	limit, err := s.store.Users().GetProjectLimit(ctx, userID)
 	if err != nil {
-		return Error.Wrap(err)
+		return 0,Error.Wrap(err)
 	}
 	if limit == 0 {
 		limit = s.config.DefaultProjectLimit
@@ -1597,14 +1603,14 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (err 
 
 	projects, err := s.GetUsersProjects(ctx)
 	if err != nil {
-		return Error.Wrap(err)
+		return 0,Error.Wrap(err)
 	}
 
 	if len(projects) >= limit {
-		return ErrProjLimit.New(projLimitErrMsg)
+		return 0,ErrProjLimit.New(projLimitErrMsg)
 	}
 
-	return nil
+	return len(projects),nil
 }
 
 // CreateRegToken creates new registration token. Needed for testing.

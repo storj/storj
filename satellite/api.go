@@ -589,6 +589,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Buckets(),
 			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,
+			peer.Analytics.Service,
 			consoleConfig.Config,
 			config.Payments.MinCoinPayment,
 		)
