@@ -36,7 +36,6 @@ import TokenDepositSelection from '@/components/account/billing/paymentMethods/T
 import VButton from '@/components/common/VButton.vue';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 const {
     MAKE_TOKEN_DEPOSIT,
@@ -93,10 +92,6 @@ export default class PayingStep extends Vue {
             await this.$notify.error(error.message);
             this.setDefaultState();
         }
-
-        this.$segment.track(SegmentEvent.PAYMENT_METHOD_ADDED, {
-            project_id: this.$store.getters.selectedProject.id,
-        });
 
         this.tokenDepositValue = this.DEFAULT_TOKEN_DEPOSIT_VALUE;
         try {

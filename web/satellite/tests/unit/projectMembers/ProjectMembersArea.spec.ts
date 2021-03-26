@@ -10,16 +10,13 @@ import { makeProjectMembersModule, PROJECT_MEMBER_MUTATIONS } from '@/store/modu
 import { makeProjectsModule } from '@/store/modules/projects';
 import { ProjectMember, ProjectMembersPage } from '@/types/projectMembers';
 import { Project } from '@/types/projects';
-import { SegmentioPlugin } from '@/utils/plugins/segment';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { ProjectMembersApiMock } from '../mock/api/projectMembers';
 import { ProjectsApiMock } from '../mock/api/projects';
 
 const localVue = createLocalVue();
-const segmentioPlugin = new SegmentioPlugin();
 localVue.use(Vuex);
-localVue.use(segmentioPlugin);
 
 const pmApi = new ProjectMembersApiMock();
 const projectMembersModule = makeProjectMembersModule(pmApi);
