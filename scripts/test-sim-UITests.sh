@@ -53,7 +53,7 @@ popd
 
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network run &
 go test "$SCRIPTDIR"/tests/UITests/.
-wormhole send "$SCRIPTDIR"/tests/UITests/screenshots/my1.png
+# wormhole send "$SCRIPTDIR"/tests/UITests/screenshots/my1.png
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network destroy
 
 # setup the network with ipv6
