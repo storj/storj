@@ -655,8 +655,6 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, err
 	}
 
-	// use only satellite values for Redundancy Scheme
-	pbRS := endpoint.defaultRS
 	streamID, err := uuid.New()
 	if err != nil {
 		endpoint.log.Error("internal", zap.Error(err))
@@ -696,7 +694,6 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		Bucket:               req.Bucket,
 		EncryptedObjectKey:   req.EncryptedPath,
 		Version:              int32(object.Version),
-		Redundancy:           pbRS,
 		CreationDate:         object.CreatedAt,
 		ExpirationDate:       req.ExpiresAt,
 		StreamId:             streamID[:],
@@ -716,7 +713,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		EncryptedPath:    req.EncryptedPath,
 		Version:          req.Version,
 		StreamId:         satStreamID,
-		RedundancyScheme: pbRS,
+		RedundancyScheme: endpoint.defaultRS,
 	}, nil
 }
 
@@ -1638,7 +1635,7 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 		return nil, err
 	}
 
-	redundancy, err := eestream.NewRedundancyStrategyFromProto(streamID.Redundancy)
+	redundancy, err := eestream.NewRedundancyStrategyFromProto(endpoint.defaultRS)
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
@@ -1740,16 +1737,15 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	}
 
 	// cheap basic verification
-
-	if numResults := len(req.UploadResult); numResults < int(streamID.Redundancy.GetSuccessThreshold()) {
+	if numResults := len(req.UploadResult); numResults < int(endpoint.defaultRS.GetSuccessThreshold()) {
 		endpoint.log.Debug("the results of uploaded pieces for the segment is below the redundancy optimal threshold",
 			zap.Int("upload pieces results", numResults),
-			zap.Int32("redundancy optimal threshold", streamID.Redundancy.GetSuccessThreshold()),
+			zap.Int32("redundancy optimal threshold", endpoint.defaultRS.GetSuccessThreshold()),
 			zap.Stringer("Segment ID", req.SegmentId),
 		)
 		return nil, rpcstatus.Errorf(rpcstatus.InvalidArgument,
 			"the number of results of uploaded pieces (%d) is below the optimal threshold (%d)",
-			numResults, streamID.Redundancy.GetSuccessThreshold(),
+			numResults, endpoint.defaultRS.GetSuccessThreshold(),
 		)
 	}
 
@@ -2458,7 +2454,6 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		ExpirationDate:     expires,
 		StreamId:           object.StreamID[:],
 		MultipartObject:    multipartObject,
-		Redundancy:         rs,
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(object.Encryption.CipherSuite),
 			BlockSize:   int64(object.Encryption.BlockSize),
@@ -2596,9 +2591,6 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 			ExpirationDate:     item.ExpiresAt,
 			StreamId:           entry.StreamID[:],
 			MultipartObject:    entry.FixedSegmentSize <= 0,
-			// TODO: defaultRS may change while the upload is pending.
-			// Ideally, we should remove redundancy from satStreamID.
-			Redundancy: endpoint.defaultRS,
 			EncryptionParameters: &pb.EncryptionParameters{
 				CipherSuite: pb.CipherSuite(entry.Encryption.CipherSuite),
 				BlockSize:   int64(entry.Encryption.BlockSize),
@@ -2756,7 +2748,6 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 		Bucket:             req.Bucket,
 		EncryptedObjectKey: req.EncryptedObjectKey,
 		Version:            int32(metabase.DefaultVersion),
-		Redundancy:         endpoint.defaultRS,
 		StreamId:           result.StreamID[:],
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(result.EncryptionParameters.CipherSuite),
