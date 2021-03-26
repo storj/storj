@@ -15,8 +15,7 @@
     "strictPropertyInitialization": false,
     "types": [
       "webpack-env",
-      "jest",
-      "segment-analytics"
+      "jest"
     ],
     "paths": {
       "@/*": [

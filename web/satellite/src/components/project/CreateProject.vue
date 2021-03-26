@@ -74,7 +74,6 @@ import {
     APP_STATE_ACTIONS,
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 
 @Component({
@@ -144,9 +143,6 @@ export default class NewProjectPopup extends Vue {
         try {
             const createdProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
             this.createdProjectId = createdProject.id;
-            this.$segment.track(SegmentEvent.PROJECT_CREATED, {
-                project_id: this.createdProjectId,
-            });
         } catch (error) {
             this.isLoading = false;
             await this.$notify.error(error.message);
