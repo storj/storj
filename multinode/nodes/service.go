@@ -22,6 +22,8 @@ var (
 
 	// Error is an error class for nodes service error.
 	Error = errs.Class("nodes")
+	// ErrNodeNotReachable is an error class that indicates that we are not able to establish drpc connection with node.
+	ErrNodeNotReachable = errs.Class("node is not reachable")
 )
 
 // Service exposes all nodes related logic.
@@ -261,15 +263,19 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 func (service *Service) TrustedSatellites(ctx context.Context) (_ storj.NodeURLs, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	nodes, err := service.nodes.List(ctx)
+	listNodes, err := service.nodes.List(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	var trustedSatellites storj.NodeURLs
-	for _, node := range nodes {
+	for _, node := range listNodes {
 		nodeURLs, err := service.trustedSatellites(ctx, node)
 		if err != nil {
+			if ErrNodeNotReachable.Has(err) {
+				continue
+			}
+
 			return nil, Error.Wrap(err)
 		}
 
@@ -288,7 +294,7 @@ func (service *Service) trustedSatellites(ctx context.Context, node Node) (_ sto
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return storj.NodeURLs{}, ErrNodeNotReachable.Wrap(err)
 	}
 
 	defer func() {

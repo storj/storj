@@ -90,6 +90,10 @@ func (service *Service) TotalUsage(ctx context.Context, from, to time.Time) (_ U
 	for _, node := range nodesList {
 		usage, err := service.dialUsage(ctx, node, from, to)
 		if err != nil {
+			if nodes.ErrNodeNotReachable.Has(err) {
+				continue
+			}
+
 			return Usage{}, Error.Wrap(err)
 		}
 
@@ -120,6 +124,10 @@ func (service *Service) TotalUsageSatellite(ctx context.Context, satelliteID sto
 	for _, node := range nodesList {
 		usage, err := service.dialUsageSatellite(ctx, node, satelliteID, from, to)
 		if err != nil {
+			if nodes.ErrNodeNotReachable.Has(err) {
+				continue
+			}
+
 			return Usage{}, Error.Wrap(err)
 		}
 
@@ -139,17 +147,21 @@ func (service *Service) TotalUsageSatellite(ctx context.Context, satelliteID sto
 func (service *Service) TotalDiskSpace(ctx context.Context) (totalDiskSpace DiskSpace, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	nodes, err := service.nodes.List(ctx)
+	listNodes, err := service.nodes.List(ctx)
 	if err != nil {
 		return DiskSpace{}, Error.Wrap(err)
 	}
 
-	for _, node := range nodes {
+	for _, node := range listNodes {
 		diskSpace, err := service.dialDiskSpace(ctx, node)
 		if err != nil {
-			// TODO: how should we handle offline node?
-			continue
+			if nodes.ErrNodeNotReachable.Has(err) {
+				continue
+			}
+
+			return DiskSpace{}, Error.Wrap(err)
 		}
+
 		totalDiskSpace.Add(diskSpace)
 	}
 
@@ -175,7 +187,7 @@ func (service *Service) dialDiskSpace(ctx context.Context, node nodes.Node) (dis
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return DiskSpace{}, Error.Wrap(err)
+		return DiskSpace{}, nodes.ErrNodeNotReachable.Wrap(err)
 	}
 	defer func() {
 		err = errs.Combine(err, conn.Close())
@@ -211,7 +223,7 @@ func (service *Service) dialUsage(ctx context.Context, node nodes.Node, from, to
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return Usage{}, Error.Wrap(err)
+		return Usage{}, nodes.ErrNodeNotReachable.Wrap(err)
 	}
 	defer func() {
 		err = errs.Combine(err, conn.Close())
@@ -254,7 +266,7 @@ func (service *Service) dialUsageSatellite(ctx context.Context, node nodes.Node,
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return Usage{}, Error.Wrap(err)
+		return Usage{}, nodes.ErrNodeNotReachable.Wrap(err)
 	}
 	defer func() {
 		err = errs.Combine(err, conn.Close())
