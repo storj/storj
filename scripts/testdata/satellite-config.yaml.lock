@@ -1,6 +1,9 @@
 # admin peer http listening address
 # admin.address: ""
 
+# enable analytics reporting
+# analytics.enabled: false
+
 # segment write key
 # analytics.segment-write-key: ""
 
