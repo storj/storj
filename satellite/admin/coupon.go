@@ -62,7 +62,7 @@ func (server *Server) addCoupon(w http.ResponseWriter, r *http.Request) {
 	coupon, err := server.db.StripeCoinPayments().Coupons().Insert(ctx, payments.Coupon{
 		UserID:      input.UserID,
 		Amount:      input.Amount,
-		Duration:    input.Duration,
+		Duration:    &input.Duration,
 		Description: input.Description,
 	})
 	if err != nil {

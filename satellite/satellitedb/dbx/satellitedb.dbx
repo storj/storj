@@ -1092,12 +1092,12 @@ model coupon_code (
     key    id
     unique name
 
-    field id          blob
-    field name        text
-    field amount      int64
-    field description text
-    field type        int
-    field duration    int64
+    field id              blob
+    field name            text
+    field amount          int64
+    field description     text
+    field type            int
+    field billing_periods int64 ( nullable )
 
     field created_at timestamp ( autoinsert )
 )
@@ -1121,6 +1121,7 @@ model coupon (
     field type             int
     field status           int   ( updatable )
     field duration         int64
+    field billing_periods  int64 ( nullable )
     field coupon_code_name text  ( nullable )
 
     field created_at timestamp ( autoinsert )
