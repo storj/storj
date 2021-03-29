@@ -140,10 +140,11 @@ func (service *Service) TrackSignedIn(userID uuid.UUID, email string) {
 	})
 }
 
-func (service *Service) TrackProjectCreated(userID uuid.UUID, currentProjectCount int) {
+func (service *Service) TrackProjectCreated(userID, projectID uuid.UUID, currentProjectCount int) {
 
 	props := segment.NewProperties()
 	props.Set("project_count", currentProjectCount)
+	props.Set("project_id", projectID.String())
 
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
