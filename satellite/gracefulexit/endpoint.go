@@ -40,6 +40,8 @@ var (
 
 // Endpoint for handling the transfer of pieces for Graceful Exit.
 type Endpoint struct {
+	pb.DRPCSatelliteGracefulExitUnimplementedServer
+
 	log            *zap.Logger
 	interval       time.Duration
 	signer         signing.Signer

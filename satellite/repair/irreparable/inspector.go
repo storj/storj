@@ -19,6 +19,8 @@ var (
 //
 // architecture: Endpoint
 type Inspector struct {
+	internalpb.DRPCIrreparableInspectorUnimplementedServer
+
 	irrdb DB
 }
 

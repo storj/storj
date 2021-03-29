@@ -26,6 +26,7 @@ var (
 
 // Endpoint implements the contact service Endpoints.
 type Endpoint struct {
+	pb.DRPCNodeUnimplementedServer
 	log     *zap.Logger
 	service *Service
 }
