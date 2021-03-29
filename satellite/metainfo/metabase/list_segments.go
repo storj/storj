@@ -116,6 +116,7 @@ type ListStreamPositionsResult struct {
 type SegmentPositionInfo struct {
 	Position          SegmentPosition
 	PlainSize         int32
+	PlainOffset       int64
 	CreatedAt         *time.Time // TODO: make it non-nilable after we migrate all existing segments to have creation time
 	EncryptedETag     []byte
 	EncryptedKeyNonce []byte
@@ -140,7 +141,7 @@ func (db *DB) ListStreamPositions(ctx context.Context, opts ListStreamPositions)
 
 	err = withRows(db.db.Query(ctx, `
 		SELECT
-			position, plain_size, created_at,
+			position, plain_size, plain_offset, created_at,
 			encrypted_etag, encrypted_key_nonce, encrypted_key
 		FROM segments
 		WHERE
@@ -152,7 +153,7 @@ func (db *DB) ListStreamPositions(ctx context.Context, opts ListStreamPositions)
 		for rows.Next() {
 			var segment SegmentPositionInfo
 			err = rows.Scan(
-				&segment.Position, &segment.PlainSize, &segment.CreatedAt,
+				&segment.Position, &segment.PlainSize, &segment.PlainOffset, &segment.CreatedAt,
 				&segment.EncryptedETag, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			)
 			if err != nil {

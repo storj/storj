@@ -1685,7 +1685,8 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 				PartNumber: int32(item.Position.Part),
 				Index:      int32(item.Position.Index),
 			},
-			PlainSize: int64(item.PlainSize),
+			PlainSize:   int64(item.PlainSize),
+			PlainOffset: item.PlainOffset,
 		}
 		if item.CreatedAt != nil {
 			items[i].CreatedAt = *item.CreatedAt
