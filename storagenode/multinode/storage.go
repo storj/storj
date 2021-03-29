@@ -20,6 +20,8 @@ var _ multinodepb.DRPCStorageServer = (*StorageEndpoint)(nil)
 //
 // architecture: Endpoint
 type StorageEndpoint struct {
+	multinodepb.DRPCStorageUnimplementedServer
+
 	log     *zap.Logger
 	apiKeys *apikeys.Service
 	monitor *monitor.Service

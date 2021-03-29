@@ -84,9 +84,8 @@ type API struct {
 	}
 
 	Overlay struct {
-		DB        overlay.DB
-		Service   *overlay.Service
-		Inspector *overlay.Inspector
+		DB      overlay.DB
+		Service *overlay.Service
 	}
 
 	Orders struct {
@@ -262,11 +261,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Name:  "overlay",
 			Close: peer.Overlay.Service.Close,
 		})
-
-		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
-		if err := internalpb.DRPCRegisterOverlayInspector(peer.Server.PrivateDRPC(), peer.Overlay.Inspector); err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 	}
 
 	{ // setup contact service

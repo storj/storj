@@ -6,6 +6,7 @@ package gc_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"testing"
 	"time"
@@ -27,6 +28,7 @@ import (
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
+	"storj.io/uplink/private/etag"
 	"storj.io/uplink/private/multipart"
 	"storj.io/uplink/private/testuplink"
 )
@@ -253,7 +255,8 @@ func startMultipartUpload(ctx context.Context, t *testing.T, uplink *testplanet.
 	info, err := multipart.NewMultipartUpload(ctx, project, bucketName, path, nil)
 	require.NoError(t, err)
 
-	_, err = multipart.PutObjectPart(ctx, project, bucketName, path, info.StreamID, 1, bytes.NewReader(data))
+	_, err = multipart.PutObjectPart(ctx, project, bucketName, path, info.StreamID, 1,
+		etag.NewHashReader(bytes.NewReader(data), sha256.New()))
 	require.NoError(t, err)
 
 	return info.StreamID

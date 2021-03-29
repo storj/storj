@@ -94,7 +94,6 @@ type Satellite struct {
 	Overlay struct {
 		DB           overlay.DB
 		Service      *overlay.Service
-		Inspector    *overlay.Inspector
 		DQStrayNodes *straynodes.Chore
 	}
 
@@ -445,10 +444,11 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			},
 			UpdateStatsBatchSize: 100,
 			AuditHistory: overlay.AuditHistoryConfig{
-				WindowSize:       10 * time.Minute,
-				TrackingPeriod:   time.Hour,
-				GracePeriod:      time.Hour,
-				OfflineThreshold: 0.6,
+				WindowSize:               10 * time.Minute,
+				TrackingPeriod:           time.Hour,
+				GracePeriod:              time.Hour,
+				OfflineThreshold:         0.6,
+				OfflineSuspensionEnabled: true,
 			},
 		},
 		StrayNodes: straynodes.Config{
@@ -706,7 +706,6 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 
 	system.Overlay.DB = api.Overlay.DB
 	system.Overlay.Service = api.Overlay.Service
-	system.Overlay.Inspector = api.Overlay.Inspector
 	system.Overlay.DQStrayNodes = peer.Overlay.DQStrayNodes
 
 	system.Metainfo.Database = api.Metainfo.Database

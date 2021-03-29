@@ -4,15 +4,21 @@
 <template>
     <div class="sort-header-container">
         <div class="sort-header-container__item">
-            <p class="sort-header-container__item__name">CREDIT TYPE</p>
+            <p class="sort-header-container__item__name">DATE USED</p>
         </div>
         <div class="sort-header-container__item">
-            <p class="sort-header-container__item__name">EXPIRATION</p>
+            <p class="sort-header-container__item__name">COUPON</p>
         </div>
         <div class="sort-header-container__item">
-            <p class="sort-header-container__item__name">EARNED AMOUNT</p>
+            <p class="sort-header-container__item__name">EXPIRES</p>
         </div>
-        <div class="sort-header-container__item available">
+        <div class="sort-header-container__item">
+            <p class="sort-header-container__item__name">CREDIT AMOUNT</p>
+        </div>
+        <div class="sort-header-container__item">
+            <p class="sort-header-container__item__name">AMOUNT USED</p>
+        </div>
+        <div class="sort-header-container__item">
             <p class="sort-header-container__item__name">AVAILABLE</p>
         </div>
     </div>
@@ -32,7 +38,7 @@ export default class SortingHeader extends Vue {}
 
         &__item {
             text-align: left;
-            min-width: 28%;
+            min-width: 16.6%;
 
             &__name {
                 font-family: 'font_regular', sans-serif;
@@ -46,8 +52,4 @@ export default class SortingHeader extends Vue {}
         }
     }
 
-    .available {
-        min-width: 16%;
-        text-align: right;
-    }
 </style>

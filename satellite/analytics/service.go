@@ -22,6 +22,7 @@ const (
 // Config is a configuration struct for analytics Service.
 type Config struct {
 	SegmentWriteKey string `help:"segment write key" default:""`
+	Enabled         bool   `help:"enable analytics reporting" default:"false"`
 }
 
 // Service for sending analytics.
@@ -37,17 +38,23 @@ type Service struct {
 
 // NewService creates new service for creating sending analytics.
 func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
-	return &Service{
+	service := &Service{
 		log:           log,
 		config:        config,
 		satelliteName: satelliteName,
-
-		segment: segment.New(config.SegmentWriteKey),
 	}
+	if config.Enabled {
+		service.segment = segment.New(config.SegmentWriteKey)
+	}
+	return service
 }
 
 // Close closes the Segment client.
 func (service *Service) Close() error {
+	if !service.config.Enabled {
+		return nil
+	}
+
 	return service.segment.Close()
 }
 
@@ -72,19 +79,27 @@ type TrackCreateUserFields struct {
 	JobTitle      string
 }
 
+func (service *Service) enqueueMessage(message segment.Message) {
+	if !service.config.Enabled {
+		return
+	}
+
+	err := service.segment.Enqueue(message)
+	if err != nil {
+		service.log.Error("Error enqueueing message", zap.Error(err))
+	}
+}
+
 // TrackCreateUser sends an "Account Created" event to Segment.
 func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 	traits := segment.NewTraits()
 	traits.SetName(fields.FullName)
 	traits.SetEmail(fields.Email)
 
-	err := service.segment.Enqueue(segment.Identify{
+	service.enqueueMessage(segment.Identify{
 		UserId: fields.ID.String(),
 		Traits: traits,
 	})
-	if err != nil {
-		service.log.Error("Error with identify event", zap.Error(err))
-	}
 
 	props := segment.NewProperties()
 	props.Set("email", fields.Email)
@@ -98,14 +113,11 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 		props.Set("job_title", fields.JobTitle)
 	}
 
-	err = service.segment.Enqueue(segment.Track{
+	service.enqueueMessage(segment.Track{
 		UserId:     fields.ID.String(),
 		Event:      eventAccountCreated,
 		Properties: props,
 	})
-	if err != nil {
-		service.log.Error("Error with track event", zap.Error(err))
-	}
 }
 
 func (service *Service) TrackSignedIn(userID uuid.UUID, email string) {

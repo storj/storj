@@ -376,5 +376,8 @@ diagrams-graphml:
 
 .PHONY: bump-dependencies
 bump-dependencies:
-	go get storj.io/common@main storj.io/private@main storj.io/uplink@multipart-upload
+	go get storj.io/common@main storj.io/private@main storj.io/uplink@main
 	go mod tidy
+
+update-proto-lock:
+	protolock commit --ignore "satellite/internalpb,storagenode/internalpb,cmd/metainfo-migration/fastpb"

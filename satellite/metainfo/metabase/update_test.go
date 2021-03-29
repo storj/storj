@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/storj"
@@ -317,6 +319,93 @@ func TestUpdateSegmentPieces(t *testing.T) {
 
 			expectedSegment := segment
 			expectedSegment.Pieces = expectedPieces
+			Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.Committed,
+						SegmentCount: 1,
+
+						TotalPlainSize:     512,
+						TotalEncryptedSize: 1024,
+						FixedSegmentSize:   512,
+
+						Encryption: defaultTestEncryption,
+					},
+				},
+				Segments: []metabase.RawSegment{
+					metabase.RawSegment(expectedSegment),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("update pieces and repair at", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			object := createObject(ctx, t, db, obj, 1)
+
+			segment, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: object.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+
+			expectedPieces := metabase.Pieces{
+				metabase.Piece{
+					Number:      1,
+					StorageNode: testrand.NodeID(),
+				},
+				metabase.Piece{
+					Number:      2,
+					StorageNode: testrand.NodeID(),
+				},
+			}
+
+			repairedAt := now.Add(time.Hour)
+			UpdateSegmentPieces{
+				Opts: metabase.UpdateSegmentPieces{
+					StreamID:      obj.StreamID,
+					Position:      metabase.SegmentPosition{Index: 0},
+					OldPieces:     segment.Pieces,
+					NewRedundancy: segment.Redundancy,
+					NewPieces:     expectedPieces,
+					NewRepairedAt: repairedAt,
+				},
+			}.Check(ctx, t, db)
+
+			expectedSegment := segment
+			expectedSegment.Pieces = expectedPieces
+			expectedSegment.RepairedAt = &repairedAt
+
+			segment, err = db.GetSegmentByLocation(ctx, metabase.GetSegmentByLocation{
+				SegmentLocation: metabase.SegmentLocation{
+					ProjectID:  object.ProjectID,
+					BucketName: object.BucketName,
+					ObjectKey:  object.ObjectKey,
+					Position:   metabase.SegmentPosition{Index: 0},
+				},
+			})
+			require.NoError(t, err)
+			diff := cmp.Diff(expectedSegment, segment, cmpopts.EquateApproxTime(5*time.Second))
+			require.Zero(t, diff)
+
+			segment, err = db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: object.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+			diff = cmp.Diff(expectedSegment, segment, cmpopts.EquateApproxTime(5*time.Second))
+			require.Zero(t, diff)
+
+			segment, err = db.GetSegmentByOffset(ctx, metabase.GetSegmentByOffset{
+				ObjectLocation: object.Location(),
+				PlainOffset:    0,
+			})
+			require.NoError(t, err)
+			diff = cmp.Diff(expectedSegment, segment, cmpopts.EquateApproxTime(5*time.Second))
+			require.Zero(t, diff)
+
 			Verify{
 				Objects: []metabase.RawObject{
 					{

@@ -15,7 +15,6 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metainfo/metabase"
-	"storj.io/storj/storage"
 )
 
 // ErrEmptyNode is returned when the nodeID is empty.
@@ -107,6 +106,8 @@ type DB interface {
 
 	// IterateAllNodes will call cb on all known nodes (used in restore trash contexts).
 	IterateAllNodes(context.Context, func(context.Context, *SelectedNode) error) error
+	// IterateAllNodes will call cb on all known nodes (used for invoice generation).
+	IterateAllNodeDossiers(context.Context, func(context.Context, *NodeDossier) error) error
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins.
@@ -301,13 +302,6 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 
 // Close closes resources.
 func (service *Service) Close() error { return nil }
-
-// Inspect lists limited number of items in the cache.
-func (service *Service) Inspect(ctx context.Context) (_ storage.Keys, err error) {
-	defer mon.Task()(&ctx)(&err)
-	// TODO: implement inspection tools
-	return nil, errors.New("not implemented")
-}
 
 // Get looks up the provided nodeID from the overlay.
 func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDossier, err error) {

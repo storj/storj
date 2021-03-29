@@ -25,6 +25,8 @@ var (
 //
 // architecture: Endpoint
 type Endpoint struct {
+	pb.DRPCHeldAmountUnimplementedServer
+
 	service    *Service
 	log        *zap.Logger
 	overlay    overlay.DB

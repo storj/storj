@@ -63,6 +63,7 @@ func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, sele
 			FROM nodes ` + asOf + `
 			WHERE disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
+			AND offline_suspended IS NULL
 			AND exit_initiated_at IS NULL
 			AND type = $1
 			AND free_disk >= $2
@@ -369,6 +370,7 @@ func (cache *overlaycache) knownUnreliableOrOffline(ctx context.Context, criteri
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
+			AND offline_suspended IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success > $2
 		`), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-criteria.OnlineWindow),
@@ -425,6 +427,7 @@ func (cache *overlaycache) knownReliable(ctx context.Context, onlineWindow time.
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
+			AND offline_suspended IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success > $2
 		`), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-onlineWindow),
@@ -473,6 +476,7 @@ func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeC
 		SELECT id FROM nodes `+asOf+`
 		WHERE disqualified IS NULL
 		AND unknown_audit_suspended IS NULL
+		AND offline_suspended IS NULL
 		AND exit_finished_at IS NULL
 		AND last_contact_success > ?
 	`), time.Now().Add(-criteria.OnlineWindow))
@@ -1438,15 +1442,26 @@ func (cache *overlaycache) populateUpdateNodeStats(dbNode *dbx.Node, updateReq *
 	// Updating node stats always exits it from containment mode
 	updateFields.Contained = boolField{set: true, value: false}
 
+	// always update online score
+	updateFields.OnlineScore = float64Field{set: true, value: auditHistoryResponse.NewScore}
+
+	// if suspension not enabled, skip penalization and unsuspend node if applicable
+	if !updateReq.AuditHistory.OfflineSuspensionEnabled {
+		if dbNode.OfflineSuspended != nil {
+			updateFields.OfflineSuspended = timeField{set: true, isNil: true}
+		}
+		if dbNode.UnderReview != nil {
+			updateFields.OfflineUnderReview = timeField{set: true, isNil: true}
+		}
+		return updateFields
+	}
+
 	// only penalize node if online score is below threshold and
 	// if it has enough completed windows to fill a tracking period
 	penalizeOfflineNode := false
 	if auditHistoryResponse.NewScore < updateReq.AuditHistory.OfflineThreshold && auditHistoryResponse.TrackingPeriodFull {
 		penalizeOfflineNode = true
 	}
-
-	// always update online score
-	updateFields.OnlineScore = float64Field{set: true, value: auditHistoryResponse.NewScore}
 
 	// Suspension and disqualification for offline nodes
 	if dbNode.UnderReview != nil {
@@ -1558,21 +1573,31 @@ func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *ove
 func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (count int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	q := `WITH cte AS (
-			SELECT id, last_contact_success
-			FROM nodes
-			WHERE last_contact_success < $1
-			AND disqualified is NULL
-			AND exit_finished_at is NULL 
-			LIMIT $2
-			)
-	 	UPDATE nodes n
-	 	SET    disqualified = current_timestamp 
-	 	FROM   cte
-	 	WHERE  n.id = cte.id
-	 	RETURNING n.id, n.last_contact_success;`
+	var nodeIDs []storj.NodeID
+	for {
+		nodeIDs, err = cache.getNodesForDQLastSeenBefore(ctx, cutoff, limit)
+		if err != nil {
+			if cockroachutil.NeedsRetry(err) {
+				continue
+			}
+			return 0, err
+		}
+		if len(nodeIDs) == 0 {
+			return 0, nil
+		}
+		break
+	}
 
-	rows, err := cache.db.Query(ctx, q, cutoff, limit)
+	var rows tagsql.Rows
+	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
+		UPDATE nodes
+		SET disqualified = current_timestamp
+		WHERE id = any($1::bytea[])
+			AND disqualified IS NULL
+			AND exit_finished_at IS NULL
+			AND last_contact_success < $2
+		RETURNING id, last_contact_success;
+	`), pgutil.NodeIDArray(nodeIDs), cutoff)
 	if err != nil {
 		return 0, err
 	}
@@ -1593,6 +1618,34 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 		count++
 	}
 	return count, rows.Err()
+}
+
+func (cache *overlaycache) getNodesForDQLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (nodes []storj.NodeID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
+		SELECT id
+		FROM nodes
+		WHERE last_contact_success < $1
+			AND disqualified is NULL
+			AND exit_finished_at is NULL
+		LIMIT $2
+	`), cutoff, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var nodeIDs []storj.NodeID
+	for rows.Next() {
+		var id storj.NodeID
+		err = rows.Scan(&id)
+		if err != nil {
+			return nil, err
+		}
+		nodeIDs = append(nodeIDs, id)
+	}
+	return nodeIDs, rows.Err()
 }
 
 // UpdateCheckIn updates a single storagenode with info from when the the node last checked in.
@@ -1748,4 +1801,34 @@ func (cache *overlaycache) IterateAllNodes(ctx context.Context, cb func(context.
 	}
 
 	return rows.Err()
+}
+
+// IterateAllNodeDossiers will call cb on all known nodes (used for invoice generation).
+func (cache *overlaycache) IterateAllNodeDossiers(ctx context.Context, cb func(context.Context, *overlay.NodeDossier) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	const nodesPerPage = 1000
+	var cont *dbx.Paged_Node_Continuation
+	var dbxNodes []*dbx.Node
+
+	for {
+		dbxNodes, cont, err = cache.db.Paged_Node(ctx, nodesPerPage, cont)
+		if err != nil {
+			return err
+		}
+
+		for _, node := range dbxNodes {
+			dossier, err := convertDBNode(ctx, node)
+			if err != nil {
+				return err
+			}
+			if err := cb(ctx, dossier); err != nil {
+				return err
+			}
+		}
+
+		if cont == nil {
+			return nil
+		}
+	}
 }

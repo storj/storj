@@ -115,6 +115,8 @@ setup_stage(){
     ln -f $src_sat_version_dir/bin/satellite $dest_sat_cfg_dir/satellite
     cp $src_sat_cfg_dir/config.yaml $dest_sat_cfg_dir
     replace_in_file "${src_sat_version_dir}" "${test_dir}" "${dest_sat_cfg_dir}/config.yaml"
+    replace_in_file "\# console.usage-limits.default-bandwidth-limit:.*" "console.usage-limits.default-bandwidth-limit: 500GB" "${dest_sat_cfg_dir}/config.yaml"
+    replace_in_file "\# console.usage-limits.default-storage-limit:.*" "console.usage-limits.default-storage-limit: 500GB" "${dest_sat_cfg_dir}/config.yaml"
 
     counter=0
     for sn_version in ${stage_sn_versions}; do
