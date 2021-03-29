@@ -163,7 +163,7 @@ func (service *Service) TrackAccessGrantCreated(userID uuid.UUID) {
 
 func (service *Service) TrackObjectUploaded(projectID uuid.UUID, uploadDate time.Time) {
 	props := segment.NewProperties()
-	props.Set("projectID", projectID)
+	props.Set("project_id", projectID.String())
 	props.Set("upload_date", uploadDate)
 
 	service.enqueueMessage(segment.Track{
