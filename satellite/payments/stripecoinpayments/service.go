@@ -69,7 +69,7 @@ type Service struct {
 	BonusRate int64
 	// Coupon Values
 	CouponValue        int64
-	CouponDuration     int64
+	CouponDuration     *int64
 	CouponProjectLimit memory.Size
 	// Minimum CoinPayment to create a coupon
 	MinCoinPayment int64
@@ -87,7 +87,7 @@ type Service struct {
 }
 
 // NewService creates a Service instance.
-func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string, bonusRate, couponValue, couponDuration int64, couponProjectLimit memory.Size, minCoinPayment int64, paywallProportion float64) (*Service, error) {
+func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB, projectsDB console.Projects, usageDB accounting.ProjectAccounting, storageTBPrice, egressTBPrice, objectPrice string, bonusRate, couponValue int64, couponDuration *int64, couponProjectLimit memory.Size, minCoinPayment int64, paywallProportion float64) (*Service, error) {
 
 	coinPaymentsClient := coinpayments.NewClient(
 		coinpayments.Credentials{
@@ -491,7 +491,10 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 				continue
 			}
 
-			if end.After(coupon.ExpirationDate()) {
+			expirationDate := coupon.ExpirationDate()
+			if expirationDate != nil &&
+				end.After(*expirationDate) {
+
 				// this coupon is identified as expired for first time, mark it in the database
 				if _, err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponExpired); err != nil {
 					return 0, 0, err
@@ -521,7 +524,7 @@ func (service *Service) processCustomers(ctx context.Context, customers []Custom
 				leftToCharge -= amountToChargeFromCoupon
 			}
 
-			if amountToChargeFromCoupon < remaining && end.Equal(coupon.ExpirationDate()) {
+			if amountToChargeFromCoupon < remaining && expirationDate != nil && end.Equal(*expirationDate) {
 				// the coupon was not fully spent, but this is the last month
 				// it is valid for, so mark it as expired in database
 				if _, err = service.db.Coupons().Update(ctx, coupon.ID, payments.CouponExpired); err != nil {

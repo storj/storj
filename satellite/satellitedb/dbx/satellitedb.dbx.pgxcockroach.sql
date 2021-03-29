@@ -75,6 +75,7 @@ CREATE TABLE coupons (
 	type integer NOT NULL,
 	status integer NOT NULL,
 	duration bigint NOT NULL,
+	billing_periods bigint,
 	coupon_code_name text,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
@@ -85,7 +86,7 @@ CREATE TABLE coupon_codes (
 	amount bigint NOT NULL,
 	description text NOT NULL,
 	type integer NOT NULL,
-	duration bigint NOT NULL,
+	billing_periods bigint,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id ),
 	UNIQUE ( name )

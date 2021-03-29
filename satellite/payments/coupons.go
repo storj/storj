@@ -32,7 +32,7 @@ type Coupons interface {
 	// PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have
 	// a project, payment method and do not have a promotional coupon yet.
 	// And updates project limits to selected size.
-	PopulatePromotionalCoupons(ctx context.Context, duration int, amount int64, projectLimit memory.Size) error
+	PopulatePromotionalCoupons(ctx context.Context, duration *int, amount int64, projectLimit memory.Size) error
 }
 
 // Coupon is an entity that adds some funds to Accounts balance for some fixed period.
@@ -42,7 +42,7 @@ type Coupon struct {
 	ID          uuid.UUID    `json:"id"`
 	UserID      uuid.UUID    `json:"userId"`
 	Amount      int64        `json:"amount"`   // Amount is stored in cents.
-	Duration    int          `json:"duration"` // Duration is stored in number ob billing periods.
+	Duration    *int         `json:"duration"` // Duration is stored in number of billing periods.
 	Description string       `json:"description"`
 	Type        CouponType   `json:"type"`
 	Status      CouponStatus `json:"status"`
@@ -54,8 +54,13 @@ type Coupon struct {
 // A coupon is valid for Duration number of full months. The month the user
 // signs up is not counted in the duration. The expirated date is at the last
 // day of the last valid month.
-func (coupon *Coupon) ExpirationDate() time.Time {
-	return time.Date(coupon.Created.Year(), coupon.Created.Month()+time.Month(coupon.Duration)+1, 0, 0, 0, 0, 0, time.UTC)
+func (coupon *Coupon) ExpirationDate() *time.Time {
+	if coupon.Duration == nil {
+		return nil
+	}
+
+	expireDate := time.Date(coupon.Created.Year(), coupon.Created.Month()+time.Month(*coupon.Duration)+1, 0, 0, 0, 0, 0, time.UTC)
+	return &expireDate
 }
 
 // CouponType indicates the type of the coupon.

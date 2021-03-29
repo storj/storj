@@ -512,7 +512,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.bonus-rate: 10
 
 # duration a new coupon is valid in months/billing cycles
-# payments.coupon-duration: 2
+# payments.coupon-duration: "2"
 
 # project limit to which increase to after applying the coupon, 0 B means not changing it from the default
 # payments.coupon-project-limit: 0 B
