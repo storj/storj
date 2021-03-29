@@ -16,7 +16,6 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/identity/testidentity"
-	"storj.io/common/pb"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/pkcrypto"
 	"storj.io/common/rpc"
@@ -26,6 +25,7 @@ import (
 	"storj.io/storj/certificate"
 	"storj.io/storj/certificate/authorization"
 	"storj.io/storj/certificate/certificateclient"
+	"storj.io/storj/certificate/certificatepb"
 	"storj.io/storj/pkg/server"
 )
 
@@ -172,7 +172,7 @@ func TestCertificateSigner_Sign(t *testing.T) {
 			peerCtx := rpcpeer.NewContext(ctx, peer)
 
 			certSigner := certificate.NewEndpoint(zaptest.NewLogger(t), ca, authDB, 0)
-			req := pb.SigningRequest{
+			req := certificatepb.SigningRequest{
 				Timestamp: time.Now().Unix(),
 				AuthToken: auths[0].Token.String(),
 			}
