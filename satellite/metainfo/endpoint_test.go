@@ -6,6 +6,7 @@ package metainfo_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -17,6 +18,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/uplink/private/etag"
 	"storj.io/uplink/private/multipart"
 )
 
@@ -55,7 +57,8 @@ func TestEndpoint_DeletePendingObject(t *testing.T) {
 		info, err := multipart.NewMultipartUpload(ctx, project, bucketName, "object-filename", &multipart.UploadOptions{})
 		require.NoError(t, err, "failed to start multipart upload")
 
-		_, err = multipart.PutObjectPart(ctx, project, bucketName, bucketName, info.StreamID, 1, bytes.NewReader(data))
+		_, err = multipart.PutObjectPart(ctx, project, bucketName, bucketName, info.StreamID, 1,
+			etag.NewHashReader(bytes.NewReader(data), sha256.New()))
 		require.NoError(t, err, "failed to put object part")
 	}
 	deleteObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
@@ -112,7 +115,8 @@ func TestEndpoint_DeleteObjectAnyStatus(t *testing.T) {
 		info, err := multipart.NewMultipartUpload(ctx, project, bucketName, "object-filename", &multipart.UploadOptions{})
 		require.NoError(t, err, "failed to start multipart upload")
 
-		_, err = multipart.PutObjectPart(ctx, project, bucketName, bucketName, info.StreamID, 1, bytes.NewReader(data))
+		_, err = multipart.PutObjectPart(ctx, project, bucketName, bucketName, info.StreamID, 1,
+			etag.NewHashReader(bytes.NewReader(data), sha256.New()))
 		require.NoError(t, err, "failed to put object part")
 	}
 

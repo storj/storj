@@ -6,6 +6,7 @@ package gracefulexit_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"testing"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/uplink/private/etag"
 	"storj.io/uplink/private/multipart"
 )
 
@@ -59,7 +61,8 @@ func TestChore(t *testing.T) {
 		info, err := multipart.NewMultipartUpload(ctx, project, "testbucket", "test/path3", nil)
 		require.NoError(t, err)
 
-		_, err = multipart.PutObjectPart(ctx, project, "testbucket", "test/path3", info.StreamID, 1, bytes.NewReader(testrand.Bytes(5*memory.KiB)))
+		_, err = multipart.PutObjectPart(ctx, project, "testbucket", "test/path3", info.StreamID, 1,
+			etag.NewHashReader(bytes.NewReader(testrand.Bytes(5*memory.KiB)), sha256.New()))
 		require.NoError(t, err)
 
 		exitStatusRequest := overlay.ExitStatusRequest{
@@ -168,7 +171,8 @@ func TestDurabilityRatio(t *testing.T) {
 		info, err := multipart.NewMultipartUpload(ctx, project, "testbucket", "test/path2", nil)
 		require.NoError(t, err)
 
-		_, err = multipart.PutObjectPart(ctx, project, "testbucket", "test/path2", info.StreamID, 1, bytes.NewReader(testrand.Bytes(5*memory.KiB)))
+		_, err = multipart.PutObjectPart(ctx, project, "testbucket", "test/path2", info.StreamID, 1,
+			etag.NewHashReader(bytes.NewReader(testrand.Bytes(5*memory.KiB)), sha256.New()))
 		require.NoError(t, err)
 
 		exitStatusRequest := overlay.ExitStatusRequest{
