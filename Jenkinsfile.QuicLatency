@@ -1,0 +1,68 @@
+def lastStage = ''
+node('node') {
+  properties([disableConcurrentBuilds()])
+  try {
+    currentBuild.result = "SUCCESS"
+
+    stage('Checkout') {
+      lastStage = env.STAGE_NAME
+      checkout scm
+
+      echo "Current build result: ${currentBuild.result}"
+    }
+
+    stage('Run Latency Tests') {
+        lastStage = env.STAGE_NAME
+        try {
+          echo "Running QuicLatency"
+
+          env.STORJ_SIM_POSTGRES = 'postgres://postgres@postgres:5432/teststorj?sslmode=disable'
+          env.STORJ_SIM_REDIS = 'redis:6379'
+          env.STORJ_NETWORK_HOST4 = "satellite-lat-$BUILD_NUMBER"
+          
+          echo "STORJ_SIM_POSTGRES: $STORJ_SIM_POSTGRES"
+          echo "STORJ_SIM_REDIS: $STORJ_SIM_REDIS"
+          echo "STORJ_NETWORK_HOST4: $STORJ_NETWORK_HOST4"
+
+          sh 'docker run --rm -d -e POSTGRES_HOST_AUTH_METHOD=trust --name postgres-lat-$BUILD_NUMBER postgres:12.3'
+          sh 'docker run --rm -d --name redis-lat-$BUILD_NUMBER redis:latest'
+
+          sh '''until $(docker logs postgres-lat-$BUILD_NUMBER | grep "database system is ready to accept connections" > /dev/null)
+                do printf '.'
+                sleep 5
+                done
+            '''
+          sh 'docker exec postgres-lat-$BUILD_NUMBER createdb -U postgres teststorj'
+          def dockerImage = docker.build("storj-ci", "--pull https://github.com/storj/ci.git#main")
+          sh 'chmod +x $PWD/scripts/test-sim-QuicLatency.sh'
+          sh 'if [ -d "data" ]; then rm -Rf data; fi'
+          sh 'mkdir data'
+          sh 'docker run --name satellite-lat-$BUILD_NUMBER --hostname satellite-lat-$BUILD_NUMBER --cap-add=NET_ADMIN -u $(id -u):$(id -g) --rm -d -v $PWD:$PWD -w $PWD --entrypoint $PWD/scripts/test-sim-QuicLatency.sh -e STORJ_SIM_POSTGRES -e STORJ_SIM_REDIS -e STORJ_NETWORK_HOST4 --link redis-lat-$BUILD_NUMBER:redis --link postgres-lat-$BUILD_NUMBER:postgres -e CC=gcc storj-ci' 
+          echo "#### Start Uplink container ############################################################################"
+          sh 'docker run --name uplink-lat-$BUILD_NUMBER --hostname uplink --cap-add=NET_ADMIN -u $(id -u):$(id -g) --rm -i -v $PWD:$PWD -v /var/run/docker.sock:/var/run/docker.sock -v $(which docker):/usr/bin/docker -w $PWD --entrypoint $PWD/scripts/test-sim-QuicLatency.sh --link satellite-lat-$BUILD_NUMBER -e STORJ_NETWORK_HOST4 -e BUILD_NUMBER -e CC=gcc storj-ci'      
+          archiveArtifacts artifacts: 'data/*'
+        }
+        catch(err){
+            throw err
+        }
+        finally {
+          sh 'docker stop postgres-lat-$BUILD_NUMBER || true'
+          sh 'docker stop redis-lat-$BUILD_NUMBER || true'
+          sh 'docker stop satellite-lat-$BUILD_NUMBER || true'
+        }
+    }
+
+  }
+  catch (err) {
+    echo "Caught errors! ${err}"
+    echo "Setting build result to FAILURE"
+    currentBuild.result = "FAILURE"
+    throw err
+  }
+  finally {
+    stage('Cleanup') {
+      deleteDir()
+    }
+
+  }
+}
