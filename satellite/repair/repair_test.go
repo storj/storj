@@ -6,6 +6,7 @@ package repair_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"io"
 	"math"
 	"testing"
@@ -26,6 +27,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/storage"
+	"storj.io/uplink/private/etag"
 	"storj.io/uplink/private/multipart"
 )
 
@@ -222,7 +224,8 @@ func testDataRepairPendingObject(t *testing.T, inMemoryRepair bool) {
 		// upload pending object
 		info, err := multipart.NewMultipartUpload(ctx, project, "testbucket", "test/path", nil)
 		require.NoError(t, err)
-		_, err = multipart.PutObjectPart(ctx, project, "testbucket", "test/path", info.StreamID, 7, bytes.NewReader(testData))
+		_, err = multipart.PutObjectPart(ctx, project, "testbucket", "test/path", info.StreamID, 7,
+			etag.NewHashReader(bytes.NewReader(testData), sha256.New()))
 		require.NoError(t, err)
 
 		segment, _ := getRemoteSegment(t, ctx, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")

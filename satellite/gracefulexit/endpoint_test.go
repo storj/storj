@@ -6,6 +6,7 @@ package gracefulexit_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"io"
 	"strconv"
 	"testing"
@@ -35,6 +36,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/gracefulexit"
+	"storj.io/uplink/private/etag"
 	"storj.io/uplink/private/multipart"
 )
 
@@ -1104,12 +1106,14 @@ func TestSegmentChangedOrDeletedMultipart(t *testing.T) {
 		// TODO: activate when an object part can be overwritten
 		// info0, err := multipart.NewMultipartUpload(ctx, project, "testbucket", "test/path0", nil)
 		// require.NoError(t, err)
-		// _, err = multipart.PutObjectPart(ctx, project, "testbucket", "test/path0", info0.StreamID, 1, bytes.NewReader(testrand.Bytes(5*memory.KiB)))
+		// _, err = multipart.PutObjectPart(ctx, project, "testbucket", "test/path0", info0.StreamID, 1,
+		//	etag.NewHashReader(bytes.NewReader(testrand.Bytes(5*memory.KiB)), sha256.New()))
 		// require.NoError(t, err)
 
 		info1, err := multipart.NewMultipartUpload(ctx, project, "testbucket", "test/path1", nil)
 		require.NoError(t, err)
-		_, err = multipart.PutObjectPart(ctx, project, "testbucket", "test/path1", info1.StreamID, 1, bytes.NewReader(testrand.Bytes(5*memory.KiB)))
+		_, err = multipart.PutObjectPart(ctx, project, "testbucket", "test/path1", info1.StreamID, 1,
+			etag.NewHashReader(bytes.NewReader(testrand.Bytes(5*memory.KiB)), sha256.New()))
 		require.NoError(t, err)
 
 		// check that there are no exiting nodes.
@@ -1475,7 +1479,8 @@ func testTransfers(t *testing.T, objects int, multipartObjects int, verifier fun
 			info, err := multipart.NewMultipartUpload(ctx, project, "testbucket", objectName, nil)
 			require.NoError(t, err)
 
-			_, err = multipart.PutObjectPart(ctx, project, "testbucket", objectName, info.StreamID, 1, bytes.NewReader(testrand.Bytes(5*memory.KiB)))
+			_, err = multipart.PutObjectPart(ctx, project, "testbucket", objectName, info.StreamID, 1,
+				etag.NewHashReader(bytes.NewReader(testrand.Bytes(5*memory.KiB)), sha256.New()))
 			require.NoError(t, err)
 		}
 
