@@ -6,8 +6,6 @@ package overlay
 import (
 	"context"
 
-	"github.com/zeebo/errs"
-
 	"storj.io/storj/satellite/internalpb"
 )
 
@@ -15,6 +13,7 @@ import (
 //
 // architecture: Endpoint
 type Inspector struct {
+	internalpb.DRPCOverlayInspectorUnimplementedServer
 	service *Service
 }
 
@@ -34,10 +33,4 @@ func (srv *Inspector) CountNodes(ctx context.Context, req *internalpb.CountNodes
 	return &internalpb.CountNodesResponse{
 		Count: int64(len(overlayKeys)),
 	}, nil
-}
-
-// DumpNodes returns all of the nodes in the overlay.
-func (srv *Inspector) DumpNodes(ctx context.Context, req *internalpb.DumpNodesRequest) (_ *internalpb.DumpNodesResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return &internalpb.DumpNodesResponse{}, errs.New("Not Implemented")
 }

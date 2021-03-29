@@ -62,6 +62,8 @@ type APIKeys interface {
 //
 // architecture: Endpoint
 type Endpoint struct {
+	pb.DRPCMetainfoUnimplementedServer
+
 	log                  *zap.Logger
 	metainfo             *Service
 	deletePieces         *piecedeletion.Service
@@ -1001,13 +1003,6 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	return resp, nil
 }
 
-// GetPendingObjects get pending objects according to specific parameters.
-func (endpoint *Endpoint) GetPendingObjects(ctx context.Context, req *pb.GetPendingObjectsRequest) (resp *pb.GetPendingObjectsResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Not Implemented")
-}
-
 // ListPendingObjectStreams list pending objects according to specific parameters.
 func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.ObjectListPendingStreamsRequest) (resp *pb.ObjectListPendingStreamsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1193,12 +1188,6 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 	return &pb.ObjectBeginDeleteResponse{
 		Object: object,
 	}, nil
-}
-
-// FinishDeleteObject finishes object deletion.
-func (endpoint *Endpoint) FinishDeleteObject(ctx context.Context, req *pb.ObjectFinishDeleteRequest) (resp *pb.ObjectFinishDeleteResponse, err error) {
-	// all logic for deleting is now in BeginDeleteObject
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "not implemented")
 }
 
 // GetObjectIPs returns the IP addresses of the nodes holding the pieces for
@@ -1643,18 +1632,6 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 	return nil, &pb.SegmentMakeInlineResponse{}, nil
 }
 
-// BeginDeleteSegment begins segment deletion process.
-func (endpoint *Endpoint) BeginDeleteSegment(ctx context.Context, req *pb.SegmentBeginDeleteRequest) (resp *pb.SegmentBeginDeleteResponse, err error) {
-	// all logic for deleting is now in BeginDeleteObject
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "not implemented")
-}
-
-// FinishDeleteSegment finishes segment deletion process.
-func (endpoint *Endpoint) FinishDeleteSegment(ctx context.Context, req *pb.SegmentFinishDeleteRequest) (resp *pb.SegmentFinishDeleteResponse, err error) {
-	// all logic for deleting is now in BeginDeleteObject
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "not implemented")
-}
-
 // ListSegments list object segments.
 func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListRequest) (resp *pb.SegmentListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1727,12 +1704,6 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		More:                 result.More,
 		EncryptionParameters: streamID.EncryptionParameters,
 	}, nil
-}
-
-// DownloadObject returns all the information necessary to begin downloading an object in a single request.
-func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDownloadRequest) (resp *pb.ObjectDownloadResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-	return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Not Implemented")
 }
 
 // DownloadSegment returns data necessary to download segment.

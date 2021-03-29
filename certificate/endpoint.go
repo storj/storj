@@ -18,6 +18,8 @@ import (
 
 // Endpoint implements pb.CertificatesServer.
 type Endpoint struct {
+	pb.DRPCCertificatesUnimplementedServer
+
 	rpclog          *rpcerrs.Log
 	log             *zap.Logger
 	ca              *identity.FullCertificateAuthority

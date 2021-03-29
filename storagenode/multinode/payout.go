@@ -20,6 +20,8 @@ var _ multinodepb.DRPCPayoutServer = (*PayoutEndpoint)(nil)
 //
 // architecture: Endpoint
 type PayoutEndpoint struct {
+	multinodepb.DRPCPayoutUnimplementedServer
+
 	log     *zap.Logger
 	apiKeys *apikeys.Service
 	db      payouts.DB

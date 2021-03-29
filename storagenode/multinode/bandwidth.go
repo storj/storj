@@ -21,6 +21,8 @@ var _ multinodepb.DRPCBandwidthServer = (*BandwidthEndpoint)(nil)
 //
 // architecture: Endpoint
 type BandwidthEndpoint struct {
+	multinodepb.DRPCBandwidthUnimplementedServer
+
 	log     *zap.Logger
 	apiKeys *apikeys.Service
 	db      bandwidth.DB
