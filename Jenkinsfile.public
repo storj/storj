@@ -58,6 +58,8 @@ pipeline {
                         sh 'check-mod-tidy -mod .build/go.mod.orig'
                         sh 'make check-monitoring'
                         sh 'make test-wasm-size'
+
+                        sh 'protolock status'
                     }
                 }
 

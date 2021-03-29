@@ -1,0 +1,880 @@
+{
+  "definitions": [
+    {
+      "protopath": "certificate:/:certificatepb:/:certificate.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "SigningRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "auth_token",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "timestamp",
+                "type": "int32"
+              }
+            ]
+          },
+          {
+            "name": "SigningResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "chain",
+                "type": "bytes",
+                "is_repeated": true
+              }
+            ]
+          }
+        ],
+        "services": [
+          {
+            "name": "Certificates",
+            "rpcs": [
+              {
+                "name": "Sign",
+                "in_type": "SigningRequest",
+                "out_type": "SigningResponse"
+              }
+            ]
+          }
+        ],
+        "package": {
+          "name": "node"
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "storj.io/storj/certificate/certificatepb"
+          }
+        ]
+      }
+    },
+    {
+      "protopath": "private:/:multinodepb:/:gogo.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "google.protobuf.EnumOptions",
+            "fields": [
+              {
+                "id": 62001,
+                "name": "goproto_enum_prefix",
+                "type": "bool"
+              },
+              {
+                "id": 62021,
+                "name": "goproto_enum_stringer",
+                "type": "bool"
+              },
+              {
+                "id": 62022,
+                "name": "enum_stringer",
+                "type": "bool"
+              },
+              {
+                "id": 62023,
+                "name": "enum_customname",
+                "type": "string"
+              },
+              {
+                "id": 62024,
+                "name": "enumdecl",
+                "type": "bool"
+              }
+            ]
+          },
+          {
+            "name": "google.protobuf.EnumValueOptions",
+            "fields": [
+              {
+                "id": 66001,
+                "name": "enumvalue_customname",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "google.protobuf.FileOptions",
+            "fields": [
+              {
+                "id": 63001,
+                "name": "goproto_getters_all",
+                "type": "bool"
+              },
+              {
+                "id": 63002,
+                "name": "goproto_enum_prefix_all",
+                "type": "bool"
+              },
+              {
+                "id": 63003,
+                "name": "goproto_stringer_all",
+                "type": "bool"
+              },
+              {
+                "id": 63004,
+                "name": "verbose_equal_all",
+                "type": "bool"
+              },
+              {
+                "id": 63005,
+                "name": "face_all",
+                "type": "bool"
+              },
+              {
+                "id": 63006,
+                "name": "gostring_all",
+                "type": "bool"
+              },
+              {
+                "id": 63007,
+                "name": "populate_all",
+                "type": "bool"
+              },
+              {
+                "id": 63008,
+                "name": "stringer_all",
+                "type": "bool"
+              },
+              {
+                "id": 63009,
+                "name": "onlyone_all",
+                "type": "bool"
+              },
+              {
+                "id": 63013,
+                "name": "equal_all",
+                "type": "bool"
+              },
+              {
+                "id": 63014,
+                "name": "description_all",
+                "type": "bool"
+              },
+              {
+                "id": 63015,
+                "name": "testgen_all",
+                "type": "bool"
+              },
+              {
+                "id": 63016,
+                "name": "benchgen_all",
+                "type": "bool"
+              },
+              {
+                "id": 63017,
+                "name": "marshaler_all",
+                "type": "bool"
+              },
+              {
+                "id": 63018,
+                "name": "unmarshaler_all",
+                "type": "bool"
+              },
+              {
+                "id": 63019,
+                "name": "stable_marshaler_all",
+                "type": "bool"
+              },
+              {
+                "id": 63020,
+                "name": "sizer_all",
+                "type": "bool"
+              },
+              {
+                "id": 63021,
+                "name": "goproto_enum_stringer_all",
+                "type": "bool"
+              },
+              {
+                "id": 63022,
+                "name": "enum_stringer_all",
+                "type": "bool"
+              },
+              {
+                "id": 63023,
+                "name": "unsafe_marshaler_all",
+                "type": "bool"
+              },
+              {
+                "id": 63024,
+                "name": "unsafe_unmarshaler_all",
+                "type": "bool"
+              },
+              {
+                "id": 63025,
+                "name": "goproto_extensions_map_all",
+                "type": "bool"
+              },
+              {
+                "id": 63026,
+                "name": "goproto_unrecognized_all",
+                "type": "bool"
+              },
+              {
+                "id": 63027,
+                "name": "gogoproto_import",
+                "type": "bool"
+              },
+              {
+                "id": 63028,
+                "name": "protosizer_all",
+                "type": "bool"
+              },
+              {
+                "id": 63029,
+                "name": "compare_all",
+                "type": "bool"
+              },
+              {
+                "id": 63030,
+                "name": "typedecl_all",
+                "type": "bool"
+              },
+              {
+                "id": 63031,
+                "name": "enumdecl_all",
+                "type": "bool"
+              },
+              {
+                "id": 63032,
+                "name": "goproto_registration",
+                "type": "bool"
+              },
+              {
+                "id": 63033,
+                "name": "messagename_all",
+                "type": "bool"
+              },
+              {
+                "id": 63034,
+                "name": "goproto_sizecache_all",
+                "type": "bool"
+              },
+              {
+                "id": 63035,
+                "name": "goproto_unkeyed_all",
+                "type": "bool"
+              }
+            ]
+          },
+          {
+            "name": "google.protobuf.MessageOptions",
+            "fields": [
+              {
+                "id": 64001,
+                "name": "goproto_getters",
+                "type": "bool"
+              },
+              {
+                "id": 64003,
+                "name": "goproto_stringer",
+                "type": "bool"
+              },
+              {
+                "id": 64004,
+                "name": "verbose_equal",
+                "type": "bool"
+              },
+              {
+                "id": 64005,
+                "name": "face",
+                "type": "bool"
+              },
+              {
+                "id": 64006,
+                "name": "gostring",
+                "type": "bool"
+              },
+              {
+                "id": 64007,
+                "name": "populate",
+                "type": "bool"
+              },
+              {
+                "id": 67008,
+                "name": "stringer",
+                "type": "bool"
+              },
+              {
+                "id": 64009,
+                "name": "onlyone",
+                "type": "bool"
+              },
+              {
+                "id": 64013,
+                "name": "equal",
+                "type": "bool"
+              },
+              {
+                "id": 64014,
+                "name": "description",
+                "type": "bool"
+              },
+              {
+                "id": 64015,
+                "name": "testgen",
+                "type": "bool"
+              },
+              {
+                "id": 64016,
+                "name": "benchgen",
+                "type": "bool"
+              },
+              {
+                "id": 64017,
+                "name": "marshaler",
+                "type": "bool"
+              },
+              {
+                "id": 64018,
+                "name": "unmarshaler",
+                "type": "bool"
+              },
+              {
+                "id": 64019,
+                "name": "stable_marshaler",
+                "type": "bool"
+              },
+              {
+                "id": 64020,
+                "name": "sizer",
+                "type": "bool"
+              },
+              {
+                "id": 64023,
+                "name": "unsafe_marshaler",
+                "type": "bool"
+              },
+              {
+                "id": 64024,
+                "name": "unsafe_unmarshaler",
+                "type": "bool"
+              },
+              {
+                "id": 64025,
+                "name": "goproto_extensions_map",
+                "type": "bool"
+              },
+              {
+                "id": 64026,
+                "name": "goproto_unrecognized",
+                "type": "bool"
+              },
+              {
+                "id": 64028,
+                "name": "protosizer",
+                "type": "bool"
+              },
+              {
+                "id": 64030,
+                "name": "typedecl",
+                "type": "bool"
+              },
+              {
+                "id": 64033,
+                "name": "messagename",
+                "type": "bool"
+              },
+              {
+                "id": 64034,
+                "name": "goproto_sizecache",
+                "type": "bool"
+              },
+              {
+                "id": 64035,
+                "name": "goproto_unkeyed",
+                "type": "bool"
+              }
+            ]
+          },
+          {
+            "name": "google.protobuf.FieldOptions",
+            "fields": [
+              {
+                "id": 65001,
+                "name": "nullable",
+                "type": "bool"
+              },
+              {
+                "id": 65002,
+                "name": "embed",
+                "type": "bool"
+              },
+              {
+                "id": 65003,
+                "name": "customtype",
+                "type": "string"
+              },
+              {
+                "id": 65004,
+                "name": "customname",
+                "type": "string"
+              },
+              {
+                "id": 65005,
+                "name": "jsontag",
+                "type": "string"
+              },
+              {
+                "id": 65006,
+                "name": "moretags",
+                "type": "string"
+              },
+              {
+                "id": 65007,
+                "name": "casttype",
+                "type": "string"
+              },
+              {
+                "id": 65008,
+                "name": "castkey",
+                "type": "string"
+              },
+              {
+                "id": 65009,
+                "name": "castvalue",
+                "type": "string"
+              },
+              {
+                "id": 65010,
+                "name": "stdtime",
+                "type": "bool"
+              },
+              {
+                "id": 65011,
+                "name": "stdduration",
+                "type": "bool"
+              },
+              {
+                "id": 65012,
+                "name": "wktpointer",
+                "type": "bool"
+              },
+              {
+                "id": 65013,
+                "name": "compare",
+                "type": "bool"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "google/protobuf/descriptor.proto"
+          }
+        ],
+        "package": {
+          "name": "gogoproto"
+        },
+        "options": [
+          {
+            "name": "java_package",
+            "value": "com.google.protobuf"
+          },
+          {
+            "name": "java_outer_classname",
+            "value": "GoGoProtos"
+          }
+        ]
+      }
+    },
+    {
+      "protopath": "private:/:multinodepb:/:multinode.proto",
+      "def": {
+        "messages": [
+          {
+            "name": "RequestHeader",
+            "fields": [
+              {
+                "id": 1,
+                "name": "api_key",
+                "type": "bytes"
+              }
+            ]
+          },
+          {
+            "name": "DiskSpaceRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
+              }
+            ]
+          },
+          {
+            "name": "DiskSpaceResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "allocated",
+                "type": "int64"
+              },
+              {
+                "id": 2,
+                "name": "used_pieces",
+                "type": "int64"
+              },
+              {
+                "id": 3,
+                "name": "used_trash",
+                "type": "int64"
+              },
+              {
+                "id": 4,
+                "name": "free",
+                "type": "int64"
+              },
+              {
+                "id": 5,
+                "name": "available",
+                "type": "int64"
+              },
+              {
+                "id": 6,
+                "name": "overused",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "BandwidthMonthSummaryRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
+              }
+            ]
+          },
+          {
+            "name": "BandwidthMonthSummaryResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "used",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "VersionRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
+              }
+            ]
+          },
+          {
+            "name": "VersionResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "version",
+                "type": "string"
+              }
+            ]
+          },
+          {
+            "name": "LastContactRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
+              }
+            ]
+          },
+          {
+            "name": "LastContactResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "last_contact",
+                "type": "google.protobuf.Timestamp",
+                "options": [
+                  {
+                    "name": "(gogoproto.stdtime)",
+                    "value": "true"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "ReputationRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
+              },
+              {
+                "id": 2,
+                "name": "satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "ReputationResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "online",
+                "type": "Online"
+              },
+              {
+                "id": 2,
+                "name": "audit",
+                "type": "Audit"
+              }
+            ],
+            "messages": [
+              {
+                "name": "Online",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "score",
+                    "type": "double"
+                  }
+                ]
+              },
+              {
+                "name": "Audit",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "score",
+                    "type": "double"
+                  },
+                  {
+                    "id": 2,
+                    "name": "suspension_score",
+                    "type": "double"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "TrustedSatellitesRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
+              }
+            ]
+          },
+          {
+            "name": "TrustedSatellitesResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "trusted_satellites",
+                "type": "NodeURL",
+                "is_repeated": true
+              }
+            ],
+            "messages": [
+              {
+                "name": "NodeURL",
+                "fields": [
+                  {
+                    "id": 1,
+                    "name": "node_id",
+                    "type": "bytes",
+                    "options": [
+                      {
+                        "name": "(gogoproto.customtype)",
+                        "value": "NodeID"
+                      },
+                      {
+                        "name": "(gogoproto.nullable)",
+                        "value": "false"
+                      }
+                    ]
+                  },
+                  {
+                    "id": 2,
+                    "name": "address",
+                    "type": "string"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "EarnedRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
+              }
+            ]
+          },
+          {
+            "name": "EarnedResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "total",
+                "type": "int64"
+              }
+            ]
+          },
+          {
+            "name": "EarnedPerSatelliteRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
+              }
+            ]
+          },
+          {
+            "name": "EarnedPerSatelliteResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "earned_satellite",
+                "type": "EarnedSatellite",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
+            "name": "EarnedSatellite",
+            "fields": [
+              {
+                "id": 1,
+                "name": "total",
+                "type": "int64"
+              },
+              {
+                "id": 2,
+                "name": "satellite_id",
+                "type": "bytes",
+                "options": [
+                  {
+                    "name": "(gogoproto.customtype)",
+                    "value": "NodeID"
+                  },
+                  {
+                    "name": "(gogoproto.nullable)",
+                    "value": "false"
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "services": [
+          {
+            "name": "Storage",
+            "rpcs": [
+              {
+                "name": "DiskSpace",
+                "in_type": "DiskSpaceRequest",
+                "out_type": "DiskSpaceResponse"
+              }
+            ]
+          },
+          {
+            "name": "Bandwidth",
+            "rpcs": [
+              {
+                "name": "MonthSummary",
+                "in_type": "BandwidthMonthSummaryRequest",
+                "out_type": "BandwidthMonthSummaryResponse"
+              }
+            ]
+          },
+          {
+            "name": "Node",
+            "rpcs": [
+              {
+                "name": "Version",
+                "in_type": "VersionRequest",
+                "out_type": "VersionResponse"
+              },
+              {
+                "name": "LastContact",
+                "in_type": "LastContactRequest",
+                "out_type": "LastContactResponse"
+              },
+              {
+                "name": "Reputation",
+                "in_type": "ReputationRequest",
+                "out_type": "ReputationResponse"
+              },
+              {
+                "name": "TrustedSatellites",
+                "in_type": "TrustedSatellitesRequest",
+                "out_type": "TrustedSatellitesResponse"
+              }
+            ]
+          },
+          {
+            "name": "Payout",
+            "rpcs": [
+              {
+                "name": "Earned",
+                "in_type": "EarnedRequest",
+                "out_type": "EarnedResponse"
+              },
+              {
+                "name": "EarnedPerSatellite",
+                "in_type": "EarnedPerSatelliteRequest",
+                "out_type": "EarnedPerSatelliteResponse"
+              }
+            ]
+          }
+        ],
+        "imports": [
+          {
+            "path": "gogo.proto"
+          },
+          {
+            "path": "google/protobuf/timestamp.proto"
+          }
+        ],
+        "package": {
+          "name": "multinode"
+        },
+        "options": [
+          {
+            "name": "go_package",
+            "value": "storj.io/storj/private/multinodepb"
+          }
+        ]
+      }
+    }
+  ]
+}
