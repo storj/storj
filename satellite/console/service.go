@@ -433,6 +433,7 @@ func (paymentService PaymentsService) TokenDeposit(ctx context.Context, amount i
 	}
 
 	tx, err := paymentService.service.accounts.StorjTokens().Deposit(ctx, auth.User.ID, amount)
+
 	return tx, Error.Wrap(err)
 }
 
@@ -1270,8 +1271,11 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		return nil, nil, Error.Wrap(err)
 	}
 
+	s.analytics.TrackAccessGrantCreated(auth.User.ID)
+
 	return info, key, nil
 }
+
 
 // GetAPIKeyInfo retrieves api key by id.
 func (s *Service) GetAPIKeyInfo(ctx context.Context, id uuid.UUID) (_ *APIKeyInfo, err error) {
@@ -1614,6 +1618,7 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (curr
 
 	return len(projects), nil
 }
+
 
 // CreateRegToken creates new registration token. Needed for testing.
 func (s *Service) CreateRegToken(ctx context.Context, projLimit int) (_ *RegistrationToken, err error) {
