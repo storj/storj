@@ -111,10 +111,7 @@ if [ "$HOSTNAME" = $STORJ_NETWORK_HOST4 ]; then
     storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network destroy
 fi
 
-if [ "$HOSTNAME" = uplink ]; then
-    echo "### Docker Logs of Satellite container #################################################################"
-    docker logs $STORJ_NETWORK_HOST4
-    
+if [ "$HOSTNAME" = uplink ]; then   
     #install tcpdump
     apt-get -y install tcpdump
 
@@ -130,6 +127,9 @@ if [ "$HOSTNAME" = uplink ]; then
       sleep 5;
     done
 
+    echo "### Docker Logs of Satellite container #################################################################"
+    docker logs $STORJ_NETWORK_HOST4
+    
     echo create bucket
     ./data/uplink --config-dir=./data/ mb sj://test
     ./data/uplink --config-dir=./data/ ls
