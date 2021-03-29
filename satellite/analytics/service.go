@@ -8,12 +8,15 @@ import (
 	segment "gopkg.in/segmentio/analytics-go.v3"
 
 	"storj.io/common/uuid"
+	"time"
 )
 
 const (
-	eventAccountCreated = "Account Created"
-	eventSignedIn       = "Signed In"
-	eventProjectCreated = "Project Created"
+	eventAccountCreated 	= "Account Created"
+	eventSignedIn       	= "Signed In"
+	eventProjectCreated 	= "Project Created"
+	eventAccessGrantCreated = "Access Grant Created"
+	eventObjectUploaded  	= "Object Uploaded"
 )
 
 // Config is a configuration struct for analytics Service.
@@ -138,6 +141,33 @@ func (service *Service) TrackProjectCreated(userID uuid.UUID, currentProjectCoun
 	err := service.segment.Enqueue(segment.Track{
 		UserId:     userID.String(),
 		Event:      eventProjectCreated,
+		Properties: props,
+	})
+	if err != nil {
+		service.log.Error("Error with track event", zap.Error(err))
+	}
+}
+
+func (service *Service) TrackAccessGrantCreated(userID uuid.UUID) {
+
+	err := service.segment.Enqueue(segment.Track{
+		UserId:     userID.String(),
+		Event:      eventAccessGrantCreated,
+
+	})
+	if err != nil {
+		service.log.Error("Error with track event", zap.Error(err))
+	}
+}
+
+func (service *Service) TrackObjectUploaded(projectID uuid.UUID,upload_date time.Time) {
+
+	props := segment.NewProperties()
+	props.Set("projectID", projectID)
+	props.Set("upload_date", upload_date)
+
+	err := service.segment.Enqueue(segment.Track{
+		Event:      eventObjectUploaded,
 		Properties: props,
 	})
 	if err != nil {
