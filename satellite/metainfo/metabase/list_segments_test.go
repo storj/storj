@@ -45,7 +45,7 @@ func TestListSegments(t *testing.T) {
 			Verify{}.Check(ctx, t, db)
 		})
 
-		t.Run("List no segments", func(t *testing.T) {
+		t.Run("no segments", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
 			ListSegments{
@@ -59,7 +59,7 @@ func TestListSegments(t *testing.T) {
 			Verify{}.Check(ctx, t, db)
 		})
 
-		t.Run("List segments", func(t *testing.T) {
+		t.Run("segments", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
 			expectedObject := createObject(ctx, t, db, obj, 10)
@@ -159,7 +159,7 @@ func TestListSegments(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-		t.Run("List segments from unordered parts", func(t *testing.T) {
+		t.Run("unordered parts", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
 			var testCases = []struct {
@@ -303,7 +303,7 @@ func TestListStreamPositions(t *testing.T) {
 			Verify{}.Check(ctx, t, db)
 		})
 
-		t.Run("List no segments", func(t *testing.T) {
+		t.Run("no segments", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
 			ListStreamPositions{
@@ -317,7 +317,7 @@ func TestListStreamPositions(t *testing.T) {
 			Verify{}.Check(ctx, t, db)
 		})
 
-		t.Run("List segments", func(t *testing.T) {
+		t.Run("segments", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
 			expectedObject := createObject(ctx, t, db, obj, 10)
@@ -346,6 +346,7 @@ func TestListStreamPositions(t *testing.T) {
 				expectedSegments[i] = metabase.SegmentPositionInfo{
 					Position:          expectedSegment.Position,
 					PlainSize:         expectedSegment.PlainSize,
+					PlainOffset:       expectedSegment.PlainOffset,
 					CreatedAt:         &now,
 					EncryptedKey:      expectedSegment.EncryptedKey,
 					EncryptedKeyNonce: expectedSegment.EncryptedKeyNonce,
@@ -424,7 +425,7 @@ func TestListStreamPositions(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-		t.Run("List segments from unordered parts", func(t *testing.T) {
+		t.Run("unordered parts", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
 			var testCases = []struct {
@@ -512,18 +513,20 @@ func TestListStreamPositions(t *testing.T) {
 				}.Check(ctx, t, db)
 
 				expectedSegments := make([]metabase.SegmentPositionInfo, 4)
+				expectedOffset := int64(0)
 				for i := range expectedSegments {
 					pos := expectedSegment.Position
 					pos.Part = uint32(i)
 					expectedSegments[i] = metabase.SegmentPositionInfo{
 						Position:          pos,
 						PlainSize:         expectedSegment.PlainSize,
+						PlainOffset:       expectedOffset,
 						CreatedAt:         &now,
 						EncryptedKey:      expectedSegment.EncryptedKey,
 						EncryptedKeyNonce: expectedSegment.EncryptedKeyNonce,
 						EncryptedETag:     expectedSegment.EncryptedETag,
 					}
-					expectedSegment.PlainOffset += int64(expectedSegment.PlainSize)
+					expectedOffset += int64(expectedSegment.PlainSize)
 				}
 
 				ListStreamPositions{
