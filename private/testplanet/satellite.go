@@ -94,7 +94,6 @@ type Satellite struct {
 	Overlay struct {
 		DB           overlay.DB
 		Service      *overlay.Service
-		Inspector    *overlay.Inspector
 		DQStrayNodes *straynodes.Chore
 	}
 
@@ -707,7 +706,6 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 
 	system.Overlay.DB = api.Overlay.DB
 	system.Overlay.Service = api.Overlay.Service
-	system.Overlay.Inspector = api.Overlay.Inspector
 	system.Overlay.DQStrayNodes = peer.Overlay.DQStrayNodes
 
 	system.Metainfo.Database = api.Metainfo.Database
