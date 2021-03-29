@@ -519,7 +519,10 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 				ConversionRatesCycleInterval: defaultInterval,
 				ListingLimit:                 100,
 			},
-			CouponDuration:    2,
+			CouponDuration: paymentsconfig.CouponDuration{
+				Enabled:        true,
+				BillingPeriods: 2,
+			},
 			CouponValue:       275,
 			PaywallProportion: 1,
 		},

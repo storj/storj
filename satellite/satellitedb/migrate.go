@@ -1320,6 +1320,16 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`DROP INDEX IF EXISTS nodes_dis_unk_exit_fin_last_success_index;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add nullable coupons.duration_new, migrate coupon_codes.duration to be nullable",
+				Version:     153,
+				Action: migrate.SQL{
+					`ALTER TABLE coupons ADD COLUMN billing_periods bigint;`,
+					`ALTER TABLE coupon_codes ADD COLUMN billing_periods bigint;`,
+					`ALTER TABLE coupon_codes DROP COLUMN duration;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

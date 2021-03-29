@@ -22,9 +22,10 @@ import (
 
 func TestCouponRepository(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		duration := 2
 		couponsRepo := db.StripeCoinPayments().Coupons()
 		coupon := payments.Coupon{
-			Duration:    2,
+			Duration:    &duration,
 			Amount:      10,
 			Status:      payments.CouponActive,
 			Description: "description",
@@ -205,12 +206,13 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		duration := 2
 		couponID := testrand.UUID()
 		_, err = couponsRepo.Insert(ctx, payments.Coupon{
 			ID:          couponID,
 			UserID:      user5.ID,
 			Amount:      5500,
-			Duration:    2,
+			Duration:    &duration,
 			Description: "qw",
 			Type:        payments.CouponTypePromotional,
 			Status:      payments.CouponActive,
@@ -250,7 +252,8 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 				user4.ID,
 				user5.ID,
 			}
-			err := couponsRepo.PopulatePromotionalCoupons(ctx, usersIds, 2, 5500, memory.TB)
+			duration := 2
+			err := couponsRepo.PopulatePromotionalCoupons(ctx, usersIds, &duration, 5500, memory.TB)
 			require.NoError(t, err)
 
 			user1Coupons, err := couponsRepo.ListByUserID(ctx, user1.ID)
@@ -296,7 +299,8 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 				user5.ID,
 				user6.ID,
 			}
-			err := couponsRepo.PopulatePromotionalCoupons(ctx, usersIds, 2, 5500, memory.TB)
+			duration := 2
+			err := couponsRepo.PopulatePromotionalCoupons(ctx, usersIds, &duration, 5500, memory.TB)
 			require.NoError(t, err)
 
 			user1Coupons, err := couponsRepo.ListByUserID(ctx, user1.ID)
