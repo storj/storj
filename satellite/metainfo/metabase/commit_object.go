@@ -242,6 +242,20 @@ func determineCommitActions(segments []SegmentPosition, segmentsInDatabase []seg
 	return commit, toDelete, nil
 }
 
+// convertToFinalSegments converts segmentInfoForCommit to segmentToCommit.
+func convertToFinalSegments(segmentsInDatabase []segmentInfoForCommit) (commit []segmentToCommit) {
+	commit = make([]segmentToCommit, 0, len(segmentsInDatabase))
+	for _, seg := range segmentsInDatabase {
+		commit = append(commit, segmentToCommit{
+			Position:       seg.Position,
+			OldPlainOffset: seg.PlainOffset,
+			PlainSize:      seg.PlainSize,
+			EncryptedSize:  seg.EncryptedSize,
+		})
+	}
+	return commit
+}
+
 // updateSegmentOffsets updates segment offsets that didn't match the database state.
 func updateSegmentOffsets(ctx context.Context, tx tagsql.Tx, streamID uuid.UUID, updates []segmentToCommit) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -253,38 +267,38 @@ func updateSegmentOffsets(ctx context.Context, tx tagsql.Tx, streamID uuid.UUID,
 	// and the plain offsets haven't changed.
 
 	// Update plain offsets of the segments.
-	var update struct {
+	var batch struct {
 		Positions    []int64
 		PlainOffsets []int64
 	}
 	expectedOffset := int64(0)
 	for _, u := range updates {
 		if u.OldPlainOffset != expectedOffset {
-			update.Positions = append(update.Positions, int64(u.Position.Encode()))
-			update.PlainOffsets = append(update.PlainOffsets, expectedOffset)
+			batch.Positions = append(batch.Positions, int64(u.Position.Encode()))
+			batch.PlainOffsets = append(batch.PlainOffsets, expectedOffset)
 		}
 		expectedOffset += int64(u.PlainSize)
 	}
-
-	if len(update.Positions) == 0 {
+	if len(batch.Positions) == 0 {
 		return nil
 	}
 
 	updateResult, err := tx.Exec(ctx, `
-			UPDATE segments
-			SET plain_offset = P.plain_offset
-			FROM (SELECT unnest($2::INT8[]), unnest($3::INT8[])) as P(position, plain_offset)
-			WHERE segments.stream_id = $1 AND segments.position = P.position
-		`, streamID, pgutil.Int8Array(update.Positions), pgutil.Int8Array(update.PlainOffsets))
+		UPDATE segments
+		SET plain_offset = P.plain_offset
+		FROM (SELECT unnest($2::INT8[]), unnest($3::INT8[])) as P(position, plain_offset)
+		WHERE segments.stream_id = $1 AND segments.position = P.position
+	`, streamID, pgutil.Int8Array(batch.Positions), pgutil.Int8Array(batch.PlainOffsets))
 	if err != nil {
 		return Error.New("unable to update segments offsets: %w", err)
 	}
+
 	affected, err := updateResult.RowsAffected()
 	if err != nil {
 		return Error.New("unable to get number of affected segments: %w", err)
 	}
-	if affected != int64(len(update.Positions)) {
-		return Error.New("not all segments were updated, expected %d got %d", len(update.Positions), affected)
+	if affected != int64(len(batch.Positions)) {
+		return Error.New("not all segments were updated, expected %d got %d", len(batch.Positions), affected)
 	}
 
 	return nil

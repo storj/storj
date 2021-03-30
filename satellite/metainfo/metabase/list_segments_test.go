@@ -86,6 +86,7 @@ func TestListSegments(t *testing.T) {
 				expectedSegment.Position.Index = uint32(i)
 				expectedSegments[i] = expectedSegment
 				expectedRawSegments[i] = metabase.RawSegment(expectedSegment)
+				expectedSegment.PlainOffset += int64(expectedSegment.PlainSize)
 			}
 
 			ListSegments{
@@ -247,10 +248,13 @@ func TestListSegments(t *testing.T) {
 				}.Check(ctx, t, db)
 
 				expectedSegments := make([]metabase.Segment, 4)
+				expectedOffset := int64(0)
 				for i := range expectedSegments {
 					expectedSegments[i] = expectedSegment
 					expectedSegments[i].StreamID = obj.StreamID
 					expectedSegments[i].Position.Part = uint32(i)
+					expectedSegments[i].PlainOffset = expectedOffset
+					expectedOffset += int64(expectedSegment.PlainSize)
 				}
 
 				ListSegments{
@@ -347,6 +351,7 @@ func TestListStreamPositions(t *testing.T) {
 					EncryptedKeyNonce: expectedSegment.EncryptedKeyNonce,
 					EncryptedETag:     expectedSegment.EncryptedETag,
 				}
+				expectedSegment.PlainOffset += int64(expectedSegment.PlainSize)
 			}
 
 			ListStreamPositions{
@@ -518,6 +523,7 @@ func TestListStreamPositions(t *testing.T) {
 						EncryptedKeyNonce: expectedSegment.EncryptedKeyNonce,
 						EncryptedETag:     expectedSegment.EncryptedETag,
 					}
+					expectedSegment.PlainOffset += int64(expectedSegment.PlainSize)
 				}
 
 				ListStreamPositions{
