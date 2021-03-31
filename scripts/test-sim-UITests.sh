@@ -52,7 +52,7 @@ npm run build
 popd
 
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network run &
-go test "$SCRIPTDIR"/tests/UITests/.
+go test "$SCRIPTDIR"/tests/UITests/test-with-alice-user-login_test.go
 # wormhole send "$SCRIPTDIR"/tests/UITests/screenshots/my1.png
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network destroy
 
