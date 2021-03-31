@@ -104,6 +104,8 @@ import HideIcon from '@/../static/images/common/BlackArrowHide.svg';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { GatewayCredentials } from '@/types/accessGrants';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
 @Component({
     components: {
@@ -120,6 +122,7 @@ export default class GatewayStep extends Vue {
     private key: string = '';
     private restrictedKey: string = '';
     private access: string = '';
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     public areKeysVisible: boolean = false;
     public isLoading: boolean = false;
@@ -216,6 +219,8 @@ export default class GatewayStep extends Vue {
             await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: this.access});
 
             await this.$notify.success('Gateway credentials were generated successfully');
+
+            await this.analytics.eventTriggered(AnalyticsEvent.GATEWAY_CREDENTIALS_CREATED);
 
             this.areKeysVisible = true;
         } catch (error) {
