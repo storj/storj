@@ -540,5 +540,150 @@ func TestListStreamPositions(t *testing.T) {
 				}.Check(ctx, t, db)
 			}
 		})
+
+		t.Run("range", func(t *testing.T) {
+			defer DeleteAll{}.Check(ctx, t, db)
+
+			const segmentCount = 10
+			const segmentSize = 512
+
+			expectedSegment := metabase.Segment{
+				StreamID:          obj.StreamID,
+				RootPieceID:       storj.PieceID{1},
+				EncryptedKey:      []byte{3},
+				EncryptedKeyNonce: []byte{4},
+				EncryptedETag:     []byte{5},
+				EncryptedSize:     1024,
+				PlainSize:         segmentSize,
+				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+				Redundancy:        defaultTestRedundancy,
+			}
+
+			obj := randObjectStream()
+
+			BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   defaultTestEncryption,
+				},
+				Version: obj.Version,
+			}.Check(ctx, t, db)
+
+			for i := 0; i < segmentCount; i++ {
+				segmentPosition := metabase.SegmentPosition{
+					Part:  uint32(i / 2),
+					Index: uint32(i % 2),
+				}
+
+				BeginSegment{
+					Opts: metabase.BeginSegment{
+						ObjectStream: obj,
+						Position:     segmentPosition,
+						RootPieceID:  storj.PieceID{byte(i + 1)},
+						Pieces: []metabase.Piece{{
+							Number:      1,
+							StorageNode: testrand.NodeID(),
+						}},
+					},
+				}.Check(ctx, t, db)
+
+				CommitSegment{
+					Opts: metabase.CommitSegment{
+						ObjectStream: obj,
+						Position:     segmentPosition,
+						RootPieceID:  storj.PieceID{1},
+						Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+
+						EncryptedKey:      []byte{3},
+						EncryptedKeyNonce: []byte{4},
+						EncryptedETag:     []byte{5},
+
+						EncryptedSize: 1024,
+						PlainSize:     segmentSize,
+						PlainOffset:   0,
+						Redundancy:    defaultTestRedundancy,
+					},
+				}.Check(ctx, t, db)
+			}
+
+			CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+				},
+			}.Check(ctx, t, db)
+
+			expectedSegments := make([]metabase.SegmentPositionInfo, segmentCount)
+			expectedOffset := int64(0)
+			for i := range expectedSegments {
+				segmentPosition := metabase.SegmentPosition{
+					Part:  uint32(i / 2),
+					Index: uint32(i % 2),
+				}
+				expectedSegments[i] = metabase.SegmentPositionInfo{
+					Position:          segmentPosition,
+					PlainSize:         expectedSegment.PlainSize,
+					PlainOffset:       expectedOffset,
+					CreatedAt:         &now,
+					EncryptedKey:      expectedSegment.EncryptedKey,
+					EncryptedKeyNonce: expectedSegment.EncryptedKeyNonce,
+					EncryptedETag:     expectedSegment.EncryptedETag,
+				}
+				expectedOffset += int64(expectedSegment.PlainSize)
+			}
+
+			ListStreamPositions{
+				Opts: metabase.ListStreamPositions{
+					StreamID: obj.StreamID,
+					Range: &metabase.StreamRange{
+						PlainStart: 5,
+						PlainLimit: 4,
+					},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "invalid range: 5:4",
+			}.Check(ctx, t, db)
+
+			type rangeTest struct {
+				limit      int
+				plainStart int64
+				plainLimit int64
+				results    []metabase.SegmentPositionInfo
+				more       bool
+			}
+
+			totalSize := int64(segmentCount * 512)
+
+			var tests = []rangeTest{
+				{plainStart: 0, plainLimit: 0},
+				{plainStart: totalSize, plainLimit: totalSize},
+				{plainStart: 0, plainLimit: totalSize, results: expectedSegments},
+				{plainStart: 0, plainLimit: totalSize - (segmentSize - 1), results: expectedSegments},
+				{plainStart: 0, plainLimit: totalSize - segmentSize, results: expectedSegments[:segmentCount-1]},
+				{plainStart: 0, plainLimit: segmentSize, results: expectedSegments[:1]},
+				{plainStart: 0, plainLimit: segmentSize + 1, results: expectedSegments[:2]},
+				{plainStart: segmentSize, plainLimit: totalSize, results: expectedSegments[1:]},
+				{plainStart: segmentSize / 2, plainLimit: segmentSize + segmentSize/2, results: expectedSegments[0:2]},
+				{plainStart: segmentSize - 1, plainLimit: segmentSize + segmentSize/2, results: expectedSegments[0:2]},
+				{plainStart: segmentSize, plainLimit: segmentSize + segmentSize/2, results: expectedSegments[1:2]},
+				{plainStart: segmentSize + 1, plainLimit: segmentSize + segmentSize/2, results: expectedSegments[1:2]},
+				{limit: 2, plainStart: segmentSize, plainLimit: totalSize, results: expectedSegments[1:3], more: true},
+			}
+			for _, test := range tests {
+				ListStreamPositions{
+					Opts: metabase.ListStreamPositions{
+						StreamID: obj.StreamID,
+						Limit:    test.limit,
+						Range: &metabase.StreamRange{
+							PlainStart: test.plainStart,
+							PlainLimit: test.plainLimit,
+						},
+					},
+					Result: metabase.ListStreamPositionsResult{
+						Segments: test.results,
+						More:     test.more,
+					},
+				}.Check(ctx, t, db)
+			}
+		})
 	})
 }
