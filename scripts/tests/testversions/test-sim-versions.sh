@@ -92,7 +92,8 @@ install_sim(){
         (cd ${work_dir}/cmd/gateway && go build -race -v -o ${bin_dir}/gateway storj.io/storj/cmd/gateway >/dev/null 2>&1)
     else
 	mkdir -p ${work_dir}/build/gateway-tmp
-	(cd ${work_dir}/build/gateway-tmp && go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@multipart-upload;)
+    ## TODO replace 'main' with 'latest' when gateway with multipart will be released
+	(cd ${work_dir}/build/gateway-tmp && go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@main;)
         rm -rf ${work_dir}/build/gateway-tmp
     fi
 }
