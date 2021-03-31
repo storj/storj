@@ -7,8 +7,6 @@ import (
 	"go.uber.org/zap"
 	segment "gopkg.in/segmentio/analytics-go.v3"
 
-	"time"
-
 	"storj.io/common/uuid"
 )
 

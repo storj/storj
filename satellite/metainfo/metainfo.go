@@ -24,7 +24,6 @@ import (
 	"storj.io/common/uuid"
 	lrucache "storj.io/storj/pkg/cache"
 	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/internalpb"
@@ -83,14 +82,13 @@ type Endpoint struct {
 	defaultRS            *pb.RedundancyScheme
 	config               Config
 	versionCollector     *versionCollector
-	analytics            *analytics.Service
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
 func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion.Service,
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB,
 	partners *rewards.PartnersService, peerIdentities overlay.PeerIdentities,
-	apiKeys APIKeys, projectUsage *accounting.Service, analytics *analytics.Service, projects console.Projects,
+	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects,
 	satellite signing.Signer, revocations revocation.DB, config Config) (*Endpoint, error) {
 	// TODO do something with too many params
 
@@ -122,7 +120,6 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 		pointerVerification: pointerverification.NewService(peerIdentities),
 		apiKeys:             apiKeys,
 		projectUsage:        projectUsage,
-		analytics:           analytics,
 		projects:            projects,
 		satellite:           satellite,
 		limiterCache: lrucache.New(lrucache.Options{
