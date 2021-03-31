@@ -8,6 +8,7 @@ import (
 	segment "gopkg.in/segmentio/analytics-go.v3"
 
 	"time"
+
 	"storj.io/common/uuid"
 )
 
@@ -16,6 +17,7 @@ const (
 	eventSignedIn           = "Signed In"
 	eventProjectCreated     = "Project Created"
 	eventAccessGrantCreated = "Access Grant Created"
+	eventObjectUploaded     = "Object Uploaded"
 )
 
 // Config is a configuration struct for analytics Service.
@@ -156,5 +158,16 @@ func (service *Service) TrackAccessGrantCreated(userID uuid.UUID) {
 	service.enqueueMessage(segment.Track{
 		UserId: userID.String(),
 		Event:  eventAccessGrantCreated,
+	})
+}
+
+func (service *Service) TrackObjectUploaded(projectID uuid.UUID, uploadDate time.Time) {
+	props := segment.NewProperties()
+	props.Set("project_id", projectID.String())
+	props.Set("upload_date", uploadDate)
+
+	service.enqueueMessage(segment.Track{
+		Event:      eventObjectUploaded,
+		Properties: props,
 	})
 }
