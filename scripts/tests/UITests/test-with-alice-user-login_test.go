@@ -1,15 +1,16 @@
 package UITests
 
 import (
-	"fmt"
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
 	"github.com/go-rod/rod/lib/launcher"
+	"github.com/stretchr/testify/assert"
 	"strings"
+	"testing"
 	"time"
 )
 
-func Example_alice_login_to_account() {
+func Test_alice_login_to_account(t *testing.T) {
 	l := launcher.New().
 		Headless(false).
 		Devtools(false)
@@ -40,8 +41,8 @@ func Example_alice_login_to_account() {
 	page.Keyboard.MustPress(input.Enter)
 
 	//check title
-	fmt.Println(strings.Contains(page.MustElement(".dashboard-area__title").MustText(), "Dashboard"))
-	// Output: true
+	assert.True(t, strings.Contains(page.MustElement(".dashboard-area__title").MustText(), "Dashboard"))
+
 	defer browser.MustClose()
 
 }
