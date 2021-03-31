@@ -35,7 +35,6 @@ import (
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/uplink/private/eestream"
-	"storj.io/storj/satellite/analytics"
 )
 
 const (
@@ -83,14 +82,13 @@ type Endpoint struct {
 	defaultRS            *pb.RedundancyScheme
 	config               Config
 	versionCollector     *versionCollector
-	analytics         	 *analytics.Service
 }
 
 // NewEndpoint creates new metainfo endpoint instance.
 func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion.Service,
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB,
 	partners *rewards.PartnersService, peerIdentities overlay.PeerIdentities,
-	apiKeys APIKeys, projectUsage *accounting.Service, analytics *analytics.Service, projects console.Projects,
+	apiKeys APIKeys, projectUsage *accounting.Service, projects console.Projects,
 	satellite signing.Signer, revocations revocation.DB, config Config) (*Endpoint, error) {
 	// TODO do something with too many params
 
@@ -122,7 +120,6 @@ func NewEndpoint(log *zap.Logger, metainfo *Service, deletePieces *piecedeletion
 		pointerVerification: pointerverification.NewService(peerIdentities),
 		apiKeys:             apiKeys,
 		projectUsage:        projectUsage,
-		analytics:           analytics,
 		projects:            projects,
 		satellite:           satellite,
 		limiterCache: lrucache.New(lrucache.Options{
@@ -825,8 +822,6 @@ func (endpoint *Endpoint) commitObject(ctx context.Context, req *pb.ObjectCommit
 		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
-
-	endpoint.analytics.TrackObjectUploaded(keyInfo.ProjectID,time.Now())
 
 	return &pb.ObjectCommitResponse{}, nil
 }
@@ -1690,7 +1685,8 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 				PartNumber: int32(item.Position.Part),
 				Index:      int32(item.Position.Index),
 			},
-			PlainSize: int64(item.PlainSize),
+			PlainSize:   int64(item.PlainSize),
+			PlainOffset: item.PlainOffset,
 		}
 		if item.CreatedAt != nil {
 			items[i].CreatedAt = *item.CreatedAt

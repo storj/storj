@@ -1013,6 +1013,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		}
 	}
 
+	var projectID uuid.UUID
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		p, err = tx.Projects().Insert(ctx,
 			&Project{
@@ -1033,6 +1034,8 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 			return Error.Wrap(err)
 		}
 
+		projectID = p.ID
+
 		return nil
 	})
 
@@ -1040,7 +1043,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return nil, Error.Wrap(err)
 	}
 
-	s.analytics.TrackProjectCreated(auth.User.ID, currentProjectCount+1)
+	s.analytics.TrackProjectCreated(auth.User.ID, projectID, currentProjectCount+1)
 
 	// ToDo: check if this is actually the right place.
 	err = s.accounts.Coupons().AddPromotionalCoupon(ctx, auth.User.ID)
@@ -1275,7 +1278,6 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 
 	return info, key, nil
 }
-
 
 // GetAPIKeyInfo retrieves api key by id.
 func (s *Service) GetAPIKeyInfo(ctx context.Context, id uuid.UUID) (_ *APIKeyInfo, err error) {
@@ -1618,7 +1620,6 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (curr
 
 	return len(projects), nil
 }
-
 
 // CreateRegToken creates new registration token. Needed for testing.
 func (s *Service) CreateRegToken(ctx context.Context, projLimit int) (_ *RegistrationToken, err error) {

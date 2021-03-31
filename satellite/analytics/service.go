@@ -7,16 +7,15 @@ import (
 	"go.uber.org/zap"
 	segment "gopkg.in/segmentio/analytics-go.v3"
 
-	"storj.io/common/uuid"
 	"time"
+	"storj.io/common/uuid"
 )
 
 const (
-	eventAccountCreated 	= "Account Created"
-	eventSignedIn       	= "Signed In"
-	eventProjectCreated 	= "Project Created"
+	eventAccountCreated     = "Account Created"
+	eventSignedIn           = "Signed In"
+	eventProjectCreated     = "Project Created"
 	eventAccessGrantCreated = "Access Grant Created"
-	eventObjectUploaded  	= "Object Uploaded"
 )
 
 // Config is a configuration struct for analytics Service.
@@ -124,65 +123,38 @@ func (service *Service) TrackSignedIn(userID uuid.UUID, email string) {
 	traits := segment.NewTraits()
 	traits.SetEmail(email)
 
-	err := service.segment.Enqueue(segment.Identify{
+	service.enqueueMessage(segment.Identify{
 		UserId: userID.String(),
 		Traits: traits,
 	})
-	if err != nil {
-		service.log.Error("Error with identify event", zap.Error(err))
-	}
 
 	props := segment.NewProperties()
 	props.Set("email", email)
 
-	err = service.segment.Enqueue(segment.Track{
+	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      eventSignedIn,
 		Properties: props,
 	})
-	if err != nil {
-		service.log.Error("Error with track event", zap.Error(err))
-	}
 }
 
-func (service *Service) TrackProjectCreated(userID uuid.UUID, currentProjectCount int) {
+func (service *Service) TrackProjectCreated(userID, projectID uuid.UUID, currentProjectCount int) {
 
 	props := segment.NewProperties()
 	props.Set("project_count", currentProjectCount)
+	props.Set("project_id", projectID.String())
 
-	err := service.segment.Enqueue(segment.Track{
+	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      eventProjectCreated,
 		Properties: props,
 	})
-	if err != nil {
-		service.log.Error("Error with track event", zap.Error(err))
-	}
 }
 
 func (service *Service) TrackAccessGrantCreated(userID uuid.UUID) {
 
-	err := service.segment.Enqueue(segment.Track{
-		UserId:     userID.String(),
-		Event:      eventAccessGrantCreated,
-
+	service.enqueueMessage(segment.Track{
+		UserId: userID.String(),
+		Event:  eventAccessGrantCreated,
 	})
-	if err != nil {
-		service.log.Error("Error with track event", zap.Error(err))
-	}
-}
-
-func (service *Service) TrackObjectUploaded(projectID uuid.UUID,upload_date time.Time) {
-
-	props := segment.NewProperties()
-	props.Set("projectID", projectID)
-	props.Set("upload_date", upload_date)
-
-	err := service.segment.Enqueue(segment.Track{
-		Event:      eventObjectUploaded,
-		Properties: props,
-	})
-	if err != nil {
-		service.log.Error("Error with track event", zap.Error(err))
-	}
 }
