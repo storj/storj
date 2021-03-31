@@ -17,6 +17,7 @@ export const ACCESS_GRANTS_ACTIONS = {
     FETCH: 'fetchAccessGrants',
     CREATE: 'createAccessGrant',
     DELETE: 'deleteAccessGrants',
+    DELETE_BY_NAME_AND_PROJECT_ID: 'deleteAccessGrantsByNameAndProjectID',
     CLEAR: 'clearAccessGrants',
     GET_GATEWAY_CREDENTIALS: 'getGatewayCredentials',
     SET_ACCESS_GRANTS_WEB_WORKER: 'setAccessGrantsWebWorker',
@@ -210,10 +211,15 @@ export function makeAccessGrantsModule(api: AccessGrantsApi): StoreModule<Access
             deleteAccessGrants: async function({state}: any): Promise<void> {
                 await api.delete(state.selectedAccessGrantsIds);
             },
-            getGatewayCredentials: async function({state, commit}: any, accessGrant: string): Promise<void> {
-                const credentials: GatewayCredentials = await api.getGatewayCredentials(accessGrant);
+            deleteAccessGrantsByNameAndProjectID: async function({state, rootGetters}: any, name: string): Promise<void> {
+                await api.deleteByNameAndProjectID(name, rootGetters.selectedProject.id);
+            },
+            getGatewayCredentials: async function({commit}: any, payload): Promise<GatewayCredentials> {
+                const credentials: GatewayCredentials = await api.getGatewayCredentials(payload.accessGrant, payload.optionalURL);
 
                 commit(SET_GATEWAY_CREDENTIALS, credentials);
+
+                return credentials;
             },
             setAccessGrantsSearchQuery: function ({commit}, search: string) {
                 commit(SET_SEARCH_QUERY, search);

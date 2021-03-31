@@ -7,7 +7,7 @@ pipeline {
         }
     }
     options {
-          timeout(time: 26, unit: 'MINUTES')
+          timeout(time: 36, unit: 'MINUTES')
     }
     environment {
         NPM_CONFIG_CACHE = '/npm/cache'
@@ -58,6 +58,8 @@ pipeline {
                         sh 'check-mod-tidy -mod .build/go.mod.orig'
                         sh 'make check-monitoring'
                         sh 'make test-wasm-size'
+
+                        sh 'protolock status'
                     }
                 }
 
@@ -69,7 +71,8 @@ pipeline {
                             'cockroach://root@localhost:26259/testcockroach?sslmode=disable'
                         STORJ_TEST_COCKROACH_ALT = 'cockroach://root@localhost:26260/testcockroach?sslmode=disable'
                         STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
-                        COVERFLAGS = "${ env.BRANCH_NAME != 'main' ? '' : '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/pkg/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...'}"
+                        STORJ_TEST_DATABASES = 'crdb|pgx|cockroach://root@localhost:26259/testmetabase?sslmode=disable;pg|pgx|postgres://postgres@localhost/testmetabase?sslmode=disable'
+                        COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/pkg/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
                     }
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
@@ -78,9 +81,14 @@ pipeline {
                         sh 'cockroach sql --insecure --host=localhost:26259 -e \'create database testcockroach;\''
                         sh 'cockroach sql --insecure --host=localhost:26260 -e \'create database testcockroach;\''
 
+                        sh 'cockroach sql --insecure --host=localhost:26259 -e \'create database testmetabase;\''
+
                         sh 'psql -U postgres -c \'create database teststorj;\''
+                        sh 'psql -U postgres -c \'create database testmetabase;\''
                         sh 'use-ports -from 1024 -to 10000 &'
-                        sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 20m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+
+                        sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+
                         sh 'check-clean-directory'
                     }
 
@@ -110,10 +118,10 @@ pipeline {
                     environment {
                         STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/benchcockroach?sslmode=disable'
                         STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
+                        STORJ_TEST_DATABASES = 'crdb|pgx|cockroach://root@localhost:26256/benchcockroach?sslmode=disable;pg|pgx|postgres://postgres@localhost/benchstorj?sslmode=disable'
                     }
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database benchcockroach;\''
-
                         sh 'psql -U postgres -c \'create database benchstorj;\''
                         sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
                     }
@@ -131,6 +139,7 @@ pipeline {
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj2;\''
                         sh 'make test-sim'
+
                         // sh 'make test-certificates' // flaky
                     }
                 }
@@ -172,6 +181,7 @@ pipeline {
                         STORJ_NETWORK_HOST6 = '127.0.0.3'
 
                         STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj3?sslmode=disable'
+                        STORJ_MIGRATION_DB = 'postgres://postgres@localhost/teststorj3?sslmode=disable&options=--search_path=satellite/0/meta'
                     }
 
                     steps {
@@ -180,13 +190,13 @@ pipeline {
                     }
                 }
 
-
                 stage('Cockroach Backwards Compatibility') {
                     environment {
                         STORJ_NETWORK_HOST4 = '127.0.0.5'
                         STORJ_NETWORK_HOST6 = '127.0.0.5'
 
                         STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach5?sslmode=disable'
+                        STORJ_MIGRATION_DB = 'postgres://root@localhost:26257/testcockroach5/satellite/0/meta?sslmode=disable'
                     }
 
                     steps {

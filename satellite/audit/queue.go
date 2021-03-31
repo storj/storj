@@ -8,30 +8,28 @@ import (
 	"sync"
 
 	"github.com/zeebo/errs"
-
-	"storj.io/common/storj"
 )
 
 // ErrEmptyQueue is used to indicate that the queue is empty.
 var ErrEmptyQueue = errs.Class("empty audit queue")
 
-// Queue is a list of paths to audit, shared between the reservoir chore and audit workers.
+// Queue is a list of segments to audit, shared between the reservoir chore and audit workers.
 // It is not safe for concurrent use.
 type Queue struct {
-	queue []storj.Path
+	queue []Segment
 }
 
 // NewQueue creates a new audit queue.
-func NewQueue(paths []storj.Path) *Queue {
+func NewQueue(segments []Segment) *Queue {
 	return &Queue{
-		queue: paths,
+		queue: segments,
 	}
 }
 
 // Next gets the next item in the queue.
-func (q *Queue) Next() (storj.Path, error) {
+func (q *Queue) Next() (Segment, error) {
 	if len(q.queue) == 0 {
-		return "", ErrEmptyQueue.New("")
+		return Segment{}, ErrEmptyQueue.New("")
 	}
 
 	next := q.queue[0]
@@ -60,7 +58,7 @@ type Queues struct {
 // NewQueues creates a new Queues object.
 func NewQueues() *Queues {
 	queues := &Queues{
-		nextQueue: NewQueue([]storj.Path{}),
+		nextQueue: NewQueue([]Segment{}),
 	}
 	return queues
 }
@@ -78,7 +76,7 @@ func (queues *Queues) Fetch() *Queue {
 	if queues.swapQueue != nil {
 		queues.swapQueue()
 	} else {
-		queues.nextQueue = NewQueue([]storj.Path{})
+		queues.nextQueue = NewQueue([]Segment{})
 	}
 
 	return active
@@ -88,7 +86,7 @@ func (queues *Queues) Fetch() *Queue {
 // Push adds a pending queue to be swapped in when ready.
 // If nextQueue is empty, it immediately replaces the queue. Otherwise it creates a swapQueue callback to be called when nextQueue is fetched.
 // Only one call to Push is permitted at a time, otherwise it will return ErrPendingQueueInProgress.
-func (queues *Queues) Push(pendingQueue []storj.Path) error {
+func (queues *Queues) Push(pendingQueue []Segment) error {
 	queues.mu.Lock()
 	defer queues.mu.Unlock()
 

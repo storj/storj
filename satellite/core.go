@@ -35,6 +35,7 @@ import (
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
+	"storj.io/storj/satellite/metainfo/metaloop"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -81,8 +82,9 @@ type Core struct {
 
 	Metainfo struct {
 		Database metainfo.PointerDB // TODO: move into pointerDB
+		Metabase metainfo.MetabaseDB
 		Service  *metainfo.Service
-		Loop     *metainfo.Loop
+		Loop     *metaloop.Service
 	}
 
 	Orders struct {
@@ -138,8 +140,8 @@ type Core struct {
 
 // New creates a new satellite.
 func New(log *zap.Logger, full *identity.FullIdentity, db DB,
-	pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache,
-	rollupsWriteCache *orders.RollupsWriteCache,
+	pointerDB metainfo.PointerDB, metabaseDB metainfo.MetabaseDB, revocationDB extensions.RevocationDB,
+	liveAccounting accounting.Cache, rollupsWriteCache *orders.RollupsWriteCache,
 	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*Core, error) {
 	peer := &Core{
 		Log:      log,
@@ -273,11 +275,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup metainfo
 		peer.Metainfo.Database = pointerDB // for logging: storelogger.New(peer.Log.Named("pdb"), db)
+		peer.Metainfo.Metabase = metabaseDB
 		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
 			peer.Metainfo.Database,
 			peer.DB.Buckets(),
+			peer.Metainfo.Metabase,
 		)
-		peer.Metainfo.Loop = metainfo.NewLoop(config.Metainfo.Loop, peer.Metainfo.Database)
+		peer.Metainfo.Loop = metaloop.New(
+			config.Metainfo.Loop,
+			peer.Metainfo.Metabase,
+		)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "metainfo:loop",
 			Run:   peer.Metainfo.Loop.Run,
@@ -291,7 +298,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Log.Named("repair:checker"),
 			peer.DB.RepairQueue(),
 			peer.DB.Irreparable(),
-			peer.Metainfo.Service,
+			peer.Metainfo.Metabase,
 			peer.Metainfo.Loop,
 			peer.Overlay.Service,
 			config.Checker)
@@ -312,7 +319,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Audit.Queues = audit.NewQueues()
 
 		peer.Audit.Verifier = audit.NewVerifier(log.Named("audit:verifier"),
-			peer.Metainfo.Service,
+			peer.Metainfo.Metabase,
 			peer.Dialer,
 			peer.Overlay.Service,
 			peer.DB.Containment(),
@@ -383,12 +390,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.ExpiredDeletion.Chore = expireddeletion.NewChore(
 			peer.Log.Named("core-expired-deletion"),
 			config.ExpiredDeletion,
-			peer.Metainfo.Service,
-			peer.Metainfo.Loop,
+			peer.Metainfo.Metabase,
 		)
 		peer.Services.Add(lifecycle.Item{
-			Name: "expireddeletion:chore",
-			Run:  peer.ExpiredDeletion.Chore.Run,
+			Name:  "expireddeletion:chore",
+			Run:   peer.ExpiredDeletion.Chore.Run,
+			Close: peer.ExpiredDeletion.Chore.Close,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Expired Segments Chore", peer.ExpiredDeletion.Chore.Loop))

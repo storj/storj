@@ -5,7 +5,7 @@ package inspector
 
 import (
 	"context"
-	"strconv"
+	"encoding/binary"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -16,6 +16,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -25,23 +26,22 @@ var (
 	Error = errs.Class("Endpoint error")
 )
 
-const lastSegmentIndex = int64(-1)
-
 // Endpoint for checking object and segment health.
 //
 // architecture: Endpoint
 type Endpoint struct {
-	log      *zap.Logger
-	overlay  *overlay.Service
-	metainfo *metainfo.Service
+	internalpb.DRPCHealthInspectorUnimplementedServer
+	log        *zap.Logger
+	overlay    *overlay.Service
+	metabaseDB metainfo.MetabaseDB
 }
 
 // NewEndpoint will initialize an Endpoint struct.
-func NewEndpoint(log *zap.Logger, cache *overlay.Service, metainfo *metainfo.Service) *Endpoint {
+func NewEndpoint(log *zap.Logger, cache *overlay.Service, metabaseDB metainfo.MetabaseDB) *Endpoint {
 	return &Endpoint{
-		log:      log,
-		overlay:  cache,
-		metainfo: metainfo,
+		log:        log,
+		overlay:    cache,
+		metabaseDB: metabaseDB,
 	}
 }
 
@@ -52,56 +52,53 @@ func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *internalpb.Objec
 	var segmentHealthResponses []*internalpb.SegmentHealth
 	var redundancy *pb.RedundancyScheme
 
-	limit := int64(100)
+	limit := int(100)
 	if in.GetLimit() > 0 {
-		limit = int64(in.GetLimit())
+		limit = int(in.GetLimit())
 	}
 
-	var start int64
+	var startPosition metabase.SegmentPosition
+
 	if in.GetStartAfterSegment() > 0 {
-		start = in.GetStartAfterSegment() + 1
+		startPosition = metabase.SegmentPositionFromEncoded(uint64(in.GetStartAfterSegment()))
 	}
 
-	end := limit + start
-	if in.GetEndBeforeSegment() > 0 {
-		end = in.GetEndBeforeSegment()
+	projectID, err := uuid.FromBytes(in.GetProjectId())
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
 
-	bucket := in.GetBucket()
-	encryptedPath := in.GetEncryptedPath()
-	projectID := in.GetProjectId()
+	objectLocation := metabase.ObjectLocation{
+		ProjectID:  projectID,
+		BucketName: string(in.GetBucket()),
+		ObjectKey:  metabase.ObjectKey(in.GetEncryptedPath()),
+	}
+	// TODO add version field to ObjectHealthRequest?
+	object, err := endpoint.metabaseDB.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
+		ObjectLocation: objectLocation,
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
-	segmentIndex := start
-	for segmentIndex < end {
-		if segmentIndex-start >= limit {
-			break
-		}
+	listResult, err := endpoint.metabaseDB.ListSegments(ctx, metabase.ListSegments{
+		StreamID: object.StreamID,
+		Cursor:   startPosition,
+		Limit:    limit,
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
-		segment := &internalpb.SegmentHealthRequest{
-			Bucket:        bucket,
-			EncryptedPath: encryptedPath,
-			SegmentIndex:  segmentIndex,
-			ProjectId:     projectID,
-		}
-
-		segmentHealth, err := endpoint.SegmentHealth(ctx, segment)
-		if err != nil {
-			if segmentIndex == lastSegmentIndex {
+	for _, segment := range listResult.Segments {
+		if !segment.Inline() {
+			segmentHealth, err := endpoint.segmentHealth(ctx, segment)
+			if err != nil {
 				return nil, Error.Wrap(err)
 			}
-
-			segmentIndex = lastSegmentIndex
-			continue
+			segmentHealthResponses = append(segmentHealthResponses, segmentHealth.GetHealth())
+			redundancy = segmentHealth.GetRedundancy()
 		}
-
-		segmentHealthResponses = append(segmentHealthResponses, segmentHealth.GetHealth())
-		redundancy = segmentHealth.GetRedundancy()
-
-		if segmentIndex == lastSegmentIndex {
-			break
-		}
-
-		segmentIndex++
 	}
 
 	return &internalpb.ObjectHealthResponse{
@@ -111,33 +108,48 @@ func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *internalpb.Objec
 }
 
 // SegmentHealth will check the health of a segment.
-func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *internalpb.SegmentHealthRequest) (resp *internalpb.SegmentHealthResponse, err error) {
+func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *internalpb.SegmentHealthRequest) (_ *internalpb.SegmentHealthResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	health := &internalpb.SegmentHealth{}
-
-	projectID, err := uuid.FromString(string(in.GetProjectId()))
+	projectID, err := uuid.FromBytes(in.GetProjectId())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	location, err := metainfo.CreatePath(ctx, projectID, in.GetSegmentIndex(), in.GetBucket(), in.GetEncryptedPath())
+	objectLocation := metabase.ObjectLocation{
+		ProjectID:  projectID,
+		BucketName: string(in.GetBucket()),
+		ObjectKey:  metabase.ObjectKey(in.GetEncryptedPath()),
+	}
+
+	object, err := endpoint.metabaseDB.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
+		ObjectLocation: objectLocation,
+	})
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	pointer, err := endpoint.metainfo.Get(ctx, location.Encode())
+	segment, err := endpoint.metabaseDB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		StreamID: object.StreamID,
+		Position: metabase.SegmentPositionFromEncoded(uint64(in.GetSegmentIndex())),
+	})
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	if pointer.GetType() != pb.Pointer_REMOTE {
+	if segment.Inline() {
 		return nil, Error.New("cannot check health of inline segment")
 	}
 
+	return endpoint.segmentHealth(ctx, segment)
+}
+
+func (endpoint *Endpoint) segmentHealth(ctx context.Context, segment metabase.Segment) (_ *internalpb.SegmentHealthResponse, err error) {
+
+	health := &internalpb.SegmentHealth{}
 	var nodeIDs storj.NodeIDList
-	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		nodeIDs = append(nodeIDs, piece.NodeId)
+	for _, piece := range segment.Pieces {
+		nodeIDs = append(nodeIDs, piece.StorageNode)
 	}
 
 	unreliableOrOfflineNodes, err := endpoint.overlay.KnownUnreliableOrOffline(ctx, nodeIDs)
@@ -159,6 +171,13 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *internalpb.Segm
 		unreliableOfflineMap[id] = true
 	}
 
+	redundancy := &pb.RedundancyScheme{
+		MinReq:           int32(segment.Redundancy.RequiredShares),
+		RepairThreshold:  int32(segment.Redundancy.RepairShares),
+		SuccessThreshold: int32(segment.Redundancy.OptimalShares),
+		Total:            int32(segment.Redundancy.TotalShares),
+	}
+
 	var healthyNodes storj.NodeIDList
 	var unhealthyNodes storj.NodeIDList
 	for _, id := range nodeIDs {
@@ -175,14 +194,12 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *internalpb.Segm
 	health.UnhealthyIds = unhealthyNodes
 	health.OfflineIds = offlineNodes
 
-	if in.GetSegmentIndex() > -1 {
-		health.Segment = []byte("s" + strconv.FormatInt(in.GetSegmentIndex(), 10))
-	} else {
-		health.Segment = []byte("l")
-	}
+	health.Segment = make([]byte, 8)
+
+	binary.LittleEndian.PutUint64(health.Segment, segment.Position.Encode())
 
 	return &internalpb.SegmentHealthResponse{
 		Health:     health,
-		Redundancy: pointer.GetRemote().GetRedundancy(),
+		Redundancy: redundancy,
 	}, nil
 }

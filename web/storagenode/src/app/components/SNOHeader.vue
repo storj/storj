@@ -181,7 +181,7 @@ export default class SNOHeader extends Vue {
         }
 
         try {
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION, this.$store.state.node.selectedSatellite.id);
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_ESTIMATION, selectedSatelliteId);
         } catch (error) {
             console.error(error);
         }
@@ -190,7 +190,7 @@ export default class SNOHeader extends Vue {
 
         try {
             await this.$store.dispatch(PAYOUT_ACTIONS.GET_PAYOUT_INFO, selectedSatelliteId);
-            await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL);
+            await this.$store.dispatch(PAYOUT_ACTIONS.GET_TOTAL, selectedSatelliteId);
         } catch (error) {
             console.error(error.message);
         }

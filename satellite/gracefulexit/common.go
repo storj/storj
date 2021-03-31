@@ -18,7 +18,7 @@ var (
 	ErrNodeNotFound = errs.Class("graceful exit node not found")
 
 	// ErrAboveOptimalThreshold is returned if a graceful exit entry for a node has more pieces than required.
-	ErrAboveOptimalThreshold = errs.Class("pointer has more pieces than required")
+	ErrAboveOptimalThreshold = errs.Class("segment has more pieces than required")
 
 	mon = monkit.Package()
 )

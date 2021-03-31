@@ -38,8 +38,8 @@ type Client struct {
 	lookupLimit int
 }
 
-// NewClient returns a configured Client instance, verifying a successful connection to redis.
-func NewClient(ctx context.Context, address, password string, db int) (*Client, error) {
+// OpenClient returns a configured Client instance, verifying a successful connection to redis.
+func OpenClient(ctx context.Context, address, password string, db int) (*Client, error) {
 	client := &Client{
 		db: redis.NewClient(&redis.Options{
 			Addr:     address,
@@ -58,8 +58,8 @@ func NewClient(ctx context.Context, address, password string, db int) (*Client, 
 	return client, nil
 }
 
-// NewClientFrom returns a configured Client instance from a redis address, verifying a successful connection to redis.
-func NewClientFrom(ctx context.Context, address string) (*Client, error) {
+// OpenClientFrom returns a configured Client instance from a redis address, verifying a successful connection to redis.
+func OpenClientFrom(ctx context.Context, address string) (*Client, error) {
 	redisurl, err := url.Parse(address)
 	if err != nil {
 		return nil, err
@@ -76,7 +76,7 @@ func NewClientFrom(ctx context.Context, address string) (*Client, error) {
 		return nil, err
 	}
 
-	return NewClient(ctx, redisurl.Host, q.Get("password"), db)
+	return OpenClient(ctx, redisurl.Host, q.Get("password"), db)
 }
 
 // SetLookupLimit sets the lookup limit.

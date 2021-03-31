@@ -113,8 +113,8 @@ model node (
 	)
 
 	index (
-		name nodes_dis_unk_exit_fin_last_success_index
-		fields disqualified unknown_audit_suspended exit_finished_at last_contact_success
+		name nodes_dis_unk_off_exit_fin_last_success_index
+		fields disqualified unknown_audit_suspended offline_suspended exit_finished_at last_contact_success
 	)
 
 	field id              blob
@@ -144,7 +144,7 @@ model node (
 	field vetted_at            timestamp ( updatable, nullable )
 	field uptime_success_count int64   ( updatable, default 0 )
 	field total_uptime_count   int64   ( updatable, default 0 )
-	
+
 	field created_at           timestamp ( autoinsert, default current_timestamp )
 	field updated_at           timestamp ( autoinsert, autoupdate, default current_timestamp )
 	field last_contact_success timestamp ( updatable, default "epoch" )
@@ -192,9 +192,13 @@ read all (
 	select node.id
 )
 
+read paged (
+	select node
+)
+
 read all (
-    select node.id node.piece_count
-    where node.piece_count != 0
+	select node.id node.piece_count
+	where node.piece_count != 0
 )
 
 //--- audit history ---//
@@ -900,13 +904,6 @@ read limitoffset ( // After
 	where bucket_metainfo.project_id = ?
 	where bucket_metainfo.name > ?
 	orderby asc bucket_metainfo.name
-)
-
-read limitoffset ( // After
-	select bucket_metainfo
-	where bucket_metainfo.project_id >= ?
-	where bucket_metainfo.name > ?
-	orderby asc bucket_metainfo.project_id bucket_metainfo.name
 )
 
 read count (

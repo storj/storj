@@ -49,6 +49,7 @@ const (
 	passwordIncorrectErrMsg              = "Your password needs at least %d characters long"
 	projectOwnerDeletionForbiddenErrMsg  = "%s is a project owner and can not be deleted"
 	apiKeyWithNameExistsErrMsg           = "An API Key with this name already exists in this project, please use a different name"
+	apiKeyWithNameDoesntExistErrMsg      = "An API Key with this name doesn't exist in this project."
 	teamMemberDoesNotExistErrMsg         = `There is no account on this Satellite for the user(s) you have entered.
 									     Please add team members with active accounts`
 
@@ -74,6 +75,9 @@ var (
 
 	// ErrEmailUsed is error type that occurs on repeating auth attempts with email.
 	ErrEmailUsed = errs.Class("email used")
+
+	// ErrNoAPIKey is error type that occurs when there is no api key found.
+	ErrNoAPIKey = errs.Class("no api key found")
 )
 
 // Service is handling accounts related logic.
@@ -99,7 +103,8 @@ type Service struct {
 type Config struct {
 	PasswordCost            int  `help:"password hashing cost (0=automatic)" internal:"true"`
 	OpenRegistrationEnabled bool `help:"enable open registration" default:"false"`
-	DefaultProjectLimit     int  `help:"default project limits for users" default:"10"`
+	DefaultProjectLimit     int  `help:"default project limits for users" default:"3"`
+	UsageLimits             UsageLimitsConfig
 }
 
 // PaymentsService separates all payment related functionality.
@@ -573,6 +578,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 		if registrationToken != nil {
 			newUser.ProjectLimit = registrationToken.ProjectLimit
+		} else {
+			newUser.ProjectLimit = s.config.DefaultProjectLimit
 		}
 
 		u, err = tx.Users().Insert(ctx,
@@ -1003,10 +1010,12 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		p, err = tx.Projects().Insert(ctx,
 			&Project{
-				Description: projectInfo.Description,
-				Name:        projectInfo.Name,
-				OwnerID:     auth.User.ID,
-				PartnerID:   auth.User.PartnerID,
+				Description:    projectInfo.Description,
+				Name:           projectInfo.Name,
+				OwnerID:        auth.User.ID,
+				PartnerID:      auth.User.PartnerID,
+				StorageLimit:   &s.config.UsageLimits.DefaultStorageLimit,
+				BandwidthLimit: &s.config.UsageLimits.DefaultBandwidthLimit,
 			},
 		)
 		if err != nil {
@@ -1323,6 +1332,33 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 		return nil
 	})
 	return Error.Wrap(err)
+}
+
+// DeleteAPIKeyByNameAndProjectID deletes api key by name and project ID.
+func (s *Service) DeleteAPIKeyByNameAndProjectID(ctx context.Context, name string, projectID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := s.getAuthAndAuditLog(ctx, "delete api key by name and project ID", zap.String("apiKeyName", name), zap.String("projectID", projectID.String()))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	_, err = s.isProjectMember(ctx, auth.User.ID, projectID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	key, err := s.store.APIKeys().GetByNameAndProjectID(ctx, name, projectID)
+	if err != nil {
+		return ErrNoAPIKey.New(apiKeyWithNameDoesntExistErrMsg)
+	}
+
+	err = s.store.APIKeys().Delete(ctx, key.ID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
 }
 
 // GetAPIKeys returns paged api key list for given Project.

@@ -17,6 +17,7 @@ func main() {
 	js.Global().Set("generateAccessGrant", generateAccessGrant())
 	js.Global().Set("setAPIKeyPermission", setAPIKeyPermission())
 	js.Global().Set("newPermission", newPermission())
+	js.Global().Set("restrictGrant", restrictGrant())
 	<-make(chan bool)
 }
 
@@ -78,6 +79,38 @@ func setAPIKeyPermission() js.Func {
 		}
 
 		return restrictedKey.Serialize(), nil
+	}))
+}
+
+// restrictGrant restricts an access grant with the permissions and paths and returns a new access grant.
+func restrictGrant() js.Func {
+	return js.FuncOf(responseHandler(func(this js.Value, args []js.Value) (interface{}, error) {
+		if len(args) < 3 {
+			return nil, errs.New("not enough arguments. Need 3, but only %d supplied. The order of arguments are: access grant, paths, and permission object.", len(args))
+		}
+		accessGrant := args[0].String()
+
+		// convert array of paths to go []string type
+		pathsObj := args[1]
+		if ok := pathsObj.InstanceOf(js.Global().Get("Array")); !ok {
+			return nil, errs.New("invalid data type. Expect Array, Got %s", pathsObj.Type().String())
+		}
+		paths, err := parseArrayOfStrings(pathsObj)
+		if err != nil {
+			return nil, err
+		}
+
+		// convert js permission to go permission type
+		permissionJS := args[2]
+		if permissionJS.Type() != js.TypeObject {
+			return nil, errs.New("invalid argument type. Expect %s, Got %s", js.TypeObject.String(), permissionJS.Type().String())
+		}
+		permission, err := parsePermission(permissionJS)
+		if err != nil {
+			return nil, err
+		}
+
+		return console.RestrictGrant(accessGrant, paths, permission)
 	}))
 }
 

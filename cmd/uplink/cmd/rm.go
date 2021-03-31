@@ -9,10 +9,12 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/common/fpath"
+	"storj.io/uplink/private/multipart"
 )
 
 var (
 	rmEncryptedFlag *bool
+	rmPendingFlag   *bool
 )
 
 func init() {
@@ -23,6 +25,9 @@ func init() {
 		Args:  cobra.ExactArgs(1),
 	}, RootCmd)
 	rmEncryptedFlag = rmCmd.Flags().Bool("encrypted", false, "if true, treat paths as base64-encoded encrypted paths")
+	rmPendingFlag = rmCmd.Flags().Bool("pending", false, "if true, delete a pending object")
+
+	setBasicFlags(rmCmd.Flags(), "pending")
 	setBasicFlags(rmCmd.Flags(), "encrypted")
 }
 
@@ -48,7 +53,19 @@ func deleteObject(cmd *cobra.Command, args []string) error {
 	}
 	defer closeProject(project)
 
-	if _, err = project.DeleteObject(ctx, dst.Bucket(), dst.Path()); err != nil {
+	if *rmPendingFlag {
+		// TODO we may need a dedicated endpoint for deleting pending object streams
+		list := multipart.ListPendingObjectStreams(ctx, project, dst.Bucket(), dst.Path(), nil)
+		// TODO modify when we can have several pending objects for the same object key
+		if list.Next() {
+			err = multipart.AbortMultipartUpload(ctx, project, dst.Bucket(), dst.Path(), list.Item().StreamID)
+			if err != nil {
+				return convertError(err, dst)
+			}
+		} else if list.Err() != nil {
+			return convertError(err, dst)
+		}
+	} else if _, err = project.DeleteObject(ctx, dst.Bucket(), dst.Path()); err != nil {
 		return convertError(err, dst)
 	}
 

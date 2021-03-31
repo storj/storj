@@ -21,10 +21,10 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpctracing"
+	"storj.io/drpc/drpcmigrate"
 	"storj.io/drpc/drpcmux"
 	"storj.io/drpc/drpcserver"
 	jaeger "storj.io/monkit-jaeger"
-	"storj.io/storj/pkg/listenmux"
 	"storj.io/storj/pkg/quic"
 )
 
@@ -158,15 +158,14 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	// is so that we don't get "listener closed" errors because the
 	// Run call exits and closes the listeners before the servers have had
 	// a chance to be notified that they're done running.
-	const drpcHeader = "DRPC!!!1"
 
 	var (
-		publicMux          *listenmux.Mux
+		publicMux          *drpcmigrate.ListenMux
 		publicDRPCListener net.Listener
 	)
 	if p.public.tcpListener != nil {
-		publicMux = listenmux.New(p.public.tcpListener, len(drpcHeader))
-		publicDRPCListener = tls.NewListener(publicMux.Route(drpcHeader), p.tlsOptions.ServerTLSConfig())
+		publicMux = drpcmigrate.NewListenMux(p.public.tcpListener, len(drpcmigrate.DRPCHeader))
+		publicDRPCListener = tls.NewListener(publicMux.Route(drpcmigrate.DRPCHeader), p.tlsOptions.ServerTLSConfig())
 	}
 
 	if p.public.udpConn != nil {
@@ -176,8 +175,8 @@ func (p *Server) Run(ctx context.Context) (err error) {
 		}
 	}
 
-	privateMux := listenmux.New(p.private.listener, len(drpcHeader))
-	privateDRPCListener := privateMux.Route(drpcHeader)
+	privateMux := drpcmigrate.NewListenMux(p.private.listener, len(drpcmigrate.DRPCHeader))
+	privateDRPCListener := privateMux.Route(drpcmigrate.DRPCHeader)
 
 	// We need a new context chain because we require this context to be
 	// canceled only after all of the upcoming drpc servers have

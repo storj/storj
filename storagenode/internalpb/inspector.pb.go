@@ -4,14 +4,11 @@
 package internalpb
 
 import (
-	context "context"
 	fmt "fmt"
 	math "math"
 	time "time"
 
 	proto "github.com/gogo/protobuf/proto"
-
-	drpc "storj.io/drpc"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -327,116 +324,3 @@ var fileDescriptor_a07d9034b2dd9d26 = []byte{
 	0x74, 0x89, 0xcd, 0xe2, 0xb8, 0x6a, 0xa7, 0x72, 0xfc, 0x27, 0x00, 0x00, 0xff, 0xff, 0x8e, 0x0f,
 	0xce, 0xb4, 0xf0, 0x04, 0x00, 0x00,
 }
-
-// --- DRPC BEGIN ---
-
-type DRPCPieceStoreInspectorClient interface {
-	DRPCConn() drpc.Conn
-
-	// Stats return space and bandwidth stats for a storagenode
-	Stats(ctx context.Context, in *StatsRequest) (*StatSummaryResponse, error)
-	// Dashboard returns stats for a specific storagenode
-	Dashboard(ctx context.Context, in *DashboardRequest) (*DashboardResponse, error)
-}
-
-type drpcPieceStoreInspectorClient struct {
-	cc drpc.Conn
-}
-
-func NewDRPCPieceStoreInspectorClient(cc drpc.Conn) DRPCPieceStoreInspectorClient {
-	return &drpcPieceStoreInspectorClient{cc}
-}
-
-func (c *drpcPieceStoreInspectorClient) DRPCConn() drpc.Conn { return c.cc }
-
-func (c *drpcPieceStoreInspectorClient) Stats(ctx context.Context, in *StatsRequest) (*StatSummaryResponse, error) {
-	out := new(StatSummaryResponse)
-	err := c.cc.Invoke(ctx, "/storagenode.inspector.PieceStoreInspector/Stats", in, out)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *drpcPieceStoreInspectorClient) Dashboard(ctx context.Context, in *DashboardRequest) (*DashboardResponse, error) {
-	out := new(DashboardResponse)
-	err := c.cc.Invoke(ctx, "/storagenode.inspector.PieceStoreInspector/Dashboard", in, out)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-type DRPCPieceStoreInspectorServer interface {
-	// Stats return space and bandwidth stats for a storagenode
-	Stats(context.Context, *StatsRequest) (*StatSummaryResponse, error)
-	// Dashboard returns stats for a specific storagenode
-	Dashboard(context.Context, *DashboardRequest) (*DashboardResponse, error)
-}
-
-type DRPCPieceStoreInspectorDescription struct{}
-
-func (DRPCPieceStoreInspectorDescription) NumMethods() int { return 2 }
-
-func (DRPCPieceStoreInspectorDescription) Method(n int) (string, drpc.Receiver, interface{}, bool) {
-	switch n {
-	case 0:
-		return "/storagenode.inspector.PieceStoreInspector/Stats",
-			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
-				return srv.(DRPCPieceStoreInspectorServer).
-					Stats(
-						ctx,
-						in1.(*StatsRequest),
-					)
-			}, DRPCPieceStoreInspectorServer.Stats, true
-	case 1:
-		return "/storagenode.inspector.PieceStoreInspector/Dashboard",
-			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
-				return srv.(DRPCPieceStoreInspectorServer).
-					Dashboard(
-						ctx,
-						in1.(*DashboardRequest),
-					)
-			}, DRPCPieceStoreInspectorServer.Dashboard, true
-	default:
-		return "", nil, nil, false
-	}
-}
-
-func DRPCRegisterPieceStoreInspector(mux drpc.Mux, impl DRPCPieceStoreInspectorServer) error {
-	return mux.Register(impl, DRPCPieceStoreInspectorDescription{})
-}
-
-type DRPCPieceStoreInspector_StatsStream interface {
-	drpc.Stream
-	SendAndClose(*StatSummaryResponse) error
-}
-
-type drpcPieceStoreInspectorStatsStream struct {
-	drpc.Stream
-}
-
-func (x *drpcPieceStoreInspectorStatsStream) SendAndClose(m *StatSummaryResponse) error {
-	if err := x.MsgSend(m); err != nil {
-		return err
-	}
-	return x.CloseSend()
-}
-
-type DRPCPieceStoreInspector_DashboardStream interface {
-	drpc.Stream
-	SendAndClose(*DashboardResponse) error
-}
-
-type drpcPieceStoreInspectorDashboardStream struct {
-	drpc.Stream
-}
-
-func (x *drpcPieceStoreInspectorDashboardStream) SendAndClose(m *DashboardResponse) error {
-	if err := x.MsgSend(m); err != nil {
-		return err
-	}
-	return x.CloseSend()
-}
-
-// --- DRPC END ---

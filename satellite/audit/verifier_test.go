@@ -15,7 +15,6 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/memory"
-	"storj.io/common/pb"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/rpcstatus"
@@ -27,7 +26,6 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metainfo/metabase"
-	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
 )
 
@@ -50,21 +48,23 @@ func TestDownloadSharesHappyPath(t *testing.T) {
 		err := uplink.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		bucket := metabase.BucketLocation{ProjectID: uplink.Projects[0].ID, BucketName: "testbucket"}
-
 		audits.Chore.Loop.TriggerWait()
 		queue := audits.Queues.Fetch()
-		path, err := queue.Next()
+		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
+		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: queueSegment.StreamID,
+			Position: queueSegment.Position,
+		})
 		require.NoError(t, err)
 
-		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
+		randomIndex, err := audit.GetRandomStripe(ctx, segment)
 		require.NoError(t, err)
 
-		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucket, pointer, nil)
+		shareSize := segment.Redundancy.ShareSize
+
+		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, queueSegment.Bucket(), segment, nil)
 		require.NoError(t, err)
 
 		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, cachedIPsAndPorts, randomIndex, shareSize)
@@ -101,25 +101,27 @@ func TestDownloadSharesOfflineNode(t *testing.T) {
 		err := uplink.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		bucket := metabase.BucketLocation{ProjectID: uplink.Projects[0].ID, BucketName: "testbucket"}
-
 		audits.Chore.Loop.TriggerWait()
 		queue := audits.Queues.Fetch()
-		path, err := queue.Next()
+		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
+		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: queueSegment.StreamID,
+			Position: queueSegment.Position,
+		})
 		require.NoError(t, err)
 
-		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
+		randomIndex, err := audit.GetRandomStripe(ctx, segment)
 		require.NoError(t, err)
 
-		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucket, pointer, nil)
+		shareSize := segment.Redundancy.ShareSize
+
+		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, queueSegment.Bucket(), segment, nil)
 		require.NoError(t, err)
 
-		// stop the first node in the pointer
-		stoppedNodeID := pointer.GetRemote().GetRemotePieces()[0].NodeId
+		// stop the first node in the segment
+		stoppedNodeID := segment.Pieces[0].StorageNode
 		err = planet.StopNodeAndUpdate(ctx, planet.FindNode(stoppedNodeID))
 		require.NoError(t, err)
 
@@ -162,23 +164,25 @@ func TestDownloadSharesMissingPiece(t *testing.T) {
 
 		audits.Chore.Loop.TriggerWait()
 		queue := audits.Queues.Fetch()
-		path, err := queue.Next()
+		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
+		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: queueSegment.StreamID,
+			Position: queueSegment.Position,
+		})
 		require.NoError(t, err)
 
-		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
+		randomIndex, err := audit.GetRandomStripe(ctx, segment)
 		require.NoError(t, err)
-
-		bucket := metabase.BucketLocation{ProjectID: uplink.Projects[0].ID, BucketName: "testbucket"}
 
 		// replace the piece id of the selected stripe with a new random one
 		// to simulate missing piece on the storage nodes
-		pointer.GetRemote().RootPieceId = storj.NewPieceID()
+		segment.RootPieceID = storj.NewPieceID()
 
-		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucket, pointer, nil)
+		shareSize := segment.Redundancy.ShareSize
+
+		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, queueSegment.Bucket(), segment, nil)
 		require.NoError(t, err)
 
 		shares, err := audits.Verifier.DownloadShares(ctx, limits, privateKey, cachedIPsAndPorts, randomIndex, shareSize)
@@ -217,16 +221,17 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 
 		audits.Chore.Loop.TriggerWait()
 		queue := audits.Queues.Fetch()
-		path, err := queue.Next()
+		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
+		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: queueSegment.StreamID,
+			Position: queueSegment.Position,
+		})
 		require.NoError(t, err)
 
-		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
+		randomIndex, err := audit.GetRandomStripe(ctx, segment)
 		require.NoError(t, err)
-
-		bucket := metabase.BucketLocation{ProjectID: upl.Projects[0].ID, BucketName: "testbucket"}
 
 		tlsOptions, err := tlsopts.NewOptions(satellite.Identity, tlsopts.Config{}, nil)
 		require.NoError(t, err)
@@ -245,7 +250,7 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 
 		verifier := audit.NewVerifier(
 			satellite.Log.Named("verifier"),
-			satellite.Metainfo.Service,
+			satellite.Metainfo.Metabase,
 			dialer,
 			satellite.Overlay.Service,
 			satellite.DB.Containment(),
@@ -254,8 +259,9 @@ func TestDownloadSharesDialTimeout(t *testing.T) {
 			minBytesPerSecond,
 			5*time.Second)
 
-		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucket, pointer, nil)
+		shareSize := segment.Redundancy.ShareSize
+
+		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, queueSegment.Bucket(), segment, nil)
 		require.NoError(t, err)
 
 		shares, err := verifier.DownloadShares(ctx, limits, privateKey, cachedIPsAndPorts, randomIndex, shareSize)
@@ -299,17 +305,18 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 		err := upl.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		bucket := metabase.BucketLocation{ProjectID: upl.Projects[0].ID, BucketName: "testbucket"}
-
 		audits.Chore.Loop.TriggerWait()
 		queue := audits.Queues.Fetch()
-		path, err := queue.Next()
+		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
+		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: queueSegment.StreamID,
+			Position: queueSegment.Position,
+		})
 		require.NoError(t, err)
 
-		randomIndex, err := audit.GetRandomStripe(ctx, pointer)
+		randomIndex, err := audit.GetRandomStripe(ctx, segment)
 		require.NoError(t, err)
 
 		// This config value will create a very short timeframe allowed for receiving
@@ -318,7 +325,7 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 
 		verifier := audit.NewVerifier(
 			satellite.Log.Named("verifier"),
-			satellite.Metainfo.Service,
+			satellite.Metainfo.Metabase,
 			satellite.Dialer,
 			satellite.Overlay.Service,
 			satellite.DB.Containment(),
@@ -327,8 +334,9 @@ func TestDownloadSharesDownloadTimeout(t *testing.T) {
 			minBytesPerSecond,
 			150*time.Millisecond)
 
-		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, bucket, pointer, nil)
+		shareSize := segment.Redundancy.ShareSize
+
+		limits, privateKey, cachedIPsAndPorts, err := satellite.Orders.Service.CreateAuditOrderLimits(ctx, queueSegment.Bucket(), segment, nil)
 		require.NoError(t, err)
 
 		// make downloads on storage node slower than the timeout on the satellite for downloading shares
@@ -363,16 +371,19 @@ func TestVerifierHappyPath(t *testing.T) {
 
 		audits.Chore.Loop.TriggerWait()
 		queue := audits.Queues.Fetch()
-		path, err := queue.Next()
+		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
+		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: queueSegment.StreamID,
+			Position: queueSegment.Position,
+		})
 		require.NoError(t, err)
 
-		report, err := audits.Verifier.Verify(ctx, path, nil)
+		report, err := audits.Verifier.Verify(ctx, queueSegment, nil)
 		require.NoError(t, err)
 
-		assert.Len(t, report.Successes, len(pointer.GetRemote().GetRemotePieces()))
+		assert.Len(t, report.Successes, len(segment.Pieces))
 		assert.Len(t, report.Fails, 0)
 		assert.Len(t, report.Offlines, 0)
 		assert.Len(t, report.PendingAudits, 0)
@@ -392,30 +403,21 @@ func TestVerifierExpired(t *testing.T) {
 		ul := planet.Uplinks[0]
 		testData := testrand.Bytes(8 * memory.KiB)
 
-		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		err := ul.UploadWithExpiration(ctx, satellite, "testbucket", "test/path", testData, time.Now().Add(1*time.Hour))
 		require.NoError(t, err)
 
 		audits.Chore.Loop.TriggerWait()
 		queue := audits.Queues.Fetch()
-		path, err := queue.Next()
+		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		// set pointer's expiration date to be already expired
-		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
-		require.NoError(t, err)
-		oldPointerBytes, err := pb.Marshal(pointer)
-		require.NoError(t, err)
-		newPointer := &pb.Pointer{}
-		err = pb.Unmarshal(oldPointerBytes, newPointer)
-		require.NoError(t, err)
-		newPointer.ExpirationDate = time.Now().Add(-1 * time.Hour)
-		newPointerBytes, err := pb.Marshal(newPointer)
-		require.NoError(t, err)
-		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
-		require.NoError(t, err)
+		// move time into the future so the segment is expired
+		audits.Verifier.SetNow(func() time.Time {
+			return time.Now().Add(2 * time.Hour)
+		})
 
 		// Verify should not return an error
-		report, err := audits.Verifier.Verify(ctx, path, nil)
+		report, err := audits.Verifier.Verify(ctx, queueSegment, nil)
 		require.NoError(t, err)
 
 		assert.Len(t, report.Successes, 0)
@@ -444,21 +446,24 @@ func TestVerifierOfflineNode(t *testing.T) {
 
 		audits.Chore.Loop.TriggerWait()
 		queue := audits.Queues.Fetch()
-		path, err := queue.Next()
+		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
+		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: queueSegment.StreamID,
+			Position: queueSegment.Position,
+		})
 		require.NoError(t, err)
 
-		// stop the first node in the pointer
-		stoppedNodeID := pointer.GetRemote().GetRemotePieces()[0].NodeId
+		// stop the first node in the segment
+		stoppedNodeID := segment.Pieces[0].StorageNode
 		err = planet.StopNodeAndUpdate(ctx, planet.FindNode(stoppedNodeID))
 		require.NoError(t, err)
 
-		report, err := audits.Verifier.Verify(ctx, path, nil)
+		report, err := audits.Verifier.Verify(ctx, queueSegment, nil)
 		require.NoError(t, err)
 
-		assert.Len(t, report.Successes, len(pointer.GetRemote().GetRemotePieces())-1)
+		assert.Len(t, report.Successes, len(segment.Pieces)-1)
 		assert.Len(t, report.Fails, 0)
 		assert.Len(t, report.Offlines, 1)
 		assert.Len(t, report.PendingAudits, 0)
@@ -483,21 +488,24 @@ func TestVerifierMissingPiece(t *testing.T) {
 
 		audits.Chore.Loop.TriggerWait()
 		queue := audits.Queues.Fetch()
-		path, err := queue.Next()
+		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
+		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: queueSegment.StreamID,
+			Position: queueSegment.Position,
+		})
 		require.NoError(t, err)
 
 		// delete the piece from the first node
-		origNumPieces := len(pointer.GetRemote().GetRemotePieces())
-		piece := pointer.GetRemote().GetRemotePieces()[0]
-		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-		node := planet.FindNode(piece.NodeId)
+		origNumPieces := len(segment.Pieces)
+		piece := segment.Pieces[0]
+		pieceID := segment.RootPieceID.Derive(piece.StorageNode, int32(piece.Number))
+		node := planet.FindNode(piece.StorageNode)
 		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
 		require.NoError(t, err)
 
-		report, err := audits.Verifier.Verify(ctx, path, nil)
+		report, err := audits.Verifier.Verify(ctx, queueSegment, nil)
 		require.NoError(t, err)
 
 		assert.Len(t, report.Successes, origNumPieces-1)
@@ -525,10 +533,13 @@ func TestVerifierDialTimeout(t *testing.T) {
 
 		audits.Chore.Loop.TriggerWait()
 		queue := audits.Queues.Fetch()
-		path, err := queue.Next()
+		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
+		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: queueSegment.StreamID,
+			Position: queueSegment.Position,
+		})
 		require.NoError(t, err)
 
 		tlsOptions, err := tlsopts.NewOptions(satellite.Identity, tlsopts.Config{}, nil)
@@ -548,7 +559,7 @@ func TestVerifierDialTimeout(t *testing.T) {
 
 		verifier := audit.NewVerifier(
 			satellite.Log.Named("verifier"),
-			satellite.Metainfo.Service,
+			satellite.Metainfo.Metabase,
 			dialer,
 			satellite.Overlay.Service,
 			satellite.DB.Containment(),
@@ -557,12 +568,12 @@ func TestVerifierDialTimeout(t *testing.T) {
 			minBytesPerSecond,
 			5*time.Second)
 
-		report, err := verifier.Verify(ctx, path, nil)
+		report, err := verifier.Verify(ctx, queueSegment, nil)
 		require.True(t, audit.ErrNotEnoughShares.Has(err), "unexpected error: %+v", err)
 
 		assert.Len(t, report.Successes, 0)
 		assert.Len(t, report.Fails, 0)
-		assert.Len(t, report.Offlines, len(pointer.GetRemote().GetRemotePieces()))
+		assert.Len(t, report.Offlines, len(segment.Pieces))
 		assert.Len(t, report.PendingAudits, 0)
 	})
 }
@@ -585,7 +596,7 @@ func TestVerifierDeletedSegment(t *testing.T) {
 
 		audits.Chore.Loop.TriggerWait()
 		queue := audits.Queues.Fetch()
-		path, err := queue.Next()
+		segment, err := queue.Next()
 		require.NoError(t, err)
 
 		// delete the file
@@ -593,7 +604,7 @@ func TestVerifierDeletedSegment(t *testing.T) {
 		require.NoError(t, err)
 
 		// Verify should not return an error, but report should be empty
-		report, err := audits.Verifier.Verify(ctx, path, nil)
+		report, err := audits.Verifier.Verify(ctx, segment, nil)
 		require.NoError(t, err)
 		assert.Empty(t, report)
 	})
@@ -605,7 +616,6 @@ func TestVerifierModifiedSegment(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		audits := satellite.Audit
-		metainfo := satellite.Metainfo.Service
 
 		audits.Worker.Loop.Pause()
 		audits.Chore.Loop.Pause()
@@ -618,20 +628,29 @@ func TestVerifierModifiedSegment(t *testing.T) {
 
 		audits.Chore.Loop.TriggerWait()
 		queue := audits.Queues.Fetch()
-		path, err := queue.Next()
+		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
 		audits.Verifier.OnTestingCheckSegmentAlteredHook = func() {
 			// remove one piece from the segment so that checkIfSegmentAltered fails
-			pointer, err := metainfo.Get(ctx, metabase.SegmentKey(path))
+			segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: queueSegment.StreamID,
+				Position: queueSegment.Position,
+			})
 			require.NoError(t, err)
-			pieceToRemove := pointer.Remote.RemotePieces[0]
-			_, err = metainfo.UpdatePieces(ctx, metabase.SegmentKey(path), pointer, nil, []*pb.RemotePiece{pieceToRemove})
+
+			err = satellite.Metainfo.Metabase.UpdateSegmentPieces(ctx, metabase.UpdateSegmentPieces{
+				StreamID:      queueSegment.StreamID,
+				Position:      queueSegment.Position,
+				OldPieces:     segment.Pieces,
+				NewPieces:     append([]metabase.Piece{segment.Pieces[0]}, segment.Pieces[2:]...),
+				NewRedundancy: segment.Redundancy,
+			})
 			require.NoError(t, err)
 		}
 
 		// Verify should not return an error, but report should be empty
-		report, err := audits.Verifier.Verify(ctx, path, nil)
+		report, err := audits.Verifier.Verify(ctx, queueSegment, nil)
 		require.NoError(t, err)
 		assert.Empty(t, report)
 	})
@@ -655,7 +674,7 @@ func TestVerifierReplacedSegment(t *testing.T) {
 
 		audits.Chore.Loop.TriggerWait()
 		queue := audits.Queues.Fetch()
-		path, err := queue.Next()
+		segment, err := queue.Next()
 		require.NoError(t, err)
 
 		audits.Verifier.OnTestingCheckSegmentAlteredHook = func() {
@@ -665,7 +684,7 @@ func TestVerifierReplacedSegment(t *testing.T) {
 		}
 
 		// Verify should not return an error, but report should be empty
-		report, err := audits.Verifier.Verify(ctx, path, nil)
+		report, err := audits.Verifier.Verify(ctx, segment, nil)
 		require.NoError(t, err)
 		assert.Empty(t, report)
 	})
@@ -689,26 +708,29 @@ func TestVerifierModifiedSegmentFailsOnce(t *testing.T) {
 
 		audits.Chore.Loop.TriggerWait()
 		queue := audits.Queues.Fetch()
-		path, err := queue.Next()
+		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
+		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: queueSegment.StreamID,
+			Position: queueSegment.Position,
+		})
 		require.NoError(t, err)
 
 		// delete the piece from the first node
-		origNumPieces := len(pointer.GetRemote().GetRemotePieces())
-		piece := pointer.GetRemote().GetRemotePieces()[0]
-		pieceID := pointer.GetRemote().RootPieceId.Derive(piece.NodeId, piece.PieceNum)
-		node := planet.FindNode(piece.NodeId)
+		origNumPieces := len(segment.Pieces)
+		piece := segment.Pieces[0]
+		pieceID := segment.RootPieceID.Derive(piece.StorageNode, int32(piece.Number))
+		node := planet.FindNode(piece.StorageNode)
 		err = node.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
 		require.NoError(t, err)
 
-		report, err := audits.Verifier.Verify(ctx, path, nil)
+		report, err := audits.Verifier.Verify(ctx, queueSegment, nil)
 		require.NoError(t, err)
 
 		assert.Len(t, report.Successes, origNumPieces-1)
 		assert.Len(t, report.Fails, 1)
-		assert.Equal(t, report.Fails[0], piece.NodeId)
+		assert.Equal(t, report.Fails[0], piece.StorageNode)
 		assert.Len(t, report.Offlines, 0)
 		require.Len(t, report.PendingAudits, 0)
 	})
@@ -747,19 +769,22 @@ func TestVerifierSlowDownload(t *testing.T) {
 
 		audits.Chore.Loop.TriggerWait()
 		queue := audits.Queues.Fetch()
-		path, err := queue.Next()
+		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
+		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: queueSegment.StreamID,
+			Position: queueSegment.Position,
+		})
 		require.NoError(t, err)
 
-		slowNode := planet.FindNode(pointer.Remote.RemotePieces[0].NodeId)
+		slowNode := planet.FindNode(segment.Pieces[0].StorageNode)
 		slowNodeDB := slowNode.DB.(*testblobs.SlowDB)
 		// make downloads on storage node slower than the timeout on the satellite for downloading shares
 		delay := 1 * time.Second
 		slowNodeDB.SetLatency(delay)
 
-		report, err := audits.Verifier.Verify(ctx, path, nil)
+		report, err := audits.Verifier.Verify(ctx, queueSegment, nil)
 		require.NoError(t, err)
 
 		assert.NotContains(t, report.Successes, slowNode.ID())
@@ -797,18 +822,21 @@ func TestVerifierUnknownError(t *testing.T) {
 
 		audits.Chore.Loop.TriggerWait()
 		queue := audits.Queues.Fetch()
-		path, err := queue.Next()
+		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
+		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: queueSegment.StreamID,
+			Position: queueSegment.Position,
+		})
 		require.NoError(t, err)
 
-		badNode := planet.FindNode(pointer.Remote.RemotePieces[0].NodeId)
+		badNode := planet.FindNode(segment.Pieces[0].StorageNode)
 		badNodeDB := badNode.DB.(*testblobs.BadDB)
 		// return an error when the verifier attempts to download from this node
 		badNodeDB.SetError(errs.New("unknown error"))
 
-		report, err := audits.Verifier.Verify(ctx, path, nil)
+		report, err := audits.Verifier.Verify(ctx, queueSegment, nil)
 		require.NoError(t, err)
 
 		require.Len(t, report.Successes, 3)

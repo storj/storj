@@ -80,7 +80,6 @@ func (s *Service) GetAllSatellitesEstimatedPayout(ctx context.Context, now time.
 		if err != nil {
 			return EstimatedPayout{}, EstimationServiceErr.Wrap(err)
 		}
-
 		var satellitePayout EstimatedPayout
 
 		stats, err := s.reputationDB.Get(ctx, satelliteIDs[i])
@@ -108,7 +107,6 @@ func (s *Service) estimatedPayout(ctx context.Context, satelliteID storj.NodeID,
 	if err != nil {
 		return PayoutMonthly{}, PayoutMonthly{}, EstimationServiceErr.Wrap(err)
 	}
-
 	currentMonthPayout, err = s.estimationUsagePeriod(ctx, now.UTC(), stats.JoinedAt, priceModel)
 	previousMonthPayout, err = s.estimationUsagePeriod(ctx, now.UTC().AddDate(0, -1, 0), stats.JoinedAt, priceModel)
 

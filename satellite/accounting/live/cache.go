@@ -27,7 +27,7 @@ type Config struct {
 	BandwidthCacheTTL time.Duration `default:"5m" help:"bandwidth cache key time to live"`
 }
 
-// NewCache creates a new accounting.Cache instance using the type specified backend in
+// OpenCache creates a new accounting.Cache instance using the type specified backend in
 // the provided config.
 //
 // The cache instance may be returned despite of returning the
@@ -38,7 +38,7 @@ type Config struct {
 // For this reason, the components that uses the cache should operate despite
 // the backend is not responding successfully although their service is
 // degraded.
-func NewCache(ctx context.Context, log *zap.Logger, config Config) (accounting.Cache, error) {
+func OpenCache(ctx context.Context, log *zap.Logger, config Config) (accounting.Cache, error) {
 	parts := strings.SplitN(config.StorageBackend, ":", 2)
 	var backendType string
 	if len(parts) == 0 || parts[0] == "" {
@@ -48,7 +48,7 @@ func NewCache(ctx context.Context, log *zap.Logger, config Config) (accounting.C
 	backendType = parts[0]
 	switch backendType {
 	case "redis":
-		return newRedisLiveAccounting(ctx, config.StorageBackend)
+		return openRedisLiveAccounting(ctx, config.StorageBackend)
 	default:
 		return nil, Error.New("unrecognized live accounting backend specifier %q. Currently only redis is supported", backendType)
 	}

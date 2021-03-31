@@ -93,8 +93,8 @@ export default class HeaderlessInput extends Vue {
     protected readonly error: string;
     @Prop({default: Number.MAX_SAFE_INTEGER})
     protected readonly maxSymbols: number;
-    @Prop({default: []})
-    protected readonly optionsList: [string];
+    @Prop({default: () => []})
+    protected readonly optionsList: string[];
     @Prop({default: false})
     protected optionsShown: boolean;
     @Prop({default: false})
@@ -102,6 +102,8 @@ export default class HeaderlessInput extends Vue {
 
     @Prop({default: false})
     private readonly isWhite: boolean;
+    @Prop({default: false})
+    private readonly withIcon: boolean;
 
     public constructor() {
         super();
@@ -196,6 +198,7 @@ export default class HeaderlessInput extends Vue {
             inputStyle: {
                 width: this.width,
                 height: this.height,
+                padding: this.withIcon ? '0 30px 0 50px' : '0 30px 0 0',
             },
             labelStyle: {
                 color: this.isWhite ? 'white' : '#354049',
@@ -233,10 +236,12 @@ export default class HeaderlessInput extends Vue {
             resize: none;
             height: 46px;
             padding: 0 30px 0 0;
-            width: calc(100% - 30px) !important;
             text-indent: 20px;
             border: 1px solid rgba(56, 75, 101, 0.4);
             border-radius: 6px;
+            -webkit-box-sizing: border-box;
+            -moz-box-sizing: border-box;
+            box-sizing: border-box;
 
             &__caret {
                 position: absolute;
@@ -247,8 +252,8 @@ export default class HeaderlessInput extends Vue {
             &__options-wrapper {
                 border: 1px solid rgba(56, 75, 101, 0.4);
                 position: absolute;
-                width: 100%;
-                top: 89px;
+                width: calc(100% - 4px);
+                top: 86px;
                 padding: 0;
                 background: #fff;
                 z-index: 21;
@@ -332,7 +337,6 @@ export default class HeaderlessInput extends Vue {
     }
 
     .password {
-        width: calc(100% - 75px) !important;
         padding-right: 75px;
     }
 </style>

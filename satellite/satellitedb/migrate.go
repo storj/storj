@@ -256,10 +256,10 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						exit_initiated_at timestamp with time zone,
 						exit_finished_at timestamp with time zone,
 						exit_success boolean NOT NULL DEFAULT FALSE,
-						last_ip_port text,
-						suspended timestamp with time zone,
 						unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
 						unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
+						suspended timestamp with time zone,
+						last_ip_port text,
 						vetted_at timestamp with time zone,
 						PRIMARY KEY ( id )
 					);`,
@@ -1288,6 +1288,36 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						UNIQUE ( name )
 					);`,
 					`ALTER TABLE coupons ADD COLUMN coupon_code_name text;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop columns uptime_reputation_alpha and uptime_reputation_beta",
+				Version:     150,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes DROP COLUMN uptime_reputation_alpha;`,
+					`ALTER TABLE nodes DROP COLUMN uptime_reputation_beta;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "set default project and usage limits on existing users",
+				Version:     151,
+				Action: migrate.SQL{
+					`UPDATE users SET project_limit = 10 WHERE project_limit = 0;`,
+					// 500 GB = 5e11 bytes
+					`UPDATE projects SET usage_limit = 500000000000 WHERE usage_limit IS NULL;`,
+					`UPDATE projects SET bandwidth_limit = 500000000000 WHERE bandwidth_limit IS NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add offline_suspended to index on nodes",
+				Version:     152,
+				SeparateTx:  true,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS nodes_dis_unk_off_exit_fin_last_success_index ON nodes (disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success);`,
+					`DROP INDEX IF EXISTS nodes_dis_unk_exit_fin_last_success_index;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

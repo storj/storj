@@ -2,22 +2,27 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="credit-history">
-        <div class="credit-history__back-area" @click.stop="onBackToBillingClick">
-            <BackImage/>
-            <p class="credit-history__back-area__title">Back to Billing</p>
-        </div>
-        <h1 class="credit-history__title">Free Credits</h1>
-        <div class="credit-history__content">
-            <h1 class="credit-history__content__sum">{{ remainingSum | centsToDollars }}</h1>
-            <span class="credit-history__content__info">Available credits since last bill</span>
-            <span class="credit-history__content__details">DETAILS</span>
-            <SortingHeader/>
-            <CreditsItem
-                v-for="(item, index) in historyItems"
-                :key="index"
-                :credits-item="item"
-            />
+    <div class="credit-history__wrapper">
+        <VButton
+            class="credit-history__add-button"
+            height="44px"
+            width="174px"
+            :on-press="onCreateClick"
+            label="Add Coupon Code"
+            v-if="couponCodeUIEnabled"
+        />
+        <div class="credit-history__container">
+            <div class="credit-history__content">
+                <div class="credit-history__title-area">
+                    <h1 class="credit-history__title">Credit History</h1>
+                </div>
+                <SortingHeader/>
+                <CreditsItem
+                    v-for="(item, index) in historyItems"
+                    :key="index"
+                    :credits-item="item"
+                />
+            </div>
         </div>
     </div>
 </template>
@@ -25,10 +30,10 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import AddCouponCode from '@/components/account/billing/freeCredits/AddCouponCode.vue';
 import CreditsItem from '@/components/account/billing/freeCredits/CreditsItem.vue';
 import SortingHeader from '@/components/account/billing/freeCredits/SortingHeader.vue';
-
-import BackImage from '@/../static/images/account/billing/back.svg';
+import VButton from '@/components/common/VButton.vue';
 
 import { RouteConfig } from '@/router';
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
@@ -36,11 +41,12 @@ import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 @Component({
     components: {
         CreditsItem,
-        BackImage,
         SortingHeader,
+        VButton,
     },
 })
 export default class CreditsHistory extends Vue {
+
     /**
      * Returns list of free credit history items.
      */
@@ -60,11 +66,19 @@ export default class CreditsHistory extends Vue {
     }
 
     /**
-     * Replaces location to root billing route.
-     */
-    public onBackToBillingClick(): void {
-        this.$router.push(RouteConfig.Billing.path);
+    * Opens add coupon modal
+    */
+    public onCreateClick(): void {
+        this.$router.push(RouteConfig.Billing.with(RouteConfig.AddCouponCode).path);
     }
+
+    /**
+     * Indicates if coupon code ui is enabled
+     */
+    public get couponCodeUIEnabled(): boolean {
+        return this.$store.state.appStateModule.couponCodeUIEnabled;
+    }
+
 }
 </script>
 
@@ -79,6 +93,10 @@ export default class CreditsHistory extends Vue {
         padding: 0 0 80px 0;
         background-color: #f5f6fa;
         font-family: 'font_regular', sans-serif;
+
+        &__wrapper {
+            margin-bottom: 30px;
+        }
 
         &__back-area {
             display: flex;
@@ -109,6 +127,11 @@ export default class CreditsHistory extends Vue {
             }
         }
 
+        &__add-button {
+            float: right;
+            margin-bottom: 20px;
+        }
+
         &__title {
             font-family: 'font_bold', sans-serif;
             font-size: 22px;
@@ -124,6 +147,7 @@ export default class CreditsHistory extends Vue {
             display: flex;
             flex-direction: column;
             align-items: flex-start;
+            clear: right;
 
             &__sum {
                 font-family: 'font_bold', sans-serif;

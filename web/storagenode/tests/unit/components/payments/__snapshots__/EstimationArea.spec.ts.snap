@@ -3,7 +3,7 @@
 exports[`EstimationArea renders correctly with actual values and current period 1`] = `
 <div class="estimation-container">
   <div class="estimation-container__header">
-    <p class="estimation-container__header__title">Info &amp; Estimation,<span class="estimation-container__header__period">Feb 2020</span></p>
+    <p class="estimation-container__header__title">Info &amp; Estimation, <span class="estimation-container__header__period">Feb 2020</span></p>
     <div class="estimation-container__header__selection-area"><button name="Select Current Period" class="estimation-container__header__selection-area__item active">
         <p class="estimation-container__header__selection-area__item__label long-text">
           Current Period
@@ -141,7 +141,7 @@ exports[`EstimationArea renders correctly with actual values and current period 
 exports[`EstimationArea renders correctly with actual values and current period and not first day on month 1`] = `
 <div class="estimation-container">
   <div class="estimation-container__header">
-    <p class="estimation-container__header__title">Info &amp; Estimation,<span class="estimation-container__header__period">Feb 2020</span></p>
+    <p class="estimation-container__header__title">Info &amp; Estimation, <span class="estimation-container__header__period">Feb 2020</span></p>
     <div class="estimation-container__header__selection-area"><button name="Select Current Period" class="estimation-container__header__selection-area__item active">
         <p class="estimation-container__header__selection-area__item__label long-text">
           Current Period
@@ -287,7 +287,7 @@ exports[`EstimationArea renders correctly with actual values and current period 
 exports[`EstimationArea renders correctly with actual values and historical period with paystub 1`] = `
 <div class="estimation-container">
   <div class="estimation-container__header">
-    <p class="estimation-container__header__title">Info &amp; Estimation,<span class="estimation-container__header__period">Jan 2020</span></p>
+    <p class="estimation-container__header__title">Info &amp; Estimation, <span class="estimation-container__header__period">Jan 2020</span></p>
     <div class="estimation-container__header__selection-area"><button name="Select Current Period" class="estimation-container__header__selection-area__item">
         <p class="estimation-container__header__selection-area__item__label long-text">
           Current Period
@@ -442,7 +442,7 @@ exports[`EstimationArea renders correctly with actual values and historical peri
 exports[`EstimationArea renders correctly with actual values and historical period without paystub 1`] = `
 <div class="estimation-container">
   <div class="estimation-container__header">
-    <p class="estimation-container__header__title">Info &amp; Estimation,<span class="estimation-container__header__period">Jan 2020</span></p>
+    <p class="estimation-container__header__title">Info &amp; Estimation, <span class="estimation-container__header__period">Jan 2020</span></p>
     <div class="estimation-container__header__selection-area"><button name="Select Current Period" class="estimation-container__header__selection-area__item">
         <p class="estimation-container__header__selection-area__item__label long-text">
           Current Period
@@ -467,7 +467,7 @@ exports[`EstimationArea renders correctly with actual values and historical peri
 exports[`EstimationArea renders correctly with actual values and previous period without paystub 1`] = `
 <div class="estimation-container">
   <div class="estimation-container__header">
-    <p class="estimation-container__header__title">Info &amp; Estimation,<span class="estimation-container__header__period">Jan 2020</span></p>
+    <p class="estimation-container__header__title">Info &amp; Estimation, <span class="estimation-container__header__period">Jan 2020</span></p>
     <div class="estimation-container__header__selection-area"><button name="Select Current Period" class="estimation-container__header__selection-area__item">
         <p class="estimation-container__header__selection-area__item__label long-text">
           Current Period

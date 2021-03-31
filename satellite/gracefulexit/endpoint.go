@@ -6,6 +6,7 @@ package gracefulexit
 import (
 	"context"
 	"io"
+	"sort"
 	"sync"
 	"time"
 
@@ -39,13 +40,15 @@ var (
 
 // Endpoint for handling the transfer of pieces for Graceful Exit.
 type Endpoint struct {
+	pb.DRPCSatelliteGracefulExitUnimplementedServer
+
 	log            *zap.Logger
 	interval       time.Duration
 	signer         signing.Signer
 	db             DB
 	overlaydb      overlay.DB
 	overlay        *overlay.Service
-	metainfo       *metainfo.Service
+	metabase       metainfo.MetabaseDB
 	orders         *orders.Service
 	connections    *connectionsTracker
 	peerIdentities overlay.PeerIdentities
@@ -88,7 +91,7 @@ func (pm *connectionsTracker) delete(nodeID storj.NodeID) {
 }
 
 // NewEndpoint creates a new graceful exit endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, db DB, overlaydb overlay.DB, overlay *overlay.Service, metainfo *metainfo.Service, orders *orders.Service,
+func NewEndpoint(log *zap.Logger, signer signing.Signer, db DB, overlaydb overlay.DB, overlay *overlay.Service, metabase metainfo.MetabaseDB, orders *orders.Service,
 	peerIdentities overlay.PeerIdentities, config Config) *Endpoint {
 	return &Endpoint{
 		log:            log,
@@ -97,7 +100,7 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, db DB, overlaydb overla
 		db:             db,
 		overlaydb:      overlaydb,
 		overlay:        overlay,
-		metainfo:       metainfo,
+		metabase:       metabase,
 		orders:         orders,
 		connections:    newConnectionsTracker(),
 		peerIdentities: peerIdentities,
@@ -268,7 +271,7 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 			if err != nil {
 				if metainfo.ErrNodeAlreadyExists.Has(err) {
 					// this will get retried
-					endpoint.log.Warn("node already exists in pointer.", zap.Error(err))
+					endpoint.log.Warn("node already exists in segment.", zap.Error(err))
 
 					continue
 				}
@@ -330,9 +333,9 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream pb.DRPCS
 		return nil
 	}
 
-	pointer, err := endpoint.getValidPointer(ctx, incomplete.Key, incomplete.PieceNum, incomplete.RootPieceID)
+	segment, err := endpoint.getValidSegment(ctx, incomplete.Key, incomplete.RootPieceID)
 	if err != nil {
-		endpoint.log.Warn("invalid pointer", zap.Error(err))
+		endpoint.log.Warn("invalid segment", zap.Error(err))
 		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Key, incomplete.PieceNum)
 		if err != nil {
 			return Error.Wrap(err)
@@ -341,7 +344,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream pb.DRPCS
 		return nil
 	}
 
-	nodePiece, err := endpoint.getNodePiece(ctx, pointer, incomplete)
+	nodePiece, err := endpoint.getNodePiece(ctx, segment, incomplete)
 	if err != nil {
 		deleteErr := endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Key, incomplete.PieceNum)
 		if deleteErr != nil {
@@ -350,9 +353,9 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream pb.DRPCS
 		return Error.Wrap(err)
 	}
 
-	pieceSize, err := endpoint.calculatePieceSize(ctx, pointer, incomplete, nodePiece)
+	pieceSize, err := endpoint.calculatePieceSize(ctx, segment, incomplete)
 	if ErrAboveOptimalThreshold.Has(err) {
-		_, err = endpoint.metainfo.UpdatePieces(ctx, incomplete.Key, pointer, nil, []*pb.RemotePiece{nodePiece})
+		err = endpoint.UpdatePiecesCheckDuplicates(ctx, segment, metabase.Pieces{}, metabase.Pieces{nodePiece}, false)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -368,11 +371,10 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream pb.DRPCS
 	}
 
 	// populate excluded node IDs
-	remote := pointer.GetRemote()
-	pieces := remote.RemotePieces
+	pieces := segment.Pieces
 	excludedIDs := make([]storj.NodeID, len(pieces))
 	for i, piece := range pieces {
-		excludedIDs[i] = piece.NodeId
+		excludedIDs[i] = piece.StorageNode
 	}
 
 	// get replacement node
@@ -394,14 +396,14 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream pb.DRPCS
 	endpoint.log.Debug("found new node for piece transfer", zap.Stringer("original node ID", nodeID), zap.Stringer("replacement node ID", newNode.ID),
 		zap.ByteString("key", incomplete.Key), zap.Int32("piece num", incomplete.PieceNum))
 
-	pieceID := remote.RootPieceId.Derive(nodeID, incomplete.PieceNum)
+	pieceID := segment.RootPieceID.Derive(nodeID, incomplete.PieceNum)
 
 	segmentLocation, err := metabase.ParseSegmentKey(incomplete.Key)
 	if err != nil {
 		return Error.New("invalid key for node ID %v, piece ID %v: %w", incomplete.NodeID, pieceID, err)
 	}
 
-	limit, privateKey, err := endpoint.orders.CreateGracefulExitPutOrderLimit(ctx, segmentLocation.Bucket(), newNode.ID, incomplete.PieceNum, remote.RootPieceId, int32(pieceSize))
+	limit, privateKey, err := endpoint.orders.CreateGracefulExitPutOrderLimit(ctx, segmentLocation.Bucket(), newNode.ID, incomplete.PieceNum, segment.RootPieceID, int32(pieceSize))
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -427,11 +429,11 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream pb.DRPCS
 
 	// update pending queue with the transfer item
 	err = pending.Put(pieceID, &PendingTransfer{
-		Key:              incomplete.Key,
-		PieceSize:        pieceSize,
-		SatelliteMessage: transferMsg,
-		OriginalPointer:  pointer,
-		PieceNum:         incomplete.PieceNum,
+		Key:                 incomplete.Key,
+		PieceSize:           pieceSize,
+		SatelliteMessage:    transferMsg,
+		OriginalRootPieceID: segment.RootPieceID,
+		PieceNum:            uint16(incomplete.PieceNum), // TODO
 	})
 
 	return err
@@ -464,12 +466,12 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream pb.DRPCSat
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, exitingNodeID, transfer.Key, transfer.PieceNum)
+	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, exitingNodeID, transfer.Key, int32(transfer.PieceNum))
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	err = endpoint.updatePointer(ctx, transfer.OriginalPointer, exitingNodeID, receivingNodeID, transfer.Key, transfer.PieceNum, transferQueueItem.RootPieceID)
+	err = endpoint.updateSegment(ctx, exitingNodeID, receivingNodeID, transfer.Key, transfer.PieceNum, transferQueueItem.RootPieceID)
 	if err != nil {
 		// remove the piece from the pending queue so it gets retried
 		deleteErr := pending.Delete(originalPieceID)
@@ -487,7 +489,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream pb.DRPCSat
 		return Error.Wrap(err)
 	}
 
-	err = endpoint.db.DeleteTransferQueueItem(ctx, exitingNodeID, transfer.Key, transfer.PieceNum)
+	err = endpoint.db.DeleteTransferQueueItem(ctx, exitingNodeID, transfer.Key, int32(transfer.PieceNum))
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -533,7 +535,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 		return nil
 	}
 
-	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, nodeID, transfer.Key, transfer.PieceNum)
+	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, nodeID, transfer.Key, int32(transfer.PieceNum))
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -549,36 +551,29 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 	// Remove the queue item and remove the node from the pointer.
 	// If the pointer is not piece hash verified, do not count this as a failure.
 	if pb.TransferFailed_Error(errorCode) == pb.TransferFailed_NOT_FOUND {
-		endpoint.log.Debug("piece not found on node", zap.Stringer("node ID", nodeID), zap.ByteString("key", transfer.Key), zap.Int32("piece num", transfer.PieceNum))
-		pointer, err := endpoint.metainfo.Get(ctx, transfer.Key)
+		endpoint.log.Debug("piece not found on node", zap.Stringer("node ID", nodeID), zap.ByteString("key", transfer.Key), zap.Uint16("piece num", transfer.PieceNum))
+
+		segment, err := endpoint.getValidSegment(ctx, transfer.Key, storj.PieceID{})
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		remote := pointer.GetRemote()
-		if remote == nil {
-			err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.Key, transfer.PieceNum)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			return pending.Delete(pieceID)
-		}
-		pieces := remote.GetRemotePieces()
 
-		var nodePiece *pb.RemotePiece
+		pieces := segment.Pieces
+		var nodePiece metabase.Piece
 		for _, piece := range pieces {
-			if piece.NodeId == nodeID && piece.PieceNum == transfer.PieceNum {
+			if piece.StorageNode == nodeID && piece.Number == transfer.PieceNum {
 				nodePiece = piece
 			}
 		}
-		if nodePiece == nil {
-			err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.Key, transfer.PieceNum)
+		if nodePiece == (metabase.Piece{}) {
+			err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.Key, int32(transfer.PieceNum))
 			if err != nil {
 				return Error.Wrap(err)
 			}
 			return pending.Delete(pieceID)
 		}
 
-		_, err = endpoint.metainfo.UpdatePieces(ctx, transfer.Key, pointer, nil, []*pb.RemotePiece{nodePiece})
+		err = endpoint.UpdatePiecesCheckDuplicates(ctx, segment, metabase.Pieces{}, metabase.Pieces{nodePiece}, false)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -588,7 +583,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 			return Error.Wrap(err)
 		}
 
-		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.Key, transfer.PieceNum)
+		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.Key, int32(transfer.PieceNum))
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -710,44 +705,40 @@ func (endpoint *Endpoint) getFinishedMessage(ctx context.Context, nodeID storj.N
 	return message, nil
 }
 
-func (endpoint *Endpoint) updatePointer(ctx context.Context, originalPointer *pb.Pointer, exitingNodeID storj.NodeID, receivingNodeID storj.NodeID, key metabase.SegmentKey, pieceNum int32, originalRootPieceID storj.PieceID) (err error) {
+func (endpoint *Endpoint) updateSegment(ctx context.Context, exitingNodeID storj.NodeID, receivingNodeID storj.NodeID, key metabase.SegmentKey, pieceNumber uint16, originalRootPieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// remove the node from the pointer
-	pointer, err := endpoint.getValidPointer(ctx, key, pieceNum, originalRootPieceID)
+	// remove the node from the segment
+	segment, err := endpoint.getValidSegment(ctx, key, originalRootPieceID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	remote := pointer.GetRemote()
-	// nothing to do here
-	if remote == nil {
-		return nil
+
+	pieceMap := make(map[storj.NodeID]metabase.Piece)
+	for _, piece := range segment.Pieces {
+		pieceMap[piece.StorageNode] = piece
 	}
 
-	pieceMap := make(map[storj.NodeID]*pb.RemotePiece)
-	for _, piece := range remote.GetRemotePieces() {
-		pieceMap[piece.NodeId] = piece
-	}
-
-	var toRemove []*pb.RemotePiece
+	var toRemove metabase.Pieces
 	existingPiece, ok := pieceMap[exitingNodeID]
 	if !ok {
 		return Error.New("node no longer has the piece. Node ID: %s", exitingNodeID.String())
 	}
-	if existingPiece != nil && existingPiece.PieceNum != pieceNum {
-		return Error.New("invalid existing piece info. Exiting Node ID: %s, PieceNum: %d", exitingNodeID.String(), pieceNum)
+	if existingPiece != (metabase.Piece{}) && existingPiece.Number != pieceNumber {
+		return Error.New("invalid existing piece info. Exiting Node ID: %s, PieceNum: %d", exitingNodeID.String(), pieceNumber)
 	}
-	toRemove = []*pb.RemotePiece{existingPiece}
+	toRemove = metabase.Pieces{existingPiece}
 	delete(pieceMap, exitingNodeID)
 
-	var toAdd []*pb.RemotePiece
+	var toAdd metabase.Pieces
 	if !receivingNodeID.IsZero() {
-		toAdd = []*pb.RemotePiece{{
-			PieceNum: pieceNum,
-			NodeId:   receivingNodeID,
+		toAdd = metabase.Pieces{{
+			Number:      pieceNumber,
+			StorageNode: receivingNodeID,
 		}}
 	}
-	_, err = endpoint.metainfo.UpdatePiecesCheckDuplicates(ctx, key, originalPointer, toAdd, toRemove, true)
+
+	err = endpoint.UpdatePiecesCheckDuplicates(ctx, segment, toAdd, toRemove, true)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -846,59 +837,59 @@ func (endpoint *Endpoint) generateExitStatusRequest(ctx context.Context, nodeID 
 	return exitStatusRequest, exitFailedReason, nil
 }
 
-func (endpoint *Endpoint) calculatePieceSize(ctx context.Context, pointer *pb.Pointer, incomplete *TransferQueueItem, nodePiece *pb.RemotePiece) (int64, error) {
+func (endpoint *Endpoint) calculatePieceSize(ctx context.Context, segment metabase.Segment, incomplete *TransferQueueItem) (int64, error) {
 	nodeID := incomplete.NodeID
 
 	// calculate piece size
-	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}
 
-	pieces := pointer.GetRemote().GetRemotePieces()
-	if len(pieces) > redundancy.OptimalThreshold() {
-		endpoint.log.Debug("pointer has more pieces than required. removing node from pointer.", zap.Stringer("node ID", nodeID), zap.ByteString("key", incomplete.Key), zap.Int32("piece num", incomplete.PieceNum))
+	if len(segment.Pieces) > redundancy.OptimalThreshold() {
+		endpoint.log.Debug("segment has more pieces than required. removing node from segment.", zap.Stringer("node ID", nodeID), zap.ByteString("key", incomplete.Key), zap.Int32("piece num", incomplete.PieceNum))
 
 		return 0, ErrAboveOptimalThreshold.New("")
 	}
 
-	return eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy), nil
+	return eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy), nil
 }
 
-func (endpoint *Endpoint) getValidPointer(ctx context.Context, key metabase.SegmentKey, pieceNum int32, originalRootPieceID storj.PieceID) (*pb.Pointer, error) {
-	pointer, err := endpoint.metainfo.Get(ctx, key)
-	// TODO we don't know the type of error
+func (endpoint *Endpoint) getValidSegment(ctx context.Context, key metabase.SegmentKey, originalRootPieceID storj.PieceID) (metabase.Segment, error) {
+	location, err := metabase.ParseSegmentKey(key)
 	if err != nil {
-		return nil, Error.New("pointer key %s no longer exists.", key)
+		return metabase.Segment{}, Error.Wrap(err)
 	}
 
-	remote := pointer.GetRemote()
-	// no longer a remote segment
-	if remote == nil {
-		return nil, Error.New("pointer key %s is no longer remote.", key)
+	// TODO refactor PendingTransfer and TransferQueueItem to provide StreamID/Position to be able
+	// to get segment from object with specific version, this will work only until we won't have
+	// multiple object versions
+	segment, err := endpoint.metabase.GetSegmentByLocation(ctx, metabase.GetSegmentByLocation{
+		SegmentLocation: location,
+	})
+	if err != nil {
+		return metabase.Segment{}, Error.Wrap(err)
 	}
 
-	if !originalRootPieceID.IsZero() && originalRootPieceID != remote.RootPieceId {
-		return nil, Error.New("pointer key %s has changed.", key)
+	if !originalRootPieceID.IsZero() && originalRootPieceID != segment.RootPieceID {
+		return metabase.Segment{}, Error.New("segment has changed")
 	}
-	return pointer, nil
+	return segment, nil
 }
 
-func (endpoint *Endpoint) getNodePiece(ctx context.Context, pointer *pb.Pointer, incomplete *TransferQueueItem) (*pb.RemotePiece, error) {
-	remote := pointer.GetRemote()
+func (endpoint *Endpoint) getNodePiece(ctx context.Context, segment metabase.Segment, incomplete *TransferQueueItem) (metabase.Piece, error) {
 	nodeID := incomplete.NodeID
 
-	pieces := remote.GetRemotePieces()
-	var nodePiece *pb.RemotePiece
-	for _, piece := range pieces {
-		if piece.NodeId == nodeID && piece.PieceNum == incomplete.PieceNum {
+	var nodePiece metabase.Piece
+	for _, piece := range segment.Pieces {
+		if piece.StorageNode == nodeID && int32(piece.Number) == incomplete.PieceNum {
 			nodePiece = piece
 		}
 	}
 
-	if nodePiece == nil {
+	if nodePiece == (metabase.Piece{}) {
 		endpoint.log.Debug("piece no longer held by node", zap.Stringer("node ID", nodeID), zap.ByteString("key", incomplete.Key), zap.Int32("piece num", incomplete.PieceNum))
-		return nil, Error.New("piece no longer held by node")
+		return metabase.Piece{}, Error.New("piece no longer held by node")
 	}
 
 	return nodePiece, nil
@@ -933,4 +924,82 @@ func (endpoint *Endpoint) GracefulExitFeasibility(ctx context.Context, req *pb.G
 	response.JoinedAt = nodeDossier.CreatedAt
 	response.MonthsRequired = int32(endpoint.config.NodeMinAgeInMonths)
 	return &response, nil
+}
+
+// UpdatePiecesCheckDuplicates atomically adds toAdd pieces and removes toRemove pieces from
+// the segment.
+//
+// If checkDuplicates is true it will return an error if the nodes to be
+// added are already in the segment.
+// Then it will remove the toRemove pieces and then it will add the toAdd pieces.
+func (endpoint *Endpoint) UpdatePiecesCheckDuplicates(ctx context.Context, segment metabase.Segment, toAdd, toRemove metabase.Pieces, checkDuplicates bool) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// put all existing pieces to a map
+	pieceMap := make(map[uint16]metabase.Piece)
+	nodePieceMap := make(map[storj.NodeID]struct{})
+	for _, piece := range segment.Pieces {
+		pieceMap[piece.Number] = piece
+		if checkDuplicates {
+			nodePieceMap[piece.StorageNode] = struct{}{}
+		}
+	}
+
+	// Return an error if the segment already has a piece for this node
+	if checkDuplicates {
+		for _, piece := range toAdd {
+			_, ok := nodePieceMap[piece.StorageNode]
+			if ok {
+				return metainfo.ErrNodeAlreadyExists.New("node id already exists in segment. StreamID: %s, Position: %d, NodeID: %s", segment.StreamID, segment.Position, piece.StorageNode.String())
+			}
+			nodePieceMap[piece.StorageNode] = struct{}{}
+		}
+	}
+	// remove the toRemove pieces from the map
+	// only if all piece number, node id
+	for _, piece := range toRemove {
+		if piece == (metabase.Piece{}) {
+			continue
+		}
+		existing := pieceMap[piece.Number]
+		if existing != (metabase.Piece{}) && existing.StorageNode == piece.StorageNode {
+			delete(pieceMap, piece.Number)
+		}
+	}
+
+	// add the toAdd pieces to the map
+	for _, piece := range toAdd {
+		if piece == (metabase.Piece{}) {
+			continue
+		}
+		_, exists := pieceMap[piece.Number]
+		if exists {
+			return Error.New("piece to add already exists (piece no: %d)", piece.Number)
+		}
+		pieceMap[piece.Number] = piece
+	}
+
+	// copy the pieces from the map back to the segment, sorted by piece number
+	pieces := make(metabase.Pieces, 0, len(pieceMap))
+	for _, piece := range pieceMap {
+		pieces = append(pieces, piece)
+	}
+	sort.Sort(pieces)
+
+	err = endpoint.metabase.UpdateSegmentPieces(ctx, metabase.UpdateSegmentPieces{
+		StreamID: segment.StreamID,
+		Position: segment.Position,
+
+		OldPieces:     segment.Pieces,
+		NewRedundancy: segment.Redundancy,
+		NewPieces:     pieces,
+	})
+	if err != nil {
+		if metabase.ErrSegmentNotFound.Has(err) {
+			err = storj.ErrObjectNotFound.Wrap(err)
+		}
+		return Error.Wrap(err)
+	}
+
+	return nil
 }

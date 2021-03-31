@@ -73,7 +73,7 @@ export class BucketsApiGql extends BaseGql implements BucketsApi {
                 throw new ErrorUnauthorized();
             }
 
-            throw new Error('Can not get account balance');
+            throw new Error('Can not get bucket names');
         }
 
         const result = await response.json();

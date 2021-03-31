@@ -135,9 +135,10 @@ export default class PayoutHistoryPeriodCalendar extends Vue {
      * Decrement year and updates current months set.
      */
     public decrementYear(): void {
-        const isSelectedYearFirstForNodeInSatellite = this.displayedYear === this.$store.state.node.selectedSatellite.joinDate.getUTCFullYear();
+        const availableYears: number[] = this.$store.state.payoutModule.payoutHistoryAvailablePeriods.map(payoutPeriod => payoutPeriod.year);
+        const minYear: number = Math.min(...availableYears);
 
-        if (isSelectedYearFirstForNodeInSatellite) return;
+        if (this.displayedYear === minYear) return;
 
         this.displayedYear -= 1;
         this.populateMonths(this.displayedYear);

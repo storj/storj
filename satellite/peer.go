@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/satellite/accounting/rolluparchive"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/admin"
+	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/compensation"
@@ -146,4 +147,6 @@ type Config struct {
 	Compensation compensation.Config
 
 	ProjectLimit accounting.ProjectLimitConfig
+
+	Analytics analytics.Config
 }

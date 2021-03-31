@@ -6,6 +6,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
@@ -31,6 +32,7 @@ import { Validator } from '@/utils/validation';
         LogoIcon,
         InfoIcon,
         PasswordStrength,
+        AddCouponCodeInput,
     },
 })
 export default class RegisterArea extends Vue {
@@ -226,6 +228,13 @@ export default class RegisterArea extends Vue {
      */
     public get isBetaSatellite(): boolean {
         return this.$store.state.appStateModule.isBetaSatellite;
+    }
+
+    /**
+     * Indicates if coupon code ui is enabled
+     */
+    public get couponCodeUIEnabled(): boolean {
+        return this.$store.state.appStateModule.couponCodeUIEnabled;
     }
 
     /**

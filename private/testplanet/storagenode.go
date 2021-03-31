@@ -32,6 +32,7 @@ import (
 	"storj.io/storj/storagenode/gracefulexit"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
+	"storj.io/storj/storagenode/operator"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
@@ -125,7 +126,7 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 		Preflight: preflight.Config{
 			LocalTimeCheck: false,
 		},
-		Operator: storagenode.OperatorConfig{
+		Operator: operator.Config{
 			Email:          prefix + "@mail.test",
 			Wallet:         "0x" + strings.Repeat("00", 20),
 			WalletFeatures: nil,

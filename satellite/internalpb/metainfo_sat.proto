@@ -6,6 +6,7 @@ option go_package = "storj.io/storj/satellite/internalpb";
 
 package satellite.metainfo;
 
+import "encryption.proto";
 import "gogo.proto";
 import "google/protobuf/timestamp.proto";
 import "pointerdb.proto";
@@ -17,9 +18,12 @@ message StreamID {
     int32  version = 3;
 
     pointerdb.RedundancyScheme redundancy = 4;
+    encryption.EncryptionParameters encryption_parameters = 12;
 
     google.protobuf.Timestamp creation_date = 5  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
     google.protobuf.Timestamp expiration_date = 6  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+
+    bool multipart_object = 11;
 
     bytes satellite_signature = 9;
 

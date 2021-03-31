@@ -32,7 +32,11 @@ export class AccessGrantsMock implements AccessGrantsApi {
         return Promise.resolve();
     }
 
-    getGatewayCredentials(accessGrant: string): Promise<GatewayCredentials> {
+    deleteByNameAndProjectID(name: string, projectID: string): Promise<void> {
+        return Promise.resolve();
+    }
+
+    getGatewayCredentials(accessGrant: string, optionalURL?: string): Promise<GatewayCredentials> {
         return Promise.resolve(new GatewayCredentials('testCredId', new Date(), 'testAccessKeyId', 'testSecret', 'testEndpoint'));
     }
 }

@@ -22,7 +22,7 @@ type redisLiveAccounting struct {
 	client *redis.Client
 }
 
-// newRedisLiveAccounting returns a redisLiveAccounting cache instance.
+// openRedisLiveAccounting returns a redisLiveAccounting cache instance.
 //
 // It returns accounting.ErrInvalidArgument if the connection address is invalid
 // according to Redis.
@@ -31,7 +31,7 @@ type redisLiveAccounting struct {
 // it fails then it returns an instance and accounting.ErrSystemOrNetError
 // because it means that Redis may not be operative at this precise moment but
 // it may be in future method calls as it handles automatically reconnects.
-func newRedisLiveAccounting(ctx context.Context, address string) (*redisLiveAccounting, error) {
+func openRedisLiveAccounting(ctx context.Context, address string) (*redisLiveAccounting, error) {
 	redisurl, err := url.Parse(address)
 	if err != nil {
 		return nil, accounting.ErrInvalidArgument.New("address: invalid URL; %w", err)

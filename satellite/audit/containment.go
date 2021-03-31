@@ -10,6 +10,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 var (
@@ -27,11 +28,11 @@ var (
 type PendingAudit struct {
 	NodeID            storj.NodeID
 	PieceID           storj.PieceID
-	StripeIndex       int64
+	StripeIndex       int32
 	ShareSize         int32
 	ExpectedShareHash []byte
 	ReverifyCount     int32
-	Path              storj.Path
+	Segment           metabase.SegmentLocation
 }
 
 // Containment holds information about pending audits for contained nodes.

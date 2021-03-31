@@ -85,11 +85,10 @@ var (
 
 // Inspector gives access to overlay.
 type Inspector struct {
-	conn          *rpc.Conn
-	identity      *identity.FullIdentity
-	overlayclient internalpb.DRPCOverlayInspectorClient
-	irrdbclient   internalpb.DRPCIrreparableInspectorClient
-	healthclient  internalpb.DRPCHealthInspectorClient
+	conn         *rpc.Conn
+	identity     *identity.FullIdentity
+	irrdbclient  internalpb.DRPCIrreparableInspectorClient
+	healthclient internalpb.DRPCHealthInspectorClient
 }
 
 // NewInspector creates a new inspector client for access to overlay.
@@ -108,11 +107,10 @@ func NewInspector(ctx context.Context, address, path string) (*Inspector, error)
 	}
 
 	return &Inspector{
-		conn:          conn,
-		identity:      id,
-		overlayclient: internalpb.NewDRPCOverlayInspectorClient(conn),
-		irrdbclient:   internalpb.NewDRPCIrreparableInspectorClient(conn),
-		healthclient:  internalpb.NewDRPCHealthInspectorClient(conn),
+		conn:         conn,
+		identity:     id,
+		irrdbclient:  internalpb.NewDRPCIrreparableInspectorClient(conn),
+		healthclient: internalpb.NewDRPCHealthInspectorClient(conn),
 	}, nil
 }
 

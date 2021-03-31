@@ -15,9 +15,11 @@ import ResultStep from '@/components/accessGrants/steps/ResultStep.vue';
 import AccountArea from '@/components/account/AccountArea.vue';
 import AccountBilling from '@/components/account/billing/BillingArea.vue';
 import DetailedHistory from '@/components/account/billing/depositAndBillingHistory/DetailedHistory.vue';
+import AddCouponCode from '@/components/account/billing/freeCredits/AddCouponCode.vue';
 import CreditsHistory from '@/components/account/billing/freeCredits/CreditsHistory.vue';
 import SettingsArea from '@/components/account/SettingsArea.vue';
 import Page404 from '@/components/errors/Page404.vue';
+import BucketsView from '@/components/objects/BucketsView.vue';
 import CreatePassphrase from '@/components/objects/CreatePassphrase.vue';
 import EnterPassphrase from '@/components/objects/EnterPassphrase.vue';
 import ObjectsArea from '@/components/objects/ObjectsArea.vue';
@@ -64,6 +66,7 @@ export abstract class RouteConfig {
     // account child paths
     public static Settings = new NavigationLink('settings', 'Settings');
     public static Billing = new NavigationLink('billing', 'Billing');
+    public static AddCouponCode = new NavigationLink('add-coupon', 'Get Free Credits');
     public static BillingHistory = new NavigationLink('billing-history', 'Billing History');
     public static DepositHistory = new NavigationLink('deposit-history', 'Deposit History');
     public static CreditsHistory = new NavigationLink('credits-history', 'Credits History');
@@ -90,7 +93,8 @@ export abstract class RouteConfig {
     // objects child paths.
     public static CreatePassphrase = new NavigationLink('create-passphrase', 'Objects Create Passphrase');
     public static EnterPassphrase = new NavigationLink('enter-passphrase', 'Objects Enter Passphrase');
-    public static UploadFile = new NavigationLink('upload', 'Objects Upload');
+    public static BucketsManagement = new NavigationLink('buckets', 'Buckets Management');
+    public static UploadFile = new NavigationLink('upload/', 'Objects Upload');
 }
 
 export const notProjectRelatedRoutes = [
@@ -143,6 +147,13 @@ export const router = new Router({
                             path: RouteConfig.Billing.path,
                             name: RouteConfig.Billing.name,
                             component: AccountBilling,
+                            children: [
+                                {
+                                    path: RouteConfig.AddCouponCode.path,
+                                    name: RouteConfig.AddCouponCode.name,
+                                    component: AddCouponCode,
+                                },
+                            ],
                         },
                         {
                             path: RouteConfig.BillingHistory.path,
@@ -309,9 +320,21 @@ export const router = new Router({
                             component: EnterPassphrase,
                         },
                         {
+                            path: RouteConfig.BucketsManagement.path,
+                            name: RouteConfig.BucketsManagement.name,
+                            component: BucketsView,
+                            props: true,
+                        },
+                        {
                             path: RouteConfig.UploadFile.path,
                             name: RouteConfig.UploadFile.name,
                             component: UploadFile,
+                            children: [
+                                {
+                                    path: '*',
+                                    component: UploadFile,
+                                },
+                            ],
                         },
                     ],
                 },

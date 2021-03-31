@@ -34,6 +34,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
@@ -86,6 +87,7 @@ type Config struct {
 	BetaSatelliteFeedbackURL        string `help:"url link for for beta satellite feedback" default:""`
 	BetaSatelliteSupportURL         string `help:"url link for for beta satellite support" default:""`
 	DocumentationURL                string `help:"url link to documentation" devDefault:"https://documentation.storj.io/" releaseDefault:"https://documentation.tardigrade.io/"`
+	CouponCodeUIEnabled             bool   `help:"indicates if user is allowed to add coupon codes to account" default:"false"`
 
 	RateLimit web.IPRateLimiterConfig
 
@@ -102,6 +104,7 @@ type Server struct {
 	service     *console.Service
 	mailService *mailservice.Service
 	partners    *rewards.PartnersService
+	analytics   *analytics.Service
 
 	listener    net.Listener
 	server      http.Server
@@ -124,7 +127,7 @@ type Server struct {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, partners *rewards.PartnersService, listener net.Listener, stripePublicKey string, nodeURL storj.NodeURL) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, listener net.Listener, stripePublicKey string, nodeURL storj.NodeURL) *Server {
 	server := Server{
 		log:             logger,
 		config:          config,
@@ -132,6 +135,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		service:         service,
 		mailService:     mailService,
 		partners:        partners,
+		analytics:       analytics,
 		stripePublicKey: stripePublicKey,
 		rateLimiter:     web.NewIPRateLimiter(config.RateLimit),
 		nodeURL:         nodeURL,
@@ -170,7 +174,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		server.withAuth(http.HandlerFunc(server.projectUsageLimitsHandler)),
 	).Methods(http.MethodGet)
 
-	authController := consoleapi.NewAuth(logger, service, mailService, server.cookieAuth, partners, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
+	authController := consoleapi.NewAuth(logger, service, mailService, server.cookieAuth, partners, server.analytics, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch)
@@ -201,6 +205,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	bucketsRouter := router.PathPrefix("/api/v0/buckets").Subrouter()
 	bucketsRouter.Use(server.withAuth)
 	bucketsRouter.HandleFunc("/bucket-names", bucketsController.AllBucketNames).Methods(http.MethodGet)
+
+	apiKeysController := consoleapi.NewAPIKeys(logger, service)
+	apiKeysRouter := router.PathPrefix("/api/v0/api-keys").Subrouter()
+	apiKeysRouter.Use(server.withAuth)
+	apiKeysRouter.HandleFunc("/delete-by-name", apiKeysController.DeleteByNameAndProjectID).Methods(http.MethodDelete)
 
 	if server.config.StaticDir != "" {
 		router.HandleFunc("/activation/", server.accountActivationHandler)
@@ -267,7 +276,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 
 	cspValues := []string{
 		"default-src 'self'",
-		"connect-src 'self' api.segment.io *.google-analytics.com " + server.config.GatewayCredentialsRequestURL,
+		"connect-src 'self' api.segment.io *.google-analytics.com *.tardigradeshare.io " + server.config.GatewayCredentialsRequestURL,
 		"frame-ancestors " + server.config.FrameAncestors,
 		"frame-src 'self' *.stripe.com *.googletagmanager.com",
 		"img-src 'self' data: *.customer.io *.googletagmanager.com *.google-analytics.com",
@@ -296,6 +305,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		BetaSatelliteFeedbackURL        string
 		BetaSatelliteSupportURL         string
 		DocumentationURL                string
+		CouponCodeUIEnabled             bool
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -314,6 +324,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.BetaSatelliteFeedbackURL = server.config.BetaSatelliteFeedbackURL
 	data.BetaSatelliteSupportURL = server.config.BetaSatelliteSupportURL
 	data.DocumentationURL = server.config.DocumentationURL
+	data.CouponCodeUIEnabled = server.config.CouponCodeUIEnabled
 
 	if server.templates.index == nil {
 		server.log.Error("index template is not set")

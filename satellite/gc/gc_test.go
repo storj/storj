@@ -4,6 +4,9 @@
 package gc_test
 
 import (
+	"bytes"
+	"context"
+	"crypto/sha256"
 	"errors"
 	"testing"
 	"time"
@@ -21,9 +24,13 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/storage"
 	"storj.io/storj/storagenode"
+	"storj.io/uplink/private/etag"
+	"storj.io/uplink/private/multipart"
+	"storj.io/uplink/private/testuplink"
 )
 
 // TestGarbageCollection does the following:
@@ -58,11 +65,13 @@ func TestGarbageCollection(t *testing.T) {
 
 		err := upl.Upload(ctx, satellite, "testbucket", "test/path/1", testData1)
 		require.NoError(t, err)
-		deletedEncPath, pointerToDelete := getPointer(ctx, t, satellite, upl, "testbucket", "test/path/1")
+
+		objectLocationToDelete, segmentToDelete := getSegment(ctx, t, satellite, upl, "testbucket", "test/path/1")
+
 		var deletedPieceID storj.PieceID
-		for _, p := range pointerToDelete.GetRemote().GetRemotePieces() {
-			if p.NodeId == targetNode.ID() {
-				deletedPieceID = pointerToDelete.GetRemote().RootPieceId.Derive(p.NodeId, p.PieceNum)
+		for _, p := range segmentToDelete.Pieces {
+			if p.StorageNode == targetNode.ID() {
+				deletedPieceID = segmentToDelete.RootPieceID.Derive(p.StorageNode, int32(p.Number))
 				break
 			}
 		}
@@ -70,18 +79,20 @@ func TestGarbageCollection(t *testing.T) {
 
 		err = upl.Upload(ctx, satellite, "testbucket", "test/path/2", testData2)
 		require.NoError(t, err)
-		_, pointerToKeep := getPointer(ctx, t, satellite, upl, "testbucket", "test/path/2")
+		_, segmentToKeep := getSegment(ctx, t, satellite, upl, "testbucket", "test/path/2")
 		var keptPieceID storj.PieceID
-		for _, p := range pointerToKeep.GetRemote().GetRemotePieces() {
-			if p.NodeId == targetNode.ID() {
-				keptPieceID = pointerToKeep.GetRemote().RootPieceId.Derive(p.NodeId, p.PieceNum)
+		for _, p := range segmentToKeep.Pieces {
+			if p.StorageNode == targetNode.ID() {
+				keptPieceID = segmentToKeep.RootPieceID.Derive(p.StorageNode, int32(p.Number))
 				break
 			}
 		}
 		require.NotZero(t, keptPieceID)
 
 		// Delete one object from metainfo service on satellite
-		err = satellite.Metainfo.Service.UnsynchronizedDelete(ctx, deletedEncPath)
+		_, err = satellite.Metainfo.Metabase.DeleteObjectsAllVersions(ctx, metabase.DeleteObjectsAllVersions{
+			Locations: []metabase.ObjectLocation{objectLocationToDelete},
+		})
 		require.NoError(t, err)
 
 		// Check that piece of the deleted object is on the storagenode
@@ -124,7 +135,7 @@ func TestGarbageCollection(t *testing.T) {
 	})
 }
 
-func getPointer(ctx *testcontext.Context, t *testing.T, satellite *testplanet.Satellite, upl *testplanet.Uplink, bucket, path string) (_ metabase.SegmentKey, pointer *pb.Pointer) {
+func getSegment(ctx *testcontext.Context, t *testing.T, satellite *testplanet.Satellite, upl *testplanet.Uplink, bucket, path string) (_ metabase.ObjectLocation, _ metabase.Segment) {
 	access := upl.Access[satellite.ID()]
 
 	serializedAccess, err := access.Serialize()
@@ -136,18 +147,19 @@ func getPointer(ctx *testcontext.Context, t *testing.T, satellite *testplanet.Sa
 	encryptedPath, err := encryption.EncryptPathWithStoreCipher(bucket, paths.NewUnencrypted(path), store)
 	require.NoError(t, err)
 
-	segmentLocation := metabase.SegmentLocation{
-		ProjectID:  upl.Projects[0].ID,
-		BucketName: bucket,
-		Index:      metabase.LastSegmentIndex,
-		ObjectKey:  metabase.ObjectKey(encryptedPath.Raw()),
-	}
+	objectLocation :=
+		metabase.ObjectLocation{
+			ProjectID:  upl.Projects[0].ID,
+			BucketName: "testbucket",
+			ObjectKey:  metabase.ObjectKey(encryptedPath.Raw()),
+		}
 
-	key := segmentLocation.Encode()
-	pointer, err = satellite.Metainfo.Service.Get(ctx, key)
+	lastSegment, err := satellite.Metainfo.Metabase.GetLatestObjectLastSegment(ctx, metabase.GetLatestObjectLastSegment{
+		ObjectLocation: objectLocation,
+	})
 	require.NoError(t, err)
 
-	return key, pointer
+	return objectLocation, lastSegment
 }
 
 func encryptionAccess(access string) (*encryption.Store, error) {
@@ -171,4 +183,95 @@ func encryptionAccess(access string) (*encryption.Store, error) {
 	store.SetDefaultPathCipher(storj.EncAESGCM)
 
 	return store, nil
+}
+
+func TestGarbageCollection_PendingObject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.GarbageCollection.FalsePositiveRate = 0.000000001
+					config.GarbageCollection.Interval = 500 * time.Millisecond
+				},
+				testplanet.MaxSegmentSize(20*memory.KiB),
+			),
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Retain.MaxTimeSkew = 0
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		upl := planet.Uplinks[0]
+
+		testData := testrand.Bytes(15 * memory.KiB)
+		pendingStreamID := startMultipartUpload(ctx, t, upl, satellite, "testbucket", "multi", testData)
+
+		segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Len(t, segments, 1)
+		require.Len(t, segments[0].Pieces, 1)
+
+		// The pieceInfo.GetPieceIDs query converts piece creation and the filter creation timestamps
+		// to datetime in sql. This chops off all precision beyond seconds.
+		// In this test, the amount of time that elapses between piece uploads and the gc loop is
+		// less than a second, meaning datetime(piece_creation) < datetime(filter_creation) is false unless we sleep
+		// for a second.
+
+		lastPieceCounts := map[storj.NodeID]int{}
+		pieceTracker := gc.NewPieceTracker(satellite.Log.Named("gc observer"), gc.Config{
+			FalsePositiveRate: 0.000000001,
+			InitialPieces:     10,
+		}, lastPieceCounts)
+
+		err = satellite.Metainfo.Loop.Join(ctx, pieceTracker)
+		require.NoError(t, err)
+
+		require.NotEmpty(t, pieceTracker.RetainInfos)
+		info := pieceTracker.RetainInfos[planet.StorageNodes[0].ID()]
+		require.NotNil(t, info)
+		require.Equal(t, 1, info.Count)
+
+		completeMultipartUpload(ctx, t, upl, satellite, "testbucket", "multi", pendingStreamID)
+		gotData, err := upl.Download(ctx, satellite, "testbucket", "multi")
+		require.NoError(t, err)
+		require.Equal(t, testData, gotData)
+	})
+}
+
+func startMultipartUpload(ctx context.Context, t *testing.T, uplink *testplanet.Uplink, satellite *testplanet.Satellite, bucketName string, path storj.Path, data []byte) string {
+	_, found := testuplink.GetMaxSegmentSize(ctx)
+	if !found {
+		ctx = testuplink.WithMaxSegmentSize(ctx, satellite.Config.Metainfo.MaxSegmentSize)
+	}
+
+	project, err := uplink.GetProject(ctx, satellite)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, project.Close()) }()
+
+	_, err = project.EnsureBucket(ctx, bucketName)
+	require.NoError(t, err)
+
+	info, err := multipart.NewMultipartUpload(ctx, project, bucketName, path, nil)
+	require.NoError(t, err)
+
+	_, err = multipart.PutObjectPart(ctx, project, bucketName, path, info.StreamID, 1,
+		etag.NewHashReader(bytes.NewReader(data), sha256.New()))
+	require.NoError(t, err)
+
+	return info.StreamID
+}
+
+func completeMultipartUpload(ctx context.Context, t *testing.T, uplink *testplanet.Uplink, satellite *testplanet.Satellite, bucketName string, path storj.Path, streamID string) {
+	_, found := testuplink.GetMaxSegmentSize(ctx)
+	if !found {
+		ctx = testuplink.WithMaxSegmentSize(ctx, satellite.Config.Metainfo.MaxSegmentSize)
+	}
+
+	project, err := uplink.GetProject(ctx, satellite)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, project.Close()) }()
+
+	_, err = multipart.CompleteMultipartUpload(ctx, project, bucketName, path, streamID, nil)
+	require.NoError(t, err)
 }

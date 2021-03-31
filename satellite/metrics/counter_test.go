@@ -17,10 +17,7 @@ import (
 
 func TestCounterInlineAndRemote(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(3, 4, 5, 5),
-		},
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		ul := planet.Uplinks[0]
@@ -46,15 +43,15 @@ func TestCounterInlineAndRemote(t *testing.T) {
 		}
 
 		metricsChore.Loop.TriggerWait()
-		require.EqualValues(t, 2, metricsChore.Counter.Inline)
+		require.EqualValues(t, 2, metricsChore.Counter.InlineObjectCount())
 		require.EqualValues(t, 2, metricsChore.Counter.RemoteDependent)
-		require.EqualValues(t, 4, metricsChore.Counter.Total)
+		require.EqualValues(t, 4, metricsChore.Counter.ObjectCount)
 	})
 }
 
 func TestCounterInlineOnly(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		ul := planet.Uplinks[0]
@@ -70,17 +67,17 @@ func TestCounterInlineOnly(t *testing.T) {
 		}
 
 		metricsChore.Loop.TriggerWait()
-		require.EqualValues(t, 2, metricsChore.Counter.Inline)
+		require.EqualValues(t, 2, metricsChore.Counter.InlineObjectCount())
 		require.EqualValues(t, 0, metricsChore.Counter.RemoteDependent)
-		require.EqualValues(t, 2, metricsChore.Counter.Total)
+		require.EqualValues(t, 2, metricsChore.Counter.ObjectCount)
 	})
 }
 
 func TestCounterRemoteOnly(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.ReconfigureRS(3, 4, 5, 5),
+			Satellite: testplanet.MaxSegmentSize(16 * memory.KiB),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
@@ -88,17 +85,18 @@ func TestCounterRemoteOnly(t *testing.T) {
 		metricsChore := satellite.Metrics.Chore
 		metricsChore.Loop.Pause()
 
-		// upload 2 remote files with 1 segment
+		// upload 2 remote files with multiple segments
 		for i := 0; i < 2; i++ {
-			testData := testrand.Bytes(8 * memory.KiB)
+			testData := testrand.Bytes(32 * memory.KiB)
 			path := "/some/remote/path/" + strconv.Itoa(i)
 			err := ul.Upload(ctx, satellite, "testbucket", path, testData)
 			require.NoError(t, err)
 		}
 
 		metricsChore.Loop.TriggerWait()
-		require.EqualValues(t, 0, metricsChore.Counter.Inline)
+		t.Log(metricsChore.Counter.ObjectCount, metricsChore.Counter.RemoteDependent)
+		require.EqualValues(t, 0, metricsChore.Counter.InlineObjectCount())
 		require.EqualValues(t, 2, metricsChore.Counter.RemoteDependent)
-		require.EqualValues(t, 2, metricsChore.Counter.Total)
+		require.EqualValues(t, 2, metricsChore.Counter.ObjectCount)
 	})
 }

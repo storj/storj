@@ -60,7 +60,7 @@ func openDBBolt(ctx context.Context, path string) (*DB, error) {
 
 // openDBRedis creates a redis-backed DB.
 func openDBRedis(ctx context.Context, address string) (*DB, error) {
-	client, err := redis.NewClientFrom(ctx, address)
+	client, err := redis.OpenClientFrom(ctx, address)
 	if err != nil {
 		return nil, err
 	}

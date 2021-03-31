@@ -14,7 +14,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/storage"
+	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 // ErrEmptyNode is returned when the nodeID is empty.
@@ -88,8 +88,8 @@ type DB interface {
 
 	// DisqualifyNode disqualifies a storage node.
 	DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error)
-	// DQNodesLastSeenBefore disqualifies all nodes where last_contact_success < cutoff.
-	DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time) (err error)
+	// DQNodesLastSeenBefore disqualifies a limited number of nodes where last_contact_success < cutoff.
+	DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (count int, err error)
 
 	// SuspendNodeUnknownAudit suspends a storage node for unknown audits.
 	SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
@@ -106,6 +106,8 @@ type DB interface {
 
 	// IterateAllNodes will call cb on all known nodes (used in restore trash contexts).
 	IterateAllNodes(context.Context, func(context.Context, *SelectedNode) error) error
+	// IterateAllNodes will call cb on all known nodes (used for invoice generation).
+	IterateAllNodeDossiers(context.Context, func(context.Context, *NodeDossier) error) error
 }
 
 // NodeCheckInInfo contains all the info that will be updated when a node checkins.
@@ -301,13 +303,6 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 // Close closes resources.
 func (service *Service) Close() error { return nil }
 
-// Inspect lists limited number of items in the cache.
-func (service *Service) Inspect(ctx context.Context) (_ storage.Keys, err error) {
-	defer mon.Task()(&ctx)(&err)
-	// TODO: implement inspection tools
-	return nil, errors.New("not implemented")
-}
-
 // Get looks up the provided nodeID from the overlay.
 func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDossier, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -495,11 +490,11 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 }
 
 // GetMissingPieces returns the list of offline nodes.
-func (service *Service) GetMissingPieces(ctx context.Context, pieces []*pb.RemotePiece) (missingPieces []int32, err error) {
+func (service *Service) GetMissingPieces(ctx context.Context, pieces metabase.Pieces) (missingPieces []uint16, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var nodeIDs storj.NodeIDList
 	for _, p := range pieces {
-		nodeIDs = append(nodeIDs, p.NodeId)
+		nodeIDs = append(nodeIDs, p.StorageNode)
 	}
 	badNodeIDs, err := service.KnownUnreliableOrOffline(ctx, nodeIDs)
 	if err != nil {
@@ -508,8 +503,8 @@ func (service *Service) GetMissingPieces(ctx context.Context, pieces []*pb.Remot
 
 	for _, p := range pieces {
 		for _, nodeID := range badNodeIDs {
-			if nodeID == p.NodeId {
-				missingPieces = append(missingPieces, p.GetPieceNum())
+			if nodeID == p.StorageNode {
+				missingPieces = append(missingPieces, p.Number)
 			}
 		}
 	}

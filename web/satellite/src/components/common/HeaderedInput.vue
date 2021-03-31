@@ -9,6 +9,7 @@
                 <h3 v-if="!error" class="label-container__main__label">{{label}}</h3>
                 <h3 v-if="!error" class="label-container__main__label add-label">{{additionalLabel}}</h3>
                 <h3 class="label-container__main__error" v-if="error">{{error}}</h3>
+                <div v-if="isLoading" class="loader"/>
             </div>
             <h3 v-if="isLimitShown" class="label-container__limit">{{currentLimit}}/{{maxSymbols}}</h3>
         </div>
@@ -69,6 +70,8 @@ export default class HeaderedInput extends HeaderlessInput {
     private readonly isLimitShown: boolean;
     @Prop({default: false})
     private readonly isMultiline: boolean;
+    @Prop({default: false})
+    private readonly isLoading: boolean;
 
     public value: string;
 
@@ -159,5 +162,20 @@ export default class HeaderedInput extends HeaderlessInput {
     .add-label {
         margin-left: 5px;
         color: rgba(56, 75, 101, 0.4);
+    }
+
+    .loader {
+        margin-left: 10px;
+        border: 5px solid #f3f3f3;
+        border-top: 5px solid #3498db;
+        border-radius: 50%;
+        width: 15px;
+        height: 15px;
+        animation: spin 2s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
     }
 </style>

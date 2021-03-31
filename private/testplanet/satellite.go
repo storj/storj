@@ -50,7 +50,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
-	"storj.io/storj/satellite/metainfo/objectdeletion"
+	"storj.io/storj/satellite/metainfo/metaloop"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodestats"
@@ -94,16 +94,15 @@ type Satellite struct {
 	Overlay struct {
 		DB           overlay.DB
 		Service      *overlay.Service
-		Inspector    *overlay.Inspector
 		DQStrayNodes *straynodes.Chore
 	}
 
 	Metainfo struct {
 		Database  metainfo.PointerDB
+		Metabase  metainfo.MetabaseDB
 		Service   *metainfo.Service
 		Endpoint2 *metainfo.Endpoint
-		Loop      *metainfo.Loop
-		Metabase  *metainfo.PointerDBMetabase
+		Loop      *metaloop.Service
 	}
 
 	Inspector struct {
@@ -372,6 +371,21 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	}
 	planet.databases = append(planet.databases, pointerDB)
 
+	metabaseDB, err := satellitedbtest.CreateMetabaseDB(context.TODO(), log.Named("metabase"), planet.config.Name, "M", index, databases.MetabaseDB)
+	if err != nil {
+		return nil, err
+	}
+
+	if planet.config.Reconfigure.SatelliteMetabaseDB != nil {
+		var newMetabaseDB metainfo.MetabaseDB
+		newMetabaseDB, err = planet.config.Reconfigure.SatelliteMetabaseDB(log.Named("metabase"), index, metabaseDB)
+		if err != nil {
+			return nil, errs.Combine(err, metabaseDB.Close())
+		}
+		metabaseDB = newMetabaseDB
+	}
+	planet.databases = append(planet.databases, metabaseDB)
+
 	redis, err := testredis.Mini(ctx)
 	if err != nil {
 		return nil, err
@@ -430,16 +444,18 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			},
 			UpdateStatsBatchSize: 100,
 			AuditHistory: overlay.AuditHistoryConfig{
-				WindowSize:       10 * time.Minute,
-				TrackingPeriod:   time.Hour,
-				GracePeriod:      time.Hour,
-				OfflineThreshold: 0.6,
+				WindowSize:               10 * time.Minute,
+				TrackingPeriod:           time.Hour,
+				GracePeriod:              time.Hour,
+				OfflineThreshold:         0.6,
+				OfflineSuspensionEnabled: true,
 			},
 		},
 		StrayNodes: straynodes.Config{
 			EnableDQ:                  true,
 			Interval:                  time.Minute,
 			MaxDurationWithoutContact: 30 * time.Second,
+			Limit:                     1000,
 		},
 		Metainfo: metainfo.Config{
 			DatabaseURL:          "", // not used
@@ -456,7 +472,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 				Success:          atLeastOne(planet.config.StorageNodeCount * 3 / 5),
 				Total:            atLeastOne(planet.config.StorageNodeCount * 4 / 5),
 			},
-			Loop: metainfo.LoopConfig{
+			Loop: metaloop.Config{
 				CoalesceDuration: 1 * time.Second,
 				ListLimit:        10000,
 			},
@@ -467,9 +483,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 				CacheExpiration: 10 * time.Second,
 			},
 			ProjectLimits: metainfo.ProjectLimitConfig{
-				MaxBuckets:          10,
-				DefaultMaxUsage:     25 * memory.GB,
-				DefaultMaxBandwidth: 25 * memory.GB,
+				MaxBuckets: 10,
 			},
 			PieceDeletion: piecedeletion.Config{
 				MaxConcurrency:      100,
@@ -481,11 +495,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 				DialTimeout:    2 * time.Second,
 				RequestTimeout: 2 * time.Second,
 				FailThreshold:  2 * time.Second,
-			},
-			ObjectDeletion: objectdeletion.Config{
-				MaxObjectsPerRequest:     100,
-				ZombieSegmentsPerRequest: 3,
-				MaxConcurrentRequests:    100,
 			},
 		},
 		Orders: orders.Config{
@@ -581,6 +590,10 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			Config: console.Config{
 				PasswordCost:        console.TestPasswordCost,
 				DefaultProjectLimit: 5,
+				UsageLimits: console.UsageLimitsConfig{
+					DefaultStorageLimit:   25 * memory.GB,
+					DefaultBandwidthLimit: 25 * memory.GB,
+				},
 			},
 			RateLimit: web.IPRateLimiterConfig{
 				Duration:  5 * time.Minute,
@@ -621,7 +634,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 
 	planet.databases = append(planet.databases, revocationDB)
 
-	liveAccounting, err := live.NewCache(ctx, log.Named("live-accounting"), config.LiveAccounting)
+	liveAccounting, err := live.OpenCache(ctx, log.Named("live-accounting"), config.LiveAccounting)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -630,7 +643,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
 	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
 
-	peer, err := satellite.New(log, identity, db, pointerDB, revocationDB, liveAccounting, rollupsWriteCache, versionInfo, &config, nil)
+	peer, err := satellite.New(log, identity, db, pointerDB, metabaseDB, revocationDB, liveAccounting, rollupsWriteCache, versionInfo, &config, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -640,7 +653,12 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, err
 	}
 
-	api, err := planet.newAPI(ctx, index, identity, db, pointerDB, config, versionInfo)
+	err = metabaseDB.MigrateToLatest(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	api, err := planet.newAPI(ctx, index, identity, db, pointerDB, metabaseDB, config, versionInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -650,12 +668,12 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, err
 	}
 
-	repairerPeer, err := planet.newRepairer(ctx, index, identity, db, pointerDB, config, versionInfo)
+	repairerPeer, err := planet.newRepairer(ctx, index, identity, db, pointerDB, metabaseDB, config, versionInfo)
 	if err != nil {
 		return nil, err
 	}
 
-	gcPeer, err := planet.newGarbageCollection(ctx, index, identity, db, pointerDB, config, versionInfo)
+	gcPeer, err := planet.newGarbageCollection(ctx, index, identity, db, pointerDB, metabaseDB, config, versionInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -688,14 +706,13 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 
 	system.Overlay.DB = api.Overlay.DB
 	system.Overlay.Service = api.Overlay.Service
-	system.Overlay.Inspector = api.Overlay.Inspector
 	system.Overlay.DQStrayNodes = peer.Overlay.DQStrayNodes
 
 	system.Metainfo.Database = api.Metainfo.Database
+	system.Metainfo.Metabase = api.Metainfo.Metabase
 	system.Metainfo.Service = peer.Metainfo.Service
 	system.Metainfo.Endpoint2 = api.Metainfo.Endpoint2
 	system.Metainfo.Loop = peer.Metainfo.Loop
-	system.Metainfo.Metabase = metainfo.NewPointerDBMetabase(system.Metainfo.Service)
 
 	system.Inspector.Endpoint = api.Inspector.Endpoint
 
@@ -736,7 +753,7 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	return system
 }
 
-func (planet *Planet) newAPI(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.API, error) {
+func (planet *Planet) newAPI(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, metabaseDB metainfo.MetabaseDB, config satellite.Config, versionInfo version.Info) (*satellite.API, error) {
 	prefix := "satellite-api" + strconv.Itoa(index)
 	log := planet.log.Named(prefix)
 	var err error
@@ -747,7 +764,7 @@ func (planet *Planet) newAPI(ctx context.Context, index int, identity *identity.
 	}
 	planet.databases = append(planet.databases, revocationDB)
 
-	liveAccounting, err := live.NewCache(ctx, log.Named("live-accounting"), config.LiveAccounting)
+	liveAccounting, err := live.OpenCache(ctx, log.Named("live-accounting"), config.LiveAccounting)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -756,7 +773,7 @@ func (planet *Planet) newAPI(ctx context.Context, index int, identity *identity.
 	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
 	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
 
-	return satellite.NewAPI(log, identity, db, pointerDB, revocationDB, liveAccounting, rollupsWriteCache, &config, versionInfo, nil)
+	return satellite.NewAPI(log, identity, db, pointerDB, metabaseDB, revocationDB, liveAccounting, rollupsWriteCache, &config, versionInfo, nil)
 }
 
 func (planet *Planet) newAdmin(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, config satellite.Config, versionInfo version.Info) (*satellite.Admin, error) {
@@ -766,7 +783,7 @@ func (planet *Planet) newAdmin(ctx context.Context, index int, identity *identit
 	return satellite.NewAdmin(log, identity, db, versionInfo, &config, nil)
 }
 
-func (planet *Planet) newRepairer(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.Repairer, error) {
+func (planet *Planet) newRepairer(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, metabaseDB metainfo.MetabaseDB, config satellite.Config, versionInfo version.Info) (*satellite.Repairer, error) {
 	prefix := "satellite-repairer" + strconv.Itoa(index)
 	log := planet.log.Named(prefix)
 
@@ -779,7 +796,7 @@ func (planet *Planet) newRepairer(ctx context.Context, index int, identity *iden
 	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
 	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
 
-	return satellite.NewRepairer(log, identity, pointerDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), rollupsWriteCache, db.Irreparable(), versionInfo, &config, nil)
+	return satellite.NewRepairer(log, identity, pointerDB, metabaseDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), rollupsWriteCache, db.Irreparable(), versionInfo, &config, nil)
 }
 
 type rollupsWriteCacheCloser struct {
@@ -790,7 +807,7 @@ func (cache rollupsWriteCacheCloser) Close() error {
 	return cache.RollupsWriteCache.CloseAndFlush(context.TODO())
 }
 
-func (planet *Planet) newGarbageCollection(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, config satellite.Config, versionInfo version.Info) (*satellite.GarbageCollection, error) {
+func (planet *Planet) newGarbageCollection(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, pointerDB metainfo.PointerDB, metabaseDB metainfo.MetabaseDB, config satellite.Config, versionInfo version.Info) (*satellite.GarbageCollection, error) {
 	prefix := "satellite-gc" + strconv.Itoa(index)
 	log := planet.log.Named(prefix)
 
@@ -799,7 +816,7 @@ func (planet *Planet) newGarbageCollection(ctx context.Context, index int, ident
 		return nil, errs.Wrap(err)
 	}
 	planet.databases = append(planet.databases, revocationDB)
-	return satellite.NewGarbageCollection(log, identity, db, pointerDB, revocationDB, versionInfo, &config, nil)
+	return satellite.NewGarbageCollection(log, identity, db, pointerDB, metabaseDB, revocationDB, versionInfo, &config, nil)
 }
 
 // atLeastOne returns 1 if value < 1, or value otherwise.

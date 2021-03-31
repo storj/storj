@@ -46,6 +46,8 @@ export default class AccountDropdown extends Vue {
      * Performs logout on backend than clears all user information from store and local storage.
      */
     public async onLogoutClick(): Promise<void> {
+        await this.$router.push(RouteConfig.Login.path);
+
         try {
             await this.auth.logout();
         } catch (error) {
@@ -54,7 +56,6 @@ export default class AccountDropdown extends Vue {
             return;
         }
 
-        await this.$router.push(RouteConfig.Login.path);
         await this.$store.dispatch(PM_ACTIONS.CLEAR);
         await this.$store.dispatch(PROJECTS_ACTIONS.CLEAR);
         await this.$store.dispatch(USER_ACTIONS.CLEAR);

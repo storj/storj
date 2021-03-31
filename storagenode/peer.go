@@ -46,6 +46,7 @@ import (
 	"storj.io/storj/storagenode/multinode"
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/notifications"
+	"storj.io/storj/storagenode/operator"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/payouts"
 	"storj.io/storj/storagenode/payouts/estimatedpayouts"
@@ -104,7 +105,7 @@ type Config struct {
 
 	Preflight preflight.Config
 	Contact   contact.Config
-	Operator  OperatorConfig
+	Operator  operator.Config
 
 	// TODO: flatten storage config and only keep the new one
 	Storage   piecestore.OldConfig
@@ -653,6 +654,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Contact.Service,
 			peer.Estimation.Service,
 			peer.Storage2.BlobsCache,
+			config.Operator.WalletFeatures,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

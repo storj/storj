@@ -439,7 +439,19 @@ func TestGetOnlineNodesForGetDelete(t *testing.T) {
 
 func TestKnownReliable(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 5, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.AuditHistory = overlay.AuditHistoryConfig{
+					WindowSize:               time.Hour,
+					TrackingPeriod:           2 * time.Hour,
+					GracePeriod:              time.Hour,
+					OfflineThreshold:         0.6,
+					OfflineDQEnabled:         false,
+					OfflineSuspensionEnabled: true,
+				}
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		service := satellite.Overlay.Service
@@ -461,25 +473,29 @@ func TestKnownReliable(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, service.IsOnline(node))
 
-		// Suspend storage node #2
+		// unknown audit suspend storage node #2
 		err = satellite.DB.OverlayCache().SuspendNodeUnknownAudit(ctx, planet.StorageNodes[2].ID(), time.Now())
 		require.NoError(t, err)
 
-		// Check that only storage nodes #3 and #4 are reliable
+		// offline suspend storage node #3
+		require.NoError(t, offlineSuspendNode(ctx, satellite.Overlay.DB, &planet.Satellites[0].Config.Overlay.AuditHistory, planet.StorageNodes[3].ID()))
+
+		// Check that only storage nodes #4 and #5 are reliable
 		result, err := service.KnownReliable(ctx, []storj.NodeID{
 			planet.StorageNodes[0].ID(),
 			planet.StorageNodes[1].ID(),
 			planet.StorageNodes[2].ID(),
 			planet.StorageNodes[3].ID(),
 			planet.StorageNodes[4].ID(),
+			planet.StorageNodes[5].ID(),
 		})
 		require.NoError(t, err)
 		require.Len(t, result, 2)
 
 		// Sort the storage nodes for predictable checks
 		expectedReliable := []storj.NodeURL{
-			planet.StorageNodes[3].NodeURL(),
 			planet.StorageNodes[4].NodeURL(),
+			planet.StorageNodes[5].NodeURL(),
 		}
 		sort.Slice(expectedReliable, func(i, j int) bool { return expectedReliable[i].ID.Less(expectedReliable[j].ID) })
 		sort.Slice(result, func(i, j int) bool { return result[i].Id.Less(result[j].Id) })
@@ -677,8 +693,22 @@ func TestSuspendedSelection(t *testing.T) {
 				require.NoError(t, err)
 			}
 
+			ahConfig := &overlay.AuditHistoryConfig{
+				WindowSize:               time.Hour,
+				TrackingPeriod:           2 * time.Hour,
+				GracePeriod:              time.Hour,
+				OfflineThreshold:         0.6,
+				OfflineDQEnabled:         false,
+				OfflineSuspensionEnabled: true,
+			}
+
 			// suspend the first four nodes (2 new, 2 vetted)
+			// 2 offline suspended and 2 unknown audit suspended
 			if i < 4 {
+				if i < 2 {
+					require.NoError(t, offlineSuspendNode(ctx, cache, ahConfig, newID))
+					continue
+				}
 				err = cache.SuspendNodeUnknownAudit(ctx, newID, time.Now())
 				require.NoError(t, err)
 				suspendedIDs[newID] = true
@@ -807,4 +837,28 @@ func TestVetAndUnvetNode(t *testing.T) {
 		require.NoError(t, err)
 		require.Nil(t, dossier.Reputation.VettedAt)
 	})
+}
+
+func offlineSuspendNode(ctx context.Context, oc overlay.DB, config *overlay.AuditHistoryConfig, nodeID storj.NodeID) error {
+	updateReq := &overlay.UpdateRequest{
+		NodeID:       nodeID,
+		AuditOutcome: overlay.AuditOffline,
+		AuditHistory: *config,
+
+		AuditLambda:              0.95,
+		AuditWeight:              1,
+		AuditDQ:                  0.6,
+		SuspensionGracePeriod:    time.Hour,
+		SuspensionDQEnabled:      true,
+		AuditsRequiredForVetting: 0,
+	}
+	windowTime := time.Now()
+	for i := 0; i <= int(config.TrackingPeriod/config.WindowSize); i++ {
+		_, err := oc.UpdateStats(ctx, updateReq, windowTime)
+		if err != nil {
+			return err
+		}
+		windowTime = windowTime.Add(time.Hour)
+	}
+	return nil
 }

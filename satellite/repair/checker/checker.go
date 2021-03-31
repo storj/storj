@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metainfo/metaloop"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair"
 	"storj.io/storj/satellite/repair/irreparable"
@@ -38,8 +39,8 @@ type Checker struct {
 	logger          *zap.Logger
 	repairQueue     queue.RepairQueue
 	irrdb           irreparable.DB
-	metainfo        *metainfo.Service
-	metaLoop        *metainfo.Loop
+	metabase        metainfo.MetabaseDB
+	metaLoop        *metaloop.Service
 	nodestate       *ReliabilityCache
 	statsCollector  *statsCollector
 	repairOverrides RepairOverridesMap
@@ -49,13 +50,13 @@ type Checker struct {
 }
 
 // NewChecker creates a new instance of checker.
-func NewChecker(logger *zap.Logger, repairQueue queue.RepairQueue, irrdb irreparable.DB, metainfo *metainfo.Service, metaLoop *metainfo.Loop, overlay *overlay.Service, config Config) *Checker {
+func NewChecker(logger *zap.Logger, repairQueue queue.RepairQueue, irrdb irreparable.DB, metabase metainfo.MetabaseDB, metaLoop *metaloop.Service, overlay *overlay.Service, config Config) *Checker {
 	return &Checker{
 		logger: logger,
 
 		repairQueue:     repairQueue,
 		irrdb:           irrdb,
-		metainfo:        metainfo,
+		metabase:        metabase,
 		metaLoop:        metaLoop,
 		nodestate:       NewReliabilityCache(overlay, config.ReliabilityCacheStaleness),
 		statsCollector:  newStatsCollector(),
@@ -182,30 +183,29 @@ func containsObjectLocation(a []metabase.ObjectLocation, x metabase.ObjectLocati
 	return false
 }
 
-func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, pointer *pb.Pointer, key metabase.SegmentKey) (err error) {
-	// TODO figure out how to reduce duplicate code between here and checkerObs.RemoteSegment
+func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, key metabase.SegmentKey, redundancy storj.RedundancyScheme, creationDate time.Time, pieces metabase.Pieces) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	remote := pointer.GetRemote()
-	if pointer.GetType() == pb.Pointer_INLINE || remote == nil {
-		return nil
-	}
 
-	pieces := remote.GetRemotePieces()
-	if pieces == nil {
+	if len(pieces) == 0 {
 		checker.logger.Debug("no pieces on remote segment")
 		return nil
 	}
 
-	missingPieces, err := checker.nodestate.MissingPieces(ctx, pointer.CreationDate, pieces)
+	missingPieces, err := checker.nodestate.MissingPieces(ctx, creationDate, pieces)
 	if err != nil {
 		return errs.Combine(Error.New("error getting missing pieces"), err)
 	}
 
 	numHealthy := int32(len(pieces) - len(missingPieces))
-	redundancy := pointer.Remote.Redundancy
 
-	repairThreshold := redundancy.RepairThreshold
-	overrideValue := checker.repairOverrides.GetOverrideValuePB(redundancy)
+	repairThreshold := int32(redundancy.RepairShares)
+	pbRedundancy := &pb.RedundancyScheme{
+		MinReq:           int32(redundancy.RequiredShares),
+		RepairThreshold:  int32(redundancy.RepairShares),
+		SuccessThreshold: int32(redundancy.OptimalShares),
+		Total:            int32(redundancy.TotalShares),
+	}
+	overrideValue := checker.repairOverrides.GetOverrideValuePB(pbRedundancy)
 	if overrideValue != 0 {
 		repairThreshold = overrideValue
 	}
@@ -221,8 +221,8 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	//
 	// If the segment is suddenly entirely healthy again, we don't need to repair and we don't need to
 	// keep it in the irreparabledb queue either.
-	if numHealthy >= redundancy.MinReq && numHealthy <= repairThreshold && numHealthy < redundancy.SuccessThreshold {
-		segmentHealth := repair.SegmentHealth(int(numHealthy), int(redundancy.MinReq), totalNumNodes, checker.nodeFailureRate)
+	if numHealthy >= int32(redundancy.RequiredShares) && numHealthy <= repairThreshold && numHealthy < int32(redundancy.OptimalShares) {
+		segmentHealth := repair.SegmentHealth(int(numHealthy), int(redundancy.RequiredShares), totalNumNodes, checker.nodeFailureRate)
 		_, err = checker.repairQueue.Insert(ctx, &internalpb.InjuredSegment{
 			Path:         key,
 			LostPieces:   missingPieces,
@@ -237,12 +237,11 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 		if err != nil {
 			checker.logger.Error("error deleting entry from irreparable db: ", zap.Error(err))
 		}
-	} else if numHealthy < redundancy.MinReq && numHealthy < repairThreshold {
+	} else if numHealthy < int32(redundancy.RequiredShares) && numHealthy < repairThreshold {
 
 		// make an entry into the irreparable table
 		segmentInfo := &internalpb.IrreparableSegment{
 			Path:               key,
-			SegmentDetail:      pointer,
 			LostPieces:         int32(len(missingPieces)),
 			LastRepairAttempt:  time.Now().Unix(),
 			RepairAttemptCount: int64(1),
@@ -253,7 +252,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 		if err != nil {
 			return errs.Combine(Error.New("error handling irreparable segment to queue"), err)
 		}
-	} else if numHealthy > repairThreshold || numHealthy >= redundancy.SuccessThreshold {
+	} else if numHealthy > repairThreshold || numHealthy >= int32(redundancy.OptimalShares) {
 		err = checker.irrdb.Delete(ctx, key)
 		if err != nil {
 			return Error.New("error removing segment from irreparable queue: %v", err)
@@ -262,7 +261,7 @@ func (checker *Checker) updateIrreparableSegmentStatus(ctx context.Context, poin
 	return nil
 }
 
-var _ metainfo.Observer = (*checkerObserver)(nil)
+var _ metaloop.Observer = (*checkerObserver)(nil)
 
 // checkerObserver implements the metainfo loop Observer interface.
 //
@@ -277,6 +276,9 @@ type checkerObserver struct {
 	nodeFailureRate  float64
 	getNodesEstimate func(ctx context.Context) (int, error)
 	log              *zap.Logger
+
+	// we need to delay counting objects to ensure they get associated with the correct redundancy only once
+	objectCounted bool
 }
 
 func (obs *checkerObserver) getStatsByRS(redundancy storj.RedundancyScheme) *stats {
@@ -293,15 +295,20 @@ func (obs *checkerObserver) loadRedundancy(redundancy storj.RedundancyScheme) (i
 	return int(redundancy.RequiredShares), repair, int(redundancy.OptimalShares), int(redundancy.TotalShares)
 }
 
-func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
+func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// ignore pointer if expired
+	// ignore segment if expired
 	if segment.Expired(time.Now()) {
 		return nil
 	}
 
 	stats := obs.getStatsByRS(segment.Redundancy)
+
+	if !obs.objectCounted {
+		obs.objectCounted = true
+		stats.iterationAggregates.objectsChecked++
+	}
 
 	obs.monStats.remoteSegmentsChecked++
 	stats.iterationAggregates.remoteSegmentsChecked++
@@ -330,7 +337,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metainfo
 	}
 
 	// TODO: update MissingPieces to accept metabase.Pieces
-	missingPieces, err := obs.nodestate.MissingPieces(ctx, segment.CreationDate, pbPieces)
+	missingPieces, err := obs.nodestate.MissingPieces(ctx, segment.CreationDate, segment.Pieces)
 	if err != nil {
 		obs.monStats.remoteSegmentsFailedToCheck++
 		stats.iterationAggregates.remoteSegmentsFailedToCheck++
@@ -410,7 +417,6 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metainfo
 		// make an entry into the irreparable table
 		segmentInfo := &internalpb.IrreparableSegment{
 			Path:               key,
-			SegmentDetail:      segment.Pointer, // TODO: replace with something better than pb.Pointer
 			LostPieces:         int32(len(missingPieces)),
 			LastRepairAttempt:  time.Now().Unix(),
 			RepairAttemptCount: int64(1),
@@ -448,19 +454,35 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metainfo
 	return nil
 }
 
-func (obs *checkerObserver) Object(ctx context.Context, object *metainfo.Object) (err error) {
+func (obs *checkerObserver) Object(ctx context.Context, object *metaloop.Object) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	obs.monStats.objectsChecked++
 
-	stats := obs.getStatsByRS(object.LastSegment.Redundancy)
-	stats.iterationAggregates.objectsChecked++
+	// TODO: check for expired objects
+
+	if object.SegmentCount == 0 {
+		stats := obs.getStatsByRS(storj.RedundancyScheme{})
+		stats.iterationAggregates.objectsChecked++
+		return nil
+	}
+	obs.objectCounted = false
 
 	return nil
 }
 
-func (obs *checkerObserver) InlineSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
+func (obs *checkerObserver) InlineSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// TODO: check for expired segments
+
+	if !obs.objectCounted {
+		// Note: this may give false stats when an object starts with a inline segment.
+		obs.objectCounted = true
+		stats := obs.getStatsByRS(storj.RedundancyScheme{})
+		stats.iterationAggregates.objectsChecked++
+	}
+
 	return nil
 }
 
@@ -485,7 +507,63 @@ func (checker *Checker) IrreparableProcess(ctx context.Context) (err error) {
 		lastSeenSegmentKey = metabase.SegmentKey(segments[len(segments)-1].Path)
 
 		for _, segment := range segments {
-			err = checker.updateIrreparableSegmentStatus(ctx, segment.GetSegmentDetail(), metabase.SegmentKey(segment.GetPath()))
+			var redundancy storj.RedundancyScheme
+			var pieces metabase.Pieces
+			var createAt time.Time
+			if segment.SegmentDetail == (&pb.Pointer{}) {
+				// TODO IrreparableDB will be removed in a future so we shouldn't care too much about performance
+				location, err := metabase.ParseSegmentKey(metabase.SegmentKey(segment.GetPath()))
+				if err != nil {
+					return err
+				}
+				object, err := checker.metabase.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
+					ObjectLocation: location.Object(),
+				})
+				if err != nil {
+					return err
+				}
+
+				createAt = object.CreatedAt
+
+				segment, err := checker.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+					StreamID: object.StreamID,
+					Position: location.Position,
+				})
+				if err != nil {
+					return err
+				}
+				redundancy = segment.Redundancy
+			} else {
+				// skip inline segments
+				if segment.SegmentDetail.Remote == nil {
+					return nil
+				}
+
+				createAt = segment.SegmentDetail.CreationDate
+
+				pbRedundancy := segment.SegmentDetail.Remote.Redundancy
+				redundancy = storj.RedundancyScheme{
+					RequiredShares: int16(pbRedundancy.MinReq),
+					RepairShares:   int16(pbRedundancy.RepairThreshold),
+					OptimalShares:  int16(pbRedundancy.SuccessThreshold),
+					TotalShares:    int16(pbRedundancy.Total),
+					ShareSize:      pbRedundancy.ErasureShareSize,
+				}
+				pieces = make(metabase.Pieces, len(segment.SegmentDetail.Remote.RemotePieces))
+				for _, piece := range segment.SegmentDetail.Remote.RemotePieces {
+					pieces = append(pieces, metabase.Piece{
+						Number:      uint16(piece.PieceNum),
+						StorageNode: piece.NodeId,
+					})
+				}
+			}
+
+			err = checker.updateIrreparableSegmentStatus(ctx,
+				metabase.SegmentKey(segment.GetPath()),
+				redundancy,
+				createAt,
+				pieces,
+			)
 			if err != nil {
 				checker.logger.Error("irrepair segment checker failed: ", zap.Error(err))
 			}

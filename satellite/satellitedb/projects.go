@@ -10,6 +10,7 @@ import (
 
 	"github.com/zeebo/errs"
 
+	"storj.io/common/memory"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -95,6 +96,12 @@ func (projects *projects) Insert(ctx context.Context, project *console.Project) 
 	createFields := dbx.Project_Create_Fields{}
 	if !project.PartnerID.IsZero() {
 		createFields.PartnerId = dbx.Project_PartnerId(project.PartnerID[:])
+	}
+	if project.StorageLimit != nil {
+		createFields.UsageLimit = dbx.Project_UsageLimit(project.StorageLimit.Int64())
+	}
+	if project.BandwidthLimit != nil {
+		createFields.BandwidthLimit = dbx.Project_BandwidthLimit(project.BandwidthLimit.Int64())
 	}
 	createFields.RateLimit = dbx.Project_RateLimit_Raw(project.RateLimit)
 	createFields.MaxBuckets = dbx.Project_MaxBuckets_Raw(project.MaxBuckets)
@@ -304,14 +311,16 @@ func projectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 	}
 
 	return &console.Project{
-		ID:          id,
-		Name:        project.Name,
-		Description: project.Description,
-		PartnerID:   partnerID,
-		OwnerID:     ownerID,
-		RateLimit:   project.RateLimit,
-		MaxBuckets:  project.MaxBuckets,
-		CreatedAt:   project.CreatedAt,
+		ID:             id,
+		Name:           project.Name,
+		Description:    project.Description,
+		PartnerID:      partnerID,
+		OwnerID:        ownerID,
+		RateLimit:      project.RateLimit,
+		MaxBuckets:     project.MaxBuckets,
+		CreatedAt:      project.CreatedAt,
+		StorageLimit:   (*memory.Size)(project.UsageLimit),
+		BandwidthLimit: (*memory.Size)(project.BandwidthLimit),
 	}, nil
 }
 

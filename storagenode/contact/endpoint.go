@@ -20,6 +20,7 @@ import (
 //
 // architecture: Endpoint
 type Endpoint struct {
+	pb.DRPCContactUnimplementedServer
 	log       *zap.Logger
 	pingStats *PingStats
 }

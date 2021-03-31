@@ -78,6 +78,8 @@ type pingStatsSource interface {
 //
 // architecture: Endpoint
 type Endpoint struct {
+	pb.DRPCContactUnimplementedServer
+
 	log    *zap.Logger
 	config Config
 

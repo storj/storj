@@ -58,7 +58,7 @@ func reformVerifierWithMockConnector(t testing.TB, sat *testplanet.Satellite, mo
 
 	verifier := audit.NewVerifier(
 		zaptest.NewLogger(t).Named("a-special-verifier"),
-		sat.Metainfo.Service,
+		sat.Metainfo.Metabase,
 		newDialer,
 		sat.Overlay.Service,
 		sat.DB.Containment(),
@@ -89,16 +89,16 @@ func TestGetShareDoesNameLookupIfNecessary(t *testing.T) {
 
 		audits.Chore.Loop.TriggerWait()
 		queue := audits.Queues.Fetch()
-		path, err := queue.Next()
+		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := testSatellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
-		require.NoError(t, err)
-		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-		segmentLocation, err := metabase.ParseSegmentKey(metabase.SegmentKey(path))
+		segment, err := testSatellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: queueSegment.StreamID,
+			Position: queueSegment.Position,
+		})
 		require.NoError(t, err)
 
-		orderLimits, privateKey, _, err := testSatellite.Orders.Service.CreateAuditOrderLimits(ctx, segmentLocation.Bucket(), pointer, nil)
+		orderLimits, privateKey, _, err := testSatellite.Orders.Service.CreateAuditOrderLimits(ctx, queueSegment.Bucket(), segment, nil)
 		require.NoError(t, err)
 
 		// find any non-nil limit
@@ -116,7 +116,7 @@ func TestGetShareDoesNameLookupIfNecessary(t *testing.T) {
 		mock := &mockConnector{}
 		verifier := reformVerifierWithMockConnector(t, testSatellite, mock)
 
-		share, err := verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, 0, shareSize, orderNum)
+		share, err := verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, 0, segment.Redundancy.ShareSize, orderNum)
 		require.NoError(t, err)
 		require.NoError(t, share.Error)
 
@@ -143,16 +143,16 @@ func TestGetSharePrefers(t *testing.T) {
 
 		audits.Chore.Loop.TriggerWait()
 		queue := audits.Queues.Fetch()
-		path, err := queue.Next()
+		queueSegment, err := queue.Next()
 		require.NoError(t, err)
 
-		pointer, err := testSatellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(path))
-		require.NoError(t, err)
-		shareSize := pointer.GetRemote().GetRedundancy().GetErasureShareSize()
-		segmentLocation, err := metabase.ParseSegmentKey(metabase.SegmentKey(path))
+		segment, err := testSatellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: queueSegment.StreamID,
+			Position: queueSegment.Position,
+		})
 		require.NoError(t, err)
 
-		orderLimits, privateKey, _, err := testSatellite.Orders.Service.CreateAuditOrderLimits(ctx, segmentLocation.Bucket(), pointer, nil)
+		orderLimits, privateKey, _, err := testSatellite.Orders.Service.CreateAuditOrderLimits(ctx, queueSegment.Bucket(), segment, nil)
 		require.NoError(t, err)
 		require.GreaterOrEqual(t, len(orderLimits), 1)
 
@@ -179,7 +179,7 @@ func TestGetSharePrefers(t *testing.T) {
 		}
 		verifier := reformVerifierWithMockConnector(t, testSatellite, mock)
 
-		share, err := verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, 0, shareSize, orderNum)
+		share, err := verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, 0, segment.Redundancy.ShareSize, orderNum)
 		require.NoError(t, err)
 		require.NoError(t, share.Error)
 

@@ -11,11 +11,11 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metaloop"
 	"storj.io/uplink/private/eestream"
 )
 
-var _ metainfo.Observer = (*PathCollector)(nil)
+var _ metaloop.Observer = (*PathCollector)(nil)
 
 // PathCollector uses the metainfo loop to add paths to node reservoirs.
 //
@@ -55,7 +55,7 @@ func (collector *PathCollector) Flush(ctx context.Context) (err error) {
 }
 
 // RemoteSegment takes a remote segment found in metainfo and creates a graceful exit transfer queue item if it doesn't exist already.
-func (collector *PathCollector) RemoteSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
+func (collector *PathCollector) RemoteSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
 	if len(collector.nodeIDStorage) == 0 {
 		return nil
 	}
@@ -73,7 +73,7 @@ func (collector *PathCollector) RemoteSegment(ctx context.Context, segment *meta
 		if err != nil {
 			return err
 		}
-		pieceSize := eestream.CalcPieceSize(int64(segment.DataSize), redundancy)
+		pieceSize := eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy)
 		collector.nodeIDStorage[piece.StorageNode] += pieceSize
 
 		item := TransferQueueItem{
@@ -99,12 +99,12 @@ func (collector *PathCollector) RemoteSegment(ctx context.Context, segment *meta
 }
 
 // Object returns nil because the audit service does not interact with objects.
-func (collector *PathCollector) Object(ctx context.Context, object *metainfo.Object) (err error) {
+func (collector *PathCollector) Object(ctx context.Context, object *metaloop.Object) (err error) {
 	return nil
 }
 
 // InlineSegment returns nil because we're only auditing for storage nodes for now.
-func (collector *PathCollector) InlineSegment(ctx context.Context, segment *metainfo.Segment) (err error) {
+func (collector *PathCollector) InlineSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
 	return nil
 }
 

@@ -82,8 +82,11 @@ func (estimatedPayout *EstimatedPayout) Set(current, previous PayoutMonthly, now
 	estimatedPayout.CurrentMonth = current
 	estimatedPayout.PreviousMonth = previous
 
-	daysSinceJoined := now.Sub(joinedAt).Hours() / 24
 	daysPerMonth := float64(date.UTCEndOfMonth(now).Day())
+	daysSinceJoined := now.Sub(joinedAt).Hours() / 24
+	if daysSinceJoined < 1 {
+		daysSinceJoined = 1
+	}
 
 	if daysSinceJoined >= float64(now.Day()) {
 		daysPast := float64(now.Day()) - 1
@@ -92,7 +95,6 @@ func (estimatedPayout *EstimatedPayout) Set(current, previous PayoutMonthly, now
 		}
 
 		payoutPerDay := estimatedPayout.CurrentMonth.Payout / daysPast
-
 		estimatedPayout.CurrentMonthExpectations += payoutPerDay * daysPerMonth
 		return
 	}

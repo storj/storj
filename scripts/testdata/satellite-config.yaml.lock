@@ -1,6 +1,12 @@
 # admin peer http listening address
 # admin.address: ""
 
+# enable analytics reporting
+# analytics.enabled: false
+
+# segment write key
+# analytics.segment-write-key: ""
+
 # how often to run the reservoir chore
 # audit.chore-interval: 24h0m0s
 
@@ -22,7 +28,7 @@
 # number of reservoir slots allotted for nodes, currently capped at 3
 # audit.slots: 3
 
-# number of workers to run audits on paths
+# number of workers to run audits on segments
 # audit.worker-concurrency: 2
 
 # how frequently checker should check for bad segments
@@ -85,8 +91,11 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to contacts page
 # console.contact-info-url: https://forum.storj.io
 
+# indicates if user is allowed to add coupon codes to account
+# console.coupon-code-ui-enabled: false
+
 # default project limits for users
-# console.default-project-limit: 10
+# console.default-project-limit: 3
 
 # url link to documentation
 # console.documentation-url: https://documentation.tardigrade.io/
@@ -148,6 +157,12 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to terms and conditions page
 # console.terms-and-conditions-url: https://storj.io/storage-sla/
 
+# the default bandwidth usage limit
+# console.usage-limits.default-bandwidth-limit: 50.00 GB
+
+# the default storage usage limit
+# console.usage-limits.default-storage-limit: 50.00 GB
+
 # url link to sign up verification page
 # console.verification-page-url: https://tardigrade.io/verify
 
@@ -198,6 +213,9 @@ contact.external-address: ""
 
 # the time between each attempt to go through the db and clean up expired segments
 # expired-deletion.interval: 120h0m0s
+
+# how many expired objects to query in a batch
+# expired-deletion.list-limit: 100
 
 # the number of nodes to concurrently send garbage collection bloom filters to
 # garbage-collection.concurrent-sends: 1
@@ -340,15 +358,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # minimum remote segment size
 # metainfo.min-remote-segment-size: 1.2 KiB
 
-# maximum number of concurrent requests
-# metainfo.object-deletion.max-concurrent-requests: 10000
-
-# maximum number of requests per batch
-# metainfo.object-deletion.max-objects-per-request: 100
-
-# number of segments per request when looking for zombie segments
-# metainfo.object-deletion.zombie-segments-per-request: 3
-
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
 
@@ -372,12 +381,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # timeout for a single delete request
 # metainfo.piece-deletion.request-timeout: 1m0s
-
-# the default bandwidth usage limit
-# metainfo.project-limits.default-max-bandwidth: 500.00 GB
-
-# the default storage usage limit
-# metainfo.project-limits.default-max-usage: 500.00 GB
 
 # max bucket count for a project.
 # metainfo.project-limits.max-buckets: 100
@@ -438,6 +441,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # whether nodes will be disqualified if they have low online score after a review period
 # overlay.audit-history.offline-dq-enabled: false
+
+# whether nodes will be suspended if they have low online score
+# overlay.audit-history.offline-suspension-enabled: true
 
 # The point below which a node is punished for offline audits. Determined by calculating the ratio of online/total audits within each window and finding the average across windows within the tracking period.
 # overlay.audit-history.offline-threshold: 0.6
@@ -536,7 +542,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.object-price: "0.0000022"
 
 # proportion of users which require a balance to create projects [0-1]
-# payments.paywall-proportion: 1
+# payments.paywall-proportion: 0
 
 # payments provider to use
 # payments.provider: ""
@@ -647,10 +653,13 @@ server.private-address: 127.0.0.1:7778
 # server.use-peer-ca-whitelist: true
 
 # whether nodes will be disqualified if they have not been contacted in some time
-# stray-nodes.enable-dq: false
+# stray-nodes.enable-dq: true
 
 # how often to check for and DQ stray nodes
 # stray-nodes.interval: 168h0m0s
+
+# Max number of nodes to return in a single query. Chore will iterate until rows returned is less than limit
+# stray-nodes.limit: 1000
 
 # length of time a node can go without contacting satellite before being disqualified
 # stray-nodes.max-duration-without-contact: 720h0m0s

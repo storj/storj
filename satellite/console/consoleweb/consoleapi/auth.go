@@ -14,6 +14,7 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/private/post"
+	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
@@ -38,13 +39,14 @@ type Auth struct {
 	TermsAndConditionsURL string
 	ContactInfoURL        string
 	service               *console.Service
+	analytics             *analytics.Service
 	mailService           *mailservice.Service
 	cookieAuth            *consolewebauth.CookieAuth
 	partners              *rewards.PartnersService
 }
 
 // NewAuth is a constructor for api auth controller.
-func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, partners *rewards.PartnersService, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string) *Auth {
+func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice.Service, cookieAuth *consolewebauth.CookieAuth, partners *rewards.PartnersService, analytics *analytics.Service, externalAddress string, letUsKnowURL string, termsAndConditionsURL string, contactInfoURL string) *Auth {
 	return &Auth{
 		log:                   log,
 		ExternalAddress:       externalAddress,
@@ -55,6 +57,7 @@ func NewAuth(log *zap.Logger, service *console.Service, mailService *mailservice
 		mailService:           mailService,
 		cookieAuth:            cookieAuth,
 		partners:              partners,
+		analytics:             analytics,
 	}
 }
 
@@ -162,6 +165,20 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(w, err)
 		return
 	}
+
+	trackCreateUserFields := analytics.TrackCreateUserFields{
+		ID:       user.ID,
+		FullName: user.FullName,
+		Email:    user.Email,
+		Type:     analytics.Personal,
+	}
+	if user.IsProfessional {
+		trackCreateUserFields.Type = analytics.Professional
+		trackCreateUserFields.EmployeeCount = user.EmployeeCount
+		trackCreateUserFields.CompanyName = user.CompanyName
+		trackCreateUserFields.JobTitle = user.Position
+	}
+	a.analytics.TrackCreateUser(trackCreateUserFields)
 
 	token, err := a.service.GenerateActivationToken(ctx, user.ID, user.Email)
 	if err != nil {

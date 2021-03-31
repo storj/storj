@@ -109,20 +109,6 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	usagelimit, err := server.db.ProjectAccounting().GetProjectStorageLimit(ctx, projectUUID)
-	if err != nil {
-		httpJSONError(w, "failed to get usage limit",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	bandwidthlimit, err := server.db.ProjectAccounting().GetProjectBandwidthLimit(ctx, projectUUID)
-	if err != nil {
-		httpJSONError(w, "failed to get bandwidth limit",
-			err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	project, err := server.db.Console().Projects().Get(ctx, projectUUID)
 	if err != nil {
 		httpJSONError(w, "failed to get project",
@@ -144,13 +130,13 @@ func (server *Server) getProjectLimit(w http.ResponseWriter, r *http.Request) {
 		} `json:"rate"`
 		Buckets int `json:"maxBuckets"`
 	}
-	if usagelimit != nil {
-		output.Usage.Amount = memory.Size(*usagelimit)
-		output.Usage.Bytes = *usagelimit
+	if project.StorageLimit != nil {
+		output.Usage.Amount = *project.StorageLimit
+		output.Usage.Bytes = project.StorageLimit.Int64()
 	}
-	if bandwidthlimit != nil {
-		output.Bandwidth.Amount = memory.Size(*bandwidthlimit)
-		output.Bandwidth.Bytes = *bandwidthlimit
+	if project.BandwidthLimit != nil {
+		output.Bandwidth.Amount = *project.BandwidthLimit
+		output.Bandwidth.Bytes = project.BandwidthLimit.Int64()
 	}
 	if project.MaxBuckets != nil {
 		output.Buckets = *project.MaxBuckets
