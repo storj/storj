@@ -95,7 +95,7 @@
                             </a>
                             <ShareIcon class="payout-history-item__expanded-area__right-area__footer__transaction__icon" />
                         </div>
-                        <p class="payout-history-item__expanded-area__right-area__footer__total">{{ historyItem.paid | centsToDollars }}</p>
+                        <p class="payout-history-item__expanded-area__right-area__footer__total">{{ (historyItem.distributed > 0 ? historyItem.distributed : historyItem.paid) | centsToDollars }}</p>
                     </div>
                 </div>
             </div>

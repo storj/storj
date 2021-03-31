@@ -407,64 +407,27 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 	}
 
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
-		type Segment struct {
-			Position      SegmentPosition
-			EncryptedSize int32
-			PlainOffset   int64
-			PlainSize     int32
-		}
-
-		var segments []Segment
-		err = withRows(tx.Query(ctx, `
-			SELECT position, encrypted_size, plain_offset, plain_size
-			FROM segments
-			WHERE stream_id = $1
-			ORDER BY position
-		`, opts.StreamID))(func(rows tagsql.Rows) error {
-			for rows.Next() {
-				var segment Segment
-				err := rows.Scan(&segment.Position, &segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize)
-				if err != nil {
-					return Error.New("failed to scan segments: %w", err)
-				}
-				segments = append(segments, segment)
-			}
-			return nil
-		})
+		segments, err := fetchSegmentsForCommit(ctx, tx, opts.StreamID)
 		if err != nil {
 			return Error.New("failed to fetch segments: %w", err)
 		}
 
-		// TODO disabled for now
-		// verify segments
-		// if len(segments) > 0 {
-		// 	// without proofs we expect the segments to be contiguous
-		// 	hasOffset := false
-		// 	offset := int64(0)
-		// 	for i, seg := range segments {
-		// 		if seg.Position.Part != 0 && seg.Position.Index != uint32(i) {
-		// 			return Error.New("expected segment (%d,%d), found (%d,%d)", 0, i, seg.Position.Part, seg.Position.Index)
-		// 		}
-		// 		if seg.PlainOffset != 0 {
-		// 			hasOffset = true
-		// 		}
-		// 		if hasOffset && seg.PlainOffset != offset {
-		// 			return Error.New("segment %d should be at plain offset %d, offset is %d", seg.Position.Index, offset, seg.PlainOffset)
-		// 		}
-		// 		offset += int64(seg.PlainSize)
-		// 	}
-		// }
+		finalSegments := convertToFinalSegments(segments)
+		err = updateSegmentOffsets(ctx, tx, opts.StreamID, finalSegments)
+		if err != nil {
+			return Error.New("failed to update segments: %w", err)
+		}
 
 		// TODO: would we even need this when we make main index plain_offset?
 		fixedSegmentSize := int32(0)
-		if len(segments) > 0 {
-			fixedSegmentSize = segments[0].PlainSize
-			for i, seg := range segments {
+		if len(finalSegments) > 0 {
+			fixedSegmentSize = finalSegments[0].PlainSize
+			for i, seg := range finalSegments {
 				if seg.Position.Part != 0 || seg.Position.Index != uint32(i) {
 					fixedSegmentSize = -1
 					break
 				}
-				if i < len(segments)-1 && seg.PlainSize != fixedSegmentSize {
+				if i < len(finalSegments)-1 && seg.PlainSize != fixedSegmentSize {
 					fixedSegmentSize = -1
 					break
 				}
@@ -472,7 +435,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 		}
 
 		var totalPlainSize, totalEncryptedSize int64
-		for _, seg := range segments {
+		for _, seg := range finalSegments {
 			totalPlainSize += int64(seg.PlainSize)
 			totalEncryptedSize += int64(seg.EncryptedSize)
 		}

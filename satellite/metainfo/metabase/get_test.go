@@ -586,12 +586,14 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 				EncryptedETag:     []byte{5},
 				EncryptedSize:     1024,
 				PlainSize:         512,
+				PlainOffset:       512,
 				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
 				Redundancy:        defaultTestRedundancy,
 			}
 
 			expectedSegmentFirst := expectedSegmentSecond
 			expectedSegmentFirst.Position.Index = 0
+			expectedSegmentFirst.PlainOffset = 0
 
 			GetLatestObjectLastSegment{
 				Opts: metabase.GetLatestObjectLastSegment{

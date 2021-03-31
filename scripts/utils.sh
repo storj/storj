@@ -113,3 +113,35 @@ log_list() {
 		echo ${f}
 	done
 }
+
+failure() {
+	local lineno=$1
+	local msg=$2
+	echo "Failed at $lineno: $msg"
+}
+
+random_bytes_file () {
+    size=$1
+    output=$2
+    head -c $size </dev/urandom > $output
+}
+
+compare_files () {
+    name=$(basename $2)
+    if cmp "$1" "$2"
+    then
+        echo "$name matches uploaded file"
+    else
+        echo "$name does not match uploaded file"
+        exit 1
+    fi
+}
+
+require_error_exit_code(){
+    if [ $1 -eq 0 ]; then
+        echo "Result of copying does not match expectations. Test FAILED"
+        exit 1
+    else
+        echo "Copy file without permission: PASSED"    # Expect unsuccessful exit code
+    fi
+}

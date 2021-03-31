@@ -380,6 +380,7 @@ func TestIterateLoopStreams(t *testing.T) {
 						Redundancy:        segment.Redundancy,
 						RootPieceID:       segment.RootPieceID,
 						PlainSize:         512,
+						PlainOffset:       int64(i * 512),
 						EncryptedKey:      []byte{3},
 						EncryptedKeyNonce: []byte{4},
 						EncryptedETag:     []byte{5},
