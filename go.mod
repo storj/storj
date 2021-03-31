@@ -27,6 +27,7 @@ require (
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/nsf/jsondiff v0.0.0-20200515183724-f29ed568f4ce
 	github.com/nsf/termbox-go v0.0.0-20200418040025-38ba6e5628f1
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/segmentio/backo-go v0.0.0-20200129164019-23eae7c10bd3 // indirect
 	github.com/shopspring/decimal v1.2.0
 	github.com/spacemonkeygo/monkit/v3 v3.0.10
@@ -38,8 +39,11 @@ require (
 	github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
 	github.com/zeebo/assert v1.3.0
+	github.com/zeebo/clingy v0.0.0-20210406153335-0504f579bda1
 	github.com/zeebo/errs v1.2.2
+	github.com/zeebo/ini v0.0.0-20210331155437-86af75b4f524
 	go.etcd.io/bbolt v1.3.5
+	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20210415154028-4f45737414dc
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
@@ -48,9 +52,10 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	google.golang.org/api v0.20.0 // indirect
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
+	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 	storj.io/common v0.0.0-20210504141454-bcb03a80052f
 	storj.io/drpc v0.0.20
 	storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7
 	storj.io/private v0.0.0-20210511083637-239fca6e9894
-	storj.io/uplink v1.5.0-rc.1.0.20210506124440-cfeb286eeeb9
+	storj.io/uplink v1.5.0-rc.1.0.20210512164354-e2e5889614a9
 )
