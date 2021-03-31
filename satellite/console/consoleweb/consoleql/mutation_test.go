@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
@@ -58,6 +59,8 @@ func TestGraphqlMutation(t *testing.T) {
 				"https://europe-west-1.tardigrade.io/",
 			},
 		)
+
+		analyticsService := analytics.NewService(log, analytics.Config{}, "test-satellite")
 
 		redis, err := testredis.Mini(ctx)
 		require.NoError(t, err)
@@ -108,6 +111,7 @@ func TestGraphqlMutation(t *testing.T) {
 			db.Buckets(),
 			partnersService,
 			paymentsService.Accounts(),
+			analyticsService,
 			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
 			5000,
 		)
