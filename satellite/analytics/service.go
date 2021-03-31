@@ -118,6 +118,7 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 	})
 }
 
+// TrackSignedIn sends an "Signed In" event to Segment.
 func (service *Service) TrackSignedIn(userID uuid.UUID, email string) {
 	traits := segment.NewTraits()
 	traits.SetEmail(email)
@@ -137,6 +138,7 @@ func (service *Service) TrackSignedIn(userID uuid.UUID, email string) {
 	})
 }
 
+// TrackProjectCreated sends an "Project Created" event to Segment.
 func (service *Service) TrackProjectCreated(userID, projectID uuid.UUID, currentProjectCount int) {
 
 	props := segment.NewProperties()
@@ -150,6 +152,7 @@ func (service *Service) TrackProjectCreated(userID, projectID uuid.UUID, current
 	})
 }
 
+// TrackAccessGrantCreated sends an "Access Grant Created" event to Segment.
 func (service *Service) TrackAccessGrantCreated(userID uuid.UUID) {
 
 	service.enqueueMessage(segment.Track{
