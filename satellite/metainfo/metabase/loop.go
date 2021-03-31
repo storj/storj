@@ -199,6 +199,8 @@ type SegmentIterator func(segment *LoopSegmentEntry) bool
 type LoopSegmentEntry struct {
 	StreamID      uuid.UUID
 	Position      SegmentPosition
+	CreatedAt     *time.Time // repair
+	RepairedAt    *time.Time // repair
 	RootPieceID   storj.PieceID
 	EncryptedSize int32 // size of the whole segment (not a piece)
 	Redundancy    storj.RedundancyScheme
@@ -240,6 +242,7 @@ func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, h
 	rows, err := db.db.Query(ctx, `
 		SELECT
 			stream_id, position,
+			created_at, repaired_at,
 			root_piece_id,
 			encrypted_size,
 			redundancy,
@@ -283,6 +286,7 @@ func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, h
 			var aliasPieces AliasPieces
 			err = rows.Scan(
 				&segment.StreamID, &segment.Position,
+				&segment.CreatedAt, &segment.RepairedAt,
 				&segment.RootPieceID,
 				&segment.EncryptedSize,
 				redundancyScheme{&segment.Redundancy},
