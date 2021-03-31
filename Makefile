@@ -91,9 +91,8 @@ install-sim: ## install storj-sim
 		storj.io/storj/cmd/certificates
 
 	## install exact version of storj/gateway
-	mkdir -p ${GATEWAYPATH}
-	-cd ${GATEWAYPATH} && go mod init gatewaybuild
-	cd ${GATEWAYPATH} && GO111MODULE=on go get storj.io/gateway@multipart-upload
+	## TODO replace 'main' with 'latest' when gateway with multipart will be released
+	go install -race -v storj.io/gateway@main
 
 ##@ Test
 
