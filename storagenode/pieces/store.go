@@ -155,6 +155,7 @@ type SatelliteUsage struct {
 // Config is configuration for Store.
 type Config struct {
 	WritePreallocSize memory.Size `help:"file preallocated for uploading" default:"4MiB"`
+	DeleteToTrash     bool        `help:"move pieces to trash upon deletion. Warning: if set to false, you risk disqualification for failed audits if a satellite database is restored from backup." default:"true"`
 }
 
 // DefaultConfig is the default value for the Config.
