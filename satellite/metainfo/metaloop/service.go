@@ -56,6 +56,12 @@ type Observer interface {
 	Object(context.Context, *Object) error
 	RemoteSegment(context.Context, *Segment) error
 	InlineSegment(context.Context, *Segment) error
+	LoopStarted(context.Context, LoopInfo) error
+}
+
+// LoopInfo contains information about the current loop.
+type LoopInfo struct {
+	Started time.Time
 }
 
 // NullObserver is an observer that does nothing. This is useful for joining
@@ -74,6 +80,11 @@ func (NullObserver) RemoteSegment(context.Context, *Segment) error {
 
 // InlineSegment implements the Observer interface.
 func (NullObserver) InlineSegment(context.Context, *Segment) error {
+	return nil
+}
+
+// LoopStarted is called at each loop start.
+func (NullObserver) LoopStarted(context.Context, LoopInfo) error {
 	return nil
 }
 
@@ -297,6 +308,14 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 
 	noObserversErr := errs.New("no observers")
 
+	observers = withObservers(ctx, observers, func(ctx context.Context, observer *observerContext) bool {
+		err := observer.observer.LoopStarted(ctx, LoopInfo{Started: startingTime})
+		return !observer.HandleError(err)
+	})
+
+	if len(observers) == 0 {
+		return observers, noObserversErr
+	}
 	// TODO we may consider keeping only expiration time as its
 	// only thing we need to handle segments
 	objectsMap := make(map[uuid.UUID]metabase.LoopObjectEntry)
