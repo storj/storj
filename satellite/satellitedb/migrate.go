@@ -1330,6 +1330,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE coupon_codes DROP COLUMN duration;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "move duration over to billing_periods",
+				Version:     154,
+				Action: migrate.SQL{
+					`UPDATE coupons SET billing_periods = duration;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

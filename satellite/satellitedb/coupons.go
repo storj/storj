@@ -212,8 +212,10 @@ func fromDBXCoupon(dbxCoupon *dbx.Coupon) (coupon payments.Coupon, err error) {
 		return payments.Coupon{}, err
 	}
 
-	duration := int(dbxCoupon.Duration)
-	coupon.Duration = &duration
+	if dbxCoupon.BillingPeriods != nil {
+		duration := int(*dbxCoupon.BillingPeriods)
+		coupon.Duration = &duration
+	}
 	coupon.Description = dbxCoupon.Description
 	coupon.Amount = dbxCoupon.Amount
 	coupon.Created = dbxCoupon.CreatedAt
