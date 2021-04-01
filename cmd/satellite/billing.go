@@ -85,7 +85,7 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripecoinpayments.Servic
 		pc.ObjectPrice,
 		pc.BonusRate,
 		pc.CouponValue,
-		pc.CouponDuration,
+		pc.CouponDuration.IntPointer(),
 		pc.CouponProjectLimit,
 		pc.MinCoinPayment,
 		pc.PaywallProportion)

@@ -42,6 +42,12 @@ func (coupons *coupons) Insert(ctx context.Context, coupon payments.Coupon) (_ p
 		return payments.Coupon{}, err
 	}
 
+	duration := 0
+	createFields := dbx.Coupon_Create_Fields{}
+	if coupon.Duration != nil {
+		duration = *coupon.Duration
+		createFields.BillingPeriods = dbx.Coupon_BillingPeriods(int64(duration))
+	}
 	cpx, err := coupons.db.Create_Coupon(
 		ctx,
 		dbx.Coupon_Id(id[:]),
@@ -50,8 +56,8 @@ func (coupons *coupons) Insert(ctx context.Context, coupon payments.Coupon) (_ p
 		dbx.Coupon_Description(coupon.Description),
 		dbx.Coupon_Type(int(coupon.Type)),
 		dbx.Coupon_Status(int(coupon.Status)),
-		dbx.Coupon_Duration(int64(coupon.Duration)),
-		dbx.Coupon_Create_Fields{},
+		dbx.Coupon_Duration(int64(duration)),
+		createFields,
 	)
 	if err != nil {
 		return payments.Coupon{}, err
@@ -132,7 +138,16 @@ func (coupons *coupons) ListByUserIDAndStatus(ctx context.Context, userID uuid.U
 	sort.Slice(result, func(i, k int) bool {
 		iDate := result[i].ExpirationDate()
 		kDate := result[k].ExpirationDate()
-		return iDate.Before(kDate)
+		if iDate == nil && kDate == nil {
+			return false
+		}
+		if iDate == nil && kDate != nil {
+			return false
+		}
+		if iDate != nil && kDate == nil {
+			return true
+		}
+		return iDate.Before(*kDate)
 	})
 
 	return result, nil
@@ -197,7 +212,8 @@ func fromDBXCoupon(dbxCoupon *dbx.Coupon) (coupon payments.Coupon, err error) {
 		return payments.Coupon{}, err
 	}
 
-	coupon.Duration = int(dbxCoupon.Duration)
+	duration := int(dbxCoupon.Duration)
+	coupon.Duration = &duration
 	coupon.Description = dbxCoupon.Description
 	coupon.Amount = dbxCoupon.Amount
 	coupon.Created = dbxCoupon.CreatedAt
@@ -366,7 +382,7 @@ func couponUsageFromDbxSlice(couponUsageDbx *dbx.CouponUsage) (usage stripecoinp
 
 // PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have a project
 // and do not have a promotional coupon yet. And updates project limits to selected size.
-func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, users []uuid.UUID, duration int, amount int64, projectLimit memory.Size) (err error) {
+func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, users []uuid.UUID, duration *int, amount int64, projectLimit memory.Size) (err error) {
 	defer mon.Task()(&ctx, users, duration, amount, projectLimit)(&err)
 
 	ids, err := coupons.activeUserWithProjectAndWithoutCoupon(ctx, users)
