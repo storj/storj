@@ -29,6 +29,11 @@ func NewCollector(reservoirSlots int, r *rand.Rand) *Collector {
 	}
 }
 
+// LoopStarted is called at each start of a loop.
+func (collector *Collector) LoopStarted(context.Context, metaloop.LoopInfo) (err error) {
+	return nil
+}
+
 // RemoteSegment takes a remote segment found in metainfo and creates a reservoir for it if it doesn't exist already.
 func (collector *Collector) RemoteSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
 	for _, piece := range segment.Pieces {

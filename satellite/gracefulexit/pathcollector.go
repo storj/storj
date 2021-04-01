@@ -49,6 +49,11 @@ func NewPathCollector(db DB, nodeIDs storj.NodeIDList, log *zap.Logger, batchSiz
 	return collector
 }
 
+// LoopStarted is called at each start of a loop.
+func (collector *PathCollector) LoopStarted(context.Context, metaloop.LoopInfo) (err error) {
+	return nil
+}
+
 // Flush persists the current buffer items to the database.
 func (collector *PathCollector) Flush(ctx context.Context) (err error) {
 	return collector.flush(ctx, 1)
