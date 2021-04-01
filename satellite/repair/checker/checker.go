@@ -295,6 +295,11 @@ func (obs *checkerObserver) loadRedundancy(redundancy storj.RedundancyScheme) (i
 	return int(redundancy.RequiredShares), repair, int(redundancy.OptimalShares), int(redundancy.TotalShares)
 }
 
+// LoopStarted is called at each start of a loop.
+func (obs *checkerObserver) LoopStarted(context.Context, metaloop.LoopInfo) (err error) {
+	return nil
+}
+
 func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

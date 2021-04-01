@@ -25,6 +25,11 @@ func NewCounter() *Counter {
 	return &Counter{}
 }
 
+// LoopStarted is called at each start of a loop.
+func (counter *Counter) LoopStarted(context.Context, metaloop.LoopInfo) (err error) {
+	return nil
+}
+
 // Object increments the count for total objects and for inline objects in case the object has no segments.
 func (counter *Counter) Object(ctx context.Context, object *metaloop.Object) (err error) {
 	defer mon.Task()(&ctx)(&err)

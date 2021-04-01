@@ -175,3 +175,8 @@ func (progress *ProgressObserver) InlineSegment(context.Context, *metaloop.Segme
 	progress.InlineSegmentCount++
 	return nil
 }
+
+// LoopStarted is called at each start of a loop.
+func (progress *ProgressObserver) LoopStarted(ctx context.Context, info metaloop.LoopInfo) (err error) {
+	return nil
+}

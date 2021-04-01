@@ -7,6 +7,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/bloomfilter"
@@ -56,6 +57,14 @@ func (pieceTracker *PieceTracker) RemoteSegment(ctx context.Context, segment *me
 
 // Object returns nil because gc does not interact with remote objects.
 func (pieceTracker *PieceTracker) Object(ctx context.Context, object *metaloop.Object) (err error) {
+	return nil
+}
+
+// LoopStarted is called at each start of a loop.
+func (pieceTracker *PieceTracker) LoopStarted(ctx context.Context, info metaloop.LoopInfo) (err error) {
+	if pieceTracker.creationDate.After(info.Started) {
+		return errs.New("Creation date after metaloop starting time.")
+	}
 	return nil
 }
 
