@@ -5,6 +5,7 @@ go 1.13
 require (
 	github.com/alessio/shellescape v1.2.2
 	github.com/alicebob/miniredis/v2 v2.13.3
+	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/calebcase/tmpfile v1.0.2
 	github.com/cheggaaa/pb/v3 v3.0.5

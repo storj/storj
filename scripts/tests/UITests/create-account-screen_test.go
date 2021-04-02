@@ -5,7 +5,7 @@ import (
 )
 
 func Example_createAccountScreen () {
-	page, browser := login_to_account()
+	page, browser := setup_browser()
 	defer browser.MustClose()
 	page.MustElement("div.login-container__register-button").MustClick()
 
@@ -55,4 +55,20 @@ func Example_createAccountScreen () {
 	// true
 	// I agree to the
 }
+
+	func Example_createAccountScreen2 () {
+		page, browser := setup_browser()
+		defer browser.MustClose()
+		page.MustElement("div.login-container__register-button").MustClick()
+		termsLinkText:= page.MustElement("a.register-area__submit-container__terms-area__link").MustText()
+		fmt.Println(termsLinkText)
+		termsLink:= page.MustElement("a.register-area__submit-container__terms-area__link").MustAttribute("href")
+		fmt.Println(*termsLink)
+		createButton:= page.MustElement("div#createAccountButton").MustText()
+		fmt.Println(createButton)
+
+		// Output: Terms & Conditions
+		// https://tardigrade.io/terms-of-use/
+		// Create Account
+	}
 
