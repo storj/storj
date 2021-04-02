@@ -287,16 +287,15 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 
 	// checks if bucket exists before updates it or makes a new entry
-	_, err = endpoint.metainfo.GetBucket(ctx, req.GetName(), keyInfo.ProjectID)
-	if err == nil {
+	exists, err := endpoint.metainfo.HasBucket(ctx, req.GetName(), keyInfo.ProjectID)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	} else if exists {
 		// When the bucket exists, try to set the attribution.
 		if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.GetName()); err != nil {
 			return nil, err
 		}
 		return nil, rpcstatus.Error(rpcstatus.AlreadyExists, "bucket already exists")
-	}
-	if !storj.ErrBucketNotFound.Has(err) {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	// check if project has exceeded its allocated bucket limit
@@ -646,14 +645,12 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
-	_, err = endpoint.metainfo.GetBucket(ctx, req.Bucket, keyInfo.ProjectID)
+	exists, err := endpoint.metainfo.HasBucket(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
-		if storj.ErrBucketNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		}
-
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	} else if !exists {
+		return nil, rpcstatus.Error(rpcstatus.NotFound, "bucket not found: non-existing-bucket")
 	}
 
 	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
@@ -926,13 +923,12 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
-	_, err = endpoint.metainfo.GetBucket(ctx, req.Bucket, keyInfo.ProjectID)
+	exists, err := endpoint.metainfo.HasBucket(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
-		if storj.ErrBucketNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		}
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	} else if !exists {
+		return nil, rpcstatus.Error(rpcstatus.NotFound, "bucket not found: non-existing-bucket")
 	}
 
 	limit := int(req.Limit)
@@ -1028,13 +1024,12 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
-	_, err = endpoint.metainfo.GetBucket(ctx, req.Bucket, keyInfo.ProjectID)
+	exists, err := endpoint.metainfo.HasBucket(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
-		if storj.ErrBucketNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		}
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	} else if !exists {
+		return nil, rpcstatus.Error(rpcstatus.NotFound, "bucket not found: non-existing-bucket")
 	}
 
 	cursor := metabase.StreamIDCursor{}

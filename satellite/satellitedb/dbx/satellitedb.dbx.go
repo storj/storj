@@ -11964,6 +11964,28 @@ func (obj *pgxImpl) Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx context.Cont
 
 }
 
+func (obj *pgxImpl) Has_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	has bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT EXISTS( SELECT 1 FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? )")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&has)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+	return has, nil
+
+}
+
 func (obj *pgxImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name_greater_or_equal BucketMetainfo_Name_Field,
@@ -17438,6 +17460,28 @@ func (obj *pgxcockroachImpl) Get_BucketMetainfo_Id_By_ProjectId_And_Name(ctx con
 
 }
 
+func (obj *pgxcockroachImpl) Has_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	has bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT EXISTS( SELECT 1 FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ? )")
+
+	var __values []interface{}
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&has)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+	return has, nil
+
+}
+
 func (obj *pgxcockroachImpl) Limited_BucketMetainfo_By_ProjectId_And_Name_GreaterOrEqual_OrderBy_Asc_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name_greater_or_equal BucketMetainfo_Name_Field,
@@ -21215,6 +21259,17 @@ func (rx *Rx) Get_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Conte
 	return tx.Get_ValueAttribution_By_ProjectId_And_BucketName(ctx, value_attribution_project_id, value_attribution_bucket_name)
 }
 
+func (rx *Rx) Has_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	has bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Has_BucketMetainfo_By_ProjectId_And_Name(ctx, bucket_metainfo_project_id, bucket_metainfo_name)
+}
+
 func (rx *Rx) Has_NodeApiVersion_By_Id_And_ApiVersion_GreaterOrEqual(ctx context.Context,
 	node_api_version_id NodeApiVersion_Id_Field,
 	node_api_version_api_version_greater_or_equal NodeApiVersion_ApiVersion_Field) (
@@ -22107,6 +22162,11 @@ type Methods interface {
 		value_attribution_project_id ValueAttribution_ProjectId_Field,
 		value_attribution_bucket_name ValueAttribution_BucketName_Field) (
 		value_attribution *ValueAttribution, err error)
+
+	Has_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
+		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+		bucket_metainfo_name BucketMetainfo_Name_Field) (
+		has bool, err error)
 
 	Has_NodeApiVersion_By_Id_And_ApiVersion_GreaterOrEqual(ctx context.Context,
 		node_api_version_id NodeApiVersion_Id_Field,
