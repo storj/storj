@@ -73,6 +73,17 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 	return convertDBXtoBucket(dbxBucket)
 }
 
+// HasBucket returns if a bucket exists.
+func (db *bucketsDB) HasBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (exists bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	exists, err = db.db.Has_BucketMetainfo_By_ProjectId_And_Name(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+	)
+	return exists, storj.ErrBucket.Wrap(err)
+}
+
 // GetBucketID returns an existing bucket id.
 func (db *bucketsDB) GetBucketID(ctx context.Context, bucket metabase.BucketLocation) (_ uuid.UUID, err error) {
 	defer mon.Task()(&ctx)(&err)

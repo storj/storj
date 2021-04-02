@@ -20,6 +20,8 @@ type BucketsDB interface {
 	CreateBucket(ctx context.Context, bucket storj.Bucket) (_ storj.Bucket, err error)
 	// Get returns an existing bucket
 	GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket storj.Bucket, err error)
+	// HasBucket returns if a bucket exists.
+	HasBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (exists bool, err error)
 	// GetBucketID returns an existing bucket id.
 	GetBucketID(ctx context.Context, bucket metabase.BucketLocation) (id uuid.UUID, err error)
 	// UpdateBucket updates an existing bucket
