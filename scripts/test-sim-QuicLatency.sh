@@ -19,15 +19,14 @@ install_sim(){
     local bin_dir="${TMP}/bin"
     mkdir -p ${bin_dir}
 
-    go build -race -v -o ${bin_dir}/storagenode ./cmd/storagenode
-    go build -race -v -o ${bin_dir}/storagenode ./cmd/storagenode >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/satellite ./cmd/satellite >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/storj-sim ./cmd/storj-sim >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/versioncontrol ./cmd/versioncontrol >/dev/null 2>&1
+    go build -o ${bin_dir}/storagenode ./cmd/storagenode >/dev/null 2>&1
+    go build -o ${bin_dir}/satellite ./cmd/satellite >/dev/null 2>&1
+    go build -o ${bin_dir}/storj-sim ./cmd/storj-sim >/dev/null 2>&1
+    go build -o ${bin_dir}/versioncontrol ./cmd/versioncontrol >/dev/null 2>&1
 
-    go build -race -v -o ${bin_dir}/uplink ./cmd/uplink >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/identity ./cmd/identity >/dev/null 2>&1
-    go build -race -v -o ${bin_dir}/certificates ./cmd/certificates >/dev/null 2>&1
+    go build -o ${bin_dir}/uplink ./cmd/uplink >/dev/null 2>&1
+    go build -o ${bin_dir}/identity ./cmd/identity >/dev/null 2>&1
+    go build -o ${bin_dir}/certificates ./cmd/certificates >/dev/null 2>&1
 
     rm -rf .build/gateway-tmp
     mkdir -p .build/gateway-tmp
@@ -113,7 +112,7 @@ fi
 
 if [ "$HOSTNAME" = uplink ]; then   
     #install tcpdump
-    apt-get -y install tcpdump
+    apt-get -y install tcpdump time
 
     head -c 64M </dev/urandom > /tmp/64M
     
@@ -126,54 +125,54 @@ if [ "$HOSTNAME" = uplink ]; then
       let COUNTER=COUNTER+5
       sleep 5;
     done
-
+    
     echo "### Docker Logs of Satellite container #################################################################"
     docker logs $STORJ_NETWORK_HOST4
-    
+
     echo create bucket
     ./data/uplink --config-dir=./data/ mb sj://test
     ./data/uplink --config-dir=./data/ ls
    
-    for i in 0 1 2 3  
+    for i in {1..6} 
     do
       echo start with an extra of $((25*i*2))ms
       tc qdisc replace dev eth0 root netem delay $((25*i))ms
-      docker exec $STORJ_NETWORK_HOST4 tc qdisc replace dev eth0 root netem delay $((25*i))ms
+      docker exec $STORJ_NETWORK_HOST4  tc qdisc replace dev eth0 root netem delay $((25*i))ms
+      
+      ln -s /tmp/64M /tmp/64M.$((25*i*2))
       
       ping -c1 $STORJ_NETWORK_HOST4
       
       ## TCP Run
-      tcpdump -i any -s 65535 -w ./data/tcp_${BUILD_NUMBER}_$((25*i*2)).cap port not 22 &
+      tcpdump -i any -s 114 -w ./data/tcp_${BUILD_NUMBER}_$((25*i*2)).cap port not 22 &
       sleep 2.5
       echo "### Upload TCP $((25*i*2))ms ######################################################################"
-      ./data/uplink --config-dir=./data/ --debug.trace-out ./data/out_tcp_up_${BUILD_NUMBER}_$((25*i*2)).svg cp /tmp/64M sj://test
+      /usr/bin/time -f "Run duration: %e - Upload TCP $((25*i*2))ms" -o ./data/duration.log -a ./data/uplink --config-dir=./data/ --debug.trace-out ./data/out_tcp_up_${BUILD_NUMBER}_$((25*i*2)).svg cp /tmp/64M.$((25*i*2)) sj://test
       # optinal parameter: --profile.cpu cpu.profile --progress=false
       sleep 2.5
       echo "### Download TCP $((25*i*2))ms ######################################################################"
-      ./data/uplink --config-dir=./data/ --debug.trace-out ./data/out_tcp_dl_${BUILD_NUMBER}_$((25*i*2)).svg cp sj://test/64M /tmp/64M.dl
+      /usr/bin/time -f "Run duration: %e - Download TCP $((25*i*2))ms" -o ./data/duration.log -a ./data/uplink --config-dir=./data/ --debug.trace-out ./data/out_tcp_dl_${BUILD_NUMBER}_$((25*i*2)).svg cp sj://test/64M.$((25*i*2)) /tmp/64M.dl$((25*i*2))
 
       ##interrupt it:
       sleep 2.5
       kill -2 $(ps -e | pgrep tcpdump)
 
-      ./data/uplink --config-dir=./data/ rm sj://test/64M
-      rm /tmp/64M.dl
-      sleep 2.5
-
       ## QUIC Run
-      tcpdump -i any -s 65535 -w ./data/quic_${BUILD_NUMBER}_$((25*i*2)).cap port not 22 &
+      tcpdump -i any -s 114 -w ./data/quic_${BUILD_NUMBER}_$((25*i*2)).cap port not 22 &
       sleep 2.5
       echo "### Upload UDP $((25*i*2))ms ######################################################################"
-      ./data/uplink --config-dir=./data/ cp --debug.trace-out ./data/out_quic_ul_${BUILD_NUMBER}_$((25*i*2)).svg --client.enable-quic /tmp/64M sj://test
+      /usr/bin/time -f "Run duration: %e - Upload UDP $((25*i*2))ms" -o ./data/duration.log -a ./data/uplink --config-dir=./data/ cp --debug.trace-out ./data/out_quic_ul_${BUILD_NUMBER}_$((25*i*2)).svg --client.enable-quic /tmp/64M.$((25*i*2)) sj://test
       sleep 2.5
       echo "### Download UDP $((25*i*2))ms ######################################################################"
-      ./data/uplink --config-dir=./data/ cp --debug.trace-out ./data/out_quic_dl_${BUILD_NUMBER}_$((25*i*2)).svg --client.enable-quic sj://test/64M /tmp/64M.dl
-
-      #interrupt it:
+      /usr/bin/time -f "Run duration: %e - Download UDP $((25*i*2))ms" -o ./data/duration.log -a ./data/uplink --config-dir=./data/ cp --debug.trace-out ./data/out_quic_dl_${BUILD_NUMBER}_$((25*i*2)).svg --client.enable-quic sj://test/64M.$((25*i*2)) /tmp/64M.dl$((25*i*2))
+      
+      ##interrupt it:
       sleep 2.5
       kill -2 $(ps -e | pgrep tcpdump)
+      
+      sleep 2.5
     done
-
-    sleep 1     
+    
+    cat ./data/duration.log
         
 fi
