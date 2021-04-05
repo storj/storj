@@ -1801,6 +1801,10 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 			EncryptedKeyNonce: encryptedKeyNonce,
 			EncryptedKey:      segment.EncryptedKey,
+			Position: &pb.SegmentPosition{
+				PartNumber: int32(segment.Position.Part),
+				Index:      int32(segment.Position.Index),
+			},
 		}, nil
 	}
 
@@ -1844,6 +1848,10 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 			RepairThreshold:  int32(segment.Redundancy.RepairShares),
 			SuccessThreshold: int32(segment.Redundancy.OptimalShares),
 			Total:            int32(segment.Redundancy.TotalShares),
+		},
+		Position: &pb.SegmentPosition{
+			PartNumber: int32(segment.Position.Part),
+			Index:      int32(segment.Position.Index),
 		},
 	}, nil
 }
