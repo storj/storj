@@ -62,7 +62,6 @@ func (delete *DeleteObjectsAllVersions) Verify() error {
 		return nil
 	}
 
-	// TODO: make this limit configurable
 	if len(delete.Locations) > 1000 {
 		return ErrInvalidRequest.New("cannot delete more than 1000 objects in a single request")
 	}

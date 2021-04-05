@@ -23,7 +23,7 @@ require (
 	github.com/jackc/pgx/v4 v4.10.1
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
 	github.com/loov/hrtime v1.0.3
-	github.com/lucas-clemente/quic-go v0.7.1-0.20210131023823-622ca23d4eb4
+	github.com/lucas-clemente/quic-go v0.20.1
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/nsf/jsondiff v0.0.0-20200515183724-f29ed568f4ce
 	github.com/nsf/termbox-go v0.0.0-20200418040025-38ba6e5628f1
@@ -48,9 +48,9 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	google.golang.org/api v0.20.0 // indirect
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
-	storj.io/common v0.0.0-20210324105846-0a39fd4f6781
+	storj.io/common v0.0.0-20210325225810-6cd9934a276a
 	storj.io/drpc v0.0.20
 	storj.io/monkit-jaeger v0.0.0-20210225162224-66fb37637bf6
-	storj.io/private v0.0.0-20210203200143-9d2ec06f0d3c
-	storj.io/uplink v1.4.6-0.20210212112107-f7f8a3c8321a
+	storj.io/private v0.0.0-20210225200021-48b617cbe817
+	storj.io/uplink v1.4.6-0.20210326162107-c1403fdd9e35
 )

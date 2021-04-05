@@ -42,6 +42,7 @@ describe('mutations', () => {
         const dashboardInfo = new Dashboard(
             '1',
             '2',
+            [],
             [
                 new SatelliteInfo('3', 'url1', null, null),
                 new SatelliteInfo('4', 'url2', new Date(2020, 1, 1), new Date(2020, 0, 1)),
@@ -179,6 +180,7 @@ describe('actions', () => {
                 new Dashboard(
                     '1',
                     '2',
+                    [],
                     [
                         new SatelliteInfo('3', 'url1', null, null),
                         new SatelliteInfo('4', 'url2', new Date(2020, 1, 1), new Date(2020, 0, 1)),
@@ -322,6 +324,7 @@ describe('getters', () => {
         const dashboardInfo = new Dashboard(
             '1',
             '2',
+            [],
             [
                 new SatelliteInfo('3', 'url1', null, null),
                 new SatelliteInfo('4', 'url2', firstTestDate, new Date(2020, 0, 1)),

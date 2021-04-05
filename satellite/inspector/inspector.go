@@ -30,6 +30,7 @@ var (
 //
 // architecture: Endpoint
 type Endpoint struct {
+	internalpb.DRPCHealthInspectorUnimplementedServer
 	log        *zap.Logger
 	overlay    *overlay.Service
 	metabaseDB metainfo.MetabaseDB

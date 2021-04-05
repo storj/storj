@@ -85,7 +85,7 @@ exports[`PayoutHistoryTableItem renders correctly with actual values (eth) 2`] =
             </a>
             <shareicon-stub class="payout-history-item__expanded-area__right-area__footer__transaction__icon"></shareicon-stub>
           </div>
-          <p class="payout-history-item__expanded-area__right-area__footer__total">$0.80</p>
+          <p class="payout-history-item__expanded-area__right-area__footer__total">$0.30</p>
         </div>
       </div>
     </div>
@@ -161,7 +161,7 @@ exports[`PayoutHistoryTableItem renders correctly with actual values (zksync) 1`
             </a>
             <shareicon-stub class="payout-history-item__expanded-area__right-area__footer__transaction__icon"></shareicon-stub>
           </div>
-          <p class="payout-history-item__expanded-area__right-area__footer__total">$0.80</p>
+          <p class="payout-history-item__expanded-area__right-area__footer__total">$0.30</p>
         </div>
       </div>
     </div>

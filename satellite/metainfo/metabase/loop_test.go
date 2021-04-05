@@ -364,6 +364,7 @@ func TestIterateLoopStreams(t *testing.T) {
 						Position: metabase.SegmentPosition{
 							Index: uint32(i),
 						},
+						CreatedAt:     &now,
 						RootPieceID:   storj.PieceID{1},
 						EncryptedSize: 1024,
 						Pieces:        metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
@@ -380,6 +381,7 @@ func TestIterateLoopStreams(t *testing.T) {
 						Redundancy:        segment.Redundancy,
 						RootPieceID:       segment.RootPieceID,
 						PlainSize:         512,
+						PlainOffset:       int64(i * 512),
 						EncryptedKey:      []byte{3},
 						EncryptedKeyNonce: []byte{4},
 						EncryptedETag:     []byte{5},

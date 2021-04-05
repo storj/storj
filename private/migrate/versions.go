@@ -226,6 +226,10 @@ func (migration *Migration) Run(ctx context.Context, log *zap.Logger) error {
 
 // ensureVersionTable creates migration.Table table if not exists.
 func (migration *Migration) ensureVersionTable(ctx context.Context, log *zap.Logger, db tagsql.DB) error {
+	if err := migration.ValidTableName(); err != nil {
+		return Error.Wrap(err)
+	}
+
 	err := txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
 		_, err := tx.Exec(ctx, rebind(db, `CREATE TABLE IF NOT EXISTS `+migration.Table+` (version int, commited_at text)`)) //nolint:misspell
 		return err

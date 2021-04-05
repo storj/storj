@@ -35,15 +35,14 @@ self.onmessage = function (event) {
 
             self.postMessage(result);
             break;
-        case 'SetPermission':
+        case 'SetPermission': // fallthrough
+        case 'RestrictGrant':
             const isDownload = data.isDownload;
             const isUpload = data.isUpload;
             const isList = data.isList;
             const isDelete = data.isDelete;
-            const buckets = data.buckets;
             const notBefore = data.notBefore;
             const notAfter = data.notAfter;
-            apiKey = data.apiKey;
 
             let permission = self.newPermission().value;
 
@@ -54,7 +53,15 @@ self.onmessage = function (event) {
             permission.NotBefore = notBefore;
             permission.NotAfter = notAfter;
 
-            result = self.setAPIKeyPermission(apiKey, buckets, permission);
+            if (data.type == "SetPermission") {
+                const buckets = data.buckets;
+                apiKey = data.apiKey;
+                result = self.setAPIKeyPermission(apiKey, buckets, permission);
+            } else {
+                const paths = data.paths;
+                const accessGrant = data.grant;
+                result = self.restrictGrant(accessGrant, paths, permission);
+            }
 
             self.postMessage(result);
             break;

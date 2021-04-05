@@ -25,6 +25,8 @@ var (
 //
 // architecture: Endpoint
 type Endpoint struct {
+	pb.DRPCNodeStatsUnimplementedServer
+
 	log        *zap.Logger
 	overlay    overlay.DB
 	accounting accounting.StoragenodeAccounting

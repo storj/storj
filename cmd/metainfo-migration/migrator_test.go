@@ -154,19 +154,20 @@ func TestMigrator_MultiSegmentObj(t *testing.T) {
 }
 
 func test(t *testing.T, createPointers func(t *testing.T, ctx context.Context, pointerDB metainfo.PointerDB), checkMigration func(t *testing.T, ctx context.Context, metabaseDB metainfo.MetabaseDB)) {
-	ctx := testcontext.New(t)
-	defer ctx.Cleanup()
-
-	log := zaptest.NewLogger(t)
-
 	for _, satelliteDB := range satellitedbtest.Databases() {
 		satelliteDB := satelliteDB
 		if strings.EqualFold(satelliteDB.MasterDB.URL, "omit") {
 			continue
 		}
 		t.Run(satelliteDB.Name, func(t *testing.T) {
+			ctx := testcontext.New(t)
+			defer ctx.Cleanup()
+
+			log := zaptest.NewLogger(t)
+
 			schemaSuffix := satellitedbtest.SchemaSuffix()
 			schema := satellitedbtest.SchemaName(t.Name(), "category", 0, schemaSuffix)
+
 			pointerTempDB, err := tempdb.OpenUnique(ctx, satelliteDB.PointerDB.URL, schema)
 			require.NoError(t, err)
 
@@ -174,6 +175,7 @@ func test(t *testing.T, createPointers func(t *testing.T, ctx context.Context, p
 			require.NoError(t, err)
 			defer ctx.Check(pointerDB.Close)
 
+			schema = satellitedbtest.SchemaName(t.Name(), "category", 1, schemaSuffix)
 			metabaseTempDB, err := tempdb.OpenUnique(ctx, satelliteDB.MetabaseDB.URL, schema)
 			require.NoError(t, err)
 			metabaseDB, err := satellitedbtest.CreateMetabaseDBOnTopOf(ctx, log, metabaseTempDB)

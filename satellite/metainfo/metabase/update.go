@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/zeebo/errs"
 
@@ -24,6 +25,8 @@ type UpdateSegmentPieces struct {
 
 	NewRedundancy storj.RedundancyScheme
 	NewPieces     Pieces
+
+	NewRepairedAt time.Time // sets new time of last segment repair (optional).
 }
 
 // UpdateSegmentPieces updates pieces for specified segment. If provided old pieces
@@ -59,6 +62,8 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 		return err
 	}
 
+	updateRepairAt := !opts.NewRepairedAt.IsZero()
+
 	oldPieces, err := db.aliasCache.ConvertPiecesToAliases(ctx, opts.OldPieces)
 	if err != nil {
 		return Error.New("unable to convert pieces to aliases: %w", err)
@@ -79,12 +84,16 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 			redundancy = CASE
 				WHEN remote_alias_pieces = $3 THEN $5
 				ELSE redundancy
+			END,
+			repaired_at = CASE
+				WHEN remote_alias_pieces = $3 AND $7 = true THEN $6
+				ELSE repaired_at
 			END
 		WHERE
 			stream_id     = $1 AND
 			position      = $2
 		RETURNING remote_alias_pieces
-		`, opts.StreamID, opts.Position, oldPieces, newPieces, redundancyScheme{&opts.NewRedundancy}).
+		`, opts.StreamID, opts.Position, oldPieces, newPieces, redundancyScheme{&opts.NewRedundancy}, opts.NewRepairedAt, updateRepairAt).
 		Scan(&resultPieces)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

@@ -104,6 +104,14 @@ type ListStreamPositions struct {
 	StreamID uuid.UUID
 	Cursor   SegmentPosition
 	Limit    int
+
+	Range *StreamRange
+}
+
+// StreamRange allows to limit stream positions based on the plain offsets.
+type StreamRange struct {
+	PlainStart int64
+	PlainLimit int64 // limit is exclusive
 }
 
 // ListStreamPositionsResult result of listing segments.
@@ -116,6 +124,7 @@ type ListStreamPositionsResult struct {
 type SegmentPositionInfo struct {
 	Position          SegmentPosition
 	PlainSize         int32
+	PlainOffset       int64
 	CreatedAt         *time.Time // TODO: make it non-nilable after we migrate all existing segments to have creation time
 	EncryptedETag     []byte
 	EncryptedKeyNonce []byte
@@ -133,26 +142,50 @@ func (db *DB) ListStreamPositions(ctx context.Context, opts ListStreamPositions)
 	if opts.Limit < 0 {
 		return ListStreamPositionsResult{}, ErrInvalidRequest.New("Invalid limit: %d", opts.Limit)
 	}
-
 	if opts.Limit == 0 || opts.Limit > MaxListLimit {
 		opts.Limit = MaxListLimit
 	}
 
-	err = withRows(db.db.Query(ctx, `
-		SELECT
-			position, plain_size, created_at,
-			encrypted_etag, encrypted_key_nonce, encrypted_key
-		FROM segments
-		WHERE
-			stream_id = $1 AND
-			($2 = 0::INT8 OR position > $2)
-		ORDER BY position ASC
-		LIMIT $3
-	`, opts.StreamID, opts.Cursor, opts.Limit+1))(func(rows tagsql.Rows) error {
+	if opts.Range != nil {
+		if opts.Range.PlainStart > opts.Range.PlainLimit {
+			return ListStreamPositionsResult{}, ErrInvalidRequest.New("invalid range: %d:%d", opts.Range.PlainStart, opts.Range.PlainLimit)
+		}
+	}
+
+	var rows tagsql.Rows
+	var rowsErr error
+	if opts.Range == nil {
+		rows, rowsErr = db.db.Query(ctx, `
+			SELECT
+				position, plain_size, plain_offset, created_at,
+				encrypted_etag, encrypted_key_nonce, encrypted_key
+			FROM segments
+			WHERE
+				stream_id = $1 AND
+				($2 = 0::INT8 OR position > $2)
+			ORDER BY position ASC
+			LIMIT $3
+		`, opts.StreamID, opts.Cursor, opts.Limit+1)
+	} else {
+		rows, rowsErr = db.db.Query(ctx, `
+			SELECT
+				position, plain_size, plain_offset, created_at,
+				encrypted_etag, encrypted_key_nonce, encrypted_key
+			FROM segments
+			WHERE
+				stream_id = $1 AND
+				($2 = 0::INT8 OR position > $2) AND
+				$4 < plain_offset + plain_size AND plain_offset < $5
+			ORDER BY position ASC
+			LIMIT $3
+		`, opts.StreamID, opts.Cursor, opts.Limit+1, opts.Range.PlainStart, opts.Range.PlainLimit)
+	}
+
+	err = withRows(rows, rowsErr)(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var segment SegmentPositionInfo
 			err = rows.Scan(
-				&segment.Position, &segment.PlainSize, &segment.CreatedAt,
+				&segment.Position, &segment.PlainSize, &segment.PlainOffset, &segment.CreatedAt,
 				&segment.EncryptedETag, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			)
 			if err != nil {

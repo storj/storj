@@ -10,26 +10,6 @@ import "pointerdb.proto";
 
 package satellite.inspector;
 
-service OverlayInspector {
-  // CountNodes returns the number of nodes in the cache
-  rpc CountNodes(CountNodesRequest) returns (CountNodesResponse);
-  // DumpNodes returns all the nodes in the cache
-  rpc DumpNodes(DumpNodesRequest) returns (DumpNodesResponse);
-}
-
-message CountNodesRequest {
-}
-
-message CountNodesResponse {
-  int64 count = 1;
-}
-
-message DumpNodesRequest {}
-
-message DumpNodesResponse {
-  repeated node.Node nodes = 1;
-}
-
 service IrreparableInspector {
   // ListIrreparableSegments returns damaged segments
   rpc ListIrreparableSegments(ListIrreparableSegmentsRequest) returns (ListIrreparableSegmentsResponse);
