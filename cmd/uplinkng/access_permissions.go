@@ -13,7 +13,7 @@ import (
 // accessPermissions holds flags and provides a Setup method for commands that
 // have to modify permissions on access grants.
 type accessPermissions struct {
-	paths []string // paths is the set of path prefixes that the grant will be limited to
+	prefixes []string // prefixes is the set of path prefixes that the grant will be limited to
 
 	readonly  bool // implies disallowWrites and disallowDeletes
 	writeonly bool // implies disallowReads and disallowLists
@@ -28,7 +28,7 @@ type accessPermissions struct {
 }
 
 func (ap *accessPermissions) Setup(a clingy.Arguments, f clingy.Flags) {
-	ap.paths = f.New("path", "Path prefix access will be restricted to", []string{},
+	ap.prefixes = f.New("prefix", "Key prefix access will be restricted to", []string{},
 		clingy.Repeated).([]string)
 
 	ap.readonly = f.New("readonly", "Implies --disallow-writes and --disallow-deletes", true,
