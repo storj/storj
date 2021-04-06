@@ -133,7 +133,7 @@ if [ "$HOSTNAME" = uplink ]; then
     ./data/uplink --config-dir=./data/ mb sj://test
     ./data/uplink --config-dir=./data/ ls
    
-    for i in {1..6} 
+    for i in {1..5} 
     do
       echo start with an extra of $((25*i*2))ms
       tc qdisc replace dev eth0 root netem delay $((25*i))ms
