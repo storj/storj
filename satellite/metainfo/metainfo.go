@@ -1796,6 +1796,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		mon.Meter("req_get_inline").Mark(1)
 
 		return &pb.SegmentDownloadResponse{
+			PlainOffset:         segment.PlainOffset,
 			SegmentSize:         int64(segment.EncryptedSize),
 			EncryptedInlineData: segment.InlineData,
 
@@ -1836,6 +1837,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	return &pb.SegmentDownloadResponse{
 		AddressedLimits: limits,
 		PrivateKey:      privateKey,
+		PlainOffset:     segment.PlainOffset,
 		SegmentSize:     int64(segment.EncryptedSize),
 
 		EncryptedKeyNonce: encryptedKeyNonce,
