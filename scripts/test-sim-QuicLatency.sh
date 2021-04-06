@@ -139,7 +139,8 @@ if [ "$HOSTNAME" = uplink ]; then
       tc qdisc replace dev eth0 root netem delay $((25*i))ms
       docker exec $STORJ_NETWORK_HOST4  tc qdisc replace dev eth0 root netem delay $((25*i))ms
       
-      ln -s /tmp/64M /tmp/64M.$((25*i*2))
+      ln -s /tmp/64M /tmp/64M.tcp$((25*i*2))
+      ln -s /tmp/64M /tmp/64M.quic$((25*i*2))
       
       ping -c1 $STORJ_NETWORK_HOST4
       
@@ -147,11 +148,11 @@ if [ "$HOSTNAME" = uplink ]; then
       tcpdump -i any -s 114 -w ./data/tcp_${BUILD_NUMBER}_$((25*i*2)).cap port not 22 &
       sleep 2.5
       echo "### Upload TCP $((25*i*2))ms ######################################################################"
-      /usr/bin/time -f "Run duration: %e - Upload TCP $((25*i*2))ms" -o ./data/duration.log -a ./data/uplink --config-dir=./data/ --debug.trace-out ./data/out_tcp_up_${BUILD_NUMBER}_$((25*i*2)).svg cp /tmp/64M.$((25*i*2)) sj://test
+      /usr/bin/time -f "Run duration: %e - Upload TCP $((25*i*2))ms" -o ./data/duration.log -a ./data/uplink --config-dir=./data/ --debug.trace-out ./data/out_tcp_up_${BUILD_NUMBER}_$((25*i*2)).svg cp /tmp/64M.tcp$((25*i*2)) sj://test
       # optinal parameter: --profile.cpu cpu.profile --progress=false
       sleep 2.5
       echo "### Download TCP $((25*i*2))ms ######################################################################"
-      /usr/bin/time -f "Run duration: %e - Download TCP $((25*i*2))ms" -o ./data/duration.log -a ./data/uplink --config-dir=./data/ --debug.trace-out ./data/out_tcp_dl_${BUILD_NUMBER}_$((25*i*2)).svg cp sj://test/64M.$((25*i*2)) /tmp/64M.dl$((25*i*2))
+      /usr/bin/time -f "Run duration: %e - Download TCP $((25*i*2))ms" -o ./data/duration.log -a ./data/uplink --config-dir=./data/ --debug.trace-out ./data/out_tcp_dl_${BUILD_NUMBER}_$((25*i*2)).svg cp sj://test/64M.tcp$((25*i*2)) /tmp/64M.tcpdl$((25*i*2))
 
       ##interrupt it:
       sleep 2.5
@@ -161,10 +162,10 @@ if [ "$HOSTNAME" = uplink ]; then
       tcpdump -i any -s 114 -w ./data/quic_${BUILD_NUMBER}_$((25*i*2)).cap port not 22 &
       sleep 2.5
       echo "### Upload UDP $((25*i*2))ms ######################################################################"
-      /usr/bin/time -f "Run duration: %e - Upload UDP $((25*i*2))ms" -o ./data/duration.log -a ./data/uplink --config-dir=./data/ cp --debug.trace-out ./data/out_quic_ul_${BUILD_NUMBER}_$((25*i*2)).svg --client.enable-quic /tmp/64M.$((25*i*2)) sj://test
+      /usr/bin/time -f "Run duration: %e - Upload UDP $((25*i*2))ms" -o ./data/duration.log -a ./data/uplink --config-dir=./data/ cp --debug.trace-out ./data/out_quic_ul_${BUILD_NUMBER}_$((25*i*2)).svg --client.enable-quic /tmp/64M.quic$((25*i*2)) sj://test
       sleep 2.5
       echo "### Download UDP $((25*i*2))ms ######################################################################"
-      /usr/bin/time -f "Run duration: %e - Download UDP $((25*i*2))ms" -o ./data/duration.log -a ./data/uplink --config-dir=./data/ cp --debug.trace-out ./data/out_quic_dl_${BUILD_NUMBER}_$((25*i*2)).svg --client.enable-quic sj://test/64M.$((25*i*2)) /tmp/64M.dl$((25*i*2))
+      /usr/bin/time -f "Run duration: %e - Download UDP $((25*i*2))ms" -o ./data/duration.log -a ./data/uplink --config-dir=./data/ cp --debug.trace-out ./data/out_quic_dl_${BUILD_NUMBER}_$((25*i*2)).svg --client.enable-quic sj://test/64M.quic$((25*i*2)) /tmp/64M.quicdl$((25*i*2))
       
       ##interrupt it:
       sleep 2.5
