@@ -56,12 +56,16 @@ func NewService(bandwidthDB bandwidth.DB, reputationDB reputation.DB, storageUsa
 func (s *Service) GetSatelliteEstimatedPayout(ctx context.Context, satelliteID storj.NodeID, now time.Time) (payout EstimatedPayout, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	currentMonthPayout, previousMonthPayout, err := s.estimatedPayout(ctx, satelliteID, now)
+	stats, err := s.reputationDB.Get(ctx, satelliteID)
 	if err != nil {
 		return EstimatedPayout{}, EstimationServiceErr.Wrap(err)
 	}
 
-	stats, err := s.reputationDB.Get(ctx, satelliteID)
+	if stats.DisqualifiedAt != nil {
+		return EstimatedPayout{}, EstimationServiceErr.New("node was disqualified on satellite")
+	}
+
+	currentMonthPayout, previousMonthPayout, err := s.estimatedPayout(ctx, satelliteID, now)
 	if err != nil {
 		return EstimatedPayout{}, EstimationServiceErr.Wrap(err)
 	}
@@ -76,13 +80,17 @@ func (s *Service) GetAllSatellitesEstimatedPayout(ctx context.Context, now time.
 
 	satelliteIDs := s.trust.GetSatellites(ctx)
 	for i := 0; i < len(satelliteIDs); i++ {
-		current, previous, err := s.estimatedPayout(ctx, satelliteIDs[i], now)
+		var satellitePayout EstimatedPayout
+		stats, err := s.reputationDB.Get(ctx, satelliteIDs[i])
 		if err != nil {
 			return EstimatedPayout{}, EstimationServiceErr.Wrap(err)
 		}
-		var satellitePayout EstimatedPayout
 
-		stats, err := s.reputationDB.Get(ctx, satelliteIDs[i])
+		if stats.DisqualifiedAt != nil {
+			continue
+		}
+
+		current, previous, err := s.estimatedPayout(ctx, satelliteIDs[i], now)
 		if err != nil {
 			return EstimatedPayout{}, EstimationServiceErr.Wrap(err)
 		}

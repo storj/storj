@@ -48,7 +48,7 @@ type CouponsDB interface {
 
 	// PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have a project
 	// and do not have a promotional coupon yet. And updates project limits to selected size.
-	PopulatePromotionalCoupons(ctx context.Context, users []uuid.UUID, duration int, amount int64, projectLimit memory.Size) error
+	PopulatePromotionalCoupons(ctx context.Context, users []uuid.UUID, duration *int, amount int64, projectLimit memory.Size) error
 }
 
 // CouponUsage stores amount of money that should be charged from coupon for billing period.
@@ -118,7 +118,7 @@ func (coupons *coupons) TotalUsage(ctx context.Context, couponID uuid.UUID) (_ i
 // PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have
 // a project, payment method and do not have a promotional coupon yet.
 // And updates project limits to selected size.
-func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, duration int, amount int64, projectLimit memory.Size) (err error) {
+func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, duration *int, amount int64, projectLimit memory.Size) (err error) {
 	defer mon.Task()(&ctx, duration, amount, projectLimit)(&err)
 
 	const limit = 50
@@ -201,5 +201,12 @@ func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, duration
 func (coupons *coupons) AddPromotionalCoupon(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
-	return Error.Wrap(coupons.service.db.Coupons().PopulatePromotionalCoupons(ctx, []uuid.UUID{userID}, int(coupons.service.CouponDuration), coupons.service.CouponValue, coupons.service.CouponProjectLimit))
+	// convert *int64 to *int
+	var couponDuration *int
+	if coupons.service.CouponDuration != nil {
+		value := int(*coupons.service.CouponDuration)
+		couponDuration = &value
+	}
+
+	return Error.Wrap(coupons.service.db.Coupons().PopulatePromotionalCoupons(ctx, []uuid.UUID{userID}, couponDuration, coupons.service.CouponValue, coupons.service.CouponProjectLimit))
 }

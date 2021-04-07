@@ -382,19 +382,20 @@ func (paymentService PaymentsService) BillingHistory(ctx context.Context) (billi
 			couponStatus = "Expired"
 		}
 
-		billingHistory = append(billingHistory,
-			&BillingHistoryItem{
-				ID:          coupon.ID.String(),
-				Description: coupon.Description,
-				Amount:      coupon.Amount,
-				Remaining:   remaining,
-				Status:      couponStatus,
-				Link:        "",
-				Start:       coupon.Created,
-				End:         coupon.ExpirationDate(),
-				Type:        Coupon,
-			},
-		)
+		billingHistoryItem := &BillingHistoryItem{
+			ID:          coupon.ID.String(),
+			Description: coupon.Description,
+			Amount:      coupon.Amount,
+			Remaining:   remaining,
+			Status:      couponStatus,
+			Link:        "",
+			Start:       coupon.Created,
+			Type:        Coupon,
+		}
+		if coupon.ExpirationDate() != nil {
+			billingHistoryItem.End = *coupon.ExpirationDate()
+		}
+		billingHistory = append(billingHistory, billingHistoryItem)
 	}
 
 	bonuses, err := paymentService.service.accounts.StorjTokens().ListDepositBonuses(ctx, auth.User.ID)
@@ -484,10 +485,12 @@ func (paymentService PaymentsService) checkProjectInvoicingStatus(ctx context.Co
 // PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have
 // a project, payment method and do not have a promotional coupon yet.
 // And updates project limits to selected size.
+// This functionality is deprecated and will be removed.
 func (paymentService PaymentsService) PopulatePromotionalCoupons(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return Error.Wrap(paymentService.service.accounts.Coupons().PopulatePromotionalCoupons(ctx, 2, 5500, memory.TB))
+	duration := 2
+	return Error.Wrap(paymentService.service.accounts.Coupons().PopulatePromotionalCoupons(ctx, &duration, 5500, memory.TB))
 }
 
 // AddPromotionalCoupon creates new coupon for specified user.
@@ -796,6 +799,17 @@ func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (u *User, err error
 	}
 
 	return user, nil
+}
+
+// GetUserID returns the User ID from the session.
+func (s *Service) GetUserID(ctx context.Context) (id uuid.UUID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := s.getAuthAndAuditLog(ctx, "get user ID")
+	if err != nil {
+		return uuid.UUID{}, Error.Wrap(err)
+	}
+	return auth.User.ID, nil
 }
 
 // GetUserByEmail returns User by email.

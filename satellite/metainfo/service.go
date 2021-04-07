@@ -411,6 +411,12 @@ func (s *Service) CreateBucket(ctx context.Context, bucket storj.Bucket) (_ stor
 	return s.bucketsDB.CreateBucket(ctx, bucket)
 }
 
+// HasBucket returns if a bucket exists.
+func (s *Service) HasBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (ok bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return s.bucketsDB.HasBucket(ctx, bucketName, projectID)
+}
+
 // GetBucket returns an existing bucket in the buckets db.
 func (s *Service) GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ storj.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)

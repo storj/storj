@@ -231,13 +231,14 @@ func TestService_InvoiceUserWithManyCoupons(t *testing.T) {
 		project, err := satellite.AddProject(ctx, user.ID, "testproject")
 		require.NoError(t, err)
 
+		duration := 2
 		sumOfCoupons := int64(0)
 		for i := 0; i < 5; i++ {
 			coupon, err := satellite.API.Payments.Accounts.Coupons().Create(ctx, payments.Coupon{
 				ID:       testrand.UUID(),
 				UserID:   user.ID,
 				Amount:   int64(i + 4),
-				Duration: 2,
+				Duration: &duration,
 				Status:   payments.CouponActive,
 				Type:     payments.CouponTypePromotional,
 			})
@@ -346,11 +347,12 @@ func TestService_ApplyCouponsInTheOrder(t *testing.T) {
 		additionalCoupons := 3
 		// we will have coupons with duration 5, 4, 3 and 2 from coupon create with AddUser
 		for i := 0; i < additionalCoupons; i++ {
+			duration := additionalCoupons - i + 2
 			_, err = satellite.API.Payments.Accounts.Coupons().Create(ctx, payments.Coupon{
 				ID:       testrand.UUID(),
 				UserID:   user.ID,
 				Amount:   24,
-				Duration: additionalCoupons - i + 2,
+				Duration: &duration,
 				Status:   payments.CouponActive,
 				Type:     payments.CouponTypePromotional,
 			})
@@ -380,7 +382,8 @@ func TestService_ApplyCouponsInTheOrder(t *testing.T) {
 		require.Equal(t, 2, len(usedCoupons))
 		// coupons with duration 2 and 3 should be used
 		for _, coupon := range usedCoupons {
-			require.Less(t, coupon.Duration, 4)
+			require.NotNil(t, coupon.Duration)
+			require.Less(t, *coupon.Duration, 4)
 		}
 
 		activeCoupons, err := satellite.DB.StripeCoinPayments().Coupons().ListByUserIDAndStatus(ctx, user.ID, payments.CouponActive)
@@ -388,7 +391,8 @@ func TestService_ApplyCouponsInTheOrder(t *testing.T) {
 		require.Equal(t, 2, len(activeCoupons))
 		// coupons with duration 4 and 5 should be NOT used
 		for _, coupon := range activeCoupons {
-			require.Greater(t, coupon.Duration, 3)
+			require.NotNil(t, coupon.Duration)
+			require.Greater(t, *coupon.Duration, 3)
 			require.EqualValues(t, 24, coupon.Amount)
 		}
 	})
@@ -485,7 +489,7 @@ func TestService_CouponStatus(t *testing.T) {
 				ID:       testrand.UUID(),
 				UserID:   user.ID,
 				Amount:   tt.amount,
-				Duration: tt.duration,
+				Duration: &tt.duration,
 			})
 			require.NoError(t, err, errTag)
 

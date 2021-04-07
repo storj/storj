@@ -142,8 +142,6 @@ model node (
 	field audit_success_count  int64   ( updatable, default 0 )
 	field total_audit_count    int64   ( updatable, default 0 )
 	field vetted_at            timestamp ( updatable, nullable )
-	field uptime_success_count int64   ( updatable, default 0 )
-	field total_uptime_count   int64   ( updatable, default 0 )
 
 	field created_at           timestamp ( autoinsert, default current_timestamp )
 	field updated_at           timestamp ( autoinsert, autoupdate, default current_timestamp )
@@ -887,6 +885,12 @@ read one (
 	where bucket_metainfo.name = ?
 )
 
+read has (
+	select bucket_metainfo
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
+
 delete bucket_metainfo (
 	where bucket_metainfo.project_id = ?
 	where bucket_metainfo.name = ?
@@ -1092,12 +1096,12 @@ model coupon_code (
     key    id
     unique name
 
-    field id          blob
-    field name        text
-    field amount      int64
-    field description text
-    field type        int
-    field duration    int64
+    field id              blob
+    field name            text
+    field amount          int64
+    field description     text
+    field type            int
+    field billing_periods int64 ( nullable )
 
     field created_at timestamp ( autoinsert )
 )
@@ -1121,6 +1125,7 @@ model coupon (
     field type             int
     field status           int   ( updatable )
     field duration         int64
+    field billing_periods  int64 ( nullable )
     field coupon_code_name text  ( nullable )
 
     field created_at timestamp ( autoinsert )

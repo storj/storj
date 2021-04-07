@@ -11,10 +11,11 @@ import (
 )
 
 const (
-	eventAccountCreated     = "Account Created"
-	eventSignedIn           = "Signed In"
-	eventProjectCreated     = "Project Created"
-	eventAccessGrantCreated = "Access Grant Created"
+	eventAccountCreated       = "Account Created"
+	eventSignedIn             = "Signed In"
+	eventProjectCreated       = "Project Created"
+	eventAccessGrantCreated   = "Access Grant Created"
+	gatewayCredentialsCreated = "Credentials Created"
 )
 
 // Config is a configuration struct for analytics Service.
@@ -30,6 +31,7 @@ type Service struct {
 	log           *zap.Logger
 	config        Config
 	satelliteName string
+	clientEvents  map[string]bool
 
 	segment segment.Client
 }
@@ -40,9 +42,13 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 		log:           log,
 		config:        config,
 		satelliteName: satelliteName,
+		clientEvents:  make(map[string]bool),
 	}
 	if config.Enabled {
 		service.segment = segment.New(config.SegmentWriteKey)
+	}
+	for _, name := range []string{gatewayCredentialsCreated} {
+		service.clientEvents[name] = true
 	}
 	return service
 }
@@ -158,5 +164,20 @@ func (service *Service) TrackAccessGrantCreated(userID uuid.UUID) {
 	service.enqueueMessage(segment.Track{
 		UserId: userID.String(),
 		Event:  eventAccessGrantCreated,
+	})
+}
+
+// TrackEvent sends an arbitrary event associated with user ID to Segment.
+// It is used for tracking occurrences of client-side events.
+func (service *Service) TrackEvent(eventName string, userID uuid.UUID) {
+	// do not track if the event name is an invalid client-side event
+	if !service.clientEvents[eventName] {
+		service.log.Error("Invalid client-triggered event", zap.String("eventName", eventName))
+		return
+	}
+
+	service.enqueueMessage(segment.Track{
+		UserId: userID.String(),
+		Event:  eventName,
 	})
 }

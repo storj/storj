@@ -28,6 +28,7 @@ func NewDefaultConnector(quicConfig *quic.Config) Connector {
 	if quicConfig == nil {
 		quicConfig = &quic.Config{
 			MaxIdleTimeout: 15 * time.Minute,
+			KeepAlive:      true,
 		}
 	}
 	return Connector{

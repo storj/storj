@@ -287,16 +287,15 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 
 	// checks if bucket exists before updates it or makes a new entry
-	_, err = endpoint.metainfo.GetBucket(ctx, req.GetName(), keyInfo.ProjectID)
-	if err == nil {
+	exists, err := endpoint.metainfo.HasBucket(ctx, req.GetName(), keyInfo.ProjectID)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	} else if exists {
 		// When the bucket exists, try to set the attribution.
 		if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.GetName()); err != nil {
 			return nil, err
 		}
 		return nil, rpcstatus.Error(rpcstatus.AlreadyExists, "bucket already exists")
-	}
-	if !storj.ErrBucketNotFound.Has(err) {
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	// check if project has exceeded its allocated bucket limit
@@ -646,14 +645,12 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
-	_, err = endpoint.metainfo.GetBucket(ctx, req.Bucket, keyInfo.ProjectID)
+	exists, err := endpoint.metainfo.HasBucket(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
-		if storj.ErrBucketNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		}
-
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	} else if !exists {
+		return nil, rpcstatus.Error(rpcstatus.NotFound, "bucket not found: non-existing-bucket")
 	}
 
 	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
@@ -906,6 +903,265 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	return &pb.ObjectGetResponse{Object: object}, nil
 }
 
+// DownloadObject gets object information, creates a download for segments and lists the object segments.
+func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDownloadRequest) (resp *pb.ObjectDownloadResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:            macaroon.ActionRead,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.EncryptedObjectKey,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	err = endpoint.validateBucket(ctx, req.Bucket)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	if exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfo.ProjectID); err != nil {
+		endpoint.log.Error("Retrieving project bandwidth total failed; bandwidth limit won't be enforced", zap.Error(err))
+	} else if exceeded {
+		endpoint.log.Error("Monthly bandwidth limit exceeded",
+			zap.Stringer("Limit", limit),
+			zap.Stringer("Project ID", keyInfo.ProjectID),
+		)
+		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "Exceeded Usage Limit")
+	}
+
+	// get the object information
+
+	object, err := endpoint.metainfo.metabaseDB.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
+		ObjectLocation: metabase.ObjectLocation{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(req.Bucket),
+			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
+		},
+	})
+	if err != nil {
+		if storj.ErrObjectNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	// get the range segments
+
+	streamRange, err := calculateStreamRange(object, req.Range)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	segments, err := endpoint.metainfo.metabaseDB.ListStreamPositions(ctx, metabase.ListStreamPositions{
+		StreamID: object.StreamID,
+		Range:    streamRange,
+		Limit:    int(req.Limit),
+	})
+	if err != nil {
+		if metabase.ErrInvalidRequest.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+		}
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	// get the download response for the first segment
+	downloadSegments, err := func() ([]*pb.SegmentDownloadResponse, error) {
+		if len(segments.Segments) == 0 {
+			return nil, nil
+		}
+
+		segment, err := endpoint.metainfo.metabaseDB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: object.StreamID,
+			Position: segments.Segments[0].Position,
+		})
+		if err != nil {
+			// object was deleted between the steps
+			if storj.ErrObjectNotFound.Has(err) {
+				return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+			}
+			if metabase.ErrInvalidRequest.Has(err) {
+				return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+			}
+			endpoint.log.Error("internal", zap.Error(err))
+			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
+
+		// Update the current bandwidth cache value incrementing the SegmentSize.
+		err = endpoint.projectUsage.UpdateProjectBandwidthUsage(ctx, keyInfo.ProjectID, int64(segment.EncryptedSize))
+		if err != nil {
+			// log it and continue. it's most likely our own fault that we couldn't
+			// track it, and the only thing that will be affected is our per-project
+			// bandwidth limits.
+			endpoint.log.Error("Could not track the new project's bandwidth usage", zap.Stringer("Project ID", keyInfo.ProjectID), zap.Error(err))
+		}
+
+		encryptedKeyNonce, err := storj.NonceFromBytes(segment.EncryptedKeyNonce)
+		if err != nil {
+			endpoint.log.Error("unable to get encryption key nonce from metadata", zap.Error(err))
+			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
+
+		if segment.Inline() {
+			err := endpoint.orders.UpdateGetInlineOrder(ctx, object.Location().Bucket(), int64(len(segment.InlineData)))
+			if err != nil {
+				return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+			}
+			endpoint.log.Info("Inline Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "inline"))
+			mon.Meter("req_get_inline").Mark(1)
+
+			return []*pb.SegmentDownloadResponse{{
+				PlainOffset:         segment.PlainOffset,
+				PlainSize:           int64(segment.PlainSize),
+				SegmentSize:         int64(segment.EncryptedSize),
+				EncryptedInlineData: segment.InlineData,
+
+				EncryptedKeyNonce: encryptedKeyNonce,
+				EncryptedKey:      segment.EncryptedKey,
+
+				Position: &pb.SegmentPosition{
+					PartNumber: int32(segment.Position.Part),
+					Index:      int32(segment.Position.Index),
+				},
+			}}, nil
+		}
+
+		limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, object.Location().Bucket(), segment)
+		if err != nil {
+			if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
+				endpoint.log.Error("Unable to create order limits.",
+					zap.Stringer("Project ID", keyInfo.ProjectID),
+					zap.Stringer("API Key ID", keyInfo.ID),
+					zap.Error(err),
+				)
+			}
+			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
+
+		limits = sortLimits(limits, segment)
+
+		// workaround to avoid sending nil values on top level
+		for i := range limits {
+			if limits[i] == nil {
+				limits[i] = &pb.AddressedOrderLimit{}
+			}
+		}
+
+		endpoint.log.Info("Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "remote"))
+		mon.Meter("req_get_remote").Mark(1)
+
+		return []*pb.SegmentDownloadResponse{{
+			AddressedLimits: limits,
+			PrivateKey:      privateKey,
+			PlainOffset:     segment.PlainOffset,
+			PlainSize:       int64(segment.PlainSize),
+			SegmentSize:     int64(segment.EncryptedSize),
+
+			EncryptedKeyNonce: encryptedKeyNonce,
+			EncryptedKey:      segment.EncryptedKey,
+			RedundancyScheme: &pb.RedundancyScheme{
+				Type:             pb.RedundancyScheme_SchemeType(segment.Redundancy.Algorithm),
+				ErasureShareSize: segment.Redundancy.ShareSize,
+
+				MinReq:           int32(segment.Redundancy.RequiredShares),
+				RepairThreshold:  int32(segment.Redundancy.RepairShares),
+				SuccessThreshold: int32(segment.Redundancy.OptimalShares),
+				Total:            int32(segment.Redundancy.TotalShares),
+			},
+
+			Position: &pb.SegmentPosition{
+				PartNumber: int32(segment.Position.Part),
+				Index:      int32(segment.Position.Index),
+			},
+		}}, nil
+	}()
+	if err != nil {
+		return nil, err
+	}
+
+	// convert to response
+
+	protoObject, err := endpoint.objectToProto(ctx, object, nil)
+	if err != nil {
+		endpoint.log.Error("unable to convert object to proto", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	segmentList, err := convertStreamListResults(segments)
+	if err != nil {
+		endpoint.log.Error("unable to convert stream list", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	endpoint.log.Info("Download Object", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "download"), zap.String("type", "object"))
+	mon.Meter("req_download_object").Mark(1)
+
+	return &pb.ObjectDownloadResponse{
+		Object: protoObject,
+
+		// The RPC API allows for multiple segment download responses, but for now
+		// we return only one. This can be changed in the future if it seems useful
+		// to return more than one on the initial response.
+		SegmentDownload: downloadSegments,
+
+		// In the case where the client needs the segment list, it will contain
+		// every segment. In the case where the segment list is not needed,
+		// segmentListItems will be nil.
+		SegmentList: segmentList,
+	}, nil
+}
+
+func calculateStreamRange(object metabase.Object, req *pb.Range) (*metabase.StreamRange, error) {
+	if req == nil || req.Range == nil {
+		return nil, nil
+	}
+	// we cannot calculate stream ranges for old objects.
+	if !object.SegmentsHavePlainOffsets() {
+		// TODO: handle object.FixedSegmentSize
+		return nil, nil
+	}
+
+	switch r := req.Range.(type) {
+	case *pb.Range_Start:
+		if r.Start == nil {
+			return nil, Error.New("Start missing for Range_Start")
+		}
+
+		return &metabase.StreamRange{
+			PlainStart: r.Start.PlainStart,
+			PlainLimit: object.TotalPlainSize,
+		}, nil
+	case *pb.Range_StartLimit:
+		if r.StartLimit == nil {
+			return nil, Error.New("StartEnd missing for Range_StartEnd")
+		}
+		return &metabase.StreamRange{
+			PlainStart: r.StartLimit.PlainStart,
+			PlainLimit: r.StartLimit.PlainLimit,
+		}, nil
+	case *pb.Range_Suffix:
+		if r.Suffix == nil {
+			return nil, Error.New("Suffix missing for Range_Suffix")
+		}
+		return &metabase.StreamRange{
+			PlainStart: object.TotalPlainSize - r.Suffix.PlainSuffix,
+			PlainLimit: object.TotalPlainSize,
+		}, nil
+	}
+
+	// if it's a new unsupported range type, let's return all data
+	return nil, nil
+}
+
 // ListObjects list objects according to specific parameters.
 func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListRequest) (resp *pb.ObjectListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -926,13 +1182,12 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
-	_, err = endpoint.metainfo.GetBucket(ctx, req.Bucket, keyInfo.ProjectID)
+	exists, err := endpoint.metainfo.HasBucket(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
-		if storj.ErrBucketNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		}
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	} else if !exists {
+		return nil, rpcstatus.Error(rpcstatus.NotFound, "bucket not found: non-existing-bucket")
 	}
 
 	limit := int(req.Limit)
@@ -1028,13 +1283,12 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
-	_, err = endpoint.metainfo.GetBucket(ctx, req.Bucket, keyInfo.ProjectID)
+	exists, err := endpoint.metainfo.HasBucket(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
-		if storj.ErrBucketNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
-		}
 		endpoint.log.Error("unable to check bucket", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	} else if !exists {
+		return nil, rpcstatus.Error(rpcstatus.NotFound, "bucket not found: non-existing-bucket")
 	}
 
 	cursor := metabase.StreamIDCursor{}
@@ -1678,6 +1932,16 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
+	response, err := convertStreamListResults(result)
+	if err != nil {
+		endpoint.log.Error("unable to convert stream list", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+	response.EncryptionParameters = streamID.EncryptionParameters
+	return response, nil
+}
+
+func convertStreamListResults(result metabase.ListStreamPositionsResult) (*pb.SegmentListResponse, error) {
 	items := make([]*pb.SegmentListItem, len(result.Segments))
 	for i, item := range result.Segments {
 		items[i] = &pb.SegmentListItem{
@@ -1692,18 +1956,16 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 			items[i].CreatedAt = *item.CreatedAt
 		}
 		items[i].EncryptedETag = item.EncryptedETag
+		var err error
 		items[i].EncryptedKeyNonce, err = storj.NonceFromBytes(item.EncryptedKeyNonce)
 		if err != nil {
-			endpoint.log.Error("unable to get encryption key nonce from metadata", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+			return nil, err
 		}
 		items[i].EncryptedKey = item.EncryptedKey
 	}
-
 	return &pb.SegmentListResponse{
-		Items:                items,
-		More:                 result.More,
-		EncryptionParameters: streamID.EncryptionParameters,
+		Items: items,
+		More:  result.More,
 	}, nil
 }
 
@@ -1801,11 +2063,17 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		mon.Meter("req_get_inline").Mark(1)
 
 		return &pb.SegmentDownloadResponse{
+			PlainOffset:         segment.PlainOffset,
+			PlainSize:           int64(segment.PlainSize),
 			SegmentSize:         int64(segment.EncryptedSize),
 			EncryptedInlineData: segment.InlineData,
 
 			EncryptedKeyNonce: encryptedKeyNonce,
 			EncryptedKey:      segment.EncryptedKey,
+			Position: &pb.SegmentPosition{
+				PartNumber: int32(segment.Position.Part),
+				Index:      int32(segment.Position.Index),
+			},
 		}, nil
 	}
 
@@ -1837,6 +2105,8 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	return &pb.SegmentDownloadResponse{
 		AddressedLimits: limits,
 		PrivateKey:      privateKey,
+		PlainOffset:     segment.PlainOffset,
+		PlainSize:       int64(segment.PlainSize),
 		SegmentSize:     int64(segment.EncryptedSize),
 
 		EncryptedKeyNonce: encryptedKeyNonce,
@@ -1849,6 +2119,10 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 			RepairThreshold:  int32(segment.Redundancy.RepairShares),
 			SuccessThreshold: int32(segment.Redundancy.OptimalShares),
 			Total:            int32(segment.Redundancy.TotalShares),
+		},
+		Position: &pb.SegmentPosition{
+			PartNumber: int32(segment.Position.Part),
+			Index:      int32(segment.Position.Index),
 		},
 	}, nil
 }

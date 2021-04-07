@@ -39,9 +39,7 @@ func (object *Object) Expired(now time.Time) bool {
 // Segment is the segment info passed to Observer by metainfo loop.
 type Segment struct {
 	Location       metabase.SegmentLocation // tally, repair, graceful exit, audit
-	CreationDate   time.Time                // repair
 	ExpirationDate time.Time                // tally, repair
-	LastRepaired   time.Time                // repair
 
 	metabase.LoopSegmentEntry
 }
@@ -463,15 +461,9 @@ func handleObject(ctx context.Context, observer *observerContext, object *Object
 
 func handleSegment(ctx context.Context, observer *observerContext, location metabase.SegmentLocation, segment metabase.LoopSegmentEntry, expirationDate *time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	loopSegment := &Segment{
-		Location: location,
-		// TODO we are not setting this since multipart-upload branch, we need to
-		// check if thats affecting anything and if we need to set it correctly
-		// or just replace it with something else
-		CreationDate: time.Time{},
-		// TODO we are not setting this and we need to decide what to do with this
-		LastRepaired: time.Time{},
 
+	loopSegment := &Segment{
+		Location:         location,
 		LoopSegmentEntry: segment,
 	}
 

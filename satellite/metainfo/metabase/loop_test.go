@@ -364,6 +364,7 @@ func TestIterateLoopStreams(t *testing.T) {
 						Position: metabase.SegmentPosition{
 							Index: uint32(i),
 						},
+						CreatedAt:     &now,
 						RootPieceID:   storj.PieceID{1},
 						EncryptedSize: 1024,
 						Pieces:        metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
