@@ -132,21 +132,7 @@ func (d *Deleter) work(ctx context.Context) error {
 		case r := <-d.ch:
 			mon.IntVal("piecedeleter-queue-time").Observe(int64(time.Since(r.QueueTime)))
 			mon.IntVal("piecedeleter-queue-size").Observe(int64(len(d.ch)))
-			err := d.store.Delete(ctx, r.SatelliteID, r.PieceID)
-			if err != nil {
-				// If a piece cannot be deleted, we just log the error.
-				d.log.Error("delete failed",
-					zap.Stringer("Satellite ID", r.SatelliteID),
-					zap.Stringer("Piece ID", r.PieceID),
-					zap.Error(err),
-				)
-			} else {
-				d.log.Info("deleted",
-					zap.Stringer("Satellite ID", r.SatelliteID),
-					zap.Stringer("Piece ID", r.PieceID),
-				)
-			}
-
+			d.deleteOrTrash(ctx, r.SatelliteID, r.PieceID)
 			// If we are in test mode, check if we are done processing deletes
 			if d.testMode {
 				d.checkDone(-1)
@@ -189,4 +175,31 @@ func (d *Deleter) Wait(ctx context.Context) {
 // SetupTest puts the deleter in test mode. This should only be called in tests.
 func (d *Deleter) SetupTest() {
 	d.testMode = true
+}
+
+func (d *Deleter) deleteOrTrash(ctx context.Context, satelliteID storj.NodeID, pieceID storj.PieceID) {
+	var err error
+	var errMsg string
+	var infoMsg string
+	if d.store.config.DeleteToTrash {
+		err = d.store.Trash(ctx, satelliteID, pieceID)
+		errMsg = "could not send delete piece to trash"
+		infoMsg = "delete piece sent to trash"
+	} else {
+		err = d.store.Delete(ctx, satelliteID, pieceID)
+		errMsg = "delete failed"
+		infoMsg = "deleted"
+	}
+	if err != nil {
+		d.log.Error(errMsg,
+			zap.Stringer("Satellite ID", satelliteID),
+			zap.Stringer("Piece ID", pieceID),
+			zap.Error(err),
+		)
+	} else {
+		d.log.Info(infoMsg,
+			zap.Stringer("Satellite ID", satelliteID),
+			zap.Stringer("Piece ID", pieceID),
+		)
+	}
 }
