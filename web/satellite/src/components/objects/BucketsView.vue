@@ -11,14 +11,14 @@
             </div>
         </div>
         <div class="buckets-view__loader" v-if="isLoading"/>
-        <p class="buckets-view__no-buckets" v-if="!(isLoading || buckets.length)">No Buckets</p>
-        <div class="buckets-view__list" v-if="!isLoading && buckets.length">
+        <p class="buckets-view__no-buckets" v-if="!(isLoading || bucketsList.length)">No Buckets</p>
+        <div class="buckets-view__list" v-if="!isLoading && bucketsList.length">
             <div class="buckets-view__list__sorting-header">
                 <p class="buckets-view__list__sorting-header__name">Name</p>
                 <p class="buckets-view__list__sorting-header__date">Date Added</p>
                 <p class="buckets-view__list__sorting-header__empty"/>
             </div>
-            <div class="buckets-view__list__item" v-for="(bucket, key) in buckets" :key="key" @click.stop="openBucket">
+            <div class="buckets-view__list__item" v-for="(bucket, key) in bucketsList" :key="key" @click.stop="openBucket(bucket.Name)">
                 <BucketItem
                     :item-data="bucket"
                     :show-delete-bucket-popup="showDeleteBucketPopup"
@@ -55,6 +55,7 @@
 </template>
 
 <script lang="ts">
+import { Bucket } from 'aws-sdk/clients/s3';
 import { Component, Vue } from 'vue-property-decorator';
 
 import BucketItem from '@/components/objects/BucketItem.vue';
@@ -67,7 +68,6 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AccessGrant, GatewayCredentials } from '@/types/accessGrants';
 import { MetaUtils } from '@/utils/meta';
-import { Bucket } from '@aws-sdk/client-s3';
 
 @Component({
     components: {
@@ -102,85 +102,88 @@ export default class BucketsView extends Vue {
             return;
         }
 
-        await this.removeTemporaryAccessGrant();
-
         try {
-            const cleanAPIKey: AccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, this.FILE_BROWSER_AG_NAME);
+            if (!this.accessGrantFromStore) {
+                await this.setWorker();
+                // This is done just in case old temporary access grant still exists.
+                await this.removeTemporaryAccessGrant();
+                await this.setAccess();
+                await this.fetchBuckets();
+            }
 
-            this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
-            this.worker.onmessage = (event: MessageEvent) => {
-                const data = event.data;
-                if (data.error) {
-                    throw new Error(data.error);
-                }
+            this.isLoading = false;
 
-                this.grantWithPermissions = data.value;
-            };
-
-            const now = new Date();
-            const inADay = new Date(now.setDate(now.getDate() + 1));
-
-            await this.worker.postMessage({
-                'type': 'SetPermission',
-                'isDownload': true,
-                'isUpload': true,
-                'isList': true,
-                'isDelete': true,
-                'buckets': [],
-                'apiKey': cleanAPIKey.secret,
-                'notBefore': now.toISOString(),
-                'notAfter': inADay.toISOString(),
-            });
-
-            // Timeout is used to give some time for web worker to return value.
-            setTimeout(() => {
-                this.worker.onmessage = (event: MessageEvent) => {
-                    const data = event.data;
-                    if (data.error) {
-                        throw new Error(data.error);
-                    }
-
-                    this.accessGrant = data.value;
-                };
-
-                const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
-                this.worker.postMessage({
-                    'type': 'GenerateAccess',
-                    'apiKey': this.grantWithPermissions,
-                    'passphrase': this.$route.params.passphrase,
-                    'projectID': this.$store.getters.selectedProject.id,
-                    'satelliteNodeURL': satelliteNodeURL,
-                });
-
-                // Timeout is used to give some time for web worker to return value.
-                setTimeout(async () => {
-                    await this.$store.dispatch(OBJECTS_ACTIONS.SET_ACCESS_GRANT, this.accessGrant);
-
-                    // TODO: use this value until all the satellites will have this URL set.
-                    const gatewayURL = 'https://auth.tardigradeshare.io';
-                    const gatewayCredentials: GatewayCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: this.accessGrant, optionalURL: gatewayURL});
-                    await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
-                    await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
-                    await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
-
-                    this.isLoading = false;
-
-                    if (!this.buckets.length) this.showCreateBucketPopup();
-                }, 1000);
-            }, 1000);
+            if (!this.bucketsList.length) this.showCreateBucketPopup();
         } catch (error) {
-            await this.$notify.error(`Failed to setup Objects view. ${error.message}`);
-
-            return;
+            await this.$notify.error(`Failed to setup Buckets view. ${error.message}`);
         }
     }
 
     /**
-     * Lifecycle hook before component destroying.
-     * Remove temporary created access grant.
+     * Sets access to S3 client.
      */
-    public async beforeDestroy(): Promise<void> {
-        await this.removeTemporaryAccessGrant();
+    public async setAccess(): Promise<void> {
+        const cleanAPIKey: AccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, this.FILE_BROWSER_AG_NAME);
+        await this.$store.dispatch(OBJECTS_ACTIONS.SET_API_KEY, cleanAPIKey.secret);
+
+        const now = new Date();
+        const inADay = new Date(now.setDate(now.getDate() + 1));
+
+        await this.worker.postMessage({
+            'type': 'SetPermission',
+            'isDownload': true,
+            'isUpload': true,
+            'isList': true,
+            'isDelete': true,
+            'buckets': [],
+            'apiKey': cleanAPIKey.secret,
+            'notBefore': new Date().toISOString(),
+            'notAfter': inADay.toISOString(),
+        });
+
+        const grantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
+        this.grantWithPermissions = grantEvent.data.value;
+        if (grantEvent.data.error) {
+            throw new Error(grantEvent.data.error);
+        }
+
+        const satelliteNodeURL: string = MetaUtils.getMetaContent('satellite-nodeurl');
+        this.worker.postMessage({
+            'type': 'GenerateAccess',
+            'apiKey': this.grantWithPermissions,
+            'passphrase': this.passphrase,
+            'projectID': this.$store.getters.selectedProject.id,
+            'satelliteNodeURL': satelliteNodeURL,
+        });
+
+        const accessGrantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
+        this.accessGrant = accessGrantEvent.data.value;
+        if (accessGrantEvent.data.error) {
+            throw new Error(accessGrantEvent.data.error);
+        }
+
+        await this.$store.dispatch(OBJECTS_ACTIONS.SET_ACCESS_GRANT, this.accessGrant);
+
+        const gatewayCredentials: GatewayCredentials = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.GET_GATEWAY_CREDENTIALS, {accessGrant: this.accessGrant});
+        await this.$store.dispatch(OBJECTS_ACTIONS.SET_GATEWAY_CREDENTIALS, gatewayCredentials);
+        await this.$store.dispatch(OBJECTS_ACTIONS.SET_S3_CLIENT);
+    }
+
+    /**
+     * Fetches bucket using S3 client.
+     */
+    public async fetchBuckets(): Promise<void> {
+        await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
+    }
+
+    /**
+     * Sets local worker with worker instantiated in store.
+     */
+    public setWorker(): void {
+        this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
+        this.worker.onerror = (error: ErrorEvent) => {
+            this.$notify.error(error.message);
+        };
     }
 
     /**
@@ -235,6 +238,12 @@ export default class BucketsView extends Vue {
      * Opens utils dropdown.
      */
     public openDropdown(key: number): void {
+        if (this.activeDropdown === key) {
+            this.activeDropdown = -1;
+
+            return;
+        }
+
         this.activeDropdown = key;
     }
 
@@ -294,15 +303,33 @@ export default class BucketsView extends Vue {
         }
     }
 
-    public openBucket(): void {
+    /**
+     * Holds on bucket click. Proceeds to file browser.
+     */
+    public openBucket(bucketName: string): void {
+        this.$store.dispatch(OBJECTS_ACTIONS.SET_FILE_COMPONENT_BUCKET_NAME, bucketName);
         this.$router.push(RouteConfig.Objects.with(RouteConfig.UploadFile).path);
     }
 
     /**
      * Returns fetched buckets from store.
      */
-    public get buckets(): Bucket[] {
-        return this.$store.state.objectsModule.buckets;
+    public get bucketsList(): Bucket[] {
+        return this.$store.state.objectsModule.bucketsList;
+    }
+
+    /**
+     * Returns passphrase from store.
+     */
+    private get passphrase(): string {
+        return this.$store.state.objectsModule.passphrase;
+    }
+
+    /**
+     * Returns access grant from store.
+     */
+    private get accessGrantFromStore(): string {
+        return this.$store.state.objectsModule.accessGrant;
     }
 }
 </script>

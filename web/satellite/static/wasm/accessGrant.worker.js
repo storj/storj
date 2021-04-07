@@ -53,7 +53,7 @@ self.onmessage = function (event) {
             permission.NotBefore = notBefore;
             permission.NotAfter = notAfter;
 
-            if (data.type == "SetPermission") {
+            if (data.type === "SetPermission") {
                 const buckets = data.buckets;
                 apiKey = data.apiKey;
                 result = self.setAPIKeyPermission(apiKey, buckets, permission);

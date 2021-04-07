@@ -22,7 +22,7 @@ import GeneratePassphrase from '@/components/common/GeneratePassphrase.vue';
 
 import { RouteConfig } from '@/router';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
-import { LocalData } from '@/utils/localData';
+import { LocalData, UserIDPassSalt } from '@/utils/localData';
 
 @Component({
     components: {
@@ -31,8 +31,20 @@ import { LocalData } from '@/utils/localData';
 })
 export default class CreatePassphrase extends Vue {
     private isLoading: boolean = false;
+    private keyToBeStored: string = '';
 
     public passphrase: string = '';
+
+    /**
+     * Lifecycle hook after initial render.
+     * Chooses correct route.
+     */
+    public mounted(): void {
+        const idPassSalt: UserIDPassSalt | null = LocalData.getUserIDPassSalt();
+        if (idPassSalt && idPassSalt.userId === this.$store.getters.user.id) {
+            this.$router.push({name: RouteConfig.EnterPassphrase.name});
+        }
+    }
 
     /**
      * Sets passphrase from child component.
@@ -44,22 +56,43 @@ export default class CreatePassphrase extends Vue {
     /**
      * Holds on next button click logic.
      */
-    public onNextClick(): void {
+    public async onNextClick(): Promise<void> {
         if (this.isLoading) return;
 
         this.isLoading = true;
 
         const SALT = 'storj-unique-salt';
-        pbkdf2.pbkdf2(this.passphrase, SALT, 1, 64, (error, key) => {
-            if (error) return this.$notify.error(error.message);
 
-            LocalData.setUserIDPassSalt(this.$store.getters.user.id, key.toString('hex'), SALT);
-        });
+        const result: Buffer | Error = await this.pbkdf2Async(SALT);
+
+        if (result instanceof Error) {
+            await this.$notify.error(result.message);
+
+            return;
+        }
+
+        this.keyToBeStored = await result.toString('hex');
+
+        await LocalData.setUserIDPassSalt(this.$store.getters.user.id, this.keyToBeStored, SALT);
+        await this.$store.dispatch(OBJECTS_ACTIONS.SET_PASSPHRASE, this.passphrase);
 
         this.isLoading = false;
 
-        this.$store.dispatch(OBJECTS_ACTIONS.SET_PASSPHRASE, this.passphrase);
-        this.$router.push({name: RouteConfig.BucketsManagement.name});
+        await this.$router.push({name: RouteConfig.EnterPassphrase.name});
+    }
+
+    /**
+     * Generates passphrase fingerprint asynchronously.
+     */
+    private pbkdf2Async(salt: string): Promise<Buffer | Error> {
+        const ITERATIONS = 1;
+        const KEY_LENGTH = 64;
+
+        return new Promise((response, reject) => {
+            pbkdf2.pbkdf2(this.passphrase, salt, ITERATIONS, KEY_LENGTH, (error, key) => {
+                error ? reject(error) : response(key);
+            });
+        });
     }
 }
 </script>
