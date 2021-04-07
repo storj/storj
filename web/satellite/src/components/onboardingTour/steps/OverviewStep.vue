@@ -8,6 +8,11 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
 
+import ContinueImage from '@/../static/images/onboardingTour/continue-bg.svg';
+import DuplicatiIcon from '@/../static/images/onboardingTour/duplicati.svg';
+import GatewayIcon from '@/../static/images/onboardingTour/s3-gateway.svg';
+import CommandLineIcon from '@/../static/images/onboardingTour/tar-ico-laptop.svg';
+
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
@@ -19,7 +24,11 @@ import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 @Component({
     components: {
+        ContinueImage,
         VButton,
+        DuplicatiIcon,
+        GatewayIcon,
+        CommandLineIcon,
     },
 })
 export default class OverviewStep extends Vue {
@@ -39,14 +48,6 @@ export default class OverviewStep extends Vue {
         if (this.$store.getters.isTransactionProcessing || this.$store.getters.isBalancePositive) {
             this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.PaymentStep).path);
         }
-    }
-
-    /**
-     * Holds button click logic.
-     * Redirects to next step (adding payment method).
-     */
-    public onAddPaymentClick(): void {
-        this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.PaymentStep).path);
     }
 
     /**
@@ -94,18 +95,19 @@ export default class OverviewStep extends Vue {
     }
 
     /**
-     * Indicates if paywall is enabled.
-     */
-    public get isPaywallEnabled(): boolean {
-        return this.$store.state.paymentsModule.isPaywallEnabled;
-    }
-
-    /**
      * Indicates if user has at least one project.
      */
     private get userHasProject(): boolean {
         return this.$store.state.projectsModule.projects.length > 0;
     }
+
+    /**
+     * Directs user to excryption passphrase creation
+     */
+    public onContinueInBrowserClick(): void {
+        this.$router.push(RouteConfig.Objects.with(RouteConfig.CreatePassphrase).path);
+    }
+
 }
 </script>
 
