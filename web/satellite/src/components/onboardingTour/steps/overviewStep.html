@@ -2,9 +2,9 @@
 <!--See LICENSE for copying information.-->
 
 <div class="overview-area">
-    <h2 class="overview-area__header">Welcomme to Storj DCS</h2>
+    <h2 class="overview-area__header">Welcome to Storj DCS</h2>
     <div class="overview-area__continue__area">
-        <ContinueImage class="overview-area__continue__img" />
+        <img class="overview-area__continue__img" src="@/../static/images/onboardingTour/continue-bg.png" alt="continue image">
         <div class="overview-area__continue__text-area">
             <h3 class="overview-area__continue__header">Continue in Browser</h3>
             <p class="overview-area__continue__text">Start uploading files in the browser and instantly see how your data gets distributed over our global storage network. You can always use other upload methods later.</p>
@@ -14,6 +14,7 @@
                 width="234px"
                 height="48px"
                 :on-press="onContinueInBrowserClick"
+                :is-disabled="isLoading"
             />
         </div>
     </div>
@@ -23,23 +24,28 @@
             <GatewayIcon class="overview-area__path-section__icon" />
             <h4 class="overview-area__path-section__title">GatewayMT</h4>
             <p class="overview-area__path-section__text">Backwards S3-Compatible API for uploading data programatically.</p>
-            <a
-                @click="onCreateGrantClick"
+            <VButton
                 class="overview-area__path-section__button"
-            >
-                Continue
-            </a>
+                label="Continue"
+                width="calc(100% - 4px)"
+                :on-press="onCreateGrantClick"
+                :is-blue-white="true"
+                :is-disabled="isLoading"
+            />
         </div>
         <div class="overview-area__path-section">
             <CommandLineIcon class="overview-area__path-section__icon" />
+            <img src="@/../static/images/onboardingTour/command-line-icon.png" alt="uplink icon">
             <h4 class="overview-area__path-section__title">Uplink CLI</h4>
             <p class="overview-area__path-section__text">Natively installed client for interacting with the Storj Network.</p>
-            <a
-                @click="onCreateGrantClick"
+            <VButton
                 class="overview-area__path-section__button"
-            >
-                Continue
-            </a>
+                label="Continue"
+                width="calc(100% - 4px)"
+                :on-press="onCreateGrantClick"
+                :is-blue-white="true"
+                :is-disabled="isLoading"
+            />
         </div>
         <div class="overview-area__path-section">
             <DuplicatiIcon class="overview-area__path-section__icon" />

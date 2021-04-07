@@ -3,11 +3,10 @@
 
 <template>
     <div class="navigation-area" v-if="!isNavigationHidden">
-        <EditProjectDropdown v-if="!isOverviewStep"/>
+        <EditProjectDropdown/>
         <router-link
             :aria-label="navItem.name"
             class="navigation-area__item-container"
-            :class="{ disabled: isOverviewStep }"
             v-for="navItem in navigation"
             :key="navItem.name"
             :to="navItem.path"
@@ -58,7 +57,7 @@ export default class NavigationArea extends Vue {
      * Indicates if navigation side bar is hidden.
      */
     public get isNavigationHidden(): boolean {
-        return (this.isOnboardingTour && !this.isOverviewStep) || this.isCreateProjectPage;
+        return this.isOnboardingTour || this.isCreateProjectPage;
     }
 
     /**
@@ -73,14 +72,7 @@ export default class NavigationArea extends Vue {
      * Overviewstep needs navigation.
      */
     private get isOnboardingTour(): boolean {
-        return this.$route.path.includes(RouteConfig.OnboardingTour.path) && !this.isOverviewStep;
-    }
-
-    /**
-     * Indicates if current route is the onboarding overview step.
-     */
-    private get isOverviewStep(): boolean {
-        return this.$route.path.includes(RouteConfig.OverviewStep.path);
+        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 }
 </script>
@@ -144,12 +136,6 @@ export default class NavigationArea extends Vue {
                     opacity: 1;
                 }
             }
-        }
-
-        &__item-container.disabled {
-            opacity: 0.5;
-            pointer-events: none;
-            cursor: default;
         }
     }
 </style>

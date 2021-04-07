@@ -50,6 +50,13 @@ export default class HeaderArea extends Vue {
     public onLogoClick(): void {
         location.reload();
     }
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    public get isOnboardingTour(): boolean {
+        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
+    }
 }
 </script>
 
