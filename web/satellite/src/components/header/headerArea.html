@@ -6,7 +6,7 @@
         <div class="header-container__left-area__logo-area">
             <NavigationMenuIcon
                 class="header-container__left-area__logo-area__menu-button"
-                v-if="!isNavigationVisible"
+                v-if="!isNavigationVisible && !isOnboardingTour"
                 @click.stop="toggleNavigationVisibility"
             />
             <div class="header-container__left-area__logo-area__close-button" v-if="isNavigationVisible" @click.stop="toggleNavigationVisibility">
