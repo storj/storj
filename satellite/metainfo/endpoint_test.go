@@ -48,7 +48,7 @@ func TestEndpoint_DeletePendingObject(t *testing.T) {
 	bucketName := "a-bucket"
 	createObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, data []byte) {
 		// TODO This should be replaced by a call to testplanet.Uplink.MultipartUpload when available.
-		project, err := planet.Uplinks[0].GetProject(ctx, planet.Satellites[0])
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
 		require.NoError(t, err, "failed to retrieve project")
 
 		_, err = project.CreateBucket(ctx, bucketName)
@@ -106,7 +106,7 @@ func TestEndpoint_DeleteObjectAnyStatus(t *testing.T) {
 
 	createPendingObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet, data []byte) {
 		// TODO This should be replaced by a call to testplanet.Uplink.MultipartUpload when available.
-		project, err := planet.Uplinks[0].GetProject(ctx, planet.Satellites[0])
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
 		require.NoError(t, err, "failed to retrieve project")
 
 		_, err = project.CreateBucket(ctx, bucketName)
