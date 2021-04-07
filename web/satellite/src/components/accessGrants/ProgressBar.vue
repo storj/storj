@@ -4,23 +4,24 @@
 <template>
     <div class="progress-bar">
         <div class="progress-bar__item">
-            <div class="progress-bar__item__circle" :class="{ blue: isNameStep || isPermissionsStep || isPassphraseStep || isResultStep }"/>
-            <p class="progress-bar__item__label" :class="{ checked: isNameStep || isPermissionsStep || isPassphraseStep || isResultStep }">Name Access</p>
+            <div class="progress-bar__item__line" :class="{ blue: isNameStep }"/>
+            <p class="progress-bar__item__label" :class="{ checked: isNameStep }">Name Access</p>
         </div>
-        <div class="progress-bar__progress" :class="{ blue: isPermissionsStep || isPassphraseStep || isResultStep }"/>
         <div class="progress-bar__item">
-            <div class="progress-bar__item__circle" :class="{ blue: isPermissionsStep || isPassphraseStep || isResultStep }"/>
-            <p class="progress-bar__item__label" :class="{ checked: isPermissionsStep || isPassphraseStep || isResultStep }">Permissions</p>
+            <div class="progress-bar__item__line" :class="{ blue: isPermissionsStep }"/>
+            <p class="progress-bar__item__label" :class="{ checked: isPermissionsStep }">Permissions</p>
         </div>
-        <div class="progress-bar__progress" :class="{ blue: isPassphraseStep || isResultStep }"/>
         <div class="progress-bar__item">
-            <div class="progress-bar__item__circle" :class="{ blue: isPassphraseStep || isResultStep }"/>
-            <p class="progress-bar__item__label" :class="{ checked: isPassphraseStep || isResultStep }">Passphrase</p>
+            <div class="progress-bar__item__line" :class="{ blue: isPassphraseStep }"/>
+            <p class="progress-bar__item__label" :class="{ checked: isPassphraseStep }">Passphrase</p>
         </div>
-        <div class="progress-bar__progress" :class="{ blue: isResultStep }"/>
         <div class="progress-bar__item">
-            <div class="progress-bar__item__circle" :class="{ blue: isResultStep }"/>
+            <div class="progress-bar__item__line" :class="{ blue: isResultStep }"/>
             <p class="progress-bar__item__label" :class="{ checked: isResultStep }">Access Grant</p>
+        </div>
+        <div class="progress-bar__item" v-if="isGatewayStep">
+            <div class="progress-bar__item__line" :class="{ blue: isGatewayStep }"/>
+            <p class="progress-bar__item__label" :class="{ checked: isGatewayStep }">S3 Gateway</p>
         </div>
     </div>
 </template>
@@ -59,6 +60,13 @@ export default class ProgressBar extends Vue {
     public get isResultStep(): boolean {
         return this.$route.name === RouteConfig.ResultStep.name || this.$route.name === RouteConfig.AccessGrantResult.name;
     }
+
+    /**
+     * Indicates if current route is on gateway step.
+     */
+    public get isGatewayStep(): boolean {
+        return this.$route.name === RouteConfig.GatewayStep.name || this.$route.name === RouteConfig.AccessGrantGateway.name;
+    }
 }
 </script>
 
@@ -70,19 +78,18 @@ export default class ProgressBar extends Vue {
         align-items: flex-start;
         justify-content: flex-start;
         background: #f5f6fa;
-        height: 380px;
         border-radius: 6px 0 0 6px;
 
         &__item {
             display: flex;
             align-items: center;
 
-            &__circle {
-                width: 20px;
-                height: 20px;
-                border-radius: 10px;
+            &__line {
+                width: 7px;
+                height: 75px;
+                border-radius: 40px;
                 background: #dcdde1;
-                margin-right: 10px;
+                margin-right: 20px;
             }
 
             &__label {
@@ -94,13 +101,6 @@ export default class ProgressBar extends Vue {
                 margin: 0;
                 white-space: nowrap;
             }
-        }
-
-        &__progress {
-            background: #dcdde1;
-            width: 4px;
-            height: 33%;
-            margin-left: 8px;
         }
     }
 

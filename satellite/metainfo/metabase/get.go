@@ -21,6 +21,12 @@ var ErrSegmentNotFound = errs.Class("segment not found")
 // TODO define separated struct.
 type Object RawObject
 
+// SegmentsHavePlainOffsets returns whether the object segments contain the necessary plain offset and
+// plain size.
+func (obj *Object) SegmentsHavePlainOffsets() bool {
+	return obj.TotalPlainSize > 0
+}
+
 // Segment segment metadata.
 // TODO define separated struct.
 type Segment RawSegment
