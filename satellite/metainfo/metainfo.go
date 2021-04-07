@@ -142,66 +142,6 @@ func calculateSpaceUsed(segmentSize int64, numberOfPieces int, rs storj.Redundan
 	return pieceSize * int64(numberOfPieces)
 }
 
-// filterValidPieces filter out the invalid remote pieces held by pointer.
-//
-// This method expect the pointer to be valid, so it has to be validated before
-// calling it.
-//
-// The method always return a gRPC status error so the caller can directly
-// return it to the client.
-// func (endpoint *Endpoint) filterValidPieces(ctx context.Context, pointer *pb.Pointer, originalLimits []*pb.OrderLimit) (err error) {
-// 	defer mon.Task()(&ctx)(&err)
-
-// 	if pointer.Type != pb.Pointer_REMOTE {
-// 		return nil
-// 	}
-
-// 	// verify that the piece sizes matches what we would expect.
-// 	err = endpoint.pointerVerification.VerifySizes(ctx, pointer)
-// 	if err != nil {
-// 		endpoint.log.Debug("piece sizes are invalid", zap.Error(err))
-// 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "piece sizes are invalid: %v", err)
-// 	}
-
-// 	validPieces, invalidPieces, err := endpoint.pointerVerification.SelectValidPieces(ctx, pointer, originalLimits)
-// 	if err != nil {
-// 		endpoint.log.Debug("pointer verification failed", zap.Error(err))
-// 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "pointer verification failed: %s", err)
-// 	}
-
-// 	remote := pointer.Remote
-
-// 	if int32(len(validPieces)) < remote.Redundancy.SuccessThreshold {
-// 		endpoint.log.Debug("Number of valid pieces is less than the success threshold",
-// 			zap.Int("totalReceivedPieces", len(remote.RemotePieces)),
-// 			zap.Int("validPieces", len(validPieces)),
-// 			zap.Int("invalidPieces", len(invalidPieces)),
-// 			zap.Int32("successThreshold", remote.Redundancy.SuccessThreshold),
-// 		)
-
-// 		errMsg := fmt.Sprintf("Number of valid pieces (%d) is less than the success threshold (%d). Found %d invalid pieces",
-// 			len(validPieces),
-// 			remote.Redundancy.SuccessThreshold,
-// 			len(remote.RemotePieces),
-// 		)
-// 		if len(invalidPieces) > 0 {
-// 			errMsg = fmt.Sprintf("%s. Invalid Pieces:", errMsg)
-
-// 			for _, p := range invalidPieces {
-// 				errMsg = fmt.Sprintf("%s\nNodeID: %v, PieceNum: %d, Reason: %s",
-// 					errMsg, p.NodeID, p.PieceNum, p.Reason,
-// 				)
-// 			}
-// 		}
-
-// 		return rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
-// 	}
-
-// 	remote.RemotePieces = validPieces
-
-// 	return nil
-// }
-
 // ProjectInfo returns allowed ProjectInfo for the provided API key.
 func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRequest) (_ *pb.ProjectInfoResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1670,6 +1610,8 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, nil, err
 	}
 
+	// cheap basic verification
+
 	if numResults := len(req.UploadResult); numResults < int(streamID.Redundancy.GetSuccessThreshold()) {
 		endpoint.log.Debug("the results of uploaded pieces for the segment is below the redundancy optimal threshold",
 			zap.Int("upload pieces results", numResults),
@@ -1682,14 +1624,6 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 		)
 	}
 
-	pieces := metabase.Pieces{}
-	for _, result := range req.UploadResult {
-		pieces = append(pieces, metabase.Piece{
-			Number:      uint16(result.PieceNum),
-			StorageNode: result.NodeId,
-		})
-	}
-
 	rs := storj.RedundancyScheme{
 		Algorithm:      storj.RedundancyAlgorithm(endpoint.defaultRS.Type),
 		RequiredShares: int16(endpoint.defaultRS.MinReq),
@@ -1697,6 +1631,57 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 		OptimalShares:  int16(endpoint.defaultRS.SuccessThreshold),
 		TotalShares:    int16(endpoint.defaultRS.Total),
 		ShareSize:      endpoint.defaultRS.ErasureShareSize,
+	}
+
+	err = endpoint.pointerVerification.VerifySizes(ctx, rs, req.SizeEncryptedData, req.UploadResult)
+	if err != nil {
+		endpoint.log.Debug("piece sizes are invalid", zap.Error(err))
+		return nil, nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "piece sizes are invalid: %v", err)
+	}
+
+	// extract the original order limits
+	originalLimits := make([]*pb.OrderLimit, len(segmentID.OriginalOrderLimits))
+	for i, orderLimit := range segmentID.OriginalOrderLimits {
+		originalLimits[i] = orderLimit.Limit
+	}
+
+	// verify the piece upload results
+	validPieces, invalidPieces, err := endpoint.pointerVerification.SelectValidPieces(ctx, req.UploadResult, originalLimits)
+	if err != nil {
+		endpoint.log.Debug("pointer verification failed", zap.Error(err))
+		return nil, nil, rpcstatus.Errorf(rpcstatus.InvalidArgument, "pointer verification failed: %s", err)
+	}
+
+	if len(validPieces) < int(rs.OptimalShares) {
+		endpoint.log.Debug("Number of valid pieces is less than the success threshold",
+			zap.Int("totalReceivedPieces", len(req.UploadResult)),
+			zap.Int("validPieces", len(validPieces)),
+			zap.Int("invalidPieces", len(invalidPieces)),
+			zap.Int("successThreshold", int(rs.OptimalShares)),
+		)
+
+		errMsg := fmt.Sprintf("Number of valid pieces (%d) is less than the success threshold (%d). Found %d invalid pieces",
+			len(validPieces),
+			rs.OptimalShares,
+			len(invalidPieces),
+		)
+		if len(invalidPieces) > 0 {
+			errMsg = fmt.Sprintf("%s. Invalid Pieces:", errMsg)
+			for _, p := range invalidPieces {
+				errMsg = fmt.Sprintf("%s\nNodeID: %v, PieceNum: %d, Reason: %s",
+					errMsg, p.NodeID, p.PieceNum, p.Reason,
+				)
+			}
+		}
+		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, errMsg)
+	}
+
+	pieces := metabase.Pieces{}
+	for _, result := range validPieces {
+		pieces = append(pieces, metabase.Piece{
+			Number:      uint16(result.PieceNum),
+			StorageNode: result.NodeId,
+		})
 	}
 
 	id, err := uuid.FromBytes(streamID.StreamId)
@@ -1729,22 +1714,10 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 		Pieces:      pieces,
 	}
 
-	orderLimits := make([]*pb.OrderLimit, len(segmentID.OriginalOrderLimits))
-	for i, orderLimit := range segmentID.OriginalOrderLimits {
-		orderLimits[i] = orderLimit.Limit
-	}
-
-	err = endpoint.validateRemoteSegment(ctx, mbCommitSegment, orderLimits)
+	err = endpoint.validateRemoteSegment(ctx, mbCommitSegment, originalLimits)
 	if err != nil {
 		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
-
-	// TODO bring back validation
-
-	// err = endpoint.filterValidPieces(ctx, pointer, orderLimits)
-	// if err != nil {
-	// 	return nil, nil, err
-	// }
 
 	if err := endpoint.checkExceedsStorageUsage(ctx, keyInfo.ProjectID); err != nil {
 		return nil, nil, err
