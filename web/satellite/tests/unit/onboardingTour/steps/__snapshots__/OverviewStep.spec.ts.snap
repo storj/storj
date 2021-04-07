@@ -31,8 +31,7 @@ exports[`OverviewStep.vue renders correctly 1`] = `
       <p class="overview-area__path-section__text">Backwards S3-Compatible API for uploading data programatically.</p>
       <div class="overview-area__path-section__button container blue-white" style="height: inherit;"><span class="label">Continue</span></div>
     </div>
-    <div class="overview-area__path-section">
-      <commandlineicon class="overview-area__path-section__icon"></commandlineicon> <img src="@/../static/images/onboardingTour/command-line-icon.png" alt="uplink icon">
+    <div class="overview-area__path-section"><img src="@/../static/images/onboardingTour/command-line-icon.png" alt="uplink icon">
       <h4 class="overview-area__path-section__title">Uplink CLI</h4>
       <p class="overview-area__path-section__text">Natively installed client for interacting with the Storj Network.</p>
       <div class="overview-area__path-section__button container blue-white" style="height: inherit;"><span class="label">Continue</span></div>
@@ -94,8 +93,7 @@ exports[`OverviewStep.vue renders correctly 2`] = `
       <p class="overview-area__path-section__text">Backwards S3-Compatible API for uploading data programatically.</p>
       <div class="overview-area__path-section__button container blue-white" style="height: inherit;"><span class="label">Continue</span></div>
     </div>
-    <div class="overview-area__path-section">
-      <commandlineicon class="overview-area__path-section__icon"></commandlineicon> <img src="@/../static/images/onboardingTour/command-line-icon.png" alt="uplink icon">
+    <div class="overview-area__path-section"><img src="@/../static/images/onboardingTour/command-line-icon.png" alt="uplink icon">
       <h4 class="overview-area__path-section__title">Uplink CLI</h4>
       <p class="overview-area__path-section__text">Natively installed client for interacting with the Storj Network.</p>
       <div class="overview-area__path-section__button container blue-white" style="height: inherit;"><span class="label">Continue</span></div>
