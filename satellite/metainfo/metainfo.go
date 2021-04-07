@@ -996,6 +996,15 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 
+		// Update the current bandwidth cache value incrementing the SegmentSize.
+		err = endpoint.projectUsage.UpdateProjectBandwidthUsage(ctx, keyInfo.ProjectID, int64(segment.EncryptedSize))
+		if err != nil {
+			// log it and continue. it's most likely our own fault that we couldn't
+			// track it, and the only thing that will be affected is our per-project
+			// bandwidth limits.
+			endpoint.log.Error("Could not track the new project's bandwidth usage", zap.Stringer("Project ID", keyInfo.ProjectID), zap.Error(err))
+		}
+
 		encryptedKeyNonce, err := storj.NonceFromBytes(segment.EncryptedKeyNonce)
 		if err != nil {
 			endpoint.log.Error("unable to get encryption key nonce from metadata", zap.Error(err))
