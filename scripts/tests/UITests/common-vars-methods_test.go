@@ -11,8 +11,8 @@ var login string = "test1@g.com"
 	var password = "123qwe"
 	var startPage = "http://127.0.0.1:10002/login"
 //	var startPage = "https://satellite.qa.storj.io/login"
-	var screenWidth int= 1350
-	var screenHeigth int = 600
+	var screenWidth int= 1300
+	var screenHeigth int = 900
 
 	// this is for making screenshots - debugging in docker
 //func Test_page_screenshot(t *testing.T) {
@@ -33,7 +33,7 @@ func login_to_account() (*rod.Page, *rod.Browser) {
 		Timeout(time.Minute).
 		ControlURL(url).
 		Trace(true).
-		SlowMotion(300 * time.Millisecond).
+		SlowMotion(100 * time.Millisecond).
 		MustConnect()
 
 
@@ -76,7 +76,7 @@ func setup_browser() (*rod.Page, *rod.Browser) {
 
 	// Timeout will be passed to all chained function calls.
 	// The code will panic out if any chained call is used after the timeout.
-	page := browser.Timeout(25*time.Second).MustPage(startPage)
+	page := browser.Timeout(30*time.Second).MustPage(startPage)
 
 	// Make sure viewport is always consistent.
 	page.MustSetViewport(screenWidth, screenHeigth, 1, false)

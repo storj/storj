@@ -2,9 +2,10 @@ package UITests
 
 import (
 	"fmt"
+	"testing"
 )
 
-func Example_createAccountScreen () {
+func Test_createAccountScreen (t *testing.T) {
 	page, browser := setup_browser()
 	defer browser.MustClose()
 	page.MustElement("div.login-container__register-button").MustClick()
@@ -56,7 +57,7 @@ func Example_createAccountScreen () {
 	// I agree to the
 }
 
-	func Example_createAccountScreen2 () {
+	func Test_createAccountScreen2 (t *testing.T) {
 		page, browser := setup_browser()
 		defer browser.MustClose()
 		page.MustElement("div.login-container__register-button").MustClick()

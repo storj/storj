@@ -2,24 +2,17 @@ package UITests
 
 import (
 	"fmt"
+	"gotest.tools/assert"
 	"strings"
+	"testing"
 )
 
-func Example_projectScreen () {
+func Test_projectDashboardScreen (t *testing.T) {
 	page, browser := login_to_account()
 	defer browser.MustClose()
 
-	// checking notification
-	notificationBegin := page.MustElement("b.info-bar__info-area__first-value").MustText()
-	fmt.Println(strings.Contains(notificationBegin, "You have used"))
-	notificationMiddle := page.MustElement("span.info-bar__info-area__first-description").MustText()
-	fmt.Println(notificationMiddle)
-	notificationEnd := page.MustElement("span.info-bar__info-area__second-description").MustText()
-	fmt.Println(notificationEnd)
-	notificationLink := page.MustElement("a.info-bar__link.blue").MustAttribute("href")
-	fmt.Println(*(notificationLink))
 	// checking Dashboard area title
-	fmt.Println(strings.Contains(page.MustElement(".dashboard-area__title").MustText(),"Dashboard"))
+	assert.Assert(t, strings.Contains(page.MustElement(".dashboard-area__title").MustText(),"Dashboard"))
 
 	// storage div
 	storageHeader := page.MustElement("p.usage-area__title:nth-of-type(1)").MustText()
@@ -87,10 +80,6 @@ func Example_projectScreen () {
 
 
 	// Output: true
-	// of your
-	// available projects.
-	// https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000379291
-	// true
 	// Storage
 	// 50.00GB Remaining
 	// Storage Used

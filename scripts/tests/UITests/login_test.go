@@ -3,9 +3,10 @@ package UITests
 import (
 	"fmt"
 	"strings"
+	"testing"
 )
 
-func Example_login() {
+func Test_login(t *testing.T) {
 
 	page, browser := login_to_account()
 	//check title

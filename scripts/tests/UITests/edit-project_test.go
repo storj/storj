@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func Example_sideMenuEditProjectDroplist (){
+func Test_sideMenuEditProjectDroplist (t *testing.T){
 	page, browser := login_to_account()
 	defer browser.MustClose()
 	text:= page.MustElement("div.edit-project").MustClick().MustElement("div.edit-project__dropdown").MustText()
@@ -14,7 +14,7 @@ func Example_sideMenuEditProjectDroplist (){
 	// Output: Edit Details
 }
 
-func Example_editProjectScreen () {
+func Test_editProjectScreen (t *testing.T) {
 	page, browser := login_to_account()
 	defer browser.MustClose()
 	currentProjectNameFromSideMenu := page.MustElement("div.edit-project").MustText()
@@ -26,7 +26,6 @@ func Example_editProjectScreen () {
 	descriptionHeader := page.MustElement("p.project-details__wrapper__container__label:nth-of-type(2)").MustText()
 	fmt.Println(descriptionHeader)
 	projectNameFromEditScreen := page.MustElement("p.project-details__wrapper__container__name-area__name").MustText()
-	t := &testing.T{}
 	assert.Equal(t, currentProjectNameFromSideMenu, projectNameFromEditScreen)
 
 	descriptionText := page.MustElement("p.project-details__wrapper__container__description-area__description").MustText()

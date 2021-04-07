@@ -1,56 +1,170 @@
 package UITests
 
 import (
-	"fmt"
 	"gotest.tools/assert"
+	"strings"
 	"testing"
 	"time"
 )
 
-func Example_APIKeysCreationFlowElements() {
-		page, browser := login_to_account()
-		defer browser.MustClose()
-		page.MustElement("a.navigation-area__item-container:nth-of-type(2)").MustClick()
+func Test_APIKeysCreationFlowElements(t *testing.T) {
+	page, browser := login_to_account()
+	defer browser.MustClose()
+	page.MustElement("a.navigation-area__item-container:nth-of-type(2)").MustClick()
+	emptyImage:= page.MustElement("div.empty-state__modal > svg").MustVisible()
+	assert.Assert(t,emptyImage)
+	apiKeysHeader:= page.MustElement("h4.empty-state__modal__heading").MustText()
+	assert.Equal(t,"Create Your First Access Grant",apiKeysHeader)
+	apiKeysText:= page.MustElement("p.empty-state__modal__subheading").MustText()
+	assert.Equal(t,"Get started by creating an Access to interact with your Buckets", apiKeysText)
+	createKeyButton:= page.MustElement("div.empty-state__modal__cta.container")
+	assert.Equal(t,"Create Access Grant +", createKeyButton.MustText())
 
-		page.MustElement("div.button.container").MustClick()
-		time.Sleep(1* time.Second)
-		// checking elements
-		fmt.Println(page.MustElement("h2.new-api-key__title").MustText())
-		fmt.Println(page.MustElement("div.new-api-key__close-cross-container").MustVisible())
-		fmt.Println(*page.MustElement("input.headerless-input").MustAttribute("placeholder"))
-		fmt.Println(page.MustElement("span.label").MustText())
-		// creation flow
-		page.MustElement("input.headerless-input").MustInput("jhghgf")
-		page.MustElement("span.label").MustClick()
-
-		fmt.Println(page.MustElement("h2.save-api-popup__title").MustText())
-		fmt.Println(page.MustElement("div.save-api-popup__copy-area__key-area").MustVisible())
-		fmt.Println(page.MustElement("p.save-api-popup__copy-area__copy-button").MustText())
-		fmt.Println(page.MustElement("span.save-api-popup__next-step-area__label").MustText())
-		fmt.Println(*page.MustElement("a.save-api-popup__next-step-area__link").MustAttribute("href"))
-		fmt.Println(page.MustElement("a.save-api-popup__next-step-area__link").MustText())
-		fmt.Println(page.MustElement("div.container").MustText())
-		page.MustElement("p.save-api-popup__copy-area__copy-button").MustClick()
-		fmt.Println(page.MustElement("p.notification-wrap__text-area__message").MustText())
-		page.MustElement("div.container").MustClick()
+	createKeyButton.MustClick()
+	time.Sleep(1* time.Second)
 
 
+	// create an access grant screen - check elements
+	progressbar:= page.MustElement("div.progress-bar").MustVisible()
+	assert.Assert(t,progressbar)
+	createname:= page.MustElement("h1.name-step__title").MustText()
+	assert.DeepEqual(t,createname, "Name Your Access Grant")
+	nametext:= page.MustElement("p.name-step__sub-title").MustText()
+	assert.DeepEqual(t,nametext, "Enter a name for your new Access grant to get started.")
+	accessTitle:= page.MustElement("h3.label-container__main__label").MustText()
+	assert.DeepEqual(t, accessTitle,"Access Grant Name")
+	accessInput:= *page.MustElement("input.headered-input").MustAttribute("placeholder")
+	assert.Equal(t, accessInput,"Enter a name here...")
+	nextButton:= page.MustElement("div.container:nth-of-type(2)").MustText()
+	assert.DeepEqual(t,nextButton,"Next")
+
+	// set access name and continue
+	page.MustElement("input.headered-input").MustInput(access_grant_name)
+	page.MustElement("div.container:nth-of-type(2)").MustClick()
+
+	// Access permission - check elements
+	perTitle:= page.MustElement("h1.permissions__title").MustText()
+	assert.Equal(t, perTitle, "Access Permissions")
+	perText:= page.MustElement("p.permissions__sub-title").MustText()
+	assert.Equal(t, perText, "Assign permissions to this Access Grant.")
+	amountCheckboxes:= len(page.MustElementsX("//*[@type=\"checkbox\"]"))
+	assert.Equal(t,amountCheckboxes,4)
+	downloadPerm:= page.MustElementX("(//*[@class=\"permissions__content__left__item__label\"])[1]").MustText()
+	assert.Equal(t, downloadPerm, "Download")
+	uploadPerm:= page.MustElementX("(//*[@class=\"permissions__content__left__item__label\"])[2]").MustText()
+	assert.Equal(t, uploadPerm, "Upload")
+	listPerm:= page.MustElementX("(//*[@class=\"permissions__content__left__item__label\"])[3]").MustText()
+	assert.Equal(t, listPerm, "List")
+	deletePerm:= page.MustElementX("(//*[@class=\"permissions__content__left__item__label\"])[4]").MustText()
+	assert.Equal(t, deletePerm, "Delete")
+	durationText:= page.MustElement("p.permissions__content__right__duration-select__label").MustText()
+	assert.Equal(t, durationText, "Duration")
+	durationDrop:= page.MustElement("div.duration-selection__toggle-container")
+	assert.Equal(t,durationDrop.MustText(),"Forever")
+	// check if datepicker appears
+	durationDrop.MustClick()
+	time.Sleep(1*time.Second)
+	datepicker:= page.MustElement("div.duration-picker").MustVisible()
+	assert.Assert(t, datepicker)
+	durationDrop.MustClick()
+	bucketsText:= page.MustElement("p.permissions__content__right__buckets-select__label").MustText()
+	assert.Equal(t, bucketsText, "Buckets")
+	bucketsDrop:= page.MustElement("div.buckets-selection")
+	assert.Equal(t,bucketsDrop.MustText(),"All")
+	conBro:= page.MustElement("div.permissions__button.container")
+	assert.Equal(t, conBro.MustText(), "Continue in Browser")
+	conCLI:= page.MustElement(".permissions__cli-link")
+	assert.Equal(t, conCLI.MustText(), "Continue in CLI")
+	// continue in Browser
+	conBro.MustClick()
+	// check success notification
+	broNotification:= page.MustElement("p.notification-wrap__text-area__message").MustText()
+	assert.Equal(t, "Permissions were set successfully",broNotification)
+	time.Sleep(2*time.Second)
+	// encryption passphrase screen elements checking
+	passCheckbox:= page.MustElement("input#pass-checkbox")
+	passCheckbox.MustClick()
+	encrHeader:= page.MustElement("h1.generate-container__title").MustText()
+	assert.Equal(t, encrHeader, "Encryption Passphrase")
+	encrWarnTitle:= page.MustElement("p.generate-container__warning__header__label").MustText()
+	assert.Equal(t, encrWarnTitle, "Save Your Encryption Passphrase")
+	encrWarnMessage:= page.MustElement("p.generate-container__warning__message").MustText()
+	assert.Equal(t, encrWarnMessage, "You’ll need this passphrase to access data in the future. This is the only time it will be displayed. Be sure to write it down.")
+	encrPassType:= page.MustElement("p.generate-container__choosing__label")
+	assert.Equal(t,encrPassType.MustText(),"Choose Passphrase Type")
+	generateTab:= page.MustElement("p.generate-container__choosing__right__option.left-option")
+	assert.Equal(t,generateTab.MustText(),"Generate Phrase")
+	createTab:= page.MustElementX("(//*[@class=\"generate-container__choosing__right__option\"])")
+	assert.Equal(t,createTab.MustText(),"Create Phrase")
+	////checkout to create passphrase tab
+	//createTab.MustClick()
+	//createTitle:= page.MustElement("h3.label-container__main__label").MustText()
+	//assert.Equal(t,createTitle,"Create Your Passphrase")
+	//createInput:= *page.MustElement("input.headered-input").MustAttribute("placeholder")
+	//assert.Equal(t, createInput,"Strong passphrases contain 12 characters or more")
+	//
+	//
+	//// checkout to Generate passphrase and check success notification
+	//generateTab.MustClick()
+	passPhrase:= page.MustElement("p.generate-container__value-area__mnemonic__value")
+	passPhrase.MustVisible()
+	passCopy:= page.MustElement("div.generate-container__value-area__mnemonic__button.container")
+	assert.Equal(t, passCopy.MustText(),"Copy")
+	passCheckboxText:= page.MustElement("label.generate-container__check-area").MustText()
+	assert.DeepEqual(t, passCheckboxText," Yes, I wrote this down or saved it somewhere.")
+	passNext:= page.MustElement("div.generate-container__next-button.container")
+	assert.Equal(t,passNext.MustText(),"Next")
+	time.Sleep(1*time.Second)
+	page.MustElement("div.generate-container__next-button.container").MustWaitVisible().MustWaitEnabled().MustWaitInteractable().MustClick()
+	notification:= page.MustElement("p.notification-wrap__text-area__message").MustWaitEnabled().MustText()
+	assert.Equal(t, "Access Grant was generated successfully",notification)
+	// check AG
+	agrantTitle:=page.MustElement("h1.generate-grant__title").MustText()
+	assert.DeepEqual(t,agrantTitle,"Generate Access Grant")
+	agrantWarnTitle:= page.MustElement("h2.generate-grant__warning__header__label").MustText()
+	assert.DeepEqual(t,agrantWarnTitle,"This Information is Only Displayed Once")
+	agrantWarnMessage:= page.MustElement(".generate-grant__warning__message").MustText()
+	assert.Equal(t, agrantWarnMessage, "Save this information in a password manager, or wherever you prefer to store sensitive information.")
+	agrantAreaTitle:= page.MustElement("h3.generate-grant__grant-area__label").MustText()
+	assert.Equal(t, agrantAreaTitle, "Access Grant")
+	agrantKey:= page.MustElement(".generate-grant__grant-area__container__value").MustVisible()
+	assert.Assert(t, agrantKey)
+	agrantCopy:= page.MustElement("div.generate-grant__grant-area__container__button.container")
+	assert.Equal(t,agrantCopy.MustText(),"Copy")
+	////check copy notification
+	//agrantCopy.MustClick()
+	//time.Sleep(1*time.Second)
+	//copyNotification:= page.MustElement(".notification-wrap__text-area").MustWaitVisible().MustText()
+	//assert.Equal(t, "Token was copied successfully",copyNotification)
+	// Gateway credentials droplist
+	gateCredDrop:= page.MustElement("h3.generate-grant__gateway-area__toggle__label").MustWaitStable()
+	assert.Equal(t, gateCredDrop.MustText(),"Gateway Credentials")
+	// open drop-list
+	//gateCredDrop.MustClick()
+	////check elements
+	//gateCredInBeta:= page.MustElement("p.generate-grant__gateway-area__container__beta__message").MustText()
+	//assert.Equal(t, gateCredInBeta, "This feature is currently in Beta")
+	//gateCredInBetaLink:= page.MustElement("a.generate-grant__gateway-area__container__beta__link")
+	//assert.DeepEqual(t, gateCredInBetaLink.MustText(),"Learn More >" )
+	//assert.Equal(t, *gateCredInBetaLink.MustAttribute("href"),"https://forum.storj.io/t/gateway-mt-beta-looking-for-testers/11324")
+	//gateCredInfoTitle:= page.MustElement(".generate-grant__gateway-area__container__warning__title").MustText()
+	//assert.Equal(t, gateCredInfoTitle, "Using Gateway Credentials Enables Server-Side Encryption.")
+	//gateCredInfo:= page.MustElement("p.generate-grant__gateway-area__container__warning__disclaimer").MustText()
+	//assert.Equal(t,gateCredInfo,"By generating gateway credentials, you are opting in to Server-side encryption")
+	//generateButton:= page.MustElement(".generate-grant__gateway-area__container__warning__button.container.blue-white")
+	//assert.Equal(t, generateButton.MustText(),"Generate Gateway Credentials")
+	// generate gateway credentials
+	// generateButton.MustClick()
 
 
-
-		//Output: Name Your API Key
-		// true
-		// Enter API Key Name
-		// Next >
-		// Save Your Secret API Key! It Will Appear Only Once.
-		// true
-		// Copy
-		// Next Step:
-		// https://documentation.tardigrade.io/getting-started/uploading-your-first-object/set-up-uplink-cli
-		// Set Up Uplink CLI
-		// Done
-		// Successfully created new api key
-
+	// finish access grant generation
+	doneButton:= page.MustElement("div.generate-grant__done-button.container")
+	assert.Equal(t,doneButton.MustText(),"Done")
+	page.MustElement("div.generate-grant__done-button.container.extra-margin-top").MustWaitStable().MustClick()
+	time.Sleep(10*time.Second)
+	page.MustElementX("(//*[@class=\"navigation-area__item-container__link__title\"])[2]").MustClick()
+	createdAGInList:= page.MustElement("p.name").MustText()
+	assert.Equal(t,createdAGInList,access_grant_name)
 
 	}
 
@@ -60,50 +174,154 @@ func Example_APIKeysCreationFlowElements() {
 		defer browser.MustClose()
 		page.MustElement("a.navigation-area__item-container:nth-of-type(2)").MustClick()
 
-		listBeforeAdding := len(page.MustElements("div.apikey-item-container.item-component__item"))
-		page.MustElement("div.button.container").MustClick()
+		listBeforeAdding := len(page.MustElements("div.grants-item-container.item-component__item"))
+		page.MustElementX("(//*[@class=\"container\"])[1]").MustClick()
 		time.Sleep(1 * time.Second)
-		// creation flow
-		page.MustElement("input.headerless-input").MustInput("khg")
-		page.MustElement("span.label").MustClick()
+		// creation flow with CLI token
+		progressbar:= page.MustElement("div.progress-bar").MustVisible()
+		assert.Assert(t,progressbar)
+		createname:= page.MustElement("h1.name-step__title").MustText()
+		assert.DeepEqual(t,createname, "Name Your Access Grant")
+		nametext:= page.MustElement("p.name-step__sub-title").MustText()
+		assert.DeepEqual(t,nametext, "Enter a name for your new Access grant to get started.")
+		accessTitle:= page.MustElement("h3.label-container__main__label").MustText()
+		assert.DeepEqual(t, accessTitle,"Access Grant Name")
+		accessInput:= *page.MustElement("input.headered-input").MustAttribute("placeholder")
+		assert.Equal(t, accessInput,"Enter a name here...")
+		nextButton:= page.MustElement("div.container:nth-of-type(2)").MustText()
+		assert.DeepEqual(t,nextButton,"Next")
+
+		// set access name and continue
+		page.MustElement("input.headered-input").MustInput("newAPIkey")
+		page.MustElement("div.container:nth-of-type(2)").MustClick()
+
+		// Access permission - check elements
+		perTitle:= page.MustElement("h1.permissions__title").MustText()
+		assert.Equal(t, perTitle, "Access Permissions")
+		perText:= page.MustElement("p.permissions__sub-title").MustText()
+		assert.Equal(t, perText, "Assign permissions to this Access Grant.")
+		amountCheckboxes:= len(page.MustElementsX("//*[@type=\"checkbox\"]"))
+		assert.Equal(t,amountCheckboxes,4)
+		downloadPerm:= page.MustElementX("(//*[@class=\"permissions__content__left__item__label\"])[1]").MustText()
+		assert.Equal(t, downloadPerm, "Download")
+		uploadPerm:= page.MustElementX("(//*[@class=\"permissions__content__left__item__label\"])[2]").MustText()
+		assert.Equal(t, uploadPerm, "Upload")
+		listPerm:= page.MustElementX("(//*[@class=\"permissions__content__left__item__label\"])[3]").MustText()
+		assert.Equal(t, listPerm, "List")
+		deletePerm:= page.MustElementX("(//*[@class=\"permissions__content__left__item__label\"])[4]").MustText()
+		assert.Equal(t, deletePerm, "Delete")
+		durationText:= page.MustElement("p.permissions__content__right__duration-select__label").MustText()
+		assert.Equal(t, durationText, "Duration")
+		durationDrop:= page.MustElement("div.duration-selection__toggle-container")
+		assert.Equal(t,durationDrop.MustText(),"Forever")
+		// check if datepicker appears
+		durationDrop.MustClick()
+		time.Sleep(1*time.Second)
+		datepicker:= page.MustElement("div.duration-picker").MustVisible()
+		assert.Assert(t, datepicker)
+		durationDrop.MustClick()
+		bucketsText:= page.MustElement("p.permissions__content__right__buckets-select__label").MustText()
+		assert.Equal(t, bucketsText, "Buckets")
+		bucketsDrop:= page.MustElement("div.buckets-selection")
+		assert.Equal(t,bucketsDrop.MustText(),"All")
+		conBro:= page.MustElement("div.permissions__button.container")
+		assert.Equal(t, conBro.MustText(), "Continue in Browser")
+		conCLI:= page.MustElement(".permissions__cli-link")
+		assert.Equal(t, conCLI.MustText(), "Continue in CLI")
+		// continue in CLI
+		conCLI.MustClick()
+		// check success notification
+		permissionNotification:= page.MustElement("p.notification-wrap__text-area__message").MustWaitEnabled().MustText()
+		assert.Equal(t, "Permissions were set successfully",permissionNotification)
+		page.MustElement("p.notification-wrap__text-area__message").MustWaitInvisible()
+		// access grant CLI - checking elements
+		accessCLITitle:= page.MustElement("h1.cli-container__title").MustText()
+		assert.Equal(t,"Create Access Grant in CLI",accessCLITitle)
+		accessCLIInfo:= page.MustElement("p.cli-container__sub-title").MustText()
+		assert.Equal(t,"Run the 'setup' command in the uplink CLI and input the satellite address and token below when prompted to generate your access grant.", accessCLIInfo)
+		backButton:= page.MustElement(".cli-container__back-icon").MustVisible()
+		assert.Assert(t, backButton)
+		closeButton:= page.MustElement("div.create-grant__container__close-cross-container").MustVisible()
+		assert.Assert(t, closeButton)
+		satelliteIDTitle:= page.MustElementX("(//*[@class=\"cli-container__token-area__label\"])[1]").MustText()
+		assert.DeepEqual(t, "Satellite Address",satelliteIDTitle)
+		satelliteID:= page.MustElementX("(//*[@class=\"cli-container__token-area__container__token\"])[1]").MustVisible()
+		assert.Assert(t, satelliteID)
+		satelliteIDCopy:= page.MustElementX("(//*[@class=\"cli-container__token-area__container__button container\"])[1]")
+		assert.Equal(t, satelliteIDCopy.MustText(),"Copy")
+		// check copy notification
+		satelliteIDCopy.MustClick()
+		copySatelliteNotification:= page.MustElement("p.notification-wrap__text-area__message").MustWaitEnabled().MustText()
+		assert.Equal(t, "Satellite address was copied successfully",copySatelliteNotification)
+		page.MustElement("p.notification-wrap__text-area__message").MustWaitInvisible()
+		tokenIDTitle:= page.MustElementX("(//*[@class=\"cli-container__token-area__label\"])[2]").MustText()
+		assert.DeepEqual(t, "Token",tokenIDTitle)
+		tokenID:= page.MustElementX("(//*[@class=\"cli-container__token-area__container__token\"])[2]").MustVisible()
+		assert.Assert(t, tokenID)
+		tokenIDCopy:= page.MustElementX("(//*[@class=\"cli-container__token-area__container__button container\"])[2]")
+		assert.Equal(t, tokenIDCopy.MustText(),"Copy")
+		// check copy notification
+		tokenIDCopy.MustClick()
+		copyTokenNotification:= page.MustElement("p.notification-wrap__text-area__message").MustWaitEnabled().MustText()
+		assert.Equal(t, "Token was copied successfully",copyTokenNotification)
+		page.MustElement("p.notification-wrap__text-area__message").MustWaitInvisible()
+		doneButton:= page.MustElement("div.cli-container__done-button.container")
+		assert.Equal(t, "Done", doneButton.MustText())
+		visitDocs:= page.MustElement("a.cli-container__docs-link")
+		assert.Equal(t, "Visit the Docs", visitDocs.MustText())
+		assert.Equal(t, *visitDocs.MustAttribute("href"),"https://documentation.storj.io/")
+		// click Done
+		doneButton.MustClick()
 		time.Sleep(1 * time.Second)
-		page.MustElement("div.container").MustClick()
-		listAfterAdding := len(page.MustElements("div.apikey-item-container.item-component__item"))
+		//check elements on non empty screen
+		accessListTitle:= page.MustElement("h2.access-grants__title-area__title").MustText()
+		assert.Equal(t,"Access Grants", accessListTitle)
+		nameColunmTitle:= page.MustElement("p.sort-header-container__name-item__title").MustText()
+		assert.Equal(t,"NAME",nameColunmTitle)
+		dateColumnTitle:=page.MustElement("p.sort-header-container__date-item__title.creation-date").MustText()
+		assert.Equal(t,"DATE CREATED",dateColumnTitle)
+		tokenCheckbox:=  page.MustElement("svg.checkbox-container__image").MustInteractable()
+		assert.Assert(t,tokenCheckbox)
+		tokenName:= page.MustElement("p.name").MustVisible()
+		assert.Assert(t,tokenName)
+		tokenDate:= page.MustElement("p.date").MustText()
+		assert.Assert(t,strings.Contains(tokenDate,"UTC"))
+
+		// check if new access grant appears
+		listAfterAdding := len(page.MustElements("div.grants-item-container.item-component__item"))
 		assert.Equal(t, listAfterAdding, listBeforeAdding + 1)
 
 	}
 
-	func Example_APIKeyDeletionElements()  {
-		page, browser := login_to_account()
-		defer browser.MustClose()
-		page.MustElement("a.navigation-area__item-container:nth-of-type(2)").MustClick()
-		page.MustElement("div.apikey-item-container.item-component__item").MustClick()
-
-		fmt.Println(page.MustElement("div.button.deletion.container").MustText())
-		fmt.Println(page.MustElement("div.button.container.transparent").MustText())
-		fmt.Println(page.MustElement("span.header-selected-api-keys__info-text").MustText())
-		page.MustElement("div.button.deletion.container").MustClick()
-		fmt.Println(page.MustElement("span.header-selected-api-keys__confirmation-label").MustText())
-		page.MustElement("div.button.deletion.container").MustClick()
-		fmt.Println(page.MustElement("p.notification-wrap__text-area__message").MustText())
-
-
-		//Output: Delete
-		// Cancel
-		// 1 API Keys selected
-		// Are you sure you want to delete 1 api key ?
-		// API keys deleted successfully
-	}
 
 	func TestAPIKeysDeletion(t *testing.T) {
 		page, browser := login_to_account()
 		defer browser.MustClose()
 		page.MustElement("a.navigation-area__item-container:nth-of-type(2)").MustClick()
-		listBeforeDeletion:= len(page.MustElements("div.apikey-item-container.item-component__item"))
-		page.MustElement("div.apikey-item-container.item-component__item").MustClick()
-		page.MustElement("div.button.deletion.container").MustClick()
-		page.MustElement("div.button.deletion.container").MustClick()
-		time.Sleep(2*time.Second)
-		listAfterDeletion:= len(page.MustElements("div.apikey-item-container.item-component__item"))
+		listBeforeDeletion:= len(page.MustElements("div.grants-item-container.item-component__item"))
+		page.MustElement("div.grants-item-container.item-component__item").MustClick()
+		removeButton:= page.MustElement("div.container.red")
+		assert.Equal(t,removeButton.MustText(),"Remove Selected (1)")
+		removeButton.MustClick()
+		// checking elements
+		deleteTitle:= page.MustElement("h1.confirm-delete__container__title").MustText()
+		assert.Equal(t, deleteTitle,"Are you sure?")
+		deleteInfo:= page.MustElement("p.confirm-delete__container__info").MustText()
+		assert.Equal(t, deleteInfo,"When an access grant is removed, users using it will no longer have access to the buckets or data.")
+		deleteListLabel:= page.MustElement("p.confirm-delete__container__list-label").MustText()
+		assert.Equal(t,deleteListLabel,"The following access grant(s) will be removed from this project:")
+		deleteCloseButton:= page.MustElement("div.confirm-delete__container__close-cross-container").MustVisible()
+		assert.Assert(t,deleteCloseButton)
+		deleteCancel:= page.MustElement("div.cancel-button.container.white")
+		assert.Equal(t,deleteCancel.MustText(),"Cancel")
+		deleteRemoveButton:= page.MustElement("div.confirm-delete__container__buttons-area > div.container:nth-of-type(2)")
+		assert.Equal(t,deleteRemoveButton.MustText(),"Remove")
+		// delete token
+		deleteRemoveButton.MustClick()
+		time.Sleep(1*time.Second)
+		deleteNotification:= page.MustElement("p.notification-wrap__text-area__message").MustWaitEnabled().MustText()
+		assert.Equal(t, "Access Grant deleted successfully",deleteNotification)
+		page.MustElement("p.notification-wrap__text-area__message").MustWaitInvisible()
+		listAfterDeletion:= len(page.MustElements("div.grants-item-container.item-component__item"))
 		assert.Equal(t,listBeforeDeletion,listAfterDeletion+1)
 	}

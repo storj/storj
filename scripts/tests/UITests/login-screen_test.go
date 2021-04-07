@@ -2,9 +2,10 @@ package UITests
 
 import (
 	"fmt"
+	"testing"
 )
 
-func Example_LoginScreen() {
+func Test_LoginScreen(t *testing.T) {
 
 	page, browser := login_to_account()
 	defer browser.MustClose()

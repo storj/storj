@@ -2,10 +2,11 @@ package UITests
 
 import (
 	"fmt"
+	"testing"
 	"time"
 )
 
-func Example_checkingElementsHeader(){
+func Test_checkingElementsHeader(t *testing.T){
 	page, browser := login_to_account()
 	browser.SlowMotion(1 * time.Second)
 	defer browser.MustClose()

@@ -1,8 +1,11 @@
 package UITests
 
-import "fmt"
+import (
+	"fmt"
+	"testing"
+)
 
-func Example_droplistChosing (){
+func Test_droplistChosing (t *testing.T){
 	page, browser := login_to_account()
 	defer browser.MustClose()
 	firstElement:= page.MustElement("div.resources-selection__toggle-container").MustClick().MustElement("a.resources-dropdown__item-container").MustText()

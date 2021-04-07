@@ -93,10 +93,12 @@ func TestAccountSettingsScreenElements(t *testing.T) {
 		assert.Equal(t,"Full name expected",errorMessage)
 
 		page.MustElementX("//*[@id=\"Full Name\"]").MustPress(input.Backspace).MustPress(input.Backspace).MustPress(input.Backspace).MustPress(input.Backspace).MustInput("zzz")
+		page.MustElementX("//*[@id=\"Nickname\"]").MustPress(input.Backspace).MustPress(input.Backspace).MustPress(input.Backspace).MustPress(input.Backspace)
 		page.MustElementX("(//*[@class=\"container\"])").MustClick()
 		notification:= page.MustElement("p.notification-wrap__text-area__message").MustText()
 		assert.Equal(t,"Account info successfully updated!",notification)
-		avaChanged:= page.MustElement("h1.account-button__container__avatar__letter").MustText()
+		time.Sleep(2*time.Second)
+		avaChanged:= page.MustElement("h1.account-button__container__avatar__letter").MustWaitStable().MustText()
 		assert.Equal(t,"Z",avaChanged)
 
 		page.MustElement("svg.edit-svg").MustClick()

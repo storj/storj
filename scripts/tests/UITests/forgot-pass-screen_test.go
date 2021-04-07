@@ -2,9 +2,10 @@ package UITests
 
 import (
 	"fmt"
+	"testing"
 )
 
-func Example_forgotPassScreen () {
+func Test_forgotPassScreen (t *testing.T) {
 		page, browser := setup_browser()
 		defer browser.MustClose()
 		page.MustElement("a.login-area__navigation-area__nav-link").MustClick()

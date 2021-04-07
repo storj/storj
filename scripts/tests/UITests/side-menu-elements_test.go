@@ -1,8 +1,11 @@
 package UITests
 
-import "fmt"
+import (
+	"fmt"
+	"testing"
+)
 
-func Example_checkingElementsSideMenu(){
+func Test_checkingElementsSideMenu(t *testing.T){
 	page, browser := login_to_account()
 	defer browser.MustClose()
 	first := page.MustElement("a.navigation-area__item-container:nth-of-type(1)").MustText()
@@ -14,7 +17,7 @@ func Example_checkingElementsSideMenu(){
 	currentProject := page.MustHas("#app > div > div > div.dashboard__wrap__main-area > div.navigation-area.regular-navigation > div > div")
 	fmt.Println(currentProject)
 	// Output: Dashboard
-	// API Keys
+	// Access
 	// Users
 	// true
 }

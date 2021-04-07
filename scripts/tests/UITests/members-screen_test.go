@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-func Example_membersAdding () {
+func Test_membersAdding (t *testing.T) {
 		page, browser := login_to_account()
 		defer browser.MustClose()
 		page.MustElement("a.navigation-area__item-container:nth-of-type(3)").MustClick()

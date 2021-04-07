@@ -1,8 +1,11 @@
 package UITests
 
-import "fmt"
+import (
+	"fmt"
+	"testing"
+)
 
-func Example_membersScreen () {
+func Test_membersScreen (t *testing.T) {
 	page, browser := login_to_account()
 	defer browser.MustClose()
 	page.MustElement("a.navigation-area__item-container:nth-of-type(3)").MustClick()

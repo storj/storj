@@ -2,10 +2,11 @@ package UITests
 
 import (
 	"fmt"
+	"testing"
 )
 
 
-func Example_SideMenuLinksChecking()  {
+func Test_SideMenuLinksChecking(t *testing.T)  {
 	page, browser := login_to_account()
 	defer browser.MustClose()
 	firstLink := *(page.MustElement("a.navigation-area__item-container:nth-of-type(1)",).MustAttribute("href"))
