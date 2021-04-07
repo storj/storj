@@ -1682,27 +1682,6 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 		)
 	}
 
-	// TODO bring back validation
-
-	// orderLimits := make([]*pb.OrderLimit, len(segmentID.OriginalOrderLimits))
-	// for i, orderLimit := range segmentID.OriginalOrderLimits {
-	// 	orderLimits[i] = orderLimit.Limit
-	// }
-
-	// err = endpoint.validatePointer(ctx, pointer, orderLimits)
-	// if err != nil {
-	// 	return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
-	// }
-
-	// err = endpoint.filterValidPieces(ctx, pointer, orderLimits)
-	// if err != nil {
-	// 	return nil, nil, err
-	// }
-
-	if err := endpoint.checkExceedsStorageUsage(ctx, keyInfo.ProjectID); err != nil {
-		return nil, nil, err
-	}
-
 	pieces := metabase.Pieces{}
 	for _, result := range req.UploadResult {
 		pieces = append(pieces, metabase.Piece{
@@ -1718,6 +1697,57 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 		OptimalShares:  int16(endpoint.defaultRS.SuccessThreshold),
 		TotalShares:    int16(endpoint.defaultRS.Total),
 		ShareSize:      endpoint.defaultRS.ErasureShareSize,
+	}
+
+	id, err := uuid.FromBytes(streamID.StreamId)
+	if err != nil {
+		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	mbCommitSegment := metabase.CommitSegment{
+		ObjectStream: metabase.ObjectStream{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(streamID.Bucket),
+			ObjectKey:  metabase.ObjectKey(streamID.EncryptedPath),
+			StreamID:   id,
+			Version:    1,
+		},
+		EncryptedKey:      req.EncryptedKey,
+		EncryptedKeyNonce: req.EncryptedKeyNonce[:],
+
+		EncryptedSize: int32(req.SizeEncryptedData), // TODO incompatible types int32 vs int64
+		PlainSize:     int32(req.PlainSize),         // TODO incompatible types int32 vs int64
+
+		EncryptedETag: req.EncryptedETag,
+
+		Position: metabase.SegmentPosition{
+			Part:  uint32(segmentID.PartNumber),
+			Index: uint32(segmentID.Index),
+		},
+		RootPieceID: segmentID.RootPieceId,
+		Redundancy:  rs,
+		Pieces:      pieces,
+	}
+
+	orderLimits := make([]*pb.OrderLimit, len(segmentID.OriginalOrderLimits))
+	for i, orderLimit := range segmentID.OriginalOrderLimits {
+		orderLimits[i] = orderLimit.Limit
+	}
+
+	err = endpoint.validateRemoteSegment(ctx, mbCommitSegment, orderLimits)
+	if err != nil {
+		return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	// TODO bring back validation
+
+	// err = endpoint.filterValidPieces(ctx, pointer, orderLimits)
+	// if err != nil {
+	// 	return nil, nil, err
+	// }
+
+	if err := endpoint.checkExceedsStorageUsage(ctx, keyInfo.ProjectID); err != nil {
+		return nil, nil, err
 	}
 
 	segmentSize := req.SizeEncryptedData
@@ -1747,35 +1777,7 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 		)
 	}
 
-	id, err := uuid.FromBytes(streamID.StreamId)
-	if err != nil {
-		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-	}
-
-	err = endpoint.metainfo.metabaseDB.CommitSegment(ctx, metabase.CommitSegment{
-		ObjectStream: metabase.ObjectStream{
-			ProjectID:  keyInfo.ProjectID,
-			BucketName: string(streamID.Bucket),
-			ObjectKey:  metabase.ObjectKey(streamID.EncryptedPath),
-			StreamID:   id,
-			Version:    1,
-		},
-		EncryptedKey:      req.EncryptedKey,
-		EncryptedKeyNonce: req.EncryptedKeyNonce[:],
-
-		EncryptedSize: int32(req.SizeEncryptedData), // TODO incompatible types int32 vs int64
-		PlainSize:     int32(req.PlainSize),         // TODO incompatible types int32 vs int64
-
-		EncryptedETag: req.EncryptedETag,
-
-		Position: metabase.SegmentPosition{
-			Part:  uint32(segmentID.PartNumber),
-			Index: uint32(segmentID.Index),
-		},
-		RootPieceID: segmentID.RootPieceId,
-		Redundancy:  rs,
-		Pieces:      pieces,
-	})
+	err = endpoint.metainfo.metabaseDB.CommitSegment(ctx, mbCommitSegment)
 	if err != nil {
 		if metabase.ErrInvalidRequest.Has(err) {
 			return nil, nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())

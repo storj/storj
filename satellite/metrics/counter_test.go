@@ -77,7 +77,7 @@ func TestCounterRemoteOnly(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.MaxSegmentSize(16 * memory.KiB),
+			Satellite: testplanet.MaxSegmentSize(150 * memory.KiB),
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
@@ -87,7 +87,7 @@ func TestCounterRemoteOnly(t *testing.T) {
 
 		// upload 2 remote files with multiple segments
 		for i := 0; i < 2; i++ {
-			testData := testrand.Bytes(32 * memory.KiB)
+			testData := testrand.Bytes(300 * memory.KiB)
 			path := "/some/remote/path/" + strconv.Itoa(i)
 			err := ul.Upload(ctx, satellite, "testbucket", path, testData)
 			require.NoError(t, err)
