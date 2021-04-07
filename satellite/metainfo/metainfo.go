@@ -975,7 +975,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 	}
 
 	// get the download response for the first segment
-	segmentDownloadResponse, err := func() (*pb.SegmentDownloadResponse, error) {
+	downloadSegments, err := func() ([]*pb.SegmentDownloadResponse, error) {
 		if len(segments.Segments) == 0 {
 			return nil, nil
 		}
@@ -1010,7 +1010,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			endpoint.log.Info("Inline Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "inline"))
 			mon.Meter("req_get_inline").Mark(1)
 
-			return &pb.SegmentDownloadResponse{
+			return []*pb.SegmentDownloadResponse{{
 				PlainOffset:         segment.PlainOffset,
 				PlainSize:           int64(segment.PlainSize),
 				SegmentSize:         int64(segment.EncryptedSize),
@@ -1023,7 +1023,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 					PartNumber: int32(segment.Position.Part),
 					Index:      int32(segment.Position.Index),
 				},
-			}, nil
+			}}, nil
 		}
 
 		limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, object.Location().Bucket(), segment)
@@ -1050,7 +1050,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		endpoint.log.Info("Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "remote"))
 		mon.Meter("req_get_remote").Mark(1)
 
-		return &pb.SegmentDownloadResponse{
+		return []*pb.SegmentDownloadResponse{{
 			AddressedLimits: limits,
 			PrivateKey:      privateKey,
 			PlainOffset:     segment.PlainOffset,
@@ -1073,7 +1073,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 				PartNumber: int32(segment.Position.Part),
 				Index:      int32(segment.Position.Index),
 			},
-		}, nil
+		}}, nil
 	}()
 	if err != nil {
 		return nil, err
@@ -1102,7 +1102,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		// The RPC API allows for multiple segment download responses, but for now
 		// we return only one. This can be changed in the future if it seems useful
 		// to return more than one on the initial response.
-		SegmentDownload: []*pb.SegmentDownloadResponse{segmentDownloadResponse},
+		SegmentDownload: downloadSegments,
 
 		// In the case where the client needs the segment list, it will contain
 		// every segment. In the case where the segment list is not needed,
