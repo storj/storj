@@ -75,6 +75,7 @@ const (
 // TrackCreateUserFields contains input data for tracking a create user event.
 type TrackCreateUserFields struct {
 	ID            uuid.UUID
+	AnonymousID   string
 	FullName      string
 	Email         string
 	Type          UserType
@@ -101,8 +102,9 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 	traits.SetEmail(fields.Email)
 
 	service.enqueueMessage(segment.Identify{
-		UserId: fields.ID.String(),
-		Traits: traits,
+		UserId:      fields.ID.String(),
+		AnonymousId: fields.AnonymousID,
+		Traits:      traits,
 	})
 
 	props := segment.NewProperties()
@@ -118,9 +120,10 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 	}
 
 	service.enqueueMessage(segment.Track{
-		UserId:     fields.ID.String(),
-		Event:      eventAccountCreated,
-		Properties: props,
+		UserId:      fields.ID.String(),
+		AnonymousId: fields.AnonymousID,
+		Event:       eventAccountCreated,
+		Properties:  props,
 	})
 }
 
