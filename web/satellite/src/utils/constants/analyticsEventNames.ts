@@ -25,4 +25,6 @@ export enum SegmentEvent {
 // Make sure these event names match up with the client-side event names in satellite/analytics/service.go
 export enum AnalyticsEvent {
     GATEWAY_CREDENTIALS_CREATED = 'Credentials Created',
+    PASSPHRASE_CREATED = 'Passphrase Created',
+    EXTERNAL_LINK_CLICKED = 'External Link Clicked',
 }

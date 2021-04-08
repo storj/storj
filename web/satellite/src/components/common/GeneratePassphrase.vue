@@ -85,6 +85,9 @@ import VButton from '@/components/common/VButton.vue';
 import BackIcon from '@/../static/images/accessGrants/back.svg';
 import WarningIcon from '@/../static/images/accessGrants/warning.svg';
 
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 @Component({
     components: {
         WarningIcon,
@@ -100,6 +103,7 @@ export default class GeneratePassphrase extends Vue {
     public readonly setParentPassphrase: (passphrase: string) => void;
     @Prop({ default: false })
     public readonly isLoading: boolean;
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     public isGenerateState: boolean = true;
     public isCreateState: boolean = false;
@@ -123,6 +127,8 @@ export default class GeneratePassphrase extends Vue {
 
             return;
         }
+
+        this.analytics.eventTriggered(AnalyticsEvent.PASSPHRASE_CREATED);
 
         if (!this.isChecked) {
             this.isError = true;
