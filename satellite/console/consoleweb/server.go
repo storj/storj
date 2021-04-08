@@ -211,6 +211,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	apiKeysRouter.Use(server.withAuth)
 	apiKeysRouter.HandleFunc("/delete-by-name", apiKeysController.DeleteByNameAndProjectID).Methods(http.MethodDelete)
 
+	analyticsController := consoleapi.NewAnalytics(logger, service, server.analytics)
+	analyticsRouter := router.PathPrefix("/api/v0/analytics").Subrouter()
+	analyticsRouter.Use(server.withAuth)
+	analyticsRouter.HandleFunc("/event", analyticsController.EventTriggered).Methods(http.MethodPost)
+	
 	if server.config.StaticDir != "" {
 		router.HandleFunc("/activation/", server.accountActivationHandler)
 		router.HandleFunc("/password-recovery/", server.passwordRecoveryHandler)

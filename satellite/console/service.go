@@ -695,6 +695,8 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", user.ID.String()), zap.Error(Error.Wrap(err)))
 	}
 
+	s.analytics.TrackAccountVerified(user.ID, user.Email)
+
 	return nil
 }
 
@@ -796,6 +798,16 @@ func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (u *User, err error
 	}
 
 	return user, nil
+}
+
+// GetUserID returns the User ID from the session.
+func (s *Service) GetUserID(ctx context.Context) (id uuid.UUID, err error) {
+	defer mon.Task()(&ctx)(&err)
+	auth, err := s.getAuthAndAuditLog(ctx, "get user ID")
+	if err != nil {
+		return uuid.UUID{}, Error.Wrap(err)
+	}
+	return auth.User.ID, nil
 }
 
 // GetUserByEmail returns User by email.
