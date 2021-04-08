@@ -76,7 +76,7 @@ if [ "$HOSTNAME" = $STORJ_NETWORK_HOST4 ]; then
     fi
 
     echo "metainfo.rate-limiter.enabled: false" >> $TMP/satellite/0/config.yaml
-    #echo "metainfo.rs: 1/1/1/1-256 B" >> $TMP/satellite/0/config.yaml  # disable RS -> one piece
+    echo "metainfo.rs: 1/1/1/1-256 B" >> $TMP/satellite/0/config.yaml  # disable RS -> one piece
 
     cat $TMP/satellite/0/config.yaml
 
