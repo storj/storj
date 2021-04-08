@@ -362,6 +362,15 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		)
 	}
 
+	{ // setup analytics service
+		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "analytics:service",
+			Close: peer.Analytics.Service.Close,
+		})
+	}
+
 	{ // setup metainfo
 		peer.Metainfo.Database = pointerDB
 		peer.Metainfo.Metabase = metabaseDB
@@ -555,15 +564,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
-	{ // setup analytics service
-		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName)
-
-		peer.Services.Add(lifecycle.Item{
-			Name:  "analytics:service",
-			Close: peer.Analytics.Service.Close,
-		})
-	}
-
 	{ // setup console
 		consoleConfig := config.Console
 		peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
@@ -583,6 +583,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Buckets(),
 			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,
+			peer.Analytics.Service,
 			consoleConfig.Config,
 			config.Payments.MinCoinPayment,
 		)

@@ -12,6 +12,9 @@ import (
 
 const (
 	eventAccountCreated       = "Account Created"
+	eventSignedIn             = "Signed In"
+	eventProjectCreated       = "Project Created"
+	eventAccessGrantCreated   = "Access Grant Created"
 	gatewayCredentialsCreated = "Credentials Created"
 )
 
@@ -118,6 +121,49 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 		UserId:     fields.ID.String(),
 		Event:      eventAccountCreated,
 		Properties: props,
+	})
+}
+
+// TrackSignedIn sends an "Signed In" event to Segment.
+func (service *Service) TrackSignedIn(userID uuid.UUID, email string) {
+	traits := segment.NewTraits()
+	traits.SetEmail(email)
+
+	service.enqueueMessage(segment.Identify{
+		UserId: userID.String(),
+		Traits: traits,
+	})
+
+	props := segment.NewProperties()
+	props.Set("email", email)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      eventSignedIn,
+		Properties: props,
+	})
+}
+
+// TrackProjectCreated sends an "Project Created" event to Segment.
+func (service *Service) TrackProjectCreated(userID, projectID uuid.UUID, currentProjectCount int) {
+
+	props := segment.NewProperties()
+	props.Set("project_count", currentProjectCount)
+	props.Set("project_id", projectID.String())
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      eventProjectCreated,
+		Properties: props,
+	})
+}
+
+// TrackAccessGrantCreated sends an "Access Grant Created" event to Segment.
+func (service *Service) TrackAccessGrantCreated(userID uuid.UUID) {
+
+	service.enqueueMessage(segment.Track{
+		UserId: userID.String(),
+		Event:  eventAccessGrantCreated,
 	})
 }
 
