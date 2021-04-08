@@ -3,7 +3,7 @@
 exports[`CreditsItem renders correctly 1`] = `
 <div class="container">
   <p class="container__item">January 1970</p>
-  <p class="container__item coupon">Trial Credit</p>
+  <p class="container__item coupon">Free Tier Credit</p>
   <p class="container__item expired">January 1970</p>
   <p class="container__item">$2.75</p>
   <p class="container__item">$0.00</p>

@@ -44,6 +44,7 @@ type LoopObjectsIterator interface {
 // LoopObjectEntry contains information about object needed by metainfo loop.
 type LoopObjectEntry struct {
 	ObjectStream                     // metrics, repair, tally
+	CreatedAt             time.Time  // temp used by metabase-createdat-migration
 	ExpiresAt             *time.Time // tally
 	SegmentCount          int32      // metrics
 	EncryptedMetadataSize int        // tally
@@ -160,7 +161,7 @@ func (it *loopIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err err
 		SELECT
 			project_id, bucket_name,
 			object_key, stream_id, version,
-			expires_at,
+			created_at, expires_at,
 			segment_count,
 			LENGTH(COALESCE(encrypted_metadata,''))
 		FROM objects
@@ -179,7 +180,7 @@ func (it *loopIterator) scanItem(item *LoopObjectEntry) error {
 	return it.curRows.Scan(
 		&item.ProjectID, &item.BucketName,
 		&item.ObjectKey, &item.StreamID, &item.Version,
-		&item.ExpiresAt,
+		&item.CreatedAt, &item.ExpiresAt,
 		&item.SegmentCount,
 		&item.EncryptedMetadataSize,
 	)
@@ -199,6 +200,8 @@ type SegmentIterator func(segment *LoopSegmentEntry) bool
 type LoopSegmentEntry struct {
 	StreamID      uuid.UUID
 	Position      SegmentPosition
+	CreatedAt     *time.Time // repair
+	RepairedAt    *time.Time // repair
 	RootPieceID   storj.PieceID
 	EncryptedSize int32 // size of the whole segment (not a piece)
 	Redundancy    storj.RedundancyScheme
@@ -240,6 +243,7 @@ func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, h
 	rows, err := db.db.Query(ctx, `
 		SELECT
 			stream_id, position,
+			created_at, repaired_at,
 			root_piece_id,
 			encrypted_size,
 			redundancy,
@@ -283,6 +287,7 @@ func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, h
 			var aliasPieces AliasPieces
 			err = rows.Scan(
 				&segment.StreamID, &segment.Position,
+				&segment.CreatedAt, &segment.RepairedAt,
 				&segment.RootPieceID,
 				&segment.EncryptedSize,
 				redundancyScheme{&segment.Redundancy},

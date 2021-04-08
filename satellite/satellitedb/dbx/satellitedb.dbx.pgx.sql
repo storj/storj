@@ -75,6 +75,7 @@ CREATE TABLE coupons (
 	type integer NOT NULL,
 	status integer NOT NULL,
 	duration bigint NOT NULL,
+	billing_periods bigint,
 	coupon_code_name text,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
@@ -85,7 +86,7 @@ CREATE TABLE coupon_codes (
 	amount bigint NOT NULL,
 	description text NOT NULL,
 	type integer NOT NULL,
-	duration bigint NOT NULL,
+	billing_periods bigint,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id ),
 	UNIQUE ( name )
@@ -158,8 +159,6 @@ CREATE TABLE nodes (
 	audit_success_count bigint NOT NULL DEFAULT 0,
 	total_audit_count bigint NOT NULL DEFAULT 0,
 	vetted_at timestamp with time zone,
-	uptime_success_count bigint NOT NULL DEFAULT 0,
-	total_uptime_count bigint NOT NULL DEFAULT 0,
 	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 	last_contact_success timestamp with time zone NOT NULL DEFAULT 'epoch',

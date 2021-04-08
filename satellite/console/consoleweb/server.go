@@ -88,6 +88,7 @@ type Config struct {
 	BetaSatelliteSupportURL         string `help:"url link for for beta satellite support" default:""`
 	DocumentationURL                string `help:"url link to documentation" devDefault:"https://documentation.storj.io/" releaseDefault:"https://documentation.tardigrade.io/"`
 	CouponCodeUIEnabled             bool   `help:"indicates if user is allowed to add coupon codes to account" default:"false"`
+	FileBrowserFlowDisabled         bool   `help:"indicates if file browser flow is disabled" default:"true"`
 
 	RateLimit web.IPRateLimiterConfig
 
@@ -215,7 +216,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	analyticsRouter := router.PathPrefix("/api/v0/analytics").Subrouter()
 	analyticsRouter.Use(server.withAuth)
 	analyticsRouter.HandleFunc("/event", analyticsController.EventTriggered).Methods(http.MethodPost)
-	
+
 	if server.config.StaticDir != "" {
 		router.HandleFunc("/activation/", server.accountActivationHandler)
 		router.HandleFunc("/password-recovery/", server.passwordRecoveryHandler)
@@ -311,6 +312,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		BetaSatelliteSupportURL         string
 		DocumentationURL                string
 		CouponCodeUIEnabled             bool
+		FileBrowserFlowDisabled         bool
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -330,6 +332,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.BetaSatelliteSupportURL = server.config.BetaSatelliteSupportURL
 	data.DocumentationURL = server.config.DocumentationURL
 	data.CouponCodeUIEnabled = server.config.CouponCodeUIEnabled
+	data.FileBrowserFlowDisabled = server.config.FileBrowserFlowDisabled
 
 	if server.templates.index == nil {
 		server.log.Error("index template is not set")

@@ -336,8 +336,15 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metaloop
 		return Error.New("could not get estimate of total number of nodes: %w", err)
 	}
 
-	// TODO: update MissingPieces to accept metabase.Pieces
-	missingPieces, err := obs.nodestate.MissingPieces(ctx, segment.CreationDate, segment.Pieces)
+	createdAt := time.Time{}
+	if segment.CreatedAt != nil {
+		createdAt = *segment.CreatedAt
+	}
+	repairedAt := time.Time{}
+	if segment.RepairedAt != nil {
+		repairedAt = *segment.RepairedAt
+	}
+	missingPieces, err := obs.nodestate.MissingPieces(ctx, createdAt, segment.Pieces)
 	if err != nil {
 		obs.monStats.remoteSegmentsFailedToCheck++
 		stats.iterationAggregates.remoteSegmentsFailedToCheck++
@@ -350,7 +357,7 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metaloop
 	mon.IntVal("checker_segment_healthy_count").Observe(int64(numHealthy)) //mon:locked
 	stats.segmentHealthyCount.Observe(int64(numHealthy))
 
-	segmentAge := time.Since(segment.CreationDate)
+	segmentAge := time.Since(createdAt)
 	mon.IntVal("checker_segment_age").Observe(int64(segmentAge.Seconds())) //mon:locked
 	stats.segmentAge.Observe(int64(segmentAge.Seconds()))
 
@@ -400,10 +407,10 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metaloop
 		}
 
 		var segmentAge time.Duration
-		if segment.CreationDate.Before(segment.LastRepaired) {
-			segmentAge = time.Since(segment.LastRepaired)
+		if createdAt.Before(repairedAt) {
+			segmentAge = time.Since(repairedAt)
 		} else {
-			segmentAge = time.Since(segment.CreationDate)
+			segmentAge = time.Since(createdAt)
 		}
 		mon.IntVal("checker_segment_time_until_irreparable").Observe(int64(segmentAge.Seconds())) //mon:locked
 		stats.segmentTimeUntilIrreparable.Observe(int64(segmentAge.Seconds()))

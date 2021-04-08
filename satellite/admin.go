@@ -136,7 +136,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.ObjectPrice,
 			pc.BonusRate,
 			pc.CouponValue,
-			pc.CouponDuration,
+			pc.CouponDuration.IntPointer(),
 			pc.CouponProjectLimit,
 			pc.MinCoinPayment,
 			pc.PaywallProportion)

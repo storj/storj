@@ -21,3 +21,8 @@ export enum SegmentEvent {
     CLI_DOCS_VIEWED = 'Uplink CLI Docs Viewed',
     GENERATE_GATEWAY_CREDENTIALS_CLICKED = 'Generate Gateway Credentials Clicked',
 }
+
+// Make sure these event names match up with the client-side event names in satellite/analytics/service.go
+export enum AnalyticsEvent {
+    GATEWAY_CREDENTIALS_CREATED = 'Credentials Created',
+}

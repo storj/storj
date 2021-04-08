@@ -11,14 +11,14 @@ import (
 )
 
 const (
-	eventAccountCreated     = "Account Created"
-	eventSignedIn           = "Signed In"
-	eventProjectCreated     = "Project Created"
-	eventAccessGrantCreated = "Access Grant Created"
-	eventAccountVerified	= "Account Verified"
+	eventAccountCreated       = "Account Created"
+	eventSignedIn             = "Signed In"
+	eventProjectCreated       = "Project Created"
+	eventAccessGrantCreated   = "Access Grant Created"
+	eventAccountVerified      = "Account Verified"
 	gatewayCredentialsCreated = "Credentials Created"
-	passphraseCreated		=	"Passphrase Created"
-	externalLinkClicked		= "External Link Clicked"
+	passphraseCreated         = "Passphrase Created"
+	externalLinkClicked       = "External Link Clicked"
 )
 
 // Config is a configuration struct for analytics Service.
@@ -50,13 +50,7 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 	if config.Enabled {
 		service.segment = segment.New(config.SegmentWriteKey)
 	}
-	for _, name := range []string{gatewayCredentialsCreated} {
-		service.clientEvents[name] = true
-	}
-	for _, name := range []string{passphraseCreated} {
-		service.clientEvents[name] = true
-	}
-	for _, name := range []string{externalLinkClicked} {
+	for _, name := range []string{gatewayCredentialsCreated, passphraseCreated, externalLinkClicked} {
 		service.clientEvents[name] = true
 	}
 	return service
@@ -223,10 +217,8 @@ func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, link 
 		return
 	}
 	service.enqueueMessage(segment.Track{
-		UserId: userID.String(),
-		Event:  eventName,
+		UserId:     userID.String(),
+		Event:      eventName,
 		Properties: props,
 	})
 }
-
-

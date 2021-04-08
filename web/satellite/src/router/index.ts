@@ -9,6 +9,7 @@ import CreateAccessGrant from '@/components/accessGrants/CreateAccessGrant.vue';
 import CLIStep from '@/components/accessGrants/steps/CLIStep.vue';
 import CreatePassphraseStep from '@/components/accessGrants/steps/CreatePassphraseStep.vue';
 import EnterPassphraseStep from '@/components/accessGrants/steps/EnterPassphraseStep.vue';
+import GatewayStep from '@/components/accessGrants/steps/GatewayStep.vue';
 import NameStep from '@/components/accessGrants/steps/NameStep.vue';
 import PermissionsStep from '@/components/accessGrants/steps/PermissionsStep.vue';
 import ResultStep from '@/components/accessGrants/steps/ResultStep.vue';
@@ -78,6 +79,7 @@ export abstract class RouteConfig {
     public static CreatePassphraseStep = new NavigationLink('create-passphrase', 'Access Grant Create Passphrase');
     public static EnterPassphraseStep = new NavigationLink('enter-passphrase', 'Access Grant Enter Passphrase');
     public static ResultStep = new NavigationLink('result', 'Access Grant Result');
+    public static GatewayStep = new NavigationLink('gateway', 'Access Grant Gateway');
     public static CLIStep = new NavigationLink('cli', 'Access Grant In CLI');
 
     // onboarding tour child paths
@@ -89,6 +91,7 @@ export abstract class RouteConfig {
     public static AccessGrantCLI = new NavigationLink('cli', 'Onboarding Access Grant CLI');
     public static AccessGrantPassphrase = new NavigationLink('create-passphrase', 'Onboarding Access Grant Create Passphrase');
     public static AccessGrantResult = new NavigationLink('result', 'Onboarding Access Grant Result');
+    public static AccessGrantGateway = new NavigationLink('gateway', 'Onboarding Access Grant Gateway');
 
     // objects child paths.
     public static CreatePassphrase = new NavigationLink('create-passphrase', 'Objects Create Passphrase');
@@ -236,6 +239,12 @@ export const router = new Router({
                                     component: ResultStep,
                                     props: true,
                                 },
+                                {
+                                    path: RouteConfig.AccessGrantGateway.path,
+                                    name: RouteConfig.AccessGrantGateway.name,
+                                    component: GatewayStep,
+                                    props: true,
+                                },
                             ],
                         },
                     ],
@@ -287,6 +296,12 @@ export const router = new Router({
                                     path: RouteConfig.ResultStep.path,
                                     name: RouteConfig.ResultStep.name,
                                     component: ResultStep,
+                                    props: true,
+                                },
+                                {
+                                    path: RouteConfig.GatewayStep.path,
+                                    name: RouteConfig.GatewayStep.name,
+                                    component: GatewayStep,
                                     props: true,
                                 },
                                 {
@@ -369,6 +384,12 @@ router.beforeEach((to, from, next) => {
 
     if (navigateToDefaultSubTab(to.matched, RouteConfig.OnboardingTour)) {
         next(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+
+        return;
+    }
+
+    if (navigateToDefaultSubTab(to.matched, RouteConfig.Objects)) {
+        next(RouteConfig.Objects.with(RouteConfig.CreatePassphrase).path);
 
         return;
     }

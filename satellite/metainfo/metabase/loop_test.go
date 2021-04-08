@@ -96,13 +96,16 @@ func TestIterateLoopObjects(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
+			createdAt := time.Now()
 			expected := []metabase.LoopObjectEntry{
 				{
 					ObjectStream: pending,
+					CreatedAt:    createdAt,
 				},
 				{
 					ObjectStream:          committed,
 					EncryptedMetadataSize: len(encryptedMetadata),
+					CreatedAt:             createdAt,
 				},
 			}
 
@@ -364,6 +367,7 @@ func TestIterateLoopStreams(t *testing.T) {
 						Position: metabase.SegmentPosition{
 							Index: uint32(i),
 						},
+						CreatedAt:     &now,
 						RootPieceID:   storj.PieceID{1},
 						EncryptedSize: 1024,
 						Pieces:        metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
@@ -440,6 +444,7 @@ func createFullObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metab
 
 		objects[key] = metabase.LoopObjectEntry{
 			ObjectStream: obj,
+			CreatedAt:    time.Now(),
 		}
 	}
 
@@ -451,5 +456,6 @@ func loopObjectEntryFromRaw(m metabase.RawObject) metabase.LoopObjectEntry {
 		ObjectStream: m.ObjectStream,
 		ExpiresAt:    m.ExpiresAt,
 		SegmentCount: m.SegmentCount,
+		CreatedAt:    m.CreatedAt,
 	}
 }

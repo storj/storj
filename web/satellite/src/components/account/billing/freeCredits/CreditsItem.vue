@@ -33,7 +33,7 @@ export default class CreditsItem extends Vue {
      * Return credit type string depending on item type.
      */
     public get creditType(): string {
-        const trial = 'Trial Credit';
+        const trial = 'Free Tier Credit';
 
         if (this.creditsItem.type === PaymentsHistoryItemType.Coupon) {
             return trial;
@@ -55,6 +55,10 @@ export default class CreditsItem extends Vue {
      * Returns formatted string of expiration date.
      */
     public get expiration(): string {
+        if (!this.creditsItem.hasExpiration) {
+            return 'Never expires';
+        }
+
         const monthNumber = this.creditsItem.end.getUTCMonth();
         const year = this.creditsItem.end.getUTCFullYear();
 
@@ -85,7 +89,7 @@ export default class CreditsItem extends Vue {
      * Checks for coupon expiration.
      */
     public get expirationCheck(): boolean {
-        return this.creditsItem.end.getTime() < new Date().getTime();
+        return this.creditsItem.hasExpiration && this.creditsItem.end.getTime() < new Date().getTime();
     }
 }
 </script>

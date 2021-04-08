@@ -96,7 +96,7 @@ func TestGraphqlMutation(t *testing.T) {
 			pc.ObjectPrice,
 			pc.BonusRate,
 			pc.CouponValue,
-			pc.CouponDuration,
+			pc.CouponDuration.IntPointer(),
 			pc.CouponProjectLimit,
 			pc.MinCoinPayment,
 			pc.PaywallProportion)
