@@ -91,7 +91,6 @@ import DeleteFieldIcon from '@/../static/images/team/deleteField.svg';
 import { RouteConfig } from '@/router';
 import { EmailInput } from '@/types/EmailInput';
 import { APP_STATE_ACTIONS, PM_ACTIONS } from '@/utils/constants/actionNames';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { Validator } from '@/utils/validation';
 
 @Component({
@@ -183,11 +182,6 @@ export default class AddUserPopup extends Vue {
 
             return;
         }
-
-        this.$segment.track(SegmentEvent.TEAM_MEMBER_INVITED, {
-            project_id: this.$store.getters.selectedProject.id,
-            invited_emails: emailArray,
-        });
 
         await this.$notify.success('Members successfully added to project!');
         this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');

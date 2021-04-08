@@ -54,7 +54,6 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { Validator } from '@/utils/validation';
 
 @Component({
@@ -97,10 +96,6 @@ export default class DeleteAccountPopup extends Vue {
         try {
             await this.auth.delete(this.password);
             await this.$notify.success('Account was successfully deleted');
-
-            this.$segment.track(SegmentEvent.USER_DELETED, {
-                email: this.$store.getters.user.email,
-            });
 
             this.isLoading = false;
             await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_DEL_ACCOUNT);

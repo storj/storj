@@ -75,7 +75,6 @@ type Config struct {
 	SatelliteName                   string `help:"used to display at web satellite console" default:"Storj"`
 	SatelliteOperator               string `help:"name of organization which set up satellite" default:"Storj Labs" `
 	TermsAndConditionsURL           string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
-	SegmentIOPublicKey              string `help:"used to initialize segment.io at web satellite console" default:""`
 	AccountActivationRedirectURL    string `help:"url link for account activation redirect" default:""`
 	VerificationPageURL             string `help:"url link to sign up verification page" devDefault:"" releaseDefault:"https://tardigrade.io/verify"`
 	PartneredSatelliteNames         string `help:"names of partnered satellites" default:"US-Central-1,Europe-West-1,Asia-East-1"`
@@ -298,7 +297,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		ExternalAddress                 string
 		SatelliteName                   string
 		SatelliteNodeURL                string
-		SegmentIOPublicKey              string
 		StripePublicKey                 string
 		VerificationPageURL             string
 		PartneredSatelliteNames         string
@@ -318,7 +316,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.ExternalAddress = server.config.ExternalAddress
 	data.SatelliteName = server.config.SatelliteName
 	data.SatelliteNodeURL = server.nodeURL.String()
-	data.SegmentIOPublicKey = server.config.SegmentIOPublicKey
 	data.StripePublicKey = server.stripePublicKey
 	data.VerificationPageURL = server.config.VerificationPageURL
 	data.PartneredSatelliteNames = server.config.PartneredSatelliteNames
