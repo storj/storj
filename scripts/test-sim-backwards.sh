@@ -146,10 +146,6 @@ STORJ_NUM_NODES=9
 ## Run tests on the branch under test.
 ##
 
-go install storj.io/storj/cmd/metainfo-migration
-STORJ_MIGRATION_DB=${STORJ_MIGRATION_DB:-$STORJ_SIM_POSTGRES}
-metainfo-migration --pointerdb "${STORJ_MIGRATION_DB}" --metabasedb "${STORJ_MIGRATION_DB}"
-
 # check that branch uplink + branch network can read fully release data
 test_branch -b release-network-release-uplink download
 
