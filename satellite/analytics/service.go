@@ -207,7 +207,7 @@ func (service *Service) TrackEvent(eventName string, userID uuid.UUID) {
 // TrackLinkEvent sends an arbitrary event and link associated with user ID to Segment.
 // It is used for tracking occurrences of client-side events.
 func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, link string) {
-	
+
 	props := segment.NewProperties()
 	props.Set("link", link)
 
