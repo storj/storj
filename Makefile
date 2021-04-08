@@ -117,11 +117,6 @@ test-certificates: ## Test certificate signing service and storagenode setup (je
 	@echo "Running ${@}"
 	@./scripts/test-certificates.sh
 
-.PHONY: test-docker
-test-docker: ## Run tests in Docker
-	docker-compose up -d --remove-orphans test
-	docker-compose run test make test
-
 .PHONY: test-sim-backwards-compatible
 test-sim-backwards-compatible: ## Test uploading a file with lastest release (jenkins)
 	@echo "Running ${@}"
@@ -337,7 +332,7 @@ binaries-upload: ## Upload binaries to Google Storage (jenkins)
 ##@ Clean
 
 .PHONY: clean
-clean: test-docker-clean binaries-clean clean-images ## Clean docker test environment, local release binaries, and local Docker images
+clean: binaries-clean clean-images ## Clean docker test environment, local release binaries, and local Docker images
 
 .PHONY: binaries-clean
 binaries-clean: ## Remove all local release binaries (jenkins)
@@ -349,11 +344,6 @@ clean-images:
 	-docker rmi storjlabs/storagenode:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/uplink:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/versioncontrol:${TAG}${CUSTOMTAG}
-
-.PHONY: test-docker-clean
-test-docker-clean: ## Clean up Docker environment used in test-docker target
-	-docker-compose down --rmi all
-
 
 ##@ Tooling
 
