@@ -101,11 +101,11 @@ import WarningIcon from '@/../static/images/accessGrants/warning.svg';
 import ExpandIcon from '@/../static/images/common/BlackArrowExpand.svg';
 import HideIcon from '@/../static/images/common/BlackArrowHide.svg';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { GatewayCredentials } from '@/types/accessGrants';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { AnalyticsHttpApi } from '@/api/analytics';
 
 @Component({
     components: {
