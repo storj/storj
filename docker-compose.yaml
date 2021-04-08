@@ -62,3 +62,9 @@ services:
     - POSTGRES_PASSWORD=postgres
     - POSTGRES_USER=postgres
     - POSTGRES_DB=satellite
+
+  watchtower:
+    image: storjlabs/watchtower
+    command: storagenode watchtower --stop-timeout 300s
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
