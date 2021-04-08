@@ -14,7 +14,6 @@
                 <a class="dashboard__beta-banner__message__link" :href="betaSupportURL" target="_blank" rel="noopener noreferrer">here</a>
             </p>
         </div>
-        <NoPaywallInfoBar v-if="isNoPaywallInfoBarShown && !isLoading && !isBetaSatellite"/>
         <div v-if="!isLoading" class="dashboard__wrap">
             <DashboardHeader/>
             <div class="dashboard__wrap__main-area">
@@ -55,7 +54,6 @@ import { Component, Vue } from 'vue-property-decorator';
 import VInfoBar from '@/components/common/VInfoBar.vue';
 import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
-import NoPaywallInfoBar from '@/components/noPaywallInfoBar/NoPaywallInfoBar.vue';
 
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
@@ -88,7 +86,6 @@ const {
         NavigationArea,
         DashboardHeader,
         VInfoBar,
-        NoPaywallInfoBar,
     },
 })
 export default class DashboardArea extends Vue {
@@ -250,17 +247,6 @@ export default class DashboardArea extends Vue {
      */
     public get betaSupportURL(): string {
         return MetaUtils.getMetaContent('beta-satellite-support-url');
-    }
-
-    /**
-     * Indicates if no paywall info bar is shown.
-     */
-    public get isNoPaywallInfoBarShown(): boolean {
-        const isOnboardingTour: boolean = this.$route.path.includes(RouteConfig.OnboardingTour.path);
-
-        return !this.isPaywallEnabled && !isOnboardingTour &&
-            this.$store.state.paymentsModule.balance.coins === 0 &&
-            this.$store.state.paymentsModule.creditCards.length === 0;
     }
 
     /**
