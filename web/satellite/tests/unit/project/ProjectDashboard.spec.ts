@@ -9,16 +9,13 @@ import { appStateModule } from '@/store/modules/appState';
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { makeUsersModule } from '@/store/modules/users';
 import { Project } from '@/types/projects';
-import { SegmentioPlugin } from '@/utils/plugins/segment';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { ProjectsApiMock } from '../mock/api/projects';
 import { UsersApiMock } from '../mock/api/users';
 
-const segmentioPlugin = new SegmentioPlugin();
 const localVue = createLocalVue();
 localVue.use(Vuex);
-localVue.use(segmentioPlugin);
 
 const usersApi = new UsersApiMock();
 const usersModule = makeUsersModule(usersApi);

@@ -6,7 +6,6 @@ import VueClipboard from 'vue-clipboard2';
 import { DirectiveBinding } from 'vue/types/options';
 
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
-import { SegmentioPlugin } from '@/utils/plugins/segment';
 
 import App from './App.vue';
 import { router } from './router';
@@ -17,10 +16,8 @@ Vue.config.performance = true;
 Vue.config.productionTip = false;
 
 const notificator = new NotificatorPlugin();
-const segment = new SegmentioPlugin();
 
 Vue.use(notificator);
-Vue.use(segment);
 Vue.use(VueClipboard);
 
 let clickOutsideEvent: EventListener;

@@ -148,9 +148,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # name of organization which set up satellite
 # console.satellite-operator: Storj Labs
 
-# used to initialize segment.io at web satellite console
-# console.segment-io-public-key: ""
-
 # used to communicate with web crawlers and other web robots
 # console.seo: "User-agent: *\nDisallow: \nDisallow: /cgi-bin/"
 

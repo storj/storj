@@ -21,7 +21,6 @@ import StripeCardInput from '@/components/account/billing/paymentMethods/StripeC
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 const {
     ADD_CREDIT_CARD,
@@ -62,9 +61,6 @@ export default class AddCardForm extends Vue {
         }
 
         await this.$notify.success('Card successfully added');
-        this.$segment.track(SegmentEvent.PAYMENT_METHOD_ADDED, {
-            project_id: this.$store.getters.selectedProject.id,
-        });
         try {
             await this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {
@@ -93,10 +89,6 @@ export default class AddCardForm extends Vue {
      */
     public async onConfirmAddStripe(): Promise<void> {
         await this.$refs.stripeCardInput.onSubmit();
-
-        this.$segment.track(SegmentEvent.PAYMENT_METHOD_ADDED, {
-            project_id: this.$store.getters.selectedProject.id,
-        });
     }
 
     /**

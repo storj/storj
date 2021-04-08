@@ -29,7 +29,6 @@ import InfoIcon from '@/../static/images/common/infoTooltipSm.svg';
 
 import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { MetaUtils } from '@/utils/meta';
 
 @Component({
@@ -44,7 +43,6 @@ import { MetaUtils } from '@/utils/meta';
 export default class ProjectDashboard extends Vue {
     /**
      * Lifecycle hook after initial render.
-     * Segment tracking is processed.
      */
     public mounted(): void {
         if (!this.$store.getters.selectedProject.id) {
@@ -57,10 +55,6 @@ export default class ProjectDashboard extends Vue {
         if (projectLimit && this.$store.getters.projectsCount < projectLimit) {
             this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
         }
-
-        this.$segment.track(SegmentEvent.PROJECT_VIEWED, {
-            project_id: this.$store.getters.selectedProject.id,
-        });
     }
 
     /**
