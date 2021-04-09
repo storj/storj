@@ -90,6 +90,7 @@ type Config struct {
 	FileBrowserFlowDisabled         bool   `help:"indicates if file browser flow is disabled" default:"true"`
 	CSPEnabled                      bool   `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
 	LinksharingURL                  string `help:"url link for linksharing requests" default:"https://link.tardigradeshare.io"`
+	PathwayOverviewEnabled          bool   `help:"indicates if the overview onboarding step should render with pathways" default:"false"`
 
 	RateLimit web.IPRateLimiterConfig
 
@@ -317,6 +318,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		CouponCodeUIEnabled             bool
 		FileBrowserFlowDisabled         bool
 		LinksharingURL                  string
+		PathwayOverviewEnabled          bool
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -337,6 +339,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.CouponCodeUIEnabled = server.config.CouponCodeUIEnabled
 	data.FileBrowserFlowDisabled = server.config.FileBrowserFlowDisabled
 	data.LinksharingURL = server.config.LinksharingURL
+	data.PathwayOverviewEnabled = server.config.PathwayOverviewEnabled
 
 	if server.templates.index == nil {
 		server.log.Error("index template is not set")
