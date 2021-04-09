@@ -128,13 +128,13 @@ export default class GeneratePassphrase extends Vue {
             return;
         }
 
-        this.analytics.eventTriggered(AnalyticsEvent.PASSPHRASE_CREATED);
-
         if (!this.isChecked) {
             this.isError = true;
 
             return;
         }
+
+        this.analytics.eventTriggered(AnalyticsEvent.PASSPHRASE_CREATED);
 
         this.onButtonClick();
     }
