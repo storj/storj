@@ -208,14 +208,15 @@ func (service *Service) TrackEvent(eventName string, userID uuid.UUID) {
 // It is used for tracking occurrences of client-side events.
 func (service *Service) TrackLinkEvent(eventName string, userID uuid.UUID, link string) {
 
-	props := segment.NewProperties()
-	props.Set("link", link)
-
 	// do not track if the event name is an invalid client-side event
 	if !service.clientEvents[eventName] {
 		service.log.Error("Invalid client-triggered event", zap.String("eventName", eventName))
 		return
 	}
+
+	props := segment.NewProperties()
+	props.Set("link", link)
+
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      eventName,
