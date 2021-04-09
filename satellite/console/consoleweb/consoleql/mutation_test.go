@@ -53,11 +53,6 @@ func TestGraphqlMutation(t *testing.T) {
 		partnersService := rewards.NewPartnersService(
 			log.Named("partners"),
 			rewards.DefaultPartnersDB,
-			[]string{
-				"https://us-central-1.tardigrade.io/",
-				"https://asia-east-1.tardigrade.io/",
-				"https://europe-west-1.tardigrade.io/",
-			},
 		)
 
 		analyticsService := analytics.NewService(log, analytics.Config{}, "test-satellite")

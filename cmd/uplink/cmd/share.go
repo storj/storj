@@ -38,7 +38,7 @@ var shareCfg struct {
 	Register    bool   `default:"false" help:"if true, creates and registers access grant" basic-help:"true"`
 	URL         bool   `default:"false" help:"if true, returns a url for the shared path. implies --register and --public" basic-help:"true"`
 	DNS         string `default:"" help:"specify your custom hostname. if set, returns dns settings for web hosting. implies --register and --public" basic-help:"true"`
-	AuthService string `default:"https://auth.tardigradeshare.io" help:"url for shared auth service" basic-help:"true"`
+	AuthService string `default:"https://auth.us1.storjshare.io" help:"url for shared auth service" basic-help:"true"`
 	Public      bool   `default:"false" help:"if true, the access will be public. --dns and --url override this" basic-help:"true"`
 
 	// Share requires information about the current access
