@@ -13,7 +13,7 @@ import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
 
 import AuthIcon from '@/../static/images/AuthImage.svg';
 import InfoIcon from '@/../static/images/info.svg';
-import LogoIcon from '@/../static/images/Logo.svg';
+import LogoIcon from '@/../static/images/dcs-logo.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
