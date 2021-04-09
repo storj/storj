@@ -88,6 +88,7 @@ type Config struct {
 	DocumentationURL                string `help:"url link to documentation" devDefault:"https://documentation.storj.io/" releaseDefault:"https://documentation.tardigrade.io/"`
 	CouponCodeUIEnabled             bool   `help:"indicates if user is allowed to add coupon codes to account" default:"false"`
 	FileBrowserFlowDisabled         bool   `help:"indicates if file browser flow is disabled" default:"true"`
+	CSPEnabled                      bool   `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
 
 	RateLimit web.IPRateLimiterConfig
 
@@ -279,17 +280,20 @@ func (server *Server) Close() error {
 func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header := w.Header()
 
-	cspValues := []string{
-		"default-src 'self'",
-		"connect-src 'self' api.segment.io *.google-analytics.com *.tardigradeshare.io " + server.config.GatewayCredentialsRequestURL,
-		"frame-ancestors " + server.config.FrameAncestors,
-		"frame-src 'self' *.stripe.com *.googletagmanager.com",
-		"img-src 'self' data: *.customer.io *.googletagmanager.com *.google-analytics.com",
-		"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com cdn.segment.com *.customer.io *.google-analytics.com *.googletagmanager.com",
+	if server.config.CSPEnabled {
+		cspValues := []string{
+			"default-src 'self'",
+			"connect-src 'self' api.segment.io *.google-analytics.com *.tardigradeshare.io " + server.config.GatewayCredentialsRequestURL,
+			"frame-ancestors " + server.config.FrameAncestors,
+			"frame-src 'self' *.stripe.com *.googletagmanager.com",
+			"img-src 'self' data: *.customer.io *.googletagmanager.com *.google-analytics.com",
+			"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com cdn.segment.com *.customer.io *.google-analytics.com *.googletagmanager.com",
+		}
+
+		header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
 	}
 
 	header.Set(contentType, "text/html; charset=UTF-8")
-	header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
 	header.Set("X-Content-Type-Options", "nosniff")
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
