@@ -103,20 +103,17 @@ export default class BucketsView extends Vue {
         }
 
         try {
-            if (!this.accessGrantFromStore) {
-                await this.setWorker();
-                // This is done just in case old temporary access grant still exists.
-                await this.removeTemporaryAccessGrant();
-                await this.setAccess();
-                await this.fetchBuckets();
-            }
-
-            this.isLoading = false;
+            await this.setWorker();
+            await this.removeTemporaryAccessGrant();
+            await this.setAccess();
+            await this.fetchBuckets();
 
             if (!this.bucketsList.length) this.showCreateBucketPopup();
         } catch (error) {
             await this.$notify.error(`Failed to setup Buckets view. ${error.message}`);
         }
+
+        this.isLoading = false;
     }
 
     /**
