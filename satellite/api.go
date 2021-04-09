@@ -354,11 +354,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Marketing.PartnersService = rewards.NewPartnersService(
 			peer.Log.Named("partners"),
 			rewards.DefaultPartnersDB,
-			[]string{
-				"https://us-central-1.tardigrade.io/",
-				"https://asia-east-1.tardigrade.io/",
-				"https://europe-west-1.tardigrade.io/",
-			},
 		)
 	}
 

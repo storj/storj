@@ -69,7 +69,7 @@ type Config struct {
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
 	ContactInfoURL                  string `help:"url link to contacts page" default:"https://forum.storj.io"`
-	FrameAncestors                  string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io"`
+	FrameAncestors                  string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io storj.io"`
 	LetUsKnowURL                    string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
 	SEO                             string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
 	SatelliteName                   string `help:"used to display at web satellite console" default:"Storj"`
@@ -80,11 +80,11 @@ type Config struct {
 	PartneredSatelliteNames         string `help:"names of partnered satellites" default:"US-Central-1,Europe-West-1,Asia-East-1"`
 	GeneralRequestURL               string `help:"url link to general request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
 	ProjectLimitsIncreaseRequestURL string `help:"url link to project limit increase request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
-	GatewayCredentialsRequestURL    string `help:"url link for gateway credentials requests" default:"https://auth.tardigradeshare.io"`
+	GatewayCredentialsRequestURL    string `help:"url link for gateway credentials requests" default:"https://auth.us1.storjshare.io"`
 	IsBetaSatellite                 bool   `help:"indicates if satellite is in beta" default:"false"`
 	BetaSatelliteFeedbackURL        string `help:"url link for for beta satellite feedback" default:""`
 	BetaSatelliteSupportURL         string `help:"url link for for beta satellite support" default:""`
-	DocumentationURL                string `help:"url link to documentation" devDefault:"https://documentation.storj.io/" releaseDefault:"https://documentation.tardigrade.io/"`
+	DocumentationURL                string `help:"url link to documentation" default:"https://docs.storj.io/"`
 	CouponCodeUIEnabled             bool   `help:"indicates if user is allowed to add coupon codes to account" default:"false"`
 	FileBrowserFlowDisabled         bool   `help:"indicates if file browser flow is disabled" default:"false"`
 	CSPEnabled                      bool   `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`

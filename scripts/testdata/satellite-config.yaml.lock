@@ -101,7 +101,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.default-project-limit: 3
 
 # url link to documentation
-# console.documentation-url: https://documentation.tardigrade.io/
+# console.documentation-url: https://docs.storj.io/
 
 # external endpoint of the satellite if hosted
 # console.external-address: ""
@@ -110,10 +110,10 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.file-browser-flow-disabled: false
 
 # allow domains to embed the satellite in a frame, space separated
-# console.frame-ancestors: tardigrade.io
+# console.frame-ancestors: tardigrade.io storj.io
 
 # url link for gateway credentials requests
-# console.gateway-credentials-request-url: https://auth.tardigradeshare.io
+# console.gateway-credentials-request-url: https://auth.us1.storjshare.io
 
 # url link to general request page
 # console.general-request-url: https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000379291
