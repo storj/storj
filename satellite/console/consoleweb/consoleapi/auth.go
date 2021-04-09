@@ -167,10 +167,11 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	trackCreateUserFields := analytics.TrackCreateUserFields{
-		ID:       user.ID,
-		FullName: user.FullName,
-		Email:    user.Email,
-		Type:     analytics.Personal,
+		ID:          user.ID,
+		AnonymousID: loadSession(r),
+		FullName:    user.FullName,
+		Email:       user.Email,
+		Type:        analytics.Personal,
 	}
 	if user.IsProfessional {
 		trackCreateUserFields.Type = analytics.Professional
@@ -208,6 +209,16 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		a.log.Error("registration handler could not encode userID", zap.Error(ErrAuthAPI.Wrap(err)))
 		return
 	}
+}
+
+// loadSession looks for a cookie for the session id.
+// this cookie is set from the reverse proxy if the user opts into cookies from Storj.
+func loadSession(req *http.Request) string {
+	sessionCookie, err := req.Cookie("webtraf-sid")
+	if err != nil {
+		return ""
+	}
+	return sessionCookie.Value
 }
 
 // UpdateAccount updates user's full name and short name.

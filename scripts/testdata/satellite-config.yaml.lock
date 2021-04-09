@@ -94,6 +94,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if user is allowed to add coupon codes to account
 # console.coupon-code-ui-enabled: false
 
+# indicates if Content Security Policy is enabled
+# console.csp-enabled: true
+
 # default project limits for users
 # console.default-project-limit: 3
 
@@ -123,6 +126,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # url link to let us know page
 # console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
+
+# url link for linksharing requests
+# console.linksharing-url: https://link.tardigradeshare.io
 
 # enable open registration
 # console.open-registration-enabled: false

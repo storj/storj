@@ -22,6 +22,7 @@ import { MetaUtils } from '@/utils/meta';
     },
 })
 export default class UploadFile extends Vue {
+    private linksharingURL = '';
     private worker: Worker;
 
     /**
@@ -45,6 +46,8 @@ export default class UploadFile extends Vue {
 
             return;
         }
+
+        this.linksharingURL = MetaUtils.getMetaContent('linksharing-url');
 
         this.setWorker();
     }
@@ -80,7 +83,7 @@ export default class UploadFile extends Vue {
         try {
             const key: string = await this.accessKey(this.apiKey, inADay, path);
 
-            return `https://link.tardigradeshare.io/s/${key}/${path}?map=1`;
+            return `${this.linksharingURL}/s/${key}/${path}?map=1`;
         } catch (error) {
             await this.$notify.error(error.message);
 
@@ -101,7 +104,7 @@ export default class UploadFile extends Vue {
         try {
             const key: string = await this.accessKey(cleanAPIKey.secret, notAfter, path);
 
-            return `https://link.tardigradeshare.io/${key}/${path}`;
+            return `${this.linksharingURL}/${key}/${path}`;
         } catch (error) {
             await this.$notify.error(error.message);
 
