@@ -33,15 +33,15 @@ export default class ResourcesDropdown extends Vue {
     }
 
     public onDocsIconClick(): void {
-        this.analytics.linkEventTriggered(AnalyticsEvent.EXTERNAL_LINK_CLICKED,"https://documentation.storj.io");
+        this.analytics.linkEventTriggered(AnalyticsEvent.EXTERNAL_LINK_CLICKED, "https://documentation.storj.io");
     }
 
     public onCommunityIconClick(): void {
-        this.analytics.linkEventTriggered(AnalyticsEvent.EXTERNAL_LINK_CLICKED,"https://storj.io/community/");
+        this.analytics.linkEventTriggered(AnalyticsEvent.EXTERNAL_LINK_CLICKED, "https://storj.io/community/");
     }
 
     public onSupportIconClick(): void {
-        this.analytics.linkEventTriggered(AnalyticsEvent.EXTERNAL_LINK_CLICKED,"mailto:support@storj.io");
+        this.analytics.linkEventTriggered(AnalyticsEvent.EXTERNAL_LINK_CLICKED, "mailto:support@storj.io");
     }
 }
 </script>
