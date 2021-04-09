@@ -11,6 +11,7 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import { RouteConfig } from '@/router';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { MetaUtils } from '@/utils/meta';
 
 @Component
@@ -23,6 +24,14 @@ export default class ObjectsArea extends Vue {
         if (await JSON.parse(MetaUtils.getMetaContent('file-browser-flow-disabled'))) {
             await this.$router.push(RouteConfig.ProjectDashboard.path);
         }
+    }
+
+    /**
+     * Lifecycle hook before component destroying.
+     * Clears objects VUEX state.
+     */
+    public beforeDestroy() {
+        this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
     }
 }
 </script>
