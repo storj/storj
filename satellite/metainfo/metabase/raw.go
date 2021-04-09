@@ -27,9 +27,11 @@ type RawObject struct {
 	EncryptedMetadata             []byte
 	EncryptedMetadataEncryptedKey []byte
 
+	// TotalPlainSize is 0 for a migrated object.
 	TotalPlainSize     int64
 	TotalEncryptedSize int64
-	FixedSegmentSize   int32
+	// FixedSegmentSize is 0 for a migrated object.
+	FixedSegmentSize int32
 
 	Encryption storj.EncryptionParameters
 
@@ -52,7 +54,9 @@ type RawSegment struct {
 	EncryptedKey      []byte
 
 	EncryptedSize int32 // size of the whole segment (not a piece)
-	PlainSize     int32
+	// PlainSize is 0 for a migrated object.
+	PlainSize int32
+	// PlainOffset is 0 for a migrated object.
 	PlainOffset   int64
 	EncryptedETag []byte
 

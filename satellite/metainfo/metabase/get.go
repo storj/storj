@@ -21,10 +21,13 @@ var ErrSegmentNotFound = errs.Class("segment not found")
 // TODO define separated struct.
 type Object RawObject
 
-// SegmentsHavePlainOffsets returns whether the object segments contain the necessary plain offset and
-// plain size.
-func (obj *Object) SegmentsHavePlainOffsets() bool {
-	return obj.TotalPlainSize > 0
+// IsMigrated returns whether the object comes from PointerDB.
+// Pointer objects are special that they are missing some information.
+//
+//   * TotalPlainSize = 0 and FixedSegmentSize = 0.
+//   * Segment.PlainOffset = 0, Segment.PlainSize = 0
+func (obj *Object) IsMigrated() bool {
+	return obj.TotalPlainSize <= 0
 }
 
 // Segment segment metadata.

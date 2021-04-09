@@ -122,8 +122,10 @@ type ListStreamPositionsResult struct {
 
 // SegmentPositionInfo contains information for segment position.
 type SegmentPositionInfo struct {
-	Position          SegmentPosition
-	PlainSize         int32
+	Position SegmentPosition
+	// PlainSize is 0 for a migrated object.
+	PlainSize int32
+	// PlainOffset is 0 for a migrated object.
 	PlainOffset       int64
 	CreatedAt         *time.Time // TODO: make it non-nilable after we migrate all existing segments to have creation time
 	EncryptedETag     []byte
