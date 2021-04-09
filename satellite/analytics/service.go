@@ -16,9 +16,9 @@ const (
 	eventProjectCreated       = "Project Created"
 	eventAccessGrantCreated   = "Access Grant Created"
 	eventAccountVerified      = "Account Verified"
-	gatewayCredentialsCreated = "Credentials Created"
-	passphraseCreated         = "Passphrase Created"
-	externalLinkClicked       = "External Link Clicked"
+	eventGatewayCredentialsCreated = "Credentials Created"
+	eventPassphraseCreated         = "Passphrase Created"
+	eventExternalLinkClicked       = "External Link Clicked"
 )
 
 // Config is a configuration struct for analytics Service.
@@ -50,7 +50,7 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 	if config.Enabled {
 		service.segment = segment.New(config.SegmentWriteKey)
 	}
-	for _, name := range []string{gatewayCredentialsCreated, passphraseCreated, externalLinkClicked} {
+	for _, name := range []string{eventGatewayCredentialsCreated, eventPassphraseCreated, eventExternalLinkClicked} {
 		service.clientEvents[name] = true
 	}
 	return service
