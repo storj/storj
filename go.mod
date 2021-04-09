@@ -48,9 +48,9 @@ require (
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	google.golang.org/api v0.20.0 // indirect
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
-	storj.io/common v0.0.0-20210406151410-a1147267017f
+	storj.io/common v0.0.0-20210408063549-b10b43cba35a
 	storj.io/drpc v0.0.20
 	storj.io/monkit-jaeger v0.0.0-20210225162224-66fb37637bf6
 	storj.io/private v0.0.0-20210403210935-5fd57695864c
-	storj.io/uplink v1.4.6-0.20210408091458-460c63232849
+	storj.io/uplink v1.4.6-0.20210409140224-ad6bc2e5b2ee
 )
