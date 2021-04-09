@@ -89,6 +89,7 @@ type Config struct {
 	CouponCodeUIEnabled             bool   `help:"indicates if user is allowed to add coupon codes to account" default:"false"`
 	FileBrowserFlowDisabled         bool   `help:"indicates if file browser flow is disabled" default:"true"`
 	CSPEnabled                      bool   `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
+	LinksharingURL                  string `help:"url link for linksharing requests" default:"https://link.tardigradeshare.io"`
 
 	RateLimit web.IPRateLimiterConfig
 
@@ -315,6 +316,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		DocumentationURL                string
 		CouponCodeUIEnabled             bool
 		FileBrowserFlowDisabled         bool
+		LinksharingURL                  string
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -334,6 +336,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.DocumentationURL = server.config.DocumentationURL
 	data.CouponCodeUIEnabled = server.config.CouponCodeUIEnabled
 	data.FileBrowserFlowDisabled = server.config.FileBrowserFlowDisabled
+	data.LinksharingURL = server.config.LinksharingURL
 
 	if server.templates.index == nil {
 		server.log.Error("index template is not set")
