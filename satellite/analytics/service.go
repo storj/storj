@@ -11,11 +11,11 @@ import (
 )
 
 const (
-	eventAccountCreated       = "Account Created"
-	eventSignedIn             = "Signed In"
-	eventProjectCreated       = "Project Created"
-	eventAccessGrantCreated   = "Access Grant Created"
-	eventAccountVerified      = "Account Verified"
+	eventAccountCreated            = "Account Created"
+	eventSignedIn                  = "Signed In"
+	eventProjectCreated            = "Project Created"
+	eventAccessGrantCreated        = "Access Grant Created"
+	eventAccountVerified           = "Account Verified"
 	eventGatewayCredentialsCreated = "Credentials Created"
 	eventPassphraseCreated         = "Passphrase Created"
 	eventExternalLinkClicked       = "External Link Clicked"
