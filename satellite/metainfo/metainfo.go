@@ -979,6 +979,9 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		if len(segments.Segments) == 0 {
 			return nil, nil
 		}
+		if object.IsMigrated() && streamRange != nil && streamRange.PlainStart > 0 {
+			return nil, nil
+		}
 
 		segment, err := endpoint.metainfo.metabaseDB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 			StreamID: object.StreamID,
@@ -1124,9 +1127,10 @@ func calculateStreamRange(object metabase.Object, req *pb.Range) (*metabase.Stre
 	if req == nil || req.Range == nil {
 		return nil, nil
 	}
-	// we cannot calculate stream ranges for old objects.
-	if !object.SegmentsHavePlainOffsets() {
-		// TODO: handle object.FixedSegmentSize
+
+	if object.IsMigrated() {
+		// The object is in old format, which does not have plain_offset specified.
+		// We need to fallback to returning all segments.
 		return nil, nil
 	}
 
