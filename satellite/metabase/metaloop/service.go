@@ -89,6 +89,7 @@ func (NullObserver) LoopStarted(context.Context, LoopInfo) error {
 }
 
 type observerContext struct {
+	trigger  bool
 	observer Observer
 
 	ctx  context.Context
@@ -178,7 +179,7 @@ type MetabaseDB interface {
 type Service struct {
 	config     Config
 	metabaseDB MetabaseDB
-	join       chan []*observerContext
+	join       chan *observerContext
 	done       chan struct{}
 }
 
@@ -187,37 +188,48 @@ func New(config Config, metabaseDB MetabaseDB) *Service {
 	return &Service{
 		metabaseDB: metabaseDB,
 		config:     config,
-		join:       make(chan []*observerContext),
+		join:       make(chan *observerContext),
 		done:       make(chan struct{}),
 	}
 }
 
 // Join will join the looper for one full cycle until completion and then returns.
+// Joining will trigger a new iteration after coalesce duration.
 // On ctx cancel the observer will return without completely finishing.
 // Only on full complete iteration it will return nil.
 // Safe to be called concurrently.
-func (loop *Service) Join(ctx context.Context, observers ...Observer) (err error) {
+func (loop *Service) Join(ctx context.Context, observer Observer) (err error) {
+	return loop.joinObserver(ctx, true, observer)
+}
+
+// Monitor will join the looper for one full cycle until completion and then returns.
+// Joining with monitoring won't trigger after coalesce duration.
+// On ctx cancel the observer will return without completely finishing.
+// Only on full complete iteration it will return nil.
+// Safe to be called concurrently.
+func (loop *Service) Monitor(ctx context.Context, observer Observer) (err error) {
+	return loop.joinObserver(ctx, false, observer)
+}
+
+// joinObserver will join the looper for one full cycle until completion and then returns.
+// On ctx cancel the observer will return without completely finishing.
+// Only on full complete iteration it will return nil.
+// Safe to be called concurrently.
+func (loop *Service) joinObserver(ctx context.Context, trigger bool, obs Observer) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	obsContexts := make([]*observerContext, len(observers))
-	for i, obs := range observers {
-		obsContexts[i] = newObserverContext(ctx, obs)
-	}
+	obsctx := newObserverContext(ctx, obs)
+	obsctx.trigger = trigger
 
 	select {
-	case loop.join <- obsContexts:
+	case loop.join <- obsctx:
 	case <-ctx.Done():
 		return ctx.Err()
 	case <-loop.done:
 		return ErrClosed
 	}
 
-	var errList errs.Group
-	for _, ctx := range obsContexts {
-		errList.Add(ctx.Wait())
-	}
-
-	return errList.Err()
+	return obsctx.Wait()
 }
 
 // Run starts the looping service.
@@ -248,30 +260,80 @@ var monMetainfo = monkit.ScopeNamed("storj.io/storj/satellite/metainfo/metaloop"
 func (loop *Service) RunOnce(ctx context.Context) (err error) {
 	defer monMetainfo.Task()(&ctx)(&err) //mon:locked
 
-	var observers []*observerContext
-
-	// wait for the first observer, or exit because context is canceled
-	select {
-	case list := <-loop.join:
-		observers = append(observers, list...)
-	case <-ctx.Done():
-		return ctx.Err()
+	coalesceTimer := time.NewTimer(loop.config.CoalesceDuration)
+	defer coalesceTimer.Stop()
+	if !coalesceTimer.Stop() {
+		<-coalesceTimer.C
 	}
 
-	// after the first observer is found, set timer for CoalesceDuration and add any observers that try to join before the timer is up
-	timer := time.NewTimer(loop.config.CoalesceDuration)
+	earlyExit := make(chan *observerContext)
+	earlyExitDone := make(chan struct{})
+	monitorEarlyExit := func(obs *observerContext) {
+		select {
+		case <-obs.ctx.Done():
+			select {
+			case <-earlyExitDone:
+			case earlyExit <- obs:
+			}
+		case <-earlyExitDone:
+		}
+	}
+
+	timerStarted := false
+	observers := []*observerContext{}
+
 waitformore:
 	for {
 		select {
-		case list := <-loop.join:
-			observers = append(observers, list...)
-		case <-timer.C:
+		// when the coalesce timer hits, we have waited enough for observers to join.
+		case <-coalesceTimer.C:
 			break waitformore
+
+		// wait for a new observer to join.
+		case obsctx := <-loop.join:
+			// when the observer triggers the loop and it's the first one,
+			// then start the coalescing timer.
+			if obsctx.trigger {
+				if !timerStarted {
+					coalesceTimer.Reset(loop.config.CoalesceDuration)
+					timerStarted = true
+				}
+			}
+			observers = append(observers, obsctx)
+			go monitorEarlyExit(obsctx)
+
+		// remove an observer from waiting when it's canceled before the loop starts.
+		case obsctx := <-earlyExit:
+			for i, obs := range observers {
+				if obs == obsctx {
+					observers = append(observers[:i], observers[i+1:]...)
+					break
+				}
+			}
+
+			obsctx.HandleError(obsctx.ctx.Err())
+
+			// reevalute, whether we acually need to start the loop.
+			timerShouldRun := false
+			for _, obs := range observers {
+				timerShouldRun = timerShouldRun || obs.trigger
+			}
+
+			if !timerShouldRun && timerStarted {
+				if !coalesceTimer.Stop() {
+					<-coalesceTimer.C
+				}
+			}
+
+		// when ctx done happens we can finish all the waiting observers.
 		case <-ctx.Done():
-			finishObservers(observers)
+			close(earlyExitDone)
+			errorObservers(observers, ctx.Err())
 			return ctx.Err()
 		}
 	}
+	close(earlyExitDone)
+
 	return iterateDatabase(ctx, loop.metabaseDB, observers, loop.config.ListLimit, rate.NewLimiter(rate.Limit(loop.config.RateLimit), 1))
 }
 
@@ -284,9 +346,7 @@ func (loop *Service) Wait() {
 func iterateDatabase(ctx context.Context, metabaseDB MetabaseDB, observers []*observerContext, limit int, rateLimiter *rate.Limiter) (err error) {
 	defer func() {
 		if err != nil {
-			for _, observer := range observers {
-				observer.HandleError(err)
-			}
+			errorObservers(observers, err)
 			return
 		}
 		finishObservers(observers)
@@ -509,5 +569,11 @@ func handleSegment(ctx context.Context, observer *observerContext, location meta
 func finishObservers(observers []*observerContext) {
 	for _, observer := range observers {
 		observer.Finish()
+	}
+}
+
+func errorObservers(observers []*observerContext, err error) {
+	for _, observer := range observers {
+		observer.HandleError(err)
 	}
 }

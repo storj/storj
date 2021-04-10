@@ -48,23 +48,21 @@ func (chore *Chore) RunOnce(ctx context.Context) error {
 
 	var group errs2.Group
 	group.Go(func() error {
+		plainOffset := &SegmentSizes{
+			Log: chore.Log.Named("segment-sizes"),
+		}
+		err := loop.Join(ctx, plainOffset)
+		return Error.Wrap(err)
+	})
+
+	group.Go(func() error {
 		progress := &ProgressObserver{
 			Log:                    chore.Log.Named("progress"),
 			ProgressPrintFrequency: chore.Config.ProgressPrintFrequency,
 		}
-
-		plainOffset := &SegmentSizes{
-			Log: chore.Log.Named("segment-sizes"),
-		}
-
-		err := loop.Join(ctx, progress, plainOffset)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
+		err := loop.Monitor(ctx, progress)
 		progress.Report()
-
-		return nil
+		return Error.Wrap(err)
 	})
 	group.Go(func() error {
 		return Error.Wrap(loop.RunOnce(ctx))
