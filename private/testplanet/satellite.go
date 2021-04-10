@@ -603,9 +603,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			MaxOrderLimitSendCount:       3,
 			NodeMinAgeInMonths:           0,
 		},
-		Metrics: metrics.Config{
-			ChoreInterval: defaultInterval,
-		},
+		Metrics: metrics.Config{},
 	}
 
 	if planet.config.Reconfigure.Satellite != nil {
