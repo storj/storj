@@ -25,7 +25,6 @@ import (
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/metaloop"
-	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -63,10 +62,6 @@ type GarbageCollection struct {
 
 	GarbageCollection struct {
 		Service *gc.Service
-	}
-
-	Metrics struct {
-		Chore *metrics.Chore
 	}
 }
 
@@ -166,21 +161,6 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Garbage Collection", peer.GarbageCollection.Service.Loop))
-	}
-
-	{ // setup metrics service
-		peer.Metrics.Chore = metrics.NewChore(
-			peer.Log.Named("metrics"),
-			config.Metrics,
-			peer.Metainfo.Loop,
-		)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "metrics",
-			Run:   peer.Metrics.Chore.Run,
-			Close: peer.Metrics.Chore.Close,
-		})
-		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Metrics", peer.Metrics.Chore.Loop))
 	}
 
 	return peer, nil
