@@ -17,7 +17,6 @@ import LogoIcon from '@/../static/images/Logo.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
-import { GoogleTagManager } from '@/types/gtm';
 import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
@@ -40,10 +39,6 @@ export default class RegisterArea extends Vue {
 
     // tardigrade logic
     private secret: string = '';
-    private gtm: GoogleTagManager;
-    private satellitesString: string;
-    private partneredSatellites: string[];
-    private satelliteName: string;
 
     private userId: string = '';
     private isTermsAccepted: boolean = false;
@@ -52,6 +47,7 @@ export default class RegisterArea extends Vue {
 
     // Only for beta sats (like US2).
     private areBetaTermsAccepted: boolean = false;
+    private areBetaTermsAcceptedError: boolean = false;
 
     private fullNameError: string = '';
     private emailError: string = '';
@@ -63,9 +59,6 @@ export default class RegisterArea extends Vue {
     private isTermsAcceptedError: boolean = false;
     private isLoading: boolean = false;
     private isProfessional: boolean = false;
-
-    // Only for beta sats (like US2).
-    private areBetaTermsAcceptedError: boolean = false;
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
@@ -79,29 +72,10 @@ export default class RegisterArea extends Vue {
     public optionsShown = false;
 
     /**
-     * Lifecycle hook before vue instance is created.
-     * Initializes google tag manager (Tardigrade).
-     */
-    public async beforeCreate(): Promise<void> {
-        this.satellitesString = MetaUtils.getMetaContent('partnered-satellite-names');
-        this.partneredSatellites = this.satellitesString.split(',');
-        this.satelliteName = MetaUtils.getMetaContent('satellite-name');
-
-        if (this.partneredSatellites.includes(this.satelliteName)) {
-            this.gtm = new GoogleTagManager();
-            await this.gtm.init();
-        }
-    }
-
-    /**
      * Lifecycle hook on component destroy.
-     * Sets view to default state and removed GTM.
+     * Sets view to default state.
      */
     public beforeDestroy(): void {
-        if (this.partneredSatellites.includes(this.satelliteName)) {
-            this.gtm.remove();
-        }
-
         if (this.isRegistrationSuccessful) {
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
         }
