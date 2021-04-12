@@ -48,12 +48,12 @@
                 />
             </div>
             <div class="overview-area__path-section">
-                <DuplicatiIcon class="overview-area__path-section__icon" />
-                <h4 class="overview-area__path-section__title">Duplicati</h4>
-                <p class="overview-area__path-section__text">Automatically backup your objects and data to the Storj Network using Duplicati.</p>
+                <img class="overview-area__path-section__icon" src="@/../static/images/onboardingTour/rclone.png" alt="rclone image">
+                <h4 class="overview-area__path-section__title">Sync with Rclone</h4>
+                <p class="overview-area__path-section__text">Map your filesystem to the decentralized cloud.</p>
                 <a
                     class="overview-area__path-section__button"
-                    href="https://docs.storj.io/how-tos/backup-with-duplicati"
+                    href="https://docs.storj.io/how-tos/sync-files-with-rclone"
                     target="_blank"
                     rel="noopener noreferrer"
                 >
@@ -77,7 +77,6 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import VButton from '@/components/common/VButton.vue';
 
-import DuplicatiIcon from '@/../static/images/onboardingTour/duplicati.svg';
 import GatewayIcon from '@/../static/images/onboardingTour/s3-gateway.svg';
 
 import { RouteConfig } from '@/router';
@@ -91,7 +90,6 @@ import { PM_ACTIONS } from '@/utils/constants/actionNames';
 @Component({
     components: {
         VButton,
-        DuplicatiIcon,
         GatewayIcon,
     },
 })
@@ -281,6 +279,11 @@ export default class OverviewStep extends Vue {
                 font-family: 'font_regular', sans-serif;
                 font-size: 16px;
                 line-height: 24px;
+                min-height: 72px;
+            }
+
+            &__icon {
+                max-height: 57px;
             }
 
             &__button {
