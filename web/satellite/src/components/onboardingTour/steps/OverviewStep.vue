@@ -1,7 +1,76 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-<template src="./overviewStep.html"></template>
+<template>
+    <div class="overview-area">
+        <h2 class="overview-area__header">Welcome to Storj DCS</h2>
+        <div class="overview-area__continue__area">
+            <img class="overview-area__continue__img" src="@/../static/images/onboardingTour/continue-bg.png" alt="continue image">
+            <div class="overview-area__continue__text-area">
+                <h3 class="overview-area__continue__header">Continue in Browser</h3>
+                <p class="overview-area__continue__text">Start uploading files in the browser and instantly see how your data gets distributed over our global storage network. You can always use other upload methods later.</p>
+                <VButton
+                    class="overview-area__continue__button"
+                    label="Continue in Browser"
+                    width="234px"
+                    height="48px"
+                    :on-press="onContinueInBrowserClick"
+                    :is-disabled="isLoading"
+                />
+            </div>
+        </div>
+        <h3 class="overview-area__second-header">More Ways To Upload</h3>
+        <div class="overview-area__path-area">
+            <div class="overview-area__path-section">
+                <GatewayIcon class="overview-area__path-section__icon" />
+                <h4 class="overview-area__path-section__title">GatewayMT</h4>
+                <p class="overview-area__path-section__text">Backwards S3-Compatible API for uploading data programatically.</p>
+                <VButton
+                    class="overview-area__path-section__button"
+                    label="Continue"
+                    width="calc(100% - 4px)"
+                    :on-press="onCreateGrantClick"
+                    :is-blue-white="true"
+                    :is-disabled="isLoading"
+                />
+            </div>
+            <div class="overview-area__path-section">
+                <img src="@/../static/images/onboardingTour/command-line-icon.png" alt="uplink icon">
+                <h4 class="overview-area__path-section__title">Uplink CLI</h4>
+                <p class="overview-area__path-section__text">Natively installed client for interacting with the Storj Network.</p>
+                <VButton
+                    class="overview-area__path-section__button"
+                    label="Continue"
+                    width="calc(100% - 4px)"
+                    :on-press="onCreateGrantClick"
+                    :is-blue-white="true"
+                    :is-disabled="isLoading"
+                />
+            </div>
+            <div class="overview-area__path-section">
+                <DuplicatiIcon class="overview-area__path-section__icon" />
+                <h4 class="overview-area__path-section__title">Duplicati</h4>
+                <p class="overview-area__path-section__text">Automatically backup your objects and data to the Storj Network using Duplicati.</p>
+                <a
+                    class="overview-area__path-section__button"
+                    href="https://docs.storj.io/how-tos/backup-with-duplicati"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    Continue
+                </a>
+            </div>
+        </div>
+        <a
+            class="overview-area__integrations-button"
+            href="https://storj.io/connectors/developer-tools"
+            target="_blank"
+            rel="noopener noreferrer"
+        >
+            More Integrations
+        </a>
+    </div>
+</template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
@@ -121,4 +190,135 @@ export default class OverviewStep extends Vue {
 }
 </script>
 
-<style scoped lang="scss" src="./overviewStep.scss"></style>
+<style scoped lang="scss">
+    p,
+    h1,
+    h2 {
+        margin: 0;
+    }
+
+    .overview-area {
+
+        &__header,
+        &__second-header {
+            font-family: 'font_bold', sans-serif;
+            font-size: 38px;
+            line-height: 46px;
+            text-align: center;
+        }
+
+        &__header {
+            margin: 0 auto 80px auto;
+        }
+
+        &__second-header {
+            font-size: 28px;
+            line-height: 54px;
+            margin: 50px auto;
+        }
+
+        &__continue {
+
+            &__area {
+                background: #fff;
+                max-width: 1120px;
+                height: 415px;
+                display: flex;
+                margin: 0 auto;
+                justify-content: space-between;
+                border-radius: 20px;
+            }
+
+            &__img {
+                width: 50%;
+                margin-top: 30px;
+            }
+
+            &__text-area {
+                width: calc(50% - 80px);
+                padding: 0 40px;
+            }
+
+            &__header {
+                font-family: 'font_bold', sans-serif;
+                font-size: 32px;
+                line-height: 38px;
+                margin-top: 80px;
+            }
+
+            &__text {
+                font-family: 'font_regular', sans-serif;
+                font-size: 16px;
+                line-height: 32px;
+            }
+
+            &__button {
+                margin-top: 30px;
+            }
+        }
+
+        &__path-area {
+            display: flex;
+            justify-content: space-between;
+            max-width: 1120px;
+            margin: 0 auto;
+        }
+
+        &__path-section {
+            background: #fff;
+            text-align: left;
+            border-radius: 20px;
+            padding: 60px 50px;
+            width: 22%;
+
+            &__title {
+                font-family: 'font_bold', sans-serif;
+                font-size: 24px;
+                line-height: 29px;
+            }
+
+            &__text {
+                font-family: 'font_regular', sans-serif;
+                font-size: 16px;
+                line-height: 24px;
+            }
+
+            &__button {
+                font-family: 'font_medium', sans-serif;
+                font-size: 16px;
+                margin-top: 40px;
+                border: 2px solid #2683ff;
+                width: calc(100% - 4px);
+                color: #2683ff;
+                border-radius: 10px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                height: 23px;
+                padding: 14px 0;
+
+                &:hover {
+                    color: #fff;
+                    background: #2683ff;
+                }
+            }
+        }
+
+        &__integrations-button {
+            font-family: 'font_normal', sans-serif;
+            font-size: 16px;
+            color: #fff;
+            border-radius: 10px;
+            display: block;
+            text-align: center;
+            padding: 16px 0;
+            margin: 60px auto;
+            background: #2683ff;
+            width: 355px;
+
+            &:hover {
+                background: darken(#2683ff, 10%);
+            }
+        }
+    }
+</style>
