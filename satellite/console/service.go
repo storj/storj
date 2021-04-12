@@ -698,6 +698,8 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", user.ID.String()), zap.Error(Error.Wrap(err)))
 	}
 
+	s.analytics.TrackAccountVerified(user.ID, user.Email)
+
 	return nil
 }
 

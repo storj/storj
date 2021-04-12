@@ -29,4 +29,17 @@ export class AnalyticsHttpApi {
 
         throw new Error('Can not track event');
     }
+
+    public async linkEventTriggered(eventName: string, link: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/event`;
+        const body = {
+            eventName: eventName,
+            link: link,
+        };
+        const response = await this.http.post(path, JSON.stringify(body));
+        if (response.ok) {
+            return;
+        }
+        throw new Error('Can not track event');
+    }
 }
