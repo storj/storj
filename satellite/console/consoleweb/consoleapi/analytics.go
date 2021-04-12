@@ -38,6 +38,7 @@ func NewAnalytics(log *zap.Logger, service *console.Service, a *analytics.Servic
 
 type eventTriggeredBody struct {
 	EventName string `json:"eventName"`
+	Link      string `json:"link"`
 }
 
 // EventTriggered tracks the occurrence of an arbitrary event on the client.
@@ -61,7 +62,11 @@ func (a *Analytics) EventTriggered(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.analytics.TrackEvent(et.EventName, userID)
+	if et.Link != "" {
+		a.analytics.TrackLinkEvent(et.EventName, userID, et.Link)
+	} else {
+		a.analytics.TrackEvent(et.EventName, userID)
+	}
 	w.WriteHeader(http.StatusOK)
 }
 
