@@ -78,7 +78,6 @@ type Config struct {
 	AccountActivationRedirectURL    string `help:"url link for account activation redirect" default:""`
 	VerificationPageURL             string `help:"url link to sign up verification page" devDefault:"" releaseDefault:"https://tardigrade.io/verify"`
 	PartneredSatelliteNames         string `help:"names of partnered satellites" default:"US-Central-1,Europe-West-1,Asia-East-1"`
-	GoogleTagManagerID              string `help:"id for google tag manager" default:""`
 	GeneralRequestURL               string `help:"url link to general request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
 	ProjectLimitsIncreaseRequestURL string `help:"url link to project limit increase request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
 	GatewayCredentialsRequestURL    string `help:"url link for gateway credentials requests" default:"https://auth.us1.storjshare.io"`
@@ -285,11 +284,11 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	if server.config.CSPEnabled {
 		cspValues := []string{
 			"default-src 'self'",
-			"connect-src 'self' api.segment.io *.google-analytics.com *.tardigradeshare.io *.storjshare.io " + server.config.GatewayCredentialsRequestURL,
+			"connect-src 'self' api.segment.io *.tardigradeshare.io *.storjshare.io " + server.config.GatewayCredentialsRequestURL,
 			"frame-ancestors " + server.config.FrameAncestors,
-			"frame-src 'self' *.stripe.com *.googletagmanager.com",
-			"img-src 'self' data: *.customer.io *.googletagmanager.com *.google-analytics.com *.tardigradeshare.io *.storjshare.io",
-			"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com cdn.segment.com *.customer.io *.google-analytics.com *.googletagmanager.com",
+			"frame-src 'self' *.stripe.com",
+			"img-src 'self' data: *.customer.io *.tardigradeshare.io *.storjshare.io",
+			"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com cdn.segment.com *.customer.io",
 		}
 
 		header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
@@ -306,7 +305,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		StripePublicKey                 string
 		VerificationPageURL             string
 		PartneredSatelliteNames         string
-		GoogleTagManagerID              string
 		DefaultProjectLimit             int
 		GeneralRequestURL               string
 		ProjectLimitsIncreaseRequestURL string
@@ -327,7 +325,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.StripePublicKey = server.stripePublicKey
 	data.VerificationPageURL = server.config.VerificationPageURL
 	data.PartneredSatelliteNames = server.config.PartneredSatelliteNames
-	data.GoogleTagManagerID = server.config.GoogleTagManagerID
 	data.DefaultProjectLimit = server.config.DefaultProjectLimit
 	data.GeneralRequestURL = server.config.GeneralRequestURL
 	data.ProjectLimitsIncreaseRequestURL = server.config.ProjectLimitsIncreaseRequestURL
