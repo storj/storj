@@ -52,11 +52,11 @@ exports[`OverviewStep.vue renders correctly 1`] = `
         </defs>
       </svg>
       <h4 class="overview-area__path-section__title">Duplicati</h4>
-      <p class="overview-area__path-section__text">Automatically backup your objects and data to the Storj Network using Duplicati.</p> <a href="https://docs.storj.io/how-tos/backup-with-duplicati" target="_blank" class="overview-area__path-section__button">
+      <p class="overview-area__path-section__text">Automatically backup your objects and data to the Storj Network using Duplicati.</p> <a href="https://docs.storj.io/how-tos/backup-with-duplicati" target="_blank" rel="noopener noreferrer" class="overview-area__path-section__button">
         Continue
       </a>
     </div>
-  </div> <a href="https://www.tardigrade.io/connectors/" target="_blank" class="overview-area__integrations-button">
+  </div> <a href="https://storj.io/connectors/developer-tools" target="_blank" rel="noopener noreferrer" class="overview-area__integrations-button">
     More Integrations
   </a>
 </div>
@@ -114,11 +114,11 @@ exports[`OverviewStep.vue renders correctly 2`] = `
         </defs>
       </svg>
       <h4 class="overview-area__path-section__title">Duplicati</h4>
-      <p class="overview-area__path-section__text">Automatically backup your objects and data to the Storj Network using Duplicati.</p> <a href="https://docs.storj.io/how-tos/backup-with-duplicati" target="_blank" class="overview-area__path-section__button">
+      <p class="overview-area__path-section__text">Automatically backup your objects and data to the Storj Network using Duplicati.</p> <a href="https://docs.storj.io/how-tos/backup-with-duplicati" target="_blank" rel="noopener noreferrer" class="overview-area__path-section__button">
         Continue
       </a>
     </div>
-  </div> <a href="https://www.tardigrade.io/connectors/" target="_blank" class="overview-area__integrations-button">
+  </div> <a href="https://storj.io/connectors/developer-tools" target="_blank" rel="noopener noreferrer" class="overview-area__integrations-button">
     More Integrations
   </a>
 </div>

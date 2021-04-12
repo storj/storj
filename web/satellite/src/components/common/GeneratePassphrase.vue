@@ -85,8 +85,8 @@ import VButton from '@/components/common/VButton.vue';
 import BackIcon from '@/../static/images/accessGrants/back.svg';
 import WarningIcon from '@/../static/images/accessGrants/warning.svg';
 
-import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 @Component({
     components: {
