@@ -285,10 +285,10 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	if server.config.CSPEnabled {
 		cspValues := []string{
 			"default-src 'self'",
-			"connect-src 'self' api.segment.io *.google-analytics.com *.tardigradeshare.io " + server.config.GatewayCredentialsRequestURL,
+			"connect-src 'self' api.segment.io *.google-analytics.com *.tardigradeshare.io *.storjshare.io " + server.config.GatewayCredentialsRequestURL,
 			"frame-ancestors " + server.config.FrameAncestors,
 			"frame-src 'self' *.stripe.com *.googletagmanager.com",
-			"img-src 'self' data: *.customer.io *.googletagmanager.com *.google-analytics.com",
+			"img-src 'self' data: *.customer.io *.googletagmanager.com *.google-analytics.com *.tardigradeshare.io *.storjshare.io",
 			"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com cdn.segment.com *.customer.io *.google-analytics.com *.googletagmanager.com",
 		}
 
