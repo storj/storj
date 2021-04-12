@@ -60,7 +60,6 @@ import ChargesHideIcon from '@/../static/images/account/billing/chargesHide.svg'
 import { ProjectUsageAndCharges } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { Time } from '@/utils/time';
 
@@ -151,12 +150,6 @@ export default class UsageAndChargesItem extends Vue {
         url.searchParams.append('projectID', projectID);
         url.searchParams.append('since', Time.toUnixTimestamp(startDate).toString());
         url.searchParams.append('before', Time.toUnixTimestamp(endDate).toString());
-
-        this.$segment.track(SegmentEvent.REPORT_DOWNLOADED, {
-            start_date: startDate,
-            end_date: endDate,
-            project_id: projectID,
-        });
 
         window.open(url.href, '_blank');
     }

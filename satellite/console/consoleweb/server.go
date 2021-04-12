@@ -75,7 +75,6 @@ type Config struct {
 	SatelliteName                   string `help:"used to display at web satellite console" default:"Storj"`
 	SatelliteOperator               string `help:"name of organization which set up satellite" default:"Storj Labs" `
 	TermsAndConditionsURL           string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
-	SegmentIOPublicKey              string `help:"used to initialize segment.io at web satellite console" default:""`
 	AccountActivationRedirectURL    string `help:"url link for account activation redirect" default:""`
 	VerificationPageURL             string `help:"url link to sign up verification page" devDefault:"" releaseDefault:"https://tardigrade.io/verify"`
 	PartneredSatelliteNames         string `help:"names of partnered satellites" default:"US-Central-1,Europe-West-1,Asia-East-1"`
@@ -88,7 +87,10 @@ type Config struct {
 	BetaSatelliteSupportURL         string `help:"url link for for beta satellite support" default:""`
 	DocumentationURL                string `help:"url link to documentation" devDefault:"https://documentation.storj.io/" releaseDefault:"https://documentation.tardigrade.io/"`
 	CouponCodeUIEnabled             bool   `help:"indicates if user is allowed to add coupon codes to account" default:"false"`
-	FileBrowserFlowDisabled         bool   `help:"indicates if file browser flow is disabled" default:"true"`
+	FileBrowserFlowDisabled         bool   `help:"indicates if file browser flow is disabled" default:"false"`
+	CSPEnabled                      bool   `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
+	LinksharingURL                  string `help:"url link for linksharing requests" default:"https://link.tardigradeshare.io"`
+	PathwayOverviewEnabled          bool   `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 
 	RateLimit web.IPRateLimiterConfig
 
@@ -280,17 +282,20 @@ func (server *Server) Close() error {
 func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header := w.Header()
 
-	cspValues := []string{
-		"default-src 'self'",
-		"connect-src 'self' api.segment.io *.google-analytics.com *.tardigradeshare.io " + server.config.GatewayCredentialsRequestURL,
-		"frame-ancestors " + server.config.FrameAncestors,
-		"frame-src 'self' *.stripe.com *.googletagmanager.com",
-		"img-src 'self' data: *.customer.io *.googletagmanager.com *.google-analytics.com",
-		"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com cdn.segment.com *.customer.io *.google-analytics.com *.googletagmanager.com",
+	if server.config.CSPEnabled {
+		cspValues := []string{
+			"default-src 'self'",
+			"connect-src 'self' api.segment.io *.google-analytics.com *.tardigradeshare.io " + server.config.GatewayCredentialsRequestURL,
+			"frame-ancestors " + server.config.FrameAncestors,
+			"frame-src 'self' *.stripe.com *.googletagmanager.com",
+			"img-src 'self' data: *.customer.io *.googletagmanager.com *.google-analytics.com",
+			"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com cdn.segment.com *.customer.io *.google-analytics.com *.googletagmanager.com",
+		}
+
+		header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
 	}
 
 	header.Set(contentType, "text/html; charset=UTF-8")
-	header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
 	header.Set("X-Content-Type-Options", "nosniff")
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
@@ -298,7 +303,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		ExternalAddress                 string
 		SatelliteName                   string
 		SatelliteNodeURL                string
-		SegmentIOPublicKey              string
 		StripePublicKey                 string
 		VerificationPageURL             string
 		PartneredSatelliteNames         string
@@ -313,12 +317,13 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		DocumentationURL                string
 		CouponCodeUIEnabled             bool
 		FileBrowserFlowDisabled         bool
+		LinksharingURL                  string
+		PathwayOverviewEnabled          bool
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
 	data.SatelliteName = server.config.SatelliteName
 	data.SatelliteNodeURL = server.nodeURL.String()
-	data.SegmentIOPublicKey = server.config.SegmentIOPublicKey
 	data.StripePublicKey = server.stripePublicKey
 	data.VerificationPageURL = server.config.VerificationPageURL
 	data.PartneredSatelliteNames = server.config.PartneredSatelliteNames
@@ -333,6 +338,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.DocumentationURL = server.config.DocumentationURL
 	data.CouponCodeUIEnabled = server.config.CouponCodeUIEnabled
 	data.FileBrowserFlowDisabled = server.config.FileBrowserFlowDisabled
+	data.LinksharingURL = server.config.LinksharingURL
+	data.PathwayOverviewEnabled = server.config.PathwayOverviewEnabled
 
 	if server.templates.index == nil {
 		server.log.Error("index template is not set")

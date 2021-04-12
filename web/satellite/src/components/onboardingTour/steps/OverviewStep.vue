@@ -18,7 +18,6 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectFields } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 @Component({
     components: {
@@ -101,10 +100,6 @@ export default class OverviewStep extends Vue {
         );
         const createdProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
         const createdProjectId = createdProject.id;
-
-        this.$segment.track(SegmentEvent.PROJECT_CREATED, {
-            project_id: createdProjectId,
-        });
 
         await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, createdProjectId);
         await this.$store.dispatch(PM_ACTIONS.CLEAR);

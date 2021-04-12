@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"storj.io/common/identity"
-	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/overlay"
 )
@@ -56,15 +55,15 @@ func (cache *IdentityCache) GetUpdated(ctx context.Context, id storj.NodeID) (_ 
 }
 
 // EnsureCached loads any missing identity into cache.
-func (cache *IdentityCache) EnsureCached(ctx context.Context, pieces []*pb.RemotePiece) (err error) {
+func (cache *IdentityCache) EnsureCached(ctx context.Context, nodes []storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	missing := []storj.NodeID{}
 
 	cache.mu.RLock()
-	for _, piece := range pieces {
-		if _, ok := cache.cached[piece.NodeId]; !ok {
-			missing = append(missing, piece.NodeId)
+	for _, node := range nodes {
+		if _, ok := cache.cached[node]; !ok {
+			missing = append(missing, node)
 		}
 	}
 	cache.mu.RUnlock()

@@ -336,19 +336,6 @@ export default class RegisterArea extends Vue {
             this.userId = await this.auth.register(this.user, this.secret);
             LocalData.setUserId(this.userId);
 
-            if (this.user.isProfessional) {
-                this.$segment.identify(this.userId, {
-                    email: this.$store.getters.user.email,
-                    position: this.$store.getters.user.position,
-                    company_name: this.$store.getters.user.companyName,
-                    employee_count: this.$store.getters.user.employeeCount,
-                });
-            } else {
-                this.$segment.identify(this.userId, {
-                    email: this.$store.getters.user.email,
-                });
-            }
-
             const verificationPageURL: string = MetaUtils.getMetaContent('verification-page-url');
             if (verificationPageURL) {
                 const externalAddress: string = MetaUtils.getMetaContent('external-address');

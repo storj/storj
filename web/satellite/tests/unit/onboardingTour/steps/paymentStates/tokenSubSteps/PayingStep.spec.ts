@@ -11,16 +11,13 @@ import { makePaymentsModule } from '@/store/modules/payments';
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
 import { Notificator } from '@/utils/plugins/notificator';
-import { SegmentioPlugin } from '@/utils/plugins/segment';
 import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 
 import { PaymentsMock } from '../../../../mock/api/payments';
 import { ProjectsApiMock } from '../../../../mock/api/projects';
 
 const localVue = createLocalVue();
-const segmentioPlugin = new SegmentioPlugin();
 localVue.use(Vuex);
-localVue.use(segmentioPlugin);
 
 const paymentsApi = new PaymentsMock();
 const paymentsModule = makePaymentsModule(paymentsApi);

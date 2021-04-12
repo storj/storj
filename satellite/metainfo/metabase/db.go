@@ -126,13 +126,13 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						encrypted_metadata               BYTEA default NULL,
 						encrypted_metadata_encrypted_key BYTEA default NULL,
 
-						total_plain_size     INT4 NOT NULL default 0,
+						total_plain_size     INT4 NOT NULL default 0, -- migrated objects have this = 0
 						total_encrypted_size INT4 NOT NULL default 0,
-						fixed_segment_size   INT4 NOT NULL default 0,
+						fixed_segment_size   INT4 NOT NULL default 0, -- migrated objects have this = 0
 
 						encryption INT8 NOT NULL default 0,
 
-						zombie_deletion_deadline TIMESTAMPTZ default now() + '1 day', -- should this be in a separate table?
+						zombie_deletion_deadline TIMESTAMPTZ default now() + '1 day',
 
 						PRIMARY KEY (project_id, bucket_name, object_key, version)
 					)`,
@@ -144,16 +144,16 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 						encrypted_key_nonce BYTEA NOT NULL,
 						encrypted_key       BYTEA NOT NULL,
 
-						encrypted_size INT4 NOT NULL, -- maybe this can be skipped?
-						plain_offset   INT8 NOT NULL, -- this is needed to find segment based on plain byte offset
-						plain_size     INT4 NOT NULL,
+						encrypted_size INT4 NOT NULL,
+						plain_offset   INT8 NOT NULL, -- migrated objects have this = 0
+						plain_size     INT4 NOT NULL, -- migrated objects have this = 0
 
 						redundancy INT8 NOT NULL default 0,
 
 						inline_data  BYTEA DEFAULT NULL,
 						remote_pieces BYTEA[],
 
-						PRIMARY KEY (stream_id, position) -- TODO: should this use plain_offset for the primary index?
+						PRIMARY KEY (stream_id, position)
 					)`,
 				},
 			},

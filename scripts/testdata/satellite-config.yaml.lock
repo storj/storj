@@ -94,6 +94,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if user is allowed to add coupon codes to account
 # console.coupon-code-ui-enabled: false
 
+# indicates if Content Security Policy is enabled
+# console.csp-enabled: true
+
 # default project limits for users
 # console.default-project-limit: 3
 
@@ -104,7 +107,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.external-address: ""
 
 # indicates if file browser flow is disabled
-# console.file-browser-flow-disabled: true
+# console.file-browser-flow-disabled: false
 
 # allow domains to embed the satellite in a frame, space separated
 # console.frame-ancestors: tardigrade.io
@@ -124,11 +127,17 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to let us know page
 # console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
 
+# url link for linksharing requests
+# console.linksharing-url: https://link.tardigradeshare.io
+
 # enable open registration
 # console.open-registration-enabled: false
 
 # names of partnered satellites
 # console.partnered-satellite-names: US-Central-1,Europe-West-1,Asia-East-1
+
+# indicates if the overview onboarding step should render with pathways
+# console.pathway-overview-enabled: true
 
 # url link to project limit increase request page
 # console.project-limits-increase-request-url: https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212
@@ -147,9 +156,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # name of organization which set up satellite
 # console.satellite-operator: Storj Labs
-
-# used to initialize segment.io at web satellite console
-# console.segment-io-public-key: ""
 
 # used to communicate with web crawlers and other web robots
 # console.seo: "User-agent: *\nDisallow: \nDisallow: /cgi-bin/"
