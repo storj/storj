@@ -428,7 +428,7 @@ func TestCommitSegment_Validation(t *testing.T) {
 		err = client.CommitSegment(ctx, metainfo.CommitSegmentParams{
 			SegmentID: response.SegmentID,
 			UploadResult: []*pb.SegmentPieceUploadResult{
-				&pb.SegmentPieceUploadResult{},
+				{},
 			},
 		})
 		require.Error(t, err)
@@ -438,7 +438,7 @@ func TestCommitSegment_Validation(t *testing.T) {
 		err = client.CommitSegment(ctx, metainfo.CommitSegmentParams{
 			SegmentID: response.SegmentID,
 			UploadResult: []*pb.SegmentPieceUploadResult{
-				&pb.SegmentPieceUploadResult{
+				{
 					Hash: &pb.PieceHash{
 						PieceSize: -1,
 					},
@@ -453,7 +453,7 @@ func TestCommitSegment_Validation(t *testing.T) {
 			SegmentID:         response.SegmentID,
 			SizeEncryptedData: 512,
 			UploadResult: []*pb.SegmentPieceUploadResult{
-				&pb.SegmentPieceUploadResult{
+				{
 					Hash: &pb.PieceHash{
 						PieceSize: 10000,
 					},
@@ -467,12 +467,12 @@ func TestCommitSegment_Validation(t *testing.T) {
 		err = client.CommitSegment(ctx, metainfo.CommitSegmentParams{
 			SegmentID: response.SegmentID,
 			UploadResult: []*pb.SegmentPieceUploadResult{
-				&pb.SegmentPieceUploadResult{
+				{
 					Hash: &pb.PieceHash{
 						PieceSize: 10000,
 					},
 				},
-				&pb.SegmentPieceUploadResult{
+				{
 					Hash: &pb.PieceHash{
 						PieceSize: 9000,
 					},
@@ -487,7 +487,7 @@ func TestCommitSegment_Validation(t *testing.T) {
 			SegmentID:         response.SegmentID,
 			SizeEncryptedData: 512,
 			UploadResult: []*pb.SegmentPieceUploadResult{
-				&pb.SegmentPieceUploadResult{
+				{
 					PieceNum: 10,
 					NodeId:   response.Limits[0].Limit.StorageNodeId,
 					Hash: &pb.PieceHash{
@@ -506,7 +506,7 @@ func TestCommitSegment_Validation(t *testing.T) {
 			SegmentID:         response.SegmentID,
 			SizeEncryptedData: 512,
 			UploadResult: []*pb.SegmentPieceUploadResult{
-				&pb.SegmentPieceUploadResult{
+				{
 					PieceNum: 0,
 					NodeId:   response.Limits[0].Limit.StorageNodeId,
 					Hash: &pb.PieceHash{
@@ -533,7 +533,7 @@ func TestCommitSegment_Validation(t *testing.T) {
 			SegmentID:         response.SegmentID,
 			SizeEncryptedData: 512,
 			UploadResult: []*pb.SegmentPieceUploadResult{
-				&pb.SegmentPieceUploadResult{
+				{
 					PieceNum: 0,
 					NodeId:   testrand.NodeID(), // random node ID
 					Hash:     signedHash,
@@ -549,7 +549,7 @@ func TestCommitSegment_Validation(t *testing.T) {
 			PlainSize:         513,
 			SizeEncryptedData: 512,
 			UploadResult: []*pb.SegmentPieceUploadResult{
-				&pb.SegmentPieceUploadResult{
+				{
 					PieceNum: 0,
 					NodeId:   response.Limits[0].Limit.StorageNodeId,
 					Hash:     signedHash,
