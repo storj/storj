@@ -7,22 +7,26 @@
         <div class="overview-area__continue__area">
             <img class="overview-area__continue__img" src="@/../static/images/onboardingTour/continue-bg.png" alt="continue image">
             <div class="overview-area__continue__text-area">
-                <h3 class="overview-area__continue__header">Continue in Browser</h3>
-                <p class="overview-area__continue__text">Start uploading files in the browser and instantly see how your data gets distributed over our global storage network. You can always use other upload methods later.</p>
-                <VButton
-                    class="overview-area__continue__button"
-                    label="Continue in Browser"
-                    width="234px"
-                    height="48px"
-                    :on-press="onContinueInBrowserClick"
-                    :is-disabled="isLoading"
-                />
+                <div class="overview-area__continue__container">
+                    <p class="overview-area__label continue-label server-side-label">Server-Side Encrypted</p>
+                    <h3 class="overview-area__continue__header">Continue in Browser</h3>
+                    <p class="overview-area__continue__text">Start uploading files in the browser and instantly see how your data gets distributed over our global storage network. You can always use other upload methods later.</p>
+                    <VButton
+                        class="overview-area__continue__button"
+                        label="Continue in Browser"
+                        width="234px"
+                        height="48px"
+                        :on-press="onContinueInBrowserClick"
+                        :is-disabled="isLoading"
+                    />
+                </div>
             </div>
         </div>
         <h3 class="overview-area__second-header">More Ways To Upload</h3>
         <div class="overview-area__path-area">
             <div class="overview-area__path-section">
                 <GatewayIcon class="overview-area__path-section__icon" />
+                <p class="overview-area__label server-side-label">Server-Side Encrypted</p>
                 <h4 class="overview-area__path-section__title">GatewayMT</h4>
                 <p class="overview-area__path-section__text">Backwards S3-Compatible API for uploading data programatically.</p>
                 <VButton
@@ -36,6 +40,7 @@
             </div>
             <div class="overview-area__path-section">
                 <img src="@/../static/images/onboardingTour/command-line-icon.png" alt="uplink icon">
+                <p class="overview-area__label">End-to-End Encrypted</p>
                 <h4 class="overview-area__path-section__title">Uplink CLI</h4>
                 <p class="overview-area__path-section__text">Natively installed client for interacting with the Storj Network.</p>
                 <VButton
@@ -49,6 +54,7 @@
             </div>
             <div class="overview-area__path-section">
                 <img class="overview-area__path-section__icon" src="@/../static/images/onboardingTour/rclone.png" alt="rclone image">
+                <p class="overview-area__label">End-to-End Encrypted</p>
                 <h4 class="overview-area__path-section__title">Sync with Rclone</h4>
                 <p class="overview-area__path-section__text">Map your filesystem to the decentralized cloud.</p>
                 <a
@@ -215,7 +221,37 @@ export default class OverviewStep extends Vue {
             margin: 50px auto;
         }
 
+        &__label {
+            font-family: 'font_normal', sans-serif;
+            font-weight: 600;
+            font-size: 16px;
+            background: transparent;
+            width: 212px;
+            height: 22px;
+            padding-top: 5px;
+            border-radius: 50px;
+            margin: 20px auto 25px auto;
+            color: #000;
+            border: 2px solid #000;
+        }
+
+        &__label.continue-label {
+            text-align: center;
+            margin: 0;
+            position: relative;
+            top: 10px;
+        }
+
+        &__label.server-side-label {
+            color: #d63030;
+            border: 2px solid #d63030;
+        }
+
         &__continue {
+
+            &__container {
+                margin-top: 70px;
+            }
 
             &__area {
                 background: #fff;
@@ -225,6 +261,7 @@ export default class OverviewStep extends Vue {
                 margin: 0 auto;
                 justify-content: space-between;
                 border-radius: 20px;
+                padding-bottom: 60px;
             }
 
             &__img {
@@ -241,7 +278,8 @@ export default class OverviewStep extends Vue {
                 font-family: 'font_bold', sans-serif;
                 font-size: 32px;
                 line-height: 38px;
-                margin-top: 80px;
+                margin-top: 25px;
+                margin-bottom: 11px;
             }
 
             &__text {
@@ -264,7 +302,7 @@ export default class OverviewStep extends Vue {
 
         &__path-section {
             background: #fff;
-            text-align: left;
+            text-align: center;
             border-radius: 20px;
             padding: 60px 50px;
             width: 22%;
@@ -273,6 +311,7 @@ export default class OverviewStep extends Vue {
                 font-family: 'font_bold', sans-serif;
                 font-size: 24px;
                 line-height: 29px;
+                margin: 10px auto 20px auto;
             }
 
             &__text {
