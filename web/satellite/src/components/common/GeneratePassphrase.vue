@@ -93,6 +93,9 @@ import GreenWarningIcon from '@/../static/images/accessGrants/greenWarning.svg';
 import { AnalyticsHttpApi } from '@/api/analytics';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 @Component({
     components: {
         GreenWarningIcon,
@@ -108,6 +111,7 @@ export default class GeneratePassphrase extends Vue {
     public readonly setParentPassphrase: (passphrase: string) => void;
     @Prop({ default: false })
     public readonly isLoading: boolean;
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 

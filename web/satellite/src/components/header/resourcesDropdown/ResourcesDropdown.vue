@@ -14,6 +14,9 @@ import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsHttpApi } from '@/api/analytics';
+
 @Component({
     components: {
         DocsIcon,
@@ -22,7 +25,7 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
     },
 })
 export default class ResourcesDropdown extends Vue {
-
+    
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
     /**
      * Indicates if current route is onboarding tour.
@@ -32,15 +35,15 @@ export default class ResourcesDropdown extends Vue {
     }
 
     public onDocsIconClick(): void {
-        this.analytics.linkEventTriggered(AnalyticsEvent.EXTERNAL_LINK_CLICKED, 'https://documentation.storj.io');
+        this.analytics.linkEventTriggered(AnalyticsEvent.EXTERNAL_LINK_CLICKED, "https://documentation.storj.io");
     }
 
     public onCommunityIconClick(): void {
-        this.analytics.linkEventTriggered(AnalyticsEvent.EXTERNAL_LINK_CLICKED, 'https://storj.io/community/');
+        this.analytics.linkEventTriggered(AnalyticsEvent.EXTERNAL_LINK_CLICKED, "https://storj.io/community/");
     }
 
     public onSupportIconClick(): void {
-        this.analytics.linkEventTriggered(AnalyticsEvent.EXTERNAL_LINK_CLICKED, 'mailto:support@storj.io');
+        this.analytics.linkEventTriggered(AnalyticsEvent.EXTERNAL_LINK_CLICKED, "mailto:support@storj.io");
     }
 }
 </script>

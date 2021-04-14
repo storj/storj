@@ -101,10 +101,17 @@ export default class OverviewStep extends Vue {
     public isLoading: boolean = false;
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+<<<<<<< HEAD
          
     public onRcloneClick(): void {
         this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "Rclone Sync");
          }   
+=======
+        
+    public onDuplicatiClick(): void {
+         this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "Duplicati");
+        }   
+>>>>>>> 946376e9b423e44601c4314cde7272c12b9eb786
 
     /**
      * Lifecycle hook after initial render.
@@ -127,10 +134,37 @@ export default class OverviewStep extends Vue {
      * Creates untitled project and redirects to next step (creating access grant).
      */
     public async onGatewayMTClick(): Promise<void> {
+<<<<<<< HEAD
+=======
         if (this.isLoading) return;
 
         this.isLoading = true;
 
+        await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "GatewayMT");
+
+        try {
+            await this.createUntitledProject();
+
+            this.isLoading = false;
+
+            await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).with(RouteConfig.AccessGrantName).path);
+        } catch (error) {
+            await this.$notify.error(error.message);
+            this.isLoading = false;
+        }
+    }
+
+       /**
+     * Holds button click logic.
+     * Creates untitled project and redirects to next step (creating access grant).
+     */
+    public async onUplinkCLIClick(): Promise<void> {
+>>>>>>> 946376e9b423e44601c4314cde7272c12b9eb786
+        if (this.isLoading) return;
+
+        this.isLoading = true;
+
+<<<<<<< HEAD
         await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "GatewayMT");
 
         try {
@@ -154,6 +188,8 @@ export default class OverviewStep extends Vue {
 
         this.isLoading = true;
 
+=======
+>>>>>>> 946376e9b423e44601c4314cde7272c12b9eb786
         await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "CLI");
 
         try {
