@@ -6,5 +6,4 @@ export enum AnalyticsEvent {
     GATEWAY_CREDENTIALS_CREATED = 'Credentials Created',
     PASSPHRASE_CREATED = 'Passphrase Created',
     EXTERNAL_LINK_CLICKED = 'External Link Clicked',
-    PATH_SELECTED = 'Path Selected',
 }
