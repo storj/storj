@@ -24,8 +24,8 @@ const (
 
 // Config is a configuration struct for analytics Service.
 type Config struct {
-	SegmentWriteKey string `help:"segment write key" default:"PJHKQ467MAAuyQztrvkmLFFvodczjd2u"`
-	Enabled         bool   `help:"enable analytics reporting" default:"true"`
+	SegmentWriteKey string `help:"segment write key" default:""`
+	Enabled         bool   `help:"enable analytics reporting" default:"false"`
 }
 
 // Service for sending analytics.
