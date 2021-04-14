@@ -25,6 +25,13 @@
                     height="30px"
                     :on-press="onCopyGrantClick"
                 />
+                <VButton
+                    class="generate-grant__grant-area__container__button"
+                    label="Download"
+                    width="80px"
+                    height="30px"
+                    :on-press="onDownloadGrantClick"
+                />
             </div>
         </div>
         <VButton
@@ -95,6 +102,31 @@ export default class ResultStep extends Vue {
     public onCopyGrantClick(): void {
         this.$copyText(this.access);
         this.$notify.success('Token was copied successfully');
+    }
+
+    /**
+     * Holds on download access grant button click logic.
+     * Downloads a file with the access called access-grant-<timestamp>.key
+     */
+    public onDownloadGrantClick(): void {
+        // this code is based on this Stackoverflow response: https://stackoverflow.com/a/33542499
+        // It works for downloading a file in IE 10+, Firefox, and Chrome without any additional libraries
+        const blob = new Blob([this.access], {type: 'text/plain'});
+        const ts = new Date();
+        const filename = 'access-grant-' + ts.toJSON() + '.key';
+
+        if (window.navigator.msSaveBlob) {
+            window.navigator.msSaveBlob(blob, filename);
+        } else {
+            const elem = window.document.createElement('a');
+            elem.href = window.URL.createObjectURL(blob);
+            elem.download = filename;
+            document.body.appendChild(elem);
+            elem.click();
+            document.body.removeChild(elem);
+        }
+
+        this.$notify.success('Token was downloaded successfully');
     }
 
     /**
@@ -275,7 +307,7 @@ export default class ResultStep extends Vue {
                 }
 
                 &__button {
-                    min-width: 66px;
+                    min-width: 85px;
                     min-height: 30px;
                     margin-left: 10px;
                 }
