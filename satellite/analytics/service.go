@@ -19,12 +19,13 @@ const (
 	eventGatewayCredentialsCreated = "Credentials Created"
 	eventPassphraseCreated         = "Passphrase Created"
 	eventExternalLinkClicked       = "External Link Clicked"
+	eventPathSelected              = "Path Selected"
 )
 
 // Config is a configuration struct for analytics Service.
 type Config struct {
-	SegmentWriteKey string `help:"segment write key" default:""`
-	Enabled         bool   `help:"enable analytics reporting" default:"false"`
+	SegmentWriteKey string `help:"segment write key" default:"PJHKQ467MAAuyQztrvkmLFFvodczjd2u"`
+	Enabled         bool   `help:"enable analytics reporting" default:"true"`
 }
 
 // Service for sending analytics.
@@ -50,7 +51,7 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 	if config.Enabled {
 		service.segment = segment.New(config.SegmentWriteKey)
 	}
-	for _, name := range []string{eventGatewayCredentialsCreated, eventPassphraseCreated, eventExternalLinkClicked} {
+	for _, name := range []string{eventGatewayCredentialsCreated, eventPassphraseCreated, eventExternalLinkClicked, eventPathSelected} {
 		service.clientEvents[name] = true
 	}
 	return service
