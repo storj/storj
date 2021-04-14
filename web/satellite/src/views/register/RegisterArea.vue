@@ -12,8 +12,8 @@ import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
 
 import AuthIcon from '@/../static/images/AuthImage.svg';
-import InfoIcon from '@/../static/images/info.svg';
 import LogoIcon from '@/../static/images/dcs-logo.svg';
+import InfoIcon from '@/../static/images/info.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';

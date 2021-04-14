@@ -198,7 +198,7 @@ export default class HeaderlessInput extends Vue {
             inputStyle: {
                 width: this.width,
                 height: this.height,
-                padding: this.withIcon ? '0 30px 0 50px' : '0 30px 0 0',
+                padding: this.withIcon ? '0 30px 0 50px' : '',
             },
             labelStyle: {
                 color: this.isWhite ? 'white' : '#354049',

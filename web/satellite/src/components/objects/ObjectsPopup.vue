@@ -8,7 +8,7 @@
             <p class="objects-popup__container__sub-title">{{subTitle}}</p>
             <HeaderedInput
                 class="objects-popup__container__input"
-                label="Bucket Name (lowercase letters)"
+                label="Bucket Name"
                 placeholder="Enter bucket name"
                 @setData="onChangeName"
                 :init-value="defaultInputValue"
@@ -46,7 +46,7 @@ import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 })
 export default class ObjectsPopup extends Vue {
     @Prop({ default: () => ''})
-    public readonly onClick;
+    public readonly onClick: () => void;
     @Prop({ default: ''})
     public readonly title: string;
     @Prop({ default: ''})

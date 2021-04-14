@@ -210,7 +210,7 @@ export default class NameStep extends Vue {
         }
 
         &__input {
-            width: calc(100% - 12px);
+            width: calc(100% - 2px);
         }
 
         &__buttons-area {
