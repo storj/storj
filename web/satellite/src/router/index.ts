@@ -25,6 +25,7 @@ import CreatePassphrase from '@/components/objects/CreatePassphrase.vue';
 import EnterPassphrase from '@/components/objects/EnterPassphrase.vue';
 import ObjectsArea from '@/components/objects/ObjectsArea.vue';
 import UploadFile from '@/components/objects/UploadFile.vue';
+import WarningView from '@/components/objects/WarningView.vue';
 import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
 import AddPaymentStep from '@/components/onboardingTour/steps/AddPaymentStep.vue';
 import CreateAccessGrantStep from '@/components/onboardingTour/steps/CreateAccessGrantStep.vue';
@@ -94,6 +95,7 @@ export abstract class RouteConfig {
     public static AccessGrantGateway = new NavigationLink('gateway', 'Onboarding Access Grant Gateway');
 
     // objects child paths.
+    public static Warning = new NavigationLink('warning', 'Objects Warning');
     public static CreatePassphrase = new NavigationLink('create-passphrase', 'Objects Create Passphrase');
     public static EnterPassphrase = new NavigationLink('enter-passphrase', 'Objects Enter Passphrase');
     public static BucketsManagement = new NavigationLink('buckets', 'Buckets Management');
@@ -325,6 +327,11 @@ export const router = new Router({
                     component: ObjectsArea,
                     children: [
                         {
+                            path: RouteConfig.Warning.path,
+                            name: RouteConfig.Warning.name,
+                            component: WarningView,
+                        },
+                        {
                             path: RouteConfig.CreatePassphrase.path,
                             name: RouteConfig.CreatePassphrase.name,
                             component: CreatePassphrase,
@@ -389,7 +396,7 @@ router.beforeEach((to, from, next) => {
     }
 
     if (navigateToDefaultSubTab(to.matched, RouteConfig.Objects)) {
-        next(RouteConfig.Objects.with(RouteConfig.CreatePassphrase).path);
+        next(RouteConfig.Objects.with(RouteConfig.Warning).path);
 
         return;
     }
