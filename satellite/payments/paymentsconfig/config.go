@@ -14,8 +14,8 @@ import (
 type Config struct {
 	Provider                 string `help:"payments provider to use" default:""`
 	StripeCoinPayments       stripecoinpayments.Config
-	StorageTBPrice           string         `help:"price user should pay for storing TB per month" default:"10"`
-	EgressTBPrice            string         `help:"price user should pay for each TB of egress" default:"45"`
+	StorageTBPrice           string         `help:"price user should pay for storing TB per month" default:"4"`
+	EgressTBPrice            string         `help:"price user should pay for each TB of egress" default:"7"`
 	ObjectPrice              string         `help:"price user should pay for each object stored in network per month" default:"0.0000022"`
 	BonusRate                int64          `help:"amount of percents that user will earn as bonus credits by depositing in STORJ tokens" default:"10"`
 	CouponValue              int64          `help:"coupon value in cents" default:"1000"`
