@@ -273,6 +273,11 @@ func (observer *Observer) ensureBucket(ctx context.Context, location metabase.Ob
 	return bucket
 }
 
+// LoopStarted is called at each start of a loop.
+func (observer *Observer) LoopStarted(context.Context, metaloop.LoopInfo) (err error) {
+	return nil
+}
+
 // Object is called for each object once.
 func (observer *Observer) Object(ctx context.Context, object *metaloop.Object) (err error) {
 	if object.Expired(observer.Now) {

@@ -399,6 +399,11 @@ func newTestObserver(onSegment func(context.Context) error) *testObserver {
 	}
 }
 
+// LoopStarted is called at each start of a loop.
+func (obs *testObserver) LoopStarted(ctx context.Context, info metaloop.LoopInfo) (err error) {
+	return nil
+}
+
 func (obs *testObserver) RemoteSegment(ctx context.Context, segment *metaloop.Segment) error {
 	obs.remoteSegCount++
 
