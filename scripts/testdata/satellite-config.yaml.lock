@@ -125,7 +125,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
 
 # url link for linksharing requests
-# console.linksharing-url: https://link.tardigradeshare.io
+# console.linksharing-url: https://link.us1.storjshare.io
 
 # enable open registration
 # console.open-registration-enabled: false
