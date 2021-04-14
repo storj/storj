@@ -14,7 +14,7 @@
                     amounts are available
                     <a
                         class="add-storj-state__container__deposit-area__info__request-link"
-                        href="https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"
+                        href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"
                         target="_blank"
                         rel="noopener noreferrer"
                     >
