@@ -28,7 +28,7 @@
                 class="overview-area__path-section__button"
                 label="Continue"
                 width="calc(100% - 4px)"
-                :on-press="onCreateGrantClick"
+                :on-press="onGatewayMTClick"
                 :is-blue-white="true"
                 :is-disabled="isLoading"
             />
@@ -41,7 +41,7 @@
                 class="overview-area__path-section__button"
                 label="Continue"
                 width="calc(100% - 4px)"
-                :on-press="onCreateGrantClick"
+                :on-press="onUplinkCLIClick"
                 :is-blue-white="true"
                 :is-disabled="isLoading"
             />
@@ -54,6 +54,7 @@
                 class="overview-area__path-section__button"
                 href="https://docs.storj.io/how-tos/backup-with-duplicati"
                 target="_blank"
+                @click="onDuplicatiClick"
             >
                 Continue
             </a>
