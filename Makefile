@@ -379,4 +379,4 @@ bump-dependencies:
 	go mod tidy
 
 update-proto-lock:
-	protolock commit --ignore "satellite/internalpb,storagenode/internalpb"
+	protolock commit --ignore "satellite/internalpb,storagenode/internalpb,cmd/metainfo-migration/fastpb"
