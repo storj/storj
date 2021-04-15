@@ -7,9 +7,12 @@ exports[`OverviewStep.vue renders correctly 1`] = `
     <div class="overview-area__continue__text-area">
       <div class="overview-area__continue__container">
         <p class="overview-area__label continue-label server-side-label">Server-Side Encrypted</p>
-        <h3 class="overview-area__continue__header">Continue in Browser</h3>
-        <p class="overview-area__continue__text">Start uploading files in the browser and instantly see how your data gets distributed over our global storage network. You can always use other upload methods later.</p>
-        <div class="overview-area__continue__button container" style="width: 234px; height: 48px;"><span class="label">Continue in Browser</span></div>
+        <h3 class="overview-area__continue__header">Upload in Browser</h3>
+        <p class="overview-area__continue__text">
+          Start uploading files in the browser and instantly see how your data gets distributed over our
+          global storage network. You can always use other upload methods later.
+        </p>
+        <div class="overview-area__continue__button container" style="width: 234px; height: 48px;"><span class="label">Upload in Browser</span></div>
       </div>
     </div>
   </div>
@@ -48,7 +51,7 @@ exports[`OverviewStep.vue renders correctly 1`] = `
         Continue
       </a>
     </div>
-  </div> <a href="https://storj.io/connectors/developer-tools" target="_blank" rel="noopener noreferrer" class="overview-area__integrations-button">
+  </div> <a href="https://storj.io/integrations/" target="_blank" rel="noopener noreferrer" class="overview-area__integrations-button">
     More Integrations
   </a>
 </div>
@@ -61,9 +64,12 @@ exports[`OverviewStep.vue renders correctly 2`] = `
     <div class="overview-area__continue__text-area">
       <div class="overview-area__continue__container">
         <p class="overview-area__label continue-label server-side-label">Server-Side Encrypted</p>
-        <h3 class="overview-area__continue__header">Continue in Browser</h3>
-        <p class="overview-area__continue__text">Start uploading files in the browser and instantly see how your data gets distributed over our global storage network. You can always use other upload methods later.</p>
-        <div class="overview-area__continue__button container" style="width: 234px; height: 48px;"><span class="label">Continue in Browser</span></div>
+        <h3 class="overview-area__continue__header">Upload in Browser</h3>
+        <p class="overview-area__continue__text">
+          Start uploading files in the browser and instantly see how your data gets distributed over our
+          global storage network. You can always use other upload methods later.
+        </p>
+        <div class="overview-area__continue__button container" style="width: 234px; height: 48px;"><span class="label">Upload in Browser</span></div>
       </div>
     </div>
   </div>
@@ -102,7 +108,7 @@ exports[`OverviewStep.vue renders correctly 2`] = `
         Continue
       </a>
     </div>
-  </div> <a href="https://storj.io/connectors/developer-tools" target="_blank" rel="noopener noreferrer" class="overview-area__integrations-button">
+  </div> <a href="https://storj.io/integrations/" target="_blank" rel="noopener noreferrer" class="overview-area__integrations-button">
     More Integrations
   </a>
 </div>

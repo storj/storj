@@ -23,16 +23,15 @@
                     id="enter-pass-textarea"
                     placeholder="Enter encryption passphrase here"
                     rows="2"
-                    v-model="passphrase"
-                    @input="resetErrors"
+                    @input="onChangePassphrase"
                 />
             </label>
             <div class="enter-pass__container__error" v-if="isError">
                 <h2 class="enter-pass__container__error__title">Encryption Passphrase Does not Match</h2>
                 <p class="enter-pass__container__error__message">
                     A previous fingerprint of a passphrase-based-key-derivation-function created in this browser doesn't
-                    match the passphrase you just entered. Entering a passphrase not previously created will result in
-                    the creation of a new passphrase.
+                    match the passphrase you just entered. Objects uploaded with a different encryption passphrase will
+                    NOT be accessible.
                 </p>
                 <label class="enter-pass__container__error__check-area" :class="{ error: isCheckboxError }" for="error-checkbox">
                     <input
@@ -93,6 +92,15 @@ export default class EnterPassphrase extends Vue {
         if (!idPassSalt) {
             this.$router.push({name: RouteConfig.CreatePassphrase.name});
         }
+    }
+
+    /**
+     * Changes passphrase data from input value.
+     * @param event
+     */
+    public onChangePassphrase(event): void {
+        this.passphrase = event.target.value.trim();
+        this.resetErrors();
     }
 
     /**

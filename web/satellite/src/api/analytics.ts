@@ -27,9 +27,9 @@ export class AnalyticsHttpApi {
             if (response.ok) {
                 return;
             }
-            console.error("Attempted to notify Satellite that " + eventName + " occurred. Got bad response status code: " + response.status)
-        } catch(error) {
-            console.error("Could not notify satellite about " + eventName + " event occurrence (most likely blocked by browser).")
+            console.error('Attempted to notify Satellite that ' + eventName + ' occurred. Got bad response status code: ' + response.status);
+        } catch (error) {
+            console.error('Could not notify satellite about ' + eventName + ' event occurrence (most likely blocked by browser).');
         }
     }
 
@@ -51,9 +51,9 @@ export class AnalyticsHttpApi {
             if (response.ok) {
                 return;
             }
-            console.error("Attempted to notify Satellite that " + eventName + " occurred. Got bad response status code: " + response.status)
-        } catch(error) {
-            console.error("Could not notify satellite about " + eventName + " event occurrence (most likely blocked by browser).")
+            console.error('Attempted to notify Satellite that ' + eventName + ' occurred. Got bad response status code: ' + response.status);
+        } catch (error) {
+            console.error('Could not notify satellite about ' + eventName + ' event occurrence (most likely blocked by browser).');
         }
     }
 }
