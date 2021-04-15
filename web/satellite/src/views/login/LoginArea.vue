@@ -40,6 +40,8 @@ export default class Login extends Vue {
     // Tardigrade logic
     public isDropdownShown: boolean = false;
 
+    public readonly registerPath: string = RouteConfig.Register.path;
+
     /**
      * Lifecycle hook after initial render.
      * Makes activated banner visible on successful account activation.
