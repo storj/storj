@@ -190,7 +190,7 @@ export default class OverviewStep extends Vue {
             await this.createUntitledProject();
 ​
             this.isLoading = false;
-​
+
             await this.$router.push(RouteConfig.Objects.path);
         } catch (error) {
             await this.$notify.error(error.message);
