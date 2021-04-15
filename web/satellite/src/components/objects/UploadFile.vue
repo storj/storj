@@ -2,8 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="file-browser">
-        <FileBrowser></FileBrowser>
+    <div>
+        <p @click="goToBuckets" class="back"><- Back to Buckets</p>
+        <div class="file-browser">
+            <FileBrowser></FileBrowser>
+        </div>
     </div>
 </template>
 
@@ -24,16 +27,6 @@ import { MetaUtils } from '@/utils/meta';
 export default class UploadFile extends Vue {
     private linksharingURL = '';
     private worker: Worker;
-
-    /**
-     * Lifecycle hook before initial render.
-     * Checks if bucket is chosen.
-     */
-    public beforeMount(): void {
-        if (!this.bucket) {
-            this.$router.push(RouteConfig.Objects.with(RouteConfig.EnterPassphrase).path);
-        }
-    }
 
     /**
      * Lifecycle hook after initial render.
@@ -57,10 +50,6 @@ export default class UploadFile extends Vue {
      * Initiates file browser.
      */
     public created(): void {
-        if (!this.bucket) {
-            return;
-        }
-
         this.$store.commit('files/init', {
             endpoint: this.$store.state.objectsModule.gatewayCredentials.endpoint,
             accessKey: this.$store.state.objectsModule.gatewayCredentials.accessKeyId,
@@ -70,6 +59,13 @@ export default class UploadFile extends Vue {
             getObjectMapUrl: async (path: string) => await this.generateObjectMapUrl(path),
             getSharedLink: async (path: string) => await this.generateShareLinkUrl(path),
         });
+    }
+
+    /**
+     * Redirects to buckets list view.
+     */
+    public goToBuckets(): void {
+        this.$router.push(RouteConfig.Objects.with(RouteConfig.BucketsManagement).path);
     }
 
     /**
@@ -194,6 +190,20 @@ export default class UploadFile extends Vue {
 
 <style scoped>
     @import '../../../node_modules/browser/dist/browser.css';
+
+    .back {
+        font-family: 'font_medium', sans-serif;
+        color: #000;
+        font-size: 20px;
+        cursor: pointer;
+        margin: 0 0 30px 15px;
+        display: inline-block;
+    }
+
+    .back:hover {
+        color: #007bff;
+        text-decoration: underline;
+    }
 
     .file-browser {
         font-family: 'font_regular', sans-serif;

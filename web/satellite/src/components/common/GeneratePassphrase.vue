@@ -357,7 +357,7 @@ export default class GeneratePassphrase extends Vue {
                 margin: 10px 0 20px 0;
 
                 &__input {
-                    width: 100%;
+                    width: calc(100% - 2px);
                 }
             }
         }
@@ -396,9 +396,5 @@ export default class GeneratePassphrase extends Vue {
                 line-height: 19px;
             }
         }
-    }
-
-    /deep/ .headered-input {
-        padding-right: 0 !important;
     }
 </style>

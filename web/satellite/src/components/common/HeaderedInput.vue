@@ -146,6 +146,7 @@ export default class HeaderedInput extends HeaderlessInput {
         resize: none;
         height: 48px;
         width: 100%;
+        padding: 0;
         text-indent: 20px;
         border-color: rgba(56, 75, 101, 0.4);
         border-radius: 6px;

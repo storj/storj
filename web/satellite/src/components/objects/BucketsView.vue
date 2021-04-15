@@ -5,7 +5,7 @@
     <div class="buckets-view">
         <div class="buckets-view__title-area">
             <h1 class="buckets-view__title-area__title">Buckets</h1>
-            <div class="buckets-view__title-area__button" @click="showCreateBucketPopup">
+            <div class="buckets-view__title-area__button" :class="{ disabled: isLoading }" @click="showCreateBucketPopup">
                 <BucketIcon/>
                 <p class="buckets-view__title-area__button__label">New Bucket</p>
             </div>
@@ -68,6 +68,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { AccessGrant, GatewayCredentials } from '@/types/accessGrants';
 import { MetaUtils } from '@/utils/meta';
+import { Validator } from '@/utils/validation';
 
 @Component({
     components: {
@@ -189,8 +190,22 @@ export default class BucketsView extends Vue {
     public async onCreateBucketClick(): Promise<void> {
         if (this.isRequestProcessing) return;
 
-        if (!this.createBucketName) {
-            this.errorMessage = 'Bucket name can\'t be empty';
+        if (this.createBucketName.length < 3 || this.createBucketName.length > 63) {
+            this.errorMessage = 'Name must be not less than 3 and not more than 63 characters length';
+
+            return;
+        }
+
+        if (!Validator.bucketName(this.createBucketName)) {
+            this.errorMessage = 'Name must include only lowercase latin characters';
+
+            return;
+        }
+
+        if (!Validator.oneWordString(this.createBucketName)) {
+            this.errorMessage = 'Name must be 1-word string';
+
+            return;
         }
 
         this.isRequestProcessing = true;
@@ -200,11 +215,16 @@ export default class BucketsView extends Vue {
             await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
         } catch (error) {
             await this.$notify.error(error.message);
+            this.isRequestProcessing = false;
+
+            return;
         }
 
-        this.isRequestProcessing = false;
+        const bucket = this.createBucketName;
         this.createBucketName = '';
-        this.hideCreateBucketPopup();
+        this.isRequestProcessing = false;
+
+        this.openBucket(bucket);
     }
 
     /**
@@ -433,6 +453,12 @@ export default class BucketsView extends Vue {
                 }
             }
         }
+    }
+
+    .disabled {
+        pointer-events: none;
+        background-color: #dadde5;
+        border-color: #dadde5;
     }
 
     @keyframes spin {
