@@ -71,6 +71,9 @@ export default class RegisterArea extends Vue {
     public employeeCountOptions = ['1-50', '51-1000', '1001+'];
     public optionsShown = false;
 
+    public readonly loginPath: string = RouteConfig.Login.path;
+
+
     /**
      * Lifecycle hook on component destroy.
      * Sets view to default state.
