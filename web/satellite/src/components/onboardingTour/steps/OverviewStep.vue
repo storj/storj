@@ -1,6 +1,6 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
-
+​
 <template>
     <div class="overview-area">
         <h2 class="overview-area__header">Welcome to Storj DCS</h2>
@@ -9,14 +9,17 @@
             <div class="overview-area__continue__text-area">
                 <div class="overview-area__continue__container">
                     <p class="overview-area__label continue-label server-side-label">Server-Side Encrypted</p>
-                    <h3 class="overview-area__continue__header">Continue in Browser</h3>
-                    <p class="overview-area__continue__text">Start uploading files in the browser and instantly see how your data gets distributed over our global storage network. You can always use other upload methods later.</p>
+                    <h3 class="overview-area__continue__header">Upload in Browser</h3>
+                    <p class="overview-area__continue__text">
+                        Start uploading files in the browser and instantly see how your data gets distributed over our
+                        global storage network. You can always use other upload methods later.
+                    </p>
                     <VButton
                         class="overview-area__continue__button"
-                        label="Continue in Browser"
+                        label="Upload in Browser"
                         width="234px"
                         height="48px"
-                        :on-press="onContinueInBrowserClick"
+                        :on-press="onUploadInBrowserClick"
                         :is-disabled="isLoading"
                     />
                 </div>
@@ -70,7 +73,7 @@
         </div>
         <a
             class="overview-area__integrations-button"
-            href="https://storj.io/connectors/developer-tools"
+            href="https://storj.io/integrations/"
             target="_blank"
             rel="noopener noreferrer"
         >
@@ -78,11 +81,14 @@
         </a>
     </div>
 </template>
-
+​
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+​
 import VButton from '@/components/common/VButton.vue';
+​
 import GatewayIcon from '@/../static/images/onboardingTour/s3-gateway.svg';
+​
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
@@ -92,6 +98,7 @@ import { ProjectFields } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { AnalyticsHttpApi } from '@/api/analytics';
+​
 @Component({
     components: {
         VButton,
@@ -105,9 +112,8 @@ export default class OverviewStep extends Vue {
           
     public onRcloneClick(): void {
         this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "Rclone Sync");
-        }   
-
-
+        }  
+​
     /**
      * Lifecycle hook after initial render.
      * Sets area to needed state.
@@ -115,69 +121,83 @@ export default class OverviewStep extends Vue {
     public mounted(): void {
         if (this.userHasProject || this.$store.state.paymentsModule.creditCards.length > 0) {
             this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).path);
+​
             return;
         }
+​
         if (this.$store.getters.isTransactionProcessing || this.$store.getters.isBalancePositive) {
             this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.PaymentStep).path);
         }
     }
+​
     /**
      * Holds button click logic.
      * Creates untitled project and redirects to next step (creating access grant).
      */
     public async onGatewayMTClick(): Promise<void> {
         if (this.isLoading) return;
+​
         this.isLoading = true;
 
         await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "GatewayMT");
-
+​
         try {
             await this.createUntitledProject();
+​
             this.isLoading = false;
+​
             await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).with(RouteConfig.AccessGrantName).path);
         } catch (error) {
             await this.$notify.error(error.message);
             this.isLoading = false;
         }
     }
-
+    
     /**
      * Holds button click logic.
      * Creates untitled project and redirects to next step (creating access grant).
      */
     public async onUplinkCLIClick(): Promise<void> {
         if (this.isLoading) return;
+​
         this.isLoading = true;
 
         await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "CLI");
-        
+​
         try {
             await this.createUntitledProject();
+​
             this.isLoading = false;
+​
             await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).with(RouteConfig.AccessGrantName).path);
         } catch (error) {
             await this.$notify.error(error.message);
             this.isLoading = false;
         }
     }
+
     /**
      * Creates untitled project and redirects to objects page.
      */
-    public async onContinueInBrowserClick(): Promise<void> {
+    public async onUploadInBrowserClick(): Promise<void> {
         if (this.isLoading) return;
+​
+        this.isLoading = true;
 
         await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "Continue in Browser");
-        
-        this.isLoading = true;
+​
         try {
             await this.createUntitledProject();
+​
             this.isLoading = false;
-            await this.$router.push(RouteConfig.Objects.with(RouteConfig.CreatePassphrase).path);
+​
+            await this.$router.push(RouteConfig.Objects.path);
         } catch (error) {
             await this.$notify.error(error.message);
             this.isLoading = false;
         }
     }
+​
     /**
      * Creates untitled project in a background.
      */
@@ -192,6 +212,7 @@ export default class OverviewStep extends Vue {
         );
         const createdProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
         const createdProjectId = createdProject.id;
+​
         await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, createdProjectId);
         await this.$store.dispatch(PM_ACTIONS.CLEAR);
         await this.$store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
@@ -202,6 +223,7 @@ export default class OverviewStep extends Vue {
         await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR);
         await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
     }
+​
     /**
      * Indicates if user has at least one project.
      */
@@ -210,14 +232,16 @@ export default class OverviewStep extends Vue {
     }
 }
 </script>
-
+​
 <style scoped lang="scss">
     p,
     h1,
     h2 {
         margin: 0;
     }
+​
     .overview-area {
+​
         &__header,
         &__second-header {
             font-family: 'font_bold', sans-serif;
@@ -225,14 +249,17 @@ export default class OverviewStep extends Vue {
             line-height: 46px;
             text-align: center;
         }
+​
         &__header {
             margin: 0 auto 80px auto;
         }
+​
         &__second-header {
             font-size: 28px;
             line-height: 54px;
             margin: 50px auto;
         }
+​
         &__label {
             font-family: 'font_normal', sans-serif;
             font-weight: 600;
@@ -246,20 +273,25 @@ export default class OverviewStep extends Vue {
             color: #000;
             border: 2px solid #000;
         }
+​
         &__label.continue-label {
             text-align: center;
             margin: 0;
             position: relative;
             top: 10px;
         }
+​
         &__label.server-side-label {
             color: #d63030;
             border: 2px solid #d63030;
         }
+​
         &__continue {
+​
             &__container {
                 margin-top: 70px;
             }
+​
             &__area {
                 background: #fff;
                 max-width: 1120px;
@@ -270,14 +302,17 @@ export default class OverviewStep extends Vue {
                 border-radius: 20px;
                 padding-bottom: 60px;
             }
+​
             &__img {
                 width: 50%;
                 margin-top: 30px;
             }
+​
             &__text-area {
                 width: calc(50% - 80px);
                 padding: 0 40px;
             }
+​
             &__header {
                 font-family: 'font_bold', sans-serif;
                 font-size: 32px;
@@ -285,42 +320,50 @@ export default class OverviewStep extends Vue {
                 margin-top: 25px;
                 margin-bottom: 11px;
             }
+​
             &__text {
                 font-family: 'font_regular', sans-serif;
                 font-size: 16px;
                 line-height: 32px;
             }
+​
             &__button {
                 margin-top: 30px;
             }
         }
+​
         &__path-area {
             display: flex;
             justify-content: space-between;
             max-width: 1120px;
             margin: 0 auto;
         }
+​
         &__path-section {
             background: #fff;
             text-align: center;
             border-radius: 20px;
             padding: 60px 50px;
             width: 22%;
+​
             &__title {
                 font-family: 'font_bold', sans-serif;
                 font-size: 24px;
                 line-height: 29px;
                 margin: 10px auto 20px auto;
             }
+​
             &__text {
                 font-family: 'font_regular', sans-serif;
                 font-size: 16px;
                 line-height: 24px;
                 min-height: 72px;
             }
+​
             &__icon {
                 max-height: 57px;
             }
+​
             &__button {
                 font-family: 'font_medium', sans-serif;
                 font-size: 16px;
@@ -334,12 +377,14 @@ export default class OverviewStep extends Vue {
                 justify-content: center;
                 height: 23px;
                 padding: 14px 0;
+​
                 &:hover {
                     color: #fff;
                     background: #2683ff;
                 }
             }
         }
+​
         &__integrations-button {
             font-family: 'font_normal', sans-serif;
             font-size: 16px;
@@ -351,6 +396,7 @@ export default class OverviewStep extends Vue {
             margin: 60px auto;
             background: #2683ff;
             width: 355px;
+​
             &:hover {
                 background: darken(#2683ff, 10%);
             }
