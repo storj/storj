@@ -65,7 +65,7 @@
                     href="https://docs.storj.io/how-tos/sync-files-with-rclone"
                     target="_blank"
                     rel="noopener noreferrer"
-                    @click="onRcloneClick
+                    @click="onRcloneClick"
                 >
                     Continue
                 </a>
@@ -112,7 +112,7 @@ export default class OverviewStep extends Vue {
           
     public onRcloneClick(): void {
         this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "Rclone Sync");
-        }  
+    }  
 
     /**
      * Lifecycle hook after initial render.
