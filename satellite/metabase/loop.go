@@ -43,11 +43,12 @@ type LoopObjectsIterator interface {
 
 // LoopObjectEntry contains information about object needed by metainfo loop.
 type LoopObjectEntry struct {
-	ObjectStream                     // metrics, repair, tally
-	CreatedAt             time.Time  // temp used by metabase-createdat-migration
-	ExpiresAt             *time.Time // tally
-	SegmentCount          int32      // metrics
-	EncryptedMetadataSize int        // tally
+	ObjectStream                       // metrics, repair, tally
+	Status                ObjectStatus // verify
+	CreatedAt             time.Time    // temp used by metabase-createdat-migration
+	ExpiresAt             *time.Time   // tally
+	SegmentCount          int32        // metrics
+	EncryptedMetadataSize int          // tally
 }
 
 // IterateLoopObjects iterates through all objects in metabase.
@@ -162,6 +163,7 @@ func (it *loopIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err err
 		SELECT
 			project_id, bucket_name,
 			object_key, stream_id, version,
+			status,
 			created_at, expires_at,
 			segment_count,
 			LENGTH(COALESCE(encrypted_metadata,''))
@@ -181,6 +183,7 @@ func (it *loopIterator) scanItem(item *LoopObjectEntry) error {
 	return it.curRows.Scan(
 		&item.ProjectID, &item.BucketName,
 		&item.ObjectKey, &item.StreamID, &item.Version,
+		&item.Status,
 		&item.CreatedAt, &item.ExpiresAt,
 		&item.SegmentCount,
 		&item.EncryptedMetadataSize,
@@ -205,6 +208,8 @@ type LoopSegmentEntry struct {
 	RepairedAt    *time.Time // repair
 	RootPieceID   storj.PieceID
 	EncryptedSize int32 // size of the whole segment (not a piece)
+	PlainOffset   int64 // verify
+	PlainSize     int32 // verify
 	Redundancy    storj.RedundancyScheme
 	Pieces        Pieces
 }
@@ -247,6 +252,7 @@ func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, h
 			created_at, repaired_at,
 			root_piece_id,
 			encrypted_size,
+			plain_offset, plain_size,
 			redundancy,
 			remote_alias_pieces
 		FROM segments
@@ -291,6 +297,7 @@ func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, h
 				&segment.CreatedAt, &segment.RepairedAt,
 				&segment.RootPieceID,
 				&segment.EncryptedSize,
+				&segment.PlainOffset, &segment.PlainSize,
 				redundancyScheme{&segment.Redundancy},
 				&aliasPieces,
 			)
