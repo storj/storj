@@ -6,6 +6,10 @@
         <div class="objects-popup__container">
             <h1 class="objects-popup__container__title">{{title}}</h1>
             <p class="objects-popup__container__sub-title">{{subTitle}}</p>
+            <div v-if="isCreateBucket" class="objects-popup__container__info">
+                <WarningIcon/>
+                <p class="objects-popup__container__info__msg">Only lowercase alphanumeric characters are allowed.</p>
+            </div>
             <HeaderedInput
                 class="objects-popup__container__input"
                 label="Bucket Name"
@@ -36,12 +40,14 @@ import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
+import WarningIcon from '@/../static/images/objects/warning.svg';
 
 @Component({
     components: {
         HeaderedInput,
         VButton,
         CloseCrossIcon,
+        WarningIcon,
     },
 })
 export default class ObjectsPopup extends Vue {
@@ -59,6 +65,8 @@ export default class ObjectsPopup extends Vue {
     public readonly errorMessage: string;
     @Prop({ default: false})
     public readonly isLoading: boolean;
+    @Prop({ default: false})
+    public readonly isCreateBucket: boolean;
 
     /**
      * Sets bucket name from input.
@@ -116,6 +124,24 @@ export default class ObjectsPopup extends Vue {
                 letter-spacing: -0.100741px;
                 color: rgba(37, 37, 37, 0.7);
                 margin: 0;
+            }
+
+            &__info {
+                display: flex;
+                align-items: center;
+                padding: 23px 14px;
+                background: #f5f6fa;
+                border: 1px solid #a9b5c1;
+                margin-top: 20px;
+                border-radius: 9px;
+
+                &__msg {
+                    font-family: 'font_Bold', sans-serif;
+                    font-size: 16px;
+                    line-height: 19px;
+                    color: #1b2533;
+                    margin: 0 0 0 10px;
+                }
             }
 
             &__input {
