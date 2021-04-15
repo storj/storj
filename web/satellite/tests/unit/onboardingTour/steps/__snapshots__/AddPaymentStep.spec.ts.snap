@@ -26,15 +26,15 @@ exports[`AddPaymentStep.vue renders correctly 1`] = `
   <div class="payment-step__pricing-modal">
     <div class="payment-step__pricing-modal__item">
       <div class="payment-step__pricing-modal__item__left-side"><img src="@/../static/images/onboardingTour/cloud.png" alt="cloud image"> <span class="payment-step__pricing-modal__item__left-side__title">Storage</span></div>
-      <div class="payment-step__pricing-modal__item__right-side"><b class="payment-step__pricing-modal__item__right-side__price">$0.01</b> <span class="payment-step__pricing-modal__item__left-side__dimension">/GB</span></div>
+      <div class="payment-step__pricing-modal__item__right-side"><b class="payment-step__pricing-modal__item__right-side__price">$0.001</b> <span class="payment-step__pricing-modal__item__left-side__dimension">/GB</span></div>
     </div>
     <div class="payment-step__pricing-modal__item download-item">
       <div class="payment-step__pricing-modal__item__left-side"><img src="@/../static/images/onboardingTour/arrow-down.png" alt="arrow image"> <span class="payment-step__pricing-modal__item__left-side__title">Download</span></div>
-      <div class="payment-step__pricing-modal__item__right-side"><b class="payment-step__pricing-modal__item__right-side__price">$0.045</b> <span class="payment-step__pricing-modal__item__left-side__dimension">/GB</span></div>
+      <div class="payment-step__pricing-modal__item__right-side"><b class="payment-step__pricing-modal__item__right-side__price">$0.001</b> <span class="payment-step__pricing-modal__item__left-side__dimension">/GB</span></div>
     </div>
     <div class="payment-step__pricing-modal__item">
       <div class="payment-step__pricing-modal__item__left-side"><img src="@/../static/images/onboardingTour/squares.png" alt="squares image"> <span class="payment-step__pricing-modal__item__left-side__title">Per Object</span></div>
-      <div class="payment-step__pricing-modal__item__right-side"><b class="payment-step__pricing-modal__item__right-side__price">$0.0000022</b> <span class="payment-step__pricing-modal__item__left-side__dimension">/OBJECT</span></div>
+      <div class="payment-step__pricing-modal__item__right-side"><b class="payment-step__pricing-modal__item__right-side__price">$1</b> <span class="payment-step__pricing-modal__item__left-side__dimension">/OBJECT</span></div>
     </div>
   </div>
 </div>
@@ -66,15 +66,15 @@ exports[`AddPaymentStep.vue renders correctly 2`] = `
   <div class="payment-step__pricing-modal">
     <div class="payment-step__pricing-modal__item">
       <div class="payment-step__pricing-modal__item__left-side"><img src="@/../static/images/onboardingTour/cloud.png" alt="cloud image"> <span class="payment-step__pricing-modal__item__left-side__title">Storage</span></div>
-      <div class="payment-step__pricing-modal__item__right-side"><b class="payment-step__pricing-modal__item__right-side__price">$0.01</b> <span class="payment-step__pricing-modal__item__left-side__dimension">/GB</span></div>
+      <div class="payment-step__pricing-modal__item__right-side"><b class="payment-step__pricing-modal__item__right-side__price">$0.001</b> <span class="payment-step__pricing-modal__item__left-side__dimension">/GB</span></div>
     </div>
     <div class="payment-step__pricing-modal__item download-item">
       <div class="payment-step__pricing-modal__item__left-side"><img src="@/../static/images/onboardingTour/arrow-down.png" alt="arrow image"> <span class="payment-step__pricing-modal__item__left-side__title">Download</span></div>
-      <div class="payment-step__pricing-modal__item__right-side"><b class="payment-step__pricing-modal__item__right-side__price">$0.045</b> <span class="payment-step__pricing-modal__item__left-side__dimension">/GB</span></div>
+      <div class="payment-step__pricing-modal__item__right-side"><b class="payment-step__pricing-modal__item__right-side__price">$0.001</b> <span class="payment-step__pricing-modal__item__left-side__dimension">/GB</span></div>
     </div>
     <div class="payment-step__pricing-modal__item">
       <div class="payment-step__pricing-modal__item__left-side"><img src="@/../static/images/onboardingTour/squares.png" alt="squares image"> <span class="payment-step__pricing-modal__item__left-side__title">Per Object</span></div>
-      <div class="payment-step__pricing-modal__item__right-side"><b class="payment-step__pricing-modal__item__right-side__price">$0.0000022</b> <span class="payment-step__pricing-modal__item__left-side__dimension">/OBJECT</span></div>
+      <div class="payment-step__pricing-modal__item__right-side"><b class="payment-step__pricing-modal__item__right-side__price">$1</b> <span class="payment-step__pricing-modal__item__left-side__dimension">/OBJECT</span></div>
     </div>
   </div>
 </div>

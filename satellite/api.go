@@ -47,6 +47,7 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/rewards"
@@ -586,6 +587,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		pricing := paymentsconfig.PricingValues{
+			StorageTBPrice: config.Payments.StorageTBPrice,
+			EgressTBPrice:  config.Payments.EgressTBPrice,
+			ObjectPrice:    config.Payments.ObjectPrice,
+		}
+
 		peer.Console.Endpoint = consoleweb.NewServer(
 			peer.Log.Named("console:endpoint"),
 			consoleConfig,
@@ -595,6 +602,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Analytics.Service,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,
+			pricing,
 			peer.URL(),
 		)
 

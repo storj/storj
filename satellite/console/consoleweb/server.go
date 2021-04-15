@@ -41,6 +41,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/rewards"
 )
 
@@ -116,6 +117,8 @@ type Server struct {
 
 	stripePublicKey string
 
+	pricing paymentsconfig.PricingValues
+
 	schema    graphql.Schema
 	templates struct {
 		index               *template.Template
@@ -129,7 +132,7 @@ type Server struct {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, listener net.Listener, stripePublicKey string, nodeURL storj.NodeURL) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, listener net.Listener, stripePublicKey string, pricing paymentsconfig.PricingValues, nodeURL storj.NodeURL) *Server {
 	server := Server{
 		log:             logger,
 		config:          config,
@@ -141,6 +144,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		stripePublicKey: stripePublicKey,
 		rateLimiter:     web.NewIPRateLimiter(config.RateLimit),
 		nodeURL:         nodeURL,
+		pricing:         pricing,
 	}
 
 	logger.Debug("Starting Satellite UI.", zap.Stringer("Address", server.listener.Addr()))
@@ -317,6 +321,9 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		FileBrowserFlowDisabled         bool
 		LinksharingURL                  string
 		PathwayOverviewEnabled          bool
+		StorageTBPrice                  string
+		EgressTBPrice                   string
+		ObjectPrice                     string
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -337,6 +344,9 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.FileBrowserFlowDisabled = server.config.FileBrowserFlowDisabled
 	data.LinksharingURL = server.config.LinksharingURL
 	data.PathwayOverviewEnabled = server.config.PathwayOverviewEnabled
+	data.StorageTBPrice = server.pricing.StorageTBPrice
+	data.EgressTBPrice = server.pricing.EgressTBPrice
+	data.ObjectPrice = server.pricing.ObjectPrice
 
 	if server.templates.index == nil {
 		server.log.Error("index template is not set")
