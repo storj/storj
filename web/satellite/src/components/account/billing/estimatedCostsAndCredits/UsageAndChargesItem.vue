@@ -22,9 +22,9 @@
             </div>
             <div class="usage-charges-item-container__detailed-info-container__content-area">
                 <div class="usage-charges-item-container__detailed-info-container__content-area__resource-container">
-                    <p>Storage ($0.010 per Gigabyte-Month)</p>
-                    <p>Egress ($0.045 per GB)</p>
-                    <p>Objects ($0.0000022 per Object-Month)</p>
+                    <p>Storage (${{storagePrice}} per Gigabyte-Month)</p>
+                    <p>Egress (${{egressPrice}} per GB)</p>
+                    <p>Objects (${{objectPrice}} per Object-Month)</p>
                 </div>
                 <div class="usage-charges-item-container__detailed-info-container__content-area__period-container">
                     <p>{{ period }}</p>
@@ -61,6 +61,7 @@ import { ProjectUsageAndCharges } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
+import { MetaUtils } from '@/utils/meta';
 import { Time } from '@/utils/time';
 
 @Component({
@@ -80,6 +81,11 @@ export default class UsageAndChargesItem extends Vue {
      * HOURS_IN_MONTH constant shows amount of hours in 30-day month.
      */
     private readonly HOURS_IN_MONTH: number = 720;
+
+    /**
+     * GB_IN_TB constant shows amount of GBs in one TB.
+     */
+    private readonly GB_IN_TB = 1000;
 
     /**
      * projectName returns project name.
@@ -122,6 +128,27 @@ export default class UsageAndChargesItem extends Vue {
      */
     public get objectCountFormatted(): string {
         return (this.item.objectCount / this.HOURS_IN_MONTH).toFixed(2);
+    }
+
+    /**
+     * Returns storage price per GB.
+     */
+    public get storagePrice(): number {
+        return parseInt(MetaUtils.getMetaContent('storage-tb-price')) / this.GB_IN_TB;
+    }
+
+    /**
+     * Returns egress price per GB.
+     */
+    public get egressPrice(): number {
+        return parseInt(MetaUtils.getMetaContent('egress-tb-price')) / this.GB_IN_TB;
+    }
+
+    /**
+     * Returns object price.
+     */
+    public get objectPrice(): string {
+        return MetaUtils.getMetaContent('object-price');
     }
 
     /**
