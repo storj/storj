@@ -79,6 +79,8 @@ export default class UploadFile extends Vue {
         try {
             const key: string = await this.accessKey(this.apiKey, inADay, path);
 
+            path = encodeURIComponent(path.trim());
+
             return `${this.linksharingURL}/s/${key}/${path}?map=1`;
         } catch (error) {
             await this.$notify.error(error.message);
@@ -99,6 +101,8 @@ export default class UploadFile extends Vue {
 
         try {
             const key: string = await this.accessKey(cleanAPIKey.secret, notAfter, path);
+
+            path = encodeURIComponent(path.trim());
 
             return `${this.linksharingURL}/${key}/${path}`;
         } catch (error) {
