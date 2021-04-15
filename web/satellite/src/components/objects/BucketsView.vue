@@ -38,6 +38,7 @@
             button-label="Create Bucket"
             :error-message="errorMessage"
             :is-loading="isRequestProcessing"
+            :is-create-bucket="true"
         />
         <ObjectsPopup
             v-if="isDeletePopupVisible"
