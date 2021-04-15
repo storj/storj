@@ -5,7 +5,7 @@
     <div class="tour-area">
         <div class="tour-area__info-bar" v-show="isInfoBarVisible && isPaywallEnabled">
             <div class="tour-area__info-bar__message">
-                <b class="tour-area__info-bar__message__bold">Try Tardigrade with 50 GB Free after adding a payment method.</b>
+                <b class="tour-area__info-bar__message__bold">Try Storj DCS with 50 GB Free after adding a payment method.</b>
                 <p class="tour-area__info-bar__message__regular"> Cancel before your credit runs out and you’ll never be billed.</p>
             </div>
             <CloseImage class="tour-area__info-bar__close-img" @click="disableInfoBar"/>

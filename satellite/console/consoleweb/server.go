@@ -77,7 +77,7 @@ type Config struct {
 	TermsAndConditionsURL           string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
 	AccountActivationRedirectURL    string `help:"url link for account activation redirect" default:""`
 	VerificationPageURL             string `help:"url link to sign up verification page" devDefault:"" releaseDefault:"https://tardigrade.io/verify"`
-	PartneredSatelliteNames         string `help:"names of partnered satellites" default:"US-Central-1,Europe-West-1,Asia-East-1"`
+	PartneredSatelliteNames         string `help:"names of partnered satellites" default:"US1,EU1,AP1"`
 	GeneralRequestURL               string `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
 	ProjectLimitsIncreaseRequestURL string `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
 	GatewayCredentialsRequestURL    string `help:"url link for gateway credentials requests" default:"https://auth.us1.storjshare.io"`

@@ -33,7 +33,7 @@
         </div>
         <ValidationMessage
             class="add-coupon__valid-message"
-            successMessage="Get 50GB free and start using Tardigrade today."
+            successMessage="Get 50GB free and start using Storj DCS today."
             errorMessage="Invalid code. Please Try again"
             :isValid="isCodeValid"
             :showMessage="showValidationMessage"
