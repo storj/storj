@@ -8,7 +8,7 @@
             <span class="info-bar__info-area__first-description">{{ firstDescription }}</span>
             <b class="info-bar__info-area__second-value">{{ secondValue }}</b>
             <span class="info-bar__info-area__second-description">{{ secondDescription }}</span>
-            <router-link v-if="path" class="info-bar__info-area__button" :to="path">Details</router-link>
+            <router-link v-if="path && !isProjectDashboard" class="info-bar__info-area__button" :to="path">Details</router-link>
         </div>
         <a
             class="info-bar__link"
@@ -24,6 +24,8 @@
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
+
+import { RouteConfig } from '@/router';
 
 /**
  * VBanner is custom banner on top of all pages in Dashboard
@@ -46,6 +48,13 @@ export default class VInfoBar extends Vue {
     private readonly path: string;
     @Prop({default: false})
     private readonly isBlue: boolean;
+
+    /**
+     * Indicates if current route is project dashboard.
+     */
+    public get isProjectDashboard(): boolean {
+        return this.$route.name === RouteConfig.ProjectDashboard.name;
+    }
 }
 </script>
 
