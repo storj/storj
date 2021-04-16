@@ -22,14 +22,18 @@ func TestDeleteExpiredObjects(t *testing.T) {
 		pastTime := now.Add(-1 * time.Hour)
 		futureTime := now.Add(1 * time.Hour)
 
-		t.Run("Empty metabase", func(t *testing.T) {
+		t.Run("none", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
-			DeleteExpiredObjects{}.Check(ctx, t, db)
+			DeleteExpiredObjects{
+				Opts: metabase.DeleteExpiredObjects{
+					ExpiredBefore: time.Now(),
+				},
+			}.Check(ctx, t, db)
 			Verify{}.Check(ctx, t, db)
 		})
 
-		t.Run("Delete expired partial objects", func(t *testing.T) {
+		t.Run("partial objects", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
 			// pending object without expiration time
@@ -61,7 +65,11 @@ func TestDeleteExpiredObjects(t *testing.T) {
 				Version: 1,
 			}.Check(ctx, t, db)
 
-			DeleteExpiredObjects{}.Check(ctx, t, db)
+			DeleteExpiredObjects{
+				Opts: metabase.DeleteExpiredObjects{
+					ExpiredBefore: time.Now(),
+				},
+			}.Check(ctx, t, db)
 
 			Verify{ // the object with expiration time in the past is gone
 				Objects: []metabase.RawObject{
@@ -84,7 +92,22 @@ func TestDeleteExpiredObjects(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-		t.Run("Delete expired committed objects", func(t *testing.T) {
+		t.Run("batch size", func(t *testing.T) {
+			expiresAt := time.Now().Add(-30 * 24 * time.Hour)
+			for i := 0; i < 32; i++ {
+				_ = createExpiredObject(ctx, t, db, randObjectStream(), 3, expiresAt)
+			}
+			DeleteExpiredObjects{
+				Opts: metabase.DeleteExpiredObjects{
+					ExpiredBefore: time.Now().Add(time.Hour),
+					BatchSize:     4,
+				},
+			}.Check(ctx, t, db)
+
+			Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("committed objects", func(t *testing.T) {
 			defer DeleteAll{}.Check(ctx, t, db)
 
 			object1 := CreateTestObject{}.Run(ctx, t, db, obj1, 1)
@@ -119,7 +142,11 @@ func TestDeleteExpiredObjects(t *testing.T) {
 			expectedObj3Segment := expectedObj1Segment
 			expectedObj3Segment.StreamID = obj3.StreamID
 
-			DeleteExpiredObjects{}.Check(ctx, t, db)
+			DeleteExpiredObjects{
+				Opts: metabase.DeleteExpiredObjects{
+					ExpiredBefore: time.Now(),
+				},
+			}.Check(ctx, t, db)
 
 			Verify{ // the object with expiration time in the past is gone
 				Objects: []metabase.RawObject{

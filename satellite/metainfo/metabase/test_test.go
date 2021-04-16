@@ -411,14 +411,14 @@ func (step DeleteObjectsAllVersions) Check(ctx *testcontext.Context, t testing.T
 }
 
 type DeleteExpiredObjects struct {
+	Opts metabase.DeleteExpiredObjects
+
 	ErrClass *errs.Class
 	ErrText  string
 }
 
 func (step DeleteExpiredObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
-	err := db.DeleteExpiredObjects(ctx, metabase.DeleteExpiredObjects{
-		ExpiredBefore: time.Now(),
-	})
+	err := db.DeleteExpiredObjects(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
 
