@@ -41,6 +41,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/rewards"
 )
 
@@ -77,7 +78,7 @@ type Config struct {
 	TermsAndConditionsURL           string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
 	AccountActivationRedirectURL    string `help:"url link for account activation redirect" default:""`
 	VerificationPageURL             string `help:"url link to sign up verification page" devDefault:"" releaseDefault:"https://tardigrade.io/verify"`
-	PartneredSatelliteNames         string `help:"names of partnered satellites" default:"US-Central-1,Europe-West-1,Asia-East-1"`
+	PartneredSatelliteNames         string `help:"names of partnered satellites" default:"US1,EU1,AP1"`
 	GeneralRequestURL               string `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
 	ProjectLimitsIncreaseRequestURL string `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
 	GatewayCredentialsRequestURL    string `help:"url link for gateway credentials requests" default:"https://auth.us1.storjshare.io"`
@@ -116,6 +117,8 @@ type Server struct {
 
 	stripePublicKey string
 
+	pricing paymentsconfig.PricingValues
+
 	schema    graphql.Schema
 	templates struct {
 		index               *template.Template
@@ -129,7 +132,7 @@ type Server struct {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, listener net.Listener, stripePublicKey string, nodeURL storj.NodeURL) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, listener net.Listener, stripePublicKey string, pricing paymentsconfig.PricingValues, nodeURL storj.NodeURL) *Server {
 	server := Server{
 		log:             logger,
 		config:          config,
@@ -141,6 +144,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		stripePublicKey: stripePublicKey,
 		rateLimiter:     web.NewIPRateLimiter(config.RateLimit),
 		nodeURL:         nodeURL,
+		pricing:         pricing,
 	}
 
 	logger.Debug("Starting Satellite UI.", zap.Stringer("Address", server.listener.Addr()))
@@ -317,6 +321,9 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		FileBrowserFlowDisabled         bool
 		LinksharingURL                  string
 		PathwayOverviewEnabled          bool
+		StorageTBPrice                  string
+		EgressTBPrice                   string
+		ObjectPrice                     string
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -337,6 +344,9 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.FileBrowserFlowDisabled = server.config.FileBrowserFlowDisabled
 	data.LinksharingURL = server.config.LinksharingURL
 	data.PathwayOverviewEnabled = server.config.PathwayOverviewEnabled
+	data.StorageTBPrice = server.pricing.StorageTBPrice
+	data.EgressTBPrice = server.pricing.EgressTBPrice
+	data.ObjectPrice = server.pricing.ObjectPrice
 
 	if server.templates.index == nil {
 		server.log.Error("index template is not set")

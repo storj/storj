@@ -131,7 +131,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.open-registration-enabled: false
 
 # names of partnered satellites
-# console.partnered-satellite-names: US-Central-1,Europe-West-1,Asia-East-1
+# console.partnered-satellite-names: US1,EU1,AP1
 
 # indicates if the overview onboarding step should render with pathways
 # console.pathway-overview-enabled: true

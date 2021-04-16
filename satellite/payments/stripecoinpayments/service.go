@@ -900,7 +900,7 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 func (service *Service) createInvoice(ctx context.Context, cusID string, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	description := fmt.Sprintf("Tardigrade Cloud Storage for %s %d", period.Month(), period.Year())
+	description := fmt.Sprintf("Storj DCS Cloud Storage for %s %d", period.Month(), period.Year())
 
 	_, err = service.stripeClient.Invoices().New(
 		&stripe.InvoiceParams{

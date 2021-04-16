@@ -9,14 +9,17 @@
             <div class="overview-area__continue__text-area">
                 <div class="overview-area__continue__container">
                     <p class="overview-area__label continue-label server-side-label">Server-Side Encrypted</p>
-                    <h3 class="overview-area__continue__header">Continue in Browser</h3>
-                    <p class="overview-area__continue__text">Start uploading files in the browser and instantly see how your data gets distributed over our global storage network. You can always use other upload methods later.</p>
+                    <h3 class="overview-area__continue__header">Upload in Browser</h3>
+                    <p class="overview-area__continue__text">
+                        Start uploading files in the browser and instantly see how your data gets distributed over our
+                        global storage network. You can always use other upload methods later.
+                    </p>
                     <VButton
                         class="overview-area__continue__button"
-                        label="Continue in Browser"
+                        label="Upload in Browser"
                         width="234px"
                         height="48px"
-                        :on-press="onContinueInBrowserClick"
+                        :on-press="onUploadInBrowserClick"
                         :is-disabled="isLoading"
                     />
                 </div>
@@ -69,7 +72,7 @@
         </div>
         <a
             class="overview-area__integrations-button"
-            href="https://storj.io/connectors/developer-tools"
+            href="https://storj.io/integrations/"
             target="_blank"
             rel="noopener noreferrer"
         >
@@ -142,7 +145,7 @@ export default class OverviewStep extends Vue {
     /**
      * Creates untitled project and redirects to objects page.
      */
-    public async onContinueInBrowserClick(): Promise<void> {
+    public async onUploadInBrowserClick(): Promise<void> {
         if (this.isLoading) return;
 
         this.isLoading = true;
@@ -152,7 +155,7 @@ export default class OverviewStep extends Vue {
 
             this.isLoading = false;
 
-            await this.$router.push(RouteConfig.Objects.with(RouteConfig.CreatePassphrase).path);
+            await this.$router.push(RouteConfig.Objects.path);
         } catch (error) {
             await this.$notify.error(error.message);
             this.isLoading = false;

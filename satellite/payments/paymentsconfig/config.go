@@ -38,6 +38,13 @@ type CouponDuration struct {
 	BillingPeriods int64
 }
 
+// PricingValues holds pricing model for satellite.
+type PricingValues struct {
+	StorageTBPrice string
+	EgressTBPrice  string
+	ObjectPrice    string
+}
+
 // Type implements pflag.Value.
 func (CouponDuration) Type() string { return "paymentsconfig.CouponDuration" }
 
