@@ -98,6 +98,7 @@ export default class HeaderedInput extends HeaderlessInput {
         display: flex;
         justify-content: space-between;
         align-items: center;
+        margin-bottom: 10px;
 
         &__main {
             display: flex;

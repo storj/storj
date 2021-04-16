@@ -197,8 +197,9 @@ export default class ChangePasswordPopup extends Vue {
         font-family: 'font_regular', sans-serif;
     }
 
-    .input-container.full-input {
+    .full-input {
         width: 100%;
+        margin-bottom: 15px;
     }
 
     .change-password-row-container {
