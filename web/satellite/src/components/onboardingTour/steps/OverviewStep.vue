@@ -36,7 +36,7 @@
                     class="overview-area__path-section__button"
                     label="Continue"
                     width="calc(100% - 4px)"
-                    :on-press="onCreateGrantClick"
+                    :on-press="onGatewayMTClick"
                     :is-blue-white="true"
                     :is-disabled="isLoading"
                 />
@@ -50,7 +50,7 @@
                     class="overview-area__path-section__button"
                     label="Continue"
                     width="calc(100% - 4px)"
-                    :on-press="onCreateGrantClick"
+                    :on-press="onUplinkCLIClick"
                     :is-blue-white="true"
                     :is-disabled="isLoading"
                 />
@@ -65,6 +65,7 @@
                     href="https://docs.storj.io/how-tos/sync-files-with-rclone"
                     target="_blank"
                     rel="noopener noreferrer"
+                    @click="onRcloneClick"
                 >
                     Continue
                 </a>
@@ -95,6 +96,8 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectFields } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsHttpApi } from '@/api/analytics';
 
 @Component({
     components: {
@@ -104,6 +107,12 @@ import { PM_ACTIONS } from '@/utils/constants/actionNames';
 })
 export default class OverviewStep extends Vue {
     public isLoading: boolean = false;
+
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+          
+    public onRcloneClick(): void {
+        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "Rclone Sync");
+    }  
 
     /**
      * Lifecycle hook after initial render.
@@ -125,10 +134,35 @@ export default class OverviewStep extends Vue {
      * Holds button click logic.
      * Creates untitled project and redirects to next step (creating access grant).
      */
-    public async onCreateGrantClick(): Promise<void> {
+    public async onGatewayMTClick(): Promise<void> {
         if (this.isLoading) return;
 
         this.isLoading = true;
+
+        await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "GatewayMT");
+
+        try {
+            await this.createUntitledProject();
+
+            this.isLoading = false;
+
+            await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).with(RouteConfig.AccessGrantName).path);
+        } catch (error) {
+            await this.$notify.error(error.message);
+            this.isLoading = false;
+        }
+    }
+    
+    /**
+     * Holds button click logic.
+     * Creates untitled project and redirects to next step (creating access grant).
+     */
+    public async onUplinkCLIClick(): Promise<void> {
+        if (this.isLoading) return;
+
+        this.isLoading = true;
+
+        await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "CLI");
 
         try {
             await this.createUntitledProject();
@@ -149,6 +183,8 @@ export default class OverviewStep extends Vue {
         if (this.isLoading) return;
 
         this.isLoading = true;
+
+        await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "Continue in Browser");
 
         try {
             await this.createUntitledProject();
