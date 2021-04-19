@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os/exec"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/testcontext"
 	"storj.io/storj/cmd/uplink/cmd"
 	"storj.io/uplink"
 )
@@ -53,4 +55,17 @@ func TestRegisterAccessTimeout(t *testing.T) {
 	assert.Equal(t, "", secretKey)
 	assert.Equal(t, "", endpoint)
 	close(ch)
+}
+
+func TestAccessImport(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	const testAccess = "12edqwjdy4fmoHasYrxLzmu8Ubv8Hsateq1LPYne6Jzd64qCsYgET53eJzhB4L2pWDKBpqMowxt8vqLCbYxu8Qz7BJVH1CvvptRt9omm24k5GAq1R99mgGjtmc6yFLqdEFgdevuQwH5yzXCEEtbuBYYgES8Stb1TnuSiU3sa62bd2G88RRgbTCtwYrB8HZ7CLjYWiWUphw7RNa3NfD1TW6aUJ6E5D1F9AM6sP58X3D4H7tokohs2rqCkwRT"
+
+	uplinkExe := ctx.Compile("storj.io/storj/cmd/uplink")
+
+	output, err := exec.Command(uplinkExe, "--config-dir", ctx.Dir("uplink"), "import", testAccess).CombinedOutput()
+	t.Log(string(output))
+	require.NoError(t, err)
 }

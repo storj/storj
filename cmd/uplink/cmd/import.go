@@ -207,11 +207,12 @@ func createConfigFile(path string) error {
 		return err
 	}
 
-	_, err = os.Create(path)
+	f, err := os.Create(path)
 	if err != nil {
 		return err
 	}
-	return nil
+
+	return f.Close()
 }
 
 func fileExists(path string) (bool, error) {
