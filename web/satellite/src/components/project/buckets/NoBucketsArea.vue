@@ -7,7 +7,7 @@
         <h2 class="no-buckets-area__message">Create your first bucket to get started.</h2>
         <a
             class="no-buckets-area__first-button"
-            href="https://documentation.tardigrade.io/api-reference/uplink-cli"
+            href="https://docs.storj.io/api-reference/uplink-cli"
             target="_blank"
             rel="noopener noreferrer"
         >
@@ -15,7 +15,7 @@
         </a>
         <a
             class="no-buckets-area__second-button"
-            href="https://documentation.tardigrade.io/"
+            href="https://docs.storj.io/"
             target="_blank"
             rel="noopener noreferrer"
         >

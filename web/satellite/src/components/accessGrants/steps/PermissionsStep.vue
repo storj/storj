@@ -419,6 +419,7 @@ export default class PermissionsStep extends Vue {
             font-size: 16px;
             line-height: 23px;
             color: #0068dc;
+            margin-top: 20px;
         }
     }
 

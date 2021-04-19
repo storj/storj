@@ -1309,3 +1309,52 @@ func createObject(ctx *testcontext.Context, t *testing.T, db *metabase.DB, obj m
 		},
 	}.Check(ctx, t, db)
 }
+
+func createExpiredObject(ctx *testcontext.Context, t *testing.T, db *metabase.DB, obj metabase.ObjectStream, numberOfSegments byte, expiresAt time.Time) metabase.Object {
+	BeginObjectExactVersion{
+		Opts: metabase.BeginObjectExactVersion{
+			ObjectStream: obj,
+			Encryption:   defaultTestEncryption,
+			ExpiresAt:    &expiresAt,
+		},
+		Version: obj.Version,
+	}.Check(ctx, t, db)
+
+	for i := byte(0); i < numberOfSegments; i++ {
+		BeginSegment{
+			Opts: metabase.BeginSegment{
+				ObjectStream: obj,
+				Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
+				RootPieceID:  storj.PieceID{i + 1},
+				Pieces: []metabase.Piece{{
+					Number:      1,
+					StorageNode: testrand.NodeID(),
+				}},
+			},
+		}.Check(ctx, t, db)
+
+		CommitSegment{
+			Opts: metabase.CommitSegment{
+				ObjectStream: obj,
+				Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
+				RootPieceID:  storj.PieceID{1},
+				Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+
+				EncryptedKey:      []byte{3},
+				EncryptedKeyNonce: []byte{4},
+				EncryptedETag:     []byte{5},
+
+				EncryptedSize: 1024,
+				PlainSize:     512,
+				PlainOffset:   0,
+				Redundancy:    defaultTestRedundancy,
+			},
+		}.Check(ctx, t, db)
+	}
+
+	return CommitObject{
+		Opts: metabase.CommitObject{
+			ObjectStream: obj,
+		},
+	}.Check(ctx, t, db)
+}

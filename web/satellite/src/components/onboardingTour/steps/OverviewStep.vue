@@ -191,7 +191,7 @@ export default class OverviewStep extends Vue {
 
             this.isLoading = false;
 
-            await this.$router.push(RouteConfig.Objects.path);
+            await this.$router.push(RouteConfig.Objects.path).catch(() => {return; });
         } catch (error) {
             await this.$notify.error(error.message);
             this.isLoading = false;

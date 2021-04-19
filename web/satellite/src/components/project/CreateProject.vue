@@ -5,7 +5,7 @@
     <div class="create-project-area">
         <div class="create-project-area__container">
             <img src="@/../static/images/project/createProject.png" alt="create project image">
-            <h2 class="create-project-area__title">Create a Project</h2>
+            <h2 class="create-project-area__container__title">Create a Project</h2>
             <HeaderedInput
                 label="Project Name"
                 additional-label="Up To 20 Characters"
@@ -236,6 +236,7 @@ export default class NewProjectPopup extends Vue {
                 line-height: 34px;
                 color: #384b65;
                 font-family: 'font_bold', sans-serif;
+                margin: 15px 0 30px 0;
             }
 
             &__button-container {

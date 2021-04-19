@@ -92,6 +92,9 @@ type cockroachConn struct {
 // Assert that cockroachConn fulfills connAll.
 var _ connAll = (*cockroachConn)(nil)
 
+// StdlibConn returns the underlying pgx std connection.
+func (c *cockroachConn) StdlibConn() *stdlib.Conn { return c.underlying }
+
 // Close closes the cockroachConn.
 func (c *cockroachConn) Close() error {
 	return c.underlying.Close()

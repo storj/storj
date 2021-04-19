@@ -8,6 +8,7 @@ import AddPaymentStep from '@/components/onboardingTour/steps/AddPaymentStep.vue
 import { PaymentsHttpApi } from '@/api/payments';
 import { makePaymentsModule } from '@/store/modules/payments';
 import { makeProjectsModule } from '@/store/modules/projects';
+import { MetaUtils } from '@/utils/meta';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import { ProjectsApiMock } from '../../mock/api/projects';
@@ -21,8 +22,12 @@ const paymentsModule = makePaymentsModule(paymentsApi);
 
 const store = new Vuex.Store({ modules: { projectsModule, paymentsModule }});
 
+jest.mock('@/utils/meta');
+
 describe('AddPaymentStep.vue', () => {
     it('renders correctly', async (): Promise<void> => {
+        MetaUtils.getMetaContent = jest.fn().mockReturnValue('1');
+
         const wrapper = shallowMount(AddPaymentStep, {
             store,
             localVue,

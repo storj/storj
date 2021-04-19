@@ -48,7 +48,7 @@ body {
 
     &__logo {
         cursor: pointer;
-        width: 140px;
+        width: 207px;
         height: 62px;
     }
 
@@ -126,11 +126,9 @@ body {
         align-items: center;
         justify-content: space-between;
         width: 100%;
-        margin-top: 20px;
 
         &__terms-area {
             display: flex;
-            flex-direction: row;
             justify-content: center;
             align-items: center;
 
@@ -141,8 +139,7 @@ body {
             &__terms-confirmation {
                 font-size: 14px;
                 line-height: 20px;
-                margin-top: 14px;
-                margin-left: 10px;
+                margin: 4px 0 0 10px;
                 color: #384b65;
             }
 
@@ -249,6 +246,7 @@ body {
 
 .input-wrap.full-input {
     width: 100%;
+    margin-bottom: 15px;
 }
 
 .image {

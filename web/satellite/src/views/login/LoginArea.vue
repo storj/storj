@@ -9,7 +9,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
 import AuthIcon from '@/../static/images/AuthImage.svg';
-import LogoIcon from '@/../static/images/Logo.svg';
+import LogoIcon from '@/../static/images/dcs-logo.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
@@ -39,6 +39,8 @@ export default class Login extends Vue {
 
     // Tardigrade logic
     public isDropdownShown: boolean = false;
+
+    public readonly registerPath: string = RouteConfig.Register.path;
 
     /**
      * Lifecycle hook after initial render.

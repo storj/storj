@@ -35,6 +35,7 @@ export default class SortingHeader extends Vue {}
     .sort-header-container {
         display: flex;
         width: 100%;
+        margin-bottom: 10px;
 
         &__item {
             text-align: left;
