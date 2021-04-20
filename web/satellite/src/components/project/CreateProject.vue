@@ -5,7 +5,7 @@
     <div class="create-project-area">
         <div class="create-project-area__container">
             <img src="@/../static/images/project/createProject.png" alt="create project image">
-            <h2 class="create-project-area__title">Create a Project</h2>
+            <h2 class="create-project-area__container__title">Create a Project</h2>
             <HeaderedInput
                 label="Project Name"
                 additional-label="Up To 20 Characters"
@@ -74,7 +74,6 @@ import {
     APP_STATE_ACTIONS,
     PM_ACTIONS,
 } from '@/utils/constants/actionNames';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { LocalData } from '@/utils/localData';
 
 @Component({
@@ -144,9 +143,6 @@ export default class NewProjectPopup extends Vue {
         try {
             const createdProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
             this.createdProjectId = createdProject.id;
-            this.$segment.track(SegmentEvent.PROJECT_CREATED, {
-                project_id: this.createdProjectId,
-            });
         } catch (error) {
             this.isLoading = false;
             await this.$notify.error(error.message);
@@ -240,6 +236,7 @@ export default class NewProjectPopup extends Vue {
                 line-height: 34px;
                 color: #384b65;
                 font-family: 'font_bold', sans-serif;
+                margin: 15px 0 30px 0;
             }
 
             &__button-container {

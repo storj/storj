@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/private/post/oauth2"
 	"storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
@@ -46,6 +47,7 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/rewards"
@@ -83,9 +85,8 @@ type API struct {
 	}
 
 	Overlay struct {
-		DB        overlay.DB
-		Service   *overlay.Service
-		Inspector *overlay.Inspector
+		DB      overlay.DB
+		Service *overlay.Service
 	}
 
 	Orders struct {
@@ -97,6 +98,7 @@ type API struct {
 
 	Metainfo struct {
 		Database      metainfo.PointerDB
+		Metabase      metainfo.MetabaseDB
 		Service       *metainfo.Service
 		PieceDeletion *piecedeletion.Service
 		Endpoint2     *metainfo.Endpoint
@@ -156,11 +158,16 @@ type API struct {
 	GracefulExit struct {
 		Endpoint *gracefulexit.Endpoint
 	}
+
+	Analytics struct {
+		Service *analytics.Service
+	}
 }
 
 // NewAPI creates a new satellite API process.
 func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
-	pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB, liveAccounting accounting.Cache, rollupsWriteCache *orders.RollupsWriteCache,
+	pointerDB metainfo.PointerDB, metabaseDB metainfo.MetabaseDB, revocationDB extensions.RevocationDB,
+	liveAccounting accounting.Cache, rollupsWriteCache *orders.RollupsWriteCache,
 	config *Config, versionInfo version.Info, atomicLogLevel *zap.AtomicLevel) (*API, error) {
 	peer := &API{
 		Log:             log,
@@ -255,11 +262,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Name:  "overlay",
 			Close: peer.Overlay.Service.Close,
 		})
-
-		peer.Overlay.Inspector = overlay.NewInspector(peer.Overlay.Service)
-		if err := internalpb.DRPCRegisterOverlayInspector(peer.Server.PrivateDRPC(), peer.Overlay.Inspector); err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 	}
 
 	{ // setup contact service
@@ -296,8 +298,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup project limits
 		peer.ProjectLimits.Cache = accounting.NewProjectLimitCache(peer.DB.ProjectAccounting(),
-			config.Metainfo.ProjectLimits.DefaultMaxUsage,
-			config.Metainfo.ProjectLimits.DefaultMaxBandwidth,
+			config.Console.Config.UsageLimits.DefaultStorageLimit,
+			config.Console.Config.UsageLimits.DefaultBandwidthLimit,
 			config.ProjectLimit,
 		)
 	}
@@ -353,19 +355,25 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Marketing.PartnersService = rewards.NewPartnersService(
 			peer.Log.Named("partners"),
 			rewards.DefaultPartnersDB,
-			[]string{
-				"https://us-central-1.tardigrade.io/",
-				"https://asia-east-1.tardigrade.io/",
-				"https://europe-west-1.tardigrade.io/",
-			},
 		)
+	}
+
+	{ // setup analytics service
+		peer.Analytics.Service = analytics.NewService(peer.Log.Named("analytics:service"), config.Analytics, config.Console.SatelliteName)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "analytics:service",
+			Close: peer.Analytics.Service.Close,
+		})
 	}
 
 	{ // setup metainfo
 		peer.Metainfo.Database = pointerDB
+		peer.Metainfo.Metabase = metabaseDB
 		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
 			peer.Metainfo.Database,
 			peer.DB.Buckets(),
+			peer.Metainfo.Metabase,
 		)
 
 		peer.Metainfo.PieceDeletion, err = piecedeletion.NewService(
@@ -424,7 +432,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Inspector.Endpoint = inspector.NewEndpoint(
 			peer.Log.Named("inspector"),
 			peer.Overlay.Service,
-			peer.Metainfo.Service,
+			peer.Metainfo.Metabase,
 		)
 		if err := internalpb.DRPCRegisterHealthInspector(peer.Server.PrivateDRPC(), peer.Inspector.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -529,7 +537,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.ObjectPrice,
 			pc.BonusRate,
 			pc.CouponValue,
-			pc.CouponDuration,
+			pc.CouponDuration.IntPointer(),
 			pc.CouponProjectLimit,
 			pc.MinCoinPayment,
 			pc.PaywallProportion)
@@ -571,11 +579,18 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Buckets(),
 			peer.Marketing.PartnersService,
 			peer.Payments.Accounts,
+			peer.Analytics.Service,
 			consoleConfig.Config,
 			config.Payments.MinCoinPayment,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
+		}
+
+		pricing := paymentsconfig.PricingValues{
+			StorageTBPrice: config.Payments.StorageTBPrice,
+			EgressTBPrice:  config.Payments.EgressTBPrice,
+			ObjectPrice:    config.Payments.ObjectPrice,
 		}
 
 		peer.Console.Endpoint = consoleweb.NewServer(
@@ -584,8 +599,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Console.Service,
 			peer.Mail.Service,
 			peer.Marketing.PartnersService,
+			peer.Analytics.Service,
 			peer.Console.Listener,
 			config.Payments.StripeCoinPayments.StripePublicKey,
+			pricing,
 			peer.URL(),
 		)
 
@@ -631,7 +648,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.DB.GracefulExit(),
 				peer.Overlay.DB,
 				peer.Overlay.Service,
-				peer.Metainfo.Service,
+				peer.Metainfo.Metabase,
 				peer.Orders.Service,
 				peer.DB.PeerIdentities(),
 				config.GracefulExit)

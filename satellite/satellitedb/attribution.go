@@ -135,16 +135,21 @@ func (keys *attributionDB) Get(ctx context.Context, projectID uuid.UUID, bucketN
 func (keys *attributionDB) Insert(ctx context.Context, info *attribution.Info) (_ *attribution.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbxInfo, err := keys.db.Create_ValueAttribution(ctx,
-		dbx.ValueAttribution_ProjectId(info.ProjectID[:]),
-		dbx.ValueAttribution_BucketName(info.BucketName),
-		dbx.ValueAttribution_PartnerId(info.PartnerID[:]),
-	)
+	err = keys.db.QueryRowContext(ctx, `
+		INSERT INTO value_attributions (project_id, bucket_name, partner_id, last_updated) 
+		VALUES ($1, $2, $3, now())
+		ON CONFLICT (project_id, bucket_name) DO NOTHING
+		RETURNING last_updated
+	`, info.ProjectID[:], info.BucketName, info.PartnerID[:]).Scan(&info.CreatedAt)
+	// TODO when sql.ErrNoRows is returned then CreatedAt is not set
+	if errors.Is(err, sql.ErrNoRows) {
+		return info, nil
+	}
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	return attributionFromDBX(dbxInfo)
+	return info, nil
 }
 
 // QueryAttribution queries partner bucket attribution data.

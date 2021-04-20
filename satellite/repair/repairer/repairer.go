@@ -49,6 +49,8 @@ type Service struct {
 	Loop       *sync2.Cycle
 	repairer   *SegmentRepairer
 	irrDB      irreparable.DB
+
+	nowFn func() time.Time
 }
 
 // NewService creates repairing service.
@@ -61,6 +63,8 @@ func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, repair
 		Loop:       sync2.NewCycle(config.Interval),
 		repairer:   repairer,
 		irrDB:      irrDB,
+
+		nowFn: time.Now,
 	}
 }
 
@@ -152,7 +156,7 @@ func (service *Service) process(ctx context.Context) (err error) {
 func (service *Service) worker(ctx context.Context, seg *internalpb.InjuredSegment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	workerStartTime := time.Now().UTC()
+	workerStartTime := service.nowFn().UTC()
 
 	service.log.Debug("Limiter running repair on segment")
 	// note that shouldDelete is used even in the case where err is not null
@@ -163,9 +167,8 @@ func (service *Service) worker(ctx context.Context, seg *internalpb.InjuredSegme
 				zap.Error(err))
 			segmentInfo := &internalpb.IrreparableSegment{
 				Path:               seg.GetPath(),
-				SegmentDetail:      irreparableErr.segmentInfo,
 				LostPieces:         irreparableErr.piecesRequired - irreparableErr.piecesAvailable,
-				LastRepairAttempt:  time.Now().Unix(),
+				LastRepairAttempt:  service.nowFn().Unix(),
 				RepairAttemptCount: int64(1),
 			}
 			if err := service.irrDB.IncrementRepairAttempts(ctx, segmentInfo); err != nil {
@@ -189,7 +192,7 @@ func (service *Service) worker(ctx context.Context, seg *internalpb.InjuredSegme
 		return Error.Wrap(err)
 	}
 
-	repairedTime := time.Now().UTC()
+	repairedTime := service.nowFn().UTC()
 	timeForRepair := repairedTime.Sub(workerStartTime)
 	mon.FloatVal("time_for_repair").Observe(timeForRepair.Seconds()) //mon:locked
 
@@ -201,4 +204,10 @@ func (service *Service) worker(ctx context.Context, seg *internalpb.InjuredSegme
 	}
 
 	return nil
+}
+
+// SetNow allows tests to have the server act as if the current time is whatever they want.
+func (service *Service) SetNow(nowFn func() time.Time) {
+	service.nowFn = nowFn
+	service.repairer.SetNow(nowFn)
 }

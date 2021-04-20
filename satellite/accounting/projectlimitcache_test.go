@@ -60,8 +60,8 @@ func TestProjectLimitCache(t *testing.T) {
 		projectUsageSvc := saPeer.Accounting.ProjectUsage
 		accountingDB := saPeer.DB.ProjectAccounting()
 		projectLimitCache := saPeer.ProjectLimits.Cache
-		defaultUsageLimit := saPeer.Config.Metainfo.ProjectLimits.DefaultMaxUsage.Int64()
-		defaultBandwidthLimit := saPeer.Config.Metainfo.ProjectLimits.DefaultMaxBandwidth.Int64()
+		defaultUsageLimit := saPeer.Config.Console.UsageLimits.DefaultStorageLimit.Int64()
+		defaultBandwidthLimit := saPeer.Config.Console.UsageLimits.DefaultBandwidthLimit.Int64()
 		dbDefaultLimits := accounting.ProjectLimits{Usage: &defaultUsageLimit, Bandwidth: &defaultBandwidthLimit}
 
 		testProject, err := saPeer.DB.Console().Projects().Insert(ctx, &console.Project{Name: "test", OwnerID: testrand.UUID()})

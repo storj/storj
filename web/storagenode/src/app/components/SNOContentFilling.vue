@@ -144,9 +144,10 @@
                 <BlueArrowRight />
             </router-link>
         </div>
-        <PayoutArea
-            label="STORJ Wallet Address"
-            :wallet-address="wallet"
+        <WalletArea
+            label="Wallet Address"
+            :wallet-address="nodeInfo.wallet"
+            :wallet-features="nodeInfo.walletFeatures"
         />
         <TotalPayoutArea class="info-area__total-area" />
     </div>
@@ -164,9 +165,9 @@ import DiskStatChart from '@/app/components/DiskStatChart.vue';
 import EgressChart from '@/app/components/EgressChart.vue';
 import IngressChart from '@/app/components/IngressChart.vue';
 import EstimationArea from '@/app/components/payments/EstimationArea.vue';
-import PayoutArea from '@/app/components/PayoutArea.vue';
 import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
 import TotalPayoutArea from '@/app/components/TotalPayoutArea.vue';
+import WalletArea from '@/app/components/WalletArea.vue';
 
 import BlueArrowRight from '@/../static/images/BlueArrowRight.svg';
 import LargeDisqualificationIcon from '@/../static/images/largeDisqualify.svg';
@@ -175,7 +176,7 @@ import LargeSuspensionIcon from '@/../static/images/largeSuspend.svg';
 import { RouteConfig } from '@/app/router';
 import { APPSTATE_ACTIONS } from '@/app/store/modules/appState';
 import { Size } from '@/private/memory/size';
-import { SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno';
+import { Dashboard, SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno';
 
 @Component ({
     components: {
@@ -190,7 +191,7 @@ import { SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno';
         DiskSpaceChart,
         BarInfo,
         ChecksArea,
-        PayoutArea,
+        WalletArea,
         LargeDisqualificationIcon,
         LargeSuspensionIcon,
         BlueArrowRight,
@@ -290,11 +291,11 @@ export default class SNOContentFilling extends Vue {
     }
 
     /**
-     * wallet - wallet address as string from store.
-     * @return string - wallet address
+     * nodeInfo - contains common sno dashboard information.
+     * @return Dashboard
      */
-    public get wallet(): string {
-        return this.$store.state.node.info.wallet;
+    public get nodeInfo(): Dashboard {
+        return this.$store.state.node.info;
     }
 
     /**

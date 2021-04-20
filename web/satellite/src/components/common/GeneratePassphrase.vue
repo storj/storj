@@ -4,18 +4,8 @@
 <template>
     <div class="generate-container">
         <h1 class="generate-container__title">Encryption Passphrase</h1>
-        <div class="generate-container__warning">
-            <div class="generate-container__warning__header">
-                <WarningIcon/>
-                <p class="generate-container__warning__header__label">Save Your Encryption Passphrase</p>
-            </div>
-            <p class="generate-container__warning__message">
-                You’ll need this passphrase to access data in the future. This is the only time it will be displayed.
-                Be sure to write it down.
-            </p>
-        </div>
         <div class="generate-container__choosing">
-            <p class="generate-container__choosing__label">Choose Passphrase Type</p>
+            <p class="generate-container__choosing__label">Passphrase</p>
             <div class="generate-container__choosing__right">
                 <p
                     class="generate-container__choosing__right__option left-option"
@@ -26,12 +16,21 @@
                 </p>
                 <p
                     class="generate-container__choosing__right__option"
-                    :class="{ active: isCreateState }"
+                    :class="{ active: isEnterState }"
                     @click="onChooseCreate"
                 >
-                    Create Phrase
+                    Enter Phrase
                 </p>
             </div>
+        </div>
+        <div class="generate-container__enter-passphrase-box" v-if="isEnterState">
+            <div class="generate-container__enter-passphrase-box__header">
+                <GreenWarningIcon/>
+                <h2 class="generate-container__enter-passphrase-box__header__label">Enter an Existing Passphrase</h2>
+            </div>
+            <p class="generate-container__enter-passphrase-box__message">
+                if you already have an encryption passphrase, enter your encryption passphrase here.
+            </p>
         </div>
         <div class="generate-container__value-area">
             <div class="generate-container__value-area__mnemonic" v-if="isGenerateState">
@@ -47,30 +46,36 @@
             <div class="generate-container__value-area__password" v-else>
                 <HeaderedInput
                     class="generate-container__value-area__password__input"
-                    placeholder="Strong passphrases contain 12 characters or more"
+                    placeholder="Enter encryption passphrase here"
                     @setData="onChangePassphrase"
                     :error="errorMessage"
-                    label="Create Your Passphrase"
                 />
             </div>
         </div>
-        <label class="generate-container__check-area" :class="{ error: isError }" for="pass-checkbox">
-            <input
-                class="generate-container__check-area__checkbox"
-                id="pass-checkbox"
-                type="checkbox"
-                v-model="isChecked"
-                @change="isError = false"
-            >
-            Yes, I wrote this down or saved it somewhere.
-        </label>
+        <div class="generate-container__warning" v-if="isGenerateState">
+            <h2 class="generate-container__warning__title">Save Your Encryption Passphrase</h2>
+            <p class="generate-container__warning__message">
+                You’ll need this passphrase to access data in the future. This is the only time it will be displayed.
+                Be sure to write it down.
+            </p>
+            <label class="generate-container__warning__check-area" :class="{ error: isError }" for="pass-checkbox">
+                <input
+                    class="generate-container__warning__check-area__checkbox"
+                    id="pass-checkbox"
+                    type="checkbox"
+                    v-model="isChecked"
+                    @change="isError = false"
+                >
+                Yes, I wrote this down or saved it somewhere.
+            </label>
+        </div>
         <VButton
             class="generate-container__next-button"
             label="Next"
             width="100%"
             height="48px"
             :on-press="onProceed"
-            :is-disabled="isLoading"
+            :is-disabled="isButtonDisabled"
         />
     </div>
 </template>
@@ -83,11 +88,14 @@ import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import BackIcon from '@/../static/images/accessGrants/back.svg';
-import WarningIcon from '@/../static/images/accessGrants/warning.svg';
+import GreenWarningIcon from '@/../static/images/accessGrants/greenWarning.svg';
+
+import { AnalyticsHttpApi } from '@/api/analytics';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 @Component({
     components: {
-        WarningIcon,
+        GreenWarningIcon,
         BackIcon,
         VButton,
         HeaderedInput,
@@ -101,8 +109,10 @@ export default class GeneratePassphrase extends Vue {
     @Prop({ default: false })
     public readonly isLoading: boolean;
 
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
+
     public isGenerateState: boolean = true;
-    public isCreateState: boolean = false;
+    public isEnterState: boolean = false;
     public isChecked: boolean = false;
     public isError: boolean = false;
     public passphrase: string = '';
@@ -119,16 +129,18 @@ export default class GeneratePassphrase extends Vue {
 
     public onProceed(): void {
         if (!this.passphrase) {
-            this.errorMessage = 'Passphrase can`t be empty';
+            this.errorMessage = 'Passphrase can\'t be empty';
 
             return;
         }
 
-        if (!this.isChecked) {
+        if (!this.isChecked && this.isGenerateState) {
             this.isError = true;
 
             return;
         }
+
+        this.analytics.eventTriggered(AnalyticsEvent.PASSPHRASE_CREATED);
 
         this.onButtonClick();
     }
@@ -142,7 +154,7 @@ export default class GeneratePassphrase extends Vue {
         this.passphrase = bip39.generateMnemonic();
         this.setParentPassphrase(this.passphrase);
 
-        this.isCreateState = false;
+        this.isEnterState = false;
         this.isGenerateState = true;
     }
 
@@ -150,13 +162,13 @@ export default class GeneratePassphrase extends Vue {
      * Changes state to create passphrase.
      */
     public onChooseCreate(): void {
-        if (this.passphrase && this.isCreateState) return;
+        if (this.passphrase && this.isEnterState) return;
 
         this.errorMessage = '';
         this.passphrase = '';
         this.setParentPassphrase(this.passphrase);
 
-        this.isCreateState = true;
+        this.isEnterState = true;
         this.isGenerateState = false;
     }
 
@@ -177,6 +189,13 @@ export default class GeneratePassphrase extends Vue {
         this.passphrase = value.trim();
         this.setParentPassphrase(this.passphrase);
         this.errorMessage = '';
+    }
+
+    /**
+     * Indicates if button is disabled.
+     */
+    public get isButtonDisabled(): boolean {
+        return this.isLoading || !this.passphrase || (!this.isChecked && this.isGenerateState);
     }
 }
 </script>
@@ -203,27 +222,23 @@ export default class GeneratePassphrase extends Vue {
             margin: 0 0 30px 0;
         }
 
-        &__warning {
-            display: flex;
-            flex-direction: column;
+        &__enter-passphrase-box {
             padding: 20px;
-            width: calc(100% - 40px);
-            background: #fff9f7;
-            border: 1px solid #f84b00;
-            margin-bottom: 35px;
-            border-radius: 8px;
+            background: #f9fffc;
+            border: 1px solid #1a9666;
+            border-radius: 9px;
 
             &__header {
                 display: flex;
                 align-items: center;
+                margin-bottom: 10px;
 
                 &__label {
-                    font-style: normal;
                     font-family: 'font_bold', sans-serif;
                     font-size: 16px;
                     line-height: 19px;
                     color: #1b2533;
-                    margin: 0 0 0 15px;
+                    margin: 0 0 0 10px;
                 }
             }
 
@@ -231,7 +246,50 @@ export default class GeneratePassphrase extends Vue {
                 font-size: 16px;
                 line-height: 19px;
                 color: #1b2533;
+                margin: 0;
+            }
+        }
+
+        &__warning {
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            width: calc(100% - 40px);
+            margin: 35px 0;
+            background: #fff;
+            border: 1px solid #e6e9ef;
+            border-radius: 9px;
+
+            &__title {
+                width: 100%;
+                text-align: center;
+                font-family: 'font_bold', sans-serif;
+                font-size: 16px;
+                line-height: 19px;
+                color: #1b2533;
+                margin: 0 0 0 15px;
+            }
+
+            &__message {
+                font-size: 16px;
+                line-height: 19px;
+                color: #1b2533;
                 margin: 10px 0 0 0;
+                text-align: center;
+            }
+
+            &__check-area {
+                margin-top: 27px;
+                font-size: 14px;
+                line-height: 19px;
+                color: #1b2533;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+
+                &__checkbox {
+                    margin: 0 10px 0 0;
+                }
             }
         }
 
@@ -240,6 +298,7 @@ export default class GeneratePassphrase extends Vue {
             align-items: center;
             justify-content: space-between;
             width: 100%;
+            margin-bottom: 25px;
 
             &__label {
                 font-family: 'font_bold', sans-serif;
@@ -265,7 +324,6 @@ export default class GeneratePassphrase extends Vue {
         }
 
         &__value-area {
-            margin: 32px 0;
             width: 100%;
             display: flex;
             align-items: flex-start;
@@ -296,21 +354,11 @@ export default class GeneratePassphrase extends Vue {
 
             &__password {
                 width: 100%;
+                margin: 10px 0 20px 0;
 
                 &__input {
-                    width: calc(100% - 8px);
+                    width: calc(100% - 2px);
                 }
-            }
-        }
-
-        &__check-area {
-            margin-bottom: 32px;
-            font-size: 14px;
-            line-height: 19px;
-            color: #1b2533;
-
-            &__checkbox {
-                margin: 0 10px 0 0;
             }
         }
     }

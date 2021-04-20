@@ -39,7 +39,6 @@ import HideIcon from '@/../static/images/common/BlueHide.svg';
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 @Component({
     components: {
@@ -149,11 +148,6 @@ export default class PeriodSelection extends Vue {
     public async onPreviousPeriodClick(): Promise<void> {
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP);
-            this.$segment.track(SegmentEvent.REPORT_VIEWED, {
-                project_id: this.$store.getters.selectedProject.id,
-                start_date: this.startDate,
-                end_date: this.endDate,
-            });
         } catch (error) {
             await this.$notify.error(`Unable to fetch project charges. ${error.message}`);
         }
@@ -165,11 +159,6 @@ export default class PeriodSelection extends Vue {
     public async onCurrentPeriodClick(): Promise<void> {
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-            this.$segment.track(SegmentEvent.REPORT_VIEWED, {
-                project_id: this.$store.getters.selectedProject.id,
-                start_date: this.startDate,
-                end_date: this.endDate,
-            });
         } catch (error) {
             await this.$notify.error(`Unable to fetch project charges. ${error.message}`);
         }

@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metaloop"
 )
 
 var (
@@ -33,12 +33,12 @@ type Chore struct {
 	log          *zap.Logger
 	config       Config
 	Loop         *sync2.Cycle
-	metainfoLoop *metainfo.Loop
+	metainfoLoop *metaloop.Service
 	Counter      *Counter
 }
 
 // NewChore creates a new instance of the metrics chore.
-func NewChore(log *zap.Logger, config Config, loop *metainfo.Loop) *Chore {
+func NewChore(log *zap.Logger, config Config, loop *metaloop.Service) *Chore {
 	return &Chore{
 		log:          log,
 		config:       config,
@@ -62,8 +62,8 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 			return nil
 		}
 		mon.IntVal("remote_dependent_object_count").Observe(chore.Counter.RemoteDependent)
-		mon.IntVal("inline_object_count").Observe(chore.Counter.Inline)
-		mon.IntVal("total_object_count").Observe(chore.Counter.Total)
+		mon.IntVal("inline_object_count").Observe(chore.Counter.InlineObjectCount())
+		mon.IntVal("total_object_count").Observe(chore.Counter.ObjectCount)
 
 		return nil
 	})

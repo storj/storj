@@ -34,12 +34,14 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/console/consoleweb/consolewebauth"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/rewards"
 )
 
@@ -68,23 +70,27 @@ type Config struct {
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
 	ContactInfoURL                  string `help:"url link to contacts page" default:"https://forum.storj.io"`
-	FrameAncestors                  string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io"`
+	FrameAncestors                  string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io storj.io"`
 	LetUsKnowURL                    string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
 	SEO                             string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
 	SatelliteName                   string `help:"used to display at web satellite console" default:"Storj"`
 	SatelliteOperator               string `help:"name of organization which set up satellite" default:"Storj Labs" `
 	TermsAndConditionsURL           string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
-	SegmentIOPublicKey              string `help:"used to initialize segment.io at web satellite console" default:""`
 	AccountActivationRedirectURL    string `help:"url link for account activation redirect" default:""`
 	VerificationPageURL             string `help:"url link to sign up verification page" devDefault:"" releaseDefault:"https://tardigrade.io/verify"`
-	PartneredSatelliteNames         string `help:"names of partnered satellites" default:"US-Central-1,Europe-West-1,Asia-East-1"`
-	GoogleTagManagerID              string `help:"id for google tag manager" default:""`
-	GeneralRequestURL               string `help:"url link to general request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
-	ProjectLimitsIncreaseRequestURL string `help:"url link to project limit increase request page" default:"https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
-	GatewayCredentialsRequestURL    string `help:"url link for gateway credentials requests" default:"https://auth.tardigradeshare.io"`
+	PartneredSatelliteNames         string `help:"names of partnered satellites" default:"US1,EU1,AP1"`
+	GeneralRequestURL               string `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
+	ProjectLimitsIncreaseRequestURL string `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
+	GatewayCredentialsRequestURL    string `help:"url link for gateway credentials requests" default:"https://auth.us1.storjshare.io"`
 	IsBetaSatellite                 bool   `help:"indicates if satellite is in beta" default:"false"`
 	BetaSatelliteFeedbackURL        string `help:"url link for for beta satellite feedback" default:""`
 	BetaSatelliteSupportURL         string `help:"url link for for beta satellite support" default:""`
+	DocumentationURL                string `help:"url link to documentation" default:"https://docs.storj.io/"`
+	CouponCodeUIEnabled             bool   `help:"indicates if user is allowed to add coupon codes to account" default:"false"`
+	FileBrowserFlowDisabled         bool   `help:"indicates if file browser flow is disabled" default:"false"`
+	CSPEnabled                      bool   `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
+	LinksharingURL                  string `help:"url link for linksharing requests" default:"https://link.us1.storjshare.io"`
+	PathwayOverviewEnabled          bool   `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 
 	RateLimit web.IPRateLimiterConfig
 
@@ -101,6 +107,7 @@ type Server struct {
 	service     *console.Service
 	mailService *mailservice.Service
 	partners    *rewards.PartnersService
+	analytics   *analytics.Service
 
 	listener    net.Listener
 	server      http.Server
@@ -109,6 +116,8 @@ type Server struct {
 	nodeURL     storj.NodeURL
 
 	stripePublicKey string
+
+	pricing paymentsconfig.PricingValues
 
 	schema    graphql.Schema
 	templates struct {
@@ -123,7 +132,7 @@ type Server struct {
 }
 
 // NewServer creates new instance of console server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, partners *rewards.PartnersService, listener net.Listener, stripePublicKey string, nodeURL storj.NodeURL) *Server {
+func NewServer(logger *zap.Logger, config Config, service *console.Service, mailService *mailservice.Service, partners *rewards.PartnersService, analytics *analytics.Service, listener net.Listener, stripePublicKey string, pricing paymentsconfig.PricingValues, nodeURL storj.NodeURL) *Server {
 	server := Server{
 		log:             logger,
 		config:          config,
@@ -131,9 +140,11 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		service:         service,
 		mailService:     mailService,
 		partners:        partners,
+		analytics:       analytics,
 		stripePublicKey: stripePublicKey,
 		rateLimiter:     web.NewIPRateLimiter(config.RateLimit),
 		nodeURL:         nodeURL,
+		pricing:         pricing,
 	}
 
 	logger.Debug("Starting Satellite UI.", zap.Stringer("Address", server.listener.Addr()))
@@ -169,7 +180,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 		server.withAuth(http.HandlerFunc(server.projectUsageLimitsHandler)),
 	).Methods(http.MethodGet)
 
-	authController := consoleapi.NewAuth(logger, service, mailService, server.cookieAuth, partners, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
+	authController := consoleapi.NewAuth(logger, service, mailService, server.cookieAuth, partners, server.analytics, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.GetAccount))).Methods(http.MethodGet)
 	authRouter.Handle("/account", server.withAuth(http.HandlerFunc(authController.UpdateAccount))).Methods(http.MethodPatch)
@@ -200,6 +211,16 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	bucketsRouter := router.PathPrefix("/api/v0/buckets").Subrouter()
 	bucketsRouter.Use(server.withAuth)
 	bucketsRouter.HandleFunc("/bucket-names", bucketsController.AllBucketNames).Methods(http.MethodGet)
+
+	apiKeysController := consoleapi.NewAPIKeys(logger, service)
+	apiKeysRouter := router.PathPrefix("/api/v0/api-keys").Subrouter()
+	apiKeysRouter.Use(server.withAuth)
+	apiKeysRouter.HandleFunc("/delete-by-name", apiKeysController.DeleteByNameAndProjectID).Methods(http.MethodDelete)
+
+	analyticsController := consoleapi.NewAnalytics(logger, service, server.analytics)
+	analyticsRouter := router.PathPrefix("/api/v0/analytics").Subrouter()
+	analyticsRouter.Use(server.withAuth)
+	analyticsRouter.HandleFunc("/event", analyticsController.EventTriggered).Methods(http.MethodPost)
 
 	if server.config.StaticDir != "" {
 		router.HandleFunc("/activation/", server.accountActivationHandler)
@@ -264,17 +285,20 @@ func (server *Server) Close() error {
 func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	header := w.Header()
 
-	cspValues := []string{
-		"default-src 'self'",
-		"connect-src 'self' api.segment.io *.google-analytics.com " + server.config.GatewayCredentialsRequestURL,
-		"frame-ancestors " + server.config.FrameAncestors,
-		"frame-src 'self' *.stripe.com *.googletagmanager.com",
-		"img-src 'self' data: *.customer.io *.googletagmanager.com *.google-analytics.com",
-		"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com cdn.segment.com *.customer.io *.google-analytics.com *.googletagmanager.com",
+	if server.config.CSPEnabled {
+		cspValues := []string{
+			"default-src 'self'",
+			"connect-src 'self' api.segment.io *.tardigradeshare.io *.storjshare.io " + server.config.GatewayCredentialsRequestURL,
+			"frame-ancestors " + server.config.FrameAncestors,
+			"frame-src 'self' *.stripe.com",
+			"img-src 'self' data: *.customer.io *.tardigradeshare.io *.storjshare.io",
+			"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com cdn.segment.com *.customer.io",
+		}
+
+		header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
 	}
 
 	header.Set(contentType, "text/html; charset=UTF-8")
-	header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
 	header.Set("X-Content-Type-Options", "nosniff")
 	header.Set("Referrer-Policy", "same-origin") // Only expose the referring url when navigating around the satellite itself.
 
@@ -282,11 +306,9 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		ExternalAddress                 string
 		SatelliteName                   string
 		SatelliteNodeURL                string
-		SegmentIOPublicKey              string
 		StripePublicKey                 string
 		VerificationPageURL             string
 		PartneredSatelliteNames         string
-		GoogleTagManagerID              string
 		DefaultProjectLimit             int
 		GeneralRequestURL               string
 		ProjectLimitsIncreaseRequestURL string
@@ -294,16 +316,22 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		IsBetaSatellite                 bool
 		BetaSatelliteFeedbackURL        string
 		BetaSatelliteSupportURL         string
+		DocumentationURL                string
+		CouponCodeUIEnabled             bool
+		FileBrowserFlowDisabled         bool
+		LinksharingURL                  string
+		PathwayOverviewEnabled          bool
+		StorageTBPrice                  string
+		EgressTBPrice                   string
+		ObjectPrice                     string
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
 	data.SatelliteName = server.config.SatelliteName
 	data.SatelliteNodeURL = server.nodeURL.String()
-	data.SegmentIOPublicKey = server.config.SegmentIOPublicKey
 	data.StripePublicKey = server.stripePublicKey
 	data.VerificationPageURL = server.config.VerificationPageURL
 	data.PartneredSatelliteNames = server.config.PartneredSatelliteNames
-	data.GoogleTagManagerID = server.config.GoogleTagManagerID
 	data.DefaultProjectLimit = server.config.DefaultProjectLimit
 	data.GeneralRequestURL = server.config.GeneralRequestURL
 	data.ProjectLimitsIncreaseRequestURL = server.config.ProjectLimitsIncreaseRequestURL
@@ -311,6 +339,14 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.IsBetaSatellite = server.config.IsBetaSatellite
 	data.BetaSatelliteFeedbackURL = server.config.BetaSatelliteFeedbackURL
 	data.BetaSatelliteSupportURL = server.config.BetaSatelliteSupportURL
+	data.DocumentationURL = server.config.DocumentationURL
+	data.CouponCodeUIEnabled = server.config.CouponCodeUIEnabled
+	data.FileBrowserFlowDisabled = server.config.FileBrowserFlowDisabled
+	data.LinksharingURL = server.config.LinksharingURL
+	data.PathwayOverviewEnabled = server.config.PathwayOverviewEnabled
+	data.StorageTBPrice = server.pricing.StorageTBPrice
+	data.EgressTBPrice = server.pricing.EgressTBPrice
+	data.ObjectPrice = server.pricing.ObjectPrice
 
 	if server.templates.index == nil {
 		server.log.Error("index template is not set")

@@ -48,7 +48,6 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccessGrant } from '@/types/accessGrants';
 import { ProjectFields } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 
 @Component({
     components: {
@@ -111,10 +110,6 @@ export default class NameStep extends Vue {
                     this.$store.getters.user.id,
                 );
                 const createdProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
-
-                this.$segment.track(SegmentEvent.PROJECT_CREATED, {
-                    project_id: createdProject.id,
-                });
 
                 await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, createdProject.id);
                 await this.$store.dispatch(PM_ACTIONS.CLEAR);
@@ -215,7 +210,7 @@ export default class NameStep extends Vue {
         }
 
         &__input {
-            width: calc(100% - 12px);
+            width: calc(100% - 2px);
         }
 
         &__buttons-area {

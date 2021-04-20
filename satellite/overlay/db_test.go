@@ -21,14 +21,16 @@ import (
 
 func TestDQNodesLastSeenBefore(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 2,
+		SatelliteCount: 1, StorageNodeCount: 3,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Overlay.DQStrayNodes.Loop.Pause()
 
 		node1 := planet.StorageNodes[0]
 		node2 := planet.StorageNodes[1]
+		node3 := planet.StorageNodes[2]
 		node1.Contact.Chore.Pause(ctx)
 		node2.Contact.Chore.Pause(ctx)
+		node3.Contact.Chore.Pause(ctx)
 
 		cache := planet.Satellites[0].Overlay.DB
 
@@ -37,9 +39,14 @@ func TestDQNodesLastSeenBefore(t *testing.T) {
 		require.NoError(t, err)
 		require.Nil(t, n1Info.Disqualified)
 
-		// gracefully exit node2
+		// initial check that node2 is not disqualified
+		n2Info, err := cache.Get(ctx, node2.ID())
+		require.NoError(t, err)
+		require.Nil(t, n2Info.Disqualified)
+
+		// gracefully exit node3
 		req := &overlay.ExitStatusRequest{
-			NodeID:              node2.ID(),
+			NodeID:              node3.ID(),
 			ExitInitiatedAt:     time.Now(),
 			ExitLoopCompletedAt: time.Now(),
 			ExitFinishedAt:      time.Now(),
@@ -49,24 +56,46 @@ func TestDQNodesLastSeenBefore(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, dossier.ExitStatus.ExitFinishedAt)
 
-		// check that node1 is disqualified and node2 is not
-		require.NoError(t, cache.DQNodesLastSeenBefore(ctx, time.Now()))
+		// check that limit works, set limit = 1
+		// run twice to DQ nodes 1 and 2
+		for i := 0; i < 2; i++ {
+			n, err := cache.DQNodesLastSeenBefore(ctx, time.Now(), 1)
+			require.NoError(t, err)
+			require.Equal(t, n, 1)
+		}
 
 		n1Info, err = cache.Get(ctx, node1.ID())
 		require.NoError(t, err)
 		require.NotNil(t, n1Info.Disqualified)
 		n1DQTime := n1Info.Disqualified
 
-		n2Info, err := cache.Get(ctx, node2.ID())
+		n2Info, err = cache.Get(ctx, node2.ID())
 		require.NoError(t, err)
-		require.Nil(t, n2Info.Disqualified)
+		require.NotNil(t, n2Info.Disqualified)
+		n2DQTime := n2Info.Disqualified
 
-		// check that node1 DQ time is not overwritten
-		require.NoError(t, cache.DQNodesLastSeenBefore(ctx, time.Now()))
+		// there should be no more nodes for DQ
+		// use higher limit to double check that DQ times
+		// for nodes 1 and 2 have not changed
+		n, err := cache.DQNodesLastSeenBefore(ctx, time.Now(), 100)
+		require.NoError(t, err)
+		require.Equal(t, n, 0)
 
+		// double check that node 3 is not DQ
+		n3Info, err := cache.Get(ctx, node3.ID())
+		require.NoError(t, err)
+		require.Nil(t, n3Info.Disqualified)
+
+		// double check dq times not updated
 		n1Info, err = cache.Get(ctx, node1.ID())
 		require.NoError(t, err)
-		require.Equal(t, n1DQTime, n1Info.Disqualified)
+		require.NotNil(t, n1Info.Disqualified)
+		require.Equal(t, n1DQTime, n1Info.Reputation.Disqualified)
+
+		n2Info, err = cache.Get(ctx, node2.ID())
+		require.NoError(t, err)
+		require.NotNil(t, n2Info.Disqualified)
+		require.Equal(t, n2DQTime, n2Info.Reputation.Disqualified)
 	})
 }
 

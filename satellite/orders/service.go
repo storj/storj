@@ -124,19 +124,19 @@ func (service *Service) updateBandwidth(ctx context.Context, bucket metabase.Buc
 	return nil
 }
 
-// CreateGetOrderLimits creates the order limits for downloading the pieces of pointer.
-func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabase.BucketLocation, pointer *pb.Pointer) (_ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
+// CreateGetOrderLimits creates the order limits for downloading the pieces of a segment.
+func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment) (_ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
-	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
+	pieceSize := eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy)
 
-	nodeIDs := make([]storj.NodeID, len(pointer.GetRemote().GetRemotePieces()))
-	for i, piece := range pointer.GetRemote().GetRemotePieces() {
-		nodeIDs[i] = piece.NodeId
+	nodeIDs := make([]storj.NodeID, len(segment.Pieces))
+	for i, piece := range segment.Pieces {
+		nodeIDs[i] = piece.StorageNode
 	}
 
 	nodes, err := service.overlay.GetOnlineNodesForGetDelete(ctx, nodeIDs)
@@ -145,17 +145,17 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabas
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	signer, err := NewSignerGet(service, pointer.GetRemote().RootPieceId, time.Now(), pieceSize, bucket)
+	signer, err := NewSignerGet(service, segment.RootPieceID, time.Now(), pieceSize, bucket)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	neededLimits := pb.NewRedundancySchemeToStorj(pointer.GetRemote().GetRedundancy()).DownloadNodes()
+	neededLimits := segment.Redundancy.DownloadNodes()
 
-	pieces := pointer.GetRemote().GetRemotePieces()
+	pieces := segment.Pieces
 	for _, pieceIndex := range service.perm(len(pieces)) {
 		piece := pieces[pieceIndex]
-		node, ok := nodes[piece.NodeId]
+		node, ok := nodes[piece.StorageNode]
 		if !ok {
 			continue
 		}
@@ -166,9 +166,9 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabas
 		}
 
 		_, err := signer.Sign(ctx, storj.NodeURL{
-			ID:      piece.NodeId,
+			ID:      piece.StorageNode,
 			Address: address,
-		}, piece.PieceNum)
+		}, int32(piece.Number))
 		if err != nil {
 			return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 		}
@@ -222,62 +222,13 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, bucket metabas
 	return signer.RootPieceID, signer.AddressedLimits, signer.PrivateKey, nil
 }
 
-// CreateDeleteOrderLimits creates the order limits for deleting the pieces of pointer.
-func (service *Service) CreateDeleteOrderLimits(ctx context.Context, bucket metabase.BucketLocation, pointer *pb.Pointer) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
+// CreateAuditOrderLimits creates the order limits for auditing the pieces of a segment.
+func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment, skip map[storj.NodeID]bool) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedIPsAndPorts map[storj.NodeID]string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	nodeIDs := make([]storj.NodeID, len(pointer.GetRemote().GetRemotePieces()))
-	for i, piece := range pointer.GetRemote().GetRemotePieces() {
-		nodeIDs[i] = piece.NodeId
-	}
-
-	nodes, err := service.overlay.GetOnlineNodesForGetDelete(ctx, nodeIDs)
-	if err != nil {
-		service.log.Debug("error getting nodes from overlay", zap.Error(err))
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
-
-	signer, err := NewSignerDelete(service, pointer.GetRemote().RootPieceId, time.Now(), bucket)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
-
-	var nodeErrors errs.Group
-	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		node, ok := nodes[piece.NodeId]
-		if !ok {
-			nodeErrors.Add(errs.New("node %q is not reliable", piece.NodeId))
-			continue
-		}
-
-		address := node.Address.Address
-		if node.LastIPPort != "" {
-			address = node.LastIPPort
-		}
-		_, err := signer.Sign(ctx, storj.NodeURL{ID: piece.NodeId, Address: address}, piece.PieceNum)
-		if err != nil {
-			return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-		}
-	}
-
-	if len(signer.AddressedLimits) == 0 {
-		return nil, storj.PiecePrivateKey{}, Error.New("failed creating order limits: %w", nodeErrors.Err())
-	}
-
-	return signer.AddressedLimits, signer.PrivateKey, nil
-}
-
-// CreateAuditOrderLimits creates the order limits for auditing the pieces of pointer.
-func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucket metabase.BucketLocation, pointer *pb.Pointer, skip map[storj.NodeID]bool) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedIPsAndPorts map[storj.NodeID]string, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	redundancy := pointer.GetRemote().GetRedundancy()
-	shareSize := redundancy.GetErasureShareSize()
-	totalPieces := redundancy.GetTotal()
-
-	nodeIDs := make([]storj.NodeID, len(pointer.GetRemote().GetRemotePieces()))
-	for i, piece := range pointer.GetRemote().GetRemotePieces() {
-		nodeIDs[i] = piece.NodeId
+	nodeIDs := make([]storj.NodeID, len(segment.Pieces))
+	for i, piece := range segment.Pieces {
+		nodeIDs[i] = piece.StorageNode
 	}
 
 	nodes, err := service.overlay.GetOnlineNodesForGetDelete(ctx, nodeIDs)
@@ -286,43 +237,43 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucket metab
 		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
 	}
 
-	signer, err := NewSignerAudit(service, pointer.GetRemote().RootPieceId, time.Now(), int64(shareSize), bucket)
+	signer, err := NewSignerAudit(service, segment.RootPieceID, time.Now(), int64(segment.Redundancy.ShareSize), bucket)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
 	}
 
 	cachedIPsAndPorts = make(map[storj.NodeID]string)
 	var nodeErrors errs.Group
-	var limitsCount int32
-	limits := make([]*pb.AddressedOrderLimit, totalPieces)
-	for _, piece := range pointer.GetRemote().GetRemotePieces() {
-		if skip[piece.NodeId] {
+	var limitsCount int16
+	limits := make([]*pb.AddressedOrderLimit, segment.Redundancy.TotalShares)
+	for _, piece := range segment.Pieces {
+		if skip[piece.StorageNode] {
 			continue
 		}
-		node, ok := nodes[piece.NodeId]
+		node, ok := nodes[piece.StorageNode]
 		if !ok {
-			nodeErrors.Add(errs.New("node %q is not reliable", piece.NodeId))
+			nodeErrors.Add(errs.New("node %q is not reliable", piece.StorageNode))
 			continue
 		}
 
 		address := node.Address.Address
 		if node.LastIPPort != "" {
-			cachedIPsAndPorts[piece.NodeId] = node.LastIPPort
+			cachedIPsAndPorts[piece.StorageNode] = node.LastIPPort
 		}
 		limit, err := signer.Sign(ctx, storj.NodeURL{
-			ID:      piece.NodeId,
+			ID:      piece.StorageNode,
 			Address: address,
-		}, piece.PieceNum)
+		}, int32(piece.Number))
 		if err != nil {
 			return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
 		}
 
-		limits[piece.GetPieceNum()] = limit
+		limits[piece.Number] = limit
 		limitsCount++
 	}
 
-	if limitsCount < redundancy.GetMinReq() {
-		err = Error.New("not enough nodes available: got %d, required %d", limitsCount, redundancy.GetMinReq())
+	if limitsCount < segment.Redundancy.RequiredShares {
+		err = Error.New("not enough nodes available: got %d, required %d", limitsCount, segment.Redundancy.RequiredShares)
 		return nil, storj.PiecePrivateKey{}, nil, errs.Combine(err, nodeErrors.Err())
 	}
 	if err := service.updateBandwidth(ctx, bucket, limits...); err != nil {
@@ -332,8 +283,8 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucket metab
 	return limits, signer.PrivateKey, cachedIPsAndPorts, nil
 }
 
-// CreateAuditOrderLimit creates an order limit for auditing a single the piece from a pointer.
-func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucket metabase.BucketLocation, nodeID storj.NodeID, pieceNum int32, rootPieceID storj.PieceID, shareSize int32) (limit *pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedIPAndPort string, err error) {
+// CreateAuditOrderLimit creates an order limit for auditing a single the piece from a segment.
+func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucket metabase.BucketLocation, nodeID storj.NodeID, pieceNum uint16, rootPieceID storj.PieceID, shareSize int32) (limit *pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedIPAndPort string, err error) {
 	// TODO reduce number of params ?
 	defer mon.Task()(&ctx)(&err)
 
@@ -359,7 +310,7 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucket metaba
 	orderLimit, err := signer.Sign(ctx, storj.NodeURL{
 		ID:      nodeID,
 		Address: node.Address.Address,
-	}, pieceNum)
+	}, int32(pieceNum))
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, "", Error.Wrap(err)
 	}
@@ -372,25 +323,24 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucket metaba
 }
 
 // CreateGetRepairOrderLimits creates the order limits for downloading the
-// healthy pieces of pointer as the source for repair.
+// healthy pieces of segment as the source for repair.
 //
 // The length of the returned orders slice is the total number of pieces of the
 // segment, setting to null the ones which don't correspond to a healthy piece.
-// CreateGetRepairOrderLimits creates the order limits for downloading the healthy pieces of pointer as the source for repair.
-func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucket metabase.BucketLocation, pointer *pb.Pointer, healthy []*pb.RemotePiece) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
+func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment, healthy metabase.Pieces) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
+	pieceSize := eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy)
 	totalPieces := redundancy.TotalCount()
 
-	nodeIDs := make([]storj.NodeID, len(pointer.GetRemote().GetRemotePieces()))
-	for i, piece := range pointer.GetRemote().GetRemotePieces() {
-		nodeIDs[i] = piece.NodeId
+	nodeIDs := make([]storj.NodeID, len(segment.Pieces))
+	for i, piece := range segment.Pieces {
+		nodeIDs[i] = piece.StorageNode
 	}
 
 	nodes, err := service.overlay.GetOnlineNodesForGetDelete(ctx, nodeIDs)
@@ -399,7 +349,7 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucket m
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	signer, err := NewSignerRepairGet(service, pointer.GetRemote().RootPieceId, time.Now(), pieceSize, bucket)
+	signer, err := NewSignerRepairGet(service, segment.RootPieceID, time.Now(), pieceSize, bucket)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -408,21 +358,21 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucket m
 	var limitsCount int
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
 	for _, piece := range healthy {
-		node, ok := nodes[piece.NodeId]
+		node, ok := nodes[piece.StorageNode]
 		if !ok {
-			nodeErrors.Add(errs.New("node %q is not reliable", piece.NodeId))
+			nodeErrors.Add(errs.New("node %q is not reliable", piece.StorageNode))
 			continue
 		}
 
 		limit, err := signer.Sign(ctx, storj.NodeURL{
-			ID:      piece.NodeId,
+			ID:      piece.StorageNode,
 			Address: node.Address.Address,
-		}, piece.PieceNum)
+		}, int32(piece.Number))
 		if err != nil {
 			return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 		}
 
-		limits[piece.GetPieceNum()] = limit
+		limits[piece.Number] = limit
 		limitsCount++
 	}
 
@@ -438,16 +388,16 @@ func (service *Service) CreateGetRepairOrderLimits(ctx context.Context, bucket m
 	return limits, signer.PrivateKey, nil
 }
 
-// CreatePutRepairOrderLimits creates the order limits for uploading the repaired pieces of pointer to newNodes.
-func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucket metabase.BucketLocation, pointer *pb.Pointer, getOrderLimits []*pb.AddressedOrderLimit, newNodes []*overlay.SelectedNode, optimalThresholdMultiplier float64) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
+// CreatePutRepairOrderLimits creates the order limits for uploading the repaired pieces of segment to newNodes.
+func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment, getOrderLimits []*pb.AddressedOrderLimit, newNodes []*overlay.SelectedNode, optimalThresholdMultiplier float64) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Create the order limits for being used to upload the repaired pieces
-	redundancy, err := eestream.NewRedundancyStrategyFromProto(pointer.GetRemote().GetRedundancy())
+	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
-	pieceSize := eestream.CalcPieceSize(pointer.GetSegmentSize(), redundancy)
+	pieceSize := eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy)
 
 	totalPieces := redundancy.TotalCount()
 	totalPiecesAfterRepair := int(math.Ceil(float64(redundancy.OptimalThreshold()) * optimalThresholdMultiplier))
@@ -465,7 +415,9 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucket m
 	totalPiecesToRepair := totalPiecesAfterRepair - numCurrentPieces
 
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
-	signer, err := NewSignerRepairPut(service, pointer.GetRemote().RootPieceId, pointer.ExpirationDate, time.Now(), pieceSize, bucket)
+
+	expirationDate := time.Time{} // TODO previously 'pointer.ExpirationDate'
+	signer, err := NewSignerRepairPut(service, segment.RootPieceID, expirationDate, time.Now(), pieceSize, bucket)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}

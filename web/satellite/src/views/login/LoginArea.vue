@@ -9,12 +9,11 @@ import { Component, Vue } from 'vue-property-decorator';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
 import AuthIcon from '@/../static/images/AuthImage.svg';
-import LogoIcon from '@/../static/images/Logo.svg';
+import LogoIcon from '@/../static/images/dcs-logo.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { Validator } from '@/utils/validation';
 
@@ -40,6 +39,8 @@ export default class Login extends Vue {
 
     // Tardigrade logic
     public isDropdownShown: boolean = false;
+
+    public readonly registerPath: string = RouteConfig.Register.path;
 
     /**
      * Lifecycle hook after initial render.
@@ -114,9 +115,6 @@ export default class Login extends Vue {
 
         try {
             this.authToken = await this.auth.token(this.email, this.password);
-            this.$segment.track(SegmentEvent.USER_LOGGED_IN, {
-                email: this.email,
-            });
         } catch (error) {
             await this.$notify.error(error.message);
             this.isLoading = false;

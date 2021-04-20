@@ -173,24 +173,14 @@ func TestDownloadFromUnresponsiveNode(t *testing.T) {
 		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path", expectedData)
 		require.NoError(t, err)
 
-		// get a remote segment from pointerdb
-		pdb := planet.Satellites[0].Metainfo.Service
-		listResponse, _, err := pdb.List(ctx, metabase.SegmentKey{}, "", true, 0, 0)
+		// get a remote segment from metabase
+		segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
 		require.NoError(t, err)
-
-		var path string
-		var pointer *pb.Pointer
-		for _, v := range listResponse {
-			path = v.GetPath()
-			pointer, err = pdb.Get(ctx, metabase.SegmentKey(path))
-			require.NoError(t, err)
-			if pointer.GetType() == pb.Pointer_REMOTE {
-				break
-			}
-		}
+		require.Len(t, segments, 1)
+		require.NotEmpty(t, segments[0].Pieces)
 
 		// choose used storage node and replace it with fake listener
-		storageNode := planet.FindNode(pointer.Remote.RemotePieces[0].NodeId)
+		storageNode := planet.FindNode(segments[0].Pieces[0].StorageNode)
 		require.NotNil(t, storageNode)
 
 		err = planet.StopPeer(storageNode)

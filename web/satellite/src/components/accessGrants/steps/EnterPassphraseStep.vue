@@ -198,7 +198,7 @@ export default class EnterPassphraseStep extends Vue {
         }
 
         &__input {
-            width: calc(100% - 12px);
+            width: calc(100% - 2px);
         }
 
         &__next-button {

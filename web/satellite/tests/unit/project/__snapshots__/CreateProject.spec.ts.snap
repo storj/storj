@@ -3,13 +3,14 @@
 exports[`CreateProject.vue renders correctly 1`] = `
 <div class="create-project-area">
   <div class="create-project-area__container"><img src="@/../static/images/project/createProject.png" alt="create project image">
-    <h2 class="create-project-area__title">Create a Project</h2>
+    <h2 class="create-project-area__container__title">Create a Project</h2>
     <div class="input-container full-input">
       <div class="label-container">
         <div class="label-container__main">
           <!---->
           <h3 class="label-container__main__label">Project Name</h3>
           <h3 class="label-container__main__label add-label">Up To 20 Characters</h3>
+          <!---->
           <!---->
         </div>
         <h3 class="label-container__limit">0/20</h3>
@@ -23,6 +24,7 @@ exports[`CreateProject.vue renders correctly 1`] = `
           <!---->
           <h3 class="label-container__main__label">Description</h3>
           <h3 class="label-container__main__label add-label">Optional</h3>
+          <!---->
           <!---->
         </div>
         <h3 class="label-container__limit">0/100</h3>

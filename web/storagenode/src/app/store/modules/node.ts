@@ -54,6 +54,7 @@ export function newNodeModule(service: StorageNodeService): StoreModule<StorageN
                     nodeInfo.version,
                     nodeInfo.allowedVersion,
                     nodeInfo.wallet,
+                    nodeInfo.walletFeatures,
                     nodeInfo.isUpToDate,
                 );
 

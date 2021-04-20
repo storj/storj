@@ -6,17 +6,17 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
 
 import AuthIcon from '@/../static/images/AuthImage.svg';
+import LogoIcon from '@/../static/images/dcs-logo.svg';
 import InfoIcon from '@/../static/images/info.svg';
-import LogoIcon from '@/../static/images/Logo.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
-import { GoogleTagManager } from '@/types/gtm';
 import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
@@ -31,6 +31,7 @@ import { Validator } from '@/utils/validation';
         LogoIcon,
         InfoIcon,
         PasswordStrength,
+        AddCouponCodeInput,
     },
 })
 export default class RegisterArea extends Vue {
@@ -38,10 +39,6 @@ export default class RegisterArea extends Vue {
 
     // tardigrade logic
     private secret: string = '';
-    private gtm: GoogleTagManager;
-    private satellitesString: string;
-    private partneredSatellites: string[];
-    private satelliteName: string;
 
     private userId: string = '';
     private isTermsAccepted: boolean = false;
@@ -50,6 +47,7 @@ export default class RegisterArea extends Vue {
 
     // Only for beta sats (like US2).
     private areBetaTermsAccepted: boolean = false;
+    private areBetaTermsAcceptedError: boolean = false;
 
     private fullNameError: string = '';
     private emailError: string = '';
@@ -62,9 +60,6 @@ export default class RegisterArea extends Vue {
     private isLoading: boolean = false;
     private isProfessional: boolean = false;
 
-    // Only for beta sats (like US2).
-    private areBetaTermsAcceptedError: boolean = false;
-
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
     public isPasswordStrengthShown: boolean = false;
@@ -76,30 +71,13 @@ export default class RegisterArea extends Vue {
     public employeeCountOptions = ['1-50', '51-1000', '1001+'];
     public optionsShown = false;
 
-    /**
-     * Lifecycle hook before vue instance is created.
-     * Initializes google tag manager (Tardigrade).
-     */
-    public async beforeCreate(): Promise<void> {
-        this.satellitesString = MetaUtils.getMetaContent('partnered-satellite-names');
-        this.partneredSatellites = this.satellitesString.split(',');
-        this.satelliteName = MetaUtils.getMetaContent('satellite-name');
-
-        if (this.partneredSatellites.includes(this.satelliteName)) {
-            this.gtm = new GoogleTagManager();
-            await this.gtm.init();
-        }
-    }
+    public readonly loginPath: string = RouteConfig.Login.path;
 
     /**
      * Lifecycle hook on component destroy.
-     * Sets view to default state and removed GTM.
+     * Sets view to default state.
      */
     public beforeDestroy(): void {
-        if (this.partneredSatellites.includes(this.satelliteName)) {
-            this.gtm.remove();
-        }
-
         if (this.isRegistrationSuccessful) {
             this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
         }
@@ -229,6 +207,13 @@ export default class RegisterArea extends Vue {
     }
 
     /**
+     * Indicates if coupon code ui is enabled
+     */
+    public get couponCodeUIEnabled(): boolean {
+        return this.$store.state.appStateModule.couponCodeUIEnabled;
+    }
+
+    /**
      * Sets user's company name field from value string.
      */
     public setCompanyName(value: string): void {
@@ -326,19 +311,6 @@ export default class RegisterArea extends Vue {
         try {
             this.userId = await this.auth.register(this.user, this.secret);
             LocalData.setUserId(this.userId);
-
-            if (this.user.isProfessional) {
-                this.$segment.identify(this.userId, {
-                    email: this.$store.getters.user.email,
-                    position: this.$store.getters.user.position,
-                    company_name: this.$store.getters.user.companyName,
-                    employee_count: this.$store.getters.user.employeeCount,
-                });
-            } else {
-                this.$segment.identify(this.userId, {
-                    email: this.$store.getters.user.email,
-                });
-            }
 
             const verificationPageURL: string = MetaUtils.getMetaContent('verification-page-url');
             if (verificationPageURL) {

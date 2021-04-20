@@ -14,7 +14,7 @@
                     amounts are available
                     <a
                         class="add-storj-state__container__deposit-area__info__request-link"
-                        href="https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212"
+                        href="https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"
                         target="_blank"
                         rel="noopener noreferrer"
                     >
@@ -59,7 +59,6 @@ import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectFields } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { AddingStorjState } from '@/utils/constants/onboardingTourEnums';
 
 @Component({
@@ -116,10 +115,6 @@ export default class AddStorjState extends Vue {
             );
             const createdProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
             const createdProjectId = createdProject.id;
-
-            this.$segment.track(SegmentEvent.PROJECT_CREATED, {
-                project_id: createdProjectId,
-            });
 
             await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, createdProjectId);
             await this.$store.dispatch(PM_ACTIONS.CLEAR);

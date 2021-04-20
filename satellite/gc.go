@@ -24,7 +24,7 @@ import (
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/metrics"
+	"storj.io/storj/satellite/metainfo/metaloop"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -57,21 +57,17 @@ type GarbageCollection struct {
 
 	Metainfo struct {
 		Database metainfo.PointerDB
-		Loop     *metainfo.Loop
+		Loop     *metaloop.Service
 	}
 
 	GarbageCollection struct {
 		Service *gc.Service
 	}
-
-	Metrics struct {
-		Chore *metrics.Chore
-	}
 }
 
 // NewGarbageCollection creates a new satellite garbage collection process.
 func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
-	pointerDB metainfo.PointerDB, revocationDB extensions.RevocationDB,
+	pointerDB metainfo.PointerDB, metabaseDB metainfo.MetabaseDB, revocationDB extensions.RevocationDB,
 	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*GarbageCollection, error) {
 	peer := &GarbageCollection{
 		Log:      log,
@@ -140,7 +136,10 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 		// GC runs infrequently, this shouldn't add too much extra load on the metainfo db.
 		// As long as garbage collection is the only observer joining the metainfo loop, then by default
 		// the metainfo loop will only run when the garbage collection joins (which happens every GarbageCollection.Interval)
-		peer.Metainfo.Loop = metainfo.NewLoop(config.Metainfo.Loop, peer.Metainfo.Database)
+		peer.Metainfo.Loop = metaloop.New(
+			config.Metainfo.Loop,
+			metabaseDB,
+		)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "metainfo:loop",
 			Run:   peer.Metainfo.Loop.Run,
@@ -162,21 +161,6 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Garbage Collection", peer.GarbageCollection.Service.Loop))
-	}
-
-	{ // setup metrics service
-		peer.Metrics.Chore = metrics.NewChore(
-			peer.Log.Named("metrics"),
-			config.Metrics,
-			peer.Metainfo.Loop,
-		)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "metrics",
-			Run:   peer.Metrics.Chore.Run,
-			Close: peer.Metrics.Chore.Close,
-		})
-		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Metrics", peer.Metrics.Chore.Loop))
 	}
 
 	return peer, nil

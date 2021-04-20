@@ -1,6 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { files } from 'browser';
 import Vue from 'vue';
 import Vuex from 'vuex';
 
@@ -15,6 +16,7 @@ import { AccessGrantsState, makeAccessGrantsModule } from '@/store/modules/acces
 import { appStateModule } from '@/store/modules/appState';
 import { makeBucketsModule } from '@/store/modules/buckets';
 import { makeNotificationsModule, NotificationsState } from '@/store/modules/notifications';
+import { makeObjectsModule, ObjectsState } from '@/store/modules/objects';
 import { makePaymentsModule, PaymentsState } from '@/store/modules/payments';
 import { makeProjectMembersModule, ProjectMembersState } from '@/store/modules/projectMembers';
 import { makeProjectsModule, ProjectsState, PROJECTS_MUTATIONS } from '@/store/modules/projects';
@@ -46,6 +48,7 @@ class ModulesState {
     public paymentsModule: PaymentsState;
     public usersModule: User;
     public projectsModule: ProjectsState;
+    public objectsModule: ObjectsState;
 }
 
 // Satellite store (vuex)
@@ -59,6 +62,8 @@ export const store = new Vuex.Store<ModulesState>({
         usersModule: makeUsersModule(authApi),
         projectsModule: makeProjectsModule(projectsApi),
         bucketUsageModule: makeBucketsModule(bucketsApi),
+        objectsModule: makeObjectsModule(),
+        files,
     },
 });
 

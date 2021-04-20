@@ -96,7 +96,6 @@ import SuccessImage from '@/../static/images/account/billing/success.svg';
 
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { CreditCard } from '@/types/payments';
-import { SegmentEvent } from '@/utils/constants/analyticsEventNames';
 import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
 
 const {
@@ -132,9 +131,6 @@ export default class PaymentMethods extends Vue {
      */
     public mounted() {
         try {
-            this.$segment.track(SegmentEvent.PAYMENT_METHODS_VIEWED, {
-                project_id: this.$store.getters.selectedProject.id,
-            });
             this.$store.dispatch(GET_CREDIT_CARDS);
         } catch (error) {
             this.$notify.error(error.message);

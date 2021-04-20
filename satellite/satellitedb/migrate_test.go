@@ -235,8 +235,8 @@ func migrateTest(t *testing.T, connStr string) {
 	// TODO(cam): remove this check with the migration step to drop the columns
 	nodes, ok := finalSchema.FindTable("nodes")
 	if ok {
-		nodes.RemoveColumn("uptime_reputation_alpha")
-		nodes.RemoveColumn("uptime_reputation_beta")
+		nodes.RemoveColumn("total_uptime_count")
+		nodes.RemoveColumn("uptime_success_count")
 	}
 
 	// verify that we also match the dbx version

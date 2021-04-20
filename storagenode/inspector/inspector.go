@@ -31,6 +31,8 @@ var (
 //
 // architecture: Endpoint
 type Endpoint struct {
+	internalpb.DRPCPieceStoreInspectorUnimplementedServer
+
 	log        *zap.Logger
 	pieceStore *pieces.Store
 	contact    *contact.Service

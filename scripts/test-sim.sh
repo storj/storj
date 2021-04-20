@@ -37,6 +37,12 @@ fi
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-uplink.sh
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-uplink-share.sh
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-billing.sh
+
+storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-uplink-rs-upload.sh
+# change RS values and try download 
+sed -i 's@# metainfo.rs: 4/6/8/10-256 B@metainfo.rs: 2/3/6/8-256 B@g' $(storj-sim network env SATELLITE_0_DIR)/config.yaml
+storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/test-uplink-rs-download.sh
+
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network destroy
 
 # setup the network with ipv6

@@ -31,6 +31,7 @@ export const appStateModule = {
         },
         satelliteName: '',
         isBetaSatellite: false,
+        couponCodeUIEnabled: false,
     },
     mutations: {
         // Mutation changing add projectMembers members popup visibility
@@ -128,6 +129,9 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.SET_SATELLITE_STATUS](state: any, isBetaSatellite: boolean): void {
             state.isBetaSatellite = isBetaSatellite;
+        },
+        [APP_STATE_MUTATIONS.SET_COUPON_CODE_UI_STATUS](state: any, couponCodeUIEnabled: boolean): void {
+            state.couponCodeUIEnabled = couponCodeUIEnabled;
         },
     },
     actions: {
@@ -267,6 +271,9 @@ export const appStateModule = {
         },
         [APP_STATE_ACTIONS.SET_SATELLITE_STATUS]: function ({commit}: any, isBetaSatellite: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_SATELLITE_STATUS, isBetaSatellite);
+        },
+        [APP_STATE_ACTIONS.SET_COUPON_CODE_UI_STATUS]: function ({commit}: any, couponCodeUIEnabled: boolean): void {
+            commit(APP_STATE_MUTATIONS.SET_COUPON_CODE_UI_STATUS, couponCodeUIEnabled);
         },
     },
 };

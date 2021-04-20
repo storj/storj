@@ -4,7 +4,7 @@
 <template>
     <div class="estimation-container">
         <div class="estimation-container__header">
-            <p class="estimation-container__header__title">Info & Estimation,<span class="estimation-container__header__period">{{ currentPeriod }}</span></p>
+            <p class="estimation-container__header__title">Info & Estimation, <span class="estimation-container__header__period">{{ currentPeriod }}</span></p>
             <div class="estimation-container__header__selection-area">
                 <button
                     name="Select Current Period"
@@ -762,6 +762,18 @@ export default class EstimationArea extends Vue {
             border-style: solid;
             border-width: 11.5px 11.5px 0 11.5px;
             border-color: var(--tooltip-background-color) transparent transparent transparent;
+        }
+    }
+
+    .checks-area-image {
+        cursor: pointer;
+
+        rect {
+            fill: var(--info-icon-background);
+        }
+
+        path {
+            fill: var(--info-icon-letter);
         }
     }
 

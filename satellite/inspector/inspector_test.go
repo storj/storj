@@ -4,21 +4,23 @@
 package inspector_test
 
 import (
-	"bytes"
-	"context"
-	"fmt"
-	"strings"
+	"encoding/binary"
+	"errors"
 	"testing"
 
+	"github.com/btcsuite/btcutil/base58"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/encryption"
 	"storj.io/common/memory"
+	"storj.io/common/paths"
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/storage"
+	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/uplink/private/eestream"
 )
 
@@ -26,75 +28,106 @@ func TestInspectorStats(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		uplink := planet.Uplinks[0]
+		satellite := planet.Satellites[0]
+		upl := planet.Uplinks[0]
 		testData := testrand.Bytes(1 * memory.MiB)
 
 		bucket := "testbucket"
+		projectID := upl.Projects[0].ID
 
-		err := uplink.Upload(ctx, planet.Satellites[0], bucket, "test/path", testData)
+		err := upl.Upload(ctx, planet.Satellites[0], bucket, "test/path", testData)
 		require.NoError(t, err)
 
 		healthEndpoint := planet.Satellites[0].Inspector.Endpoint
 
 		// Get path of random segment we just uploaded and check the health
-		_ = planet.Satellites[0].Metainfo.Database.Iterate(ctx, storage.IterateOptions{Recurse: true},
-			func(ctx context.Context, it storage.Iterator) error {
-				var item storage.ListItem
-				for it.Next(ctx, &item) {
-					if bytes.Contains(item.Key, []byte(fmt.Sprintf("%s/", bucket))) {
-						break
-					}
-				}
+		access := upl.Access[satellite.ID()]
+		serializedAccess, err := access.Serialize()
+		require.NoError(t, err)
 
-				fullPath := storj.SplitPath(item.Key.String())
-				require.Falsef(t, len(fullPath) < 4, "Could not retrieve a full path from pointerdb")
+		store, err := encryptionAccess(serializedAccess)
+		require.NoError(t, err)
 
-				projectID := fullPath[0]
-				bucket := fullPath[2]
-				encryptedPath := strings.Join(fullPath[3:], "/")
+		encryptedPath, err := encryption.EncryptPathWithStoreCipher(bucket, paths.NewUnencrypted("test/path"), store)
+		require.NoError(t, err)
 
-				{ // Test Segment Health Request
-					req := &internalpb.SegmentHealthRequest{
-						ProjectId:     []byte(projectID),
-						EncryptedPath: []byte(encryptedPath),
-						Bucket:        []byte(bucket),
-						SegmentIndex:  -1,
-					}
+		objectLocation := metabase.ObjectLocation{
+			ProjectID:  projectID,
+			BucketName: "testbucket",
+			ObjectKey:  metabase.ObjectKey(encryptedPath.Raw()),
+		}
 
-					resp, err := healthEndpoint.SegmentHealth(ctx, req)
-					require.NoError(t, err)
+		segment, err := satellite.Metainfo.Metabase.GetLatestObjectLastSegment(ctx, metabase.GetLatestObjectLastSegment{
+			ObjectLocation: objectLocation,
+		})
+		require.NoError(t, err)
 
-					redundancy, err := eestream.NewRedundancyStrategyFromProto(resp.GetRedundancy())
-					require.NoError(t, err)
+		{ // Test Segment Health Request
+			req := &internalpb.SegmentHealthRequest{
+				ProjectId:     projectID[:],
+				EncryptedPath: []byte(encryptedPath.Raw()),
+				Bucket:        []byte(bucket),
+				SegmentIndex:  int64(segment.Position.Encode()),
+			}
 
-					require.Equal(t, 4, redundancy.TotalCount())
-					require.True(t, bytes.Equal([]byte("l"), resp.GetHealth().GetSegment()))
-				}
+			resp, err := healthEndpoint.SegmentHealth(ctx, req)
+			require.NoError(t, err)
 
-				{ // Test Object Health Request
-					objectHealthReq := &internalpb.ObjectHealthRequest{
-						ProjectId:         []byte(projectID),
-						EncryptedPath:     []byte(encryptedPath),
-						Bucket:            []byte(bucket),
-						StartAfterSegment: 0,
-						EndBeforeSegment:  0,
-						Limit:             0,
-					}
-					resp, err := healthEndpoint.ObjectHealth(ctx, objectHealthReq)
-					require.NoError(t, err)
+			redundancy, err := eestream.NewRedundancyStrategyFromProto(resp.GetRedundancy())
+			require.NoError(t, err)
 
-					segments := resp.GetSegments()
-					require.Len(t, segments, 1)
+			require.Equal(t, 4, redundancy.TotalCount())
+			encodedPosition := binary.LittleEndian.Uint64(resp.GetHealth().GetSegment())
+			position := metabase.SegmentPositionFromEncoded(encodedPosition)
+			require.Equal(t, segment.Position, position)
+		}
 
-					redundancy, err := eestream.NewRedundancyStrategyFromProto(resp.GetRedundancy())
-					require.NoError(t, err)
+		{ // Test Object Health Request
+			objectHealthReq := &internalpb.ObjectHealthRequest{
+				ProjectId:         projectID[:],
+				EncryptedPath:     []byte(encryptedPath.Raw()),
+				Bucket:            []byte(bucket),
+				StartAfterSegment: 0,
+				EndBeforeSegment:  0,
+				Limit:             0,
+			}
+			resp, err := healthEndpoint.ObjectHealth(ctx, objectHealthReq)
+			require.NoError(t, err)
 
-					require.Equal(t, 4, redundancy.TotalCount())
-					require.True(t, bytes.Equal([]byte("l"), segments[0].GetSegment()))
-				}
+			segments := resp.GetSegments()
+			require.Len(t, segments, 1)
 
-				return nil
-			},
-		)
+			redundancy, err := eestream.NewRedundancyStrategyFromProto(resp.GetRedundancy())
+			require.NoError(t, err)
+
+			require.Equal(t, 4, redundancy.TotalCount())
+			encodedPosition := binary.LittleEndian.Uint64(segments[0].GetSegment())
+			position := metabase.SegmentPositionFromEncoded(encodedPosition)
+			require.Equal(t, segment.Position, position)
+		}
+
 	})
+}
+
+func encryptionAccess(access string) (*encryption.Store, error) {
+	data, version, err := base58.CheckDecode(access)
+	if err != nil || version != 0 {
+		return nil, errors.New("invalid access grant format")
+	}
+
+	p := new(pb.Scope)
+	if err := pb.Unmarshal(data, p); err != nil {
+		return nil, err
+	}
+
+	key, err := storj.NewKey(p.EncryptionAccess.DefaultKey)
+	if err != nil {
+		return nil, err
+	}
+
+	store := encryption.NewStore()
+	store.SetDefaultKey(key)
+	store.SetDefaultPathCipher(storj.EncAESGCM)
+
+	return store, nil
 }

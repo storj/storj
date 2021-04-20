@@ -56,11 +56,12 @@ type NodeSelectionConfig struct {
 // AuditHistoryConfig is a configuration struct defining time periods and thresholds for penalizing nodes for being offline.
 // It is used for downtime suspension and disqualification.
 type AuditHistoryConfig struct {
-	WindowSize       time.Duration `help:"The length of time spanning a single audit window" releaseDefault:"12h" devDefault:"5m"`
-	TrackingPeriod   time.Duration `help:"The length of time to track audit windows for node suspension and disqualification" releaseDefault:"720h" devDefault:"1h"`
-	GracePeriod      time.Duration `help:"The length of time to give suspended SNOs to diagnose and fix issues causing downtime. Afterwards, they will have one tracking period to reach the minimum online score before disqualification" releaseDefault:"168h" devDefault:"1h"`
-	OfflineThreshold float64       `help:"The point below which a node is punished for offline audits. Determined by calculating the ratio of online/total audits within each window and finding the average across windows within the tracking period." default:"0.6"`
-	OfflineDQEnabled bool          `help:"whether nodes will be disqualified if they have low online score after a review period" releaseDefault:"false" devDefault:"true"`
+	WindowSize               time.Duration `help:"The length of time spanning a single audit window" releaseDefault:"12h" devDefault:"5m"`
+	TrackingPeriod           time.Duration `help:"The length of time to track audit windows for node suspension and disqualification" releaseDefault:"720h" devDefault:"1h"`
+	GracePeriod              time.Duration `help:"The length of time to give suspended SNOs to diagnose and fix issues causing downtime. Afterwards, they will have one tracking period to reach the minimum online score before disqualification" releaseDefault:"168h" devDefault:"1h"`
+	OfflineThreshold         float64       `help:"The point below which a node is punished for offline audits. Determined by calculating the ratio of online/total audits within each window and finding the average across windows within the tracking period." default:"0.6"`
+	OfflineDQEnabled         bool          `help:"whether nodes will be disqualified if they have low online score after a review period" releaseDefault:"false" devDefault:"true"`
+	OfflineSuspensionEnabled bool          `help:"whether nodes will be suspended if they have low online score" releaseDefault:"true" devDefault:"true"`
 }
 
 func (aost *AsOfSystemTimeConfig) isValid() error {

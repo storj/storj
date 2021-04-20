@@ -8,6 +8,7 @@ import (
 	"errors"
 	"time"
 
+	"storj.io/common/memory"
 	"storj.io/common/uuid"
 )
 
@@ -45,18 +46,26 @@ type Projects interface {
 	UpdateBucketLimit(ctx context.Context, id uuid.UUID, newLimit int) error
 }
 
+// UsageLimitsConfig is a configuration struct for default per-project usage limits.
+type UsageLimitsConfig struct {
+	DefaultStorageLimit   memory.Size `help:"the default storage usage limit" default:"50.00GB"`
+	DefaultBandwidthLimit memory.Size `help:"the default bandwidth usage limit" default:"50.00GB"`
+}
+
 // Project is a database object that describes Project entity.
 type Project struct {
 	ID uuid.UUID `json:"id"`
 
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	PartnerID   uuid.UUID `json:"partnerId"`
-	OwnerID     uuid.UUID `json:"ownerId"`
-	RateLimit   *int      `json:"rateLimit"`
-	MaxBuckets  *int      `json:"maxBuckets"`
-	CreatedAt   time.Time `json:"createdAt"`
-	MemberCount int       `json:"memberCount"`
+	Name           string       `json:"name"`
+	Description    string       `json:"description"`
+	PartnerID      uuid.UUID    `json:"partnerId"`
+	OwnerID        uuid.UUID    `json:"ownerId"`
+	RateLimit      *int         `json:"rateLimit"`
+	MaxBuckets     *int         `json:"maxBuckets"`
+	CreatedAt      time.Time    `json:"createdAt"`
+	MemberCount    int          `json:"memberCount"`
+	StorageLimit   *memory.Size `json:"storageLimit"`
+	BandwidthLimit *memory.Size `json:"bandwidthLimit"`
 }
 
 // ProjectInfo holds data needed to create/update Project.

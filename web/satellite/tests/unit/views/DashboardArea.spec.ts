@@ -16,7 +16,6 @@ import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
-import { SegmentioPlugin } from '@/utils/plugins/segment';
 import DashboardArea from '@/views/DashboardArea.vue';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
@@ -28,10 +27,8 @@ import { ProjectsApiMock } from '../mock/api/projects';
 import { UsersApiMock } from '../mock/api/users';
 
 const localVue = createLocalVue();
-const segmentioPlugin = new SegmentioPlugin();
 const notificationPlugin = new NotificatorPlugin();
 localVue.use(Vuex);
-localVue.use(segmentioPlugin);
 localVue.use(notificationPlugin);
 
 const usersApi = new UsersApiMock();

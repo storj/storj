@@ -46,7 +46,7 @@ func NewReporter(log *zap.Logger, overlay *overlay.Service, containment Containm
 // RecordAudits saves audit results to overlay. When no error, it returns
 // nil for both return values, otherwise it returns the report with the fields
 // set to the values which have been saved and the error.
-func (reporter *Reporter) RecordAudits(ctx context.Context, req Report, path storj.Path) (_ Report, err error) {
+func (reporter *Reporter) RecordAudits(ctx context.Context, req Report) (_ Report, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	successes := req.Successes
@@ -213,8 +213,12 @@ func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits
 				failed = append(failed, pendingAudit)
 				errlist.Add(err)
 			}
+			reporter.log.Info("Audit pending",
+				zap.Stringer("Piece ID", pendingAudit.PieceID),
+				zap.Stringer("Node ID", pendingAudit.NodeID))
 		} else {
 			// record failure -- max reverify count reached
+			reporter.log.Info("max reverify count reached (audit failed)", zap.Stringer("Node ID", pendingAudit.NodeID))
 			updateRequests = append(updateRequests, &overlay.UpdateRequest{
 				NodeID:       pendingAudit.NodeID,
 				AuditOutcome: overlay.AuditFailure,
@@ -241,7 +245,7 @@ func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits
 
 	if len(failed) > 0 {
 		for _, v := range failed {
-			reporter.log.Debug("failed to record Pending Nodes ", zap.Stringer("NodeID", v.NodeID), zap.String("Path", v.Path))
+			reporter.log.Debug("failed to record Pending Nodes ", zap.Stringer("NodeID", v.NodeID), zap.ByteString("Segment Location", []byte(v.Segment.Encode())))
 		}
 		return failed, errs.Combine(Error.New("failed to record some pending audits"), errlist.Err())
 	}

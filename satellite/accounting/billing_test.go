@@ -242,14 +242,15 @@ func TestBilling_AuditRepairTraffic(t *testing.T) {
 		require.NotZero(t, projectTotal.Egress)
 
 		// get the only metainfo record (our upload)
-		key, err := planet.Satellites[0].Metainfo.Database.List(ctx, nil, 10)
+		objectsBefore, err := planet.Satellites[0].Metainfo.Metabase.TestingAllObjects(ctx)
 		require.NoError(t, err)
-		require.Len(t, key, 1)
-		ptr, err := satelliteSys.Metainfo.Service.Get(ctx, metabase.SegmentKey(key[0]))
+
+		segmentsBefore, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
 		require.NoError(t, err)
 
 		// Cause repair traffic
-		stoppedNodeID := ptr.GetRemote().GetRemotePieces()[0].NodeId
+		require.NotEmpty(t, segmentsBefore[0].Pieces)
+		stoppedNodeID := segmentsBefore[0].Pieces[0].StorageNode
 		err = planet.StopNodeAndUpdate(ctx, planet.FindNode(stoppedNodeID))
 		require.NoError(t, err)
 
@@ -261,21 +262,22 @@ func TestBilling_AuditRepairTraffic(t *testing.T) {
 		}
 
 		// trigger repair
-		_, err = satelliteSys.Repairer.SegmentRepairer.Repair(ctx, key[0].String())
+		loc := metabase.SegmentLocation{
+			ProjectID:  objectsBefore[0].ProjectID,
+			BucketName: objectsBefore[0].BucketName,
+			ObjectKey:  objectsBefore[0].ObjectKey,
+			Position:   metabase.SegmentPosition{Index: 0},
+		}
+		_, err = satelliteSys.Repairer.SegmentRepairer.Repair(ctx, string(loc.Encode()))
 		require.NoError(t, err)
 
 		// get the only metainfo record (our upload)
-		key, err = planet.Satellites[0].Metainfo.Database.List(ctx, nil, 1)
-		require.NoError(t, err)
-		require.Len(t, key, 1)
-
-		ptr2, err := satelliteSys.Metainfo.Service.Get(ctx, metabase.SegmentKey(key[0]))
+		segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
 		require.NoError(t, err)
 
-		remotePieces := ptr2.GetRemote().GetRemotePieces()
-		require.NotEqual(t, ptr, ptr2)
-		for _, piece := range remotePieces {
-			require.NotEqual(t, stoppedNodeID, piece.NodeId, "there shouldn't be pieces in stopped nodes")
+		require.NotEqual(t, segmentsBefore[0], segments[0])
+		for _, piece := range segments[0].Pieces {
+			require.NotEqual(t, stoppedNodeID, piece.StorageNode, "there shouldn't be pieces in stopped nodes")
 		}
 
 		projectTotalAfterRepair := getProjectTotalFromStorageNodes(ctx, t, planet, 0, projectID, since, runningNodes)

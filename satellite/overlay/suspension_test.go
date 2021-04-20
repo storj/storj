@@ -172,7 +172,7 @@ func TestAuditSuspendExceedGracePeriod(t *testing.T) {
 			Unknown:   storj.NodeIDList{unknownNodeID},
 		}
 		auditService := planet.Satellites[0].Audit
-		_, err := auditService.Reporter.RecordAudits(ctx, report, "")
+		_, err := auditService.Reporter.RecordAudits(ctx, report)
 		require.NoError(t, err)
 
 		// success and offline nodes should not be disqualified
@@ -228,7 +228,7 @@ func TestAuditSuspendDQDisabled(t *testing.T) {
 			Unknown:   storj.NodeIDList{unknownNodeID},
 		}
 		auditService := planet.Satellites[0].Audit
-		_, err := auditService.Reporter.RecordAudits(ctx, report, "")
+		_, err := auditService.Reporter.RecordAudits(ctx, report)
 		require.NoError(t, err)
 
 		// successful node should not be suspended or disqualified
@@ -255,6 +255,74 @@ func TestAuditSuspendDQDisabled(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, n.UnknownAuditSuspended)
 		require.Nil(t, n.Disqualified)
+	})
+}
+
+// TestOfflineAuditSuspensionDisabled ensures that a node is not suspended if the offline suspension enabled flag is false.
+func TestOfflineAuditSuspensionDisabled(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.AuditHistory.OfflineSuspensionEnabled = false
+				config.Overlay.AuditHistory.WindowSize = time.Hour
+				config.Overlay.AuditHistory.TrackingPeriod = 2 * time.Hour
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		nodeID := planet.StorageNodes[0].ID()
+		oc := planet.Satellites[0].Overlay.DB
+		config := planet.Satellites[0].Config.Overlay.AuditHistory
+
+		node, err := oc.Get(ctx, nodeID)
+		require.NoError(t, err)
+		require.Nil(t, node.OfflineSuspended)
+		require.Nil(t, node.OfflineUnderReview)
+		require.Nil(t, node.Disqualified)
+
+		req := &overlay.UpdateRequest{
+			NodeID:       nodeID,
+			AuditOutcome: overlay.AuditOffline,
+			AuditHistory: config,
+		}
+		windowSize := config.WindowSize
+		trackingPeriodLength := config.TrackingPeriod
+		currentWindow := time.Now()
+
+		// check that unsuspended node does not get suspended
+		for i := 0; i <= int(trackingPeriodLength/windowSize); i++ {
+			_, err = planet.Satellites[0].DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{req}, 1, currentWindow)
+			require.NoError(t, err)
+			currentWindow = currentWindow.Add(windowSize)
+		}
+
+		n, err := oc.Get(ctx, nodeID)
+		require.NoError(t, err)
+		require.Less(t, n.Reputation.OnlineScore, config.OfflineThreshold)
+		require.Nil(t, n.OfflineSuspended)
+		require.Nil(t, n.OfflineUnderReview)
+
+		// check that enabling flag suspends the node
+		req.AuditHistory.OfflineSuspensionEnabled = true
+		_, err = planet.Satellites[0].DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{req}, 1, currentWindow)
+		require.NoError(t, err)
+
+		n, err = oc.Get(ctx, nodeID)
+		require.NoError(t, err)
+		require.Less(t, n.Reputation.OnlineScore, config.OfflineThreshold)
+		require.NotNil(t, n.OfflineSuspended)
+		require.NotNil(t, n.OfflineUnderReview)
+
+		// check that disabling flag clears suspension and under review
+		req.AuditHistory.OfflineSuspensionEnabled = false
+		_, err = planet.Satellites[0].DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{req}, 1, currentWindow)
+		require.NoError(t, err)
+
+		n, err = oc.Get(ctx, nodeID)
+		require.NoError(t, err)
+		require.Less(t, n.Reputation.OnlineScore, config.OfflineThreshold)
+		require.Nil(t, n.OfflineSuspended)
+		require.Nil(t, n.OfflineUnderReview)
 	})
 }
 
@@ -340,11 +408,12 @@ func TestOfflineSuspend(t *testing.T) {
 			NodeID:       nodeID,
 			AuditOutcome: overlay.AuditOffline,
 			AuditHistory: overlay.AuditHistoryConfig{
-				WindowSize:       time.Hour,
-				TrackingPeriod:   2 * time.Hour,
-				GracePeriod:      time.Hour,
-				OfflineThreshold: 0.6,
-				OfflineDQEnabled: true,
+				WindowSize:               time.Hour,
+				TrackingPeriod:           2 * time.Hour,
+				GracePeriod:              time.Hour,
+				OfflineThreshold:         0.6,
+				OfflineDQEnabled:         true,
+				OfflineSuspensionEnabled: true,
 			},
 
 			AuditLambda:              0.95,

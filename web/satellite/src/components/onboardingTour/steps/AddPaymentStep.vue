@@ -51,7 +51,7 @@
                     <span class="payment-step__pricing-modal__item__left-side__title">Storage</span>
                 </div>
                 <div class="payment-step__pricing-modal__item__right-side">
-                    <b class="payment-step__pricing-modal__item__right-side__price">$0.01</b>
+                    <b class="payment-step__pricing-modal__item__right-side__price">${{storagePrice}}</b>
                     <span class="payment-step__pricing-modal__item__left-side__dimension">/GB</span>
                 </div>
             </div>
@@ -61,7 +61,7 @@
                     <span class="payment-step__pricing-modal__item__left-side__title">Download</span>
                 </div>
                 <div class="payment-step__pricing-modal__item__right-side">
-                    <b class="payment-step__pricing-modal__item__right-side__price">$0.045</b>
+                    <b class="payment-step__pricing-modal__item__right-side__price">${{egressPrice}}</b>
                     <span class="payment-step__pricing-modal__item__left-side__dimension">/GB</span>
                 </div>
             </div>
@@ -71,7 +71,7 @@
                     <span class="payment-step__pricing-modal__item__left-side__title">Per Object</span>
                 </div>
                 <div class="payment-step__pricing-modal__item__right-side">
-                    <b class="payment-step__pricing-modal__item__right-side__price">$0.0000022</b>
+                    <b class="payment-step__pricing-modal__item__right-side__price">${{objectPrice}}</b>
                     <span class="payment-step__pricing-modal__item__left-side__dimension">/OBJECT</span>
                 </div>
             </div>
@@ -87,6 +87,7 @@ import AddStorjState from '@/components/onboardingTour/steps/paymentStates/AddSt
 
 import { RouteConfig } from '@/router';
 import { AddingPaymentState } from '@/utils/constants/onboardingTourEnums';
+import { MetaUtils } from '@/utils/meta';
 
 @Component({
     components: {
@@ -96,6 +97,8 @@ import { AddingPaymentState } from '@/utils/constants/onboardingTourEnums';
 })
 
 export default class AddPaymentStep extends Vue {
+    private readonly GB_IN_TB = 1000;
+
     public areaState: number = AddingPaymentState.ADD_CARD;
     public isLoading: boolean = false;
 
@@ -127,6 +130,27 @@ export default class AddPaymentStep extends Vue {
      */
     public get isAddStorjState(): boolean {
         return this.areaState === AddingPaymentState.ADD_STORJ;
+    }
+
+    /**
+     * Returns storage price per GB.
+     */
+    public get storagePrice(): number {
+        return parseInt(MetaUtils.getMetaContent('storage-tb-price')) / this.GB_IN_TB;
+    }
+
+    /**
+     * Returns egress price per GB.
+     */
+    public get egressPrice(): number {
+        return parseInt(MetaUtils.getMetaContent('egress-tb-price')) / this.GB_IN_TB;
+    }
+
+    /**
+     * Returns object price.
+     */
+    public get objectPrice(): string {
+        return MetaUtils.getMetaContent('object-price');
     }
 
     /**

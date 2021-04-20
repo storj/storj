@@ -22,6 +22,7 @@ import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
 import {
@@ -46,6 +47,8 @@ export default class AccountDropdown extends Vue {
      * Performs logout on backend than clears all user information from store and local storage.
      */
     public async onLogoutClick(): Promise<void> {
+        await this.$router.push(RouteConfig.Login.path);
+
         try {
             await this.auth.logout();
         } catch (error) {
@@ -54,7 +57,6 @@ export default class AccountDropdown extends Vue {
             return;
         }
 
-        await this.$router.push(RouteConfig.Login.path);
         await this.$store.dispatch(PM_ACTIONS.CLEAR);
         await this.$store.dispatch(PROJECTS_ACTIONS.CLEAR);
         await this.$store.dispatch(USER_ACTIONS.CLEAR);
@@ -62,6 +64,7 @@ export default class AccountDropdown extends Vue {
         await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.STOP_ACCESS_GRANTS_WEB_WORKER);
         await this.$store.dispatch(NOTIFICATION_ACTIONS.CLEAR);
         await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
+        await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
         await this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
 
         LocalData.removeUserId();

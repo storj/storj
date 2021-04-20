@@ -3,15 +3,21 @@
 exports[`SortingHeader renders correctly 1`] = `
 <div class="sort-header-container">
   <div class="sort-header-container__item">
-    <p class="sort-header-container__item__name">CREDIT TYPE</p>
+    <p class="sort-header-container__item__name">DATE USED</p>
   </div>
   <div class="sort-header-container__item">
-    <p class="sort-header-container__item__name">EXPIRATION</p>
+    <p class="sort-header-container__item__name">COUPON</p>
   </div>
   <div class="sort-header-container__item">
-    <p class="sort-header-container__item__name">EARNED AMOUNT</p>
+    <p class="sort-header-container__item__name">EXPIRES</p>
   </div>
-  <div class="sort-header-container__item available">
+  <div class="sort-header-container__item">
+    <p class="sort-header-container__item__name">CREDIT AMOUNT</p>
+  </div>
+  <div class="sort-header-container__item">
+    <p class="sort-header-container__item__name">AMOUNT USED</p>
+  </div>
+  <div class="sort-header-container__item">
     <p class="sort-header-container__item__name">AVAILABLE</p>
   </div>
 </div>

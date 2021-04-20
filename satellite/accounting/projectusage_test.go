@@ -28,11 +28,9 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/uplink/private/storage/meta"
 )
 
 func TestProjectUsageStorage(t *testing.T) {
@@ -40,8 +38,8 @@ func TestProjectUsageStorage(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.ProjectLimits.DefaultMaxUsage = 1 * memory.MB
-				config.Metainfo.ProjectLimits.DefaultMaxBandwidth = 1 * memory.MB
+				config.Console.UsageLimits.DefaultStorageLimit = 1 * memory.MB
+				config.Console.UsageLimits.DefaultBandwidthLimit = 1 * memory.MB
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -554,59 +552,49 @@ func TestProjectUsage_FreeUsedStorageSpace(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satDB := planet.Satellites[0].DB
-		acctDB := satDB.ProjectAccounting()
 		accounting := planet.Satellites[0].Accounting
-		satMetainfo := planet.Satellites[0].Metainfo
-		projectsDB := satDB.Console().Projects()
+		project := planet.Uplinks[0].Projects[0]
 
 		accounting.Tally.Loop.Pause()
 
-		projects, err := projectsDB.GetAll(ctx)
-		require.NoError(t, err)
-
-		project := projects[0]
-
 		// set custom usage limit for project
 		customLimit := 100 * memory.KiB
-		err = acctDB.UpdateProjectUsageLimit(ctx, project.ID, customLimit)
+		err := satDB.ProjectAccounting().UpdateProjectUsageLimit(ctx, project.ID, customLimit)
 		require.NoError(t, err)
 
 		data := testrand.Bytes(50 * memory.KiB)
 
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path1", data)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "1", data)
 		require.NoError(t, err)
 
-		// check if usage is equal to first uploaded file
-		prefix, err := metainfo.CreatePath(ctx, project.ID, -1, []byte("testbucket"), []byte{})
-		require.NoError(t, err)
-		items, _, err := satMetainfo.Service.List(ctx, prefix.Encode(), "", true, 1, meta.All)
+		segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
 		require.NoError(t, err)
 
 		usage, err := accounting.ProjectUsage.GetProjectStorageTotals(ctx, project.ID)
 		require.NoError(t, err)
-		require.Equal(t, items[0].Pointer.SegmentSize, usage)
+		require.EqualValues(t, segments[0].EncryptedSize, usage)
 
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path2", data)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "2", data)
 		require.NoError(t, err)
 
 		// we used limit so we should get error
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path3", data)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "3", data)
 		require.Error(t, err)
 		require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
 
 		// delete object to free some storage space
-		err = planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "testbucket", "test/path2")
+		err = planet.Uplinks[0].DeleteObject(ctx, planet.Satellites[0], "bucket", "2")
 		require.NoError(t, err)
 
 		// we need to wait for tally to update storage usage after delete
 		accounting.Tally.Loop.TriggerWait()
 
 		// try to upload object as we have free space now
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path3", data)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "4", data)
 		require.NoError(t, err)
 
 		// should fail because we once again used space up to limit
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path2", data)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "bucket", "2", data)
 		require.Error(t, err)
 		require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
 	})
@@ -617,21 +605,15 @@ func TestProjectUsage_ResetLimitsFirstDayOfNextMonth(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satDB := planet.Satellites[0].DB
-		acctDB := satDB.ProjectAccounting()
-		projectsDB := satDB.Console().Projects()
+		project := planet.Uplinks[0].Projects[0]
 
 		planet.Satellites[0].Orders.Chore.Loop.Pause()
 
-		projects, err := projectsDB.GetAll(ctx)
-		require.NoError(t, err)
-
-		project := projects[0]
-
 		// set custom usage limit for project
 		customLimit := 100 * memory.KiB
-		err = acctDB.UpdateProjectUsageLimit(ctx, project.ID, customLimit)
+		err := satDB.ProjectAccounting().UpdateProjectUsageLimit(ctx, project.ID, customLimit)
 		require.NoError(t, err)
-		err = acctDB.UpdateProjectBandwidthLimit(ctx, project.ID, customLimit)
+		err = satDB.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, project.ID, customLimit)
 		require.NoError(t, err)
 
 		data := testrand.Bytes(customLimit)
@@ -665,7 +647,7 @@ func TestProjectUsage_ResetLimitsFirstDayOfNextMonth(t *testing.T) {
 		})
 
 		// verify that storage limit is all used even at the new billing cycle
-		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path2", data)
+		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path3", data)
 		require.Error(t, err)
 		require.True(t, errs2.IsRPC(err, rpcstatus.ResourceExhausted))
 

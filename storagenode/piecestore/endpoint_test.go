@@ -286,8 +286,13 @@ func TestDownload(t *testing.T) {
 			}
 
 			err = downloader.Close()
-			if len(tt.errs) > 0 {
+			numErrs := len(tt.errs)
+			if numErrs > 0 {
 				require.Error(t, err)
+			}
+			if numErrs == 1 {
+				require.True(t, strings.Contains(err.Error(), tt.errs[0]))
+			} else if numErrs == 2 {
 				require.True(t, strings.Contains(err.Error(), tt.errs[0]) || strings.Contains(err.Error(), tt.errs[1]), err.Error())
 			} else {
 				require.NoError(t, err)

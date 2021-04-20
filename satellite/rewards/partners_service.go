@@ -38,17 +38,15 @@ type PartnersDB interface {
 //
 // architecture: Service
 type PartnersService struct {
-	log     *zap.Logger
-	db      PartnersDB
-	domains []string
+	log *zap.Logger
+	db  PartnersDB
 }
 
 // NewPartnersService returns a service for handling partner information.
-func NewPartnersService(log *zap.Logger, db PartnersDB, domains []string) *PartnersService {
+func NewPartnersService(log *zap.Logger, db PartnersDB) *PartnersService {
 	return &PartnersService{
-		log:     log,
-		db:      db,
-		domains: domains,
+		log: log,
+		db:  db,
 	}
 }
 

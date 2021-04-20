@@ -23,6 +23,8 @@ var _ multinodepb.DRPCNodeServer = (*NodeEndpoint)(nil)
 //
 // architecture: Endpoint
 type NodeEndpoint struct {
+	multinodepb.DRPCNodeUnimplementedServer
+
 	log        *zap.Logger
 	apiKeys    *apikeys.Service
 	version    version.Info

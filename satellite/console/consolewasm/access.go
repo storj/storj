@@ -7,10 +7,10 @@ import (
 	"crypto/sha256"
 
 	"storj.io/common/encryption"
+	"storj.io/common/grant"
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/uplink/private/access2"
 )
 
 // GenAccessGrant creates a new access grant and returns it serialized form.
@@ -33,11 +33,11 @@ func GenAccessGrant(satelliteNodeURL, apiKey, encryptionPassphrase, projectID st
 		return "", err
 	}
 
-	encAccess := access2.NewEncryptionAccessWithDefaultKey(key)
+	encAccess := grant.NewEncryptionAccessWithDefaultKey(key)
 	encAccess.SetDefaultPathCipher(storj.EncAESGCM)
 	encAccess.LimitTo(parsedAPIKey)
 
-	accessString, err := (&access2.Access{
+	accessString, err := (&grant.Access{
 		SatelliteAddress: satelliteNodeURL,
 		APIKey:           parsedAPIKey,
 		EncAccess:        encAccess,

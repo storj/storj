@@ -4,7 +4,9 @@
 package gracefulexit_test
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"testing"
 	"time"
 
@@ -12,7 +14,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
-	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -22,7 +23,8 @@ import (
 	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/storage"
+	"storj.io/uplink/private/etag"
+	"storj.io/uplink/private/multipart"
 )
 
 func TestChore(t *testing.T) {
@@ -44,12 +46,23 @@ func TestChore(t *testing.T) {
 		satellite := planet.Satellites[0]
 		exitingNode := planet.StorageNodes[1]
 
+		project, err := uplinkPeer.GetProject(ctx, satellite)
+		require.NoError(t, err)
+		defer func() { require.NoError(t, project.Close()) }()
+
 		satellite.GracefulExit.Chore.Loop.Pause()
 
-		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
+		err = uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
 		require.NoError(t, err)
 
 		err = uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path2", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+
+		info, err := multipart.NewMultipartUpload(ctx, project, "testbucket", "test/path3", nil)
+		require.NoError(t, err)
+
+		_, err = multipart.PutObjectPart(ctx, project, "testbucket", "test/path3", info.StreamID, 1,
+			etag.NewHashReader(bytes.NewReader(testrand.Bytes(5*memory.KiB)), sha256.New()))
 		require.NoError(t, err)
 
 		exitStatusRequest := overlay.ExitStatusRequest{
@@ -74,7 +87,7 @@ func TestChore(t *testing.T) {
 
 		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0)
 		require.NoError(t, err)
-		require.Len(t, incompleteTransfers, 2)
+		require.Len(t, incompleteTransfers, 3)
 		for _, incomplete := range incompleteTransfers {
 			require.True(t, incomplete.DurabilityRatio > 0)
 			require.NotNil(t, incomplete.RootPieceID)
@@ -106,7 +119,7 @@ func TestChore(t *testing.T) {
 
 		incompleteTransfers, err = satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0)
 		require.NoError(t, err)
-		require.Len(t, incompleteTransfers, 2)
+		require.Len(t, incompleteTransfers, 3)
 
 		// node should fail graceful exit if it has been inactive for maximum inactive time frame since last activity
 		time.Sleep(maximumInactiveTimeFrame + time.Second*1)
@@ -147,9 +160,19 @@ func TestDurabilityRatio(t *testing.T) {
 		nodeToRemove := planet.StorageNodes[0]
 		exitingNode := planet.StorageNodes[1]
 
+		project, err := uplinkPeer.GetProject(ctx, satellite)
+		require.NoError(t, err)
+		defer func() { require.NoError(t, project.Close()) }()
 		satellite.GracefulExit.Chore.Loop.Pause()
 
-		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
+		err = uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path1", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+
+		info, err := multipart.NewMultipartUpload(ctx, project, "testbucket", "test/path2", nil)
+		require.NoError(t, err)
+
+		_, err = multipart.PutObjectPart(ctx, project, "testbucket", "test/path2", info.StreamID, 1,
+			etag.NewHashReader(bytes.NewReader(testrand.Bytes(5*memory.KiB)), sha256.New()))
 		require.NoError(t, err)
 
 		exitStatusRequest := overlay.ExitStatusRequest{
@@ -171,50 +194,36 @@ func TestDurabilityRatio(t *testing.T) {
 		require.Len(t, nodeIDs, 1)
 
 		// retrieve remote segment
-		keys, err := satellite.Metainfo.Database.List(ctx, nil, -1)
+		segments, err := satellite.Metainfo.Metabase.TestingAllSegments(ctx)
 		require.NoError(t, err)
+		require.Len(t, segments, 2)
 
-		var oldPointer *pb.Pointer
-		var path []byte
-		for _, key := range keys {
-			p, err := satellite.Metainfo.Service.Get(ctx, metabase.SegmentKey(key))
+		for _, segment := range segments {
+			remotePieces := segment.Pieces
+			var newPieces metabase.Pieces = make(metabase.Pieces, len(remotePieces)-1)
+			idx := 0
+			for _, p := range remotePieces {
+				if p.StorageNode != nodeToRemove.ID() {
+					newPieces[idx] = p
+					idx++
+				}
+			}
+			err = satellite.Metainfo.Metabase.UpdateSegmentPieces(ctx, metabase.UpdateSegmentPieces{
+				StreamID: segment.StreamID,
+				Position: segment.Position,
+
+				OldPieces:     segment.Pieces,
+				NewPieces:     newPieces,
+				NewRedundancy: segment.Redundancy,
+			})
 			require.NoError(t, err)
-
-			if p.GetRemote() != nil {
-				oldPointer = p
-				path = key
-				break
-			}
 		}
-
-		// remove a piece from the pointer
-		require.NotNil(t, oldPointer)
-		oldPointerBytes, err := pb.Marshal(oldPointer)
-		require.NoError(t, err)
-		newPointer := &pb.Pointer{}
-		err = pb.Unmarshal(oldPointerBytes, newPointer)
-		require.NoError(t, err)
-
-		remotePieces := newPointer.GetRemote().GetRemotePieces()
-		var newPieces []*pb.RemotePiece = make([]*pb.RemotePiece, len(remotePieces)-1)
-		idx := 0
-		for _, p := range remotePieces {
-			if p.NodeId != nodeToRemove.ID() {
-				newPieces[idx] = p
-				idx++
-			}
-		}
-		newPointer.Remote.RemotePieces = newPieces
-		newPointerBytes, err := pb.Marshal(newPointer)
-		require.NoError(t, err)
-		err = satellite.Metainfo.Database.CompareAndSwap(ctx, storage.Key(path), oldPointerBytes, newPointerBytes)
-		require.NoError(t, err)
 
 		satellite.GracefulExit.Chore.Loop.TriggerWait()
 
 		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0)
 		require.NoError(t, err)
-		require.Len(t, incompleteTransfers, 1)
+		require.Len(t, incompleteTransfers, 2)
 		for _, incomplete := range incompleteTransfers {
 			require.Equal(t, float64(successThreshold-1)/float64(successThreshold), incomplete.DurabilityRatio)
 			require.NotNil(t, incomplete.RootPieceID)

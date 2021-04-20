@@ -41,6 +41,7 @@ import SelectionIcon from '@/../static/images/header/selection.svg';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { Project } from '@/types/projects';
@@ -64,6 +65,11 @@ export default class ProjectDropdown extends Vue {
         LocalData.setSelectedProjectId(projectID);
         await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
         this.closeDropdown();
+
+        if (this.isObjectsView) {
+            await this.$store.dispatch(OBJECTS_ACTIONS.CLEAR);
+            await this.$router.push({name: RouteConfig.Objects.name}).catch(() => {return; });
+        }
 
         try {
             await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
@@ -91,21 +97,6 @@ export default class ProjectDropdown extends Vue {
     }
 
     /**
-     * Indicates if create project button is shown.
-     */
-    public get isCreateProjectButtonShown(): boolean {
-        return this.$store.state.appStateModule.appState.isCreateProjectButtonShown;
-    }
-
-    /**
-     * Redirects to create project page.
-     */
-    public onCreateProjectsClick(): void {
-        this.$router.push(RouteConfig.CreateProject.path);
-        this.closeDropdown();
-    }
-
-    /**
      * Closes dropdown.
      */
     public closeDropdown(): void {
@@ -118,6 +109,13 @@ export default class ProjectDropdown extends Vue {
     public onProjectsLinkClick(): void {
         this.$router.push(RouteConfig.ProjectsList.path);
         this.$emit('close');
+    }
+
+    /**
+     * Indicates if current route is objects view.
+     */
+    private get isObjectsView(): boolean {
+        return this.$route.path.includes(RouteConfig.Objects.path);
     }
 }
 </script>
@@ -206,7 +204,7 @@ export default class ProjectDropdown extends Vue {
                 justify-content: space-between;
                 align-items: center;
                 width: calc(100% - 50px);
-                padding: 5px 25px;
+                padding: 15px 25px;
 
                 &__text,
                 &__arrow {

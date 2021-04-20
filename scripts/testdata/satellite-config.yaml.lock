@@ -1,6 +1,12 @@
 # admin peer http listening address
 # admin.address: ""
 
+# enable analytics reporting
+# analytics.enabled: false
+
+# segment write key
+# analytics.segment-write-key: ""
+
 # how often to run the reservoir chore
 # audit.chore-interval: 24h0m0s
 
@@ -22,7 +28,7 @@
 # number of reservoir slots allotted for nodes, currently capped at 3
 # audit.slots: 3
 
-# number of workers to run audits on paths
+# number of workers to run audits on segments
 # audit.worker-concurrency: 2
 
 # how frequently checker should check for bad segments
@@ -85,23 +91,32 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to contacts page
 # console.contact-info-url: https://forum.storj.io
 
+# indicates if user is allowed to add coupon codes to account
+# console.coupon-code-ui-enabled: false
+
+# indicates if Content Security Policy is enabled
+# console.csp-enabled: true
+
 # default project limits for users
-# console.default-project-limit: 10
+# console.default-project-limit: 3
+
+# url link to documentation
+# console.documentation-url: https://docs.storj.io/
 
 # external endpoint of the satellite if hosted
 # console.external-address: ""
 
+# indicates if file browser flow is disabled
+# console.file-browser-flow-disabled: false
+
 # allow domains to embed the satellite in a frame, space separated
-# console.frame-ancestors: tardigrade.io
+# console.frame-ancestors: tardigrade.io storj.io
 
 # url link for gateway credentials requests
-# console.gateway-credentials-request-url: https://auth.tardigradeshare.io
+# console.gateway-credentials-request-url: https://auth.us1.storjshare.io
 
 # url link to general request page
-# console.general-request-url: https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000379291
-
-# id for google tag manager
-# console.google-tag-manager-id: ""
+# console.general-request-url: https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291
 
 # indicates if satellite is in beta
 # console.is-beta-satellite: false
@@ -109,14 +124,20 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to let us know page
 # console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
 
+# url link for linksharing requests
+# console.linksharing-url: https://link.us1.storjshare.io
+
 # enable open registration
 # console.open-registration-enabled: false
 
 # names of partnered satellites
-# console.partnered-satellite-names: US-Central-1,Europe-West-1,Asia-East-1
+# console.partnered-satellite-names: US1,EU1,AP1
+
+# indicates if the overview onboarding step should render with pathways
+# console.pathway-overview-enabled: true
 
 # url link to project limit increase request page
-# console.project-limits-increase-request-url: https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212
+# console.project-limits-increase-request-url: https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212
 
 # number of events before the limit kicks in
 # console.rate-limit.burst: 5
@@ -133,9 +154,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # name of organization which set up satellite
 # console.satellite-operator: Storj Labs
 
-# used to initialize segment.io at web satellite console
-# console.segment-io-public-key: ""
-
 # used to communicate with web crawlers and other web robots
 # console.seo: "User-agent: *\nDisallow: \nDisallow: /cgi-bin/"
 
@@ -144,6 +162,12 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # url link to terms and conditions page
 # console.terms-and-conditions-url: https://storj.io/storage-sla/
+
+# the default bandwidth usage limit
+# console.usage-limits.default-bandwidth-limit: 50.00 GB
+
+# the default storage usage limit
+# console.usage-limits.default-storage-limit: 50.00 GB
 
 # url link to sign up verification page
 # console.verification-page-url: https://tardigrade.io/verify
@@ -195,6 +219,9 @@ contact.external-address: ""
 
 # the time between each attempt to go through the db and clean up expired segments
 # expired-deletion.interval: 120h0m0s
+
+# how many expired objects to query in a batch
+# expired-deletion.list-limit: 100
 
 # the number of nodes to concurrently send garbage collection bloom filters to
 # garbage-collection.concurrent-sends: 1
@@ -337,15 +364,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # minimum remote segment size
 # metainfo.min-remote-segment-size: 1.2 KiB
 
-# maximum number of concurrent requests
-# metainfo.object-deletion.max-concurrent-requests: 10000
-
-# maximum number of requests per batch
-# metainfo.object-deletion.max-objects-per-request: 100
-
-# number of segments per request when looking for zombie segments
-# metainfo.object-deletion.zombie-segments-per-request: 3
-
 # toggle flag if overlay is enabled
 # metainfo.overlay: true
 
@@ -369,12 +387,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # timeout for a single delete request
 # metainfo.piece-deletion.request-timeout: 1m0s
-
-# the default bandwidth usage limit
-# metainfo.project-limits.default-max-bandwidth: 500.00 GB
-
-# the default storage usage limit
-# metainfo.project-limits.default-max-usage: 500.00 GB
 
 # max bucket count for a project.
 # metainfo.project-limits.max-buckets: 100
@@ -435,6 +447,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # whether nodes will be disqualified if they have low online score after a review period
 # overlay.audit-history.offline-dq-enabled: false
+
+# whether nodes will be suspended if they have low online score
+# overlay.audit-history.offline-suspension-enabled: true
 
 # The point below which a node is punished for offline audits. Determined by calculating the ratio of online/total audits within each window and finding the average across windows within the tracking period.
 # overlay.audit-history.offline-threshold: 0.6
@@ -502,17 +517,17 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # amount of percents that user will earn as bonus credits by depositing in STORJ tokens
 # payments.bonus-rate: 10
 
-# duration a new coupon is valid in months/billing cycles
-# payments.coupon-duration: 2
+# duration a new coupon is valid in months/billing cycles. An empty string means the coupon never expires
+# payments.coupon-duration: ""
 
 # project limit to which increase to after applying the coupon, 0 B means not changing it from the default
 # payments.coupon-project-limit: 0 B
 
 # coupon value in cents
-# payments.coupon-value: 275
+# payments.coupon-value: 1000
 
 # price user should pay for each TB of egress
-# payments.egress-tb-price: "45"
+# payments.egress-tb-price: "7"
 
 # minimum value of coin payments in cents before coupon is applied
 # payments.min-coin-payment: 1000
@@ -533,13 +548,13 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.object-price: "0.0000022"
 
 # proportion of users which require a balance to create projects [0-1]
-# payments.paywall-proportion: 1
+# payments.paywall-proportion: 0
 
 # payments provider to use
 # payments.provider: ""
 
 # price user should pay for storing TB per month
-# payments.storage-tb-price: "10"
+# payments.storage-tb-price: "4"
 
 # amount of time we wait before running next account balance update loop
 # payments.stripe-coin-payments.account-balance-update-interval: 2m0s
@@ -644,10 +659,13 @@ server.private-address: 127.0.0.1:7778
 # server.use-peer-ca-whitelist: true
 
 # whether nodes will be disqualified if they have not been contacted in some time
-# stray-nodes.enable-dq: false
+# stray-nodes.enable-dq: true
 
 # how often to check for and DQ stray nodes
 # stray-nodes.interval: 168h0m0s
+
+# Max number of nodes to return in a single query. Chore will iterate until rows returned is less than limit
+# stray-nodes.limit: 1000
 
 # length of time a node can go without contacting satellite before being disqualified
 # stray-nodes.max-duration-without-contact: 720h0m0s

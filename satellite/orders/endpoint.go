@@ -146,6 +146,7 @@ func SortStoragenodeBandwidthRollups(rollups []StoragenodeBandwidthRollup) {
 //
 // architecture: Endpoint
 type Endpoint struct {
+	pb.DRPCOrdersUnimplementedServer
 	log              *zap.Logger
 	satelliteSignee  signing.Signee
 	DB               DB

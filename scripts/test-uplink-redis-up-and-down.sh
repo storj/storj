@@ -1,15 +1,12 @@
 #!/usr/bin/env bash
-set -ueo pipefail
-
-redis_container_name="${1-}"
-
-# Required positional arguments
-if [ -z "${redis_container_name}" ]; then
-	echo "redis container name is required as a first positional script argument"
-	exit 1
-fi
+set -Eeo pipefail
+set +x
 
 # constants
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
+source $SCRIPT_DIR/utils.sh
+
+readonly SCRIPT_DIR
 BUCKET="bucket-123"
 readonly BUCKET
 UPLINK_DEBUG_ADDR=""
@@ -28,30 +25,7 @@ cleanup() {
 	echo "cleaned up test successfully"
 }
 trap cleanup EXIT
-
-random_bytes_file() {
-	size="${1}"
-	output="${2}"
-	head -c "${size}" </dev/urandom >"${output}"
-}
-
-compare_files() {
-	name=$(basename "${2}")
-	if cmp "${1}" "${2}"; then
-		echo "${name} matches uploaded file"
-	else
-		echo "${name} does not match uploaded file"
-		exit 1
-	fi
-}
-
-redis_start() {
-	docker container start "${redis_container_name}"
-}
-
-redis_stop() {
-	docker container stop "${redis_container_name}"
-}
+trap 'failure ${LINENO} "$BASH_COMMAND"' ERR
 
 uplink_test() {
 	local temp_dir
@@ -146,5 +120,5 @@ uplink_test() {
 uplink_test
 
 # Run the test with Redis container not running
-redis_stop
+"${SCRIPT_DIR}/redis-server.sh" stop
 uplink_test

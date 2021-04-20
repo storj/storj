@@ -30,7 +30,7 @@ export default class App extends Vue {
     public mounted(): void {
         const satelliteName = MetaUtils.getMetaContent('satellite-name');
         const isBetaSatellite = MetaUtils.getMetaContent('is-beta-satellite');
-        const segmentioId = MetaUtils.getMetaContent('segment-io');
+        const couponCodeUIEnabled = MetaUtils.getMetaContent('coupon-code-ui-enabled');
 
         if (satelliteName) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
@@ -40,9 +40,10 @@ export default class App extends Vue {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_STATUS, isBetaSatellite === 'true');
         }
 
-        if (segmentioId) {
-            this.$segment.init(segmentioId);
+        if (couponCodeUIEnabled) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_UI_STATUS, couponCodeUIEnabled === 'true');
         }
+
     }
 }
 </script>

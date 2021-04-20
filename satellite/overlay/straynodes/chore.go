@@ -18,9 +18,10 @@ var mon = monkit.Package()
 
 // Config contains configurable values for stray nodes chore.
 type Config struct {
-	EnableDQ                  bool          `help:"whether nodes will be disqualified if they have not been contacted in some time" releaseDefault:"false" devDefault:"true"`
+	EnableDQ                  bool          `help:"whether nodes will be disqualified if they have not been contacted in some time" releaseDefault:"true" devDefault:"true"`
 	Interval                  time.Duration `help:"how often to check for and DQ stray nodes" releaseDefault:"168h" devDefault:"5m"`
 	MaxDurationWithoutContact time.Duration `help:"length of time a node can go without contacting satellite before being disqualified" releaseDefault:"720h" devDefault:"7200h"`
+	Limit                     int           `help:"Max number of nodes to return in a single query. Chore will iterate until rows returned is less than limit" releaseDefault:"1000" devDefault:"1000"`
 }
 
 // Chore disqualifies stray nodes.
@@ -28,6 +29,7 @@ type Chore struct {
 	log                       *zap.Logger
 	cache                     overlay.DB
 	maxDurationWithoutContact time.Duration
+	limit                     int
 	Loop                      *sync2.Cycle
 }
 
@@ -37,6 +39,7 @@ func NewChore(log *zap.Logger, cache overlay.DB, config Config) *Chore {
 		log:                       log,
 		cache:                     cache,
 		maxDurationWithoutContact: config.MaxDurationWithoutContact,
+		limit:                     config.Limit,
 		Loop:                      sync2.NewCycle(config.Interval),
 	}
 }
@@ -46,10 +49,20 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return chore.Loop.Run(ctx, func(ctx context.Context) error {
-		err := chore.cache.DQNodesLastSeenBefore(ctx, time.Now().UTC().Add(-chore.maxDurationWithoutContact))
-		if err != nil {
-			chore.log.Error("error disqualifying stray nodes", zap.Error(err))
+		var total int
+		for {
+			n, err := chore.cache.DQNodesLastSeenBefore(ctx, time.Now().UTC().Add(-chore.maxDurationWithoutContact), chore.limit)
+			if err != nil {
+				chore.log.Error("error disqualifying stray nodes", zap.Error(err))
+				mon.IntVal("stray_nodes_dq_count").Observe(int64(total))
+				return nil
+			}
+			total += n
+			if n < chore.limit {
+				break
+			}
 		}
+		mon.IntVal("stray_nodes_dq_count").Observe(int64(total))
 		return nil
 	})
 }

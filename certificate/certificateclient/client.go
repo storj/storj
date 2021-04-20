@@ -11,9 +11,9 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/identity"
-	"storj.io/common/pb"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
+	"storj.io/storj/certificate/certificatepb"
 )
 
 var mon = monkit.Package()
@@ -24,10 +24,10 @@ type Config struct {
 	TLS     tlsopts.Config
 }
 
-// Client implements pb.DRPCCertificatesClient.
+// Client implements certificatepb.DRPCCertificatesClient.
 type Client struct {
 	conn   *rpc.Conn
-	client pb.DRPCCertificatesClient
+	client certificatepb.DRPCCertificatesClient
 }
 
 // New creates a new certificate signing rpc client.
@@ -41,13 +41,13 @@ func New(ctx context.Context, dialer rpc.Dialer, address string) (_ *Client, err
 
 	return &Client{
 		conn:   conn,
-		client: pb.NewDRPCCertificatesClient(conn),
+		client: certificatepb.NewDRPCCertificatesClient(conn),
 	}, nil
 }
 
 // NewClientFrom creates a new certificate signing client from an existing
 // cert signing client.
-func NewClientFrom(client pb.DRPCCertificatesClient) *Client {
+func NewClientFrom(client certificatepb.DRPCCertificatesClient) *Client {
 	return &Client{
 		client: client,
 	}
@@ -75,7 +75,7 @@ func (config Config) Sign(ctx context.Context, ident *identity.FullIdentity, aut
 func (client *Client) Sign(ctx context.Context, tokenStr string) (_ [][]byte, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	res, err := client.client.Sign(ctx, &pb.SigningRequest{
+	res, err := client.client.Sign(ctx, &certificatepb.SigningRequest{
 		AuthToken: tokenStr,
 		Timestamp: time.Now().Unix(),
 	})

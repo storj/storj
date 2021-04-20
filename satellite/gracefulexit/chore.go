@@ -13,7 +13,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/metaloop"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -26,11 +26,11 @@ type Chore struct {
 	db           DB
 	config       Config
 	overlay      overlay.DB
-	metainfoLoop *metainfo.Loop
+	metainfoLoop *metaloop.Service
 }
 
 // NewChore instantiates Chore.
-func NewChore(log *zap.Logger, db DB, overlay overlay.DB, metaLoop *metainfo.Loop, config Config) *Chore {
+func NewChore(log *zap.Logger, db DB, overlay overlay.DB, metaLoop *metaloop.Service, config Config) *Chore {
 	return &Chore{
 		log:          log,
 		Loop:         sync2.NewCycle(config.ChoreInterval),

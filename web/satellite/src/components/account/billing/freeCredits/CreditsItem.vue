@@ -3,9 +3,11 @@
 
 <template>
     <div class="container">
-        <p class="container__item">{{ creditType }}</p>
-        <p class="container__item">{{ expiration }}</p>
-        <p class="container__item">{{ memoryAmount }} GB ({{ creditsItem.amount | centsToDollars }})</p>
+        <p class="container__item">{{ startDate }}</p>
+        <p class="container__item coupon">{{ creditType }}</p>
+        <p :class="{'expired' : expirationCheck}" class="container__item">{{ expiration }}</p>
+        <p class="container__item">{{  creditsItem.amount | centsToDollars }}</p>
+        <p class="container__item">{{ amountUsed | centsToDollars }}</p>
         <p class="container__item available">{{ creditsItem.remaining | centsToDollars }}</p>
     </div>
 </template>
@@ -31,7 +33,7 @@ export default class CreditsItem extends Vue {
      * Return credit type string depending on item type.
      */
     public get creditType(): string {
-        const trial = 'Trial Credit';
+        const trial = 'Free Tier Credit';
 
         if (this.creditsItem.type === PaymentsHistoryItemType.Coupon) {
             return trial;
@@ -53,10 +55,41 @@ export default class CreditsItem extends Vue {
      * Returns formatted string of expiration date.
      */
     public get expiration(): string {
+        if (!this.creditsItem.hasExpiration) {
+            return 'Never expires';
+        }
+
         const monthNumber = this.creditsItem.end.getUTCMonth();
         const year = this.creditsItem.end.getUTCFullYear();
 
         return `${MONTHS_NAMES[monthNumber]} ${year}`;
+    }
+
+    /**
+     * Returns formatted string of start date.
+     */
+    public get startDate(): string {
+        const monthNumber = this.creditsItem.start.getUTCMonth();
+        const year = this.creditsItem.start.getUTCFullYear();
+
+        return `${MONTHS_NAMES[monthNumber]} ${year}`;
+    }
+
+    /**
+     * Returns remaining amount
+     */
+    public get amountUsed(): number {
+        const amount = this.creditsItem.amount;
+        const remaining = this.creditsItem.remaining;
+
+        return amount - remaining;
+    }
+
+    /**
+     * Checks for coupon expiration.
+     */
+    public get expirationCheck(): boolean {
+        return this.creditsItem.hasExpiration && this.creditsItem.end.getTime() < new Date().getTime();
     }
 }
 </script>
@@ -64,22 +97,24 @@ export default class CreditsItem extends Vue {
 <style scoped lang="scss">
     .container {
         display: flex;
-        align-items: center;
         width: 100%;
 
         &__item {
-            min-width: 28%;
+            min-width: 16.6%;
             font-family: 'font_regular', sans-serif;
             text-align: left;
-            margin: 10px 0;
             font-size: 16px;
             line-height: 19px;
             color: #354049;
         }
+
+        &__item.coupon {
+            font-family: 'font_bold', sans-serif;
+        }
+
+        &__item.expired {
+            color: #ce3030;
+        }
     }
 
-    .available {
-        min-width: 16%;
-        text-align: right;
-    }
 </style>
