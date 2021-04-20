@@ -62,7 +62,8 @@
                 <p class="overview-area__path-section__text">Map your filesystem to the decentralized cloud.</p>
                 <a
                     class="overview-area__path-section__button"
-                    href="https://docs.storj.io/how-tos/sync-files-with-rclone"
+                    :class="{ 'link-disabled': isLoading }"
+                    :href="!isLoading ? 'https://docs.storj.io/how-tos/sync-files-with-rclone' : '' "
                     target="_blank"
                     rel="noopener noreferrer"
                     @click="onRcloneClick"
@@ -394,6 +395,12 @@ export default class OverviewStep extends Vue {
             &:hover {
                 background: darken(#2683ff, 10%);
             }
+        }
+
+        .link-disabled {
+            background-color: #dadde5;
+            border-color: #dadde5;
+            pointer-events: none;
         }
     }
 </style>
