@@ -318,7 +318,7 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
 	cd "release/${TAG}"; for f in *; do \
 		zipname=$$(echo $${f} | sed 's/.exe//g') \
-		&& filename=$$(echo $${f} | sed 's/_.*\.exe/.exe/g' | sed 's/_.*//g') \
+		&& filename=$$(echo $${f} | sed 's/_.*\.exe/.exe/g' | sed 's/_.*\.msi/.msi/g'| sed 's/_.*//g') \
 		&& if [ "$${f}" != "$${filename}" ]; then \
 			ln $${f} $${filename} \
 			&& zip -r "$${zipname}.zip" "$${filename}" \
