@@ -4,9 +4,7 @@
 package metainfo_test
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
 	"testing"
 	"time"
 
@@ -22,9 +20,8 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/uplink/private/etag"
+	"storj.io/uplink"
 	"storj.io/uplink/private/metainfo"
-	"storj.io/uplink/private/multipart"
 )
 
 func TestEndpoint_DeleteCommittedObject(t *testing.T) {
@@ -59,12 +56,14 @@ func TestEndpoint_DeletePendingObject(t *testing.T) {
 		_, err = project.CreateBucket(ctx, bucketName)
 		require.NoError(t, err, "failed to create bucket")
 
-		info, err := multipart.NewMultipartUpload(ctx, project, bucketName, "object-filename", &multipart.UploadOptions{})
+		info, err := project.BeginUpload(ctx, bucketName, "object-filename", &uplink.UploadOptions{})
 		require.NoError(t, err, "failed to start multipart upload")
 
-		_, err = multipart.PutObjectPart(ctx, project, bucketName, bucketName, info.StreamID, 1,
-			etag.NewHashReader(bytes.NewReader(data), sha256.New()))
+		upload, err := project.UploadPart(ctx, bucketName, bucketName, info.UploadID, 1)
 		require.NoError(t, err, "failed to put object part")
+		_, err = upload.Write(data)
+		require.NoError(t, err, "failed to put object part")
+		require.NoError(t, upload.Commit(), "failed to put object part")
 	}
 	deleteObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {
 		projectID := planet.Uplinks[0].Projects[0].ID
@@ -117,12 +116,14 @@ func TestEndpoint_DeleteObjectAnyStatus(t *testing.T) {
 		_, err = project.CreateBucket(ctx, bucketName)
 		require.NoError(t, err, "failed to create bucket")
 
-		info, err := multipart.NewMultipartUpload(ctx, project, bucketName, "object-filename", &multipart.UploadOptions{})
+		info, err := project.BeginUpload(ctx, bucketName, "object-filename", &uplink.UploadOptions{})
 		require.NoError(t, err, "failed to start multipart upload")
 
-		_, err = multipart.PutObjectPart(ctx, project, bucketName, bucketName, info.StreamID, 1,
-			etag.NewHashReader(bytes.NewReader(data), sha256.New()))
+		upload, err := project.UploadPart(ctx, bucketName, bucketName, info.UploadID, 1)
 		require.NoError(t, err, "failed to put object part")
+		_, err = upload.Write(data)
+		require.NoError(t, err, "failed to start multipart upload")
+		require.NoError(t, upload.Commit(), "failed to start multipart upload")
 	}
 
 	deletePendingObject := func(ctx context.Context, t *testing.T, planet *testplanet.Planet) {

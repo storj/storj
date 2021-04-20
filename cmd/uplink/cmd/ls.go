@@ -14,7 +14,6 @@ import (
 
 	"storj.io/common/fpath"
 	"storj.io/uplink"
-	"storj.io/uplink/private/multipart"
 )
 
 var (
@@ -145,17 +144,18 @@ func listObjects(ctx context.Context, project *uplink.Project, bucket, prefix st
 }
 
 func listPendingObject(ctx context.Context, project *uplink.Project, bucket, path string) error {
-	objects := multipart.ListPendingObjectStreams(ctx, project, bucket, path, &multipart.ListMultipartUploadsOptions{
+	uploads := project.ListUploads(ctx, bucket, &uplink.ListUploadsOptions{
+		Prefix: path,
 		System: true,
 		Custom: true,
 	})
 
-	for objects.Next() {
-		object := objects.Item()
+	for uploads.Next() {
+		object := uploads.Item()
 		path := object.Key
 		fmt.Printf("%v %v %12v %v\n", "OBJ", formatTime(object.System.Created), object.System.ContentLength, path)
 	}
-	return objects.Err()
+	return uploads.Err()
 }
 
 func listPendingObjects(ctx context.Context, project *uplink.Project, bucket, prefix string, prependBucket bool) error {
@@ -165,7 +165,7 @@ func listPendingObjects(ctx context.Context, project *uplink.Project, bucket, pr
 		prefix += "/"
 	}
 
-	objects := multipart.ListMultipartUploads(ctx, project, bucket, &multipart.ListMultipartUploadsOptions{
+	objects := project.ListUploads(ctx, bucket, &uplink.ListUploadsOptions{
 		Prefix:    prefix,
 		Cursor:    "",
 		Recursive: *lsRecursiveFlag,

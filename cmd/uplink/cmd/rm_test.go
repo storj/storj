@@ -16,7 +16,6 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/uplink"
-	"storj.io/uplink/private/multipart"
 )
 
 func TestRmPending(t *testing.T) {
@@ -58,10 +57,10 @@ func TestRmPending(t *testing.T) {
 		// Create pending objects and one committed object.
 		{
 
-			_, err = multipart.NewMultipartUpload(ctx, project, bucketName, "pending-object", nil)
+			_, err = project.BeginUpload(ctx, bucketName, "pending-object", nil)
 			require.NoError(t, err)
 
-			_, err = multipart.NewMultipartUpload(ctx, project, bucketName, "prefixed/pending-object", nil)
+			_, err = project.BeginUpload(ctx, bucketName, "prefixed/pending-object", nil)
 			require.NoError(t, err)
 
 			err = uplinkPeer.Upload(ctx, satellite, "testbucket", "committed-object", testrand.Bytes(5*memory.KiB))
@@ -153,7 +152,9 @@ func TestRmPending(t *testing.T) {
 }
 
 func pendingObjectExists(ctx context.Context, satellite *testplanet.Satellite, project *uplink.Project, bucketName string, objectKey string) bool {
-	iterator := multipart.ListPendingObjectStreams(ctx, project, bucketName, objectKey, nil)
+	iterator := project.ListUploads(ctx, bucketName, &uplink.ListUploadsOptions{
+		Prefix: objectKey,
+	})
 	return iterator.Next()
 }
 

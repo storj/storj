@@ -4,8 +4,6 @@
 package metainfo_test
 
 import (
-	"bytes"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"net"
@@ -35,9 +33,7 @@ import (
 	"storj.io/storj/satellite/metabase"
 	satMetainfo "storj.io/storj/satellite/metainfo"
 	"storj.io/uplink"
-	"storj.io/uplink/private/etag"
 	"storj.io/uplink/private/metainfo"
-	"storj.io/uplink/private/multipart"
 	"storj.io/uplink/private/object"
 	"storj.io/uplink/private/testuplink"
 )
@@ -1705,24 +1701,28 @@ func TestMultipartObjectDownloadRejection(t *testing.T) {
 
 		_, err = project.EnsureBucket(ctx, "pip-second")
 		require.NoError(t, err)
-		info, err := multipart.NewMultipartUpload(ctx, project, "pip-second", "multipart-object", nil)
+		info, err := project.BeginUpload(ctx, "pip-second", "multipart-object", nil)
 		require.NoError(t, err)
-		_, err = multipart.PutObjectPart(ctx, project, "pip-second", "multipart-object", info.StreamID, 1,
-			etag.NewHashReader(bytes.NewReader(data), sha256.New()))
+		upload, err := project.UploadPart(ctx, "pip-second", "multipart-object", info.UploadID, 1)
 		require.NoError(t, err)
-		_, err = multipart.CompleteMultipartUpload(ctx, project, "pip-second", "multipart-object", info.StreamID, nil)
+		_, err = upload.Write(data)
+		require.NoError(t, err)
+		require.NoError(t, upload.Commit())
+		_, err = project.CommitUpload(ctx, "pip-second", "multipart-object", info.UploadID, nil)
 		require.NoError(t, err)
 
 		_, err = project.EnsureBucket(ctx, "pip-third")
 		require.NoError(t, err)
-		info, err = multipart.NewMultipartUpload(ctx, project, "pip-third", "multipart-object-third", nil)
+		info, err = project.BeginUpload(ctx, "pip-third", "multipart-object-third", nil)
 		require.NoError(t, err)
 		for i := 0; i < 4; i++ {
-			_, err = multipart.PutObjectPart(ctx, project, "pip-third", "multipart-object-third", info.StreamID, i+1,
-				etag.NewHashReader(bytes.NewReader(data), sha256.New()))
+			upload, err := project.UploadPart(ctx, "pip-third", "multipart-object-third", info.UploadID, uint32(i+1))
 			require.NoError(t, err)
+			_, err = upload.Write(data)
+			require.NoError(t, err)
+			require.NoError(t, upload.Commit())
 		}
-		_, err = multipart.CompleteMultipartUpload(ctx, project, "pip-third", "multipart-object-third", info.StreamID, nil)
+		_, err = project.CommitUpload(ctx, "pip-third", "multipart-object-third", info.UploadID, nil)
 		require.NoError(t, err)
 
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
@@ -1815,11 +1815,13 @@ func TestObjectOverrideOnUpload(t *testing.T) {
 			defer ctx.Check(project.Close)
 
 			// upload pending object
-			info, err := multipart.NewMultipartUpload(ctx, project, "pip-first", "pending-object", nil)
+			info, err := project.BeginUpload(ctx, "pip-first", "pending-object", nil)
 			require.NoError(t, err)
-			_, err = multipart.PutObjectPart(ctx, project, "pip-first", "pending-object", info.StreamID, 1,
-				etag.NewHashReader(bytes.NewReader(initialData), sha256.New()))
+			upload, err := project.UploadPart(ctx, "pip-first", "pending-object", info.UploadID, 1)
 			require.NoError(t, err)
+			_, err = upload.Write(initialData)
+			require.NoError(t, err)
+			require.NoError(t, upload.Commit())
 
 			// upload once again to override
 			err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "pip-first", "pending-object", overrideData)
