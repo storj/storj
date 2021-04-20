@@ -34,6 +34,12 @@ export default class CLIStep extends Vue {
      */
     public mounted(): void {
         if (!this.$route.params.key && !this.$route.params.restrictedKey) {
+            if (this.isOnboardingTour) {
+                this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantName)).path);
+
+                return;
+            }
+
             this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
 
             return;
