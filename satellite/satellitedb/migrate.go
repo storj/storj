@@ -1390,6 +1390,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					return nil
 				}),
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop unused columns total_uptime_count and uptime_success_count on nodes table",
+				Version:     157,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes DROP COLUMN total_uptime_count;`,
+					`ALTER TABLE nodes DROP COLUMN uptime_success_count;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
