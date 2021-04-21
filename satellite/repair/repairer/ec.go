@@ -122,6 +122,8 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 				if err != nil {
 					// gather nodes where the calculated piece hash doesn't match the uplink signed piece hash
 					if ErrPieceHashVerifyFailed.Has(err) {
+						ec.log.Info("audit failed", zap.Stringer("node ID", limit.GetLimit().StorageNodeId),
+							zap.String("reason", err.Error()))
 						failedPieces = append(failedPieces, &pb.RemotePiece{
 							PieceNum: int32(currentLimitIndex),
 							NodeId:   limit.GetLimit().StorageNodeId,
@@ -248,6 +250,7 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	// verify the hashes from storage node
 	calculatedHash := hashWriter.Sum(nil)
 	if err := verifyPieceHash(ctx, originalLimit, hash, calculatedHash); err != nil {
+
 		return nil, ErrPieceHashVerifyFailed.Wrap(err)
 	}
 
@@ -264,7 +267,7 @@ func verifyPieceHash(ctx context.Context, limit *pb.OrderLimit, hash *pb.PieceHa
 		return Error.New("piece id changed")
 	}
 	if !bytes.Equal(hash.Hash, expectedHash) {
-		return Error.New("hashes don't match")
+		return Error.New("hash from storage node, %x, does not match calculated hash, %x", hash.Hash, expectedHash)
 	}
 
 	if err := signing.VerifyUplinkPieceHashSignature(ctx, limit.UplinkPublicKey, hash); err != nil {
