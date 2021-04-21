@@ -31,6 +31,8 @@ export default class ForgotPassword extends Vue {
     // tardigrade logic
     public isDropdownShown: boolean = false;
 
+    public readonly loginPath: string = RouteConfig.Login.path;
+
     /**
      * Checks if page is inside iframe
      */
