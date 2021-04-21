@@ -15,7 +15,7 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo/metaloop"
 )
 

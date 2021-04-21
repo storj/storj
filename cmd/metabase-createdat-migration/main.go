@@ -15,8 +15,8 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 // Config defines configuration for migration.

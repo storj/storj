@@ -12,8 +12,8 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/metainfo/metabase"
 )
 
 var (

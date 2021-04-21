@@ -8,7 +8,7 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 )
 
 // statsCollector holds a *stats for each redundancy scheme

@@ -19,8 +19,8 @@ import (
 	migrator "storj.io/storj/cmd/metabase-createdat-migration"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/private/dbutil/tempdb"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/metainfo/metabase"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 

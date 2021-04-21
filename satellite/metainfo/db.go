@@ -9,7 +9,7 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 )
 
 // BucketsDB is the interface for the database to interact with buckets.

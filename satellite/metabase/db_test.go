@@ -14,7 +14,7 @@ import (
 
 	"storj.io/common/testcontext"
 	_ "storj.io/storj/private/dbutil/cockroachutil" // register cockroach driver
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 

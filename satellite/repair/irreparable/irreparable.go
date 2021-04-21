@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 )
 
 // DB stores information about repairs that have failed.

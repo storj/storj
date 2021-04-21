@@ -14,7 +14,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 )
 
 const batchsizeLimit = 2500

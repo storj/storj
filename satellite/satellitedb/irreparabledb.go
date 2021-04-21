@@ -10,7 +10,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
