@@ -63,8 +63,9 @@ func (db *DB) IterateLoopObjects(ctx context.Context, opts IterateLoopObjects, f
 
 		batchSize: opts.BatchSize,
 
-		curIndex: 0,
-		cursor:   loopIterateCursor{},
+		curIndex:       0,
+		cursor:         loopIterateCursor{},
+		asOfSystemTime: opts.AsOfSystemTime,
 	}
 
 	// ensure batch size is reasonable
