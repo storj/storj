@@ -12,8 +12,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/private/teststorj"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/storagenode"
@@ -96,6 +98,47 @@ func TestDQNodesLastSeenBefore(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, n2Info.Disqualified)
 		require.Equal(t, n2DQTime, n2Info.Reputation.Disqualified)
+	})
+}
+
+// In the event of a new node failing the satellite's initial pingback, its last_contact_success
+// is set to '0001-01-01 00:00:00+00'. The DQ stray nodes chore DQs nodes where last_contact_success < now() - 30d.
+// Make sure these nodes are not DQd with stray nodes.
+func TestDQStrayNodesFailedPingback(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		sat.Overlay.DQStrayNodes.Loop.Pause()
+		oc := sat.DB.OverlayCache()
+
+		testID := teststorj.NodeIDFromString("test")
+		checkIn := overlay.NodeCheckInInfo{
+			NodeID: testID,
+			IsUp:   false,
+			Address: &pb.NodeAddress{
+				Address: "1.2.3.4",
+			},
+			Version: &pb.NodeVersion{
+				Version:    "v0.0.0",
+				CommitHash: "",
+				Timestamp:  time.Time{},
+				Release:    false,
+			},
+		}
+		require.NoError(t, oc.UpdateCheckIn(ctx, checkIn, time.Now(), sat.Config.Overlay.Node))
+
+		d, err := oc.Get(ctx, testID)
+		require.NoError(t, err)
+		require.Equal(t, time.Time{}, d.Reputation.LastContactSuccess.UTC())
+		require.Nil(t, d.Reputation.Disqualified)
+
+		sat.Overlay.DQStrayNodes.Loop.TriggerWait()
+
+		d, err = oc.Get(ctx, testID)
+		require.NoError(t, err)
+		require.Equal(t, time.Time{}, d.Reputation.LastContactSuccess.UTC())
+		require.Nil(t, d.Reputation.Disqualified)
 	})
 }
 
