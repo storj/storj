@@ -1569,7 +1569,7 @@ func (cache *overlaycache) populateUpdateFields(dbNode *dbx.Node, updateReq *ove
 }
 
 // DQNodesLastSeenBefore disqualifies a limited number of nodes where last_contact_success < cutoff except those already disqualified
-// or gracefully exited.
+// or gracefully exited or where last_contact_success = '0001-01-01 00:00:00+00'.
 func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (count int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1596,6 +1596,7 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 			AND disqualified IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success < $2
+			AND last_contact_success != '0001-01-01 00:00:00+00'::timestamptz
 		RETURNING id, last_contact_success;
 	`), pgutil.NodeIDArray(nodeIDs), cutoff)
 	if err != nil {
