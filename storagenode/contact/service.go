@@ -140,6 +140,9 @@ func (service *Service) pingSatelliteOnce(ctx context.Context, id storj.NodeID) 
 	if resp != nil && !resp.PingNodeSuccess {
 		return errPingSatellite.New("%s", resp.PingErrorMessage)
 	}
+	if resp.PingErrorMessage != "" {
+		service.log.Warn("Your node is still considered to be online but encountered an error.", zap.Stringer("Satellite ID", id), zap.String("Error", resp.GetPingErrorMessage()))
+	}
 	return nil
 }
 

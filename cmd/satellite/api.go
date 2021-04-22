@@ -44,14 +44,6 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	pointerDB, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), runCfg.Config.Metainfo.DatabaseURL, "satellite-api")
-	if err != nil {
-		return errs.New("Error creating metainfodb connection on satellite api: %+v", err)
-	}
-	defer func() {
-		err = errs.Combine(err, pointerDB.Close())
-	}()
-
 	metabaseDB, err := metainfo.OpenMetabase(ctx, log.Named("metabase"), runCfg.Config.Metainfo.DatabaseURL)
 	if err != nil {
 		return errs.New("Error creating metabase connection on satellite api: %+v", err)
@@ -87,7 +79,7 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, rollupsWriteCache.CloseAndFlush(context2.WithoutCancellation(ctx)))
 	}()
 
-	peer, err := satellite.NewAPI(log, identity, db, pointerDB, metabaseDB, revocationDB, accountingCache, rollupsWriteCache, &runCfg.Config, version.Build, process.AtomicLevel(cmd))
+	peer, err := satellite.NewAPI(log, identity, db, metabaseDB, revocationDB, accountingCache, rollupsWriteCache, &runCfg.Config, version.Build, process.AtomicLevel(cmd))
 	if err != nil {
 		return err
 	}
@@ -101,14 +93,10 @@ func cmdAPIRun(cmd *cobra.Command, args []string) (err error) {
 		log.Warn("Failed to initialize telemetry batcher on satellite api", zap.Error(err))
 	}
 
-	err = pointerDB.MigrateToLatest(ctx)
+	err = metabaseDB.CheckVersion(ctx)
 	if err != nil {
-		return errs.New("Error creating metainfodb tables on satellite api: %+v", err)
-	}
-
-	err = metabaseDB.MigrateToLatest(ctx)
-	if err != nil {
-		return errs.New("Error creating metabase tables on satellite api: %+v", err)
+		log.Error("Failed metabase database version check.", zap.Error(err))
+		return errs.New("failed metabase version check: %+v", err)
 	}
 
 	err = db.CheckVersion(ctx)

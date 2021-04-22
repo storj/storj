@@ -36,14 +36,6 @@ func cmdGCRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	pointerDB, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL, "satellite-gc")
-	if err != nil {
-		return errs.New("Error creating pointerDB connection GC: %+v", err)
-	}
-	defer func() {
-		err = errs.Combine(err, pointerDB.Close())
-	}()
-
 	metabaseDB, err := metainfo.OpenMetabase(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL)
 	if err != nil {
 		return errs.New("Error creating metabase connection: %+v", err)
@@ -60,7 +52,7 @@ func cmdGCRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	peer, err := satellite.NewGarbageCollection(log, identity, db, pointerDB, metabaseDB, revocationDB, version.Build, &runCfg.Config, process.AtomicLevel(cmd))
+	peer, err := satellite.NewGarbageCollection(log, identity, db, metabaseDB, revocationDB, version.Build, &runCfg.Config, process.AtomicLevel(cmd))
 	if err != nil {
 		return err
 	}
@@ -74,9 +66,10 @@ func cmdGCRun(cmd *cobra.Command, args []string) (err error) {
 		log.Warn("Failed to initialize telemetry batcher on satellite GC", zap.Error(err))
 	}
 
-	err = pointerDB.MigrateToLatest(ctx)
+	err = metabaseDB.CheckVersion(ctx)
 	if err != nil {
-		return errs.New("Error creating pointerDB tables GC: %+v", err)
+		log.Error("Failed metabase database version check.", zap.Error(err))
+		return errs.New("failed metabase version check: %+v", err)
 	}
 
 	err = db.CheckVersion(ctx)

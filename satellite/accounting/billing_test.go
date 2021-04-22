@@ -5,7 +5,6 @@ package accounting_test
 
 import (
 	"context"
-	"strings"
 	"testing"
 	"time"
 
@@ -17,8 +16,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/accounting"
-	"storj.io/storj/satellite/metainfo/metabase"
-	"storj.io/storj/storage"
+	"storj.io/storj/satellite/metabase"
 )
 
 func TestBilling_DownloadWithoutExpansionFactor(t *testing.T) {
@@ -420,62 +418,6 @@ func getTallies(ctx context.Context, t *testing.T, planet *testplanet.Planet, sa
 	tallies, err := sat.DB.ProjectAccounting().GetTallies(ctx)
 	require.NoError(t, err)
 	return tallies
-}
-
-func TestBilling_ZombieSegments(t *testing.T) {
-	// failing test - see https://storjlabs.atlassian.net/browse/SM-592
-	t.Skip("Zombie segments do get billed. Wait for resolution of SM-592")
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.MaxSegmentSize(5 * memory.KiB),
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		const (
-			bucketName = "a-bucket"
-			objectKey  = "object-filename"
-		)
-
-		satelliteSys := planet.Satellites[0]
-		satelliteSys.Audit.Chore.Loop.Stop()
-		satelliteSys.Repair.Repairer.Loop.Stop()
-		satelliteSys.Accounting.Tally.Loop.Pause()
-
-		uplnk := planet.Uplinks[0]
-		{
-			data := testrand.Bytes(10 * memory.KiB)
-			err := uplnk.Upload(ctx, satelliteSys, bucketName, objectKey, data)
-			require.NoError(t, err)
-		}
-
-		// trigger tally so it gets all set up and can return a storage usage
-		satelliteSys.Accounting.Tally.Loop.TriggerWait()
-
-		projectID := uplnk.Projects[0].ID
-
-		{ // delete last segment from metainfo to get zombie segments
-			keys, err := planet.Satellites[0].Metainfo.Database.List(ctx, nil, 10)
-			require.NoError(t, err)
-
-			var lastSegmentKey storage.Key
-			for _, key := range keys {
-				if strings.Contains(key.String(), "/l/") {
-					lastSegmentKey = key
-				}
-			}
-			require.NotNil(t, lastSegmentKey)
-
-			err = satelliteSys.Metainfo.Service.UnsynchronizedDelete(ctx, metabase.SegmentKey(lastSegmentKey))
-			require.NoError(t, err)
-
-			err = uplnk.DeleteObject(ctx, satelliteSys, bucketName, objectKey)
-			require.Error(t, err)
-		}
-
-		from := time.Now()
-		storageAfterDelete := getProjectTotal(ctx, t, planet, 0, projectID, from).Storage
-		require.Equal(t, 0.0, storageAfterDelete, "zombie segments billed")
-	})
 }
 
 // getProjectTotal returns the total used egress,  storage, objectCount for the

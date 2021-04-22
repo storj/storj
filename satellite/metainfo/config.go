@@ -17,12 +17,9 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
-	"storj.io/storj/satellite/metainfo/metabase"
-	"storj.io/storj/satellite/metainfo/metaloop"
+	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/metaloop"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
-	"storj.io/storj/storage"
-	"storj.io/storj/storage/cockroachkv"
-	"storj.io/storj/storage/postgreskv"
 )
 
 const (
@@ -128,40 +125,6 @@ type Config struct {
 	RateLimiter          RateLimiterConfig    `help:"rate limiter configuration"`
 	ProjectLimits        ProjectLimitConfig   `help:"project limit configuration"`
 	PieceDeletion        piecedeletion.Config `help:"piece deletion configuration"`
-}
-
-// PointerDB stores pointers.
-//
-// architecture: Database
-type PointerDB interface {
-	// MigrateToLatest migrates to latest schema version.
-	MigrateToLatest(ctx context.Context) error
-
-	storage.KeyValueStore
-}
-
-// OpenStore returns database for storing pointer data.
-func OpenStore(ctx context.Context, logger *zap.Logger, dbURLString string, app string) (db PointerDB, err error) {
-	_, source, implementation, err := dbutil.SplitConnStr(dbURLString)
-	if err != nil {
-		return nil, err
-	}
-
-	switch implementation {
-	case dbutil.Postgres:
-		db, err = postgreskv.Open(ctx, source, app)
-	case dbutil.Cockroach:
-		db, err = cockroachkv.Open(ctx, source, app)
-	default:
-		err = Error.New("unsupported db implementation: %s", dbURLString)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	logger.Debug("Connected to:", zap.String("db source", source))
-	return db, nil
 }
 
 // MetabaseDB stores objects and segments.

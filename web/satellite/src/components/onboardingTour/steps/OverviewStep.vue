@@ -62,7 +62,8 @@
                 <p class="overview-area__path-section__text">Map your filesystem to the decentralized cloud.</p>
                 <a
                     class="overview-area__path-section__button"
-                    href="https://docs.storj.io/how-tos/sync-files-with-rclone"
+                    :class="{ 'link-disabled': isLoading }"
+                    :href="!isLoading ? 'https://docs.storj.io/how-tos/sync-files-with-rclone' : '' "
                     target="_blank"
                     rel="noopener noreferrer"
                     @click="onRcloneClick"
@@ -89,6 +90,7 @@ import VButton from '@/components/common/VButton.vue';
 
 import GatewayIcon from '@/../static/images/onboardingTour/s3-gateway.svg';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
@@ -97,7 +99,6 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectFields } from '@/types/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { AnalyticsHttpApi } from '@/api/analytics';
 
 @Component({
     components: {
@@ -109,24 +110,18 @@ export default class OverviewStep extends Vue {
     public isLoading: boolean = false;
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
-          
+
     public onRcloneClick(): void {
-        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "Rclone Sync");
-    }  
+        this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'Rclone Sync');
+    }
 
     /**
      * Lifecycle hook after initial render.
      * Sets area to needed state.
      */
     public mounted(): void {
-        if (this.userHasProject || this.$store.state.paymentsModule.creditCards.length > 0) {
-            this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).path);
-
-            return;
-        }
-
-        if (this.$store.getters.isTransactionProcessing || this.$store.getters.isBalancePositive) {
-            this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.PaymentStep).path);
+        if (this.userHasProject) {
+            this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant).path).catch(() => {return; });
         }
     }
 
@@ -139,7 +134,7 @@ export default class OverviewStep extends Vue {
 
         this.isLoading = true;
 
-        await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "GatewayMT");
+        await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'GatewayMT');
 
         try {
             await this.createUntitledProject();
@@ -152,7 +147,7 @@ export default class OverviewStep extends Vue {
             this.isLoading = false;
         }
     }
-    
+
     /**
      * Holds button click logic.
      * Creates untitled project and redirects to next step (creating access grant).
@@ -162,7 +157,7 @@ export default class OverviewStep extends Vue {
 
         this.isLoading = true;
 
-        await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "CLI");
+        await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'CLI');
 
         try {
             await this.createUntitledProject();
@@ -184,7 +179,7 @@ export default class OverviewStep extends Vue {
 
         this.isLoading = true;
 
-        await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, "Continue in Browser");
+        await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'Continue in Browser');
 
         try {
             await this.createUntitledProject();
@@ -400,6 +395,12 @@ export default class OverviewStep extends Vue {
             &:hover {
                 background: darken(#2683ff, 10%);
             }
+        }
+
+        .link-disabled {
+            background-color: #dadde5;
+            border-color: #dadde5;
+            pointer-events: none;
         }
     }
 </style>

@@ -7,7 +7,7 @@ import (
 	"context"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/satellite/metainfo/metaloop"
+	"storj.io/storj/satellite/metabase/metaloop"
 )
 
 // Counter implements the metainfo loop observer interface for data science metrics collection.

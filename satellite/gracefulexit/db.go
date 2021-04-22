@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 )
 
 // Progress represents the persisted graceful exit progress record.

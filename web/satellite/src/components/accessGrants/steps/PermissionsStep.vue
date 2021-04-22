@@ -106,6 +106,12 @@ export default class PermissionsStep extends Vue {
      */
     public async mounted(): Promise<void> {
         if (!this.$route.params.key) {
+            if (this.isOnboardingTour) {
+                await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantName)).path);
+
+                return;
+            }
+
             this.onBackClick();
 
             return;

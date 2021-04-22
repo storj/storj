@@ -16,7 +16,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/metainfo/metaloop"
+	"storj.io/storj/satellite/metabase/metaloop"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/uplink/private/piecestore"
 )

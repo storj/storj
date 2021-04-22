@@ -39,14 +39,6 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, db.Close())
 	}()
 
-	pointerDB, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), runCfg.Metainfo.DatabaseURL, "satellite-repairer")
-	if err != nil {
-		return errs.New("Error creating metainfo database connection: %+v", err)
-	}
-	defer func() {
-		err = errs.Combine(err, pointerDB.Close())
-	}()
-
 	metabaseDB, err := metainfo.OpenMetabase(ctx, log.Named("metabase"), runCfg.Metainfo.DatabaseURL)
 	if err != nil {
 		return errs.New("Error creating metabase connection: %+v", err)
@@ -71,7 +63,6 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 	peer, err := satellite.NewRepairer(
 		log,
 		identity,
-		pointerDB,
 		metabaseDB,
 		revocationDB,
 		db.RepairQueue(),
@@ -96,14 +87,10 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		log.Warn("Failed to initialize telemetry batcher on repairer", zap.Error(err))
 	}
 
-	err = pointerDB.MigrateToLatest(ctx)
+	err = metabaseDB.CheckVersion(ctx)
 	if err != nil {
-		return errs.New("Error creating tables for metainfo database: %+v", err)
-	}
-
-	err = metabaseDB.MigrateToLatest(ctx)
-	if err != nil {
-		return errs.New("Error creating tables for metabase: %+v", err)
+		log.Error("Failed metabase database version check.", zap.Error(err))
+		return errs.New("failed metabase version check: %+v", err)
 	}
 
 	err = db.CheckVersion(ctx)

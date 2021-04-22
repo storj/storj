@@ -6,9 +6,11 @@ package quic
 import (
 	"context"
 	"crypto/tls"
+	"io"
 	"net"
 	"runtime"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/lucas-clemente/quic-go"
@@ -31,20 +33,38 @@ type Conn struct {
 
 // Read implements the Conn Read method.
 func (c *Conn) Read(b []byte) (n int, err error) {
+	defer func() {
+		if isSessionSuccessfulExit(err) {
+			err = io.EOF
+		}
+	}()
+
 	stream, err := c.getStream()
 	if err != nil {
 		return 0, err
 	}
-	return stream.Read(b)
+	n, err = stream.Read(b)
+	if err != nil {
+		return n, err
+	}
+	return n, nil
 }
 
 // Write implements the Conn Write method.
-func (c *Conn) Write(b []byte) (int, error) {
+func (c *Conn) Write(b []byte) (_ int, err error) {
+	defer func() {
+		err = c.captureWriteErr(err)
+	}()
+
 	stream, err := c.getStream()
 	if err != nil {
 		return 0, err
 	}
-	return stream.Write(b)
+	n, err := stream.Write(b)
+	if err != nil {
+		return n, err
+	}
+	return n, nil
 }
 
 func (c *Conn) getStream() (quic.Stream, error) {
@@ -120,6 +140,38 @@ func (c *Conn) SetDeadline(t time.Time) error {
 	}
 
 	return stream.SetDeadline(t)
+}
+
+// isSessionSuccessfulExit determines whether an error as returned from a network
+// operation is a QUIC "successful exit" application code.
+//
+// This is pretty awful.
+//
+// The reason is that quic-go, in its wisdom, has decided not to export any
+// fields or interfaces whatsoever that we could use to access the error code
+// from a "github.com/lucas-clemente/quic-go/internal/qerr".(*QuicError)
+// instance.
+func isSessionSuccessfulExit(err error) bool {
+	return err != nil && err.Error() == "Application error 0x0"
+}
+
+func (c *Conn) captureWriteErr(err error) error {
+	if isSessionSuccessfulExit(err) {
+		opErr := &net.OpError{
+			Op:     "write",
+			Net:    "quic",
+			Source: c.LocalAddr(),
+			Addr:   c.RemoteAddr(),
+			Err:    syscall.ECONNRESET,
+		}
+
+		if c.acceptErr != nil {
+			opErr.Op = "accept"
+		}
+		return opErr
+	}
+
+	return err
 }
 
 //

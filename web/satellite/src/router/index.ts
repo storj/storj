@@ -27,7 +27,6 @@ import ObjectsArea from '@/components/objects/ObjectsArea.vue';
 import UploadFile from '@/components/objects/UploadFile.vue';
 import WarningView from '@/components/objects/WarningView.vue';
 import OnboardingTourArea from '@/components/onboardingTour/OnboardingTourArea.vue';
-import AddPaymentStep from '@/components/onboardingTour/steps/AddPaymentStep.vue';
 import CreateAccessGrantStep from '@/components/onboardingTour/steps/CreateAccessGrantStep.vue';
 import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
 import CreateProject from '@/components/project/CreateProject.vue';
@@ -85,7 +84,6 @@ export abstract class RouteConfig {
 
     // onboarding tour child paths
     public static OverviewStep = new NavigationLink('overview', 'Onboarding Overview');
-    public static PaymentStep = new NavigationLink('payment', 'Onboarding Payment');
     public static AccessGrant = new NavigationLink('access', 'Onboarding Access Grant');
     public static AccessGrantName = new NavigationLink('name', 'Onboarding Name Access Grant');
     public static AccessGrantPermissions = new NavigationLink('permissions', 'Onboarding Access Grant Permissions');
@@ -201,11 +199,6 @@ export const router = new Router({
                             path: RouteConfig.OverviewStep.path,
                             name: RouteConfig.OverviewStep.name,
                             component: OverviewStep,
-                        },
-                        {
-                            path: RouteConfig.PaymentStep.path,
-                            name: RouteConfig.PaymentStep.name,
-                            component: AddPaymentStep,
                         },
                         {
                             path: RouteConfig.AccessGrant.path,

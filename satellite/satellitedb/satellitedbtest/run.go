@@ -30,7 +30,6 @@ import (
 type SatelliteDatabases struct {
 	Name       string
 	MasterDB   Database
-	PointerDB  Database
 	MetabaseDB Database
 }
 
@@ -53,13 +52,11 @@ func Databases() []SatelliteDatabases {
 		{
 			Name:       "Postgres",
 			MasterDB:   Database{"Postgres", postgresConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable."},
-			PointerDB:  Database{"Postgres", postgresConnStr, ""},
 			MetabaseDB: Database{"Postgres", postgresConnStr, ""},
 		},
 		{
 			Name:       "Cockroach",
 			MasterDB:   Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCockroach + " or use STORJ_TEST_COCKROACH environment variable."},
-			PointerDB:  Database{"Cockroach", cockroachConnStr, ""},
 			MetabaseDB: Database{"Cockroach", cockroachConnStr, ""},
 		},
 	}
@@ -126,54 +123,13 @@ func CreateMasterDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.
 	return &tempMasterDB{DB: masterDB, tempDB: tempDB}, err
 }
 
-// tempPointerDB is a satellite.DB-implementing type that cleans up after itself when closed.
-type tempPointerDB struct {
-	metainfo.PointerDB
-	tempDB *dbutil.TempDatabase
-}
-
-// Close closes a tempPointerDB and cleans it up afterward.
-func (db *tempPointerDB) Close() error {
-	return errs.Combine(db.PointerDB.Close(), db.tempDB.Close())
-}
-
-// CreatePointerDB creates a new satellite pointer database for testing.
-func CreatePointerDB(ctx context.Context, log *zap.Logger, name string, category string, index int, dbInfo Database) (db metainfo.PointerDB, err error) {
-	if dbInfo.URL == "" {
-		return nil, fmt.Errorf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
-	}
-
-	schemaSuffix := SchemaSuffix()
-	log.Debug("creating", zap.String("suffix", schemaSuffix))
-
-	schema := SchemaName(name, category, index, schemaSuffix)
-
-	tempDB, err := tempdb.OpenUnique(ctx, dbInfo.URL, schema)
-	if err != nil {
-		return nil, err
-	}
-
-	return CreatePointerDBOnTopOf(ctx, log, tempDB)
-}
-
-// CreatePointerDBOnTopOf creates a new satellite database on top of an already existing
-// temporary database.
-func CreatePointerDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase) (db metainfo.PointerDB, err error) {
-	pointerDB, err := metainfo.OpenStore(ctx, log.Named("pointerdb"), tempDB.ConnStr, "satellite-satellitdb-test")
-	if err != nil {
-		return nil, err
-	}
-	err = pointerDB.MigrateToLatest(ctx)
-	return &tempPointerDB{PointerDB: pointerDB, tempDB: tempDB}, err
-}
-
 // tempMetabaseDB is a metabase.DB-implementing type that cleans up after itself when closed.
 type tempMetabaseDB struct {
 	metainfo.MetabaseDB
 	tempDB *dbutil.TempDatabase
 }
 
-// Close closes a tempPointerDB and cleans it up afterward.
+// Close closes a tempMetabaseDB and cleans it up afterward.
 func (db *tempMetabaseDB) Close() error {
 	return errs.Combine(db.MetabaseDB.Close(), db.tempDB.Close())
 }

@@ -15,7 +15,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/gracefulexit"
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -77,7 +77,7 @@ func TestGracefulExit_DeleteAllFinishedTransferQueueItems(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		var (
 			cache       = planet.Satellites[0].DB.OverlayCache()
-			currentTime = time.Now()
+			currentTime = time.Now().UTC()
 		)
 
 		// mark some of the storagenodes as successful exit
@@ -106,7 +106,7 @@ func TestGracefulExit_DeleteAllFinishedTransferQueueItems(t *testing.T) {
 			NodeID:              nodeSuccessful3.ID(),
 			ExitInitiatedAt:     currentTime.Add(-time.Hour),
 			ExitLoopCompletedAt: currentTime.Add(-9 * time.Minute),
-			ExitFinishedAt:      currentTime.Add(-5 * time.Minute),
+			ExitFinishedAt:      currentTime.Add(-6 * time.Minute),
 			ExitSuccess:         true,
 		})
 		require.NoError(t, err)

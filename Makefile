@@ -178,14 +178,14 @@ satellite-image: satellite_linux_arm satellite_linux_arm64 satellite_linux_amd64
 		-f cmd/satellite/Dockerfile .
 
 .PHONY: storagenode-image
-storagenode-image: storagenode_linux_arm storagenode_linux_arm64 storagenode_linux_amd64 ## Build storagenode Docker image
+storagenode-image: ## Build storagenode Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64 \
 		-f cmd/storagenode/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v6 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 --build-arg=APK_ARCH=armhf \
 		-f cmd/storagenode/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm64v8 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm64v8 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm64v8 --build-arg=APK_ARCH=aarch64 \
 		-f cmd/storagenode/Dockerfile .
 .PHONY: uplink-image
 uplink-image: uplink_linux_arm uplink_linux_arm64 uplink_linux_amd64 ## Build uplink Docker image
@@ -318,7 +318,7 @@ push-images: ## Push Docker images to Docker Hub (jenkins)
 binaries-upload: ## Upload binaries to Google Storage (jenkins)
 	cd "release/${TAG}"; for f in *; do \
 		zipname=$$(echo $${f} | sed 's/.exe//g') \
-		&& filename=$$(echo $${f} | sed 's/_.*\.exe/.exe/g' | sed 's/_.*//g') \
+		&& filename=$$(echo $${f} | sed 's/_.*\.exe/.exe/g' | sed 's/_.*\.msi/.msi/g' | sed 's/_.*//g') \
 		&& if [ "$${f}" != "$${filename}" ]; then \
 			ln $${f} $${filename} \
 			&& zip -r "$${zipname}.zip" "$${filename}" \

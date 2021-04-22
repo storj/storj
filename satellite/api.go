@@ -97,7 +97,6 @@ type API struct {
 	}
 
 	Metainfo struct {
-		Database      metainfo.PointerDB
 		Metabase      metainfo.MetabaseDB
 		Service       *metainfo.Service
 		PieceDeletion *piecedeletion.Service
@@ -166,7 +165,7 @@ type API struct {
 
 // NewAPI creates a new satellite API process.
 func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
-	pointerDB metainfo.PointerDB, metabaseDB metainfo.MetabaseDB, revocationDB extensions.RevocationDB,
+	metabaseDB metainfo.MetabaseDB, revocationDB extensions.RevocationDB,
 	liveAccounting accounting.Cache, rollupsWriteCache *orders.RollupsWriteCache,
 	config *Config, versionInfo version.Info, atomicLogLevel *zap.AtomicLevel) (*API, error) {
 	peer := &API{
@@ -368,10 +367,8 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup metainfo
-		peer.Metainfo.Database = pointerDB
 		peer.Metainfo.Metabase = metabaseDB
 		peer.Metainfo.Service = metainfo.NewService(peer.Log.Named("metainfo:service"),
-			peer.Metainfo.Database,
 			peer.DB.Buckets(),
 			peer.Metainfo.Metabase,
 		)

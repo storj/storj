@@ -4,7 +4,7 @@
 package accounting
 
 import (
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 )
 
 // BucketTally contains information about aggregate data stored in a bucket.

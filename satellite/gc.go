@@ -23,8 +23,8 @@ import (
 	"storj.io/storj/private/lifecycle"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/gc"
+	"storj.io/storj/satellite/metabase/metaloop"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/metainfo/metaloop"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -56,8 +56,7 @@ type GarbageCollection struct {
 	}
 
 	Metainfo struct {
-		Database metainfo.PointerDB
-		Loop     *metaloop.Service
+		Loop *metaloop.Service
 	}
 
 	GarbageCollection struct {
@@ -67,7 +66,7 @@ type GarbageCollection struct {
 
 // NewGarbageCollection creates a new satellite garbage collection process.
 func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
-	pointerDB metainfo.PointerDB, metabaseDB metainfo.MetabaseDB, revocationDB extensions.RevocationDB,
+	metabaseDB metainfo.MetabaseDB, revocationDB extensions.RevocationDB,
 	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*GarbageCollection, error) {
 	peer := &GarbageCollection{
 		Log:      log,
@@ -130,8 +129,6 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup metainfo
-		peer.Metainfo.Database = pointerDB
-
 		// Garbage Collection creates its own instance of the metainfo loop here. Since
 		// GC runs infrequently, this shouldn't add too much extra load on the metainfo db.
 		// As long as garbage collection is the only observer joining the metainfo loop, then by default

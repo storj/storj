@@ -13,7 +13,7 @@ import (
 	"storj.io/common/errs2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 )
 
 func TestQueues(t *testing.T) {

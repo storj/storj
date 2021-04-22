@@ -17,7 +17,7 @@ import (
 	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/private/tagsql"
 	"storj.io/storj/satellite/gracefulexit"
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 

@@ -70,7 +70,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		ID:      nodeID,
 		Address: req.Address,
 	}
-	pingNodeSuccess, pingErrorMessage, err := endpoint.service.PingBack(ctx, nodeurl)
+	pingNodeSuccess, pingNodeSuccessQUIC, pingErrorMessage, err := endpoint.service.PingBack(ctx, nodeurl)
 	if err != nil {
 		endpoint.log.Info("failed to ping back address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
 		if errPingBackDial.Has(err) {
@@ -115,8 +115,9 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 
 	endpoint.log.Debug("checking in", zap.String("node addr", req.Address), zap.Bool("ping node success", pingNodeSuccess), zap.String("ping node err msg", pingErrorMessage))
 	return &pb.CheckInResponse{
-		PingNodeSuccess:  pingNodeSuccess,
-		PingErrorMessage: pingErrorMessage,
+		PingNodeSuccess:     pingNodeSuccess,
+		PingNodeSuccessQuic: pingNodeSuccessQUIC,
+		PingErrorMessage:    pingErrorMessage,
 	}, nil
 }
 

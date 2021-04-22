@@ -21,7 +21,7 @@ import (
 	"storj.io/storj/private/teststorj"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/tally"
-	"storj.io/storj/satellite/metainfo/metabase"
+	"storj.io/storj/satellite/metabase"
 )
 
 func TestDeleteTalliesBefore(t *testing.T) {

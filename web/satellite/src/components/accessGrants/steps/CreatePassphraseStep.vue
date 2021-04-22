@@ -43,6 +43,12 @@ export default class CreatePassphraseStep extends Vue {
      */
     public async mounted(): Promise<void> {
         if (!this.$route.params.key && !this.$route.params.restrictedKey) {
+            if (this.isOnboardingTour) {
+                await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantName)).path);
+
+                return;
+            }
+
             await this.$router.push(RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.NameStep)).path);
 
             return;
