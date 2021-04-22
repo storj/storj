@@ -243,24 +243,25 @@ delete injuredsegment ( where injuredsegment.updated_at < ? )
 model user (
     key id
 
-    field id               blob
-    field email            text      ( updatable )
-    field normalized_email text      ( updatable )
-    field full_name        text      ( updatable )
-    field short_name       text      ( updatable, nullable )
-    field password_hash    blob      ( updatable )
+    field id                 blob
+    field email              text      ( updatable )
+    field normalized_email   text      ( updatable )
+    field full_name          text      ( updatable )
+    field short_name         text      ( updatable, nullable )
+    field password_hash      blob      ( updatable )
 
-    field status           int       ( updatable, autoinsert )
-    field partner_id       blob      ( nullable )
-    field created_at       timestamp ( autoinsert )
-    field project_limit    int       ( updatable, default 0 )
+    field status             int       ( updatable, autoinsert )
+    field partner_id         blob      ( nullable )
+    field created_at         timestamp ( autoinsert )
+    field project_limit      int       ( updatable, default 0 )
 
-    field position         text      ( updatable, nullable )
-    field company_name     text      ( updatable, nullable )
-    field company_size     int       ( updatable, nullable )
-    field working_on       text      ( updatable, nullable )
-    field is_professional  bool      ( updatable, default false )
-    field employee_count   text      ( updatable, nullable )
+    field position           text      ( updatable, nullable )
+    field company_name       text      ( updatable, nullable )
+    field company_size       int       ( updatable, nullable )
+    field working_on         text      ( updatable, nullable )
+    field is_professional    bool      ( updatable, default false )
+    field employee_count     text      ( updatable, nullable )
+    field have_sales_contact bool      ( updatable, default false )
 )
 
 create user ( )

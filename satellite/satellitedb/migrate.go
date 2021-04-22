@@ -1338,6 +1338,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`UPDATE coupons SET billing_periods = duration;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add have_sales_contact column on users",
+				Version:     155,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN have_sales_contact boolean NOT NULL DEFAULT false;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
