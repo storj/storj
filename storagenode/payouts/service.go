@@ -316,6 +316,37 @@ func (service *Service) AllSatellitesPayoutPeriod(ctx context.Context, period st
 	return result, nil
 }
 
+// HeldAmountHistory retrieves held amount history for all satellites.
+func (service *Service) HeldAmountHistory(ctx context.Context) (_ []HeldAmountHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	heldHistory, err := service.db.HeldAmountHistory(ctx)
+	if err != nil {
+		return nil, ErrPayoutService.Wrap(err)
+	}
+
+	trustedSatellites := service.trust.GetSatellites(ctx)
+
+	for _, trustedSatellite := range trustedSatellites {
+		var found bool
+
+		for _, satelliteHeldHistory := range heldHistory {
+			if trustedSatellite.Compare(satelliteHeldHistory.SatelliteID) == 0 {
+				found = true
+				break
+			}
+		}
+		if !found {
+			heldHistory = append(heldHistory, HeldAmountHistory{
+				SatelliteID: trustedSatellite,
+			})
+		}
+	}
+
+	return heldHistory, nil
+}
+
+// parsePeriodRange creates period range form start and end periods.
 // TODO: move to separate struct.
 func parsePeriodRange(periodStart, periodEnd string) (periods []string, err error) {
 	var yearStart, yearEnd, monthStart, monthEnd int

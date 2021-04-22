@@ -86,6 +86,7 @@ func NewServer(log *zap.Logger, config Config, nodes *nodes.Service, payouts *pa
 	payoutsRouter.HandleFunc("/satellite/{id}/paystub/{nodeID}", payoutsController.SatellitePaystub).Methods(http.MethodGet)
 	payoutsRouter.HandleFunc("/paystub/{period}/{nodeID}", payoutsController.PaystubPeriod).Methods(http.MethodGet)
 	payoutsRouter.HandleFunc("/paystub/{nodeID}", payoutsController.Paystub).Methods(http.MethodGet)
+	payoutsRouter.HandleFunc("/held-amounts/{nodeID}", payoutsController.HeldAmountSummary).Methods(http.MethodGet)
 
 	if server.config.StaticDir != "" {
 		router.PathPrefix("/static/").Handler(http.StripPrefix("/static", fs))

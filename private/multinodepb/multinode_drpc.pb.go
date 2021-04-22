@@ -400,6 +400,7 @@ type DRPCPayoutClient interface {
 	Paystub(ctx context.Context, in *PaystubRequest) (*PaystubResponse, error)
 	PeriodPaystub(ctx context.Context, in *PeriodPaystubRequest) (*PeriodPaystubResponse, error)
 	SatellitePeriodPaystub(ctx context.Context, in *SatellitePeriodPaystubRequest) (*SatellitePeriodPaystubResponse, error)
+	HeldAmountHistory(ctx context.Context, in *HeldAmountHistoryRequest) (*HeldAmountHistoryResponse, error)
 }
 
 type drpcPayoutClient struct {
@@ -529,6 +530,15 @@ func (c *drpcPayoutClient) SatellitePeriodPaystub(ctx context.Context, in *Satel
 	return out, nil
 }
 
+func (c *drpcPayoutClient) HeldAmountHistory(ctx context.Context, in *HeldAmountHistoryRequest) (*HeldAmountHistoryResponse, error) {
+	out := new(HeldAmountHistoryResponse)
+	err := c.cc.Invoke(ctx, "/multinode.Payout/HeldAmountHistory", drpcEncoding_File_multinode_proto{}, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 type DRPCPayoutServer interface {
 	AllSatellitesSummary(context.Context, *AllSatellitesSummaryRequest) (*AllSatellitesSummaryResponse, error)
 	AllSatellitesPeriodSummary(context.Context, *AllSatellitesPeriodSummaryRequest) (*AllSatellitesPeriodSummaryResponse, error)
@@ -543,6 +553,7 @@ type DRPCPayoutServer interface {
 	Paystub(context.Context, *PaystubRequest) (*PaystubResponse, error)
 	PeriodPaystub(context.Context, *PeriodPaystubRequest) (*PeriodPaystubResponse, error)
 	SatellitePeriodPaystub(context.Context, *SatellitePeriodPaystubRequest) (*SatellitePeriodPaystubResponse, error)
+	HeldAmountHistory(context.Context, *HeldAmountHistoryRequest) (*HeldAmountHistoryResponse, error)
 }
 
 type DRPCPayoutUnimplementedServer struct{}
@@ -599,9 +610,13 @@ func (s *DRPCPayoutUnimplementedServer) SatellitePeriodPaystub(context.Context, 
 	return nil, drpcerr.WithCode(errors.New("Unimplemented"), 12)
 }
 
+func (s *DRPCPayoutUnimplementedServer) HeldAmountHistory(context.Context, *HeldAmountHistoryRequest) (*HeldAmountHistoryResponse, error) {
+	return nil, drpcerr.WithCode(errors.New("Unimplemented"), 12)
+}
+
 type DRPCPayoutDescription struct{}
 
-func (DRPCPayoutDescription) NumMethods() int { return 13 }
+func (DRPCPayoutDescription) NumMethods() int { return 14 }
 
 func (DRPCPayoutDescription) Method(n int) (string, drpc.Encoding, drpc.Receiver, interface{}, bool) {
 	switch n {
@@ -722,6 +737,15 @@ func (DRPCPayoutDescription) Method(n int) (string, drpc.Encoding, drpc.Receiver
 						in1.(*SatellitePeriodPaystubRequest),
 					)
 			}, DRPCPayoutServer.SatellitePeriodPaystub, true
+	case 13:
+		return "/multinode.Payout/HeldAmountHistory", drpcEncoding_File_multinode_proto{},
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCPayoutServer).
+					HeldAmountHistory(
+						ctx,
+						in1.(*HeldAmountHistoryRequest),
+					)
+			}, DRPCPayoutServer.HeldAmountHistory, true
 	default:
 		return "", nil, nil, nil, false
 	}
@@ -933,6 +957,22 @@ type drpcPayout_SatellitePeriodPaystubStream struct {
 }
 
 func (x *drpcPayout_SatellitePeriodPaystubStream) SendAndClose(m *SatellitePeriodPaystubResponse) error {
+	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCPayout_HeldAmountHistoryStream interface {
+	drpc.Stream
+	SendAndClose(*HeldAmountHistoryResponse) error
+}
+
+type drpcPayout_HeldAmountHistoryStream struct {
+	drpc.Stream
+}
+
+func (x *drpcPayout_HeldAmountHistoryStream) SendAndClose(m *HeldAmountHistoryResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
 	}

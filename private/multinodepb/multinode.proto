@@ -110,6 +110,7 @@ service Payout {
   rpc Paystub(PaystubRequest) returns (PaystubResponse);
   rpc PeriodPaystub(PeriodPaystubRequest) returns (PeriodPaystubResponse);
   rpc SatellitePeriodPaystub(SatellitePeriodPaystubRequest) returns (SatellitePeriodPaystubResponse);
+  rpc HeldAmountHistory(HeldAmountHistoryRequest) returns (HeldAmountHistoryResponse);
 }
 
 message EstimatedPayoutSatelliteRequest {
@@ -244,4 +245,22 @@ message Paystub {
   int64   held = 18;
   int64   paid = 21;
   int64   distributed = 22;
+}
+
+message HeldAmountHistoryRequest {
+  RequestHeader header = 1;
+}
+
+message HeldAmountHistoryResponse {
+  message HeldAmount {
+    string period = 1;
+    int64 amount = 2;
+  }
+
+  message HeldAmountHistory {
+    bytes satellite_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    repeated HeldAmount held_amounts = 2;
+  }
+
+  repeated HeldAmountHistory history = 1;
 }

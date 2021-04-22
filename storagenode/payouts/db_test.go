@@ -575,3 +575,108 @@ func TestSummedPaystubs(t *testing.T) {
 		})
 	})
 }
+
+func TestDBHeldAmountHistory(t *testing.T) {
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		payoutsDB := db.Payout()
+		satelliteID1 := testrand.NodeID()
+		satelliteID2 := testrand.NodeID()
+
+		paystubs := []payouts.PayStub{
+			{
+				SatelliteID: satelliteID1,
+				Period:      "2021-01",
+				Held:        10,
+			},
+			{
+				SatelliteID: satelliteID1,
+				Period:      "2021-02",
+				Held:        10,
+			},
+			{
+				SatelliteID: satelliteID1,
+				Period:      "2021-03",
+				Held:        10,
+			},
+			{
+				SatelliteID: satelliteID1,
+				Period:      "2021-04",
+				Held:        10,
+			},
+			{
+				SatelliteID: satelliteID2,
+				Period:      "2021-01",
+				Held:        0,
+			},
+			{
+				SatelliteID: satelliteID2,
+				Period:      "2021-02",
+				Held:        0,
+			},
+			{
+				SatelliteID: satelliteID2,
+				Period:      "2021-03",
+				Held:        0,
+			},
+			{
+				SatelliteID: satelliteID2,
+				Period:      "2021-04",
+				Held:        0,
+			},
+		}
+
+		expected := []payouts.HeldAmountHistory{
+			{
+				SatelliteID: satelliteID1,
+				HeldAmounts: []payouts.HeldForPeriod{
+					{
+						Period: "2021-01",
+						Amount: 10,
+					},
+					{
+						Period: "2021-02",
+						Amount: 10,
+					},
+					{
+						Period: "2021-03",
+						Amount: 10,
+					},
+					{
+						Period: "2021-04",
+						Amount: 10,
+					},
+				},
+			},
+			{
+				SatelliteID: satelliteID2,
+				HeldAmounts: []payouts.HeldForPeriod{
+					{
+						Period: "2021-01",
+						Amount: 0,
+					},
+					{
+						Period: "2021-02",
+						Amount: 0,
+					},
+					{
+						Period: "2021-03",
+						Amount: 0,
+					},
+					{
+						Period: "2021-04",
+						Amount: 0,
+					},
+				},
+			},
+		}
+
+		for _, paystub := range paystubs {
+			err := payoutsDB.StorePayStub(ctx, paystub)
+			require.NoError(t, err)
+		}
+
+		history, err := payoutsDB.HeldAmountHistory(ctx)
+		require.NoError(t, err)
+		require.ElementsMatch(t, expected, history)
+	})
+}

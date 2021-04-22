@@ -12,6 +12,7 @@ import (
 
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
+	"storj.io/drpc"
 	"storj.io/storj/multinode/nodes"
 	"storj.io/storj/private/multinodepb"
 )
@@ -347,6 +348,119 @@ func (service *Service) Expectations(ctx context.Context) (_ Expectations, err e
 	}
 
 	return expectations, nil
+}
+
+// HeldAmountSummary retrieves held amount history summary for a particular node.
+func (service *Service) HeldAmountSummary(ctx context.Context, nodeID storj.NodeID) (_ []HeldAmountSummary, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	node, err := service.nodes.Get(ctx, nodeID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+		ID:      node.ID,
+		Address: node.PublicAddress,
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer func() {
+		err = errs.Combine(err, conn.Close())
+	}()
+
+	nodeClient := multinodepb.NewDRPCNodeClient(conn)
+
+	header := &multinodepb.RequestHeader{
+		ApiKey: node.APISecret,
+	}
+	trusted, err := nodeClient.TrustedSatellites(ctx, &multinodepb.TrustedSatellitesRequest{
+		Header: header,
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	history, err := service.heldAmountHistory(ctx, node, conn)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	trustedSatellites := trusted.GetTrustedSatellites()
+
+	var summary []HeldAmountSummary
+	for _, satelliteHistory := range history {
+		satelliteSummary := HeldAmountSummary{
+			SatelliteID: satelliteHistory.SatelliteID,
+		}
+
+		for _, trustedSatellite := range trustedSatellites {
+			if satelliteSummary.SatelliteID.Compare(trustedSatellite.NodeId) == 0 {
+				satelliteSummary.SatelliteURL = storj.NodeURL{
+					ID:      trustedSatellite.NodeId,
+					Address: trustedSatellite.GetAddress(),
+				}
+			}
+		}
+
+		if len(satelliteHistory.HeldAmounts) == 0 {
+			summary = append(summary, satelliteSummary)
+			continue
+		}
+
+		satelliteSummary.PeriodCount = len(satelliteHistory.HeldAmounts)
+
+		for i, heldAmount := range satelliteHistory.HeldAmounts {
+			switch i {
+			case 1, 2, 3:
+				satelliteSummary.FirstQuarter += heldAmount.Amount
+			case 4, 5, 6:
+				satelliteSummary.SecondQuarter += heldAmount.Amount
+			case 7, 8, 9:
+				satelliteSummary.ThirdQuarter += heldAmount.Amount
+			}
+		}
+
+		summary = append(summary, satelliteSummary)
+	}
+
+	return summary, nil
+}
+
+// heldAmountHistory retrieves held amount history for a particular node.
+func (service *Service) heldAmountHistory(ctx context.Context, node nodes.Node, conn drpc.Conn) (_ []HeldAmountHistory, err error) {
+	defer mon.Task()(&ctx)(&err)
+	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
+
+	header := &multinodepb.RequestHeader{
+		ApiKey: node.APISecret,
+	}
+	resp, err := payoutClient.HeldAmountHistory(ctx, &multinodepb.HeldAmountHistoryRequest{
+		Header: header,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var history []HeldAmountHistory
+	for _, pbHistory := range resp.GetHistory() {
+		var heldAmounts []HeldAmount
+
+		for _, pbHeldAmount := range pbHistory.GetHeldAmounts() {
+			heldAmounts = append(heldAmounts, HeldAmount{
+				Period: pbHeldAmount.GetPeriod(),
+				Amount: pbHeldAmount.GetAmount(),
+			})
+		}
+
+		history = append(history, HeldAmountHistory{
+			SatelliteID: pbHistory.SatelliteId,
+			HeldAmounts: heldAmounts,
+		})
+	}
+
+	return history, nil
 }
 
 // nodeExpectations retrieves data from a single node.

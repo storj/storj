@@ -26,17 +26,19 @@ type PayoutEndpoint struct {
 
 	log              *zap.Logger
 	apiKeys          *apikeys.Service
-	estimatedPayouts *estimatedpayouts.Service
 	db               payouts.DB
+	service          *payouts.Service
+	estimatedPayouts *estimatedpayouts.Service
 }
 
 // NewPayoutEndpoint creates new multinode payouts endpoint.
-func NewPayoutEndpoint(log *zap.Logger, apiKeys *apikeys.Service, estimatedPayouts *estimatedpayouts.Service, db payouts.DB) *PayoutEndpoint {
+func NewPayoutEndpoint(log *zap.Logger, apiKeys *apikeys.Service, db payouts.DB, estimatedPayouts *estimatedpayouts.Service, service *payouts.Service) *PayoutEndpoint {
 	return &PayoutEndpoint{
 		log:              log,
 		apiKeys:          apiKeys,
-		estimatedPayouts: estimatedPayouts,
 		db:               db,
+		service:          service,
+		estimatedPayouts: estimatedPayouts,
 	}
 }
 
@@ -335,4 +337,38 @@ func (payout *PayoutEndpoint) SatellitePeriodPaystub(ctx context.Context, req *m
 		Paid:           paystub.Paid,
 		Distributed:    paystub.Distributed,
 	}}, nil
+}
+
+// HeldAmountHistory returns held amount history for all satellites.
+func (payout *PayoutEndpoint) HeldAmountHistory(ctx context.Context, req *multinodepb.HeldAmountHistoryRequest) (_ *multinodepb.HeldAmountHistoryResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err = authenticate(ctx, payout.apiKeys, req.GetHeader()); err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+	}
+
+	heldHistory, err := payout.service.HeldAmountHistory(ctx)
+	if err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
+
+	resp := new(multinodepb.HeldAmountHistoryResponse)
+
+	for _, satelliteHeldHistory := range heldHistory {
+		var pbHeldAmount []*multinodepb.HeldAmountHistoryResponse_HeldAmount
+
+		for _, heldAmount := range satelliteHeldHistory.HeldAmounts {
+			pbHeldAmount = append(pbHeldAmount, &multinodepb.HeldAmountHistoryResponse_HeldAmount{
+				Period: heldAmount.Period,
+				Amount: heldAmount.Amount,
+			})
+		}
+
+		resp.History = append(resp.History, &multinodepb.HeldAmountHistoryResponse_HeldAmountHistory{
+			SatelliteId: satelliteHeldHistory.SatelliteID,
+			HeldAmounts: pbHeldAmount,
+		})
+	}
+
+	return resp, nil
 }

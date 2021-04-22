@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
+	"storj.io/storj/multinode/nodes"
 	"storj.io/storj/multinode/payouts"
 )
 
@@ -388,6 +389,43 @@ func (controller *Payouts) PaystubPeriod(w http.ResponseWriter, r *http.Request)
 	}
 
 	if err = json.NewEncoder(w).Encode(paystub); err != nil {
+		controller.log.Error("failed to write json response", zap.Error(err))
+		return
+	}
+}
+
+// HeldAmountSummary handles retrieving held amount history for a node.
+func (controller *Payouts) HeldAmountSummary(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	vars := mux.Vars(r)
+
+	idString, ok := vars["nodeID"]
+	if !ok {
+		controller.serveError(w, http.StatusBadRequest, ErrPayouts.New("node id segment parameter is missing"))
+		return
+	}
+	nodeID, err := storj.NodeIDFromString(idString)
+	if err != nil {
+		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
+		return
+	}
+
+	heldSummary, err := controller.service.HeldAmountSummary(ctx, nodeID)
+	if err != nil {
+		if nodes.ErrNoNode.Has(err) {
+			controller.serveError(w, http.StatusNotFound, ErrPayouts.Wrap(err))
+			return
+		}
+
+		controller.log.Error("held amount history internal error", zap.Error(err))
+		controller.serveError(w, http.StatusInternalServerError, ErrPayouts.Wrap(err))
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(heldSummary); err != nil {
 		controller.log.Error("failed to write json response", zap.Error(err))
 		return
 	}

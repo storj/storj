@@ -66,8 +66,10 @@ func TestPayoutsEndpointSummary(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, trustPool.Refresh(ctx))
 
+		payoutsService, err := payouts.NewService(log, db.Payout(), db.Reputation(), db.Satellites(), trustPool)
+		require.NoError(t, err)
 		estimatedPayoutsService := estimatedpayouts.NewService(db.Bandwidth(), db.Reputation(), db.StorageUsage(), db.Pricing(), db.Satellites(), trustPool)
-		endpoint := multinode.NewPayoutEndpoint(log, service, estimatedPayoutsService, db.Payout())
+		endpoint := multinode.NewPayoutEndpoint(log, service, db.Payout(), estimatedPayoutsService, payoutsService)
 
 		id := testrand.NodeID()
 		id2 := testrand.NodeID()
@@ -157,8 +159,10 @@ func TestPayoutsEndpointEstimations(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, trustPool.Refresh(ctx))
 
+		payoutsService, err := payouts.NewService(log, db.Payout(), db.Reputation(), db.Satellites(), trustPool)
+		require.NoError(t, err)
 		estimatedPayoutsService := estimatedpayouts.NewService(db.Bandwidth(), db.Reputation(), db.StorageUsage(), db.Pricing(), db.Satellites(), trustPool)
-		endpoint := multinode.NewPayoutEndpoint(log, service, estimatedPayoutsService, db.Payout())
+		endpoint := multinode.NewPayoutEndpoint(log, service, db.Payout(), estimatedPayoutsService, payoutsService)
 
 		now := time.Now().UTC().Add(-2 * time.Hour)
 
@@ -226,8 +230,11 @@ func TestPayoutsUndistributedEndpoint(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, trustPool.Refresh(ctx))
 
+		payoutsService, err := payouts.NewService(log, db.Payout(), db.Reputation(), db.Satellites(), trustPool)
+		require.NoError(t, err)
 		estimatedPayoutsService := estimatedpayouts.NewService(db.Bandwidth(), db.Reputation(), db.StorageUsage(), db.Pricing(), db.Satellites(), trustPool)
-		endpoint := multinode.NewPayoutEndpoint(log, service, estimatedPayoutsService, db.Payout())
+		endpoint := multinode.NewPayoutEndpoint(log, service, db.Payout(), estimatedPayoutsService, payoutsService)
+
 		satelliteID1 := testrand.NodeID()
 		satelliteID2 := testrand.NodeID()
 
