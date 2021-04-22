@@ -13,7 +13,7 @@ import (
 	"storj.io/common/bloomfilter"
 	"storj.io/common/memory"
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/metainfo/metaloop"
+	"storj.io/storj/satellite/metabase/metaloop"
 )
 
 var _ metaloop.Observer = (*PieceTracker)(nil)

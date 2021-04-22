@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/metainfo/metaloop"
+	"storj.io/storj/satellite/metabase/metaloop"
 	"storj.io/uplink/private/eestream"
 )
 

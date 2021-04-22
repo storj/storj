@@ -8,7 +8,7 @@ import (
 	"math/rand"
 
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/metainfo/metaloop"
+	"storj.io/storj/satellite/metabase/metaloop"
 )
 
 var _ metaloop.Observer = (*Collector)(nil)

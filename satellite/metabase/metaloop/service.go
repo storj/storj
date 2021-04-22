@@ -239,11 +239,14 @@ func (loop *Service) Close() (err error) {
 	return nil
 }
 
+// monMetainfo is to preserve the monitoring names.
+var monMetainfo = monkit.ScopeNamed("storj.io/storj/satellite/metainfo/metaloop")
+
 // RunOnce goes through metainfo one time and sends information to observers.
 //
 // It is not safe to call this concurrently with Run.
 func (loop *Service) RunOnce(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err) //mon:locked
+	defer monMetainfo.Task()(&ctx)(&err) //mon:locked
 
 	var observers []*observerContext
 
@@ -355,7 +358,7 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 			}
 
 			objectsProcessed++
-			mon.IntVal("objectsProcessed").Observe(objectsProcessed) //mon:locked
+			monMetainfo.IntVal("objectsProcessed").Observe(objectsProcessed) //mon:locked
 
 			for {
 				// if context has been canceled exit. Otherwise, continue
@@ -383,7 +386,7 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 				}
 
 				segmentsProcessed++
-				mon.IntVal("segmentsProcessed").Observe(segmentsProcessed) //mon:locked
+				monMetainfo.IntVal("segmentsProcessed").Observe(segmentsProcessed) //mon:locked
 
 			}
 
@@ -420,7 +423,7 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 			}
 			timer.Stop()
 
-			mon.IntVal("objectsIterated").Observe(objectsIterated) //mon:locked
+			monMetainfo.IntVal("objectsIterated").Observe(objectsIterated) //mon:locked
 			objectsProcessed++
 
 			objectsMap[entry.StreamID] = entry

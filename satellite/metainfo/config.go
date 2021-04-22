@@ -18,7 +18,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/dbutil"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metainfo/metaloop"
+	"storj.io/storj/satellite/metabase/metaloop"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 )
 

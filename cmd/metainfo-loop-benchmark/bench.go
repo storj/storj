@@ -18,8 +18,8 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/memory"
+	"storj.io/storj/satellite/metabase/metaloop"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/metainfo/metaloop"
 )
 
 var mon = monkit.Package()

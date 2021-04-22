@@ -23,8 +23,8 @@ import (
 	"storj.io/storj/private/lifecycle"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/gc"
+	"storj.io/storj/satellite/metabase/metaloop"
 	"storj.io/storj/satellite/metainfo"
-	"storj.io/storj/satellite/metainfo/metaloop"
 	"storj.io/storj/satellite/overlay"
 )
 

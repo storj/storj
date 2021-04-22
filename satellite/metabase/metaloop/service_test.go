@@ -24,7 +24,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metainfo/metaloop"
+	"storj.io/storj/satellite/metabase/metaloop"
 	"storj.io/uplink/private/multipart"
 )
 
