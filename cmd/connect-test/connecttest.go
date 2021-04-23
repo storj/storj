@@ -20,6 +20,10 @@ import (
 )
 
 func main() {
+	if len(os.Args) < 2 {
+		log.Fatal("needs a node address like <ip-address>:<port-number>, but got none")
+	}
+
 	destAddr := os.Args[1]
 	ctx := context.Background()
 
@@ -30,7 +34,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("could not generate an identity: %v", err)
 	}
-	tlsOptions, err := tlsopts.NewOptions(ident, tlsopts.Config{}, nil)
+	tlsOptions, err := tlsopts.NewOptions(ident, tlsopts.Config{
+		PeerIDVersions: "*",
+	}, nil)
 	if err != nil {
 		log.Fatalf("could not get tls options: %v", err)
 	}
