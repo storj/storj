@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
-	_ "storj.io/storj/private/dbutil/cockroachutil" // register cockroach driver
+	_ "storj.io/private/dbutil/cockroachutil" // register cockroach driver
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )

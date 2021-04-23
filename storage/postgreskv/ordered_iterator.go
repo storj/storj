@@ -12,7 +12,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/tagsql"
+	"storj.io/private/tagsql"
 	"storj.io/storj/storage"
 )
 

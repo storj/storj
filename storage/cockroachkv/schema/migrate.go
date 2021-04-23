@@ -9,8 +9,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/dbutil/pgutil"
-	"storj.io/storj/private/tagsql"
+	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/tagsql"
 )
 
 // PrepareDB creates the pathdata tables if they don't already exist.

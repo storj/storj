@@ -18,10 +18,10 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/private/dbutil"
+	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/tagsql"
 	"storj.io/storj/private/migrate"
-	"storj.io/storj/private/tagsql"
 )
 
 var (

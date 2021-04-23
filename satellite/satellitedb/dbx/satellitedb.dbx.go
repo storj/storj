@@ -20,7 +20,7 @@ import (
 	"github.com/jackc/pgconn"
 	_ "github.com/jackc/pgx/v4/stdlib"
 
-	"storj.io/storj/private/tagsql"
+	"storj.io/private/tagsql"
 )
 
 // Prevent conditional imports from causing build failures.

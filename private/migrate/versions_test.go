@@ -18,10 +18,10 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/dbutil/pgtest"
-	"storj.io/storj/private/dbutil/tempdb"
+	"storj.io/private/dbutil/pgtest"
+	"storj.io/private/dbutil/tempdb"
+	"storj.io/private/tagsql"
 	"storj.io/storj/private/migrate"
-	"storj.io/storj/private/tagsql"
 )
 
 func TestBasicMigrationSqliteNoRebind(t *testing.T) {

@@ -4,7 +4,7 @@
 package migrate
 
 import (
-	"storj.io/storj/private/tagsql"
+	"storj.io/private/tagsql"
 )
 
 // DBX contains additional methods for migrations.

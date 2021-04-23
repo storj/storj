@@ -15,8 +15,8 @@ import (
 	bindata "github.com/golang-migrate/migrate/v4/source/go_bindata"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/dbutil/pgutil"
-	"storj.io/storj/private/tagsql"
+	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/tagsql"
 )
 
 // PrepareDB applies schema migrations as necessary to the given database to

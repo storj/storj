@@ -8,7 +8,7 @@ import (
 
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
-	"storj.io/storj/private/dbutil"
+	"storj.io/private/dbutil"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"
 )

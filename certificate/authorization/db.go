@@ -12,7 +12,7 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/peertls/extensions"
-	"storj.io/storj/private/dbutil"
+	"storj.io/private/dbutil"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/boltdb"
 	"storj.io/storj/storage/redis"

@@ -14,8 +14,8 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/private/dbutil"
 	"storj.io/storj/private/date"
-	"storj.io/storj/private/dbutil"
 	"storj.io/storj/storagenode/bandwidth"
 )
 

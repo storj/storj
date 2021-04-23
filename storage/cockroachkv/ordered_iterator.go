@@ -12,8 +12,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/dbutil/cockroachutil"
-	"storj.io/storj/private/tagsql"
+	"storj.io/private/dbutil/cockroachutil"
+	"storj.io/private/tagsql"
 	"storj.io/storj/storage"
 )
 

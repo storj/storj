@@ -11,7 +11,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/dbutil"
+	"storj.io/private/dbutil"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/storage"

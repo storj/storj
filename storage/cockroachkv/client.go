@@ -13,11 +13,11 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/dbutil/cockroachutil"
-	"storj.io/storj/private/dbutil/pgutil"
-	"storj.io/storj/private/dbutil/txutil"
-	"storj.io/storj/private/tagsql"
+	"storj.io/private/dbutil"
+	"storj.io/private/dbutil/cockroachutil"
+	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/dbutil/txutil"
+	"storj.io/private/tagsql"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/cockroachkv/schema"
 )

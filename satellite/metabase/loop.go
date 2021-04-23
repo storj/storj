@@ -14,9 +14,9 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/dbutil/pgutil"
-	"storj.io/storj/private/tagsql"
+	"storj.io/private/dbutil"
+	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/tagsql"
 )
 
 const loopIteratorBatchSizeLimit = 2500

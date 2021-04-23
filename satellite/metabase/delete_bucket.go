@@ -9,8 +9,8 @@ import (
 	"errors"
 
 	"storj.io/common/uuid"
-	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/tagsql"
+	"storj.io/private/dbutil"
+	"storj.io/private/tagsql"
 )
 
 const deleteBatchSizeLimit = 100

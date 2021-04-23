@@ -30,8 +30,8 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/processgroup"
 	"storj.io/common/storj"
-	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/private/dbutil"
+	"storj.io/private/dbutil/pgutil"
 	"storj.io/uplink"
 )
 

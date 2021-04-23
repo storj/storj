@@ -13,9 +13,9 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/dbutil/pgutil"
-	"storj.io/storj/private/dbutil/txutil"
-	"storj.io/storj/private/tagsql"
+	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/dbutil/txutil"
+	"storj.io/private/tagsql"
 )
 
 // CommitObjectWithSegments contains arguments necessary for committing an object.

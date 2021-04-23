@@ -9,8 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/dbutil/cockroachutil"
-	"storj.io/storj/private/dbutil/pgtest"
+	"storj.io/private/dbutil/cockroachutil"
+	"storj.io/private/dbutil/pgtest"
 	"storj.io/storj/storage/testsuite"
 )
 

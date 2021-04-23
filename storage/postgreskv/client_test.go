@@ -14,8 +14,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/dbutil/pgtest"
-	"storj.io/storj/private/tagsql"
+	"storj.io/private/dbutil/pgtest"
+	"storj.io/private/tagsql"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/testsuite"
 )

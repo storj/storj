@@ -14,8 +14,8 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/dbutil/pgtest"
-	"storj.io/storj/private/dbutil/tempdb"
+	"storj.io/private/dbutil/pgtest"
+	"storj.io/private/dbutil/tempdb"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/satellitedb"

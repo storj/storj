@@ -6,7 +6,7 @@ package metabase
 import (
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/tagsql"
+	"storj.io/private/tagsql"
 )
 
 func withRows(rows tagsql.Rows, err error) func(func(tagsql.Rows) error) error {
