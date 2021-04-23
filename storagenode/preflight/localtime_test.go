@@ -20,7 +20,7 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/testcontext"
-	"storj.io/storj/pkg/server"
+	"storj.io/storj/private/server"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/preflight"

@@ -21,7 +21,7 @@ import (
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
 	"storj.io/private/version"
-	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/private/revocation"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/apikeys"

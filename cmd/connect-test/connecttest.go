@@ -16,7 +16,7 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
-	"storj.io/storj/pkg/quic"
+	"storj.io/storj/private/quic"
 )
 
 func main() {

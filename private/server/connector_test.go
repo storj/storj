@@ -12,7 +12,7 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	"storj.io/storj/pkg/server"
+	"storj.io/storj/private/server"
 	"storj.io/storj/private/testplanet"
 )
 

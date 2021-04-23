@@ -11,7 +11,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
-	"storj.io/storj/pkg/lrucache"
+	"storj.io/storj/private/lrucache"
 )
 
 var (

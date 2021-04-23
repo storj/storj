@@ -14,7 +14,7 @@ import (
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/tagsql"
-	"storj.io/storj/pkg/lrucache"
+	"storj.io/storj/private/lrucache"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"

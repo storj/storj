@@ -21,7 +21,7 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/private/revocation"
 	"storj.io/storj/private/testrevocation"
 	"storj.io/storj/storage"
 )

@@ -11,7 +11,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/rpc"
-	"storj.io/storj/pkg/quic"
+	"storj.io/storj/private/quic"
 )
 
 // HybridConnector implements a dialer that creates a connection using either

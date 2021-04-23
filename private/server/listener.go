@@ -12,7 +12,7 @@ import (
 
 	"storj.io/common/netutil"
 	"storj.io/common/rpc"
-	"storj.io/storj/pkg/quic"
+	"storj.io/storj/private/quic"
 )
 
 // defaultUserTimeout is the value we use for the TCP_USER_TIMEOUT setting.

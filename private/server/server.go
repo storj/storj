@@ -25,7 +25,7 @@ import (
 	"storj.io/drpc/drpcmux"
 	"storj.io/drpc/drpcserver"
 	jaeger "storj.io/monkit-jaeger"
-	"storj.io/storj/pkg/quic"
+	"storj.io/storj/private/quic"
 )
 
 // Config holds server specific configuration parameters.

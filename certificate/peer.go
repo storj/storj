@@ -17,8 +17,8 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/storj/certificate/authorization"
 	"storj.io/storj/certificate/certificatepb"
-	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/pkg/server"
+	"storj.io/storj/private/revocation"
+	"storj.io/storj/private/server"
 )
 
 var (

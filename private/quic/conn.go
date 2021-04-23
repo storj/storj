@@ -17,7 +17,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/rpc"
-	"storj.io/storj/pkg/quic/qtls"
+	"storj.io/storj/private/quic/qtls"
 )
 
 // Conn is a wrapper around a quic connection and fulfills net.Conn interface.

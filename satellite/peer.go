@@ -11,7 +11,7 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/private/debug"
-	"storj.io/storj/pkg/server"
+	"storj.io/storj/private/server"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"

@@ -26,7 +26,7 @@ import (
 	"storj.io/storj/certificate/authorization"
 	"storj.io/storj/certificate/certificateclient"
 	"storj.io/storj/certificate/certificatepb"
-	"storj.io/storj/pkg/server"
+	"storj.io/storj/private/server"
 )
 
 // TODO: test sad path.

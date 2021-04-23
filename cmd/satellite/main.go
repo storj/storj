@@ -30,8 +30,8 @@ import (
 	_ "storj.io/private/process/googleprofiler" // This attaches google cloud profiler.
 	"storj.io/private/version"
 	"storj.io/storj/cmd/satellite/reports"
-	"storj.io/storj/pkg/lrucache"
-	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/private/lrucache"
+	"storj.io/storj/private/revocation"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
