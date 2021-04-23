@@ -130,8 +130,8 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # enable open registration
 # console.open-registration-enabled: false
 
-# names of partnered satellites
-# console.partnered-satellite-names: US1,EU1,AP1
+# names and addresses of partnered satellites in JSON list format
+# console.partnered-satellites: '[["US1","https://us1.storj.io"],["EU1","https://eu1.storj.io"],["AP1","https://ap1.storj.io"]]'
 
 # indicates if the overview onboarding step should render with pathways
 # console.pathway-overview-enabled: true
@@ -168,9 +168,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # the default storage usage limit
 # console.usage-limits.default-storage-limit: 50.00 GB
-
-# url link to sign up verification page
-# console.verification-page-url: https://tardigrade.io/verify
 
 # the public address of the node, useful for nodes behind NAT
 contact.external-address: ""

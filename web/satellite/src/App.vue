@@ -14,6 +14,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import NotificationArea from '@/components/notifications/NotificationArea.vue';
 
+import { PartneredSatellite } from '@/types/common.ts';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { MetaUtils } from '@/utils/meta';
 
@@ -29,11 +30,25 @@ export default class App extends Vue {
      */
     public mounted(): void {
         const satelliteName = MetaUtils.getMetaContent('satellite-name');
+        const partneredSatellitesJson = JSON.parse(MetaUtils.getMetaContent('partnered-satellites'));
         const isBetaSatellite = MetaUtils.getMetaContent('is-beta-satellite');
         const couponCodeUIEnabled = MetaUtils.getMetaContent('coupon-code-ui-enabled');
 
         if (satelliteName) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
+
+            if (partneredSatellitesJson) {
+                const partneredSatellites: PartneredSatellite[] = [];
+                partneredSatellitesJson.forEach((partner) => {
+                    const name = partner[0];
+                    const address = partner[1];
+                    // skip current satellite
+                    if (name !== satelliteName) {
+                        partneredSatellites.push(new PartneredSatellite(name, address));
+                    }
+                });
+                this.$store.dispatch(APP_STATE_ACTIONS.SET_PARTNERED_SATELLITES, partneredSatellites);
+            }
         }
 
         if (isBetaSatellite) {
