@@ -262,9 +262,7 @@ func (loop *Service) RunOnce(ctx context.Context) (err error) {
 
 	coalesceTimer := time.NewTimer(loop.config.CoalesceDuration)
 	defer coalesceTimer.Stop()
-	if !coalesceTimer.Stop() {
-		<-coalesceTimer.C
-	}
+	stopTimer(coalesceTimer)
 
 	earlyExit := make(chan *observerContext)
 	earlyExitDone := make(chan struct{})
@@ -320,9 +318,7 @@ waitformore:
 			}
 
 			if !timerShouldRun && timerStarted {
-				if !coalesceTimer.Stop() {
-					<-coalesceTimer.C
-				}
+				stopTimer(coalesceTimer)
 			}
 
 		// when ctx done happens we can finish all the waiting observers.
@@ -335,6 +331,15 @@ waitformore:
 	close(earlyExitDone)
 
 	return iterateDatabase(ctx, loop.metabaseDB, observers, loop.config.ListLimit, rate.NewLimiter(rate.Limit(loop.config.RateLimit), 1))
+}
+
+func stopTimer(t *time.Timer) {
+	t.Stop()
+	// drain if it contains something
+	select {
+	case <-t.C:
+	default:
+	}
 }
 
 // Wait waits for run to be finished.
