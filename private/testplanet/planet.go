@@ -24,7 +24,7 @@ import (
 	"storj.io/common/identity/testidentity"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/private/dbutil/pgutil"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/versioncontrol"

@@ -15,7 +15,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/private/dbutil/pgutil"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/coinpayments"

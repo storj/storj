@@ -10,8 +10,8 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/dbutil/txutil"
-	"storj.io/storj/private/tagsql"
+	"storj.io/private/dbutil/txutil"
+	"storj.io/private/tagsql"
 )
 
 // Error is the default migrate errs class.

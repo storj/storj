@@ -16,7 +16,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/dbutil/pgutil"
+	"storj.io/private/dbutil/pgutil"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )

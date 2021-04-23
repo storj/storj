@@ -11,7 +11,7 @@ import (
 	"storj.io/common/context2"
 	"storj.io/private/process"
 	"storj.io/private/version"
-	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/private/revocation"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"

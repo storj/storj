@@ -234,7 +234,7 @@ func TestLoopObserverCancel(t *testing.T) {
 
 		// create 1 "good" observer
 		obs1 := newTestObserver(nil)
-		obs1x := newTestObserver(nil)
+		mon1 := newTestObserver(nil)
 
 		// create observer that will return an error from RemoteSegment
 		obs2 := newTestObserver(func(ctx context.Context) error {
@@ -256,7 +256,10 @@ func TestLoopObserverCancel(t *testing.T) {
 
 		var group errgroup.Group
 		group.Go(func() error {
-			return metaLoop.Join(ctx, obs1, obs1x)
+			return metaLoop.Join(ctx, obs1)
+		})
+		group.Go(func() error {
+			return metaLoop.Monitor(ctx, mon1)
 		})
 		group.Go(func() error {
 			err := metaLoop.Join(ctx, obs2)
@@ -281,7 +284,7 @@ func TestLoopObserverCancel(t *testing.T) {
 
 		// expect that obs1 saw all three segments, but obs2 and obs3 only saw the first one
 		assert.EqualValues(t, 3, obs1.remoteSegCount)
-		assert.EqualValues(t, 3, obs1x.remoteSegCount)
+		assert.EqualValues(t, 3, mon1.remoteSegCount)
 		assert.EqualValues(t, 1, obs2.remoteSegCount)
 		assert.EqualValues(t, 1, obs3.remoteSegCount)
 	})
@@ -376,6 +379,54 @@ func TestLoopCancel(t *testing.T) {
 		// expect that obs1 and obs2 each saw fewer than three remote segments
 		assert.True(t, obs1.remoteSegCount < 3)
 		assert.True(t, obs2.remoteSegCount < 3)
+	})
+}
+
+func TestLoop_MonitorCancel(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		metaLoop := metaloop.New(metaloop.Config{
+			CoalesceDuration: time.Nanosecond,
+			ListLimit:        10000,
+		}, satellite.Metainfo.Metabase)
+
+		obs1 := newTestObserver(func(ctx context.Context) error {
+			return errors.New("test error")
+		})
+
+		var group errgroup.Group
+
+		loopCtx, loopCancel := context.WithCancel(ctx)
+		group.Go(func() error {
+			err := metaLoop.Run(loopCtx)
+			t.Log("metaloop stopped")
+			if !errs2.IsCanceled(err) {
+				return errors.New("expected context canceled")
+			}
+			return nil
+		})
+
+		obsCtx, obsCancel := context.WithCancel(ctx)
+		group.Go(func() error {
+			defer loopCancel()
+			err := metaLoop.Monitor(obsCtx, obs1)
+			t.Log("observer stopped")
+			if !errs2.IsCanceled(err) {
+				return errors.New("expected context canceled")
+			}
+			return nil
+		})
+
+		obsCancel()
+
+		err := group.Wait()
+		require.NoError(t, err)
+
+		err = metaLoop.Close()
+		require.NoError(t, err)
 	})
 }
 

@@ -9,8 +9,8 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
-	"storj.io/storj/private/dbutil/pgutil"
-	"storj.io/storj/private/tagsql"
+	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/tagsql"
 )
 
 // NodeAlias is a metabase local alias for NodeID-s to reduce segment table size.

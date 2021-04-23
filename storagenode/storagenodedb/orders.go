@@ -13,7 +13,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/private/tagsql"
+	"storj.io/private/tagsql"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/orders/ordersfile"
 )

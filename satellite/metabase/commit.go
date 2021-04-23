@@ -13,9 +13,9 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
-	"storj.io/storj/private/dbutil/pgutil/pgerrcode"
-	"storj.io/storj/private/dbutil/txutil"
-	"storj.io/storj/private/tagsql"
+	"storj.io/private/dbutil/pgutil/pgerrcode"
+	"storj.io/private/dbutil/txutil"
+	"storj.io/private/tagsql"
 )
 
 // we need to disable PlainSize validation for old uplinks.

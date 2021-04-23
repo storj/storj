@@ -10,9 +10,9 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/private/dbutil/cockroachutil"
-	"storj.io/storj/private/dbutil/txutil"
-	"storj.io/storj/private/tagsql"
+	"storj.io/private/dbutil/cockroachutil"
+	"storj.io/private/dbutil/txutil"
+	"storj.io/private/tagsql"
 )
 
 //go:generate sh gen.sh

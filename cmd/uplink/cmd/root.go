@@ -24,7 +24,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
-	"storj.io/storj/pkg/server"
+	"storj.io/storj/private/server"
 	"storj.io/storj/private/version/checker"
 	"storj.io/uplink"
 	privateAccess "storj.io/uplink/private/access"

@@ -30,8 +30,8 @@ import (
 	_ "storj.io/private/process/googleprofiler" // This attaches google cloud profiler.
 	"storj.io/private/version"
 	"storj.io/storj/cmd/satellite/reports"
-	"storj.io/storj/pkg/cache"
-	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/private/lrucache"
+	"storj.io/storj/private/revocation"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
@@ -64,16 +64,16 @@ type Satellite struct {
 }
 
 // APIKeysLRUOptions returns a cache.Options based on the APIKeys LRU config.
-func (s *Satellite) APIKeysLRUOptions() cache.Options {
-	return cache.Options{
+func (s *Satellite) APIKeysLRUOptions() lrucache.Options {
+	return lrucache.Options{
 		Expiration: s.DatabaseOptions.APIKeysCache.Expiration,
 		Capacity:   s.DatabaseOptions.APIKeysCache.Capacity,
 	}
 }
 
 // RevocationLRUOptions returns a cache.Options based on the Revocations LRU config.
-func (s *Satellite) RevocationLRUOptions() cache.Options {
-	return cache.Options{
+func (s *Satellite) RevocationLRUOptions() lrucache.Options {
+	return lrucache.Options{
 		Expiration: s.DatabaseOptions.RevocationsCache.Expiration,
 		Capacity:   s.DatabaseOptions.RevocationsCache.Capacity,
 	}

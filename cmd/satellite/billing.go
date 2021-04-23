@@ -14,7 +14,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/dbutil"
+	"storj.io/private/dbutil"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb"

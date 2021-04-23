@@ -5,13 +5,13 @@ go 1.13
 require (
 	github.com/alessio/shellescape v1.2.2
 	github.com/alicebob/miniredis/v2 v2.13.3
+	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/calebcase/tmpfile v1.0.2
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/fatih/color v1.9.0
 	github.com/go-redis/redis/v8 v8.7.1
 	github.com/gogo/protobuf v1.3.2
-	github.com/golang-migrate/migrate/v4 v4.7.0
 	github.com/google/go-cmp v0.5.4
 	github.com/google/pprof v0.0.0-20200229191704-1ebb73c60ed3 // indirect
 	github.com/gorilla/mux v1.8.0
@@ -30,7 +30,7 @@ require (
 	github.com/segmentio/backo-go v0.0.0-20200129164019-23eae7c10bd3 // indirect
 	github.com/shopspring/decimal v1.2.0
 	github.com/spacemonkeygo/monkit/v3 v3.0.10
-	github.com/spf13/cobra v1.0.0
+	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
@@ -43,7 +43,7 @@ require (
 	go.uber.org/zap v1.16.0
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c
+	golang.org/x/sys v0.0.0-20210415045647-66c3f260301c
 	golang.org/x/term v0.0.0-20201117132131-f5c789dd3221
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	google.golang.org/api v0.20.0 // indirect
@@ -51,6 +51,6 @@ require (
 	storj.io/common v0.0.0-20210419115916-eabb53ea1332
 	storj.io/drpc v0.0.20
 	storj.io/monkit-jaeger v0.0.0-20210225162224-66fb37637bf6
-	storj.io/private v0.0.0-20210403210935-5fd57695864c
+	storj.io/private v0.0.0-20210423085237-5af81f2a2b21
 	storj.io/uplink v1.4.7-0.20210421171443-53fab7d9387c
 )

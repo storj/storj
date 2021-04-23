@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/dbutil/pgtest"
+	"storj.io/private/dbutil/pgtest"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/uplink"
 )

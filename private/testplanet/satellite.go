@@ -26,8 +26,8 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/private/debug"
 	"storj.io/private/version"
-	"storj.io/storj/pkg/revocation"
-	"storj.io/storj/pkg/server"
+	"storj.io/storj/private/revocation"
+	"storj.io/storj/private/server"
 	"storj.io/storj/private/testredis"
 	versionchecker "storj.io/storj/private/version/checker"
 	"storj.io/storj/private/web"
@@ -603,9 +603,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			MaxOrderLimitSendCount:       3,
 			NodeMinAgeInMonths:           0,
 		},
-		Metrics: metrics.Config{
-			ChoreInterval: defaultInterval,
-		},
+		Metrics: metrics.Config{},
 	}
 
 	if planet.config.Reconfigure.Satellite != nil {

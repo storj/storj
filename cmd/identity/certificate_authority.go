@@ -15,7 +15,7 @@ import (
 	"storj.io/common/peertls/extensions"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
-	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/private/revocation"
 )
 
 var (

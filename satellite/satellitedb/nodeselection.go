@@ -14,8 +14,8 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/version"
-	"storj.io/storj/private/dbutil/pgutil"
 	"storj.io/storj/satellite/overlay"
 )
 

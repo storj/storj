@@ -14,8 +14,8 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/private/dbutil"
-	"storj.io/storj/private/tagsql"
+	"storj.io/private/dbutil"
+	"storj.io/private/tagsql"
 )
 
 const (

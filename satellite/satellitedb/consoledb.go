@@ -9,7 +9,7 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/cache"
+	"storj.io/storj/private/lrucache"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
@@ -19,7 +19,7 @@ var _ console.DB = (*ConsoleDB)(nil)
 
 // ConsoleDB contains access to different satellite databases.
 type ConsoleDB struct {
-	apikeysLRUOptions cache.Options
+	apikeysLRUOptions lrucache.Options
 
 	db *satelliteDB
 	tx *dbx.Tx
@@ -50,7 +50,7 @@ func (db *ConsoleDB) APIKeys() console.APIKeys {
 	db.apikeysOnce.Do(func() {
 		db.apikeys = &apikeys{
 			methods: db.methods,
-			lru:     cache.New(db.apikeysLRUOptions),
+			lru:     lrucache.New(db.apikeysLRUOptions),
 			db:      db.db,
 		}
 	})

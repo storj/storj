@@ -22,7 +22,7 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	lrucache "storj.io/storj/pkg/cache"
+	"storj.io/storj/private/lrucache"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/console"

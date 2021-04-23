@@ -10,7 +10,7 @@ import (
 
 	"storj.io/private/process"
 	"storj.io/private/version"
-	"storj.io/storj/pkg/revocation"
+	"storj.io/storj/private/revocation"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb"
