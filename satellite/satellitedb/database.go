@@ -14,7 +14,7 @@ import (
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/tagsql"
-	"storj.io/storj/pkg/cache"
+	"storj.io/storj/pkg/lrucache"
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
@@ -65,8 +65,8 @@ type satelliteDB struct {
 // Options includes options for how a satelliteDB runs.
 type Options struct {
 	ApplicationName      string
-	APIKeysLRUOptions    cache.Options
-	RevocationLRUOptions cache.Options
+	APIKeysLRUOptions    lrucache.Options
+	RevocationLRUOptions lrucache.Options
 
 	// How many storage node rollups to save/read in one batch.
 	SaveRollupBatchSize int
@@ -223,7 +223,7 @@ func (dbc *satelliteDBCollection) Revocation() revocation.DB {
 	db.revocationDBOnce.Do(func() {
 		db.revocationDB = &revocationDB{
 			db:      db,
-			lru:     cache.New(db.opts.RevocationLRUOptions),
+			lru:     lrucache.New(db.opts.RevocationLRUOptions),
 			methods: db,
 		}
 	})
