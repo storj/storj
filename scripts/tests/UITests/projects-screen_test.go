@@ -18,7 +18,7 @@ func Test_CreateProjectElements(t *testing.T){
 
 		fmt.Println(page.MustElement("img").MustVisible())
 		fmt.Println(*page.MustElement("img").MustAttribute("src"))
-		fmt.Println(page.MustElement("h2.create-project-area__title").MustText())
+		fmt.Println(page.MustElement("h2.create-project-area__container__title").MustText())
 		fmt.Println(page.MustElement("h3.label-container__main__label").MustText())
 		fmt.Println(page.MustElement("h3.label-container__main__label.add-label").MustText())
 		fmt.Println(page.MustElement("h3.label-container__limit").MustText())
@@ -87,7 +87,7 @@ func Test_projectsScreen (t *testing.T) {
 	notificationEnd := page.MustElement("span.info-bar__info-area__second-description").MustText()
 	assert.Equal(t, "available projects.", notificationEnd)
 	notificationLink := page.MustElement("a.info-bar__link.blue").MustAttribute("href")
-	assert.DeepEqual(t, *(notificationLink), "https://support.tardigrade.io/hc/en-us/requests/new?ticket_form_id=360000683212")
+	assert.DeepEqual(t, *(notificationLink), "https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212")
 	projectsTitle:= page.MustElement("h2.projects-list__title-area__title").MustText()
 	assert2.Equal(t,"Projects", projectsTitle)
 	createButton:= page.MustElementX("(//*[@class=\"container\"])[1]").MustText()

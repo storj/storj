@@ -69,10 +69,10 @@ func Test_projectDashboardScreen (t *testing.T) {
 	fmt.Println(*docsButtonLink)
 	docsButtonText:= page.MustElement("a.no-buckets-area__second-button").MustText()
 	fmt.Println(docsButtonText)
-	whycantLink:= page.MustElement("a.no-buckets-area__help").MustAttribute("href")
-	fmt.Println(*whycantLink)
-	whycantText:= page.MustElement("a.no-buckets-area__help").MustText()
-	fmt.Println(whycantText)
+	//whycantLink:= page.MustElement("a.no-buckets-area__help").MustAttribute("href")
+	//fmt.Println(*whycantLink)
+	//whycantText:= page.MustElement("a.no-buckets-area__help").MustText()
+	//fmt.Println(whycantText)
 
 
 
@@ -104,7 +104,6 @@ func Test_projectDashboardScreen (t *testing.T) {
 	// Get Started
 	// https://documentation.tardigrade.io/
 	// Visit the Docs
-	// https://support.tardigrade.io/hc/en-us/articles/360035332472-Why-can-t-I-upload-from-the-browser-
-	// Why can't I upload from the browser?
+
 }
 

@@ -10,7 +10,7 @@ import (
 func Test_membersAdding (t *testing.T) {
 		page, browser := login_to_account()
 		defer browser.MustClose()
-		page.MustElement("a.navigation-area__item-container:nth-of-type(3)").MustClick()
+		page.MustElement("a.navigation-area__item-container:nth-of-type(4)").MustClick()
 		page.MustElement("div.button.container").MustClick()
 		fmt.Println(page.MustElement("h2.add-user__info-panel-container__main-label-text").MustText())
 		fmt.Println(page.MustElement("p.add-user__form-container__common-label").MustText())
@@ -44,7 +44,7 @@ func Test_membersAdding (t *testing.T) {
 	func TestMembersAddingFunc(t *testing.T) {
 		page, browser := login_to_account()
 		defer browser.MustClose()
-		page.MustElement("a.navigation-area__item-container:nth-of-type(3)").MustClick()
+		page.MustElement("a.navigation-area__item-container:nth-of-type(4)").MustClick()
 		page.MustElement("div.button.container").MustClick()
 		listBeforeAdding:= len(page.MustElements("input.no-error-input"))
 		page.MustElement("p.add-user-row__item__label").MustClick()

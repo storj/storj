@@ -8,7 +8,7 @@ import (
 func Test_membersScreen (t *testing.T) {
 	page, browser := login_to_account()
 	defer browser.MustClose()
-	page.MustElement("a.navigation-area__item-container:nth-of-type(3)").MustClick()
+	page.MustElement("a.navigation-area__item-container:nth-of-type(4)").MustClick()
 
 	membersHeaderText := page.MustElement("h1.team-header-container__title-area__title").MustText()
 	fmt.Println(membersHeaderText)

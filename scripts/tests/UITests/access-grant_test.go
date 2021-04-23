@@ -10,7 +10,7 @@ import (
 func Test_APIKeysCreationFlowElements(t *testing.T) {
 	page, browser := login_to_account()
 	defer browser.MustClose()
-	page.MustElement("a.navigation-area__item-container:nth-of-type(2)").MustClick()
+	page.MustElement("a.navigation-area__item-container:nth-of-type(3)").MustClick()
 	emptyImage:= page.MustElement("div.empty-state__modal > svg").MustVisible()
 	assert.Assert(t,emptyImage)
 	apiKeysHeader:= page.MustElement("h4.empty-state__modal__heading").MustText()
@@ -86,16 +86,16 @@ func Test_APIKeysCreationFlowElements(t *testing.T) {
 	passCheckbox.MustClick()
 	encrHeader:= page.MustElement("h1.generate-container__title").MustText()
 	assert.Equal(t, encrHeader, "Encryption Passphrase")
-	encrWarnTitle:= page.MustElement("p.generate-container__warning__header__label").MustText()
-	assert.Equal(t, encrWarnTitle, "Save Your Encryption Passphrase")
+	//encrWarnTitle:= page.MustElement("p.generate-container__warning__header__label").MustText()
+//	assert.Equal(t, encrWarnTitle, "Save Your Encryption Passphrase")
 	encrWarnMessage:= page.MustElement("p.generate-container__warning__message").MustText()
 	assert.Equal(t, encrWarnMessage, "You’ll need this passphrase to access data in the future. This is the only time it will be displayed. Be sure to write it down.")
 	encrPassType:= page.MustElement("p.generate-container__choosing__label")
-	assert.Equal(t,encrPassType.MustText(),"Choose Passphrase Type")
+	assert.Equal(t,encrPassType.MustText(),"Passphrase")
 	generateTab:= page.MustElement("p.generate-container__choosing__right__option.left-option")
 	assert.Equal(t,generateTab.MustText(),"Generate Phrase")
 	createTab:= page.MustElementX("(//*[@class=\"generate-container__choosing__right__option\"])")
-	assert.Equal(t,createTab.MustText(),"Create Phrase")
+	assert.Equal(t,createTab.MustText(),"Enter Phrase")
 	////checkout to create passphrase tab
 	//createTab.MustClick()
 	//createTitle:= page.MustElement("h3.label-container__main__label").MustText()
@@ -110,8 +110,8 @@ func Test_APIKeysCreationFlowElements(t *testing.T) {
 	passPhrase.MustVisible()
 	passCopy:= page.MustElement("div.generate-container__value-area__mnemonic__button.container")
 	assert.Equal(t, passCopy.MustText(),"Copy")
-	passCheckboxText:= page.MustElement("label.generate-container__check-area").MustText()
-	assert.DeepEqual(t, passCheckboxText," Yes, I wrote this down or saved it somewhere.")
+	passCheckboxText:= page.MustElement("label.generate-container__warning__check-area").MustText()
+	assert.DeepEqual(t, passCheckboxText,"Yes, I wrote this down or saved it somewhere.")
 	passNext:= page.MustElement("div.generate-container__next-button.container")
 	assert.Equal(t,passNext.MustText(),"Next")
 	time.Sleep(1*time.Second)
@@ -131,14 +131,16 @@ func Test_APIKeysCreationFlowElements(t *testing.T) {
 	assert.Assert(t, agrantKey)
 	agrantCopy:= page.MustElement("div.generate-grant__grant-area__container__button.container")
 	assert.Equal(t,agrantCopy.MustText(),"Copy")
+	downloadButton:= page.MustElementX("(//*[@class=\"generate-grant__grant-area__container__button container\"])[2]")
+	assert.Equal(t,downloadButton.MustText(),"Download")
 	////check copy notification
 	//agrantCopy.MustClick()
 	//time.Sleep(1*time.Second)
 	//copyNotification:= page.MustElement(".notification-wrap__text-area").MustWaitVisible().MustText()
 	//assert.Equal(t, "Token was copied successfully",copyNotification)
 	// Gateway credentials droplist
-	gateCredDrop:= page.MustElement("h3.generate-grant__gateway-area__toggle__label").MustWaitStable()
-	assert.Equal(t, gateCredDrop.MustText(),"Gateway Credentials")
+	gateCredDrop:= page.MustElement(".generate-grant__gateway-link").MustWaitStable()
+	assert.Equal(t, gateCredDrop.MustText(),"Generate S3 Gateway Credentials")
 	// open drop-list
 	//gateCredDrop.MustClick()
 	////check elements
@@ -158,11 +160,13 @@ func Test_APIKeysCreationFlowElements(t *testing.T) {
 
 
 	// finish access grant generation
-	doneButton:= page.MustElement("div.generate-grant__done-button.container")
+	doneButton:= page.MustElementX("(//*[@class=\"generate-grant__done-button container\"])[1]")
 	assert.Equal(t,doneButton.MustText(),"Done")
-	page.MustElement("div.generate-grant__done-button.container.extra-margin-top").MustWaitStable().MustClick()
-	time.Sleep(10*time.Second)
-	page.MustElementX("(//*[@class=\"navigation-area__item-container__link__title\"])[2]").MustClick()
+	doneButton.MustClick()
+
+//	page.MustElement("div.generate-grant__done-button.container.extra-margin-top").MustWaitStable().MustClick()
+	time.Sleep(2*time.Second)
+	page.MustElementX("(//*[@class=\"navigation-area__item-container__link__title\"])[3]").MustClick()
 	createdAGInList:= page.MustElement("p.name").MustText()
 	assert.Equal(t,createdAGInList,access_grant_name)
 
@@ -172,7 +176,7 @@ func Test_APIKeysCreationFlowElements(t *testing.T) {
 	func TestAPIKeysCreation(t *testing.T) {
 		page, browser := login_to_account()
 		defer browser.MustClose()
-		page.MustElement("a.navigation-area__item-container:nth-of-type(2)").MustClick()
+		page.MustElement("a.navigation-area__item-container:nth-of-type(3)").MustClick()
 
 		listBeforeAdding := len(page.MustElements("div.grants-item-container.item-component__item"))
 		page.MustElementX("(//*[@class=\"container\"])[1]").MustClick()
@@ -269,7 +273,7 @@ func Test_APIKeysCreationFlowElements(t *testing.T) {
 		assert.Equal(t, "Done", doneButton.MustText())
 		visitDocs:= page.MustElement("a.cli-container__docs-link")
 		assert.Equal(t, "Visit the Docs", visitDocs.MustText())
-		assert.Equal(t, *visitDocs.MustAttribute("href"),"https://documentation.storj.io/")
+		assert.Equal(t, *visitDocs.MustAttribute("href"),"https://docs.storj.io/node/")
 		// click Done
 		doneButton.MustClick()
 		time.Sleep(1 * time.Second)
@@ -297,7 +301,7 @@ func Test_APIKeysCreationFlowElements(t *testing.T) {
 	func TestAPIKeysDeletion(t *testing.T) {
 		page, browser := login_to_account()
 		defer browser.MustClose()
-		page.MustElement("a.navigation-area__item-container:nth-of-type(2)").MustClick()
+		page.MustElement("a.navigation-area__item-container:nth-of-type(3)").MustClick()
 		listBeforeDeletion:= len(page.MustElements("div.grants-item-container.item-component__item"))
 		page.MustElement("div.grants-item-container.item-component__item").MustClick()
 		removeButton:= page.MustElement("div.container.red")

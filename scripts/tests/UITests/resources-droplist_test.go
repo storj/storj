@@ -14,7 +14,7 @@ func TestResourcesDroplist(t *testing.T) {
 		docsText:= page.MustElement("a.resources-dropdown__item-container:nth-of-type(1)").MustText()
 		assert.Equal(t,"Docs",docsText)
 		docsLink:= *page.MustElement("a.resources-dropdown__item-container:nth-of-type(1)").MustAttribute("href")
-		assert.Equal(t,"https://documentation.storj.io",docsLink)
+		assert.Equal(t,"https://docs.storj.io/node",docsLink)
 		communityText:= page.MustElement("a.resources-dropdown__item-container:nth-of-type(2)").MustText()
 		assert.Equal(t,"Community",communityText)
 		communityLink:= *page.MustElement("a.resources-dropdown__item-container:nth-of-type(2)").MustAttribute("href")
