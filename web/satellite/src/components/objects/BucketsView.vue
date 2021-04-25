@@ -43,7 +43,6 @@
             button-label="Create Bucket"
             :error-message="errorMessage"
             :is-loading="isRequestProcessing"
-            :is-create-bucket="true"
         />
         <ObjectsPopup
             v-if="isDeletePopupVisible"
@@ -53,7 +52,6 @@
             title="Are you sure?"
             sub-title="Deleting this bucket will delete all metadata related to this bucket."
             button-label="Confirm Delete Bucket"
-            :default-input-value="deleteBucketName"
             :error-message="errorMessage"
             :is-loading="isRequestProcessing"
         />
@@ -198,23 +196,7 @@ export default class BucketsView extends Vue {
     public async onCreateBucketClick(): Promise<void> {
         if (this.isRequestProcessing) return;
 
-        if (this.createBucketName.length < 3 || this.createBucketName.length > 63) {
-            this.errorMessage = 'Name must be not less than 3 and not more than 63 characters length';
-
-            return;
-        }
-
-        if (!Validator.bucketName(this.createBucketName)) {
-            this.errorMessage = 'Name must include only lowercase latin characters';
-
-            return;
-        }
-
-        if (!Validator.oneWordString(this.createBucketName)) {
-            this.errorMessage = 'Name must be 1-word string';
-
-            return;
-        }
+        if (!this.isBucketNameValid(this.createBucketName)) return;
 
         this.isRequestProcessing = true;
 
@@ -241,9 +223,7 @@ export default class BucketsView extends Vue {
     public async onDeleteBucketClick(): Promise<void> {
         if (this.isRequestProcessing) return;
 
-        if (!this.deleteBucketName) {
-            this.errorMessage = 'Bucket name can\'t be empty';
-        }
+        if (!this.isBucketNameValid(this.deleteBucketName)) return;
 
         this.isRequestProcessing = true;
 
@@ -348,6 +328,28 @@ export default class BucketsView extends Vue {
      */
     private get passphrase(): string {
         return this.$store.state.objectsModule.passphrase;
+    }
+
+    /**
+     * Returns validation status of a bucket name.
+     */
+    private isBucketNameValid(name: string): boolean {
+        switch (true) {
+            case name.length < 3 || name.length > 63:
+                this.errorMessage = 'Name must be not less than 3 and not more than 63 characters length';
+
+                return false;
+            case !Validator.bucketName(name):
+                this.errorMessage = 'Name must include only lowercase latin characters';
+
+                return false;
+            case !Validator.oneWordString(name):
+                this.errorMessage = 'Name must be 1-word string';
+
+                return false;
+            default:
+                return true;
+        }
     }
 }
 </script>
