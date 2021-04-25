@@ -80,6 +80,14 @@
         >
             More Integrations
         </a>
+        <VButton
+            class="overview-area__skip-button"
+            label="Skip"
+            width="100px"
+            :on-press="onSkipClick"
+            :is-blue-white="true"
+            :is-disabled="isLoading"
+        />
     </div>
 </template>
 
@@ -194,6 +202,27 @@ export default class OverviewStep extends Vue {
     }
 
     /**
+     * Holds button click logic.
+     * Creates untitled project and redirects to project dashboard.
+     */
+    public async onSkipClick(): Promise<void> {
+        if (this.isLoading) return;
+
+        this.isLoading = true;
+
+        try {
+            await this.createUntitledProject();
+
+            this.isLoading = false;
+
+            await this.$router.push(RouteConfig.ProjectDashboard.path);
+        } catch (error) {
+            await this.$notify.error(error.message);
+            this.isLoading = false;
+        }
+    }
+
+    /**
      * Creates untitled project in a background.
      */
     private async createUntitledProject(): Promise<void> {
@@ -236,6 +265,9 @@ export default class OverviewStep extends Vue {
     }
 
     .overview-area {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
 
         &__header,
         &__second-header {
@@ -388,7 +420,7 @@ export default class OverviewStep extends Vue {
             display: block;
             text-align: center;
             padding: 16px 0;
-            margin: 60px auto;
+            margin: 60px auto 0 auto;
             background: #2683ff;
             width: 355px;
 
@@ -397,9 +429,14 @@ export default class OverviewStep extends Vue {
             }
         }
 
+        &__skip-button {
+            margin: 20px 0 40px 0;
+        }
+
         .link-disabled {
             background-color: #dadde5;
             border-color: #dadde5;
+            color: #fff;
             pointer-events: none;
         }
     }

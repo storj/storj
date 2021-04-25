@@ -54,6 +54,7 @@ exports[`OverviewStep.vue renders correctly 1`] = `
   </div> <a href="https://storj.io/integrations/" target="_blank" rel="noopener noreferrer" class="overview-area__integrations-button">
     More Integrations
   </a>
+  <div class="overview-area__skip-button container blue-white" style="width: 100px; height: inherit;"><span class="label">Skip</span></div>
 </div>
 `;
 
@@ -111,5 +112,6 @@ exports[`OverviewStep.vue renders correctly 2`] = `
   </div> <a href="https://storj.io/integrations/" target="_blank" rel="noopener noreferrer" class="overview-area__integrations-button">
     More Integrations
   </a>
+  <div class="overview-area__skip-button container blue-white" style="width: 100px; height: inherit;"><span class="label">Skip</span></div>
 </div>
 `;
