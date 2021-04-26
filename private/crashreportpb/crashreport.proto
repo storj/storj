@@ -11,7 +11,7 @@ service CrashReport {
 }
 
 message ReportRequest {
-    bytes crash = 1;
+    bytes gzipped_panic = 1;
 }
 
 message ReportResponse {}
