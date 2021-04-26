@@ -292,7 +292,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 			"frame-ancestors " + server.config.FrameAncestors,
 			"frame-src 'self' *.stripe.com",
 			"img-src 'self' data: *.customer.io *.tardigradeshare.io *.storjshare.io",
-			"media-src 'self' *.storjshare.io",
+			"media-src 'self' *.tardigradeshare.io *.storjshare.io",
 			"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com cdn.segment.com *.customer.io",
 		}
 
