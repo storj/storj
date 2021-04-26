@@ -14,21 +14,22 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func TestMigrateToAliases(t *testing.T) {
-	for _, info := range databaseInfos() {
+	for _, info := range metabasetest.DatabaseEntries() {
 		info := info
-		t.Run(info.name, func(t *testing.T) {
+		t.Run(info.Name, func(t *testing.T) {
 			t.Parallel()
 
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
 
 			db, err := satellitedbtest.CreateMetabaseDB(ctx, zaptest.NewLogger(t), t.Name(), "M", 0, satellitedbtest.Database{
-				Name:    info.name,
-				URL:     info.connstr,
+				Name:    info.Name,
+				URL:     info.ConnStr,
 				Message: "",
 			})
 			require.NoError(t, err)

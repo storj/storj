@@ -15,40 +15,41 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/metabasetest"
 )
 
 func TestIterateLoopObjects(t *testing.T) {
-	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		t.Run("Limit is negative", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
-			IterateLoopObjects{
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			metabasetest.IterateLoopObjects{
 				Opts: metabase.IterateLoopObjects{
 					BatchSize: -1,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "BatchSize is negative",
 			}.Check(ctx, t, db)
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("no data", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			IterateLoopObjects{
+			metabasetest.IterateLoopObjects{
 				Opts: metabase.IterateLoopObjects{
 					BatchSize: 0,
 				},
 				Result: nil,
 			}.Check(ctx, t, db)
 
-			IterateLoopObjects{
+			metabasetest.IterateLoopObjects{
 				Opts: metabase.IterateLoopObjects{
 					BatchSize: 10,
 				},
 				Result: nil,
 			}.Check(ctx, t, db)
 
-			IterateLoopObjects{
+			metabasetest.IterateLoopObjects{
 				Opts: metabase.IterateLoopObjects{
 					BatchSize:      10,
 					AsOfSystemTime: time.Now(),
@@ -56,21 +57,21 @@ func TestIterateLoopObjects(t *testing.T) {
 				Result: nil,
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("pending and committed", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			pending := randObjectStream()
-			committed := randObjectStream()
+			pending := metabasetest.RandObjectStream()
+			committed := metabasetest.RandObjectStream()
 			committed.ProjectID = pending.ProjectID
 			committed.BucketName = pending.BucketName + "z"
 
-			BeginObjectExactVersion{
+			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: pending,
-					Encryption:   defaultTestEncryption,
+					Encryption:   metabasetest.DefaultEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
@@ -79,15 +80,15 @@ func TestIterateLoopObjects(t *testing.T) {
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
 
-			BeginObjectExactVersion{
+			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: committed,
-					Encryption:   defaultTestEncryption,
+					Encryption:   metabasetest.DefaultEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
 
-			CommitObject{
+			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream:                  committed,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
@@ -111,14 +112,14 @@ func TestIterateLoopObjects(t *testing.T) {
 				},
 			}
 
-			IterateLoopObjects{
+			metabasetest.IterateLoopObjects{
 				Opts: metabase.IterateLoopObjects{
 					BatchSize: 1,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
 
-			IterateLoopObjects{
+			metabasetest.IterateLoopObjects{
 				Opts: metabase.IterateLoopObjects{
 					BatchSize:      1,
 					AsOfSystemTime: time.Now(),
@@ -128,7 +129,7 @@ func TestIterateLoopObjects(t *testing.T) {
 		})
 
 		t.Run("less objects than limit", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 			numberOfObjects := 3
 			limit := 10
 			expected := make([]metabase.LoopObjectEntry, numberOfObjects)
@@ -137,14 +138,14 @@ func TestIterateLoopObjects(t *testing.T) {
 				expected[i] = loopObjectEntryFromRaw(obj)
 			}
 
-			IterateLoopObjects{
+			metabasetest.IterateLoopObjects{
 				Opts: metabase.IterateLoopObjects{
 					BatchSize: limit,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
 
-			IterateLoopObjects{
+			metabasetest.IterateLoopObjects{
 				Opts: metabase.IterateLoopObjects{
 					BatchSize:      limit,
 					AsOfSystemTime: time.Now(),
@@ -152,11 +153,11 @@ func TestIterateLoopObjects(t *testing.T) {
 				Result: expected,
 			}.Check(ctx, t, db)
 
-			Verify{Objects: objects}.Check(ctx, t, db)
+			metabasetest.Verify{Objects: objects}.Check(ctx, t, db)
 		})
 
 		t.Run("more objects than limit", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 			numberOfObjects := 10
 			limit := 3
 			expected := make([]metabase.LoopObjectEntry, numberOfObjects)
@@ -165,14 +166,14 @@ func TestIterateLoopObjects(t *testing.T) {
 				expected[i] = loopObjectEntryFromRaw(obj)
 			}
 
-			IterateLoopObjects{
+			metabasetest.IterateLoopObjects{
 				Opts: metabase.IterateLoopObjects{
 					BatchSize: limit,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
 
-			IterateLoopObjects{
+			metabasetest.IterateLoopObjects{
 				Opts: metabase.IterateLoopObjects{
 					BatchSize:      limit,
 					AsOfSystemTime: time.Now(),
@@ -180,14 +181,14 @@ func TestIterateLoopObjects(t *testing.T) {
 				Result: expected,
 			}.Check(ctx, t, db)
 
-			Verify{Objects: objects}.Check(ctx, t, db)
+			metabasetest.Verify{Objects: objects}.Check(ctx, t, db)
 		})
 
 		t.Run("recursive", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 			projectID, bucketName := uuid.UUID{1}, "bucky"
 
-			objects := createFullObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
+			objects := metabasetest.CreateFullObjectsWithKeys(ctx, t, db, projectID, bucketName, []metabase.ObjectKey{
 				"a",
 				"b/1",
 				"b/2",
@@ -211,14 +212,14 @@ func TestIterateLoopObjects(t *testing.T) {
 				objects["g"],
 			}
 
-			IterateLoopObjects{
+			metabasetest.IterateLoopObjects{
 				Opts: metabase.IterateLoopObjects{
 					BatchSize: 3,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
 
-			IterateLoopObjects{
+			metabasetest.IterateLoopObjects{
 				Opts: metabase.IterateLoopObjects{
 					BatchSize:      3,
 					AsOfSystemTime: time.Now(),
@@ -228,7 +229,7 @@ func TestIterateLoopObjects(t *testing.T) {
 		})
 
 		t.Run("multiple projects", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			projects := []uuid.UUID{}
 			for i := 0; i < 10; i++ {
@@ -248,14 +249,14 @@ func TestIterateLoopObjects(t *testing.T) {
 				}
 			}
 
-			IterateLoopObjects{
+			metabasetest.IterateLoopObjects{
 				Opts: metabase.IterateLoopObjects{
 					BatchSize: 3,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
 
-			IterateLoopObjects{
+			metabasetest.IterateLoopObjects{
 				Opts: metabase.IterateLoopObjects{
 					BatchSize:      3,
 					AsOfSystemTime: time.Now(),
@@ -265,7 +266,7 @@ func TestIterateLoopObjects(t *testing.T) {
 		})
 
 		t.Run("multiple projects", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			projects := []uuid.UUID{}
 			for i := 0; i < 10; i++ {
@@ -278,25 +279,25 @@ func TestIterateLoopObjects(t *testing.T) {
 			expected := make([]metabase.LoopObjectEntry, 0, len(projects)*len(bucketNames))
 			for _, projectID := range projects {
 				for _, bucketName := range bucketNames {
-					obj := randObjectStream()
+					obj := metabasetest.RandObjectStream()
 					obj.ProjectID = projectID
 					obj.BucketName = bucketName
 					for version := 1; version < 4; version++ {
 						obj.Version = metabase.Version(version)
-						rawObject := createObject(ctx, t, db, obj, 0)
+						rawObject := metabasetest.CreateObject(ctx, t, db, obj, 0)
 						expected = append(expected, loopObjectEntryFromRaw(metabase.RawObject(rawObject)))
 					}
 				}
 			}
 
-			IterateLoopObjects{
+			metabasetest.IterateLoopObjects{
 				Opts: metabase.IterateLoopObjects{
 					BatchSize: 2,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
 
-			IterateLoopObjects{
+			metabasetest.IterateLoopObjects{
 				Opts: metabase.IterateLoopObjects{
 					BatchSize:      2,
 					AsOfSystemTime: time.Now(),
@@ -308,24 +309,24 @@ func TestIterateLoopObjects(t *testing.T) {
 }
 
 func TestIterateLoopStreams(t *testing.T) {
-	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		t.Run("StreamIDs list is empty", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			IterateLoopStreams{
+			metabasetest.IterateLoopStreams{
 				Opts:     metabase.IterateLoopStreams{},
 				Result:   map[uuid.UUID][]metabase.LoopSegmentEntry{},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "StreamIDs list is empty",
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("StreamIDs list contains empty ID", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			IterateLoopStreams{
+			metabasetest.IterateLoopStreams{
 				Opts: metabase.IterateLoopStreams{
 					StreamIDs: []uuid.UUID{{}},
 				},
@@ -334,18 +335,18 @@ func TestIterateLoopStreams(t *testing.T) {
 				ErrText:  "StreamID missing: index 0",
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("List objects segments", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			now := time.Now()
 
-			expectedObject00 := createObject(ctx, t, db, randObjectStream(), 0)
-			expectedObject01 := createObject(ctx, t, db, randObjectStream(), 1)
-			expectedObject02 := createObject(ctx, t, db, randObjectStream(), 5)
-			expectedObject03 := createObject(ctx, t, db, randObjectStream(), 3)
+			expectedObject00 := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 0)
+			expectedObject01 := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+			expectedObject02 := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 5)
+			expectedObject03 := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 3)
 
 			expectedRawSegments := []metabase.RawSegment{}
 
@@ -375,7 +376,7 @@ func TestIterateLoopStreams(t *testing.T) {
 						PlainSize:     512,
 						PlainOffset:   int64(i * 512),
 						Pieces:        metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
-						Redundancy:    defaultTestRedundancy,
+						Redundancy:    metabasetest.DefaultRedundancy,
 					}
 					expectedSegments = append(expectedSegments, segment)
 
@@ -397,7 +398,7 @@ func TestIterateLoopStreams(t *testing.T) {
 				expectedMap[object.StreamID] = expectedSegments
 			}
 
-			IterateLoopStreams{
+			metabasetest.IterateLoopStreams{
 				Opts: metabase.IterateLoopStreams{
 					StreamIDs: []uuid.UUID{
 						expectedObject00.StreamID,
@@ -411,7 +412,7 @@ func TestIterateLoopStreams(t *testing.T) {
 				Result: expectedMap,
 			}.Check(ctx, t, db)
 
-			IterateLoopStreams{
+			metabasetest.IterateLoopStreams{
 				Opts: metabase.IterateLoopStreams{
 					StreamIDs: []uuid.UUID{
 						expectedObject00.StreamID,
@@ -423,7 +424,7 @@ func TestIterateLoopStreams(t *testing.T) {
 				Result: expectedMap,
 			}.Check(ctx, t, db)
 
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					metabase.RawObject(expectedObject00),
 					metabase.RawObject(expectedObject01),
@@ -434,26 +435,6 @@ func TestIterateLoopStreams(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 	})
-}
-
-func createFullObjectsWithKeys(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, bucketName string, keys []metabase.ObjectKey) map[metabase.ObjectKey]metabase.LoopObjectEntry {
-	objects := make(map[metabase.ObjectKey]metabase.LoopObjectEntry, len(keys))
-	for _, key := range keys {
-		obj := randObjectStream()
-		obj.ProjectID = projectID
-		obj.BucketName = bucketName
-		obj.ObjectKey = key
-
-		createObject(ctx, t, db, obj, 0)
-
-		objects[key] = metabase.LoopObjectEntry{
-			ObjectStream: obj,
-			Status:       metabase.Committed,
-			CreatedAt:    time.Now(),
-		}
-	}
-
-	return objects
 }
 
 func loopObjectEntryFromRaw(m metabase.RawObject) metabase.LoopObjectEntry {

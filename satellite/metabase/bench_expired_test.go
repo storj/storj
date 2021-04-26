@@ -14,6 +14,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/metabasetest"
 )
 
 var letters = []rune("abcdefghijklmnopqrstuvwxyz")
@@ -84,7 +85,7 @@ func (g *expirationDateGenerator) getDeadline() time.Time {
 
 // Run runs the scenario as a subtest.
 func (s expiredScenario) Run(b *testing.B) {
-	b.Run(s.name(), func(b *testing.B) { Bench(b, s.run) })
+	b.Run(s.name(), func(b *testing.B) { metabasetest.Bench(b, s.run) })
 }
 
 // name returns the scenario arguments as a string.
@@ -119,7 +120,7 @@ func (s *expiredScenario) run(ctx *testcontext.Context, b *testing.B, db *metaba
 	b.Run("Delete expired objects", func(b *testing.B) {
 		for i := 0; i < b.N; i++ {
 			// wipe data so we can do the exact same test
-			DeleteAll{}.Check(ctx, b, db)
+			metabasetest.DeleteAll{}.Check(ctx, b, db)
 			s.objectStream = nil
 			var expiredGenerator expirationDateGenerator
 

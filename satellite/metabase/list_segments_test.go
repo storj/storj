@@ -11,29 +11,30 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/metabasetest"
 )
 
 func TestListSegments(t *testing.T) {
-	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		obj := randObjectStream()
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
 		now := time.Now()
 
 		t.Run("StreamID missing", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			ListSegments{
+			metabasetest.ListSegments{
 				Opts:     metabase.ListSegments{},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "StreamID missing",
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("Invalid limit", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			ListSegments{
+			metabasetest.ListSegments{
 				Opts: metabase.ListSegments{
 					StreamID: obj.StreamID,
 					Limit:    -1,
@@ -42,13 +43,13 @@ func TestListSegments(t *testing.T) {
 				ErrText:  "Invalid limit: -1",
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("no segments", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			ListSegments{
+			metabasetest.ListSegments{
 				Opts: metabase.ListSegments{
 					StreamID: obj.StreamID,
 					Limit:    1,
@@ -56,13 +57,13 @@ func TestListSegments(t *testing.T) {
 				Result: metabase.ListSegmentsResult{},
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("segments", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			expectedObject := createObject(ctx, t, db, obj, 10)
+			expectedObject := metabasetest.CreateObject(ctx, t, db, obj, 10)
 
 			expectedSegment := metabase.Segment{
 				StreamID: obj.StreamID,
@@ -77,7 +78,7 @@ func TestListSegments(t *testing.T) {
 				EncryptedSize:     1024,
 				PlainSize:         512,
 				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
-				Redundancy:        defaultTestRedundancy,
+				Redundancy:        metabasetest.DefaultRedundancy,
 			}
 
 			expectedRawSegments := make([]metabase.RawSegment, 10)
@@ -89,7 +90,7 @@ func TestListSegments(t *testing.T) {
 				expectedSegment.PlainOffset += int64(expectedSegment.PlainSize)
 			}
 
-			ListSegments{
+			metabasetest.ListSegments{
 				Opts: metabase.ListSegments{
 					StreamID: obj.StreamID,
 					Limit:    10,
@@ -99,7 +100,7 @@ func TestListSegments(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			ListSegments{
+			metabasetest.ListSegments{
 				Opts: metabase.ListSegments{
 					StreamID: obj.StreamID,
 					Limit:    1,
@@ -110,7 +111,7 @@ func TestListSegments(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			ListSegments{
+			metabasetest.ListSegments{
 				Opts: metabase.ListSegments{
 					StreamID: obj.StreamID,
 					Limit:    2,
@@ -124,7 +125,7 @@ func TestListSegments(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			ListSegments{
+			metabasetest.ListSegments{
 				Opts: metabase.ListSegments{
 					StreamID: obj.StreamID,
 					Limit:    2,
@@ -137,7 +138,7 @@ func TestListSegments(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			ListSegments{
+			metabasetest.ListSegments{
 				Opts: metabase.ListSegments{
 					StreamID: obj.StreamID,
 					Limit:    2,
@@ -151,7 +152,7 @@ func TestListSegments(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					metabase.RawObject(expectedObject),
 				},
@@ -160,7 +161,7 @@ func TestListSegments(t *testing.T) {
 		})
 
 		t.Run("unordered parts", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			var testCases = []struct {
 				segments []metabase.SegmentPosition
@@ -195,22 +196,22 @@ func TestListSegments(t *testing.T) {
 				EncryptedSize:     1024,
 				PlainSize:         512,
 				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
-				Redundancy:        defaultTestRedundancy,
+				Redundancy:        metabasetest.DefaultRedundancy,
 			}
 
 			for _, tc := range testCases {
-				obj := randObjectStream()
+				obj := metabasetest.RandObjectStream()
 
-				BeginObjectExactVersion{
+				metabasetest.BeginObjectExactVersion{
 					Opts: metabase.BeginObjectExactVersion{
 						ObjectStream: obj,
-						Encryption:   defaultTestEncryption,
+						Encryption:   metabasetest.DefaultEncryption,
 					},
 					Version: obj.Version,
 				}.Check(ctx, t, db)
 
 				for i, segmentPosition := range tc.segments {
-					BeginSegment{
+					metabasetest.BeginSegment{
 						Opts: metabase.BeginSegment{
 							ObjectStream: obj,
 							Position:     segmentPosition,
@@ -222,7 +223,7 @@ func TestListSegments(t *testing.T) {
 						},
 					}.Check(ctx, t, db)
 
-					CommitSegment{
+					metabasetest.CommitSegment{
 						Opts: metabase.CommitSegment{
 							ObjectStream: obj,
 							Position:     segmentPosition,
@@ -236,12 +237,12 @@ func TestListSegments(t *testing.T) {
 							EncryptedSize: 1024,
 							PlainSize:     512,
 							PlainOffset:   0,
-							Redundancy:    defaultTestRedundancy,
+							Redundancy:    metabasetest.DefaultRedundancy,
 						},
 					}.Check(ctx, t, db)
 				}
 
-				CommitObject{
+				metabasetest.CommitObject{
 					Opts: metabase.CommitObject{
 						ObjectStream: obj,
 					},
@@ -257,7 +258,7 @@ func TestListSegments(t *testing.T) {
 					expectedOffset += int64(expectedSegment.PlainSize)
 				}
 
-				ListSegments{
+				metabasetest.ListSegments{
 					Opts: metabase.ListSegments{
 						StreamID: obj.StreamID,
 						Limit:    0,
@@ -272,26 +273,26 @@ func TestListSegments(t *testing.T) {
 }
 
 func TestListStreamPositions(t *testing.T) {
-	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		obj := randObjectStream()
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
 		now := time.Now()
 
 		t.Run("StreamID missing", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			ListStreamPositions{
+			metabasetest.ListStreamPositions{
 				Opts:     metabase.ListStreamPositions{},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "StreamID missing",
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("Invalid limit", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			ListStreamPositions{
+			metabasetest.ListStreamPositions{
 				Opts: metabase.ListStreamPositions{
 					StreamID: obj.StreamID,
 					Limit:    -1,
@@ -300,13 +301,13 @@ func TestListStreamPositions(t *testing.T) {
 				ErrText:  "Invalid limit: -1",
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("no segments", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			ListStreamPositions{
+			metabasetest.ListStreamPositions{
 				Opts: metabase.ListStreamPositions{
 					StreamID: obj.StreamID,
 					Limit:    1,
@@ -314,13 +315,13 @@ func TestListStreamPositions(t *testing.T) {
 				Result: metabase.ListStreamPositionsResult{},
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("segments", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			expectedObject := createObject(ctx, t, db, obj, 10)
+			expectedObject := metabasetest.CreateObject(ctx, t, db, obj, 10)
 
 			expectedSegment := metabase.Segment{
 				StreamID: obj.StreamID,
@@ -335,7 +336,7 @@ func TestListStreamPositions(t *testing.T) {
 				EncryptedSize:     1024,
 				PlainSize:         512,
 				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
-				Redundancy:        defaultTestRedundancy,
+				Redundancy:        metabasetest.DefaultRedundancy,
 			}
 
 			expectedRawSegments := make([]metabase.RawSegment, 10)
@@ -355,7 +356,7 @@ func TestListStreamPositions(t *testing.T) {
 				expectedSegment.PlainOffset += int64(expectedSegment.PlainSize)
 			}
 
-			ListStreamPositions{
+			metabasetest.ListStreamPositions{
 				Opts: metabase.ListStreamPositions{
 					StreamID: obj.StreamID,
 					Limit:    10,
@@ -365,7 +366,7 @@ func TestListStreamPositions(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			ListStreamPositions{
+			metabasetest.ListStreamPositions{
 				Opts: metabase.ListStreamPositions{
 					StreamID: obj.StreamID,
 					Limit:    1,
@@ -376,7 +377,7 @@ func TestListStreamPositions(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			ListStreamPositions{
+			metabasetest.ListStreamPositions{
 				Opts: metabase.ListStreamPositions{
 					StreamID: obj.StreamID,
 					Limit:    2,
@@ -390,7 +391,7 @@ func TestListStreamPositions(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			ListStreamPositions{
+			metabasetest.ListStreamPositions{
 				Opts: metabase.ListStreamPositions{
 					StreamID: obj.StreamID,
 					Limit:    2,
@@ -403,7 +404,7 @@ func TestListStreamPositions(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			ListStreamPositions{
+			metabasetest.ListStreamPositions{
 				Opts: metabase.ListStreamPositions{
 					StreamID: obj.StreamID,
 					Limit:    2,
@@ -417,7 +418,7 @@ func TestListStreamPositions(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					metabase.RawObject(expectedObject),
 				},
@@ -426,7 +427,7 @@ func TestListStreamPositions(t *testing.T) {
 		})
 
 		t.Run("unordered parts", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			var testCases = []struct {
 				segments []metabase.SegmentPosition
@@ -460,22 +461,22 @@ func TestListStreamPositions(t *testing.T) {
 				EncryptedSize:     1024,
 				PlainSize:         512,
 				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
-				Redundancy:        defaultTestRedundancy,
+				Redundancy:        metabasetest.DefaultRedundancy,
 			}
 
 			for _, tc := range testCases {
-				obj := randObjectStream()
+				obj := metabasetest.RandObjectStream()
 
-				BeginObjectExactVersion{
+				metabasetest.BeginObjectExactVersion{
 					Opts: metabase.BeginObjectExactVersion{
 						ObjectStream: obj,
-						Encryption:   defaultTestEncryption,
+						Encryption:   metabasetest.DefaultEncryption,
 					},
 					Version: obj.Version,
 				}.Check(ctx, t, db)
 
 				for i, segmentPosition := range tc.segments {
-					BeginSegment{
+					metabasetest.BeginSegment{
 						Opts: metabase.BeginSegment{
 							ObjectStream: obj,
 							Position:     segmentPosition,
@@ -487,7 +488,7 @@ func TestListStreamPositions(t *testing.T) {
 						},
 					}.Check(ctx, t, db)
 
-					CommitSegment{
+					metabasetest.CommitSegment{
 						Opts: metabase.CommitSegment{
 							ObjectStream: obj,
 							Position:     segmentPosition,
@@ -501,12 +502,12 @@ func TestListStreamPositions(t *testing.T) {
 							EncryptedSize: 1024,
 							PlainSize:     512,
 							PlainOffset:   0,
-							Redundancy:    defaultTestRedundancy,
+							Redundancy:    metabasetest.DefaultRedundancy,
 						},
 					}.Check(ctx, t, db)
 				}
 
-				CommitObject{
+				metabasetest.CommitObject{
 					Opts: metabase.CommitObject{
 						ObjectStream: obj,
 					},
@@ -529,7 +530,7 @@ func TestListStreamPositions(t *testing.T) {
 					expectedOffset += int64(expectedSegment.PlainSize)
 				}
 
-				ListStreamPositions{
+				metabasetest.ListStreamPositions{
 					Opts: metabase.ListStreamPositions{
 						StreamID: obj.StreamID,
 						Limit:    0,
@@ -542,7 +543,7 @@ func TestListStreamPositions(t *testing.T) {
 		})
 
 		t.Run("range", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			const segmentCount = 10
 			const segmentSize = 512
@@ -556,15 +557,15 @@ func TestListStreamPositions(t *testing.T) {
 				EncryptedSize:     1024,
 				PlainSize:         segmentSize,
 				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
-				Redundancy:        defaultTestRedundancy,
+				Redundancy:        metabasetest.DefaultRedundancy,
 			}
 
-			obj := randObjectStream()
+			obj := metabasetest.RandObjectStream()
 
-			BeginObjectExactVersion{
+			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
-					Encryption:   defaultTestEncryption,
+					Encryption:   metabasetest.DefaultEncryption,
 				},
 				Version: obj.Version,
 			}.Check(ctx, t, db)
@@ -575,7 +576,7 @@ func TestListStreamPositions(t *testing.T) {
 					Index: uint32(i % 2),
 				}
 
-				BeginSegment{
+				metabasetest.BeginSegment{
 					Opts: metabase.BeginSegment{
 						ObjectStream: obj,
 						Position:     segmentPosition,
@@ -587,7 +588,7 @@ func TestListStreamPositions(t *testing.T) {
 					},
 				}.Check(ctx, t, db)
 
-				CommitSegment{
+				metabasetest.CommitSegment{
 					Opts: metabase.CommitSegment{
 						ObjectStream: obj,
 						Position:     segmentPosition,
@@ -601,12 +602,12 @@ func TestListStreamPositions(t *testing.T) {
 						EncryptedSize: 1024,
 						PlainSize:     segmentSize,
 						PlainOffset:   0,
-						Redundancy:    defaultTestRedundancy,
+						Redundancy:    metabasetest.DefaultRedundancy,
 					},
 				}.Check(ctx, t, db)
 			}
 
-			CommitObject{
+			metabasetest.CommitObject{
 				Opts: metabase.CommitObject{
 					ObjectStream: obj,
 				},
@@ -631,7 +632,7 @@ func TestListStreamPositions(t *testing.T) {
 				expectedOffset += int64(expectedSegment.PlainSize)
 			}
 
-			ListStreamPositions{
+			metabasetest.ListStreamPositions{
 				Opts: metabase.ListStreamPositions{
 					StreamID: obj.StreamID,
 					Range: &metabase.StreamRange{
@@ -669,7 +670,7 @@ func TestListStreamPositions(t *testing.T) {
 				{limit: 2, plainStart: segmentSize, plainLimit: totalSize, results: expectedSegments[1:3], more: true},
 			}
 			for _, test := range tests {
-				ListStreamPositions{
+				metabasetest.ListStreamPositions{
 					Opts: metabase.ListStreamPositions{
 						StreamID: obj.StreamID,
 						Limit:    test.limit,

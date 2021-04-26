@@ -10,75 +10,76 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/metabasetest"
 )
 
 func TestDeleteExpiredObjects(t *testing.T) {
-	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		obj1 := randObjectStream()
-		obj2 := randObjectStream()
-		obj3 := randObjectStream()
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj1 := metabasetest.RandObjectStream()
+		obj2 := metabasetest.RandObjectStream()
+		obj3 := metabasetest.RandObjectStream()
 
 		now := time.Now()
 		pastTime := now.Add(-1 * time.Hour)
 		futureTime := now.Add(1 * time.Hour)
 
 		t.Run("none", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			DeleteExpiredObjects{
+			metabasetest.DeleteExpiredObjects{
 				Opts: metabase.DeleteExpiredObjects{
 					ExpiredBefore: time.Now(),
 				},
 			}.Check(ctx, t, db)
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("partial objects", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			// pending object without expiration time
-			BeginObjectExactVersion{
+			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj1,
-					Encryption:   defaultTestEncryption,
+					Encryption:   metabasetest.DefaultEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
 
 			// pending object with expiration time in the past
-			BeginObjectExactVersion{
+			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj2,
 					ExpiresAt:    &pastTime,
-					Encryption:   defaultTestEncryption,
+					Encryption:   metabasetest.DefaultEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
 
 			// pending object with expiration time in the future
-			BeginObjectExactVersion{
+			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj3,
 					ExpiresAt:    &futureTime,
-					Encryption:   defaultTestEncryption,
+					Encryption:   metabasetest.DefaultEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
 
-			DeleteExpiredObjects{
+			metabasetest.DeleteExpiredObjects{
 				Opts: metabase.DeleteExpiredObjects{
 					ExpiredBefore: time.Now(),
 				},
 			}.Check(ctx, t, db)
 
-			Verify{ // the object with expiration time in the past is gone
+			metabasetest.Verify{ // the object with expiration time in the past is gone
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: obj1,
 						CreatedAt:    now,
 						Status:       metabase.Pending,
 
-						Encryption: defaultTestEncryption,
+						Encryption: metabasetest.DefaultEncryption,
 					},
 					{
 						ObjectStream: obj3,
@@ -86,7 +87,7 @@ func TestDeleteExpiredObjects(t *testing.T) {
 						ExpiresAt:    &futureTime,
 						Status:       metabase.Pending,
 
-						Encryption: defaultTestEncryption,
+						Encryption: metabasetest.DefaultEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -95,34 +96,34 @@ func TestDeleteExpiredObjects(t *testing.T) {
 		t.Run("batch size", func(t *testing.T) {
 			expiresAt := time.Now().Add(-30 * 24 * time.Hour)
 			for i := 0; i < 32; i++ {
-				_ = createExpiredObject(ctx, t, db, randObjectStream(), 3, expiresAt)
+				_ = metabasetest.CreateExpiredObject(ctx, t, db, metabasetest.RandObjectStream(), 3, expiresAt)
 			}
-			DeleteExpiredObjects{
+			metabasetest.DeleteExpiredObjects{
 				Opts: metabase.DeleteExpiredObjects{
 					ExpiredBefore: time.Now().Add(time.Hour),
 					BatchSize:     4,
 				},
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("committed objects", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			object1 := CreateTestObject{}.Run(ctx, t, db, obj1, 1)
-			CreateTestObject{
+			object1 := metabasetest.CreateTestObject{}.Run(ctx, t, db, obj1, 1)
+			metabasetest.CreateTestObject{
 				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
 					ObjectStream: obj2,
 					ExpiresAt:    &pastTime,
-					Encryption:   defaultTestEncryption,
+					Encryption:   metabasetest.DefaultEncryption,
 				},
 			}.Run(ctx, t, db, obj2, 1)
-			object3 := CreateTestObject{
+			object3 := metabasetest.CreateTestObject{
 				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
 					ObjectStream: obj3,
 					ExpiresAt:    &futureTime,
-					Encryption:   defaultTestEncryption,
+					Encryption:   metabasetest.DefaultEncryption,
 				},
 			}.Run(ctx, t, db, obj3, 1)
 
@@ -136,19 +137,19 @@ func TestDeleteExpiredObjects(t *testing.T) {
 				EncryptedSize:     1060,
 				PlainSize:         512,
 				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
-				Redundancy:        defaultTestRedundancy,
+				Redundancy:        metabasetest.DefaultRedundancy,
 			}
 
 			expectedObj3Segment := expectedObj1Segment
 			expectedObj3Segment.StreamID = obj3.StreamID
 
-			DeleteExpiredObjects{
+			metabasetest.DeleteExpiredObjects{
 				Opts: metabase.DeleteExpiredObjects{
 					ExpiredBefore: time.Now(),
 				},
 			}.Check(ctx, t, db)
 
-			Verify{ // the object with expiration time in the past is gone
+			metabasetest.Verify{ // the object with expiration time in the past is gone
 				Objects: []metabase.RawObject{
 					metabase.RawObject(object1),
 					metabase.RawObject(object3),

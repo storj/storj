@@ -11,35 +11,36 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/metabasetest"
 )
 
 func TestCommitObjectWithSegments(t *testing.T) {
-	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		obj := randObjectStream()
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
 
-		for _, test := range invalidObjectStreams(obj) {
+		for _, test := range metabasetest.InvalidObjectStreams(obj) {
 			test := test
 			t.Run(test.Name, func(t *testing.T) {
-				defer DeleteAll{}.Check(ctx, t, db)
-				CommitObjectWithSegments{
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+				metabasetest.CommitObjectWithSegments{
 					Opts: metabase.CommitObjectWithSegments{
 						ObjectStream: test.ObjectStream,
 					},
 					ErrClass: test.ErrClass,
 					ErrText:  test.ErrText,
 				}.Check(ctx, t, db)
-				Verify{}.Check(ctx, t, db)
+				metabasetest.Verify{}.Check(ctx, t, db)
 			})
 		}
 
 		t.Run("invalid order", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			pos00 := metabase.SegmentPosition{Part: 0, Index: 0}
 			pos01 := metabase.SegmentPosition{Part: 0, Index: 1}
 			pos10 := metabase.SegmentPosition{Part: 1, Index: 0}
 
-			CommitObjectWithSegments{
+			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
 					ObjectStream: obj,
 					Segments: []metabase.SegmentPosition{
@@ -51,7 +52,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				ErrText:  "segments not in ascending order, got {0 1} before {0 0}",
 			}.Check(ctx, t, db)
 
-			CommitObjectWithSegments{
+			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
 					ObjectStream: obj,
 					Segments: []metabase.SegmentPosition{
@@ -63,7 +64,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				ErrText:  "segments not in ascending order, got {1 0} before {0 0}",
 			}.Check(ctx, t, db)
 
-			CommitObjectWithSegments{
+			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
 					ObjectStream: obj,
 					Segments: []metabase.SegmentPosition{
@@ -75,13 +76,13 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				ErrText:  "segments not in ascending order, got {0 0} before {0 0}",
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("version without pending", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			CommitObjectWithSegments{
+			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
 					ObjectStream: metabase.ObjectStream{
 						ProjectID:  obj.ProjectID,
@@ -94,13 +95,13 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				ErrClass: &storj.ErrObjectNotFound,
 				ErrText:  "metabase: object with specified version and pending status is missing", // TODO: this error message could be better
 			}.Check(ctx, t, db)
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("version", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			BeginObjectExactVersion{
+			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: metabase.ObjectStream{
 						ProjectID:  obj.ProjectID,
@@ -109,7 +110,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						Version:    5,
 						StreamID:   obj.StreamID,
 					},
-					Encryption: defaultTestEncryption,
+					Encryption: metabasetest.DefaultEncryption,
 				},
 				Version: 5,
 			}.Check(ctx, t, db)
@@ -119,7 +120,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
 
-			CommitObjectWithSegments{
+			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
 					ObjectStream: metabase.ObjectStream{
 						ProjectID:  obj.ProjectID,
@@ -135,7 +136,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			// disallow for double commit
-			CommitObjectWithSegments{
+			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
 					ObjectStream: metabase.ObjectStream{
 						ProjectID:  obj.ProjectID,
@@ -149,7 +150,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				ErrText:  "metabase: object with specified version and pending status is missing", // TODO: this error message could be better
 			}.Check(ctx, t, db)
 
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: metabase.ObjectStream{
@@ -166,26 +167,26 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						EncryptedMetadata:             encryptedMetadata,
 						EncryptedMetadataEncryptedKey: encryptedMetadataKey,
 
-						Encryption: defaultTestEncryption,
+						Encryption: metabasetest.DefaultEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
 		})
 
 		t.Run("segments missing in database", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			BeginObjectExactVersion{
+			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
-					Encryption:   defaultTestEncryption,
+					Encryption:   metabasetest.DefaultEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
 			now := time.Now()
 
 			pos00 := metabase.SegmentPosition{Part: 0, Index: 0}
-			CommitObjectWithSegments{
+			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
 					ObjectStream: obj,
 					Segments: []metabase.SegmentPosition{
@@ -196,26 +197,26 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				ErrText:  "segments and database does not match: {0 0}: segment not committed",
 			}.Check(ctx, t, db)
 
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: obj,
 						CreatedAt:    now,
 						Status:       metabase.Pending,
 
-						Encryption: defaultTestEncryption,
+						Encryption: metabasetest.DefaultEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
 		})
 
 		t.Run("delete segments that are not in proofs", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			BeginObjectExactVersion{
+			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
-					Encryption:   defaultTestEncryption,
+					Encryption:   metabasetest.DefaultEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
@@ -233,7 +234,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			encryptedKey01 := testrand.Bytes(32)
 			encryptedKeyNonce01 := testrand.Bytes(32)
 
-			CommitSegment{
+			metabasetest.CommitSegment{
 				Opts: metabase.CommitSegment{
 					ObjectStream: obj,
 
@@ -247,11 +248,11 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					EncryptedSize: 1024,
 					PlainSize:     512,
 					PlainOffset:   0,
-					Redundancy:    defaultTestRedundancy,
+					Redundancy:    metabasetest.DefaultRedundancy,
 				},
 			}.Check(ctx, t, db)
 
-			CommitSegment{
+			metabasetest.CommitSegment{
 				Opts: metabase.CommitSegment{
 					ObjectStream: obj,
 
@@ -265,11 +266,11 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					EncryptedSize: 1024,
 					PlainSize:     512,
 					PlainOffset:   0,
-					Redundancy:    defaultTestRedundancy,
+					Redundancy:    metabasetest.DefaultRedundancy,
 				},
 			}.Check(ctx, t, db)
 
-			CommitObjectWithSegments{
+			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
 					ObjectStream: obj,
 					Segments: []metabase.SegmentPosition{
@@ -281,7 +282,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: obj,
@@ -293,7 +294,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						TotalEncryptedSize: 1024,
 						FixedSegmentSize:   -1,
 
-						Encryption: defaultTestEncryption,
+						Encryption: metabasetest.DefaultEncryption,
 					},
 				},
 				Segments: []metabase.RawSegment{
@@ -310,7 +311,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						PlainOffset:   0,
 						PlainSize:     512,
 
-						Redundancy: defaultTestRedundancy,
+						Redundancy: metabasetest.DefaultRedundancy,
 
 						Pieces: pieces01,
 					},
@@ -319,12 +320,12 @@ func TestCommitObjectWithSegments(t *testing.T) {
 		})
 
 		t.Run("delete inline segments that are not in proofs", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			BeginObjectExactVersion{
+			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
-					Encryption:   defaultTestEncryption,
+					Encryption:   metabasetest.DefaultEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
@@ -340,7 +341,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			encryptedKey01 := testrand.Bytes(32)
 			encryptedKeyNonce01 := testrand.Bytes(32)
 
-			CommitInlineSegment{
+			metabasetest.CommitInlineSegment{
 				Opts: metabase.CommitInlineSegment{
 					ObjectStream: obj,
 					Position:     pos00,
@@ -355,7 +356,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			CommitInlineSegment{
+			metabasetest.CommitInlineSegment{
 				Opts: metabase.CommitInlineSegment{
 					ObjectStream: obj,
 					Position:     pos01,
@@ -370,7 +371,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			CommitObjectWithSegments{
+			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
 					ObjectStream: obj,
 					Segments: []metabase.SegmentPosition{
@@ -380,7 +381,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				Deleted: nil,
 			}.Check(ctx, t, db)
 
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: obj,
@@ -392,7 +393,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						TotalEncryptedSize: 1024,
 						FixedSegmentSize:   -1,
 
-						Encryption: defaultTestEncryption,
+						Encryption: metabasetest.DefaultEncryption,
 					},
 				},
 				Segments: []metabase.RawSegment{
@@ -415,12 +416,12 @@ func TestCommitObjectWithSegments(t *testing.T) {
 		})
 
 		t.Run("updated plain offset", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			BeginObjectExactVersion{
+			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
-					Encryption:   defaultTestEncryption,
+					Encryption:   metabasetest.DefaultEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
@@ -438,7 +439,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			encryptedKey01 := testrand.Bytes(32)
 			encryptedKeyNonce01 := testrand.Bytes(32)
 
-			CommitSegment{
+			metabasetest.CommitSegment{
 				Opts: metabase.CommitSegment{
 					ObjectStream: obj,
 
@@ -452,11 +453,11 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					EncryptedSize: 1024,
 					PlainSize:     512,
 					PlainOffset:   0,
-					Redundancy:    defaultTestRedundancy,
+					Redundancy:    metabasetest.DefaultRedundancy,
 				},
 			}.Check(ctx, t, db)
 
-			CommitSegment{
+			metabasetest.CommitSegment{
 				Opts: metabase.CommitSegment{
 					ObjectStream: obj,
 
@@ -470,11 +471,11 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					EncryptedSize: 1024,
 					PlainSize:     512,
 					PlainOffset:   0,
-					Redundancy:    defaultTestRedundancy,
+					Redundancy:    metabasetest.DefaultRedundancy,
 				},
 			}.Check(ctx, t, db)
 
-			CommitObjectWithSegments{
+			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
 					ObjectStream: obj,
 					Segments: []metabase.SegmentPosition{
@@ -484,7 +485,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: obj,
@@ -496,7 +497,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						TotalEncryptedSize: 2048,
 						FixedSegmentSize:   512,
 
-						Encryption: defaultTestEncryption,
+						Encryption: metabasetest.DefaultEncryption,
 					},
 				},
 				Segments: []metabase.RawSegment{
@@ -513,7 +514,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						PlainOffset:   0,
 						PlainSize:     512,
 
-						Redundancy: defaultTestRedundancy,
+						Redundancy: metabasetest.DefaultRedundancy,
 
 						Pieces: pieces00,
 					},
@@ -530,7 +531,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						PlainOffset:   512,
 						PlainSize:     512,
 
-						Redundancy: defaultTestRedundancy,
+						Redundancy: metabasetest.DefaultRedundancy,
 
 						Pieces: pieces01,
 					},
@@ -539,12 +540,12 @@ func TestCommitObjectWithSegments(t *testing.T) {
 		})
 
 		t.Run("fixed segment size", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			BeginObjectExactVersion{
+			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
-					Encryption:   defaultTestEncryption,
+					Encryption:   metabasetest.DefaultEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
@@ -562,7 +563,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			encryptedKey10 := testrand.Bytes(32)
 			encryptedKeyNonce10 := testrand.Bytes(32)
 
-			CommitSegment{
+			metabasetest.CommitSegment{
 				Opts: metabase.CommitSegment{
 					ObjectStream: obj,
 
@@ -576,11 +577,11 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					EncryptedSize: 1024,
 					PlainSize:     512,
 					PlainOffset:   0,
-					Redundancy:    defaultTestRedundancy,
+					Redundancy:    metabasetest.DefaultRedundancy,
 				},
 			}.Check(ctx, t, db)
 
-			CommitSegment{
+			metabasetest.CommitSegment{
 				Opts: metabase.CommitSegment{
 					ObjectStream: obj,
 
@@ -594,11 +595,11 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					EncryptedSize: 1024,
 					PlainSize:     512,
 					PlainOffset:   0,
-					Redundancy:    defaultTestRedundancy,
+					Redundancy:    metabasetest.DefaultRedundancy,
 				},
 			}.Check(ctx, t, db)
 
-			CommitObjectWithSegments{
+			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
 					ObjectStream: obj,
 					Segments: []metabase.SegmentPosition{
@@ -608,7 +609,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: obj,
@@ -620,7 +621,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						TotalEncryptedSize: 2048,
 						FixedSegmentSize:   -1,
 
-						Encryption: defaultTestEncryption,
+						Encryption: metabasetest.DefaultEncryption,
 					},
 				},
 				Segments: []metabase.RawSegment{
@@ -637,7 +638,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						PlainOffset:   0,
 						PlainSize:     512,
 
-						Redundancy: defaultTestRedundancy,
+						Redundancy: metabasetest.DefaultRedundancy,
 
 						Pieces: pieces00,
 					},
@@ -654,7 +655,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						PlainOffset:   512,
 						PlainSize:     512,
 
-						Redundancy: defaultTestRedundancy,
+						Redundancy: metabasetest.DefaultRedundancy,
 
 						Pieces: pieces10,
 					},
@@ -663,12 +664,12 @@ func TestCommitObjectWithSegments(t *testing.T) {
 		})
 
 		t.Run("skipped fixed segment size", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			BeginObjectExactVersion{
+			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
-					Encryption:   defaultTestEncryption,
+					Encryption:   metabasetest.DefaultEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
@@ -686,7 +687,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 			encryptedKey02 := testrand.Bytes(32)
 			encryptedKeyNonce02 := testrand.Bytes(32)
 
-			CommitSegment{
+			metabasetest.CommitSegment{
 				Opts: metabase.CommitSegment{
 					ObjectStream: obj,
 
@@ -700,11 +701,11 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					EncryptedSize: 1024,
 					PlainSize:     512,
 					PlainOffset:   0,
-					Redundancy:    defaultTestRedundancy,
+					Redundancy:    metabasetest.DefaultRedundancy,
 				},
 			}.Check(ctx, t, db)
 
-			CommitSegment{
+			metabasetest.CommitSegment{
 				Opts: metabase.CommitSegment{
 					ObjectStream: obj,
 
@@ -718,11 +719,11 @@ func TestCommitObjectWithSegments(t *testing.T) {
 					EncryptedSize: 1024,
 					PlainSize:     512,
 					PlainOffset:   0,
-					Redundancy:    defaultTestRedundancy,
+					Redundancy:    metabasetest.DefaultRedundancy,
 				},
 			}.Check(ctx, t, db)
 
-			CommitObjectWithSegments{
+			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
 					ObjectStream: obj,
 					Segments: []metabase.SegmentPosition{
@@ -732,7 +733,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: obj,
@@ -744,7 +745,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						TotalEncryptedSize: 2048,
 						FixedSegmentSize:   -1,
 
-						Encryption: defaultTestEncryption,
+						Encryption: metabasetest.DefaultEncryption,
 					},
 				},
 				Segments: []metabase.RawSegment{
@@ -761,7 +762,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						PlainOffset:   0,
 						PlainSize:     512,
 
-						Redundancy: defaultTestRedundancy,
+						Redundancy: metabasetest.DefaultRedundancy,
 
 						Pieces: pieces00,
 					},
@@ -778,7 +779,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						PlainOffset:   512,
 						PlainSize:     512,
 
-						Redundancy: defaultTestRedundancy,
+						Redundancy: metabasetest.DefaultRedundancy,
 
 						Pieces: pieces02,
 					},
@@ -787,31 +788,31 @@ func TestCommitObjectWithSegments(t *testing.T) {
 		})
 
 		t.Run("no segments", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			BeginObjectExactVersion{
+			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
-					Encryption:   defaultTestEncryption,
+					Encryption:   metabasetest.DefaultEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
 			now := time.Now()
 
-			CommitObjectWithSegments{
+			metabasetest.CommitObjectWithSegments{
 				Opts: metabase.CommitObjectWithSegments{
 					ObjectStream: obj,
 				},
 			}.Check(ctx, t, db)
 
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: obj,
 						CreatedAt:    now,
 						Status:       metabase.Committed,
 
-						Encryption: defaultTestEncryption,
+						Encryption: metabasetest.DefaultEncryption,
 					},
 				},
 			}.Check(ctx, t, db)

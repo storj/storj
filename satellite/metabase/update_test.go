@@ -15,12 +15,13 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/storj/storage"
 )
 
 func TestUpdateSegmentPieces(t *testing.T) {
-	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		obj := randObjectStream()
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
 
 		now := time.Now()
 
@@ -30,9 +31,9 @@ func TestUpdateSegmentPieces(t *testing.T) {
 		}}
 
 		t.Run("StreamID missing", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			UpdateSegmentPieces{
+			metabasetest.UpdateSegmentPieces{
 				Opts:     metabase.UpdateSegmentPieces{},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "StreamID missing",
@@ -40,9 +41,9 @@ func TestUpdateSegmentPieces(t *testing.T) {
 		})
 
 		t.Run("OldPieces missing", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			UpdateSegmentPieces{
+			metabasetest.UpdateSegmentPieces{
 				Opts: metabase.UpdateSegmentPieces{
 					StreamID: obj.StreamID,
 				},
@@ -52,9 +53,9 @@ func TestUpdateSegmentPieces(t *testing.T) {
 		})
 
 		t.Run("OldPieces: piece number 1 is missing", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			UpdateSegmentPieces{
+			metabasetest.UpdateSegmentPieces{
 				Opts: metabase.UpdateSegmentPieces{
 					StreamID: obj.StreamID,
 					OldPieces: []metabase.Piece{{
@@ -65,13 +66,13 @@ func TestUpdateSegmentPieces(t *testing.T) {
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "OldPieces: piece number 1 is missing storage node id",
 			}.Check(ctx, t, db)
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("OldPieces: duplicated piece number 1", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			UpdateSegmentPieces{
+			metabasetest.UpdateSegmentPieces{
 				Opts: metabase.UpdateSegmentPieces{
 					StreamID: obj.StreamID,
 					OldPieces: []metabase.Piece{
@@ -88,13 +89,13 @@ func TestUpdateSegmentPieces(t *testing.T) {
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "OldPieces: duplicated piece number 1",
 			}.Check(ctx, t, db)
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("OldPieces: pieces should be ordered", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			UpdateSegmentPieces{
+			metabasetest.UpdateSegmentPieces{
 				Opts: metabase.UpdateSegmentPieces{
 					StreamID: obj.StreamID,
 					OldPieces: []metabase.Piece{
@@ -111,13 +112,13 @@ func TestUpdateSegmentPieces(t *testing.T) {
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "OldPieces: pieces should be ordered",
 			}.Check(ctx, t, db)
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("NewRedundancy zero", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			UpdateSegmentPieces{
+			metabasetest.UpdateSegmentPieces{
 				Opts: metabase.UpdateSegmentPieces{
 					StreamID: obj.StreamID,
 					OldPieces: []metabase.Piece{{
@@ -131,16 +132,16 @@ func TestUpdateSegmentPieces(t *testing.T) {
 		})
 
 		t.Run("NewPieces vs NewRedundancy", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			UpdateSegmentPieces{
+			metabasetest.UpdateSegmentPieces{
 				Opts: metabase.UpdateSegmentPieces{
 					StreamID: obj.StreamID,
 					OldPieces: []metabase.Piece{{
 						Number:      1,
 						StorageNode: testrand.NodeID(),
 					}},
-					NewRedundancy: defaultTestRedundancy,
+					NewRedundancy: metabasetest.DefaultRedundancy,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "number of new pieces is less than new redundancy repair shares value",
@@ -148,13 +149,13 @@ func TestUpdateSegmentPieces(t *testing.T) {
 		})
 
 		t.Run("NewPieces: piece number 1 is missing", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			UpdateSegmentPieces{
+			metabasetest.UpdateSegmentPieces{
 				Opts: metabase.UpdateSegmentPieces{
 					StreamID:      obj.StreamID,
 					OldPieces:     validPieces,
-					NewRedundancy: defaultTestRedundancy,
+					NewRedundancy: metabasetest.DefaultRedundancy,
 					NewPieces: []metabase.Piece{{
 						Number:      1,
 						StorageNode: storj.NodeID{},
@@ -163,17 +164,17 @@ func TestUpdateSegmentPieces(t *testing.T) {
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "NewPieces: piece number 1 is missing storage node id",
 			}.Check(ctx, t, db)
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("NewPieces: duplicated piece number 1", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			UpdateSegmentPieces{
+			metabasetest.UpdateSegmentPieces{
 				Opts: metabase.UpdateSegmentPieces{
 					StreamID:      obj.StreamID,
 					OldPieces:     validPieces,
-					NewRedundancy: defaultTestRedundancy,
+					NewRedundancy: metabasetest.DefaultRedundancy,
 					NewPieces: []metabase.Piece{
 						{
 							Number:      1,
@@ -188,17 +189,17 @@ func TestUpdateSegmentPieces(t *testing.T) {
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "NewPieces: duplicated piece number 1",
 			}.Check(ctx, t, db)
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("NewPieces: pieces should be ordered", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			UpdateSegmentPieces{
+			metabasetest.UpdateSegmentPieces{
 				Opts: metabase.UpdateSegmentPieces{
 					StreamID:      obj.StreamID,
 					OldPieces:     validPieces,
-					NewRedundancy: defaultTestRedundancy,
+					NewRedundancy: metabasetest.DefaultRedundancy,
 					NewPieces: []metabase.Piece{
 						{
 							Number:      2,
@@ -213,18 +214,18 @@ func TestUpdateSegmentPieces(t *testing.T) {
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "NewPieces: pieces should be ordered",
 			}.Check(ctx, t, db)
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("segment not found", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			UpdateSegmentPieces{
+			metabasetest.UpdateSegmentPieces{
 				Opts: metabase.UpdateSegmentPieces{
 					StreamID:      obj.StreamID,
 					Position:      metabase.SegmentPosition{Index: 1},
 					OldPieces:     validPieces,
-					NewRedundancy: defaultTestRedundancy,
+					NewRedundancy: metabasetest.DefaultRedundancy,
 					NewPieces:     validPieces,
 				},
 				ErrClass: &metabase.ErrSegmentNotFound,
@@ -233,9 +234,9 @@ func TestUpdateSegmentPieces(t *testing.T) {
 		})
 
 		t.Run("segment pieces column was changed", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			obj := createObject(ctx, t, db, obj, 1)
+			obj := metabasetest.CreateObject(ctx, t, db, obj, 1)
 
 			newRedundancy := storj.RedundancyScheme{
 				RequiredShares: 1,
@@ -244,7 +245,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 				TotalShares:    4,
 			}
 
-			UpdateSegmentPieces{
+			metabasetest.UpdateSegmentPieces{
 				Opts: metabase.UpdateSegmentPieces{
 					StreamID:      obj.StreamID,
 					Position:      metabase.SegmentPosition{Index: 0},
@@ -262,7 +263,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			// verify that original pieces and redundancy did not change
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					metabase.RawObject(obj),
 				},
@@ -278,7 +279,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 						PlainOffset:       0,
 						PlainSize:         512,
 
-						Redundancy: defaultTestRedundancy,
+						Redundancy: metabasetest.DefaultRedundancy,
 						Pieces:     metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
 					},
 				},
@@ -286,9 +287,9 @@ func TestUpdateSegmentPieces(t *testing.T) {
 		})
 
 		t.Run("update pieces", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			object := createObject(ctx, t, db, obj, 1)
+			object := metabasetest.CreateObject(ctx, t, db, obj, 1)
 
 			segment, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 				StreamID: object.StreamID,
@@ -307,19 +308,19 @@ func TestUpdateSegmentPieces(t *testing.T) {
 				},
 			}
 
-			UpdateSegmentPieces{
+			metabasetest.UpdateSegmentPieces{
 				Opts: metabase.UpdateSegmentPieces{
 					StreamID:      obj.StreamID,
 					Position:      metabase.SegmentPosition{Index: 0},
 					OldPieces:     segment.Pieces,
-					NewRedundancy: defaultTestRedundancy,
+					NewRedundancy: metabasetest.DefaultRedundancy,
 					NewPieces:     expectedPieces,
 				},
 			}.Check(ctx, t, db)
 
 			expectedSegment := segment
 			expectedSegment.Pieces = expectedPieces
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: obj,
@@ -331,7 +332,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 						TotalEncryptedSize: 1024,
 						FixedSegmentSize:   512,
 
-						Encryption: defaultTestEncryption,
+						Encryption: metabasetest.DefaultEncryption,
 					},
 				},
 				Segments: []metabase.RawSegment{
@@ -341,9 +342,9 @@ func TestUpdateSegmentPieces(t *testing.T) {
 		})
 
 		t.Run("update pieces and repair at", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			object := createObject(ctx, t, db, obj, 1)
+			object := metabasetest.CreateObject(ctx, t, db, obj, 1)
 
 			segment, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 				StreamID: object.StreamID,
@@ -363,7 +364,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 			}
 
 			repairedAt := now.Add(time.Hour)
-			UpdateSegmentPieces{
+			metabasetest.UpdateSegmentPieces{
 				Opts: metabase.UpdateSegmentPieces{
 					StreamID:      obj.StreamID,
 					Position:      metabase.SegmentPosition{Index: 0},
@@ -406,7 +407,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 			diff = cmp.Diff(expectedSegment, segment, cmpopts.EquateApproxTime(5*time.Second))
 			require.Zero(t, diff)
 
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: obj,
@@ -418,7 +419,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 						TotalEncryptedSize: 1024,
 						FixedSegmentSize:   512,
 
-						Encryption: defaultTestEncryption,
+						Encryption: metabasetest.DefaultEncryption,
 					},
 				},
 				Segments: []metabase.RawSegment{
