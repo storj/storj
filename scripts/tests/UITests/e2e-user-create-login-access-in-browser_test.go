@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 )
-var email= "test@d1cd1ddd2d0.com"
+var email= "test@ds40.com"
 var pass= "123qwe"
 var access_grant_name = "qwerty"
 func Test_e2e_user_create_login_access_in_browser(t *testing.T)  {
@@ -261,8 +261,7 @@ func Test_e2e_user_create_login_access_in_browser(t *testing.T)  {
 	//assert.Equal(t,doneButton.MustText(),"Done")
 	//page.MustElementX("(//*[@class=\"label\"])[2]").MustClick()
 	doneButton.MustClick()
-	time.Sleep(1*time.Second)
-	page.MustElementX("(//*[@class=\"navigation-area__item-container__link__title\"])[3]").MustClick()
+	page.MustWindowMaximize().MustElement("#app > div > div > div.dashboard__wrap__main-area > div.navigation-area.regular-navigation > a:nth-child(4)").MustWaitVisible().MustClick()
 	createdAGInList:= page.MustElement("p.name").MustText()
 	assert.Equal(t,createdAGInList,access_grant_name)
 

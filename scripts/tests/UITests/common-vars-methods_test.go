@@ -67,7 +67,7 @@ func setup_browser() (*rod.Page, *rod.Browser) {
 		Timeout(time.Minute).
 		ControlURL(url).
 		Trace(true).
-		SlowMotion(300 * time.Millisecond).
+		SlowMotion(100 * time.Millisecond).
 		MustConnect()
 
 
