@@ -20,6 +20,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
@@ -767,6 +768,62 @@ func (service *Service) InvoiceApplyCoupons(ctx context.Context, period time.Tim
 	}
 
 	service.log.Info("Number of processed coupons usages.", zap.Int("Coupons Usages", couponsUsages))
+
+	// iterate over all customers and give new coupon to users with expired or exhausted coupons
+	service.log.Info("Populating promotional coupons for users without active coupons...")
+
+	couponValue := service.CouponValue
+	var couponDuration *int
+	if service.CouponDuration != nil {
+		d := int(*service.CouponDuration)
+		couponDuration = &d
+	}
+
+	cusPage, err := service.db.Customers().List(ctx, 0, service.listingLimit, end)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	userIDList := make([]uuid.UUID, service.listingLimit)
+	for _, cus := range cusPage.Customers {
+		if err = ctx.Err(); err != nil {
+			return Error.Wrap(err)
+		}
+
+		userIDList = append(userIDList, cus.UserID)
+	}
+	err = service.db.Coupons().PopulatePromotionalCoupons(ctx, userIDList, couponDuration, couponValue, 0)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	for cusPage.Next {
+		if err = ctx.Err(); err != nil {
+			return Error.Wrap(err)
+		}
+
+		cusPage, err = service.db.Customers().List(ctx, cusPage.NextOffset, service.listingLimit, end)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		userIDList := make([]uuid.UUID, service.listingLimit)
+		for _, cus := range cusPage.Customers {
+			if err = ctx.Err(); err != nil {
+				return Error.Wrap(err)
+			}
+
+			userIDList = append(userIDList, cus.UserID)
+		}
+
+		err = service.db.Coupons().PopulatePromotionalCoupons(ctx, userIDList, couponDuration, couponValue, 0)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+	}
+	service.log.Info("Done populating promotional coupons.")
+
 	return nil
 }
 

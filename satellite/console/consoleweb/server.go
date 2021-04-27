@@ -202,7 +202,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
-	router.HandleFunc("/populate-promotional-coupons", server.populatePromotionalCoupons).Methods(http.MethodPost)
 	router.HandleFunc("/robots.txt", server.seoHandler)
 
 	router.Handle("/api/v0/graphql", server.withAuth(http.HandlerFunc(server.graphqlHandler)))
@@ -527,45 +526,6 @@ func (server *Server) createRegistrationTokenHandler(w http.ResponseWriter, r *h
 	}
 
 	response.Secret = token.Secret.String()
-}
-
-// populatePromotionalCoupons is web app http handler function for populating promotional coupons.
-func (server *Server) populatePromotionalCoupons(w http.ResponseWriter, r *http.Request) {
-	var err error
-	var ctx context.Context
-
-	defer mon.Task()(&ctx)(&err)
-
-	handleError := func(status int, err error) {
-		w.WriteHeader(status)
-		w.Header().Set(contentType, applicationJSON)
-
-		var response struct {
-			Error string `json:"error"`
-		}
-
-		response.Error = err.Error()
-
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			server.log.Error("failed to write json error response", zap.Error(Error.Wrap(err)))
-		}
-	}
-
-	ctx = r.Context()
-
-	equality := subtle.ConstantTimeCompare(
-		[]byte(r.Header.Get("Authorization")),
-		[]byte(server.config.AuthToken),
-	)
-	if equality != 1 {
-		handleError(http.StatusUnauthorized, errs.New("unauthorized"))
-		return
-	}
-
-	if err = server.service.Payments().PopulatePromotionalCoupons(ctx); err != nil {
-		handleError(http.StatusInternalServerError, err)
-		return
-	}
 }
 
 // accountActivationHandler is web app http handler function.

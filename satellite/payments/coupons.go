@@ -68,7 +68,6 @@ type CouponType int
 
 const (
 	// CouponTypePromotional defines that this coupon is a promotional coupon.
-	// Promotional coupon is added only once per account.
 	CouponTypePromotional CouponType = 0
 )
 

@@ -20,7 +20,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"storj.io/common/macaroon"
-	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
@@ -480,17 +479,6 @@ func (paymentService PaymentsService) checkProjectInvoicingStatus(ctx context.Co
 	}
 
 	return paymentService.service.accounts.CheckProjectInvoicingStatus(ctx, projectID)
-}
-
-// PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have
-// a project, payment method and do not have a promotional coupon yet.
-// And updates project limits to selected size.
-// This functionality is deprecated and will be removed.
-func (paymentService PaymentsService) PopulatePromotionalCoupons(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	duration := 2
-	return Error.Wrap(paymentService.service.accounts.Coupons().PopulatePromotionalCoupons(ctx, &duration, 5500, memory.TB))
 }
 
 // AddPromotionalCoupon creates new coupon for specified user.

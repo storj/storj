@@ -301,11 +301,19 @@ func TestService_InvoiceUserWithManyCoupons(t *testing.T) {
 
 		coupons, err = satellite.DB.StripeCoinPayments().Coupons().ListByUserID(ctx, user.ID)
 		require.NoError(t, err)
-		require.Equal(t, len(coupons), len(couponsPage.Usages))
+		// InvoiceApplyCoupons should apply a new promotional coupon after all the other coupons are used up
+		// So we should expect the number of coupon usages to be one less than the total number of coupons.
+		require.Equal(t, len(coupons)-1, len(couponsPage.Usages))
 
+		// We should expect one active coupon (newly added at the end of InvoiceApplyCoupons)
+		// Everything else should be used.
+		activeCount := 0
 		for _, coupon := range coupons {
-			require.Equal(t, payments.CouponUsed, coupon.Status)
+			if coupon.Status == payments.CouponActive {
+				activeCount++
+			}
 		}
+		require.Equal(t, 1, activeCount)
 
 		couponsPage, err = satellite.DB.StripeCoinPayments().Coupons().ListUnapplied(ctx, 0, 40, start)
 		require.NoError(t, err)
@@ -514,8 +522,18 @@ func TestService_CouponStatus(t *testing.T) {
 
 			coupons, err = satellite.DB.StripeCoinPayments().Coupons().ListByUserID(ctx, user.ID)
 			require.NoError(t, err, errTag)
-			require.Len(t, coupons, 1, errTag)
-			assert.Equal(t, tt.expectedStatus, coupons[0].Status, errTag)
+			// If the coupon is expected to be active, there should only be one. Otherwise (if expired or used), InvoiceApplyCoupons should have added a new active coupon.
+			if tt.expectedStatus == payments.CouponActive {
+				require.Len(t, coupons, 1, errTag)
+				assert.Equal(t, tt.expectedStatus, coupons[0].Status, errTag)
+			} else {
+				// One of the coupons must be active - verify that the other one matches the expected status for this test.
+				if coupons[0].Status == payments.CouponActive {
+					assert.Equal(t, tt.expectedStatus, coupons[1].Status, errTag)
+				} else {
+					assert.Equal(t, tt.expectedStatus, coupons[0].Status, errTag)
+				}
+			}
 		}
 	})
 }
