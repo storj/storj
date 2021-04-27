@@ -218,7 +218,7 @@ contact.external-address: ""
 # expired-deletion.enabled: true
 
 # the time between each attempt to go through the db and clean up expired segments
-# expired-deletion.interval: 120h0m0s
+# expired-deletion.interval: 24h0m0s
 
 # how many expired objects to query in a batch
 # expired-deletion.list-limit: 100
