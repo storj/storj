@@ -10,7 +10,12 @@
                 <p class="buckets-view__title-area__button__label">New Bucket</p>
             </div>
         </div>
-        <div class="buckets-view__loader" v-if="isLoading"/>
+        <VLoader
+            width="120px"
+            height="120px"
+            class="buckets-view__loader"
+            v-if="isLoading"
+        />
         <p class="buckets-view__no-buckets" v-if="!(isLoading || bucketsList.length)">No Buckets</p>
         <div class="buckets-view__list" v-if="!isLoading && bucketsList.length">
             <div class="buckets-view__list__sorting-header">
@@ -59,6 +64,7 @@
 import { Bucket } from 'aws-sdk/clients/s3';
 import { Component, Vue } from 'vue-property-decorator';
 
+import VLoader from '@/components/common/VLoader.vue';
 import BucketItem from '@/components/objects/BucketItem.vue';
 import ObjectsPopup from '@/components/objects/ObjectsPopup.vue';
 
@@ -76,6 +82,7 @@ import { Validator } from '@/utils/validation';
         BucketIcon,
         ObjectsPopup,
         BucketItem,
+        VLoader,
     },
 })
 export default class BucketsView extends Vue {
@@ -342,13 +349,6 @@ export default class BucketsView extends Vue {
     private get passphrase(): string {
         return this.$store.state.objectsModule.passphrase;
     }
-
-    /**
-     * Returns access grant from store.
-     */
-    private get accessGrantFromStore(): string {
-        return this.$store.state.objectsModule.accessGrant;
-    }
 }
 </script>
 
@@ -404,12 +404,6 @@ export default class BucketsView extends Vue {
 
         &__loader {
             margin-top: 100px;
-            border: 16px solid #f3f3f3;
-            border-top: 16px solid #3498db;
-            border-radius: 50%;
-            width: 120px;
-            height: 120px;
-            animation: spin 2s linear infinite;
         }
 
         &__no-buckets {
@@ -460,10 +454,5 @@ export default class BucketsView extends Vue {
         pointer-events: none;
         background-color: #dadde5;
         border-color: #dadde5;
-    }
-
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
     }
 </style>

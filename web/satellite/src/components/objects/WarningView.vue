@@ -38,7 +38,6 @@ import VButton from '@/components/common/VButton.vue';
 
 import { RouteConfig } from '@/router';
 
-
 @Component({
     components: {
         VButton,

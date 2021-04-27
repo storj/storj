@@ -3,7 +3,13 @@
 
 <template>
     <div class="project-dropdown">
-        <div class="project-dropdown__wrap">
+        <div class="project-dropdown__loader-container" v-if="isLoading">
+            <VLoader
+                width="30px"
+                height="30px"
+            />
+        </div>
+        <div class="project-dropdown__wrap" v-else>
             <div class="project-dropdown__wrap__choice" @click.prevent.stop="closeDropdown">
                 <div class="project-dropdown__wrap__choice__mark-container">
                     <SelectionIcon
@@ -34,7 +40,9 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
+
+import VLoader from '@/components/common/VLoader.vue';
 
 import SelectionIcon from '@/../static/images/header/selection.svg';
 
@@ -51,9 +59,13 @@ import { LocalData } from '@/utils/localData';
 @Component({
     components: {
         SelectionIcon,
+        VLoader,
     },
 })
 export default class ProjectDropdown extends Vue {
+    @Prop({ default: false })
+    public readonly isLoading: boolean;
+
     private FIRST_PAGE = 1;
 
     /**
@@ -137,6 +149,14 @@ export default class ProjectDropdown extends Vue {
         border-radius: 6px;
         background-color: #fff;
         padding-top: 6px;
+        min-width: 300px;
+
+        &__loader-container {
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
 
         &__wrap {
             overflow-y: scroll;
