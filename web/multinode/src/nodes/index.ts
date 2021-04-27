@@ -2,6 +2,11 @@
 // See LICENSE for copying information.
 
 /**
+ * Divider to convert payout amounts to cents.
+ */
+const PRICE_DIVIDER: number = 10000;
+
+/**
  * Describes node online statuses.
  */
 export enum NodeStatus {
@@ -33,10 +38,15 @@ export class Node {
         if (now.getTime() - this.lastContact.getTime() < this.STATUS_TRESHHOLD_MILISECONDS) {
             this.status = NodeStatus.Online;
         }
+        this.earned = this.convertToCents(this.earned);
     }
 
     public get displayedName(): string {
         return this.name || this.id;
+    }
+
+    private convertToCents(value: number): number {
+        return value / PRICE_DIVIDER;
     }
 }
 

@@ -7,6 +7,7 @@ import { Component } from 'vue-router/types/router';
 import AddFirstNode from '@/app/views/AddFirstNode.vue';
 import Dashboard from '@/app/views/Dashboard.vue';
 import MyNodes from '@/app/views/MyNodes.vue';
+import PayoutsPage from '@/app/views/PayoutsPage.vue';
 import WelcomeScreen from '@/app/views/WelcomeScreen.vue';
 
 /**
@@ -59,11 +60,13 @@ export class Config {
     public static Welcome: Route = new Route('/welcome', 'Welcome', WelcomeScreen);
     public static AddFirstNode: Route = new Route('/add-first-node', 'AddFirstNode', AddFirstNode);
     public static MyNodes: Route = new Route('/my-nodes', 'MyNodes', MyNodes);
+    public static Payouts: Route = new Route('/payouts', 'Payouts', PayoutsPage);
 
     public static mode: RouterMode = 'history';
     public static routes: Route[] = [
         Config.Root.addChildren([
             Config.MyNodes,
+            Config.Payouts,
         ]),
         Config.Welcome,
         Config.AddFirstNode,

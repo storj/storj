@@ -26,7 +26,8 @@ export class PayoutsClient extends APIClient {
      * Thrown if something goes wrong on server side.
      */
     public async summary(satelliteId: string | null, period: string | null): Promise<PayoutsSummary> {
-        const path = `${this.ROOT_PATH}/summary`;
+        const path = `${this.ROOT_PATH}/summary?satelliteId=${satelliteId}&period=${period}`;
+
         const response = await this.http.get(path);
 
         if (!response.ok) {

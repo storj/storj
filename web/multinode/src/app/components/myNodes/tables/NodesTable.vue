@@ -31,7 +31,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import NodeItem from '@/app/components/tables/NodeItem.vue';
+import NodeItem from '@/app/components/myNodes/tables/NodeItem.vue';
 
 import { Node } from '@/nodes';
 

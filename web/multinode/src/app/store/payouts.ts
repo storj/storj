@@ -4,6 +4,7 @@
 import { ActionContext, ActionTree, GetterTree, Module, MutationTree } from 'vuex';
 
 import { RootState } from '@/app/store/index';
+import { monthNames } from '@/app/types/date';
 import { PayoutsSummary } from '@/payouts';
 import { Payouts } from '@/payouts/service';
 
@@ -11,11 +12,12 @@ import { Payouts } from '@/payouts/service';
  * PayoutsState is a representation of payouts module state.
  */
 export class PayoutsState {
-    public summary: PayoutsSummary;
+    public summary: PayoutsSummary = new PayoutsSummary();
+    public selectedPayoutPeriod: string | null = null;
 }
 
 /**
- * NodesModule is a part of a global store that encapsulates all nodes related logic.
+ * PayoutsModule is a part of a global store that encapsulates all payouts related logic.
  */
 export class PayoutsModule implements Module<PayoutsState, RootState> {
     public readonly namespaced: boolean;
@@ -33,12 +35,17 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
         this.state = new PayoutsState();
         this.mutations = {
             populate: this.populate,
+            setPayoutPeriod: this.setPayoutPeriod,
         };
         this.actions = {
-            getSummary: this.getSummary.bind(this),
+            summary: this.summary.bind(this),
+        };
+        this.getters = {
+            periodString: this.periodString,
         };
     }
 
+    // Mutations
     /**
      * populate mutation will set payouts state.
      * @param state - state of the module.
@@ -49,12 +56,37 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
     }
 
     /**
-     * getSummary action loads payouts summary information.
+     * setPayoutPeriod mutation will save selected period to store.
+     * @param state
+     * @param period representation of month and year
+     */
+    public setPayoutPeriod(state: PayoutsState, period: string | null) {
+        state.selectedPayoutPeriod = period;
+    }
+
+    // Actions
+    /**
+     * summary action loads payouts summary information.
      * @param ctx - context of the Vuex action.
      */
-    public async getSummary(ctx: ActionContext<PayoutsState, RootState>): Promise<void> {
+    public async summary(ctx: ActionContext<PayoutsState, RootState>): Promise<void> {
         // @ts-ignore
-        const summary = await this.payouts.summary(ctx.rootState.nodes.selectedSatellite.id, '');
+        const summary = await this.payouts.summary(ctx.rootState.nodes.selectedSatellite.id, ctx.state.selectedPayoutPeriod);
+
         ctx.commit('populate', summary);
+    }
+
+    // Getters
+    /**
+     * periodString is full name month and year representation of selected payout period.
+     */
+    public periodString(state: PayoutsState): string {
+        if (!state.selectedPayoutPeriod) return 'All time';
+
+        const splittedPeriod = state.selectedPayoutPeriod.split('-');
+        const monthIndex = parseInt(splittedPeriod[1]) - 1;
+        const year = splittedPeriod[0];
+
+        return `${monthNames[monthIndex]}, ${year}`;
     }
 }

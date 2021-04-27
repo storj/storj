@@ -1,6 +1,12 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+// TODO: move to config.
+/**
+ * Divider to convert payout amounts to cents.
+ */
+const PRICE_DIVIDER: number = 10000;
+
 /**
  * PayoutsSummary is a representation of summary of payout information for node.
  */
@@ -22,7 +28,20 @@ export class PayoutsSummary {
         public totalHeld: number = 0,
         public totalPaid: number = 0,
         public nodeSummary: NodePayoutsSummary[] = [],
-    ) {}
+    ) {
+        this.totalPaid = this.convertToCents(this.totalPaid);
+        this.totalEarned = this.convertToCents(this.totalEarned);
+        this.totalHeld = this.convertToCents(this.totalHeld);
+
+        this.nodeSummary.forEach((summary: NodePayoutsSummary) => {
+            summary.paid = this.convertToCents(summary.paid);
+            summary.held = this.convertToCents(summary.held);
+        });
+    }
+
+    private convertToCents(value: number): number {
+        return value / PRICE_DIVIDER;
+    }
 }
 
 /**
