@@ -65,6 +65,7 @@ export default class RegisterArea extends Vue {
     private isTermsAcceptedError: boolean = false;
     private isLoading: boolean = false;
     private isProfessional: boolean = false;
+    private haveSalesContact: boolean = false;
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
@@ -328,6 +329,8 @@ export default class RegisterArea extends Vue {
      */
     private async createUser(): Promise<void> {
         this.user.isProfessional = this.isProfessional;
+        this.user.haveSalesContact = this.haveSalesContact;
+
         try {
             this.userId = await this.auth.register(this.user, this.secret);
             LocalData.setUserId(this.userId);

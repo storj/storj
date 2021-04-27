@@ -553,17 +553,19 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		}
 
 		newUser := &User{
-			ID:             userID,
-			Email:          user.Email,
-			FullName:       user.FullName,
-			ShortName:      user.ShortName,
-			PasswordHash:   hash,
-			Status:         Inactive,
-			IsProfessional: user.IsProfessional,
-			Position:       user.Position,
-			CompanyName:    user.CompanyName,
-			EmployeeCount:  user.EmployeeCount,
+			ID:               userID,
+			Email:            user.Email,
+			FullName:         user.FullName,
+			ShortName:        user.ShortName,
+			PasswordHash:     hash,
+			Status:           Inactive,
+			IsProfessional:   user.IsProfessional,
+			Position:         user.Position,
+			CompanyName:      user.CompanyName,
+			EmployeeCount:    user.EmployeeCount,
+			HaveSalesContact: user.HaveSalesContact,
 		}
+
 		if user.PartnerID != "" {
 			newUser.PartnerID, err = uuid.FromString(user.PartnerID)
 			if err != nil {

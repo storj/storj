@@ -78,14 +78,15 @@ const (
 
 // TrackCreateUserFields contains input data for tracking a create user event.
 type TrackCreateUserFields struct {
-	ID            uuid.UUID
-	AnonymousID   string
-	FullName      string
-	Email         string
-	Type          UserType
-	EmployeeCount string
-	CompanyName   string
-	JobTitle      string
+	ID               uuid.UUID
+	AnonymousID      string
+	FullName         string
+	Email            string
+	Type             UserType
+	EmployeeCount    string
+	CompanyName      string
+	JobTitle         string
+	HaveSalesContact bool
 }
 
 func (service *Service) enqueueMessage(message segment.Message) {
@@ -121,6 +122,7 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 		props.Set("company_size", fields.EmployeeCount)
 		props.Set("company_name", fields.CompanyName)
 		props.Set("job_title", fields.JobTitle)
+		props.Set("have_sales_contact", fields.HaveSalesContact)
 	}
 
 	service.enqueueMessage(segment.Track{

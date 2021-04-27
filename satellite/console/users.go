@@ -49,16 +49,17 @@ func (user *UserInfo) IsValid() error {
 
 // CreateUser struct holds info for User creation.
 type CreateUser struct {
-	FullName       string `json:"fullName"`
-	ShortName      string `json:"shortName"`
-	Email          string `json:"email"`
-	PartnerID      string `json:"partnerId"`
-	Password       string `json:"password"`
-	IsProfessional bool   `json:"isProfessional"`
-	Position       string `json:"position"`
-	CompanyName    string `json:"companyName"`
-	WorkingOn      string `json:"workingOn"`
-	EmployeeCount  string `json:"employeeCount"`
+	FullName         string `json:"fullName"`
+	ShortName        string `json:"shortName"`
+	Email            string `json:"email"`
+	PartnerID        string `json:"partnerId"`
+	Password         string `json:"password"`
+	IsProfessional   bool   `json:"isProfessional"`
+	Position         string `json:"position"`
+	CompanyName      string `json:"companyName"`
+	WorkingOn        string `json:"workingOn"`
+	EmployeeCount    string `json:"employeeCount"`
+	HaveSalesContact bool   `json:"haveSalesContact"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.
@@ -117,4 +118,6 @@ type User struct {
 	CompanySize    int    `json:"companySize"`
 	WorkingOn      string `json:"workingOn"`
 	EmployeeCount  string `json:"employeeCount"`
+
+	HaveSalesContact bool `json:"haveSalesContact"`
 }

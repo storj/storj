@@ -137,17 +137,28 @@
                 />
             </div>
             <AddCouponCodeInput v-if="couponCodeUIEnabled" />
-            <div class="register-area__content-area__container__terms-area">
+            <div v-if="isProfessional" class="register-area__content-area__container__checkbox-area">
+                <label class="container">
+                    <input type="checkbox" v-model="haveSalesContact">
+                    <span class="checkmark"></span>
+                </label>
+                <label class="register-area__content-area__container__checkbox-area__msg-box" for="terms">
+                    <p class="register-area__content-area__container__checkbox-area__msg-box__msg">
+                        Please have the Sales Team contact me
+                    </p>
+                </label>
+            </div>
+            <div class="register-area__content-area__container__checkbox-area">
                 <label class="container">
                     <input id="terms" type="checkbox" v-model="isTermsAccepted">
                     <span class="checkmark" :class="{'error': isTermsAcceptedError}"></span>
                 </label>
-                <label class="register-area__content-area__container__terms-area__msg-box" for="terms">
-                    <p class="register-area__content-area__container__terms-area__msg-box__msg">
+                <label class="register-area__content-area__container__checkbox-area__msg-box" for="terms">
+                    <p class="register-area__content-area__container__checkbox-area__msg-box__msg">
                         I agree to the
-                        <a class="register-area__content-area__container__terms-area__msg-box__msg__link" href="https://storj.io/terms-of-service/" target="_blank" rel="noopener">Terms of Service</a>
+                        <a class="register-area__content-area__container__checkbox-area__msg-box__msg__link" href="https://storj.io/terms-of-service/" target="_blank" rel="noopener">Terms of Service</a>
                         and
-                        <a class="register-area__content-area__container__terms-area__msg-box__msg__link" href="https://storj.io/privacy-policy/" target="_blank" rel="noopener">Privacy Policy</a>
+                        <a class="register-area__content-area__container__checkbox-area__msg-box__msg__link" href="https://storj.io/privacy-policy/" target="_blank" rel="noopener">Privacy Policy</a>
                     </p>
                 </label>
             </div>
