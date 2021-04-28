@@ -1413,7 +1413,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
-
+			{
+				DB:          &db.migrationDB,
+				Description: "migrate non-expiring coupons to expire in 2 billing periods",
+				Version:     159,
+				Action: migrate.SQL{
+					`UPDATE coupons SET billing_periods = 2 WHERE billing_periods is NULL;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
