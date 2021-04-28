@@ -246,6 +246,7 @@ func migrateTest(t *testing.T, connStr string) {
 func TestMigrateGeneratedPostgres(t *testing.T) {
 	migrateGeneratedTest(t, pgtest.PickPostgres(t), pgtest.PickPostgres(t))
 }
+
 func TestMigrateGeneratedCockroach(t *testing.T) {
 	migrateGeneratedTest(t, pgtest.PickCockroachAlt(t), pgtest.PickCockroachAlt(t))
 }

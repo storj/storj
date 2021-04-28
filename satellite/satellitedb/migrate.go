@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -1199,7 +1200,8 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Description: "add storagenode_bandwidth_rollups_archives and bucket_bandwidth_rollup_archives",
 				Version:     143,
 				SeparateTx:  true,
-				Action: migrate.SQL{`
+				Action: migrate.SQL{
+					`
                     CREATE TABLE storagenode_bandwidth_rollup_archives (
                         storagenode_id bytea NOT NULL,
                         interval_start timestamp with time zone NOT NULL,
@@ -1345,6 +1347,48 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Action: migrate.SQL{
 					`ALTER TABLE users ADD COLUMN have_sales_contact boolean NOT NULL DEFAULT false;`,
 				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create indexes used in production",
+				Version:     156,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
+					storingClause := func(fields ...string) string {
+						if db.implementation == dbutil.Cockroach {
+							return fmt.Sprintf("STORING (%s)", strings.Join(fields, ", "))
+						}
+
+						return ""
+					}
+					indexes := [3]string{
+						`CREATE INDEX IF NOT EXISTS injuredsegments_num_healthy_pieces_attempted_index
+							ON injuredsegments (segment_health, attempted NULLS FIRST)`,
+						`CREATE INDEX IF NOT EXISTS  nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index
+							ON nodes (type, last_contact_success, free_disk, major, minor, patch, vetted_at)
+							` + storingClause("last_net", "address", "last_ip_port") + `
+							WHERE disqualified IS NULL AND
+							unknown_audit_suspended IS NULL AND
+							exit_initiated_at IS NULL AND
+							release = true AND
+							last_net != ''`,
+						`CREATE INDEX IF NOT EXISTS  nodes_dis_unk_aud_exit_init_rel_type_last_cont_success_stored_index
+							ON nodes (disqualified ASC, unknown_audit_suspended ASC, exit_initiated_at ASC, release ASC, type ASC, last_contact_success DESC)
+							` + storingClause("free_disk", "minor", "major", "patch", "vetted_at", "last_net", "address", "last_ip_port") + `
+							WHERE disqualified IS NULL AND
+							unknown_audit_suspended IS NULL AND
+							exit_initiated_at IS NULL AND
+							release = true`,
+					}
+
+					for _, s := range indexes {
+						_, err := tx.ExecContext(ctx, s)
+						if err != nil {
+							return err
+						}
+					}
+
+					return nil
+				}),
 			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
