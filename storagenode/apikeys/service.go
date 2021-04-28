@@ -15,7 +15,7 @@ import (
 
 var (
 	// ErrService defines secret service error.
-	ErrService = errs.Class("secret service error")
+	ErrService = errs.Class("secret service")
 
 	mon = monkit.Package()
 )

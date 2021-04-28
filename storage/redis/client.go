@@ -21,7 +21,7 @@ import (
 
 var (
 	// Error is a redis error.
-	Error = errs.Class("redis error")
+	Error = errs.Class("redis")
 
 	mon = monkit.Package()
 )

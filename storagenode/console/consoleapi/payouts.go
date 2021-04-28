@@ -16,7 +16,7 @@ import (
 )
 
 // ErrPayoutAPI - console payouts api error type.
-var ErrPayoutAPI = errs.Class("payouts console web error")
+var ErrPayoutAPI = errs.Class("consoleapi payouts")
 
 // Payout is an api controller that exposes all payouts related api.
 type Payout struct {

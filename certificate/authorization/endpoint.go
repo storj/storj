@@ -19,7 +19,7 @@ import (
 )
 
 // ErrEndpoint is the default error class for the authorization endpoint.
-var ErrEndpoint = errs.Class("authorization endpoint error")
+var ErrEndpoint = errs.Class("authorization endpoint")
 
 // Endpoint provides a http endpoint for interacting with an authorization service.
 type Endpoint struct {

@@ -20,8 +20,8 @@ import (
 var (
 	mon = monkit.Package()
 
-	// Error is a pkg/revocation error.
-	Error = errs.Class("revocation error")
+	// Error is a revocation error.
+	Error = errs.Class("revocation")
 )
 
 // DB stores the most recently seen revocation for each nodeID

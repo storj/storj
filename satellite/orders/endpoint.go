@@ -75,7 +75,7 @@ type PendingSerial struct {
 
 var (
 	// Error the default orders errs class.
-	Error = errs.Class("orders error")
+	Error = errs.Class("orders")
 	// ErrUsingSerialNumber error class for serial number.
 	ErrUsingSerialNumber = errs.Class("serial number")
 

@@ -20,7 +20,7 @@ var (
 	mon = monkit.Package()
 
 	// Error is an error class for nodes service error.
-	Error = errs.Class("nodes service error")
+	Error = errs.Class("nodes")
 )
 
 // Service exposes all nodes related logic.

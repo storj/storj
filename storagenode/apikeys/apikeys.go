@@ -13,7 +13,7 @@ import (
 )
 
 // ErrNoAPIKey represents no api key error.
-var ErrNoAPIKey = errs.Class("no api key error")
+var ErrNoAPIKey = errs.Class("no api key")
 
 // DB is interface for working with api keys.
 //

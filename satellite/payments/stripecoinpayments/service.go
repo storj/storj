@@ -29,7 +29,7 @@ import (
 
 var (
 	// Error defines stripecoinpayments service error.
-	Error = errs.Class("stripecoinpayments service error")
+	Error = errs.Class("stripecoinpayments service")
 	// ErrNoCouponUsages indicates that there are no coupon usages.
 	ErrNoCouponUsages = errs.Class("stripecoinpayments no coupon usages")
 

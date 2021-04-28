@@ -18,7 +18,7 @@ import (
 var _ apikeys.DB = (*apiKeysDB)(nil)
 
 // ErrAPIKeysDB represents errors from the api keys database.
-var ErrAPIKeysDB = errs.Class("apikeys db error")
+var ErrAPIKeysDB = errs.Class("apikeysdb")
 
 // APIKeysDBName represents the database name.
 const APIKeysDBName = "secret"

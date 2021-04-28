@@ -43,7 +43,7 @@ type DB interface {
 }
 
 // ErrNoPayStubForPeriod represents errors from the payouts database.
-var ErrNoPayStubForPeriod = errs.Class("no payStub for period error")
+var ErrNoPayStubForPeriod = errs.Class("no payStub for period")
 
 // PayStub is node payouts data for satellite by specific period.
 type PayStub struct {

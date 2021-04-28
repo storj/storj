@@ -16,7 +16,7 @@ import (
 )
 
 // MembersDBError indicates about internal MembersDB error.
-var MembersDBError = errs.Class("MembersDB error")
+var MembersDBError = errs.Class("MembersDB")
 
 // ensures that members implements console.Members.
 var _ console.Members = (*members)(nil)

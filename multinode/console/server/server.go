@@ -22,7 +22,7 @@ import (
 
 var (
 	// Error is an error class for internal Multinode Dashboard http server error.
-	Error = errs.Class("multinode console server error")
+	Error = errs.Class("multinode console server")
 )
 
 // Config contains configuration for Multinode Dashboard http server.

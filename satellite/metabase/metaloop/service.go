@@ -23,7 +23,7 @@ var (
 	mon = monkit.Package()
 
 	// Error is a standard error class for this component.
-	Error = errs.Class("metainfo loop error")
+	Error = errs.Class("metainfo loop")
 	// ErrClosed is a loop closed error.
 	ErrClosed = Error.New("loop closed")
 )

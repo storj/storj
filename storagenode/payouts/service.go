@@ -25,7 +25,7 @@ import (
 
 var (
 	// ErrPayoutService defines payout service error.
-	ErrPayoutService = errs.Class("payouts service error")
+	ErrPayoutService = errs.Class("payouts service")
 
 	// ErrBadPeriod defines that period has wrong format.
 	ErrBadPeriod = errs.Class("wrong period format")

@@ -16,7 +16,7 @@ import (
 )
 
 // Error is the default audit errs class.
-var Error = errs.Class("audit error")
+var Error = errs.Class("audit")
 
 // Config contains configurable values for audit chore and workers.
 type Config struct {

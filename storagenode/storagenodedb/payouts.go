@@ -18,7 +18,7 @@ import (
 var _ payouts.DB = (*payoutDB)(nil)
 
 // ErrPayout represents errors from the payouts database.
-var ErrPayout = errs.Class("payouts error")
+var ErrPayout = errs.Class("payouts")
 
 // HeldAmountDBName represents the database name.
 const HeldAmountDBName = "heldamount"

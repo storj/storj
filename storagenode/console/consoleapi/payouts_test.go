@@ -294,7 +294,7 @@ func TestHeldAmountApi(t *testing.T) {
 				body5, err := ioutil.ReadAll(res5.Body)
 				require.NoError(t, err)
 
-				require.Equal(t, "{\"error\":\"payouts console web error: wrong period format: period has wrong format\"}\n", string(body5))
+				require.Equal(t, "{\"error\":\"consoleapi payouts: wrong period format: period has wrong format\"}\n", string(body5))
 			})
 
 			t.Run("test AllPayStubsPeriod", func(t *testing.T) {
@@ -350,7 +350,7 @@ func TestHeldAmountApi(t *testing.T) {
 				body5, err := ioutil.ReadAll(res5.Body)
 				require.NoError(t, err)
 
-				require.Equal(t, "{\"error\":\"payouts console web error: wrong period format: period has wrong format\"}\n", string(body5))
+				require.Equal(t, "{\"error\":\"consoleapi payouts: wrong period format: period has wrong format\"}\n", string(body5))
 			})
 
 			t.Run("test HeldbackHistory", func(t *testing.T) {

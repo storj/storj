@@ -27,7 +27,7 @@ var (
 	ErrInvalidArgument = errs.Class("invalid argument")
 	// ErrSystemOrNetError is returned when the used storage backend returns an
 	// internal system or network error.
-	ErrSystemOrNetError = errs.Class("backend system error")
+	ErrSystemOrNetError = errs.Class("accounting backend")
 	// ErrKeyNotFound is returned when the key is not found in the cache.
 	ErrKeyNotFound = errs.Class("key not found")
 	// ErrUnexpectedValue is returned when an unexpected value according the

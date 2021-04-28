@@ -14,7 +14,7 @@ import (
 )
 
 // ErrVersion defines version service error.
-var ErrVersion = errs.Class("version service error")
+var ErrVersion = errs.Class("version service")
 
 // VersionService updates conversion rates in a loop.
 //

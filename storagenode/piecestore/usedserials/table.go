@@ -19,7 +19,7 @@ import (
 
 var (
 	// ErrSerials defines the usedserials store error class.
-	ErrSerials = errs.Class("used serials store error")
+	ErrSerials = errs.Class("usedserials")
 	// ErrSerialAlreadyExists defines an error class for duplicate usedserials.
 	ErrSerialAlreadyExists = errs.Class("used serial already exists in store")
 

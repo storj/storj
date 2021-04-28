@@ -17,7 +17,7 @@ import (
 )
 
 // Error is error class API errors.
-var Error = errs.Class("coinpayments client error")
+var Error = errs.Class("coinpayments client")
 
 // ErrMissingPublicKey is returned when Coinpayments client is missing public key.
 var ErrMissingPublicKey = errs.Class("missing public key")

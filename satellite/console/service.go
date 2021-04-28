@@ -59,19 +59,19 @@ const (
 
 var (
 	// Error describes internal console error.
-	Error = errs.Class("service error")
+	Error = errs.Class("console service")
 
 	// ErrNoMembership is error type of not belonging to a specific project.
-	ErrNoMembership = errs.Class("no membership error")
+	ErrNoMembership = errs.Class("no membership")
 
 	// ErrTokenExpiration is error type of token reached expiration time.
-	ErrTokenExpiration = errs.Class("token expiration error")
+	ErrTokenExpiration = errs.Class("token expiration")
 
 	// ErrProjLimit is error type of project limit.
-	ErrProjLimit = errs.Class("project limit error")
+	ErrProjLimit = errs.Class("project limit")
 
 	// ErrUsage is error type of project usage.
-	ErrUsage = errs.Class("project usage error")
+	ErrUsage = errs.Class("project usage")
 
 	// ErrEmailUsed is error type that occurs on repeating auth attempts with email.
 	ErrEmailUsed = errs.Class("email used")

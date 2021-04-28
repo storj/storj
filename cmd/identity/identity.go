@@ -16,7 +16,7 @@ import (
 
 var (
 	// ErrSetup is used when an error occurs while setting up.
-	ErrSetup = errs.Class("setup error")
+	ErrSetup = errs.Class("setup")
 
 	idCmd = &cobra.Command{
 		Use:         "id",

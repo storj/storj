@@ -24,7 +24,7 @@ import (
 
 var (
 	// ErrAuthAPI - console auth api error type.
-	ErrAuthAPI = errs.Class("console auth api error")
+	ErrAuthAPI = errs.Class("consoleapi auth")
 
 	// errNotImplemented is the error value used by handlers of this package to
 	// response with status Not Implemented.

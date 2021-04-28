@@ -15,7 +15,7 @@ import (
 
 var (
 	// ContainError is the containment errs class.
-	ContainError = errs.Class("containment error")
+	ContainError = errs.Class("containment")
 
 	// ErrContainedNotFound is the errs class for when a pending audit isn't found.
 	ErrContainedNotFound = errs.Class("pending audit not found")
