@@ -15,7 +15,6 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/private/debug"
-	"storj.io/storj/multinode/console"
 	"storj.io/storj/multinode/console/server"
 	"storj.io/storj/multinode/nodes"
 	"storj.io/storj/multinode/payouts"
@@ -32,13 +31,11 @@ var (
 type DB interface {
 	// Nodes returns nodes database.
 	Nodes() nodes.DB
-	// Members returns members database.
-	Members() console.Members
 
+	// MigrateToLatest initializes the database.
+	MigrateToLatest(ctx context.Context) error
 	// Close closes the database.
 	Close() error
-	// CreateSchema creates schema.
-	CreateSchema(ctx context.Context) error
 }
 
 // Config is all the configuration parameters for a Multinode Dashboard.
