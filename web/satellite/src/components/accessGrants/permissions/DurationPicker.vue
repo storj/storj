@@ -64,7 +64,7 @@ export default class DurationPicker extends Vue {
      * Holds on "forever" choice click logic.
      */
     public onForeverClick(): void {
-        const permission = new DurationPermission(new Date(), new Date('2200-01-01'));
+        const permission = new DurationPermission(null, null);
 
         this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, permission);
         this.$emit('setLabel', 'Forever');

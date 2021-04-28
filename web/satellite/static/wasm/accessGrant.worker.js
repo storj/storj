@@ -50,8 +50,9 @@ self.onmessage = function (event) {
             permission.AllowUpload = isUpload;
             permission.AllowDelete = isDelete;
             permission.AllowList = isList;
-            permission.NotBefore = notBefore;
-            permission.NotAfter = notAfter;
+
+            if (notBefore) permission.NotBefore = notBefore;
+            if (notAfter) permission.NotAfter = notAfter;
 
             if (data.type === "SetPermission") {
                 const buckets = data.buckets;

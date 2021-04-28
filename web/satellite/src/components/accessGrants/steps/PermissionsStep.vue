@@ -78,6 +78,7 @@ import BackIcon from '@/../static/images/accessGrants/back.svg';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { DurationPermission } from '@/types/accessGrants';
 
 @Component({
     components: {
@@ -144,18 +145,6 @@ export default class PermissionsStep extends Vue {
      */
     public setWorker(): void {
         this.worker = this.$store.state.accessGrantsModule.accessGrantsWebWorker;
-        this.worker.onmessage = (event: MessageEvent) => {
-            const data = event.data;
-            if (data.error) {
-                this.$notify.error(data.error);
-
-                return;
-            }
-
-            this.restrictedKey = data.value;
-
-            this.$notify.success('Permissions were set successfully');
-        };
         this.worker.onerror = (error: ErrorEvent) => {
             this.$notify.error(error.message);
         };
@@ -164,107 +153,93 @@ export default class PermissionsStep extends Vue {
     /**
      * Holds on continue in CLI button click logic.
      */
-    public onContinueInCLIClick(): void {
+    public async onContinueInCLIClick(): Promise<void> {
         if (this.isLoading || !this.isAccessGrantsWebWorkerReady) return;
 
         this.isLoading = true;
 
-        this.worker.postMessage({
-            'type': 'SetPermission',
-            'isDownload': this.isDownload,
-            'isUpload': this.isUpload,
-            'isList': this.isList,
-            'isDelete': this.isDelete,
-            'buckets': this.selectedBucketNames,
-            'apiKey': this.key,
-            'notBefore': this.notBeforePermission,
-            'notAfter': this.notAfterPermission,
-        });
-
-        // Give time for web worker to return value.
-        setTimeout(() => {
-            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
+        try {
+            await this.setPermissions();
+        } catch (error) {
+            await this.$notify.error(error.message);
             this.isLoading = false;
 
-            if (this.isOnboardingTour) {
-                this.$router.push({
-                    name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantCLI)).name,
-                    params: {
-                        key: this.key,
-                        restrictedKey: this.restrictedKey,
-                    },
-                });
+            return;
+        }
 
-                return;
-            }
+        this.isLoading = false;
 
-            this.$router.push({
-                name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CLIStep)).name,
+        if (this.isOnboardingTour) {
+            await this.$router.push({
+                name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantCLI)).name,
                 params: {
                     key: this.key,
                     restrictedKey: this.restrictedKey,
                 },
             });
-        }, 1000);
+
+            return;
+        }
+
+        await this.$router.push({
+            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CLIStep)).name,
+            params: {
+                key: this.key,
+                restrictedKey: this.restrictedKey,
+            },
+        });
     }
 
     /**
      * Holds on continue in browser button click logic.
      */
-    public onContinueInBrowserClick(): void {
+    public async onContinueInBrowserClick(): Promise<void> {
         if (this.isLoading || !this.isAccessGrantsWebWorkerReady) return;
 
         this.isLoading = true;
 
-        this.worker.postMessage({
-            'type': 'SetPermission',
-            'isDownload': this.isDownload,
-            'isUpload': this.isUpload,
-            'isList': this.isList,
-            'isDelete': this.isDelete,
-            'buckets': this.selectedBucketNames,
-            'apiKey': this.key,
-            'notBefore': this.notBeforePermission,
-            'notAfter': this.notAfterPermission,
-        });
-
-        // Give time for web worker to return value.
-        setTimeout(() => {
-            this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
+        try {
+            await this.setPermissions();
+        } catch (error) {
+            await this.$notify.error(error.message);
             this.isLoading = false;
 
-            if (this.isOnboardingTour) {
-                this.$router.push({
-                    name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantPassphrase)).name,
-                    params: {
-                        key: this.key,
-                        restrictedKey: this.restrictedKey,
-                    },
-                });
+            return;
+        }
 
-                return;
-            }
+        this.isLoading = false;
 
-            if (this.accessGrantsAmount > 1) {
-                this.$router.push({
-                    name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.EnterPassphraseStep)).name,
-                    params: {
-                        key: this.key,
-                        restrictedKey: this.restrictedKey,
-                    },
-                });
-
-                return;
-            }
-
-            this.$router.push({
-                name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CreatePassphraseStep)).name,
+        if (this.isOnboardingTour) {
+            await this.$router.push({
+                name: RouteConfig.OnboardingTour.with(RouteConfig.AccessGrant.with(RouteConfig.AccessGrantPassphrase)).name,
                 params: {
                     key: this.key,
                     restrictedKey: this.restrictedKey,
                 },
             });
-        }, 1000);
+
+            return;
+        }
+
+        if (this.accessGrantsAmount > 1) {
+            await this.$router.push({
+                name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.EnterPassphraseStep)).name,
+                params: {
+                    key: this.key,
+                    restrictedKey: this.restrictedKey,
+                },
+            });
+
+            return;
+        }
+
+        await this.$router.push({
+            name: RouteConfig.AccessGrants.with(RouteConfig.CreateAccessGrant.with(RouteConfig.CreatePassphraseStep)).name,
+            params: {
+                key: this.key,
+                restrictedKey: this.restrictedKey,
+            },
+        });
     }
 
     /**
@@ -289,6 +264,37 @@ export default class PermissionsStep extends Vue {
     }
 
     /**
+     * Sets chosen permissions for API Key.
+     */
+    private async setPermissions(): Promise<void> {
+        let permissionsMsg = {
+            'type': 'SetPermission',
+            'buckets': this.selectedBucketNames,
+            'apiKey': this.key,
+            'isDownload': this.isDownload,
+            'isUpload': this.isUpload,
+            'isList': this.isList,
+            'isDelete': this.isDelete,
+        };
+
+        if (this.notBeforePermission) permissionsMsg = Object.assign(permissionsMsg, {'notBefore': this.notBeforePermission.toISOString()});
+        if (this.notAfterPermission) permissionsMsg = Object.assign(permissionsMsg, {'notAfter': this.notAfterPermission.toISOString()});
+
+        await this.worker.postMessage(permissionsMsg);
+
+        const keyEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
+        if (keyEvent.data.error) {
+            throw new Error(keyEvent.data.error);
+        }
+
+        this.restrictedKey = keyEvent.data.value;
+        await this.$notify.success('Permissions were set successfully');
+
+        await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR_SELECTION);
+        await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.SET_DURATION_PERMISSION, new DurationPermission());
+    }
+
+    /**
      * Returns amount of access grants from store.
      */
     private get accessGrantsAmount(): number {
@@ -296,17 +302,17 @@ export default class PermissionsStep extends Vue {
     }
 
     /**
-     * Returns not before date permission from store as ISO string.
+     * Returns not before date permission from store.
      */
-    private get notBeforePermission(): string {
-        return this.$store.state.accessGrantsModule.permissionNotBefore.toISOString();
+    private get notBeforePermission(): Date | null {
+        return this.$store.state.accessGrantsModule.permissionNotBefore;
     }
 
     /**
-     * Returns not after date permission from store as ISO string.
+     * Returns not after date permission from store.
      */
-    private get notAfterPermission(): string {
-        return this.$store.state.accessGrantsModule.permissionNotAfter.toISOString();
+    private get notAfterPermission(): Date | null {
+        return this.$store.state.accessGrantsModule.permissionNotAfter;
     }
 }
 </script>
