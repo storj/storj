@@ -145,7 +145,7 @@ export default class OverviewStep extends Vue {
         await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'GatewayMT');
 
         try {
-            await this.createUntitledProject();
+            await this.createFirstProject();
 
             this.isLoading = false;
 
@@ -168,7 +168,7 @@ export default class OverviewStep extends Vue {
         await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'CLI');
 
         try {
-            await this.createUntitledProject();
+            await this.createFirstProject();
 
             this.isLoading = false;
 
@@ -190,7 +190,7 @@ export default class OverviewStep extends Vue {
         await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'Continue in Browser');
 
         try {
-            await this.createUntitledProject();
+            await this.createFirstProject();
 
             this.isLoading = false;
 
@@ -211,7 +211,7 @@ export default class OverviewStep extends Vue {
         this.isLoading = true;
 
         try {
-            await this.createUntitledProject();
+            await this.createFirstProject();
 
             this.isLoading = false;
 
@@ -225,9 +225,9 @@ export default class OverviewStep extends Vue {
     /**
      * Creates untitled project in a background.
      */
-    private async createUntitledProject(): Promise<void> {
+    private async createFirstProject(): Promise<void> {
         const FIRST_PAGE = 1;
-        const UNTITLED_PROJECT_NAME = 'Untitled Project';
+        const UNTITLED_PROJECT_NAME = 'My First Project';
         const UNTITLED_PROJECT_DESCRIPTION = '___';
         const project = new ProjectFields(
             UNTITLED_PROJECT_NAME,
