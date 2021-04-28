@@ -340,6 +340,9 @@ func TestReverifyOffline(t *testing.T) {
 		require.Len(t, report.Offlines, 1)
 		require.Equal(t, report.Offlines[0], pieces[0].StorageNode)
 
+		_, err = audits.Reporter.RecordAudits(ctx, report)
+		require.NoError(t, err)
+
 		// make sure that pending audit is not removed
 		containment := satellite.DB.Containment()
 		_, err = containment.Get(ctx, pending.NodeID)
@@ -437,6 +440,9 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		require.Len(t, report.Offlines, 1)
 		require.Equal(t, report.Offlines[0], pending.NodeID)
 
+		_, err = audits.Reporter.RecordAudits(ctx, report)
+		require.NoError(t, err)
+
 		// make sure that pending audit is not removed
 		containment := satellite.DB.Containment()
 		_, err = containment.Get(ctx, pending.NodeID)
@@ -529,6 +535,9 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		assert.Empty(t, report.Fails)
 		assert.Empty(t, report.Successes)
 		assert.Empty(t, report.PendingAudits)
+
+		_, err = audits.Reporter.RecordAudits(ctx, report)
+		require.NoError(t, err)
 
 		// expect that the node was removed from containment since the segment it was contained for has been deleted
 		_, err = containment.Get(ctx, nodeID)
@@ -626,6 +635,9 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		assert.Empty(t, report.Successes)
 		assert.Empty(t, report.PendingAudits)
 
+		_, err = audits.Reporter.RecordAudits(ctx, report)
+		require.NoError(t, err)
+
 		// expect that the node was removed from containment since the segment it was contained for has been changed
 		_, err = containment.Get(ctx, nodeID)
 		require.True(t, audit.ErrContainedNotFound.Has(err))
@@ -713,6 +725,9 @@ func TestReverifyReplacedSegment(t *testing.T) {
 		assert.Empty(t, report.Fails)
 		assert.Empty(t, report.Successes)
 		assert.Empty(t, report.PendingAudits)
+
+		_, err = audits.Reporter.RecordAudits(ctx, report)
+		require.NoError(t, err)
 
 		// expect that the node was removed from containment since the segment it was contained for has been changed
 		_, err = containment.Get(ctx, nodeID)
@@ -877,6 +892,9 @@ func TestReverifyExpired1(t *testing.T) {
 		report, err := audits.Verifier.Reverify(ctx, queueSegment)
 		require.NoError(t, err)
 
+		_, err = audits.Reporter.RecordAudits(ctx, report)
+		require.NoError(t, err)
+
 		assert.Len(t, report.Successes, 0)
 		assert.Len(t, report.Fails, 0)
 		assert.Len(t, report.Offlines, 0)
@@ -998,6 +1016,9 @@ func TestReverifyExpired2(t *testing.T) {
 		require.Len(t, report.PendingAudits, 0)
 		require.Len(t, report.Fails, 0)
 
+		_, err = audits.Reporter.RecordAudits(ctx, report)
+		require.NoError(t, err)
+
 		// Reverify should remove the node from containment mode
 		_, err = containment.Get(ctx, pending.NodeID)
 		require.True(t, audit.ErrContainedNotFound.Has(err))
@@ -1091,6 +1112,9 @@ func TestReverifySlowDownload(t *testing.T) {
 		require.Len(t, report.PendingAudits, 1)
 		require.Len(t, report.Unknown, 0)
 		require.Equal(t, report.PendingAudits[0].NodeID, slowNode)
+
+		_, err = audits.Reporter.RecordAudits(ctx, report)
+		require.NoError(t, err)
 
 		_, err = containment.Get(ctx, slowNode)
 		require.NoError(t, err)
