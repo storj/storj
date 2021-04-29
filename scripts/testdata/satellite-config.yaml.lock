@@ -539,7 +539,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # payments.node-repair-bandwidth-price: 1000
 
 # price user should pay for each object stored in network per month
-# payments.object-price: "0.0000022"
+# payments.object-price: "0"
 
 # proportion of users which require a balance to create projects [0-1]
 # payments.paywall-proportion: 0
