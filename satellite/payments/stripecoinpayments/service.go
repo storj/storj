@@ -414,7 +414,8 @@ func (service *Service) GetRate(ctx context.Context, curr1, curr2 coinpayments.C
 }
 
 // PrepareInvoiceProjectRecords iterates through all projects and creates invoice records if
-// none exists.
+// none exists. Before creating invoice records, it ensures that all eligible users have a
+// free tier coupon.
 func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -426,6 +427,12 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 
 	if end.After(now) {
 		return Error.New("allowed for past periods only")
+	}
+
+	// just in case there are users who do not have active coupons, apply free tier coupons for current billing period
+	err = service.addFreeTierCoupons(ctx, end)
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
 	var numberOfCustomers, numberOfRecords, numberOfCouponsUsages int
@@ -769,7 +776,17 @@ func (service *Service) InvoiceApplyCoupons(ctx context.Context, period time.Tim
 
 	service.log.Info("Number of processed coupons usages.", zap.Int("Coupons Usages", couponsUsages))
 
-	// iterate over all customers and give new coupon to users with expired or exhausted coupons
+	// now that coupons for this billing period are applied, add coupons, where applicable, for next billing period
+	err = service.addFreeTierCoupons(ctx, end)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// addFreeTierCoupons iterates over all customers and gives a new coupon to users with expired or used coupons.
+func (service *Service) addFreeTierCoupons(ctx context.Context, end time.Time) error {
 	service.log.Info("Populating promotional coupons for users without active coupons...")
 
 	couponValue := service.CouponValue
