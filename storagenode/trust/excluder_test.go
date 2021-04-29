@@ -25,6 +25,8 @@ func TestNewExcluderFailure(t *testing.T) {
 			errs: []string{
 				`exclusion: node URL error: parse ://: missing protocol scheme`,
 				`exclusion: node URL error: parse "://": missing protocol scheme`,
+				`exclusion: node URL: parse ://: missing protocol scheme`,
+				`exclusion: node URL: parse "://": missing protocol scheme`,
 			},
 		},
 		{
