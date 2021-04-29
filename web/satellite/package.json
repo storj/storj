@@ -7,6 +7,7 @@
     "lint": "vue-cli-service lint && stylelint '**/*.{vue,scss}' --fix",
     "test": "vue-cli-service test:unit",
     "build": "vue-cli-service build",
+    "wasm": "chmod +x ./scripts/build-wasm.sh && ./scripts/build-wasm.sh",
     "dev": "vue-cli-service build --mode development"
   },
   "dependencies": {
