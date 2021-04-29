@@ -42,7 +42,7 @@ const authKey key = 0
 const requestKey key = 1
 
 // ErrUnauthorized is error class for authorization related errors.
-var ErrUnauthorized = errs.Class("unauthorized error")
+var ErrUnauthorized = errs.Class("unauthorized")
 
 // Authorization contains auth info of authorized User.
 type Authorization struct {

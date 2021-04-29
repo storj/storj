@@ -15,7 +15,7 @@ import (
 var (
 	mon = monkit.Package()
 	// Error represents an overlay error.
-	Error = errs.Class("overlay error")
+	Error = errs.Class("overlay")
 )
 
 // Config is a configuration for overlay service.

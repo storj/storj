@@ -28,7 +28,7 @@ import (
 
 // Error is a standard error class for this package.
 var (
-	Error = errs.Class("checker error")
+	Error = errs.Class("repair checker")
 	mon   = monkit.Package()
 )
 

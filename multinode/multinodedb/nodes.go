@@ -16,7 +16,7 @@ import (
 )
 
 // ErrNodesDB indicates about internal NodesDB error.
-var ErrNodesDB = errs.Class("NodesDB error")
+var ErrNodesDB = errs.Class("NodesDB")
 
 // ensures that nodesdb implements console.Nodes.
 var _ nodes.DB = (*nodesdb)(nil)

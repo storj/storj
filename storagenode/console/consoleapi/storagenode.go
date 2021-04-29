@@ -16,8 +16,8 @@ import (
 	"storj.io/storj/storagenode/console"
 )
 
-// ErrStorageNodeAPI - console storageNode api error type.
-var ErrStorageNodeAPI = errs.Class("storageNode console web error")
+// ErrStorageNodeAPI - console storagenode api error type.
+var ErrStorageNodeAPI = errs.Class("consoleapi storagenode")
 
 // StorageNode is an api controller that exposes all dashboard related api.
 type StorageNode struct {

@@ -20,7 +20,7 @@ var _ notifications.DB = (*notificationDB)(nil)
 const NotificationsDBName = "notifications"
 
 // ErrNotificationsDB represents errors from the notifications database.
-var ErrNotificationsDB = errs.Class("notificationsDB error")
+var ErrNotificationsDB = errs.Class("notificationsdb")
 
 // notificationDB is an implementation of notifications.Notifications.
 //

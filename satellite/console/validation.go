@@ -12,7 +12,7 @@ const (
 )
 
 // ErrValidation validation related error class.
-var ErrValidation = errs.Class("validation error")
+var ErrValidation = errs.Class("validation")
 
 // validationError is slice of ErrValidation class errors.
 type validationErrors []error

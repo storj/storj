@@ -17,7 +17,7 @@ var DefaultWalletFeaturesValidation = WalletFeaturesValidation{
 }
 
 // WalletFeatureValidationError wallet feature validation errors class.
-var WalletFeatureValidationError = errs.Class("wallet feature validation error")
+var WalletFeatureValidationError = errs.Class("wallet feature validation")
 
 // WalletFeaturesValidation contains config for wallet feature validation.
 type WalletFeaturesValidation struct {

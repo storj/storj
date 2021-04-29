@@ -38,7 +38,7 @@ type Part struct {
 }
 
 // Error is the default message errs class.
-var Error = errs.Class("Email message error")
+var Error = errs.Class("Email message")
 
 // Bytes builds message and returns result as bytes.
 func (msg *Message) Bytes() (data []byte, err error) {

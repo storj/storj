@@ -26,7 +26,7 @@ var (
 	// Error is the default error class for contact package.
 	Error = errs.Class("contact")
 
-	errPingSatellite = errs.Class("ping satellite error")
+	errPingSatellite = errs.Class("ping satellite")
 )
 
 const initialBackOff = time.Second

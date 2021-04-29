@@ -18,7 +18,7 @@ import (
 )
 
 // ErrPieceInfo represents errors from the piece info database.
-var ErrPieceInfo = errs.Class("v0pieceinfodb error")
+var ErrPieceInfo = errs.Class("v0pieceinfodb")
 
 // PieceInfoDBName represents the database name.
 const PieceInfoDBName = "pieceinfo"

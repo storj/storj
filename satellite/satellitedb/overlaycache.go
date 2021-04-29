@@ -1743,7 +1743,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 
 var (
 	// ErrVetting is the error class for the following test methods.
-	ErrVetting = errs.Class("vetting error")
+	ErrVetting = errs.Class("vetting")
 )
 
 // TestVetNode directly sets a node's vetted_at timestamp to make testing easier.

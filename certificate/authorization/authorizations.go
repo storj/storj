@@ -38,9 +38,9 @@ const (
 var (
 	mon = monkit.Package()
 	// Error is used when an error occurs involving an authorization.
-	Error = errs.Class("authorization error")
+	Error = errs.Class("authorization")
 	// ErrInvalidToken is used when a token is invalid.
-	ErrInvalidToken = errs.Class("authorization token error")
+	ErrInvalidToken = errs.Class("authorization token")
 )
 
 // Group is a slice of authorizations for convenient de/serialization.

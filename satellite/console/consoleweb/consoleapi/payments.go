@@ -21,7 +21,7 @@ import (
 
 var (
 	// ErrPaymentsAPI - console payments api error type.
-	ErrPaymentsAPI = errs.Class("console payments api error")
+	ErrPaymentsAPI = errs.Class("consoleapi payments")
 	mon            = monkit.Package()
 )
 

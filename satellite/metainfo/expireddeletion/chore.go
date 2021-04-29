@@ -18,7 +18,7 @@ import (
 
 var (
 	// Error defines the expireddeletion chore errors class.
-	Error = errs.Class("expireddeletion chore error")
+	Error = errs.Class("expired deletion")
 	mon   = monkit.Package()
 )
 

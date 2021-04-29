@@ -54,7 +54,7 @@ const (
 
 var (
 	// Error is satellite console error type.
-	Error = errs.Class("satellite console error")
+	Error = errs.Class("consoleweb")
 
 	mon = monkit.Package()
 )

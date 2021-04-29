@@ -20,7 +20,7 @@ import (
 )
 
 // ErrBandwidth represents errors from the bandwidthdb database.
-var ErrBandwidth = errs.Class("bandwidthdb error")
+var ErrBandwidth = errs.Class("bandwidthdb")
 
 // BandwidthDBName represents the database name.
 const BandwidthDBName = "bandwidth"
