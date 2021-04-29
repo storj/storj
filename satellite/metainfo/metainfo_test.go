@@ -49,7 +49,8 @@ func TestMaxOutBuckets(t *testing.T) {
 			require.NoError(t, err)
 		}
 		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], fmt.Sprintf("test%d", limit+1))
-		require.EqualError(t, err, fmt.Sprintf("uplink: bucket: metainfo error: number of allocated buckets (%d) exceeded", limit))
+		require.Error(t, err)
+		require.Contains(t, err.Error(), fmt.Sprintf("number of allocated buckets (%d) exceeded", limit))
 	})
 }
 
@@ -1764,7 +1765,8 @@ func TestMultipartObjectDownloadRejection(t *testing.T) {
 				Index: -1,
 			},
 		})
-		require.EqualError(t, err, "metainfo error: Used uplink version cannot download multipart objects.")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Used uplink version cannot download multipart objects.")
 
 		objects, err = planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, planet.Uplinks[0].Projects[0].ID, "pip-third")
 		require.NoError(t, err)
@@ -1782,7 +1784,8 @@ func TestMultipartObjectDownloadRejection(t *testing.T) {
 				Index: -1,
 			},
 		})
-		require.EqualError(t, err, "metainfo error: Used uplink version cannot download multipart objects.")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Used uplink version cannot download multipart objects.")
 	})
 }
 
