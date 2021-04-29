@@ -10,6 +10,7 @@ import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
+import SelectInput from '@/components/common/SelectInput.vue';
 
 import AuthIcon from '@/../static/images/AuthImage.svg';
 import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
@@ -36,6 +37,7 @@ import { Validator } from '@/utils/validation';
         InfoIcon,
         PasswordStrength,
         AddCouponCodeInput,
+        SelectInput,
     },
 })
 export default class RegisterArea extends Vue {
