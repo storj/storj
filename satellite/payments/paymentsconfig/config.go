@@ -16,7 +16,7 @@ type Config struct {
 	StripeCoinPayments       stripecoinpayments.Config
 	StorageTBPrice           string         `help:"price user should pay for storing TB per month" default:"4"`
 	EgressTBPrice            string         `help:"price user should pay for each TB of egress" default:"7"`
-	ObjectPrice              string         `help:"price user should pay for each object stored in network per month" default:"0.0000022"`
+	ObjectPrice              string         `help:"price user should pay for each object stored in network per month" default:"0"`
 	BonusRate                int64          `help:"amount of percents that user will earn as bonus credits by depositing in STORJ tokens" default:"10"`
 	CouponValue              int64          `help:"coupon value in cents" default:"165"`
 	CouponDuration           CouponDuration `help:"duration a new coupon is valid in months/billing cycles. An empty string means the coupon never expires" default:"1"`
