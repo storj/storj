@@ -27,7 +27,7 @@ import (
 	"storj.io/storj/private/server"
 	"storj.io/storj/private/testplanet"
 	"storj.io/uplink"
-	"storj.io/uplink/private/metainfo"
+	"storj.io/uplink/private/metaclient"
 )
 
 func TestUplinksParallel(t *testing.T) {
@@ -246,7 +246,7 @@ func TestDeleteWithOfflineStoragenode(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(metainfoClient.Close)
 
-		objects, _, err := metainfoClient.ListObjects(ctx, metainfo.ListObjectsParams{
+		objects, _, err := metainfoClient.ListObjects(ctx, metaclient.ListObjectsParams{
 			Bucket: []byte("test-bucket"),
 		})
 		require.NoError(t, err)

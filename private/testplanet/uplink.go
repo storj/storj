@@ -24,7 +24,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/console"
 	"storj.io/uplink"
-	"storj.io/uplink/private/metainfo"
+	"storj.io/uplink/private/metaclient"
 	"storj.io/uplink/private/piecestore"
 	"storj.io/uplink/private/testuplink"
 )
@@ -64,7 +64,7 @@ type ProjectOwner struct {
 }
 
 // DialMetainfo dials the satellite with the appropriate api key.
-func (project *Project) DialMetainfo(ctx context.Context) (*metainfo.Client, error) {
+func (project *Project) DialMetainfo(ctx context.Context) (*metaclient.Client, error) {
 	return project.client.DialMetainfo(ctx, project.Satellite, project.RawAPIKey)
 }
 
@@ -171,8 +171,8 @@ func (client *Uplink) Addr() string { return "" }
 func (client *Uplink) Shutdown() error { return nil }
 
 // DialMetainfo dials destination with apikey and returns metainfo Client.
-func (client *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey *macaroon.APIKey) (*metainfo.Client, error) {
-	return metainfo.DialNodeURL(ctx, client.Dialer, destination.NodeURL().String(), apikey, "Test/1.0")
+func (client *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey *macaroon.APIKey) (*metaclient.Client, error) {
+	return metaclient.DialNodeURL(ctx, client.Dialer, destination.NodeURL().String(), apikey, "Test/1.0")
 }
 
 // DialPiecestore dials destination storagenode and returns a piecestore client.

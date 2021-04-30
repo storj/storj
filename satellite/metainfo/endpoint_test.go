@@ -21,7 +21,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/uplink"
-	"storj.io/uplink/private/metainfo"
+	"storj.io/uplink/private/metaclient"
 )
 
 func TestEndpoint_DeleteCommittedObject(t *testing.T) {
@@ -398,7 +398,7 @@ func TestCommitSegment_Validation(t *testing.T) {
 		err = planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "testbucket")
 		require.NoError(t, err)
 
-		beginObjectResponse, err := client.BeginObject(ctx, metainfo.BeginObjectParams{
+		beginObjectResponse, err := client.BeginObject(ctx, metaclient.BeginObjectParams{
 			Bucket:        []byte("testbucket"),
 			EncryptedPath: []byte("a/b/testobject"),
 			EncryptionParameters: storj.EncryptionParameters{
@@ -408,7 +408,7 @@ func TestCommitSegment_Validation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		response, err := client.BeginSegment(ctx, metainfo.BeginSegmentParams{
+		response, err := client.BeginSegment(ctx, metaclient.BeginSegmentParams{
 			StreamID: beginObjectResponse.StreamID,
 			Position: storj.SegmentPosition{
 				Index: 0,
@@ -418,7 +418,7 @@ func TestCommitSegment_Validation(t *testing.T) {
 		require.NoError(t, err)
 
 		// the number of results of uploaded pieces (0) is below the optimal threshold (1)
-		err = client.CommitSegment(ctx, metainfo.CommitSegmentParams{
+		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
 			SegmentID:    response.SegmentID,
 			UploadResult: []*pb.SegmentPieceUploadResult{},
 		})
@@ -426,7 +426,7 @@ func TestCommitSegment_Validation(t *testing.T) {
 		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 
 		// piece sizes are invalid: pointer verification: no remote pieces
-		err = client.CommitSegment(ctx, metainfo.CommitSegmentParams{
+		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
 			SegmentID: response.SegmentID,
 			UploadResult: []*pb.SegmentPieceUploadResult{
 				{},
@@ -436,7 +436,7 @@ func TestCommitSegment_Validation(t *testing.T) {
 		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 
 		// piece sizes are invalid: pointer verification: size is invalid (-1)
-		err = client.CommitSegment(ctx, metainfo.CommitSegmentParams{
+		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
 			SegmentID: response.SegmentID,
 			UploadResult: []*pb.SegmentPieceUploadResult{
 				{
@@ -450,7 +450,7 @@ func TestCommitSegment_Validation(t *testing.T) {
 		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 
 		// piece sizes are invalid: pointer verification: expected size is different from provided (768 != 10000)
-		err = client.CommitSegment(ctx, metainfo.CommitSegmentParams{
+		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
 			SegmentID:         response.SegmentID,
 			SizeEncryptedData: 512,
 			UploadResult: []*pb.SegmentPieceUploadResult{
@@ -465,7 +465,7 @@ func TestCommitSegment_Validation(t *testing.T) {
 		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 
 		// piece sizes are invalid: pointer verification: sizes do not match (10000 != 9000)
-		err = client.CommitSegment(ctx, metainfo.CommitSegmentParams{
+		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
 			SegmentID: response.SegmentID,
 			UploadResult: []*pb.SegmentPieceUploadResult{
 				{
@@ -484,7 +484,7 @@ func TestCommitSegment_Validation(t *testing.T) {
 		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 
 		// pointer verification failed: pointer verification: invalid piece number
-		err = client.CommitSegment(ctx, metainfo.CommitSegmentParams{
+		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
 			SegmentID:         response.SegmentID,
 			SizeEncryptedData: 512,
 			UploadResult: []*pb.SegmentPieceUploadResult{
@@ -503,7 +503,7 @@ func TestCommitSegment_Validation(t *testing.T) {
 		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 
 		// signature verification error (no signature)
-		err = client.CommitSegment(ctx, metainfo.CommitSegmentParams{
+		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
 			SegmentID:         response.SegmentID,
 			SizeEncryptedData: 512,
 			UploadResult: []*pb.SegmentPieceUploadResult{
@@ -530,7 +530,7 @@ func TestCommitSegment_Validation(t *testing.T) {
 		require.NoError(t, err)
 
 		// pointer verification failed: pointer verification: nil identity returned
-		err = client.CommitSegment(ctx, metainfo.CommitSegmentParams{
+		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
 			SegmentID:         response.SegmentID,
 			SizeEncryptedData: 512,
 			UploadResult: []*pb.SegmentPieceUploadResult{
@@ -545,7 +545,7 @@ func TestCommitSegment_Validation(t *testing.T) {
 		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
 
 		// plain segment size 513 is out of range, maximum allowed is 512
-		err = client.CommitSegment(ctx, metainfo.CommitSegmentParams{
+		err = client.CommitSegment(ctx, metaclient.CommitSegmentParams{
 			SegmentID:         response.SegmentID,
 			PlainSize:         513,
 			SizeEncryptedData: 512,
