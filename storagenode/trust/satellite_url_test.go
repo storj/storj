@@ -100,7 +100,7 @@ func TestParseSatelliteURL_Invalid(t *testing.T) {
 			url:  "121RTSDpy@127.0.0.1:7777",
 			errs: []string{
 				"invalid satellite URL: node URL error: node ID error: checksum error",
-				"invalid satellite URL: node URL: node ID error: checksum error",
+				"invalid satellite URL: node URL: node ID: checksum error",
 			},
 		},
 		{
