@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 )
-var email= "test@ds40.com"
+var email= "test@ds4d0.com"
 var pass= "123qwe"
 var access_grant_name = "qwerty"
 func Test_e2e_user_create_login_access_in_browser(t *testing.T)  {
@@ -164,7 +164,7 @@ func Test_e2e_user_create_login_access_in_browser(t *testing.T)  {
 	broNotification:= page.MustElement("p.notification-wrap__text-area__message").MustText()
 	assert.Equal(t, "Permissions were set successfully",broNotification)
 	time.Sleep(2*time.Second)
-	// encryption passphrase screen elements checking
+	// encryption passphrase500chars screen elements checking
 	passCheckbox:= page.MustElement("input#pass-checkbox")
 	passCheckbox.MustClick()
 	encrHeader:= page.MustElement("h1.generate-container__title").MustText()
@@ -172,14 +172,14 @@ func Test_e2e_user_create_login_access_in_browser(t *testing.T)  {
 	encrWarnTitle:= page.MustElement(".generate-container__warning__title").MustText()
 	assert.Equal(t, encrWarnTitle, "Save Your Encryption Passphrase")
 	encrWarnMessage:= page.MustElement("p.generate-container__warning__message").MustText()
-	assert.Equal(t, encrWarnMessage, "You’ll need this passphrase to access data in the future. This is the only time it will be displayed. Be sure to write it down.")
+	assert.Equal(t, encrWarnMessage, "You’ll need this passphrase500chars to access data in the future. This is the only time it will be displayed. Be sure to write it down.")
 	encrPassType:= page.MustElement("p.generate-container__choosing__label")
 	assert.Equal(t,encrPassType.MustText(),"Passphrase")
 	generateTab:= page.MustElement("p.generate-container__choosing__right__option.left-option")
 	assert.Equal(t,generateTab.MustText(),"Generate Phrase")
 	createTab:= page.MustElementX("(//*[@class=\"generate-container__choosing__right__option\"])")
 	assert.Equal(t,createTab.MustText(),"Enter Phrase")
-	////checkout to create passphrase tab
+	////checkout to create passphrase500chars tab
 	//createTab.MustClick()
 	//createTitle:= page.MustElement("h3.label-container__main__label").MustText()
 	//assert.Equal(t,createTitle,"Create Your Passphrase")
@@ -187,7 +187,7 @@ func Test_e2e_user_create_login_access_in_browser(t *testing.T)  {
 	//assert.Equal(t, createInput,"Strong passphrases contain 12 characters or more")
 	//
 	//
-	//// checkout to Generate passphrase and check success notification
+	//// checkout to Generate passphrase500chars and check success notification
 	//generateTab.MustClick()
 	passPhrase:= page.MustElement("p.generate-container__value-area__mnemonic__value")
 	passPhrase.MustVisible()

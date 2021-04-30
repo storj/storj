@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-var login string = "test1@g.com"
+	var login string = "test1@g.com"
 	var password = "123qwe"
 	var startPage = "http://127.0.0.1:10002/login"
 //	var startPage = "https://satellite.qa.storj.io/login"
