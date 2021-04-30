@@ -660,3 +660,31 @@ func (step ListNodeAliases) Check(ctx *testcontext.Context, t testing.TB, db *me
 	checkError(t, err, step.ErrClass, step.ErrText)
 	return result
 }
+
+// DeletePart is for testing metabase.DeletePart.
+type DeletePart struct {
+	Opts     metabase.DeletePart
+	Result   []metabase.DeletedSegmentInfo
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step DeletePart) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result := []metabase.DeletedSegmentInfo{}
+	step.Opts.DeletePieces = func(ctx context.Context, segment metabase.DeletedSegmentInfo) error {
+		result = append(result, segment)
+		return nil
+	}
+
+	err := db.DeletePart(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	if len(result) == 0 {
+		result = nil
+	}
+	sortDeletedSegments(step.Result)
+	sortDeletedSegments(result)
+	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	require.Zero(t, diff)
+}
