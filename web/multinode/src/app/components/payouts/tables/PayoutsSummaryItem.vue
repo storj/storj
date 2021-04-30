@@ -3,11 +3,11 @@
 
 <template>
     <tr class="payouts-summary-item">
-        <th class="align-left node-name">{{ payoutsSummary.nodeName }}</th>
+        <th class="align-left node-name">{{ payoutsSummary.nodeName || payoutsSummary.nodeId }}</th>
         <th>{{ payoutsSummary.held | centsToDollars }}</th>
         <th>{{ payoutsSummary.paid | centsToDollars }}</th>
         <th class="overflow-visible options">
-            <node-options :id="payoutsSummary.nodeID" />
+            <node-options :id="payoutsSummary.nodeId" />
         </th>
     </tr>
 </template>

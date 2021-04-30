@@ -8,7 +8,7 @@
             <div class="payouts__left-area">
                 <div class="payouts__left-area__dropdowns">
                     <satellite-selection-dropdown />
-                    <payout-period-calendar-button />
+                    <payout-period-calendar-button :period="period" />
                 </div>
                 <payouts-summary-table
                     class="payouts__left-area__table"
@@ -21,8 +21,9 @@
                     :total-earned="payoutsSummary.totalEarned"
                     :total-held="payoutsSummary.totalHeld"
                     :total-paid="payoutsSummary.totalPaid"
+                    :period="period"
                 />
-                <payout-history-block />
+<!--                <payout-history-block />-->
             </div>
         </div>
     </div>
@@ -69,6 +70,13 @@ export default class PayoutsPage extends Vue {
      */
     public get payoutsSummary(): PayoutsSummary {
         return this.$store.state.payouts.summary;
+    }
+
+    /**
+     * period selected payout period from store.
+     */
+    public get period(): string {
+        return this.$store.getters['payouts/periodString'];
     }
 }
 </script>

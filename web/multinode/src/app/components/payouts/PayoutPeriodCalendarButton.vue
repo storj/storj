@@ -15,7 +15,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import PayoutPeriodCalendar from './PayoutPeriodCalendar.vue';
 
@@ -23,11 +23,10 @@ import PayoutPeriodCalendar from './PayoutPeriodCalendar.vue';
     components: { PayoutPeriodCalendar },
 })
 export default class Payout extends Vue {
-    public isCalendarShown: boolean = false;
+    @Prop({default: ''})
+    public period: string;
 
-    public get period(): string {
-        return this.$store.getters['payouts/periodString'];
-    }
+    public isCalendarShown: boolean = false;
 
     public openCalendar(): void {
         this.isCalendarShown = true;

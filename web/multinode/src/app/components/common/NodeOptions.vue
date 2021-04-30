@@ -27,7 +27,7 @@ import MoreIcon from '@/../static/images/icons/more.svg';
         MoreIcon,
     },
 })
-export default class NodeItem extends Vue {
+export default class NodeOptions extends Vue {
     @Prop({default: ''})
     public id: string;
 

@@ -41,10 +41,8 @@ export default class DetailsArea extends Vue {
     public totalHeld: number;
     @Prop({default: 0})
     public totalPaid: number;
-
-    public get period(): string {
-        return this.$store.getters['payouts/periodString'];
-    }
+    @Prop({default: ''})
+    public period: string;
 }
 </script>
 

@@ -12,7 +12,7 @@ const PRICE_DIVIDER: number = 10000;
  */
 export class NodePayoutsSummary {
     public constructor(
-        public nodeID: string = '',
+        public nodeId: string = '',
         public nodeName: string = '',
         public held: number = 0,
         public paid: number = 0,

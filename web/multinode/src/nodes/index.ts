@@ -66,8 +66,8 @@ export class CreateNodeFields {
  */
 export class NodeURL {
     public constructor(
-        public id: string,
-        public address: string,
+        public id: string = '',
+        public address: string = '',
     ) {}
 }
 
@@ -76,7 +76,7 @@ export class NodeURL {
  */
 export class UpdateNodeModel {
     public constructor(
-        public id: string,
-        public name: string,
+        public id: string = '',
+        public name: string = '',
     ) {}
 }

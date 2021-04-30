@@ -12,7 +12,7 @@
         </tr>
         </thead>
         <tbody>
-            <payouts-summary-item v-for="payoutSummary in nodePayoutsSummary" :key="payoutSummary.nodeID" :payouts-summary="payoutSummary"/>
+            <payouts-summary-item v-for="payoutSummary in nodePayoutsSummary" :key="payoutSummary.nodeId" :payouts-summary="payoutSummary"/>
         </tbody>
     </table>
 </template>

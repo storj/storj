@@ -34,7 +34,7 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
         this.namespaced = true;
         this.state = new PayoutsState();
         this.mutations = {
-            populate: this.populate,
+            setSummary: this.setSummary,
             setPayoutPeriod: this.setPayoutPeriod,
         };
         this.actions = {
@@ -51,7 +51,7 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
      * @param state - state of the module.
      * @param summary - payouts summary information depends on selected time and satellite.
      */
-    public populate(state: PayoutsState, summary: PayoutsSummary): void {
+    public setSummary(state: PayoutsState, summary: PayoutsSummary): void {
         state.summary = summary;
     }
 
@@ -71,9 +71,10 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
      */
     public async summary(ctx: ActionContext<PayoutsState, RootState>): Promise<void> {
         // @ts-ignore
-        const summary = await this.payouts.summary(ctx.rootState.nodes.selectedSatellite.id, ctx.state.selectedPayoutPeriod);
+        const selectedSatelliteId = ctx.rootState.nodes.selectedSatellite ? ctx.rootState.nodes.selectedSatellite.id : null;
+        const summary = await this.payouts.summary(selectedSatelliteId, ctx.state.selectedPayoutPeriod);
 
-        ctx.commit('populate', summary);
+        ctx.commit('setSummary', summary);
     }
 
     // Getters

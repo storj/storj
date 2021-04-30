@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { APIClient } from '@/api/index';
-import { PayoutsSummary } from '@/payouts';
+import { NodePayoutsSummary, PayoutsSummary } from '@/payouts';
 
 /**
  * client for nodes controller of MND api.
@@ -26,7 +26,11 @@ export class PayoutsClient extends APIClient {
      * Thrown if something goes wrong on server side.
      */
     public async summary(satelliteId: string | null, period: string | null): Promise<PayoutsSummary> {
-        const path = `${this.ROOT_PATH}/summary?satelliteId=${satelliteId}&period=${period}`;
+        let path = `${this.ROOT_PATH}/summary`;
+
+        if (period) {
+            path += `/${period}`;
+        }
 
         const response = await this.http.get(path);
 
@@ -34,6 +38,18 @@ export class PayoutsClient extends APIClient {
             await this.handleError(response);
         }
 
-        return await response.json();
+        const result = await response.json();
+
+        return new PayoutsSummary(
+            result.totalEarned,
+            result.totalHeld,
+            result.totalPaid,
+            result.nodeSummary.map(item => new NodePayoutsSummary(
+                item.nodeId,
+                item.nodeName,
+                item.held,
+                item.paid,
+            )),
+        );
     }
 }

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { PayoutsClient } from '@/api/payouts';
-import { NodePayoutsSummary, PayoutsSummary } from '@/payouts/index';
+import { PayoutsSummary } from '@/payouts/index';
 
 /**
  * exposes all payouts related logic
@@ -30,18 +30,6 @@ export class Payouts {
      * Thrown if something goes wrong on server side.
      */
     public async summary(satelliteId: string | null, period: string | null): Promise<PayoutsSummary> {
-        const result = await this.payouts.summary(satelliteId, period);
-
-        return new PayoutsSummary(
-            result.totalEarned,
-            result.totalHeld,
-            result.totalPaid,
-            result.nodeSummary.map(item => new NodePayoutsSummary(
-                item.nodeID,
-                item.nodeName,
-                item.held,
-                item.paid,
-            )),
-        );
+        return await this.payouts.summary(satelliteId, period);
     }
 }
