@@ -14,6 +14,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/rpc/rpcstatus"
+	"storj.io/storj/storagenode/trust"
 )
 
 // Endpoint implements the contact service Endpoints.
@@ -23,6 +24,8 @@ type Endpoint struct {
 	pb.DRPCContactUnimplementedServer
 	log       *zap.Logger
 	pingStats *PingStats
+
+	trust *trust.Pool
 }
 
 // PingStats contains information regarding when the node was last pinged.
@@ -32,10 +35,11 @@ type PingStats struct {
 }
 
 // NewEndpoint returns a new contact service endpoint.
-func NewEndpoint(log *zap.Logger, pingStats *PingStats) *Endpoint {
+func NewEndpoint(log *zap.Logger, trust *trust.Pool, pingStats *PingStats) *Endpoint {
 	return &Endpoint{
 		log:       log,
 		pingStats: pingStats,
+		trust:     trust,
 	}
 }
 
@@ -50,6 +54,10 @@ func (endpoint *Endpoint) PingNode(ctx context.Context, req *pb.ContactPingReque
 	if err != nil {
 		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
+	if err := endpoint.trust.VerifySatelliteID(ctx, peerID.ID); err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
+	}
+
 	endpoint.log.Debug("pinged", zap.Stringer("by", peerID.ID), zap.Stringer("srcAddr", peer.Addr))
 	endpoint.pingStats.WasPinged(time.Now())
 	return &pb.ContactPingResponse{}, nil
