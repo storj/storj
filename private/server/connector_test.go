@@ -27,8 +27,9 @@ func TestHybridConnector_Basic(t *testing.T) {
 
 		dialer.Connector = server.NewDefaultHybridConnector(nil, nil)
 
-		_, err := dialer.Connector.DialContext(ctx, dialer.TLSOptions.ClientTLSConfig(sat.ID()), sat.Addr())
+		conn, err := dialer.Connector.DialContext(ctx, dialer.TLSOptions.ClientTLSConfig(sat.ID()), sat.Addr())
 		require.NoError(t, err)
+		require.NoError(t, conn.Close())
 	})
 }
 
@@ -53,6 +54,7 @@ func TestHybridConnector_QUICOnly(t *testing.T) {
 		conn, err := connector.DialContext(ctx, tlsOptions.ClientTLSConfig(sat.ID()), sat.Addr())
 		require.NoError(t, err)
 		require.Equal(t, "udp", conn.LocalAddr().Network())
+		require.NoError(t, conn.Close())
 	})
 }
 
@@ -77,5 +79,6 @@ func TestHybridConnector_TCPOnly(t *testing.T) {
 		conn, err := connector.DialContext(ctx, tlsOptions.ClientTLSConfig(sat.ID()), sat.Addr())
 		require.NoError(t, err)
 		require.Equal(t, "tcp", conn.LocalAddr().Network())
+		require.NoError(t, conn.Close())
 	})
 }
