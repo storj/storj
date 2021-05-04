@@ -1350,7 +1350,14 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 			var streamID uuid.UUID
 			streamID, err = uuid.FromBytes(pbStreamID.StreamId)
 			if err == nil {
-				deletedObjects, err = endpoint.DeletePendingObject(ctx, keyInfo.ProjectID, string(req.Bucket), metabase.ObjectKey(req.EncryptedPath), req.GetVersion(), streamID)
+				deletedObjects, err = endpoint.DeletePendingObject(ctx,
+					metabase.ObjectStream{
+						ProjectID:  keyInfo.ProjectID,
+						BucketName: string(req.Bucket),
+						ObjectKey:  metabase.ObjectKey(req.EncryptedPath),
+						Version:    metabase.Version(req.GetVersion()),
+						StreamID:   streamID,
+					})
 			}
 		}
 	} else {
@@ -2279,15 +2286,9 @@ func (endpoint *Endpoint) DeleteObjectAnyStatus(ctx context.Context, location me
 //
 // NOTE: this method is exported for being able to individually test it without
 // having import cycles.
-func (endpoint *Endpoint) DeletePendingObject(ctx context.Context, projectID uuid.UUID, bucket string, objectKey metabase.ObjectKey, version int32, streamID uuid.UUID) (deletedObjects []*pb.Object, err error) {
+func (endpoint *Endpoint) DeletePendingObject(ctx context.Context, stream metabase.ObjectStream) (deletedObjects []*pb.Object, err error) {
 	req := metabase.DeletePendingObject{
-		ObjectLocation: metabase.ObjectLocation{
-			ProjectID:  projectID,
-			BucketName: bucket,
-			ObjectKey:  objectKey,
-		},
-		Version:  metabase.Version(version),
-		StreamID: streamID,
+		ObjectStream: stream,
 	}
 	result, err := endpoint.metainfo.metabaseDB.DeletePendingObject(ctx, req)
 	if err != nil {

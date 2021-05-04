@@ -71,7 +71,14 @@ func TestEndpoint_DeletePendingObject(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, items, 1)
 
-		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint2.DeletePendingObject(ctx, projectID, bucketName, items[0].ObjectKey, 1, items[0].StreamID)
+		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint2.DeletePendingObject(ctx,
+			metabase.ObjectStream{
+				ProjectID:  projectID,
+				BucketName: bucketName,
+				ObjectKey:  items[0].ObjectKey,
+				Version:    1,
+				StreamID:   items[0].StreamID,
+			})
 		require.NoError(t, err)
 		require.Len(t, deletedObjects, 1)
 

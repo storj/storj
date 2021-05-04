@@ -216,8 +216,6 @@ func (seg SegmentLocation) Verify() error {
 }
 
 // ObjectStream uniquely defines an object and stream.
-//
-// TODO: figure out whether ther's a better name.
 type ObjectStream struct {
 	ProjectID  uuid.UUID
 	BucketName string

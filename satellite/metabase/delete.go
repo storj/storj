@@ -11,7 +11,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/tagsql"
@@ -147,23 +146,13 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 
 // DeletePendingObject contains arguments necessary for deleting a pending object.
 type DeletePendingObject struct {
-	ObjectLocation
-	Version
-	StreamID uuid.UUID
+	ObjectStream
 }
 
 // Verify verifies delete pending object fields validity.
 func (opts *DeletePendingObject) Verify() error {
-	if err := opts.ObjectLocation.Verify(); err != nil {
+	if err := opts.ObjectStream.Verify(); err != nil {
 		return err
-	}
-
-	if opts.Version <= 0 {
-		return ErrInvalidRequest.New("Version invalid: %v", opts.Version)
-	}
-
-	if opts.StreamID.IsZero() {
-		return ErrInvalidRequest.New("StreamID missing")
 	}
 	return nil
 }
@@ -209,7 +198,7 @@ func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject)
 			FROM deleted_objects
 			LEFT JOIN deleted_segments ON deleted_objects.stream_id = deleted_segments.stream_id
 		`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID))(func(rows tagsql.Rows) error {
-		result.Objects, result.Segments, err = db.scanObjectDeletion(ctx, opts.ObjectLocation, rows)
+		result.Objects, result.Segments, err = db.scanObjectDeletion(ctx, opts.Location(), rows)
 		return err
 	})
 

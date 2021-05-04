@@ -18,20 +18,15 @@ import (
 func TestDeletePendingObject(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
-
-		location := obj.Location()
-
 		now := time.Now()
 
-		for _, test := range metabasetest.InvalidObjectLocations(location) {
+		for _, test := range metabasetest.InvalidObjectStreams(obj) {
 			test := test
 			t.Run(test.Name, func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 				metabasetest.DeletePendingObject{
 					Opts: metabase.DeletePendingObject{
-						StreamID:       obj.StreamID,
-						Version:        1,
-						ObjectLocation: test.ObjectLocation,
+						ObjectStream: test.ObjectStream,
 					},
 					ErrClass: test.ErrClass,
 					ErrText:  test.ErrText,
@@ -40,44 +35,12 @@ func TestDeletePendingObject(t *testing.T) {
 			})
 		}
 
-		t.Run("Version invalid", func(t *testing.T) {
+		t.Run("object missing", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			metabasetest.DeletePendingObject{
 				Opts: metabase.DeletePendingObject{
-					StreamID:       obj.StreamID,
-					Version:        0,
-					ObjectLocation: location,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "Version invalid: 0",
-			}.Check(ctx, t, db)
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-
-		t.Run("StreamID missing", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			metabasetest.DeletePendingObject{
-				Opts: metabase.DeletePendingObject{
-					StreamID:       uuid.UUID{},
-					Version:        1,
-					ObjectLocation: location,
-				},
-				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "StreamID missing",
-			}.Check(ctx, t, db)
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-
-		t.Run("Object missing", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			metabasetest.DeletePendingObject{
-				Opts: metabase.DeletePendingObject{
-					StreamID:       obj.StreamID,
-					Version:        1,
-					ObjectLocation: location,
+					ObjectStream: obj,
 				},
 				ErrClass: &storj.ErrObjectNotFound,
 				ErrText:  "metabase: no rows deleted",
@@ -85,7 +48,7 @@ func TestDeletePendingObject(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
-		t.Run("Delete non existing object version", func(t *testing.T) {
+		t.Run("non existing object version", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			metabasetest.BeginObjectExactVersion{
@@ -98,9 +61,13 @@ func TestDeletePendingObject(t *testing.T) {
 
 			metabasetest.DeletePendingObject{
 				Opts: metabase.DeletePendingObject{
-					StreamID:       obj.StreamID,
-					Version:        33,
-					ObjectLocation: location,
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    33,
+						StreamID:   obj.StreamID,
+					},
 				},
 				ErrClass: &storj.ErrObjectNotFound,
 				ErrText:  "metabase: no rows deleted",
@@ -118,16 +85,14 @@ func TestDeletePendingObject(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-		t.Run("Delete committed object", func(t *testing.T) {
+		t.Run("delete committed object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			object := metabasetest.CreateObject(ctx, t, db, obj, 0)
 
 			metabasetest.DeletePendingObject{
 				Opts: metabase.DeletePendingObject{
-					StreamID:       object.StreamID,
-					Version:        1,
-					ObjectLocation: object.Location(),
+					ObjectStream: object.ObjectStream,
 				},
 				ErrClass: &storj.ErrObjectNotFound,
 				ErrText:  "metabase: no rows deleted",
@@ -146,7 +111,7 @@ func TestDeletePendingObject(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-		t.Run("Delete pending object without segments with wrong StreamID", func(t *testing.T) {
+		t.Run("without segments with wrong StreamID", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			metabasetest.BeginObjectExactVersion{
@@ -159,9 +124,13 @@ func TestDeletePendingObject(t *testing.T) {
 
 			metabasetest.DeletePendingObject{
 				Opts: metabase.DeletePendingObject{
-					StreamID:       uuid.UUID{33},
-					Version:        1,
-					ObjectLocation: location,
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    obj.Version,
+						StreamID:   uuid.UUID{33},
+					},
 				},
 				Result:   metabase.DeleteObjectResult{},
 				ErrClass: &storj.ErrObjectNotFound,
@@ -181,7 +150,7 @@ func TestDeletePendingObject(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-		t.Run("Delete pending object without segments", func(t *testing.T) {
+		t.Run("without segments", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			metabasetest.BeginObjectExactVersion{
@@ -200,9 +169,7 @@ func TestDeletePendingObject(t *testing.T) {
 			}
 			metabasetest.DeletePendingObject{
 				Opts: metabase.DeletePendingObject{
-					StreamID:       obj.StreamID,
-					Version:        1,
-					ObjectLocation: location,
+					ObjectStream: obj,
 				},
 				Result: metabase.DeleteObjectResult{
 					Objects: []metabase.Object{metabase.Object(object)},
@@ -212,7 +179,7 @@ func TestDeletePendingObject(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
-		t.Run("Delete pending object with segments", func(t *testing.T) {
+		t.Run("with segments", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			metabasetest.CreatePendingObject(ctx, t, db, obj, 2)
@@ -224,9 +191,7 @@ func TestDeletePendingObject(t *testing.T) {
 
 			metabasetest.DeletePendingObject{
 				Opts: metabase.DeletePendingObject{
-					StreamID:       obj.StreamID,
-					Version:        1,
-					ObjectLocation: location,
+					ObjectStream: obj,
 				},
 				Result: metabase.DeleteObjectResult{
 					Objects: []metabase.Object{
@@ -244,7 +209,7 @@ func TestDeletePendingObject(t *testing.T) {
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
-		t.Run("Delete pending object with inline segment", func(t *testing.T) {
+		t.Run("with inline segment", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			metabasetest.BeginObjectExactVersion{
@@ -272,9 +237,7 @@ func TestDeletePendingObject(t *testing.T) {
 
 			metabasetest.DeletePendingObject{
 				Opts: metabase.DeletePendingObject{
-					StreamID:       obj.StreamID,
-					Version:        1,
-					ObjectLocation: location,
+					ObjectStream: obj,
 				},
 				Result: metabase.DeleteObjectResult{
 					Objects: []metabase.Object{
