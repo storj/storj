@@ -474,6 +474,20 @@ func (step DeleteExpiredObjects) Check(ctx *testcontext.Context, t testing.TB, d
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
 
+// DeleteZombieObjects is for testing metabase.DeleteZombieObjects.
+type DeleteZombieObjects struct {
+	Opts metabase.DeleteZombieObjects
+
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step DeleteZombieObjects) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	err := db.DeleteZombieObjects(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+}
+
 // IterateCollector is for testing metabase.IterateCollector.
 type IterateCollector []metabase.ObjectEntry
 

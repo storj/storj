@@ -346,8 +346,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				DB:          &db.db,
 				Description: "add index on pending objects",
 				Version:     10,
+				Action:      migrate.SQL{},
+			},
+			{
+				DB:          &db.db,
+				Description: "drop pending_index on objects",
+				Version:     11,
 				Action: migrate.SQL{
-					`CREATE INDEX IF NOT EXISTS pending_index ON objects (project_id, bucket_name) WHERE status=` + pendingStatus,
+					`DROP INDEX IF EXISTS pending_index`,
 				},
 			},
 		},
