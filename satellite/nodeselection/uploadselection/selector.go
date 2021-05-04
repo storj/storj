@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Incache.
 // See LICENSE for copying information.
 
-package nodeselection
+package uploadselection
 
 import (
 	mathrand "math/rand" // Using mathrand here because crypto-graphic randomness is not required and simplifies code.

@@ -12,7 +12,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/satellite/nodeselection/uploadselection"
 )
 
 // UploadSelectionDB implements the database for upload selection cache.
@@ -40,7 +40,7 @@ type UploadSelectionCache struct {
 
 	mu          sync.RWMutex
 	lastRefresh time.Time
-	state       *nodeselection.State
+	state       *uploadselection.State
 }
 
 // NewUploadSelectionCache creates a new cache that keeps a list of all the storage nodes that are qualified to store data.
@@ -64,7 +64,7 @@ func (cache *UploadSelectionCache) Refresh(ctx context.Context) (err error) {
 // refresh calls out to the database and refreshes the cache with the most up-to-date
 // data from the nodes table, then sets time that the last refresh occurred so we know when
 // to refresh again in the future.
-func (cache *UploadSelectionCache) refresh(ctx context.Context) (state *nodeselection.State, err error) {
+func (cache *UploadSelectionCache) refresh(ctx context.Context) (state *uploadselection.State, err error) {
 	defer mon.Task()(&ctx)(&err)
 	cache.mu.Lock()
 	defer cache.mu.Unlock()
@@ -79,7 +79,7 @@ func (cache *UploadSelectionCache) refresh(ctx context.Context) (state *nodesele
 	}
 
 	cache.lastRefresh = time.Now().UTC()
-	cache.state = nodeselection.NewState(convSelectedNodesToNodes(reputableNodes), convSelectedNodesToNodes(newNodes))
+	cache.state = uploadselection.NewState(convSelectedNodesToNodes(reputableNodes), convSelectedNodesToNodes(newNodes))
 
 	mon.IntVal("refresh_cache_size_reputable").Observe(int64(len(reputableNodes)))
 	mon.IntVal("refresh_cache_size_new").Observe(int64(len(newNodes)))
@@ -105,13 +105,13 @@ func (cache *UploadSelectionCache) GetNodes(ctx context.Context, req FindStorage
 		}
 	}
 
-	selected, err := state.Select(ctx, nodeselection.Request{
+	selected, err := state.Select(ctx, uploadselection.Request{
 		Count:       req.RequestedCount,
 		NewFraction: cache.selectionConfig.NewNodeFraction,
 		Distinct:    cache.selectionConfig.DistinctIP,
 		ExcludedIDs: req.ExcludedIDs,
 	})
-	if nodeselection.ErrNotEnoughNodes.Has(err) {
+	if uploadselection.ErrNotEnoughNodes.Has(err) {
 		err = ErrNotEnoughNodes.Wrap(err)
 	}
 
@@ -132,7 +132,7 @@ func (cache *UploadSelectionCache) Size() (reputableNodeCount int, newNodeCount 
 	return stats.Reputable, stats.New
 }
 
-func convNodesToSelectedNodes(nodes []*nodeselection.Node) (xs []*SelectedNode) {
+func convNodesToSelectedNodes(nodes []*uploadselection.Node) (xs []*SelectedNode) {
 	for _, n := range nodes {
 		xs = append(xs, &SelectedNode{
 			ID:         n.ID,
@@ -144,9 +144,9 @@ func convNodesToSelectedNodes(nodes []*nodeselection.Node) (xs []*SelectedNode) 
 	return xs
 }
 
-func convSelectedNodesToNodes(nodes []*SelectedNode) (xs []*nodeselection.Node) {
+func convSelectedNodesToNodes(nodes []*SelectedNode) (xs []*uploadselection.Node) {
 	for _, n := range nodes {
-		xs = append(xs, &nodeselection.Node{
+		xs = append(xs, &uploadselection.Node{
 			NodeURL: storj.NodeURL{
 				ID:      n.ID,
 				Address: n.Address.Address,

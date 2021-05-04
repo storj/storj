@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Incache.
 // See LICENSE for copying information.
 
-package nodeselection_test
+package uploadselection_test
 
 import (
 	"strconv"
@@ -13,7 +13,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/satellite/nodeselection/uploadselection"
 )
 
 func TestState_Select(t *testing.T) {
@@ -29,8 +29,8 @@ func TestState_Select(t *testing.T) {
 		createRandomNodes(3, "1.0.4"),
 	)
 
-	state := nodeselection.NewState(reputableNodes, newNodes)
-	require.Equal(t, nodeselection.Stats{
+	state := uploadselection.NewState(reputableNodes, newNodes)
+	require.Equal(t, uploadselection.Stats{
 		New:               5,
 		Reputable:         5,
 		NewDistinct:       2,
@@ -39,7 +39,7 @@ func TestState_Select(t *testing.T) {
 
 	{ // select 5 non-distinct subnet reputable nodes
 		const selectCount = 5
-		selected, err := state.Select(ctx, nodeselection.Request{
+		selected, err := state.Select(ctx, uploadselection.Request{
 			Count:       selectCount,
 			NewFraction: 0,
 			Distinct:    false,
@@ -51,7 +51,7 @@ func TestState_Select(t *testing.T) {
 
 	{ // select 2 distinct subnet reputable nodes
 		const selectCount = 2
-		selected, err := state.Select(ctx, nodeselection.Request{
+		selected, err := state.Select(ctx, uploadselection.Request{
 			Count:       selectCount,
 			NewFraction: 0,
 			Distinct:    true,
@@ -63,7 +63,7 @@ func TestState_Select(t *testing.T) {
 
 	{ // try to select 5 distinct subnet reputable nodes, but there are only two 2 in the state
 		const selectCount = 5
-		selected, err := state.Select(ctx, nodeselection.Request{
+		selected, err := state.Select(ctx, uploadselection.Request{
 			Count:       selectCount,
 			NewFraction: 0,
 			Distinct:    true,
@@ -76,7 +76,7 @@ func TestState_Select(t *testing.T) {
 	{ // select 6 non-distinct subnet reputable and new nodes (50%)
 		const selectCount = 6
 		const newFraction = 0.5
-		selected, err := state.Select(ctx, nodeselection.Request{
+		selected, err := state.Select(ctx, uploadselection.Request{
 			Count:       selectCount,
 			NewFraction: newFraction,
 			Distinct:    false,
@@ -91,7 +91,7 @@ func TestState_Select(t *testing.T) {
 	{ // select 4 distinct subnet reputable and new nodes (50%)
 		const selectCount = 4
 		const newFraction = 0.5
-		selected, err := state.Select(ctx, nodeselection.Request{
+		selected, err := state.Select(ctx, uploadselection.Request{
 			Count:       selectCount,
 			NewFraction: newFraction,
 			Distinct:    true,
@@ -106,7 +106,7 @@ func TestState_Select(t *testing.T) {
 	{ // select 10 distinct subnet reputable and new nodes (100%), falling back to 5 reputable
 		const selectCount = 10
 		const newFraction = 1.0
-		selected, err := state.Select(ctx, nodeselection.Request{
+		selected, err := state.Select(ctx, uploadselection.Request{
 			Count:       selectCount,
 			NewFraction: newFraction,
 			Distinct:    false,
@@ -132,12 +132,12 @@ func TestState_Select_Concurrent(t *testing.T) {
 		createRandomNodes(3, "1.0.4"),
 	)
 
-	state := nodeselection.NewState(reputableNodes, newNodes)
+	state := uploadselection.NewState(reputableNodes, newNodes)
 
 	var group errgroup.Group
 	group.Go(func() error {
 		const selectCount = 5
-		nodes, err := state.Select(ctx, nodeselection.Request{
+		nodes, err := state.Select(ctx, uploadselection.Request{
 			Count:       selectCount,
 			NewFraction: 0.5,
 			Distinct:    false,
@@ -149,7 +149,7 @@ func TestState_Select_Concurrent(t *testing.T) {
 
 	group.Go(func() error {
 		const selectCount = 4
-		nodes, err := state.Select(ctx, nodeselection.Request{
+		nodes, err := state.Select(ctx, uploadselection.Request{
 			Count:       selectCount,
 			NewFraction: 0.5,
 			Distinct:    true,
@@ -162,11 +162,11 @@ func TestState_Select_Concurrent(t *testing.T) {
 }
 
 // createRandomNodes creates n random nodes all in the subnet.
-func createRandomNodes(n int, subnet string) []*nodeselection.Node {
-	xs := make([]*nodeselection.Node, n)
+func createRandomNodes(n int, subnet string) []*uploadselection.Node {
+	xs := make([]*uploadselection.Node, n)
 	for i := range xs {
 		addr := subnet + "." + strconv.Itoa(i) + ":8080"
-		xs[i] = &nodeselection.Node{
+		xs[i] = &uploadselection.Node{
 			NodeURL: storj.NodeURL{
 				ID:      testrand.NodeID(),
 				Address: addr,
@@ -179,8 +179,8 @@ func createRandomNodes(n int, subnet string) []*nodeselection.Node {
 }
 
 // joinNodes appends all slices into a single slice.
-func joinNodes(lists ...[]*nodeselection.Node) []*nodeselection.Node {
-	xs := []*nodeselection.Node{}
+func joinNodes(lists ...[]*uploadselection.Node) []*uploadselection.Node {
+	xs := []*uploadselection.Node{}
 	for _, list := range lists {
 		xs = append(xs, list...)
 	}
@@ -188,8 +188,8 @@ func joinNodes(lists ...[]*nodeselection.Node) []*nodeselection.Node {
 }
 
 // intersectLists returns nodes that exist in both lists compared by ID.
-func intersectLists(as, bs []*nodeselection.Node) []*nodeselection.Node {
-	var xs []*nodeselection.Node
+func intersectLists(as, bs []*uploadselection.Node) []*uploadselection.Node {
+	var xs []*uploadselection.Node
 
 next:
 	for _, a := range as {

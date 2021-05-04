@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Incache.
 // See LICENSE for copying information.
 
-package nodeselection_test
+package uploadselection_test
 
 import (
 	"testing"
@@ -12,7 +12,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
-	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/satellite/nodeselection/uploadselection"
 )
 
 func TestSelectByID(t *testing.T) {
@@ -24,7 +24,7 @@ func TestSelectByID(t *testing.T) {
 
 	// create 3 nodes, 2 with same subnet
 	lastNetDuplicate := "1.0.1"
-	subnetA1 := &nodeselection.Node{
+	subnetA1 := &uploadselection.Node{
 		NodeURL: storj.NodeURL{
 			ID:      testrand.NodeID(),
 			Address: lastNetDuplicate + ".4:8080",
@@ -32,7 +32,7 @@ func TestSelectByID(t *testing.T) {
 		LastNet:    lastNetDuplicate,
 		LastIPPort: lastNetDuplicate + ".4:8080",
 	}
-	subnetA2 := &nodeselection.Node{
+	subnetA2 := &uploadselection.Node{
 		NodeURL: storj.NodeURL{
 			ID:      testrand.NodeID(),
 			Address: lastNetDuplicate + ".5:8080",
@@ -42,7 +42,7 @@ func TestSelectByID(t *testing.T) {
 	}
 
 	lastNetSingle := "1.0.2"
-	subnetB1 := &nodeselection.Node{
+	subnetB1 := &uploadselection.Node{
 		NodeURL: storj.NodeURL{
 			ID:      testrand.NodeID(),
 			Address: lastNetSingle + ".5:8080",
@@ -51,8 +51,8 @@ func TestSelectByID(t *testing.T) {
 		LastIPPort: lastNetSingle + ".5:8080",
 	}
 
-	nodes := []*nodeselection.Node{subnetA1, subnetA2, subnetB1}
-	selector := nodeselection.SelectByID(nodes)
+	nodes := []*uploadselection.Node{subnetA1, subnetA2, subnetB1}
+	selector := uploadselection.SelectByID(nodes)
 
 	const (
 		reqCount       = 2
@@ -93,7 +93,7 @@ func TestSelectBySubnet(t *testing.T) {
 
 	// create 3 nodes, 2 with same subnet
 	lastNetDuplicate := "1.0.1"
-	subnetA1 := &nodeselection.Node{
+	subnetA1 := &uploadselection.Node{
 		NodeURL: storj.NodeURL{
 			ID:      testrand.NodeID(),
 			Address: lastNetDuplicate + ".4:8080",
@@ -101,7 +101,7 @@ func TestSelectBySubnet(t *testing.T) {
 		LastNet:    lastNetDuplicate,
 		LastIPPort: lastNetDuplicate + ".4:8080",
 	}
-	subnetA2 := &nodeselection.Node{
+	subnetA2 := &uploadselection.Node{
 		NodeURL: storj.NodeURL{
 			ID:      testrand.NodeID(),
 			Address: lastNetDuplicate + ".5:8080",
@@ -111,7 +111,7 @@ func TestSelectBySubnet(t *testing.T) {
 	}
 
 	lastNetSingle := "1.0.2"
-	subnetB1 := &nodeselection.Node{
+	subnetB1 := &uploadselection.Node{
 		NodeURL: storj.NodeURL{
 			ID:      testrand.NodeID(),
 			Address: lastNetSingle + ".5:8080",
@@ -120,8 +120,8 @@ func TestSelectBySubnet(t *testing.T) {
 		LastIPPort: lastNetSingle + ".5:8080",
 	}
 
-	nodes := []*nodeselection.Node{subnetA1, subnetA2, subnetB1}
-	selector := nodeselection.SelectBySubnetFromNodes(nodes)
+	nodes := []*uploadselection.Node{subnetA1, subnetA2, subnetB1}
+	selector := uploadselection.SelectBySubnetFromNodes(nodes)
 
 	const (
 		reqCount       = 2
@@ -174,7 +174,7 @@ func TestSelectBySubnetOneAtATime(t *testing.T) {
 
 	// create 3 nodes, 2 with same subnet
 	lastNetDuplicate := "1.0.1"
-	subnetA1 := &nodeselection.Node{
+	subnetA1 := &uploadselection.Node{
 		NodeURL: storj.NodeURL{
 			ID:      testrand.NodeID(),
 			Address: lastNetDuplicate + ".4:8080",
@@ -182,7 +182,7 @@ func TestSelectBySubnetOneAtATime(t *testing.T) {
 		LastNet:    lastNetDuplicate,
 		LastIPPort: lastNetDuplicate + ".4:8080",
 	}
-	subnetA2 := &nodeselection.Node{
+	subnetA2 := &uploadselection.Node{
 		NodeURL: storj.NodeURL{
 			ID:      testrand.NodeID(),
 			Address: lastNetDuplicate + ".5:8080",
@@ -192,7 +192,7 @@ func TestSelectBySubnetOneAtATime(t *testing.T) {
 	}
 
 	lastNetSingle := "1.0.2"
-	subnetB1 := &nodeselection.Node{
+	subnetB1 := &uploadselection.Node{
 		NodeURL: storj.NodeURL{
 			ID:      testrand.NodeID(),
 			Address: lastNetSingle + ".5:8080",
@@ -201,8 +201,8 @@ func TestSelectBySubnetOneAtATime(t *testing.T) {
 		LastIPPort: lastNetSingle + ".5:8080",
 	}
 
-	nodes := []*nodeselection.Node{subnetA1, subnetA2, subnetB1}
-	selector := nodeselection.SelectBySubnetFromNodes(nodes)
+	nodes := []*uploadselection.Node{subnetA1, subnetA2, subnetB1}
+	selector := uploadselection.SelectBySubnetFromNodes(nodes)
 
 	const (
 		reqCount       = 1
