@@ -21,11 +21,11 @@ import (
 
 var (
 	// ErrValidateVersionQuery is when there is an error querying version table.
-	ErrValidateVersionQuery = errs.Class("validate db version query error")
+	ErrValidateVersionQuery = errs.Class("validate db version query")
 	// ErrValidateVersionMismatch is when the migration version does not match the current database version.
-	ErrValidateVersionMismatch = errs.Class("validate db version mismatch error")
+	ErrValidateVersionMismatch = errs.Class("validate db version mismatch")
 	// ErrValidateMinVersion is when the migration version does not match the current database version.
-	ErrValidateMinVersion = errs.Class("validate minimum version error")
+	ErrValidateMinVersion = errs.Class("validate minimum version")
 )
 
 /*

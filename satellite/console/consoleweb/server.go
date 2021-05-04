@@ -54,7 +54,7 @@ const (
 
 var (
 	// Error is satellite console error type.
-	Error = errs.Class("satellite console error")
+	Error = errs.Class("consoleweb")
 
 	mon = monkit.Package()
 )
@@ -69,32 +69,64 @@ type Config struct {
 	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:""`
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
-	ContactInfoURL                  string `help:"url link to contacts page" default:"https://forum.storj.io"`
-	FrameAncestors                  string `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io storj.io"`
-	LetUsKnowURL                    string `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
-	SEO                             string `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
-	SatelliteName                   string `help:"used to display at web satellite console" default:"Storj"`
-	SatelliteOperator               string `help:"name of organization which set up satellite" default:"Storj Labs" `
-	TermsAndConditionsURL           string `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
-	AccountActivationRedirectURL    string `help:"url link for account activation redirect" default:""`
-	VerificationPageURL             string `help:"url link to sign up verification page" devDefault:"" releaseDefault:"https://tardigrade.io/verify"`
-	PartneredSatelliteNames         string `help:"names of partnered satellites" default:"US1,EU1,AP1"`
-	GeneralRequestURL               string `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
-	ProjectLimitsIncreaseRequestURL string `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
-	GatewayCredentialsRequestURL    string `help:"url link for gateway credentials requests" default:"https://auth.us1.storjshare.io"`
-	IsBetaSatellite                 bool   `help:"indicates if satellite is in beta" default:"false"`
-	BetaSatelliteFeedbackURL        string `help:"url link for for beta satellite feedback" default:""`
-	BetaSatelliteSupportURL         string `help:"url link for for beta satellite support" default:""`
-	DocumentationURL                string `help:"url link to documentation" default:"https://docs.storj.io/"`
-	CouponCodeUIEnabled             bool   `help:"indicates if user is allowed to add coupon codes to account" default:"false"`
-	FileBrowserFlowDisabled         bool   `help:"indicates if file browser flow is disabled" default:"false"`
-	CSPEnabled                      bool   `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
-	LinksharingURL                  string `help:"url link for linksharing requests" default:"https://link.us1.storjshare.io"`
-	PathwayOverviewEnabled          bool   `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
+	ContactInfoURL                  string  `help:"url link to contacts page" default:"https://forum.storj.io"`
+	FrameAncestors                  string  `help:"allow domains to embed the satellite in a frame, space separated" default:"tardigrade.io storj.io"`
+	LetUsKnowURL                    string  `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
+	SEO                             string  `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
+	SatelliteName                   string  `help:"used to display at web satellite console" default:"Storj"`
+	SatelliteOperator               string  `help:"name of organization which set up satellite" default:"Storj Labs" `
+	TermsAndConditionsURL           string  `help:"url link to terms and conditions page" default:"https://storj.io/storage-sla/"`
+	AccountActivationRedirectURL    string  `help:"url link for account activation redirect" default:""`
+	PartneredSatellites             SatList `help:"names and addresses of partnered satellites in JSON list format" default:"[[\"US1\",\"https://us1.storj.io\"],[\"EU1\",\"https://eu1.storj.io\"],[\"AP1\",\"https://ap1.storj.io\"]]"`
+	GeneralRequestURL               string  `help:"url link to general request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000379291"`
+	ProjectLimitsIncreaseRequestURL string  `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
+	GatewayCredentialsRequestURL    string  `help:"url link for gateway credentials requests" default:"https://auth.us1.storjshare.io"`
+	IsBetaSatellite                 bool    `help:"indicates if satellite is in beta" default:"false"`
+	BetaSatelliteFeedbackURL        string  `help:"url link for for beta satellite feedback" default:""`
+	BetaSatelliteSupportURL         string  `help:"url link for for beta satellite support" default:""`
+	DocumentationURL                string  `help:"url link to documentation" default:"https://docs.storj.io/"`
+	CouponCodeUIEnabled             bool    `help:"indicates if user is allowed to add coupon codes to account" default:"false"`
+	FileBrowserFlowDisabled         bool    `help:"indicates if file browser flow is disabled" default:"false"`
+	CSPEnabled                      bool    `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
+	LinksharingURL                  string  `help:"url link for linksharing requests" default:"https://link.us1.storjshare.io"`
+	PathwayOverviewEnabled          bool    `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
 
 	RateLimit web.IPRateLimiterConfig
 
 	console.Config
+}
+
+// SatList is a configuration value that contains a list of satellite names and addresses.
+// Format should be [[name,address],[name,address],...] in valid JSON format.
+//
+// Can be used as a flag.
+type SatList string
+
+// Type implements pflag.Value.
+func (SatList) Type() string { return "consoleweb.SatList" }
+
+// String is required for pflag.Value.
+func (sl *SatList) String() string {
+	return string(*sl)
+}
+
+// Set does validation on the configured JSON, but does not actually transform it - it will be passed to the client as-is.
+func (sl *SatList) Set(s string) error {
+	satellites := make([][]string, 3)
+
+	err := json.Unmarshal([]byte(s), &satellites)
+	if err != nil {
+		return err
+	}
+
+	for _, sat := range satellites {
+		if len(sat) != 2 {
+			return errs.New("Could not parse satellite list config. Each satellite in the config must have two values: [name, address]")
+		}
+	}
+
+	*sl = SatList(s)
+	return nil
 }
 
 // Server represents console web server.
@@ -170,7 +202,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
 	router.HandleFunc("/registrationToken/", server.createRegistrationTokenHandler)
-	router.HandleFunc("/populate-promotional-coupons", server.populatePromotionalCoupons).Methods(http.MethodPost)
 	router.HandleFunc("/robots.txt", server.seoHandler)
 
 	router.Handle("/api/v0/graphql", server.withAuth(http.HandlerFunc(server.graphqlHandler)))
@@ -292,7 +323,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 			"frame-ancestors " + server.config.FrameAncestors,
 			"frame-src 'self' *.stripe.com",
 			"img-src 'self' data: *.customer.io *.tardigradeshare.io *.storjshare.io",
-			"media-src 'self' *.storjshare.io",
+			"media-src 'self' *.tardigradeshare.io *.storjshare.io",
 			"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com cdn.segment.com *.customer.io",
 		}
 
@@ -308,8 +339,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		SatelliteName                   string
 		SatelliteNodeURL                string
 		StripePublicKey                 string
-		VerificationPageURL             string
-		PartneredSatelliteNames         string
+		PartneredSatellites             string
 		DefaultProjectLimit             int
 		GeneralRequestURL               string
 		ProjectLimitsIncreaseRequestURL string
@@ -331,8 +361,7 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.SatelliteName = server.config.SatelliteName
 	data.SatelliteNodeURL = server.nodeURL.String()
 	data.StripePublicKey = server.stripePublicKey
-	data.VerificationPageURL = server.config.VerificationPageURL
-	data.PartneredSatelliteNames = server.config.PartneredSatelliteNames
+	data.PartneredSatellites = string(server.config.PartneredSatellites)
 	data.DefaultProjectLimit = server.config.DefaultProjectLimit
 	data.GeneralRequestURL = server.config.GeneralRequestURL
 	data.ProjectLimitsIncreaseRequestURL = server.config.ProjectLimitsIncreaseRequestURL
@@ -497,45 +526,6 @@ func (server *Server) createRegistrationTokenHandler(w http.ResponseWriter, r *h
 	}
 
 	response.Secret = token.Secret.String()
-}
-
-// populatePromotionalCoupons is web app http handler function for populating promotional coupons.
-func (server *Server) populatePromotionalCoupons(w http.ResponseWriter, r *http.Request) {
-	var err error
-	var ctx context.Context
-
-	defer mon.Task()(&ctx)(&err)
-
-	handleError := func(status int, err error) {
-		w.WriteHeader(status)
-		w.Header().Set(contentType, applicationJSON)
-
-		var response struct {
-			Error string `json:"error"`
-		}
-
-		response.Error = err.Error()
-
-		if err := json.NewEncoder(w).Encode(response); err != nil {
-			server.log.Error("failed to write json error response", zap.Error(Error.Wrap(err)))
-		}
-	}
-
-	ctx = r.Context()
-
-	equality := subtle.ConstantTimeCompare(
-		[]byte(r.Header.Get("Authorization")),
-		[]byte(server.config.AuthToken),
-	)
-	if equality != 1 {
-		handleError(http.StatusUnauthorized, errs.New("unauthorized"))
-		return
-	}
-
-	if err = server.service.Payments().PopulatePromotionalCoupons(ctx); err != nil {
-		handleError(http.StatusInternalServerError, err)
-		return
-	}
 }
 
 // accountActivationHandler is web app http handler function.

@@ -19,6 +19,26 @@
             </div>
         </div>
         <div class="account-billing-area__title-area" v-if="userHasOwnProject" :class="{ 'custom-position': hasNoCreditCard && (isBalanceLow || isBalanceNegative) }">
+            <div class="account-billing-area__title-area__balance-area">
+                <div class="account-billing-area__title-area__balance-area__free-credits">
+                    <span class="account-billing-area__title-area__balance-area__free-credits__amount">
+                        Free Credits: {{ balance.freeCredits | centsToDollars }}
+                    </span>
+                </div>
+                <div @click.stop="toggleBalanceDropdown" class="account-billing-area__title-area__balance-area__tokens-area">
+                    <span class="account-billing-area__title-area__balance-area__tokens-area__amount" :style="{ color: balanceColor }">
+                        Available Balance: {{ balance.coins | centsToDollars }}
+                    </span>
+                    <HideIcon v-if="isBalanceDropdownShown"/>
+                    <ExpandIcon v-else/>
+                    <HistoryDropdown
+                        v-show="isBalanceDropdownShown"
+                        @close="closeDropdown"
+                        label="Balance History"
+                        :route="balanceHistoryRoute"
+                    />
+                </div>
+            </div>
             <PeriodSelection v-if="userHasOwnProject"/>
         </div>
         <EstimatedCostsAndCredits v-if="isSummaryVisible"/>
@@ -164,13 +184,6 @@ export default class BillingArea extends Vue {
     }
 
     /**
-     * Toggles free credits dropdown visibility.
-     */
-    public toggleCreditsDropdown(): void {
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_FREE_CREDITS_DROPDOWN);
-    }
-
-    /**
      * Toggles available balance dropdown visibility.
      */
     public toggleBalanceDropdown(): void {
@@ -304,7 +317,7 @@ export default class BillingArea extends Vue {
                     display: flex;
                     align-items: center;
                     position: relative;
-                    cursor: pointer;
+                    cursor: default;
                     margin-right: 50px;
                     color: #768394;
 

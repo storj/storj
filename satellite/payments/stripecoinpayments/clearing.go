@@ -15,7 +15,7 @@ import (
 )
 
 // ErrChore is stripecoinpayments clearing loop chore error class.
-var ErrChore = errs.Class("stripecoinpayments chore error")
+var ErrChore = errs.Class("stripecoinpayments chore")
 
 // Chore runs clearing process of reconciling transactions deposits,
 // customer balance, invoices and usages.

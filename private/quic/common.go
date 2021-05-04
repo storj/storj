@@ -12,5 +12,5 @@ var (
 	mon = monkit.Package()
 
 	// Error is a pkg/quic error.
-	Error = errs.Class("quic error")
+	Error = errs.Class("quic")
 )

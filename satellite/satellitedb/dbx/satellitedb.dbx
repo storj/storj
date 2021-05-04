@@ -117,6 +117,29 @@ model node (
 		fields disqualified unknown_audit_suspended offline_suspended exit_finished_at last_contact_success
 	)
 
+	index (
+		// N.B. the index doesn't have a name which clarifies its purpose because
+		// it was created in the production DBs as it's before being added here
+		name nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index
+		fields type last_contact_success free_disk  major minor patch vetted_at
+		where node.disqualified = null
+		where node.unknown_audit_suspended = null
+		where node.exit_initiated_at = null
+		where node.release = true
+		where node.last_net != ""
+	)
+
+	index (
+		// N.B. the index doesn't have a name which clarifies its purpose because
+		// it was created in the production DBs as it's before being added here
+		name nodes_dis_unk_aud_exit_init_rel_type_last_cont_success_stored_index
+		fields disqualified  unknown_audit_suspended  exit_initiated_at  release  type  last_contact_success
+		where node.disqualified = null
+		where node.unknown_audit_suspended = null
+		where node.exit_initiated_at = null
+		where node.release = true
+	)
+
 	field id              blob
 	// address is how to contact the node, this can be a hostname or IP and it contains the port
 	field address         text  ( updatable, default "" ) // TODO: use compressed format
@@ -234,6 +257,11 @@ model injuredsegment (
 	index (
 		fields updated_at
 	)
+
+	index (
+		name injuredsegments_num_healthy_pieces_attempted_index
+		fields segment_health attempted
+	)
 )
 
 delete injuredsegment ( where injuredsegment.updated_at < ? )
@@ -243,24 +271,25 @@ delete injuredsegment ( where injuredsegment.updated_at < ? )
 model user (
     key id
 
-    field id               blob
-    field email            text      ( updatable )
-    field normalized_email text      ( updatable )
-    field full_name        text      ( updatable )
-    field short_name       text      ( updatable, nullable )
-    field password_hash    blob      ( updatable )
+    field id                 blob
+    field email              text      ( updatable )
+    field normalized_email   text      ( updatable )
+    field full_name          text      ( updatable )
+    field short_name         text      ( updatable, nullable )
+    field password_hash      blob      ( updatable )
 
-    field status           int       ( updatable, autoinsert )
-    field partner_id       blob      ( nullable )
-    field created_at       timestamp ( autoinsert )
-    field project_limit    int       ( updatable, default 0 )
+    field status             int       ( updatable, autoinsert )
+    field partner_id         blob      ( nullable )
+    field created_at         timestamp ( autoinsert )
+    field project_limit      int       ( updatable, default 0 )
 
-    field position         text      ( updatable, nullable )
-    field company_name     text      ( updatable, nullable )
-    field company_size     int       ( updatable, nullable )
-    field working_on       text      ( updatable, nullable )
-    field is_professional  bool      ( updatable, default false )
-    field employee_count   text      ( updatable, nullable )
+    field position           text      ( updatable, nullable )
+    field company_name       text      ( updatable, nullable )
+    field company_size       int       ( updatable, nullable )
+    field working_on         text      ( updatable, nullable )
+    field is_professional    bool      ( updatable, default false )
+    field employee_count     text      ( updatable, nullable )
+    field have_sales_contact bool      ( updatable, default false )
 )
 
 create user ( )

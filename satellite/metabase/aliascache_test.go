@@ -18,6 +18,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/metabasetest"
 )
 
 func TestNodeAliasCache(t *testing.T) {
@@ -138,9 +139,9 @@ func TestNodeAliasCache(t *testing.T) {
 }
 
 func TestNodeAliasCache_DB(t *testing.T) {
-	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		t.Run("missing aliases", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			cache := metabase.NewNodeAliasCache(db)
 			nodes, err := cache.Nodes(ctx, []metabase.NodeAlias{1, 2, 3})
@@ -149,7 +150,7 @@ func TestNodeAliasCache_DB(t *testing.T) {
 		})
 
 		t.Run("auto add nodes", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			cache := metabase.NewNodeAliasCache(db)
 

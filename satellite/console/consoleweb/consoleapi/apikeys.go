@@ -16,7 +16,7 @@ import (
 
 var (
 	// ErrAPIKeysAPI - console api keys api error type.
-	ErrAPIKeysAPI = errs.Class("console api keys api error")
+	ErrAPIKeysAPI = errs.Class("consoleapi keys")
 )
 
 // APIKeys is an api controller that exposes all api keys related functionality.

@@ -4,9 +4,7 @@
 package repair_test
 
 import (
-	"bytes"
 	"context"
-	"crypto/sha256"
 	"io"
 	"math"
 	"testing"
@@ -27,8 +25,6 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/storage"
-	"storj.io/uplink/private/etag"
-	"storj.io/uplink/private/multipart"
 )
 
 // TestDataRepair does the following:
@@ -222,11 +218,13 @@ func testDataRepairPendingObject(t *testing.T, inMemoryRepair bool) {
 		require.NoError(t, err)
 
 		// upload pending object
-		info, err := multipart.NewMultipartUpload(ctx, project, "testbucket", "test/path", nil)
+		info, err := project.BeginUpload(ctx, "testbucket", "test/path", nil)
 		require.NoError(t, err)
-		_, err = multipart.PutObjectPart(ctx, project, "testbucket", "test/path", info.StreamID, 7,
-			etag.NewHashReader(bytes.NewReader(testData), sha256.New()))
+		upload, err := project.UploadPart(ctx, "testbucket", "test/path", info.UploadID, 7)
 		require.NoError(t, err)
+		_, err = upload.Write(testData)
+		require.NoError(t, err)
+		require.NoError(t, upload.Commit())
 
 		segment, _ := getRemoteSegment(t, ctx, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
 
@@ -307,7 +305,7 @@ func testDataRepairPendingObject(t *testing.T, inMemoryRepair bool) {
 		}
 
 		// complete the pending multipart upload
-		_, err = multipart.CompleteMultipartUpload(ctx, project, "testbucket", "test/path", info.StreamID, nil)
+		_, err = project.CommitUpload(ctx, "testbucket", "test/path", info.UploadID, nil)
 		require.NoError(t, err)
 
 		// we should be able to download data without any of the original nodes

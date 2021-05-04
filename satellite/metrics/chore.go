@@ -17,7 +17,7 @@ import (
 
 var (
 	// Error defines the metrics chore errors class.
-	Error = errs.Class("metrics chore error")
+	Error = errs.Class("metrics")
 	mon   = monkit.Package()
 )
 

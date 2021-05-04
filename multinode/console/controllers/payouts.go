@@ -15,7 +15,7 @@ import (
 
 var (
 	// ErrPayouts is an internal error type for payouts web api controller.
-	ErrPayouts = errs.Class("payouts web api controller error")
+	ErrPayouts = errs.Class("payouts web api controller")
 )
 
 // Payouts is a web api controller.

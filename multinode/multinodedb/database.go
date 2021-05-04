@@ -26,7 +26,7 @@ var (
 	mon = monkit.Package()
 
 	// Error is the default multinodedb errs class.
-	Error = errs.Class("multinodedb internal error")
+	Error = errs.Class("multinodedb")
 )
 
 // multinodeDB combines access to different database tables with a record

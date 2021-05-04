@@ -25,7 +25,6 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metaloop"
-	"storj.io/uplink/private/multipart"
 )
 
 // TestLoop does the following
@@ -167,10 +166,10 @@ func TestLoop_ObjectNoSegments(t *testing.T) {
 
 		expectedNumberOfObjects := 5
 		for i := 0; i < expectedNumberOfObjects; i++ {
-			info, err := multipart.NewMultipartUpload(ctx, project, "abcd", "t"+strconv.Itoa(i), nil)
+			info, err := project.BeginUpload(ctx, "abcd", "t"+strconv.Itoa(i), nil)
 			require.NoError(t, err)
 
-			_, err = multipart.CompleteMultipartUpload(ctx, project, "abcd", "t"+strconv.Itoa(i), info.StreamID, nil)
+			_, err = project.CommitUpload(ctx, "abcd", "t"+strconv.Itoa(i), info.UploadID, nil)
 			require.NoError(t, err)
 		}
 

@@ -41,16 +41,16 @@ require (
 	github.com/zeebo/errs v1.2.2
 	go.etcd.io/bbolt v1.3.5
 	go.uber.org/zap v1.16.0
-	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
+	golang.org/x/crypto v0.0.0-20210415154028-4f45737414dc
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
-	golang.org/x/sys v0.0.0-20210415045647-66c3f260301c
-	golang.org/x/term v0.0.0-20201117132131-f5c789dd3221
+	golang.org/x/sys v0.0.0-20210420072515-93ed5bcd2bfe
+	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	google.golang.org/api v0.20.0 // indirect
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
-	storj.io/common v0.0.0-20210419115916-eabb53ea1332
+	storj.io/common v0.0.0-20210429174118-60091ebbbdaf
 	storj.io/drpc v0.0.20
-	storj.io/monkit-jaeger v0.0.0-20210225162224-66fb37637bf6
-	storj.io/private v0.0.0-20210423085237-5af81f2a2b21
-	storj.io/uplink v1.4.7-0.20210421171443-53fab7d9387c
+	storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7
+	storj.io/private v0.0.0-20210429173958-0e792382d191
+	storj.io/uplink v1.5.0-rc.1.0.20210430131802-f57493cc5b2e
 )

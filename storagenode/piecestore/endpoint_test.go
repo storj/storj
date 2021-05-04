@@ -256,6 +256,7 @@ func TestDownload(t *testing.T) {
 				errs:    []string{"expected get or get repair or audit action got PUT"},
 			},
 		} {
+			tt := tt
 			serialNumber := testrand.SerialNumber()
 
 			orderLimit, piecePrivateKey := GenerateOrderLimit(
@@ -277,25 +278,31 @@ func TestDownload(t *testing.T) {
 			require.NoError(t, err)
 
 			buffer := make([]byte, len(expectedData))
-			n, err := downloader.Read(buffer)
+			n, readErr := downloader.Read(buffer)
 
 			if len(tt.errs) > 0 {
 			} else {
-				require.NoError(t, err)
+				require.NoError(t, readErr)
 				require.Equal(t, expectedData, buffer[:n])
 			}
 
-			err = downloader.Close()
-			numErrs := len(tt.errs)
-			if numErrs > 0 {
-				require.Error(t, err)
-			}
-			if numErrs == 1 {
-				require.True(t, strings.Contains(err.Error(), tt.errs[0]))
-			} else if numErrs == 2 {
-				require.True(t, strings.Contains(err.Error(), tt.errs[0]) || strings.Contains(err.Error(), tt.errs[1]), err.Error())
-			} else {
+			closeErr := downloader.Close()
+			err = errs.Combine(readErr, closeErr)
+
+			switch len(tt.errs) {
+			case 0:
 				require.NoError(t, err)
+			case 1:
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.errs[0])
+			case 2:
+				require.Error(t, err)
+				require.Conditionf(t, func() bool {
+					return strings.Contains(err.Error(), tt.errs[0]) ||
+						strings.Contains(err.Error(), tt.errs[1])
+				}, "expected error to contain %q or %q, but it does not: %v", tt.errs[0], tt.errs[1], err)
+			default:
+				require.FailNow(t, "unexpected number of error cases")
 			}
 
 			// these should only be not-nil if action = pb.PieceAction_GET_REPAIR

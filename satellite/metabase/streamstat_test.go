@@ -10,44 +10,45 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/metabasetest"
 )
 
 func TestGetStreamPieceCountByNodeID(t *testing.T) {
-	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		obj := randObjectStream()
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
 
 		t.Run("StreamID missing", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			GetStreamPieceCountByNodeID{
+			metabasetest.GetStreamPieceCountByNodeID{
 				Opts:     metabase.GetStreamPieceCountByNodeID{},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "StreamID missing",
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("no segments", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			GetStreamPieceCountByNodeID{
+			metabasetest.GetStreamPieceCountByNodeID{
 				Opts: metabase.GetStreamPieceCountByNodeID{
 					StreamID: obj.StreamID,
 				},
 				Result: map[storj.NodeID]int64{},
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("inline segments", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			BeginObjectExactVersion{
+			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
-					Encryption:   defaultTestEncryption,
+					Encryption:   metabasetest.DefaultEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
@@ -55,7 +56,7 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 			encryptedKey := testrand.Bytes(32)
 			encryptedKeyNonce := testrand.Bytes(32)
 
-			CommitInlineSegment{
+			metabasetest.CommitInlineSegment{
 				Opts: metabase.CommitInlineSegment{
 					ObjectStream: obj,
 					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
@@ -69,7 +70,7 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			GetStreamPieceCountByNodeID{
+			metabasetest.GetStreamPieceCountByNodeID{
 				Opts: metabase.GetStreamPieceCountByNodeID{
 					StreamID: obj.StreamID,
 				},
@@ -78,12 +79,12 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 		})
 
 		t.Run("remote segments", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			BeginObjectExactVersion{
+			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
-					Encryption:   defaultTestEncryption,
+					Encryption:   metabasetest.DefaultEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
@@ -95,7 +96,7 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 			n02 := testrand.NodeID()
 			n03 := testrand.NodeID()
 
-			CommitSegment{
+			metabasetest.CommitSegment{
 				Opts: metabase.CommitSegment{
 					ObjectStream: obj,
 					Position:     metabase.SegmentPosition{Part: 0, Index: 0},
@@ -112,11 +113,11 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 					EncryptedSize: 1024,
 					PlainSize:     512,
 					PlainOffset:   0,
-					Redundancy:    defaultTestRedundancy,
+					Redundancy:    metabasetest.DefaultRedundancy,
 				},
 			}.Check(ctx, t, db)
 
-			CommitSegment{
+			metabasetest.CommitSegment{
 				Opts: metabase.CommitSegment{
 					ObjectStream: obj,
 					Position:     metabase.SegmentPosition{Part: 1, Index: 56},
@@ -134,11 +135,11 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 					EncryptedSize: 1024,
 					PlainSize:     512,
 					PlainOffset:   0,
-					Redundancy:    defaultTestRedundancy,
+					Redundancy:    metabasetest.DefaultRedundancy,
 				},
 			}.Check(ctx, t, db)
 
-			GetStreamPieceCountByNodeID{
+			metabasetest.GetStreamPieceCountByNodeID{
 				Opts: metabase.GetStreamPieceCountByNodeID{
 					StreamID: obj.StreamID,
 				},

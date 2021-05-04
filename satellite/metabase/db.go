@@ -342,6 +342,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE segments ADD COLUMN encrypted_etag BYTEA default NULL`,
 				},
 			},
+			{
+				DB:          &db.db,
+				Description: "add index on pending objects",
+				Version:     10,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS pending_index ON objects (project_id, bucket_name) WHERE status=` + pendingStatus,
+				},
+			},
 		},
 	}
 }

@@ -10,7 +10,12 @@
                 <p class="buckets-view__title-area__button__label">New Bucket</p>
             </div>
         </div>
-        <div class="buckets-view__loader" v-if="isLoading"/>
+        <VLoader
+            width="120px"
+            height="120px"
+            class="buckets-view__loader"
+            v-if="isLoading"
+        />
         <p class="buckets-view__no-buckets" v-if="!(isLoading || bucketsList.length)">No Buckets</p>
         <div class="buckets-view__list" v-if="!isLoading && bucketsList.length">
             <div class="buckets-view__list__sorting-header">
@@ -38,7 +43,6 @@
             button-label="Create Bucket"
             :error-message="errorMessage"
             :is-loading="isRequestProcessing"
-            :is-create-bucket="true"
         />
         <ObjectsPopup
             v-if="isDeletePopupVisible"
@@ -48,7 +52,6 @@
             title="Are you sure?"
             sub-title="Deleting this bucket will delete all metadata related to this bucket."
             button-label="Confirm Delete Bucket"
-            :default-input-value="deleteBucketName"
             :error-message="errorMessage"
             :is-loading="isRequestProcessing"
         />
@@ -59,6 +62,7 @@
 import { Bucket } from 'aws-sdk/clients/s3';
 import { Component, Vue } from 'vue-property-decorator';
 
+import VLoader from '@/components/common/VLoader.vue';
 import BucketItem from '@/components/objects/BucketItem.vue';
 import ObjectsPopup from '@/components/objects/ObjectsPopup.vue';
 
@@ -76,6 +80,7 @@ import { Validator } from '@/utils/validation';
         BucketIcon,
         ObjectsPopup,
         BucketItem,
+        VLoader,
     },
 })
 export default class BucketsView extends Vue {
@@ -191,23 +196,7 @@ export default class BucketsView extends Vue {
     public async onCreateBucketClick(): Promise<void> {
         if (this.isRequestProcessing) return;
 
-        if (this.createBucketName.length < 3 || this.createBucketName.length > 63) {
-            this.errorMessage = 'Name must be not less than 3 and not more than 63 characters length';
-
-            return;
-        }
-
-        if (!Validator.bucketName(this.createBucketName)) {
-            this.errorMessage = 'Name must include only lowercase latin characters';
-
-            return;
-        }
-
-        if (!Validator.oneWordString(this.createBucketName)) {
-            this.errorMessage = 'Name must be 1-word string';
-
-            return;
-        }
+        if (!this.isBucketNameValid(this.createBucketName)) return;
 
         this.isRequestProcessing = true;
 
@@ -234,9 +223,7 @@ export default class BucketsView extends Vue {
     public async onDeleteBucketClick(): Promise<void> {
         if (this.isRequestProcessing) return;
 
-        if (!this.deleteBucketName) {
-            this.errorMessage = 'Bucket name can\'t be empty';
-        }
+        if (!this.isBucketNameValid(this.deleteBucketName)) return;
 
         this.isRequestProcessing = true;
 
@@ -344,10 +331,25 @@ export default class BucketsView extends Vue {
     }
 
     /**
-     * Returns access grant from store.
+     * Returns validation status of a bucket name.
      */
-    private get accessGrantFromStore(): string {
-        return this.$store.state.objectsModule.accessGrant;
+    private isBucketNameValid(name: string): boolean {
+        switch (true) {
+            case name.length < 3 || name.length > 63:
+                this.errorMessage = 'Name must be not less than 3 and not more than 63 characters length';
+
+                return false;
+            case !Validator.bucketName(name):
+                this.errorMessage = 'Name must include only lowercase latin characters';
+
+                return false;
+            case !Validator.oneWordString(name):
+                this.errorMessage = 'Name must be 1-word string';
+
+                return false;
+            default:
+                return true;
+        }
     }
 }
 </script>
@@ -404,12 +406,6 @@ export default class BucketsView extends Vue {
 
         &__loader {
             margin-top: 100px;
-            border: 16px solid #f3f3f3;
-            border-top: 16px solid #3498db;
-            border-radius: 50%;
-            width: 120px;
-            height: 120px;
-            animation: spin 2s linear infinite;
         }
 
         &__no-buckets {
@@ -460,10 +456,5 @@ export default class BucketsView extends Vue {
         pointer-events: none;
         background-color: #dadde5;
         border-color: #dadde5;
-    }
-
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
     }
 </style>

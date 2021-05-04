@@ -31,7 +31,7 @@ import (
 
 var (
 	// SNOServiceErr defines sno service error.
-	SNOServiceErr = errs.Class("storage node dashboard service error")
+	SNOServiceErr = errs.Class("console")
 
 	mon = monkit.Package()
 )

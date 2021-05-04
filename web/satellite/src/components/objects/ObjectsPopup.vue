@@ -6,7 +6,7 @@
         <div class="objects-popup__container">
             <h1 class="objects-popup__container__title">{{title}}</h1>
             <p class="objects-popup__container__sub-title">{{subTitle}}</p>
-            <div v-if="isCreateBucket" class="objects-popup__container__info">
+            <div class="objects-popup__container__info">
                 <WarningIcon/>
                 <p class="objects-popup__container__info__msg">Only lowercase alphanumeric characters are allowed.</p>
             </div>
@@ -15,7 +15,6 @@
                 label="Bucket Name"
                 placeholder="Enter bucket name"
                 @setData="onChangeName"
-                :init-value="defaultInputValue"
                 :error="errorMessage"
                 :is-loading="isLoading"
             />
@@ -58,15 +57,11 @@ export default class ObjectsPopup extends Vue {
     @Prop({ default: ''})
     public readonly subTitle: string;
     @Prop({ default: ''})
-    public readonly defaultInputValue: string;
-    @Prop({ default: ''})
     public readonly buttonLabel: string;
     @Prop({ default: ''})
     public readonly errorMessage: string;
     @Prop({ default: false})
     public readonly isLoading: boolean;
-    @Prop({ default: false})
-    public readonly isCreateBucket: boolean;
 
     /**
      * Sets bucket name from input.
@@ -132,7 +127,7 @@ export default class ObjectsPopup extends Vue {
                 padding: 23px 14px;
                 background: #f5f6fa;
                 border: 1px solid #a9b5c1;
-                margin-top: 20px;
+                margin: 20px 0;
                 border-radius: 9px;
 
                 &__msg {

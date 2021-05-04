@@ -21,7 +21,7 @@ type verifyConfig struct {
 }
 
 var (
-	errVerify = errs.Class("Verify error")
+	errVerify = errs.Class("verify")
 	verifyCmd = &cobra.Command{
 		Use:   "verify",
 		Short: "Verify identity and CA certificate chains are valid",

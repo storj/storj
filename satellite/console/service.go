@@ -20,7 +20,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"storj.io/common/macaroon"
-	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
@@ -60,19 +59,19 @@ const (
 
 var (
 	// Error describes internal console error.
-	Error = errs.Class("service error")
+	Error = errs.Class("console service")
 
 	// ErrNoMembership is error type of not belonging to a specific project.
-	ErrNoMembership = errs.Class("no membership error")
+	ErrNoMembership = errs.Class("no membership")
 
 	// ErrTokenExpiration is error type of token reached expiration time.
-	ErrTokenExpiration = errs.Class("token expiration error")
+	ErrTokenExpiration = errs.Class("token expiration")
 
 	// ErrProjLimit is error type of project limit.
-	ErrProjLimit = errs.Class("project limit error")
+	ErrProjLimit = errs.Class("project limit")
 
 	// ErrUsage is error type of project usage.
-	ErrUsage = errs.Class("project usage error")
+	ErrUsage = errs.Class("project usage")
 
 	// ErrEmailUsed is error type that occurs on repeating auth attempts with email.
 	ErrEmailUsed = errs.Class("email used")
@@ -480,17 +479,6 @@ func (paymentService PaymentsService) checkProjectInvoicingStatus(ctx context.Co
 	}
 
 	return paymentService.service.accounts.CheckProjectInvoicingStatus(ctx, projectID)
-}
-
-// PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have
-// a project, payment method and do not have a promotional coupon yet.
-// And updates project limits to selected size.
-// This functionality is deprecated and will be removed.
-func (paymentService PaymentsService) PopulatePromotionalCoupons(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	duration := 2
-	return Error.Wrap(paymentService.service.accounts.Coupons().PopulatePromotionalCoupons(ctx, &duration, 5500, memory.TB))
 }
 
 // AddPromotionalCoupon creates new coupon for specified user.

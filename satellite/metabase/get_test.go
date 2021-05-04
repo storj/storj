@@ -11,21 +11,22 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/metabasetest"
 )
 
 func TestGetObjectExactVersion(t *testing.T) {
-	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		obj := randObjectStream()
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
 
 		location := obj.Location()
 
 		now := time.Now()
 
-		for _, test := range invalidObjectLocations(location) {
+		for _, test := range metabasetest.InvalidObjectLocations(location) {
 			test := test
 			t.Run(test.Name, func(t *testing.T) {
-				defer DeleteAll{}.Check(ctx, t, db)
-				GetObjectExactVersion{
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+				metabasetest.GetObjectExactVersion{
 					Opts: metabase.GetObjectExactVersion{
 						ObjectLocation: test.ObjectLocation,
 					},
@@ -33,14 +34,14 @@ func TestGetObjectExactVersion(t *testing.T) {
 					ErrText:  test.ErrText,
 				}.Check(ctx, t, db)
 
-				Verify{}.Check(ctx, t, db)
+				metabasetest.Verify{}.Check(ctx, t, db)
 			})
 		}
 
 		t.Run("Version invalid", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			GetObjectExactVersion{
+			metabasetest.GetObjectExactVersion{
 				Opts: metabase.GetObjectExactVersion{
 					ObjectLocation: location,
 					Version:        0,
@@ -49,13 +50,13 @@ func TestGetObjectExactVersion(t *testing.T) {
 				ErrText:  "Version invalid: 0",
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("Object missing", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			GetObjectExactVersion{
+			metabasetest.GetObjectExactVersion{
 				Opts: metabase.GetObjectExactVersion{
 					ObjectLocation: location,
 					Version:        1,
@@ -64,15 +65,15 @@ func TestGetObjectExactVersion(t *testing.T) {
 				ErrText:  "metabase: sql: no rows in result set",
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("Get not existing version", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			createObject(ctx, t, db, obj, 0)
+			metabasetest.CreateObject(ctx, t, db, obj, 0)
 
-			GetObjectExactVersion{
+			metabasetest.GetObjectExactVersion{
 				Opts: metabase.GetObjectExactVersion{
 					ObjectLocation: location,
 					Version:        11,
@@ -81,32 +82,32 @@ func TestGetObjectExactVersion(t *testing.T) {
 				ErrText:  "metabase: sql: no rows in result set",
 			}.Check(ctx, t, db)
 
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: obj,
 						CreatedAt:    now,
 						Status:       metabase.Committed,
 
-						Encryption: defaultTestEncryption,
+						Encryption: metabasetest.DefaultEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
 		})
 
 		t.Run("Get pending object", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			BeginObjectExactVersion{
+			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
 
-					Encryption: defaultTestEncryption,
+					Encryption: metabasetest.DefaultEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
 
-			GetObjectExactVersion{
+			metabasetest.GetObjectExactVersion{
 				Opts: metabase.GetObjectExactVersion{
 					ObjectLocation: location,
 					Version:        1,
@@ -115,25 +116,25 @@ func TestGetObjectExactVersion(t *testing.T) {
 				ErrText:  "metabase: sql: no rows in result set",
 			}.Check(ctx, t, db)
 
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: obj,
 						CreatedAt:    now,
 						Status:       metabase.Pending,
 
-						Encryption: defaultTestEncryption,
+						Encryption: metabasetest.DefaultEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
 		})
 
 		t.Run("Get object", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			createObject(ctx, t, db, obj, 0)
+			metabasetest.CreateObject(ctx, t, db, obj, 0)
 
-			GetObjectExactVersion{
+			metabasetest.GetObjectExactVersion{
 				Opts: metabase.GetObjectExactVersion{
 					ObjectLocation: location,
 					Version:        1,
@@ -143,17 +144,17 @@ func TestGetObjectExactVersion(t *testing.T) {
 					CreatedAt:    now,
 					Status:       metabase.Committed,
 
-					Encryption: defaultTestEncryption,
+					Encryption: metabasetest.DefaultEncryption,
 				},
 			}.Check(ctx, t, db)
 
-			Verify{Objects: []metabase.RawObject{
+			metabasetest.Verify{Objects: []metabase.RawObject{
 				{
 					ObjectStream: obj,
 					CreatedAt:    now,
 					Status:       metabase.Committed,
 
-					Encryption: defaultTestEncryption,
+					Encryption: metabasetest.DefaultEncryption,
 				},
 			}}.Check(ctx, t, db)
 		})
@@ -161,18 +162,18 @@ func TestGetObjectExactVersion(t *testing.T) {
 }
 
 func TestGetObjectLatestVersion(t *testing.T) {
-	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		obj := randObjectStream()
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
 
 		location := obj.Location()
 
 		now := time.Now()
 
-		for _, test := range invalidObjectLocations(location) {
+		for _, test := range metabasetest.InvalidObjectLocations(location) {
 			test := test
 			t.Run(test.Name, func(t *testing.T) {
-				defer DeleteAll{}.Check(ctx, t, db)
-				GetObjectLatestVersion{
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+				metabasetest.GetObjectLatestVersion{
 					Opts: metabase.GetObjectLatestVersion{
 						ObjectLocation: test.ObjectLocation,
 					},
@@ -180,14 +181,14 @@ func TestGetObjectLatestVersion(t *testing.T) {
 					ErrText:  test.ErrText,
 				}.Check(ctx, t, db)
 
-				Verify{}.Check(ctx, t, db)
+				metabasetest.Verify{}.Check(ctx, t, db)
 			})
 		}
 
 		t.Run("Object missing", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			GetObjectLatestVersion{
+			metabasetest.GetObjectLatestVersion{
 				Opts: metabase.GetObjectLatestVersion{
 					ObjectLocation: location,
 				},
@@ -195,22 +196,22 @@ func TestGetObjectLatestVersion(t *testing.T) {
 				ErrText:  "metabase: sql: no rows in result set",
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("Get pending object", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			BeginObjectExactVersion{
+			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
 
-					Encryption: defaultTestEncryption,
+					Encryption: metabasetest.DefaultEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
 
-			GetObjectLatestVersion{
+			metabasetest.GetObjectLatestVersion{
 				Opts: metabase.GetObjectLatestVersion{
 					ObjectLocation: location,
 				},
@@ -218,27 +219,27 @@ func TestGetObjectLatestVersion(t *testing.T) {
 				ErrText:  "metabase: sql: no rows in result set",
 			}.Check(ctx, t, db)
 
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: obj,
 						CreatedAt:    now,
 						Status:       metabase.Pending,
 
-						Encryption: defaultTestEncryption,
+						Encryption: metabasetest.DefaultEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
 		})
 
 		t.Run("Get object", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			encryptedMetadata := testrand.Bytes(1024)
 			encryptedMetadataNonce := testrand.Nonce()
 			encryptedMetadataKey := testrand.Bytes(265)
 
-			CreateTestObject{
+			metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:                  obj,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
@@ -247,7 +248,7 @@ func TestGetObjectLatestVersion(t *testing.T) {
 				},
 			}.Run(ctx, t, db, obj, 0)
 
-			GetObjectLatestVersion{
+			metabasetest.GetObjectLatestVersion{
 				Opts: metabase.GetObjectLatestVersion{
 					ObjectLocation: location,
 				},
@@ -256,7 +257,7 @@ func TestGetObjectLatestVersion(t *testing.T) {
 					CreatedAt:    now,
 					Status:       metabase.Committed,
 
-					Encryption: defaultTestEncryption,
+					Encryption: metabasetest.DefaultEncryption,
 
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
@@ -264,13 +265,13 @@ func TestGetObjectLatestVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			Verify{Objects: []metabase.RawObject{
+			metabasetest.Verify{Objects: []metabase.RawObject{
 				{
 					ObjectStream: obj,
 					CreatedAt:    now,
 					Status:       metabase.Committed,
 
-					Encryption: defaultTestEncryption,
+					Encryption: metabasetest.DefaultEncryption,
 
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadata:             encryptedMetadata,
@@ -280,10 +281,10 @@ func TestGetObjectLatestVersion(t *testing.T) {
 		})
 
 		t.Run("Get latest object version from multiple", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			firstVersion := obj
-			createObject(ctx, t, db, firstVersion, 0)
+			metabasetest.CreateObject(ctx, t, db, firstVersion, 0)
 			secondVersion := metabase.ObjectStream{
 				ProjectID:  obj.ProjectID,
 				BucketName: obj.BucketName,
@@ -291,9 +292,9 @@ func TestGetObjectLatestVersion(t *testing.T) {
 				Version:    2,
 				StreamID:   obj.StreamID,
 			}
-			createObject(ctx, t, db, secondVersion, 0)
+			metabasetest.CreateObject(ctx, t, db, secondVersion, 0)
 
-			GetObjectLatestVersion{
+			metabasetest.GetObjectLatestVersion{
 				Opts: metabase.GetObjectLatestVersion{
 					ObjectLocation: location,
 				},
@@ -302,24 +303,24 @@ func TestGetObjectLatestVersion(t *testing.T) {
 					CreatedAt:    now,
 					Status:       metabase.Committed,
 
-					Encryption: defaultTestEncryption,
+					Encryption: metabasetest.DefaultEncryption,
 				},
 			}.Check(ctx, t, db)
 
-			Verify{Objects: []metabase.RawObject{
+			metabasetest.Verify{Objects: []metabase.RawObject{
 				{
 					ObjectStream: firstVersion,
 					CreatedAt:    now,
 					Status:       metabase.Committed,
 
-					Encryption: defaultTestEncryption,
+					Encryption: metabasetest.DefaultEncryption,
 				},
 				{
 					ObjectStream: secondVersion,
 					CreatedAt:    now,
 					Status:       metabase.Committed,
 
-					Encryption: defaultTestEncryption,
+					Encryption: metabasetest.DefaultEncryption,
 				},
 			}}.Check(ctx, t, db)
 		})
@@ -327,8 +328,8 @@ func TestGetObjectLatestVersion(t *testing.T) {
 }
 
 func TestGetSegmentByLocation(t *testing.T) {
-	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		obj := randObjectStream()
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
 
 		now := time.Now()
 
@@ -338,11 +339,11 @@ func TestGetSegmentByLocation(t *testing.T) {
 			ObjectKey:  obj.ObjectKey,
 		}
 
-		for _, test := range invalidSegmentLocations(location) {
+		for _, test := range metabasetest.InvalidSegmentLocations(location) {
 			test := test
 			t.Run(test.Name, func(t *testing.T) {
-				defer DeleteAll{}.Check(ctx, t, db)
-				GetSegmentByLocation{
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+				metabasetest.GetSegmentByLocation{
 					Opts: metabase.GetSegmentByLocation{
 						SegmentLocation: test.SegmentLocation,
 					},
@@ -350,14 +351,14 @@ func TestGetSegmentByLocation(t *testing.T) {
 					ErrText:  test.ErrText,
 				}.Check(ctx, t, db)
 
-				Verify{}.Check(ctx, t, db)
+				metabasetest.Verify{}.Check(ctx, t, db)
 			})
 		}
 
 		t.Run("Object missing", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			GetSegmentByLocation{
+			metabasetest.GetSegmentByLocation{
 				Opts: metabase.GetSegmentByLocation{
 					SegmentLocation: location,
 				},
@@ -365,13 +366,13 @@ func TestGetSegmentByLocation(t *testing.T) {
 				ErrText:  "metabase: object or segment missing",
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("Get segment", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			createObject(ctx, t, db, obj, 1)
+			metabasetest.CreateObject(ctx, t, db, obj, 1)
 
 			expectedSegment := metabase.Segment{
 				StreamID: obj.StreamID,
@@ -386,10 +387,10 @@ func TestGetSegmentByLocation(t *testing.T) {
 				EncryptedSize:     1024,
 				PlainSize:         512,
 				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
-				Redundancy:        defaultTestRedundancy,
+				Redundancy:        metabasetest.DefaultRedundancy,
 			}
 
-			GetSegmentByLocation{
+			metabasetest.GetSegmentByLocation{
 				Opts: metabase.GetSegmentByLocation{
 					SegmentLocation: location,
 				},
@@ -397,7 +398,7 @@ func TestGetSegmentByLocation(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			// check non existing segment in existing object
-			GetSegmentByLocation{
+			metabasetest.GetSegmentByLocation{
 				Opts: metabase.GetSegmentByLocation{
 					SegmentLocation: metabase.SegmentLocation{
 						ProjectID:  obj.ProjectID,
@@ -412,7 +413,7 @@ func TestGetSegmentByLocation(t *testing.T) {
 				ErrText:  "metabase: object or segment missing",
 			}.Check(ctx, t, db)
 
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: obj,
@@ -424,7 +425,7 @@ func TestGetSegmentByLocation(t *testing.T) {
 						TotalEncryptedSize: 1024,
 						FixedSegmentSize:   512,
 
-						Encryption: defaultTestEncryption,
+						Encryption: metabasetest.DefaultEncryption,
 					},
 				},
 				Segments: []metabase.RawSegment{
@@ -436,27 +437,27 @@ func TestGetSegmentByLocation(t *testing.T) {
 }
 
 func TestGetSegmentByPosition(t *testing.T) {
-	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		obj := randObjectStream()
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
 
 		now := time.Now()
 
 		t.Run("StreamID missing", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			GetSegmentByPosition{
+			metabasetest.GetSegmentByPosition{
 				Opts:     metabase.GetSegmentByPosition{},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "StreamID missing",
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("Segment missing", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			GetSegmentByPosition{
+			metabasetest.GetSegmentByPosition{
 				Opts: metabase.GetSegmentByPosition{
 					StreamID: obj.StreamID,
 				},
@@ -464,13 +465,13 @@ func TestGetSegmentByPosition(t *testing.T) {
 				ErrText:  "segment missing",
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("Get segment", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			createObject(ctx, t, db, obj, 1)
+			metabasetest.CreateObject(ctx, t, db, obj, 1)
 
 			expectedSegment := metabase.Segment{
 				StreamID: obj.StreamID,
@@ -485,10 +486,10 @@ func TestGetSegmentByPosition(t *testing.T) {
 				EncryptedSize:     1024,
 				PlainSize:         512,
 				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
-				Redundancy:        defaultTestRedundancy,
+				Redundancy:        metabasetest.DefaultRedundancy,
 			}
 
-			GetSegmentByPosition{
+			metabasetest.GetSegmentByPosition{
 				Opts: metabase.GetSegmentByPosition{
 					StreamID: obj.StreamID,
 					Position: metabase.SegmentPosition{
@@ -499,7 +500,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			// check non existing segment in existing object
-			GetSegmentByPosition{
+			metabasetest.GetSegmentByPosition{
 				Opts: metabase.GetSegmentByPosition{
 					StreamID: obj.StreamID,
 					Position: metabase.SegmentPosition{
@@ -510,7 +511,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 				ErrText:  "segment missing",
 			}.Check(ctx, t, db)
 
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: obj,
@@ -522,7 +523,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 						TotalEncryptedSize: 1024,
 						FixedSegmentSize:   512,
 
-						Encryption: defaultTestEncryption,
+						Encryption: metabasetest.DefaultEncryption,
 					},
 				},
 				Segments: []metabase.RawSegment{
@@ -534,16 +535,16 @@ func TestGetSegmentByPosition(t *testing.T) {
 }
 
 func TestGetLatestObjectLastSegment(t *testing.T) {
-	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		obj := randObjectStream()
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
 		location := obj.Location()
 		now := time.Now()
 
-		for _, test := range invalidObjectLocations(location) {
+		for _, test := range metabasetest.InvalidObjectLocations(location) {
 			test := test
 			t.Run(test.Name, func(t *testing.T) {
-				defer DeleteAll{}.Check(ctx, t, db)
-				GetLatestObjectLastSegment{
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+				metabasetest.GetLatestObjectLastSegment{
 					Opts: metabase.GetLatestObjectLastSegment{
 						ObjectLocation: test.ObjectLocation,
 					},
@@ -551,14 +552,14 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 					ErrText:  test.ErrText,
 				}.Check(ctx, t, db)
 
-				Verify{}.Check(ctx, t, db)
+				metabasetest.Verify{}.Check(ctx, t, db)
 			})
 		}
 
 		t.Run("Object or segment missing", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			GetLatestObjectLastSegment{
+			metabasetest.GetLatestObjectLastSegment{
 				Opts: metabase.GetLatestObjectLastSegment{
 					ObjectLocation: location,
 				},
@@ -566,13 +567,13 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 				ErrText:  "metabase: object or segment missing",
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("Get last segment", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			createObject(ctx, t, db, obj, 2)
+			metabasetest.CreateObject(ctx, t, db, obj, 2)
 
 			expectedSegmentSecond := metabase.Segment{
 				StreamID: obj.StreamID,
@@ -588,21 +589,21 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 				PlainSize:         512,
 				PlainOffset:       512,
 				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
-				Redundancy:        defaultTestRedundancy,
+				Redundancy:        metabasetest.DefaultRedundancy,
 			}
 
 			expectedSegmentFirst := expectedSegmentSecond
 			expectedSegmentFirst.Position.Index = 0
 			expectedSegmentFirst.PlainOffset = 0
 
-			GetLatestObjectLastSegment{
+			metabasetest.GetLatestObjectLastSegment{
 				Opts: metabase.GetLatestObjectLastSegment{
 					ObjectLocation: location,
 				},
 				Result: expectedSegmentSecond,
 			}.Check(ctx, t, db)
 
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: obj,
@@ -614,7 +615,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 						TotalEncryptedSize: 2048,
 						FixedSegmentSize:   512,
 
-						Encryption: defaultTestEncryption,
+						Encryption: metabasetest.DefaultEncryption,
 					},
 				},
 				Segments: []metabase.RawSegment{
@@ -627,16 +628,16 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 }
 
 func TestGetSegmentByOffset(t *testing.T) {
-	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		obj := randObjectStream()
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
 		location := obj.Location()
 		now := time.Now()
 
-		for _, test := range invalidObjectLocations(location) {
+		for _, test := range metabasetest.InvalidObjectLocations(location) {
 			test := test
 			t.Run(test.Name, func(t *testing.T) {
-				defer DeleteAll{}.Check(ctx, t, db)
-				GetSegmentByOffset{
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+				metabasetest.GetSegmentByOffset{
 					Opts: metabase.GetSegmentByOffset{
 						ObjectLocation: test.ObjectLocation,
 					},
@@ -644,14 +645,14 @@ func TestGetSegmentByOffset(t *testing.T) {
 					ErrText:  test.ErrText,
 				}.Check(ctx, t, db)
 
-				Verify{}.Check(ctx, t, db)
+				metabasetest.Verify{}.Check(ctx, t, db)
 			})
 		}
 
 		t.Run("Invalid PlainOffset", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			GetSegmentByOffset{
+			metabasetest.GetSegmentByOffset{
 				Opts: metabase.GetSegmentByOffset{
 					ObjectLocation: location,
 					PlainOffset:    -1,
@@ -660,13 +661,13 @@ func TestGetSegmentByOffset(t *testing.T) {
 				ErrText:  "Invalid PlainOffset: -1",
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("Object or segment missing", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			GetSegmentByOffset{
+			metabasetest.GetSegmentByOffset{
 				Opts: metabase.GetSegmentByOffset{
 					ObjectLocation: location,
 				},
@@ -674,13 +675,13 @@ func TestGetSegmentByOffset(t *testing.T) {
 				ErrText:  "metabase: object or segment missing",
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("Get segment", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			CreateTestObject{}.Run(ctx, t, db, obj, 4)
+			metabasetest.CreateTestObject{}.Run(ctx, t, db, obj, 4)
 
 			segments := make([]metabase.Segment, 4)
 			for i := range segments {
@@ -698,7 +699,7 @@ func TestGetSegmentByOffset(t *testing.T) {
 					PlainSize:         512,
 					PlainOffset:       int64(i * 512),
 					Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
-					Redundancy:        defaultTestRedundancy,
+					Redundancy:        metabasetest.DefaultRedundancy,
 				}
 			}
 
@@ -713,7 +714,7 @@ func TestGetSegmentByOffset(t *testing.T) {
 			}
 
 			for _, tc := range testCases {
-				GetSegmentByOffset{
+				metabasetest.GetSegmentByOffset{
 					Opts: metabase.GetSegmentByOffset{
 						ObjectLocation: location,
 						PlainOffset:    tc.Offset,
@@ -722,7 +723,7 @@ func TestGetSegmentByOffset(t *testing.T) {
 				}.Check(ctx, t, db)
 			}
 
-			GetSegmentByOffset{
+			metabasetest.GetSegmentByOffset{
 				Opts: metabase.GetSegmentByOffset{
 					ObjectLocation: location,
 					PlainOffset:    2048,
@@ -731,7 +732,7 @@ func TestGetSegmentByOffset(t *testing.T) {
 				ErrText:  "metabase: object or segment missing",
 			}.Check(ctx, t, db)
 
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: obj,
@@ -743,7 +744,7 @@ func TestGetSegmentByOffset(t *testing.T) {
 						TotalEncryptedSize: 4240,
 						FixedSegmentSize:   512,
 
-						Encryption: defaultTestEncryption,
+						Encryption: metabasetest.DefaultEncryption,
 					},
 				},
 				Segments: []metabase.RawSegment{
@@ -758,26 +759,26 @@ func TestGetSegmentByOffset(t *testing.T) {
 }
 
 func TestBucketEmpty(t *testing.T) {
-	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		obj := randObjectStream()
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj := metabasetest.RandObjectStream()
 		now := time.Now()
 
 		t.Run("ProjectID missing", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			BucketEmpty{
+			metabasetest.BucketEmpty{
 				Opts:     metabase.BucketEmpty{},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "ProjectID missing",
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("BucketName missing", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			BucketEmpty{
+			metabasetest.BucketEmpty{
 				Opts: metabase.BucketEmpty{
 					ProjectID: obj.ProjectID,
 				},
@@ -785,13 +786,13 @@ func TestBucketEmpty(t *testing.T) {
 				ErrText:  "BucketName missing",
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("BucketEmpty true", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			BucketEmpty{
+			metabasetest.BucketEmpty{
 				Opts: metabase.BucketEmpty{
 					ProjectID:  obj.ProjectID,
 					BucketName: obj.BucketName,
@@ -799,22 +800,22 @@ func TestBucketEmpty(t *testing.T) {
 				Result: true,
 			}.Check(ctx, t, db)
 
-			Verify{}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
 		})
 
 		t.Run("BucketEmpty false with pending object", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			BeginObjectExactVersion{
+			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
 
-					Encryption: defaultTestEncryption,
+					Encryption: metabasetest.DefaultEncryption,
 				},
 				Version: 1,
 			}.Check(ctx, t, db)
 
-			BucketEmpty{
+			metabasetest.BucketEmpty{
 				Opts: metabase.BucketEmpty{
 					ProjectID:  obj.ProjectID,
 					BucketName: obj.BucketName,
@@ -822,24 +823,24 @@ func TestBucketEmpty(t *testing.T) {
 				Result: false,
 			}.Check(ctx, t, db)
 
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
 						ObjectStream: obj,
 						CreatedAt:    now,
 						Status:       metabase.Pending,
-						Encryption:   defaultTestEncryption,
+						Encryption:   metabasetest.DefaultEncryption,
 					},
 				},
 			}.Check(ctx, t, db)
 		})
 
 		t.Run("BucketEmpty false with committed object", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			object := createObject(ctx, t, db, obj, 0)
+			object := metabasetest.CreateObject(ctx, t, db, obj, 0)
 
-			BucketEmpty{
+			metabasetest.BucketEmpty{
 				Opts: metabase.BucketEmpty{
 					ProjectID:  obj.ProjectID,
 					BucketName: obj.BucketName,
@@ -847,7 +848,7 @@ func TestBucketEmpty(t *testing.T) {
 				Result: false,
 			}.Check(ctx, t, db)
 
-			Verify{
+			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					metabase.RawObject(object),
 				},

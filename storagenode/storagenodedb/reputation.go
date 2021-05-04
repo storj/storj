@@ -16,7 +16,7 @@ import (
 )
 
 // ErrReputation represents errors from the reputation database.
-var ErrReputation = errs.Class("reputation error")
+var ErrReputation = errs.Class("reputation")
 
 // ReputationDBName represents the database name.
 const ReputationDBName = "reputation"

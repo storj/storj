@@ -26,8 +26,8 @@ import (
 )
 
 var (
-	metainfoGetError       = errs.Class("metainfo db get error")
-	metainfoPutError       = errs.Class("metainfo db put error")
+	metainfoGetError       = errs.Class("metainfo db get")
+	metainfoPutError       = errs.Class("metainfo db put")
 	invalidRepairError     = errs.Class("invalid repair")
 	overlayQueryError      = errs.Class("overlay query failure")
 	orderLimitFailureError = errs.Class("order limits failure")

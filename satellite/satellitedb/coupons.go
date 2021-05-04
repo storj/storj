@@ -384,6 +384,7 @@ func couponUsageFromDbxSlice(couponUsageDbx *dbx.CouponUsage) (usage stripecoinp
 
 // PopulatePromotionalCoupons is used to populate promotional coupons through all active users who already have a project
 // and do not have a promotional coupon yet. And updates project limits to selected size.
+// If projectLimit is 0, project limits are not updated.
 func (coupons *coupons) PopulatePromotionalCoupons(ctx context.Context, users []uuid.UUID, duration *int, amount int64, projectLimit memory.Size) (err error) {
 	defer mon.Task()(&ctx, users, duration, amount, projectLimit)(&err)
 
@@ -453,9 +454,9 @@ func (coupons *coupons) activeUserWithProjectAndWithoutCoupon(ctx context.Contex
 			WHERE selected_users.status = ?
 		) AS users_with_projects
 		WHERE users_with_projects.id NOT IN (
-			SELECT user_id FROM coupons WHERE type = ?
+			SELECT user_id FROM coupons WHERE type = ? AND status = ?
 		)
-	`), pgutil.ByteaArray(userIDs), console.Active, payments.CouponTypePromotional)
+	`), pgutil.ByteaArray(userIDs), console.Active, payments.CouponTypePromotional, payments.CouponActive)
 	if err != nil {
 		return nil, err
 	}

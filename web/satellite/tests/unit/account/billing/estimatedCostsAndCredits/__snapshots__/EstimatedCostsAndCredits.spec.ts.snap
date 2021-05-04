@@ -3,6 +3,10 @@
 exports[`EstimatedCostsAndCredits renders correctly with 2 projects and project usage and charges 1`] = `
 <div class="current-month-area">
   <h1 class="current-month-area__costs">USD $6.00</h1> <span class="current-month-area__title">Estimated Charges for May 2020</span>
+  <p class="current-month-area__info">
+    If you still have Storage and Bandwidth remaining in your free tier, you won’t be charged. This information
+    is to help you estimate what charges would have been had you graduated to the paid tier.
+  </p>
   <div class="current-month-area__content">
     <p class="current-month-area__content__title">DETAILS</p>
     <div class="usage-charges-item-container item">
@@ -32,6 +36,10 @@ exports[`EstimatedCostsAndCredits renders correctly with 2 projects and project 
 exports[`EstimatedCostsAndCredits renders correctly with project and no project usage and charges 1`] = `
 <div class="current-month-area">
   <h1 class="current-month-area__costs">USD $0.00</h1> <span class="current-month-area__title">Estimated Charges for May 2020</span>
+  <p class="current-month-area__info">
+    If you still have Storage and Bandwidth remaining in your free tier, you won’t be charged. This information
+    is to help you estimate what charges would have been had you graduated to the paid tier.
+  </p>
   <div class="current-month-area__content">
     <p class="current-month-area__content__title">DETAILS</p>
   </div>
@@ -41,6 +49,10 @@ exports[`EstimatedCostsAndCredits renders correctly with project and no project 
 exports[`EstimatedCostsAndCredits renders correctly with project and project usage and charges 1`] = `
 <div class="current-month-area">
   <h1 class="current-month-area__costs">USD $3.00</h1> <span class="current-month-area__title">Estimated Charges for May 2020</span>
+  <p class="current-month-area__info">
+    If you still have Storage and Bandwidth remaining in your free tier, you won’t be charged. This information
+    is to help you estimate what charges would have been had you graduated to the paid tier.
+  </p>
   <div class="current-month-area__content">
     <p class="current-month-area__content__title">DETAILS</p>
     <div class="usage-charges-item-container item">

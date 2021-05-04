@@ -1,6 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { PartneredSatellite } from '@/types/common.ts';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 
@@ -30,6 +31,7 @@ export const appStateModule = {
             isCreateProjectButtonShown: false,
         },
         satelliteName: '',
+        partneredSatellites: new Array<PartneredSatellite>(),
         isBetaSatellite: false,
         couponCodeUIEnabled: false,
     },
@@ -126,6 +128,9 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.SET_SATELLITE_NAME](state: any, satelliteName: string): void {
             state.satelliteName = satelliteName;
+        },
+        [APP_STATE_MUTATIONS.SET_PARTNERED_SATELLITES](state: any, partneredSatellites: PartneredSatellite[]): void {
+            state.partneredSatellites = partneredSatellites;
         },
         [APP_STATE_MUTATIONS.SET_SATELLITE_STATUS](state: any, isBetaSatellite: boolean): void {
             state.isBetaSatellite = isBetaSatellite;
@@ -268,6 +273,9 @@ export const appStateModule = {
         },
         [APP_STATE_ACTIONS.SET_SATELLITE_NAME]: function ({commit}: any, satelliteName: string): void {
             commit(APP_STATE_MUTATIONS.SET_SATELLITE_NAME, satelliteName);
+        },
+        [APP_STATE_ACTIONS.SET_PARTNERED_SATELLITES]: function ({commit}: any, partneredSatellites: PartneredSatellite[]): void {
+            commit(APP_STATE_MUTATIONS.SET_PARTNERED_SATELLITES, partneredSatellites);
         },
         [APP_STATE_ACTIONS.SET_SATELLITE_STATUS]: function ({commit}: any, isBetaSatellite: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_SATELLITE_STATUS, isBetaSatellite);

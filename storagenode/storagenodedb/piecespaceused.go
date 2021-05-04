@@ -15,7 +15,7 @@ import (
 )
 
 // ErrPieceSpaceUsed represents errors from the piece spaced used database.
-var ErrPieceSpaceUsed = errs.Class("piece space used error")
+var ErrPieceSpaceUsed = errs.Class("piece space used")
 
 // PieceSpaceUsedDBName represents the database name.
 const PieceSpaceUsedDBName = "piece_spaced_used"

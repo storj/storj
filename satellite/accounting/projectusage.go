@@ -19,7 +19,7 @@ var mon = monkit.Package()
 
 var (
 	// ErrProjectUsage general error for project usage.
-	ErrProjectUsage = errs.Class("project usage error")
+	ErrProjectUsage = errs.Class("project usage")
 )
 
 // Service is handling project usage related logic.

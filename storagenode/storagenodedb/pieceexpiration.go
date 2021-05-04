@@ -14,7 +14,7 @@ import (
 )
 
 // ErrPieceExpiration represents errors from the piece expiration database.
-var ErrPieceExpiration = errs.Class("piece expiration error")
+var ErrPieceExpiration = errs.Class("pieceexpirationdb")
 
 // PieceExpirationDBName represents the database filename.
 const PieceExpirationDBName = "piece_expiration"

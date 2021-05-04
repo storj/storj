@@ -23,7 +23,7 @@ import (
 
 var (
 	// EstimationServiceErr defines sno service error.
-	EstimationServiceErr = errs.Class("storage node estimation payouts service error")
+	EstimationServiceErr = errs.Class("estimationservice")
 
 	mon = monkit.Package()
 )

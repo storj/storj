@@ -89,18 +89,20 @@ func TestCouponRepository(t *testing.T) {
 
 // TestPopulatePromotionalCoupons is a test for PopulatePromotionalCoupons function
 // that creates coupons with predefined values for each of user (from arguments) that have a project
-// and that don't have a promotional coupon yet. Also it updates limits of selected projects to 1TB.
+// and that don't have a valid promotional coupon yet. Also it updates limits of selected projects to 1TB.
 // Because the coupon should be added to a project, we select the first project of the user.
-// In this test i have next test cases:
+// In this test we have the following test cases:
 // 1. Activated user, 2 projects, without coupon. For this case we should add new coupon to his first project.
-// 2. Activated user, 1 project, without coupon.
+// 2. Activated user, 1 project, without coupon. Coupon should be added.
 // 3. Activated user without project. Coupon should not be added.
 // 4. User with inactive account. Coupon should not be added.
 // 5. Activated user with project and coupon. Coupon should not be added.
-// 6. Next step - is populating coupons for all 5 users. Only 2 coupons should be added.
-// 7. Creating new user with project.
-// 8. Populating coupons again. For 6 users above. Only 1 new coupon should be added.
-// Three new coupons total should be added by 2 runs of PopulatePromotionalCoupons method.
+// 6. Activated user with project and expired coupon. Coupon should be added.
+// 7. Activated user with project and fully consumed, non-expired coupon. Coupon should be added.
+// 8. Next step - is populating coupons for all 7 users. 4 coupons should be added.
+// 9. Creating new user with project.
+// 10. Populating coupons again. For 8 users above. Only 1 new coupon should be added.
+// Five new coupons total should be added by 2 runs of PopulatePromotionalCoupons method.
 func TestPopulatePromotionalCoupons(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		usersRepo := db.Console().Users()
@@ -180,6 +182,36 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 		err = usersRepo.Update(ctx, user5)
 		require.NoError(t, err)
 
+		// activated user with proj and expired coupon. New coupon should be added.
+		user6, err := usersRepo.Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
+			FullName:     "user6",
+			ShortName:    "",
+			Email:        "test6@example.com",
+			PasswordHash: []byte("123qwe"),
+		})
+		require.NoError(t, err)
+
+		user6.Status = console.Active
+
+		err = usersRepo.Update(ctx, user6)
+		require.NoError(t, err)
+
+		// activated user with proj and non-expired but consumed coupon. New coupon should be added.
+		user7, err := usersRepo.Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
+			FullName:     "user7",
+			ShortName:    "",
+			Email:        "test7@example.com",
+			PasswordHash: []byte("123qwe"),
+		})
+		require.NoError(t, err)
+
+		user7.Status = console.Active
+
+		err = usersRepo.Update(ctx, user7)
+		require.NoError(t, err)
+
 		// creating projects for users above.
 		proj1, err := projectsRepo.Insert(ctx, &console.Project{
 			ID:          testrand.UUID(),
@@ -206,6 +238,31 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		_, err = projectsRepo.Insert(ctx, &console.Project{
+			ID:          testrand.UUID(),
+			Name:        "proj 1 of user 5",
+			Description: "descr 4",
+			OwnerID:     user5.ID,
+		})
+		require.NoError(t, err)
+
+		_, err = projectsRepo.Insert(ctx, &console.Project{
+			ID:          testrand.UUID(),
+			Name:        "proj 1 of user 6",
+			Description: "descr 5",
+			OwnerID:     user6.ID,
+		})
+		require.NoError(t, err)
+
+		_, err = projectsRepo.Insert(ctx, &console.Project{
+			ID:          testrand.UUID(),
+			Name:        "proj 1 of user 7",
+			Description: "descr 5",
+			OwnerID:     user7.ID,
+		})
+		require.NoError(t, err)
+
+		// add coupons to users who should have them before PopulatePromotionalCoupons
 		duration := 2
 		couponID := testrand.UUID()
 		_, err = couponsRepo.Insert(ctx, payments.Coupon{
@@ -219,26 +276,50 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		couponID = testrand.UUID()
+		_, err = couponsRepo.Insert(ctx, payments.Coupon{
+			ID:          couponID,
+			UserID:      user6.ID,
+			Amount:      1000,
+			Duration:    &duration,
+			Description: "qw",
+			Type:        payments.CouponTypePromotional,
+			Status:      payments.CouponExpired,
+		})
+		require.NoError(t, err)
+
+		couponID = testrand.UUID()
+		_, err = couponsRepo.Insert(ctx, payments.Coupon{
+			ID:          couponID,
+			UserID:      user7.ID,
+			Amount:      1000,
+			Duration:    nil,
+			Description: "qw",
+			Type:        payments.CouponTypePromotional,
+			Status:      payments.CouponUsed,
+		})
+		require.NoError(t, err)
+
 		// creating new users and projects to test that multiple execution of populate method wont generate extra coupons.
-		user6, err := usersRepo.Insert(ctx, &console.User{
+		user8, err := usersRepo.Insert(ctx, &console.User{
 			ID:           testrand.UUID(),
-			FullName:     "user6",
+			FullName:     "user8",
 			ShortName:    "",
-			Email:        "test6@example.com",
+			Email:        "test8@example.com",
 			PasswordHash: []byte("123qwe"),
 		})
 		require.NoError(t, err)
 
-		user6.Status = console.Active
+		user8.Status = console.Active
 
-		err = usersRepo.Update(ctx, user6)
+		err = usersRepo.Update(ctx, user8)
 		require.NoError(t, err)
 
-		proj5, err := projectsRepo.Insert(ctx, &console.Project{
+		proj4, err := projectsRepo.Insert(ctx, &console.Project{
 			ID:          testrand.UUID(),
-			Name:        "proj 1 of user 6",
-			Description: "descr 6",
-			OwnerID:     user6.ID,
+			Name:        "proj 1 of user 8",
+			Description: "descr 7",
+			OwnerID:     user8.ID,
 		})
 		if err != nil {
 			require.NoError(t, err)
@@ -251,6 +332,8 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 				user3.ID,
 				user4.ID,
 				user5.ID,
+				user6.ID,
+				user7.ID,
 			}
 			duration := 2
 			err := couponsRepo.PopulatePromotionalCoupons(ctx, usersIds, &duration, 5500, memory.TB)
@@ -287,7 +370,18 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 			user5Coupons, err := couponsRepo.ListByUserID(ctx, user5.ID)
 			require.NoError(t, err)
 			require.Equal(t, 1, len(user5Coupons))
-			require.Equal(t, "qw", user5Coupons[0].Description)
+
+			user6Coupons, err := couponsRepo.ListByUserID(ctx, user6.ID)
+			require.NoError(t, err)
+			require.Equal(t, 2, len(user6Coupons))
+
+			user7Coupons, err := couponsRepo.ListByUserID(ctx, user7.ID)
+			require.NoError(t, err)
+			require.Equal(t, 2, len(user7Coupons))
+
+			user8Coupons, err := couponsRepo.ListByUserID(ctx, user8.ID)
+			require.NoError(t, err)
+			require.Equal(t, 0, len(user8Coupons))
 		})
 
 		t.Run("second population", func(t *testing.T) {
@@ -298,6 +392,8 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 				user4.ID,
 				user5.ID,
 				user6.ID,
+				user7.ID,
+				user8.ID,
 			}
 			duration := 2
 			err := couponsRepo.PopulatePromotionalCoupons(ctx, usersIds, &duration, 5500, memory.TB)
@@ -338,11 +434,19 @@ func TestPopulatePromotionalCoupons(t *testing.T) {
 
 			user6Coupons, err := couponsRepo.ListByUserID(ctx, user6.ID)
 			require.NoError(t, err)
-			require.Equal(t, 1, len(user6Coupons))
+			require.Equal(t, 2, len(user6Coupons))
 
-			proj5Usage, err := usageRepo.GetProjectStorageLimit(ctx, proj5.ID)
+			user7Coupons, err := couponsRepo.ListByUserID(ctx, user7.ID)
 			require.NoError(t, err)
-			require.Equal(t, memory.TB.Int64(), *proj5Usage)
+			require.Equal(t, 2, len(user7Coupons))
+
+			user8Coupons, err := couponsRepo.ListByUserID(ctx, user8.ID)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(user8Coupons))
+
+			proj4Usage, err := usageRepo.GetProjectStorageLimit(ctx, proj4.ID)
+			require.NoError(t, err)
+			require.Equal(t, memory.TB.Int64(), *proj4Usage)
 		})
 	})
 }

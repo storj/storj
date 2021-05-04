@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"storj.io/common/fpath"
-	"storj.io/uplink/private/multipart"
+	"storj.io/uplink"
 )
 
 var (
@@ -55,10 +55,12 @@ func deleteObject(cmd *cobra.Command, args []string) error {
 
 	if *rmPendingFlag {
 		// TODO we may need a dedicated endpoint for deleting pending object streams
-		list := multipart.ListPendingObjectStreams(ctx, project, dst.Bucket(), dst.Path(), nil)
+		list := project.ListUploads(ctx, dst.Bucket(), &uplink.ListUploadsOptions{
+			Prefix: dst.Path(),
+		})
 		// TODO modify when we can have several pending objects for the same object key
 		if list.Next() {
-			err = multipart.AbortMultipartUpload(ctx, project, dst.Bucket(), dst.Path(), list.Item().StreamID)
+			err = project.AbortUpload(ctx, dst.Bucket(), dst.Path(), list.Item().UploadID)
 			if err != nil {
 				return convertError(err, dst)
 			}

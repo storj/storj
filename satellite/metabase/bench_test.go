@@ -18,6 +18,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/metabasetest"
 )
 
 func Benchmark(b *testing.B) {
@@ -42,7 +43,7 @@ type scenario struct {
 
 // Run runs the scenario as a subtest.
 func (s scenario) Run(b *testing.B) {
-	b.Run(s.name(), func(b *testing.B) { Bench(b, s.run) })
+	b.Run(s.name(), func(b *testing.B) { metabasetest.Bench(b, s.run) })
 }
 
 // name returns the scenario arguments as a string.
@@ -98,7 +99,7 @@ func (s *scenario) run(ctx *testcontext.Context, b *testing.B, db *metabase.DB) 
 		for i := 0; i < b.N; i++ {
 			// wipe data so we can do the exact same test
 			b.StopTimer()
-			DeleteAll{}.Check(ctx, b, db)
+			metabasetest.DeleteAll{}.Check(ctx, b, db)
 			if err := db.EnsureNodeAliases(ctx, metabase.EnsureNodeAliases{Nodes: nodes}); err != nil {
 				require.NoError(b, err)
 			}

@@ -17,7 +17,7 @@ import (
 
 var (
 	// ErrAnalyticsAPI - console analytics api error type.
-	ErrAnalyticsAPI = errs.Class("console analytics api error")
+	ErrAnalyticsAPI = errs.Class("consoleapi analytics")
 )
 
 // Analytics is an api controller that exposes analytics related functionality.

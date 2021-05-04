@@ -7,11 +7,12 @@
     "lint": "vue-cli-service lint && stylelint '**/*.{vue,scss}' --fix",
     "test": "vue-cli-service test:unit",
     "build": "vue-cli-service build",
+    "wasm": "chmod +x ./scripts/build-wasm.sh && ./scripts/build-wasm.sh",
     "dev": "vue-cli-service build --mode development"
   },
   "dependencies": {
     "aws-sdk": "2.853.0",
-    "browser": "git+https://github.com/storj/browser#e965d30334f9080280d4e50a92c2b3cd1e942b69",
+    "browser": "git+https://github.com/storj/browser#c0b4fa2cc716c348fa4189734c15b40b6460f46d",
     "apollo-cache-inmemory": "1.6.6",
     "apollo-client": "2.6.10",
     "apollo-link": "1.2.14",

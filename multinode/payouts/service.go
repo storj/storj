@@ -19,7 +19,7 @@ import (
 var (
 	mon = monkit.Package()
 	// Error is an error class for payouts service error.
-	Error = errs.Class("payouts service error")
+	Error = errs.Class("payouts")
 )
 
 // Service exposes all payouts related logic.

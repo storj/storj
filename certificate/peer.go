@@ -25,7 +25,7 @@ var (
 	mon = monkit.Package()
 
 	// Error is the default error class for the certificates peer.
-	Error = errs.Class("certificates peer error")
+	Error = errs.Class("certificate")
 )
 
 // Config is the global certificates config.

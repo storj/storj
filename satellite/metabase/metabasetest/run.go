@@ -1,7 +1,7 @@
-// Copyright (C) 2020 Storj Labs, Inc.
+// Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package metabase_test
+package metabasetest
 
 import (
 	"flag"
@@ -9,50 +9,51 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
-	_ "storj.io/private/dbutil/cockroachutil" // register cockroach driver
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
-var databases = flag.String("databases", os.Getenv("STORJ_TEST_DATABASES"), "databases to use for testing")
+var databasesFlag = flag.String("databases", os.Getenv("STORJ_TEST_DATABASES"), "databases to use for testing")
 
-type dbinfo struct {
-	name    string
-	driver  string
-	connstr string
+// Database contains info about a test database connection.
+type Database struct {
+	Name    string
+	Driver  string
+	ConnStr string
 }
 
-func databaseInfos() []dbinfo {
-	infos := []dbinfo{
+// DatabaseEntries returns databases passed in with -databases or STORJ_TEST_DATABASES flag.
+func DatabaseEntries() []Database {
+	infos := []Database{
 		{"pg", "pgx", "postgres://storj:storj-pass@localhost/metabase?sslmode=disable"},
 		{"crdb", "pgx", "cockroach://root@localhost:26257/metabase?sslmode=disable"},
 	}
-	if *databases != "" {
+	if *databasesFlag != "" {
 		infos = nil
-		for _, db := range strings.Split(*databases, ";") {
+		for _, db := range strings.Split(*databasesFlag, ";") {
 			toks := strings.Split(strings.TrimSpace(db), "|")
-			infos = append(infos, dbinfo{toks[0], toks[1], toks[2]})
+			infos = append(infos, Database{toks[0], toks[1], toks[2]})
 		}
 	}
 	return infos
 }
 
-func All(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB)) {
-	for _, info := range databaseInfos() {
+// Run runs tests against all configured databases.
+func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB)) {
+	for _, info := range DatabaseEntries() {
 		info := info
-		t.Run(info.name, func(t *testing.T) {
+		t.Run(info.Name, func(t *testing.T) {
 			t.Parallel()
 
 			ctx := testcontext.New(t)
 			defer ctx.Cleanup()
 
 			db, err := satellitedbtest.CreateMetabaseDB(ctx, zaptest.NewLogger(t), t.Name(), "M", 0, satellitedbtest.Database{
-				Name:    info.name,
-				URL:     info.connstr,
+				Name:    info.Name,
+				URL:     info.ConnStr,
 				Message: "",
 			})
 			if err != nil {
@@ -73,16 +74,17 @@ func All(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 	}
 }
 
+// Bench runs benchmark for all configured databases.
 func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *metabase.DB)) {
-	for _, info := range databaseInfos() {
+	for _, info := range DatabaseEntries() {
 		info := info
-		b.Run(info.name, func(b *testing.B) {
+		b.Run(info.Name, func(b *testing.B) {
 			ctx := testcontext.New(b)
 			defer ctx.Cleanup()
 
 			db, err := satellitedbtest.CreateMetabaseDB(ctx, zaptest.NewLogger(b), b.Name(), "M", 0, satellitedbtest.Database{
-				Name:    info.name,
-				URL:     info.connstr,
+				Name:    info.Name,
+				URL:     info.ConnStr,
 				Message: "",
 			})
 			if err != nil {
@@ -102,14 +104,4 @@ func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *met
 			fn(ctx, b, db.InternalImplementation().(*metabase.DB))
 		})
 	}
-}
-
-func TestSetup(t *testing.T) {
-	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		err := db.Ping(ctx)
-		require.NoError(t, err)
-
-		_, err = db.TestingGetState(ctx)
-		require.NoError(t, err)
-	})
 }

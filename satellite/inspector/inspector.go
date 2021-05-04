@@ -23,7 +23,7 @@ import (
 var (
 	mon = monkit.Package()
 	// Error wraps errors returned from Server struct methods.
-	Error = errs.Class("Endpoint error")
+	Error = errs.Class("inspector")
 )
 
 // Endpoint for checking object and segment health.

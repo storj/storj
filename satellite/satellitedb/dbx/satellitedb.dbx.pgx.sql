@@ -369,6 +369,7 @@ CREATE TABLE users (
 	working_on text,
 	is_professional boolean NOT NULL DEFAULT false,
 	employee_count text,
+	have_sales_contact boolean NOT NULL DEFAULT false,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (
@@ -434,21 +435,24 @@ CREATE TABLE user_credits (
 	PRIMARY KEY ( id ),
 	UNIQUE ( id, offer_id )
 );
-CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time );
-CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start );
-CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id );
-CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start );
-CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id );
-CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start );
-CREATE INDEX graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at );
-CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted );
-CREATE INDEX injuredsegments_segment_health_index ON injuredsegments ( segment_health );
-CREATE INDEX injuredsegments_updated_at_index ON injuredsegments ( updated_at );
-CREATE INDEX node_last_ip ON nodes ( last_net );
-CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success );
-CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start );
-CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start );
-CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period );
-CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id );
-CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id );
-CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits ( id, offer_id );
+CREATE INDEX accounting_rollups_start_time_index ON accounting_rollups ( start_time ) ;
+CREATE INDEX bucket_bandwidth_rollups_project_id_action_interval_index ON bucket_bandwidth_rollups ( project_id, action, interval_start ) ;
+CREATE INDEX bucket_bandwidth_rollups_action_interval_project_id_index ON bucket_bandwidth_rollups ( action, interval_start, project_id ) ;
+CREATE INDEX bucket_bandwidth_rollups_archive_project_id_action_interval_index ON bucket_bandwidth_rollup_archives ( project_id, action, interval_start ) ;
+CREATE INDEX bucket_bandwidth_rollups_archive_action_interval_project_id_index ON bucket_bandwidth_rollup_archives ( action, interval_start, project_id ) ;
+CREATE INDEX bucket_storage_tallies_project_id_interval_start_index ON bucket_storage_tallies ( project_id, interval_start ) ;
+CREATE INDEX graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index ON graceful_exit_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;
+CREATE INDEX injuredsegments_attempted_index ON injuredsegments ( attempted ) ;
+CREATE INDEX injuredsegments_segment_health_index ON injuredsegments ( segment_health ) ;
+CREATE INDEX injuredsegments_updated_at_index ON injuredsegments ( updated_at ) ;
+CREATE INDEX injuredsegments_num_healthy_pieces_attempted_index ON injuredsegments ( segment_health, attempted ) ;
+CREATE INDEX node_last_ip ON nodes ( last_net ) ;
+CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
+CREATE INDEX nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( type, last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
+CREATE INDEX nodes_dis_unk_aud_exit_init_rel_type_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, type, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
+CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
+CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start ) ;
+CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;
+CREATE INDEX storagenode_paystubs_node_id_index ON storagenode_paystubs ( node_id ) ;
+CREATE INDEX storagenode_storage_tallies_node_id_index ON storagenode_storage_tallies ( node_id ) ;
+CREATE UNIQUE INDEX credits_earned_user_id_offer_id ON user_credits ( id, offer_id ) ;

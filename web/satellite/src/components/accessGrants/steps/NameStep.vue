@@ -102,7 +102,7 @@ export default class NameStep extends Vue {
         if (this.$store.getters.projects.length === 0) {
             try {
                 const FIRST_PAGE = 1;
-                const UNTITLED_PROJECT_NAME = 'Untitled Project';
+                const UNTITLED_PROJECT_NAME = 'My First Project';
                 const UNTITLED_PROJECT_DESCRIPTION = '___';
                 const project = new ProjectFields(
                     UNTITLED_PROJECT_NAME,

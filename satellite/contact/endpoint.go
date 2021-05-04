@@ -19,9 +19,9 @@ import (
 )
 
 var (
-	errPingBackDial    = errs.Class("pingback dialing error")
-	errCheckInIdentity = errs.Class("check-in identity error")
-	errCheckInNetwork  = errs.Class("check-in network error")
+	errPingBackDial    = errs.Class("pingback dialing")
+	errCheckInIdentity = errs.Class("check-in identity")
+	errCheckInNetwork  = errs.Class("check-in network")
 )
 
 // Endpoint implements the contact service Endpoints.

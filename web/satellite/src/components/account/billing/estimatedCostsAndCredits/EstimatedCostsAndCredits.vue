@@ -5,6 +5,10 @@
     <div class="current-month-area">
         <h1 class="current-month-area__costs">{{ priceSummary | centsToDollars }}</h1>
         <span class="current-month-area__title">Estimated Charges for {{ chosenPeriod }}</span>
+        <p class="current-month-area__info">
+            If you still have Storage and Bandwidth remaining in your free tier, you won’t be charged. This information
+            is to help you estimate what charges would have been had you graduated to the paid tier.
+        </p>
         <div class="current-month-area__content">
             <p class="current-month-area__content__title">DETAILS</p>
             <UsageAndChargesItem
@@ -99,6 +103,13 @@ export default class EstimatedCostsAndCredits extends Vue {
             font-size: 16px;
             line-height: 24px;
             color: #909090;
+        }
+
+        &__info {
+            font-size: 14px;
+            line-height: 20px;
+            color: #909090;
+            margin: 15px 0 0 0;
         }
 
         &__content {

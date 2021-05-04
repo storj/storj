@@ -17,7 +17,7 @@ import (
 )
 
 // ErrNotificationsAPI - console notifications api error type.
-var ErrNotificationsAPI = errs.Class("notifications console web error")
+var ErrNotificationsAPI = errs.Class("consoleapi notifications")
 
 // Notifications is an api controller that exposes all notifications related api.
 type Notifications struct {

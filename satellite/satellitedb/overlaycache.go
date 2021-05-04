@@ -549,7 +549,7 @@ func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests 
 
 				updateNodeStats := cache.populateUpdateNodeStats(dbNode, updateReq, auditHistoryResponse, now)
 
-				sql := buildUpdateStatement(updateNodeStats)
+				sql := buildUpdateStatement(updateNodeStats, isUp)
 
 				allSQL += sql
 			}
@@ -1137,7 +1137,7 @@ func updateReputation(isSuccess bool, alpha, beta, lambda, w float64, totalCount
 	return newAlpha, newBeta, totalCount + 1
 }
 
-func buildUpdateStatement(update updateNodeStats) string {
+func buildUpdateStatement(update updateNodeStats, isUp bool) string {
 	if update.NodeID.IsZero() {
 		return ""
 	}
@@ -1264,7 +1264,11 @@ func buildUpdateStatement(update updateNodeStats) string {
 	hexNodeID := hex.EncodeToString(update.NodeID.Bytes())
 
 	sql += fmt.Sprintf(" WHERE nodes.id = decode('%v', 'hex');\n", hexNodeID)
-	sql += fmt.Sprintf("DELETE FROM pending_audits WHERE pending_audits.node_id = decode('%v', 'hex');\n", hexNodeID)
+
+	// only remove from containment if node is online
+	if isUp {
+		sql += fmt.Sprintf("DELETE FROM pending_audits WHERE pending_audits.node_id = decode('%v', 'hex');\n", hexNodeID)
+	}
 
 	return sql
 }
@@ -1743,7 +1747,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 
 var (
 	// ErrVetting is the error class for the following test methods.
-	ErrVetting = errs.Class("vetting error")
+	ErrVetting = errs.Class("vetting")
 )
 
 // TestVetNode directly sets a node's vetted_at timestamp to make testing easier.

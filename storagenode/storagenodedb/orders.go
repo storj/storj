@@ -19,7 +19,7 @@ import (
 )
 
 // ErrOrders represents errors from the ordersdb database.
-var ErrOrders = errs.Class("ordersdb error")
+var ErrOrders = errs.Class("ordersdb")
 
 // OrdersDBName represents the database name.
 const OrdersDBName = "orders"

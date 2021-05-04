@@ -15,7 +15,7 @@ import (
 )
 
 // ErrSatellitesDB represents errors from the satellites database.
-var ErrSatellitesDB = errs.Class("satellitesdb error")
+var ErrSatellitesDB = errs.Class("satellitesdb")
 
 // SatellitesDBName represents the database name.
 const SatellitesDBName = "satellites"

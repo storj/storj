@@ -12,7 +12,7 @@ import (
 )
 
 // ErrService is the default error class for the authorization service.
-var ErrService = errs.Class("authorization service error")
+var ErrService = errs.Class("authorization service")
 
 // Service is the authorization service.
 type Service struct {

@@ -12,15 +12,17 @@ import PasswordStrength from '@/components/common/PasswordStrength.vue';
 import RegistrationSuccess from '@/components/common/RegistrationSuccess.vue';
 
 import AuthIcon from '@/../static/images/AuthImage.svg';
+import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
+import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
 import LogoIcon from '@/../static/images/dcs-logo.svg';
 import InfoIcon from '@/../static/images/info.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
+import { PartneredSatellite } from '@/types/common';
 import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
-import { MetaUtils } from '@/utils/meta';
 import { Validator } from '@/utils/validation';
 
 @Component({
@@ -28,6 +30,8 @@ import { Validator } from '@/utils/validation';
         HeaderlessInput,
         RegistrationSuccess,
         AuthIcon,
+        BottomArrowIcon,
+        SelectedCheckIcon,
         LogoIcon,
         InfoIcon,
         PasswordStrength,
@@ -200,6 +204,20 @@ export default class RegisterArea extends Vue {
     }
 
     /**
+     * Name of the current satellite.
+     */
+    public get satelliteName(): string {
+        return this.$store.state.appStateModule.satelliteName;
+    }
+
+    /**
+     * Information about partnered satellites, including name and signup link.
+     */
+    public get partneredSatellites(): PartneredSatellite[] {
+        return this.$store.state.appStateModule.partneredSatellites;
+    }
+
+    /**
      * Indicates if satellite is in beta.
      */
     public get isBetaSatellite(): boolean {
@@ -312,17 +330,6 @@ export default class RegisterArea extends Vue {
             this.userId = await this.auth.register(this.user, this.secret);
             LocalData.setUserId(this.userId);
 
-            const verificationPageURL: string = MetaUtils.getMetaContent('verification-page-url');
-            if (verificationPageURL) {
-                const externalAddress: string = MetaUtils.getMetaContent('external-address');
-                const url = new URL(verificationPageURL);
-
-                url.searchParams.append('redirect', externalAddress);
-
-                window.top.location.href = url.href;
-
-                return;
-            }
             await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
         } catch (error) {
             await this.$notify.error(error.message);

@@ -15,6 +15,7 @@
             />
             <ProjectDropdown
                 v-show="isDropdownShown"
+                :is-loading="isLoading"
                 @close="closeDropdown"
                 v-click-outside="closeDropdown"
             />
@@ -74,7 +75,11 @@ export default class ProjectSelection extends Vue {
      * Fetches projects related information and than toggles selection popup.
      */
     public async toggleSelection(): Promise<void> {
-        if (this.isLoading || this.isOnboardingTour) return;
+        if (this.isOnboardingTour) return;
+
+        this.toggleDropdown();
+
+        if (this.isLoading || !this.isDropdownShown) return;
 
         this.isLoading = true;
 
@@ -83,10 +88,8 @@ export default class ProjectSelection extends Vue {
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
         } catch (error) {
             await this.$notify.error(error.message);
-            this.isLoading = false;
         }
 
-        this.toggleDropdown();
         this.isLoading = false;
     }
 

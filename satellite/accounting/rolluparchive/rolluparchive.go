@@ -17,7 +17,7 @@ import (
 
 // Error is a standard error class for this package.
 var (
-	Error = errs.Class("rolluparchive error")
+	Error = errs.Class("rolluparchive")
 	mon   = monkit.Package()
 )
 

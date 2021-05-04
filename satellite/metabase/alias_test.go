@@ -13,18 +13,19 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/metabasetest"
 )
 
 func TestNodeAliases(t *testing.T) {
-	All(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		t.Run("Zero", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			nodes := []storj.NodeID{
 				testrand.NodeID(),
 				{},
 			}
-			EnsureNodeAliases{
+			metabasetest.EnsureNodeAliases{
 				Opts: metabase.EnsureNodeAliases{
 					Nodes: nodes,
 				},
@@ -34,14 +35,14 @@ func TestNodeAliases(t *testing.T) {
 		})
 
 		t.Run("Empty", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			aliasesAfter := ListNodeAliases{}.Check(ctx, t, db)
+			aliasesAfter := metabasetest.ListNodeAliases{}.Check(ctx, t, db)
 			require.Len(t, aliasesAfter, 0)
 		})
 
 		t.Run("Valid", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			nodes := []storj.NodeID{
 				testrand.NodeID(),
@@ -50,19 +51,19 @@ func TestNodeAliases(t *testing.T) {
 			}
 			nodes = append(nodes, nodes...) // add duplicates to our slice
 
-			EnsureNodeAliases{
+			metabasetest.EnsureNodeAliases{
 				Opts: metabase.EnsureNodeAliases{
 					Nodes: nodes,
 				},
 			}.Check(ctx, t, db)
 
-			EnsureNodeAliases{
+			metabasetest.EnsureNodeAliases{
 				Opts: metabase.EnsureNodeAliases{
 					Nodes: nodes,
 				},
 			}.Check(ctx, t, db)
 
-			aliases := ListNodeAliases{}.Check(ctx, t, db)
+			aliases := metabasetest.ListNodeAliases{}.Check(ctx, t, db)
 			require.Len(t, aliases, 3)
 
 			for _, entry := range aliases {
@@ -70,18 +71,18 @@ func TestNodeAliases(t *testing.T) {
 				require.LessOrEqual(t, int(entry.Alias), 3)
 			}
 
-			EnsureNodeAliases{
+			metabasetest.EnsureNodeAliases{
 				Opts: metabase.EnsureNodeAliases{
 					Nodes: []storj.NodeID{testrand.NodeID()},
 				},
 			}.Check(ctx, t, db)
 
-			aliasesAfter := ListNodeAliases{}.Check(ctx, t, db)
+			aliasesAfter := metabasetest.ListNodeAliases{}.Check(ctx, t, db)
 			require.Len(t, aliasesAfter, 4)
 		})
 
 		t.Run("Concurrent", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			nodes := make([]storj.NodeID, 128)
 			for i := range nodes {
@@ -99,7 +100,7 @@ func TestNodeAliases(t *testing.T) {
 			}
 			require.NoError(t, group.Wait())
 
-			aliases := ListNodeAliases{}.Check(ctx, t, db)
+			aliases := metabasetest.ListNodeAliases{}.Check(ctx, t, db)
 			seen := map[metabase.NodeAlias]bool{}
 			require.Len(t, aliases, len(nodes))
 			for _, entry := range aliases {
@@ -112,7 +113,7 @@ func TestNodeAliases(t *testing.T) {
 		})
 
 		t.Run("Stress Concurrent", func(t *testing.T) {
-			defer DeleteAll{}.Check(ctx, t, db)
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			nodes := make([]storj.NodeID, 128)
 			for i := range nodes {

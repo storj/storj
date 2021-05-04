@@ -21,7 +21,7 @@ import (
 
 // Error is a standard error class for this package.
 var (
-	Error = errs.Class("tally error")
+	Error = errs.Class("tally")
 	mon   = monkit.Package()
 )
 

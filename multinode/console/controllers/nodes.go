@@ -18,7 +18,7 @@ import (
 
 var (
 	// ErrNodes is an internal error type for nodes web api controller.
-	ErrNodes = errs.Class("nodes web api controller error")
+	ErrNodes = errs.Class("nodes web api controller")
 )
 
 // Nodes is a web api controller.

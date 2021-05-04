@@ -131,7 +131,7 @@ func TestService(t *testing.T) {
 				// deleting a project with a bucket should fail
 				err = service.DeleteProject(authCtx2, up2Pro1.ID)
 				require.Error(t, err)
-				require.Equal(t, "service error: project usage error: some buckets still exist", err.Error())
+				require.Equal(t, "console service: project usage: some buckets still exist", err.Error())
 			})
 
 			t.Run("TestChangeEmail", func(t *testing.T) {
