@@ -97,6 +97,8 @@ message TrustedSatellitesResponse {
 }
 
 service Payout {
+  rpc AllSatellitesSummary(AllSatellitesSummaryRequest) returns (AllSatellitesSummaryResponse);
+  rpc AllSatellitesPeriodSummary(AllSatellitesPeriodSummaryRequest) returns (AllSatellitesPeriodSummaryResponse);
   rpc Earned(EarnedRequest) returns (EarnedResponse);
   rpc EarnedPerSatellite(EarnedPerSatelliteRequest) returns (EarnedPerSatelliteResponse);
   rpc EstimatedPayoutSatellite(EstimatedPayoutSatelliteRequest) returns (EstimatedPayoutSatelliteResponse);
@@ -117,6 +119,23 @@ message EstimatedPayoutTotalResponse {
   int64 estimated_earnings = 1;
 }
 
+message AllSatellitesSummaryRequest {
+  RequestHeader header = 1;
+}
+
+message AllSatellitesSummaryResponse {
+  PayoutInfo payout_info = 1;
+}
+
+message AllSatellitesPeriodSummaryRequest {
+  RequestHeader header = 1;
+  string period = 2;
+}
+
+message AllSatellitesPeriodSummaryResponse {
+  PayoutInfo payout_info = 1;
+}
+
 message EarnedRequest {
   RequestHeader header = 1;
 }
@@ -128,10 +147,17 @@ message EarnedResponse {
 message EarnedPerSatelliteRequest {
   RequestHeader header = 1;
 }
+
 message EarnedPerSatelliteResponse {
   repeated EarnedSatellite earned_satellite = 1;
 }
+
 message EarnedSatellite {
   int64 total = 1;
   bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message PayoutInfo {
+  int64 held = 1;
+  int64 paid = 2;
 }

@@ -96,6 +96,53 @@ func (controller *Payouts) Estimations(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// PeriodSummary handles retrieval from nodes for specific period.
+func (controller *Payouts) PeriodSummary(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	segmentParams := mux.Vars(r)
+	w.Header().Add("Content-Type", "application/json")
+
+	period, ok := segmentParams["period"]
+	if !ok {
+		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
+		return
+	}
+
+	summary, err := controller.service.NodesPeriodSummary(ctx, period)
+	if err != nil {
+		controller.serveError(w, http.StatusInternalServerError, ErrPayouts.Wrap(err))
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(summary); err != nil {
+		controller.log.Error("failed to write json response", zap.Error(err))
+		return
+	}
+}
+
+// Summary handles retrieval from nodes.
+func (controller *Payouts) Summary(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Add("Content-Type", "application/json")
+
+	summary, err := controller.service.NodesSummary(ctx)
+	if err != nil {
+		controller.serveError(w, http.StatusInternalServerError, ErrPayouts.Wrap(err))
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(summary); err != nil {
+		controller.log.Error("failed to write json response", zap.Error(err))
+		return
+	}
+}
+
 // serveError set http statuses and send json error.
 func (controller *Payouts) serveError(w http.ResponseWriter, status int, err error) {
 	w.WriteHeader(status)

@@ -112,6 +112,120 @@ func (service *Service) GetAllNodesEarnedOnSatellite(ctx context.Context) (earne
 	return earned, nil
 }
 
+// NodesSummary returns all satellites all time stats.
+func (service *Service) NodesSummary(ctx context.Context) (_ Summary, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var summary Summary
+
+	list, err := service.nodes.List(ctx)
+	if err != nil {
+		return Summary{}, Error.Wrap(err)
+	}
+
+	for _, node := range list {
+		info, err := service.getAllSatellitesAllTime(ctx, node)
+		if err != nil {
+			return Summary{}, Error.Wrap(err)
+		}
+
+		summary.TotalPaid += info.Paid
+		summary.TotalHeld += info.Held
+		summary.NodeSummary = append(summary.NodeSummary, NodeSummary{
+			NodeID: node.ID,
+			Held:   info.Held,
+			Paid:   info.Paid,
+		})
+	}
+
+	summary.TotalEarned = summary.TotalPaid + summary.TotalHeld
+
+	return summary, nil
+}
+
+// NodesPeriodSummary returns all satellites stats for specific period.
+func (service *Service) NodesPeriodSummary(ctx context.Context, period string) (_ Summary, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var summary Summary
+
+	list, err := service.nodes.List(ctx)
+	if err != nil {
+		return Summary{}, Error.Wrap(err)
+	}
+
+	for _, node := range list {
+		info, err := service.getAllSatellitesPeriod(ctx, node, period)
+		if err != nil {
+			return Summary{}, Error.Wrap(err)
+		}
+
+		summary.TotalPaid += info.Paid
+		summary.TotalHeld += info.Held
+		summary.NodeSummary = append(summary.NodeSummary, NodeSummary{
+			NodeID: node.ID,
+			Held:   info.Held,
+			Paid:   info.Paid,
+		})
+	}
+
+	summary.TotalEarned = summary.TotalPaid + summary.TotalHeld
+
+	return summary, nil
+}
+
+func (service *Service) getAllSatellitesPeriod(ctx context.Context, node nodes.Node, period string) (info *multinodepb.PayoutInfo, err error) {
+	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+		ID:      node.ID,
+		Address: node.PublicAddress,
+	})
+	if err != nil {
+		return &multinodepb.PayoutInfo{}, Error.Wrap(err)
+	}
+
+	defer func() {
+		err = errs.Combine(err, conn.Close())
+	}()
+
+	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
+	header := &multinodepb.RequestHeader{
+		ApiKey: node.APISecret,
+	}
+
+	response, err := payoutClient.AllSatellitesPeriodSummary(ctx, &multinodepb.AllSatellitesPeriodSummaryRequest{Header: header, Period: period})
+	if err != nil {
+		return &multinodepb.PayoutInfo{}, Error.Wrap(err)
+	}
+
+	return response.PayoutInfo, nil
+}
+
+func (service *Service) getAllSatellitesAllTime(ctx context.Context, node nodes.Node) (info *multinodepb.PayoutInfo, err error) {
+	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+		ID:      node.ID,
+		Address: node.PublicAddress,
+	})
+	if err != nil {
+		return &multinodepb.PayoutInfo{}, Error.Wrap(err)
+	}
+
+	defer func() {
+		err = errs.Combine(err, conn.Close())
+	}()
+
+	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
+	header := &multinodepb.RequestHeader{
+		ApiKey: node.APISecret,
+	}
+
+	response, err := payoutClient.AllSatellitesSummary(ctx, &multinodepb.AllSatellitesSummaryRequest{Header: header})
+	if err != nil {
+		return &multinodepb.PayoutInfo{}, Error.Wrap(err)
+	}
+
+	return response.PayoutInfo, nil
+}
+
 // AllNodesSatelliteEstimations returns specific satellite all time estimated earnings.
 func (service *Service) AllNodesSatelliteEstimations(ctx context.Context, satelliteID storj.NodeID) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)

@@ -118,3 +118,57 @@ func (payout *PayoutEndpoint) EstimatedPayoutSatellite(ctx context.Context, req 
 
 	return &multinodepb.EstimatedPayoutSatelliteResponse{EstimatedEarnings: estimated.CurrentMonthExpectations}, nil
 }
+
+// AllSatellitesSummary returns all satellites all time payout summary.
+func (payout *PayoutEndpoint) AllSatellitesSummary(ctx context.Context, req *multinodepb.AllSatellitesSummaryRequest) (_ *multinodepb.AllSatellitesSummaryResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err = authenticate(ctx, payout.apiKeys, req.GetHeader()); err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+	}
+
+	var totalPaid, totalHeld int64
+	satelliteIDs, err := payout.db.GetPayingSatellitesIDs(ctx)
+	if err != nil {
+		return &multinodepb.AllSatellitesSummaryResponse{}, rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
+
+	for _, id := range satelliteIDs {
+		paid, held, err := payout.db.GetSatelliteSummary(ctx, id)
+		if err != nil {
+			return &multinodepb.AllSatellitesSummaryResponse{}, rpcstatus.Wrap(rpcstatus.Internal, err)
+		}
+
+		totalHeld += held
+		totalPaid += paid
+	}
+
+	return &multinodepb.AllSatellitesSummaryResponse{PayoutInfo: &multinodepb.PayoutInfo{Paid: totalPaid, Held: totalHeld}}, nil
+}
+
+// AllSatellitesPeriodSummary returns all satellites period payout summary.
+func (payout *PayoutEndpoint) AllSatellitesPeriodSummary(ctx context.Context, req *multinodepb.AllSatellitesPeriodSummaryRequest) (_ *multinodepb.AllSatellitesPeriodSummaryResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err = authenticate(ctx, payout.apiKeys, req.GetHeader()); err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+	}
+
+	var totalPaid, totalHeld int64
+	satelliteIDs, err := payout.db.GetPayingSatellitesIDs(ctx)
+	if err != nil {
+		return &multinodepb.AllSatellitesPeriodSummaryResponse{}, rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
+
+	for _, id := range satelliteIDs {
+		paid, held, err := payout.db.GetSatellitePeriodSummary(ctx, id, req.Period)
+		if err != nil {
+			return &multinodepb.AllSatellitesPeriodSummaryResponse{}, rpcstatus.Wrap(rpcstatus.Internal, err)
+		}
+
+		totalHeld += held
+		totalPaid += paid
+	}
+
+	return &multinodepb.AllSatellitesPeriodSummaryResponse{PayoutInfo: &multinodepb.PayoutInfo{Held: totalHeld, Paid: totalPaid}}, nil
+}

@@ -58,24 +58,48 @@ func TestEarnedPerSatellite(t *testing.T) {
 		estimatedPayoutsService := estimatedpayouts.NewService(planet.StorageNodes[0].DB.Bandwidth(), planet.StorageNodes[0].DB.Reputation(), planet.StorageNodes[0].DB.StorageUsage(), planet.StorageNodes[0].DB.Pricing(), planet.StorageNodes[0].DB.Satellites(), &trust.Pool{})
 		endpoint := multinode.NewPayoutEndpoint(log, service, estimatedPayoutsService, planet.StorageNodes[0].DB.Payout())
 
+		id := testrand.NodeID()
+		id2 := testrand.NodeID()
+
 		var amount int64 = 200
+		var amount2 int64 = 150
 
 		err := planet.StorageNodes[0].DB.Payout().StorePayStub(ctx, payouts.PayStub{
-			SatelliteID: testrand.NodeID(),
-			CompAtRest:  amount,
+			SatelliteID: id,
+			Held:        amount,
+			Paid:        amount,
+			Period:      "2020-10",
+		})
+		require.NoError(t, err)
+
+		err = planet.StorageNodes[0].DB.Payout().StorePayStub(ctx, payouts.PayStub{
+			SatelliteID: id2,
+			Held:        amount2,
+			Paid:        amount2,
+			Period:      "2020-11",
 		})
 		require.NoError(t, err)
 
 		key, err := service.Issue(ctx)
 		require.NoError(t, err)
 
-		response, err := endpoint.EarnedPerSatellite(ctx, &multinodepb.EarnedPerSatelliteRequest{
+		response, err := endpoint.AllSatellitesPeriodSummary(ctx, &multinodepb.AllSatellitesPeriodSummaryRequest{
+			Header: &multinodepb.RequestHeader{
+				ApiKey: key.Secret[:],
+			}, Period: "2020-10",
+		})
+		require.NoError(t, err)
+		require.Equal(t, response.PayoutInfo.Paid, amount)
+		require.Equal(t, response.PayoutInfo.Held, amount)
+
+		response2, err := endpoint.AllSatellitesSummary(ctx, &multinodepb.AllSatellitesSummaryRequest{
 			Header: &multinodepb.RequestHeader{
 				ApiKey: key.Secret[:],
 			},
 		})
 		require.NoError(t, err)
-		require.Equal(t, response.EarnedSatellite[0].Total, amount)
+		require.Equal(t, response2.PayoutInfo.Paid, amount+amount2)
+		require.Equal(t, response2.PayoutInfo.Held, amount+amount2)
 	})
 }
 

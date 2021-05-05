@@ -406,5 +406,52 @@ func TestPayouts(t *testing.T) {
 			require.Equal(t, int(satellite3Earned), 198)
 			require.NoError(t, err)
 		})
+
+		t.Run("Test GetSatelliteSummary", func(t *testing.T) {
+			id1 := storj.NodeID{1, 2, 3}
+			id2 := storj.NodeID{2, 3, 4}
+
+			err := payout.StorePayStub(ctx, payouts.PayStub{
+				Period:      "2020-11",
+				SatelliteID: id1,
+				Paid:        11,
+				Held:        11,
+			})
+			require.NoError(t, err)
+
+			err = payout.StorePayStub(ctx, payouts.PayStub{
+				Period:      "2020-10",
+				SatelliteID: id1,
+				Paid:        22,
+				Held:        22,
+			})
+			require.NoError(t, err)
+
+			err = payout.StorePayStub(ctx, payouts.PayStub{
+				Period:      "2020-11",
+				SatelliteID: id2,
+				Paid:        33,
+				Held:        33,
+			})
+			require.NoError(t, err)
+
+			err = payout.StorePayStub(ctx, payouts.PayStub{
+				Period:      "2020-10",
+				SatelliteID: id2,
+				Paid:        66,
+				Held:        66,
+			})
+			require.NoError(t, err)
+
+			paid, held, err := payout.GetSatellitePeriodSummary(ctx, id1, "2020-10")
+			require.NoError(t, err)
+			require.Equal(t, paid, int64(22))
+			require.Equal(t, held, int64(22))
+
+			paid2, held2, err := payout.GetSatelliteSummary(ctx, id2)
+			require.NoError(t, err)
+			require.Equal(t, paid2, int64(99))
+			require.Equal(t, held2, int64(99))
+		})
 	})
 }

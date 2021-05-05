@@ -40,6 +40,10 @@ type DB interface {
 	GetEarnedAtSatellite(ctx context.Context, id storj.NodeID) (int64, error)
 	// GetPayingSatellitesIDs returns list of satellite ID's that ever paid to storagenode.
 	GetPayingSatellitesIDs(ctx context.Context) ([]storj.NodeID, error)
+	// GetSatelliteSummary returns satellite all time paid and held amounts.
+	GetSatelliteSummary(ctx context.Context, satelliteID storj.NodeID) (paid, held int64, err error)
+	// GetSatellitePeriodSummary returns satellite paid and held amounts for specific period.
+	GetSatellitePeriodSummary(ctx context.Context, satelliteID storj.NodeID, period string) (paid, held int64, err error)
 }
 
 // ErrNoPayStubForPeriod represents errors from the payouts database.
