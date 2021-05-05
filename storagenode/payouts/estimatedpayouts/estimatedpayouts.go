@@ -14,7 +14,7 @@ import (
 type EstimatedPayout struct {
 	CurrentMonth             PayoutMonthly `json:"currentMonth"`
 	PreviousMonth            PayoutMonthly `json:"previousMonth"`
-	CurrentMonthExpectations float64       `json:"currentMonthExpectations"`
+	CurrentMonthExpectations int64         `json:"currentMonthExpectations"`
 }
 
 // PayoutMonthly contains usage and estimated payouts date.
@@ -95,11 +95,11 @@ func (estimatedPayout *EstimatedPayout) Set(current, previous PayoutMonthly, now
 		}
 
 		payoutPerDay := estimatedPayout.CurrentMonth.Payout / daysPast
-		estimatedPayout.CurrentMonthExpectations += payoutPerDay * daysPerMonth
+		estimatedPayout.CurrentMonthExpectations += int64(payoutPerDay * daysPerMonth)
 		return
 	}
 
-	estimatedPayout.CurrentMonthExpectations += estimatedPayout.CurrentMonth.Payout / math.Round(daysSinceJoined) * daysPerMonth
+	estimatedPayout.CurrentMonthExpectations += int64(estimatedPayout.CurrentMonth.Payout / math.Round(daysSinceJoined) * daysPerMonth)
 }
 
 // Add adds estimate into the receiver.

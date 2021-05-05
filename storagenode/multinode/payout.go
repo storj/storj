@@ -5,6 +5,7 @@ package multinode
 
 import (
 	"context"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -12,6 +13,7 @@ import (
 	"storj.io/storj/private/multinodepb"
 	"storj.io/storj/storagenode/apikeys"
 	"storj.io/storj/storagenode/payouts"
+	"storj.io/storj/storagenode/payouts/estimatedpayouts"
 )
 
 var _ multinodepb.DRPCPayoutServer = (*PayoutEndpoint)(nil)
@@ -22,17 +24,19 @@ var _ multinodepb.DRPCPayoutServer = (*PayoutEndpoint)(nil)
 type PayoutEndpoint struct {
 	multinodepb.DRPCPayoutUnimplementedServer
 
-	log     *zap.Logger
-	apiKeys *apikeys.Service
-	db      payouts.DB
+	log              *zap.Logger
+	apiKeys          *apikeys.Service
+	estimatedPayouts *estimatedpayouts.Service
+	db               payouts.DB
 }
 
 // NewPayoutEndpoint creates new multinode payouts endpoint.
-func NewPayoutEndpoint(log *zap.Logger, apiKeys *apikeys.Service, db payouts.DB) *PayoutEndpoint {
+func NewPayoutEndpoint(log *zap.Logger, apiKeys *apikeys.Service, estimatedPayouts *estimatedpayouts.Service, db payouts.DB) *PayoutEndpoint {
 	return &PayoutEndpoint{
-		log:     log,
-		apiKeys: apiKeys,
-		db:      db,
+		log:              log,
+		apiKeys:          apiKeys,
+		estimatedPayouts: estimatedPayouts,
+		db:               db,
 	}
 }
 
@@ -81,4 +85,36 @@ func (payout *PayoutEndpoint) EarnedPerSatellite(ctx context.Context, req *multi
 	}
 
 	return &resp, nil
+}
+
+// EstimatedPayoutTotal returns estimated earnings for current month from all satellites.
+func (payout *PayoutEndpoint) EstimatedPayoutTotal(ctx context.Context, req *multinodepb.EstimatedPayoutTotalRequest) (_ *multinodepb.EstimatedPayoutTotalResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err = authenticate(ctx, payout.apiKeys, req.GetHeader()); err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+	}
+
+	estimated, err := payout.estimatedPayouts.GetAllSatellitesEstimatedPayout(ctx, time.Now())
+	if err != nil {
+		return &multinodepb.EstimatedPayoutTotalResponse{}, rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
+
+	return &multinodepb.EstimatedPayoutTotalResponse{EstimatedEarnings: estimated.CurrentMonthExpectations}, nil
+}
+
+// EstimatedPayoutSatellite returns estimated earnings for current month from specific satellite.
+func (payout *PayoutEndpoint) EstimatedPayoutSatellite(ctx context.Context, req *multinodepb.EstimatedPayoutSatelliteRequest) (_ *multinodepb.EstimatedPayoutSatelliteResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err = authenticate(ctx, payout.apiKeys, req.GetHeader()); err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+	}
+
+	estimated, err := payout.estimatedPayouts.GetSatelliteEstimatedPayout(ctx, req.SatelliteId, time.Now())
+	if err != nil {
+		return &multinodepb.EstimatedPayoutSatelliteResponse{}, rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
+
+	return &multinodepb.EstimatedPayoutSatelliteResponse{EstimatedEarnings: estimated.CurrentMonthExpectations}, nil
 }

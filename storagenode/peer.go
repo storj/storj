@@ -805,6 +805,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Multinode.Payout = multinode.NewPayoutEndpoint(
 			peer.Log.Named("multinode:payout-endpoint"),
 			apiKeys,
+			peer.Estimation.Service,
 			peer.DB.Payout())
 
 		if err = multinodepb.DRPCRegisterStorage(peer.Server.DRPC(), peer.Multinode.Storage); err != nil {

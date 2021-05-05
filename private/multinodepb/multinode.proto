@@ -99,6 +99,22 @@ message TrustedSatellitesResponse {
 service Payout {
   rpc Earned(EarnedRequest) returns (EarnedResponse);
   rpc EarnedPerSatellite(EarnedPerSatelliteRequest) returns (EarnedPerSatelliteResponse);
+  rpc EstimatedPayoutSatellite(EstimatedPayoutSatelliteRequest) returns (EstimatedPayoutSatelliteResponse);
+  rpc EstimatedPayoutTotal(EstimatedPayoutTotalRequest) returns (EstimatedPayoutTotalResponse);
+}
+
+message EstimatedPayoutSatelliteRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+message EstimatedPayoutSatelliteResponse {
+  int64 estimated_earnings = 1;
+}
+message EstimatedPayoutTotalRequest {
+  RequestHeader header = 1;
+}
+message EstimatedPayoutTotalResponse {
+  int64 estimated_earnings = 1;
 }
 
 message EarnedRequest {

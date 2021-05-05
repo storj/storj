@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"math"
 	"net/http"
 	"testing"
 	"time"
@@ -131,10 +130,6 @@ func TestStorageNodeApi(t *testing.T) {
 					CurrentMonthExpectations: estimation.CurrentMonthExpectations,
 				}
 				require.NoError(t, err)
-
-				// round CurrentMonthExpectations to 3 decimal places to resolve precision issues
-				bodyPayout.CurrentMonthExpectations = math.Round(bodyPayout.CurrentMonthExpectations*100) / 100
-				expectedPayout.CurrentMonthExpectations = math.Round(expectedPayout.CurrentMonthExpectations*100) / 100
 
 				require.EqualValues(t, expectedPayout, bodyPayout)
 			})

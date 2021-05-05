@@ -112,6 +112,103 @@ func (service *Service) GetAllNodesEarnedOnSatellite(ctx context.Context) (earne
 	return earned, nil
 }
 
+// AllNodesSatelliteEstimations returns specific satellite all time estimated earnings.
+func (service *Service) AllNodesSatelliteEstimations(ctx context.Context, satelliteID storj.NodeID) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var estimatedEarnings int64
+
+	list, err := service.nodes.List(ctx)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	for _, node := range list {
+		estimation, err := service.nodeSatelliteEstimations(ctx, node, satelliteID)
+		if err != nil {
+			return 0, Error.Wrap(err)
+		}
+
+		estimatedEarnings += estimation
+	}
+
+	return estimatedEarnings, nil
+}
+
+// AllNodesEstimations returns all satellites all time estimated earnings.
+func (service *Service) AllNodesEstimations(ctx context.Context) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var estimatedEarnings int64
+
+	list, err := service.nodes.List(ctx)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	for _, node := range list {
+		estimation, err := service.nodeEstimations(ctx, node)
+		if err != nil {
+			return 0, Error.Wrap(err)
+		}
+
+		estimatedEarnings += estimation
+	}
+
+	return estimatedEarnings, nil
+}
+
+// nodeEstimations retrieves data from a single node.
+func (service *Service) nodeEstimations(ctx context.Context, node nodes.Node) (estimation int64, err error) {
+	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+		ID:      node.ID,
+		Address: node.PublicAddress,
+	})
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	defer func() {
+		err = errs.Combine(err, conn.Close())
+	}()
+
+	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
+	header := &multinodepb.RequestHeader{
+		ApiKey: node.APISecret,
+	}
+
+	response, err := payoutClient.EstimatedPayoutTotal(ctx, &multinodepb.EstimatedPayoutTotalRequest{Header: header})
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	return response.EstimatedEarnings, nil
+}
+
+// nodeSatelliteEstimations retrieves data from a single node.
+func (service *Service) nodeSatelliteEstimations(ctx context.Context, node nodes.Node, satelliteID storj.NodeID) (estimation int64, err error) {
+	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+		ID:      node.ID,
+		Address: node.PublicAddress,
+	})
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+
+	defer func() {
+		err = errs.Combine(err, conn.Close())
+	}()
+	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
+	header := &multinodepb.RequestHeader{
+		ApiKey: node.APISecret,
+	}
+	response, err := payoutClient.EstimatedPayoutSatellite(ctx, &multinodepb.EstimatedPayoutSatelliteRequest{Header: header, SatelliteId: satelliteID})
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+	return response.EstimatedEarnings, nil
+}
+
 func (service *Service) getAmount(ctx context.Context, node nodes.Node) (_ int64, err error) {
 	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
 		ID:      node.ID,

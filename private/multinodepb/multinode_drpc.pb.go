@@ -389,6 +389,8 @@ type DRPCPayoutClient interface {
 
 	Earned(ctx context.Context, in *EarnedRequest) (*EarnedResponse, error)
 	EarnedPerSatellite(ctx context.Context, in *EarnedPerSatelliteRequest) (*EarnedPerSatelliteResponse, error)
+	EstimatedPayoutSatellite(ctx context.Context, in *EstimatedPayoutSatelliteRequest) (*EstimatedPayoutSatelliteResponse, error)
+	EstimatedPayoutTotal(ctx context.Context, in *EstimatedPayoutTotalRequest) (*EstimatedPayoutTotalResponse, error)
 }
 
 type drpcPayoutClient struct {
@@ -419,9 +421,29 @@ func (c *drpcPayoutClient) EarnedPerSatellite(ctx context.Context, in *EarnedPer
 	return out, nil
 }
 
+func (c *drpcPayoutClient) EstimatedPayoutSatellite(ctx context.Context, in *EstimatedPayoutSatelliteRequest) (*EstimatedPayoutSatelliteResponse, error) {
+	out := new(EstimatedPayoutSatelliteResponse)
+	err := c.cc.Invoke(ctx, "/multinode.Payout/EstimatedPayoutSatellite", drpcEncoding_File_multinode_proto{}, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *drpcPayoutClient) EstimatedPayoutTotal(ctx context.Context, in *EstimatedPayoutTotalRequest) (*EstimatedPayoutTotalResponse, error) {
+	out := new(EstimatedPayoutTotalResponse)
+	err := c.cc.Invoke(ctx, "/multinode.Payout/EstimatedPayoutTotal", drpcEncoding_File_multinode_proto{}, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 type DRPCPayoutServer interface {
 	Earned(context.Context, *EarnedRequest) (*EarnedResponse, error)
 	EarnedPerSatellite(context.Context, *EarnedPerSatelliteRequest) (*EarnedPerSatelliteResponse, error)
+	EstimatedPayoutSatellite(context.Context, *EstimatedPayoutSatelliteRequest) (*EstimatedPayoutSatelliteResponse, error)
+	EstimatedPayoutTotal(context.Context, *EstimatedPayoutTotalRequest) (*EstimatedPayoutTotalResponse, error)
 }
 
 type DRPCPayoutUnimplementedServer struct{}
@@ -434,9 +456,17 @@ func (s *DRPCPayoutUnimplementedServer) EarnedPerSatellite(context.Context, *Ear
 	return nil, drpcerr.WithCode(errors.New("Unimplemented"), 12)
 }
 
+func (s *DRPCPayoutUnimplementedServer) EstimatedPayoutSatellite(context.Context, *EstimatedPayoutSatelliteRequest) (*EstimatedPayoutSatelliteResponse, error) {
+	return nil, drpcerr.WithCode(errors.New("Unimplemented"), 12)
+}
+
+func (s *DRPCPayoutUnimplementedServer) EstimatedPayoutTotal(context.Context, *EstimatedPayoutTotalRequest) (*EstimatedPayoutTotalResponse, error) {
+	return nil, drpcerr.WithCode(errors.New("Unimplemented"), 12)
+}
+
 type DRPCPayoutDescription struct{}
 
-func (DRPCPayoutDescription) NumMethods() int { return 2 }
+func (DRPCPayoutDescription) NumMethods() int { return 4 }
 
 func (DRPCPayoutDescription) Method(n int) (string, drpc.Encoding, drpc.Receiver, interface{}, bool) {
 	switch n {
@@ -458,6 +488,24 @@ func (DRPCPayoutDescription) Method(n int) (string, drpc.Encoding, drpc.Receiver
 						in1.(*EarnedPerSatelliteRequest),
 					)
 			}, DRPCPayoutServer.EarnedPerSatellite, true
+	case 2:
+		return "/multinode.Payout/EstimatedPayoutSatellite", drpcEncoding_File_multinode_proto{},
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCPayoutServer).
+					EstimatedPayoutSatellite(
+						ctx,
+						in1.(*EstimatedPayoutSatelliteRequest),
+					)
+			}, DRPCPayoutServer.EstimatedPayoutSatellite, true
+	case 3:
+		return "/multinode.Payout/EstimatedPayoutTotal", drpcEncoding_File_multinode_proto{},
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCPayoutServer).
+					EstimatedPayoutTotal(
+						ctx,
+						in1.(*EstimatedPayoutTotalRequest),
+					)
+			}, DRPCPayoutServer.EstimatedPayoutTotal, true
 	default:
 		return "", nil, nil, nil, false
 	}
@@ -493,6 +541,38 @@ type drpcPayout_EarnedPerSatelliteStream struct {
 }
 
 func (x *drpcPayout_EarnedPerSatelliteStream) SendAndClose(m *EarnedPerSatelliteResponse) error {
+	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCPayout_EstimatedPayoutSatelliteStream interface {
+	drpc.Stream
+	SendAndClose(*EstimatedPayoutSatelliteResponse) error
+}
+
+type drpcPayout_EstimatedPayoutSatelliteStream struct {
+	drpc.Stream
+}
+
+func (x *drpcPayout_EstimatedPayoutSatelliteStream) SendAndClose(m *EstimatedPayoutSatelliteResponse) error {
+	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCPayout_EstimatedPayoutTotalStream interface {
+	drpc.Stream
+	SendAndClose(*EstimatedPayoutTotalResponse) error
+}
+
+type drpcPayout_EstimatedPayoutTotalStream struct {
+	drpc.Stream
+}
+
+func (x *drpcPayout_EstimatedPayoutTotalStream) SendAndClose(m *EstimatedPayoutTotalResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
 	}

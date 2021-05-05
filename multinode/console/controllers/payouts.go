@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
 	"storj.io/storj/multinode/payouts"
 )
 
@@ -46,6 +48,49 @@ func (controller *Payouts) GetAllNodesTotalEarned(w http.ResponseWriter, r *http
 	}
 
 	if err = json.NewEncoder(w).Encode(earned); err != nil {
+		controller.log.Error("failed to write json response", zap.Error(err))
+		return
+	}
+}
+
+// SatelliteEstimations handles nodes estimated earnings from satellite.
+func (controller *Payouts) SatelliteEstimations(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+	segmentParams := mux.Vars(r)
+	id, ok := segmentParams["satelliteID"]
+	if !ok {
+		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
+		return
+	}
+	satelliteID, err := storj.NodeIDFromString(id)
+	if err != nil {
+		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
+		return
+	}
+	estimatedEarnings, err := controller.service.AllNodesSatelliteEstimations(ctx, satelliteID)
+	if err != nil {
+		controller.serveError(w, http.StatusInternalServerError, ErrPayouts.Wrap(err))
+		return
+	}
+	if err = json.NewEncoder(w).Encode(estimatedEarnings); err != nil {
+		controller.log.Error("failed to write json response", zap.Error(err))
+		return
+	}
+}
+
+// Estimations handles nodes estimated earnings.
+func (controller *Payouts) Estimations(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+	estimatedEarnings, err := controller.service.AllNodesEstimations(ctx)
+	if err != nil {
+		controller.serveError(w, http.StatusInternalServerError, ErrPayouts.Wrap(err))
+		return
+	}
+	if err = json.NewEncoder(w).Encode(estimatedEarnings); err != nil {
 		controller.log.Error("failed to write json response", zap.Error(err))
 		return
 	}

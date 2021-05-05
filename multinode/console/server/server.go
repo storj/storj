@@ -76,6 +76,8 @@ func NewServer(log *zap.Logger, config Config, nodes *nodes.Service, payouts *pa
 	payoutsController := controllers.NewPayouts(server.log, server.payouts)
 	payoutsRouter := apiRouter.PathPrefix("/payouts").Subrouter()
 	payoutsRouter.HandleFunc("/total-earned", payoutsController.GetAllNodesTotalEarned).Methods(http.MethodGet)
+	payoutsRouter.HandleFunc("/estimations/{satelliteID}", payoutsController.SatelliteEstimations).Methods(http.MethodGet)
+	payoutsRouter.HandleFunc("/estimations", payoutsController.Estimations).Methods(http.MethodGet)
 
 	if server.config.StaticDir != "" {
 		router.PathPrefix("/static/").Handler(http.StripPrefix("/static", fs))
