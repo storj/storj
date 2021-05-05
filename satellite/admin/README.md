@@ -100,6 +100,10 @@ Deletes the user.
 
 ## Coupon Management
 
+The coupons have an amount and duration.
+Amount is expressed in cents of USD dollars (e.g. 500 is $5)
+Duration is expressed in billing periods, a billing period is a natural month.
+
 ### POST /api/coupon
 
 Adds a coupon for specific user.
@@ -169,50 +173,6 @@ A successful response body:
 }
 ```
 
-### GET /api/project/{project-id}/usage
-
-This endpoint returns whether the project has outstanding usage or not.
-
-A project with not usage returns status code 200 and `{"result":"no project usage exist"}`.
-
-### GET /api/project/{project-id}/limit
-
-This endpoint returns information about project limits.
-
-A successful response body:
-
-```json
-{
-  "usage": {
-    "amount": "1.0 TB",
-    "bytes": 1000000000000
-  },
-  "bandwidth": {
-    "amount": "1.0 TB",
-    "bytes": 1000000000000
-  },
-  "rate": {
-    "rps": 0
-  }
-}
-```
-
-### POST /api/project/{project-id}/limit?usage={value}
-
-Updates usage limit for a project.
-
-### POST /api/project/{project-id}/limit?bandwidth={value}
-
-Updates bandwidth limit for a project.
-
-### POST /api/project/{project-id}/limit?rate={value}
-
-Updates rate limit for a project.
-
-### POST /api/project/{project-id}/limit?buckets={value}
-
-Updates bucket limit for a project.
-
 ### GET /api/project/{project-id}
 
 Gets the common information about a project.
@@ -257,6 +217,55 @@ A successful response body:
 ### DELETE /api/project/{project}/apikey/{name}
 
 Deletes the given apikey by its name.
+
+### GET /api/project/{project-id}/usage
+
+This endpoint returns whether the project has outstanding usage or not.
+
+A project with not usage returns status code 200 and `{"result":"no project usage exist"}`.
+
+### GET /api/project/{project-id}/limit
+
+This endpoint returns information about project limits.
+
+A successful response body:
+
+```json
+{
+  "usage": {
+    "amount": "1.0 TB",
+    "bytes": 1000000000000
+  },
+  "bandwidth": {
+    "amount": "1.0 TB",
+    "bytes": 1000000000000
+  },
+  "rate": {
+    "rps": 0
+  }
+}
+```
+
+### Update limits
+
+You can update the different limits with one single request just adding the
+various query parameters (e.g. `usage=5000000&bandwidth=9000000`)
+
+#### POST /api/project/{project-id}/limit?usage={value}
+
+Updates usage limit for a project. The value must be in bytes.
+
+#### POST /api/project/{project-id}/limit?bandwidth={value}
+
+Updates bandwidth limit for a project. The value must be in bytes.
+
+#### POST /api/project/{project-id}/limit?rate={value}
+
+Updates rate limit for a project.
+
+#### POST /api/project/{project-id}/limit?buckets={value}
+
+Updates bucket limit for a project.
 
 ## APIKey Management
 
