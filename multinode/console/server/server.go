@@ -75,6 +75,8 @@ func NewServer(log *zap.Logger, config Config, nodes *nodes.Service, payouts *pa
 
 	payoutsController := controllers.NewPayouts(server.log, server.payouts)
 	payoutsRouter := apiRouter.PathPrefix("/payouts").Subrouter()
+	payoutsRouter.HandleFunc("/satellite/{id}/summary/{period}", payoutsController.SatellitePeriodSummary).Methods(http.MethodGet)
+	payoutsRouter.HandleFunc("/satellite/{id}/summary", payoutsController.SatelliteSummary).Methods(http.MethodGet)
 	payoutsRouter.HandleFunc("/summary/{period}", payoutsController.PeriodSummary).Methods(http.MethodGet)
 	payoutsRouter.HandleFunc("/summary", payoutsController.Summary).Methods(http.MethodGet)
 	payoutsRouter.HandleFunc("/total-earned", payoutsController.GetAllNodesTotalEarned).Methods(http.MethodGet)

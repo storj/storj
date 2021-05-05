@@ -172,3 +172,39 @@ func (payout *PayoutEndpoint) AllSatellitesPeriodSummary(ctx context.Context, re
 
 	return &multinodepb.AllSatellitesPeriodSummaryResponse{PayoutInfo: &multinodepb.PayoutInfo{Held: totalHeld, Paid: totalPaid}}, nil
 }
+
+// SatelliteSummary returns satellite all time payout summary.
+func (payout *PayoutEndpoint) SatelliteSummary(ctx context.Context, req *multinodepb.SatelliteSummaryRequest) (_ *multinodepb.SatelliteSummaryResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err = authenticate(ctx, payout.apiKeys, req.GetHeader()); err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+	}
+
+	var totalPaid, totalHeld int64
+
+	totalPaid, totalHeld, err = payout.db.GetSatelliteSummary(ctx, req.SatelliteId)
+	if err != nil {
+		return &multinodepb.SatelliteSummaryResponse{}, rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
+
+	return &multinodepb.SatelliteSummaryResponse{PayoutInfo: &multinodepb.PayoutInfo{Held: totalHeld, Paid: totalPaid}}, nil
+}
+
+// SatellitePeriodSummary returns satellite period payout summary.
+func (payout *PayoutEndpoint) SatellitePeriodSummary(ctx context.Context, req *multinodepb.SatellitePeriodSummaryRequest) (_ *multinodepb.SatellitePeriodSummaryResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err = authenticate(ctx, payout.apiKeys, req.GetHeader()); err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+	}
+
+	var totalPaid, totalHeld int64
+
+	totalPaid, totalHeld, err = payout.db.GetSatellitePeriodSummary(ctx, req.SatelliteId, req.Period)
+	if err != nil {
+		return &multinodepb.SatellitePeriodSummaryResponse{}, rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
+
+	return &multinodepb.SatellitePeriodSummaryResponse{PayoutInfo: &multinodepb.PayoutInfo{Held: totalHeld, Paid: totalPaid}}, nil
+}

@@ -15,9 +15,10 @@ type SatelliteSummary struct {
 
 // NodeSummary contains node's payout information.
 type NodeSummary struct {
-	NodeID storj.NodeID `json:"nodeId"`
-	Held   int64        `json:"held"`
-	Paid   int64        `json:"paid"`
+	NodeID   storj.NodeID `json:"nodeId"`
+	NodeName string       `json:"nodeName"`
+	Held     int64        `json:"held"`
+	Paid     int64        `json:"paid"`
 }
 
 // Summary contains payouts page data.
@@ -26,4 +27,17 @@ type Summary struct {
 	TotalHeld   int64         `json:"totalHeld"`
 	TotalPaid   int64         `json:"totalPaid"`
 	NodeSummary []NodeSummary `json:"nodeSummary"`
+}
+
+// Add appends node payout data to summary.
+func (summary *Summary) Add(held, paid int64, id storj.NodeID, name string) {
+	summary.TotalPaid += paid
+	summary.TotalHeld += held
+	summary.TotalEarned += paid + held
+	summary.NodeSummary = append(summary.NodeSummary, NodeSummary{
+		NodeID:   id,
+		Held:     held,
+		Paid:     paid,
+		NodeName: name,
+	})
 }

@@ -16,7 +16,6 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/multinodepb"
-	"storj.io/storj/private/testplanet"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/apikeys"
 	"storj.io/storj/storagenode/multinode"
@@ -49,14 +48,26 @@ var (
 	}
 )
 
-func TestEarnedPerSatellite(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		StorageNodeCount: 1,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+func TestPayoutsEndpointSummary(t *testing.T) {
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		log := zaptest.NewLogger(t)
-		service := apikeys.NewService(planet.StorageNodes[0].DB.APIKeys())
-		estimatedPayoutsService := estimatedpayouts.NewService(planet.StorageNodes[0].DB.Bandwidth(), planet.StorageNodes[0].DB.Reputation(), planet.StorageNodes[0].DB.StorageUsage(), planet.StorageNodes[0].DB.Pricing(), planet.StorageNodes[0].DB.Satellites(), &trust.Pool{})
-		endpoint := multinode.NewPayoutEndpoint(log, service, estimatedPayoutsService, planet.StorageNodes[0].DB.Payout())
+		satelliteID := testrand.NodeID()
+		apikeydb := db.APIKeys()
+		payoutdb := db.Payout()
+		service := apikeys.NewService(apikeydb)
+
+		// Initialize a trust pool
+		poolConfig := trust.Config{
+			CachePath: ctx.File("trust-cache.json"),
+		}
+		poolConfig.Sources = append(poolConfig.Sources, &trust.StaticURLSource{URL: trust.SatelliteURL{ID: satelliteID}})
+
+		trustPool, err := trust.NewPool(zaptest.NewLogger(t), trust.Dialer(rpc.Dialer{}), poolConfig)
+		require.NoError(t, err)
+		require.NoError(t, trustPool.Refresh(ctx))
+
+		estimatedPayoutsService := estimatedpayouts.NewService(db.Bandwidth(), db.Reputation(), db.StorageUsage(), db.Pricing(), db.Satellites(), trustPool)
+		endpoint := multinode.NewPayoutEndpoint(log, service, estimatedPayoutsService, db.Payout())
 
 		id := testrand.NodeID()
 		id2 := testrand.NodeID()
@@ -64,7 +75,7 @@ func TestEarnedPerSatellite(t *testing.T) {
 		var amount int64 = 200
 		var amount2 int64 = 150
 
-		err := planet.StorageNodes[0].DB.Payout().StorePayStub(ctx, payouts.PayStub{
+		err = payoutdb.StorePayStub(ctx, payouts.PayStub{
 			SatelliteID: id,
 			Held:        amount,
 			Paid:        amount,
@@ -72,7 +83,7 @@ func TestEarnedPerSatellite(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = planet.StorageNodes[0].DB.Payout().StorePayStub(ctx, payouts.PayStub{
+		err = payoutdb.StorePayStub(ctx, payouts.PayStub{
 			SatelliteID: id2,
 			Held:        amount2,
 			Paid:        amount2,
@@ -100,10 +111,28 @@ func TestEarnedPerSatellite(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, response2.PayoutInfo.Paid, amount+amount2)
 		require.Equal(t, response2.PayoutInfo.Held, amount+amount2)
+
+		response3, err := endpoint.SatellitePeriodSummary(ctx, &multinodepb.SatellitePeriodSummaryRequest{
+			Header: &multinodepb.RequestHeader{
+				ApiKey: key.Secret[:],
+			}, SatelliteId: id2, Period: "2020-11",
+		})
+		require.NoError(t, err)
+		require.Equal(t, response3.PayoutInfo.Paid, amount2)
+		require.Equal(t, response3.PayoutInfo.Held, amount2)
+
+		response4, err := endpoint.SatelliteSummary(ctx, &multinodepb.SatelliteSummaryRequest{
+			Header: &multinodepb.RequestHeader{
+				ApiKey: key.Secret[:],
+			}, SatelliteId: id,
+		})
+		require.NoError(t, err)
+		require.Equal(t, response4.PayoutInfo.Paid, amount)
+		require.Equal(t, response4.PayoutInfo.Held, amount)
 	})
 }
 
-func TestStorageNodeApi(t *testing.T) {
+func TestPayoutsEndpointEstimations(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		satelliteID := testrand.NodeID()
 		bandwidthdb := db.Bandwidth()
