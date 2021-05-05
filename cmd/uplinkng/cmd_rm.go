@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/zeebo/clingy"
-	"github.com/zeebo/errs"
 )
 
 type cmdRm struct {
@@ -16,7 +15,7 @@ type cmdRm struct {
 	recursive bool
 	encrypted bool
 
-	location string
+	location Location
 }
 
 func (c *cmdRm) Setup(a clingy.Arguments, f clingy.Flags) {
@@ -30,26 +29,21 @@ func (c *cmdRm) Setup(a clingy.Arguments, f clingy.Flags) {
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
 
-	c.location = a.New("location", "Location to remove (sj://BUCKET[/KEY])").(string)
+	c.location = a.New("location", "Location to remove (sj://BUCKET[/KEY])",
+		clingy.Transform(parseLocation),
+	).(Location)
 }
 
 func (c *cmdRm) Execute(ctx clingy.Context) error {
-	project, err := c.OpenProject(ctx, bypassEncryption(c.encrypted))
+	fs, err := c.OpenFilesystem(ctx, bypassEncryption(c.encrypted))
 	if err != nil {
 		return err
 	}
-	defer func() { _ = project.Close() }()
+	defer func() { _ = fs.Close() }()
 
 	// TODO: use the filesystem interface
 	// TODO: recursive remove
 
-	p, err := parseLocation(c.location)
-	if err != nil {
-		return err
-	} else if !p.remote {
-		return errs.New("can only delete remote objects")
-	}
-
-	_, err = project.DeleteObject(ctx, p.bucket, p.key)
-	return err
+	// return fs.Delete(ctx, c.location)
+	return nil
 }

@@ -87,6 +87,32 @@ func (p Location) Key() string {
 	return p.path
 }
 
+// SetKey sets the key portion of the location.
+func (p Location) SetKey(s string) Location {
+	if p.remote {
+		p.key = s
+	} else {
+		p.path = s
+	}
+	return p
+}
+
+// Parent returns the section of the key up to and including the final slash.
+func (p Location) Parent() string {
+	if p.Std() {
+		return ""
+	} else if p.remote {
+		if idx := strings.LastIndexByte(p.key, '/'); idx >= 0 {
+			return p.key[:idx+1]
+		}
+		return ""
+	}
+	if idx := strings.LastIndexByte(p.path, filepath.Separator); idx >= 0 {
+		return p.path[:idx+1]
+	}
+	return ""
+}
+
 // Base returns the last base component of the key.
 func (p Location) Base() (string, bool) {
 	if p.Std() {
@@ -148,4 +174,28 @@ func (p Location) AppendKey(key string) Location {
 
 	p.path = filepath.Join(p.path, key)
 	return p
+}
+
+// HasPrefix returns true if the passed in loc is a prefix.
+func (p Location) HasPrefix(loc Location) bool {
+	if p.Std() {
+		return loc.Std()
+	} else if p.remote != loc.remote {
+		return false
+	} else if !p.remote {
+		return strings.HasPrefix(p.path, loc.path)
+	} else if p.bucket != loc.bucket {
+		return false
+	}
+	return strings.HasPrefix(p.key, loc.key)
+}
+
+// ListKeyName returns the full first component of the key after the provided
+// prefix and a boolean indicating if the component is itself a prefix.
+func (p Location) ListKeyName(prefix Location) (string, bool) {
+	rem := p.Key()[len(prefix.Parent()):]
+	if idx := strings.IndexByte(rem, '/'); idx >= 0 {
+		return rem[:idx+1], true
+	}
+	return rem, false
 }

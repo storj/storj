@@ -13,15 +13,23 @@ import (
 )
 
 type projectProvider struct {
-	access      string
-	openProject func(ctx context.Context) (*uplink.Project, error)
+	access string
+
+	testProject    *uplink.Project
+	testFilesystem filesystem
 }
 
 func (pp *projectProvider) Setup(a clingy.Arguments, f clingy.Flags) {
 	pp.access = f.New("access", "Which access to use", "").(string)
 }
 
+func (pp *projectProvider) setTestFilesystem(fs filesystem) { pp.testFilesystem = fs }
+
 func (pp *projectProvider) OpenFilesystem(ctx context.Context, options ...projectOption) (filesystem, error) {
+	if pp.testFilesystem != nil {
+		return pp.testFilesystem, nil
+	}
+
 	project, err := pp.OpenProject(ctx, options...)
 	if err != nil {
 		return nil, err
@@ -35,8 +43,8 @@ func (pp *projectProvider) OpenFilesystem(ctx context.Context, options ...projec
 }
 
 func (pp *projectProvider) OpenProject(ctx context.Context, options ...projectOption) (*uplink.Project, error) {
-	if pp.openProject != nil {
-		return pp.openProject(ctx)
+	if pp.testProject != nil {
+		return pp.testProject, nil
 	}
 
 	var opts projectOptions
@@ -57,6 +65,8 @@ func (pp *projectProvider) OpenProject(ctx context.Context, options ...projectOp
 		access, err = uplink.ParseAccess(data)
 	} else {
 		access, err = uplink.ParseAccess(accessDefault)
+		// TODO: if this errors then it's probably a name so don't report an error
+		// that says "it failed to parse"
 	}
 	if err != nil {
 		return nil, err

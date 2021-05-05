@@ -16,6 +16,7 @@ type cmdLs struct {
 	recursive bool
 	encrypted bool
 	pending   bool
+	utc       bool
 
 	prefix *Location
 }
@@ -31,6 +32,9 @@ func (c *cmdLs) Setup(a clingy.Arguments, f clingy.Flags) {
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
 	c.pending = f.New("pending", "List pending object uploads instead", false,
+		clingy.Transform(strconv.ParseBool),
+	).(bool)
+	c.utc = f.New("utc", "Show all timestamps in UTC instead of local time", false,
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
 
@@ -59,7 +63,7 @@ func (c *cmdLs) listBuckets(ctx clingy.Context) error {
 	iter := project.ListBuckets(ctx, nil)
 	for iter.Next() {
 		item := iter.Item()
-		tw.WriteLine(formatTime(item.Created), item.Name)
+		tw.WriteLine(formatTime(c.utc, item.Created), item.Name)
 	}
 	return iter.Err()
 }
@@ -91,12 +95,17 @@ func (c *cmdLs) listLocation(ctx clingy.Context, prefix Location) error {
 		if obj.IsPrefix {
 			tw.WriteLine("PRE", "", "", obj.Loc.Key())
 		} else {
-			tw.WriteLine("OBJ", formatTime(obj.Created), obj.ContentLength, obj.Loc.Key())
+			tw.WriteLine("OBJ", formatTime(c.utc, obj.Created), obj.ContentLength, obj.Loc.Key())
 		}
 	}
 	return iter.Err()
 }
 
-func formatTime(x time.Time) string {
-	return x.Local().Format("2006-01-02 15:04:05")
+func formatTime(utc bool, x time.Time) string {
+	if utc {
+		x = x.UTC()
+	} else {
+		x = x.Local()
+	}
+	return x.Format("2006-01-02 15:04:05")
 }
