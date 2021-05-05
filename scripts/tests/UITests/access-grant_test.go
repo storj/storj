@@ -89,7 +89,7 @@ func Test_APIKeysCreationFlowElements(t *testing.T) {
 	//encrWarnTitle:= page.MustElement("p.generate-container__warning__header__label").MustText()
 //	assert.Equal(t, encrWarnTitle, "Save Your Encryption Passphrase")
 	encrWarnMessage:= page.MustElement("p.generate-container__warning__message").MustText()
-	assert.Equal(t, encrWarnMessage, "You’ll need this passphrase500chars to access data in the future. This is the only time it will be displayed. Be sure to write it down.")
+	assert.Equal(t, encrWarnMessage, "You’ll need this passphrase to access data in the future. This is the only time it will be displayed. Be sure to write it down.")
 	encrPassType:= page.MustElement("p.generate-container__choosing__label")
 	assert.Equal(t,encrPassType.MustText(),"Passphrase")
 	generateTab:= page.MustElement("p.generate-container__choosing__right__option.left-option")

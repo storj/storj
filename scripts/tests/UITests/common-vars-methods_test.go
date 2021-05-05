@@ -86,8 +86,24 @@ func setup_browser() (*rod.Page, *rod.Browser) {
 	return page, browser
 }
 
-
-
+func create_AG (string , string )(*rod.Page, *rod.Browser) {
+	page, browser := login_to_account()
+	defer browser.MustClose()
+	passphrase:="qweqweqwe"
+	bucketName:="qweqweqweqwe"
+	page.MustElementX("(//*[@class=\"navigation-area__item-container\"])[1]").MustClick()
+	page.MustElement("div.container:nth-of-type(2)").MustClick()
+	page.MustElement("p.generate-container__choosing__right__option:nth-of-type(2)").MustClick()
+	page.MustElement("input.headered-input").MustInput(passphrase)
+	page.MustElement("div.generate-container__next-button").MustClick()
+	page.MustElement(".enter-pass__container__textarea__input").MustInput(passphrase)
+	page.MustElement(".enter-pass__container__next-button").MustClick()
+	time.Sleep(1*time.Second)
+	page.MustElement(".buckets-view__title-area__button").MustClick()
+	page.MustElement("input.headered-input").MustInput(bucketName)
+	page.MustElement("div.container").MustClick()
+	return page, browser
+}
 
 //
 //	func Example_LoginScreenTar() {

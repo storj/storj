@@ -44,3 +44,5 @@ resource.syso
 # wasm
 **/access.wasm
 **/wasm_exec.js
+**/access.wasm.br
+**/wasm_exec.js.br

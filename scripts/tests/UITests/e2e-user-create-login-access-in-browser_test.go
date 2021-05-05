@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 )
-var email= "test@ds4d0.com"
+var email= "test@ds4xd0.com"
 var pass= "123qwe"
 var access_grant_name = "qwerty"
 func Test_e2e_user_create_login_access_in_browser(t *testing.T)  {
