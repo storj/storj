@@ -40,13 +40,19 @@ apt-get -y install chromium
 export DEBIAN_FRONTEND="noninteractive"
 apt-get -y install xorg xvfb gtk2-engines-pixbuf dbus-x11 xfonts-base xfonts-100dpi xfonts-75dpi xfonts-cyrillic xfonts-scalable imagemagick x11-apps
 
-echo "wormhole installing ..............................................................................................."
-apt-get -y install wormhole
+# echo "wormhole installing ..............................................................................................."
+# apt-get -y install wormhole
+
+echo "brotli installing ..............................................................................................."
+npm install -g brotli
 Xvfb -ac :99 -screen 0 1280x1024x16 & export DISPLAY=:99
 
 pushd "$SCRIPTDIR/../web/satellite/"
+
 echo "npm install starts..........................................................................................."
 npm install
+echo "npm run wasm starts..........................................................................................."
+npm run wasm
 echo "npm run build starts...................................................................................................."
 npm run build
 popd
