@@ -4,6 +4,37 @@ Satellite Admin package provides API endpoints for administrative tasks.
 
 Requires setting `Authorization` header for requests.
 
+<!-- Aut-generate this ToC with https://github.com/ycd/toc -->
+<!-- toc -->
+- [satellite/admin](#satelliteadmin)
+    * [User Management](#user-management)
+        * [POST /api/user](#post-apiuser)
+        * [PUT /api/user/{user-email}](#put-apiuseruser-email)
+        * [GET /api/user/{user-email}](#get-apiuseruser-email)
+        * [DELETE /api/user/{user-email}](#delete-apiuseruser-email)
+    * [Coupon Management](#coupon-management)
+        * [POST /api/coupon](#post-apicoupon)
+        * [GET /api/coupon/{coupon-id}](#get-apicouponcoupon-id)
+        * [DELETE /api/coupon/{coupon-id}](#delete-apicouponcoupon-id)
+    * [Project Management](#project-management)
+        * [POST /api/project](#post-apiproject)
+        * [GET /api/project/{project-id}](#get-apiprojectproject-id)
+        * [PUT /api/project/{project-id}](#put-apiprojectproject-id)
+        * [DELETE /api/project/{project-id}](#delete-apiprojectproject-id)
+        * [POST /api/project/{project}/apikey](#post-apiprojectprojectapikey)
+        * [DELETE /api/project/{project}/apikey/{name}](#delete-apiprojectprojectapikeyname)
+        * [GET /api/project/{project-id}/usage](#get-apiprojectproject-idusage)
+        * [GET /api/project/{project-id}/limit](#get-apiprojectproject-idlimit)
+        * [Update limits](#update-limits)
+            * [POST /api/project/{project-id}/limit?usage={value}](#post-apiprojectproject-idlimitusagevalue)
+            * [POST /api/project/{project-id}/limit?bandwidth={value}](#post-apiprojectproject-idlimitbandwidthvalue)
+            * [POST /api/project/{project-id}/limit?rate={value}](#post-apiprojectproject-idlimitratevalue)
+            * [POST /api/project/{project-id}/limit?buckets={value}](#post-apiprojectproject-idlimitbucketsvalue)
+    * [APIKey Management](#apikey-management)
+        * [DELETE /api/apikey/{apikey}](#delete-apiapikeyapikey)
+
+<!-- tocstop -->
+
 ## User Management
 
 ### POST /api/user
