@@ -9,7 +9,7 @@ require (
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/calebcase/tmpfile v1.0.2
 	github.com/cheggaaa/pb/v3 v3.0.5
-	github.com/fatih/color v1.9.0
+	github.com/fatih/color v1.10.0
 	github.com/go-redis/redis/v8 v8.7.1
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/go-cmp v0.5.4
