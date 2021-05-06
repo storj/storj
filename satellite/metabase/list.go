@@ -34,11 +34,6 @@ type ObjectEntry struct {
 	FixedSegmentSize   int32
 
 	Encryption storj.EncryptionParameters
-
-	// ZombieDeletionDeadline defines when the pending raw object should be deleted from the database.
-	// This is as a safeguard against objects that failed to upload and the client has not indicated
-	// whether they want to continue uploading or delete the already uploaded data.
-	ZombieDeletionDeadline *time.Time
 }
 
 // ObjectsIterator iterates over a sequence of ObjectEntry items.

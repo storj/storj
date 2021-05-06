@@ -21,6 +21,7 @@ func TestDeleteExpiredObjects(t *testing.T) {
 		obj3 := metabasetest.RandObjectStream()
 
 		now := time.Now()
+		zombieDeadline := now.Add(24 * time.Hour)
 		pastTime := now.Add(-1 * time.Hour)
 		futureTime := now.Add(1 * time.Hour)
 
@@ -80,7 +81,8 @@ func TestDeleteExpiredObjects(t *testing.T) {
 						CreatedAt:    now,
 						Status:       metabase.Pending,
 
-						Encryption: metabasetest.DefaultEncryption,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 					{
 						ObjectStream: obj3,
@@ -88,7 +90,8 @@ func TestDeleteExpiredObjects(t *testing.T) {
 						ExpiresAt:    &futureTime,
 						Status:       metabase.Pending,
 
-						Encryption: metabasetest.DefaultEncryption,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -171,6 +174,7 @@ func TestDeleteZombieObjects(t *testing.T) {
 		obj3 := metabasetest.RandObjectStream()
 
 		now := time.Now()
+		zombieDeadline := now.Add(24 * time.Hour)
 		pastTime := now.Add(-1 * time.Hour)
 		futureTime := now.Add(1 * time.Hour)
 
@@ -230,15 +234,16 @@ func TestDeleteZombieObjects(t *testing.T) {
 						CreatedAt:    now,
 						Status:       metabase.Pending,
 
-						Encryption: metabasetest.DefaultEncryption,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 					{
-						ObjectStream:           obj3,
-						CreatedAt:              now,
-						ZombieDeletionDeadline: &futureTime,
-						Status:                 metabase.Pending,
+						ObjectStream: obj3,
+						CreatedAt:    now,
+						Status:       metabase.Pending,
 
-						Encryption: metabasetest.DefaultEncryption,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &futureTime,
 					},
 				},
 			}.Check(ctx, t, db)

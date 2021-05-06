@@ -21,6 +21,7 @@ func TestGetObjectExactVersion(t *testing.T) {
 		location := obj.Location()
 
 		now := time.Now()
+		zombieDeadline := now.Add(24 * time.Hour)
 
 		for _, test := range metabasetest.InvalidObjectLocations(location) {
 			test := test
@@ -123,7 +124,8 @@ func TestGetObjectExactVersion(t *testing.T) {
 						CreatedAt:    now,
 						Status:       metabase.Pending,
 
-						Encryption: metabasetest.DefaultEncryption,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -168,6 +170,7 @@ func TestGetObjectLatestVersion(t *testing.T) {
 		location := obj.Location()
 
 		now := time.Now()
+		zombieDeadline := now.Add(24 * time.Hour)
 
 		for _, test := range metabasetest.InvalidObjectLocations(location) {
 			test := test
@@ -226,7 +229,8 @@ func TestGetObjectLatestVersion(t *testing.T) {
 						CreatedAt:    now,
 						Status:       metabase.Pending,
 
-						Encryption: metabasetest.DefaultEncryption,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -762,6 +766,7 @@ func TestBucketEmpty(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
 		now := time.Now()
+		zombieDeadline := now.Add(24 * time.Hour)
 
 		t.Run("ProjectID missing", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
@@ -826,10 +831,11 @@ func TestBucketEmpty(t *testing.T) {
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
-						ObjectStream: obj,
-						CreatedAt:    now,
-						Status:       metabase.Pending,
-						Encryption:   metabasetest.DefaultEncryption,
+						ObjectStream:           obj,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 				},
 			}.Check(ctx, t, db)

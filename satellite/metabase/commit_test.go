@@ -63,6 +63,8 @@ func TestBeginObjectNextVersion(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			now1 := time.Now()
+			zombieDeadline := now1.Add(24 * time.Hour)
+			futureTime := now1.Add(10 * 24 * time.Hour)
 
 			objectStream.Version = metabase.NextVersion
 
@@ -78,8 +80,9 @@ func TestBeginObjectNextVersion(t *testing.T) {
 
 			metabasetest.BeginObjectNextVersion{
 				Opts: metabase.BeginObjectNextVersion{
-					ObjectStream: objectStream,
-					Encryption:   metabasetest.DefaultEncryption,
+					ObjectStream:           objectStream,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &futureTime,
 				},
 				Version: 2,
 			}.Check(ctx, t, db)
@@ -97,7 +100,8 @@ func TestBeginObjectNextVersion(t *testing.T) {
 						CreatedAt: now1,
 						Status:    metabase.Pending,
 
-						Encryption: metabasetest.DefaultEncryption,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 					{
 						ObjectStream: metabase.ObjectStream{
@@ -110,7 +114,8 @@ func TestBeginObjectNextVersion(t *testing.T) {
 						CreatedAt: now2,
 						Status:    metabase.Pending,
 
-						Encryption: metabasetest.DefaultEncryption,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &futureTime,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -328,6 +333,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			now1 := time.Now()
+			zombieDeadline := now1.Add(24 * time.Hour)
 
 			objectStream.Version = 5
 
@@ -352,7 +358,8 @@ func TestBeginObjectExactVersion(t *testing.T) {
 						CreatedAt: now1,
 						Status:    metabase.Pending,
 
-						Encryption: metabasetest.DefaultEncryption,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -362,6 +369,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			now1 := time.Now()
+			zombieDeadline := now1.Add(24 * time.Hour)
 
 			objectStream.Version = 5
 
@@ -396,7 +404,8 @@ func TestBeginObjectExactVersion(t *testing.T) {
 						CreatedAt: now1,
 						Status:    metabase.Pending,
 
-						Encryption: metabasetest.DefaultEncryption,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -772,6 +781,7 @@ func TestBeginSegment(t *testing.T) {
 		t.Run("begin segment successfully", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
@@ -799,7 +809,8 @@ func TestBeginSegment(t *testing.T) {
 						CreatedAt:    now,
 						Status:       metabase.Pending,
 
-						Encryption: metabasetest.DefaultEncryption,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -808,6 +819,7 @@ func TestBeginSegment(t *testing.T) {
 		t.Run("multiple begin segment successfully", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
 
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
@@ -837,7 +849,8 @@ func TestBeginSegment(t *testing.T) {
 						CreatedAt:    now,
 						Status:       metabase.Pending,
 
-						Encryption: metabasetest.DefaultEncryption,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -869,6 +882,7 @@ func TestCommitSegment(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
@@ -1090,7 +1104,8 @@ func TestCommitSegment(t *testing.T) {
 						CreatedAt:    now,
 						Status:       metabase.Pending,
 
-						Encryption: metabasetest.DefaultEncryption,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -1100,6 +1115,7 @@ func TestCommitSegment(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			now1 := time.Now()
+			zombieDeadline := now1.Add(24 * time.Hour)
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
@@ -1165,7 +1181,8 @@ func TestCommitSegment(t *testing.T) {
 						CreatedAt:    now1,
 						Status:       metabase.Pending,
 
-						Encryption: metabasetest.DefaultEncryption,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 				},
 				Segments: []metabase.RawSegment{
@@ -1283,6 +1300,7 @@ func TestCommitSegment(t *testing.T) {
 			encryptedETag := testrand.Bytes(32)
 
 			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
@@ -1315,7 +1333,8 @@ func TestCommitSegment(t *testing.T) {
 						CreatedAt:    now,
 						Status:       metabase.Pending,
 
-						Encryption: metabasetest.DefaultEncryption,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 				},
 				Segments: []metabase.RawSegment{
@@ -1345,7 +1364,7 @@ func TestCommitInlineSegment(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
 		now := time.Now()
-
+		zombieDeadline := now.Add(24 * time.Hour)
 		for _, test := range metabasetest.InvalidObjectStreams(obj) {
 			test := test
 			t.Run(test.Name, func(t *testing.T) {
@@ -1439,6 +1458,7 @@ func TestCommitInlineSegment(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			now1 := time.Now()
+
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
@@ -1487,7 +1507,8 @@ func TestCommitInlineSegment(t *testing.T) {
 						CreatedAt:    now1,
 						Status:       metabase.Pending,
 
-						Encryption: metabasetest.DefaultEncryption,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 				},
 				Segments: []metabase.RawSegment{
@@ -1601,10 +1622,11 @@ func TestCommitInlineSegment(t *testing.T) {
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
-						ObjectStream: obj,
-						CreatedAt:    now,
-						Status:       metabase.Pending,
-						Encryption:   metabasetest.DefaultEncryption,
+						ObjectStream:           obj,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 				},
 				Segments: []metabase.RawSegment{
@@ -1658,10 +1680,11 @@ func TestCommitInlineSegment(t *testing.T) {
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
-						ObjectStream: obj,
-						CreatedAt:    now,
-						Status:       metabase.Pending,
-						Encryption:   metabasetest.DefaultEncryption,
+						ObjectStream:           obj,
+						CreatedAt:              now,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 				},
 				Segments: []metabase.RawSegment{

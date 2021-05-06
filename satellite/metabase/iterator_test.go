@@ -1059,6 +1059,7 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 		location := obj.Location()
 
 		now := time.Now()
+		zombieDeadline := now.Add(24 * time.Hour)
 
 		for _, test := range metabasetest.InvalidObjectLocations(location) {
 			test := test
@@ -1099,7 +1100,8 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 				CreatedAt:    now,
 				Status:       metabase.Pending,
 
-				Encryption: metabasetest.DefaultEncryption,
+				Encryption:             metabasetest.DefaultEncryption,
+				ZombieDeletionDeadline: &zombieDeadline,
 			}
 
 			metabasetest.IteratePendingObjectsByKey{
@@ -1139,7 +1141,8 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 					CreatedAt:    now,
 					Status:       metabase.Pending,
 
-					Encryption: metabasetest.DefaultEncryption,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &zombieDeadline,
 				}
 				expected[i] = objectEntryFromRaw(objects[i])
 			}
@@ -1179,7 +1182,8 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 				CreatedAt:    now,
 				Status:       metabase.Pending,
 
-				Encryption: metabasetest.DefaultEncryption,
+				Encryption:             metabasetest.DefaultEncryption,
+				ZombieDeletionDeadline: &zombieDeadline,
 			}
 
 			metabasetest.IteratePendingObjectsByKey{
@@ -1213,7 +1217,8 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 					CreatedAt:    now,
 					Status:       metabase.Pending,
 
-					Encryption: metabasetest.DefaultEncryption,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &zombieDeadline,
 				}
 				expected[i] = objectEntryFromRaw(objects[i])
 			}
@@ -1318,6 +1323,5 @@ func objectEntryFromRaw(m metabase.RawObject) metabase.ObjectEntry {
 		TotalEncryptedSize:            m.TotalEncryptedSize,
 		FixedSegmentSize:              m.FixedSegmentSize,
 		Encryption:                    m.Encryption,
-		ZombieDeletionDeadline:        m.ZombieDeletionDeadline,
 	}
 }

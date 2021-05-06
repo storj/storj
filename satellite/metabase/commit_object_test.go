@@ -184,6 +184,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				Version: 1,
 			}.Check(ctx, t, db)
 			now := time.Now()
+			zombieDeadline := now.Add(24 * time.Hour)
 
 			pos00 := metabase.SegmentPosition{Part: 0, Index: 0}
 			metabasetest.CommitObjectWithSegments{
@@ -204,7 +205,8 @@ func TestCommitObjectWithSegments(t *testing.T) {
 						CreatedAt:    now,
 						Status:       metabase.Pending,
 
-						Encryption: metabasetest.DefaultEncryption,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 				},
 			}.Check(ctx, t, db)

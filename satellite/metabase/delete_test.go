@@ -19,6 +19,7 @@ func TestDeletePendingObject(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
 		now := time.Now()
+		zombieDeadline := now.Add(24 * time.Hour)
 
 		for _, test := range metabasetest.InvalidObjectStreams(obj) {
 			test := test
@@ -79,7 +80,8 @@ func TestDeletePendingObject(t *testing.T) {
 						CreatedAt:    now,
 						Status:       metabase.Pending,
 
-						Encryption: metabasetest.DefaultEncryption,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -144,7 +146,8 @@ func TestDeletePendingObject(t *testing.T) {
 						CreatedAt:    now,
 						Status:       metabase.Pending,
 
-						Encryption: metabasetest.DefaultEncryption,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -263,6 +266,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 		location := obj.Location()
 
 		now := time.Now()
+		zombieDeadline := now.Add(24 * time.Hour)
 
 		for _, test := range metabasetest.InvalidObjectLocations(location) {
 			test := test
@@ -348,7 +352,8 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 						CreatedAt:    now,
 						Status:       metabase.Pending,
 
-						Encryption: metabasetest.DefaultEncryption,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -461,6 +466,7 @@ func TestDeleteObjectLatestVersion(t *testing.T) {
 		location := obj.Location()
 
 		now := time.Now()
+		zombieDeadline := now.Add(24 * time.Hour)
 
 		for _, test := range metabasetest.InvalidObjectLocations(location) {
 			test := test
@@ -523,7 +529,8 @@ func TestDeleteObjectLatestVersion(t *testing.T) {
 						CreatedAt:    now,
 						Status:       metabase.Pending,
 
-						Encryption: metabasetest.DefaultEncryption,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 				},
 			}.Check(ctx, t, db)
@@ -892,6 +899,7 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 		location := obj.Location()
 
 		now := time.Now()
+		zombieDeadline := now.Add(24 * time.Hour)
 
 		for _, test := range metabasetest.InvalidObjectLocations(location) {
 			test := test
@@ -983,7 +991,8 @@ func TestDeleteObjectsAllVersions(t *testing.T) {
 						CreatedAt:    now,
 						Status:       metabase.Pending,
 
-						Encryption: metabasetest.DefaultEncryption,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
 					},
 				},
 			}.Check(ctx, t, db)
