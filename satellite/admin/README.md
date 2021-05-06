@@ -4,7 +4,7 @@ Satellite Admin package provides API endpoints for administrative tasks.
 
 Requires setting `Authorization` header for requests.
 
-<!-- Aut-generate this ToC with https://github.com/ycd/toc -->
+<!-- Auto-generate this ToC with https://github.com/ycd/toc -->
 <!-- toc -->
 - [satellite/admin](#satelliteadmin)
     * [User Management](#user-management)
