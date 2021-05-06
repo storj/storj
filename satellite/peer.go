@@ -30,6 +30,7 @@ import (
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metrics"
@@ -127,6 +128,7 @@ type Config struct {
 	GarbageCollection gc.Config
 
 	ExpiredDeletion expireddeletion.Config
+	ZombieDeletion  zombiedeletion.Config
 
 	Tally            tally.Config
 	Rollup           rollup.Config

@@ -49,6 +49,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/segmentloop"
+	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metrics"
@@ -135,6 +136,10 @@ type Satellite struct {
 
 	ExpiredDeletion struct {
 		Chore *expireddeletion.Chore
+	}
+
+	ZombieDeletion struct {
+		Chore *zombiedeletion.Chore
 	}
 
 	Accounting struct {
@@ -581,6 +586,7 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.GarbageCollection.Service = gcPeer.GarbageCollection.Service
 
 	system.ExpiredDeletion.Chore = peer.ExpiredDeletion.Chore
+	system.ZombieDeletion.Chore = peer.ZombieDeletion.Chore
 
 	system.Accounting.Tally = peer.Accounting.Tally
 	system.Accounting.NodeTally = peer.Accounting.NodeTally

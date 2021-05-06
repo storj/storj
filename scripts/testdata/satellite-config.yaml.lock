@@ -750,3 +750,15 @@ server.private-address: 127.0.0.1:7778
 
 # server address to check its version against
 # version.server-address: https://version.storj.io
+
+# set if zombie object cleanup is enabled or not
+# zombie-deletion.enabled: false
+
+# after what time object will be deleted if there where no new upload activity
+# zombie-deletion.inactive-for: 24h0m0s
+
+# the time between each attempt to go through the db and clean up zombie objects
+# zombie-deletion.interval: 12h0m0s
+
+# how many objects to query in a batch
+# zombie-deletion.list-limit: 100

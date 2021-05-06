@@ -33,6 +33,7 @@ import (
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/segmentloop"
+	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metrics"
@@ -106,6 +107,10 @@ type Core struct {
 
 	ExpiredDeletion struct {
 		Chore *expireddeletion.Chore
+	}
+
+	ZombieDeletion struct {
+		Chore *zombiedeletion.Chore
 	}
 
 	Accounting struct {
@@ -361,6 +366,21 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Expired Segments Chore", peer.ExpiredDeletion.Chore.Loop))
+	}
+
+	{ // setup zombie objects cleanup
+		peer.ZombieDeletion.Chore = zombiedeletion.NewChore(
+			peer.Log.Named("core-zombie-deletion"),
+			config.ZombieDeletion,
+			peer.Metainfo.Metabase,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "zombiedeletion:chore",
+			Run:   peer.ZombieDeletion.Chore.Run,
+			Close: peer.ZombieDeletion.Chore.Close,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Zombie Objects Chore", peer.ZombieDeletion.Chore.Loop))
 	}
 
 	{ // setup accounting
