@@ -566,7 +566,7 @@ func TestTooManyRequests(t *testing.T) {
 				storageNode := planet.StorageNodes[0]
 				config := piecestore.DefaultConfig
 
-				client, err := piecestore.DialNodeURL(ctx, uplink.Dialer, storageNode.NodeURL(), uplink.Log, config)
+				client, err := piecestore.Dial(ctx, uplink.Dialer, storageNode.NodeURL(), config)
 				if err != nil {
 					return err
 				}

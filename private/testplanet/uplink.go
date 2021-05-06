@@ -177,7 +177,7 @@ func (client *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey
 
 // DialPiecestore dials destination storagenode and returns a piecestore client.
 func (client *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*piecestore.Client, error) {
-	return piecestore.DialNodeURL(ctx, client.Dialer, destination.NodeURL(), client.Log.Named("uplink>piecestore"), piecestore.DefaultConfig)
+	return piecestore.Dial(ctx, client.Dialer, destination.NodeURL(), piecestore.DefaultConfig)
 }
 
 // OpenProject opens project with predefined access grant and gives access to pure uplink API.

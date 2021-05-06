@@ -54,8 +54,7 @@ func NewECRepairer(log *zap.Logger, dialer rpc.Dialer, satelliteSignee signing.S
 }
 
 func (ec *ECRepairer) dialPiecestore(ctx context.Context, n storj.NodeURL) (*piecestore.Client, error) {
-	logger := ec.log.Named(n.ID.String())
-	return piecestore.DialNodeURL(ctx, ec.dialer, n, logger, piecestore.DefaultConfig)
+	return piecestore.Dial(ctx, ec.dialer, n, piecestore.DefaultConfig)
 }
 
 // Get downloads pieces from storagenodes using the provided order limits, and decodes those pieces into a segment.
@@ -162,7 +161,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	expectedSize := pieceSize * int64(es.RequiredCount())
 
 	ctx, cancel := context.WithCancel(ctx)
-	decodeReader := eestream.DecodeReaders(ctx, cancel, ec.log.Named("decode readers"), pieceReaders, esScheme, expectedSize, 0, false)
+	decodeReader := eestream.DecodeReaders2(ctx, cancel, pieceReaders, esScheme, expectedSize, 0, false)
 
 	return decodeReader, failedPieces, nil
 }
@@ -297,7 +296,7 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 		return nil, nil, Error.New("duplicated nodes are not allowed")
 	}
 
-	readers, err := eestream.EncodeReader(ctx, ec.log, ioutil.NopCloser(data), rs)
+	readers, err := eestream.EncodeReader2(ctx, ioutil.NopCloser(data), rs)
 	if err != nil {
 		return nil, nil, err
 	}
