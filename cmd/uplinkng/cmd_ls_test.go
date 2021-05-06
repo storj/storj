@@ -5,32 +5,34 @@ package main
 
 import (
 	"testing"
+
+	"storj.io/storj/cmd/uplinkng/ultest"
 )
 
 func TestLsErrors(t *testing.T) {
-	state := Setup(t)
+	state := ultest.Setup(commands)
 
 	// empty bucket name is a parse error
-	state.Fail(t, "ls", "sj:///jeff")
+	state.Fail(t, "ls", "sj:///user")
 }
 
 func TestLsRemote(t *testing.T) {
-	state := Setup(t,
-		WithFile("sj://jeff/deep/aaa/bbb/1"),
-		WithFile("sj://jeff/deep/aaa/bbb/2"),
-		WithFile("sj://jeff/deep/aaa/bbb/3"),
-		WithFile("sj://jeff/foobar"),
-		WithFile("sj://jeff/foobar/"),
-		WithFile("sj://jeff/foobar/1"),
-		WithFile("sj://jeff/foobar/2"),
-		WithFile("sj://jeff/foobar/3"),
-		WithFile("sj://jeff/foobaz/1"),
+	state := ultest.Setup(commands,
+		ultest.WithFile("sj://user/deep/aaa/bbb/1"),
+		ultest.WithFile("sj://user/deep/aaa/bbb/2"),
+		ultest.WithFile("sj://user/deep/aaa/bbb/3"),
+		ultest.WithFile("sj://user/foobar"),
+		ultest.WithFile("sj://user/foobar/"),
+		ultest.WithFile("sj://user/foobar/1"),
+		ultest.WithFile("sj://user/foobar/2"),
+		ultest.WithFile("sj://user/foobar/3"),
+		ultest.WithFile("sj://user/foobaz/1"),
 
-		WithPendingFile("sj://jeff/invisible"),
+		ultest.WithPendingFile("sj://user/invisible"),
 	)
 
 	t.Run("Recursive", func(t *testing.T) {
-		state.Succeed(t, "ls", "sj://jeff", "--recursive", "--utc").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user", "--recursive", "--utc").RequireStdout(t, `
 			KIND    CREATED                SIZE    KEY
 			OBJ     1970-01-01 00:00:01    0       deep/aaa/bbb/1
 			OBJ     1970-01-01 00:00:02    0       deep/aaa/bbb/2
@@ -45,7 +47,7 @@ func TestLsRemote(t *testing.T) {
 	})
 
 	t.Run("Basic", func(t *testing.T) {
-		state.Succeed(t, "ls", "sj://jeff/fo", "--utc").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user/fo", "--utc").RequireStdout(t, `
 			KIND    CREATED                SIZE    KEY
 			OBJ     1970-01-01 00:00:04    0       foobar
 			PRE                                    foobar/
@@ -54,7 +56,7 @@ func TestLsRemote(t *testing.T) {
 	})
 
 	t.Run("ExactPrefix", func(t *testing.T) {
-		state.Succeed(t, "ls", "sj://jeff/foobar", "--utc").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user/foobar", "--utc").RequireStdout(t, `
 			KIND    CREATED                SIZE    KEY
 			OBJ     1970-01-01 00:00:04    0       foobar
 			PRE                                    foobar/
@@ -62,7 +64,7 @@ func TestLsRemote(t *testing.T) {
 	})
 
 	t.Run("ExactPrefixWithSlash", func(t *testing.T) {
-		state.Succeed(t, "ls", "sj://jeff/foobar/", "--utc").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user/foobar/", "--utc").RequireStdout(t, `
 			KIND    CREATED                SIZE    KEY
 			OBJ     1970-01-01 00:00:05    0
 			OBJ     1970-01-01 00:00:06    0       1
@@ -72,17 +74,17 @@ func TestLsRemote(t *testing.T) {
 	})
 
 	t.Run("MultipleLayers", func(t *testing.T) {
-		state.Succeed(t, "ls", "sj://jeff/deep/").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user/deep/").RequireStdout(t, `
 			KIND    CREATED    SIZE    KEY
 			PRE                        aaa/
 		`)
 
-		state.Succeed(t, "ls", "sj://jeff/deep/aaa/").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user/deep/aaa/").RequireStdout(t, `
 			KIND    CREATED    SIZE    KEY
 			PRE                        bbb/
 		`)
 
-		state.Succeed(t, "ls", "sj://jeff/deep/aaa/bbb/", "--utc").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user/deep/aaa/bbb/", "--utc").RequireStdout(t, `
 			KIND    CREATED                SIZE    KEY
 			OBJ     1970-01-01 00:00:01    0       1
 			OBJ     1970-01-01 00:00:02    0       2
@@ -92,22 +94,22 @@ func TestLsRemote(t *testing.T) {
 }
 
 func TestLsPending(t *testing.T) {
-	state := Setup(t,
-		WithPendingFile("sj://jeff/deep/aaa/bbb/1"),
-		WithPendingFile("sj://jeff/deep/aaa/bbb/2"),
-		WithPendingFile("sj://jeff/deep/aaa/bbb/3"),
-		WithPendingFile("sj://jeff/foobar"),
-		WithPendingFile("sj://jeff/foobar/"),
-		WithPendingFile("sj://jeff/foobar/1"),
-		WithPendingFile("sj://jeff/foobar/2"),
-		WithPendingFile("sj://jeff/foobar/3"),
-		WithPendingFile("sj://jeff/foobaz/1"),
+	state := ultest.Setup(commands,
+		ultest.WithPendingFile("sj://user/deep/aaa/bbb/1"),
+		ultest.WithPendingFile("sj://user/deep/aaa/bbb/2"),
+		ultest.WithPendingFile("sj://user/deep/aaa/bbb/3"),
+		ultest.WithPendingFile("sj://user/foobar"),
+		ultest.WithPendingFile("sj://user/foobar/"),
+		ultest.WithPendingFile("sj://user/foobar/1"),
+		ultest.WithPendingFile("sj://user/foobar/2"),
+		ultest.WithPendingFile("sj://user/foobar/3"),
+		ultest.WithPendingFile("sj://user/foobaz/1"),
 
-		WithFile("sj://jeff/invisible"),
+		ultest.WithFile("sj://user/invisible"),
 	)
 
 	t.Run("Recursive", func(t *testing.T) {
-		state.Succeed(t, "ls", "sj://jeff", "--recursive", "--pending", "--utc").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user", "--recursive", "--pending", "--utc").RequireStdout(t, `
 			KIND    CREATED                SIZE    KEY
 			OBJ     1970-01-01 00:00:01    0       deep/aaa/bbb/1
 			OBJ     1970-01-01 00:00:02    0       deep/aaa/bbb/2
@@ -122,7 +124,7 @@ func TestLsPending(t *testing.T) {
 	})
 
 	t.Run("Basic", func(t *testing.T) {
-		state.Succeed(t, "ls", "sj://jeff/fo", "--pending", "--utc").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user/fo", "--pending", "--utc").RequireStdout(t, `
 			KIND    CREATED                SIZE    KEY
 			OBJ     1970-01-01 00:00:04    0       foobar
 			PRE                                    foobar/
@@ -131,7 +133,7 @@ func TestLsPending(t *testing.T) {
 	})
 
 	t.Run("ExactPrefix", func(t *testing.T) {
-		state.Succeed(t, "ls", "sj://jeff/foobar", "--pending", "--utc").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user/foobar", "--pending", "--utc").RequireStdout(t, `
 			KIND    CREATED                SIZE    KEY
 			OBJ     1970-01-01 00:00:04    0       foobar
 			PRE                                    foobar/
@@ -139,7 +141,7 @@ func TestLsPending(t *testing.T) {
 	})
 
 	t.Run("ExactPrefixWithSlash", func(t *testing.T) {
-		state.Succeed(t, "ls", "sj://jeff/foobar/", "--pending", "--utc").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user/foobar/", "--pending", "--utc").RequireStdout(t, `
 			KIND    CREATED                SIZE    KEY
 			OBJ     1970-01-01 00:00:05    0
 			OBJ     1970-01-01 00:00:06    0       1
@@ -149,17 +151,17 @@ func TestLsPending(t *testing.T) {
 	})
 
 	t.Run("MultipleLayers", func(t *testing.T) {
-		state.Succeed(t, "ls", "sj://jeff/deep/", "--pending").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user/deep/", "--pending").RequireStdout(t, `
 			KIND    CREATED    SIZE    KEY
 			PRE                        aaa/
 		`)
 
-		state.Succeed(t, "ls", "sj://jeff/deep/aaa/", "--pending").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user/deep/aaa/", "--pending").RequireStdout(t, `
 			KIND    CREATED    SIZE    KEY
 			PRE                        bbb/
 		`)
 
-		state.Succeed(t, "ls", "sj://jeff/deep/aaa/bbb/", "--pending", "--utc").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user/deep/aaa/bbb/", "--pending", "--utc").RequireStdout(t, `
 			KIND    CREATED                SIZE    KEY
 			OBJ     1970-01-01 00:00:01    0       1
 			OBJ     1970-01-01 00:00:02    0       2
@@ -169,24 +171,24 @@ func TestLsPending(t *testing.T) {
 }
 
 func TestLsDifficult(t *testing.T) {
-	state := Setup(t,
-		WithFile("sj://jeff//"),
-		WithFile("sj://jeff///"),
-		WithFile("sj://jeff////"),
+	state := ultest.Setup(commands,
+		ultest.WithFile("sj://user//"),
+		ultest.WithFile("sj://user///"),
+		ultest.WithFile("sj://user////"),
 
-		WithFile("sj://jeff//starts-slash"),
+		ultest.WithFile("sj://user//starts-slash"),
 
-		WithFile("sj://jeff/ends-slash"),
-		WithFile("sj://jeff/ends-slash/"),
-		WithFile("sj://jeff/ends-slash//"),
+		ultest.WithFile("sj://user/ends-slash"),
+		ultest.WithFile("sj://user/ends-slash/"),
+		ultest.WithFile("sj://user/ends-slash//"),
 
-		WithFile("sj://jeff/mid-slash"),
-		WithFile("sj://jeff/mid-slash//2"),
-		WithFile("sj://jeff/mid-slash/1"),
+		ultest.WithFile("sj://user/mid-slash"),
+		ultest.WithFile("sj://user/mid-slash//2"),
+		ultest.WithFile("sj://user/mid-slash/1"),
 	)
 
 	t.Run("Recursive", func(t *testing.T) {
-		state.Succeed(t, "ls", "sj://jeff", "--recursive", "--utc").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user", "--recursive", "--utc").RequireStdout(t, `
 			KIND    CREATED                SIZE    KEY
 			OBJ     1970-01-01 00:00:01    0       /
 			OBJ     1970-01-01 00:00:02    0       //
@@ -202,7 +204,7 @@ func TestLsDifficult(t *testing.T) {
 	})
 
 	t.Run("Basic", func(t *testing.T) {
-		state.Succeed(t, "ls", "sj://jeff", "--utc").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user", "--utc").RequireStdout(t, `
 			KIND    CREATED                SIZE    KEY
 			PRE                                    /
 			OBJ     1970-01-01 00:00:05    0       ends-slash
@@ -211,7 +213,7 @@ func TestLsDifficult(t *testing.T) {
 			PRE                                    mid-slash/
 		`)
 
-		state.Succeed(t, "ls", "sj://jeff/", "--utc").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user/", "--utc").RequireStdout(t, `
 			KIND    CREATED                SIZE    KEY
 			PRE                                    /
 			OBJ     1970-01-01 00:00:05    0       ends-slash
@@ -222,58 +224,58 @@ func TestLsDifficult(t *testing.T) {
 	})
 
 	t.Run("OnlySlash", func(t *testing.T) {
-		state.Succeed(t, "ls", "sj://jeff//", "--utc").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user//", "--utc").RequireStdout(t, `
 			KIND    CREATED                SIZE    KEY
 			OBJ     1970-01-01 00:00:01    0
 			PRE                                    /
 			OBJ     1970-01-01 00:00:04    0       starts-slash
 		`)
 
-		state.Succeed(t, "ls", "sj://jeff///", "--utc").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user///", "--utc").RequireStdout(t, `
 			KIND    CREATED                SIZE    KEY
 			OBJ     1970-01-01 00:00:02    0
 			PRE                                    /
 		`)
 
-		state.Succeed(t, "ls", "sj://jeff////", "--utc").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user////", "--utc").RequireStdout(t, `
 			KIND    CREATED                SIZE    KEY
 			OBJ     1970-01-01 00:00:03    0
 		`)
 	})
 
 	t.Run("EndsSlash", func(t *testing.T) {
-		state.Succeed(t, "ls", "sj://jeff/ends-slash", "--utc").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user/ends-slash", "--utc").RequireStdout(t, `
 			KIND    CREATED                SIZE    KEY
 			OBJ     1970-01-01 00:00:05    0       ends-slash
 			PRE                                    ends-slash/
 		`)
 
-		state.Succeed(t, "ls", "sj://jeff/ends-slash/", "--utc").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user/ends-slash/", "--utc").RequireStdout(t, `
 			KIND    CREATED                SIZE    KEY
 			OBJ     1970-01-01 00:00:06    0
 			PRE                                    /
 		`)
 
-		state.Succeed(t, "ls", "sj://jeff/ends-slash//", "--utc").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user/ends-slash//", "--utc").RequireStdout(t, `
 			KIND    CREATED                SIZE    KEY
 			OBJ     1970-01-01 00:00:07    0
 		`)
 	})
 
 	t.Run("MidSlash", func(t *testing.T) {
-		state.Succeed(t, "ls", "sj://jeff/mid-slash", "--utc").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user/mid-slash", "--utc").RequireStdout(t, `
 			KIND    CREATED                SIZE    KEY
 			OBJ     1970-01-01 00:00:08    0       mid-slash
 			PRE                                    mid-slash/
 		`)
 
-		state.Succeed(t, "ls", "sj://jeff/mid-slash/", "--utc").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user/mid-slash/", "--utc").RequireStdout(t, `
 			KIND    CREATED                SIZE    KEY
 			PRE                                    /
 			OBJ     1970-01-01 00:00:10    0       1
 		`)
 
-		state.Succeed(t, "ls", "sj://jeff/mid-slash//", "--utc").RequireStdout(t, `
+		state.Succeed(t, "ls", "sj://user/mid-slash//", "--utc").RequireStdout(t, `
 			KIND    CREATED                SIZE    KEY
 			OBJ     1970-01-01 00:00:09    0       2
 		`)

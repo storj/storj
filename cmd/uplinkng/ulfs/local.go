@@ -1,7 +1,7 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package main
+package ulfs
 
 import (
 	"context"
@@ -11,12 +11,19 @@ import (
 	"strings"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/cmd/uplinkng/ulloc"
 )
 
-// filesystemLocal implements something close to a filesystem but backed by the local disk.
-type filesystemLocal struct{}
+// Local implements something close to a filesystem but backed by the local disk.
+type Local struct{}
 
-func (l *filesystemLocal) abs(path string) (string, error) {
+// NewLocal constructs a Local filesystem.
+func NewLocal() *Local {
+	return &Local{}
+}
+
+func (l *Local) abs(path string) (string, error) {
 	abs, err := filepath.Abs(path)
 	if err != nil {
 		return "", errs.Wrap(err)
@@ -28,7 +35,8 @@ func (l *filesystemLocal) abs(path string) (string, error) {
 	return abs, nil
 }
 
-func (l *filesystemLocal) Open(ctx context.Context, path string) (readHandle, error) {
+// Open returns a read ReadHandle for the given local path.
+func (l *Local) Open(ctx context.Context, path string) (ReadHandle, error) {
 	path, err := l.abs(path)
 	if err != nil {
 		return nil, err
@@ -41,7 +49,8 @@ func (l *filesystemLocal) Open(ctx context.Context, path string) (readHandle, er
 	return newOSReadHandle(fh)
 }
 
-func (l *filesystemLocal) Create(ctx context.Context, path string) (writeHandle, error) {
+// Create makes any directories necessary to create a file at path and returns a WriteHandle.
+func (l *Local) Create(ctx context.Context, path string) (WriteHandle, error) {
 	path, err := l.abs(path)
 	if err != nil {
 		return nil, err
@@ -66,7 +75,9 @@ func (l *filesystemLocal) Create(ctx context.Context, path string) (writeHandle,
 	return newOSWriteHandle(fh), nil
 }
 
-func (l *filesystemLocal) ListObjects(ctx context.Context, path string, recursive bool) (objectIterator, error) {
+// ListObjects returns an ObjectIterator listing files and directories that have string prefix
+// with the provided path.
+func (l *Local) ListObjects(ctx context.Context, path string, recursive bool) (ObjectIterator, error) {
 	path, err := l.abs(path)
 	if err != nil {
 		return nil, err
@@ -110,7 +121,8 @@ func (l *filesystemLocal) ListObjects(ctx context.Context, path string, recursiv
 	}, nil
 }
 
-func (l *filesystemLocal) IsLocalDir(ctx context.Context, path string) bool {
+// IsLocalDir returns true if the path is a directory.
+func (l *Local) IsLocalDir(ctx context.Context, path string) bool {
 	fi, err := os.Stat(path)
 	if err != nil {
 		return false
@@ -141,7 +153,7 @@ func (fi *fileinfoObjectIterator) Next() bool {
 
 func (fi *fileinfoObjectIterator) Err() error { return nil }
 
-func (fi *fileinfoObjectIterator) Item() objectInfo {
+func (fi *fileinfoObjectIterator) Item() ObjectInfo {
 	name := filepath.Join(fi.base, fi.current.Name())
 	isDir := fi.current.IsDir()
 	if isDir {
@@ -154,8 +166,8 @@ func (fi *fileinfoObjectIterator) Item() objectInfo {
 		name = strings.ReplaceAll(name, string(filepath.Separator), "/")
 	}
 
-	return objectInfo{
-		Loc:           Location{path: name},
+	return ObjectInfo{
+		Loc:           ulloc.NewLocal(name),
 		IsPrefix:      isDir,
 		Created:       fi.current.ModTime(), // TODO: use real crtime
 		ContentLength: fi.current.Size(),

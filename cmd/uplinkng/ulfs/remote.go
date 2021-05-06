@@ -1,7 +1,7 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package main
+package ulfs
 
 import (
 	"context"
@@ -12,16 +12,25 @@ import (
 	"storj.io/uplink"
 )
 
-// filesystemRemote implements something close to a filesystem but backed by an uplink project.
-type filesystemRemote struct {
+// Remote implements something close to a filesystem but backed by an uplink project.
+type Remote struct {
 	project *uplink.Project
 }
 
-func (r *filesystemRemote) Close() error {
+// NewRemote returns something close to a filesystem and returns objects using the project.
+func NewRemote(project *uplink.Project) *Remote {
+	return &Remote{
+		project: project,
+	}
+}
+
+// Close releases any resources that the Remote contains.
+func (r *Remote) Close() error {
 	return r.project.Close()
 }
 
-func (r *filesystemRemote) Open(ctx context.Context, bucket, key string) (readHandle, error) {
+// Open returns a ReadHandle for the object identified by a given bucket and key.
+func (r *Remote) Open(ctx context.Context, bucket, key string) (ReadHandle, error) {
 	fh, err := r.project.DownloadObject(ctx, bucket, key, nil)
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -29,7 +38,8 @@ func (r *filesystemRemote) Open(ctx context.Context, bucket, key string) (readHa
 	return newUplinkReadHandle(bucket, fh), nil
 }
 
-func (r *filesystemRemote) Create(ctx context.Context, bucket, key string) (writeHandle, error) {
+// Create returns a WriteHandle for the object identified by a given bucket and key.
+func (r *Remote) Create(ctx context.Context, bucket, key string) (WriteHandle, error) {
 	fh, err := r.project.UploadObject(ctx, bucket, key, nil)
 	if err != nil {
 		return nil, err
@@ -37,7 +47,8 @@ func (r *filesystemRemote) Create(ctx context.Context, bucket, key string) (writ
 	return newUplinkWriteHandle(fh), nil
 }
 
-func (r *filesystemRemote) ListObjects(ctx context.Context, bucket, prefix string, recursive bool) objectIterator {
+// ListObjects lists all of the objects in some bucket that begin with the given prefix.
+func (r *Remote) ListObjects(ctx context.Context, bucket, prefix string, recursive bool) ObjectIterator {
 	parentPrefix := ""
 	if idx := strings.LastIndexByte(prefix, '/'); idx >= 0 {
 		parentPrefix = prefix[:idx+1]
@@ -60,7 +71,8 @@ func (r *filesystemRemote) ListObjects(ctx context.Context, bucket, prefix strin
 	}
 }
 
-func (r *filesystemRemote) ListPendingMultiparts(ctx context.Context, bucket, prefix string, recursive bool) objectIterator {
+// ListUploads lists all of the pending uploads in some bucket that begin with the given prefix.
+func (r *Remote) ListUploads(ctx context.Context, bucket, prefix string, recursive bool) ObjectIterator {
 	parentPrefix := ""
 	if idx := strings.LastIndexByte(prefix, '/'); idx >= 0 {
 		parentPrefix = prefix[:idx+1]
@@ -99,7 +111,7 @@ func newUplinkObjectIterator(bucket string, iter *uplink.ObjectIterator) *uplink
 
 func (u *uplinkObjectIterator) Next() bool { return u.iter.Next() }
 func (u *uplinkObjectIterator) Err() error { return u.iter.Err() }
-func (u *uplinkObjectIterator) Item() objectInfo {
+func (u *uplinkObjectIterator) Item() ObjectInfo {
 	return uplinkObjectToObjectInfo(u.bucket, u.iter.Item())
 }
 
@@ -119,6 +131,6 @@ func newUplinkUploadIterator(bucket string, iter *uplink.UploadIterator) *uplink
 
 func (u *uplinkUploadIterator) Next() bool { return u.iter.Next() }
 func (u *uplinkUploadIterator) Err() error { return u.iter.Err() }
-func (u *uplinkUploadIterator) Item() objectInfo {
+func (u *uplinkUploadIterator) Item() ObjectInfo {
 	return uplinkUploadInfoToObjectInfo(u.bucket, u.iter.Item())
 }

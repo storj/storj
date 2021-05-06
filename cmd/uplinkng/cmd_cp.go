@@ -11,6 +11,9 @@ import (
 	progressbar "github.com/cheggaaa/pb/v3"
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/cmd/uplinkng/ulfs"
+	"storj.io/storj/cmd/uplinkng/ulloc"
 )
 
 type cmdCp struct {
@@ -19,8 +22,8 @@ type cmdCp struct {
 	recursive bool
 	dryrun    bool
 
-	source Location
-	dest   Location
+	source ulloc.Location
+	dest   ulloc.Location
 }
 
 func (c *cmdCp) Setup(a clingy.Arguments, f clingy.Flags) {
@@ -34,8 +37,8 @@ func (c *cmdCp) Setup(a clingy.Arguments, f clingy.Flags) {
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
 
-	c.source = a.New("source", "Source to copy", clingy.Transform(parseLocation)).(Location)
-	c.dest = a.New("dest", "Desination to copy", clingy.Transform(parseLocation)).(Location)
+	c.source = a.New("source", "Source to copy", clingy.Transform(ulloc.Parse)).(ulloc.Location)
+	c.dest = a.New("dest", "Desination to copy", clingy.Transform(ulloc.Parse)).(ulloc.Location)
 }
 
 func (c *cmdCp) Execute(ctx clingy.Context) error {
@@ -51,7 +54,7 @@ func (c *cmdCp) Execute(ctx clingy.Context) error {
 	return c.copyFile(ctx, fs, c.source, c.dest, true)
 }
 
-func (c *cmdCp) copyRecursive(ctx clingy.Context, fs filesystem) error {
+func (c *cmdCp) copyRecursive(ctx clingy.Context, fs ulfs.Filesystem) error {
 	if c.source.Std() || c.dest.Std() {
 		return errs.New("cannot recursively copy to stdin/stdout")
 	}
@@ -86,7 +89,7 @@ func (c *cmdCp) copyRecursive(ctx clingy.Context, fs filesystem) error {
 	return nil
 }
 
-func (c *cmdCp) copyFile(ctx clingy.Context, fs filesystem, source, dest Location, progress bool) error {
+func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ulloc.Location, progress bool) error {
 	if isDir := fs.IsLocalDir(ctx, dest); isDir {
 		base, ok := source.Base()
 		if !ok {
@@ -131,11 +134,11 @@ func (c *cmdCp) copyFile(ctx clingy.Context, fs filesystem, source, dest Locatio
 	return errs.Wrap(wh.Commit())
 }
 
-func copyVerb(source, dest Location) string {
+func copyVerb(source, dest ulloc.Location) string {
 	switch {
-	case dest.remote:
+	case dest.Remote():
 		return "upload"
-	case source.remote:
+	case source.Remote():
 		return "download"
 	default:
 		return "copy"

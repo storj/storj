@@ -7,6 +7,8 @@ import (
 	"strconv"
 
 	"github.com/zeebo/clingy"
+
+	"storj.io/storj/cmd/uplinkng/ulloc"
 )
 
 type cmdRm struct {
@@ -15,7 +17,7 @@ type cmdRm struct {
 	recursive bool
 	encrypted bool
 
-	location Location
+	location ulloc.Location
 }
 
 func (c *cmdRm) Setup(a clingy.Arguments, f clingy.Flags) {
@@ -30,8 +32,8 @@ func (c *cmdRm) Setup(a clingy.Arguments, f clingy.Flags) {
 	).(bool)
 
 	c.location = a.New("location", "Location to remove (sj://BUCKET[/KEY])",
-		clingy.Transform(parseLocation),
-	).(Location)
+		clingy.Transform(ulloc.Parse),
+	).(ulloc.Location)
 }
 
 func (c *cmdRm) Execute(ctx clingy.Context) error {

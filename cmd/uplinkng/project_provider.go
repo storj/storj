@@ -8,6 +8,7 @@ import (
 
 	"github.com/zeebo/clingy"
 
+	"storj.io/storj/cmd/uplinkng/ulfs"
 	"storj.io/uplink"
 	privateAccess "storj.io/uplink/private/access"
 )
@@ -16,16 +17,16 @@ type projectProvider struct {
 	access string
 
 	testProject    *uplink.Project
-	testFilesystem filesystem
+	testFilesystem ulfs.Filesystem
 }
 
 func (pp *projectProvider) Setup(a clingy.Arguments, f clingy.Flags) {
 	pp.access = f.New("access", "Which access to use", "").(string)
 }
 
-func (pp *projectProvider) setTestFilesystem(fs filesystem) { pp.testFilesystem = fs }
+func (pp *projectProvider) SetTestFilesystem(fs ulfs.Filesystem) { pp.testFilesystem = fs }
 
-func (pp *projectProvider) OpenFilesystem(ctx context.Context, options ...projectOption) (filesystem, error) {
+func (pp *projectProvider) OpenFilesystem(ctx context.Context, options ...projectOption) (ulfs.Filesystem, error) {
 	if pp.testFilesystem != nil {
 		return pp.testFilesystem, nil
 	}
@@ -34,12 +35,7 @@ func (pp *projectProvider) OpenFilesystem(ctx context.Context, options ...projec
 	if err != nil {
 		return nil, err
 	}
-	return &filesystemMixed{
-		local: &filesystemLocal{},
-		remote: &filesystemRemote{
-			project: project,
-		},
-	}, nil
+	return ulfs.NewMixed(ulfs.NewLocal(), ulfs.NewRemote(project)), nil
 }
 
 func (pp *projectProvider) OpenProject(ctx context.Context, options ...projectOption) (*uplink.Project, error) {

@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"github.com/zeebo/clingy"
+
+	"storj.io/storj/cmd/uplinkng/ulfs"
+	"storj.io/storj/cmd/uplinkng/ulloc"
 )
 
 type cmdLs struct {
@@ -18,7 +21,7 @@ type cmdLs struct {
 	pending   bool
 	utc       bool
 
-	prefix *Location
+	prefix *ulloc.Location
 }
 
 func (c *cmdLs) Setup(a clingy.Arguments, f clingy.Flags) {
@@ -39,8 +42,8 @@ func (c *cmdLs) Setup(a clingy.Arguments, f clingy.Flags) {
 	).(bool)
 
 	c.prefix = a.New("prefix", "Prefix to list (sj://BUCKET[/KEY])", clingy.Optional,
-		clingy.Transform(parseLocation),
-	).(*Location)
+		clingy.Transform(ulloc.Parse),
+	).(*ulloc.Location)
 }
 
 func (c *cmdLs) Execute(ctx clingy.Context) error {
@@ -68,7 +71,7 @@ func (c *cmdLs) listBuckets(ctx clingy.Context) error {
 	return iter.Err()
 }
 
-func (c *cmdLs) listLocation(ctx clingy.Context, prefix Location) error {
+func (c *cmdLs) listLocation(ctx clingy.Context, prefix ulloc.Location) error {
 	fs, err := c.OpenFilesystem(ctx, bypassEncryption(c.encrypted))
 	if err != nil {
 		return err
@@ -79,7 +82,7 @@ func (c *cmdLs) listLocation(ctx clingy.Context, prefix Location) error {
 	defer tw.Done()
 
 	// create the object iterator of either existing objects or pending multipart uploads
-	var iter objectIterator
+	var iter ulfs.ObjectIterator
 	if c.pending {
 		iter, err = fs.ListUploads(ctx, prefix, c.recursive)
 	} else {

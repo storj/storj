@@ -1,7 +1,7 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package main
+package ulloc
 
 import (
 	"fmt"
@@ -19,9 +19,30 @@ type Location struct {
 	remote bool
 }
 
-func parseLocation(location string) (p Location, err error) {
+// NewLocal returns a new Location that refers to a local path.
+func NewLocal(path string) Location {
+	return Location{path: path}
+}
+
+// NewRemote returns a new location that refers to a remote path.
+func NewRemote(bucket, key string) Location {
+	return Location{
+		bucket: bucket,
+		key:    key,
+		remote: true,
+	}
+}
+
+// NewStd returns a new location that refers to stdin or stdout.
+func NewStd() Location {
+	return Location{path: "-", key: "-"}
+}
+
+// Parse turns the string form of the location into the structured Location
+// value and an error if it is unable to or the location is invalid.
+func Parse(location string) (p Location, err error) {
 	if location == "-" {
-		return Location{path: "-", key: "-"}, nil
+		return NewStd(), nil
 	}
 
 	// Locations, Chapter 2, Verses 9 to 21.
@@ -198,4 +219,56 @@ func (p Location) ListKeyName(prefix Location) (string, bool) {
 		return rem[:idx+1], true
 	}
 	return rem, false
+}
+
+// RemoveKeyPrefix removes the prefix from the key or path in the location if they
+// begin with it.
+func (p Location) RemoveKeyPrefix(prefix string) Location {
+	if p.remote {
+		p.key = strings.TrimPrefix(p.key, prefix)
+	} else {
+		p.path = strings.TrimPrefix(p.path, prefix)
+	}
+	return p
+}
+
+// RemoteParts returns the bucket and key for the location and a bool indicating
+// if those values are valid because the location is remote.
+func (p Location) RemoteParts() (bucket, key string, ok bool) {
+	return p.bucket, p.key, p.Remote()
+}
+
+// LocalParts returns the path for the location and a bool indicating if that
+// value is valid because the location is local.
+func (p Location) LocalParts() (path string, ok bool) {
+	return p.path, p.Local()
+}
+
+// Less returns true if the location is less than the passed in location.
+func (p Location) Less(q Location) bool {
+	if !p.remote && q.remote {
+		return true
+	} else if !q.remote && p.remote {
+		return false
+	}
+
+	if p.bucket < q.bucket {
+		return true
+	} else if q.bucket < p.bucket {
+		return false
+	}
+
+	if p.key < q.key {
+		return true
+	} else if q.key < p.key {
+		return false
+	}
+
+	if p.path < q.path {
+		return true
+	} else if q.path < p.path {
+		return false
+	}
+
+	return false
 }
