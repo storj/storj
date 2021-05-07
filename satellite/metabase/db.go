@@ -7,7 +7,6 @@ package metabase
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strconv"
 	"time"
 
@@ -17,8 +16,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/tagsql"
@@ -226,89 +223,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 				Action: migrate.SQL{
 					`ALTER TABLE segments ADD COLUMN remote_alias_pieces BYTEA`,
 				},
-			},
-			{
-				DB:          &db.db,
-				Description: "convert remote_pieces to remote_alias_pieces",
-				Version:     5,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-					type segmentPieces struct {
-						StreamID     uuid.UUID
-						Position     SegmentPosition
-						RemotePieces Pieces
-					}
-
-					var allSegments []segmentPieces
-
-					err := withRows(tx.QueryContext(ctx, `SELECT stream_id, position, remote_pieces FROM segments WHERE remote_pieces IS NOT NULL`))(
-						func(rows tagsql.Rows) error {
-							for rows.Next() {
-								var seg segmentPieces
-								if err := rows.Scan(&seg.StreamID, &seg.Position, &seg.RemotePieces); err != nil {
-									return Error.Wrap(err)
-								}
-								allSegments = append(allSegments, seg)
-							}
-							return nil
-						})
-					if err != nil {
-						return Error.Wrap(err)
-					}
-
-					allNodes := map[storj.NodeID]struct{}{}
-					for i := range allSegments {
-						seg := &allSegments[i]
-						for k := range seg.RemotePieces {
-							p := &seg.RemotePieces[k]
-							allNodes[p.StorageNode] = struct{}{}
-						}
-					}
-
-					nodesList := []storj.NodeID{}
-					for id := range allNodes {
-						nodesList = append(nodesList, id)
-					}
-					aliasCache := NewNodeAliasCache(&txNodeAliases{tx})
-					_, err = aliasCache.Aliases(ctx, nodesList)
-					if err != nil {
-						return Error.Wrap(err)
-					}
-
-					err = func() (err error) {
-						stmt, err := tx.PrepareContext(ctx, `UPDATE segments SET remote_alias_pieces = $3 WHERE stream_id = $1 AND position = $2`)
-						if err != nil {
-							return Error.Wrap(err)
-						}
-						defer func() { err = errs.Combine(err, Error.Wrap(stmt.Close())) }()
-
-						for i := range allSegments {
-							seg := &allSegments[i]
-							if len(seg.RemotePieces) == 0 {
-								continue
-							}
-
-							aliases, err := aliasCache.ConvertPiecesToAliases(ctx, seg.RemotePieces)
-							if err != nil {
-								return Error.Wrap(err)
-							}
-							sort.Slice(aliases, func(i, k int) bool {
-								return aliases[i].Number < aliases[k].Number
-							})
-
-							_, err = stmt.ExecContext(ctx, seg.StreamID, seg.Position, aliases)
-							if err != nil {
-								return Error.Wrap(err)
-							}
-						}
-
-						return nil
-					}()
-					if err != nil {
-						return err
-					}
-
-					return nil
-				}),
 			},
 			{
 				DB:          &db.db,
