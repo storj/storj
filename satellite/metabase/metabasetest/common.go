@@ -63,6 +63,12 @@ func sortRawSegments(segments []metabase.RawSegment) {
 	})
 }
 
+func sortDeletedSegments(segments []metabase.DeletedSegmentInfo) {
+	sort.Slice(segments, func(i, j int) bool {
+		return bytes.Compare(segments[i].RootPieceID[:], segments[j].RootPieceID[:]) < 0
+	})
+}
+
 func checkError(t testing.TB, err error, errClass *errs.Class, errText string) {
 	if errClass != nil {
 		require.True(t, errClass.Has(err), "expected an error %v got %v", *errClass, err)

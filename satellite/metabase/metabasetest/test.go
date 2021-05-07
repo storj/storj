@@ -385,6 +385,12 @@ func (step DeleteObjectExactVersion) Check(ctx *testcontext.Context, t testing.T
 	result, err := db.DeleteObjectExactVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
+	sortObjects(result.Objects)
+	sortObjects(step.Result.Objects)
+
+	sortDeletedSegments(result.Segments)
+	sortDeletedSegments(step.Result.Segments)
+
 	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
 	require.Zero(t, diff)
 }
@@ -401,6 +407,12 @@ type DeletePendingObject struct {
 func (step DeletePendingObject) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.DeletePendingObject(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
+
+	sortObjects(result.Objects)
+	sortObjects(step.Result.Objects)
+
+	sortDeletedSegments(result.Segments)
+	sortDeletedSegments(step.Result.Segments)
 
 	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
 	require.Zero(t, diff)
@@ -419,6 +431,12 @@ func (step DeleteObjectLatestVersion) Check(ctx *testcontext.Context, t testing.
 	result, err := db.DeleteObjectLatestVersion(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
+	sortObjects(result.Objects)
+	sortObjects(step.Result.Objects)
+
+	sortDeletedSegments(result.Segments)
+	sortDeletedSegments(step.Result.Segments)
+
 	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
 	require.Zero(t, diff)
 }
@@ -435,6 +453,12 @@ type DeleteObjectAnyStatusAllVersions struct {
 func (step DeleteObjectAnyStatusAllVersions) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
 	result, err := db.DeleteObjectAnyStatusAllVersions(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
+
+	sortObjects(result.Objects)
+	sortObjects(step.Result.Objects)
+
+	sortDeletedSegments(result.Segments)
+	sortDeletedSegments(step.Result.Segments)
 
 	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
 	require.Zero(t, diff)
@@ -455,6 +479,9 @@ func (step DeleteObjectsAllVersions) Check(ctx *testcontext.Context, t testing.T
 
 	sortObjects(result.Objects)
 	sortObjects(step.Result.Objects)
+
+	sortDeletedSegments(result.Segments)
+	sortDeletedSegments(step.Result.Segments)
 
 	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
 	require.Zero(t, diff)
