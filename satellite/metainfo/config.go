@@ -131,6 +131,9 @@ type Config struct {
 type MetabaseDB interface {
 	io.Closer
 
+	// Now returns time on the database.
+	Now(ctx context.Context) (time.Time, error)
+
 	// MigrateToLatest migrates to latest schema version.
 	MigrateToLatest(ctx context.Context) error
 	// CheckVersion checks the database is the correct version

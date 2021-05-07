@@ -6,6 +6,7 @@ package metabase_test
 import (
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
@@ -115,4 +116,13 @@ func TestMigrateToAliases(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNow(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		sysnow := time.Now()
+		now, err := db.Now(ctx)
+		require.NoError(t, err)
+		require.WithinDuration(t, sysnow, now, 5*time.Second)
+	})
 }

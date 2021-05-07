@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"time"
 
 	_ "github.com/jackc/pgx/v4"        // registers pgx as a tagsql driver.
 	_ "github.com/jackc/pgx/v4/stdlib" // registers pgx as a tagsql driver.
@@ -414,4 +415,11 @@ func (pq postgresRebind) Rebind(sql string) string {
 	}
 
 	return string(out)
+}
+
+// Now returns time on the database.
+func (db *DB) Now(ctx context.Context) (time.Time, error) {
+	var t time.Time
+	err := db.db.QueryRowContext(ctx, `SELECT now()`).Scan(&t)
+	return t, Error.Wrap(err)
 }
