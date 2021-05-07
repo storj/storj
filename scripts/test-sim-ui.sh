@@ -46,6 +46,6 @@ npm install
 popd
 
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network run &
-go test "$SCRIPTDIR"/tests/UITests/test-with-alice-user-login_test.go
+go test "$SCRIPTDIR"/tests/uitests/.
 
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network destroy
