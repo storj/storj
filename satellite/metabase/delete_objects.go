@@ -88,9 +88,10 @@ func (db *DB) DeleteExpiredObjects(ctx context.Context, opts DeleteExpiredObject
 
 // DeleteZombieObjects contains all the information necessary to delete zombie objects and segments.
 type DeleteZombieObjects struct {
-	DeadlineBefore time.Time
-	AsOfSystemTime time.Time
-	BatchSize      int
+	DeadlineBefore   time.Time
+	InactiveDeadline time.Time
+	AsOfSystemTime   time.Time
+	BatchSize        int
 }
 
 // DeleteZombieObjects deletes all objects that zombie deletion deadline passed.
@@ -123,7 +124,7 @@ func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects)
 					return Error.New("unable to delete zombie objects: %w", err)
 				}
 
-				db.log.Info("Deleting zombie object",
+				db.log.Debug("Deleting zombie object",
 					zap.Stringer("Project", last.ProjectID),
 					zap.String("Bucket", last.BucketName),
 					zap.String("Object Key", string(last.ObjectKey)),
@@ -139,7 +140,7 @@ func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects)
 			return ObjectStream{}, Error.New("unable to delete zombie objects: %w", err)
 		}
 
-		err = db.deleteObjectsAndSegments(ctx, objects)
+		err = db.deleteInactiveObjectsAndSegments(ctx, objects, opts.InactiveDeadline)
 		if err != nil {
 			return ObjectStream{}, err
 		}
@@ -223,5 +224,54 @@ func (db *DB) deleteObjectsAndSegments(ctx context.Context, objects []ObjectStre
 	if err != nil {
 		return Error.New("unable to delete expired objects: %w", err)
 	}
+	return nil
+}
+
+func (db *DB) deleteInactiveObjectsAndSegments(ctx context.Context, objects []ObjectStream, inactiveDeadline time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(objects) == 0 {
+		return nil
+	}
+
+	err = pgxutil.Conn(ctx, db.db, func(conn *pgx.Conn) error {
+		var batch pgx.Batch
+		for _, obj := range objects {
+			batch.Queue(`
+				WITH deleted_objects AS (
+					DELETE FROM objects
+					WHERE
+						(project_id, bucket_name, object_key, version) = ($1::BYTEA, $2::BYTEA, $3::BYTEA, $4) AND
+						stream_id = $5::BYTEA AND (
+							-- TODO figure out something more optimal
+							NOT EXISTS (SELECT stream_id FROM segments WHERE stream_id = $5::BYTEA)
+							OR
+							-- check that all segments where created before inactive time
+							NOT EXISTS (SELECT stream_id FROM segments WHERE stream_id = $5::BYTEA AND created_at > $6)
+						)
+						RETURNING version -- return anything
+				)
+				DELETE FROM segments
+				WHERE
+					segments.stream_id = $5::BYTEA AND
+					NOT EXISTS (SELECT stream_id FROM segments WHERE stream_id = $5::BYTEA AND created_at > $6)
+			`, obj.ProjectID, []byte(obj.BucketName), []byte(obj.ObjectKey), obj.Version, obj.StreamID, inactiveDeadline)
+		}
+
+		results := conn.SendBatch(ctx, &batch)
+		defer func() { err = errs.Combine(err, results.Close()) }()
+
+		var errlist errs.Group
+		for i := 0; i < batch.Len(); i++ {
+			_, err := results.Exec()
+			errlist.Add(err)
+		}
+
+		return errlist.Err()
+	})
+	if err != nil {
+		return Error.New("unable to delete zombie objects: %w", err)
+	}
+
 	return nil
 }

@@ -184,7 +184,7 @@ func TestDeleteZombieObjects(t *testing.T) {
 
 			metabasetest.DeleteZombieObjects{
 				Opts: metabase.DeleteZombieObjects{
-					DeadlineBefore: time.Now(),
+					DeadlineBefore: now,
 				},
 			}.Check(ctx, t, db)
 			metabasetest.Verify{}.Check(ctx, t, db)
@@ -224,7 +224,8 @@ func TestDeleteZombieObjects(t *testing.T) {
 
 			metabasetest.DeleteZombieObjects{
 				Opts: metabase.DeleteZombieObjects{
-					DeadlineBefore: time.Now(),
+					DeadlineBefore:   now,
+					InactiveDeadline: now,
 				},
 			}.Check(ctx, t, db)
 
@@ -250,16 +251,102 @@ func TestDeleteZombieObjects(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
+		t.Run("partial object with segment", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream:           obj1,
+					Encryption:             metabasetest.DefaultEncryption,
+					ZombieDeletionDeadline: &now,
+				},
+				Version: 1,
+			}.Check(ctx, t, db)
+			metabasetest.BeginSegment{
+				Opts: metabase.BeginSegment{
+					ObjectStream: obj1,
+					RootPieceID:  storj.PieceID{1},
+					Pieces: []metabase.Piece{{
+						Number:      1,
+						StorageNode: testrand.NodeID(),
+					}},
+				},
+			}.Check(ctx, t, db)
+			metabasetest.CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj1,
+					RootPieceID:  storj.PieceID{1},
+					Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+
+					EncryptedKey:      []byte{3},
+					EncryptedKeyNonce: []byte{4},
+					EncryptedETag:     []byte{5},
+
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
+					Redundancy:    metabasetest.DefaultRedundancy,
+				},
+			}.Check(ctx, t, db)
+
+			// object will be checked if is inactive but inactive time is in future
+			metabasetest.DeleteZombieObjects{
+				Opts: metabase.DeleteZombieObjects{
+					DeadlineBefore:   now.Add(1 * time.Hour),
+					InactiveDeadline: now.Add(-1 * time.Hour),
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj1,
+						CreatedAt:    now,
+						Status:       metabase.Pending,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &now,
+					},
+				},
+				Segments: []metabase.RawSegment{
+					{
+						StreamID:    obj1.StreamID,
+						RootPieceID: storj.PieceID{1},
+						Pieces:      metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+						CreatedAt:   now,
+
+						EncryptedKey:      []byte{3},
+						EncryptedKeyNonce: []byte{4},
+						EncryptedETag:     []byte{5},
+
+						EncryptedSize: 1024,
+						PlainSize:     512,
+						PlainOffset:   0,
+						Redundancy:    metabasetest.DefaultRedundancy,
+					},
+				},
+			}.Check(ctx, t, db)
+
+			// object will be checked if is inactive and will be deleted with segment
+			metabasetest.DeleteZombieObjects{
+				Opts: metabase.DeleteZombieObjects{
+					DeadlineBefore:   now.Add(1 * time.Hour),
+					InactiveDeadline: now.Add(2 * time.Hour),
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
 		t.Run("batch size", func(t *testing.T) {
-			deadlineAt := time.Now().Add(-30 * 24 * time.Hour)
 			for i := 0; i < 33; i++ {
 				obj := metabasetest.RandObjectStream()
 
 				metabasetest.BeginObjectExactVersion{
 					Opts: metabase.BeginObjectExactVersion{
-						ObjectStream:           obj,
-						Encryption:             metabasetest.DefaultEncryption,
-						ZombieDeletionDeadline: &deadlineAt,
+						ObjectStream: obj,
+						Encryption:   metabasetest.DefaultEncryption,
+						// use default 24h zombie deletion deadline
 					},
 					Version: obj.Version,
 				}.Check(ctx, t, db)
@@ -299,8 +386,9 @@ func TestDeleteZombieObjects(t *testing.T) {
 
 			metabasetest.DeleteZombieObjects{
 				Opts: metabase.DeleteZombieObjects{
-					DeadlineBefore: time.Now().Add(time.Hour),
-					BatchSize:      4,
+					DeadlineBefore:   now.Add(25 * time.Hour),
+					InactiveDeadline: now.Add(48 * time.Hour),
+					BatchSize:        4,
 				},
 			}.Check(ctx, t, db)
 
@@ -350,7 +438,8 @@ func TestDeleteZombieObjects(t *testing.T) {
 
 			metabasetest.DeleteZombieObjects{
 				Opts: metabase.DeleteZombieObjects{
-					DeadlineBefore: time.Now(),
+					DeadlineBefore:   now,
+					InactiveDeadline: now.Add(1 * time.Hour),
 				},
 			}.Check(ctx, t, db)
 
