@@ -47,6 +47,10 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 	params := &stripe.CustomerParams{
 		Email: stripe.String(email),
 	}
+	// If a free tier coupon is provided, apply this on account creation.
+	if accounts.service.StripeFreeTierCouponID != "" {
+		params.Coupon = stripe.String(accounts.service.StripeFreeTierCouponID)
+	}
 
 	customer, err := accounts.service.stripeClient.Customers().New(params)
 	if err != nil {

@@ -234,12 +234,6 @@ func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditC
 		return nil
 	}
 
-	// TODO: check if this is the right place
-	err = paymentService.AddPromotionalCoupon(ctx, auth.User.ID)
-	if err != nil {
-		paymentService.service.log.Warn(fmt.Sprintf("could not add promotional coupon for user %s", auth.User.ID.String()), zap.Error(err))
-	}
-
 	return nil
 }
 
@@ -678,12 +672,6 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 
 	if s.accounts.PaywallEnabled(user.ID) {
 		return nil
-	}
-
-	// TODO: check if this is the right place
-	err = s.accounts.Coupons().AddPromotionalCoupon(ctx, user.ID)
-	if err != nil {
-		s.log.Debug(fmt.Sprintf("could not add promotional coupon for user %s", user.ID.String()), zap.Error(Error.Wrap(err)))
 	}
 
 	s.analytics.TrackAccountVerified(user.ID, user.Email)
