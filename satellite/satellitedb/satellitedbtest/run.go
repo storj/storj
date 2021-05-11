@@ -46,20 +46,27 @@ func (ignoreSkip) Skip(...interface{}) {}
 
 // Databases returns default databases.
 func Databases() []SatelliteDatabases {
-	cockroachConnStr := pgtest.PickCockroach(ignoreSkip{})
+	var dbs []SatelliteDatabases
+
 	postgresConnStr := pgtest.PickPostgres(ignoreSkip{})
-	return []SatelliteDatabases{
-		{
+	if !strings.EqualFold(postgresConnStr, "omit") {
+		dbs = append(dbs, SatelliteDatabases{
 			Name:       "Postgres",
 			MasterDB:   Database{"Postgres", postgresConnStr, "Postgres flag missing, example: -postgres-test-db=" + pgtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable."},
 			MetabaseDB: Database{"Postgres", postgresConnStr, ""},
-		},
-		{
+		})
+	}
+
+	cockroachConnStr := pgtest.PickCockroach(ignoreSkip{})
+	if !strings.EqualFold(cockroachConnStr, "omit") {
+		dbs = append(dbs, SatelliteDatabases{
 			Name:       "Cockroach",
 			MasterDB:   Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + pgtest.DefaultCockroach + " or use STORJ_TEST_COCKROACH environment variable."},
 			MetabaseDB: Database{"Cockroach", cockroachConnStr, ""},
-		},
+		})
 	}
+
+	return dbs
 }
 
 // SchemaSuffix returns a suffix for schemas.
@@ -168,10 +175,6 @@ func CreateMetabaseDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbuti
 func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db satellite.DB)) {
 	for _, dbInfo := range Databases() {
 		dbInfo := dbInfo
-		if strings.EqualFold(dbInfo.MasterDB.URL, "omit") {
-			continue
-		}
-
 		t.Run(dbInfo.Name, func(t *testing.T) {
 			t.Parallel()
 
@@ -208,10 +211,6 @@ func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db sate
 func Bench(b *testing.B, bench func(b *testing.B, db satellite.DB)) {
 	for _, dbInfo := range Databases() {
 		dbInfo := dbInfo
-		if strings.EqualFold(dbInfo.MasterDB.URL, "omit") {
-			continue
-		}
-
 		b.Run(dbInfo.Name, func(b *testing.B) {
 			if dbInfo.MasterDB.URL == "" {
 				b.Skipf("Database %s connection string not provided. %s", dbInfo.MasterDB.Name, dbInfo.MasterDB.Message)

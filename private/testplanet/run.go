@@ -6,7 +6,6 @@ package testplanet
 import (
 	"context"
 	"runtime/pprof"
-	"strings"
 	"testing"
 
 	"storj.io/common/testcontext"
@@ -18,21 +17,14 @@ import (
 // Run runs testplanet in multiple configurations.
 func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.Context, planet *Planet)) {
 	databases := satellitedbtest.Databases()
-	hasDatabase := false
-	for _, db := range databases {
-		hasDatabase = hasDatabase || (db.MasterDB.URL != "" && db.MasterDB.URL != "omit")
-	}
-	if !hasDatabase {
+	if len(databases) == 0 {
 		t.Fatal("Databases flag missing, set at least one:\n" +
 			"-postgres-test-db=" + pgtest.DefaultPostgres + "\n" +
 			"-cockroach-test-db=" + pgtest.DefaultCockroach)
 	}
 
-	for _, satelliteDB := range satellitedbtest.Databases() {
+	for _, satelliteDB := range databases {
 		satelliteDB := satelliteDB
-		if strings.EqualFold(satelliteDB.MasterDB.URL, "omit") {
-			continue
-		}
 		t.Run(satelliteDB.Name, func(t *testing.T) {
 			parallel := !config.NonParallel
 			if parallel {
