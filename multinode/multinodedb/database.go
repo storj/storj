@@ -37,20 +37,20 @@ var (
 type multinodeDB struct {
 	*dbx.DB
 
-	log            *zap.Logger
-	driver         string
-	implementation dbutil.Implementation
-	source         string
+	log    *zap.Logger
+	driver string
+	impl   dbutil.Implementation
+	source string
 }
 
 // Open creates instance of database supports postgres.
 func Open(ctx context.Context, log *zap.Logger, databaseURL string) (multinode.DB, error) {
-	driver, source, implementation, err := dbutil.SplitConnStr(databaseURL)
+	driver, source, impl, err := dbutil.SplitConnStr(databaseURL)
 	if err != nil {
 		return nil, err
 	}
 
-	switch implementation {
+	switch impl {
 	case dbutil.SQLite3:
 		source = sqlite3SetDefaultOptions(source)
 	case dbutil.Postgres:
@@ -75,10 +75,10 @@ func Open(ctx context.Context, log *zap.Logger, databaseURL string) (multinode.D
 	core := &multinodeDB{
 		DB: dbxDB,
 
-		log:            log,
-		driver:         driver,
-		implementation: implementation,
-		source:         source,
+		log:    log,
+		driver: driver,
+		impl:   impl,
+		source: source,
 	}
 
 	return core, nil

@@ -6,7 +6,6 @@ package metabase
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"sort"
 	"time"
 
@@ -14,7 +13,6 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/tagsql"
 )
@@ -154,11 +152,6 @@ func (it *loopIterator) Next(ctx context.Context, item *LoopObjectEntry) bool {
 func (it *loopIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var asOfSystemTime string
-	if !it.asOfSystemTime.IsZero() && it.db.implementation == dbutil.Cockroach {
-		asOfSystemTime = fmt.Sprintf(` AS OF SYSTEM TIME '%d' `, it.asOfSystemTime.UnixNano())
-	}
-
 	return it.db.db.Query(ctx, `
 		SELECT
 			project_id, bucket_name,
@@ -168,7 +161,7 @@ func (it *loopIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err err
 			segment_count,
 			LENGTH(COALESCE(encrypted_metadata,''))
 		FROM objects
-		`+asOfSystemTime+`
+		`+it.db.impl.AsOfSystemTime(it.asOfSystemTime)+`
 		WHERE (project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
 		ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
 		LIMIT $5
@@ -241,11 +234,6 @@ func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, h
 		bytesIDs[i] = id[:]
 	}
 
-	var asOfSystemTime string
-	if !opts.AsOfSystemTime.IsZero() && db.implementation == dbutil.Cockroach {
-		asOfSystemTime = fmt.Sprintf(` AS OF SYSTEM TIME '%d' `, opts.AsOfSystemTime.UnixNano())
-	}
-
 	rows, err := db.db.Query(ctx, `
 		SELECT
 			stream_id, position,
@@ -256,7 +244,7 @@ func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, h
 			redundancy,
 			remote_alias_pieces
 		FROM segments
-		`+asOfSystemTime+`
+		`+db.impl.AsOfSystemTime(opts.AsOfSystemTime)+`
 		WHERE
 		    -- this turns out to be a little bit faster than stream_id IN (SELECT unnest($1::BYTEA[]))
 			stream_id = ANY ($1::BYTEA[])

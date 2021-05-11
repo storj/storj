@@ -32,7 +32,7 @@ func (r *repairQueue) Insert(ctx context.Context, seg *internalpb.InjuredSegment
 	// we want to insert the segment if it is not in the queue, but update the segment health if it already is in the queue
 	// we also want to know if the result was an insert or an update - this is the reasoning for the xmax section of the postgres query
 	// and the separate cockroach query (which the xmax trick does not work for)
-	switch r.db.implementation {
+	switch r.db.impl {
 	case dbutil.Postgres:
 		query = `
 			INSERT INTO injuredsegments
@@ -80,7 +80,7 @@ func (r *repairQueue) Insert(ctx context.Context, seg *internalpb.InjuredSegment
 func (r *repairQueue) Select(ctx context.Context) (seg *internalpb.InjuredSegment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	switch r.db.implementation {
+	switch r.db.impl {
 	case dbutil.Cockroach:
 		err = r.db.QueryRowContext(ctx, `
 				UPDATE injuredsegments SET attempted = now()
@@ -95,7 +95,7 @@ func (r *repairQueue) Select(ctx context.Context) (seg *internalpb.InjuredSegmen
 					ORDER BY segment_health ASC, attempted NULLS FIRST FOR UPDATE SKIP LOCKED LIMIT 1
 				) RETURNING data`).Scan(&seg)
 	default:
-		return seg, errs.New("invalid dbType: %v", r.db.implementation)
+		return seg, errs.New("unhandled database: %v", r.db.impl)
 	}
 	if errors.Is(err, sql.ErrNoRows) {
 		err = storage.ErrEmptyQueue.New("")

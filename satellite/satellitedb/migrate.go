@@ -34,7 +34,7 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 	// will need to create the database it was told to connect to. These things should
 	// not really be here, and instead should be assumed to exist.
 	// This is tracked in jira ticket SM-200
-	switch db.implementation {
+	switch db.impl {
 	case dbutil.Postgres:
 		schema, err := pgutil.ParseSchemaFromConnstr(db.source)
 		if err != nil {
@@ -61,7 +61,7 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 		}
 	}
 
-	switch db.implementation {
+	switch db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
 		migration := db.PostgresMigration()
 		// since we merged migration steps 0-69, the current db version should never be
@@ -85,7 +85,7 @@ func (db *satelliteDB) MigrateToLatest(ctx context.Context) error {
 
 // TestingMigrateToLatest is a method for creating all tables for database for testing.
 func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
-	switch db.implementation {
+	switch db.impl {
 	case dbutil.Postgres:
 		schema, err := pgutil.ParseSchemaFromConnstr(db.source)
 		if err != nil {
@@ -111,7 +111,7 @@ func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
 		}
 	}
 
-	switch db.implementation {
+	switch db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
 		migration := db.PostgresMigration()
 
@@ -132,7 +132,7 @@ func (db *satelliteDB) TestingMigrateToLatest(ctx context.Context) error {
 
 // CheckVersion confirms the database is at the desired version.
 func (db *satelliteDB) CheckVersion(ctx context.Context) error {
-	switch db.implementation {
+	switch db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
 		migration := db.PostgresMigration()
 		return migration.ValidateVersions(ctx, db.log)
@@ -1354,7 +1354,7 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 				Version:     156,
 				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
 					storingClause := func(fields ...string) string {
-						if db.implementation == dbutil.Cockroach {
+						if db.impl == dbutil.Cockroach {
 							return fmt.Sprintf("STORING (%s)", strings.Join(fields, ", "))
 						}
 

@@ -6,7 +6,6 @@ package metabase
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v4"
@@ -14,7 +13,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/private/dbutil"
 	"storj.io/private/tagsql"
 )
 
@@ -33,18 +31,13 @@ type DeleteExpiredObjects struct {
 func (db *DB) DeleteExpiredObjects(ctx context.Context, opts DeleteExpiredObjects) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var asOfSystemTimeString string
-	if !opts.AsOfSystemTime.IsZero() && db.implementation == dbutil.Cockroach {
-		asOfSystemTimeString = fmt.Sprintf(` AS OF SYSTEM TIME '%d' `, opts.AsOfSystemTime.UnixNano())
-	}
-
 	return db.deleteObjectsAndSegmentsBatch(ctx, opts.BatchSize, func(startAfter ObjectStream, batchsize int) (last ObjectStream, err error) {
 		query := `
 			SELECT
 				project_id, bucket_name, object_key, version, stream_id,
 				expires_at
 			FROM objects
-			` + asOfSystemTimeString + `
+			` + db.impl.AsOfSystemTime(opts.AsOfSystemTime) + `
 			WHERE
 				(project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
 				AND expires_at < $5
@@ -104,17 +97,12 @@ type DeleteZombieObjects struct {
 func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var asOfSystemTimeString string
-	if !opts.AsOfSystemTime.IsZero() && db.implementation == dbutil.Cockroach {
-		asOfSystemTimeString = fmt.Sprintf(` AS OF SYSTEM TIME '%d' `, opts.AsOfSystemTime.UnixNano())
-	}
-
 	return db.deleteObjectsAndSegmentsBatch(ctx, opts.BatchSize, func(startAfter ObjectStream, batchsize int) (last ObjectStream, err error) {
 		query := `
 			SELECT
 				project_id, bucket_name, object_key, version, stream_id
 			FROM objects
-			` + asOfSystemTimeString + `
+			` + db.impl.AsOfSystemTime(opts.AsOfSystemTime) + `
 			WHERE
 				(project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
 				AND status = ` + pendingStatus + `

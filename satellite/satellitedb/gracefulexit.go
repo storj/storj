@@ -175,10 +175,10 @@ func (db *gracefulexitDB) DeleteFinishedTransferQueueItems(ctx context.Context, 
 // queue items whose nodes have finished the exit before the indicated time
 // returning the total number of deleted items.
 func (db *gracefulexitDB) DeleteAllFinishedTransferQueueItems(
-	ctx context.Context, before time.Time, asOfSystemTimeInterval time.Duration, batchSize int) (_ int64, err error) {
+	ctx context.Context, before time.Time, asOfSystemInterval time.Duration, batchSize int) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	switch db.db.implementation {
+	switch db.db.impl {
 	case dbutil.Postgres:
 		statement := `
 			DELETE FROM graceful_exit_transfer_queue
@@ -201,11 +201,10 @@ func (db *gracefulexitDB) DeleteAllFinishedTransferQueueItems(
 		return count, nil
 
 	case dbutil.Cockroach:
-		asOf := db.db.AsOfSystemTimeClause(asOfSystemTimeInterval)
-
 		nodesQuery := `
 			SELECT id
-			FROM nodes ` + asOf + `
+			FROM nodes
+		` + db.db.impl.AsOfSystemInterval(asOfSystemInterval) + `
 			WHERE exit_finished_at IS NOT NULL
 				AND exit_finished_at < $1
 			LIMIT $2 OFFSET $3
@@ -276,18 +275,16 @@ func (db *gracefulexitDB) DeleteAllFinishedTransferQueueItems(
 		return deleteCount, nil
 	}
 
-	return 0, Error.New("unsupported implementation: %s",
-		dbutil.SchemeForImplementation(db.db.implementation),
-	)
+	return 0, Error.New("unsupported implementation: %s", db.db.impl)
 }
 
 // DeleteFinishedExitProgress deletes exit progress entries for nodes that
 // finished exiting before the indicated time, returns number of deleted entries.
 func (db *gracefulexitDB) DeleteFinishedExitProgress(
-	ctx context.Context, before time.Time, asOfSystemTimeInterval time.Duration) (_ int64, err error) {
+	ctx context.Context, before time.Time, asOfSystemInterval time.Duration) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	finishedNodes, err := db.GetFinishedExitNodes(ctx, before, asOfSystemTimeInterval)
+	finishedNodes, err := db.GetFinishedExitNodes(ctx, before, asOfSystemInterval)
 	if err != nil {
 		return 0, err
 	}
@@ -295,10 +292,12 @@ func (db *gracefulexitDB) DeleteFinishedExitProgress(
 }
 
 // GetFinishedExitNodes gets nodes that are marked having finished graceful exit before a given time.
-func (db *gracefulexitDB) GetFinishedExitNodes(ctx context.Context, before time.Time, asOfSystemTimeInterval time.Duration) (finishedNodes []storj.NodeID, err error) {
+func (db *gracefulexitDB) GetFinishedExitNodes(ctx context.Context, before time.Time, asOfSystemInterval time.Duration) (finishedNodes []storj.NodeID, err error) {
 	defer mon.Task()(&ctx)(&err)
-	asOf := db.db.AsOfSystemTimeClause(asOfSystemTimeInterval)
-	stmt := `SELECT id FROM nodes ` + asOf + `
+	stmt := `
+		SELECT id
+		FROM nodes
+		` + db.db.impl.AsOfSystemInterval(asOfSystemInterval) + `
         WHERE exit_finished_at IS NOT NULL
 	    AND exit_finished_at < ?
 		`
@@ -454,14 +453,13 @@ func (db *gracefulexitDB) IncrementOrderLimitSendCount(ctx context.Context, node
 // CountFinishedTransferQueueItemsByNode return a map of the nodes which has
 // finished the exit before the indicated time but there are at least one item
 // left in the transfer queue.
-func (db *gracefulexitDB) CountFinishedTransferQueueItemsByNode(ctx context.Context, before time.Time, asOfSystemTimeInterval time.Duration) (_ map[storj.NodeID]int64, err error) {
+func (db *gracefulexitDB) CountFinishedTransferQueueItemsByNode(ctx context.Context, before time.Time, asOfSystemInterval time.Duration) (_ map[storj.NodeID]int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	asOf := db.db.AsOfSystemTimeClause(asOfSystemTimeInterval)
 
 	query := `SELECT n.id, count(getq.node_id)
 		FROM nodes as n INNER JOIN graceful_exit_transfer_queue as getq
-			ON n.id = getq.node_id ` + asOf + `
+			ON n.id = getq.node_id
+		` + db.db.impl.AsOfSystemInterval(asOfSystemInterval) + `
 		WHERE n.exit_finished_at IS NOT NULL
 			AND n.exit_finished_at < ?
 		GROUP BY n.id`

@@ -476,7 +476,7 @@ func prefixIncrement(origPrefix []byte) (incremented []byte, ok bool) {
 // use.
 func (db *ProjectAccounting) prefixMatch(expr string, prefix []byte) (string, []byte, error) {
 	incrementedPrefix, ok := prefixIncrement(prefix)
-	switch db.db.implementation {
+	switch db.db.impl {
 	case dbutil.Postgres:
 		if !ok {
 			return fmt.Sprintf(`(%s >= ?)`, expr), nil, nil
@@ -488,7 +488,7 @@ func (db *ProjectAccounting) prefixMatch(expr string, prefix []byte) (string, []
 		}
 		return fmt.Sprintf(`(%s >= ?:::BYTEA AND %s < ?:::BYTEA)`, expr, expr), incrementedPrefix, nil
 	default:
-		return "", nil, errs.New("invalid dbType: %v", db.db.driver)
+		return "", nil, errs.New("unhandled database: %v", db.db.driver)
 	}
 
 }
@@ -640,7 +640,7 @@ func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before ti
 		return 0, nil
 	}
 
-	switch db.db.implementation {
+	switch db.db.impl {
 	case dbutil.Cockroach:
 		for {
 			row := db.db.QueryRow(ctx, `

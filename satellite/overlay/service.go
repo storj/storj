@@ -133,21 +133,21 @@ type InfoResponse struct {
 
 // FindStorageNodesRequest defines easy request parameters.
 type FindStorageNodesRequest struct {
-	RequestedCount         int
-	ExcludedIDs            []storj.NodeID
-	MinimumVersion         string        // semver or empty
-	AsOfSystemTimeInterval time.Duration // only used for CRDB queries
+	RequestedCount     int
+	ExcludedIDs        []storj.NodeID
+	MinimumVersion     string        // semver or empty
+	AsOfSystemInterval time.Duration // only used for CRDB queries
 }
 
 // NodeCriteria are the requirements for selecting nodes.
 type NodeCriteria struct {
-	FreeDisk               int64
-	ExcludedIDs            []storj.NodeID
-	ExcludedNetworks       []string // the /24 subnet IPv4 or /64 subnet IPv6 for nodes
-	MinimumVersion         string   // semver or empty
-	OnlineWindow           time.Duration
-	DistinctIP             bool
-	AsOfSystemTimeInterval time.Duration // only used for CRDB queries
+	FreeDisk           int64
+	ExcludedIDs        []storj.NodeID
+	ExcludedNetworks   []string // the /24 subnet IPv4 or /64 subnet IPv6 for nodes
+	MinimumVersion     string   // semver or empty
+	OnlineWindow       time.Duration
+	DistinctIP         bool
+	AsOfSystemInterval time.Duration // only used for CRDB queries
 }
 
 // AuditType is an enum representing the outcome of a particular audit reported to the overlay.
@@ -337,7 +337,7 @@ func (service *Service) IsOnline(node *NodeDossier) bool {
 func (service *Service) FindStorageNodesForGracefulExit(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if service.config.Node.AsOfSystemTime.Enabled && service.config.Node.AsOfSystemTime.DefaultInterval < 0 {
-		req.AsOfSystemTimeInterval = service.config.Node.AsOfSystemTime.DefaultInterval
+		req.AsOfSystemInterval = service.config.Node.AsOfSystemTime.DefaultInterval
 	}
 	return service.FindStorageNodesWithPreferences(ctx, req, &service.config.Node)
 }
@@ -349,7 +349,7 @@ func (service *Service) FindStorageNodesForGracefulExit(ctx context.Context, req
 func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindStorageNodesRequest) (_ []*SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if service.config.Node.AsOfSystemTime.Enabled && service.config.Node.AsOfSystemTime.DefaultInterval < 0 {
-		req.AsOfSystemTimeInterval = service.config.Node.AsOfSystemTime.DefaultInterval
+		req.AsOfSystemInterval = service.config.Node.AsOfSystemTime.DefaultInterval
 	}
 
 	if service.config.NodeSelectionCache.Disabled {
@@ -394,13 +394,13 @@ func (service *Service) FindStorageNodesWithPreferences(ctx context.Context, req
 	}
 
 	criteria := NodeCriteria{
-		FreeDisk:               preferences.MinimumDiskSpace.Int64(),
-		ExcludedIDs:            excludedIDs,
-		ExcludedNetworks:       excludedNetworks,
-		MinimumVersion:         preferences.MinimumVersion,
-		OnlineWindow:           preferences.OnlineWindow,
-		DistinctIP:             preferences.DistinctIP,
-		AsOfSystemTimeInterval: req.AsOfSystemTimeInterval,
+		FreeDisk:           preferences.MinimumDiskSpace.Int64(),
+		ExcludedIDs:        excludedIDs,
+		ExcludedNetworks:   excludedNetworks,
+		MinimumVersion:     preferences.MinimumVersion,
+		OnlineWindow:       preferences.OnlineWindow,
+		DistinctIP:         preferences.DistinctIP,
+		AsOfSystemInterval: req.AsOfSystemInterval,
 	}
 	nodes, err = service.db.SelectStorageNodes(ctx, totalNeededNodes, newNodeCount, &criteria)
 	if err != nil {

@@ -222,7 +222,7 @@ func (db *DB) DeleteObjectLatestVersion(ctx context.Context, opts DeleteObjectLa
 	}
 
 	var query string
-	switch db.implementation {
+	switch db.impl {
 	case dbutil.Cockroach:
 		query = `
 			WITH deleted_objects AS (
@@ -299,7 +299,7 @@ func (db *DB) DeleteObjectLatestVersion(ctx context.Context, opts DeleteObjectLa
 			LEFT JOIN deleted_segments ON deleted_objects.stream_id = deleted_segments.stream_id
 		`
 	default:
-		return DeleteObjectResult{}, Error.New("invalid dbType: %v", db.implementation)
+		return DeleteObjectResult{}, Error.New("unhandled database: %v", db.impl)
 	}
 	err = withRows(db.db.Query(ctx, query, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey)))(func(rows tagsql.Rows) error {
 		result.Objects, result.Segments, err = db.scanObjectDeletion(ctx, opts.ObjectLocation, rows)

@@ -28,10 +28,10 @@ var (
 
 // DB implements a database for storing objects and segments.
 type DB struct {
-	log            *zap.Logger
-	db             tagsql.DB
-	connstr        string
-	implementation dbutil.Implementation
+	log     *zap.Logger
+	db      tagsql.DB
+	connstr string
+	impl    dbutil.Implementation
 
 	aliasCache *NodeAliasCache
 }
@@ -47,7 +47,7 @@ func Open(ctx context.Context, log *zap.Logger, driverName, connstr string) (*DB
 	db := &DB{log: log, connstr: connstr, db: postgresRebind{rawdb}}
 	db.aliasCache = NewNodeAliasCache(db)
 
-	_, _, db.implementation, err = dbutil.SplitConnStr(connstr)
+	_, _, db.impl, err = dbutil.SplitConnStr(connstr)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -94,7 +94,7 @@ func (db *DB) MigrateToLatest(ctx context.Context) error {
 	// will need to create the database it was told to connect to. These things should
 	// not really be here, and instead should be assumed to exist.
 	// This is tracked in jira ticket SM-200
-	switch db.implementation {
+	switch db.impl {
 	case dbutil.Postgres:
 		schema, err := pgutil.ParseSchemaFromConnstr(db.connstr)
 		if err != nil {
