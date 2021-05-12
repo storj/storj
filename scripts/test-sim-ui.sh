@@ -35,12 +35,7 @@ sed -i 's#console.static-dir: ""#console.static-dir: "'$SCRIPTDIR'/../web/satell
 
 # run UI tests
 echo "section tests start"
-apt-get -y install chromium
-export DEBIAN_FRONTEND="noninteractive"
-apt-get -y install xorg xvfb gtk2-engines-pixbuf dbus-x11 xfonts-base xfonts-100dpi xfonts-75dpi xfonts-cyrillic xfonts-scalable imagemagick x11-apps
-
 Xvfb -ac :99 -screen 0 1280x1024x16 & export DISPLAY=:99
-
 pushd "$SCRIPTDIR/../web/satellite/"
 npm install
 popd
