@@ -4,13 +4,12 @@
 package consolewasm_test
 
 import (
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/common/errs2"
-	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	console "storj.io/storj/satellite/console/consolewasm"
@@ -65,7 +64,7 @@ func TestSetPermissionWithBuckets(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, data, testdata)
 		err = uplinkPeer.Upload(ctx, satellitePeer, testbucket1, "file2", testdata)
-		require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+		require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
 		_, err = uplinkPeer.Download(ctx, satellitePeer, testbucket2, testfilename)
 		require.Error(t, err)
 
@@ -92,7 +91,7 @@ func TestSetPermissionWithBuckets(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, data, testdata)
 		err = uplinkPeer.Upload(ctx, satellitePeer, testbucket1, "file2", testdata)
-		require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+		require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
 		_, err = uplinkPeer.Download(ctx, satellitePeer, testbucket2, testfilename)
 		require.Error(t, err)
 	})
@@ -145,5 +144,92 @@ func TestSetPermissionUplinkOperations(t *testing.T) {
 		err = uplinkPeer.DeleteObject(ctx, satellitePeer, testbucket1, testfilename)
 		require.NoError(t, err)
 		require.NoError(t, uplinkPeer.DeleteBucket(ctx, satellitePeer, testbucket1))
+	})
+}
+
+func TestSetTimePermissionWithBucket(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellitePeer := planet.Satellites[0]
+		satelliteNodeURL := satellitePeer.NodeURL().String()
+		uplinkPeer := planet.Uplinks[0]
+		APIKey := uplinkPeer.APIKey[satellitePeer.ID()]
+		apiKeyString := APIKey.Serialize()
+		projectID := uplinkPeer.Projects[0].ID.String()
+		require.Equal(t, 1, len(uplinkPeer.Projects))
+		passphrase := "supersecretpassphrase"
+
+		// Create an access grant with the uplink API key. With that access grant, create 1 bucket and upload an object.
+		uplinkAccess, err := uplinkPeer.Config.RequestAccessWithPassphrase(ctx, satelliteNodeURL, apiKeyString, passphrase)
+		require.NoError(t, err)
+		uplinkPeer.Access[satellitePeer.ID()] = uplinkAccess
+		testbucket := "buckettest"
+		testfilename := "file.txt"
+		testdata := []byte("fun data")
+		require.NoError(t, uplinkPeer.CreateBucket(ctx, satellitePeer, testbucket))
+		require.NoError(t, uplinkPeer.Upload(ctx, satellitePeer, testbucket, testfilename, testdata))
+
+		bucket := []string{testbucket}
+
+		// Create an access grant with restricted access by time
+		notAfterRestrictedPermission := console.Permission{
+			AllowDownload: true,
+			AllowUpload:   true,
+			AllowList:     true,
+			AllowDelete:   true,
+			NotAfter:      time.Now().Add(-2 * time.Hour),
+		}
+		restrictedAfterKey, err := console.SetPermission(apiKeyString, bucket, notAfterRestrictedPermission)
+		require.NoError(t, err)
+		restrictedAfterAccessGrant, err := console.GenAccessGrant(satelliteNodeURL, restrictedAfterKey.Serialize(), passphrase, projectID)
+		require.NoError(t, err)
+		restrictedAfterAccess, err := uplink.ParseAccess(restrictedAfterAccessGrant)
+		require.NoError(t, err)
+
+		uplinkPeer.APIKey[satellitePeer.ID()] = restrictedAfterKey
+		uplinkPeer.Access[satellitePeer.ID()] = restrictedAfterAccess
+
+		// Expect that we can't download or upload any data
+		err = uplinkPeer.Upload(ctx, satellitePeer, testbucket, testfilename, testdata)
+		require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
+		_, err = uplinkPeer.Download(ctx, satellitePeer, testbucket, testfilename)
+		require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
+		_, err = uplinkPeer.ListBuckets(ctx, satellitePeer)
+		require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
+		_, err = uplinkPeer.ListObjects(ctx, satellitePeer, testbucket)
+		require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
+		err = uplinkPeer.DeleteObject(ctx, satellitePeer, testbucket, testfilename)
+		require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
+
+		notBeforeRestrictedPermission := console.Permission{
+			AllowDownload: true,
+			AllowUpload:   true,
+			AllowList:     true,
+			AllowDelete:   true,
+			NotBefore:     time.Now().Add(2 * time.Hour),
+		}
+		restrictedBeforeKey, err := console.SetPermission(apiKeyString, bucket, notBeforeRestrictedPermission)
+		require.NoError(t, err)
+		restrictedBeforeAccessGrant, err := console.GenAccessGrant(satelliteNodeURL, restrictedBeforeKey.Serialize(), passphrase, projectID)
+		require.NoError(t, err)
+		restrictedBeforeAccess, err := uplink.ParseAccess(restrictedBeforeAccessGrant)
+		require.NoError(t, err)
+
+		uplinkPeer.APIKey[satellitePeer.ID()] = restrictedBeforeKey
+		uplinkPeer.Access[satellitePeer.ID()] = restrictedBeforeAccess
+
+		// Expect that we can't download or upload any data
+		err = uplinkPeer.Upload(ctx, satellitePeer, testbucket, testfilename, testdata)
+		require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
+		_, err = uplinkPeer.Download(ctx, satellitePeer, testbucket, testfilename)
+		require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
+		_, err = uplinkPeer.ListBuckets(ctx, satellitePeer)
+		require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
+		_, err = uplinkPeer.ListObjects(ctx, satellitePeer, testbucket)
+		require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
+		err = uplinkPeer.DeleteObject(ctx, satellitePeer, testbucket, testfilename)
+		require.True(t, errors.Is(err, uplink.ErrPermissionDenied))
+
 	})
 }

@@ -351,6 +351,22 @@ func (client *Uplink) ListBuckets(ctx context.Context, satellite *Satellite) ([]
 	return buckets, iter.Err()
 }
 
+// ListObjects returns a list of all objects in a bucket.
+func (client *Uplink) ListObjects(ctx context.Context, satellite *Satellite, bucketName string) ([]*uplink.Object, error) {
+	var objects = []*uplink.Object{}
+	project, err := client.GetProject(ctx, satellite)
+	if err != nil {
+		return objects, err
+	}
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	iter := project.ListObjects(ctx, bucketName, &uplink.ListObjectsOptions{})
+	for iter.Next() {
+		objects = append(objects, iter.Item())
+	}
+	return objects, iter.Err()
+}
+
 // GetProject returns a uplink.Project which allows interactions with a specific project.
 func (client *Uplink) GetProject(ctx context.Context, satellite *Satellite) (*uplink.Project, error) {
 	access := client.Access[satellite.ID()]
