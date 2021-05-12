@@ -48,7 +48,7 @@ func (pp *projectProvider) OpenProject(ctx context.Context, options ...projectOp
 		opt.apply(&opts)
 	}
 
-	accessDefault, accesses, err := gf.GetAccessInfo()
+	accessDefault, accesses, err := gf.GetAccessInfo(true)
 	if err != nil {
 		return nil, err
 	}
