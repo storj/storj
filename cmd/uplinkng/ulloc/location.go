@@ -174,7 +174,11 @@ func (p Location) RelativeTo(target Location) (string, error) {
 	} else if !strings.HasPrefix(target.key, p.key) {
 		return "", errs.New("cannot make relative location because keys are not prefixes")
 	}
-	return target.key[len(p.key):], nil
+	idx := strings.LastIndexByte(p.key, '/')
+	if idx == -1 {
+		idx = 0
+	}
+	return target.key[idx:], nil
 }
 
 // AppendKey adds the key to the end of the existing key, separating with the

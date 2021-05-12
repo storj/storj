@@ -22,28 +22,38 @@ import (
 
 type testFilesystem struct {
 	stdin   string
-	ops     []Operation
 	created int64
-	files   map[ulloc.Location]byteFileData
-	pending map[ulloc.Location][]*byteWriteHandle
+	files   map[ulloc.Location]memFileData
+	pending map[ulloc.Location][]*memWriteHandle
 	buckets map[string]struct{}
 }
 
 func newTestFilesystem() *testFilesystem {
 	return &testFilesystem{
-		files:   make(map[ulloc.Location]byteFileData),
-		pending: make(map[ulloc.Location][]*byteWriteHandle),
+		files:   make(map[ulloc.Location]memFileData),
+		pending: make(map[ulloc.Location][]*memWriteHandle),
 		buckets: make(map[string]struct{}),
 	}
 }
 
-type byteFileData struct {
-	data    []byte
-	created int64
+type memFileData struct {
+	contents string
+	created  int64
 }
 
 func (tfs *testFilesystem) ensureBucket(name string) {
 	tfs.buckets[name] = struct{}{}
+}
+
+func (tfs *testFilesystem) Files() (files []File) {
+	for loc, mf := range tfs.files {
+		files = append(files, File{
+			Loc:      loc.String(),
+			Contents: mf.contents,
+		})
+	}
+	sort.Slice(files, func(i, j int) bool { return files[i].less(files[j]) })
+	return files
 }
 
 func (tfs *testFilesystem) Close() error {
@@ -51,18 +61,14 @@ func (tfs *testFilesystem) Close() error {
 }
 
 func (tfs *testFilesystem) Open(ctx clingy.Context, loc ulloc.Location) (_ ulfs.ReadHandle, err error) {
-	defer func() { tfs.ops = append(tfs.ops, newOp("open", loc, err)) }()
-
-	bf, ok := tfs.files[loc]
+	mf, ok := tfs.files[loc]
 	if !ok {
 		return nil, errs.New("file does not exist")
 	}
-	return &byteReadHandle{Buffer: bytes.NewBuffer(bf.data)}, nil
+	return &byteReadHandle{Buffer: bytes.NewBufferString(mf.contents)}, nil
 }
 
 func (tfs *testFilesystem) Create(ctx clingy.Context, loc ulloc.Location) (_ ulfs.WriteHandle, err error) {
-	defer func() { tfs.ops = append(tfs.ops, newOp("create", loc, err)) }()
-
 	if bucket, _, ok := loc.RemoteParts(); ok {
 		if _, ok := tfs.buckets[bucket]; !ok {
 			return nil, errs.New("bucket %q does not exist", bucket)
@@ -70,7 +76,7 @@ func (tfs *testFilesystem) Create(ctx clingy.Context, loc ulloc.Location) (_ ulf
 	}
 
 	tfs.created++
-	wh := &byteWriteHandle{
+	wh := &memWriteHandle{
 		buf: bytes.NewBuffer(nil),
 		loc: loc,
 		tfs: tfs,
@@ -84,11 +90,11 @@ func (tfs *testFilesystem) Create(ctx clingy.Context, loc ulloc.Location) (_ ulf
 
 func (tfs *testFilesystem) ListObjects(ctx context.Context, prefix ulloc.Location, recursive bool) (ulfs.ObjectIterator, error) {
 	var infos []ulfs.ObjectInfo
-	for loc, bf := range tfs.files {
+	for loc, mf := range tfs.files {
 		if loc.HasPrefix(prefix) {
 			infos = append(infos, ulfs.ObjectInfo{
 				Loc:     loc,
-				Created: time.Unix(bf.created, 0),
+				Created: time.Unix(mf.created, 0),
 			})
 		}
 	}
@@ -145,7 +151,7 @@ func (b *byteReadHandle) Info() ulfs.ObjectInfo { return ulfs.ObjectInfo{} }
 // ulfs.WriteHandle
 //
 
-type byteWriteHandle struct {
+type memWriteHandle struct {
 	buf  *bytes.Buffer
 	loc  ulloc.Location
 	tfs  *testFilesystem
@@ -153,33 +159,31 @@ type byteWriteHandle struct {
 	done bool
 }
 
-func (b *byteWriteHandle) Write(p []byte) (int, error) {
+func (b *memWriteHandle) Write(p []byte) (int, error) {
 	return b.buf.Write(p)
 }
 
-func (b *byteWriteHandle) Commit() error {
+func (b *memWriteHandle) Commit() error {
 	if err := b.close(); err != nil {
 		return err
 	}
 
-	b.tfs.ops = append(b.tfs.ops, newOp("commit", b.loc, nil))
-	b.tfs.files[b.loc] = byteFileData{
-		data:    b.buf.Bytes(),
-		created: b.cre,
+	b.tfs.files[b.loc] = memFileData{
+		contents: b.buf.String(),
+		created:  b.cre,
 	}
 	return nil
 }
 
-func (b *byteWriteHandle) Abort() error {
+func (b *memWriteHandle) Abort() error {
 	if err := b.close(); err != nil {
 		return err
 	}
 
-	b.tfs.ops = append(b.tfs.ops, newOp("append", b.loc, nil))
 	return nil
 }
 
-func (b *byteWriteHandle) close() error {
+func (b *memWriteHandle) close() error {
 	if b.done {
 		return errs.New("already done")
 	}

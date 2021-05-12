@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/clingy"
-	"github.com/zeebo/errs"
 
 	"storj.io/storj/cmd/uplinkng/ulfs"
 	"storj.io/storj/cmd/uplinkng/ulloc"
@@ -57,8 +56,9 @@ func (st State) Run(t *testing.T, args ...string) Result {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	var stdin bytes.Buffer
-	var ops []Operation
 	var ran bool
+
+	tfs := newTestFilesystem()
 
 	ok, err := clingy.Environment{
 		Name: "uplink-test",
@@ -69,13 +69,9 @@ func (st State) Run(t *testing.T, args ...string) Result {
 		Stderr: &stderr,
 
 		Wrap: func(ctx clingy.Context, cmd clingy.Cmd) error {
-			tfs := newTestFilesystem()
 			for _, opt := range st.opts {
-				if err := opt.fn(ctx, tfs); err != nil {
-					return errs.Wrap(err)
-				}
+				opt.fn(t, ctx, tfs)
 			}
-			tfs.ops = nil
 
 			if len(tfs.stdin) > 0 {
 				_, _ = stdin.WriteString(tfs.stdin)
@@ -88,67 +84,89 @@ func (st State) Run(t *testing.T, args ...string) Result {
 			}
 
 			ran = true
-			err := cmd.Execute(ctx)
-			ops = tfs.ops
-			return err
+			return cmd.Execute(ctx)
 		},
 	}.Run(context.Background(), st.cmds)
 
 	if ok && err == nil {
 		require.True(t, ran, "no command was executed: %q", args)
 	}
+
 	return Result{
-		Stdout:     stdout.String(),
-		Stderr:     stderr.String(),
-		Ok:         ok,
-		Err:        err,
-		Operations: ops,
+		Stdout: stdout.String(),
+		Stderr: stderr.String(),
+		Ok:     ok,
+		Err:    err,
+		Files:  tfs.Files(),
 	}
 }
 
 // ExecuteOption allows one to control the environment that a command executes in.
 type ExecuteOption struct {
-	fn func(ctx clingy.Context, tfs *testFilesystem) error
+	fn func(t *testing.T, ctx clingy.Context, tfs *testFilesystem)
+}
+
+// WithFilesystem lets one do arbitrary setup on the filesystem in a callback.
+func WithFilesystem(cb func(t *testing.T, ctx clingy.Context, fs ulfs.Filesystem)) ExecuteOption {
+	return ExecuteOption{func(t *testing.T, ctx clingy.Context, tfs *testFilesystem) {
+		cb(t, ctx, tfs)
+	}}
+}
+
+// WithBucket ensures the bucket exists.
+func WithBucket(name string) ExecuteOption {
+	return ExecuteOption{func(_ *testing.T, _ clingy.Context, tfs *testFilesystem) {
+		tfs.ensureBucket(name)
+	}}
 }
 
 // WithStdin sets the command to execute with the provided string as standard input.
 func WithStdin(stdin string) ExecuteOption {
-	return ExecuteOption{func(_ clingy.Context, tfs *testFilesystem) error {
+	return ExecuteOption{func(_ *testing.T, _ clingy.Context, tfs *testFilesystem) {
 		tfs.stdin = stdin
-		return nil
 	}}
 }
 
 // WithFile sets the command to execute with a file created at the given location.
-func WithFile(location string) ExecuteOption {
-	return ExecuteOption{func(ctx clingy.Context, tfs *testFilesystem) error {
+func WithFile(location string, contents ...string) ExecuteOption {
+	contents = append([]string(nil), contents...)
+	return ExecuteOption{func(t *testing.T, ctx clingy.Context, tfs *testFilesystem) {
 		loc, err := ulloc.Parse(location)
-		if err != nil {
-			return err
-		}
+		require.NoError(t, err)
+
 		if bucket, _, ok := loc.RemoteParts(); ok {
 			tfs.ensureBucket(bucket)
 		}
+
 		wh, err := tfs.Create(ctx, loc)
-		if err != nil {
-			return err
+		require.NoError(t, err)
+		defer func() { _ = wh.Abort() }()
+
+		for _, content := range contents {
+			_, err := wh.Write([]byte(content))
+			require.NoError(t, err)
 		}
-		return wh.Commit()
+		if len(contents) == 0 {
+			_, err := wh.Write([]byte(location))
+			require.NoError(t, err)
+		}
+
+		require.NoError(t, wh.Commit())
 	}}
 }
 
 // WithPendingFile sets the command to execute with a pending upload happening to
 // the provided location.
 func WithPendingFile(location string) ExecuteOption {
-	return ExecuteOption{func(ctx clingy.Context, tfs *testFilesystem) error {
+	return ExecuteOption{func(t *testing.T, ctx clingy.Context, tfs *testFilesystem) {
 		loc, err := ulloc.Parse(location)
-		if err != nil {
-			return err
-		}
+		require.NoError(t, err)
+
 		if bucket, _, ok := loc.RemoteParts(); ok {
 			tfs.ensureBucket(bucket)
 		}
+
 		_, err = tfs.Create(ctx, loc)
-		return err
+		require.NoError(t, err)
 	}}
 }

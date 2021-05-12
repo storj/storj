@@ -21,6 +21,7 @@ type cmdCp struct {
 
 	recursive bool
 	dryrun    bool
+	progress  bool
 
 	source ulloc.Location
 	dest   ulloc.Location
@@ -34,6 +35,9 @@ func (c *cmdCp) Setup(a clingy.Arguments, f clingy.Flags) {
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
 	c.dryrun = f.New("dryrun", "Print what operations would happen but don't execute them", false,
+		clingy.Transform(strconv.ParseBool),
+	).(bool)
+	c.progress = f.New("progress", "Show a progress bar when possible", true,
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
 
@@ -51,7 +55,7 @@ func (c *cmdCp) Execute(ctx clingy.Context) error {
 	if c.recursive {
 		return c.copyRecursive(ctx, fs)
 	}
-	return c.copyFile(ctx, fs, c.source, c.dest, true)
+	return c.copyFile(ctx, fs, c.source, c.dest, c.progress)
 }
 
 func (c *cmdCp) copyRecursive(ctx clingy.Context, fs ulfs.Filesystem) error {
@@ -99,7 +103,7 @@ func (c *cmdCp) copyFile(ctx clingy.Context, fs ulfs.Filesystem, source, dest ul
 	}
 
 	if !source.Std() && !dest.Std() {
-		fmt.Println(copyVerb(source, dest), source, "to", dest)
+		fmt.Fprintln(ctx.Stdout(), copyVerb(source, dest), source, "to", dest)
 	}
 
 	if c.dryrun {

@@ -4,6 +4,7 @@
 package ultest
 
 import (
+	"sort"
 	"strings"
 	"testing"
 
@@ -14,11 +15,11 @@ import (
 
 // Result captures all the output of running a command for inspection.
 type Result struct {
-	Stdout     string
-	Stderr     string
-	Ok         bool
-	Err        error
-	Operations []Operation
+	Stdout string
+	Stderr string
+	Ok     bool
+	Err    error
+	Files  []File
 }
 
 // RequireSuccess fails if the Result did not observe a successful execution.
@@ -32,20 +33,32 @@ func (r Result) RequireSuccess(t *testing.T) {
 }
 
 // RequireFailure fails if the Result did not observe a failed execution.
-func (r Result) RequireFailure(t *testing.T) {
+func (r Result) RequireFailure(t *testing.T) Result {
 	require.False(t, r.Ok && r.Err == nil, "command ran with no error")
+	return r
 }
 
 // RequireStdout requires that the execution wrote to stdout the provided string.
 // Blank lines are ignored and all lines are space trimmed for the comparison.
-func (r Result) RequireStdout(t *testing.T, stdout string) {
+func (r Result) RequireStdout(t *testing.T, stdout string) Result {
 	require.Equal(t, trimNewlineSpaces(stdout), trimNewlineSpaces(r.Stdout))
+	return r
 }
 
 // RequireStderr requires that the execution wrote to stderr the provided string.
 // Blank lines are ignored and all lines are space trimmed for the comparison.
-func (r Result) RequireStderr(t *testing.T, stderr string) {
+func (r Result) RequireStderr(t *testing.T, stderr string) Result {
 	require.Equal(t, trimNewlineSpaces(stderr), trimNewlineSpaces(r.Stderr))
+	return r
+}
+
+// RequireFiles requires that the set of files provided are all of the files that
+// existed at the end of the execution.
+func (r Result) RequireFiles(t *testing.T, files ...File) Result {
+	files = append([]File(nil), files...)
+	sort.Slice(files, func(i, j int) bool { return files[i].less(files[j]) })
+	require.Equal(t, files, r.Files)
+	return r
 }
 
 func parseErrors(s string) []string {
@@ -74,18 +87,14 @@ func trimNewlineSpaces(s string) string {
 	return strings.Join(lines[:j], "\n")
 }
 
-// Operation represents some kind of filesystem operation that happened
-// on some location, and if the operation failed.
-type Operation struct {
-	Kind  string
-	Loc   string
-	Error bool
+// File represents a file existing either locally or remotely.
+type File struct {
+	Loc      string
+	Contents string
 }
 
-func newOp(kind string, loc ulloc.Location, err error) Operation {
-	return Operation{
-		Kind:  kind,
-		Loc:   loc.String(),
-		Error: err != nil,
-	}
+func (f File) less(g File) bool {
+	fl, _ := ulloc.Parse(f.Loc)
+	gl, _ := ulloc.Parse(g.Loc)
+	return fl.Less(gl)
 }
