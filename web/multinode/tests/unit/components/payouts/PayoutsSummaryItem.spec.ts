@@ -3,7 +3,7 @@
 
 import Vuex from 'vuex';
 
-import PayoutsSummaryItem from '@/app/components/payouts/tables/PayoutsSummaryItem.vue';
+import PayoutsSummaryItem from '@/app/components/payouts/tables/payoutSummary/PayoutsSummaryItem.vue';
 
 import { Currency } from '@/app/utils/currency';
 import { NodePayoutsSummary } from '@/payouts';

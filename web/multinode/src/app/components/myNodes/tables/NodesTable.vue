@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 <template>
-    <table class="nodes-table" v-if="nodes.length" border="0" cellpadding="0" cellspacing="0">
-        <thead>
+    <base-table v-if="nodes.length">
+        <thead slot="head">
             <tr>
                 <th class="align-left">NODE</th>
                 <template v-if="isSatelliteSelected">
@@ -22,21 +22,23 @@
                 <th></th>
             </tr>
         </thead>
-        <tbody>
+        <tbody slot="body">
             <node-item v-for="node in nodes" :key="node.id" :node="node" />
         </tbody>
-    </table>
+    </base-table>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import BaseTable from '@/app/components/common/BaseTable.vue';
 import NodeItem from '@/app/components/myNodes/tables/NodeItem.vue';
 
 import { Node } from '@/nodes';
 
 @Component({
     components: {
+        BaseTable,
         NodeItem,
     },
 })
@@ -50,37 +52,3 @@ export default class NodesTable extends Vue {
     }
 }
 </script>
-
-<style scoped lang="scss">
-    .nodes-table {
-        width: 100%;
-        border: 1px solid var(--c-gray--light);
-        border-radius: var(--br-table);
-        font-family: 'font_semiBold', sans-serif;
-
-        th {
-            box-sizing: border-box;
-            padding: 0 20px;
-            max-width: 250px;
-            overflow: hidden;
-            white-space: nowrap;
-            text-overflow: ellipsis;
-        }
-
-        thead {
-            background: var(--c-block-gray);
-
-            tr {
-                height: 40px;
-                font-size: 12px;
-                color: var(--c-gray);
-                border-radius: var(--br-table);
-                text-align: right;
-            }
-        }
-
-        .align-left {
-            text-align: left;
-        }
-    }
-</style>

@@ -3,7 +3,7 @@
 
 import Vuex from 'vuex';
 
-import PayoutsSummaryTable from '@/app/components/payouts/tables/PayoutsSummaryTable.vue';
+import PayoutsSummaryTable from '@/app/components/payouts/tables/payoutSummary/PayoutsSummaryTable.vue';
 
 import { NodePayoutsSummary } from '@/payouts';
 import { createLocalVue, shallowMount } from '@vue/test-utils';

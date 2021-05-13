@@ -37,7 +37,7 @@ import NodesTable from '@/app/components/myNodes/tables/NodesTable.vue';
 import DetailsArea from '@/app/components/payouts/DetailsArea.vue';
 import PayoutHistoryBlock from '@/app/components/payouts/PayoutHistoryBlock.vue';
 import PayoutPeriodCalendarButton from '@/app/components/payouts/PayoutPeriodCalendarButton.vue';
-import PayoutsSummaryTable from '@/app/components/payouts/tables/PayoutsSummaryTable.vue';
+import PayoutsSummaryTable from '@/app/components/payouts/tables/payoutSummary/PayoutsSummaryTable.vue';
 
 import { UnauthorizedError } from '@/api';
 import { PayoutsSummary } from '@/payouts';
@@ -85,8 +85,8 @@ export default class PayoutsPage extends Vue {
     .payouts {
         box-sizing: border-box;
         padding: 60px;
-        height: 100%;
         overflow-y: auto;
+        height: calc(100vh - 60px);
 
         &__title {
             font-family: 'font_bold', sans-serif;

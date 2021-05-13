@@ -17,6 +17,14 @@ export class NodePayoutsSummary {
         public held: number = 0,
         public paid: number = 0,
     ) {}
+
+    /**
+     * Returns node name for displaying.
+     * If no provided returns id.
+     */
+    public get title(): string {
+        return this.nodeName || this.nodeId;
+    }
 }
 
 /**
