@@ -16,7 +16,6 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metainfo"
 )
 
 // Config defines configuration for migration.
@@ -84,7 +83,7 @@ func Migrate(ctx context.Context, log *zap.Logger, metabaseDBStr string, config 
 	}
 	defer func() { err = errs.Combine(err, rawMetabaseDB.Close(ctx)) }()
 
-	metabaseDB, err := metainfo.OpenMetabase(ctx, log.Named("metabase"), metabaseDBStr)
+	metabaseDB, err := metabase.Open(ctx, log.Named("metabase"), metabaseDBStr)
 	if err != nil {
 		return errs.New("unable to connect %q: %w", metabaseDBStr, err)
 	}

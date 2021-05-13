@@ -20,7 +20,6 @@ import (
 	"storj.io/private/dbutil/tempdb"
 	migrator "storj.io/storj/cmd/metabase-createdat-migration"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -39,11 +38,11 @@ var defaultTestEncryption = storj.EncryptionParameters{
 }
 
 func TestMigrator_NoSegments(t *testing.T) {
-	prepare := func(t *testing.T, ctx context.Context, rawDB *dbutil.TempDatabase, metabaseDB metainfo.MetabaseDB) {
+	prepare := func(t *testing.T, ctx context.Context, rawDB *dbutil.TempDatabase, metabaseDB *metabase.DB) {
 		createObject(ctx, t, metabaseDB, 0)
 	}
 
-	check := func(t *testing.T, ctx context.Context, metabaseDB metainfo.MetabaseDB) {
+	check := func(t *testing.T, ctx context.Context, metabaseDB *metabase.DB) {
 		segments, err := metabaseDB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Len(t, segments, 0)
@@ -53,7 +52,7 @@ func TestMigrator_NoSegments(t *testing.T) {
 
 func TestMigrator_SingleSegment(t *testing.T) {
 	var expectedCreatedAt time.Time
-	prepare := func(t *testing.T, ctx context.Context, rawDB *dbutil.TempDatabase, metabaseDB metainfo.MetabaseDB) {
+	prepare := func(t *testing.T, ctx context.Context, rawDB *dbutil.TempDatabase, metabaseDB *metabase.DB) {
 		commitedObject := createObject(ctx, t, metabaseDB, 1)
 		expectedCreatedAt = commitedObject.CreatedAt
 
@@ -71,7 +70,7 @@ func TestMigrator_SingleSegment(t *testing.T) {
 		require.Nil(t, segments[0].CreatedAt)
 	}
 
-	check := func(t *testing.T, ctx context.Context, metabaseDB metainfo.MetabaseDB) {
+	check := func(t *testing.T, ctx context.Context, metabaseDB *metabase.DB) {
 		segments, err := metabaseDB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Len(t, segments, 1)
@@ -85,7 +84,7 @@ func TestMigrator_ManySegments(t *testing.T) {
 	numberOfObjects := 100
 	expectedCreatedAt := map[uuid.UUID]time.Time{}
 
-	prepare := func(t *testing.T, ctx context.Context, rawDB *dbutil.TempDatabase, metabaseDB metainfo.MetabaseDB) {
+	prepare := func(t *testing.T, ctx context.Context, rawDB *dbutil.TempDatabase, metabaseDB *metabase.DB) {
 		for i := 0; i < numberOfObjects; i++ {
 			commitedObject := createObject(ctx, t, metabaseDB, 1)
 			expectedCreatedAt[commitedObject.StreamID] = commitedObject.CreatedAt
@@ -109,7 +108,7 @@ func TestMigrator_ManySegments(t *testing.T) {
 		}
 	}
 
-	check := func(t *testing.T, ctx context.Context, metabaseDB metainfo.MetabaseDB) {
+	check := func(t *testing.T, ctx context.Context, metabaseDB *metabase.DB) {
 		segments, err := metabaseDB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Len(t, segments, numberOfObjects)
@@ -126,7 +125,7 @@ func TestMigrator_ManySegments(t *testing.T) {
 func TestMigrator_SegmentsWithAndWithoutCreatedAt(t *testing.T) {
 	var expectedCreatedAt time.Time
 	var segmentsBefore []metabase.Segment
-	prepare := func(t *testing.T, ctx context.Context, rawDB *dbutil.TempDatabase, metabaseDB metainfo.MetabaseDB) {
+	prepare := func(t *testing.T, ctx context.Context, rawDB *dbutil.TempDatabase, metabaseDB *metabase.DB) {
 		commitedObject := createObject(ctx, t, metabaseDB, 10)
 		expectedCreatedAt = commitedObject.CreatedAt
 
@@ -153,7 +152,7 @@ func TestMigrator_SegmentsWithAndWithoutCreatedAt(t *testing.T) {
 		}
 	}
 
-	check := func(t *testing.T, ctx context.Context, metabaseDB metainfo.MetabaseDB) {
+	check := func(t *testing.T, ctx context.Context, metabaseDB *metabase.DB) {
 		segments, err := metabaseDB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Len(t, segments, 10)
@@ -170,8 +169,8 @@ func TestMigrator_SegmentsWithAndWithoutCreatedAt(t *testing.T) {
 	test(t, prepare, check)
 }
 
-func test(t *testing.T, prepare func(t *testing.T, ctx context.Context, rawDB *dbutil.TempDatabase, metabaseDB metainfo.MetabaseDB),
-	check func(t *testing.T, ctx context.Context, metabaseDB metainfo.MetabaseDB)) {
+func test(t *testing.T, prepare func(t *testing.T, ctx context.Context, rawDB *dbutil.TempDatabase, metabaseDB *metabase.DB),
+	check func(t *testing.T, ctx context.Context, metabaseDB *metabase.DB)) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
@@ -218,7 +217,7 @@ func randObjectStream() metabase.ObjectStream {
 	}
 }
 
-func createObject(ctx context.Context, t *testing.T, metabaseDB metainfo.MetabaseDB, numberOfSegments int) metabase.Object {
+func createObject(ctx context.Context, t *testing.T, metabaseDB *metabase.DB, numberOfSegments int) metabase.Object {
 	object, err := metabaseDB.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
 		ObjectStream: randObjectStream(),
 	})

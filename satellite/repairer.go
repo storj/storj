@@ -23,6 +23,7 @@ import (
 	"storj.io/private/version"
 	"storj.io/storj/private/lifecycle"
 	version_checker "storj.io/storj/private/version/checker"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
@@ -66,7 +67,7 @@ type Repairer struct {
 
 // NewRepairer creates a new repairer peer.
 func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
-	metabaseDB metainfo.MetabaseDB,
+	metabaseDB *metabase.DB,
 	revocationDB extensions.RevocationDB, repairQueue queue.RepairQueue,
 	bucketsDB metainfo.BucketsDB, overlayCache overlay.DB,
 	rollupsWriteCache *orders.RollupsWriteCache, irrDB irreparable.DB,

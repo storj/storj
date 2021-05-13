@@ -41,6 +41,7 @@ import (
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/simulate"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/nodestats"
@@ -97,7 +98,7 @@ type API struct {
 	}
 
 	Metainfo struct {
-		Metabase      metainfo.MetabaseDB
+		Metabase      *metabase.DB
 		Service       *metainfo.Service
 		PieceDeletion *piecedeletion.Service
 		Endpoint2     *metainfo.Endpoint
@@ -165,7 +166,7 @@ type API struct {
 
 // NewAPI creates a new satellite API process.
 func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
-	metabaseDB metainfo.MetabaseDB, revocationDB extensions.RevocationDB,
+	metabaseDB *metabase.DB, revocationDB extensions.RevocationDB,
 	liveAccounting accounting.Cache, rollupsWriteCache *orders.RollupsWriteCache,
 	config *Config, versionInfo version.Info, atomicLogLevel *zap.AtomicLevel) (*API, error) {
 	peer := &API{

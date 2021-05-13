@@ -22,7 +22,7 @@ import (
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/dbutil/tempdb"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -130,19 +130,8 @@ func CreateMasterDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.
 	return &tempMasterDB{DB: masterDB, tempDB: tempDB}, err
 }
 
-// tempMetabaseDB is a metabase.DB-implementing type that cleans up after itself when closed.
-type tempMetabaseDB struct {
-	metainfo.MetabaseDB
-	tempDB *dbutil.TempDatabase
-}
-
-// Close closes a tempMetabaseDB and cleans it up afterward.
-func (db *tempMetabaseDB) Close() error {
-	return errs.Combine(db.MetabaseDB.Close(), db.tempDB.Close())
-}
-
 // CreateMetabaseDB creates a new satellite metabase for testing.
-func CreateMetabaseDB(ctx context.Context, log *zap.Logger, name string, category string, index int, dbInfo Database) (db metainfo.MetabaseDB, err error) {
+func CreateMetabaseDB(ctx context.Context, log *zap.Logger, name string, category string, index int, dbInfo Database) (db *metabase.DB, err error) {
 	if dbInfo.URL == "" {
 		return nil, fmt.Errorf("Database %s connection string not provided. %s", dbInfo.Name, dbInfo.Message)
 	}
@@ -162,12 +151,13 @@ func CreateMetabaseDB(ctx context.Context, log *zap.Logger, name string, categor
 
 // CreateMetabaseDBOnTopOf creates a new metabase on top of an already existing
 // temporary database.
-func CreateMetabaseDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase) (db metainfo.MetabaseDB, err error) {
-	metabaseDB, err := metainfo.OpenMetabase(ctx, log.Named("metabase"), tempDB.ConnStr)
+func CreateMetabaseDBOnTopOf(ctx context.Context, log *zap.Logger, tempDB *dbutil.TempDatabase) (*metabase.DB, error) {
+	db, err := metabase.Open(ctx, log.Named("metabase"), tempDB.ConnStr)
 	if err != nil {
 		return nil, err
 	}
-	return &tempMetabaseDB{MetabaseDB: metabaseDB, tempDB: tempDB}, err
+	db.TestingSetCleanup(tempDB.Close)
+	return db, nil
 }
 
 // Run method will iterate over all supported databases. Will establish

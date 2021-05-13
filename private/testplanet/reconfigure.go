@@ -12,7 +12,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/versioncontrol"
 )
@@ -20,7 +20,7 @@ import (
 // Reconfigure allows to change node configurations.
 type Reconfigure struct {
 	SatelliteDB         func(log *zap.Logger, index int, db satellite.DB) (satellite.DB, error)
-	SatelliteMetabaseDB func(log *zap.Logger, index int, db metainfo.MetabaseDB) (metainfo.MetabaseDB, error)
+	SatelliteMetabaseDB func(log *zap.Logger, index int, db *metabase.DB) (*metabase.DB, error)
 	Satellite           func(log *zap.Logger, index int, config *satellite.Config)
 
 	StorageNodeDB func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error)

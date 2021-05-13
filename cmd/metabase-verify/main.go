@@ -12,7 +12,7 @@ import (
 
 	"storj.io/private/process"
 	"storj.io/storj/cmd/metabase-verify/verify"
-	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metabase"
 )
 
 // Error is the default error class for the package.
@@ -59,7 +59,7 @@ func VerifyCommand(log *zap.Logger) *cobra.Command {
 		ctx, cancel := process.Ctx(cmd)
 		defer cancel()
 
-		mdb, err := metainfo.OpenMetabase(ctx, log.Named("mdb"), metabaseDB)
+		mdb, err := metabase.Open(ctx, log.Named("mdb"), metabaseDB)
 		if err != nil {
 			return Error.Wrap(err)
 		}

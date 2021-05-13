@@ -18,8 +18,8 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/memory"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metaloop"
-	"storj.io/storj/satellite/metainfo"
 )
 
 var mon = monkit.Package()
@@ -82,7 +82,7 @@ func (bench *Bench) Run(ctx context.Context, log *zap.Logger) (err error) {
 
 	// setup databases
 
-	mdb, err := metainfo.OpenMetabase(ctx, log.Named("mdb"), bench.MetabaseDB)
+	mdb, err := metabase.Open(ctx, log.Named("mdb"), bench.MetabaseDB)
 	if err != nil {
 		return Error.Wrap(err)
 	}

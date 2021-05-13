@@ -34,23 +34,42 @@ type DB struct {
 	impl    dbutil.Implementation
 
 	aliasCache *NodeAliasCache
+
+	testCleanup func() error
 }
 
 // Open opens a connection to metabase.
-func Open(ctx context.Context, log *zap.Logger, driverName, connstr string) (*DB, error) {
+func Open(ctx context.Context, log *zap.Logger, connstr string) (*DB, error) {
+	var driverName string
+	_, _, impl, err := dbutil.SplitConnStr(connstr)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	switch impl {
+	case dbutil.Postgres:
+		driverName = "pgx"
+	case dbutil.Cockroach:
+		driverName = "cockroach"
+	default:
+		return nil, Error.New("unsupported implementation: %s", connstr)
+	}
+
 	rawdb, err := tagsql.Open(ctx, driverName, connstr)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 	dbutil.Configure(ctx, rawdb, "metabase", mon)
 
-	db := &DB{log: log, connstr: connstr, db: postgresRebind{rawdb}}
+	db := &DB{
+		log:         log,
+		db:          postgresRebind{rawdb},
+		connstr:     connstr,
+		impl:        impl,
+		testCleanup: func() error { return nil },
+	}
 	db.aliasCache = NewNodeAliasCache(db)
 
-	_, _, db.impl, err = dbutil.SplitConnStr(connstr)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
+	log.Debug("Connected", zap.String("db source", connstr))
 
 	return db, nil
 }
@@ -68,9 +87,14 @@ func (db *DB) Ping(ctx context.Context) error {
 	return Error.Wrap(db.db.PingContext(ctx))
 }
 
+// TestingSetCleanup is used to set the callback for cleaning up test database.
+func (db *DB) TestingSetCleanup(cleanup func() error) {
+	db.testCleanup = cleanup
+}
+
 // Close closes the connection to database.
 func (db *DB) Close() error {
-	return Error.Wrap(db.db.Close())
+	return errs.Combine(Error.Wrap(db.db.Close()), db.testCleanup())
 }
 
 // DestroyTables deletes all tables.

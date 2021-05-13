@@ -24,7 +24,6 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/uplink/private/piecestore"
@@ -54,7 +53,7 @@ type Share struct {
 // architecture: Worker
 type Verifier struct {
 	log                *zap.Logger
-	metabase           metainfo.MetabaseDB
+	metabase           *metabase.DB
 	orders             *orders.Service
 	auditor            *identity.PeerIdentity
 	dialer             rpc.Dialer
@@ -68,7 +67,7 @@ type Verifier struct {
 }
 
 // NewVerifier creates a Verifier.
-func NewVerifier(log *zap.Logger, metabase metainfo.MetabaseDB, dialer rpc.Dialer, overlay *overlay.Service, containment Containment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size, minDownloadTimeout time.Duration) *Verifier {
+func NewVerifier(log *zap.Logger, metabase *metabase.DB, dialer rpc.Dialer, overlay *overlay.Service, containment Containment, orders *orders.Service, id *identity.FullIdentity, minBytesPerSecond memory.Size, minDownloadTimeout time.Duration) *Verifier {
 	return &Verifier{
 		log:                log,
 		metabase:           metabase,

@@ -33,6 +33,7 @@ import (
 	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metaloop"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
@@ -81,7 +82,7 @@ type Core struct {
 	}
 
 	Metainfo struct {
-		Metabase metainfo.MetabaseDB
+		Metabase *metabase.DB
 		Service  *metainfo.Service
 		Loop     *metaloop.Service
 	}
@@ -139,7 +140,7 @@ type Core struct {
 
 // New creates a new satellite.
 func New(log *zap.Logger, full *identity.FullIdentity, db DB,
-	metabaseDB metainfo.MetabaseDB, revocationDB extensions.RevocationDB,
+	metabaseDB *metabase.DB, revocationDB extensions.RevocationDB,
 	liveAccounting accounting.Cache, rollupsWriteCache *orders.RollupsWriteCache,
 	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*Core, error) {
 	peer := &Core{

@@ -18,7 +18,6 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
@@ -52,7 +51,7 @@ func (ie *irreparableError) Error() string {
 type SegmentRepairer struct {
 	log            *zap.Logger
 	statsCollector *statsCollector
-	metabase       metainfo.MetabaseDB
+	metabase       *metabase.DB
 	orders         *orders.Service
 	overlay        *overlay.Service
 	ec             *ECRepairer
@@ -75,7 +74,7 @@ type SegmentRepairer struct {
 // threshould to determine the maximum limit of nodes to upload repaired pieces,
 // when negative, 0 is applied.
 func NewSegmentRepairer(
-	log *zap.Logger, metabase metainfo.MetabaseDB, orders *orders.Service,
+	log *zap.Logger, metabase *metabase.DB, orders *orders.Service,
 	overlay *overlay.Service, dialer rpc.Dialer, timeout time.Duration,
 	excessOptimalThreshold float64, repairOverrides checker.RepairOverrides,
 	downloadTimeout time.Duration, inMemoryRepair bool,

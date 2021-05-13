@@ -19,7 +19,6 @@ import (
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metaloop"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair"
 	"storj.io/storj/satellite/repair/irreparable"
@@ -39,7 +38,7 @@ type Checker struct {
 	logger          *zap.Logger
 	repairQueue     queue.RepairQueue
 	irrdb           irreparable.DB
-	metabase        metainfo.MetabaseDB
+	metabase        *metabase.DB
 	metaLoop        *metaloop.Service
 	nodestate       *ReliabilityCache
 	statsCollector  *statsCollector
@@ -50,7 +49,7 @@ type Checker struct {
 }
 
 // NewChecker creates a new instance of checker.
-func NewChecker(logger *zap.Logger, repairQueue queue.RepairQueue, irrdb irreparable.DB, metabase metainfo.MetabaseDB, metaLoop *metaloop.Service, overlay *overlay.Service, config Config) *Checker {
+func NewChecker(logger *zap.Logger, repairQueue queue.RepairQueue, irrdb irreparable.DB, metabase *metabase.DB, metaLoop *metaloop.Service, overlay *overlay.Service, config Config) *Checker {
 	return &Checker{
 		logger: logger,
 
