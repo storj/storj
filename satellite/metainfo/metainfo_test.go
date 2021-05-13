@@ -895,7 +895,7 @@ func TestRemoteSegment(t *testing.T) {
 		uplink := planet.Uplinks[0]
 
 		expectedBucketName := "remote-segments-bucket"
-		err := uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "file-object", testrand.Bytes(10*memory.KiB))
+		err := uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "file-object", testrand.Bytes(50*memory.KiB))
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -926,6 +926,36 @@ func TestRemoteSegment(t *testing.T) {
 			})
 			require.NoError(t, err)
 			require.NotEmpty(t, limits)
+		}
+
+		{
+			// Download Object
+			download, err := metainfoClient.DownloadObject(ctx, metaclient.DownloadObjectParams{
+				Bucket:             []byte(expectedBucketName),
+				EncryptedObjectKey: items[0].EncryptedPath,
+				Range: metaclient.StreamRange{
+					Mode:  metaclient.StreamRangeStartLimit,
+					Start: 1,
+					Limit: 2,
+				},
+			})
+			require.NoError(t, err)
+			require.Len(t, download.DownloadedSegments, 1)
+			require.NotEmpty(t, download.DownloadedSegments[0].Limits)
+			for _, limit := range download.DownloadedSegments[0].Limits {
+				if limit == nil {
+					continue
+				}
+				// requested download size is
+				//      [1:2}
+				// calculating encryption input block size (7408) indices gives us:
+				//      0 and 1
+				// converting these into output block size (7424), gives us:
+				//      [0:7424}
+				// this aligned to stripe size (256), gives us:
+				//      [0:7424}
+				require.Equal(t, int64(7424), limit.Limit.Limit)
+			}
 		}
 
 		{

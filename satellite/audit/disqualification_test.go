@@ -133,7 +133,7 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 		err = satellitePeer.DB.OverlayCache().DisqualifyNode(ctx, disqualifiedNode)
 		require.NoError(t, err)
 
-		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucket, segment)
+		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucket, segment, 0)
 		require.NoError(t, err)
 		assert.Len(t, limits, len(segment.Pieces)-1)
 

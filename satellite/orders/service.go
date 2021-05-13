@@ -125,14 +125,17 @@ func (service *Service) updateBandwidth(ctx context.Context, bucket metabase.Buc
 }
 
 // CreateGetOrderLimits creates the order limits for downloading the pieces of a segment.
-func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment) (_ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
+func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment, overrideLimit int64) (_ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
-	pieceSize := eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy)
+	orderLimit := eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy)
+	if overrideLimit > 0 && overrideLimit < orderLimit {
+		orderLimit = overrideLimit
+	}
 
 	nodeIDs := make([]storj.NodeID, len(segment.Pieces))
 	for i, piece := range segment.Pieces {
@@ -145,7 +148,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabas
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	signer, err := NewSignerGet(service, segment.RootPieceID, time.Now(), pieceSize, bucket)
+	signer, err := NewSignerGet(service, segment.RootPieceID, time.Now(), orderLimit, bucket)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
