@@ -56,6 +56,7 @@ const (
 	gatewayPeer         = 1
 	versioncontrolPeer  = 2
 	storagenodePeer     = 3
+	multinodePeer       = 5
 
 	// Endpoints.
 	publicRPC  = 0
@@ -618,6 +619,26 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		process.ExecBefore["run"] = func(process *Process) error {
 			return readConfigString(&process.Address, process.Directory, "server.address")
 		}
+	}
+
+	{ // setup multinode
+		process := processes.New(Info{
+			Name:       fmt.Sprintf("multinode/%d", 0),
+			Executable: "multinode",
+			Directory:  filepath.Join(processes.Directory, "multinode", fmt.Sprint(0)),
+		})
+
+		process.Arguments = withCommon(process.Directory, Arguments{
+			"setup": {
+				"--identity-dir", process.Directory,
+				"--console.address", net.JoinHostPort(host, port(multinodePeer, 0, publicHTTP)),
+				"--console.static-dir", filepath.Join(storjRoot, "web/multinode/"),
+				"--debug.addr", net.JoinHostPort(host, port(multinodePeer, 0, debugHTTP)),
+			},
+			"run": {},
+		})
+
+		process.AddExtra("SETUP_ARGS", strings.Join(process.Arguments["setup"], " "))
 	}
 
 	{ // verify that we have all binaries

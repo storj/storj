@@ -146,5 +146,5 @@ func (server *Server) initializeTemplates() (err error) {
 		server.log.Error("dist folder is not generated. use 'npm run build' command", zap.Error(err))
 	}
 
-	return err
+	return nil
 }

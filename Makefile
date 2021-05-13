@@ -88,7 +88,8 @@ install-sim: ## install storj-sim
 		storj.io/storj/cmd/versioncontrol \
 		storj.io/storj/cmd/uplink \
 		storj.io/storj/cmd/identity \
-		storj.io/storj/cmd/certificates
+		storj.io/storj/cmd/certificates \
+		storj.io/storj/cmd/multinode
 
 	## install exact version of storj/gateway
 	## TODO replace 'main' with 'latest' when gateway with multipart will be released
