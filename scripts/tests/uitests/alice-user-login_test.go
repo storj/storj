@@ -4,6 +4,9 @@
 package uitests
 
 import (
+	"fmt"
+	"github.com/go-rod/rod/lib/utils"
+	"go.uber.org/zap/zaptest"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +18,10 @@ import (
 )
 
 func TestAliceLoginToAccount(t *testing.T) {
+	log := zaptest.NewLogger(t)
+	logFunc := utils.Log(func(msg ...interface{}) {
+		log.Info(fmt.Sprintln(msg...))
+	})
 	loginPageUrl := "http://127.0.0.1:10002/login"
 	aliceEmail := "alice@mail.test"
 	alicePassword := "123a123"
@@ -29,6 +36,7 @@ func TestAliceLoginToAccount(t *testing.T) {
 		ControlURL(url).
 		Trace(true).
 		SlowMotion(300 * time.Millisecond).
+		Logger(logFunc).
 		MustConnect()
 	defer browser.MustClose()
 	page := browser.Timeout(25 * time.Second).MustPage(loginPageUrl)
