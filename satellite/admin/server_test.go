@@ -30,7 +30,10 @@ func TestBasic(t *testing.T) {
 		address := sat.Admin.Admin.Listener.Addr()
 
 		t.Run("NoAccess", func(t *testing.T) {
-			response, err := http.Get("http://" + address.String())
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+address.String(), nil)
+			require.NoError(t, err)
+
+			response, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)
 
 			require.Equal(t, http.StatusForbidden, response.StatusCode)
@@ -38,7 +41,7 @@ func TestBasic(t *testing.T) {
 		})
 
 		t.Run("WrongAccess", func(t *testing.T) {
-			req, err := http.NewRequest(http.MethodGet, "http://"+address.String(), nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+address.String(), nil)
 			require.NoError(t, err)
 			req.Header.Set("Authorization", "wrong-key")
 
@@ -50,7 +53,7 @@ func TestBasic(t *testing.T) {
 		})
 
 		t.Run("WithAccess", func(t *testing.T) {
-			req, err := http.NewRequest(http.MethodGet, "http://"+address.String(), nil)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+address.String(), nil)
 			require.NoError(t, err)
 			req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 

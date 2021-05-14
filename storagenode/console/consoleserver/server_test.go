@@ -24,27 +24,28 @@ func TestConsole(t *testing.T) {
 			satellite := planet.Satellites[0]
 			console := planet.StorageNodes[0].Console
 
-			t.Run("test endpoints", func(t *testing.T) {
-				addr := console.Listener.Addr()
+			addr := console.Listener.Addr()
 
-				req, err := http.Get(fmt.Sprintf("http://%s/api/sno", addr))
-				require.NoError(t, err)
-				require.NotNil(t, req)
-				_ = req.Body.Close()
-				require.Equal(t, http.StatusOK, req.StatusCode)
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://%s/api/sno", addr), nil)
+			require.NoError(t, err)
+			res, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			_ = res.Body.Close()
+			require.Equal(t, http.StatusOK, res.StatusCode)
 
-				req, err = http.Get(fmt.Sprintf("http://%s/api/sno/satellites", addr))
-				require.NoError(t, err)
-				require.NotNil(t, req)
-				_ = req.Body.Close()
-				require.Equal(t, http.StatusOK, req.StatusCode)
+			req, err = http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://%s/api/sno/satellites", addr), nil)
+			require.NoError(t, err)
+			res, err = http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			_ = res.Body.Close()
+			require.Equal(t, http.StatusOK, res.StatusCode)
 
-				req, err = http.Get(fmt.Sprintf("http://%s/api/sno/satellite/%s", addr, satellite.ID()))
-				require.NoError(t, err)
-				require.NotNil(t, req)
-				_ = req.Body.Close()
-				require.Equal(t, http.StatusOK, req.StatusCode)
-			})
+			req, err = http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://%s/api/sno/satellite/%s", addr, satellite.ID()), nil)
+			require.NoError(t, err)
+			res, err = http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			_ = res.Body.Close()
+			require.Equal(t, http.StatusOK, res.StatusCode)
 		},
 	)
 }

@@ -247,7 +247,7 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	{ // setup standard output with logging into file
 		outfile, err1 := os.OpenFile(filepath.Join(process.Directory, "stdout.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err1 != nil {
-			return fmt.Errorf("open stdout: %v", err1)
+			return fmt.Errorf("open stdout: %w", err1)
 		}
 		defer func() { err = errs.Combine(err, outfile.Close()) }()
 
@@ -257,7 +257,7 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 	{ // setup standard error with logging into file
 		errfile, err2 := os.OpenFile(filepath.Join(process.Directory, "stderr.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err2 != nil {
-			return fmt.Errorf("open stderr: %v", err2)
+			return fmt.Errorf("open stderr: %w", err2)
 		}
 		defer func() {
 			err = errs.Combine(err, errfile.Close())

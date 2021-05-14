@@ -199,7 +199,9 @@ func TestPeerEndpoint(t *testing.T) {
 			query, url := query, url
 
 			t.Run(query, func(t *testing.T) {
-				resp, err := http.Get(baseURL + "/" + query)
+				req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/"+query, nil)
+				require.NoError(t, err)
+				resp, err := http.DefaultClient.Do(req)
 				require.NoError(t, err)
 				require.Equal(t, http.StatusOK, resp.StatusCode)
 

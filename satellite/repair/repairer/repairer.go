@@ -5,6 +5,7 @@ package repairer
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -162,7 +163,8 @@ func (service *Service) worker(ctx context.Context, seg *internalpb.InjuredSegme
 	// note that shouldDelete is used even in the case where err is not null
 	shouldDelete, err := service.repairer.Repair(ctx, string(seg.GetPath()))
 	if shouldDelete {
-		if irreparableErr, ok := err.(*irreparableError); ok {
+		var irreparableErr *irreparableError
+		if errors.As(err, &irreparableErr) {
 			service.log.Error("segment could not be repaired! adding to irreparableDB for more attention",
 				zap.Error(err))
 			segmentInfo := &internalpb.IrreparableSegment{

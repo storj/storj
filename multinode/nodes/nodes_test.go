@@ -54,7 +54,7 @@ func TestNodesDB(t *testing.T) {
 		assert.Error(t, err)
 		assert.True(t, nodes.ErrNoNode.Has(err))
 
-		node, err = nodesRepository.Get(ctx, nodeID)
+		_, err = nodesRepository.Get(ctx, nodeID)
 		assert.Error(t, err)
 		assert.True(t, nodes.ErrNoNode.Has(err))
 	})

@@ -67,7 +67,7 @@ func downloadBinary(ctx context.Context, url, target string) error {
 }
 
 func downloadArchive(ctx context.Context, file io.Writer, url string) (err error) {
-	resp, err := http.Get(url)
+	resp, err := httpGet(ctx, url)
 	if err != nil {
 		return err
 	}
@@ -111,4 +111,12 @@ func unpackBinary(ctx context.Context, archive, target string) (err error) {
 		return errs.Combine(err, os.Remove(newExec.Name()))
 	}
 	return nil
+}
+
+func httpGet(ctx context.Context, url string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	return http.DefaultClient.Do(req)
 }

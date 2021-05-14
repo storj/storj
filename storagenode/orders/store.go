@@ -193,7 +193,7 @@ func (store *FileStore) ListUnsentBySatellite(ctx context.Context, now time.Time
 	err = filepath.Walk(store.unsentDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			errList = errs.Combine(errList, OrderError.Wrap(err))
-			return nil
+			return nil //nolint: nilerr // errors are collected separately
 		}
 		if info.IsDir() {
 			return nil
@@ -201,7 +201,7 @@ func (store *FileStore) ListUnsentBySatellite(ctx context.Context, now time.Time
 		fileInfo, err := ordersfile.GetUnsentInfo(info)
 		if err != nil {
 			errList = errs.Combine(errList, OrderError.Wrap(err))
-			return nil
+			return nil //nolint: nilerr // errors are collected separately
 		}
 
 		// if we already have orders for this satellite, ignore the file
@@ -296,7 +296,7 @@ func (store *FileStore) ListArchived() ([]*ArchivedInfo, error) {
 	err := filepath.Walk(store.archiveDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			errList = errs.Combine(errList, OrderError.Wrap(err))
-			return nil
+			return nil //nolint: nilerr // errors are collected separately
 		}
 		if info.IsDir() {
 			return nil

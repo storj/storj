@@ -663,7 +663,7 @@ func TestMultipleStorageFormatVersions(t *testing.T) {
 
 	// write a V1 piece with the same ID as the V0 piece (to simulate it being rewritten as
 	// V1 during a migration)
-	differentData := append(data, 111, 104, 97, 105)
+	differentData := append(append([]byte{}, data...), 111, 104, 97, 105)
 	writeAPiece(ctx, t, store, satellite, v0PieceID, differentData, now, nil, filestore.FormatV1)
 
 	// if we try to access the piece at that key, we should see only the V1 piece
