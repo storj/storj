@@ -552,6 +552,13 @@ CREATE TABLE projects (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE project_bandwidth_daily_rollups (
+	project_id bytea NOT NULL,
+	interval_day date NOT NULL,
+	egress_allocated bigint NOT NULL,
+	egress_settled bigint NOT NULL,
+	PRIMARY KEY ( project_id, interval_day )
+);
 CREATE TABLE project_bandwidth_rollups (
 	project_id bytea NOT NULL,
 	interval_month date NOT NULL,
@@ -1106,6 +1113,13 @@ CREATE TABLE projects (
 	owner_id bytea NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
+);
+CREATE TABLE project_bandwidth_daily_rollups (
+	project_id bytea NOT NULL,
+	interval_day date NOT NULL,
+	egress_allocated bigint NOT NULL,
+	egress_settled bigint NOT NULL,
+	PRIMARY KEY ( project_id, interval_day )
 );
 CREATE TABLE project_bandwidth_rollups (
 	project_id bytea NOT NULL,
@@ -5519,6 +5533,97 @@ func (f Project_CreatedAt_Field) value() interface{} {
 }
 
 func (Project_CreatedAt_Field) _Column() string { return "created_at" }
+
+type ProjectBandwidthDailyRollup struct {
+	ProjectId       []byte
+	IntervalDay     time.Time
+	EgressAllocated uint64
+	EgressSettled   uint64
+}
+
+func (ProjectBandwidthDailyRollup) _Table() string { return "project_bandwidth_daily_rollups" }
+
+type ProjectBandwidthDailyRollup_Update_Fields struct {
+	EgressAllocated ProjectBandwidthDailyRollup_EgressAllocated_Field
+	EgressSettled   ProjectBandwidthDailyRollup_EgressSettled_Field
+}
+
+type ProjectBandwidthDailyRollup_ProjectId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func ProjectBandwidthDailyRollup_ProjectId(v []byte) ProjectBandwidthDailyRollup_ProjectId_Field {
+	return ProjectBandwidthDailyRollup_ProjectId_Field{_set: true, _value: v}
+}
+
+func (f ProjectBandwidthDailyRollup_ProjectId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectBandwidthDailyRollup_ProjectId_Field) _Column() string { return "project_id" }
+
+type ProjectBandwidthDailyRollup_IntervalDay_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func ProjectBandwidthDailyRollup_IntervalDay(v time.Time) ProjectBandwidthDailyRollup_IntervalDay_Field {
+	v = toDate(v)
+	return ProjectBandwidthDailyRollup_IntervalDay_Field{_set: true, _value: v}
+}
+
+func (f ProjectBandwidthDailyRollup_IntervalDay_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectBandwidthDailyRollup_IntervalDay_Field) _Column() string { return "interval_day" }
+
+type ProjectBandwidthDailyRollup_EgressAllocated_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func ProjectBandwidthDailyRollup_EgressAllocated(v uint64) ProjectBandwidthDailyRollup_EgressAllocated_Field {
+	return ProjectBandwidthDailyRollup_EgressAllocated_Field{_set: true, _value: v}
+}
+
+func (f ProjectBandwidthDailyRollup_EgressAllocated_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectBandwidthDailyRollup_EgressAllocated_Field) _Column() string { return "egress_allocated" }
+
+type ProjectBandwidthDailyRollup_EgressSettled_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func ProjectBandwidthDailyRollup_EgressSettled(v uint64) ProjectBandwidthDailyRollup_EgressSettled_Field {
+	return ProjectBandwidthDailyRollup_EgressSettled_Field{_set: true, _value: v}
+}
+
+func (f ProjectBandwidthDailyRollup_EgressSettled_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectBandwidthDailyRollup_EgressSettled_Field) _Column() string { return "egress_settled" }
 
 type ProjectBandwidthRollup struct {
 	ProjectId       []byte
@@ -14528,6 +14633,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_bandwidth_daily_rollups;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM projects;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -20026,6 +20141,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_bandwidth_rollups;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM project_bandwidth_daily_rollups;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
