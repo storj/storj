@@ -25,7 +25,7 @@ func (db *nodeAPIVersionDB) UpdateVersionAtLeast(ctx context.Context, id storj.N
 	err = db.db.ReplaceNoReturn_NodeApiVersion(ctx,
 		dbx.NodeApiVersion_Id(id.Bytes()),
 		dbx.NodeApiVersion_ApiVersion(int(version)))
-	if errs.IsFunc(err, dbx.IsConstraintError) {
+	if dbx.IsConstraintError(err) {
 		// if it's a constraint error, the row already exists, so try to update it
 		// if the existing value is smaller.
 		err = db.db.UpdateNoReturn_NodeApiVersion_By_Id_And_ApiVersion_Less(ctx,

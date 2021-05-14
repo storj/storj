@@ -801,7 +801,7 @@ func (service *Service) addFreeTierCoupons(ctx context.Context, end time.Time) e
 		return Error.Wrap(err)
 	}
 
-	userIDList := make([]uuid.UUID, service.listingLimit)
+	userIDList := make([]uuid.UUID, 0, service.listingLimit)
 	for _, cus := range cusPage.Customers {
 		if err = ctx.Err(); err != nil {
 			return Error.Wrap(err)
@@ -824,7 +824,7 @@ func (service *Service) addFreeTierCoupons(ctx context.Context, end time.Time) e
 			return Error.Wrap(err)
 		}
 
-		userIDList := make([]uuid.UUID, service.listingLimit)
+		userIDList := make([]uuid.UUID, 0, service.listingLimit)
 		for _, cus := range cusPage.Customers {
 			if err = ctx.Err(); err != nil {
 				return Error.Wrap(err)
@@ -985,14 +985,13 @@ func (service *Service) createInvoice(ctx context.Context, cusID string, period 
 	)
 
 	if err != nil {
-		if stripeErr, ok := err.(*stripe.Error); ok {
-			switch stripeErr.Code {
-			case stripe.ErrorCodeInvoiceNoCustomerLineItems:
+		var stripErr *stripe.Error
+		if errors.As(err, &stripErr) {
+			if stripErr.Code == stripe.ErrorCodeInvoiceNoCustomerLineItems {
 				return nil
-			default:
-				return err
 			}
 		}
+		return err
 	}
 
 	return nil

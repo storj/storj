@@ -509,7 +509,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				// try with 100ms delays until we hit 3s
 				apiKey, start := "", time.Now()
 				for apiKey == "" {
-					apiKey, err = newConsoleEndpoints(consoleAddress).createOrGetAPIKey()
+					apiKey, err = newConsoleEndpoints(consoleAddress).createOrGetAPIKey(context.Background())
 					if err != nil && time.Since(start) > 3*time.Second {
 						return err
 					}

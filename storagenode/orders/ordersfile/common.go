@@ -249,12 +249,10 @@ func getCreationHourString(t time.Time) string {
 	return timeStr
 }
 
-func getVersion(filename string) (trimmed string, version Version) {
+func getVersion(filename string) (trimmedPath string, version Version) {
 	ext := filepath.Ext(filename)
 	if ext == "."+string(V1) {
-		version = V1
-		trimmed = strings.TrimSuffix(filename, ext)
-		return trimmed, V1
+		return strings.TrimSuffix(filename, ext), V1
 	}
 	return filename, V0
 }

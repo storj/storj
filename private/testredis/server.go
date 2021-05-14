@@ -147,7 +147,7 @@ func Process(ctx context.Context) (Server, error) {
 	// test whether we can actually connect
 	if err := pingServer(ctx, addr); err != nil {
 		cleanup()
-		return nil, fmt.Errorf("unable to ping: %v", err)
+		return nil, fmt.Errorf("unable to ping: %w", err)
 	}
 
 	return &process{addr, cleanup}, nil

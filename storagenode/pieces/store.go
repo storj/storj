@@ -504,7 +504,7 @@ func (store *Store) WalkSatellitePieces(ctx context.Context, satellite storj.Nod
 			// this is not a real piece blob. the blob store can't distinguish between actual piece
 			// blobs and stray files whose names happen to decode as valid base32. skip this
 			// "blob".
-			return nil
+			return nil //nolint: nilerr // we ignore other files
 		}
 		return walkFunc(pieceAccess)
 	})

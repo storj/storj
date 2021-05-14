@@ -5,6 +5,7 @@ package cmd_test
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -107,7 +108,8 @@ func TestSetGetMeta(t *testing.T) {
 			output, err := cmd.Output()
 			t.Log(string(output))
 			if !assert.NoError(t, err) {
-				if ee, ok := err.(*exec.ExitError); ok {
+				var ee *exec.ExitError
+				if errors.As(err, &ee) {
 					t.Log(ee)
 					t.Log(string(ee.Stderr))
 				}
@@ -144,7 +146,8 @@ func TestSetGetMeta(t *testing.T) {
 				output, err := cmd.Output()
 				assert.NoError(t, err)
 				if err != nil {
-					if ee, ok := err.(*exec.ExitError); ok {
+					var ee *exec.ExitError
+					if errors.As(err, &ee) {
 						t.Log(ee)
 						t.Log(string(ee.Stderr))
 					}

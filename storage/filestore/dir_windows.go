@@ -63,7 +63,7 @@ func getDiskFreeSpace(path string) (int64, error) {
 func getVolumeSerialNumber(path string) (string, error) {
 	path16, err := windows.UTF16PtrFromString(path)
 	if err != nil {
-		return "", nil
+		return "", err
 	}
 
 	var volumePath [1024]uint16

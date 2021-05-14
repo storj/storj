@@ -730,10 +730,10 @@ func (server *Server) graphqlHandler(w http.ResponseWriter, r *http.Request) {
 	})
 
 	getGqlError := func(err gqlerrors.FormattedError) error {
-		if gerr, ok := err.OriginalError().(*gqlerrors.Error); ok {
+		var gerr *gqlerrors.Error
+		if errors.As(err.OriginalError(), &gerr) {
 			return gerr.OriginalError
 		}
-
 		return nil
 	}
 

@@ -316,7 +316,7 @@ func generateExitedNodes(t *testing.T, ctx *testcontext.Context, db satellite.DB
 		err := cache.UpdateCheckIn(ctx, info, time.Now(), overlay.NodeSelectionConfig{})
 		require.NoError(t, err)
 
-		exitFinishedAt := currentTime.Add(time.Duration(-(rand.Int63n(15) + 1)) * time.Minute)
+		exitFinishedAt := currentTime.Add(time.Duration(-(rand.Int63n(15) + 1) * int64(time.Minute)))
 		_, err = cache.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
 			NodeID:              nodeID,
 			ExitInitiatedAt:     exitFinishedAt.Add(-30 * time.Minute),
@@ -386,7 +386,7 @@ func TestGracefulExit_DeleteAllFinishedTransferQueueItems_batch(t *testing.T) {
 			err := cache.UpdateCheckIn(ctx, info, time.Now(), overlay.NodeSelectionConfig{})
 			require.NoError(t, err)
 
-			exitFinishedAt := currentTime.Add(time.Duration(-(rand.Int63n(15) + 1)) * time.Minute)
+			exitFinishedAt := currentTime.Add(time.Duration(-(rand.Int63n(15) + 1) * int64(time.Minute)))
 			_, err = cache.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
 				NodeID:              nodeID,
 				ExitInitiatedAt:     exitFinishedAt.Add(-30 * time.Minute),

@@ -58,7 +58,7 @@ func TestNotificationsApi(t *testing.T) {
 			t.Run("test ListNotifications", func(t *testing.T) {
 				// should return notifications list.
 				url := fmt.Sprintf("%s/list?limit=3&page=1", baseURL)
-				res, err := http.Get(url)
+				res, err := httpGet(ctx, url)
 				require.NoError(t, err)
 				require.NotNil(t, res)
 				require.Equal(t, http.StatusOK, res.StatusCode)
@@ -79,7 +79,7 @@ func TestNotificationsApi(t *testing.T) {
 			t.Run("test ReadNotification", func(t *testing.T) {
 				// should change status of notification by id to read.
 				url := fmt.Sprintf("%s/%s/read", baseURL, notif1.ID.String())
-				res, err := http.Post(url, "applicationJSON", nil)
+				res, err := httpPost(ctx, url, "application/json", nil)
 				require.NoError(t, err)
 				require.NotNil(t, res)
 				require.Equal(t, http.StatusOK, res.StatusCode)
@@ -100,7 +100,7 @@ func TestNotificationsApi(t *testing.T) {
 			t.Run("test ReadAllNotifications", func(t *testing.T) {
 				// should change status of notification by id to read.
 				url := fmt.Sprintf("%s/readall", baseURL)
-				res, err := http.Post(url, "applicationJSON", nil)
+				res, err := httpPost(ctx, url, "application/json", nil)
 				require.NoError(t, err)
 				require.NotNil(t, res)
 				require.Equal(t, http.StatusOK, res.StatusCode)

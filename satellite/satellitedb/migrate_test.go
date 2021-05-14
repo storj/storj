@@ -63,7 +63,7 @@ func loadSnapshots(ctx context.Context, connstr, dbxscript string) (*dbschema.Sn
 				if errors.As(err, &pgErr) {
 					return fmt.Errorf("Version %d error: %v\nDetail: %s\nHint: %s", version, pgErr, pgErr.Detail, pgErr.Hint)
 				}
-				return fmt.Errorf("Version %d error: %+v", version, err)
+				return fmt.Errorf("Version %d error: %w", version, err)
 			}
 			snapshot.Version = version
 
