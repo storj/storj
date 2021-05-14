@@ -437,6 +437,189 @@ func TestIterateLoopStreams(t *testing.T) {
 	})
 }
 
+func TestIterateLoopSegments(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+
+		now := time.Now()
+
+		t.Run("Limit is negative", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			metabasetest.IterateLoopSegments{
+				Opts: metabase.IterateLoopSegments{
+					BatchSize: -1,
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "BatchSize is negative",
+			}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("no segments", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.IterateLoopSegments{
+				Opts: metabase.IterateLoopSegments{
+					BatchSize: 0,
+				},
+				Result: nil,
+			}.Check(ctx, t, db)
+
+			metabasetest.IterateLoopSegments{
+				Opts: metabase.IterateLoopSegments{
+					BatchSize: 10,
+				},
+				Result: nil,
+			}.Check(ctx, t, db)
+
+			metabasetest.IterateLoopSegments{
+				Opts: metabase.IterateLoopSegments{
+					BatchSize:      10,
+					AsOfSystemTime: time.Now(),
+				},
+				Result: nil,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("segments from pending and committed objects", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			pending := metabasetest.RandObjectStream()
+			metabasetest.CreatePendingObject(ctx, t, db, pending, 2)
+
+			committed := metabasetest.RandObjectStream()
+			metabasetest.CreateObject(ctx, t, db, committed, 3)
+
+			genericLoopEntry := metabase.LoopSegmentEntry{
+				RootPieceID:   storj.PieceID{1},
+				Pieces:        metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+				CreatedAt:     &now,
+				EncryptedSize: 1024,
+				PlainSize:     512,
+				PlainOffset:   0,
+				Redundancy:    metabasetest.DefaultRedundancy,
+			}
+
+			expected := []metabase.LoopSegmentEntry{}
+			for _, expect := range []struct {
+				StreamID    uuid.UUID
+				Position    metabase.SegmentPosition
+				PlainOffset int64
+			}{
+				{pending.StreamID, metabase.SegmentPosition{0, 0}, 0},
+				{pending.StreamID, metabase.SegmentPosition{0, 1}, 0},
+				{committed.StreamID, metabase.SegmentPosition{0, 0}, 0},
+				{committed.StreamID, metabase.SegmentPosition{0, 1}, 512},
+				{committed.StreamID, metabase.SegmentPosition{0, 2}, 1024},
+			} {
+				entry := genericLoopEntry
+				entry.StreamID = expect.StreamID
+				entry.Position = expect.Position
+				entry.PlainOffset = expect.PlainOffset
+				expected = append(expected, entry)
+			}
+
+			metabasetest.IterateLoopSegments{
+				Opts: metabase.IterateLoopSegments{
+					BatchSize: 1,
+				},
+				Result: expected,
+			}.Check(ctx, t, db)
+
+			metabasetest.IterateLoopSegments{
+				Opts: metabase.IterateLoopSegments{
+					BatchSize:      1,
+					AsOfSystemTime: time.Now(),
+				},
+				Result: expected,
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("batch size", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			numberOfSegments := 5
+
+			committed := metabasetest.RandObjectStream()
+			expectedObject := metabasetest.CreateObject(ctx, t, db, committed, byte(numberOfSegments))
+			expected := make([]metabase.LoopSegmentEntry, numberOfSegments)
+			expectedRaw := make([]metabase.RawSegment, numberOfSegments)
+			for i := 0; i < numberOfSegments; i++ {
+				entry := metabase.LoopSegmentEntry{
+					StreamID:      committed.StreamID,
+					Position:      metabase.SegmentPosition{0, uint32(i)},
+					RootPieceID:   storj.PieceID{1},
+					Pieces:        metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+					CreatedAt:     &now,
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   int64(i) * 512,
+					Redundancy:    metabasetest.DefaultRedundancy,
+				}
+				expected[i] = entry
+				expectedRaw[i] = metabase.RawSegment{
+					StreamID:      entry.StreamID,
+					Position:      entry.Position,
+					RootPieceID:   entry.RootPieceID,
+					Pieces:        entry.Pieces,
+					CreatedAt:     entry.CreatedAt,
+					EncryptedSize: entry.EncryptedSize,
+					PlainSize:     entry.PlainSize,
+					PlainOffset:   entry.PlainOffset,
+					Redundancy:    entry.Redundancy,
+
+					EncryptedKey:      []byte{3},
+					EncryptedKeyNonce: []byte{4},
+					EncryptedETag:     []byte{5},
+				}
+			}
+
+			{ // less segments than limit
+				limit := 10
+				metabasetest.IterateLoopSegments{
+					Opts: metabase.IterateLoopSegments{
+						BatchSize: limit,
+					},
+					Result: expected,
+				}.Check(ctx, t, db)
+
+				metabasetest.IterateLoopSegments{
+					Opts: metabase.IterateLoopSegments{
+						BatchSize:      limit,
+						AsOfSystemTime: time.Now(),
+					},
+					Result: expected,
+				}.Check(ctx, t, db)
+			}
+
+			{ // more segments than limit
+				limit := 3
+				metabasetest.IterateLoopSegments{
+					Opts: metabase.IterateLoopSegments{
+						BatchSize: limit,
+					},
+					Result: expected,
+				}.Check(ctx, t, db)
+
+				metabasetest.IterateLoopSegments{
+					Opts: metabase.IterateLoopSegments{
+						BatchSize:      limit,
+						AsOfSystemTime: time.Now(),
+					},
+					Result: expected,
+				}.Check(ctx, t, db)
+			}
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(expectedObject),
+				},
+				Segments: expectedRaw,
+			}.Check(ctx, t, db)
+		})
+	})
+}
+
 func loopObjectEntryFromRaw(m metabase.RawObject) metabase.LoopObjectEntry {
 	return metabase.LoopObjectEntry{
 		ObjectStream: m.ObjectStream,
