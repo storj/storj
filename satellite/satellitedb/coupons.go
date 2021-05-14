@@ -136,18 +136,18 @@ func (coupons *coupons) ListByUserIDAndStatus(ctx context.Context, userID uuid.U
 	}
 
 	sort.Slice(result, func(i, k int) bool {
-		iDate := result[i].ExpirationDate()
-		kDate := result[k].ExpirationDate()
-		if iDate == nil && kDate == nil {
+		a := result[i].ExpirationDate()
+		b := result[k].ExpirationDate()
+		if a == nil && b == nil {
 			return false
 		}
-		if iDate == nil && kDate != nil {
+		if a == nil && b != nil {
 			return false
 		}
-		if iDate != nil && kDate == nil {
+		if a != nil && b == nil {
 			return true
 		}
-		return iDate.Before(*kDate)
+		return a.Before(*b)
 	})
 
 	return result, nil

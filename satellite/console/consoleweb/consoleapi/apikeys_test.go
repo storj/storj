@@ -63,7 +63,7 @@ func Test_DeleteAPIKeyByNameAndProjectID(t *testing.T) {
 
 		client := http.Client{}
 
-		req, err := http.NewRequest("DELETE", "http://"+planet.Satellites[0].API.Console.Listener.Addr().String()+"/api/v0/api-keys/delete-by-name?name="+apikey.Name+"&projectID="+project.ID.String(), nil)
+		req, err := http.NewRequestWithContext(ctx, "DELETE", "http://"+planet.Satellites[0].API.Console.Listener.Addr().String()+"/api/v0/api-keys/delete-by-name?name="+apikey.Name+"&projectID="+project.ID.String(), nil)
 		require.NoError(t, err)
 
 		expire := time.Now().AddDate(0, 0, 1)

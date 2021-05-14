@@ -513,7 +513,7 @@ func TestOfflineSuspend(t *testing.T) {
 		require.EqualValues(t, 0.5, node.Reputation.OnlineScore)
 
 		// if grace period + 1 tracking window passes and online score is still bad, expect node to be DQed
-		nextWindowTime, err = setOnlineScore(ctx, updateReq, 0.5, 0, nextWindowTime, oc)
+		_, err = setOnlineScore(ctx, updateReq, 0.5, 0, nextWindowTime, oc)
 		require.NoError(t, err)
 
 		node, err = oc.Get(ctx, nodeID)

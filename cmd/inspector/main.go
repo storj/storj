@@ -269,7 +269,7 @@ func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.Redundan
 	}
 
 	if err := w.Write(segmentTableHeader); err != nil {
-		return fmt.Errorf("error writing record to csv: %s", err)
+		return fmt.Errorf("error writing record to csv: %w", err)
 	}
 
 	currentNodeIndex := 1                     // start at index 1 to leave first column empty
@@ -289,10 +289,12 @@ func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.Redundan
 		}
 
 		if err := w.Write(row); err != nil {
-			return fmt.Errorf("error writing record to csv: %s", err)
+			return fmt.Errorf("error writing record to csv: %w", err)
 		}
 
-		allNodes := append(healthyNodes, unhealthyNodes...)
+		allNodes := []storj.NodeID{}
+		allNodes = append(allNodes, healthyNodes...)
+		allNodes = append(allNodes, unhealthyNodes...)
 		allNodes = append(allNodes, offlineNodes...)
 		for _, id := range allNodes {
 			if nodeIndices[id] == 0 {
@@ -303,7 +305,7 @@ func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.Redundan
 	}
 
 	if err := w.Write([]string{}); err != nil {
-		return fmt.Errorf("error writing record to csv: %s", err)
+		return fmt.Errorf("error writing record to csv: %w", err)
 	}
 
 	numNodes := len(nodeIndices)
@@ -312,7 +314,7 @@ func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.Redundan
 		nodeTableHeader[i] = id.String()
 	}
 	if err := w.Write(nodeTableHeader); err != nil {
-		return fmt.Errorf("error writing record to csv: %s", err)
+		return fmt.Errorf("error writing record to csv: %w", err)
 	}
 
 	// Add online/offline info to the node table
@@ -332,7 +334,7 @@ func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.Redundan
 		}
 		row[0] = string(segment.GetSegment())
 		if err := w.Write(row); err != nil {
-			return fmt.Errorf("error writing record to csv: %s", err)
+			return fmt.Errorf("error writing record to csv: %w", err)
 		}
 	}
 
@@ -353,7 +355,7 @@ func printRedundancyTable(w *csv.Writer, redundancy eestream.RedundancyStrategy)
 
 	for _, row := range redundancyTable {
 		if err := w.Write(row); err != nil {
-			return fmt.Errorf("error writing record to csv: %s", err)
+			return fmt.Errorf("error writing record to csv: %w", err)
 		}
 	}
 

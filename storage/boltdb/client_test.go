@@ -74,7 +74,7 @@ func (store *boltLongBenchmarkStore) BulkImport(ctx context.Context, iter storag
 	var item storage.ListItem
 	for iter.Next(ctx, &item) {
 		if err := store.Put(ctx, item.Key, item.Value); err != nil {
-			return fmt.Errorf("Failed to insert data (%q, %q): %v", item.Key, item.Value, err)
+			return fmt.Errorf("Failed to insert data (%q, %q): %w", item.Key, item.Value, err)
 		}
 	}
 

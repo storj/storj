@@ -5,6 +5,7 @@ package repairer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -297,7 +298,8 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		// If Get failed because of input validation, then it will keep failing. But if it
 		// gave us irreparableError, then we failed to download enough pieces and must try
 		// to wait for nodes to come back online.
-		if irreparableErr, ok := err.(*irreparableError); ok {
+		var irreparableErr *irreparableError
+		if errors.As(err, &irreparableErr) {
 			mon.Meter("repair_too_many_nodes_failed").Mark(1) //mon:locked
 			stats.repairTooManyNodesFailed.Mark(1)
 			// irreparableErr.segmentInfo = pointer

@@ -52,7 +52,11 @@ func (clicker *LinkClicker) SendEmail(ctx context.Context, msg *post.Message) (e
 	// click all links
 	var sendError error
 	for _, link := range links {
-		response, err := http.Get(link)
+		req, err := http.NewRequestWithContext(ctx, "GET", link, nil)
+		if err != nil {
+			continue
+		}
+		response, err := http.DefaultClient.Do(req)
 		if err != nil {
 			continue
 		}

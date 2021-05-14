@@ -68,7 +68,7 @@ func PromptForSatellite(cmd *cobra.Command) (string, error) {
 
 		_, err = fmt.Printf("\t[%d] %s\n", iterator+1, host)
 		if err != nil {
-			return "", nil
+			return "", nil //nolint: nilerr // we'll skip the prompt, when there's an error
 		}
 	}
 

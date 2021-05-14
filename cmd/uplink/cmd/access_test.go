@@ -22,6 +22,8 @@ import (
 const testAccess = "12edqrJX1V243n5fWtUrwpMQXL8gKdY2wbyqRPSG3rsA1tzmZiQjtCyF896egifN2C2qdY6g5S1t6e8iDhMUon9Pb7HdecBFheAcvmN8652mqu8hRx5zcTUaRTWfFCKS2S6DHmTeqPUHJLEp6cJGXNHcdqegcKfeahVZGP4rTagHvFGEraXjYRJ3knAcWDGW6BxACqogEWez6r274JiUBfs4yRSbRNRqUEURd28CwDXMSHLRKKA7TEDKEdQ"
 
 func TestRegisterAccess(t *testing.T) {
+	ctx := testcontext.New(t)
+
 	// mock the auth service
 	ts := httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -31,7 +33,7 @@ func TestRegisterAccess(t *testing.T) {
 	// make sure we get back things
 	access, err := uplink.ParseAccess(testAccess)
 	require.NoError(t, err)
-	accessKey, secretKey, endpoint, err := cmd.RegisterAccess(access, ts.URL, true, 15*time.Second)
+	accessKey, secretKey, endpoint, err := cmd.RegisterAccess(ctx, access, ts.URL, true, 15*time.Second)
 	require.NoError(t, err)
 	assert.Equal(t, "1", accessKey)
 	assert.Equal(t, "2", secretKey)
@@ -39,6 +41,8 @@ func TestRegisterAccess(t *testing.T) {
 }
 
 func TestRegisterAccessTimeout(t *testing.T) {
+	ctx := testcontext.New(t)
+
 	// mock the auth service
 	ch := make(chan struct{})
 	ts := httptest.NewServer(
@@ -49,7 +53,7 @@ func TestRegisterAccessTimeout(t *testing.T) {
 	// make sure we get back things
 	access, err := uplink.ParseAccess(testAccess)
 	require.NoError(t, err)
-	accessKey, secretKey, endpoint, err := cmd.RegisterAccess(access, ts.URL, true, 10*time.Millisecond)
+	accessKey, secretKey, endpoint, err := cmd.RegisterAccess(ctx, access, ts.URL, true, 10*time.Millisecond)
 	require.Error(t, err)
 	assert.Equal(t, "", accessKey)
 	assert.Equal(t, "", secretKey)

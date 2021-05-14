@@ -39,7 +39,7 @@ func TestEndpoint_Run_httpSuccess(t *testing.T) {
 
 	userID := "user@mail.test"
 	url := "http://" + listener.Addr().String() + "/v1/authorizations/" + userID
-	req, err := http.NewRequest(http.MethodPut, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, url, nil)
 	require.NoError(t, err)
 	require.NotNil(t, req)
 
@@ -125,7 +125,7 @@ func TestEndpoint_Run_httpErrors(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Log(testCase.name)
 		url := baseURL + testCase.urlPath + testCase.userID
-		req, err := http.NewRequest(testCase.httpMethod, url, nil)
+		req, err := http.NewRequestWithContext(ctx, testCase.httpMethod, url, nil)
 		require.NoError(t, err)
 
 		client := http.Client{}

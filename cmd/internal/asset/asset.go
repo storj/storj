@@ -26,12 +26,13 @@
 package asset
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
 	"time"
+
+	"github.com/zeebo/errs"
 )
 
 // Asset describes a tree of asset files and directories.
@@ -64,16 +65,7 @@ func ReadFile(path string) (*Asset, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		closeErr := file.Close()
-		if closeErr != nil {
-			if err == nil {
-				err = closeErr
-			} else {
-				err = fmt.Errorf("%v: %v", err, closeErr)
-			}
-		}
-	}()
+	defer func() { err = errs.Combine(err, file.Close()) }()
 
 	stat, err := file.Stat()
 	if err != nil {

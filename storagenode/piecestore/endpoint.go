@@ -561,7 +561,7 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			chunkSize, err := throttle.ConsumeOrWait(tryToSend)
 			if err != nil {
 				// this can happen only because uplink decided to close the connection
-				return nil
+				return nil //nolint: nilerr // We don't need to return an error when client cancels.
 			}
 
 			chunkData := make([]byte, chunkSize)

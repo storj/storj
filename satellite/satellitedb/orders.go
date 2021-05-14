@@ -328,7 +328,7 @@ func (db *ordersDB) UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Conte
 			batchStatus = pb.SettlementWithWindowResponse_ACCEPTED
 			return nil
 		})
-		if errs.IsFunc(err, dbx.IsConstraintError) {
+		if dbx.IsConstraintError(err) {
 			retryCount++
 			if retryCount > 5 {
 				return 0, alreadyProcessed, errs.New("process order with window retry count too high")

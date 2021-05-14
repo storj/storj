@@ -85,7 +85,7 @@ func tryConnect(ctx context.Context, tlsConfig *tls.Config, dialer rpc.Connector
 	defer func() { _ = conn.Close() }()
 	nodeID, err := identity.PeerIdentityFromChain(conn.ConnectionState().PeerCertificates)
 	if err != nil {
-		return storj.NodeID{}, fmt.Errorf("could not get node ID from peer certificates: %v", err)
+		return storj.NodeID{}, fmt.Errorf("could not get node ID from peer certificates: %w", err)
 	}
 	return nodeID.ID, nil
 }

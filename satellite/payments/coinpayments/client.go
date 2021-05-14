@@ -70,7 +70,7 @@ func (c *Client) do(ctx context.Context, cmd string, values url.Values) (_ json.
 
 	buff := bytes.NewBufferString(encoded)
 
-	req, err := http.NewRequest(http.MethodPost, "https://www.coinpayments.net/api.php", buff)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "https://www.coinpayments.net/api.php", buff)
 	if err != nil {
 		return nil, err
 	}

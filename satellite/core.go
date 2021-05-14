@@ -158,7 +158,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			if err != nil {
 				withoutStack := errors.New(err.Error())
 				peer.Log.Debug("failed to start debug endpoints", zap.Error(withoutStack))
-				err = nil
 			}
 		}
 		debugConfig := config.Debug

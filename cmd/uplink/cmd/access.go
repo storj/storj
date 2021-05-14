@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -203,12 +204,14 @@ func parseAccess(access string) (sa string, apiKey string, ea string, err error)
 }
 
 func accessRegister(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := withTelemetry(cmd)
+
 	access, err := getAccessFromArgZeroOrConfig(registerCfg.AccessConfig, args)
 	if err != nil {
 		return errs.New("no access specified: %w", err)
 	}
 
-	accessKey, secretKey, endpoint, err := RegisterAccess(access, registerCfg.AuthService, registerCfg.Public, defaultAccessRegisterTimeout)
+	accessKey, secretKey, endpoint, err := RegisterAccess(ctx, access, registerCfg.AuthService, registerCfg.Public, defaultAccessRegisterTimeout)
 	if err != nil {
 		return err
 	}
@@ -273,7 +276,7 @@ func DisplayGatewayCredentials(accessKey, secretKey, endpoint, format, awsProfil
 }
 
 // RegisterAccess registers an access grant with a Gateway Authorization Service.
-func RegisterAccess(access *uplink.Access, authService string, public bool, timeout time.Duration) (accessKey, secretKey, endpoint string, err error) {
+func RegisterAccess(ctx context.Context, access *uplink.Access, authService string, public bool, timeout time.Duration) (accessKey, secretKey, endpoint string, err error) {
 	if authService == "" {
 		return "", "", "", errs.New("no auth service address provided")
 	}
@@ -293,7 +296,13 @@ func RegisterAccess(access *uplink.Access, authService string, public bool, time
 		Timeout: timeout,
 	}
 
-	resp, err := client.Post(fmt.Sprintf("%s/v1/access", authService), "application/json", bytes.NewReader(postData))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("%s/v1/access", authService), bytes.NewReader(postData))
+	if err != nil {
+		return "", "", "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", "", "", err
 	}
