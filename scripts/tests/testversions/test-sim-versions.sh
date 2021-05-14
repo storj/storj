@@ -96,6 +96,12 @@ install_sim(){
 	(cd ${work_dir}/build/gateway-tmp && go mod init gatewaybuild && GOBIN=${bin_dir} GO111MODULE=on go get storj.io/gateway@main;)
         rm -rf ${work_dir}/build/gateway-tmp
     fi
+    if [ -d "${work_dir}/cmd/multinode" ]; then
+        # as storj-sim is most likely installed from $PWD and contains storj-sim version which requires multinode
+        # install the most recent multinode version from $PWD
+        # multinode versions that are below c08ca361d83b252da8ba466896f23fdc6dddc1d9 throws on run if UI was not build
+        go build -race -v -o ${bin_dir}/multinode storj.io/storj/cmd/multinode >/dev/null 2>&1
+    fi
 }
 
 setup_stage(){
