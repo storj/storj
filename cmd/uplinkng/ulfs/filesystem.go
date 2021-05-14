@@ -22,6 +22,7 @@ type Filesystem interface {
 	Close() error
 	Open(ctx clingy.Context, loc ulloc.Location) (ReadHandle, error)
 	Create(ctx clingy.Context, loc ulloc.Location) (WriteHandle, error)
+	Remove(ctx context.Context, loc ulloc.Location) error
 	ListObjects(ctx context.Context, prefix ulloc.Location, recursive bool) (ObjectIterator, error)
 	ListUploads(ctx context.Context, prefix ulloc.Location, recursive bool) (ObjectIterator, error)
 	IsLocalDir(ctx context.Context, loc ulloc.Location) bool

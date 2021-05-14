@@ -4,9 +4,11 @@
 package main
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/zeebo/clingy"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/cmd/uplinkng/ulloc"
 )
@@ -43,9 +45,36 @@ func (c *cmdRm) Execute(ctx clingy.Context) error {
 	}
 	defer func() { _ = fs.Close() }()
 
-	// TODO: use the filesystem interface
-	// TODO: recursive remove
+	if !c.recursive {
+		if err := fs.Remove(ctx, c.location); err != nil {
+			return err
+		}
 
-	// return fs.Delete(ctx, c.location)
+		fmt.Fprintln(ctx.Stdout(), "removed", c.location)
+		return nil
+	}
+
+	iter, err := fs.ListObjects(ctx, c.location, c.recursive)
+	if err != nil {
+		return err
+	}
+
+	anyFailed := false
+	for iter.Next() {
+		loc := iter.Item().Loc
+
+		if err := fs.Remove(ctx, loc); err != nil {
+			fmt.Fprintln(ctx.Stderr(), "remove", loc, "failed:", err.Error())
+			anyFailed = true
+		} else {
+			fmt.Fprintln(ctx.Stdout(), "removed", loc)
+		}
+	}
+
+	if err := iter.Err(); err != nil {
+		return errs.Wrap(err)
+	} else if anyFailed {
+		return errs.New("some removals failed")
+	}
 	return nil
 }

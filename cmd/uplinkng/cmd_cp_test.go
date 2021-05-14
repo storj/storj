@@ -113,5 +113,6 @@ func TestCpRecursiveDifficult(t *testing.T) {
 		ultest.WithFile("sj://user/mid-slash/1"),
 	)
 
+	// TODO(jeff): these tests. oops.
 	_ = state
 }

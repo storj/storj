@@ -47,6 +47,15 @@ func (r *Remote) Create(ctx context.Context, bucket, key string) (WriteHandle, e
 	return newUplinkWriteHandle(fh), nil
 }
 
+// Remove deletes the object at the provided key and bucket.
+func (r *Remote) Remove(ctx context.Context, bucket, key string) error {
+	_, err := r.project.DeleteObject(ctx, bucket, key)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // ListObjects lists all of the objects in some bucket that begin with the given prefix.
 func (r *Remote) ListObjects(ctx context.Context, bucket, prefix string, recursive bool) ObjectIterator {
 	parentPrefix := ""

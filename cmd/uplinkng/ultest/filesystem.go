@@ -88,6 +88,11 @@ func (tfs *testFilesystem) Create(ctx clingy.Context, loc ulloc.Location) (_ ulf
 	return wh, nil
 }
 
+func (tfs *testFilesystem) Remove(ctx context.Context, loc ulloc.Location) error {
+	delete(tfs.files, loc)
+	return nil
+}
+
 func (tfs *testFilesystem) ListObjects(ctx context.Context, prefix ulloc.Location, recursive bool) (ulfs.ObjectIterator, error) {
 	var infos []ulfs.ObjectInfo
 	for loc, mf := range tfs.files {

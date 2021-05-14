@@ -75,6 +75,22 @@ func (l *Local) Create(ctx context.Context, path string) (WriteHandle, error) {
 	return newOSWriteHandle(fh), nil
 }
 
+// Remove unlinks the file at the path. It is not an error if the file does not exist.
+func (l *Local) Remove(ctx context.Context, path string) error {
+	path, err := l.abs(path)
+	if err != nil {
+		return err
+	}
+
+	if err := os.Remove(path); os.IsNotExist(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // ListObjects returns an ObjectIterator listing files and directories that have string prefix
 // with the provided path.
 func (l *Local) ListObjects(ctx context.Context, path string, recursive bool) (ObjectIterator, error) {

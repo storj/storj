@@ -51,6 +51,16 @@ func (m *Mixed) Create(ctx clingy.Context, loc ulloc.Location) (WriteHandle, err
 	return newGenericWriteHandle(ctx.Stdout()), nil
 }
 
+// Remove deletes either a local file or remote object.
+func (m *Mixed) Remove(ctx context.Context, loc ulloc.Location) error {
+	if bucket, key, ok := loc.RemoteParts(); ok {
+		return m.remote.Remove(ctx, bucket, key)
+	} else if path, ok := loc.LocalParts(); ok {
+		return m.local.Remove(ctx, path)
+	}
+	return nil
+}
+
 // ListObjects lists either files and directories with some local path prefix or remote objects
 // with a given bucket and key.
 func (m *Mixed) ListObjects(ctx context.Context, prefix ulloc.Location, recursive bool) (ObjectIterator, error) {

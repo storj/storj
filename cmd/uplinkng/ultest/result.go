@@ -53,10 +53,18 @@ func (r Result) RequireStderr(t *testing.T, stderr string) Result {
 }
 
 // RequireFiles requires that the set of files provided are all of the files that
-// existed at the end of the execution.
+// existed at the end of the execution. It assumes any passed in files with no
+// contents contain the filename as the contents instead.
 func (r Result) RequireFiles(t *testing.T, files ...File) Result {
 	files = append([]File(nil), files...)
 	sort.Slice(files, func(i, j int) bool { return files[i].less(files[j]) })
+
+	for i := range files {
+		if files[i].Contents == "" {
+			files[i].Contents = files[i].Loc
+		}
+	}
+
 	require.Equal(t, files, r.Files)
 	return r
 }
