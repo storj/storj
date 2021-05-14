@@ -105,6 +105,7 @@ service Payout {
   rpc EarnedPerSatellite(EarnedPerSatelliteRequest) returns (EarnedPerSatelliteResponse);
   rpc EstimatedPayoutSatellite(EstimatedPayoutSatelliteRequest) returns (EstimatedPayoutSatelliteResponse);
   rpc EstimatedPayoutTotal(EstimatedPayoutTotalRequest) returns (EstimatedPayoutTotalResponse);
+  rpc Undistributed(UndistributedRequest) returns (UndistributedResponse);
 }
 
 message EstimatedPayoutSatelliteRequest {
@@ -179,6 +180,14 @@ message EarnedPerSatelliteResponse {
 message EarnedSatellite {
   int64 total = 1;
   bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message UndistributedRequest {
+  RequestHeader header = 1;
+}
+
+message UndistributedResponse {
+  int64 total = 1;
 }
 
 message PayoutInfo {

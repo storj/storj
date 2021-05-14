@@ -564,3 +564,23 @@ func (db *payoutDB) GetSatellitePeriodSummary(ctx context.Context, satelliteID s
 
 	return paid, held, nil
 }
+
+// GetUndistributed returns total undistributed amount.
+func (db *payoutDB) GetUndistributed(ctx context.Context) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var distributed, paid int64
+
+	rowPayment := db.QueryRowContext(ctx,
+		`SELECT SUM(distributed), SUM(paid) FROM paystubs`)
+
+	err = rowPayment.Scan(&distributed, &paid)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, payouts.ErrNoPayStubForPeriod.Wrap(err)
+		}
+		return 0, ErrPayout.Wrap(err)
+	}
+
+	return paid - distributed, nil
+}

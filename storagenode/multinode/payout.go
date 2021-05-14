@@ -72,15 +72,15 @@ func (payout *PayoutEndpoint) EarnedPerSatellite(ctx context.Context, req *multi
 		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 
-	for i := 0; i < len(satelliteIDs); i++ {
-		earned, err := payout.db.GetEarnedAtSatellite(ctx, satelliteIDs[i])
+	for _, id := range satelliteIDs {
+		earned, err := payout.db.GetEarnedAtSatellite(ctx, id)
 		if err != nil {
 			return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
 		}
 
 		resp.EarnedSatellite = append(resp.EarnedSatellite, &multinodepb.EarnedSatellite{
 			Total:       earned,
-			SatelliteId: satelliteIDs[i],
+			SatelliteId: id,
 		})
 	}
 
@@ -207,4 +207,20 @@ func (payout *PayoutEndpoint) SatellitePeriodSummary(ctx context.Context, req *m
 	}
 
 	return &multinodepb.SatellitePeriodSummaryResponse{PayoutInfo: &multinodepb.PayoutInfo{Held: totalHeld, Paid: totalPaid}}, nil
+}
+
+// Undistributed returns total undistributed amount.
+func (payout *PayoutEndpoint) Undistributed(ctx context.Context, req *multinodepb.UndistributedRequest) (_ *multinodepb.UndistributedResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err = authenticate(ctx, payout.apiKeys, req.GetHeader()); err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+	}
+
+	earned, err := payout.db.GetUndistributed(ctx)
+	if err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
+
+	return &multinodepb.UndistributedResponse{Total: earned}, nil
 }
