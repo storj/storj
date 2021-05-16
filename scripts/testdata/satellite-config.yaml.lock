@@ -172,6 +172,15 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # the public address of the node, useful for nodes behind NAT
 contact.external-address: ""
 
+# the maximum burst size for the contact rate limit token bucket
+# contact.rate-limit-burst: 2
+
+# the number of nodes or addresses to keep token buckets for
+# contact.rate-limit-cache-size: 1000
+
+# the amount of time that should happen between contact attempts usually
+# contact.rate-limit-interval: 10m0s
+
 # timeout for pinging storage nodes
 # contact.timeout: 10m0s
 

@@ -216,7 +216,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Type:    pb.NodeType_SATELLITE,
 			Version: *pbVersion,
 		}
-		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Dialer, config.Contact.Timeout)
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Dialer, config.Contact)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "contact:service",
 			Close: peer.Contact.Service.Close,
