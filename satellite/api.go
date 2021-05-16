@@ -280,7 +280,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Type:    pb.NodeType_SATELLITE,
 			Version: *pbVersion,
 		}
-		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Dialer, config.Contact.Timeout)
+		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Dialer, config.Contact)
 		peer.Contact.Endpoint = contact.NewEndpoint(peer.Log.Named("contact:endpoint"), peer.Contact.Service)
 		if err := pb.DRPCRegisterNode(peer.Server.DRPC(), peer.Contact.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())

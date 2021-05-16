@@ -383,6 +383,10 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, err
 	}
 
+	// TODO: it is a huge surprise that this doesn't use the config
+	// parsing `default` or `devDefault` struct tag values.
+	// we should use storj.io/private/cfgstruct to autopopulate default
+	// config values and then only override ones in special cases.
 	config := satellite.Config{
 		Server: server.Config{
 			Address:        "127.0.0.1:0",
@@ -406,7 +410,10 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			Address: "127.0.0.1:0",
 		},
 		Contact: contact.Config{
-			Timeout: 1 * time.Minute,
+			Timeout:            1 * time.Minute,
+			RateLimitInterval:  time.Nanosecond,
+			RateLimitBurst:     1000,
+			RateLimitCacheSize: 1000,
 		},
 		Overlay: overlay.Config{
 			Node: overlay.NodeSelectionConfig{
