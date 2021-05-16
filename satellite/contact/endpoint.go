@@ -19,9 +19,10 @@ import (
 )
 
 var (
-	errPingBackDial    = errs.Class("pingback dialing")
-	errCheckInIdentity = errs.Class("check-in identity")
-	errCheckInNetwork  = errs.Class("check-in network")
+	errPingBackDial     = errs.Class("pingback dialing")
+	errCheckInIdentity  = errs.Class("check-in identity")
+	errCheckInRateLimit = errs.Class("check-in ratelimit")
+	errCheckInNetwork   = errs.Class("check-in network")
 )
 
 // Endpoint implements the contact service Endpoints.
@@ -53,6 +54,13 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		return nil, rpcstatus.Error(rpcstatus.Unknown, errCheckInIdentity.New("failed to get ID from context: %v", err).Error())
 	}
 	nodeID := peerID.ID
+
+	// we need a string as a key for the limiter, but nodeID.String() has base58 encoding overhead
+	nodeIDBytesAsString := string(nodeID.Bytes())
+	if !endpoint.service.idLimiter.IsAllowed(nodeIDBytesAsString) {
+		endpoint.log.Info("node rate limited by id", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID))
+		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, errCheckInRateLimit.New("node rate limited by id").Error())
+	}
 
 	err = endpoint.service.peerIDs.Set(ctx, nodeID, peerID)
 	if err != nil {
