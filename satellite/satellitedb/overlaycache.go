@@ -1668,7 +1668,50 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		return Error.Wrap(err)
 	}
 
-	query := `
+	// First try the fast path.
+	var res sql.Result
+	res, err = cache.db.ExecContext(ctx, `
+		UPDATE nodes
+		SET
+			address=$2,
+			last_net=$3,
+			protocol=$4,
+			email=$5,
+			wallet=$6,
+			free_disk=$7,
+			major=$9, minor=$10, patch=$11, hash=$12, timestamp=$13, release=$14,
+			last_contact_success = CASE WHEN $8::bool IS TRUE
+				THEN $15::timestamptz
+				ELSE nodes.last_contact_success
+			END,
+			last_contact_failure = CASE WHEN $8::bool IS FALSE
+				THEN $15::timestamptz
+				ELSE nodes.last_contact_failure
+			END,
+			last_ip_port=$16,
+			wallet_features=$17
+		WHERE id = $1
+	`, // args $1 - $4
+		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, node.Address.GetTransport(),
+		// args $5 - $7
+		node.Operator.GetEmail(), node.Operator.GetWallet(), node.Capacity.GetFreeDisk(),
+		// args $8
+		node.IsUp,
+		// args $9 - $14
+		semVer.Major, semVer.Minor, semVer.Patch, node.Version.GetCommitHash(), node.Version.Timestamp, node.Version.GetRelease(),
+		// args $15
+		timestamp,
+		// args $16
+		node.LastIPPort,
+		// args $17,
+		walletFeatures,
+	)
+	affected, affectedErr := res.RowsAffected()
+	if affected > 0 && err == nil && affectedErr == nil {
+		return nil
+	}
+
+	_, err = cache.db.ExecContext(ctx, `
 			INSERT INTO nodes
 			(
 				id, address, last_net, protocol, type,
@@ -1716,8 +1759,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				END,
 				last_ip_port=$19,
 				wallet_features=$20;
-			`
-	_, err = cache.db.ExecContext(ctx, query,
+			`,
 		// args $1 - $5
 		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, node.Address.GetTransport(), int(pb.NodeType_STORAGE),
 		// args $6 - $8
