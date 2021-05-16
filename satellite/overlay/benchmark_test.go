@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/errs2"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testrand"
@@ -86,6 +88,30 @@ func BenchmarkOverlay(b *testing.B) {
 				}
 				err := overlaydb.UpdateCheckIn(ctx, d, time.Now().UTC(), overlay.NodeSelectionConfig{})
 				require.NoError(b, err)
+			}
+		})
+
+		b.Run("UpdateCheckInContended-100x", func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				var g errs2.Group
+				for i := 0; i < 100; i++ {
+					g.Go(func() error {
+						d := overlay.NodeCheckInInfo{
+							NodeID:     all[0],
+							Address:    &pb.NodeAddress{Address: "127.0.0.0:8080"},
+							LastIPPort: "127.0.0.0:8080",
+							LastNet:    "127.0.0",
+							Operator: &pb.NodeOperator{
+								Email:  "hello@example.com",
+								Wallet: "123123123123",
+							},
+							Version: &pb.NodeVersion{Version: "v1.0.0"},
+							IsUp:    true,
+						}
+						return overlaydb.UpdateCheckIn(ctx, d, time.Now().UTC(), overlay.NodeSelectionConfig{})
+					})
+				}
+				require.NoError(b, errs.Combine(g.Wait()...))
 			}
 		})
 
