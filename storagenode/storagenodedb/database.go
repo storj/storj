@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/payouts"
 	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/planneddowntime"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/satellites"
@@ -108,6 +109,7 @@ type DB struct {
 	payoutDB          *payoutDB
 	pricingDB         *pricingDB
 	apiKeysDB         *apiKeysDB
+	plannedDowntimeDB *plannedDowntimeDB
 
 	SQLDBs map[string]DBContainer
 }
@@ -135,6 +137,7 @@ func OpenNew(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
 	payoutDB := &payoutDB{}
 	pricingDB := &pricingDB{}
 	apiKeysDB := &apiKeysDB{}
+	plannedDowntimeDB := &plannedDowntimeDB{}
 
 	db := &DB{
 		log:    log,
@@ -158,6 +161,7 @@ func OpenNew(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
 		payoutDB:          payoutDB,
 		pricingDB:         pricingDB,
 		apiKeysDB:         apiKeysDB,
+		plannedDowntimeDB: plannedDowntimeDB,
 
 		SQLDBs: map[string]DBContainer{
 			DeprecatedInfoDBName:  deprecatedInfoDB,
@@ -174,6 +178,7 @@ func OpenNew(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
 			HeldAmountDBName:      payoutDB,
 			PricingDBName:         pricingDB,
 			APIKeysDBName:         apiKeysDB,
+			PlannedDowntimeDBName: plannedDowntimeDB,
 		},
 	}
 
@@ -546,6 +551,11 @@ func (db *DB) Pricing() pricing.DB {
 // APIKeys returns instance of the APIKeys database.
 func (db *DB) APIKeys() apikeys.DB {
 	return db.apiKeysDB
+}
+
+// PlannedDowntime returns an instance of the PlannedDowntime database.
+func (db *DB) PlannedDowntime() planneddowntime.DB {
+	return db.plannedDowntimeDB
 }
 
 // RawDatabases are required for testing purposes.
@@ -1977,6 +1987,18 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				Version:     51,
 				Action: migrate.SQL{
 					`UPDATE paystubs SET distributed = paid WHERE period < '2020-12'`,
+				},
+			},
+			{
+				DB:          &db.satellitesDB.DB,
+				Description: "Add planned downtime table",
+				Version:     52,
+				Action: migrate.SQL{
+					`CREATE TABLE planned_downtime (
+						start TIMESTAMP NOT NULL,
+						end TIMESTAMP NOT NULL,
+						scheduled_at TIMESTAMP NOT NULL
+					);`,
 				},
 			},
 		},

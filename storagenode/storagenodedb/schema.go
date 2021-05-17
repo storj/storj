@@ -618,6 +618,26 @@ func Schema() map[string]*dbschema.Schema {
 		"satellites": &dbschema.Schema{
 			Tables: []*dbschema.Table{
 				&dbschema.Table{
+					Name: "planned_downtime",
+					Columns: []*dbschema.Column{
+						&dbschema.Column{
+							Name:       "end",
+							Type:       "TIMESTAMP",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "scheduled_at",
+							Type:       "TIMESTAMP",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "start",
+							Type:       "TIMESTAMP",
+							IsNullable: false,
+						},
+					},
+				},
+				&dbschema.Table{
 					Name: "satellite_exit_progress",
 					Columns: []*dbschema.Column{
 						&dbschema.Column{
@@ -724,3 +744,4 @@ func Schema() map[string]*dbschema.Schema {
 		"used_serial": &dbschema.Schema{},
 	}
 }
+
