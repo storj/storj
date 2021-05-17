@@ -352,3 +352,50 @@ func TestSettledAmountsMatch(t *testing.T) {
 		})
 	}
 }
+
+func TestProjectBandwidthDailyRollups(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		// stop any async flushes because we want to be sure when some values are
+		// written to avoid races
+		planet.Satellites[0].Orders.Chore.Loop.Pause()
+
+		now := time.Now()
+		tomorrow := now.Add(24 * time.Hour)
+
+		planet.Satellites[0].Audit.Worker.Loop.Pause()
+
+		for _, storageNode := range planet.StorageNodes {
+			storageNode.Storage2.Orders.Sender.Pause()
+		}
+
+		expectedData := testrand.Bytes(50 * memory.KiB)
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket0", "test/path", expectedData)
+		require.NoError(t, err)
+		data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket0", "test/path")
+		require.NoError(t, err)
+		require.Equal(t, expectedData, data)
+
+		// Wait for storage nodes to propagate all information.
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
+		// Have the nodes send up the orders.
+		for _, storageNode := range planet.StorageNodes {
+			storageNode.Storage2.Orders.SendOrders(ctx, tomorrow)
+		}
+		// flush rollups write cache
+		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
+
+		projectAccountingDB := planet.Satellites[0].DB.ProjectAccounting()
+
+		year, month, day := now.Year(), now.Month(), now.Day()
+		allocated, settled, err := projectAccountingDB.GetProjectDailyBandwidth(ctx, planet.Uplinks[0].Projects[0].ID, year, month, day)
+		require.NoError(t, err)
+		require.NotZero(t, allocated)
+		require.Equal(t, allocated, settled)
+	})
+}

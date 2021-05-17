@@ -151,6 +151,21 @@ func (db *ProjectAccounting) GetProjectAllocatedBandwidth(ctx context.Context, p
 	return *egress, err
 }
 
+// GetProjectDailyBandwidth returns project bandwidth (allocated and settled) for the specified day.
+func (db *ProjectAccounting) GetProjectDailyBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (allocated int64, settled int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	interval := time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
+
+	query := `SELECT egress_allocated, egress_settled FROM project_bandwidth_daily_rollups WHERE project_id = ? AND interval_day = ?;`
+	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], interval).Scan(&allocated, &settled)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, 0, nil
+	}
+
+	return allocated, settled, err
+}
+
 // DeleteProjectAllocatedBandwidthBefore deletes project bandwidth rollups before the given time.
 func (db *ProjectAccounting) DeleteProjectAllocatedBandwidthBefore(ctx context.Context, before time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
