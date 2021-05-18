@@ -54,6 +54,7 @@ import (
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/piecestore/usedserials"
 	"storj.io/storj/storagenode/piecetransfer"
+	"storj.io/storj/storagenode/planneddowntime"
 	"storj.io/storj/storagenode/preflight"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
@@ -92,6 +93,7 @@ type DB interface {
 	Payout() payouts.DB
 	Pricing() pricing.DB
 	APIKeys() apikeys.DB
+	PlannedDowntime() planneddowntime.DB
 
 	Preflight(ctx context.Context) error
 }
