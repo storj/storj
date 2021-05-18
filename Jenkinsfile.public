@@ -20,6 +20,10 @@ pipeline {
                 checkout scm
 
                 sh 'mkdir -p .build'
+                sh 'echo test '
+                sh 'sleep 2000'
+                sh 'sleep success'
+'
 
                 // make a backup of the mod file in case, for later linting
                 sh 'cp go.mod .build/go.mod.orig'
