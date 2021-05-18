@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/zeebo/errs"
+
 	"storj.io/private/tagsql"
 	"storj.io/storj/storagenode/planneddowntime"
 )
