@@ -1,6 +1,8 @@
 # Mac OS X files
 .DS_Store
 
+#test
+
 # Binaries for programs and plugins
 *.exe
 *.dll
