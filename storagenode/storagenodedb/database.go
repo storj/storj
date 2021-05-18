@@ -208,6 +208,7 @@ func OpenExisting(ctx context.Context, log *zap.Logger, config Config) (*DB, err
 	payoutDB := &payoutDB{}
 	pricingDB := &pricingDB{}
 	apiKeysDB := &apiKeysDB{}
+	plannedDowntimeDB := &plannedDowntimeDB{}
 
 	db := &DB{
 		log:    log,
@@ -231,6 +232,7 @@ func OpenExisting(ctx context.Context, log *zap.Logger, config Config) (*DB, err
 		payoutDB:          payoutDB,
 		pricingDB:         pricingDB,
 		apiKeysDB:         apiKeysDB,
+		plannedDowntimeDB: plannedDowntimeDB,
 
 		SQLDBs: map[string]DBContainer{
 			DeprecatedInfoDBName:  deprecatedInfoDB,
@@ -247,6 +249,7 @@ func OpenExisting(ctx context.Context, log *zap.Logger, config Config) (*DB, err
 			HeldAmountDBName:      payoutDB,
 			PricingDBName:         pricingDB,
 			APIKeysDBName:         apiKeysDB,
+			PlannedDowntimeDBName: plannedDowntimeDB,
 		},
 	}
 
@@ -1990,11 +1993,19 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          &db.satellitesDB.DB,
+				DB:          &db.plannedDowntimeDB.DB,
 				Description: "Add planned downtime table",
 				Version:     52,
+				CreateDB: func(ctx context.Context, log *zap.Logger) error {
+					if err := db.openDatabase(ctx, PlannedDowntimeDBName); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					return nil
+				},
 				Action: migrate.SQL{
 					`CREATE TABLE planned_downtime (
+						id BLOB UNIQUE NOT NULL,
 						start TIMESTAMP NOT NULL,
 						end TIMESTAMP NOT NULL,
 						scheduled_at TIMESTAMP NOT NULL

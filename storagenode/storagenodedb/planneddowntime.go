@@ -30,7 +30,7 @@ func (db *plannedDowntimeDB) Add(ctx context.Context, planned planneddowntime.En
 		INSERT INTO
 			planned_downtime(id, start, end, scheduled_at)
 		VALUES (?,?,?,?)
-	`, planned.ID, planned.Start, planned.End, planned.ScheduledAt)
+	`, planned.ID, planned.Start.UTC(), planned.End.UTC(), planned.ScheduledAt.UTC())
 
 	return ErrPlannedDowntime.Wrap(err)
 }
@@ -56,7 +56,7 @@ func (db *plannedDowntimeDB) GetScheduled(ctx context.Context, since time.Time) 
 		FROM planned_downtime
 		WHERE end >= ?
 		ORDER BY start ASC
-	`, since)
+	`, since.UTC())
 	if err != nil {
 		return nil, ErrPlannedDowntime.Wrap(err)
 	}
@@ -74,7 +74,7 @@ func (db *plannedDowntimeDB) GetCompleted(ctx context.Context, before time.Time)
 		FROM planned_downtime
 		WHERE end < ?
 		ORDER BY start ASC
-	`, before)
+	`, before.UTC())
 	if err != nil {
 		return nil, ErrPlannedDowntime.Wrap(err)
 	}
