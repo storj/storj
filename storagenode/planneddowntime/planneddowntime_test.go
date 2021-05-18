@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
 	"storj.io/common/testcontext"
 	rand "storj.io/common/testrand"
 	"storj.io/storj/storagenode"
