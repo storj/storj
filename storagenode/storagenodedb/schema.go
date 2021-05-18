@@ -485,6 +485,35 @@ func Schema() map[string]*dbschema.Schema {
 				&dbschema.Index{Name: "pk_pieceinfo_", Table: "pieceinfo_", Columns: []string{"satellite_id", "piece_id"}, Unique: true, Partial: ""},
 			},
 		},
+		"planned_downtime": &dbschema.Schema{
+			Tables: []*dbschema.Table{
+				&dbschema.Table{
+					Name: "planned_downtime",
+					Columns: []*dbschema.Column{
+						&dbschema.Column{
+							Name:       "end",
+							Type:       "TIMESTAMP",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "id",
+							Type:       "BLOB",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "scheduled_at",
+							Type:       "TIMESTAMP",
+							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "start",
+							Type:       "TIMESTAMP",
+							IsNullable: false,
+						},
+					},
+				},
+			},
+		},
 		"pricing": &dbschema.Schema{
 			Tables: []*dbschema.Table{
 				&dbschema.Table{
@@ -724,3 +753,4 @@ func Schema() map[string]*dbschema.Schema {
 		"used_serial": &dbschema.Schema{},
 	}
 }
+
