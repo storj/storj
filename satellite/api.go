@@ -50,6 +50,7 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/planneddowntime"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/snopayouts"
@@ -88,6 +89,12 @@ type API struct {
 	Overlay struct {
 		DB      overlay.DB
 		Service *overlay.Service
+	}
+
+	PlannedDowntime struct {
+		// DB planneddowntime.DB
+		Service  *planneddowntime.Service
+		Endpoint *planneddowntime.Endpoint
 	}
 
 	Orders struct {
@@ -260,6 +267,18 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
 			Close: peer.Overlay.Service.Close,
+		})
+	}
+
+	{
+		peer.PlannedDowntime.Service = planneddowntime.NewService(peer.Log.Named("planneddowntime:service"), peer.Overlay.DB)
+		peer.PlannedDowntime.Endpoint = planneddowntime.NewEndpoint(peer.Log.Named("planneddowntime:endpoint"), peer.PlannedDowntime.Service)
+		if err := pb.DRPCRegisterPlannedDowntime(peer.Server.DRPC(), peer.PlannedDowntime.Endpoint); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Services.Add(lifecycle.Item{
+			Name:  "planneddowntime",
+			Close: peer.PlannedDowntime.Service.Close,
 		})
 	}
 

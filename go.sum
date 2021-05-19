@@ -844,6 +844,10 @@ storj.io/common v0.0.0-20201026135900-1aaeec90670b/go.mod h1:GqdmNf3fLm2UZX/7Zr0
 storj.io/common v0.0.0-20210429174118-60091ebbbdaf/go.mod h1:PdP3eTld9RqSV3E4K44JSlw7Z/zNsymj9rnKuHFKhJE=
 storj.io/common v0.0.0-20210504141454-bcb03a80052f h1:TwWEzxjvhnkCKUGds4HQKtAgFBjzf/C0hcA1luiNuKI=
 storj.io/common v0.0.0-20210504141454-bcb03a80052f/go.mod h1:PdP3eTld9RqSV3E4K44JSlw7Z/zNsymj9rnKuHFKhJE=
+storj.io/common v0.0.0-20210514171604-8da0308b3885 h1:nPQUMunKfZS2KWurGnEtg8pkbmH5kI/BvXpGAPcRZHk=
+storj.io/common v0.0.0-20210514171604-8da0308b3885/go.mod h1:PdP3eTld9RqSV3E4K44JSlw7Z/zNsymj9rnKuHFKhJE=
+storj.io/common v0.0.0-20210518165241-4e0f6e366ee5 h1:8gxXnX2AhutBOs3uoPtILCM7DojER2JbEklr+cZZmTE=
+storj.io/common v0.0.0-20210518165241-4e0f6e366ee5/go.mod h1:PdP3eTld9RqSV3E4K44JSlw7Z/zNsymj9rnKuHFKhJE=
 storj.io/common v0.0.0-20210518194354-aa2870a27333 h1:XTEmf3dL06PAqP0U746VJNooHxUphstsouCbSEbRVzk=
 storj.io/common v0.0.0-20210518194354-aa2870a27333/go.mod h1:PdP3eTld9RqSV3E4K44JSlw7Z/zNsymj9rnKuHFKhJE=
 storj.io/drpc v0.0.11/go.mod h1:TiFc2obNjL9/3isMW1Rpxjy8V9uE0B2HMeMFGiiI7Iw=

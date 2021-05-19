@@ -60,6 +60,7 @@ import (
 	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/planneddowntime"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/repairer"
@@ -96,6 +97,11 @@ type Satellite struct {
 		DB           overlay.DB
 		Service      *overlay.Service
 		DQStrayNodes *straynodes.Chore
+	}
+
+	PlannedDowntime struct {
+		Service  *planneddowntime.Service
+		Endpoint *planneddowntime.Endpoint
 	}
 
 	Metainfo struct {
@@ -703,6 +709,9 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Overlay.DB = api.Overlay.DB
 	system.Overlay.Service = api.Overlay.Service
 	system.Overlay.DQStrayNodes = peer.Overlay.DQStrayNodes
+
+	system.PlannedDowntime.Endpoint = api.PlannedDowntime.Endpoint
+	system.PlannedDowntime.Service = api.PlannedDowntime.Service
 
 	system.Metainfo.Metabase = api.Metainfo.Metabase
 	system.Metainfo.Service = peer.Metainfo.Service
