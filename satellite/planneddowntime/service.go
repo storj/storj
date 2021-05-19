@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"go.uber.org/zap"
+
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/overlay"
