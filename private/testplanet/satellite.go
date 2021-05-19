@@ -60,6 +60,7 @@ import (
 	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/planneddowntime"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/repairer"
@@ -96,6 +97,12 @@ type Satellite struct {
 		DB           overlay.DB
 		Service      *overlay.Service
 		DQStrayNodes *straynodes.Chore
+	}
+
+	PlannedDowntime struct {
+		DB       planneddowntime.DB
+		Service  *planneddowntime.Service
+		Endpoint *planneddowntime.Endpoint
 	}
 
 	Metainfo struct {

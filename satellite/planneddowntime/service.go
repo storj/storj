@@ -29,52 +29,7 @@ func NewService(log *zap.Logger, db *DB) *Service {
 	}
 }
 
-// Maybe we don't want this
-// func (service *Service) GetScheduled(ctx context.Context, id storj.NodeID) (_ *pb.GetScheduledResponse, err error) {
-// 	defer mon.Task()(&ctx)(&err)
-
-// 	// scheduled, err := service.db.GetScheduled(ctx, peer.ID)
-// 	// if err != nil {
-// 	// 	return nil, err
-// 	// }
-
-// 	return &pb.GetScheduledResponse{
-// 		Windows: []*pb.DowntimeWindow{
-// 			{
-// 				Id: []byte{'a', 'b', 'c'},
-// 				Timeframe: &pb.Timeframe{
-// 					Start: time.Time{},
-// 					End:   time.Now(),
-// 				},
-// 			},
-// 		},
-// 	}, nil
-// }
-
-// Maybe we don't want this
-// func (service *Service) GetAvailable(ctx context.Context, req *pb.GetAvailableRequest) (_ *pb.GetAvailableResponse, err error) {
-// 	defer mon.Task()(&ctx)(&err)
-
-// 	// peer, err := identity.PeerIdentityFromContext(ctx)
-// 	// if err != nil {
-// 	// 	return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
-// 	// }
-
-// 	// available, err := endpoint.service.GetAvailable(ctx, peer.ID, req)
-// 	// if err != nil {
-// 	// 	return nil, err
-// 	// }
-
-// 	return &pb.GetAvailableResponse{
-// 		Timeframes: []*pb.Timeframe{
-// 			{
-// 				Start: time.Time{},
-// 				End:   time.Now(),
-// 			},
-// 		},
-// 	}, nil
-// }
-
+// ScheduleDowntime inserts a downtime into the DB.
 func (service *Service) ScheduleDowntime(ctx context.Context, id storj.NodeID, req *pb.ScheduleDowntimeRequest) (_ *pb.ScheduleDowntimeResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -94,7 +49,7 @@ func (service *Service) ScheduleDowntime(ctx context.Context, id storj.NodeID, r
 	}, nil
 }
 
-// Cancel deletes a scheduled timeframe from the DB
+// Cancel deletes a scheduled timeframe from the DB.
 func (service *Service) Cancel(ctx context.Context, id storj.NodeID, req *pb.CancelRequest) (_ *pb.CancelResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -104,3 +59,6 @@ func (service *Service) Cancel(ctx context.Context, id storj.NodeID, req *pb.Can
 	// }
 	return &pb.CancelResponse{}, nil
 }
+
+// Close closes resources.
+func (service *Service) Close() error { return nil }

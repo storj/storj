@@ -28,30 +28,19 @@ func NewEndpoint(log *zap.Logger, service *Service) *Endpoint {
 	}
 }
 
-// Maybe we don't want this
-// func (endpoint *Endpoint) GetScheduled(ctx context.Context, req *pb.GetScheduledRequest) (_ *pb.GetScheduledResponse, err error) {
-// 	defer mon.Task()(&ctx)(&err)
+// GetAvailable downtimes that nodes can take.
+func (endpoint *Endpoint) GetAvailable(ctx context.Context, req *pb.GetAvailableRequest) (_ *pb.GetAvailableResponse, err error) {
+	// NI
+	return nil, nil
+}
 
-// 	peer, err := identity.PeerIdentityFromContext(ctx)
-// 	if err != nil {
-// 		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
-// 	}
+// GetScheduled downtime for node.
+func (endpoint *Endpoint) GetScheduled(ctx context.Context, req *pb.GetScheduledRequest) (_ *pb.GetScheduledResponse, err error) {
+	// NI
+	return nil, nil
+}
 
-// 	return endpoint.service.GetScheduled(ctx, peer.ID)
-// }
-
-// Maybe we don't want this
-// func (endpoint *Endpoint) GetAvailable(ctx context.Context, req *pb.GetAvailableRequest) (_ *pb.GetAvailableResponse, err error) {
-// 	defer mon.Task()(&ctx)(&err)
-
-// 	peer, err := identity.PeerIdentityFromContext(ctx)
-// 	if err != nil {
-// 		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
-// 	}
-
-// 	return endpoint.service.GetAvailable(ctx, peer.ID, req)
-// }
-
+// ScheduleDowntime inserts a downtime into the DB.
 func (endpoint *Endpoint) ScheduleDowntime(ctx context.Context, req *pb.ScheduleDowntimeRequest) (_ *pb.ScheduleDowntimeResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
