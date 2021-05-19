@@ -5,24 +5,19 @@ package planneddowntime
 
 import (
 	"context"
-	"time"
 
 	"go.uber.org/zap"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/overlay"
 )
-
-type DB interface {
-	Add(id storj.NodeID, req *pb.ScheduleDowntimeRequest) (*pb.DowntimeWindow, error)
-	Delete(id storj.NodeID, req *pb.CancelRequest) error
-}
 
 type Service struct {
 	log *zap.Logger
-	db  *DB
+	db  overlay.DB
 }
 
-func NewService(log *zap.Logger, db *DB) *Service {
+func NewService(log *zap.Logger, db overlay.DB) *Service {
 	return &Service{
 		log: log,
 		db:  db,
@@ -33,30 +28,28 @@ func NewService(log *zap.Logger, db *DB) *Service {
 func (service *Service) ScheduleDowntime(ctx context.Context, id storj.NodeID, req *pb.ScheduleDowntimeRequest) (_ *pb.ScheduleDowntimeResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// downtime, err := service.db.Add(ctx, peer.ID, req)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
+	err = service.db.AddPlannedDowntime(ctx, id, req.Timeframe.Start, req.Timeframe.End)
+	if err != nil {
+		return nil, err
+	}
 	return &pb.ScheduleDowntimeResponse{
 		Window: &pb.DowntimeWindow{
-			Id: []byte{'a', 'b', 'c'},
 			Timeframe: &pb.Timeframe{
-				Start: time.Time{},
-				End:   time.Now(),
+				Start: req.Timeframe.Start,
+				End:   req.Timeframe.End,
 			},
 		},
-	}, nil
+	}, err
 }
 
 // Cancel deletes a scheduled timeframe from the DB.
 func (service *Service) Cancel(ctx context.Context, id storj.NodeID, req *pb.CancelRequest) (_ *pb.CancelResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// err := service.db.Delete(ctx, peer.ID, req.Id)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	err = service.db.CancelPlannedDowntime(ctx, id)
+	if err != nil {
+		return nil, err
+	}
 	return &pb.CancelResponse{}, nil
 }
 

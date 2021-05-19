@@ -1878,7 +1878,7 @@ func (cache *overlaycache) IterateAllNodeDossiers(ctx context.Context, cb func(c
 }
 
 // AddPlannedDowntime is a thing.
-func (cache *overlaycache) AddPlannedDowntime(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) (err error) {
+func (cache *overlaycache) AddPlannedDowntime(ctx context.Context, nodeID storj.NodeID, start, end time.Time) (err error) {
 	_, err = cache.db.Exec(ctx,
 		`UPDATE nodes 
 		SET next_planned_downtime_start = $1::timestamptz, 

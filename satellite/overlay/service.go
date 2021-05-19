@@ -97,6 +97,11 @@ type DB interface {
 	// UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
 	UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error)
 
+	// AddPlannedDowntime is a thing.
+	AddPlannedDowntime(ctx context.Context, nodeID storj.NodeID, start, end time.Time) (err error)
+	// CancelPlannedDowntime is a thing.
+	CancelPlannedDowntime(ctx context.Context, nodeID storj.NodeID) (err error)
+
 	// TestVetNode directly sets a node's vetted_at timestamp to make testing easier
 	TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error)
 	// TestUnvetNode directly sets a node's vetted_at timestamp to null to make testing easier
