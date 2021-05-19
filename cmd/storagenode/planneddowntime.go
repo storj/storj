@@ -21,13 +21,6 @@ type plannedDowntimeClient struct {
 	conn *rpc.Conn
 }
 
-/*
-type unavailableSatellite struct {
-	id         storj.NodeID
-	monthsLeft int
-}
-*/
-
 func dialPlannedDowntimeClient(ctx context.Context, address string) (*plannedDowntimeClient, error) {
 	conn, err := rpc.NewDefaultDialer(nil).DialAddressUnencrypted(ctx, address)
 	if err != nil {
@@ -43,6 +36,7 @@ func (client *plannedDowntimeClient) add(ctx context.Context, start time.Time, d
 	})
 }
 
+/*
 func (client *plannedDowntimeClient) getScheduled(ctx context.Context) (*internalpb.GetScheduledResponse, error) {
 	return internalpb.NewDRPCNodePlannedDowntimeClient(client.conn).GetScheduled(ctx, &internalpb.GetScheduledRequest{})
 }
@@ -56,6 +50,7 @@ func (client *plannedDowntimeClient) delete(ctx context.Context, id []byte) (*in
 		Id: id,
 	})
 }
+*/
 
 func (client *plannedDowntimeClient) close() error {
 	return client.conn.Close()

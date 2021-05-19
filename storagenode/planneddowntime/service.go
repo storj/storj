@@ -20,8 +20,8 @@ type Service struct {
 }
 
 // NewService creates new instance of service.
-func NewService(log *zap.Logger, db DB) *Service {
-	return &Service{
+func NewService(log *zap.Logger, db DB) Service {
+	return Service{
 		log: log,
 		db:  db,
 	}
