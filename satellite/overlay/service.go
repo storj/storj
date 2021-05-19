@@ -110,6 +110,9 @@ type DB interface {
 	// AuditHistoryDB includes operations for interfacing with the audit history table.
 	AuditHistoryDB
 
+	ScheduleDowntime(id storj.NodeID, start, end time.Time) (*NodePlannedDowntime, error)
+	RemoveDowntime(id storj.NodeID) error
+
 	// IterateAllNodes will call cb on all known nodes (used in restore trash contexts).
 	IterateAllNodes(context.Context, func(context.Context, *SelectedNode) error) error
 	// IterateAllNodes will call cb on all known nodes (used for invoice generation).
@@ -250,6 +253,14 @@ type NodeLastContact struct {
 	LastContactFailure time.Time
 }
 
+// NodePlannedDowntime contains the ID and start and end timestamp for its
+// planned downtime.
+type NodePlannedDowntime struct {
+	ID    storj.NodeID
+	Start time.Time
+	End   time.Time
+}
+
 // SelectedNode is used as a result for creating orders limits.
 type SelectedNode struct {
 	ID         storj.NodeID
@@ -281,6 +292,7 @@ type Service struct {
 
 	UploadSelectionCache   *UploadSelectionCache
 	DownloadSelectionCache *DownloadSelectionCache
+	PlannedDowntimeCache   *PlannedDowntimeCache
 }
 
 // NewService returns a new Service.
@@ -303,6 +315,9 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 			OnlineWindow:   config.Node.OnlineWindow,
 			AsOfSystemTime: config.Node.AsOfSystemTime,
 		}),
+
+		// TODO: use the correct config
+		PlannedDowntimeCache: NewPlannedDowntimeCache(log, db, config.NodeSelectionCache.Staleness),
 	}, nil
 }
 

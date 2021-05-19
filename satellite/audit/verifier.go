@@ -84,6 +84,7 @@ func NewVerifier(log *zap.Logger, metabase *metabase.DB, dialer rpc.Dialer, over
 
 // Verify downloads shares then verifies the data correctness at a random stripe.
 func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[storj.NodeID]bool) (report Report, err error) {
+
 	defer mon.Task()(&ctx)(&err)
 
 	if segment.Expired(verifier.nowFn()) {
@@ -382,7 +383,14 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 	ch := make(chan result, len(pieces))
 	var containedInSegment int64
 
+	skip := verifier.overlay.PlannedDowntimeCache.GetScheduled(ctx, time.Now())
+
 	for _, piece := range pieces {
+		if _, ok := skip[piece.StorageNode]; ok {
+			ch <- result{nodeID: piece.StorageNode, status: skipped}
+			continue
+		}
+
 		pending, err := verifier.containment.Get(ctx, piece.StorageNode)
 		if err != nil {
 			if ErrContainedNotFound.Has(err) {
@@ -673,6 +681,10 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 		NodeID:   targetNodeID,
 		Data:     buf,
 	}, nil
+}
+
+func (verifier *Verifier) SkippedNodes(ctx context.Context) (map[storj.NodeID]bool, error) {
+	return nil, nil
 }
 
 // checkIfSegmentAltered checks if oldSegment has been altered since it was selected for audit.
