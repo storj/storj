@@ -5,6 +5,7 @@ package planneddowntime
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
@@ -43,6 +44,12 @@ func (endpoint *Endpoint) GetScheduled(ctx context.Context, req *pb.GetScheduled
 // ScheduleDowntime inserts a downtime into the DB.
 func (endpoint *Endpoint) ScheduleDowntime(ctx context.Context, req *pb.ScheduleDowntimeRequest) (_ *pb.ScheduleDowntimeResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	fmt.Println("----")
+	fmt.Println("scheduling downtime")
+	fmt.Println(req.Timeframe.Start)
+	fmt.Println(req.Timeframe.End)
+	fmt.Println("----")
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {

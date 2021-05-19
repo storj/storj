@@ -776,6 +776,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.PlannedDowntime.Endpoint = planneddowntime.NewEndpoint(
 			peer.Log.Named("gracefulexit:endpoint"),
+			peer.Storage2.Trust,
 			peer.DB.Satellites(),
 			peer.Dialer,
 		)

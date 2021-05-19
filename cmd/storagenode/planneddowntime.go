@@ -67,9 +67,9 @@ func cmdAddPlannedDowntime(cmd *cobra.Command, args []string) error {
 	}
 
 	// TODO prompt for time
-	start := time.Now()
+	start := time.Now().Add(5 * time.Hour)
 	// TODO prompt for number of hours
-	durationHours := int32(0)
+	durationHours := int32(24)
 
 	client, err := dialPlannedDowntimeClient(ctx, diagCfg.Server.PrivateAddress)
 	if err != nil {
