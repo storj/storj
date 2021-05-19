@@ -272,6 +272,11 @@ type Peer struct {
 		BlobsCleaner *gracefulexit.BlobsCleaner
 	}
 
+	PlannedDowntime struct {
+		Service  planneddowntime.Service
+		Endpoint *planneddowntime.Endpoint
+	}
+
 	Notifications struct {
 		Service *notifications.Service
 	}
@@ -761,6 +766,23 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Graceful Exit", peer.GracefulExit.Chore.Loop))
+	}
+
+	{ // setup planned downtime service
+		peer.PlannedDowntime.Service = planneddowntime.NewService(
+			peer.Log.Named("planneddowntime:service"),
+			peer.DB.PlannedDowntime(),
+		)
+
+		peer.PlannedDowntime.Endpoint = planneddowntime.NewEndpoint(
+			peer.Log.Named("gracefulexit:endpoint"),
+			peer.Storage2.Trust,
+			peer.DB.Satellites(),
+			peer.Dialer,
+		)
+		if err := internalpb.DRPCRegisterNodePlannedDowntime(peer.Server.PrivateDRPC(), peer.PlannedDowntime.Endpoint); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 	}
 
 	peer.Collector = collector.NewService(peer.Log.Named("collector"), peer.Storage2.Store, peer.UsedSerials, config.Collector)

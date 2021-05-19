@@ -1,0 +1,55 @@
+// Copyright (C) 2021 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+syntax = "proto3";
+option go_package = "storj.io/storj/storagenode/internalpb";
+
+import "gogo.proto";
+import "google/protobuf/timestamp.proto";
+
+package storagenode.planneddowntime;
+
+// NodePlannedDowntime is a private service on storagenodes.
+service NodePlannedDowntime {
+  // Add attempts to add a new planned downtime entry.
+  rpc Add(AddRequest) returns (AddResponse);
+  // GetScheduled gets a list of current and upcoming planned downtime entries.
+  rpc GetScheduled(GetScheduledRequest) returns (GetScheduledResponse);
+  // GetCompleted gets a list of completed planned downtime entries.
+  rpc GetCompleted(GetCompletedRequest) returns (GetCompletedResponse);
+  // Delete deletes an existing planned downtime entry.
+  rpc Delete(DeleteRequest) returns (DeleteResponse);
+}
+
+message AddRequest{
+    google.protobuf.Timestamp start = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    int32 duration_hours = 2;
+}
+
+message AddResponse{}
+
+message GetScheduledRequest{}
+
+message GetScheduledResponse{
+   repeated Entry entries = 1;
+}
+
+message GetCompletedRequest{}
+
+message GetCompletedResponse{
+   repeated Entry entries = 1;
+}
+
+// Entry contains information about an existing planned downtime entry.
+message Entry {
+    bytes id = 1;
+    google.protobuf.Timestamp start = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp end = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message DeleteRequest{
+    bytes id = 1;
+}
+
+message DeleteResponse{}
+

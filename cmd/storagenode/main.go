@@ -86,6 +86,18 @@ var (
 		RunE:        cmdGracefulExitStatus,
 		Annotations: map[string]string{"type": "helper"},
 	}
+	plannedDowntimeCmd = &cobra.Command{
+		Use:   "planned-downtime",
+		Short: "Run commands related to planned downtime",
+	}
+	addPlannedDowntimeCmd = &cobra.Command{
+		Use:   "add",
+		Short: "Add planned downtime",
+		Long: "Add planned downtime.\n" +
+			"The command adds a planned downtime entry",
+		RunE:        cmdAddPlannedDowntime,
+		Annotations: map[string]string{"type": "helper"},
+	}
 	issueAPITokenCmd = &cobra.Command{
 		Use:   "issue-apikey",
 		Short: "Issue apikey for mnd",
@@ -126,6 +138,8 @@ func init() {
 	rootCmd.AddCommand(gracefulExitInitCmd)
 	rootCmd.AddCommand(gracefulExitStatusCmd)
 	rootCmd.AddCommand(issueAPITokenCmd)
+	plannedDowntimeCmd.AddCommand(addPlannedDowntimeCmd)
+	rootCmd.AddCommand(plannedDowntimeCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setupCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
 	process.Bind(configCmd, &setupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir), cfgstruct.SetupMode())
@@ -134,6 +148,7 @@ func init() {
 	process.Bind(gracefulExitInitCmd, &diagCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 	process.Bind(gracefulExitStatusCmd, &diagCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 	process.Bind(issueAPITokenCmd, &diagCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(addPlannedDowntimeCmd, &diagCfg, defaults, cfgstruct.ConfDir(defaultDiagDir))
 }
 
 func cmdRun(cmd *cobra.Command, args []string) (err error) {
