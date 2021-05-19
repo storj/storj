@@ -1399,6 +1399,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes DROP COLUMN uptime_success_count;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add planned downtime columns to nodes table",
+				Version:     158,
+				Action: migrate.SQL{
+					`ALTER TABLE nodes ADD COLUMN next_planned_downtime_start timestamp with time zone;`,
+					`ALTER TABLE nodes ADD COLUMN next_planned_downtime_end timestamp with time zone;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
