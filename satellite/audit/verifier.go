@@ -115,6 +115,14 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	containedNodes := make(map[int]storj.NodeID)
 	sharesToAudit := make(map[int]Share)
 
+	nodesWithDowntime, err := verifier.overlay.PlannedDowntimeCache.GetScheduled(ctx, time.Now())
+	if err != nil {
+		return Report{}, err
+	}
+	for id := range nodesWithDowntime {
+		skip[id] = true
+	}
+
 	orderLimits, privateKey, cachedIPsAndPorts, err := verifier.orders.CreateAuditOrderLimits(ctx, segment.Bucket(), segmentInfo, skip)
 	if err != nil {
 		return Report{}, err
@@ -383,7 +391,10 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 	ch := make(chan result, len(pieces))
 	var containedInSegment int64
 
-	skip := verifier.overlay.PlannedDowntimeCache.GetScheduled(ctx, time.Now())
+	skip, err := verifier.overlay.PlannedDowntimeCache.GetScheduled(ctx, time.Now())
+	if err != nil {
+		return Report{}, err
+	}
 
 	for _, piece := range pieces {
 		if _, ok := skip[piece.StorageNode]; ok {
@@ -681,10 +692,6 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 		NodeID:   targetNodeID,
 		Data:     buf,
 	}, nil
-}
-
-func (verifier *Verifier) SkippedNodes(ctx context.Context) (map[storj.NodeID]bool, error) {
-	return nil, nil
 }
 
 // checkIfSegmentAltered checks if oldSegment has been altered since it was selected for audit.

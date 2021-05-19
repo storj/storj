@@ -16,8 +16,7 @@ type downtimeInfo struct {
 }
 
 type PlannedDowntimeNodesDB interface {
-	ScheduleDowntime(id storj.NodeID, start, end time.Time) (*NodePlannedDowntime, error)
-	RemoveDowntime(id storj.NodeID) error
+	SelectNodeWithPlannedDowntime(ctx context.Context, endAfter time.Time) ([]NodePlannedDowntime, error)
 }
 
 type PlannedDowntimeCache struct {
@@ -27,9 +26,7 @@ type PlannedDowntimeCache struct {
 
 	mu          sync.RWMutex
 	lastRefresh time.Time
-	// TODO: it's probably better that this is sorted from most recent to
-	// upcoming later
-	state map[storj.NodeID][]downtimeInfo
+	state       map[storj.NodeID]downtimeInfo
 }
 
 func NewPlannedDowntimeCache(log *zap.Logger, db PlannedDowntimeNodesDB, staleness time.Duration) *PlannedDowntimeCache {
@@ -39,99 +36,68 @@ func NewPlannedDowntimeCache(log *zap.Logger, db PlannedDowntimeNodesDB, stalene
 	}
 }
 
-func (cache *PlannedDowntimeCache) Add(ctx context.Context, info NodePlannedDowntime) (err error) {
+// Refresh populates the cache with all of nodes that has future downtime planned.
+// This method is useful for tests.
+func (cache *PlannedDowntimeCache) Refresh(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	cache.refresh(ctx)
-
-	_, err = cache.db.ScheduleDowntime(info.ID, info.Start, info.End)
-	if err != nil {
-		return err
-	}
-
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-
-	var infos []downtimeInfo
-	var ok bool
-	if infos, ok = cache.state[info.ID]; !ok {
-		infos = make([]downtimeInfo, 0)
-	}
-	cache.state[info.ID] = append(infos, downtimeInfo{start: info.Start, end: info.End})
-
+	_, err = cache.refresh(ctx)
 	return err
 }
 
-func (cache *PlannedDowntimeCache) Delete(ctx context.Context, pd NodePlannedDowntime) (err error) {
-	defer mon.Task()(&ctx)(&err)
+func (cache *PlannedDowntimeCache) GetScheduled(ctx context.Context, endAfter time.Time) (_ map[storj.NodeID]NodePlannedDowntime, err error) {
+	defer mon.Task()(&ctx)(nil)
 
-	cache.refresh(ctx)
+	cache.mu.RLock()
+	lastRefresh := cache.lastRefresh
+	state := cache.state
+	cache.mu.RUnlock()
 
-	err = cache.db.RemoveDowntime(pd.ID)
+	// if the cache is stale, then refresh it before we get nodes
+	if state == nil || time.Since(lastRefresh) > cache.staleness {
+		state, err = cache.refresh(ctx)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	results := make(map[storj.NodeID]NodePlannedDowntime)
+	for id, info := range cache.state {
+		if info.end.After(endAfter.UTC()) && info.start.Before(endAfter.UTC()) {
+			results[id] = NodePlannedDowntime{
+				ID:    id,
+				Start: info.start,
+				End:   info.end,
+			}
+		}
+	}
+
+	return results, nil
+
+}
+
+func (cache *PlannedDowntimeCache) refresh(ctx context.Context) (map[storj.NodeID]downtimeInfo, error) {
+	defer mon.Task()(&ctx)(nil)
+
+	cache.mu.Lock()
+	defer cache.mu.Unlock()
+
+	if cache.state != nil && time.Since(cache.lastRefresh) <= cache.staleness {
+		return cache.state, nil
+	}
+
+	nodes, err := cache.db.SelectNodeWithPlannedDowntime(ctx, time.Now())
 	if err != nil {
-		return err
+		return cache.state, err
 	}
 
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-
-	for n, infos := range cache.state {
-		if n == pd.ID {
-			for i, info := range infos {
-				if info.start == pd.Start && info.end == pd.End {
-					cache.state[n] = append(infos[:i], infos[i+1:]...)
-				}
-			}
+	cache.lastRefresh = time.Now().UTC()
+	cache.state = make(map[storj.NodeID]downtimeInfo)
+	for _, n := range nodes {
+		cache.state[n.ID] = downtimeInfo{
+			start: n.Start,
+			end:   n.End,
 		}
 	}
 
-	return nil
-}
-
-func (cache *PlannedDowntimeCache) GetScheduled(ctx context.Context, endAfter time.Time) map[storj.NodeID]NodePlannedDowntime {
-	defer mon.Task()(&ctx)(nil)
-
-	cache.mu.RLocker()
-	defer cache.mu.RLocker().Unlock()
-
-	var results map[storj.NodeID]NodePlannedDowntime
-	for id, infos := range cache.state {
-		for _, info := range infos {
-			if info.end.After(endAfter.UTC()) && info.start.Before(endAfter.UTC()) {
-				results[id] = NodePlannedDowntime{
-					ID:    id,
-					Start: info.start,
-					End:   info.end,
-				}
-			}
-		}
-	}
-
-	return results
-
-}
-
-func (cache *PlannedDowntimeCache) refresh(ctx context.Context) {
-	defer mon.Task()(&ctx)(nil)
-
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-
-	if time.Since(cache.lastRefresh) <= cache.staleness {
-		return
-	}
-
-	now := time.Now().UTC()
-	// delete entries that its end time has passed
-	for n, infos := range cache.state {
-		for i, info := range infos {
-			if time.Since(info.end) > 0 {
-				cache.state[n] = append(infos[:i], infos[i+1:]...)
-			}
-		}
-	}
-
-	cache.lastRefresh = now
-
-	return
+	return cache.state, nil
 }

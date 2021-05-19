@@ -101,6 +101,7 @@ type DB interface {
 	AddPlannedDowntime(ctx context.Context, nodeID storj.NodeID, start, end time.Time) (err error)
 	// CancelPlannedDowntime is a thing.
 	CancelPlannedDowntime(ctx context.Context, nodeID storj.NodeID) (err error)
+	SelectNodeWithPlannedDowntime(ctx context.Context, endAfter time.Time) ([]NodePlannedDowntime, error)
 
 	// TestVetNode directly sets a node's vetted_at timestamp to make testing easier
 	TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error)
@@ -109,9 +110,6 @@ type DB interface {
 
 	// AuditHistoryDB includes operations for interfacing with the audit history table.
 	AuditHistoryDB
-
-	ScheduleDowntime(id storj.NodeID, start, end time.Time) (*NodePlannedDowntime, error)
-	RemoveDowntime(id storj.NodeID) error
 
 	// IterateAllNodes will call cb on all known nodes (used in restore trash contexts).
 	IterateAllNodes(context.Context, func(context.Context, *SelectedNode) error) error
@@ -316,8 +314,8 @@ func NewService(log *zap.Logger, db DB, config Config) (*Service, error) {
 			AsOfSystemTime: config.Node.AsOfSystemTime,
 		}),
 
-		// TODO: use the correct config
-		PlannedDowntimeCache: NewPlannedDowntimeCache(log, db, config.NodeSelectionCache.Staleness),
+		// TODO: use config
+		PlannedDowntimeCache: NewPlannedDowntimeCache(log, db, 24*time.Hour),
 	}, nil
 }
 

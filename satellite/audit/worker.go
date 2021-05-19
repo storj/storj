@@ -113,9 +113,6 @@ func (worker *Worker) work(ctx context.Context, segment Segment) (err error) {
 
 	var errlist errs.Group
 
-	// Get nodes that are currently in planned downtime
-	worker.verifier.SkippedNodes(ctx)
-
 	// First, attempt to reverify nodes for this segment that are in containment mode.
 	report, err := worker.verifier.Reverify(ctx, segment)
 	if err != nil {

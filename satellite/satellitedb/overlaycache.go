@@ -1898,3 +1898,28 @@ func (cache *overlaycache) CancelPlannedDowntime(ctx context.Context, nodeID sto
 		nodeID.Bytes())
 	return err
 }
+
+func (cache *overlaycache) SelectNodeWithPlannedDowntime(ctx context.Context, endAfter time.Time) ([]overlay.NodePlannedDowntime, error) {
+	var rows tagsql.Rows
+	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
+		SELECT id, next_planned_downtime_start, next_planned_downtime_end
+		FROM nodes
+		WHERE next_planned_downtime_start < $1 AND next_planned_downtime_end > $1
+	`), endAfter.UTC())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	result := make([]overlay.NodePlannedDowntime, 0)
+	for rows.Next() {
+		var node overlay.NodePlannedDowntime
+		err = rows.Scan(&node.ID, &node.Start, &node.End)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		result = append(result, node)
+	}
+
+	return result, rows.Err()
+}
