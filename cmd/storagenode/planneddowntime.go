@@ -4,8 +4,12 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"os"
+	"strconv"
+	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -67,9 +71,36 @@ func cmdAddPlannedDowntime(cmd *cobra.Command, args []string) error {
 	}
 
 	// TODO prompt for time
-	start := time.Now().Add(5 * time.Hour)
-	// TODO prompt for number of hours
-	durationHours := int32(24)
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "Please enter the date you would like your planned downtime to begin. Press enter to continue:")
+
+	var rawTime string
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		rawTime = scanner.Text()
+		break
+	}
+	if scanErr := scanner.Err(); scanErr != nil {
+		return errs.Wrap(scanErr)
+	}
+	start, err := time.Parse("2006-01-02", rawTime)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	fmt.Fprintln(w, "Please enter the number of hours for your planned downtime. Press enter to continue:")
+	var rawHours string
+	for scanner.Scan() {
+		rawHours = scanner.Text()
+		break
+	}
+	if scanErr := scanner.Err(); scanErr != nil {
+		return errs.Wrap(scanErr)
+	}
+	durationHours, err := strconv.Atoi(rawHours)
+	if err != nil {
+		return errs.Wrap(err)
+	}
 
 	client, err := dialPlannedDowntimeClient(ctx, diagCfg.Server.PrivateAddress)
 	if err != nil {
@@ -81,7 +112,7 @@ func cmdAddPlannedDowntime(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
-	_, err = client.add(ctx, start, durationHours)
+	_, err = client.add(ctx, start, int32(durationHours))
 	if err != nil {
 		fmt.Println("Can't add planned downtime.")
 		return errs.Wrap(err)
