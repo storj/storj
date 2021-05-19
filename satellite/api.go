@@ -271,8 +271,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{
-		peer.PlannedDowntime.DB = peer.DB.PlannedDowntime()
-		peer.PlannedDowntime.Service = planneddowntime.NewService(peer.Log.Named("planneddowntime:service"), peer.PlannedDowntime.DB)
+		peer.PlannedDowntime.Service = planneddowntime.NewService(peer.Log.Named("planneddowntime:service"), peer.Overlay.DB)
 		peer.PlannedDowntime.Endpoint = planneddowntime.NewEndpoint(peer.Log.Named("planneddowntime:endpoint"), peer.PlannedDowntime.Service)
 		if err := pb.DRPCRegisterPlannedDowntime(peer.Server.DRPC(), peer.PlannedDowntime.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())

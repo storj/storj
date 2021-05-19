@@ -100,7 +100,6 @@ type Satellite struct {
 	}
 
 	PlannedDowntime struct {
-		DB       planneddowntime.DB
 		Service  *planneddowntime.Service
 		Endpoint *planneddowntime.Endpoint
 	}
@@ -710,6 +709,9 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Overlay.DB = api.Overlay.DB
 	system.Overlay.Service = api.Overlay.Service
 	system.Overlay.DQStrayNodes = peer.Overlay.DQStrayNodes
+
+	system.PlannedDowntime.Endpoint = api.PlannedDowntime.Endpoint
+	system.PlannedDowntime.Service = api.PlannedDowntime.Service
 
 	system.Metainfo.Metabase = api.Metainfo.Metabase
 	system.Metainfo.Service = peer.Metainfo.Service
