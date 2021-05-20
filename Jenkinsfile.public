@@ -237,6 +237,25 @@ pipeline {
                         }
                     }
                 }
+
+                stage('UI') {
+                    environment {
+                        STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
+                            'cockroach://root@localhost:26257/testcockroach?sslmode=disable;' +
+                            'cockroach://root@localhost:26258/testcockroach?sslmode=disable;' +
+                            'cockroach://root@localhost:26259/testcockroach?sslmode=disable'
+                        STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
+                        STORJ_TEST_SATELLITE_WEB = pwd() + './build/satellite-web'
+                    }
+                    steps {
+                        sh 'cp ./web/satellite $STORJ_TEST_SATELLITE_WEB'
+                        dir($STORJ_TEST_SATELLITE_WEB) {
+                            sh 'npm run build'
+                        }
+                        sh 'Xvfb -ac :99 -screen 0 1280x1024x16 & export DISPLAY=:99'
+                        sh 'go test ./integration/ui/...'
+                    }
+                }
             }
         }
     }
