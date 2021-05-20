@@ -55,13 +55,16 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req Report) (_ Repor
 	offlines := req.Offlines
 	pendingAudits := req.PendingAudits
 
-	reporter.log.Debug("Reporting audits",
+	reporter.log.Debug(`==================Reporting audits===================`,
 		zap.Int("successes", len(successes)),
 		zap.Int("failures", len(fails)),
 		zap.Int("unknowns", len(unknowns)),
 		zap.Int("offlines", len(offlines)),
 		zap.Int("pending", len(pendingAudits)),
 	)
+
+	reporter.log.Debug(`======================Audited nodes================`,
+		zap.Any("node IDs", req.Successes))
 
 	var errlist errs.Group
 
@@ -117,6 +120,7 @@ func (reporter *Reporter) RecordAudits(ctx context.Context, req Report) (_ Repor
 			PendingAudits: pendingAudits,
 		}, errs.Combine(Error.New("some nodes failed to be updated in overlay"), err)
 	}
+
 	return Report{}, nil
 }
 

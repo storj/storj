@@ -1884,7 +1884,7 @@ func (cache *overlaycache) AddPlannedDowntime(ctx context.Context, nodeID storj.
 		SET next_planned_downtime_start = $1::timestamptz, 
 		next_planned_downtime_end = $2::timestamptz 
 		WHERE id = $3`,
-		start, end, nodeID.Bytes())
+		start.UTC(), end.UTC(), nodeID.Bytes())
 	return err
 }
 

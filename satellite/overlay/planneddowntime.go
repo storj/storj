@@ -71,6 +71,10 @@ func (cache *PlannedDowntimeCache) GetScheduled(ctx context.Context, endAfter ti
 		}
 	}
 
+	cache.log.Debug(`========================
+	PlannedDowntime
+	======================`, zap.Any("GetScheduled", len(cache.state)))
+
 	return results, nil
 
 }
