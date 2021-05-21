@@ -235,6 +235,17 @@ pipeline {
                         }
                     }
                 }
+
+                stage('multinode npm') {
+                    steps {
+                        dir("web/multinode") {
+                            sh 'npm run build'
+                            sh 'npm run lint'
+                            sh script: 'npm audit', returnStatus: true
+                            sh 'npm run test'
+                        }
+                    }
+                }
             }
         }
     }
