@@ -13,7 +13,6 @@ exports[`PayoutsPage renders correctly 1`] = `
     </div>
     <div class="payouts__right-area">
       <details-area-stub totalearned="0" totalheld="0" totalpaid="0" period="All time"></details-area-stub>
-      <payout-history-block-stub></payout-history-block-stub>
     </div>
   </div>
 </div>

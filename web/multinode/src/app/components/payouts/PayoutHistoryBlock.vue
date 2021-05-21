@@ -5,7 +5,7 @@
     <info-block>
         <div class="payouts-history-block" slot="body">
             <h3 class="payouts-history-block__title">Payout History</h3>
-            <v-button class="payouts-history-block__button" label="Download" :is-white="true" width="100%" :on-press="() => {}" />
+            <v-button class="payouts-history-block__button" label="Download" :is-white="true" width="100%" />
         </div>
     </info-block>
 </template>
