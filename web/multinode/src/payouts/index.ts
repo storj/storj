@@ -75,3 +75,20 @@ export class PayoutPeriod {
         return new PayoutPeriod(parseInt(periodArray[0]), parseInt(periodArray[1]) - 1);
     }
 }
+
+/**
+ * PayoutsSummary is a representation of current month estimated payout and undistributed payouts.
+ */
+export class Expectations {
+    public constructor(
+        public currentMonthEstimation: number = 0,
+        public undistributed: number = 0,
+    ) {
+        this.currentMonthEstimation = this.convertToCents(this.currentMonthEstimation);
+        this.undistributed = this.convertToCents(this.undistributed);
+    }
+
+    private convertToCents(value: number): number {
+        return value / PRICE_DIVIDER;
+    }
+}
