@@ -1,0 +1,88 @@
+def lastStage = ''
+node('node') {
+    properties([disableConcurrentBuilds()])
+    try {
+        env.STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257?sslmode=disable'
+        env.STORJ_SIM_REDIS = 'localhost:6379'
+        env.CC = 'gcc'
+
+        def dockerImage = docker.build("storj-ci", "--pull https://github.com/storj/ci.git#main")
+        dockerImage.inside("--name satellite-ui-$BUILD_NUMBER --hostname satellite-ui-$BUILD_NUMBER") {
+            stage('Checkout') {
+                lastStage = env.STAGE_NAME
+                checkout scm
+
+                withCredentials([usernamePassword(credentialsId: 'githubcred', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
+                    sh 'git clone https://$USERNAME:$PASSWORD@github.com/storj/tardigrade-satellite-theme.git --depth 1'
+                }
+            }
+
+            stage('Prepare result folder') {
+                lastStage = env.STAGE_NAME
+                sh 'if [ -d "$WORKSPACE/data" ]; then rm -Rf $WORKSPACE/data/*; else mkdir $WORKSPACE/data; fi'
+            }
+
+            stage('Setup env') {
+                lastStage = env.STAGE_NAME
+                sh '''#!/bin/bash
+                  redis-server &
+                  cockroach start-single-node --insecure --listen-addr=localhost --background
+
+                  go install -v ./...
+                  go install -v storj.io/gateway@latest
+
+                  cp -r $WORKSPACE/tardigrade-satellite-theme/europe-west-1/* $WORKSPACE/web/satellite/
+                  cd $WORKSPACE/web/satellite/
+                  npm run wasm
+                  npm install
+                  npm run build
+
+                  storj-sim -x network setup | tee $WORKSPACE/data/storj-sim_setup.log
+                  storj-sim -x network run | tee $WORKSPACE/data/storj-sim_run.log &
+                  timeout 5m tail -f $WORKSPACE/data/storj-sim_run.log | grep -m 1 "Starting Tardigrade S3 Gateway" > /dev/null
+              '''
+            }
+
+            stage('Setup Uplink') {
+                lastStage = env.STAGE_NAME
+                sh '''
+                    uplink import $(storj-sim network env GATEWAY_0_ACCESS)
+                    uplink mb sj://test
+                    uplink ls
+                '''
+            }
+
+            stage('Build go rod binary dependencies') {
+                lastStage = env.STAGE_NAME
+                sh 'git clone https://github.com/ysmood/leakless.git --depth 1 && cd leakless && go generate'
+                sh 'go mod edit --replace github.com/ysmood/leakless=$WORKSPACE/leakless'
+                sh 'go get github.com/go-rod/rod'
+            }
+
+            stage('Simple test') {
+                lastStage = env.STAGE_NAME
+                sh 'go test -v $WORKSPACE/scripts/tests/uitests/branding_test.go'
+            }
+        }
+
+    } catch (err) {
+        echo "Caught errors! ${err}"
+        echo "Setting build result to FAILURE"
+        currentBuild.result = "FAILURE"
+
+        slackSend color: 'danger', message: "@build-team ${env.BRANCH_NAME} build failed during stage ${lastStage} ${env.BUILD_URL}"
+
+        mail from: 'builds@storj.io',
+          replyTo: 'builds@storj.io',
+          to: 'builds@storj.io',
+          subject: "storj/storj branch ${env.BRANCH_NAME} build failed",
+          body: "Project build log: ${env.BUILD_URL}"
+
+        throw err
+    } finally {
+        stage('Cleanup') {
+            archiveArtifacts artifacts: 'data/*', allowEmptyArchive: true
+            deleteDir()
+        }
+    }
+}
