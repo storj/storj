@@ -97,8 +97,67 @@ message TrustedSatellitesResponse {
 }
 
 service Payout {
+  rpc AllSatellitesSummary(AllSatellitesSummaryRequest) returns (AllSatellitesSummaryResponse);
+  rpc AllSatellitesPeriodSummary(AllSatellitesPeriodSummaryRequest) returns (AllSatellitesPeriodSummaryResponse);
+  rpc SatelliteSummary(SatelliteSummaryRequest) returns (SatelliteSummaryResponse);
+  rpc SatellitePeriodSummary(SatellitePeriodSummaryRequest) returns (SatellitePeriodSummaryResponse);
   rpc Earned(EarnedRequest) returns (EarnedResponse);
   rpc EarnedPerSatellite(EarnedPerSatelliteRequest) returns (EarnedPerSatelliteResponse);
+  rpc EstimatedPayoutSatellite(EstimatedPayoutSatelliteRequest) returns (EstimatedPayoutSatelliteResponse);
+  rpc EstimatedPayoutTotal(EstimatedPayoutTotalRequest) returns (EstimatedPayoutTotalResponse);
+}
+
+message EstimatedPayoutSatelliteRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message EstimatedPayoutSatelliteResponse {
+  int64 estimated_earnings = 1;
+}
+
+message EstimatedPayoutTotalRequest {
+  RequestHeader header = 1;
+}
+
+message EstimatedPayoutTotalResponse {
+  int64 estimated_earnings = 1;
+}
+
+message AllSatellitesSummaryRequest {
+  RequestHeader header = 1;
+}
+
+message AllSatellitesSummaryResponse {
+  PayoutInfo payout_info = 1;
+}
+
+message AllSatellitesPeriodSummaryRequest {
+  RequestHeader header = 1;
+  string period = 2;
+}
+
+message AllSatellitesPeriodSummaryResponse {
+  PayoutInfo payout_info = 1;
+}
+
+message SatelliteSummaryRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message SatelliteSummaryResponse {
+  PayoutInfo payout_info = 1;
+}
+
+message SatellitePeriodSummaryRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  string period = 3;
+}
+
+message SatellitePeriodSummaryResponse {
+  PayoutInfo payout_info = 1;
 }
 
 message EarnedRequest {
@@ -112,10 +171,17 @@ message EarnedResponse {
 message EarnedPerSatelliteRequest {
   RequestHeader header = 1;
 }
+
 message EarnedPerSatelliteResponse {
   repeated EarnedSatellite earned_satellite = 1;
 }
+
 message EarnedSatellite {
   int64 total = 1;
   bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message PayoutInfo {
+  int64 held = 1;
+  int64 paid = 2;
 }

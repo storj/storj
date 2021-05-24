@@ -275,15 +275,7 @@ func newpgx(db *DB) *pgxDB {
 }
 
 func (obj *pgxDB) Schema() string {
-	return `CREATE TABLE members (
-	id bytea NOT NULL,
-	email text NOT NULL,
-	name text NOT NULL,
-	password_hash bytea NOT NULL,
-	created_at timestamp with time zone NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE nodes (
+	return `CREATE TABLE nodes (
 	id bytea NOT NULL,
 	name text NOT NULL,
 	public_address text NOT NULL,
@@ -353,15 +345,7 @@ func newsqlite3(db *DB) *sqlite3DB {
 }
 
 func (obj *sqlite3DB) Schema() string {
-	return `CREATE TABLE members (
-	id BLOB NOT NULL,
-	email TEXT NOT NULL,
-	name TEXT NOT NULL,
-	password_hash BLOB NOT NULL,
-	created_at TIMESTAMP NOT NULL,
-	PRIMARY KEY ( id )
-);
-CREATE TABLE nodes (
+	return `CREATE TABLE nodes (
 	id BLOB NOT NULL,
 	name TEXT NOT NULL,
 	public_address TEXT NOT NULL,
@@ -429,117 +413,6 @@ nextval:
 	}
 	fmt.Fprint(f, "]")
 }
-
-type Member struct {
-	Id           []byte
-	Email        string
-	Name         string
-	PasswordHash []byte
-	CreatedAt    time.Time
-}
-
-func (Member) _Table() string { return "members" }
-
-type Member_Update_Fields struct {
-	Email        Member_Email_Field
-	Name         Member_Name_Field
-	PasswordHash Member_PasswordHash_Field
-}
-
-type Member_Id_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func Member_Id(v []byte) Member_Id_Field {
-	return Member_Id_Field{_set: true, _value: v}
-}
-
-func (f Member_Id_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Member_Id_Field) _Column() string { return "id" }
-
-type Member_Email_Field struct {
-	_set   bool
-	_null  bool
-	_value string
-}
-
-func Member_Email(v string) Member_Email_Field {
-	return Member_Email_Field{_set: true, _value: v}
-}
-
-func (f Member_Email_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Member_Email_Field) _Column() string { return "email" }
-
-type Member_Name_Field struct {
-	_set   bool
-	_null  bool
-	_value string
-}
-
-func Member_Name(v string) Member_Name_Field {
-	return Member_Name_Field{_set: true, _value: v}
-}
-
-func (f Member_Name_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Member_Name_Field) _Column() string { return "name" }
-
-type Member_PasswordHash_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func Member_PasswordHash(v []byte) Member_PasswordHash_Field {
-	return Member_PasswordHash_Field{_set: true, _value: v}
-}
-
-func (f Member_PasswordHash_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Member_PasswordHash_Field) _Column() string { return "password_hash" }
-
-type Member_CreatedAt_Field struct {
-	_set   bool
-	_null  bool
-	_value time.Time
-}
-
-func Member_CreatedAt(v time.Time) Member_CreatedAt_Field {
-	return Member_CreatedAt_Field{_set: true, _value: v}
-}
-
-func (f Member_CreatedAt_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Member_CreatedAt_Field) _Column() string { return "created_at" }
 
 type Node struct {
 	Id            []byte
@@ -1079,38 +952,6 @@ func (obj *pgxImpl) Create_Node(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Create_Member(ctx context.Context,
-	member_id Member_Id_Field,
-	member_email Member_Email_Field,
-	member_name Member_Name_Field,
-	member_password_hash Member_PasswordHash_Field) (
-	member *Member, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	__now := obj.db.Hooks.Now().UTC()
-	__id_val := member_id.value()
-	__email_val := member_email.value()
-	__name_val := member_name.value()
-	__password_hash_val := member_password_hash.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO members ( id, email, name, password_hash, created_at ) VALUES ( ?, ?, ?, ?, ? ) RETURNING members.id, members.email, members.name, members.password_hash, members.created_at")
-
-	var __values []interface{}
-	__values = append(__values, __id_val, __email_val, __name_val, __password_hash_val, __created_at_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	member = &Member{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&member.Id, &member.Email, &member.Name, &member.PasswordHash, &member.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return member, nil
-
-}
-
 func (obj *pgxImpl) Get_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
@@ -1162,72 +1003,6 @@ func (obj *pgxImpl) All_Node(ctx context.Context) (
 		return nil, obj.makeErr(err)
 	}
 	return rows, nil
-
-}
-
-func (obj *pgxImpl) Get_Member_By_Email(ctx context.Context,
-	member_email Member_Email_Field) (
-	member *Member, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT members.id, members.email, members.name, members.password_hash, members.created_at FROM members WHERE members.email = ? LIMIT 2")
-
-	var __values []interface{}
-	__values = append(__values, member_email.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	if !__rows.Next() {
-		if err := __rows.Err(); err != nil {
-			return nil, obj.makeErr(err)
-		}
-		return nil, makeErr(sql.ErrNoRows)
-	}
-
-	member = &Member{}
-	err = __rows.Scan(&member.Id, &member.Email, &member.Name, &member.PasswordHash, &member.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	if __rows.Next() {
-		return nil, tooManyRows("Member_By_Email")
-	}
-
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	return member, nil
-
-}
-
-func (obj *pgxImpl) Get_Member_By_Id(ctx context.Context,
-	member_id Member_Id_Field) (
-	member *Member, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT members.id, members.email, members.name, members.password_hash, members.created_at FROM members WHERE members.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, member_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	member = &Member{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&member.Id, &member.Email, &member.Name, &member.PasswordHash, &member.CreatedAt)
-	if err != nil {
-		return (*Member)(nil), obj.makeErr(err)
-	}
-	return member, nil
 
 }
 
@@ -1309,57 +1084,6 @@ func (obj *pgxImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	return nil
 }
 
-func (obj *pgxImpl) Update_Member_By_Id(ctx context.Context,
-	member_id Member_Id_Field,
-	update Member_Update_Fields) (
-	member *Member, err error) {
-	defer mon.Task()(&ctx)(&err)
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE members SET "), __sets, __sqlbundle_Literal(" WHERE members.id = ? RETURNING members.id, members.email, members.name, members.password_hash, members.created_at")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.Email._set {
-		__values = append(__values, update.Email.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
-	}
-
-	if update.Name._set {
-		__values = append(__values, update.Name.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
-	}
-
-	if update.PasswordHash._set {
-		__values = append(__values, update.PasswordHash.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("password_hash = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, member_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	member = &Member{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&member.Id, &member.Email, &member.Name, &member.PasswordHash, &member.CreatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return member, nil
-}
-
 func (obj *pgxImpl) Delete_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	deleted bool, err error) {
@@ -1369,33 +1093,6 @@ func (obj *pgxImpl) Delete_Node_By_Id(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *pgxImpl) Delete_Member_By_Id(ctx context.Context,
-	member_id Member_Id_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM members WHERE members.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, member_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -1429,16 +1126,6 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	var __res sql.Result
 	var __count int64
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM nodes;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM members;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -1482,41 +1169,6 @@ func (obj *sqlite3Impl) Create_Node(ctx context.Context,
 		return nil, obj.makeErr(err)
 	}
 	return obj.getLastNode(ctx, __pk)
-
-}
-
-func (obj *sqlite3Impl) Create_Member(ctx context.Context,
-	member_id Member_Id_Field,
-	member_email Member_Email_Field,
-	member_name Member_Name_Field,
-	member_password_hash Member_PasswordHash_Field) (
-	member *Member, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	__now := obj.db.Hooks.Now().UTC()
-	__id_val := member_id.value()
-	__email_val := member_email.value()
-	__name_val := member_name.value()
-	__password_hash_val := member_password_hash.value()
-	__created_at_val := __now
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO members ( id, email, name, password_hash, created_at ) VALUES ( ?, ?, ?, ?, ? )")
-
-	var __values []interface{}
-	__values = append(__values, __id_val, __email_val, __name_val, __password_hash_val, __created_at_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	__pk, err := __res.LastInsertId()
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return obj.getLastMember(ctx, __pk)
 
 }
 
@@ -1571,72 +1223,6 @@ func (obj *sqlite3Impl) All_Node(ctx context.Context) (
 		return nil, obj.makeErr(err)
 	}
 	return rows, nil
-
-}
-
-func (obj *sqlite3Impl) Get_Member_By_Email(ctx context.Context,
-	member_email Member_Email_Field) (
-	member *Member, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT members.id, members.email, members.name, members.password_hash, members.created_at FROM members WHERE members.email = ? LIMIT 2")
-
-	var __values []interface{}
-	__values = append(__values, member_email.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	defer __rows.Close()
-
-	if !__rows.Next() {
-		if err := __rows.Err(); err != nil {
-			return nil, obj.makeErr(err)
-		}
-		return nil, makeErr(sql.ErrNoRows)
-	}
-
-	member = &Member{}
-	err = __rows.Scan(&member.Id, &member.Email, &member.Name, &member.PasswordHash, &member.CreatedAt)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	if __rows.Next() {
-		return nil, tooManyRows("Member_By_Email")
-	}
-
-	if err := __rows.Err(); err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	return member, nil
-
-}
-
-func (obj *sqlite3Impl) Get_Member_By_Id(ctx context.Context,
-	member_id Member_Id_Field) (
-	member *Member, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT members.id, members.email, members.name, members.password_hash, members.created_at FROM members WHERE members.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, member_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	member = &Member{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&member.Id, &member.Email, &member.Name, &member.PasswordHash, &member.CreatedAt)
-	if err != nil {
-		return (*Member)(nil), obj.makeErr(err)
-	}
-	return member, nil
 
 }
 
@@ -1728,67 +1314,6 @@ func (obj *sqlite3Impl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	return nil
 }
 
-func (obj *sqlite3Impl) Update_Member_By_Id(ctx context.Context,
-	member_id Member_Id_Field,
-	update Member_Update_Fields) (
-	member *Member, err error) {
-	defer mon.Task()(&ctx)(&err)
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE members SET "), __sets, __sqlbundle_Literal(" WHERE members.id = ?")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.Email._set {
-		__values = append(__values, update.Email.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("email = ?"))
-	}
-
-	if update.Name._set {
-		__values = append(__values, update.Name.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("name = ?"))
-	}
-
-	if update.PasswordHash._set {
-		__values = append(__values, update.PasswordHash.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("password_hash = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, member_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	member = &Member{}
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-
-	var __embed_stmt_get = __sqlbundle_Literal("SELECT members.id, members.email, members.name, members.password_hash, members.created_at FROM members WHERE members.id = ?")
-
-	var __stmt_get = __sqlbundle_Render(obj.dialect, __embed_stmt_get)
-	obj.logStmt("(IMPLIED) "+__stmt_get, __args...)
-
-	err = obj.driver.QueryRowContext(ctx, __stmt_get, __args...).Scan(&member.Id, &member.Email, &member.Name, &member.PasswordHash, &member.CreatedAt)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return member, nil
-}
-
 func (obj *sqlite3Impl) Delete_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	deleted bool, err error) {
@@ -1798,33 +1323,6 @@ func (obj *sqlite3Impl) Delete_Node_By_Id(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	__count, err := __res.RowsAffected()
-	if err != nil {
-		return false, obj.makeErr(err)
-	}
-
-	return __count > 0, nil
-
-}
-
-func (obj *sqlite3Impl) Delete_Member_By_Id(ctx context.Context,
-	member_id Member_Id_Field) (
-	deleted bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("DELETE FROM members WHERE members.id = ?")
-
-	var __values []interface{}
-	__values = append(__values, member_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -1862,25 +1360,6 @@ func (obj *sqlite3Impl) getLastNode(ctx context.Context,
 
 }
 
-func (obj *sqlite3Impl) getLastMember(ctx context.Context,
-	pk int64) (
-	member *Member, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT members.id, members.email, members.name, members.password_hash, members.created_at FROM members WHERE _rowid_ = ?")
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, pk)
-
-	member = &Member{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, pk).Scan(&member.Id, &member.Email, &member.Name, &member.PasswordHash, &member.CreatedAt)
-	if err != nil {
-		return (*Member)(nil), obj.makeErr(err)
-	}
-	return member, nil
-
-}
-
 func (impl sqlite3Impl) isConstraintError(err error) (
 	constraint string, ok bool) {
 	if e, ok := err.(sqlite3.Error); ok {
@@ -1901,16 +1380,6 @@ func (obj *sqlite3Impl) deleteAll(ctx context.Context) (count int64, err error) 
 	var __res sql.Result
 	var __count int64
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM nodes;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM members;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -1976,20 +1445,6 @@ func (rx *Rx) All_Node(ctx context.Context) (
 	return tx.All_Node(ctx)
 }
 
-func (rx *Rx) Create_Member(ctx context.Context,
-	member_id Member_Id_Field,
-	member_email Member_Email_Field,
-	member_name Member_Name_Field,
-	member_password_hash Member_PasswordHash_Field) (
-	member *Member, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_Member(ctx, member_id, member_email, member_name, member_password_hash)
-
-}
-
 func (rx *Rx) Create_Node(ctx context.Context,
 	node_id Node_Id_Field,
 	node_name Node_Name_Field,
@@ -2004,16 +1459,6 @@ func (rx *Rx) Create_Node(ctx context.Context,
 
 }
 
-func (rx *Rx) Delete_Member_By_Id(ctx context.Context,
-	member_id Member_Id_Field) (
-	deleted bool, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Delete_Member_By_Id(ctx, member_id)
-}
-
 func (rx *Rx) Delete_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	deleted bool, err error) {
@@ -2022,26 +1467,6 @@ func (rx *Rx) Delete_Node_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Delete_Node_By_Id(ctx, node_id)
-}
-
-func (rx *Rx) Get_Member_By_Email(ctx context.Context,
-	member_email Member_Email_Field) (
-	member *Member, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_Member_By_Email(ctx, member_email)
-}
-
-func (rx *Rx) Get_Member_By_Id(ctx context.Context,
-	member_id Member_Id_Field) (
-	member *Member, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_Member_By_Id(ctx, member_id)
 }
 
 func (rx *Rx) Get_Node_By_Id(ctx context.Context,
@@ -2065,17 +1490,6 @@ func (rx *Rx) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	return tx.UpdateNoReturn_Node_By_Id(ctx, node_id, update)
 }
 
-func (rx *Rx) Update_Member_By_Id(ctx context.Context,
-	member_id Member_Id_Field,
-	update Member_Update_Fields) (
-	member *Member, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Update_Member_By_Id(ctx, member_id, update)
-}
-
 func (rx *Rx) Update_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field,
 	update Node_Update_Fields) (
@@ -2091,13 +1505,6 @@ type Methods interface {
 	All_Node(ctx context.Context) (
 		rows []*Node, err error)
 
-	Create_Member(ctx context.Context,
-		member_id Member_Id_Field,
-		member_email Member_Email_Field,
-		member_name Member_Name_Field,
-		member_password_hash Member_PasswordHash_Field) (
-		member *Member, err error)
-
 	Create_Node(ctx context.Context,
 		node_id Node_Id_Field,
 		node_name Node_Name_Field,
@@ -2105,21 +1512,9 @@ type Methods interface {
 		node_api_secret Node_ApiSecret_Field) (
 		node *Node, err error)
 
-	Delete_Member_By_Id(ctx context.Context,
-		member_id Member_Id_Field) (
-		deleted bool, err error)
-
 	Delete_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field) (
 		deleted bool, err error)
-
-	Get_Member_By_Email(ctx context.Context,
-		member_email Member_Email_Field) (
-		member *Member, err error)
-
-	Get_Member_By_Id(ctx context.Context,
-		member_id Member_Id_Field) (
-		member *Member, err error)
 
 	Get_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field) (
@@ -2129,11 +1524,6 @@ type Methods interface {
 		node_id Node_Id_Field,
 		update Node_Update_Fields) (
 		err error)
-
-	Update_Member_By_Id(ctx context.Context,
-		member_id Member_Id_Field,
-		update Member_Update_Fields) (
-		member *Member, err error)
 
 	Update_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field,

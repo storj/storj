@@ -51,7 +51,7 @@ func PutAll(ctx context.Context, store KeyValueStore, items ...ListItem) (err er
 	for _, item := range items {
 		err := store.Put(ctx, item.Key, item.Value)
 		if err != nil {
-			return fmt.Errorf("failed to put %v: %v", item, err)
+			return fmt.Errorf("failed to put %v: %w", item, err)
 		}
 	}
 	return nil

@@ -141,7 +141,7 @@ func TestNodeAliases(t *testing.T) {
 							break
 						}
 					}
-					return nil
+					return nil //nolint: nilerr // the relevant errors are properly handled
 				})
 			}
 			require.NoError(t, group.Wait())

@@ -123,6 +123,13 @@ if [ ! -f "$REDIS_CONFIG" ] ; then
     } >> "$REDIS_CONFIG"
 fi
 
+# setup multinode if config is missing
+MULTINODE_DIR=$(storj-sim network env MULTINODE_0_DIR)
+if [ ! -f "$MULTINODE_DIR/config.yaml" ]; then
+    identity --identity-dir $MULTINODE_DIR --concurrency 1 --difficulty 8 create .
+    multinode $(storj-sim --host "$STORJ_NETWORK_HOST4" network env MULTINODE_0_SETUP_ARGS)
+fi
+
 # keep half of the storage nodes on the old version
 ln "$RELEASE_DIR"/bin/storagenode "$(storj-sim network env STORAGENODE_0_DIR)"/storagenode
 ln "$RELEASE_DIR"/bin/storagenode "$(storj-sim network env STORAGENODE_1_DIR)"/storagenode

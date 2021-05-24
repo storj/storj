@@ -26,11 +26,11 @@ var (
 type Service struct {
 	logger     *zap.Logger
 	bucketsDB  BucketsDB
-	metabaseDB MetabaseDB
+	metabaseDB *metabase.DB
 }
 
 // NewService creates new metainfo service.
-func NewService(logger *zap.Logger, bucketsDB BucketsDB, metabaseDB MetabaseDB) *Service {
+func NewService(logger *zap.Logger, bucketsDB BucketsDB, metabaseDB *metabase.DB) *Service {
 	return &Service{
 		logger:     logger,
 		bucketsDB:  bucketsDB,

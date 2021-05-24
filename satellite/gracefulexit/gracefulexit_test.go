@@ -4,6 +4,7 @@
 package gracefulexit_test
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 	"time"
@@ -11,12 +12,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func TestGracefulexitDB_DeleteFinishedExitProgress(t *testing.T) {
@@ -46,15 +50,16 @@ func TestGracefulexitDB_DeleteFinishedExitProgress(t *testing.T) {
 			timestamp = timestamp.Add(time.Hour * 24)
 		}
 		threeDays := currentTime.AddDate(0, 0, -days/2).Add(-time.Millisecond)
-		finishedNodes, err := geDB.GetFinishedExitNodes(ctx, threeDays)
+		disableAsOfSystemTime := time.Second * 0
+		finishedNodes, err := geDB.GetFinishedExitNodes(ctx, threeDays, disableAsOfSystemTime)
 		require.NoError(t, err)
 		require.Len(t, finishedNodes, 3)
 
-		finishedNodes, err = geDB.GetFinishedExitNodes(ctx, currentTime)
+		finishedNodes, err = geDB.GetFinishedExitNodes(ctx, currentTime, disableAsOfSystemTime)
 		require.NoError(t, err)
 		require.Len(t, finishedNodes, 6)
 
-		count, err := geDB.DeleteFinishedExitProgress(ctx, threeDays)
+		count, err := geDB.DeleteFinishedExitProgress(ctx, threeDays, disableAsOfSystemTime)
 		require.NoError(t, err)
 		require.EqualValues(t, 3, count)
 
@@ -71,6 +76,22 @@ func TestGracefulexitDB_DeleteFinishedExitProgress(t *testing.T) {
 	})
 }
 
+func TestGracefulExit_HandleAsOfSystemTimeBadInput(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		gracefulexitDB := planet.Satellites[0].DB.GracefulExit()
+		now := time.Now().UTC()
+		// explicitly set as of system time to invalid time values and run queries to ensure queries don't break
+		badTime1 := -1 * time.Nanosecond
+		_, err := gracefulexitDB.CountFinishedTransferQueueItemsByNode(ctx, now, badTime1)
+		require.NoError(t, err)
+		badTime2 := 1 * time.Second
+		_, err = gracefulexitDB.DeleteFinishedExitProgress(ctx, now, badTime2)
+		require.NoError(t, err)
+	})
+}
+
 func TestGracefulExit_DeleteAllFinishedTransferQueueItems(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 7,
@@ -80,7 +101,7 @@ func TestGracefulExit_DeleteAllFinishedTransferQueueItems(t *testing.T) {
 			currentTime = time.Now().UTC()
 		)
 
-		// mark some of the storagenodes as successful exit
+		// Mark some of the storagenodes as successful exit
 		nodeSuccessful1 := planet.StorageNodes[1]
 		_, err := cache.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
 			NodeID:              nodeSuccessful1.ID(),
@@ -111,14 +132,14 @@ func TestGracefulExit_DeleteAllFinishedTransferQueueItems(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// mark some of the storagenodes as failed exit
+		// Mark some of the storagenodes as failed exit
 		nodeFailed1 := planet.StorageNodes[4]
 		_, err = cache.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
 			NodeID:              nodeFailed1.ID(),
 			ExitInitiatedAt:     currentTime.Add(-time.Hour),
 			ExitLoopCompletedAt: currentTime.Add(-28 * time.Minute),
 			ExitFinishedAt:      currentTime.Add(-20 * time.Minute),
-			ExitSuccess:         true,
+			ExitSuccess:         false,
 		})
 		require.NoError(t, err)
 
@@ -128,7 +149,7 @@ func TestGracefulExit_DeleteAllFinishedTransferQueueItems(t *testing.T) {
 			ExitInitiatedAt:     currentTime.Add(-time.Hour),
 			ExitLoopCompletedAt: currentTime.Add(-17 * time.Minute),
 			ExitFinishedAt:      currentTime.Add(-15 * time.Minute),
-			ExitSuccess:         true,
+			ExitSuccess:         false,
 		})
 		require.NoError(t, err)
 
@@ -142,17 +163,21 @@ func TestGracefulExit_DeleteAllFinishedTransferQueueItems(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// add some items to the transfer queue for the exited nodes
-		queueItems, nodesItems := generateTransferQueueItems(t, []*testplanet.StorageNode{
+		queueItemsPerNode := 500
+		// Add some items to the transfer queue for the exited nodes
+		queueItems, nodesItems := generateTransferQueueItems(t, queueItemsPerNode, []*testplanet.StorageNode{
 			nodeSuccessful1, nodeSuccessful2, nodeSuccessful3, nodeFailed1, nodeFailed2,
 		})
 
 		gracefulExitDB := planet.Satellites[0].DB.GracefulExit()
-		err = gracefulExitDB.Enqueue(ctx, queueItems)
+		batchSize := 1000
+
+		err = gracefulExitDB.Enqueue(ctx, queueItems, batchSize)
 		require.NoError(t, err)
 
-		// count nodes exited before 15 minutes ago
-		nodes, err := gracefulExitDB.CountFinishedTransferQueueItemsByNode(ctx, currentTime.Add(-15*time.Minute))
+		asOfSystemTime := -1 * time.Microsecond
+		// Count nodes exited before 15 minutes ago
+		nodes, err := gracefulExitDB.CountFinishedTransferQueueItemsByNode(ctx, currentTime.Add(-15*time.Minute), asOfSystemTime)
 		require.NoError(t, err)
 		require.Len(t, nodes, 3, "invalid number of nodes which have exited 15 minutes ago")
 
@@ -160,8 +185,8 @@ func TestGracefulExit_DeleteAllFinishedTransferQueueItems(t *testing.T) {
 			assert.EqualValues(t, nodesItems[id], n, "unexpected number of items")
 		}
 
-		// count nodes exited before 4 minutes ago
-		nodes, err = gracefulExitDB.CountFinishedTransferQueueItemsByNode(ctx, currentTime.Add(-4*time.Minute))
+		// Count nodes exited before 4 minutes ago
+		nodes, err = gracefulExitDB.CountFinishedTransferQueueItemsByNode(ctx, currentTime.Add(-4*time.Minute), asOfSystemTime)
 		require.NoError(t, err)
 		require.Len(t, nodes, 5, "invalid number of nodes which have exited 4 minutes ago")
 
@@ -169,16 +194,16 @@ func TestGracefulExit_DeleteAllFinishedTransferQueueItems(t *testing.T) {
 			assert.EqualValues(t, nodesItems[id], n, "unexpected number of items")
 		}
 
-		// delete items of nodes exited before 15 minutes ago
-		count, err := gracefulExitDB.DeleteAllFinishedTransferQueueItems(ctx, currentTime.Add(-15*time.Minute))
+		// Delete items of nodes exited before 15 minutes ago
+		count, err := gracefulExitDB.DeleteAllFinishedTransferQueueItems(ctx, currentTime.Add(-15*time.Minute), asOfSystemTime, batchSize)
 		require.NoError(t, err)
 		expectedNumDeletedItems := nodesItems[nodeSuccessful1.ID()] +
 			nodesItems[nodeSuccessful2.ID()] +
 			nodesItems[nodeFailed1.ID()]
-		require.EqualValues(t, expectedNumDeletedItems, count, "invalid number of delet items")
+		require.EqualValues(t, expectedNumDeletedItems, count, "invalid number of deleted items")
 
-		// check that only a few nodes have exited are left with items
-		nodes, err = gracefulExitDB.CountFinishedTransferQueueItemsByNode(ctx, currentTime.Add(time.Minute))
+		// Check that only a few nodes have exited are left with items
+		nodes, err = gracefulExitDB.CountFinishedTransferQueueItemsByNode(ctx, currentTime.Add(time.Minute), asOfSystemTime)
 		require.NoError(t, err)
 		require.Len(t, nodes, 2, "invalid number of exited nodes with items")
 
@@ -189,36 +214,283 @@ func TestGracefulExit_DeleteAllFinishedTransferQueueItems(t *testing.T) {
 			assert.NotEqual(t, nodeFailed1.ID(), id, "node shouldn't have items")
 		}
 
-		// delete items of there rest exited nodes
-		count, err = gracefulExitDB.DeleteAllFinishedTransferQueueItems(ctx, currentTime.Add(time.Minute))
+		// Delete the rest of the nodes' items
+		count, err = gracefulExitDB.DeleteAllFinishedTransferQueueItems(ctx, currentTime.Add(time.Minute), asOfSystemTime, batchSize)
 		require.NoError(t, err)
 		expectedNumDeletedItems = nodesItems[nodeSuccessful3.ID()] + nodesItems[nodeFailed2.ID()]
-		require.EqualValues(t, expectedNumDeletedItems, count, "invalid number of delet items")
+		require.EqualValues(t, expectedNumDeletedItems, count, "invalid number of deleted items")
 
-		// check that there aren't more exited nodes with items
-		nodes, err = gracefulExitDB.CountFinishedTransferQueueItemsByNode(ctx, currentTime.Add(time.Minute))
+		// Check that there aren't more exited nodes with items
+		nodes, err = gracefulExitDB.CountFinishedTransferQueueItemsByNode(ctx, currentTime.Add(time.Minute), asOfSystemTime)
 		require.NoError(t, err)
 		require.Len(t, nodes, 0, "invalid number of exited nodes with items")
 	})
 }
 
-func generateTransferQueueItems(t *testing.T, nodes []*testplanet.StorageNode) ([]gracefulexit.TransferQueueItem, map[storj.NodeID]int64) {
-	getNodeID := func() storj.NodeID {
-		n := rand.Intn(len(nodes))
-		return nodes[n].ID()
+// TestGracefulExit_Enqueue_And_DeleteAllFinishedTransferQueueItems_batch
+// ensures that deletion works as expected using different batch sizes.
+func TestGracefulExit_Enqueue_And_DeleteAllFinishedTransferQueueItems_batchsize(t *testing.T) {
+	rand.Seed(time.Now().UnixNano())
+	var testCases = []struct {
+		name                      string
+		batchSize                 int
+		transferQueueItemsPerNode int
+		numExitedNodes            int
+	}{
+		{"less than complete batch, odd batch", 333, 3, 30},
+		{"less than complete batch, even batch", 8888, 222, 40},
+		{"over complete batch, odd batch", 3000, 200, 25},
+		{"over complete batch, even batch", 1000, 110, 10},
+		{"exact batch, odd batch", 1125, 25, 45},
+		{"exact batch, even batch", 7200, 1200, 6},
+	}
+	for _, tt := range testCases {
+		tt := tt
+		satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+			var (
+				gracefulExitDB = db.GracefulExit()
+				currentTime    = time.Now().UTC()
+				batchSize      = tt.batchSize
+				numItems       = tt.transferQueueItemsPerNode
+				numExitedNodes = tt.numExitedNodes
+			)
+
+			exitedNodeIDs := generateExitedNodes(t, ctx, db, currentTime, numExitedNodes)
+			queueItems := generateNTransferQueueItemsPerNode(t, numItems, exitedNodeIDs...)
+
+			// Add some items to the transfer queue for the exited nodes.
+			err := gracefulExitDB.Enqueue(ctx, queueItems, batchSize)
+			require.NoError(t, err)
+
+			disableAsOfSystemTime := time.Second * 0
+			// Count exited nodes
+			nodes, err := gracefulExitDB.CountFinishedTransferQueueItemsByNode(ctx, currentTime, disableAsOfSystemTime)
+			require.NoError(t, err)
+			require.EqualValues(t, numExitedNodes, len(nodes), "invalid number of exited nodes")
+
+			// Delete items of the exited nodes
+			count, err := gracefulExitDB.DeleteAllFinishedTransferQueueItems(ctx, currentTime, disableAsOfSystemTime, batchSize)
+			require.NoError(t, err)
+			require.EqualValues(t, len(queueItems), count, "invalid number of deleted items")
+
+			// Count exited nodes. At this time there shouldn't be any exited node with
+			// items in the queue
+			nodes, err = gracefulExitDB.CountFinishedTransferQueueItemsByNode(ctx, currentTime, disableAsOfSystemTime)
+			require.NoError(t, err)
+			require.EqualValues(t, 0, len(nodes), "invalid number of exited nodes")
+
+			// Delete items of the exited nodes. At this time there shouldn't be any
+			count, err = gracefulExitDB.DeleteAllFinishedTransferQueueItems(ctx, currentTime.Add(-15*time.Minute), disableAsOfSystemTime, batchSize)
+			require.NoError(t, err)
+			require.Zero(t, count, "invalid number of deleted items")
+		})
+	}
+}
+
+func generateExitedNodes(t *testing.T, ctx *testcontext.Context, db satellite.DB, currentTime time.Time, numExitedNodes int) (exitedNodeIDs storj.NodeIDList) {
+	const (
+		addr    = "127.0.1.0:8080"
+		lastNet = "127.0.0"
+	)
+	var (
+		cache      = db.OverlayCache()
+		nodeIDsMap = make(map[storj.NodeID]struct{})
+	)
+	for i := 0; i < numExitedNodes; i++ {
+		nodeID := generateNodeIDFromPostiveInt(t, i)
+		exitedNodeIDs = append(exitedNodeIDs, nodeID)
+		if _, ok := nodeIDsMap[nodeID]; ok {
+			fmt.Printf("this %v already exists\n", nodeID.Bytes())
+		}
+		nodeIDsMap[nodeID] = struct{}{}
+
+		info := overlay.NodeCheckInInfo{
+			NodeID:     nodeID,
+			Address:    &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
+			LastIPPort: addr,
+			LastNet:    lastNet,
+			Version:    &pb.NodeVersion{Version: "v1.0.0"},
+			Capacity:   &pb.NodeCapacity{},
+			IsUp:       true,
+		}
+		err := cache.UpdateCheckIn(ctx, info, time.Now(), overlay.NodeSelectionConfig{})
+		require.NoError(t, err)
+
+		exitFinishedAt := currentTime.Add(time.Duration(-(rand.Int63n(15) + 1) * int64(time.Minute)))
+		_, err = cache.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
+			NodeID:              nodeID,
+			ExitInitiatedAt:     exitFinishedAt.Add(-30 * time.Minute),
+			ExitLoopCompletedAt: exitFinishedAt.Add(-20 * time.Minute),
+			ExitFinishedAt:      exitFinishedAt,
+			ExitSuccess:         true,
+		})
+		require.NoError(t, err)
+	}
+	require.Equal(t, numExitedNodes, len(nodeIDsMap), "map")
+	return exitedNodeIDs
+}
+
+// TestGracefulExit_DeleteAllFinishedTransferQueueItems_batch verifies that
+// the CRDB batch logic for delete all the transfer queue items of exited nodes
+// works as expected.
+func TestGracefulExit_DeleteAllFinishedTransferQueueItems_batch(t *testing.T) {
+	rand.Seed(time.Now().UnixNano())
+
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		const (
+			addr    = "127.0.1.0:8080"
+			lastNet = "127.0.0"
+		)
+		var (
+			numNonExitedNodes = rand.Intn(20) + 1
+			numExitedNodes    = rand.Intn(10) + 20
+			cache             = db.OverlayCache()
+		)
+
+		for i := 0; i < numNonExitedNodes; i++ {
+			info := overlay.NodeCheckInInfo{
+				NodeID:     generateNodeIDFromPostiveInt(t, i),
+				Address:    &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
+				LastIPPort: addr,
+				LastNet:    lastNet,
+				Version:    &pb.NodeVersion{Version: "v1.0.0"},
+				Capacity:   &pb.NodeCapacity{},
+				IsUp:       true,
+			}
+			err := cache.UpdateCheckIn(ctx, info, time.Now(), overlay.NodeSelectionConfig{})
+			require.NoError(t, err)
+		}
+
+		var (
+			currentTime   = time.Now().UTC()
+			exitedNodeIDs = make([]storj.NodeID, 0, numNonExitedNodes)
+			nodeIDsMap    = make(map[storj.NodeID]struct{})
+		)
+		for i := numNonExitedNodes; i < (numNonExitedNodes + numExitedNodes); i++ {
+			nodeID := generateNodeIDFromPostiveInt(t, i)
+			exitedNodeIDs = append(exitedNodeIDs, nodeID)
+			if _, ok := nodeIDsMap[nodeID]; ok {
+				fmt.Printf("this %v already exists\n", nodeID.Bytes())
+			}
+			nodeIDsMap[nodeID] = struct{}{}
+
+			info := overlay.NodeCheckInInfo{
+				NodeID:     nodeID,
+				Address:    &pb.NodeAddress{Address: addr, Transport: pb.NodeTransport_TCP_TLS_GRPC},
+				LastIPPort: addr,
+				LastNet:    lastNet,
+				Version:    &pb.NodeVersion{Version: "v1.0.0"},
+				Capacity:   &pb.NodeCapacity{},
+				IsUp:       true,
+			}
+			err := cache.UpdateCheckIn(ctx, info, time.Now(), overlay.NodeSelectionConfig{})
+			require.NoError(t, err)
+
+			exitFinishedAt := currentTime.Add(time.Duration(-(rand.Int63n(15) + 1) * int64(time.Minute)))
+			_, err = cache.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
+				NodeID:              nodeID,
+				ExitInitiatedAt:     exitFinishedAt.Add(-30 * time.Minute),
+				ExitLoopCompletedAt: exitFinishedAt.Add(-20 * time.Minute),
+				ExitFinishedAt:      exitFinishedAt,
+				ExitSuccess:         true,
+			})
+			require.NoError(t, err)
+		}
+
+		require.Equal(t, numExitedNodes, len(nodeIDsMap), "map")
+
+		gracefulExitDB := db.GracefulExit()
+		batchSize := 1000
+
+		queueItems := generateNTransferQueueItemsPerNode(t, 25, exitedNodeIDs...)
+		// Add some items to the transfer queue for the exited nodes.
+		err := gracefulExitDB.Enqueue(ctx, queueItems, batchSize)
+		require.NoError(t, err)
+
+		disableAsOfSystemTime := time.Second * 0
+		// Count exited nodes
+		nodes, err := gracefulExitDB.CountFinishedTransferQueueItemsByNode(ctx, currentTime, disableAsOfSystemTime)
+		require.NoError(t, err)
+		require.EqualValues(t, numExitedNodes, len(nodes), "invalid number of exited nodes")
+
+		// Delete items of the exited nodes
+		count, err := gracefulExitDB.DeleteAllFinishedTransferQueueItems(ctx, currentTime, disableAsOfSystemTime, batchSize)
+		require.NoError(t, err)
+		require.EqualValues(t, len(queueItems), count, "invalid number of deleted items")
+
+		// Count exited nodes. At this time there shouldn't be any exited node with
+		// items in the queue
+		nodes, err = gracefulExitDB.CountFinishedTransferQueueItemsByNode(ctx, currentTime, disableAsOfSystemTime)
+		require.NoError(t, err)
+		require.EqualValues(t, 0, len(nodes), "invalid number of exited nodes")
+
+		// Delete items of the exited nodes. At this time there shouldn't be any
+		count, err = gracefulExitDB.DeleteAllFinishedTransferQueueItems(ctx, currentTime.Add(-15*time.Minute), disableAsOfSystemTime, batchSize)
+		require.NoError(t, err)
+		require.Zero(t, count, "invalid number of deleted items")
+	})
+}
+
+// generateTransferQueueItems generates a random number of transfer queue items,
+// between 10 and 120, for each passed node.
+func generateTransferQueueItems(t *testing.T, itemsPerNode int, nodes []*testplanet.StorageNode) ([]gracefulexit.TransferQueueItem, map[storj.NodeID]int64) {
+	nodeIDs := make([]storj.NodeID, len(nodes))
+	for i, n := range nodes {
+		nodeIDs[i] = n.ID()
 	}
 
-	var (
-		items      = make([]gracefulexit.TransferQueueItem, rand.Intn(100)+10)
-		nodesItems = make(map[storj.NodeID]int64, len(items))
-	)
-	for i, item := range items {
-		item.NodeID = getNodeID()
-		item.Key = metabase.SegmentKey{byte(i)}
-		item.PieceNum = int32(i + 1)
-		items[i] = item
+	items := generateNTransferQueueItemsPerNode(t, itemsPerNode, nodeIDs...)
+
+	nodesItems := make(map[storj.NodeID]int64, len(nodes))
+	for _, item := range items {
 		nodesItems[item.NodeID]++
 	}
 
 	return items, nodesItems
+}
+
+// generateNTransferQueueItemsPerNode generates n queue items for each nodeID.
+func generateNTransferQueueItemsPerNode(t *testing.T, n int, nodeIDs ...storj.NodeID) []gracefulexit.TransferQueueItem {
+	items := make([]gracefulexit.TransferQueueItem, 0)
+	for _, nodeID := range nodeIDs {
+		for i := 0; i < n; i++ {
+			items = append(items, gracefulexit.TransferQueueItem{
+				NodeID:   nodeID,
+				Key:      metabase.SegmentKey{byte(rand.Int31n(256))},
+				PieceNum: rand.Int31(),
+			})
+		}
+	}
+	return items
+}
+
+// generateNodeIDFromPostiveInt generates a specific node ID for val; each val
+// value produces a different node ID.
+func generateNodeIDFromPostiveInt(t *testing.T, val int) storj.NodeID {
+	t.Helper()
+
+	if val < 0 {
+		t.Fatal("cannot generate a node from a negative integer")
+	}
+
+	nodeID := storj.NodeID{}
+	idx := 0
+	for {
+		m := val & 255
+		nodeID[idx] = byte(m)
+
+		q := val >> 8
+		if q == 0 {
+			break
+		}
+		if q < 256 {
+			nodeID[idx+1] = byte(q)
+			break
+		}
+
+		val = q
+		idx++
+	}
+
+	return nodeID
 }

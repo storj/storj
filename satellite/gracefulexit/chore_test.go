@@ -269,7 +269,8 @@ func batch(ctx context.Context, b *testing.B, db gracefulexit.DB, size int) {
 			}
 			transferQueueItems = append(transferQueueItems, item)
 		}
-		err := db.Enqueue(ctx, transferQueueItems)
+		batchSize := 1000
+		err := db.Enqueue(ctx, transferQueueItems, batchSize)
 		require.NoError(b, err)
 	}
 }

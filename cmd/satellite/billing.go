@@ -14,14 +14,12 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/private/dbutil"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
-func runBillingCmd(ctx context.Context, cmdFunc func(context.Context, *stripecoinpayments.Service, *dbx.DB) error) error {
+func runBillingCmd(ctx context.Context, cmdFunc func(context.Context, *stripecoinpayments.Service, satellite.DB) error) error {
 	// Open SatelliteDB for the Payment Service
 	logger := zap.L()
 	db, err := satellitedb.Open(ctx, logger.Named("db"), runCfg.Database, satellitedb.Options{ApplicationName: "satellite-billing"})
@@ -32,30 +30,12 @@ func runBillingCmd(ctx context.Context, cmdFunc func(context.Context, *stripecoi
 		err = errs.Combine(err, db.Close())
 	}()
 
-	// Open direct DB connection to execute custom queries
-	driver, source, implementation, err := dbutil.SplitConnStr(runCfg.Database)
-	if err != nil {
-		return err
-	}
-	if implementation != dbutil.Postgres && implementation != dbutil.Cockroach {
-		return errs.New("unsupported driver %q", driver)
-	}
-
-	dbxDB, err := dbx.Open(driver, source)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = errs.Combine(err, dbxDB.Close())
-	}()
-	logger.Debug("Connected to:", zap.String("db source", source))
-
 	payments, err := setupPayments(logger, db)
 	if err != nil {
 		return err
 	}
 
-	return cmdFunc(ctx, payments, dbxDB)
+	return cmdFunc(ctx, payments, db)
 }
 
 func setupPayments(log *zap.Logger, db satellite.DB) (*stripecoinpayments.Service, error) {
@@ -124,10 +104,12 @@ type userData struct {
 
 // generateStripeCustomers creates missing stripe-customers for users in our database.
 func generateStripeCustomers(ctx context.Context) (err error) {
-	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, dbxDB *dbx.DB) error {
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, db satellite.DB) error {
 		accounts := payments.Accounts()
 
-		rows, err := dbxDB.Query(ctx, "SELECT id, email FROM users WHERE id NOT IN (SELECT user_id from stripe_customers) AND users.status=1")
+		cusDB := db.StripeCoinPayments().Customers().Raw()
+
+		rows, err := cusDB.Query(ctx, "SELECT id, email FROM users WHERE id NOT IN (SELECT user_id from stripe_customers) AND users.status=1")
 		if err != nil {
 			return err
 		}

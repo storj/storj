@@ -39,7 +39,7 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 	}
 
 	var query string
-	switch db.implementation {
+	switch db.impl {
 	case dbutil.Cockroach:
 		query = `
 		WITH deleted_objects AS (
@@ -67,7 +67,7 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 		RETURNING segments.stream_id, segments.root_piece_id, segments.remote_alias_pieces
 	`
 	default:
-		return deletedObjectCount, Error.New("invalid dbType: %v", db.implementation)
+		return deletedObjectCount, Error.New("unhandled database: %v", db.impl)
 	}
 
 	// TODO: fix the count for objects without segments

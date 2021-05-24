@@ -5,6 +5,7 @@ package repairer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -18,7 +19,6 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
@@ -52,7 +52,7 @@ func (ie *irreparableError) Error() string {
 type SegmentRepairer struct {
 	log            *zap.Logger
 	statsCollector *statsCollector
-	metabase       metainfo.MetabaseDB
+	metabase       *metabase.DB
 	orders         *orders.Service
 	overlay        *overlay.Service
 	ec             *ECRepairer
@@ -75,7 +75,7 @@ type SegmentRepairer struct {
 // threshould to determine the maximum limit of nodes to upload repaired pieces,
 // when negative, 0 is applied.
 func NewSegmentRepairer(
-	log *zap.Logger, metabase metainfo.MetabaseDB, orders *orders.Service,
+	log *zap.Logger, metabase *metabase.DB, orders *orders.Service,
 	overlay *overlay.Service, dialer rpc.Dialer, timeout time.Duration,
 	excessOptimalThreshold float64, repairOverrides checker.RepairOverrides,
 	downloadTimeout time.Duration, inMemoryRepair bool,
@@ -297,7 +297,8 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		// If Get failed because of input validation, then it will keep failing. But if it
 		// gave us irreparableError, then we failed to download enough pieces and must try
 		// to wait for nodes to come back online.
-		if irreparableErr, ok := err.(*irreparableError); ok {
+		var irreparableErr *irreparableError
+		if errors.As(err, &irreparableErr) {
 			mon.Meter("repair_too_many_nodes_failed").Mark(1) //mon:locked
 			stats.repairTooManyNodesFailed.Mark(1)
 			// irreparableErr.segmentInfo = pointer

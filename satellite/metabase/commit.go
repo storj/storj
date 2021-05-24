@@ -21,6 +21,8 @@ import (
 // we need to disable PlainSize validation for old uplinks.
 const validatePlainSize = false
 
+const defaultZombieDeletionPeriod = 24 * time.Hour
+
 var (
 	// ErrInvalidRequest is used to indicate invalid requests.
 	ErrInvalidRequest = errs.Class("metabase: invalid request")
@@ -48,6 +50,11 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 
 	if opts.Version != NextVersion {
 		return -1, ErrInvalidRequest.New("Version should be metabase.NextVersion")
+	}
+
+	if opts.ZombieDeletionDeadline == nil {
+		deadline := time.Now().Add(defaultZombieDeletionPeriod)
+		opts.ZombieDeletionDeadline = &deadline
 	}
 
 	row := db.db.QueryRow(ctx, `
@@ -101,6 +108,11 @@ func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExact
 		return Object{}, ErrInvalidRequest.New("Version should not be metabase.NextVersion")
 	}
 
+	if opts.ZombieDeletionDeadline == nil {
+		deadline := time.Now().Add(defaultZombieDeletionPeriod)
+		opts.ZombieDeletionDeadline = &deadline
+	}
+
 	object := Object{
 		ObjectStream: ObjectStream{
 			ProjectID:  opts.ProjectID,
@@ -119,7 +131,7 @@ func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExact
 			project_id, bucket_name, object_key, version, stream_id,
 			expires_at, encryption,
 			zombie_deletion_deadline
-		) values (
+		) VALUES (
 			$1, $2, $3, $4, $5,
 			$6, $7,
 			$8
@@ -201,7 +213,7 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return Error.New("unable to query segments: %w", err)
 		}
-		err = nil //nolint: ineffassign, ignore any other err result (explicitly)
+		err = nil //nolint: wastedassign, ineffassign // ignore any other err result (explicitly)
 
 		return nil
 	})

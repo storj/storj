@@ -114,7 +114,7 @@ func RefreshToken(ctx context.Context, creds Credentials, refreshToken string) (
 		"refresh_token": {refreshToken},
 	}
 
-	req, err := http.NewRequest("POST", creds.TokenURI, strings.NewReader(values.Encode()))
+	req, err := http.NewRequestWithContext(ctx, "POST", creds.TokenURI, strings.NewReader(values.Encode()))
 	if err != nil {
 		return nil, err
 	}
@@ -134,10 +134,10 @@ func RefreshToken(ctx context.Context, creds Credentials, refreshToken string) (
 
 	// handle google expires_in field value
 	var t struct {
-		AccessToken  string        `json:"access_token"`
-		RefreshToken string        `json:"refresh_token"`
-		Type         string        `json:"token_type"`
-		Expires      time.Duration `json:"expires_in"`
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		Type         string `json:"token_type"`
+		Expires      int64  `json:"expires_in"`
 	}
 	err = json.NewDecoder(resp.Body).Decode(&t)
 	if err != nil {
@@ -156,6 +156,6 @@ func RefreshToken(ctx context.Context, creds Credentials, refreshToken string) (
 		AccessToken:  t.AccessToken,
 		RefreshToken: t.RefreshToken,
 		Type:         t.Type,
-		Expiry:       time.Now().Add(t.Expires * time.Second),
+		Expiry:       time.Now().Add(time.Duration(t.Expires * int64(time.Second))),
 	}, nil
 }

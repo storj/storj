@@ -54,8 +54,7 @@ func NewECRepairer(log *zap.Logger, dialer rpc.Dialer, satelliteSignee signing.S
 }
 
 func (ec *ECRepairer) dialPiecestore(ctx context.Context, n storj.NodeURL) (*piecestore.Client, error) {
-	logger := ec.log.Named(n.ID.String())
-	return piecestore.DialNodeURL(ctx, ec.dialer, n, logger, piecestore.DefaultConfig)
+	return piecestore.Dial(ctx, ec.dialer, n, piecestore.DefaultConfig)
 }
 
 // Get downloads pieces from storagenodes using the provided order limits, and decodes those pieces into a segment.
@@ -123,6 +122,8 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 				if err != nil {
 					// gather nodes where the calculated piece hash doesn't match the uplink signed piece hash
 					if ErrPieceHashVerifyFailed.Has(err) {
+						ec.log.Info("audit failed", zap.Stringer("node ID", limit.GetLimit().StorageNodeId),
+							zap.String("reason", err.Error()))
 						failedPieces = append(failedPieces, &pb.RemotePiece{
 							PieceNum: int32(currentLimitIndex),
 							NodeId:   limit.GetLimit().StorageNodeId,
@@ -162,7 +163,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	expectedSize := pieceSize * int64(es.RequiredCount())
 
 	ctx, cancel := context.WithCancel(ctx)
-	decodeReader := eestream.DecodeReaders(ctx, cancel, ec.log.Named("decode readers"), pieceReaders, esScheme, expectedSize, 0, false)
+	decodeReader := eestream.DecodeReaders2(ctx, cancel, pieceReaders, esScheme, expectedSize, 0, false)
 
 	return decodeReader, failedPieces, nil
 }
@@ -249,6 +250,7 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 	// verify the hashes from storage node
 	calculatedHash := hashWriter.Sum(nil)
 	if err := verifyPieceHash(ctx, originalLimit, hash, calculatedHash); err != nil {
+
 		return nil, ErrPieceHashVerifyFailed.Wrap(err)
 	}
 
@@ -265,7 +267,7 @@ func verifyPieceHash(ctx context.Context, limit *pb.OrderLimit, hash *pb.PieceHa
 		return Error.New("piece id changed")
 	}
 	if !bytes.Equal(hash.Hash, expectedHash) {
-		return Error.New("hashes don't match")
+		return Error.New("hash from storage node, %x, does not match calculated hash, %x", hash.Hash, expectedHash)
 	}
 
 	if err := signing.VerifyUplinkPieceHashSignature(ctx, limit.UplinkPublicKey, hash); err != nil {
@@ -297,7 +299,7 @@ func (ec *ECRepairer) Repair(ctx context.Context, limits []*pb.AddressedOrderLim
 		return nil, nil, Error.New("duplicated nodes are not allowed")
 	}
 
-	readers, err := eestream.EncodeReader(ctx, ec.log, ioutil.NopCloser(data), rs)
+	readers, err := eestream.EncodeReader2(ctx, ioutil.NopCloser(data), rs)
 	if err != nil {
 		return nil, nil, err
 	}

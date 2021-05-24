@@ -167,6 +167,8 @@ type Config struct {
 
 // MetabaseDB contains iterators for the metabase data.
 type MetabaseDB interface {
+	// Now returns the time on the database.
+	Now(ctx context.Context) (time.Time, error)
 	// IterateLoopObjects iterates through all objects in metabase for metainfo loop purpose.
 	IterateLoopObjects(ctx context.Context, opts metabase.IterateLoopObjects, fn func(context.Context, metabase.LoopObjectsIterator) error) (err error)
 	// IterateLoopStreams iterates through all streams passed in as arguments.
@@ -372,7 +374,10 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 		limit = batchsizeLimit
 	}
 
-	startingTime := time.Now()
+	startingTime, err := metabaseDB.Now(ctx)
+	if err != nil {
+		return observers, Error.Wrap(err)
+	}
 
 	noObserversErr := errs.New("no observers")
 

@@ -24,6 +24,10 @@ import (
 type Config struct {
 	ExternalAddress string        `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
 	Timeout         time.Duration `help:"timeout for pinging storage nodes" default:"10m0s"`
+
+	RateLimitInterval  time.Duration `help:"the amount of time that should happen between contact attempts usually" releaseDefault:"10m0s" devDefault:"1ns"`
+	RateLimitBurst     int           `help:"the maximum burst size for the contact rate limit token bucket" releaseDefault:"2" devDefault:"1000"`
+	RateLimitCacheSize int           `help:"the number of nodes or addresses to keep token buckets for" default:"1000"`
 }
 
 // Service is the contact service between storage nodes and satellites.
@@ -41,18 +45,20 @@ type Service struct {
 	peerIDs overlay.PeerIdentities
 	dialer  rpc.Dialer
 
-	timeout time.Duration
+	timeout   time.Duration
+	idLimiter *RateLimiter
 }
 
 // NewService creates a new contact service.
-func NewService(log *zap.Logger, self *overlay.NodeDossier, overlay *overlay.Service, peerIDs overlay.PeerIdentities, dialer rpc.Dialer, timeout time.Duration) *Service {
+func NewService(log *zap.Logger, self *overlay.NodeDossier, overlay *overlay.Service, peerIDs overlay.PeerIdentities, dialer rpc.Dialer, config Config) *Service {
 	return &Service{
-		log:     log,
-		self:    self,
-		overlay: overlay,
-		peerIDs: peerIDs,
-		dialer:  dialer,
-		timeout: timeout,
+		log:       log,
+		self:      self,
+		overlay:   overlay,
+		peerIDs:   peerIDs,
+		dialer:    dialer,
+		timeout:   config.Timeout,
+		idLimiter: NewRateLimiter(config.RateLimitInterval, config.RateLimitBurst, config.RateLimitCacheSize),
 	}
 }
 

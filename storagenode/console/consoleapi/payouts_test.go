@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"testing"
@@ -68,7 +69,7 @@ func TestHeldAmountApi(t *testing.T) {
 			t.Run("test SatellitePayStubMonthly", func(t *testing.T) {
 				// should return paystub inserted earlier
 				url := fmt.Sprintf("%s/paystubs/%s?id=%s", baseURL, period, satellite.ID().String())
-				res, err := http.Get(url)
+				res, err := httpGet(ctx, url)
 				require.NoError(t, err)
 				require.NotNil(t, res)
 				require.Equal(t, http.StatusOK, res.StatusCode)
@@ -89,7 +90,7 @@ func TestHeldAmountApi(t *testing.T) {
 
 				// should return 404 cause no payouts for the period.
 				url = fmt.Sprintf("%s/paystubs/%s?id=%s", baseURL, "2020-01", satellite.ID().String())
-				res2, err := http.Get(url)
+				res2, err := httpGet(ctx, url)
 				require.NoError(t, err)
 				require.NotNil(t, res2)
 				require.Equal(t, http.StatusOK, res2.StatusCode)
@@ -106,7 +107,7 @@ func TestHeldAmountApi(t *testing.T) {
 
 				// should return 400 cause of wrong satellite id.
 				url = fmt.Sprintf("%s/paystubs/%s?id=%s", baseURL, "2020-01", "123")
-				res3, err := http.Get(url)
+				res3, err := httpGet(ctx, url)
 				require.NoError(t, err)
 				require.NotNil(t, res3)
 				require.Equal(t, http.StatusBadRequest, res3.StatusCode)
@@ -146,7 +147,7 @@ func TestHeldAmountApi(t *testing.T) {
 			t.Run("test AllPayStubsMonthly", func(t *testing.T) {
 				// should return 2 paystubs inserted earlier
 				url := fmt.Sprintf("%s/paystubs/%s", baseURL, period)
-				res, err := http.Get(url)
+				res, err := httpGet(ctx, url)
 				require.NoError(t, err)
 				require.NotNil(t, res)
 				require.Equal(t, http.StatusOK, res.StatusCode)
@@ -167,7 +168,7 @@ func TestHeldAmountApi(t *testing.T) {
 
 				// should return 2 paystubs inserted earlier
 				url = fmt.Sprintf("%s/paystubs/%s", baseURL, "2020-01")
-				res2, err := http.Get(url)
+				res2, err := httpGet(ctx, url)
 				require.NoError(t, err)
 				require.NotNil(t, res2)
 				require.Equal(t, http.StatusOK, res2.StatusCode)
@@ -212,7 +213,7 @@ func TestHeldAmountApi(t *testing.T) {
 			t.Run("test SatellitePayStubPeriod", func(t *testing.T) {
 				// should return all paystubs inserted earlier
 				url := fmt.Sprintf("%s/paystubs/%s/%s?id=%s", baseURL, period2, period, satellite.ID().String())
-				res, err := http.Get(url)
+				res, err := httpGet(ctx, url)
 				require.NoError(t, err)
 				require.NotNil(t, res)
 				require.Equal(t, http.StatusOK, res.StatusCode)
@@ -232,7 +233,7 @@ func TestHeldAmountApi(t *testing.T) {
 				require.Equal(t, string(expected)+"\n", string(body))
 
 				url = fmt.Sprintf("%s/paystubs/%s/%s?id=%s", baseURL, period, period, satellite.ID().String())
-				res2, err := http.Get(url)
+				res2, err := httpGet(ctx, url)
 				require.NoError(t, err)
 				require.NotNil(t, res2)
 				require.Equal(t, http.StatusOK, res2.StatusCode)
@@ -250,7 +251,7 @@ func TestHeldAmountApi(t *testing.T) {
 				require.Equal(t, string(expected)+"\n", string(body2))
 
 				url = fmt.Sprintf("%s/paystubs/%s/%s?id=%s", baseURL, period2, period, paystub2.SatelliteID.String())
-				res3, err := http.Get(url)
+				res3, err := httpGet(ctx, url)
 				require.NoError(t, err)
 				require.NotNil(t, res3)
 				require.Equal(t, http.StatusOK, res3.StatusCode)
@@ -269,7 +270,7 @@ func TestHeldAmountApi(t *testing.T) {
 
 				// should return 400 because of bad satellite id.
 				url = fmt.Sprintf("%s/paystubs/%s/%s?id=%s", baseURL, period2, period, "1")
-				res4, err := http.Get(url)
+				res4, err := httpGet(ctx, url)
 				require.NoError(t, err)
 				require.NotNil(t, res4)
 				require.Equal(t, http.StatusBadRequest, res4.StatusCode)
@@ -281,7 +282,7 @@ func TestHeldAmountApi(t *testing.T) {
 
 				// should return 400 because of bad period.
 				url = fmt.Sprintf("%s/paystubs/%s/%s?id=%s", baseURL, period, period2, satellite.ID().String())
-				res5, err := http.Get(url)
+				res5, err := httpGet(ctx, url)
 				require.NoError(t, err)
 				require.NotNil(t, res5)
 				require.Equal(t, http.StatusBadRequest, res5.StatusCode)
@@ -300,7 +301,7 @@ func TestHeldAmountApi(t *testing.T) {
 			t.Run("test AllPayStubsPeriod", func(t *testing.T) {
 				// should return all paystubs inserted earlier
 				url := fmt.Sprintf("%s/paystubs/%s/%s", baseURL, period2, period)
-				res, err := http.Get(url)
+				res, err := httpGet(ctx, url)
 				require.NoError(t, err)
 				require.NotNil(t, res)
 				require.Equal(t, http.StatusOK, res.StatusCode)
@@ -318,7 +319,7 @@ func TestHeldAmountApi(t *testing.T) {
 				require.Equal(t, string(expected)+"\n", string(body))
 
 				url = fmt.Sprintf("%s/paystubs/%s/%s", baseURL, period, period)
-				res2, err := http.Get(url)
+				res2, err := httpGet(ctx, url)
 				require.NoError(t, err)
 				require.NotNil(t, res2)
 				require.Equal(t, http.StatusOK, res2.StatusCode)
@@ -337,7 +338,7 @@ func TestHeldAmountApi(t *testing.T) {
 
 				// should return 400 because of bad period.
 				url = fmt.Sprintf("%s/paystubs/%s/%s", baseURL, period, period2)
-				res5, err := http.Get(url)
+				res5, err := httpGet(ctx, url)
 				require.NoError(t, err)
 				require.NotNil(t, res5)
 				require.Equal(t, http.StatusBadRequest, res5.StatusCode)
@@ -363,7 +364,7 @@ func TestHeldAmountApi(t *testing.T) {
 
 				// should return all heldback history inserted earlier
 				url := fmt.Sprintf("%s/held-history", baseURL)
-				res, err := http.Get(url)
+				res, err := httpGet(ctx, url)
 				require.NoError(t, err)
 				require.NotNil(t, res)
 				require.Equal(t, http.StatusOK, res.StatusCode)
@@ -396,7 +397,7 @@ func TestHeldAmountApi(t *testing.T) {
 
 			t.Run("test Periods", func(t *testing.T) {
 				url := fmt.Sprintf("%s/periods", baseURL)
-				res, err := http.Get(url)
+				res, err := httpGet(ctx, url)
 				require.NoError(t, err)
 				require.NotNil(t, res)
 				require.Equal(t, http.StatusOK, res.StatusCode)
@@ -418,7 +419,7 @@ func TestHeldAmountApi(t *testing.T) {
 
 				//
 				url = fmt.Sprintf("%s/periods?id=%s", baseURL, paystub2.SatelliteID.String())
-				res2, err := http.Get(url)
+				res2, err := httpGet(ctx, url)
 				require.NoError(t, err)
 				require.NotNil(t, res)
 				require.Equal(t, http.StatusOK, res.StatusCode)
@@ -440,4 +441,21 @@ func TestHeldAmountApi(t *testing.T) {
 			})
 		},
 	)
+}
+
+func httpGet(ctx context.Context, url string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	return http.DefaultClient.Do(req)
+}
+
+func httpPost(ctx context.Context, url string, contentType string, b io.Reader) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, b)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", contentType)
+	return http.DefaultClient.Do(req)
 }

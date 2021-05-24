@@ -13,15 +13,16 @@ import (
 
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/tagsql"
 	"storj.io/storj/multinode"
-	"storj.io/storj/multinode/console"
 	"storj.io/storj/multinode/multinodedb/dbx"
 	"storj.io/storj/multinode/nodes"
+	"storj.io/storj/private/migrate"
 )
 
 var (
 	// ensures that multinodeDB implements multinode.DB.
-	_ multinode.DB = (*multinodeDB)(nil)
+	_ multinode.DB = (*DB)(nil)
 
 	mon = monkit.Package()
 
@@ -29,22 +30,23 @@ var (
 	Error = errs.Class("multinodedb")
 )
 
-// multinodeDB combines access to different database tables with a record
+// DB combines access to different database tables with a record
 // of the db driver, db implementation, and db source URL.
 // Implementation of multinode.DB interface.
 //
 // architecture: Master Database
-type multinodeDB struct {
+type DB struct {
 	*dbx.DB
 
 	log            *zap.Logger
 	driver         string
-	implementation dbutil.Implementation
 	source         string
+	implementation dbutil.Implementation
+	migrationDB    tagsql.DB
 }
 
 // Open creates instance of database supports postgres.
-func Open(ctx context.Context, log *zap.Logger, databaseURL string) (multinode.DB, error) {
+func Open(ctx context.Context, log *zap.Logger, databaseURL string) (*DB, error) {
 	driver, source, implementation, err := dbutil.SplitConnStr(databaseURL)
 	if err != nil {
 		return nil, err
@@ -67,12 +69,11 @@ func Open(ctx context.Context, log *zap.Logger, databaseURL string) (multinode.D
 		return nil, Error.New("failed opening database via DBX at %q: %v",
 			source, err)
 	}
-
 	log.Debug("Connected to:", zap.String("db source", source))
 
 	dbutil.Configure(ctx, dbxDB.DB, "multinodedb", mon)
 
-	core := &multinodeDB{
+	core := &DB{
 		DB: dbxDB,
 
 		log:            log,
@@ -81,27 +82,31 @@ func Open(ctx context.Context, log *zap.Logger, databaseURL string) (multinode.D
 		source:         source,
 	}
 
+	core.migrationDB = core
+
 	return core, nil
 }
 
 // Nodes returns nodes database.
-func (db *multinodeDB) Nodes() nodes.DB {
+func (db *DB) Nodes() nodes.DB {
 	return &nodesdb{
 		methods: db,
 	}
 }
 
-// Members returns members database.
-func (db *multinodeDB) Members() console.Members {
-	return &members{
-		methods: db,
-	}
-}
+// MigrateToLatest migrates db to the latest version.
+func (db DB) MigrateToLatest(ctx context.Context) error {
+	var migration *migrate.Migration
 
-// CreateSchema creates schema.
-func (db *multinodeDB) CreateSchema(ctx context.Context) error {
-	_, err := db.ExecContext(ctx, db.DB.Schema())
-	return err
+	switch db.implementation {
+	case dbutil.SQLite3:
+		migration = db.SQLite3Migration()
+	case dbutil.Postgres:
+		migration = db.PostgresMigration()
+	default:
+		return migrate.Create(ctx, "database", db.DB)
+	}
+	return migration.Run(ctx, db.log)
 }
 
 // sqlite3SetDefaultOptions sets default options for disk-based db with URI filename source string

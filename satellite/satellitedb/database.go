@@ -6,7 +6,6 @@ package satellitedb
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -49,11 +48,11 @@ type satelliteDB struct {
 
 	migrationDB tagsql.DB
 
-	opts           Options
-	log            *zap.Logger
-	driver         string
-	implementation dbutil.Implementation
-	source         string
+	opts   Options
+	log    *zap.Logger
+	driver string
+	impl   dbutil.Implementation
+	source string
 
 	consoleDBOnce sync.Once
 	consoleDB     *ConsoleDB
@@ -108,11 +107,11 @@ func Open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 }
 
 func open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options, override string) (*satelliteDB, error) {
-	driver, source, implementation, err := dbutil.SplitConnStr(databaseURL)
+	driver, source, impl, err := dbutil.SplitConnStr(databaseURL)
 	if err != nil {
 		return nil, err
 	}
-	if implementation != dbutil.Postgres && implementation != dbutil.Cockroach {
+	if impl != dbutil.Postgres && impl != dbutil.Cockroach {
 		return nil, Error.New("unsupported driver %q", driver)
 	}
 
@@ -137,11 +136,11 @@ func open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 	core := &satelliteDB{
 		DB: dbxDB,
 
-		opts:           opts,
-		log:            log,
-		driver:         driver,
-		implementation: implementation,
-		source:         source,
+		opts:   opts,
+		log:    log,
+		driver: driver,
+		impl:   impl,
+		source: source,
 	}
 
 	core.migrationDB = core
@@ -156,16 +155,6 @@ func (dbc *satelliteDBCollection) getByName(name string) *satelliteDB {
 		}
 	}
 	return dbc.dbs[""]
-}
-
-// AsOfSystemTimeClause returns the "AS OF SYSTEM TIME" clause if the DB implementation
-// is CockroachDB and the interval is less than 0.
-func (db *satelliteDB) AsOfSystemTimeClause(interval time.Duration) (asOf string) {
-	if db.implementation == dbutil.Cockroach && interval < 0 {
-		asOf = " AS OF SYSTEM TIME '" + interval.String() + "' "
-	}
-
-	return asOf
 }
 
 // TestDBAccess for raw database access,

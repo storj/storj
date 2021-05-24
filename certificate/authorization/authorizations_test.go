@@ -203,7 +203,7 @@ func TestNewClient(t *testing.T) {
 		for {
 			conn, err := listener.Accept()
 			if err != nil {
-				return nil
+				return nil //nolint: nilerr // ignore closing error
 			}
 			if err := conn.Close(); err != nil {
 				return err

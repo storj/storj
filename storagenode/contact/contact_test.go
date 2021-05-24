@@ -4,13 +4,17 @@
 package contact_test
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/identity/testidentity"
 	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 )
@@ -99,6 +103,34 @@ func TestServicePingSatellites(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, newCapacity, info.Capacity)
 		}
+	})
+}
+
+func TestEndpointPingNode_UnTrust(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		node := planet.StorageNodes[0]
+		node.Contact.Chore.Pause(ctx)
+
+		// make sure a trusted satellite is able to ping node
+		info, err := planet.Satellites[0].Overlay.Service.Get(ctx, node.ID())
+		require.NoError(t, err)
+		require.Equal(t, node.ID(), info.Id)
+
+		// an untrusted peer shouldn't be able to ping node successfully
+		ident, err := testidentity.NewTestIdentity(ctx)
+		require.NoError(t, err)
+
+		state := tls.ConnectionState{
+			PeerCertificates: []*x509.Certificate{ident.Leaf, ident.CA},
+		}
+		peerCtx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
+			Addr:  node.Server.Addr(),
+			State: state,
+		})
+		_, err = node.Contact.Endpoint.PingNode(peerCtx, &pb.ContactPingRequest{})
+		require.Error(t, err)
 	})
 }
 

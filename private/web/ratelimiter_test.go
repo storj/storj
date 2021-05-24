@@ -41,18 +41,18 @@ func TestNewIPRateLimiter(t *testing.T) {
 	}))
 
 	// expect burst number of successes
-	testWithAddress(t, "192.168.1.1:5000", rateLimiter.Burst(), handler)
+	testWithAddress(ctx, t, "192.168.1.1:5000", rateLimiter.Burst(), handler)
 	// expect similar results for a different IP
-	testWithAddress(t, "127.0.0.1:5000", rateLimiter.Burst(), handler)
+	testWithAddress(ctx, t, "127.0.0.1:5000", rateLimiter.Burst(), handler)
 	// expect similar results for a different IP
-	testWithAddress(t, "127.0.0.100:5000", rateLimiter.Burst(), handler)
+	testWithAddress(ctx, t, "127.0.0.100:5000", rateLimiter.Burst(), handler)
 	// expect original IP to work again because numLimits == 2
-	testWithAddress(t, "192.168.1.1:5000", rateLimiter.Burst(), handler)
+	testWithAddress(ctx, t, "192.168.1.1:5000", rateLimiter.Burst(), handler)
 }
 
-func testWithAddress(t *testing.T, remoteAddress string, burst int, handler http.Handler) {
+func testWithAddress(ctx context.Context, t *testing.T, remoteAddress string, burst int, handler http.Handler) {
 	// create HTTP request
-	req, err := http.NewRequest("GET", "", nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", "", nil)
 	require.NoError(t, err)
 	req.RemoteAddr = remoteAddress
 

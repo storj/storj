@@ -48,7 +48,7 @@ type Endpoint struct {
 	db             DB
 	overlaydb      overlay.DB
 	overlay        *overlay.Service
-	metabase       metainfo.MetabaseDB
+	metabase       *metabase.DB
 	orders         *orders.Service
 	connections    *connectionsTracker
 	peerIdentities overlay.PeerIdentities
@@ -91,7 +91,7 @@ func (pm *connectionsTracker) delete(nodeID storj.NodeID) {
 }
 
 // NewEndpoint creates a new graceful exit endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, db DB, overlaydb overlay.DB, overlay *overlay.Service, metabase metainfo.MetabaseDB, orders *orders.Service,
+func NewEndpoint(log *zap.Logger, signer signing.Signer, db DB, overlaydb overlay.DB, overlay *overlay.Service, metabase *metabase.DB, orders *orders.Service,
 	peerIdentities overlay.PeerIdentities, config Config) *Endpoint {
 	return &Endpoint{
 		log:            log,

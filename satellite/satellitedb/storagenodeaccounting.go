@@ -534,7 +534,7 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 		return 0, nil
 	}
 
-	switch db.db.implementation {
+	switch db.db.impl {
 	case dbutil.Cockroach:
 		for {
 			row := db.db.QueryRow(ctx, `
@@ -559,6 +559,8 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 				break
 			}
 		}
+		return nodeRollupsDeleted, nil
+
 	case dbutil.Postgres:
 		storagenodeStatement := `
 			WITH rollups_to_move AS (
@@ -571,14 +573,12 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 			SELECT count(*) FROM moved_rollups
 		`
 		row := db.db.DB.QueryRow(ctx, storagenodeStatement, before)
-		var rowCount int
-		err = row.Scan(&rowCount)
-		if err != nil {
-			return nodeRollupsDeleted, err
-		}
-		nodeRollupsDeleted = rowCount
+		err = row.Scan(&nodeRollupsDeleted)
+		return nodeRollupsDeleted, err
+
+	default:
+		return 0, Error.New("unsupported database: %v", db.db.impl)
 	}
-	return nodeRollupsDeleted, err
 }
 
 // GetRollupsSince retrieves all archived bandwidth rollup records since a given time.

@@ -63,7 +63,7 @@ func loadSnapshots(ctx context.Context, connstr, dbxscript string) (*dbschema.Sn
 				if errors.As(err, &pgErr) {
 					return fmt.Errorf("Version %d error: %v\nDetail: %s\nHint: %s", version, pgErr, pgErr.Detail, pgErr.Hint)
 				}
-				return fmt.Errorf("Version %d error: %+v", version, err)
+				return fmt.Errorf("Version %d error: %w", version, err)
 			}
 			snapshot.Version = version
 
@@ -230,13 +230,6 @@ func migrateTest(t *testing.T, connStr string) {
 
 		// keep the last version around
 		finalSchema = currentSchema
-	}
-
-	// TODO(cam): remove this check with the migration step to drop the columns
-	nodes, ok := finalSchema.FindTable("nodes")
-	if ok {
-		nodes.RemoveColumn("total_uptime_count")
-		nodes.RemoveColumn("uptime_success_count")
 	}
 
 	// verify that we also match the dbx version

@@ -77,7 +77,7 @@ func (accounts *accounts) Balance(ctx context.Context, userID uuid.UUID) (_ paym
 		return payments.Balance{}, Error.Wrap(err)
 	}
 
-	var couponsAmount int64 = 0
+	var couponsAmount int64
 	for _, coupon := range coupons {
 		alreadyUsed, err := accounts.service.db.Coupons().TotalUsage(ctx, coupon.ID)
 		if err != nil {
@@ -154,8 +154,7 @@ func (accounts *accounts) CheckProjectInvoicingStatus(ctx context.Context, proje
 	if lastMonthUsage.Storage > 0 || lastMonthUsage.Egress > 0 || lastMonthUsage.ObjectCount > 0 {
 		// time passed into the check function need to be the UTC midnight dates of the first and last day of the month
 		err = accounts.service.db.ProjectRecords().Check(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour*24))
-		switch err {
-		case ErrProjectRecordExists:
+		if errors.Is(err, ErrProjectRecordExists) {
 			record, err := accounts.service.db.ProjectRecords().Get(ctx, projectID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.Add(-time.Hour*24))
 			if err != nil {
 				return true, err
@@ -164,11 +163,11 @@ func (accounts *accounts) CheckProjectInvoicingStatus(ctx context.Context, proje
 			if record.State == 0 {
 				return true, errors.New("unapplied project invoice record exist")
 			}
-		case nil:
-			return true, errors.New("usage for last month exist, but is not billed yet")
-		default:
+		}
+		if err != nil {
 			return true, err
 		}
+		return true, errors.New("usage for last month exist, but is not billed yet")
 	}
 	return false, nil
 }

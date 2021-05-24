@@ -762,7 +762,7 @@ func walkNamespaceWithPrefix(ctx context.Context, log *zap.Logger, namespace []b
 			return err
 		}
 		names, err := openDir.Readdirnames(nameBatchSize)
-		if err != nil && err != io.EOF {
+		if err != nil && !errors.Is(err, io.EOF) {
 			return err
 		}
 		if os.IsNotExist(err) || len(names) == 0 {
@@ -780,7 +780,8 @@ func walkNamespaceWithPrefix(ctx context.Context, log *zap.Logger, namespace []b
 
 				// convert to lowercase the perr.Op because Go reports inconsistently
 				// "lstat" in Linux and "Lstat" in Windows
-				if perr, ok := err.(*os.PathError); ok && strings.ToLower(perr.Op) == "lstat" {
+				var perr *os.PathError
+				if errors.As(err, &perr) && strings.ToLower(perr.Op) == "lstat" {
 					log.Error("Unable to read the disk, please verify the disk is not corrupt")
 				}
 

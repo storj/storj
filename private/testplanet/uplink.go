@@ -177,7 +177,7 @@ func (client *Uplink) DialMetainfo(ctx context.Context, destination Peer, apikey
 
 // DialPiecestore dials destination storagenode and returns a piecestore client.
 func (client *Uplink) DialPiecestore(ctx context.Context, destination Peer) (*piecestore.Client, error) {
-	return piecestore.DialNodeURL(ctx, client.Dialer, destination.NodeURL(), client.Log.Named("uplink>piecestore"), piecestore.DefaultConfig)
+	return piecestore.Dial(ctx, client.Dialer, destination.NodeURL(), piecestore.DefaultConfig)
 }
 
 // OpenProject opens project with predefined access grant and gives access to pure uplink API.
@@ -349,6 +349,22 @@ func (client *Uplink) ListBuckets(ctx context.Context, satellite *Satellite) ([]
 		buckets = append(buckets, iter.Item())
 	}
 	return buckets, iter.Err()
+}
+
+// ListObjects returns a list of all objects in a bucket.
+func (client *Uplink) ListObjects(ctx context.Context, satellite *Satellite, bucketName string) ([]*uplink.Object, error) {
+	var objects = []*uplink.Object{}
+	project, err := client.GetProject(ctx, satellite)
+	if err != nil {
+		return objects, err
+	}
+	defer func() { err = errs.Combine(err, project.Close()) }()
+
+	iter := project.ListObjects(ctx, bucketName, &uplink.ListObjectsOptions{})
+	for iter.Next() {
+		objects = append(objects, iter.Item())
+	}
+	return objects, iter.Err()
 }
 
 // GetProject returns a uplink.Project which allows interactions with a specific project.

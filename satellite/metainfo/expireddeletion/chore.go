@@ -13,7 +13,6 @@ import (
 
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metainfo"
 )
 
 var (
@@ -35,14 +34,14 @@ type Config struct {
 type Chore struct {
 	log      *zap.Logger
 	config   Config
-	metabase metainfo.MetabaseDB
+	metabase *metabase.DB
 
 	nowFn func() time.Time
 	Loop  *sync2.Cycle
 }
 
 // NewChore creates a new instance of the expireddeletion chore.
-func NewChore(log *zap.Logger, config Config, metabase metainfo.MetabaseDB) *Chore {
+func NewChore(log *zap.Logger, config Config, metabase *metabase.DB) *Chore {
 	return &Chore{
 		log:      log,
 		config:   config,

@@ -16,7 +16,6 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -31,17 +30,17 @@ var (
 // architecture: Endpoint
 type Endpoint struct {
 	internalpb.DRPCHealthInspectorUnimplementedServer
-	log        *zap.Logger
-	overlay    *overlay.Service
-	metabaseDB metainfo.MetabaseDB
+	log      *zap.Logger
+	overlay  *overlay.Service
+	metabase *metabase.DB
 }
 
 // NewEndpoint will initialize an Endpoint struct.
-func NewEndpoint(log *zap.Logger, cache *overlay.Service, metabaseDB metainfo.MetabaseDB) *Endpoint {
+func NewEndpoint(log *zap.Logger, cache *overlay.Service, metabase *metabase.DB) *Endpoint {
 	return &Endpoint{
-		log:        log,
-		overlay:    cache,
-		metabaseDB: metabaseDB,
+		log:      log,
+		overlay:  cache,
+		metabase: metabase,
 	}
 }
 
@@ -74,14 +73,14 @@ func (endpoint *Endpoint) ObjectHealth(ctx context.Context, in *internalpb.Objec
 		ObjectKey:  metabase.ObjectKey(in.GetEncryptedPath()),
 	}
 	// TODO add version field to ObjectHealthRequest?
-	object, err := endpoint.metabaseDB.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
+	object, err := endpoint.metabase.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
 		ObjectLocation: objectLocation,
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	listResult, err := endpoint.metabaseDB.ListSegments(ctx, metabase.ListSegments{
+	listResult, err := endpoint.metabase.ListSegments(ctx, metabase.ListSegments{
 		StreamID: object.StreamID,
 		Cursor:   startPosition,
 		Limit:    limit,
@@ -122,14 +121,14 @@ func (endpoint *Endpoint) SegmentHealth(ctx context.Context, in *internalpb.Segm
 		ObjectKey:  metabase.ObjectKey(in.GetEncryptedPath()),
 	}
 
-	object, err := endpoint.metabaseDB.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
+	object, err := endpoint.metabase.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
 		ObjectLocation: objectLocation,
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	segment, err := endpoint.metabaseDB.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+	segment, err := endpoint.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
 		StreamID: object.StreamID,
 		Position: metabase.SegmentPositionFromEncoded(uint64(in.GetSegmentIndex())),
 	})

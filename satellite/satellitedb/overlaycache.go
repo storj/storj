@@ -56,11 +56,10 @@ func (cache *overlaycache) SelectAllStorageNodesUpload(ctx context.Context, sele
 func (cache *overlaycache) selectAllStorageNodesUpload(ctx context.Context, selectionCfg overlay.NodeSelectionConfig) (reputable, new []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	asOf := cache.db.AsOfSystemTimeClause(selectionCfg.AsOfSystemTime.DefaultInterval)
-
 	query := `
 		SELECT id, address, last_net, last_ip_port, vetted_at
-			FROM nodes ` + asOf + `
+			FROM nodes
+			` + cache.db.impl.AsOfSystemInterval(selectionCfg.AsOfSystemTime.DefaultInterval) + `
 			WHERE disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
 			AND offline_suspended IS NULL
@@ -139,11 +138,10 @@ func (cache *overlaycache) SelectAllStorageNodesDownload(ctx context.Context, on
 func (cache *overlaycache) selectAllStorageNodesDownload(ctx context.Context, onlineWindow time.Duration, asOfConfig overlay.AsOfSystemTimeConfig) (_ []*overlay.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	asOf := cache.db.AsOfSystemTimeClause(asOfConfig.DefaultInterval)
-
 	query := `
 		SELECT id, address, last_net, last_ip_port
-			FROM nodes ` + asOf + `
+			FROM nodes
+			` + cache.db.impl.AsOfSystemInterval(asOfConfig.DefaultInterval) + `
 			WHERE disqualified IS NULL
 			AND exit_finished_at IS NULL
 			AND last_contact_success > $1
@@ -312,12 +310,11 @@ func (cache *overlaycache) knownOffline(ctx context.Context, criteria *overlay.N
 		return nil, Error.New("no ids provided")
 	}
 
-	asOf := cache.db.AsOfSystemTimeClause(criteria.AsOfSystemTimeInterval)
-
 	// get offline nodes
 	var rows tagsql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT id FROM nodes `+asOf+`
+		SELECT id FROM nodes
+		`+cache.db.impl.AsOfSystemInterval(criteria.AsOfSystemInterval)+`
 			WHERE id = any($1::bytea[])
 			AND last_contact_success < $2
 		`), pgutil.NodeIDArray(nodeIds), time.Now().Add(-criteria.OnlineWindow),
@@ -361,12 +358,12 @@ func (cache *overlaycache) knownUnreliableOrOffline(ctx context.Context, criteri
 		return nil, Error.New("no ids provided")
 	}
 
-	asOf := cache.db.AsOfSystemTimeClause(criteria.AsOfSystemTimeInterval)
-
 	// get reliable and online nodes
 	var rows tagsql.Rows
 	rows, err = cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT id FROM nodes `+asOf+`
+			SELECT id
+			FROM nodes
+			`+cache.db.impl.AsOfSystemInterval(criteria.AsOfSystemInterval)+`
 			WHERE id = any($1::bytea[])
 			AND disqualified IS NULL
 			AND unknown_audit_suspended IS NULL
@@ -469,11 +466,11 @@ func (cache *overlaycache) Reliable(ctx context.Context, criteria *overlay.NodeC
 }
 
 func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeCriteria) (nodes storj.NodeIDList, err error) {
-	asOf := cache.db.AsOfSystemTimeClause(criteria.AsOfSystemTimeInterval)
-
 	// get reliable and online nodes
 	rows, err := cache.db.Query(ctx, cache.db.Rebind(`
-		SELECT id FROM nodes `+asOf+`
+		SELECT id
+		FROM nodes
+		`+cache.db.impl.AsOfSystemInterval(criteria.AsOfSystemInterval)+`
 		WHERE disqualified IS NULL
 		AND unknown_audit_suspended IS NULL
 		AND offline_suspended IS NULL
@@ -1671,7 +1668,50 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		return Error.Wrap(err)
 	}
 
-	query := `
+	// First try the fast path.
+	var res sql.Result
+	res, err = cache.db.ExecContext(ctx, `
+		UPDATE nodes
+		SET
+			address=$2,
+			last_net=$3,
+			protocol=$4,
+			email=$5,
+			wallet=$6,
+			free_disk=$7,
+			major=$9, minor=$10, patch=$11, hash=$12, timestamp=$13, release=$14,
+			last_contact_success = CASE WHEN $8::bool IS TRUE
+				THEN $15::timestamptz
+				ELSE nodes.last_contact_success
+			END,
+			last_contact_failure = CASE WHEN $8::bool IS FALSE
+				THEN $15::timestamptz
+				ELSE nodes.last_contact_failure
+			END,
+			last_ip_port=$16,
+			wallet_features=$17
+		WHERE id = $1
+	`, // args $1 - $4
+		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, node.Address.GetTransport(),
+		// args $5 - $7
+		node.Operator.GetEmail(), node.Operator.GetWallet(), node.Capacity.GetFreeDisk(),
+		// args $8
+		node.IsUp,
+		// args $9 - $14
+		semVer.Major, semVer.Minor, semVer.Patch, node.Version.GetCommitHash(), node.Version.Timestamp, node.Version.GetRelease(),
+		// args $15
+		timestamp,
+		// args $16
+		node.LastIPPort,
+		// args $17,
+		walletFeatures,
+	)
+	affected, affectedErr := res.RowsAffected()
+	if affected > 0 && err == nil && affectedErr == nil {
+		return nil
+	}
+
+	_, err = cache.db.ExecContext(ctx, `
 			INSERT INTO nodes
 			(
 				id, address, last_net, protocol, type,
@@ -1719,8 +1759,7 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				END,
 				last_ip_port=$19,
 				wallet_features=$20;
-			`
-	_, err = cache.db.ExecContext(ctx, query,
+			`,
 		// args $1 - $5
 		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, node.Address.GetTransport(), int(pb.NodeType_STORAGE),
 		// args $6 - $8

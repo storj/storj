@@ -23,8 +23,8 @@ import (
 	"storj.io/storj/private/lifecycle"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/gc"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metaloop"
-	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -66,7 +66,7 @@ type GarbageCollection struct {
 
 // NewGarbageCollection creates a new satellite garbage collection process.
 func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
-	metabaseDB metainfo.MetabaseDB, revocationDB extensions.RevocationDB,
+	metabaseDB *metabase.DB, revocationDB extensions.RevocationDB,
 	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*GarbageCollection, error) {
 	peer := &GarbageCollection{
 		Log:      log,
@@ -84,7 +84,6 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 			if err != nil {
 				withoutStack := errors.New(err.Error())
 				peer.Log.Debug("failed to start debug endpoints", zap.Error(withoutStack))
-				err = nil
 			}
 		}
 		debugConfig := config.Debug

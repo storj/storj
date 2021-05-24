@@ -4,20 +4,12 @@
 package metainfo
 
 import (
-	"context"
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 	"time"
 
-	"go.uber.org/zap"
-
 	"storj.io/common/memory"
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
-	"storj.io/private/dbutil"
-	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metaloop"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 )
@@ -125,110 +117,4 @@ type Config struct {
 	RateLimiter          RateLimiterConfig    `help:"rate limiter configuration"`
 	ProjectLimits        ProjectLimitConfig   `help:"project limit configuration"`
 	PieceDeletion        piecedeletion.Config `help:"piece deletion configuration"`
-}
-
-// MetabaseDB stores objects and segments.
-type MetabaseDB interface {
-	io.Closer
-
-	// MigrateToLatest migrates to latest schema version.
-	MigrateToLatest(ctx context.Context) error
-	// CheckVersion checks the database is the correct version
-	CheckVersion(ctx context.Context) error
-
-	// DeleteObjectAnyStatusAllVersions deletes all object versions.
-	DeleteObjectAnyStatusAllVersions(ctx context.Context, opts metabase.DeleteObjectAnyStatusAllVersions) (result metabase.DeleteObjectResult, err error)
-	// DeleteObjectsAllVersions deletes all versions of multiple objects from the same bucket.
-	DeleteObjectsAllVersions(ctx context.Context, opts metabase.DeleteObjectsAllVersions) (result metabase.DeleteObjectResult, err error)
-	// DeletePendingObject deletes a pending object.
-	DeletePendingObject(ctx context.Context, opts metabase.DeletePendingObject) (result metabase.DeleteObjectResult, err error)
-	// DeleteBucketObjects deletes all objects in the specified bucket.
-	DeleteBucketObjects(ctx context.Context, opts metabase.DeleteBucketObjects) (deletedObjectCount int64, err error)
-	// DeleteExpiredObjects deletes all objects that expired before expiredBefore.
-	DeleteExpiredObjects(ctx context.Context, opts metabase.DeleteExpiredObjects) error
-	// DeleteObjectLatestVersion deletes latest object version.
-	DeleteObjectLatestVersion(ctx context.Context, opts metabase.DeleteObjectLatestVersion) (result metabase.DeleteObjectResult, err error)
-	// BeginObjectExactVersion adds a pending object to the database, with specific version.
-	BeginObjectExactVersion(ctx context.Context, opts metabase.BeginObjectExactVersion) (committed metabase.Object, err error)
-	// CommitObject adds a pending object to the database.
-	CommitObject(ctx context.Context, opts metabase.CommitObject) (object metabase.Object, err error)
-	// BeginSegment verifies whether a new segment upload can be started.
-	BeginSegment(ctx context.Context, opts metabase.BeginSegment) (err error)
-	// CommitSegment commits segment to the database.
-	CommitSegment(ctx context.Context, opts metabase.CommitSegment) (err error)
-	// CommitInlineSegment commits inline segment to the database.
-	CommitInlineSegment(ctx context.Context, opts metabase.CommitInlineSegment) (err error)
-	// GetObjectLatestVersion returns object information for latest version.
-	GetObjectLatestVersion(ctx context.Context, opts metabase.GetObjectLatestVersion) (_ metabase.Object, err error)
-	// GetSegmentByLocation returns a information about segment on the specified location.
-	GetSegmentByLocation(ctx context.Context, opts metabase.GetSegmentByLocation) (segment metabase.Segment, err error)
-	// GetSegmentByPosition returns a information about segment which covers specified offset.
-	GetSegmentByPosition(ctx context.Context, opts metabase.GetSegmentByPosition) (segment metabase.Segment, err error)
-	// GetLatestObjectLastSegment returns an object last segment information.
-	GetLatestObjectLastSegment(ctx context.Context, opts metabase.GetLatestObjectLastSegment) (segment metabase.Segment, err error)
-	// GetStreamPieceCountByNodeID returns piece count by node id.
-	GetStreamPieceCountByNodeID(ctx context.Context, opts metabase.GetStreamPieceCountByNodeID) (result map[storj.NodeID]int64, err error)
-	// ListSegments lists specified stream segments.
-	ListSegments(ctx context.Context, opts metabase.ListSegments) (result metabase.ListSegmentsResult, err error)
-	// ListStreamPositions lists specified stream segment positions.
-	ListStreamPositions(ctx context.Context, opts metabase.ListStreamPositions) (result metabase.ListStreamPositionsResult, err error)
-	// IterateObjectsAllVersions iterates through all versions of all objects.
-	IterateObjectsAllVersions(ctx context.Context, opts metabase.IterateObjects, fn func(context.Context, metabase.ObjectsIterator) error) (err error)
-	// IterateObjectsAllVersionsWithStatus iterates through all versions of all objects with specified status.
-	IterateObjectsAllVersionsWithStatus(ctx context.Context, opts metabase.IterateObjectsWithStatus, fn func(context.Context, metabase.ObjectsIterator) error) (err error)
-	// IteratePendingObjectsByKey iterates through all StreamID for a given ObjectKey.
-	IteratePendingObjectsByKey(ctx context.Context, opts metabase.IteratePendingObjectsByKey, fn func(context.Context, metabase.ObjectsIterator) error) (err error)
-	// IterateLoopObjects iterates through all objects in metabase for metainfo loop purpose.
-	IterateLoopObjects(ctx context.Context, opts metabase.IterateLoopObjects, fn func(context.Context, metabase.LoopObjectsIterator) error) (err error)
-	// IterateLoopStreams iterates through all streams passed in as arguments.
-	IterateLoopStreams(ctx context.Context, opts metabase.IterateLoopStreams, handleStream func(ctx context.Context, streamID uuid.UUID, next metabase.SegmentIterator) error) (err error)
-	// BucketEmpty returns true if bucket does not contain objects (pending or committed).
-	// This method doesn't check bucket existence.
-	BucketEmpty(ctx context.Context, opts metabase.BucketEmpty) (empty bool, err error)
-	// UpdateSegmentPieces updates pieces for specified segment. If provided old pieces won't match current database state update will fail.
-	UpdateSegmentPieces(ctx context.Context, opts metabase.UpdateSegmentPieces) (err error)
-	// EnsureNodeAliases ensures that the supplied node ID-s have a alias.
-	// It's safe to concurrently try and create node ID-s for the same NodeID.
-	EnsureNodeAliases(ctx context.Context, opts metabase.EnsureNodeAliases) (err error)
-	// ListNodeAliases lists all node alias mappings.
-	ListNodeAliases(ctx context.Context) (_ []metabase.NodeAliasEntry, err error)
-
-	// TestingAllCommittedObjects gets all committed objects from bucket. Use only for testing purposes.
-	TestingAllCommittedObjects(ctx context.Context, projectID uuid.UUID, bucketName string) (objects []metabase.ObjectEntry, err error)
-	// TestingAllPendingObjects gets all pending objects from bucket. Use only for testing purposes.
-	TestingAllPendingObjects(ctx context.Context, projectID uuid.UUID, bucketName string) (objects []metabase.ObjectEntry, err error)
-	// TestingAllObjectSegments gets all segments for given object. Use only for testing purposes.
-	TestingAllObjectSegments(ctx context.Context, objectLocation metabase.ObjectLocation) (segments []metabase.Segment, err error)
-	// TestingAllObjects gets all objects. Use only for testing purposes.
-	TestingAllObjects(ctx context.Context) (segments []metabase.Object, err error)
-	// TestingAllSegments gets all segments. Use only for testing purposes.
-	TestingAllSegments(ctx context.Context) (segments []metabase.Segment, err error)
-
-	// InternalImplementation returns *metabase.DB.
-	// TODO: remove.
-	InternalImplementation() interface{}
-}
-
-// OpenMetabase returns database for storing objects and segments.
-func OpenMetabase(ctx context.Context, log *zap.Logger, dbURLString string) (db MetabaseDB, err error) {
-	_, source, implementation, err := dbutil.SplitConnStr(dbURLString)
-	if err != nil {
-		return nil, err
-	}
-
-	switch implementation {
-	case dbutil.Postgres:
-		db, err = metabase.Open(ctx, log, "pgx", dbURLString)
-	case dbutil.Cockroach:
-		db, err = metabase.Open(ctx, log, "cockroach", dbURLString)
-	default:
-		err = Error.New("unsupported db implementation: %s", dbURLString)
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	log.Debug("Connected to:", zap.String("db source", source))
-	return db, nil
 }

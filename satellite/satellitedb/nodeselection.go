@@ -104,7 +104,7 @@ func (cache *overlaycache) selectStorageNodesOnce(ctx context.Context, reputable
 
 	var reputableNodeQuery, newNodeQuery partialQuery
 
-	asOf := cache.db.AsOfSystemTimeClause(criteria.AsOfSystemTimeInterval)
+	asOf := cache.db.impl.AsOfSystemInterval(criteria.AsOfSystemInterval)
 
 	// Note: the true/false at the end of each selection string indicates if the selection is for new nodes or not.
 	// Later, the flag allows us to distinguish if a node is new when scanning the db rows.

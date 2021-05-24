@@ -61,7 +61,7 @@ goimports-st: ## Applies goimports to every go file in `git status` (ignores unt
 	@git status --porcelain -uno|grep .go|grep -v "^D"|sed -E 's,\w+\s+(.+->\s+)?,,g'|xargs -I {} goimports -w -local storj.io {}
 
 .PHONY: build-packages
-build-packages: build-packages-race build-packages-normal build-satellite-npm build-storagenode-npm ## Test docker images locally
+build-packages: build-packages-race build-packages-normal build-satellite-npm build-storagenode-npm build-multinode-npm ## Test docker images locally
 build-packages-race:
 	go build -v ./...
 build-packages-normal:
@@ -70,6 +70,8 @@ build-satellite-npm:
 	cd web/satellite && npm ci
 build-storagenode-npm:
 	cd web/storagenode && npm ci
+build-multinode-npm:
+	cd web/multinode && npm ci
 
 ##@ Simulator
 
@@ -88,7 +90,8 @@ install-sim: ## install storj-sim
 		storj.io/storj/cmd/versioncontrol \
 		storj.io/storj/cmd/uplink \
 		storj.io/storj/cmd/identity \
-		storj.io/storj/cmd/certificates
+		storj.io/storj/cmd/certificates \
+		storj.io/storj/cmd/multinode
 
 	## install exact version of storj/gateway
 	## TODO replace 'main' with 'latest' when gateway with multipart will be released
@@ -178,14 +181,14 @@ satellite-image: satellite_linux_arm satellite_linux_arm64 satellite_linux_amd64
 		-f cmd/satellite/Dockerfile .
 
 .PHONY: storagenode-image
-storagenode-image: ## Build storagenode Docker image
+storagenode-image: storagenode_linux_arm storagenode_linux_arm64 storagenode_linux_amd64 ## Build storagenode Docker image
 	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-amd64 \
 		-f cmd/storagenode/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm32v6 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 --build-arg=APK_ARCH=armhf \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm32v6 \
 		-f cmd/storagenode/Dockerfile .
 	${DOCKER_BUILD} --pull=true -t storjlabs/storagenode:${TAG}${CUSTOMTAG}-arm64v8 \
-		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm64v8 --build-arg=APK_ARCH=aarch64 \
+		--build-arg=GOARCH=arm --build-arg=DOCKER_ARCH=arm64v8 \
 		-f cmd/storagenode/Dockerfile .
 .PHONY: uplink-image
 uplink-image: uplink_linux_arm uplink_linux_arm64 uplink_linux_amd64 ## Build uplink Docker image

@@ -6,6 +6,7 @@ package consoleapi_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -78,7 +79,11 @@ func TestAuth_Register(t *testing.T) {
 				jsonBody, err := json.Marshal(registerData)
 				require.NoError(t, err)
 
-				result, err := http.Post("http://"+planet.Satellites[0].API.Console.Listener.Addr().String()+"/api/v0/auth/register", "application/json", bytes.NewBuffer(jsonBody))
+				url := "http://" + planet.Satellites[0].API.Console.Listener.Addr().String() + "/api/v0/auth/register"
+				req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
+				require.NoError(t, err)
+				req.Header.Set("Content-Type", "application/json")
+				result, err := http.DefaultClient.Do(req)
 				require.NoError(t, err)
 				require.Equal(t, http.StatusOK, result.StatusCode)
 
@@ -110,6 +115,8 @@ func TestAuth_Register(t *testing.T) {
 }
 
 func TestDeleteAccount(t *testing.T) {
+	ctx := testcontext.New(t)
+
 	// We do a black box testing because currently we don't allow to delete
 	// accounts through the API hence we must always return an error response.
 
@@ -183,7 +190,7 @@ func TestDeleteAccount(t *testing.T) {
 
 			reqURL, err := url.Parse("//storj.io/" + path + withQuery + query)
 			require.NoError(t, err, "error when generating a random URL")
-			req, err := http.NewRequest(method, reqURL.String(), body)
+			req, err := http.NewRequestWithContext(ctx, method, reqURL.String(), body)
 			require.NoError(t, err, "error when geneating a random request")
 			values[0] = reflect.ValueOf(req)
 		},
@@ -214,7 +221,8 @@ func TestDeleteAccount(t *testing.T) {
 	err := quick.CheckEqual(expectedHandler, actualHandler, config)
 	if err != nil {
 		fmt.Printf("%+v\n", err)
-		cerr := err.(*quick.CheckEqualError)
+		var cerr *quick.CheckEqualError
+		require.True(t, errors.As(err, &cerr))
 
 		t.Fatalf(`DeleteAccount handler has returned a different response:
 round: %d

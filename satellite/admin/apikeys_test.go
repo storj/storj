@@ -40,7 +40,7 @@ func TestAddApiKey(t *testing.T) {
 		require.Len(t, keys.APIKeys, 1)
 
 		body := strings.NewReader(`{"name":"Default"}`)
-		req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://"+address.String()+"/api/project/%s/apikey", projectID.String()), body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://"+address.String()+"/api/project/%s/apikey", projectID.String()), body)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -91,7 +91,7 @@ func TestDeleteApiKey(t *testing.T) {
 		require.Len(t, keys.APIKeys, 1)
 
 		apikey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].Serialize()
-		req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/apikey/%s", apikey), nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/apikey/%s", apikey), nil)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -127,7 +127,7 @@ func TestDeleteApiKeyByName(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, keys.APIKeys, 1)
 
-		req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/project/%s/apikey/%s", projectID.String(), keys.APIKeys[0].Name), nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/project/%s/apikey/%s", projectID.String(), keys.APIKeys[0].Name), nil)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 

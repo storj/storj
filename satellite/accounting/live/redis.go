@@ -204,7 +204,5 @@ func (cache *redisLiveAccounting) getInt64(ctx context.Context, key string) (_ i
 func createBandwidthProjectIDKey(projectID uuid.UUID, now time.Time) string {
 	// Add current month as prefix
 	_, month, _ := now.Date()
-	key := append(projectID[:], byte(int(month)))
-
-	return string(key) + ":bandwidth"
+	return string(projectID[:]) + string(byte(month)) + ":bandwidth"
 }

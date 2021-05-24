@@ -4,7 +4,6 @@
 package estimatedpayouts_test
 
 import (
-	"math"
 	"testing"
 	"time"
 
@@ -18,7 +17,7 @@ func TestCurrentMonthExpectations(t *testing.T) {
 
 	type test struct {
 		time              time.Time
-		expected          float64
+		expected          int64
 		joinedAt          time.Time
 		payout            estimatedpayouts.EstimatedPayout
 		current, previous estimatedpayouts.PayoutMonthly
@@ -49,7 +48,7 @@ func TestCurrentMonthExpectations(t *testing.T) {
 				Payout:                  payout,
 				Held:                    901,
 			}},
-		{time.Date(2021, 2, 28, 10, 0, 0, 0, time.UTC), 103.70, time.Date(2021, 1, 26, 10, 0, 0, 0, time.UTC),
+		{time.Date(2021, 2, 28, 10, 0, 0, 0, time.UTC), 103, time.Date(2021, 1, 26, 10, 0, 0, 0, time.UTC),
 			estimatedpayouts.EstimatedPayout{},
 			estimatedpayouts.PayoutMonthly{
 				EgressBandwidth:         123,
@@ -73,7 +72,7 @@ func TestCurrentMonthExpectations(t *testing.T) {
 				Payout:                  payout,
 				Held:                    901,
 			}},
-		{time.Date(2021, 2, 28, 10, 0, 0, 0, time.UTC), 215.38, time.Date(2021, 2, 15, 10, 0, 0, 0, time.UTC),
+		{time.Date(2021, 2, 28, 10, 0, 0, 0, time.UTC), 215, time.Date(2021, 2, 15, 10, 0, 0, 0, time.UTC),
 			estimatedpayouts.EstimatedPayout{},
 			estimatedpayouts.PayoutMonthly{
 				EgressBandwidth:         123,
@@ -122,7 +121,7 @@ func TestCurrentMonthExpectations(t *testing.T) {
 				Payout:                  payout,
 				Held:                    901,
 			}},
-		{time.Date(2021, 3, 31, 21, 0, 0, 0, time.UTC), 103.33, time.Date(2021, 1, 31, 21, 0, 0, 0, time.UTC),
+		{time.Date(2021, 3, 31, 21, 0, 0, 0, time.UTC), 103, time.Date(2021, 1, 31, 21, 0, 0, 0, time.UTC),
 			estimatedpayouts.EstimatedPayout{},
 			estimatedpayouts.PayoutMonthly{
 				EgressBandwidth:         123,
@@ -146,7 +145,7 @@ func TestCurrentMonthExpectations(t *testing.T) {
 				Payout:                  payout,
 				Held:                    901,
 			}},
-		{time.Date(2021, 3, 31, 21, 0, 0, 0, time.UTC), 193.75, time.Date(2021, 3, 15, 21, 0, 0, 0, time.UTC),
+		{time.Date(2021, 3, 31, 21, 0, 0, 0, time.UTC), 193, time.Date(2021, 3, 15, 21, 0, 0, 0, time.UTC),
 			estimatedpayouts.EstimatedPayout{},
 			estimatedpayouts.PayoutMonthly{
 				EgressBandwidth:         123,
@@ -174,7 +173,6 @@ func TestCurrentMonthExpectations(t *testing.T) {
 
 	for _, test := range tests {
 		test.payout.Set(test.current, test.previous, test.time, test.joinedAt)
-		require.False(t, math.IsNaN(test.payout.CurrentMonthExpectations))
 		require.InDelta(t, test.expected, test.payout.CurrentMonthExpectations, 0.01)
 		require.Equal(t, test.payout.CurrentMonth, test.current)
 		require.Equal(t, test.payout.PreviousMonth, test.previous)

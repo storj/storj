@@ -100,7 +100,8 @@ func TestTransferQueueItem(t *testing.T) {
 
 		// test basic create, update, get delete
 		{
-			err := geDB.Enqueue(ctx, items)
+			batchSize := 1000
+			err := geDB.Enqueue(ctx, items, batchSize)
 			require.NoError(t, err)
 
 			for _, tqi := range items {

@@ -7,8 +7,8 @@ package metabase
 import (
 	"context"
 	"fmt"
-	"sort"
 	"strconv"
+	"time"
 
 	_ "github.com/jackc/pgx/v4"        // registers pgx as a tagsql driver.
 	_ "github.com/jackc/pgx/v4/stdlib" // registers pgx as a tagsql driver.
@@ -16,8 +16,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"storj.io/private/dbutil"
 	"storj.io/private/dbutil/pgutil"
 	"storj.io/private/tagsql"
@@ -30,29 +28,48 @@ var (
 
 // DB implements a database for storing objects and segments.
 type DB struct {
-	log            *zap.Logger
-	db             tagsql.DB
-	connstr        string
-	implementation dbutil.Implementation
+	log     *zap.Logger
+	db      tagsql.DB
+	connstr string
+	impl    dbutil.Implementation
 
 	aliasCache *NodeAliasCache
+
+	testCleanup func() error
 }
 
 // Open opens a connection to metabase.
-func Open(ctx context.Context, log *zap.Logger, driverName, connstr string) (*DB, error) {
+func Open(ctx context.Context, log *zap.Logger, connstr string) (*DB, error) {
+	var driverName string
+	_, _, impl, err := dbutil.SplitConnStr(connstr)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	switch impl {
+	case dbutil.Postgres:
+		driverName = "pgx"
+	case dbutil.Cockroach:
+		driverName = "cockroach"
+	default:
+		return nil, Error.New("unsupported implementation: %s", connstr)
+	}
+
 	rawdb, err := tagsql.Open(ctx, driverName, connstr)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 	dbutil.Configure(ctx, rawdb, "metabase", mon)
 
-	db := &DB{log: log, connstr: connstr, db: postgresRebind{rawdb}}
+	db := &DB{
+		log:         log,
+		db:          postgresRebind{rawdb},
+		connstr:     connstr,
+		impl:        impl,
+		testCleanup: func() error { return nil },
+	}
 	db.aliasCache = NewNodeAliasCache(db)
 
-	_, _, db.implementation, err = dbutil.SplitConnStr(connstr)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
+	log.Debug("Connected", zap.String("db source", connstr))
 
 	return db, nil
 }
@@ -70,9 +87,14 @@ func (db *DB) Ping(ctx context.Context) error {
 	return Error.Wrap(db.db.PingContext(ctx))
 }
 
+// TestingSetCleanup is used to set the callback for cleaning up test database.
+func (db *DB) TestingSetCleanup(cleanup func() error) {
+	db.testCleanup = cleanup
+}
+
 // Close closes the connection to database.
 func (db *DB) Close() error {
-	return Error.Wrap(db.db.Close())
+	return errs.Combine(Error.Wrap(db.db.Close()), db.testCleanup())
 }
 
 // DestroyTables deletes all tables.
@@ -96,7 +118,7 @@ func (db *DB) MigrateToLatest(ctx context.Context) error {
 	// will need to create the database it was told to connect to. These things should
 	// not really be here, and instead should be assumed to exist.
 	// This is tracked in jira ticket SM-200
-	switch db.implementation {
+	switch db.impl {
 	case dbutil.Postgres:
 		schema, err := pgutil.ParseSchemaFromConnstr(db.connstr)
 		if err != nil {
@@ -228,89 +250,6 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 			},
 			{
 				DB:          &db.db,
-				Description: "convert remote_pieces to remote_alias_pieces",
-				Version:     5,
-				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-					type segmentPieces struct {
-						StreamID     uuid.UUID
-						Position     SegmentPosition
-						RemotePieces Pieces
-					}
-
-					var allSegments []segmentPieces
-
-					err := withRows(tx.QueryContext(ctx, `SELECT stream_id, position, remote_pieces FROM segments WHERE remote_pieces IS NOT NULL`))(
-						func(rows tagsql.Rows) error {
-							for rows.Next() {
-								var seg segmentPieces
-								if err := rows.Scan(&seg.StreamID, &seg.Position, &seg.RemotePieces); err != nil {
-									return Error.Wrap(err)
-								}
-								allSegments = append(allSegments, seg)
-							}
-							return nil
-						})
-					if err != nil {
-						return Error.Wrap(err)
-					}
-
-					allNodes := map[storj.NodeID]struct{}{}
-					for i := range allSegments {
-						seg := &allSegments[i]
-						for k := range seg.RemotePieces {
-							p := &seg.RemotePieces[k]
-							allNodes[p.StorageNode] = struct{}{}
-						}
-					}
-
-					nodesList := []storj.NodeID{}
-					for id := range allNodes {
-						nodesList = append(nodesList, id)
-					}
-					aliasCache := NewNodeAliasCache(&txNodeAliases{tx})
-					_, err = aliasCache.Aliases(ctx, nodesList)
-					if err != nil {
-						return Error.Wrap(err)
-					}
-
-					err = func() (err error) {
-						stmt, err := tx.PrepareContext(ctx, `UPDATE segments SET remote_alias_pieces = $3 WHERE stream_id = $1 AND position = $2`)
-						if err != nil {
-							return Error.Wrap(err)
-						}
-						defer func() { err = errs.Combine(err, Error.Wrap(stmt.Close())) }()
-
-						for i := range allSegments {
-							seg := &allSegments[i]
-							if len(seg.RemotePieces) == 0 {
-								continue
-							}
-
-							aliases, err := aliasCache.ConvertPiecesToAliases(ctx, seg.RemotePieces)
-							if err != nil {
-								return Error.Wrap(err)
-							}
-							sort.Slice(aliases, func(i, k int) bool {
-								return aliases[i].Number < aliases[k].Number
-							})
-
-							_, err = stmt.ExecContext(ctx, seg.StreamID, seg.Position, aliases)
-							if err != nil {
-								return Error.Wrap(err)
-							}
-						}
-
-						return nil
-					}()
-					if err != nil {
-						return err
-					}
-
-					return nil
-				}),
-			},
-			{
-				DB:          &db.db,
 				Description: "drop remote_pieces from segments table",
 				Version:     6,
 				Action: migrate.SQL{
@@ -414,4 +353,11 @@ func (pq postgresRebind) Rebind(sql string) string {
 	}
 
 	return string(out)
+}
+
+// Now returns time on the database.
+func (db *DB) Now(ctx context.Context) (time.Time, error) {
+	var t time.Time
+	err := db.db.QueryRowContext(ctx, `SELECT now()`).Scan(&t)
+	return t, Error.Wrap(err)
 }

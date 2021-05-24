@@ -61,6 +61,8 @@ func init() {
 }
 
 func shareMain(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := withTelemetry(cmd)
+
 	newAccess, newAccessData, sharePrefixes, permission, err := createAccessGrant(args)
 	if err != nil {
 		return err
@@ -68,7 +70,7 @@ func shareMain(cmd *cobra.Command, args []string) (err error) {
 
 	if shareCfg.Register || shareCfg.URL || shareCfg.DNS != "" {
 		isPublic := (shareCfg.Public || shareCfg.URL || shareCfg.DNS != "")
-		accessKey, secretKey, endpoint, err := RegisterAccess(newAccess, shareCfg.AuthService, isPublic, defaultAccessRegisterTimeout)
+		accessKey, secretKey, endpoint, err := RegisterAccess(ctx, newAccess, shareCfg.AuthService, isPublic, defaultAccessRegisterTimeout)
 		if err != nil {
 			return err
 		}

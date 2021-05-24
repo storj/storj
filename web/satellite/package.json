@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "aws-sdk": "2.853.0",
-    "browser": "git+https://github.com/storj/browser#c0b4fa2cc716c348fa4189734c15b40b6460f46d",
+    "browser": "git+https://github.com/storj/browser#4e5770dfa9883176bbab793138911d92305243ed",
     "apollo-cache-inmemory": "1.6.6",
     "apollo-client": "2.6.10",
     "apollo-link": "1.2.14",

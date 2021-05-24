@@ -48,6 +48,7 @@ import (
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metaloop"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
@@ -98,7 +99,7 @@ type Satellite struct {
 	}
 
 	Metainfo struct {
-		Metabase  metainfo.MetabaseDB
+		Metabase  *metabase.DB
 		Service   *metainfo.Service
 		Endpoint2 *metainfo.Endpoint
 		Loop      *metaloop.Service
@@ -361,7 +362,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	}
 
 	if planet.config.Reconfigure.SatelliteMetabaseDB != nil {
-		var newMetabaseDB metainfo.MetabaseDB
+		var newMetabaseDB *metabase.DB
 		newMetabaseDB, err = planet.config.Reconfigure.SatelliteMetabaseDB(log.Named("metabase"), index, metabaseDB)
 		if err != nil {
 			return nil, errs.Combine(err, metabaseDB.Close())
@@ -382,6 +383,10 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, err
 	}
 
+	// TODO: it is a huge surprise that this doesn't use the config
+	// parsing `default` or `devDefault` struct tag values.
+	// we should use storj.io/private/cfgstruct to autopopulate default
+	// config values and then only override ones in special cases.
 	config := satellite.Config{
 		Server: server.Config{
 			Address:        "127.0.0.1:0",
@@ -405,7 +410,10 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			Address: "127.0.0.1:0",
 		},
 		Contact: contact.Config{
-			Timeout: 1 * time.Minute,
+			Timeout:            1 * time.Minute,
+			RateLimitInterval:  time.Nanosecond,
+			RateLimitBurst:     1000,
+			RateLimitCacheSize: 1000,
 		},
 		Overlay: overlay.Config{
 			Node: overlay.NodeSelectionConfig{
@@ -602,6 +610,9 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			RecvTimeout:                  time.Minute * 1,
 			MaxOrderLimitSendCount:       3,
 			NodeMinAgeInMonths:           0,
+
+			AsOfSystemTimeInterval: 0,
+			TransferQueueBatchSize: 1000,
 		},
 		Metrics: metrics.Config{},
 	}
@@ -737,7 +748,7 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	return system
 }
 
-func (planet *Planet) newAPI(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB metainfo.MetabaseDB, config satellite.Config, versionInfo version.Info) (*satellite.API, error) {
+func (planet *Planet) newAPI(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (*satellite.API, error) {
 	prefix := "satellite-api" + strconv.Itoa(index)
 	log := planet.log.Named(prefix)
 	var err error
@@ -767,7 +778,7 @@ func (planet *Planet) newAdmin(ctx context.Context, index int, identity *identit
 	return satellite.NewAdmin(log, identity, db, versionInfo, &config, nil)
 }
 
-func (planet *Planet) newRepairer(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB metainfo.MetabaseDB, config satellite.Config, versionInfo version.Info) (*satellite.Repairer, error) {
+func (planet *Planet) newRepairer(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (*satellite.Repairer, error) {
 	prefix := "satellite-repairer" + strconv.Itoa(index)
 	log := planet.log.Named(prefix)
 
@@ -791,7 +802,7 @@ func (cache rollupsWriteCacheCloser) Close() error {
 	return cache.RollupsWriteCache.CloseAndFlush(context.TODO())
 }
 
-func (planet *Planet) newGarbageCollection(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB metainfo.MetabaseDB, config satellite.Config, versionInfo version.Info) (*satellite.GarbageCollection, error) {
+func (planet *Planet) newGarbageCollection(ctx context.Context, index int, identity *identity.FullIdentity, db satellite.DB, metabaseDB *metabase.DB, config satellite.Config, versionInfo version.Info) (*satellite.GarbageCollection, error) {
 	prefix := "satellite-gc" + strconv.Itoa(index)
 	log := planet.log.Named(prefix)
 

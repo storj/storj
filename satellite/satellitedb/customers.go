@@ -24,6 +24,11 @@ type customers struct {
 	db *satelliteDB
 }
 
+// Raw returns the raw dbx handle.
+func (customers *customers) Raw() *dbx.DB {
+	return customers.db.DB
+}
+
 // Insert inserts a stripe customer into the database.
 func (customers *customers) Insert(ctx context.Context, userID uuid.UUID, customerID string) (err error) {
 	defer mon.Task()(&ctx, userID, customerID)(&err)
