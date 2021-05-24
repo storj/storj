@@ -53,8 +53,8 @@ func (controller *Payouts) GetAllNodesTotalEarned(w http.ResponseWriter, r *http
 	}
 }
 
-// NodeEstimations handles node's estimated.
-func (controller *Payouts) NodeEstimations(w http.ResponseWriter, r *http.Request) {
+// NodeExpectations handles node's estimated and undistributed.
+func (controller *Payouts) NodeExpectations(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -74,33 +74,33 @@ func (controller *Payouts) NodeEstimations(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	estimations, err := controller.service.NodeEstimations(ctx, nodeID)
+	expectations, err := controller.service.NodeExpectations(ctx, nodeID)
 	if err != nil {
 		controller.serveError(w, http.StatusInternalServerError, ErrPayouts.Wrap(err))
 		return
 	}
 
-	if err = json.NewEncoder(w).Encode(estimations); err != nil {
+	if err = json.NewEncoder(w).Encode(expectations); err != nil {
 		controller.log.Error("failed to write json response", zap.Error(err))
 		return
 	}
 }
 
-// Estimations handles nodes estimated earnings.
-func (controller *Payouts) Estimations(w http.ResponseWriter, r *http.Request) {
+// Expectations handles nodes estimated and undistributed earnings.
+func (controller *Payouts) Expectations(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
 	w.Header().Add("Content-Type", "application/json")
 
-	estimations, err := controller.service.Estimations(ctx)
+	expectations, err := controller.service.Expectations(ctx)
 	if err != nil {
 		controller.serveError(w, http.StatusInternalServerError, ErrPayouts.Wrap(err))
 		return
 	}
 
-	if err = json.NewEncoder(w).Encode(estimations); err != nil {
+	if err = json.NewEncoder(w).Encode(expectations); err != nil {
 		controller.log.Error("failed to write json response", zap.Error(err))
 		return
 	}

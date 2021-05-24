@@ -41,3 +41,9 @@ func (summary *Summary) Add(held, paid int64, id storj.NodeID, name string) {
 		NodeName: name,
 	})
 }
+
+// Expectations contains estimated and undistributed payouts.
+type Expectations struct {
+	CurrentMonthEstimation int64 `json:"currentMonthEstimation"`
+	Undistributed          int64 `json:"undistributed"`
+}

@@ -456,46 +456,54 @@ func TestPayouts(t *testing.T) {
 	})
 }
 
-func TestPayoutsUndistributedEndpoint(t *testing.T) {
+func TestUndistributed(t *testing.T) {
 	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		payoutdb := db.Payout()
 		satelliteID1 := testrand.NodeID()
 		satelliteID2 := testrand.NodeID()
 
-		err := payoutdb.StorePayStub(ctx, payouts.PayStub{
-			SatelliteID: satelliteID2,
-			Period:      "2020-01",
-			Distributed: 150,
-			Paid:        250,
+		t.Run("empty db no error", func(t *testing.T) {
+			undistributed, err := payoutdb.GetUndistributed(ctx)
+			require.NoError(t, err)
+			require.EqualValues(t, undistributed, 0)
 		})
-		require.NoError(t, err)
 
-		err = payoutdb.StorePayStub(ctx, payouts.PayStub{
-			SatelliteID: satelliteID2,
-			Period:      "2020-02",
-			Distributed: 250,
-			Paid:        350,
+		t.Run("few paystubs with different satellites", func(t *testing.T) {
+			err := payoutdb.StorePayStub(ctx, payouts.PayStub{
+				SatelliteID: satelliteID2,
+				Period:      "2020-01",
+				Distributed: 150,
+				Paid:        250,
+			})
+			require.NoError(t, err)
+
+			err = payoutdb.StorePayStub(ctx, payouts.PayStub{
+				SatelliteID: satelliteID2,
+				Period:      "2020-02",
+				Distributed: 250,
+				Paid:        350,
+			})
+			require.NoError(t, err)
+
+			err = payoutdb.StorePayStub(ctx, payouts.PayStub{
+				SatelliteID: satelliteID1,
+				Period:      "2020-01",
+				Distributed: 100,
+				Paid:        300,
+			})
+			require.NoError(t, err)
+
+			err = payoutdb.StorePayStub(ctx, payouts.PayStub{
+				SatelliteID: satelliteID1,
+				Period:      "2020-02",
+				Distributed: 400,
+				Paid:        500,
+			})
+			require.NoError(t, err)
+
+			undistributed, err := payoutdb.GetUndistributed(ctx)
+			require.NoError(t, err)
+			require.EqualValues(t, undistributed, 500)
 		})
-		require.NoError(t, err)
-
-		err = payoutdb.StorePayStub(ctx, payouts.PayStub{
-			SatelliteID: satelliteID1,
-			Period:      "2020-01",
-			Distributed: 100,
-			Paid:        300,
-		})
-		require.NoError(t, err)
-
-		err = payoutdb.StorePayStub(ctx, payouts.PayStub{
-			SatelliteID: satelliteID1,
-			Period:      "2020-02",
-			Distributed: 400,
-			Paid:        500,
-		})
-		require.NoError(t, err)
-
-		undistributed, err := payoutdb.GetUndistributed(ctx)
-		require.NoError(t, err)
-		require.EqualValues(t, undistributed, 500)
 	})
 }

@@ -308,54 +308,55 @@ func (service *Service) getAllSatellitesAllTime(ctx context.Context, node nodes.
 	return response.PayoutInfo, nil
 }
 
-// NodeEstimations returns node's estimated earnings.
-func (service *Service) NodeEstimations(ctx context.Context, nodeID storj.NodeID) (_ int64, err error) {
+// NodeExpectations returns node's estimated and undistributed earnings.
+func (service *Service) NodeExpectations(ctx context.Context, nodeID storj.NodeID) (_ Expectations, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.nodes.Get(ctx, nodeID)
 	if err != nil {
-		return 0, Error.Wrap(err)
+		return Expectations{}, Error.Wrap(err)
 	}
 
-	est, err := service.nodeEstimations(ctx, node)
+	expectation, err := service.nodeExpectations(ctx, node)
 	if err != nil {
-		return 0, Error.Wrap(err)
+		return Expectations{}, Error.Wrap(err)
 	}
 
-	return est, nil
+	return expectation, nil
 }
 
-// Estimations returns all nodes estimated earnings.
-func (service *Service) Estimations(ctx context.Context) (_ int64, err error) {
+// Expectations returns all nodes estimated and undistributed earnings.
+func (service *Service) Expectations(ctx context.Context) (_ Expectations, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var estimations int64
+	var expectations Expectations
 
 	list, err := service.nodes.List(ctx)
 	if err != nil {
-		return 0, Error.Wrap(err)
+		return Expectations{}, Error.Wrap(err)
 	}
 
 	for _, node := range list {
-		est, err := service.nodeEstimations(ctx, node)
+		expectation, err := service.nodeExpectations(ctx, node)
 		if err != nil {
-			return 0, Error.Wrap(err)
+			return Expectations{}, Error.Wrap(err)
 		}
 
-		estimations += est
+		expectations.Undistributed += expectation.Undistributed
+		expectations.CurrentMonthEstimation += expectation.CurrentMonthEstimation
 	}
 
-	return estimations, nil
+	return expectations, nil
 }
 
-// nodeEstimations retrieves data from a single node.
-func (service *Service) nodeEstimations(ctx context.Context, node nodes.Node) (_ int64, err error) {
+// nodeExpectations retrieves data from a single node.
+func (service *Service) nodeExpectations(ctx context.Context, node nodes.Node) (_ Expectations, err error) {
 	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return 0, Error.Wrap(err)
+		return Expectations{}, Error.Wrap(err)
 	}
 
 	defer func() {
@@ -369,10 +370,15 @@ func (service *Service) nodeEstimations(ctx context.Context, node nodes.Node) (_
 
 	estimated, err := payoutClient.EstimatedPayoutTotal(ctx, &multinodepb.EstimatedPayoutTotalRequest{Header: header})
 	if err != nil {
-		return 0, Error.Wrap(err)
+		return Expectations{}, Error.Wrap(err)
 	}
 
-	return estimated.EstimatedEarnings, nil
+	undistributed, err := payoutClient.Undistributed(ctx, &multinodepb.UndistributedRequest{Header: header})
+	if err != nil {
+		return Expectations{}, Error.Wrap(err)
+	}
+
+	return Expectations{Undistributed: undistributed.Total, CurrentMonthEstimation: estimated.EstimatedEarnings}, nil
 }
 
 // getAmount returns earned from node.

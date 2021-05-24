@@ -80,8 +80,8 @@ func NewServer(log *zap.Logger, config Config, nodes *nodes.Service, payouts *pa
 	payoutsRouter.HandleFunc("/summary/{period}", payoutsController.PeriodSummary).Methods(http.MethodGet)
 	payoutsRouter.HandleFunc("/summary", payoutsController.Summary).Methods(http.MethodGet)
 	payoutsRouter.HandleFunc("/total-earned", payoutsController.GetAllNodesTotalEarned).Methods(http.MethodGet)
-	payoutsRouter.HandleFunc("/estimations/{nodeID}", payoutsController.NodeEstimations).Methods(http.MethodGet)
-	payoutsRouter.HandleFunc("/estimations", payoutsController.Estimations).Methods(http.MethodGet)
+	payoutsRouter.HandleFunc("/expectations/{nodeID}", payoutsController.NodeExpectations).Methods(http.MethodGet)
+	payoutsRouter.HandleFunc("/expectations", payoutsController.Expectations).Methods(http.MethodGet)
 
 	if server.config.StaticDir != "" {
 		router.PathPrefix("/static/").Handler(http.StripPrefix("/static", fs))
