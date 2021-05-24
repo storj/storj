@@ -9,10 +9,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/stdlib"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/private/dbutil/pgxutil"
 	"storj.io/private/tagsql"
 )
 
@@ -175,29 +175,7 @@ func (db *DB) deleteObjectsAndSegments(ctx context.Context, objects []ObjectStre
 		return nil
 	}
 
-	conn, err := db.db.Conn(ctx)
-	if err != nil {
-		return Error.New("unable to get the raw conn: %w", err)
-	}
-	defer func() { err = errs.Combine(err, conn.Close()) }()
-
-	err = conn.Raw(ctx, func(driverConn interface{}) (err error) {
-		defer func() {
-			if closable, ok := driverConn.(interface{ Close() error }); ok {
-				err = errs.Combine(err, closable.Close())
-			}
-		}()
-
-		var pgxconn *pgx.Conn
-		switch conn := driverConn.(type) {
-		case interface{ StdlibConn() *stdlib.Conn }:
-			pgxconn = conn.StdlibConn().Conn()
-		case *stdlib.Conn:
-			pgxconn = conn.Conn()
-		default:
-			return Error.New("invalid raw conn driver %T", driverConn)
-		}
-
+	err = pgxutil.Conn(ctx, db.db, func(conn *pgx.Conn) error {
 		var batch pgx.Batch
 		for _, obj := range objects {
 			obj := obj
@@ -215,7 +193,7 @@ func (db *DB) deleteObjectsAndSegments(ctx context.Context, objects []ObjectStre
 			batch.Queue(`COMMIT TRANSACTION`)
 		}
 
-		results := pgxconn.SendBatch(ctx, &batch)
+		results := conn.SendBatch(ctx, &batch)
 		defer func() { err = errs.Combine(err, results.Close()) }()
 
 		var errlist errs.Group
@@ -229,6 +207,5 @@ func (db *DB) deleteObjectsAndSegments(ctx context.Context, objects []ObjectStre
 	if err != nil {
 		return Error.New("unable to delete expired objects: %w", err)
 	}
-
 	return nil
 }
