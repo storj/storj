@@ -48,8 +48,8 @@ type Expectations struct {
 	Undistributed          int64 `json:"undistributed"`
 }
 
-// PayStub is node payouts data for satellite by specific period.
-type PayStub struct {
+// Paystub is node payouts data for satellite by specific period.
+type Paystub struct {
 	UsageAtRest    float64 `json:"usageAtRest"`
 	UsageGet       int64   `json:"usageGet"`
 	UsageGetRepair int64   `json:"usageGetRepair"`

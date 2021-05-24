@@ -559,5 +559,19 @@ func TestSummedPaystubs(t *testing.T) {
 			require.EqualValues(t, paystub.Distributed, 900)
 			require.EqualValues(t, paystub.Paid, 1400)
 		})
+
+		t.Run("all satellites period", func(t *testing.T) {
+			paystub, err := payoutdb.GetPeriodPaystubs(ctx, "2020-01")
+			require.NoError(t, err)
+			require.EqualValues(t, paystub.Distributed, 250)
+			require.EqualValues(t, paystub.Paid, 550)
+		})
+
+		t.Run("satellites period", func(t *testing.T) {
+			paystub, err := payoutdb.GetSatellitePeriodPaystubs(ctx, "2020-02", satelliteID2)
+			require.NoError(t, err)
+			require.EqualValues(t, paystub.Distributed, 250)
+			require.EqualValues(t, paystub.Paid, 350)
+		})
 	})
 }

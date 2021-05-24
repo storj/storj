@@ -108,6 +108,8 @@ service Payout {
   rpc Undistributed(UndistributedRequest) returns (UndistributedResponse);
   rpc SatellitePaystub(SatellitePaystubRequest) returns (SatellitePaystubResponse);
   rpc Paystub(PaystubRequest) returns (PaystubResponse);
+  rpc PeriodPaystub(PeriodPaystubRequest) returns (PeriodPaystubResponse);
+  rpc SatellitePeriodPaystub(SatellitePeriodPaystubRequest) returns (SatellitePeriodPaystubResponse);
 }
 
 message EstimatedPayoutSatelliteRequest {
@@ -203,6 +205,25 @@ message PaystubRequest {
   RequestHeader header = 1;
 }
 message PaystubResponse {
+  Paystub paystub = 1;
+}
+
+message PeriodPaystubRequest {
+  RequestHeader header = 1;
+  string period = 2;
+}
+
+message PeriodPaystubResponse {
+  Paystub paystub = 1;
+}
+
+message SatellitePeriodPaystubRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  string period = 3;
+}
+
+message SatellitePeriodPaystubResponse {
   Paystub paystub = 1;
 }
 

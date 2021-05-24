@@ -303,6 +303,96 @@ func (controller *Payouts) SatellitePaystub(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// SatellitePaystubPeriod returns satellite summed paystubs for period.
+func (controller *Payouts) SatellitePaystubPeriod(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Add("Content-Type", "application/json")
+	segmentParams := mux.Vars(r)
+
+	id, ok := segmentParams["id"]
+	if !ok {
+		controller.serveError(w, http.StatusBadRequest, ErrPayouts.New("couldn't receive route variable id"))
+		return
+	}
+
+	satelliteID, err := storj.NodeIDFromString(id)
+	if err != nil {
+		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
+		return
+	}
+
+	nodeIDstring, ok := segmentParams["nodeID"]
+	if !ok {
+		controller.serveError(w, http.StatusBadRequest, ErrPayouts.New("couldn't receive route variable nodeID"))
+		return
+	}
+
+	nodeID, err := storj.NodeIDFromString(nodeIDstring)
+	if err != nil {
+		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
+		return
+	}
+
+	period, ok := segmentParams["period"]
+	if !ok {
+		controller.serveError(w, http.StatusBadRequest, ErrPayouts.New("couldn't receive route variable period"))
+		return
+	}
+
+	paystub, err := controller.service.SatellitePaystubPeriod(ctx, period, nodeID, satelliteID)
+	if err != nil {
+		controller.serveError(w, http.StatusInternalServerError, ErrPayouts.Wrap(err))
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(paystub); err != nil {
+		controller.log.Error("failed to write json response", zap.Error(err))
+		return
+	}
+}
+
+// PaystubPeriod returns all satellites summed paystubs for period.
+func (controller *Payouts) PaystubPeriod(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Add("Content-Type", "application/json")
+	segmentParams := mux.Vars(r)
+
+	nodeIDstring, ok := segmentParams["nodeID"]
+	if !ok {
+		controller.serveError(w, http.StatusBadRequest, ErrPayouts.New("couldn't receive route variable nodeID"))
+		return
+	}
+
+	nodeID, err := storj.NodeIDFromString(nodeIDstring)
+	if err != nil {
+		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
+		return
+	}
+
+	period, ok := segmentParams["period"]
+	if !ok {
+		controller.serveError(w, http.StatusBadRequest, ErrPayouts.New("couldn't receive route variable period"))
+		return
+	}
+
+	paystub, err := controller.service.PaystubPeriod(ctx, period, nodeID)
+	if err != nil {
+		controller.serveError(w, http.StatusInternalServerError, ErrPayouts.Wrap(err))
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(paystub); err != nil {
+		controller.log.Error("failed to write json response", zap.Error(err))
+		return
+	}
+}
+
 // serveError set http statuses and send json error.
 func (controller *Payouts) serveError(w http.ResponseWriter, status int, err error) {
 	w.WriteHeader(status)

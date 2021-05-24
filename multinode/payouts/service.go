@@ -435,13 +435,13 @@ func (service *Service) getEarnedOnSatellite(ctx context.Context, node nodes.Nod
 	return *response, nil
 }
 
-// SatellitePaystub returns specific satellite summed paystubs.
-func (service *Service) SatellitePaystub(ctx context.Context, nodeID, satelliteID storj.NodeID) (_ PayStub, err error) {
+// SatellitePaystubPeriod returns specific satellite paystub for specific period.
+func (service *Service) SatellitePaystubPeriod(ctx context.Context, period string, nodeID, satelliteID storj.NodeID) (_ Paystub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.nodes.Get(ctx, nodeID)
 	if err != nil {
-		return PayStub{}, Error.Wrap(err)
+		return Paystub{}, Error.Wrap(err)
 	}
 
 	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
@@ -449,7 +449,106 @@ func (service *Service) SatellitePaystub(ctx context.Context, nodeID, satelliteI
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return PayStub{}, Error.Wrap(err)
+		return Paystub{}, Error.Wrap(err)
+	}
+
+	defer func() {
+		err = errs.Combine(err, conn.Close())
+	}()
+
+	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
+	header := &multinodepb.RequestHeader{
+		ApiKey: node.APISecret,
+	}
+
+	response, err := payoutClient.SatellitePeriodPaystub(ctx, &multinodepb.SatellitePeriodPaystubRequest{
+		Header:      header,
+		SatelliteId: satelliteID,
+		Period:      period,
+	})
+	if err != nil {
+		return Paystub{}, Error.Wrap(err)
+	}
+
+	return Paystub{
+		UsageAtRest:    response.Paystub.UsageAtRest,
+		UsageGet:       response.Paystub.UsageGet,
+		UsageGetRepair: response.Paystub.UsageGetRepair,
+		UsageGetAudit:  response.Paystub.UsageGetAudit,
+		CompAtRest:     response.Paystub.CompAtRest,
+		CompGet:        response.Paystub.CompGet,
+		CompGetRepair:  response.Paystub.CompGetRepair,
+		CompGetAudit:   response.Paystub.CompGetAudit,
+		Held:           response.Paystub.Held,
+		Paid:           response.Paystub.Paid,
+		Distributed:    response.Paystub.Distributed,
+	}, nil
+}
+
+// PaystubPeriod returns all satellites paystub for specific period.
+func (service *Service) PaystubPeriod(ctx context.Context, period string, nodeID storj.NodeID) (_ Paystub, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	node, err := service.nodes.Get(ctx, nodeID)
+	if err != nil {
+		return Paystub{}, Error.Wrap(err)
+	}
+
+	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+		ID:      node.ID,
+		Address: node.PublicAddress,
+	})
+	if err != nil {
+		return Paystub{}, Error.Wrap(err)
+	}
+
+	defer func() {
+		err = errs.Combine(err, conn.Close())
+	}()
+
+	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
+	header := &multinodepb.RequestHeader{
+		ApiKey: node.APISecret,
+	}
+
+	response, err := payoutClient.PeriodPaystub(ctx, &multinodepb.PeriodPaystubRequest{
+		Header: header,
+		Period: period,
+	})
+	if err != nil {
+		return Paystub{}, Error.Wrap(err)
+	}
+
+	return Paystub{
+		UsageAtRest:    response.Paystub.UsageAtRest,
+		UsageGet:       response.Paystub.UsageGet,
+		UsageGetRepair: response.Paystub.UsageGetRepair,
+		UsageGetAudit:  response.Paystub.UsageGetAudit,
+		CompAtRest:     response.Paystub.CompAtRest,
+		CompGet:        response.Paystub.CompGet,
+		CompGetRepair:  response.Paystub.CompGetRepair,
+		CompGetAudit:   response.Paystub.CompGetAudit,
+		Held:           response.Paystub.Held,
+		Paid:           response.Paystub.Paid,
+		Distributed:    response.Paystub.Distributed,
+	}, nil
+}
+
+// SatellitePaystub returns specific satellite summed paystubs.
+func (service *Service) SatellitePaystub(ctx context.Context, nodeID, satelliteID storj.NodeID) (_ Paystub, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	node, err := service.nodes.Get(ctx, nodeID)
+	if err != nil {
+		return Paystub{}, Error.Wrap(err)
+	}
+
+	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+		ID:      node.ID,
+		Address: node.PublicAddress,
+	})
+	if err != nil {
+		return Paystub{}, Error.Wrap(err)
 	}
 
 	defer func() {
@@ -466,10 +565,10 @@ func (service *Service) SatellitePaystub(ctx context.Context, nodeID, satelliteI
 		SatelliteId: satelliteID,
 	})
 	if err != nil {
-		return PayStub{}, Error.Wrap(err)
+		return Paystub{}, Error.Wrap(err)
 	}
 
-	return PayStub{
+	return Paystub{
 		UsageAtRest:    response.Paystub.UsageAtRest,
 		UsageGet:       response.Paystub.UsageGet,
 		UsageGetRepair: response.Paystub.UsageGetRepair,
@@ -485,12 +584,12 @@ func (service *Service) SatellitePaystub(ctx context.Context, nodeID, satelliteI
 }
 
 // Paystub returns summed all paystubs.
-func (service *Service) Paystub(ctx context.Context, nodeID storj.NodeID) (_ PayStub, err error) {
+func (service *Service) Paystub(ctx context.Context, nodeID storj.NodeID) (_ Paystub, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.nodes.Get(ctx, nodeID)
 	if err != nil {
-		return PayStub{}, Error.Wrap(err)
+		return Paystub{}, Error.Wrap(err)
 	}
 
 	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
@@ -498,7 +597,7 @@ func (service *Service) Paystub(ctx context.Context, nodeID storj.NodeID) (_ Pay
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return PayStub{}, Error.Wrap(err)
+		return Paystub{}, Error.Wrap(err)
 	}
 
 	defer func() {
@@ -514,10 +613,10 @@ func (service *Service) Paystub(ctx context.Context, nodeID storj.NodeID) (_ Pay
 		Header: header,
 	})
 	if err != nil {
-		return PayStub{}, Error.Wrap(err)
+		return Paystub{}, Error.Wrap(err)
 	}
 
-	return PayStub{
+	return Paystub{
 		UsageAtRest:    response.Paystub.UsageAtRest,
 		UsageGet:       response.Paystub.UsageGet,
 		UsageGetRepair: response.Paystub.UsageGetRepair,
