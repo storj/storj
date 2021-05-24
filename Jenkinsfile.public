@@ -258,7 +258,7 @@ pipeline {
                     }
                     steps {
                         sh 'cp -r ./web/satellite $STORJ_TEST_SATELLITE_WEB'
-                        dir($STORJ_TEST_SATELLITE_WEB) {
+                        dir("$STORJ_TEST_SATELLITE_WEB") {
                             sh 'npm run build'
                         }
                         sh 'Xvfb -ac :99 -screen 0 1280x1024x16 & export DISPLAY=:99'
