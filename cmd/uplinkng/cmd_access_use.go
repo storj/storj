@@ -12,8 +12,8 @@ type cmdAccessUse struct {
 	name string
 }
 
-func (c *cmdAccessUse) Setup(a clingy.Arguments, f clingy.Flags) {
-	c.name = a.New("name", "Access to use").(string)
+func (c *cmdAccessUse) Setup(params clingy.Parameters) {
+	c.name = params.Arg("name", "Access to use").(string)
 }
 
 func (c *cmdAccessUse) Execute(ctx clingy.Context) error {

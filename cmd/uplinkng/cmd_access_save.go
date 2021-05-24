@@ -19,15 +19,15 @@ type cmdAccessSave struct {
 	use    bool
 }
 
-func (c *cmdAccessSave) Setup(a clingy.Arguments, f clingy.Flags) {
-	c.access = f.New("access", "Access to save (prompted if unspecified)", "").(string)
-	c.name = f.New("name", "Name to save the access grant under", "default").(string)
+func (c *cmdAccessSave) Setup(params clingy.Parameters) {
+	c.access = params.Flag("access", "Access to save (prompted if unspecified)", "").(string)
+	c.name = params.Flag("name", "Name to save the access grant under", "default").(string)
 
-	c.force = f.New("force", "Force overwrite an existing saved access grant", false,
+	c.force = params.Flag("force", "Force overwrite an existing saved access grant", false,
 		clingy.Short('f'),
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
-	c.use = f.New("use", "Set the saved access to be the one used by default", false,
+	c.use = params.Flag("use", "Set the saved access to be the one used by default", false,
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
 }

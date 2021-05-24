@@ -17,7 +17,7 @@ import (
 
 // Setup returns some State that can be run multiple times with different command
 // line arguments.
-func Setup(cmds func(clingy.Commands, clingy.Flags), opts ...ExecuteOption) State {
+func Setup(cmds func(clingy.Commands), opts ...ExecuteOption) State {
 	return State{
 		cmds: cmds,
 		opts: opts,
@@ -26,7 +26,7 @@ func Setup(cmds func(clingy.Commands, clingy.Flags), opts ...ExecuteOption) Stat
 
 // State represents some state and environment for a command to execute in.
 type State struct {
-	cmds func(clingy.Commands, clingy.Flags)
+	cmds func(clingy.Commands)
 	opts []ExecuteOption
 }
 
@@ -68,7 +68,7 @@ func (st State) Run(t *testing.T, args ...string) Result {
 		Stdout: &stdout,
 		Stderr: &stderr,
 
-		Wrap: func(ctx clingy.Context, cmd clingy.Cmd) error {
+		Wrap: func(ctx clingy.Context, cmd clingy.Command) error {
 			for _, opt := range st.opts {
 				opt.fn(t, ctx, tfs)
 			}

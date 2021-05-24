@@ -22,18 +22,18 @@ type cmdRm struct {
 	location ulloc.Location
 }
 
-func (c *cmdRm) Setup(a clingy.Arguments, f clingy.Flags) {
-	c.projectProvider.Setup(a, f)
+func (c *cmdRm) Setup(params clingy.Parameters) {
+	c.projectProvider.Setup(params)
 
-	c.recursive = f.New("recursive", "Remove recursively", false,
+	c.recursive = params.Flag("recursive", "Remove recursively", false,
 		clingy.Short('r'),
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
-	c.encrypted = f.New("encrypted", "Interprets keys base64 encoded without decrypting", false,
+	c.encrypted = params.Flag("encrypted", "Interprets keys base64 encoded without decrypting", false,
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
 
-	c.location = a.New("location", "Location to remove (sj://BUCKET[/KEY])",
+	c.location = params.Arg("location", "Location to remove (sj://BUCKET[/KEY])",
 		clingy.Transform(ulloc.Parse),
 	).(ulloc.Location)
 }

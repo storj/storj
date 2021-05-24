@@ -37,18 +37,18 @@ func newGlobalFlags() *globalFlags {
 }
 
 func (g *globalFlags) Setup(f clingy.Flags) {
-	g.interactive = f.New(
+	g.interactive = f.Flag(
 		"interactive", "Controls if interactive input is allowed", true,
 		clingy.Transform(strconv.ParseBool),
 		clingy.Advanced,
 	).(bool)
 
-	g.configDir = f.New(
+	g.configDir = f.Flag(
 		"config-dir", "Directory that stores the configuration",
 		appDir(false, "storj", "uplink"),
 	).(string)
 
-	g.oldConfigDir = f.New(
+	g.oldConfigDir = f.Flag(
 		"old-config-dir", "Directory that stores legacy configuration. Only used during migration",
 		appDir(true, "storj", "uplink"),
 		clingy.Advanced,
@@ -194,7 +194,7 @@ func (g *globalFlags) SaveAccessInfo(accessDefault string, accesses map[string]s
 	return nil
 }
 
-func (g *globalFlags) Wrap(ctx clingy.Context, cmd clingy.Cmd) error {
+func (g *globalFlags) Wrap(ctx clingy.Context, cmd clingy.Command) error {
 	if err := g.migrate(); err != nil {
 		return err
 	}

@@ -17,8 +17,8 @@ type cmdAccessList struct {
 	verbose bool
 }
 
-func (c *cmdAccessList) Setup(a clingy.Arguments, f clingy.Flags) {
-	c.verbose = f.New("verbose", "Verbose output of accesses", false,
+func (c *cmdAccessList) Setup(params clingy.Parameters) {
+	c.verbose = params.Flag("verbose", "Verbose output of accesses", false,
 		clingy.Short('v'),
 		clingy.Transform(strconv.ParseBool),
 	).(bool)

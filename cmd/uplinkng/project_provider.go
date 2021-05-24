@@ -20,8 +20,8 @@ type projectProvider struct {
 	testFilesystem ulfs.Filesystem
 }
 
-func (pp *projectProvider) Setup(a clingy.Arguments, f clingy.Flags) {
-	pp.access = f.New("access", "Which access to use", "").(string)
+func (pp *projectProvider) Setup(params clingy.Parameters) {
+	pp.access = params.Flag("access", "Which access to use", "").(string)
 }
 
 func (pp *projectProvider) SetTestFilesystem(fs ulfs.Filesystem) { pp.testFilesystem = fs }

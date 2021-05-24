@@ -12,8 +12,8 @@ type cmdAccessDelete struct {
 	name string
 }
 
-func (c *cmdAccessDelete) Setup(a clingy.Arguments, f clingy.Flags) {
-	c.name = a.New("name", "Access to delete").(string)
+func (c *cmdAccessDelete) Setup(params clingy.Parameters) {
+	c.name = params.Arg("name", "Access to delete").(string)
 }
 
 func (c *cmdAccessDelete) Execute(ctx clingy.Context) error {

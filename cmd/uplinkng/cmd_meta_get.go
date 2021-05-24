@@ -23,17 +23,17 @@ type cmdMetaGet struct {
 	entry    *string
 }
 
-func (c *cmdMetaGet) Setup(a clingy.Arguments, f clingy.Flags) {
-	c.projectProvider.Setup(a, f)
+func (c *cmdMetaGet) Setup(params clingy.Parameters) {
+	c.projectProvider.Setup(params)
 
-	c.encrypted = f.New("encrypted", "Shows keys base64 encoded without decrypting", false,
+	c.encrypted = params.Flag("encrypted", "Shows keys base64 encoded without decrypting", false,
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
 
-	c.location = a.New("location", "Location of object (sj://BUCKET/KEY)",
+	c.location = params.Arg("location", "Location of object (sj://BUCKET/KEY)",
 		clingy.Transform(ulloc.Parse),
 	).(ulloc.Location)
-	c.entry = a.New("entry", "Metadata entry to get", clingy.Optional).(*string)
+	c.entry = params.Arg("entry", "Metadata entry to get", clingy.Optional).(*string)
 }
 
 func (c *cmdMetaGet) Execute(ctx clingy.Context) error {

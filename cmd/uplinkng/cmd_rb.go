@@ -21,14 +21,14 @@ type cmdRb struct {
 	loc ulloc.Location
 }
 
-func (c *cmdRb) Setup(a clingy.Arguments, f clingy.Flags) {
-	c.projectProvider.Setup(a, f)
+func (c *cmdRb) Setup(params clingy.Parameters) {
+	c.projectProvider.Setup(params)
 
-	c.force = f.New("force", "Deletes any objects in bucket first", false,
+	c.force = params.Flag("force", "Deletes any objects in bucket first", false,
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
 
-	c.loc = a.New("name", "Bucket name (sj://BUCKET)",
+	c.loc = params.Arg("name", "Bucket name (sj://BUCKET)",
 		clingy.Transform(ulloc.Parse),
 	).(ulloc.Location)
 }

@@ -18,13 +18,13 @@ type cmdAccessCreate struct {
 	save       bool
 }
 
-func (c *cmdAccessCreate) Setup(a clingy.Arguments, f clingy.Flags) {
-	c.token = f.New("token", "Setup token from satellite UI (prompted if unspecified)", "").(string)
-	c.passphrase = f.New("passphrase", "Passphrase used for encryption (prompted if unspecified)", "").(string)
-	c.name = f.New("name", "Name to save newly created access, if --save is true", "default").(string)
-	c.save = f.New("save", "Save the access", true, clingy.Transform(strconv.ParseBool)).(bool)
+func (c *cmdAccessCreate) Setup(params clingy.Parameters) {
+	c.token = params.Flag("token", "Setup token from satellite UI (prompted if unspecified)", "").(string)
+	c.passphrase = params.Flag("passphrase", "Passphrase used for encryption (prompted if unspecified)", "").(string)
+	c.name = params.Flag("name", "Name to save newly created access, if --save is true", "default").(string)
+	c.save = params.Flag("save", "Save the access", true, clingy.Transform(strconv.ParseBool)).(bool)
 
-	c.accessPermissions.Setup(a, f)
+	c.accessPermissions.Setup(params)
 }
 
 func (c *cmdAccessCreate) Execute(ctx clingy.Context) error {

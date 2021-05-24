@@ -9,8 +9,8 @@ type cmdShare struct {
 	projectProvider
 }
 
-func (c *cmdShare) Setup(a clingy.Arguments, f clingy.Flags) {
-	c.projectProvider.Setup(a, f)
+func (c *cmdShare) Setup(params clingy.Parameters) {
+	c.projectProvider.Setup(params)
 }
 
 func (c *cmdShare) Execute(ctx clingy.Context) error {

@@ -24,24 +24,24 @@ type cmdLs struct {
 	prefix *ulloc.Location
 }
 
-func (c *cmdLs) Setup(a clingy.Arguments, f clingy.Flags) {
-	c.projectProvider.Setup(a, f)
+func (c *cmdLs) Setup(params clingy.Parameters) {
+	c.projectProvider.Setup(params)
 
-	c.recursive = f.New("recursive", "List recursively", false,
+	c.recursive = params.Flag("recursive", "List recursively", false,
 		clingy.Short('r'),
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
-	c.encrypted = f.New("encrypted", "Shows keys base64 encoded without decrypting", false,
+	c.encrypted = params.Flag("encrypted", "Shows keys base64 encoded without decrypting", false,
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
-	c.pending = f.New("pending", "List pending object uploads instead", false,
+	c.pending = params.Flag("pending", "List pending object uploads instead", false,
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
-	c.utc = f.New("utc", "Show all timestamps in UTC instead of local time", false,
+	c.utc = params.Flag("utc", "Show all timestamps in UTC instead of local time", false,
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
 
-	c.prefix = a.New("prefix", "Prefix to list (sj://BUCKET[/KEY])", clingy.Optional,
+	c.prefix = params.Arg("prefix", "Prefix to list (sj://BUCKET[/KEY])", clingy.Optional,
 		clingy.Transform(ulloc.Parse),
 	).(*ulloc.Location)
 }
