@@ -119,7 +119,10 @@ export default class ProjectDropdown extends Vue {
      * Route to projects list page.
      */
     public onProjectsLinkClick(): void {
-        this.$router.push(RouteConfig.ProjectsList.path);
+        if (this.$route.name !== RouteConfig.ProjectsList.name) {
+            this.$router.push(RouteConfig.ProjectsList.path);
+        }
+
         this.$emit('close');
     }
 
