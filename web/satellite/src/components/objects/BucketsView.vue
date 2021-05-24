@@ -199,7 +199,14 @@ export default class BucketsView extends Vue {
             await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET, this.createBucketName);
             await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
         } catch (error) {
-            await this.$notify.error(error.message);
+            const BUCKET_ALREADY_EXISTS_ERROR = 'BucketAlreadyExists';
+
+            if (error.name === BUCKET_ALREADY_EXISTS_ERROR) {
+                await this.$notify.error('Bucket with provided name already exists.');
+            } else {
+                await this.$notify.error(error.message);
+            }
+
             this.isRequestProcessing = false;
 
             return;
@@ -227,6 +234,10 @@ export default class BucketsView extends Vue {
             await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
         } catch (error) {
             await this.$notify.error(error.message);
+
+            this.isRequestProcessing = false;
+
+            return;
         }
 
         this.isRequestProcessing = false;
