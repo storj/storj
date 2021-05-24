@@ -308,34 +308,28 @@ func (service *Service) getAllSatellitesAllTime(ctx context.Context, node nodes.
 	return response.PayoutInfo, nil
 }
 
-// NodesSatelliteEstimations returns specific satellite all time estimated earnings.
-func (service *Service) NodesSatelliteEstimations(ctx context.Context, satelliteID storj.NodeID) (_ int64, err error) {
+// NodeEstimations returns node's estimated earnings.
+func (service *Service) NodeEstimations(ctx context.Context, nodeID storj.NodeID) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var estimatedEarnings int64
-
-	list, err := service.nodes.List(ctx)
+	node, err := service.nodes.Get(ctx, nodeID)
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}
 
-	for _, node := range list {
-		estimation, err := service.nodeSatelliteEstimations(ctx, node, satelliteID)
-		if err != nil {
-			return 0, Error.Wrap(err)
-		}
-
-		estimatedEarnings += estimation
+	est, err := service.nodeEstimations(ctx, node)
+	if err != nil {
+		return 0, Error.Wrap(err)
 	}
 
-	return estimatedEarnings, nil
+	return est, nil
 }
 
-// NodesEstimations returns all satellites all time estimated earnings.
-func (service *Service) NodesEstimations(ctx context.Context) (_ int64, err error) {
+// Estimations returns all nodes estimated earnings.
+func (service *Service) Estimations(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var estimatedEarnings int64
+	var estimations int64
 
 	list, err := service.nodes.List(ctx)
 	if err != nil {
@@ -343,19 +337,19 @@ func (service *Service) NodesEstimations(ctx context.Context) (_ int64, err erro
 	}
 
 	for _, node := range list {
-		estimation, err := service.nodeEstimations(ctx, node)
+		est, err := service.nodeEstimations(ctx, node)
 		if err != nil {
 			return 0, Error.Wrap(err)
 		}
 
-		estimatedEarnings += estimation
+		estimations += est
 	}
 
-	return estimatedEarnings, nil
+	return estimations, nil
 }
 
 // nodeEstimations retrieves data from a single node.
-func (service *Service) nodeEstimations(ctx context.Context, node nodes.Node) (estimation int64, err error) {
+func (service *Service) nodeEstimations(ctx context.Context, node nodes.Node) (_ int64, err error) {
 	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
@@ -373,38 +367,15 @@ func (service *Service) nodeEstimations(ctx context.Context, node nodes.Node) (e
 		ApiKey: node.APISecret,
 	}
 
-	response, err := payoutClient.EstimatedPayoutTotal(ctx, &multinodepb.EstimatedPayoutTotalRequest{Header: header})
+	estimated, err := payoutClient.EstimatedPayoutTotal(ctx, &multinodepb.EstimatedPayoutTotalRequest{Header: header})
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}
 
-	return response.EstimatedEarnings, nil
+	return estimated.EstimatedEarnings, nil
 }
 
-// nodeSatelliteEstimations retrieves data from a single node.
-func (service *Service) nodeSatelliteEstimations(ctx context.Context, node nodes.Node, satelliteID storj.NodeID) (estimation int64, err error) {
-	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
-		ID:      node.ID,
-		Address: node.PublicAddress,
-	})
-	if err != nil {
-		return 0, Error.Wrap(err)
-	}
-
-	defer func() {
-		err = errs.Combine(err, conn.Close())
-	}()
-	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
-	header := &multinodepb.RequestHeader{
-		ApiKey: node.APISecret,
-	}
-	response, err := payoutClient.EstimatedPayoutSatellite(ctx, &multinodepb.EstimatedPayoutSatelliteRequest{Header: header, SatelliteId: satelliteID})
-	if err != nil {
-		return 0, Error.Wrap(err)
-	}
-	return response.EstimatedEarnings, nil
-}
-
+// getAmount returns earned from node.
 func (service *Service) getAmount(ctx context.Context, node nodes.Node) (_ int64, err error) {
 	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
 		ID:      node.ID,
@@ -431,6 +402,7 @@ func (service *Service) getAmount(ctx context.Context, node nodes.Node) (_ int64
 	return amount.Total, nil
 }
 
+// getEarnedOnSatellite returns earned split by satellites.
 func (service *Service) getEarnedOnSatellite(ctx context.Context, node nodes.Node) (_ multinodepb.EarnedPerSatelliteResponse, err error) {
 	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
 		ID:      node.ID,

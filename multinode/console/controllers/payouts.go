@@ -53,8 +53,8 @@ func (controller *Payouts) GetAllNodesTotalEarned(w http.ResponseWriter, r *http
 	}
 }
 
-// SatelliteEstimations handles nodes estimated earnings from satellite.
-func (controller *Payouts) SatelliteEstimations(w http.ResponseWriter, r *http.Request) {
+// NodeEstimations handles node's estimated.
+func (controller *Payouts) NodeEstimations(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -62,25 +62,25 @@ func (controller *Payouts) SatelliteEstimations(w http.ResponseWriter, r *http.R
 	w.Header().Add("Content-Type", "application/json")
 	segmentParams := mux.Vars(r)
 
-	id, ok := segmentParams["satelliteID"]
+	id, ok := segmentParams["nodeID"]
 	if !ok {
-		controller.serveError(w, http.StatusBadRequest, ErrPayouts.New("couldn't receive route variable satelliteID"))
+		controller.serveError(w, http.StatusBadRequest, ErrPayouts.New("couldn't receive route variable nodeID"))
 		return
 	}
 
-	satelliteID, err := storj.NodeIDFromString(id)
+	nodeID, err := storj.NodeIDFromString(id)
 	if err != nil {
 		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
 		return
 	}
 
-	estimatedEarnings, err := controller.service.NodesSatelliteEstimations(ctx, satelliteID)
+	estimations, err := controller.service.NodeEstimations(ctx, nodeID)
 	if err != nil {
 		controller.serveError(w, http.StatusInternalServerError, ErrPayouts.Wrap(err))
 		return
 	}
 
-	if err = json.NewEncoder(w).Encode(estimatedEarnings); err != nil {
+	if err = json.NewEncoder(w).Encode(estimations); err != nil {
 		controller.log.Error("failed to write json response", zap.Error(err))
 		return
 	}
@@ -94,13 +94,13 @@ func (controller *Payouts) Estimations(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("Content-Type", "application/json")
 
-	estimatedEarnings, err := controller.service.NodesEstimations(ctx)
+	estimations, err := controller.service.Estimations(ctx)
 	if err != nil {
 		controller.serveError(w, http.StatusInternalServerError, ErrPayouts.Wrap(err))
 		return
 	}
 
-	if err = json.NewEncoder(w).Encode(estimatedEarnings); err != nil {
+	if err = json.NewEncoder(w).Encode(estimations); err != nil {
 		controller.log.Error("failed to write json response", zap.Error(err))
 		return
 	}
