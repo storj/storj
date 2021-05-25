@@ -91,6 +91,45 @@ func testCache(ctx context.Context, t *testing.T, store overlay.DB) {
 		require.NoError(t, err)
 	}
 
+	{ // Invalid shouldn't cause a panic.
+		validInfo := func() overlay.NodeCheckInInfo {
+			return overlay.NodeCheckInInfo{
+				Address:    address,
+				LastIPPort: address.Address,
+				LastNet:    lastNet,
+				Version: &pb.NodeVersion{
+					Version:    "v1.0.0",
+					CommitHash: "alpha",
+				},
+				IsUp: true,
+				Operator: &pb.NodeOperator{
+					Email:          "\x00",
+					Wallet:         "0x1234",
+					WalletFeatures: []string{"zerog"},
+				},
+			}
+		}
+
+		// Currently Postgres returns an error and CockroachDB doesn't return
+		// an error for a non-utf text field.
+
+		d := validInfo()
+		d.Operator.Email = "\x00"
+		_ = store.UpdateCheckIn(ctx, d, time.Now().UTC(), nodeSelectionConfig)
+
+		d = validInfo()
+		d.Operator.Wallet = "\x00"
+		_ = store.UpdateCheckIn(ctx, d, time.Now().UTC(), nodeSelectionConfig)
+
+		d = validInfo()
+		d.Operator.WalletFeatures[0] = "\x00"
+		_ = store.UpdateCheckIn(ctx, d, time.Now().UTC(), nodeSelectionConfig)
+
+		d = validInfo()
+		d.Version.CommitHash = "\x00"
+		_ = store.UpdateCheckIn(ctx, d, time.Now().UTC(), nodeSelectionConfig)
+	}
+
 	{ // Get
 		_, err := service.Get(ctx, storj.NodeID{})
 		require.Error(t, err)
