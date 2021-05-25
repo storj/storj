@@ -97,7 +97,7 @@ func TestPayoutsEndpointSummary(t *testing.T) {
 		key, err := service.Issue(ctx)
 		require.NoError(t, err)
 
-		response, err := endpoint.AllSatellitesPeriodSummary(ctx, &multinodepb.AllSatellitesPeriodSummaryRequest{
+		response, err := endpoint.SummaryPeriod(ctx, &multinodepb.SummaryPeriodRequest{
 			Header: &multinodepb.RequestHeader{
 				ApiKey: key.Secret[:],
 			}, Period: "2020-10",
@@ -106,7 +106,7 @@ func TestPayoutsEndpointSummary(t *testing.T) {
 		require.Equal(t, response.PayoutInfo.Paid, amount)
 		require.Equal(t, response.PayoutInfo.Held, amount)
 
-		response2, err := endpoint.AllSatellitesSummary(ctx, &multinodepb.AllSatellitesSummaryRequest{
+		response2, err := endpoint.Summary(ctx, &multinodepb.SummaryRequest{
 			Header: &multinodepb.RequestHeader{
 				ApiKey: key.Secret[:],
 			},
@@ -115,7 +115,7 @@ func TestPayoutsEndpointSummary(t *testing.T) {
 		require.Equal(t, response2.PayoutInfo.Paid, amount+amount2)
 		require.Equal(t, response2.PayoutInfo.Held, amount+amount2)
 
-		response3, err := endpoint.SatellitePeriodSummary(ctx, &multinodepb.SatellitePeriodSummaryRequest{
+		response3, err := endpoint.SummarySatellitePeriod(ctx, &multinodepb.SummarySatellitePeriodRequest{
 			Header: &multinodepb.RequestHeader{
 				ApiKey: key.Secret[:],
 			}, SatelliteId: id2, Period: "2020-11",
@@ -124,7 +124,7 @@ func TestPayoutsEndpointSummary(t *testing.T) {
 		require.Equal(t, response3.PayoutInfo.Paid, amount2)
 		require.Equal(t, response3.PayoutInfo.Held, amount2)
 
-		response4, err := endpoint.SatelliteSummary(ctx, &multinodepb.SatelliteSummaryRequest{
+		response4, err := endpoint.SummarySatellite(ctx, &multinodepb.SummarySatelliteRequest{
 			Header: &multinodepb.RequestHeader{
 				ApiKey: key.Secret[:],
 			}, SatelliteId: id,
@@ -199,7 +199,7 @@ func TestPayoutsEndpointEstimations(t *testing.T) {
 			estimation, err := estimatedPayoutsService.GetAllSatellitesEstimatedPayout(ctx, time.Now())
 			require.NoError(t, err)
 
-			resp, err := endpoint.EstimatedPayoutTotal(ctx, &multinodepb.EstimatedPayoutTotalRequest{Header: &multinodepb.RequestHeader{
+			resp, err := endpoint.EstimatedPayout(ctx, &multinodepb.EstimatedPayoutRequest{Header: &multinodepb.RequestHeader{
 				ApiKey: key.Secret[:],
 			}})
 			require.NoError(t, err)
