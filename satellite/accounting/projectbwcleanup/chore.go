@@ -69,7 +69,7 @@ func (chore *Chore) RunOnce(ctx context.Context) (err error) {
 	now := time.Now().UTC()
 	beforeMonth := time.Date(now.Year(), now.Month()-time.Month(chore.config.RetainMonths), 1, 0, 0, 0, 0, time.UTC)
 
-	return chore.db.DeleteProjectAllocatedBandwidthBefore(ctx, beforeMonth)
+	return chore.db.DeleteProjectBandwidthBefore(ctx, beforeMonth)
 }
 
 // Close stops the chore.
