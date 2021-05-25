@@ -3,7 +3,7 @@
 
 import Vuex from 'vuex';
 
-import PayoutsPage from '@/app/views/PayoutsPage.vue';
+import PayoutsPage from '@/app/views/payouts/PayoutsPage.vue';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import store from '../../mock/store';

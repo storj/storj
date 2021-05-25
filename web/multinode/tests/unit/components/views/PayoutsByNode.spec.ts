@@ -4,7 +4,7 @@
 import Vuex from 'vuex';
 
 import { Currency } from '@/app/utils/currency';
-import PayoutsByNode from '@/app/views/PayoutsByNode.vue';
+import PayoutsByNode from '@/app/views/payouts/PayoutsByNode.vue';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 import store from '../../mock/store';
