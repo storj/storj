@@ -585,3 +585,65 @@ func (db *payoutDB) GetUndistributed(ctx context.Context) (_ int64, err error) {
 
 	return paid - distributed, nil
 }
+
+// GetSatellitePaystubs returns summed paystubs for specific satellite.
+func (db *payoutDB) GetSatellitePaystubs(ctx context.Context, satelliteID storj.NodeID) (_ *payouts.PayStub, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rowPayment := db.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(usage_at_rest),0), COALESCE(SUM(usage_get),0), COALESCE(SUM(usage_get_repair),0), COALESCE(SUM(usage_get_audit),0),
+			COALESCE(SUM(comp_at_rest),0), COALESCE(SUM(comp_get),0), COALESCE(SUM(comp_get_repair),0), COALESCE(SUM(comp_get_audit),0), 
+			COALESCE(SUM(held),0), COALESCE(SUM(paid),0), COALESCE(SUM(distributed),0) from paystubs WHERE satellite_id = $1`, satelliteID)
+
+	var paystub payouts.PayStub
+
+	err = rowPayment.Scan(
+		&paystub.UsageAtRest,
+		&paystub.UsageGet,
+		&paystub.UsageGetRepair,
+		&paystub.UsageGetAudit,
+		&paystub.CompAtRest,
+		&paystub.CompGet,
+		&paystub.CompGetRepair,
+		&paystub.CompGetAudit,
+		&paystub.Held,
+		&paystub.Paid,
+		&paystub.Distributed,
+	)
+	if err != nil {
+		return &payouts.PayStub{}, ErrPayout.Wrap(err)
+	}
+
+	return &paystub, nil
+}
+
+// GetPaystubs returns summed all paystubs.
+func (db *payoutDB) GetPaystubs(ctx context.Context) (_ *payouts.PayStub, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rowPayment := db.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(usage_at_rest),0), COALESCE(SUM(usage_get),0), COALESCE(SUM(usage_get_repair),0), COALESCE(SUM(usage_get_audit),0),
+			COALESCE(SUM(comp_at_rest),0), COALESCE(SUM(comp_get),0), COALESCE(SUM(comp_get_repair),0), COALESCE(SUM(comp_get_audit),0), 
+			COALESCE(SUM(held),0), COALESCE(SUM(paid),0), COALESCE(SUM(distributed),0) from paystubs`)
+
+	var paystub payouts.PayStub
+
+	err = rowPayment.Scan(
+		&paystub.UsageAtRest,
+		&paystub.UsageGet,
+		&paystub.UsageGetRepair,
+		&paystub.UsageGetAudit,
+		&paystub.CompAtRest,
+		&paystub.CompGet,
+		&paystub.CompGetRepair,
+		&paystub.CompGetAudit,
+		&paystub.Held,
+		&paystub.Paid,
+		&paystub.Distributed,
+	)
+	if err != nil {
+		return &payouts.PayStub{}, ErrPayout.Wrap(err)
+	}
+
+	return &paystub, nil
+}

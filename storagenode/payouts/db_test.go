@@ -507,3 +507,57 @@ func TestUndistributed(t *testing.T) {
 		})
 	})
 }
+
+func TestSummedPaystubs(t *testing.T) {
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		payoutdb := db.Payout()
+		satelliteID1 := testrand.NodeID()
+		satelliteID2 := testrand.NodeID()
+
+		err := payoutdb.StorePayStub(ctx, payouts.PayStub{
+			SatelliteID: satelliteID2,
+			Period:      "2020-01",
+			Distributed: 150,
+			Paid:        250,
+		})
+		require.NoError(t, err)
+
+		err = payoutdb.StorePayStub(ctx, payouts.PayStub{
+			SatelliteID: satelliteID2,
+			Period:      "2020-02",
+			Distributed: 250,
+			Paid:        350,
+		})
+		require.NoError(t, err)
+
+		err = payoutdb.StorePayStub(ctx, payouts.PayStub{
+			SatelliteID: satelliteID1,
+			Period:      "2020-01",
+			Distributed: 100,
+			Paid:        300,
+		})
+		require.NoError(t, err)
+
+		err = payoutdb.StorePayStub(ctx, payouts.PayStub{
+			SatelliteID: satelliteID1,
+			Period:      "2020-02",
+			Distributed: 400,
+			Paid:        500,
+		})
+		require.NoError(t, err)
+
+		t.Run("all satellites period", func(t *testing.T) {
+			paystub, err := payoutdb.GetSatellitePaystubs(ctx, satelliteID1)
+			require.NoError(t, err)
+			require.EqualValues(t, paystub.Distributed, 500)
+			require.EqualValues(t, paystub.Paid, 800)
+		})
+
+		t.Run("satellites period", func(t *testing.T) {
+			paystub, err := payoutdb.GetPaystubs(ctx)
+			require.NoError(t, err)
+			require.EqualValues(t, paystub.Distributed, 900)
+			require.EqualValues(t, paystub.Paid, 1400)
+		})
+	})
+}

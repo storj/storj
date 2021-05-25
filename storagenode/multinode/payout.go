@@ -224,3 +224,59 @@ func (payout *PayoutEndpoint) Undistributed(ctx context.Context, req *multinodep
 
 	return &multinodepb.UndistributedResponse{Total: earned}, nil
 }
+
+// SatellitePaystub returns summed amounts of all values from paystubs from all satellites.
+func (payout *PayoutEndpoint) SatellitePaystub(ctx context.Context, req *multinodepb.SatellitePaystubRequest) (_ *multinodepb.SatellitePaystubResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err = authenticate(ctx, payout.apiKeys, req.GetHeader()); err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+	}
+
+	paystub, err := payout.db.GetSatellitePaystubs(ctx, req.SatelliteId)
+	if err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
+
+	return &multinodepb.SatellitePaystubResponse{Paystub: &multinodepb.Paystub{
+		UsageAtRest:    paystub.UsageAtRest,
+		UsageGet:       paystub.UsageGet,
+		UsageGetRepair: paystub.UsageGetRepair,
+		UsageGetAudit:  paystub.UsageGetAudit,
+		CompAtRest:     paystub.CompAtRest,
+		CompGet:        paystub.CompGet,
+		CompGetRepair:  paystub.CompGetRepair,
+		CompGetAudit:   paystub.CompGetAudit,
+		Held:           paystub.Held,
+		Paid:           paystub.Paid,
+		Distributed:    paystub.Distributed,
+	}}, nil
+}
+
+// Paystub returns summed amounts of all values from paystubs from all satellites.
+func (payout *PayoutEndpoint) Paystub(ctx context.Context, req *multinodepb.PaystubRequest) (_ *multinodepb.PaystubResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err = authenticate(ctx, payout.apiKeys, req.GetHeader()); err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+	}
+
+	paystub, err := payout.db.GetPaystubs(ctx)
+	if err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
+	}
+
+	return &multinodepb.PaystubResponse{Paystub: &multinodepb.Paystub{
+		UsageAtRest:    paystub.UsageAtRest,
+		UsageGet:       paystub.UsageGet,
+		UsageGetRepair: paystub.UsageGetRepair,
+		UsageGetAudit:  paystub.UsageGetAudit,
+		CompAtRest:     paystub.CompAtRest,
+		CompGet:        paystub.CompGet,
+		CompGetRepair:  paystub.CompGetRepair,
+		CompGetAudit:   paystub.CompGetAudit,
+		Held:           paystub.Held,
+		Paid:           paystub.Paid,
+		Distributed:    paystub.Distributed,
+	}}, nil
+}

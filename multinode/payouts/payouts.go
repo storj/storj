@@ -47,3 +47,18 @@ type Expectations struct {
 	CurrentMonthEstimation int64 `json:"currentMonthEstimation"`
 	Undistributed          int64 `json:"undistributed"`
 }
+
+// PayStub is node payouts data for satellite by specific period.
+type PayStub struct {
+	UsageAtRest    float64 `json:"usageAtRest"`
+	UsageGet       int64   `json:"usageGet"`
+	UsageGetRepair int64   `json:"usageGetRepair"`
+	UsageGetAudit  int64   `json:"usageGetAudit"`
+	CompAtRest     int64   `json:"compAtRest"`
+	CompGet        int64   `json:"compGet"`
+	CompGetRepair  int64   `json:"compGetRepair"`
+	CompGetAudit   int64   `json:"compGetAudit"`
+	Held           int64   `json:"held"`
+	Paid           int64   `json:"paid"`
+	Distributed    int64   `json:"distributed"`
+}

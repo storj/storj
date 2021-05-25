@@ -434,3 +434,100 @@ func (service *Service) getEarnedOnSatellite(ctx context.Context, node nodes.Nod
 
 	return *response, nil
 }
+
+// SatellitePaystub returns specific satellite summed paystubs.
+func (service *Service) SatellitePaystub(ctx context.Context, nodeID, satelliteID storj.NodeID) (_ PayStub, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	node, err := service.nodes.Get(ctx, nodeID)
+	if err != nil {
+		return PayStub{}, Error.Wrap(err)
+	}
+
+	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+		ID:      node.ID,
+		Address: node.PublicAddress,
+	})
+	if err != nil {
+		return PayStub{}, Error.Wrap(err)
+	}
+
+	defer func() {
+		err = errs.Combine(err, conn.Close())
+	}()
+
+	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
+	header := &multinodepb.RequestHeader{
+		ApiKey: node.APISecret,
+	}
+
+	response, err := payoutClient.SatellitePaystub(ctx, &multinodepb.SatellitePaystubRequest{
+		Header:      header,
+		SatelliteId: satelliteID,
+	})
+	if err != nil {
+		return PayStub{}, Error.Wrap(err)
+	}
+
+	return PayStub{
+		UsageAtRest:    response.Paystub.UsageAtRest,
+		UsageGet:       response.Paystub.UsageGet,
+		UsageGetRepair: response.Paystub.UsageGetRepair,
+		UsageGetAudit:  response.Paystub.UsageGetAudit,
+		CompAtRest:     response.Paystub.CompAtRest,
+		CompGet:        response.Paystub.CompGet,
+		CompGetRepair:  response.Paystub.CompGetRepair,
+		CompGetAudit:   response.Paystub.CompGetAudit,
+		Held:           response.Paystub.Held,
+		Paid:           response.Paystub.Paid,
+		Distributed:    response.Paystub.Distributed,
+	}, nil
+}
+
+// Paystub returns summed all paystubs.
+func (service *Service) Paystub(ctx context.Context, nodeID storj.NodeID) (_ PayStub, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	node, err := service.nodes.Get(ctx, nodeID)
+	if err != nil {
+		return PayStub{}, Error.Wrap(err)
+	}
+
+	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+		ID:      node.ID,
+		Address: node.PublicAddress,
+	})
+	if err != nil {
+		return PayStub{}, Error.Wrap(err)
+	}
+
+	defer func() {
+		err = errs.Combine(err, conn.Close())
+	}()
+
+	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
+	header := &multinodepb.RequestHeader{
+		ApiKey: node.APISecret,
+	}
+
+	response, err := payoutClient.Paystub(ctx, &multinodepb.PaystubRequest{
+		Header: header,
+	})
+	if err != nil {
+		return PayStub{}, Error.Wrap(err)
+	}
+
+	return PayStub{
+		UsageAtRest:    response.Paystub.UsageAtRest,
+		UsageGet:       response.Paystub.UsageGet,
+		UsageGetRepair: response.Paystub.UsageGetRepair,
+		UsageGetAudit:  response.Paystub.UsageGetAudit,
+		CompAtRest:     response.Paystub.CompAtRest,
+		CompGet:        response.Paystub.CompGet,
+		CompGetRepair:  response.Paystub.CompGetRepair,
+		CompGetAudit:   response.Paystub.CompGetAudit,
+		Held:           response.Paystub.Held,
+		Paid:           response.Paystub.Paid,
+		Distributed:    response.Paystub.Distributed,
+	}, nil
+}

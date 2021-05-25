@@ -106,6 +106,8 @@ service Payout {
   rpc EstimatedPayoutSatellite(EstimatedPayoutSatelliteRequest) returns (EstimatedPayoutSatelliteResponse);
   rpc EstimatedPayoutTotal(EstimatedPayoutTotalRequest) returns (EstimatedPayoutTotalResponse);
   rpc Undistributed(UndistributedRequest) returns (UndistributedResponse);
+  rpc SatellitePaystub(SatellitePaystubRequest) returns (SatellitePaystubResponse);
+  rpc Paystub(PaystubRequest) returns (PaystubResponse);
 }
 
 message EstimatedPayoutSatelliteRequest {
@@ -190,7 +192,35 @@ message UndistributedResponse {
   int64 total = 1;
 }
 
+message SatellitePaystubRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+message SatellitePaystubResponse {
+  Paystub paystub = 1;
+}
+message PaystubRequest {
+  RequestHeader header = 1;
+}
+message PaystubResponse {
+  Paystub paystub = 1;
+}
+
 message PayoutInfo {
   int64 held = 1;
   int64 paid = 2;
+}
+
+message Paystub {
+  double  usage_at_rest = 5;
+  int64   usage_get = 6;
+  int64   usage_get_repair = 8;
+  int64   usage_get_audit = 10;
+  int64   comp_at_rest = 11;
+  int64   comp_get = 12;
+  int64   comp_get_repair = 14;
+  int64   comp_get_audit = 16;
+  int64   held = 18;
+  int64   paid = 21;
+  int64   distributed = 22;
 }
