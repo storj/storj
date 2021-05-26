@@ -237,6 +237,7 @@ CREATE TABLE project_bandwidth_daily_rollups (
 	interval_day date NOT NULL,
 	egress_allocated bigint NOT NULL,
 	egress_settled bigint NOT NULL,
+	egress_dead bigint NOT NULL DEFAULT 0,
 	PRIMARY KEY ( project_id, interval_day )
 );
 CREATE TABLE project_bandwidth_rollups (

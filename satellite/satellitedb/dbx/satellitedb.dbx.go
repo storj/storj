@@ -557,6 +557,7 @@ CREATE TABLE project_bandwidth_daily_rollups (
 	interval_day date NOT NULL,
 	egress_allocated bigint NOT NULL,
 	egress_settled bigint NOT NULL,
+	egress_dead bigint NOT NULL DEFAULT 0,
 	PRIMARY KEY ( project_id, interval_day )
 );
 CREATE TABLE project_bandwidth_rollups (
@@ -1119,6 +1120,7 @@ CREATE TABLE project_bandwidth_daily_rollups (
 	interval_day date NOT NULL,
 	egress_allocated bigint NOT NULL,
 	egress_settled bigint NOT NULL,
+	egress_dead bigint NOT NULL DEFAULT 0,
 	PRIMARY KEY ( project_id, interval_day )
 );
 CREATE TABLE project_bandwidth_rollups (
@@ -5539,13 +5541,19 @@ type ProjectBandwidthDailyRollup struct {
 	IntervalDay     time.Time
 	EgressAllocated uint64
 	EgressSettled   uint64
+	EgressDead      uint64
 }
 
 func (ProjectBandwidthDailyRollup) _Table() string { return "project_bandwidth_daily_rollups" }
 
+type ProjectBandwidthDailyRollup_Create_Fields struct {
+	EgressDead ProjectBandwidthDailyRollup_EgressDead_Field
+}
+
 type ProjectBandwidthDailyRollup_Update_Fields struct {
 	EgressAllocated ProjectBandwidthDailyRollup_EgressAllocated_Field
 	EgressSettled   ProjectBandwidthDailyRollup_EgressSettled_Field
+	EgressDead      ProjectBandwidthDailyRollup_EgressDead_Field
 }
 
 type ProjectBandwidthDailyRollup_ProjectId_Field struct {
@@ -5624,6 +5632,25 @@ func (f ProjectBandwidthDailyRollup_EgressSettled_Field) value() interface{} {
 }
 
 func (ProjectBandwidthDailyRollup_EgressSettled_Field) _Column() string { return "egress_settled" }
+
+type ProjectBandwidthDailyRollup_EgressDead_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func ProjectBandwidthDailyRollup_EgressDead(v uint64) ProjectBandwidthDailyRollup_EgressDead_Field {
+	return ProjectBandwidthDailyRollup_EgressDead_Field{_set: true, _value: v}
+}
+
+func (f ProjectBandwidthDailyRollup_EgressDead_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (ProjectBandwidthDailyRollup_EgressDead_Field) _Column() string { return "egress_dead" }
 
 type ProjectBandwidthRollup struct {
 	ProjectId       []byte
