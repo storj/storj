@@ -73,11 +73,9 @@ export default class UploadFile extends Vue {
      */
     public async generateObjectMapUrl(path: string): Promise<string> {
         path = `${this.bucket}/${path}`;
-        const now = new Date();
-        const inADay = new Date(now.setDate(now.getDate() + 1));
 
         try {
-            const key: string = await this.accessKey(this.apiKey, inADay, path);
+            const key: string = await this.accessKey(this.apiKey, path);
 
             path = encodeURIComponent(path.trim());
 
@@ -95,12 +93,11 @@ export default class UploadFile extends Vue {
     public async generateShareLinkUrl(path: string): Promise<string> {
         path = `${this.bucket}/${path}`;
         const now = new Date();
-        const notAfter = new Date(now.setFullYear(now.getFullYear() + 100));
         const LINK_SHARING_AG_NAME = `${path}_shared-object_${now.toISOString()}`;
         const cleanAPIKey: AccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, LINK_SHARING_AG_NAME);
 
         try {
-            const key: string = await this.accessKey(cleanAPIKey.secret, notAfter, path);
+            const key: string = await this.accessKey(cleanAPIKey.secret, path);
 
             path = encodeURIComponent(path.trim());
 
@@ -125,7 +122,7 @@ export default class UploadFile extends Vue {
     /**
      * Generates public access key.
      */
-    private async accessKey(cleanApiKey: string, notAfter: Date, path: string): Promise<string> {
+    private async accessKey(cleanApiKey: string, path: string): Promise<string> {
         const satelliteNodeURL = MetaUtils.getMetaContent('satellite-nodeurl');
 
         this.worker.postMessage({
@@ -152,8 +149,6 @@ export default class UploadFile extends Vue {
             'isDelete': true,
             'paths': [path],
             'grant': grantData.value,
-            'notBefore': new Date().toISOString(),
-            'notAfter': notAfter.toISOString(),
         });
 
         const event: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);

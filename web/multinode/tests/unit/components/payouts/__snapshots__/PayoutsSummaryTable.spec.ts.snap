@@ -1,7 +1,7 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`PayoutsSummaryTable renders correctly 1`] = `
-<table border="0" cellpadding="0" cellspacing="0" class="payouts-summary-table">
+<base-table-stub>
   <thead>
     <tr>
       <th class="align-left">NODE</th>
@@ -14,5 +14,5 @@ exports[`PayoutsSummaryTable renders correctly 1`] = `
     <payouts-summary-item-stub payoutssummary="[object Object]"></payouts-summary-item-stub>
     <payouts-summary-item-stub payoutssummary="[object Object]"></payouts-summary-item-stub>
   </tbody>
-</table>
+</base-table-stub>
 `;

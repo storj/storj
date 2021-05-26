@@ -26,6 +26,8 @@ import (
 // ensure that ProjectAccounting implements accounting.ProjectAccounting.
 var _ accounting.ProjectAccounting = (*ProjectAccounting)(nil)
 
+var allocatedExpirationInDays = 2
+
 // ProjectAccounting implements the accounting/db ProjectAccounting interface.
 type ProjectAccounting struct {
 	db *satelliteDB
@@ -135,15 +137,31 @@ func (db *ProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context, pro
 	return *sum, err
 }
 
-// GetProjectAllocatedBandwidth returns allocated bandwidth for the specified year and month.
-func (db *ProjectAccounting) GetProjectAllocatedBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month) (_ int64, err error) {
+// GetProjectBandwidth returns the used bandwidth (settled or allocated) for the specified year, month and day.
+func (db *ProjectAccounting) GetProjectBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var egress *int64
 
-	interval := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+	startOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
 
-	query := `SELECT egress_allocated FROM project_bandwidth_rollups WHERE project_id = ? AND interval_month = ?;`
-	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], interval).Scan(&egress)
+	var expiredSince time.Time
+	if day < allocatedExpirationInDays {
+		expiredSince = startOfMonth
+	} else {
+		expiredSince = time.Date(year, month, day-allocatedExpirationInDays+1, 0, 0, 0, 0, time.UTC)
+	}
+	periodEnd := time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
+
+	query := ` WITH egress AS (
+					SELECT
+						CASE WHEN interval_day < ?
+							THEN egress_settled
+							ELSE egress_allocated
+						END AS amount
+					FROM project_bandwidth_daily_rollups
+					WHERE project_id = ? AND interval_day >= ? AND interval_day <= ?
+				) SELECT sum(amount) from egress;`
+	err = db.db.QueryRow(ctx, db.db.Rebind(query), expiredSince, projectID[:], startOfMonth, periodEnd).Scan(&egress)
 	if errors.Is(err, sql.ErrNoRows) || egress == nil {
 		return 0, nil
 	}
@@ -151,11 +169,26 @@ func (db *ProjectAccounting) GetProjectAllocatedBandwidth(ctx context.Context, p
 	return *egress, err
 }
 
-// DeleteProjectAllocatedBandwidthBefore deletes project bandwidth rollups before the given time.
-func (db *ProjectAccounting) DeleteProjectAllocatedBandwidthBefore(ctx context.Context, before time.Time) (err error) {
+// GetProjectDailyBandwidth returns project bandwidth (allocated and settled) for the specified day.
+func (db *ProjectAccounting) GetProjectDailyBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (allocated int64, settled int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = db.db.DB.ExecContext(ctx, db.db.Rebind("DELETE FROM project_bandwidth_rollups WHERE interval_month < ?"), before)
+	interval := time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
+
+	query := `SELECT egress_allocated, egress_settled FROM project_bandwidth_daily_rollups WHERE project_id = ? AND interval_day = ?;`
+	err = db.db.QueryRow(ctx, db.db.Rebind(query), projectID[:], interval).Scan(&allocated, &settled)
+	if errors.Is(err, sql.ErrNoRows) {
+		return 0, 0, nil
+	}
+
+	return allocated, settled, err
+}
+
+// DeleteProjectBandwidthBefore deletes project bandwidth rollups before the given time.
+func (db *ProjectAccounting) DeleteProjectBandwidthBefore(ctx context.Context, before time.Time) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = db.db.DB.ExecContext(ctx, db.db.Rebind("DELETE FROM project_bandwidth_daily_rollups WHERE interval_day < ?"), before)
 
 	return err
 }

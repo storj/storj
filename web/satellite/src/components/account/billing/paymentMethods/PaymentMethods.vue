@@ -12,7 +12,7 @@
                             class="add-storj-button"
                             label="Add STORJ"
                             width="123px"
-                            height="48px"
+                            height="46px"
                             is-blue-white="true"
                             :on-press="onAddSTORJ"
                         />
@@ -348,6 +348,8 @@ export default class PaymentMethods extends Vue {
                 display: flex;
                 align-items: center;
                 max-height: 48px;
+                position: relative;
+                top: 1px;
 
                 &__default-buttons {
                     display: flex;

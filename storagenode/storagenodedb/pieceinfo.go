@@ -216,24 +216,24 @@ type v0StoredPieceAccess struct {
 }
 
 // PieceID returns the piece ID for the piece.
-func (v0Access v0StoredPieceAccess) PieceID() storj.PieceID {
+func (v0Access *v0StoredPieceAccess) PieceID() storj.PieceID {
 	return v0Access.pieceID
 }
 
 // Satellite returns the satellite ID that owns the piece.
-func (v0Access v0StoredPieceAccess) Satellite() (storj.NodeID, error) {
+func (v0Access *v0StoredPieceAccess) Satellite() (storj.NodeID, error) {
 	return v0Access.satellite, nil
 }
 
 // BlobRef returns the relevant storage.BlobRef locator for the piece.
-func (v0Access v0StoredPieceAccess) BlobRef() storage.BlobRef {
+func (v0Access *v0StoredPieceAccess) BlobRef() storage.BlobRef {
 	return storage.BlobRef{
 		Namespace: v0Access.satellite.Bytes(),
 		Key:       v0Access.pieceID.Bytes(),
 	}
 }
 
-func (v0Access v0StoredPieceAccess) fillInBlobAccess(ctx context.Context) error {
+func (v0Access *v0StoredPieceAccess) fillInBlobAccess(ctx context.Context) error {
 	if v0Access.blobInfo == nil {
 		if v0Access.blobStore == nil {
 			return errs.New("this v0StoredPieceAccess instance has no blobStore reference, and cannot look up the relevant blob")
@@ -248,25 +248,25 @@ func (v0Access v0StoredPieceAccess) fillInBlobAccess(ctx context.Context) error 
 }
 
 // Size gives the size of the piece, and the piece content size (not including the piece header, if applicable).
-func (v0Access v0StoredPieceAccess) Size(ctx context.Context) (int64, int64, error) {
+func (v0Access *v0StoredPieceAccess) Size(ctx context.Context) (int64, int64, error) {
 	return v0Access.pieceSize, v0Access.pieceSize, nil
 }
 
 // CreationTime returns the piece creation time as given in the original order (which is not
 // necessarily the same as the file mtime).
-func (v0Access v0StoredPieceAccess) CreationTime(ctx context.Context) (time.Time, error) {
+func (v0Access *v0StoredPieceAccess) CreationTime(ctx context.Context) (time.Time, error) {
 	return v0Access.creationTime, nil
 }
 
 // ModTime returns the same thing as CreationTime for V0 blobs. The intent is for ModTime to
 // be a little faster when CreationTime is too slow and the precision is not needed, but in
 // this case we already have the exact creation time from the database.
-func (v0Access v0StoredPieceAccess) ModTime(ctx context.Context) (time.Time, error) {
+func (v0Access *v0StoredPieceAccess) ModTime(ctx context.Context) (time.Time, error) {
 	return v0Access.creationTime, nil
 }
 
 // FullPath gives the full path to the on-disk blob file.
-func (v0Access v0StoredPieceAccess) FullPath(ctx context.Context) (string, error) {
+func (v0Access *v0StoredPieceAccess) FullPath(ctx context.Context) (string, error) {
 	if err := v0Access.fillInBlobAccess(ctx); err != nil {
 		return "", err
 	}
@@ -274,12 +274,12 @@ func (v0Access v0StoredPieceAccess) FullPath(ctx context.Context) (string, error
 }
 
 // StorageFormatVersion indicates the storage format version used to store the piece.
-func (v0Access v0StoredPieceAccess) StorageFormatVersion() storage.FormatVersion {
+func (v0Access *v0StoredPieceAccess) StorageFormatVersion() storage.FormatVersion {
 	return filestore.FormatV0
 }
 
 // Stat does a stat on the on-disk blob file.
-func (v0Access v0StoredPieceAccess) Stat(ctx context.Context) (os.FileInfo, error) {
+func (v0Access *v0StoredPieceAccess) Stat(ctx context.Context) (os.FileInfo, error) {
 	if err := v0Access.fillInBlobAccess(ctx); err != nil {
 		return nil, err
 	}

@@ -183,10 +183,12 @@ type ProjectAccounting interface {
 	CreateStorageTally(ctx context.Context, tally BucketStorageTally) error
 	// GetAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID in the past time frame
 	GetAllocatedBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (int64, error)
-	// GetProjectAllocatedBandwidth returns project allocated bandwidth for the specified year and month.
-	GetProjectAllocatedBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month) (int64, error)
-	// DeleteProjectAllocatedBandwidthBefore deletes project bandwidth rollups before the given time
-	DeleteProjectAllocatedBandwidthBefore(ctx context.Context, before time.Time) error
+	// GetProjectBandwidth returns project allocated bandwidth for the specified year, month and day.
+	GetProjectBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (int64, error)
+	// GetProjectDailyBandwidth returns bandwidth (allocated and settled) for the specified day.
+	GetProjectDailyBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (int64, int64, error)
+	// DeleteProjectBandwidthBefore deletes project bandwidth rollups before the given time
+	DeleteProjectBandwidthBefore(ctx context.Context, before time.Time) error
 
 	// GetStorageTotals returns the current inline and remote storage usage for a projectID
 	GetStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error)

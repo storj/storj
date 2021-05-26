@@ -1706,9 +1706,12 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		// args $17,
 		walletFeatures,
 	)
-	affected, affectedErr := res.RowsAffected()
-	if affected > 0 && err == nil && affectedErr == nil {
-		return nil
+
+	if err == nil {
+		affected, affectedErr := res.RowsAffected()
+		if affectedErr == nil && affected > 0 {
+			return nil
+		}
 	}
 
 	_, err = cache.db.ExecContext(ctx, `

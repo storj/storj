@@ -23,7 +23,6 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 )
 
@@ -302,19 +301,11 @@ func TestService_InvoiceUserWithManyCoupons(t *testing.T) {
 
 		coupons, err = satellite.DB.StripeCoinPayments().Coupons().ListByUserID(ctx, user.ID)
 		require.NoError(t, err)
-		// InvoiceApplyCoupons should apply a new promotional coupon after all the other coupons are used up
-		// So we should expect the number of coupon usages to be one less than the total number of coupons.
-		require.Equal(t, len(coupons)-1, len(couponsPage.Usages))
+		require.Equal(t, len(coupons), len(couponsPage.Usages))
 
-		// We should expect one active coupon (newly added at the end of InvoiceApplyCoupons)
-		// Everything else should be used.
-		activeCount := 0
 		for _, coupon := range coupons {
-			if coupon.Status == payments.CouponActive {
-				activeCount++
-			}
+			require.Equal(t, payments.CouponUsed, coupon.Status)
 		}
-		require.Equal(t, 1, activeCount)
 
 		couponsPage, err = satellite.DB.StripeCoinPayments().Coupons().ListUnapplied(ctx, 0, 40, start)
 		require.NoError(t, err)
@@ -523,18 +514,8 @@ func TestService_CouponStatus(t *testing.T) {
 
 			coupons, err = satellite.DB.StripeCoinPayments().Coupons().ListByUserID(ctx, user.ID)
 			require.NoError(t, err, errTag)
-			// If the coupon is expected to be active, there should only be one. Otherwise (if expired or used), InvoiceApplyCoupons should have added a new active coupon.
-			if tt.expectedStatus == payments.CouponActive {
-				require.Len(t, coupons, 1, errTag)
-				assert.Equal(t, tt.expectedStatus, coupons[0].Status, errTag)
-			} else {
-				// One of the coupons must be active - verify that the other one matches the expected status for this test.
-				if coupons[0].Status == payments.CouponActive {
-					assert.Equal(t, tt.expectedStatus, coupons[1].Status, errTag)
-				} else {
-					assert.Equal(t, tt.expectedStatus, coupons[0].Status, errTag)
-				}
-			}
+			require.Len(t, coupons, 1, errTag)
+			assert.Equal(t, tt.expectedStatus, coupons[0].Status, errTag)
 		}
 	})
 }
@@ -656,104 +637,6 @@ func TestService_InvoiceItemsFromProjectRecord(t *testing.T) {
 
 			require.Equal(t, tc.ObjectsQuantity, *items[2].Quantity)
 			require.Equal(t, expectedObjectPrice, *items[2].UnitAmountDecimal)
-		}
-	})
-}
-
-// TestService_ApplyFreeTierCoupons ensures that free tier coupons are properly added at the beginning and end of invoice generation.
-func TestService_ApplyFreeTierCoupons(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Payments.CouponValue = 5
-				config.Payments.CouponDuration = paymentsconfig.CouponDuration{
-					Enabled:        true,
-					BillingPeriods: 1,
-				}
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-
-		// User 1 should have one coupon automatically applied
-		user1, err := satellite.AddUser(ctx, console.CreateUser{
-			FullName: "testuser1",
-			Email:    "test1@test",
-		}, 1)
-		require.NoError(t, err)
-
-		_, err = satellite.AddProject(ctx, user1.ID, "testproject1")
-		require.NoError(t, err)
-
-		coupons, err := satellite.API.Payments.Accounts.Coupons().ListByUserID(ctx, user1.ID)
-		require.NoError(t, err)
-		require.Len(t, coupons, 1)
-
-		// We delete the automatically applied coupon for user 2
-		user2, err := satellite.AddUser(ctx, console.CreateUser{
-			FullName: "testuser2",
-			Email:    "test2@test",
-		}, 1)
-		require.NoError(t, err)
-
-		_, err = satellite.AddProject(ctx, user2.ID, "testproject2")
-		require.NoError(t, err)
-
-		coupons, err = satellite.API.Payments.Accounts.Coupons().ListByUserID(ctx, user2.ID)
-		require.NoError(t, err)
-		require.Len(t, coupons, 1)
-		for _, coupon := range coupons {
-			err = satellite.DB.StripeCoinPayments().Coupons().Delete(ctx, coupon.ID)
-			require.NoError(t, err)
-		}
-		coupons, err = satellite.API.Payments.Accounts.Coupons().ListByUserID(ctx, user2.ID)
-		require.NoError(t, err)
-		require.Len(t, coupons, 0)
-
-		// Now, let's run PrepareInvoiceProjectRecords and InvoiceApplyCoupons - it should attempt to add the promotional
-		// coupon at the beginning and the end.
-		// This means that by the end, user 1 should have their default coupon expired, and a new coupon applied.
-		// As for user 2, they should have a new coupon applied at the beginning, it should be expired, and a new coupon should be added at the end.
-		// In other words, by the end, users 1 and 2 should both have two coupons: one expired, and one active.
-
-		// pick a specific date so that it doesn't fail if it's the last day of the month
-		// keep month + 1 because user needs to be created before calculation
-		period := time.Date(time.Now().Year(), time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
-
-		satellite.API.Payments.Service.SetNow(func() time.Time {
-			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
-		})
-		err = satellite.API.Payments.Service.PrepareInvoiceProjectRecords(ctx, period)
-		require.NoError(t, err)
-
-		// now that PrepareInvoiceProjectRecords has run, user 2 should have a single expired coupon
-		coupons, err = satellite.API.Payments.Accounts.Coupons().ListByUserID(ctx, user2.ID)
-		require.NoError(t, err)
-		require.Len(t, coupons, 1)
-		require.Equal(t, payments.CouponExpired, coupons[0].Status)
-
-		err = satellite.API.Payments.Service.InvoiceApplyCoupons(ctx, period)
-		require.NoError(t, err)
-
-		coupons, err = satellite.DB.StripeCoinPayments().Coupons().ListByUserID(ctx, user1.ID)
-		require.NoError(t, err)
-		require.Len(t, coupons, 2)
-		if coupons[0].Status == payments.CouponExpired {
-			require.Equal(t, payments.CouponActive, coupons[1].Status)
-		} else {
-			require.Equal(t, payments.CouponActive, coupons[0].Status)
-			require.Equal(t, payments.CouponExpired, coupons[1].Status)
-		}
-
-		coupons, err = satellite.DB.StripeCoinPayments().Coupons().ListByUserID(ctx, user2.ID)
-		require.NoError(t, err)
-		require.Len(t, coupons, 2)
-		if coupons[0].Status == payments.CouponExpired {
-			require.Equal(t, payments.CouponActive, coupons[1].Status)
-		} else {
-			require.Equal(t, payments.CouponActive, coupons[0].Status)
-			require.Equal(t, payments.CouponExpired, coupons[1].Status)
 		}
 	})
 }

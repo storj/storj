@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <tr class="node-item">
+    <tr class="table-item">
         <th class="align-left">{{ node.displayedName }}</th>
         <template v-if="isSatelliteSelected">
             <th>{{ node.suspensionScore | floatToPercentage }}</th>
@@ -31,7 +31,9 @@ import NodeOptions from '@/app/components/common/NodeOptions.vue';
 import { Node } from '@/nodes';
 
 @Component({
-    components: { NodeOptions },
+    components: {
+        NodeOptions,
+    },
 })
 export default class NodeItem extends Vue {
     @Prop({default: () => new Node()})
@@ -42,46 +44,3 @@ export default class NodeItem extends Vue {
     }
 }
 </script>
-
-<style scoped lang="scss">
-    .node-item {
-        height: 56px;
-        text-align: right;
-        font-size: 16px;
-        color: var(--c-line);
-
-        th {
-            box-sizing: border-box;
-            padding: 0 20px;
-            max-width: 250px;
-            white-space: nowrap;
-            text-overflow: ellipsis;
-            position: relative;
-            overflow: hidden;
-        }
-
-        &:nth-of-type(even) {
-            background: var(--c-block-gray);
-        }
-
-        th:not(:first-of-type) {
-            font-family: 'font_medium', sans-serif;
-        }
-    }
-
-    .online {
-        color: var(--c-success);
-    }
-
-    .offline {
-        color: var(--c-error);
-    }
-
-    .align-left {
-        text-align: left;
-    }
-
-    .overflow-visible {
-        overflow: visible !important;
-    }
-</style>

@@ -564,3 +564,148 @@ func (db *payoutDB) GetSatellitePeriodSummary(ctx context.Context, satelliteID s
 
 	return paid, held, nil
 }
+
+// GetUndistributed returns total undistributed amount.
+func (db *payoutDB) GetUndistributed(ctx context.Context) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var distributed, paid int64
+
+	rowPayment := db.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(distributed),0), COALESCE(SUM(paid), 0) FROM paystubs`)
+
+	err = rowPayment.Scan(&distributed, &paid)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, payouts.ErrNoPayStubForPeriod.Wrap(err)
+		}
+
+		return 0, ErrPayout.Wrap(err)
+	}
+
+	return paid - distributed, nil
+}
+
+// GetSatellitePaystubs returns summed paystubs for specific satellite.
+func (db *payoutDB) GetSatellitePaystubs(ctx context.Context, satelliteID storj.NodeID) (_ *payouts.PayStub, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rowPayment := db.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(usage_at_rest),0), COALESCE(SUM(usage_get),0), COALESCE(SUM(usage_get_repair),0), COALESCE(SUM(usage_get_audit),0),
+			COALESCE(SUM(comp_at_rest),0), COALESCE(SUM(comp_get),0), COALESCE(SUM(comp_get_repair),0), COALESCE(SUM(comp_get_audit),0), 
+			COALESCE(SUM(held),0), COALESCE(SUM(paid),0), COALESCE(SUM(distributed),0) from paystubs WHERE satellite_id = $1`, satelliteID)
+
+	var paystub payouts.PayStub
+
+	err = rowPayment.Scan(
+		&paystub.UsageAtRest,
+		&paystub.UsageGet,
+		&paystub.UsageGetRepair,
+		&paystub.UsageGetAudit,
+		&paystub.CompAtRest,
+		&paystub.CompGet,
+		&paystub.CompGetRepair,
+		&paystub.CompGetAudit,
+		&paystub.Held,
+		&paystub.Paid,
+		&paystub.Distributed,
+	)
+	if err != nil {
+		return &payouts.PayStub{}, ErrPayout.Wrap(err)
+	}
+
+	return &paystub, nil
+}
+
+// GetPaystubs returns summed all paystubs.
+func (db *payoutDB) GetPaystubs(ctx context.Context) (_ *payouts.PayStub, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rowPayment := db.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(usage_at_rest),0), COALESCE(SUM(usage_get),0), COALESCE(SUM(usage_get_repair),0), COALESCE(SUM(usage_get_audit),0),
+			COALESCE(SUM(comp_at_rest),0), COALESCE(SUM(comp_get),0), COALESCE(SUM(comp_get_repair),0), COALESCE(SUM(comp_get_audit),0), 
+			COALESCE(SUM(held),0), COALESCE(SUM(paid),0), COALESCE(SUM(distributed),0) from paystubs`)
+
+	var paystub payouts.PayStub
+
+	err = rowPayment.Scan(
+		&paystub.UsageAtRest,
+		&paystub.UsageGet,
+		&paystub.UsageGetRepair,
+		&paystub.UsageGetAudit,
+		&paystub.CompAtRest,
+		&paystub.CompGet,
+		&paystub.CompGetRepair,
+		&paystub.CompGetAudit,
+		&paystub.Held,
+		&paystub.Paid,
+		&paystub.Distributed,
+	)
+	if err != nil {
+		return &payouts.PayStub{}, ErrPayout.Wrap(err)
+	}
+
+	return &paystub, nil
+}
+
+// GetPeriodPaystubs returns all satellites paystubs for specific period.
+func (db *payoutDB) GetPeriodPaystubs(ctx context.Context, period string) (_ *payouts.PayStub, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rowPayment := db.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(usage_at_rest),0), COALESCE(SUM(usage_get),0), COALESCE(SUM(usage_get_repair),0), COALESCE(SUM(usage_get_audit),0),
+			COALESCE(SUM(comp_at_rest),0), COALESCE(SUM(comp_get),0), COALESCE(SUM(comp_get_repair),0), COALESCE(SUM(comp_get_audit),0), 
+			COALESCE(SUM(held),0), COALESCE(SUM(paid),0), COALESCE(SUM(distributed),0) from paystubs WHERE period = $1`, period)
+
+	var paystub payouts.PayStub
+
+	err = rowPayment.Scan(
+		&paystub.UsageAtRest,
+		&paystub.UsageGet,
+		&paystub.UsageGetRepair,
+		&paystub.UsageGetAudit,
+		&paystub.CompAtRest,
+		&paystub.CompGet,
+		&paystub.CompGetRepair,
+		&paystub.CompGetAudit,
+		&paystub.Held,
+		&paystub.Paid,
+		&paystub.Distributed,
+	)
+	if err != nil {
+		return &payouts.PayStub{}, ErrPayout.Wrap(err)
+	}
+
+	return &paystub, nil
+}
+
+// GetSatellitePeriodPaystubs returns summed satellite paystubs for specific period.
+func (db *payoutDB) GetSatellitePeriodPaystubs(ctx context.Context, period string, satelliteID storj.NodeID) (_ *payouts.PayStub, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rowPayment := db.QueryRowContext(ctx,
+		`SELECT COALESCE(SUM(usage_at_rest),0), COALESCE(SUM(usage_get),0), COALESCE(SUM(usage_get_repair),0), COALESCE(SUM(usage_get_audit),0),
+			COALESCE(SUM(comp_at_rest),0), COALESCE(SUM(comp_get),0), COALESCE(SUM(comp_get_repair),0), COALESCE(SUM(comp_get_audit),0), 
+			COALESCE(SUM(held),0), COALESCE(SUM(paid),0), COALESCE(SUM(distributed),0) from paystubs WHERE period = $1 AND satellite_id = $2`, period, satelliteID)
+
+	var paystub payouts.PayStub
+
+	err = rowPayment.Scan(
+		&paystub.UsageAtRest,
+		&paystub.UsageGet,
+		&paystub.UsageGetRepair,
+		&paystub.UsageGetAudit,
+		&paystub.CompAtRest,
+		&paystub.CompGet,
+		&paystub.CompGetRepair,
+		&paystub.CompGetAudit,
+		&paystub.Held,
+		&paystub.Paid,
+		&paystub.Distributed,
+	)
+	if err != nil {
+		return &payouts.PayStub{}, ErrPayout.Wrap(err)
+	}
+
+	return &paystub, nil
+}

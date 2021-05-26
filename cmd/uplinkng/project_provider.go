@@ -9,6 +9,7 @@ import (
 	"github.com/zeebo/clingy"
 
 	"storj.io/uplink"
+	privateAccess "storj.io/uplink/private/access"
 )
 
 type projectProvider struct {
@@ -20,9 +21,14 @@ func (pp *projectProvider) Setup(a clingy.Arguments, f clingy.Flags) {
 	pp.access = f.New("access", "Which access to use", "").(string)
 }
 
-func (pp *projectProvider) OpenProject(ctx context.Context) (*uplink.Project, error) {
+func (pp *projectProvider) OpenProject(ctx context.Context, options ...projectOption) (*uplink.Project, error) {
 	if pp.openProject != nil {
 		return pp.openProject(ctx)
+	}
+
+	var opts projectOptions
+	for _, opt := range options {
+		opt.apply(&opts)
 	}
 
 	accessDefault, accesses, err := gf.GetAccessInfo()
@@ -42,5 +48,24 @@ func (pp *projectProvider) OpenProject(ctx context.Context) (*uplink.Project, er
 	if err != nil {
 		return nil, err
 	}
+
+	if opts.encryptionBypass {
+		if err := privateAccess.EnablePathEncryptionBypass(access); err != nil {
+			return nil, err
+		}
+	}
+
 	return uplink.OpenProject(ctx, access)
+}
+
+type projectOptions struct {
+	encryptionBypass bool
+}
+
+type projectOption struct {
+	apply func(*projectOptions)
+}
+
+func bypassEncryption(bypass bool) projectOption {
+	return projectOption{apply: func(opt *projectOptions) { opt.encryptionBypass = bypass }}
 }

@@ -7,7 +7,9 @@ package lifecycle
 import (
 	"context"
 	"errors"
+	"runtime"
 	"runtime/pprof"
+	"sync"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -25,6 +27,8 @@ var mon = monkit.Package()
 type Group struct {
 	log   *zap.Logger
 	items []Item
+
+	shutdownStack sync.Once
 }
 
 // Item is the lifecycle item that group runs and closes.
@@ -69,6 +73,7 @@ func (group *Group) Run(ctx context.Context, g *errgroup.Group) {
 			select {
 			case <-shutdownDeadline.C:
 				group.log.Warn("service takes long to shutdown", zap.String("name", item.Name))
+				group.logStackTrace()
 			case <-shutdownCtx.Done():
 			}
 		}()
@@ -91,6 +96,21 @@ func (group *Group) Run(ctx context.Context, g *errgroup.Group) {
 	}
 
 	group.log.Debug("started", zap.Strings("items", started))
+}
+
+func (group *Group) logStackTrace() {
+	group.shutdownStack.Do(func() {
+		buf := make([]byte, 1024*1024)
+		for {
+			n := runtime.Stack(buf, true)
+			if n < len(buf) {
+				buf = buf[:n]
+				break
+			}
+			buf = make([]byte, 2*len(buf))
+		}
+		group.log.Info("slow shutdown", zap.String("stack", string(buf)))
+	})
 }
 
 // Close closes all items in reverse order.

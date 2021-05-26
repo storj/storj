@@ -119,21 +119,31 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				saDB := planet.Satellites[0].DB
 				orderDB := saDB.Orders()
 
+				now := time.Now()
+
+				// make sure we don't end up with a flaky test if we are in the beginning of the month as we have to add expired bandwidth allocations
+				if now.Day() < 5 {
+					now = time.Date(now.Year(), now.Month(), 5, now.Hour(), now.Minute(), now.Second(), now.Nanosecond(), now.Location())
+				}
 				bucket := metabase.BucketLocation{ProjectID: planet.Uplinks[0].Projects[0].ID, BucketName: "testbucket"}
 				projectUsage := planet.Satellites[0].Accounting.ProjectUsage
 
 				// Setup: create a BucketBandwidthRollup record to test exceeding bandwidth project limit
 				if testCase.expectedResource == "bandwidth" {
-					now := time.Now()
 					err := setUpBucketBandwidthAllocations(ctx, bucket.ProjectID, orderDB, now)
 					require.NoError(t, err)
 				}
+
+				// Setup: create a BucketBandwidthRollup record that should not be taken into account as
+				// it is expired.
+				err := setUpBucketBandwidthAllocations(ctx, bucket.ProjectID, orderDB, now.Add(-72*time.Hour))
+				require.NoError(t, err)
 
 				// Setup: create some bytes for the uplink to upload to test the download later
 				expectedData := testrand.Bytes(50 * memory.KiB)
 
 				filePath := "test/path"
-				err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucket.BucketName, filePath, expectedData)
+				err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucket.BucketName, filePath, expectedData)
 				require.NoError(t, err)
 
 				actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, bucket.ProjectID)
@@ -167,8 +177,13 @@ func TestProjectBandwidthRollups(t *testing.T) {
 			time.Sleep(timeBuf)
 			now = time.Now().UTC()
 		}
-
+		// make sure we don't end up with a flaky test if we are in the beginning of the month as we have to add expired bandwidth allocations
+		if now.Day() < 5 {
+			now = time.Date(now.Year(), now.Month(), 5, now.Hour(), now.Minute(), now.Second(), now.Nanosecond(), now.Location())
+		}
 		hour := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
+		expired := time.Date(now.Year(), now.Month(), now.Day()-3, now.Hour(), 0, 0, 0, now.Location())
+
 		// things that should be counted
 		err := db.Orders().UpdateBucketBandwidthAllocation(ctx, p1, b1, pb.PieceAction_GET, 1000, hour)
 		require.NoError(t, err)
@@ -207,6 +222,11 @@ func TestProjectBandwidthRollups(t *testing.T) {
 		require.NoError(t, err)
 		err = db.Orders().UpdateBucketBandwidthAllocation(ctx, p2, b2, pb.PieceAction_GET_REPAIR, 1000, hour)
 		require.NoError(t, err)
+		// these two should not be counted. They are expired and have no corresponding rollup
+		err = db.Orders().UpdateBucketBandwidthAllocation(ctx, p1, b1, pb.PieceAction_GET, 1000, expired)
+		require.NoError(t, err)
+		err = db.Orders().UpdateBucketBandwidthAllocation(ctx, p1, b2, pb.PieceAction_GET, 1000, expired)
+		require.NoError(t, err)
 
 		rollups = []orders.BucketBandwidthRollup{
 			{ProjectID: p1, BucketName: string(b1), Action: pb.PieceAction_PUT, Inline: 1000, Allocated: 1000, Settled: 1000},
@@ -225,7 +245,7 @@ func TestProjectBandwidthRollups(t *testing.T) {
 		err = db.Orders().UpdateBucketBandwidthBatch(ctx, hour, rollups)
 		require.NoError(t, err)
 
-		alloc, err := db.ProjectAccounting().GetProjectAllocatedBandwidth(ctx, p1, now.Year(), now.Month())
+		alloc, err := db.ProjectAccounting().GetProjectBandwidth(ctx, p1, now.Year(), now.Month(), now.Day())
 		require.NoError(t, err)
 		require.EqualValues(t, 4000, alloc)
 	})
@@ -301,8 +321,7 @@ func setUpBucketBandwidthAllocations(ctx *testcontext.Context, projectID uuid.UU
 		// that sum greater than the defaultMaxUsage
 		amount := 15 * memory.GB.Int64()
 		action := pb.PieceAction_GET
-		intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
-		err := orderDB.UpdateBucketBandwidthAllocation(ctx, projectID, []byte(bucketName), action, amount, intervalStart)
+		err := orderDB.UpdateBucketBandwidthAllocation(ctx, projectID, []byte(bucketName), action, amount, now)
 		if err != nil {
 			return err
 		}

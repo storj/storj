@@ -130,9 +130,6 @@ export default class BucketsView extends Vue {
         const cleanAPIKey: AccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, this.FILE_BROWSER_AG_NAME);
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_API_KEY, cleanAPIKey.secret);
 
-        const now = new Date();
-        const inADay = new Date(now.setDate(now.getDate() + 1));
-
         await this.worker.postMessage({
             'type': 'SetPermission',
             'isDownload': true,
@@ -141,8 +138,6 @@ export default class BucketsView extends Vue {
             'isDelete': true,
             'buckets': [],
             'apiKey': cleanAPIKey.secret,
-            'notBefore': new Date().toISOString(),
-            'notAfter': inADay.toISOString(),
         });
 
         const grantEvent: MessageEvent = await new Promise(resolve => this.worker.onmessage = resolve);
@@ -204,7 +199,14 @@ export default class BucketsView extends Vue {
             await this.$store.dispatch(OBJECTS_ACTIONS.CREATE_BUCKET, this.createBucketName);
             await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
         } catch (error) {
-            await this.$notify.error(error.message);
+            const BUCKET_ALREADY_EXISTS_ERROR = 'BucketAlreadyExists';
+
+            if (error.name === BUCKET_ALREADY_EXISTS_ERROR) {
+                await this.$notify.error('Bucket with provided name already exists.');
+            } else {
+                await this.$notify.error(error.message);
+            }
+
             this.isRequestProcessing = false;
 
             return;
@@ -232,6 +234,10 @@ export default class BucketsView extends Vue {
             await this.$store.dispatch(OBJECTS_ACTIONS.FETCH_BUCKETS);
         } catch (error) {
             await this.$notify.error(error.message);
+
+            this.isRequestProcessing = false;
+
+            return;
         }
 
         this.isRequestProcessing = false;

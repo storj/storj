@@ -507,6 +507,15 @@ model project_bandwidth_rollup (
 	field egress_allocated uint64 ( updatable )
 )
 
+model project_bandwidth_daily_rollup (
+	key    project_id interval_day
+
+	field project_id       blob
+	field interval_day     date
+	field egress_allocated uint64 ( updatable )
+	field egress_settled   uint64 ( updatable )
+)
+
 model bucket_storage_tally (
 	key    bucket_name project_id interval_start
 

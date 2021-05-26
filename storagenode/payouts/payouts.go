@@ -44,6 +44,16 @@ type DB interface {
 	GetSatelliteSummary(ctx context.Context, satelliteID storj.NodeID) (paid, held int64, err error)
 	// GetSatellitePeriodSummary returns satellite paid and held amounts for specific period.
 	GetSatellitePeriodSummary(ctx context.Context, satelliteID storj.NodeID, period string) (paid, held int64, err error)
+	// GetUndistributed returns total undistributed amount.
+	GetUndistributed(ctx context.Context) (int64, error)
+	// GetSatellitePaystubs returns summed paystubs for specific satellite.
+	GetSatellitePaystubs(ctx context.Context, satelliteID storj.NodeID) (*PayStub, error)
+	// GetPaystubs returns summed all paystubs.
+	GetPaystubs(ctx context.Context) (*PayStub, error)
+	// GetSatellitesPeriodPaystubs returns summed all satellites paystubs for specific period.
+	GetPeriodPaystubs(ctx context.Context, period string) (*PayStub, error)
+	// GetSatellitePeriodPaystubs returns summed satellite paystubs for specific period.
+	GetSatellitePeriodPaystubs(ctx context.Context, period string, satelliteID storj.NodeID) (*PayStub, error)
 }
 
 // ErrNoPayStubForPeriod represents errors from the payouts database.

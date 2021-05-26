@@ -20,7 +20,6 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
-	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
@@ -43,6 +42,7 @@ const hoursPerMonth = 24 * 30
 type Config struct {
 	StripeSecretKey              string        `help:"stripe API secret key" default:""`
 	StripePublicKey              string        `help:"stripe API public key" default:""`
+	StripeFreeTierCouponID       string        `help:"stripe free tier coupon ID" default:""`
 	CoinpaymentsPublicKey        string        `help:"coinpayments API public key" default:""`
 	CoinpaymentsPrivateKey       string        `help:"coinpayments API private key key" default:""`
 	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" default:"2m"`
@@ -69,9 +69,10 @@ type Service struct {
 	// BonusRate amount of percents
 	BonusRate int64
 	// Coupon Values
-	CouponValue        int64
-	CouponDuration     *int64
-	CouponProjectLimit memory.Size
+	StripeFreeTierCouponID string
+	CouponValue            int64
+	CouponDuration         *int64
+	CouponProjectLimit     memory.Size
 	// Minimum CoinPayment to create a coupon
 	MinCoinPayment int64
 
@@ -126,6 +127,7 @@ func NewService(log *zap.Logger, stripeClient StripeClient, config Config, db DB
 		EgressMBPriceCents:       egressMBPriceCents,
 		ObjectMonthPriceCents:    objectMonthPriceCents,
 		BonusRate:                bonusRate,
+		StripeFreeTierCouponID:   config.StripeFreeTierCouponID,
 		CouponValue:              couponValue,
 		CouponDuration:           couponDuration,
 		CouponProjectLimit:       couponProjectLimit,
@@ -208,28 +210,6 @@ func (service *Service) updateTransactions(ctx context.Context, ids TransactionA
 			// monkit currently does not have a DurationVal
 			mon.IntVal("coinpayment_duration").Observe(int64(time.Since(creationTimes[id])))
 			applies = append(applies, id)
-		}
-
-		userID := ids[id]
-
-		if !service.Accounts().PaywallEnabled(userID) {
-			continue
-		}
-
-		rate, err := service.db.Transactions().GetLockedRate(ctx, id)
-		if err != nil {
-			service.log.Error(fmt.Sprintf("could not add promotional coupon for user %s", userID.String()), zap.Error(err))
-			continue
-		}
-
-		cents := convertToCents(rate, &info.Received)
-
-		if cents >= service.MinCoinPayment {
-			err = service.Accounts().Coupons().AddPromotionalCoupon(ctx, userID)
-			if err != nil {
-				service.log.Error(fmt.Sprintf("could not add promotional coupon for user %s", userID.String()), zap.Error(err))
-				continue
-			}
 		}
 	}
 
@@ -427,12 +407,6 @@ func (service *Service) PrepareInvoiceProjectRecords(ctx context.Context, period
 
 	if end.After(now) {
 		return Error.New("allowed for past periods only")
-	}
-
-	// just in case there are users who do not have active coupons, apply free tier coupons for current billing period
-	err = service.addFreeTierCoupons(ctx, end)
-	if err != nil {
-		return Error.Wrap(err)
 	}
 
 	var numberOfCustomers, numberOfRecords, numberOfCouponsUsages int
@@ -775,71 +749,6 @@ func (service *Service) InvoiceApplyCoupons(ctx context.Context, period time.Tim
 	}
 
 	service.log.Info("Number of processed coupons usages.", zap.Int("Coupons Usages", couponsUsages))
-
-	// now that coupons for this billing period are applied, add coupons, where applicable, for next billing period
-	err = service.addFreeTierCoupons(ctx, end)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return nil
-}
-
-// addFreeTierCoupons iterates over all customers and gives a new coupon to users with expired or used coupons.
-func (service *Service) addFreeTierCoupons(ctx context.Context, end time.Time) error {
-	service.log.Info("Populating promotional coupons for users without active coupons...")
-
-	couponValue := service.CouponValue
-	var couponDuration *int
-	if service.CouponDuration != nil {
-		d := int(*service.CouponDuration)
-		couponDuration = &d
-	}
-
-	cusPage, err := service.db.Customers().List(ctx, 0, service.listingLimit, end)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	userIDList := make([]uuid.UUID, 0, service.listingLimit)
-	for _, cus := range cusPage.Customers {
-		if err = ctx.Err(); err != nil {
-			return Error.Wrap(err)
-		}
-
-		userIDList = append(userIDList, cus.UserID)
-	}
-	err = service.db.Coupons().PopulatePromotionalCoupons(ctx, userIDList, couponDuration, couponValue, 0)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	for cusPage.Next {
-		if err = ctx.Err(); err != nil {
-			return Error.Wrap(err)
-		}
-
-		cusPage, err = service.db.Customers().List(ctx, cusPage.NextOffset, service.listingLimit, end)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		userIDList := make([]uuid.UUID, 0, service.listingLimit)
-		for _, cus := range cusPage.Customers {
-			if err = ctx.Err(); err != nil {
-				return Error.Wrap(err)
-			}
-
-			userIDList = append(userIDList, cus.UserID)
-		}
-
-		err = service.db.Coupons().PopulatePromotionalCoupons(ctx, userIDList, couponDuration, couponValue, 0)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-	}
-	service.log.Info("Done populating promotional coupons.")
 
 	return nil
 }

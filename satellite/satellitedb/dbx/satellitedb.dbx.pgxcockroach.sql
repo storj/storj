@@ -232,6 +232,13 @@ CREATE TABLE projects (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( id )
 );
+CREATE TABLE project_bandwidth_daily_rollups (
+	project_id bytea NOT NULL,
+	interval_day date NOT NULL,
+	egress_allocated bigint NOT NULL,
+	egress_settled bigint NOT NULL,
+	PRIMARY KEY ( project_id, interval_day )
+);
 CREATE TABLE project_bandwidth_rollups (
 	project_id bytea NOT NULL,
 	interval_month date NOT NULL,

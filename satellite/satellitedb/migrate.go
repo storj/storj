@@ -1399,6 +1399,28 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE nodes DROP COLUMN uptime_success_count;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create new table for computing project bandwidth daily usage.",
+				Version:     158,
+				Action: migrate.SQL{
+					`CREATE TABLE project_bandwidth_daily_rollups (
+						project_id bytea NOT NULL,
+						interval_day date NOT NULL,
+						egress_allocated bigint NOT NULL,
+						egress_settled bigint NOT NULL,
+						PRIMARY KEY ( project_id, interval_day )
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "migrate non-expiring coupons to expire in 2 billing periods",
+				Version:     159,
+				Action: migrate.SQL{
+					`UPDATE coupons SET billing_periods = 2 WHERE billing_periods is NULL;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

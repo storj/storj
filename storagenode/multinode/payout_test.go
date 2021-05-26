@@ -79,6 +79,7 @@ func TestPayoutsEndpointSummary(t *testing.T) {
 			SatelliteID: id,
 			Held:        amount,
 			Paid:        amount,
+			CompAtRest:  amount,
 			Period:      "2020-10",
 		})
 		require.NoError(t, err)
@@ -201,6 +202,73 @@ func TestPayoutsEndpointEstimations(t *testing.T) {
 
 			require.EqualValues(t, estimation.CurrentMonthExpectations, resp.EstimatedEarnings)
 		})
+	})
+}
+
+func TestPayoutsUndistributedEndpoint(t *testing.T) {
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		payoutdb := db.Payout()
+		satelliteID := testrand.NodeID()
+
+		log := zaptest.NewLogger(t)
+		service := apikeys.NewService(db.APIKeys())
+
+		key, err := service.Issue(ctx)
+		require.NoError(t, err)
+
+		// Initialize a trust pool
+		poolConfig := trust.Config{
+			CachePath: ctx.File("trust-cache.json"),
+		}
+		poolConfig.Sources = append(poolConfig.Sources, &trust.StaticURLSource{URL: trust.SatelliteURL{ID: satelliteID}})
+
+		trustPool, err := trust.NewPool(zaptest.NewLogger(t), trust.Dialer(rpc.Dialer{}), poolConfig)
+		require.NoError(t, err)
+		require.NoError(t, trustPool.Refresh(ctx))
+
+		estimatedPayoutsService := estimatedpayouts.NewService(db.Bandwidth(), db.Reputation(), db.StorageUsage(), db.Pricing(), db.Satellites(), trustPool)
+		endpoint := multinode.NewPayoutEndpoint(log, service, estimatedPayoutsService, db.Payout())
+		satelliteID1 := testrand.NodeID()
+		satelliteID2 := testrand.NodeID()
+
+		err = payoutdb.StorePayStub(ctx, payouts.PayStub{
+			SatelliteID: satelliteID2,
+			Period:      "2020-01",
+			Distributed: 150,
+			Paid:        250,
+		})
+		require.NoError(t, err)
+
+		err = payoutdb.StorePayStub(ctx, payouts.PayStub{
+			SatelliteID: satelliteID2,
+			Period:      "2020-02",
+			Distributed: 250,
+			Paid:        350,
+		})
+		require.NoError(t, err)
+
+		err = payoutdb.StorePayStub(ctx, payouts.PayStub{
+			SatelliteID: satelliteID1,
+			Period:      "2020-01",
+			Distributed: 100,
+			Paid:        300,
+		})
+		require.NoError(t, err)
+
+		err = payoutdb.StorePayStub(ctx, payouts.PayStub{
+			SatelliteID: satelliteID1,
+			Period:      "2020-02",
+			Distributed: 400,
+			Paid:        500,
+		})
+		require.NoError(t, err)
+
+		resp, err := endpoint.Undistributed(ctx, &multinodepb.UndistributedRequest{Header: &multinodepb.RequestHeader{
+			ApiKey: key.Secret[:],
+		}})
+		require.NoError(t, err)
+
+		require.EqualValues(t, 500, resp.Total)
 	})
 }
 

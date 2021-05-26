@@ -4,11 +4,9 @@
 package main
 
 import (
-	"fmt"
 	"sort"
 	"strconv"
 	"strings"
-	"text/tabwriter"
 
 	"github.com/zeebo/clingy"
 
@@ -32,14 +30,13 @@ func (c *cmdAccessList) Execute(ctx clingy.Context) error {
 		return err
 	}
 
-	tw := tabwriter.NewWriter(ctx.Stdout(), 4, 4, 4, ' ', 0)
-	defer func() { _ = tw.Flush() }()
-
+	var tw *tabbedWriter
 	if c.verbose {
-		fmt.Fprintln(tw, "CURRENT\tNAME\tSATELLITE\tVALUE")
+		tw = newTabbedWriter(ctx.Stdout(), "CURRENT", "NAME", "SATELLITE", "VALUE")
 	} else {
-		fmt.Fprintln(tw, "CURRENT\tNAME\tSATELLITE")
+		tw = newTabbedWriter(ctx.Stdout(), "CURRENT", "NAME", "SATELLITE")
 	}
+	defer tw.Done()
 
 	var names []string
 	for name := range accesses {
@@ -63,9 +60,9 @@ func (c *cmdAccessList) Execute(ctx clingy.Context) error {
 		}
 
 		if c.verbose {
-			fmt.Fprintf(tw, "%c\t%s\t%s\t%s\n", inUse, name, address, accesses[name])
+			tw.WriteLine(inUse, name, address, accesses[name])
 		} else {
-			fmt.Fprintf(tw, "%c\t%s\t%s\n", inUse, name, address)
+			tw.WriteLine(inUse, name, address)
 		}
 	}
 
