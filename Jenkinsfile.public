@@ -257,7 +257,7 @@ pipeline {
                         STORJ_TEST_SATELLITE_WEB = "${pwd()}/.build/satellite-web"
                     }
                     steps {
-                        sh 'cp -r ./web/satellite $STORJ_TEST_SATELLITE_WEB'
+                        sh 'cp -r ./web/satellite/ ${STORJ_TEST_SATELLITE_WEB}/'
                         dir('.build/satellite-web') {
                             sh 'npm install'
                             sh 'npm run build'
