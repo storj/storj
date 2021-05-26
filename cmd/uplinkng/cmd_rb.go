@@ -10,20 +10,25 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/cmd/uplinkng/ulext"
 	"storj.io/storj/cmd/uplinkng/ulloc"
 )
 
 type cmdRb struct {
-	projectProvider
+	ex ulext.External
 
-	force bool
+	access string
+	force  bool
 
 	loc ulloc.Location
 }
 
-func (c *cmdRb) Setup(params clingy.Parameters) {
-	c.projectProvider.Setup(params)
+func newCmdRb(ex ulext.External) *cmdRb {
+	return &cmdRb{ex: ex}
+}
 
+func (c *cmdRb) Setup(params clingy.Parameters) {
+	c.access = params.Flag("access", "Which access to use", "").(string)
 	c.force = params.Flag("force", "Deletes any objects in bucket first", false,
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
@@ -34,7 +39,7 @@ func (c *cmdRb) Setup(params clingy.Parameters) {
 }
 
 func (c *cmdRb) Execute(ctx clingy.Context) error {
-	project, err := c.OpenProject(ctx)
+	project, err := c.ex.OpenProject(ctx, c.access)
 	if err != nil {
 		return err
 	}

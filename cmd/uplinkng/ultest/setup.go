@@ -11,13 +11,17 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/clingy"
 
+	"storj.io/storj/cmd/uplinkng/ulext"
 	"storj.io/storj/cmd/uplinkng/ulfs"
 	"storj.io/storj/cmd/uplinkng/ulloc"
 )
 
+// Commands is an alias to refer to a function that builds clingy commands.
+type Commands = func(clingy.Commands, ulext.External)
+
 // Setup returns some State that can be run multiple times with different command
 // line arguments.
-func Setup(cmds func(clingy.Commands), opts ...ExecuteOption) State {
+func Setup(cmds Commands, opts ...ExecuteOption) State {
 	return State{
 		cmds: cmds,
 		opts: opts,
@@ -26,7 +30,7 @@ func Setup(cmds func(clingy.Commands), opts ...ExecuteOption) State {
 
 // State represents some state and environment for a command to execute in.
 type State struct {
-	cmds func(clingy.Commands)
+	cmds Commands
 	opts []ExecuteOption
 }
 
@@ -77,16 +81,12 @@ func (st State) Run(t *testing.T, args ...string) Result {
 				_, _ = stdin.WriteString(tfs.stdin)
 			}
 
-			if setter, ok := cmd.(interface {
-				SetTestFilesystem(ulfs.Filesystem)
-			}); ok {
-				setter.SetTestFilesystem(tfs)
-			}
-
 			ran = true
 			return cmd.Execute(ctx)
 		},
-	}.Run(context.Background(), st.cmds)
+	}.Run(context.Background(), func(cmds clingy.Commands) {
+		st.cmds(cmds, newExternal(tfs, nil))
+	})
 
 	if ok && err == nil {
 		require.True(t, ran, "no command was executed: %q", args)

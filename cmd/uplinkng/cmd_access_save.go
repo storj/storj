@@ -9,14 +9,21 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/cmd/uplinkng/ulext"
 	"storj.io/uplink"
 )
 
 type cmdAccessSave struct {
+	ex ulext.External
+
 	access string
 	name   string
 	force  bool
 	use    bool
+}
+
+func newCmdAccessSave(ex ulext.External) *cmdAccessSave {
+	return &cmdAccessSave{ex: ex}
 }
 
 func (c *cmdAccessSave) Setup(params clingy.Parameters) {
@@ -33,17 +40,18 @@ func (c *cmdAccessSave) Setup(params clingy.Parameters) {
 }
 
 func (c *cmdAccessSave) Execute(ctx clingy.Context) error {
-	accessDefault, accesses, err := gf.GetAccessInfo(false)
+	defaultName, accesses, err := c.ex.GetAccessInfo(false)
 	if err != nil {
 		return err
 	}
 
 	if c.access == "" {
-		c.access, err = gf.PromptInput(ctx, "Access:")
+		c.access, err = c.ex.PromptInput(ctx, "Access:")
 		if err != nil {
-			return err
+			return errs.Wrap(err)
 		}
 	}
+
 	if _, err := uplink.ParseAccess(c.access); err != nil {
 		return err
 	}
@@ -52,9 +60,9 @@ func (c *cmdAccessSave) Execute(ctx clingy.Context) error {
 	}
 
 	accesses[c.name] = c.access
-	if c.use || accessDefault == "" {
-		accessDefault = c.name
+	if c.use || defaultName == "" {
+		defaultName = c.name
 	}
 
-	return gf.SaveAccessInfo(accessDefault, accesses)
+	return c.ex.SaveAccessInfo(defaultName, accesses)
 }

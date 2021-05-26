@@ -10,11 +10,18 @@ import (
 
 	"github.com/zeebo/clingy"
 
+	"storj.io/storj/cmd/uplinkng/ulext"
 	"storj.io/uplink"
 )
 
 type cmdAccessList struct {
+	ex ulext.External
+
 	verbose bool
+}
+
+func newCmdAccessList(ex ulext.External) *cmdAccessList {
+	return &cmdAccessList{ex: ex}
 }
 
 func (c *cmdAccessList) Setup(params clingy.Parameters) {
@@ -25,7 +32,7 @@ func (c *cmdAccessList) Setup(params clingy.Parameters) {
 }
 
 func (c *cmdAccessList) Execute(ctx clingy.Context) error {
-	accessDefault, accesses, err := gf.GetAccessInfo(true)
+	defaultName, accesses, err := c.ex.GetAccessInfo(true)
 	if err != nil {
 		return err
 	}
@@ -55,7 +62,7 @@ func (c *cmdAccessList) Execute(ctx clingy.Context) error {
 		}
 
 		inUse := ' '
-		if name == accessDefault {
+		if name == defaultName {
 			inUse = '*'
 		}
 

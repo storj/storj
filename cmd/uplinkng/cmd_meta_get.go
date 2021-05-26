@@ -11,21 +11,26 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/cmd/uplinkng/ulext"
 	"storj.io/storj/cmd/uplinkng/ulloc"
 )
 
 type cmdMetaGet struct {
-	projectProvider
+	ex ulext.External
 
+	access    string
 	encrypted bool
 
 	location ulloc.Location
 	entry    *string
 }
 
-func (c *cmdMetaGet) Setup(params clingy.Parameters) {
-	c.projectProvider.Setup(params)
+func newCmdMetaGet(ex ulext.External) *cmdMetaGet {
+	return &cmdMetaGet{ex: ex}
+}
 
+func (c *cmdMetaGet) Setup(params clingy.Parameters) {
+	c.access = params.Flag("access", "Which access to use", "").(string)
 	c.encrypted = params.Flag("encrypted", "Shows keys base64 encoded without decrypting", false,
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
@@ -37,7 +42,7 @@ func (c *cmdMetaGet) Setup(params clingy.Parameters) {
 }
 
 func (c *cmdMetaGet) Execute(ctx clingy.Context) error {
-	project, err := c.OpenProject(ctx, bypassEncryption(c.encrypted))
+	project, err := c.ex.OpenProject(ctx, c.access, ulext.BypassEncryption(c.encrypted))
 	if err != nil {
 		return err
 	}

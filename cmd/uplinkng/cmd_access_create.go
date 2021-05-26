@@ -7,15 +7,23 @@ import (
 	"strconv"
 
 	"github.com/zeebo/clingy"
+
+	"storj.io/storj/cmd/uplinkng/ulext"
 )
 
 type cmdAccessCreate struct {
+	ex ulext.External
+
 	accessPermissions
 
 	token      string
 	passphrase string
 	name       string
 	save       bool
+}
+
+func newCmdAccessCreate(ex ulext.External) *cmdAccessCreate {
+	return &cmdAccessCreate{ex: ex}
 }
 
 func (c *cmdAccessCreate) Setup(params clingy.Parameters) {

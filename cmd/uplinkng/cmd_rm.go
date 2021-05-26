@@ -10,21 +10,26 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/cmd/uplinkng/ulext"
 	"storj.io/storj/cmd/uplinkng/ulloc"
 )
 
 type cmdRm struct {
-	projectProvider
+	ex ulext.External
 
+	access    string
 	recursive bool
 	encrypted bool
 
 	location ulloc.Location
 }
 
-func (c *cmdRm) Setup(params clingy.Parameters) {
-	c.projectProvider.Setup(params)
+func newCmdRm(ex ulext.External) *cmdRm {
+	return &cmdRm{ex: ex}
+}
 
+func (c *cmdRm) Setup(params clingy.Parameters) {
+	c.access = params.Flag("access", "Which access to use", "").(string)
 	c.recursive = params.Flag("recursive", "Remove recursively", false,
 		clingy.Short('r'),
 		clingy.Transform(strconv.ParseBool),
@@ -39,7 +44,7 @@ func (c *cmdRm) Setup(params clingy.Parameters) {
 }
 
 func (c *cmdRm) Execute(ctx clingy.Context) error {
-	fs, err := c.OpenFilesystem(ctx, bypassEncryption(c.encrypted))
+	fs, err := c.ex.OpenFilesystem(ctx, c.access, ulext.BypassEncryption(c.encrypted))
 	if err != nil {
 		return err
 	}

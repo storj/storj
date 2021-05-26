@@ -9,13 +9,15 @@ import (
 
 	"github.com/zeebo/clingy"
 
+	"storj.io/storj/cmd/uplinkng/ulext"
 	"storj.io/storj/cmd/uplinkng/ulfs"
 	"storj.io/storj/cmd/uplinkng/ulloc"
 )
 
 type cmdLs struct {
-	projectProvider
+	ex ulext.External
 
+	access    string
 	recursive bool
 	encrypted bool
 	pending   bool
@@ -24,9 +26,12 @@ type cmdLs struct {
 	prefix *ulloc.Location
 }
 
-func (c *cmdLs) Setup(params clingy.Parameters) {
-	c.projectProvider.Setup(params)
+func newCmdLs(ex ulext.External) *cmdLs {
+	return &cmdLs{ex: ex}
+}
 
+func (c *cmdLs) Setup(params clingy.Parameters) {
+	c.access = params.Flag("access", "Which access to use", "").(string)
 	c.recursive = params.Flag("recursive", "List recursively", false,
 		clingy.Short('r'),
 		clingy.Transform(strconv.ParseBool),
@@ -54,7 +59,7 @@ func (c *cmdLs) Execute(ctx clingy.Context) error {
 }
 
 func (c *cmdLs) listBuckets(ctx clingy.Context) error {
-	project, err := c.OpenProject(ctx)
+	project, err := c.ex.OpenProject(ctx, c.access)
 	if err != nil {
 		return err
 	}
@@ -72,7 +77,7 @@ func (c *cmdLs) listBuckets(ctx clingy.Context) error {
 }
 
 func (c *cmdLs) listLocation(ctx clingy.Context, prefix ulloc.Location) error {
-	fs, err := c.OpenFilesystem(ctx, bypassEncryption(c.encrypted))
+	fs, err := c.ex.OpenFilesystem(ctx, c.access, ulext.BypassEncryption(c.encrypted))
 	if err != nil {
 		return err
 	}

@@ -12,13 +12,15 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/cmd/uplinkng/ulext"
 	"storj.io/storj/cmd/uplinkng/ulfs"
 	"storj.io/storj/cmd/uplinkng/ulloc"
 )
 
 type cmdCp struct {
-	projectProvider
+	ex ulext.External
 
+	access    string
 	recursive bool
 	dryrun    bool
 	progress  bool
@@ -27,9 +29,12 @@ type cmdCp struct {
 	dest   ulloc.Location
 }
 
-func (c *cmdCp) Setup(params clingy.Parameters) {
-	c.projectProvider.Setup(params)
+func newCmdCp(ex ulext.External) *cmdCp {
+	return &cmdCp{ex: ex}
+}
 
+func (c *cmdCp) Setup(params clingy.Parameters) {
+	c.access = params.Flag("access", "Which access to use", "").(string)
 	c.recursive = params.Flag("recursive", "Peform a recursive copy", false,
 		clingy.Short('r'),
 		clingy.Transform(strconv.ParseBool),
@@ -46,7 +51,7 @@ func (c *cmdCp) Setup(params clingy.Parameters) {
 }
 
 func (c *cmdCp) Execute(ctx clingy.Context) error {
-	fs, err := c.OpenFilesystem(ctx)
+	fs, err := c.ex.OpenFilesystem(ctx, c.access)
 	if err != nil {
 		return err
 	}

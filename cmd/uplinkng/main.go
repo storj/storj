@@ -10,24 +10,22 @@ import (
 	"os"
 
 	"github.com/zeebo/clingy"
+
+	_ "storj.io/private/process"
+	"storj.io/storj/cmd/uplinkng/ulext"
 )
 
-var gf = newGlobalFlags()
-
 func main() {
+	ex := newExternal()
 	ok, err := clingy.Environment{
-		Name: "uplink",
-		Args: os.Args[1:],
-
-		Dynamic: gf.Dynamic,
-		Wrap:    gf.Wrap,
+		Name:    "uplink",
+		Args:    os.Args[1:],
+		Dynamic: ex.Dynamic,
+		Wrap:    ex.Wrap,
 	}.Run(context.Background(), func(cmds clingy.Commands) {
-		// setup the dynamic global flags first so that they may be consulted
-		// by the stdlib flags during their definition.
-		gf.Setup(cmds)
+		ex.Setup(cmds) // setup ex first so that stdlib flags can consult config
 		newStdlibFlags(flag.CommandLine).Setup(cmds)
-
-		commands(cmds)
+		commands(cmds, ex)
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%+v\n", err)
@@ -37,23 +35,23 @@ func main() {
 	}
 }
 
-func commands(cmds clingy.Commands) {
+func commands(cmds clingy.Commands, ex ulext.External) {
 	cmds.Group("access", "Access related commands", func() {
-		cmds.New("save", "Save an existing access", new(cmdAccessSave))
-		cmds.New("create", "Create an access from a setup token", new(cmdAccessCreate))
-		cmds.New("delete", "Delete an access from local store", new(cmdAccessDelete))
-		cmds.New("list", "List saved accesses", new(cmdAccessList))
-		cmds.New("use", "Set default access to use", new(cmdAccessUse))
-		cmds.New("revoke", "Revoke an access", new(cmdAccessRevoke))
+		cmds.New("save", "Save an existing access", newCmdAccessSave(ex))
+		cmds.New("create", "Create an access from a setup token", newCmdAccessCreate(ex))
+		cmds.New("delete", "Delete an access from local store", newCmdAccessDelete(ex))
+		cmds.New("list", "List saved accesses", newCmdAccessList(ex))
+		cmds.New("use", "Set default access to use", newCmdAccessUse(ex))
+		cmds.New("revoke", "Revoke an access", newCmdAccessRevoke(ex))
 	})
-	cmds.New("share", "Shares restricted accesses to objects", new(cmdShare))
-	cmds.New("mb", "Create a new bucket", new(cmdMb))
-	cmds.New("rb", "Remove a bucket bucket", new(cmdRb))
-	cmds.New("cp", "Copies files or objects into or out of tardigrade", new(cmdCp))
-	cmds.New("ls", "Lists buckets, prefixes, or objects", new(cmdLs))
-	cmds.New("rm", "Remove an object", new(cmdRm))
+	cmds.New("share", "Shares restricted accesses to objects", newCmdShare(ex))
+	cmds.New("mb", "Create a new bucket", newCmdMb(ex))
+	cmds.New("rb", "Remove a bucket bucket", newCmdRb(ex))
+	cmds.New("cp", "Copies files or objects into or out of tardigrade", newCmdCp(ex))
+	cmds.New("ls", "Lists buckets, prefixes, or objects", newCmdLs(ex))
+	cmds.New("rm", "Remove an object", newCmdRm(ex))
 	cmds.Group("meta", "Object metadata related commands", func() {
-		cmds.New("get", "Get an object's metadata", new(cmdMetaGet))
+		cmds.New("get", "Get an object's metadata", newCmdMetaGet(ex))
 	})
-	cmds.New("version", "Prints version information", new(cmdVersion))
+	cmds.New("version", "Prints version information", newCmdVersion())
 }
