@@ -259,7 +259,7 @@ pipeline {
                     steps {
                         sh 'cp -r ./web/satellite $STORJ_TEST_SATELLITE_WEB'
                         dir('.build/satellite-web') {
-                            sh 'npm run install'
+                            sh 'npm install'
                             sh 'npm run build'
                         }
                         sh 'Xvfb -ac :99 -screen 0 1280x1024x16 & export DISPLAY=:99'
