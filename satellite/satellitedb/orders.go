@@ -63,16 +63,6 @@ func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, project
 		batch.Queue(statement, bucketName, projectID[:], intervalStart.UTC(), defaultIntervalSeconds, action, 0, uint64(amount), 0, uint64(amount))
 
 		if action == pb.PieceAction_GET {
-			// TODO remove when project_bandwidth_daily_rollups will be used
-			projectInterval := time.Date(intervalStart.Year(), intervalStart.Month(), 1, 0, 0, 0, 0, time.UTC)
-			statement = db.db.Rebind(
-				`INSERT INTO project_bandwidth_rollups (project_id, interval_month, egress_allocated)
-				VALUES (?, ?, ?)
-				ON CONFLICT(project_id, interval_month)
-				DO UPDATE SET egress_allocated = project_bandwidth_rollups.egress_allocated + EXCLUDED.egress_allocated::bigint`,
-			)
-			batch.Queue(statement, projectID[:], projectInterval, uint64(amount))
-
 			dailyInterval := time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), 0, 0, 0, 0, time.UTC)
 			statement = db.db.Rebind(
 				`INSERT INTO project_bandwidth_daily_rollups (project_id, interval_day, egress_allocated, egress_settled)
@@ -284,7 +274,6 @@ func (db *ordersDB) UpdateBucketBandwidthBatch(ctx context.Context, intervalStar
 		projectRUIDs := make([]uuid.UUID, 0, len(projectRUMap))
 		var projectRUAllocated []int64
 		var projectRUSettled []int64
-		projectInterval := time.Date(intervalStart.Year(), intervalStart.Month(), 1, intervalStart.Hour(), 0, 0, 0, time.UTC)
 		dailyInterval := time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), 0, 0, 0, 0, time.UTC)
 
 		for projectID, v := range projectRUMap {
@@ -294,18 +283,6 @@ func (db *ordersDB) UpdateBucketBandwidthBatch(ctx context.Context, intervalStar
 		}
 
 		if len(projectRUIDs) > 0 {
-			// TODO remove when project_bandwidth_daily_rollups will be used
-			_, err = tx.Tx.ExecContext(ctx, `
-				INSERT INTO project_bandwidth_rollups(project_id, interval_month, egress_allocated)
-						SELECT unnest($1::bytea[]), $2, unnest($3::bigint[])
-				ON CONFLICT(project_id, interval_month)
-				DO UPDATE SET egress_allocated = project_bandwidth_rollups.egress_allocated + EXCLUDED.egress_allocated::bigint;
-				`,
-				pgutil.UUIDArray(projectRUIDs), projectInterval, pgutil.Int8Array(projectRUAllocated))
-			if err != nil {
-				db.db.log.Error("Project bandwidth rollup batch flush failed.", zap.Error(err))
-			}
-
 			_, err = tx.Tx.ExecContext(ctx, `
 				INSERT INTO project_bandwidth_daily_rollups(project_id, interval_day, egress_allocated, egress_settled)
 					SELECT unnest($1::bytea[]), $2, unnest($3::bigint[]), unnest($4::bigint[])
