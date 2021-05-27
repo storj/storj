@@ -191,7 +191,9 @@ func (system *Satellite) Addr() string { return system.API.Server.Addr().String(
 func (system *Satellite) URL() string { return system.NodeURL().String() }
 
 // ConsoleURL returns the console URL.
-func (system *Satellite) ConsoleURL() string { return "http://" + system.API.Console.Listener.Addr().String() }
+func (system *Satellite) ConsoleURL() string {
+	return "http://" + system.API.Console.Listener.Addr().String()
+}
 
 // NodeURL returns the storj.NodeURL from the Satellite system API.
 func (system *Satellite) NodeURL() storj.NodeURL {

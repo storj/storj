@@ -66,7 +66,7 @@ type ProjectOwner struct {
 
 // UserLogin contains information about the user login.
 type UserLogin struct {
-	Email string
+	Email    string
 	Password string
 }
 
@@ -113,7 +113,7 @@ func (planet *Planet) newUplink(ctx context.Context, name string) (*Uplink, erro
 		Identity: identity,
 		APIKey:   map[storj.NodeID]*macaroon.APIKey{},
 		Access:   map[storj.NodeID]*uplink.Access{},
-		User:  map[storj.NodeID]UserLogin{},
+		User:     map[storj.NodeID]UserLogin{},
 	}
 
 	planetUplink.Log.Debug("id=" + identity.ID.String())
@@ -133,7 +133,7 @@ func (planet *Planet) newUplink(ctx context.Context, name string) (*Uplink, erro
 		}
 
 		planetUplink.User[satellite.ID()] = UserLogin{
-			Email: user.Email,
+			Email:    user.Email,
 			Password: user.FullName,
 		}
 
