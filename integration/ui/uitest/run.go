@@ -46,6 +46,7 @@ func Run(t *testing.T, test Test) {
 				config.Console.StaticDir = os.Getenv("STORJ_TEST_SATELLITE_WEB")
 			},
 		},
+		NonParallel: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		showBrowser := os.Getenv("STORJ_TEST_SHOW_BROWSER") != ""
 
