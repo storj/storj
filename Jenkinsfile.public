@@ -261,7 +261,7 @@ pipeline {
                         sh 'cp -r ./web/satellite/ ${STORJ_TEST_SATELLITE_WEB}/'
                         sh 'cd .build/satellite-web && npm ci'
                         sh 'Xvfb -ac :99 -screen 0 1280x1024x16 & export DISPLAY=:99'
-                        sh 'go test ./integration/ui/...'
+                        sh 'go test -race ./integration/ui/...'
                     }
                 }
             }
