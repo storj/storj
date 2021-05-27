@@ -19,14 +19,13 @@ import (
 
 func TestLoginToAccount(t *testing.T) {
 	uitest.Run(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser) {
-		loginPageURL := "http://" + planet.Satellites[0].API.Console.Listener.Addr().String() + "/login"
-		aliceEmail := "alice@mail.test"
-		alicePassword := "123a123"
+		loginPageURL := planet.Satellites[0].ConsoleURL() + "/login"
+		user := planet.Uplinks[0].User[planet.Satellites[0].ID()]
 
-		page := browser.Timeout(25 * time.Second).MustPage(loginPageURL)
+		page := browser.Timeout(10 * time.Second).MustPage(loginPageURL)
 		page.MustSetViewport(1350, 600, 1, false)
-		page.MustElement(".headerless-input").MustInput(aliceEmail)
-		page.MustElement("[type=password]").MustInput(alicePassword)
+		page.MustElement(".headerless-input").MustInput(user.Email)
+		page.MustElement("[type=password]").MustInput(user.Password)
 		page.Keyboard.MustPress(input.Enter)
 
 		assert.True(t, strings.Contains(page.MustElement(".dashboard-area__header-wrapper__title").MustText(), "Dashboard"))

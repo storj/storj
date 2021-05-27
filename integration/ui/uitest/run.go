@@ -38,7 +38,9 @@ func Run(t *testing.T, test Test) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		showBrowser := os.Getenv("STORJ_TEST_SHOW_BROWSER") != ""
 		launch := launcher.New().
+			Headless(!showBrowser).
 			Leakless(false).
 			Devtools(false)
 		defer launch.Cleanup()
@@ -54,7 +56,8 @@ func Run(t *testing.T, test Test) {
 			SlowMotion(300 * time.Millisecond).
 			Logger(utils.Log(func(msg ...interface{}) {
 				log.Info(fmt.Sprintln(msg...))
-			}))
+			})).
+			Context(ctx)
 		defer ctx.Check(browser.Close)
 
 		require.NoError(t, browser.Connect())
