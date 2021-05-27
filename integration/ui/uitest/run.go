@@ -48,7 +48,6 @@ func Run(t *testing.T, test Test) {
 
 		log := zaptest.NewLogger(t).Named("rod")
 
-		fmt.Println("ROD")
 		browser := rod.New().
 			Timeout(time.Minute).
 			ControlURL(url).
