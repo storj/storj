@@ -4,13 +4,12 @@
 package satellite_test
 
 import (
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/integration/ui/uitest"
@@ -28,6 +27,7 @@ func TestLoginToAccount(t *testing.T) {
 		page.MustElement("[type=password]").MustInput(user.Password)
 		page.Keyboard.MustPress(input.Enter)
 
-		assert.True(t, strings.Contains(page.MustElement(".dashboard-area__header-wrapper__title").MustText(), "Dashboard"))
+		dashboardTitle := page.MustElement(".dashboard-area__header-wrapper__title").MustText()
+		require.Contains(t, dashboardTitle, "Dashboard")
 	})
 }

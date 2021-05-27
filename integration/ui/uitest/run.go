@@ -24,6 +24,15 @@ import (
 // Test defines common services for uitests.
 type Test func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser)
 
+type zapWriter struct {
+	*zap.Logger
+}
+
+func (log zapWriter) Write(data []byte) (int, error) {
+	log.Logger.Info(string(data))
+	return len(data), nil
+}
+
 // Run starts a new UI test.
 func Run(t *testing.T, test Test) {
 	if os.Getenv("STORJ_TEST_SATELLITE_WEB") == "" {
@@ -38,14 +47,17 @@ func Run(t *testing.T, test Test) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-
 		showBrowser := os.Getenv("STORJ_TEST_SHOW_BROWSER") != ""
+
+		logLauncher := zaptest.NewLogger(t).Named("launcher")
+
 		launch := launcher.New().
 			Headless(!showBrowser).
 			Leakless(false).
 			Devtools(false).
-			NoSandbox(true)
-		if browserBin  := os.Getenv("STORJ_TEST_BROWSER"); browserBin != "" {
+			NoSandbox(true).
+			Logger(zapWriter{Logger: logLauncher})
+		if browserBin := os.Getenv("STORJ_TEST_BROWSER"); browserBin != "" {
 			launch = launch.Bin(browserBin)
 		}
 		defer launch.Cleanup()
@@ -53,14 +65,14 @@ func Run(t *testing.T, test Test) {
 		url, err := launch.Launch()
 		require.NoError(t, err)
 
-		log := zaptest.NewLogger(t).Named("rod")
+		logBrowser := zaptest.NewLogger(t).Named("rod")
 
 		browser := rod.New().
 			Timeout(time.Minute).
 			ControlURL(url).
 			SlowMotion(300 * time.Millisecond).
 			Logger(utils.Log(func(msg ...interface{}) {
-				log.Info(fmt.Sprintln(msg...))
+				logBrowser.Info(fmt.Sprintln(msg...))
 			})).
 			Context(ctx)
 		defer ctx.Check(browser.Close)
