@@ -38,11 +38,15 @@ func Run(t *testing.T, test Test) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
 		showBrowser := os.Getenv("STORJ_TEST_SHOW_BROWSER") != ""
 		launch := launcher.New().
 			Headless(!showBrowser).
 			Leakless(false).
 			Devtools(false)
+		if browserBin  := os.Getenv("STORJ_TEST_BROWSER"); browserBin != "" {
+			launch = launch.Bin(browserBin)
+		}
 		defer launch.Cleanup()
 
 		url, err := launch.Launch()
