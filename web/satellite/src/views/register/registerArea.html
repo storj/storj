@@ -9,7 +9,6 @@
         <div
             class="register-area__content-area__container"
             :class="{ 'professional-container': isProfessional }"
-            v-if="!isRegistrationSuccessful"
         >
             <div class="register-area__content-area__container__title-area">
                 <div class="register-area__content-area__container__title-container">
@@ -17,15 +16,22 @@
                     <p class="register-area__content-area__container__title-area__sub-title">What are you using Storj DCS for?</p>
                 </div>
                 <div class="register-area__content-area__expand" @click.stop="toggleDropdown">
-                    <span class="register-area__content-area__expand__value">{{ satelliteName }}</span>
-                    <BottomArrowIcon />
+                    <span class="register-area__content-area__expand__value">EU1</span>
+                    <svg class="register-area__content-area__expand__icon" width="10" height="5" viewBox="0 0 10 5" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M5 5L0.669873 0.499999L9.33013 0.5L5 5Z" fill="#ACBACE"/>
+                    </svg>
                     <div class="register-area__content-area__expand__dropdown" v-if="isDropdownShown" v-click-outside="closeDropdown">
                         <div class="register-area__content-area__expand__dropdown__item" @click.stop="closeDropdown">
-                            <SelectedCheckIcon />
-                            <span class="register-area__content-area__expand__dropdown__item__name">{{ satelliteName }}</span>
+                            <svg width="15" height="13" viewBox="0 0 15 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M14.0928 3.02746C14.6603 2.4239 14.631 1.4746 14.0275 0.907152C13.4239 0.339699 12.4746 0.368972 11.9072 0.972536L14.0928 3.02746ZM4.53846 11L3.44613 12.028C3.72968 12.3293 4.12509 12.5001 4.53884 12.5C4.95258 12.4999 5.34791 12.3289 5.63131 12.0275L4.53846 11ZM3.09234 7.27469C2.52458 6.67141 1.57527 6.64261 0.971991 7.21036C0.36871 7.77812 0.339911 8.72743 0.907664 9.33071L3.09234 7.27469ZM11.9072 0.972536L3.44561 9.97254L5.63131 12.0275L14.0928 3.02746L11.9072 0.972536ZM5.6308 9.97199L3.09234 7.27469L0.907664 9.33071L3.44613 12.028L5.6308 9.97199Z" fill="#2683FF"/>
+                            </svg>
+                            <span class="register-area__content-area__expand__dropdown__item__name">EU1</span>
                         </div>
-                        <a v-for="sat in partneredSatellites" class="register-area__content-area__expand__dropdown__item" :href="sat.address + '/signup'">
-                            {{ sat.name }}
+                        <a class="register-area__content-area__expand__dropdown__item" href="https://ap1.storj.io/signup">
+                            AP1
+                        </a>
+                        <a class="register-area__content-area__expand__dropdown__item" href="https://us1.storj.io/signup">
+                            US1
                         </a>
                     </div>
                 </div>
@@ -48,117 +54,100 @@
                     </li>
                 </ul>
             </div>
-            <div class="register-area__input-wrapper first-input">
-                <HeaderlessInput
-                    class="full-input"
-                    label="Full Name"
-                    placeholder="Enter Full Name"
-                    :error="fullNameError"
-                    @setData="setFullName"
-                    width="calc(100% - 2px)"
-                    height="46px"
-                />
-            </div>
-            <div class="register-area__input-wrapper">
-                <HeaderlessInput
-                    class="full-input"
-                    label="Email Address"
-                    placeholder="example@email.com"
-                    :error="emailError"
-                    @setData="setEmail"
-                    width="calc(100% - 2px)"
-                    height="46px"
-                />
-            </div>
+            <HeaderlessInput
+                class="full-input"
+                label="Full Name"
+                placeholder="Enter Full Name"
+                :error="fullNameError"
+                @setData="setFullName"
+                width="calc(100% - 2px)"
+                height="46px"
+            />
+            <HeaderlessInput
+                class="full-input"
+                label="Email Address"
+                placeholder="example@email.com"
+                :error="emailError"
+                @setData="setEmail"
+                width="calc(100% - 2px)"
+                height="46px"
+            />
             <div v-if="isProfessional">
-                <div class="register-area__input-wrapper">
-                    <HeaderlessInput
-                        class="full-input"
-                        label="Company Name"
-                        placeholder="Acme Corp."
-                        :error="companyNameError"
-                        @setData="setCompanyName"
-                        width="calc(100% - 2px)"
-                        height="46px"
-                    />
-                </div>
-                <div class="register-area__input-wrapper">
-                    <HeaderlessInput
-                        class="full-input"
-                        label="Position"
-                        placeholder="Position Title"
-                        :error="positionError"
-                        @setData="setPosition"
-                        width="calc(100% - 2px)"
-                        height="46px"
-                    />
-                </div>
-                <div class="register-area__input-wrapper">
-                    <SelectInput
-                        class="full-input"
-                        label="Employees"
-                        @setData="setEmployeeCount"
-                        width="calc(100% - 2px)"
-                        height="46px"
-                        :optionsList="employeeCountOptions"
-                    />
-                </div>
+                <HeaderlessInput
+                    class="full-input"
+                    label="Company Name"
+                    placeholder="Acme Corp."
+                    :error="companyNameError"
+                    @setData="setCompanyName"
+                    width="calc(100% - 2px)"
+                    height="46px"
+                />
+                <HeaderlessInput
+                    class="full-input"
+                    label="Position"
+                    placeholder="Position Title"
+                    :error="positionError"
+                    @setData="setPosition"
+                    width="calc(100% - 2px)"
+                    height="46px"
+                />
+                <HeaderlessInput
+                    class="full-input"
+                    label="Employees"
+                    placeholder="Employees"
+                    :error="employeeCountError"
+                    @setData="setEmployeeCount"
+                    width="calc(100% - 2px)"
+                    height="46px"
+                    :optionsList="employeeCountOptions"
+                />
             </div>
             <div class="register-input">
-                <div class="register-area__input-wrapper">
-                    <HeaderlessInput
-                        class="full-input"
-                        label="Password"
-                        placeholder="Enter Password"
-                        :error="passwordError"
-                        @setData="setPassword"
-                        width="calc(100% - 2px)"
-                        height="46px"
-                        is-password="true"
-                        @showPasswordStrength="showPasswordStrength"
-                        @hidePasswordStrength="hidePasswordStrength"
-                    />
-                    <PasswordStrength
-                        :password-string="password"
-                        :is-shown="isPasswordStrengthShown"
-                    />
-                </div>
-            </div>
-            <div class="register-area__input-wrapper">
                 <HeaderlessInput
                     class="full-input"
-                    label="Retype Password"
-                    placeholder="Retype Password"
-                    :error="repeatedPasswordError"
-                    @setData="setRepeatedPassword"
+                    label="Password"
+                    placeholder="Enter Password"
+                    :error="passwordError"
+                    @setData="setPassword"
                     width="calc(100% - 2px)"
                     height="46px"
                     is-password="true"
+                    @showPasswordStrength="showPasswordStrength"
+                    @hidePasswordStrength="hidePasswordStrength"
+                />
+                <PasswordStrength
+                    :password-string="password"
+                    :is-shown="isPasswordStrengthShown"
                 />
             </div>
+            <HeaderlessInput
+                class="full-input"
+                label="Retype Password"
+                placeholder="Retype Password"
+                :error="repeatedPasswordError"
+                @setData="setRepeatedPassword"
+                width="calc(100% - 2px)"
+                height="46px"
+                is-password="true"
+            />
             <AddCouponCodeInput v-if="couponCodeUIEnabled" />
             <div class="register-area__content-area__container__terms-area">
                 <label class="container">
-                    <input id="terms" type="checkbox" v-model="isTermsAccepted">
+                    <input type="checkbox" v-model="isTermsAccepted">
                     <span class="checkmark" :class="{'error': isTermsAcceptedError}"></span>
                 </label>
-                <label class="register-area__content-area__container__terms-area__msg-box" for="terms">
-                    <p class="register-area__content-area__container__terms-area__msg-box__msg">
-                        I agree to the
-                        <a class="register-area__content-area__container__terms-area__msg-box__msg__link" href="https://storj.io/terms-of-service/" target="_blank" rel="noopener">Terms of Service</a>
-                        and
-                        <a class="register-area__content-area__container__terms-area__msg-box__msg__link" href="https://storj.io/privacy-policy/" target="_blank" rel="noopener">Privacy Policy</a>
-                    </p>
-                </label>
+                <span class="register-area__content-area__container__terms-area__confirmation-text">
+                    I agree to the
+                    <a class="register-area__content-area__container__terms-area__link" href="https://tardigrade.io/terms-of-service/" target="_blank" rel="noopener">Terms of Service</a>
+                    and
+                    <a class="register-area__content-area__container__terms-area__link" href="https://storj.io/privacy-policy/" target="_blank" rel="noopener">Privacy Policy</a>
+                </span>
             </div>
             <p class="register-area__content-area__container__button" @click.prevent="onCreateClick">Sign Up</p>
         </div>
-
-        <RegistrationSuccess v-if="isRegistrationSuccessful"/>
-
         <div class="register-area__content-area__login-container">
             <router-link :to="loginPath" class="register-area__content-area__login-container__link">
-                Already have an account? Login.
+                Already have an account?
             </router-link>
         </div>
     </div>

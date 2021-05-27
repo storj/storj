@@ -25,6 +25,12 @@ a {
     user-select: none;
 }
 
+.error-title {
+    font-family: 'font', sans-serif;
+    margin-bottom: 60px;
+    font-size: 32px;
+}
+
 .logo {
     display: flex;
     align-items: center;
@@ -32,13 +38,3 @@ a {
     top: 87px;
     left: 100px;
 }
-
-.text {
-    margin-left: 15px;
-}
-
-.title {
-     font-family: 'font_regular', sans-serif;
-     margin-bottom: 60px;
-     font-size: 32px;
- }

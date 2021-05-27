@@ -1,0 +1,44 @@
+// Copyright (C) 2020 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+.resources-dropdown {
+    position: absolute;
+    top: 50px;
+    left: 0;
+    padding: 6px 0;
+    background-color: #f5f6fa;
+    z-index: 1120;
+    font-family: 'font_regular', sans-serif;
+    min-width: 255px;
+    box-shadow: 0 20px 34px rgba(10, 27, 44, 0.28);
+    border-radius: 6px;
+
+    &__item-container {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 0 20px;
+
+        &__image {
+            min-width: 20px;
+            object-fit: cover;
+        }
+
+        &__title {
+            margin-left: 13px;
+            font-size: 14px;
+            line-height: 20px;
+            color: #1b2533;
+        }
+
+        &:hover {
+            font-family: 'font_bold', sans-serif;
+
+            .docs-svg-path,
+            .community-svg-path,
+            .support-svg-path {
+                fill: #2d75d2 !important;
+            }
+        }
+    }
+}

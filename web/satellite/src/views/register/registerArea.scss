@@ -14,7 +14,7 @@ h1 {
 .register-area {
     display: flex;
     flex-direction: column;
-    align-items: center;
+    justify-content: space-between;
     font-family: 'font_regular', sans-serif;
     background-color: #f5f6fa;
     position: fixed;
@@ -30,20 +30,13 @@ h1 {
         margin-top: 60px;
     }
 
-    &__input-wrapper {
-        margin-top: 20px;
-    }
-
-    &__input-wrapper.first-input {
-        margin-top: 10px;
-    }
-
     &__content-area {
         background-color: #f5f6fa;
         padding: 55px 20px 0 20px;
         display: flex;
         flex-direction: column;
         align-items: center;
+        height: calc(100% - 55px);
 
         &__expand {
             display: flex;
@@ -122,19 +115,19 @@ h1 {
 
             &__personal,
             &__professional {
-                color: #376fff;
+                color: #2582ff;
                 display: block;
                 width: 100%;
                 text-align: center;
                 padding: 8px;
-                border: 1px solid #376fff;
+                border: 1px solid #2582ff;
                 cursor: pointer;
             }
 
             &__personal.active,
             &__professional.active {
                 color: #fff;
-                background: #376fff;
+                background: #2582ff;
                 font-weight: bold;
             }
         }
@@ -145,7 +138,9 @@ h1 {
             padding: 60px 80px;
             background-color: #fff;
             border-radius: 6px;
-            min-height: 675px;
+            min-width: 450px;
+            min-height: 551px;
+            border-radius: 20px;
 
             &__title-area {
                 display: flex;
@@ -175,25 +170,20 @@ h1 {
                 width: 100%;
                 margin-top: 30px;
 
-                &__msg-box {
+                &__confirmation-text {
                     font-size: 14px;
                     line-height: 20px;
                     color: #354049;
+                    margin-top: 2px;
+                }
 
-                    &__msg {
+                &__link {
+                    color: #354049;
+                    font-family: 'font_bold', sans-serif;
+                    text-decoration: underline;
 
-                        &__link {
-                            margin: 0 4px;
-                            font-family: 'font_bold', sans-serif;
-
-                            &:hover {
-                                text-decoration: underline !important;
-                            }
-
-                            &:visited {
-                                color: inherit;
-                            }
-                        }
+                    &:hover {
+                        text-decoration: none;
                     }
                 }
             }
@@ -205,7 +195,7 @@ h1 {
                 display: flex;
                 justify-content: center;
                 align-items: center;
-                background-color: #376fff;
+                background-color: #2582ff;
                 border-radius: 50px;
                 color: #fff;
                 cursor: pointer;
@@ -240,7 +230,7 @@ h1 {
                 font-size: 12px;
                 line-height: 18px;
                 margin-left: 30px;
-                color: #376fff;
+                color: #2582ff;
                 text-decoration: none;
             }
         }
@@ -251,7 +241,7 @@ h1 {
             align-items: center;
             justify-content: center;
             margin-top: 50px;
-            padding-bottom: 20px;
+            display: block;
             text-align: center;
 
             &__link {
@@ -259,8 +249,9 @@ h1 {
                 text-decoration: none;
                 font-size: 14px;
                 line-height: 18px;
-                color: #376fff;
+                color: #2582ff;
             }
+
         }
     }
 }
@@ -346,17 +337,24 @@ h1 {
     display: block;
 }
 
-@media screen and (max-width: 700px) {
+@media screen and (max-width: 750px) {
 
     .register-area {
 
+        &__header {
+            padding: 10px 20px;
+            width: calc(100% - 40px);
+        }
+
         &__content-area {
-            width: 100%;
-            padding: 55px 0 0 0;
+
+            width: 80%;
+            margin: 0 auto;
+            padding: 60px 60px;
 
             &__container {
-                padding: 40px;
-                width: calc(100% - 80px);
+
+                min-width: 100%;
             }
 
             &__toggle {
@@ -382,19 +380,46 @@ h1 {
     .register-area {
 
         &__logo-wrapper {
-            margin-top: 30px;
+            margin-top: 40px;
         }
 
         &__content-area {
-            padding: 30px 0 0 0;
+
+            padding: 30px 20px 0 20px;
 
             &__container {
-                padding: 40px 20px;
-                width: calc(100% - 40px);
+                padding: 20px 25px;
+                min-height: 680px;
+
+                &__title-area {
+
+                    &__sub-title {
+                        font-size: 14px;
+                    }
+                }
             }
 
             &__login-container {
-                margin-top: 25px;
+                margin: 30px;
+            }
+        }
+    }
+}
+
+@media screen and (max-width: 375px) {
+
+    .register-area {
+
+
+        &__content-area {
+
+            &__container {
+                background: transparent;
+                min-height: 620px;
+            }
+
+            &__forgot-container {
+                margin-top: 20px;
             }
         }
     }
