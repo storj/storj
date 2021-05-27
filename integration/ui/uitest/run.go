@@ -43,7 +43,8 @@ func Run(t *testing.T, test Test) {
 		launch := launcher.New().
 			Headless(!showBrowser).
 			Leakless(false).
-			Devtools(false)
+			Devtools(false).
+			NoSandbox(true)
 		if browserBin  := os.Getenv("STORJ_TEST_BROWSER"); browserBin != "" {
 			launch = launch.Bin(browserBin)
 		}
