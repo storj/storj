@@ -4,6 +4,7 @@
 package metabasetest
 
 import (
+	"bytes"
 	"context"
 	"sort"
 	"testing"
@@ -375,6 +376,38 @@ func (step IterateLoopStreams) Check(ctx *testcontext.Context, t testing.TB, db 
 		})
 	checkError(t, err, step.ErrClass, step.ErrText)
 
+	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
+	require.Zero(t, diff)
+}
+
+// IterateLoopSegments is for testing metabase.IterateLoopSegments.
+type IterateLoopSegments struct {
+	Opts     metabase.IterateLoopSegments
+	Result   []metabase.LoopSegmentEntry
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step IterateLoopSegments) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result := make([]metabase.LoopSegmentEntry, 0, 10)
+	err := db.IterateLoopSegments(ctx, step.Opts,
+		func(ctx context.Context, iterator metabase.LoopSegmentsIterator) error {
+			var entry metabase.LoopSegmentEntry
+			for iterator.Next(ctx, &entry) {
+				result = append(result, entry)
+			}
+			return nil
+		})
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	if len(result) == 0 {
+		result = nil
+	}
+
+	sort.Slice(step.Result, func(i, j int) bool {
+		return bytes.Compare(step.Result[i].StreamID[:], step.Result[j].StreamID[:]) < 0
+	})
 	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
 	require.Zero(t, diff)
 }
