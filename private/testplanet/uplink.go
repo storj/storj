@@ -127,7 +127,6 @@ func (planet *Planet) newUplink(ctx context.Context, name string) (*Uplink, erro
 		user, err := satellite.AddUser(ctx, console.CreateUser{
 			FullName: fmt.Sprintf("User %s", projectName),
 			Email:    fmt.Sprintf("user@%s.test", projectName),
-			Password: "password",
 		}, 10)
 		if err != nil {
 			return nil, err
@@ -135,7 +134,7 @@ func (planet *Planet) newUplink(ctx context.Context, name string) (*Uplink, erro
 
 		planetUplink.User[satellite.ID()] = UserLogin{
 			Email: user.Email,
-			Password: "password",
+			Password: user.FullName,
 		}
 
 		project, err := satellite.AddProject(ctx, user.ID, projectName)
