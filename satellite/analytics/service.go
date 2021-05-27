@@ -20,7 +20,6 @@ const (
 	eventPassphraseCreated         = "Passphrase Created"
 	eventExternalLinkClicked       = "External Link Clicked"
 	eventPathSelected              = "Path Selected"
-	eventLinkShared                = "Link Shared"
 )
 
 // Config is a configuration struct for analytics Service.
@@ -52,7 +51,7 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 	if config.Enabled {
 		service.segment = segment.New(config.SegmentWriteKey)
 	}
-	for _, name := range []string{eventGatewayCredentialsCreated, eventPassphraseCreated, eventExternalLinkClicked, eventPathSelected, eventLinkShared} {
+	for _, name := range []string{eventGatewayCredentialsCreated, eventPassphraseCreated, eventExternalLinkClicked, eventPathSelected} {
 		service.clientEvents[name] = true
 	}
 	return service
