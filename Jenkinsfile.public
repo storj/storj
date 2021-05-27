@@ -261,7 +261,14 @@ pipeline {
                         sh 'cp -r ./web/satellite/ ${STORJ_TEST_SATELLITE_WEB}/'
                         sh 'cd .build/satellite-web && npm ci'
                         sh 'Xvfb -ac :99 -screen 0 1280x1024x16 & export DISPLAY=:99'
-                        sh 'go test -race ./integration/ui/...'
+                        sh 'go test -race ./integration/ui/... 2>&1 | tee .build/ui-tests.json | xunit -out .build/ui-tests.xml'
+                    }
+                    post {
+                        always {
+                            sh script: 'cat .build/ui-tests.json | tparse -all -top -slow 100', returnStatus: true
+                            archiveArtifacts artifacts: '.build/ui-tests.json'
+                            junit '.build/ui-tests.xml'
+                        }
                     }
                 }
             }
