@@ -38,6 +38,9 @@ func Run(t *testing.T, test Test) {
 	if os.Getenv("STORJ_TEST_SATELLITE_WEB") == "" {
 		t.Skip("Enable UI tests by setting STORJ_TEST_SATELLITE_WEB to built npm")
 	}
+	if os.Getenv("STORJ_TEST_SATELLITE_WEB") == "omit" {
+		return
+	}
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
