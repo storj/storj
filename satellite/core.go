@@ -35,6 +35,7 @@ import (
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metaloop"
+	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/metrics"
@@ -82,9 +83,10 @@ type Core struct {
 	}
 
 	Metainfo struct {
-		Metabase *metabase.DB
-		Service  *metainfo.Service
-		Loop     *metaloop.Service
+		Metabase    *metabase.DB
+		Service     *metainfo.Service
+		Loop        *metaloop.Service
+		SegmentLoop *segmentloop.Service
 	}
 
 	Orders struct {
@@ -286,6 +288,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Name:  "metainfo:loop",
 			Run:   peer.Metainfo.Loop.Run,
 			Close: peer.Metainfo.Loop.Close,
+		})
+		peer.Metainfo.SegmentLoop = segmentloop.New(
+			config.Metainfo.SegmentLoop,
+			peer.Metainfo.Metabase,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "metainfo:segmentloop",
+			Run:   peer.Metainfo.SegmentLoop.Run,
+			Close: peer.Metainfo.SegmentLoop.Close,
 		})
 	}
 

@@ -421,6 +421,15 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # redundancy scheme configuration in the format k/m/o/n-sharesize
 # metainfo.rs: 29/35/80/110-256 B
 
+# how long to wait for new observers before starting iteration
+# metainfo.segment-loop.coalesce-duration: 5s
+
+# how many items to query in a batch
+# metainfo.segment-loop.list-limit: 2500
+
+# rate limit (default is 0 which is unlimited segments per second)
+# metainfo.segment-loop.rate-limit: 0
+
 # address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
 
