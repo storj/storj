@@ -1,0 +1,13 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`VBar.vue renders correctly 1`] = `
+<div class="bar-container">
+  <div class="bar-container__fill" style="background-color: rgb(0, 104, 220); width: 50%;"></div>
+</div>
+`;
+
+exports[`VBar.vue renders correctly if current > max 1`] = `
+<div class="bar-container">
+  <div class="bar-container__fill" style="background-color: rgb(0, 104, 220); width: 100%;"></div>
+</div>
+`;

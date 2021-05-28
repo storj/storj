@@ -6,20 +6,29 @@ package satellitedb
 import (
 	"bytes"
 	"context"
+	"database/sql"
+	"errors"
 	"sort"
 	"time"
 
-	"github.com/lib/pq"
-	sqlite3 "github.com/mattn/go-sqlite3"
+	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
+	"storj.io/private/dbutil"
+	"storj.io/private/dbutil/pgutil"
+	"storj.io/private/tagsql"
 	"storj.io/storj/satellite/gracefulexit"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 type gracefulexitDB struct {
-	db *dbx.DB
+	db *satelliteDB
 }
+
+const (
+	deleteExitProgressBatchSize = 1000
+)
 
 // IncrementProgress increments transfer stats for a node.
 func (db *gracefulexitDB) IncrementProgress(ctx context.Context, nodeID storj.NodeID, bytes int64, successfulTransfers int64, failedTransfers int64) (err error) {
@@ -28,7 +37,7 @@ func (db *gracefulexitDB) IncrementProgress(ctx context.Context, nodeID storj.No
 	statement := db.db.Rebind(
 		`INSERT INTO graceful_exit_progress (node_id, bytes_transferred, pieces_transferred, pieces_failed, updated_at) VALUES (?, ?, ?, ?, ?)
 		 ON CONFLICT(node_id)
-		 DO UPDATE SET bytes_transferred = graceful_exit_progress.bytes_transferred + excluded.bytes_transferred, 
+		 DO UPDATE SET bytes_transferred = graceful_exit_progress.bytes_transferred + excluded.bytes_transferred,
 		 	pieces_transferred = graceful_exit_progress.pieces_transferred + excluded.pieces_transferred,
 		 	pieces_failed = graceful_exit_progress.pieces_failed + excluded.pieces_failed,
 		 	updated_at = excluded.updated_at;`,
@@ -46,7 +55,9 @@ func (db *gracefulexitDB) IncrementProgress(ctx context.Context, nodeID storj.No
 func (db *gracefulexitDB) GetProgress(ctx context.Context, nodeID storj.NodeID) (_ *gracefulexit.Progress, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxProgress, err := db.db.Get_GracefulExitProgress_By_NodeId(ctx, dbx.GracefulExitProgress_NodeId(nodeID.Bytes()))
-	if err != nil {
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, gracefulexit.ErrNodeNotFound.Wrap(err)
+	} else if err != nil {
 		return nil, Error.Wrap(err)
 	}
 	nID, err := storj.NodeIDFromBytes(dbxProgress.NodeId)
@@ -65,52 +76,47 @@ func (db *gracefulexitDB) GetProgress(ctx context.Context, nodeID storj.NodeID) 
 	return progress, Error.Wrap(err)
 }
 
-// Enqueue batch inserts graceful exit transfer queue entries it does not exist.
-func (db *gracefulexitDB) Enqueue(ctx context.Context, items []gracefulexit.TransferQueueItem) (err error) {
+// Enqueue batch inserts graceful exit transfer queue entries if it does not exist.
+func (db *gracefulexitDB) Enqueue(ctx context.Context, items []gracefulexit.TransferQueueItem, batchSize int) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	switch t := db.db.Driver().(type) {
-	case *sqlite3.SQLiteDriver:
-		statement := db.db.Rebind(
-			`INSERT INTO graceful_exit_transfer_queue(node_id, path, piece_num, durability_ratio, queued_at)
-			 VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING;`,
-		)
-		for _, item := range items {
-			_, err = db.db.ExecContext(ctx, statement,
-				item.NodeID.Bytes(), item.Path, item.PieceNum, item.DurabilityRatio, time.Now().UTC())
-			if err != nil {
-				return Error.Wrap(err)
-			}
+	sort.Slice(items, func(i, k int) bool {
+		compare := bytes.Compare(items[i].NodeID.Bytes(), items[k].NodeID.Bytes())
+		if compare == 0 {
+			return bytes.Compare(items[i].Key, items[k].Key) < 0
 		}
-	case *pq.Driver:
-		sort.Slice(items, func(i, k int) bool {
-			compare := bytes.Compare(items[i].NodeID.Bytes(), items[k].NodeID.Bytes())
-			if compare == 0 {
-				return bytes.Compare(items[i].Path, items[k].Path) < 0
-			}
-			return compare < 0
-		})
+		return compare < 0
+	})
+
+	for i := 0; i < len(items); i += batchSize {
+		lowerBound := i
+		upperBound := lowerBound + batchSize
+
+		if upperBound > len(items) {
+			upperBound = len(items)
+		}
 
 		var nodeIDs []storj.NodeID
-		var paths [][]byte
+		var keys [][]byte
 		var pieceNums []int32
+		var rootPieceIDs [][]byte
 		var durabilities []float64
-		for _, item := range items {
+		for _, item := range items[lowerBound:upperBound] {
 			nodeIDs = append(nodeIDs, item.NodeID)
-			paths = append(paths, item.Path)
+			keys = append(keys, item.Key)
 			pieceNums = append(pieceNums, item.PieceNum)
+			rootPieceIDs = append(rootPieceIDs, item.RootPieceID.Bytes())
 			durabilities = append(durabilities, item.DurabilityRatio)
 		}
 
-		_, err := db.db.ExecContext(ctx, `
-			INSERT INTO graceful_exit_transfer_queue(node_id, path, piece_num, durability_ratio, queued_at)
-			SELECT unnest($1::bytea[]), unnest($2::bytea[]), unnest($3::integer[]), unnest($4::float8[]), $5
-			ON CONFLICT DO NOTHING;`, postgresNodeIDList(nodeIDs), pq.ByteaArray(paths), pq.Array(pieceNums), pq.Array(durabilities), time.Now().UTC())
+		_, err = db.db.ExecContext(ctx, db.db.Rebind(`
+			INSERT INTO graceful_exit_transfer_queue(node_id, path, piece_num, root_piece_id, durability_ratio, queued_at)
+			SELECT unnest($1::bytea[]), unnest($2::bytea[]), unnest($3::int4[]), unnest($4::bytea[]), unnest($5::float8[]), $6
+			ON CONFLICT DO NOTHING;`), pgutil.NodeIDArray(nodeIDs), pgutil.ByteaArray(keys), pgutil.Int4Array(pieceNums), pgutil.ByteaArray(rootPieceIDs), pgutil.Float8Array(durabilities), time.Now().UTC())
+
 		if err != nil {
 			return Error.Wrap(err)
 		}
-	default:
-		return Error.New("Unsupported database %t", t)
 	}
 
 	return nil
@@ -121,31 +127,33 @@ func (db *gracefulexitDB) UpdateTransferQueueItem(ctx context.Context, item grac
 	defer mon.Task()(&ctx)(&err)
 	update := dbx.GracefulExitTransferQueue_Update_Fields{
 		DurabilityRatio: dbx.GracefulExitTransferQueue_DurabilityRatio(item.DurabilityRatio),
-		LastFailedCode:  dbx.GracefulExitTransferQueue_LastFailedCode_Raw(&item.LastFailedCode),
-		FailedCount:     dbx.GracefulExitTransferQueue_FailedCount_Raw(&item.FailedCount),
+		LastFailedCode:  dbx.GracefulExitTransferQueue_LastFailedCode_Raw(item.LastFailedCode),
+		FailedCount:     dbx.GracefulExitTransferQueue_FailedCount_Raw(item.FailedCount),
 	}
 
-	if !item.RequestedAt.IsZero() {
-		update.RequestedAt = dbx.GracefulExitTransferQueue_RequestedAt_Raw(&item.RequestedAt)
+	if item.RequestedAt != nil {
+		update.RequestedAt = dbx.GracefulExitTransferQueue_RequestedAt_Raw(item.RequestedAt)
 	}
-	if !item.LastFailedAt.IsZero() {
-		update.LastFailedAt = dbx.GracefulExitTransferQueue_LastFailedAt_Raw(&item.LastFailedAt)
+	if item.LastFailedAt != nil {
+		update.LastFailedAt = dbx.GracefulExitTransferQueue_LastFailedAt_Raw(item.LastFailedAt)
 	}
-	if !item.FinishedAt.IsZero() {
-		update.FinishedAt = dbx.GracefulExitTransferQueue_FinishedAt_Raw(&item.FinishedAt)
+	if item.FinishedAt != nil {
+		update.FinishedAt = dbx.GracefulExitTransferQueue_FinishedAt_Raw(item.FinishedAt)
 	}
 
-	return db.db.UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path(ctx,
+	return db.db.UpdateNoReturn_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx,
 		dbx.GracefulExitTransferQueue_NodeId(item.NodeID.Bytes()),
-		dbx.GracefulExitTransferQueue_Path(item.Path),
+		dbx.GracefulExitTransferQueue_Path(item.Key),
+		dbx.GracefulExitTransferQueue_PieceNum(int(item.PieceNum)),
 		update,
 	)
 }
 
 // DeleteTransferQueueItem deletes a graceful exit transfer queue entry.
-func (db *gracefulexitDB) DeleteTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte) (err error) {
+func (db *gracefulexitDB) DeleteTransferQueueItem(ctx context.Context, nodeID storj.NodeID, key metabase.SegmentKey, pieceNum int32) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	_, err = db.db.Delete_GracefulExitTransferQueue_By_NodeId_And_Path(ctx, dbx.GracefulExitTransferQueue_NodeId(nodeID.Bytes()), dbx.GracefulExitTransferQueue_Path(path))
+	_, err = db.db.Delete_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx, dbx.GracefulExitTransferQueue_NodeId(nodeID.Bytes()), dbx.GracefulExitTransferQueue_Path(key),
+		dbx.GracefulExitTransferQueue_PieceNum(int(pieceNum)))
 	return Error.Wrap(err)
 }
 
@@ -156,19 +164,197 @@ func (db *gracefulexitDB) DeleteTransferQueueItems(ctx context.Context, nodeID s
 	return Error.Wrap(err)
 }
 
-// DeleteFinishedTransferQueueItem deletes finiahed graceful exit transfer queue entries by nodeID.
+// DeleteFinishedTransferQueueItem deletes finished graceful exit transfer queue entries by nodeID.
 func (db *gracefulexitDB) DeleteFinishedTransferQueueItems(ctx context.Context, nodeID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	_, err = db.db.Delete_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_IsNot_Null(ctx, dbx.GracefulExitTransferQueue_NodeId(nodeID.Bytes()))
 	return Error.Wrap(err)
 }
 
-// GetTransferQueueItem gets a graceful exit transfer queue entry.
-func (db *gracefulexitDB) GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, path []byte) (_ *gracefulexit.TransferQueueItem, err error) {
+// DeleteAllFinishedTransferQueueItems deletes all graceful exit transfer
+// queue items whose nodes have finished the exit before the indicated time
+// returning the total number of deleted items.
+func (db *gracefulexitDB) DeleteAllFinishedTransferQueueItems(
+	ctx context.Context, before time.Time, asOfSystemInterval time.Duration, batchSize int) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxTransferQueue, err := db.db.Get_GracefulExitTransferQueue_By_NodeId_And_Path(ctx,
+
+	switch db.db.impl {
+	case dbutil.Postgres:
+		statement := `
+			DELETE FROM graceful_exit_transfer_queue
+			WHERE node_id IN (
+				SELECT id
+				FROM nodes
+				WHERE exit_finished_at IS NOT NULL
+					AND exit_finished_at < $1
+			)`
+		res, err := db.db.ExecContext(ctx, statement, before)
+		if err != nil {
+			return 0, Error.Wrap(err)
+		}
+
+		count, err := res.RowsAffected()
+		if err != nil {
+			return 0, Error.Wrap(err)
+		}
+
+		return count, nil
+
+	case dbutil.Cockroach:
+		nodesQuery := `
+			SELECT id
+			FROM nodes
+		` + db.db.impl.AsOfSystemInterval(asOfSystemInterval) + `
+			WHERE exit_finished_at IS NOT NULL
+				AND exit_finished_at < $1
+			LIMIT $2 OFFSET $3
+		`
+		deleteStmt := `
+			DELETE FROM graceful_exit_transfer_queue
+			WHERE node_id = $1
+			LIMIT $2
+		`
+		var (
+			deleteCount int64
+			offset      int
+		)
+		for {
+			var nodeIDs storj.NodeIDList
+			deleteItems := func() (int64, error) {
+				// Select exited nodes
+				rows, err := db.db.QueryContext(ctx, nodesQuery, before, batchSize, offset)
+				if err != nil {
+					return deleteCount, Error.Wrap(err)
+				}
+				defer func() { err = errs.Combine(err, rows.Close()) }()
+
+				count := 0
+				for rows.Next() {
+					var id storj.NodeID
+					if err = rows.Scan(&id); err != nil {
+						return deleteCount, Error.Wrap(err)
+					}
+					nodeIDs = append(nodeIDs, id)
+					count++
+				}
+
+				if count == batchSize {
+					offset += count
+				} else {
+					offset = -1 // indicates that there aren't more nodes to query
+				}
+
+				for _, id := range nodeIDs {
+					for {
+						res, err := db.db.ExecContext(ctx, deleteStmt, id.Bytes(), batchSize)
+						if err != nil {
+							return deleteCount, Error.Wrap(err)
+						}
+						count, err := res.RowsAffected()
+						if err != nil {
+							return deleteCount, Error.Wrap(err)
+						}
+						deleteCount += count
+						if count < int64(batchSize) {
+							break
+						}
+					}
+				}
+				return deleteCount, nil
+			}
+			deleteCount, err = deleteItems()
+			if err != nil {
+				return deleteCount, err
+			}
+			// when offset is negative means that we have get already all the nodes
+			// which have exited
+			if offset < 0 {
+				break
+			}
+		}
+		return deleteCount, nil
+	}
+
+	return 0, Error.New("unsupported implementation: %s", db.db.impl)
+}
+
+// DeleteFinishedExitProgress deletes exit progress entries for nodes that
+// finished exiting before the indicated time, returns number of deleted entries.
+func (db *gracefulexitDB) DeleteFinishedExitProgress(
+	ctx context.Context, before time.Time, asOfSystemInterval time.Duration) (_ int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	finishedNodes, err := db.GetFinishedExitNodes(ctx, before, asOfSystemInterval)
+	if err != nil {
+		return 0, err
+	}
+	return db.DeleteBatchExitProgress(ctx, finishedNodes)
+}
+
+// GetFinishedExitNodes gets nodes that are marked having finished graceful exit before a given time.
+func (db *gracefulexitDB) GetFinishedExitNodes(ctx context.Context, before time.Time, asOfSystemInterval time.Duration) (finishedNodes []storj.NodeID, err error) {
+	defer mon.Task()(&ctx)(&err)
+	stmt := `
+		SELECT id
+		FROM nodes
+		` + db.db.impl.AsOfSystemInterval(asOfSystemInterval) + `
+        WHERE exit_finished_at IS NOT NULL
+	    AND exit_finished_at < ?
+		`
+	rows, err := db.db.Query(ctx, db.db.Rebind(stmt), before.UTC())
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer func() {
+		err = Error.Wrap(errs.Combine(err, rows.Close()))
+	}()
+
+	for rows.Next() {
+		var id storj.NodeID
+		err = rows.Scan(&id)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		finishedNodes = append(finishedNodes, id)
+	}
+	return finishedNodes, Error.Wrap(rows.Err())
+}
+
+// DeleteBatchExitProgress batch deletes from exit progress. This is separate from
+// getting the node IDs because the combined query is slow in CRDB. It's safe to do
+// separately because if nodes are deleted between the get and delete, it doesn't
+// affect correctness.
+func (db *gracefulexitDB) DeleteBatchExitProgress(ctx context.Context, nodeIDs []storj.NodeID) (deleted int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	stmt := `DELETE from graceful_exit_progress
+			WHERE node_id = ANY($1)`
+	for len(nodeIDs) > 0 {
+		numToSubmit := len(nodeIDs)
+		if numToSubmit > deleteExitProgressBatchSize {
+			numToSubmit = deleteExitProgressBatchSize
+		}
+		nodesToSubmit := nodeIDs[:numToSubmit]
+		res, err := db.db.ExecContext(ctx, stmt, pgutil.NodeIDArray(nodesToSubmit))
+		if err != nil {
+			return deleted, Error.Wrap(err)
+		}
+		count, err := res.RowsAffected()
+		if err != nil {
+			return deleted, Error.Wrap(err)
+		}
+		deleted += count
+		nodeIDs = nodeIDs[numToSubmit:]
+	}
+	return deleted, Error.Wrap(err)
+}
+
+// GetTransferQueueItem gets a graceful exit transfer queue entry.
+func (db *gracefulexitDB) GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, key metabase.SegmentKey, pieceNum int32) (_ *gracefulexit.TransferQueueItem, err error) {
+	defer mon.Task()(&ctx)(&err)
+	dbxTransferQueue, err := db.db.Get_GracefulExitTransferQueue_By_NodeId_And_Path_And_PieceNum(ctx,
 		dbx.GracefulExitTransferQueue_NodeId(nodeID.Bytes()),
-		dbx.GracefulExitTransferQueue_Path(path))
+		dbx.GracefulExitTransferQueue_Path(key),
+		dbx.GracefulExitTransferQueue_PieceNum(int(pieceNum)))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -181,24 +367,148 @@ func (db *gracefulexitDB) GetTransferQueueItem(ctx context.Context, nodeID storj
 	return transferQueueItem, Error.Wrap(err)
 }
 
-// GetIncomplete gets incomplete graceful exit transfer queue entries in the database ordered by the queued date ascending.
+// GetIncomplete gets incomplete graceful exit transfer queue entries ordered by durability ratio and queued date ascending.
 func (db *gracefulexitDB) GetIncomplete(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) (_ []*gracefulexit.TransferQueueItem, err error) {
 	defer mon.Task()(&ctx)(&err)
-	dbxTransferQueueItemRows, err := db.db.Limited_GracefulExitTransferQueue_By_NodeId_And_FinishedAt_Is_Null_OrderBy_Asc_QueuedAt(ctx, dbx.GracefulExitTransferQueue_NodeId(nodeID.Bytes()), limit, offset)
+	sql := `SELECT node_id, path, piece_num, root_piece_id, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at, order_limit_send_count
+			FROM graceful_exit_transfer_queue
+			WHERE node_id = ?
+			AND finished_at is NULL
+			ORDER BY durability_ratio asc, queued_at asc LIMIT ? OFFSET ?`
+	rows, err := db.db.Query(ctx, db.db.Rebind(sql), nodeID.Bytes(), limit, offset)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	transferQueueItemRows, err := scanRows(rows)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	var transferQueueItemRows = make([]*gracefulexit.TransferQueueItem, len(dbxTransferQueueItemRows))
-	for i, dbxTransferQueue := range dbxTransferQueueItemRows {
-		transferQueueItem, err := dbxToTransferQueueItem(dbxTransferQueue)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		transferQueueItemRows[i] = transferQueueItem
+	return transferQueueItemRows, nil
+}
+
+// GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries that haven't failed, ordered by durability ratio and queued date ascending.
+func (db *gracefulexitDB) GetIncompleteNotFailed(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) (_ []*gracefulexit.TransferQueueItem, err error) {
+	defer mon.Task()(&ctx)(&err)
+	sql := `SELECT node_id, path, piece_num, root_piece_id, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at, order_limit_send_count
+			FROM graceful_exit_transfer_queue
+			WHERE node_id = ?
+			AND finished_at is NULL
+			AND last_failed_at is NULL
+			ORDER BY durability_ratio asc, queued_at asc LIMIT ? OFFSET ?`
+	rows, err := db.db.Query(ctx, db.db.Rebind(sql), nodeID.Bytes(), limit, offset)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	transferQueueItemRows, err := scanRows(rows)
+	if err != nil {
+		return nil, Error.Wrap(err)
 	}
 
 	return transferQueueItemRows, nil
+}
+
+// GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries that have failed <= maxFailures times, ordered by durability ratio and queued date ascending.
+func (db *gracefulexitDB) GetIncompleteFailed(ctx context.Context, nodeID storj.NodeID, maxFailures int, limit int, offset int64) (_ []*gracefulexit.TransferQueueItem, err error) {
+	defer mon.Task()(&ctx)(&err)
+	sql := `SELECT node_id, path, piece_num, root_piece_id, durability_ratio, queued_at, requested_at, last_failed_at, last_failed_code, failed_count, finished_at, order_limit_send_count
+			FROM graceful_exit_transfer_queue
+			WHERE node_id = ?
+			AND finished_at is NULL
+			AND last_failed_at is not NULL
+			AND failed_count < ?
+			ORDER BY durability_ratio asc, queued_at asc LIMIT ? OFFSET ?`
+	rows, err := db.db.Query(ctx, db.db.Rebind(sql), nodeID.Bytes(), maxFailures, limit, offset)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	transferQueueItemRows, err := scanRows(rows)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return transferQueueItemRows, nil
+}
+
+// IncrementOrderLimitSendCount increments the number of times a node has been sent an order limit for transferring.
+func (db *gracefulexitDB) IncrementOrderLimitSendCount(ctx context.Context, nodeID storj.NodeID, key metabase.SegmentKey, pieceNum int32) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	sql := db.db.Rebind(
+		`UPDATE graceful_exit_transfer_queue SET order_limit_send_count = graceful_exit_transfer_queue.order_limit_send_count + 1
+		WHERE node_id = ?
+		AND path = ?
+		AND piece_num = ?`,
+	)
+	_, err = db.db.ExecContext(ctx, sql, nodeID, key, pieceNum)
+	return Error.Wrap(err)
+}
+
+// CountFinishedTransferQueueItemsByNode return a map of the nodes which has
+// finished the exit before the indicated time but there are at least one item
+// left in the transfer queue.
+func (db *gracefulexitDB) CountFinishedTransferQueueItemsByNode(ctx context.Context, before time.Time, asOfSystemInterval time.Duration) (_ map[storj.NodeID]int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := `SELECT n.id, count(getq.node_id)
+		FROM nodes as n INNER JOIN graceful_exit_transfer_queue as getq
+			ON n.id = getq.node_id
+		` + db.db.impl.AsOfSystemInterval(asOfSystemInterval) + `
+		WHERE n.exit_finished_at IS NOT NULL
+			AND n.exit_finished_at < ?
+		GROUP BY n.id`
+
+	statement := db.db.Rebind(query)
+
+	rows, err := db.db.QueryContext(ctx, statement, before)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, Error.Wrap(rows.Close())) }()
+
+	nodesItemsCount := make(map[storj.NodeID]int64)
+	for rows.Next() {
+		var (
+			nodeID storj.NodeID
+			n      int64
+		)
+		err := rows.Scan(&nodeID, &n)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		nodesItemsCount[nodeID] = n
+	}
+
+	return nodesItemsCount, Error.Wrap(rows.Err())
+}
+
+func scanRows(rows tagsql.Rows) (transferQueueItemRows []*gracefulexit.TransferQueueItem, err error) {
+	for rows.Next() {
+		transferQueueItem := &gracefulexit.TransferQueueItem{}
+		var pieceIDBytes []byte
+		err = rows.Scan(&transferQueueItem.NodeID, &transferQueueItem.Key, &transferQueueItem.PieceNum, &pieceIDBytes,
+			&transferQueueItem.DurabilityRatio, &transferQueueItem.QueuedAt, &transferQueueItem.RequestedAt, &transferQueueItem.LastFailedAt,
+			&transferQueueItem.LastFailedCode, &transferQueueItem.FailedCount, &transferQueueItem.FinishedAt, &transferQueueItem.OrderLimitSendCount)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		if pieceIDBytes != nil {
+			transferQueueItem.RootPieceID, err = storj.PieceIDFromBytes(pieceIDBytes)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+		}
+
+		transferQueueItemRows = append(transferQueueItemRows, transferQueueItem)
+	}
+	return transferQueueItemRows, Error.Wrap(rows.Err())
 }
 
 func dbxToTransferQueueItem(dbxTransferQueue *dbx.GracefulExitTransferQueue) (item *gracefulexit.TransferQueueItem, err error) {
@@ -208,26 +518,33 @@ func dbxToTransferQueueItem(dbxTransferQueue *dbx.GracefulExitTransferQueue) (it
 	}
 
 	item = &gracefulexit.TransferQueueItem{
-		NodeID:          nID,
-		Path:            dbxTransferQueue.Path,
-		PieceNum:        int32(dbxTransferQueue.PieceNum),
-		DurabilityRatio: dbxTransferQueue.DurabilityRatio,
-		QueuedAt:        dbxTransferQueue.QueuedAt,
+		NodeID:              nID,
+		Key:                 dbxTransferQueue.Path,
+		PieceNum:            int32(dbxTransferQueue.PieceNum),
+		DurabilityRatio:     dbxTransferQueue.DurabilityRatio,
+		QueuedAt:            dbxTransferQueue.QueuedAt,
+		OrderLimitSendCount: dbxTransferQueue.OrderLimitSendCount,
+	}
+	if dbxTransferQueue.RootPieceId != nil {
+		item.RootPieceID, err = storj.PieceIDFromBytes(dbxTransferQueue.RootPieceId)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if dbxTransferQueue.LastFailedCode != nil {
-		item.LastFailedCode = *dbxTransferQueue.LastFailedCode
+		item.LastFailedCode = dbxTransferQueue.LastFailedCode
 	}
 	if dbxTransferQueue.FailedCount != nil {
-		item.FailedCount = *dbxTransferQueue.FailedCount
+		item.FailedCount = dbxTransferQueue.FailedCount
 	}
 	if dbxTransferQueue.RequestedAt != nil && !dbxTransferQueue.RequestedAt.IsZero() {
-		item.RequestedAt = *dbxTransferQueue.RequestedAt
+		item.RequestedAt = dbxTransferQueue.RequestedAt
 	}
 	if dbxTransferQueue.LastFailedAt != nil && !dbxTransferQueue.LastFailedAt.IsZero() {
-		item.LastFailedAt = *dbxTransferQueue.LastFailedAt
+		item.LastFailedAt = dbxTransferQueue.LastFailedAt
 	}
 	if dbxTransferQueue.FinishedAt != nil && !dbxTransferQueue.FinishedAt.IsZero() {
-		item.FinishedAt = *dbxTransferQueue.FinishedAt
+		item.FinishedAt = dbxTransferQueue.FinishedAt
 	}
 
 	return item, nil

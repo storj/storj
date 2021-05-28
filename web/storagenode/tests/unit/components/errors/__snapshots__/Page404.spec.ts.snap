@@ -1,0 +1,9 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Page404 renders correctly 1`] = `
+<div class="error-container">
+  <div class="error-container__main-image"></div>
+  <h1 class="error-container__title">404. Something Went Wrong</h1>
+  <h3 class="error-container__text">The page you’re trying to access is either broken, or doesn’t exist</h3> <a href="/" class="error-container__button">Back to home</a>
+</div>
+`;

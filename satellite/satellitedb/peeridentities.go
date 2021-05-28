@@ -7,20 +7,21 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"errors"
 	"strings"
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/storj"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/common/identity"
+	"storj.io/common/storj"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 type peerIdentities struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
-// Set adds a peer identity entry
+// Set adds a peer identity entry.
 func (idents *peerIdentities) Set(ctx context.Context, nodeID storj.NodeID, ident *identity.PeerIdentity) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -28,44 +29,33 @@ func (idents *peerIdentities) Set(ctx context.Context, nodeID storj.NodeID, iden
 		return Error.New("identitiy is nil")
 	}
 
-	tx, err := idents.db.Open(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	defer func() {
-		if err == nil {
-			err = tx.Commit()
-		} else {
-			err = errs.Combine(err, tx.Rollback())
+	err = idents.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
+		serial, err := tx.Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
+		if serial == nil || err != nil {
+			if errors.Is(err, sql.ErrNoRows) || serial == nil {
+				return tx.CreateNoReturn_PeerIdentity(ctx,
+					dbx.PeerIdentity_NodeId(nodeID.Bytes()),
+					dbx.PeerIdentity_LeafSerialNumber(ident.Leaf.SerialNumber.Bytes()),
+					dbx.PeerIdentity_Chain(identity.EncodePeerIdentity(ident)),
+				)
+			}
+			return err
 		}
-	}()
-
-	serial, err := tx.Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
-	if serial == nil || err != nil {
-		if serial == nil || err == sql.ErrNoRows {
-			return Error.Wrap(tx.CreateNoReturn_PeerIdentity(ctx,
+		if !bytes.Equal(serial.LeafSerialNumber, ident.Leaf.SerialNumber.Bytes()) {
+			return tx.UpdateNoReturn_PeerIdentity_By_NodeId(ctx,
 				dbx.PeerIdentity_NodeId(nodeID.Bytes()),
-				dbx.PeerIdentity_LeafSerialNumber(ident.Leaf.SerialNumber.Bytes()),
-				dbx.PeerIdentity_Chain(identity.EncodePeerIdentity(ident)),
-			))
+				dbx.PeerIdentity_Update_Fields{
+					LeafSerialNumber: dbx.PeerIdentity_LeafSerialNumber(ident.Leaf.SerialNumber.Bytes()),
+					Chain:            dbx.PeerIdentity_Chain(identity.EncodePeerIdentity(ident)),
+				},
+			)
 		}
-		return Error.Wrap(err)
-	}
-	if !bytes.Equal(serial.LeafSerialNumber, ident.Leaf.SerialNumber.Bytes()) {
-		return Error.Wrap(tx.UpdateNoReturn_PeerIdentity_By_NodeId(ctx,
-			dbx.PeerIdentity_NodeId(nodeID.Bytes()),
-			dbx.PeerIdentity_Update_Fields{
-				LeafSerialNumber: dbx.PeerIdentity_LeafSerialNumber(ident.Leaf.SerialNumber.Bytes()),
-				Chain:            dbx.PeerIdentity_Chain(identity.EncodePeerIdentity(ident)),
-			},
-		))
-	}
-
+		return nil
+	})
 	return Error.Wrap(err)
 }
 
-// Get gets the peer identity based on the certificate's nodeID
+// Get gets the peer identity based on the certificate's nodeID.
 func (idents *peerIdentities) Get(ctx context.Context, nodeID storj.NodeID) (_ *identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
 	dbxIdent, err := idents.db.Get_PeerIdentity_By_NodeId(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
@@ -80,7 +70,7 @@ func (idents *peerIdentities) Get(ctx context.Context, nodeID storj.NodeID) (_ *
 	return ident, Error.Wrap(err)
 }
 
-// BatchGet gets the peer idenities based on the certificate's nodeID
+// BatchGet gets the peer idenities based on the certificate's nodeID.
 func (idents *peerIdentities) BatchGet(ctx context.Context, nodeIDs storj.NodeIDList) (peerIdents []*identity.PeerIdentity, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(nodeIDs) == 0 {
@@ -94,14 +84,15 @@ func (idents *peerIdentities) BatchGet(ctx context.Context, nodeIDs storj.NodeID
 
 	// TODO: optimize using arrays like overlay
 
-	rows, err := idents.db.Query(idents.db.Rebind(`
-			SELECT chain FROM peer_identities WHERE node_id IN (?`+strings.Repeat(", ?", len(nodeIDs)-1)+`)`), args...)
+	rows, err := idents.db.Query(ctx, idents.db.Rebind(`
+		SELECT chain
+		FROM peer_identities
+		WHERE node_id IN (?`+strings.Repeat(", ?", len(nodeIDs)-1)+`)
+	`), args...)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	for rows.Next() {
 		var peerChain []byte
@@ -115,5 +106,5 @@ func (idents *peerIdentities) BatchGet(ctx context.Context, nodeIDs storj.NodeID
 		}
 		peerIdents = append(peerIdents, ident)
 	}
-	return peerIdents, nil
+	return peerIdents, Error.Wrap(rows.Err())
 }

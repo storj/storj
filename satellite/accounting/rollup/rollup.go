@@ -9,44 +9,43 @@ import (
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/storj/satellite/accounting"
 )
 
-// Config contains configurable values for rollup
+// Config contains configurable values for rollup.
 type Config struct {
 	Interval      time.Duration `help:"how frequently rollup should run" releaseDefault:"24h" devDefault:"120s"`
-	MaxAlphaUsage memory.Size   `help:"the bandwidth and storage usage limit for the alpha release" default:"25GB"`
-	DeleteTallies bool          `help:"option for deleting tallies after they are rolled up" default:"false"`
+	DeleteTallies bool          `help:"option for deleting tallies after they are rolled up" default:"true"`
 }
 
-// Service is the rollup service for totalling data on storage nodes on daily intervals
+// Service is the rollup service for totalling data on storage nodes on daily intervals.
 //
 // architecture: Chore
 type Service struct {
-	logger        *zap.Logger
-	Loop          sync2.Cycle
-	sdb           accounting.StoragenodeAccounting
-	deleteTallies bool
+	logger          *zap.Logger
+	Loop            *sync2.Cycle
+	sdb             accounting.StoragenodeAccounting
+	deleteTallies   bool
+	OrderExpiration time.Duration
 }
 
-// New creates a new rollup service
-func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, interval time.Duration, deleteTallies bool) *Service {
+// New creates a new rollup service.
+func New(logger *zap.Logger, sdb accounting.StoragenodeAccounting, interval time.Duration, deleteTallies bool, orderExpiration time.Duration) *Service {
 	return &Service{
-		logger:        logger,
-		Loop:          *sync2.NewCycle(interval),
-		sdb:           sdb,
-		deleteTallies: deleteTallies,
+		logger:          logger,
+		Loop:            sync2.NewCycle(interval),
+		sdb:             sdb,
+		deleteTallies:   deleteTallies,
+		OrderExpiration: orderExpiration,
 	}
 }
 
-// Run the Rollup loop
+// Run the Rollup loop.
 func (r *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	r.logger.Info("Rollup service starting up")
 	return r.Loop.Run(ctx, func(ctx context.Context) error {
 		err := r.Rollup(ctx)
 		if err != nil {
@@ -62,7 +61,7 @@ func (r *Service) Close() error {
 	return nil
 }
 
-// Rollup aggregates storage and bandwidth amounts for the time interval
+// Rollup aggregates storage and bandwidth amounts for the time interval.
 func (r *Service) Rollup(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	// only Rollup new things - get LastRollup
@@ -70,6 +69,11 @@ func (r *Service) Rollup(ctx context.Context) (err error) {
 	if err != nil {
 		return Error.Wrap(err)
 	}
+	// unexpired orders with created at times before the last rollup timestamp could still have been added later
+	if !lastRollup.IsZero() {
+		lastRollup = lastRollup.Add(-r.OrderExpiration)
+	}
+
 	rollupStats := make(accounting.RollupStats)
 	latestTally, err := r.RollupStorage(ctx, lastRollup, rollupStats)
 	if err != nil {
@@ -81,7 +85,7 @@ func (r *Service) Rollup(ctx context.Context) (err error) {
 		return Error.Wrap(err)
 	}
 
-	//remove the latest day (which we cannot know is complete), then push to DB
+	// remove the latest day (which we cannot know is complete), then push to DB
 	latestTally = time.Date(latestTally.Year(), latestTally.Month(), latestTally.Day(), 0, 0, 0, 0, latestTally.Location())
 	delete(rollupStats, latestTally)
 	if len(rollupStats) == 0 {
@@ -96,6 +100,7 @@ func (r *Service) Rollup(ctx context.Context) (err error) {
 
 	if r.deleteTallies {
 		// Delete already rolled up tallies
+		latestTally = latestTally.Add(-r.OrderExpiration)
 		err = r.sdb.DeleteTalliesBefore(ctx, latestTally)
 		if err != nil {
 			return Error.Wrap(err)
@@ -105,18 +110,18 @@ func (r *Service) Rollup(ctx context.Context) (err error) {
 	return nil
 }
 
-// RollupStorage rolls up storage tally, modifies rollupStats map
+// RollupStorage rolls up storage tally, modifies rollupStats map.
 func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) (latestTally time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
 	tallies, err := r.sdb.GetTalliesSince(ctx, lastRollup)
 	if err != nil {
-		return time.Now(), Error.Wrap(err)
+		return lastRollup, Error.Wrap(err)
 	}
 	if len(tallies) == 0 {
 		r.logger.Info("Rollup found no new tallies")
-		return time.Now(), nil
+		return lastRollup, nil
 	}
-	//loop through tallies and build Rollup
+	// loop through tallies and build Rollup
 	for _, tallyRow := range tallies {
 		node := tallyRow.NodeID
 		// tallyEndTime is the time the at rest tally was saved
@@ -124,7 +129,7 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 		if tallyEndTime.After(latestTally) {
 			latestTally = tallyEndTime
 		}
-		//create or get AccoutingRollup day entry
+		// create or get AccoutingRollup day entry
 		iDay := time.Date(tallyEndTime.Year(), tallyEndTime.Month(), tallyEndTime.Day(), 0, 0, 0, 0, tallyEndTime.Location())
 		if rollupStats[iDay] == nil {
 			rollupStats[iDay] = make(map[storj.NodeID]*accounting.Rollup)
@@ -132,32 +137,20 @@ func (r *Service) RollupStorage(ctx context.Context, lastRollup time.Time, rollu
 		if rollupStats[iDay][node] == nil {
 			rollupStats[iDay][node] = &accounting.Rollup{NodeID: node, StartTime: iDay}
 		}
-		//increment data at rest sum
+		// increment data at rest sum
 		rollupStats[iDay][node].AtRestTotal += tallyRow.DataTotal
 	}
 
 	return latestTally, nil
 }
 
-// RollupBW aggregates the bandwidth rollups, modifies rollupStats map
+// RollupBW aggregates the bandwidth rollups, modifies rollupStats map.
 func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStats accounting.RollupStats) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	var latestTally time.Time
-	bws, err := r.sdb.GetBandwidthSince(ctx, lastRollup.UTC())
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	if len(bws) == 0 {
-		r.logger.Info("Rollup found no new bw rollups")
-		return nil
-	}
-	for _, row := range bws {
+	err = r.sdb.GetBandwidthSince(ctx, lastRollup.UTC(), func(ctx context.Context, row *accounting.StoragenodeBandwidthRollup) error {
 		nodeID := row.NodeID
 		// interval is the time the bw order was saved
 		interval := row.IntervalStart.UTC()
-		if interval.After(latestTally) {
-			latestTally = interval
-		}
 		day := time.Date(interval.Year(), interval.Month(), interval.Day(), 0, 0, 0, 0, interval.Location())
 		if rollupStats[day] == nil {
 			rollupStats[day] = make(map[storj.NodeID]*accounting.Rollup)
@@ -181,6 +174,11 @@ func (r *Service) RollupBW(ctx context.Context, lastRollup time.Time, rollupStat
 		default:
 			r.logger.Info("delete order type")
 		}
+
+		return nil
+	})
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
 	return nil

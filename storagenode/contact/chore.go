@@ -5,112 +5,147 @@ package contact
 
 import (
 	"context"
-	"math/rand"
+	"sync"
 	"time"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/storagenode/trust"
+	"storj.io/common/storj"
+	"storj.io/common/sync2"
 )
 
-// Chore is the contact chore for nodes announcing themselves to their trusted satellites
+// Chore is the contact chore for nodes announcing themselves to their trusted satellites.
 //
 // architecture: Chore
 type Chore struct {
 	log     *zap.Logger
 	service *Service
-	dialer  rpc.Dialer
 
-	trust *trust.Pool
-
-	maxSleep time.Duration
-	Loop     *sync2.Cycle
+	mu       sync.Mutex
+	cycles   map[storj.NodeID]*sync2.Cycle
+	started  sync2.Fence
+	interval time.Duration
 }
 
-// NewChore creates a new contact chore
-func NewChore(log *zap.Logger, interval time.Duration, maxSleep time.Duration, trust *trust.Pool, dialer rpc.Dialer, service *Service) *Chore {
+// NewChore creates a new contact chore.
+func NewChore(log *zap.Logger, interval time.Duration, service *Service) *Chore {
 	return &Chore{
 		log:     log,
 		service: service,
-		dialer:  dialer,
 
-		trust: trust,
-
-		maxSleep: maxSleep,
-		Loop:     sync2.NewCycle(interval),
+		cycles:   make(map[storj.NodeID]*sync2.Cycle),
+		interval: interval,
 	}
 }
 
-// Run the contact chore on a regular interval with jitter
+// Run the contact chore on a regular interval with jitter.
 func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	chore.log.Info("Storagenode contact chore starting up")
-
-	return chore.Loop.Run(ctx, func(ctx context.Context) error {
-		if err := chore.randomDurationSleep(ctx); err != nil {
-			return err
-		}
-		if err := chore.pingSatellites(ctx); err != nil {
-			chore.log.Error("pingSatellites failed", zap.Error(err))
-		}
-		return nil
-	})
-}
-
-func (chore *Chore) pingSatellites(ctx context.Context) (err error) {
-	defer mon.Task()(&ctx)(&err)
 	var group errgroup.Group
-	self := chore.service.Local()
-	satellites := chore.trust.GetSatellites(ctx)
-	for _, satellite := range satellites {
-		satellite := satellite
-		addr, err := chore.trust.GetAddress(ctx, satellite)
-		if err != nil {
-			chore.log.Error("getting satellite address", zap.Error(err))
-			continue
-		}
-		group.Go(func() error {
-			conn, err := chore.dialer.DialAddressID(ctx, addr, satellite)
-			if err != nil {
-				return err
-			}
-			defer func() { err = errs.Combine(err, conn.Close()) }()
 
-			_, err = conn.NodeClient().CheckIn(ctx, &pb.CheckInRequest{
-				Address:  self.Address.GetAddress(),
-				Version:  &self.Version,
-				Capacity: &self.Capacity,
-				Operator: &self.Operator,
-			})
-
-			return err
-		})
-	}
-
-	return group.Wait()
-}
-
-// randomDurationSleep sleeps for random interval in [0;maxSleep)
-// returns error if context was cancelled
-func (chore *Chore) randomDurationSleep(ctx context.Context) error {
-	if chore.maxSleep <= 0 {
-		return nil
-	}
-	jitter := time.Duration(rand.Int63n(int64(chore.maxSleep)))
-	if !sync2.Sleep(ctx, jitter) {
+	if !chore.service.initialized.Wait(ctx) {
 		return ctx.Err()
 	}
 
-	return nil
+	// configure the satellite ping cycles
+	chore.updateCycles(ctx, &group, chore.service.trust.GetSatellites(ctx))
+
+	// set up a cycle to update ping cycles on a frequent interval
+	refreshCycle := sync2.NewCycle(time.Minute)
+	refreshCycle.Start(ctx, &group, func(ctx context.Context) error {
+		chore.updateCycles(ctx, &group, chore.service.trust.GetSatellites(ctx))
+		return nil
+	})
+
+	defer refreshCycle.Close()
+
+	chore.started.Release()
+	return group.Wait()
 }
 
-// Close stops the contact chore
+func (chore *Chore) updateCycles(ctx context.Context, group *errgroup.Group, satellites []storj.NodeID) {
+	chore.mu.Lock()
+	defer chore.mu.Unlock()
+
+	trustedIDs := make(map[storj.NodeID]struct{})
+
+	for _, satellite := range satellites {
+		satellite := satellite // alias the loop var since it is captured below
+
+		trustedIDs[satellite] = struct{}{}
+		if _, ok := chore.cycles[satellite]; ok {
+			// Ping cycle has already been started for this satellite
+			continue
+		}
+
+		// Set up a new ping cycle for the newly trusted satellite
+		chore.log.Debug("Starting cycle", zap.Stringer("Satellite ID", satellite))
+		cycle := sync2.NewCycle(chore.interval)
+		chore.cycles[satellite] = cycle
+		cycle.Start(ctx, group, func(ctx context.Context) error {
+			return chore.service.pingSatellite(ctx, satellite, chore.interval)
+		})
+	}
+
+	// Stop the ping cycle for satellites that are no longer trusted
+	for satellite, cycle := range chore.cycles {
+		if _, ok := trustedIDs[satellite]; !ok {
+			chore.log.Debug("Stopping cycle", zap.Stringer("Satellite ID", satellite))
+			cycle.Close()
+			delete(chore.cycles, satellite)
+		}
+	}
+}
+
+// Pause stops all the cycles in the contact chore.
+func (chore *Chore) Pause(ctx context.Context) {
+	chore.started.Wait(ctx)
+	chore.mu.Lock()
+	defer chore.mu.Unlock()
+	for _, cycle := range chore.cycles {
+		cycle.Pause()
+	}
+}
+
+// Trigger ensures that each cycle is done at least once.
+// If the cycle is currently running it waits for the previous to complete and then runs.
+func (chore *Chore) Trigger(ctx context.Context) {
+	chore.started.Wait(ctx)
+	chore.mu.Lock()
+	defer chore.mu.Unlock()
+	for _, cycle := range chore.cycles {
+		cycle := cycle
+		go func() {
+			cycle.Trigger()
+		}()
+	}
+}
+
+// TriggerWait ensures that each cycle is done at least once and waits for completion.
+// If the cycle is currently running it waits for the previous to complete and then runs.
+func (chore *Chore) TriggerWait(ctx context.Context) {
+	chore.started.Wait(ctx)
+	chore.mu.Lock()
+	defer chore.mu.Unlock()
+	var group errgroup.Group
+	for _, cycle := range chore.cycles {
+		cycle := cycle
+		group.Go(func() error {
+			cycle.TriggerWait()
+			return nil
+		})
+	}
+	_ = group.Wait() // goroutines aren't returning any errors
+}
+
+// Close stops all the cycles in the contact chore.
 func (chore *Chore) Close() error {
-	chore.Loop.Close()
+	chore.mu.Lock()
+	defer chore.mu.Unlock()
+	for _, cycle := range chore.cycles {
+		cycle.Close()
+	}
+	chore.cycles = nil
 	return nil
 }

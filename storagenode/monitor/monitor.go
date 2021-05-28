@@ -7,13 +7,14 @@ import (
 	"context"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/pb"
+	"storj.io/common/memory"
+	"storj.io/common/pb"
+	"storj.io/common/sync2"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/pieces"
@@ -22,48 +23,63 @@ import (
 var (
 	mon = monkit.Package()
 
-	// Error is the default error class for piecestore monitor errors
+	// Error is the default error class for piecestore monitor errors.
 	Error = errs.Class("piecestore monitor")
 )
 
-// Config defines parameters for storage node disk and bandwidth usage monitoring.
-type Config struct {
-	Interval         time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
-	MinimumDiskSpace memory.Size   `help:"how much disk space a node at minimum has to advertise" default:"500GB"`
-	MinimumBandwidth memory.Size   `help:"how much bandwidth a node at minimum has to advertise" default:"500GB"`
+// DiskSpace consolidates monitored disk space statistics.
+type DiskSpace struct {
+	Allocated     int64
+	UsedForPieces int64
+	UsedForTrash  int64
+	Free          int64
+	Available     int64
+	Overused      int64
 }
 
-// Service which monitors disk usage and updates kademlia network as necessary.
+// Config defines parameters for storage node disk and bandwidth usage monitoring.
+type Config struct {
+	Interval                  time.Duration `help:"how frequently Kademlia bucket should be refreshed with node stats" default:"1h0m0s"`
+	VerifyDirReadableInterval time.Duration `help:"how frequently to verify the location and readability of the storage directory" releaseDefault:"1m" devDefault:"30s"`
+	VerifyDirWritableInterval time.Duration `help:"how frequently to verify writability of storage directory" releaseDefault:"5m" devDefault:"30s"`
+	MinimumDiskSpace          memory.Size   `help:"how much disk space a node at minimum has to advertise" default:"500GB"`
+	MinimumBandwidth          memory.Size   `help:"how much bandwidth a node at minimum has to advertise (deprecated)" default:"0TB"`
+	NotifyLowDiskCooldown     time.Duration `help:"minimum length of time between capacity reports" default:"10m" hidden:"true"`
+}
+
+// Service which monitors disk usage.
 //
 // architecture: Service
 type Service struct {
-	log                *zap.Logger
-	store              *pieces.Store
-	contact            *contact.Service
-	usageDB            bandwidth.DB
-	allocatedDiskSpace int64
-	allocatedBandwidth int64
-	Loop               sync2.Cycle
-	Config             Config
+	log                   *zap.Logger
+	store                 *pieces.Store
+	contact               *contact.Service
+	usageDB               bandwidth.DB
+	allocatedDiskSpace    int64
+	cooldown              *sync2.Cooldown
+	Loop                  *sync2.Cycle
+	VerifyDirReadableLoop *sync2.Cycle
+	VerifyDirWritableLoop *sync2.Cycle
+	Config                Config
 }
 
-// TODO: should it be responsible for monitoring actual bandwidth as well?
-
 // NewService creates a new storage node monitoring service.
-func NewService(log *zap.Logger, store *pieces.Store, contact *contact.Service, usageDB bandwidth.DB, allocatedDiskSpace, allocatedBandwidth int64, interval time.Duration, config Config) *Service {
+func NewService(log *zap.Logger, store *pieces.Store, contact *contact.Service, usageDB bandwidth.DB, allocatedDiskSpace int64, interval time.Duration, reportCapacity func(context.Context), config Config) *Service {
 	return &Service{
-		log:                log,
-		store:              store,
-		contact:            contact,
-		usageDB:            usageDB,
-		allocatedDiskSpace: allocatedDiskSpace,
-		allocatedBandwidth: allocatedBandwidth,
-		Loop:               *sync2.NewCycle(interval),
-		Config:             config,
+		log:                   log,
+		store:                 store,
+		contact:               contact,
+		usageDB:               usageDB,
+		allocatedDiskSpace:    allocatedDiskSpace,
+		cooldown:              sync2.NewCooldown(config.NotifyLowDiskCooldown),
+		Loop:                  sync2.NewCycle(interval),
+		VerifyDirReadableLoop: sync2.NewCycle(config.VerifyDirReadableInterval),
+		VerifyDirWritableLoop: sync2.NewCycle(config.VerifyDirWritableInterval),
+		Config:                config,
 	}
 }
 
-// Run runs monitor service
+// Run runs monitor service.
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -75,127 +91,169 @@ func (service *Service) Run(ctx context.Context) (err error) {
 	}
 	freeDiskSpace := storageStatus.DiskFree
 
-	totalUsed, err := service.usedSpace(ctx)
+	totalUsed, err := service.store.SpaceUsedForPiecesAndTrash(ctx)
 	if err != nil {
-		return err
-	}
-
-	usedBandwidth, err := service.usedBandwidth(ctx)
-	if err != nil {
-		return err
-	}
-
-	if usedBandwidth > service.allocatedBandwidth {
-		service.log.Warn("Exceed the allowed Bandwidth setting")
-	} else {
-		service.log.Info("Remaining Bandwidth", zap.Int64("bytes", service.allocatedBandwidth-usedBandwidth))
+		return Error.Wrap(err)
 	}
 
 	// check your hard drive is big enough
 	// first time setup as a piece node server
 	if totalUsed == 0 && freeDiskSpace < service.allocatedDiskSpace {
 		service.allocatedDiskSpace = freeDiskSpace
-		service.log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", service.allocatedDiskSpace))
+		service.log.Warn("Disk space is less than requested. Allocated space is", zap.Int64("bytes", service.allocatedDiskSpace))
 	}
 
 	// on restarting the Piece node server, assuming already been working as a node
 	// used above the alloacated space, user changed the allocation space setting
 	// before restarting
 	if totalUsed >= service.allocatedDiskSpace {
-		service.log.Warn("Used more space than allocated. Allocating space", zap.Int64("bytes", service.allocatedDiskSpace))
+		service.log.Warn("Used more space than allocated. Allocated space is", zap.Int64("bytes", service.allocatedDiskSpace))
 	}
 
 	// the available disk space is less than remaining allocated space,
 	// due to change of setting before restarting
 	if freeDiskSpace < service.allocatedDiskSpace-totalUsed {
 		service.allocatedDiskSpace = freeDiskSpace + totalUsed
-		service.log.Warn("Disk space is less than requested. Allocating space", zap.Int64("bytes", service.allocatedDiskSpace))
+		service.log.Warn("Disk space is less than requested. Allocated space is", zap.Int64("bytes", service.allocatedDiskSpace))
 	}
 
 	// Ensure the disk is at least 500GB in size, which is our current minimum required to be an operator
 	if service.allocatedDiskSpace < service.Config.MinimumDiskSpace.Int64() {
-		service.log.Error("Total disk space less than required minimum", zap.Int64("bytes", service.Config.MinimumDiskSpace.Int64()))
+		service.log.Error("Total disk space is less than required minimum", zap.Int64("bytes", service.Config.MinimumDiskSpace.Int64()))
 		return Error.New("disk space requirement not met")
 	}
 
-	// Ensure the bandwidth is at least 500GB
-	if service.allocatedBandwidth < service.Config.MinimumBandwidth.Int64() {
-		service.log.Error("Total Bandwidth available less than required minimum", zap.Int64("bytes", service.Config.MinimumBandwidth.Int64()))
-		return Error.New("bandwidth requirement not met")
-	}
-
-	return service.Loop.Run(ctx, func(ctx context.Context) error {
+	group, ctx := errgroup.WithContext(ctx)
+	group.Go(func() error {
+		return service.VerifyDirReadableLoop.Run(ctx, func(ctx context.Context) error {
+			err := service.store.VerifyStorageDir(service.contact.Local().ID)
+			if err != nil {
+				return Error.New("error verifying location and/or readability of storage directory: %v", err)
+			}
+			return nil
+		})
+	})
+	group.Go(func() error {
+		return service.VerifyDirWritableLoop.Run(ctx, func(ctx context.Context) error {
+			err := service.store.CheckWritability()
+			if err != nil {
+				return Error.New("error verifying writability of storage directory: %v", err)
+			}
+			return nil
+		})
+	})
+	group.Go(func() error {
+		return service.Loop.Run(ctx, func(ctx context.Context) error {
+			err := service.updateNodeInformation(ctx)
+			if err != nil {
+				service.log.Error("error during updating node information: ", zap.Error(err))
+			}
+			return nil
+		})
+	})
+	service.cooldown.Start(ctx, group, func(ctx context.Context) error {
 		err := service.updateNodeInformation(ctx)
 		if err != nil {
 			service.log.Error("error during updating node information: ", zap.Error(err))
+			return nil
 		}
-		return err
+
+		err = service.contact.PingSatellites(ctx, service.Config.NotifyLowDiskCooldown)
+		if err != nil {
+			service.log.Error("error notifying satellites: ", zap.Error(err))
+		}
+		return nil
 	})
+
+	return group.Wait()
+}
+
+// NotifyLowDisk reports disk space to satellites if cooldown timer has expired.
+func (service *Service) NotifyLowDisk() {
+	service.cooldown.Trigger()
 }
 
 // Close stops the monitor service.
 func (service *Service) Close() (err error) {
 	service.Loop.Close()
+	service.cooldown.Close()
 	return nil
 }
 
 func (service *Service) updateNodeInformation(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	usedSpace, err := service.usedSpace(ctx)
+	freeSpace, err := service.AvailableSpace(ctx)
 	if err != nil {
-		return Error.Wrap(err)
+		return err
 	}
-
-	usedBandwidth, err := service.usedBandwidth(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
 	service.contact.UpdateSelf(&pb.NodeCapacity{
-		FreeBandwidth: service.allocatedBandwidth - usedBandwidth,
-		FreeDisk:      service.allocatedDiskSpace - usedSpace,
+		FreeDisk: freeSpace,
 	})
 
 	return nil
 }
 
-func (service *Service) usedSpace(ctx context.Context) (_ int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	usedSpace, err := service.store.SpaceUsedForPieces(ctx)
-	if err != nil {
-		return 0, err
-	}
-	return usedSpace, nil
-}
-
-func (service *Service) usedBandwidth(ctx context.Context) (_ int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	usage, err := service.usageDB.MonthSummary(ctx)
-	if err != nil {
-		return 0, err
-	}
-	return usage, nil
-}
-
-// AvailableSpace returns available disk space for upload
+// AvailableSpace returns available disk space for upload.
 func (service *Service) AvailableSpace(ctx context.Context) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	usedSpace, err := service.store.SpaceUsedForPieces(ctx)
+
+	usedSpace, err := service.store.SpaceUsedForPiecesAndTrash(ctx)
+	if err != nil {
+		return 0, err
+	}
+
+	freeSpaceForStorj := service.allocatedDiskSpace - usedSpace
+
+	diskStatus, err := service.store.StorageStatus(ctx)
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}
-	allocatedSpace := service.allocatedDiskSpace
-	return allocatedSpace - usedSpace, nil
+	if diskStatus.DiskFree < freeSpaceForStorj {
+		freeSpaceForStorj = diskStatus.DiskFree
+	}
+
+	mon.IntVal("allocated_space").Observe(service.allocatedDiskSpace)
+	mon.IntVal("used_space").Observe(usedSpace)
+	mon.IntVal("available_space").Observe(freeSpaceForStorj)
+
+	return freeSpaceForStorj, nil
 }
 
-// AvailableBandwidth returns available bandwidth for upload/download
-func (service *Service) AvailableBandwidth(ctx context.Context) (_ int64, err error) {
+// DiskSpace returns consolidated disk space state info.
+func (service *Service) DiskSpace(ctx context.Context) (_ DiskSpace, err error) {
 	defer mon.Task()(&ctx)(&err)
-	usage, err := service.usageDB.MonthSummary(ctx)
+
+	usedForPieces, _, err := service.store.SpaceUsedForPieces(ctx)
 	if err != nil {
-		return 0, Error.Wrap(err)
+		return DiskSpace{}, Error.Wrap(err)
 	}
-	allocatedBandwidth := service.allocatedBandwidth
-	return allocatedBandwidth - usage, nil
+	usedForTrash, err := service.store.SpaceUsedForTrash(ctx)
+	if err != nil {
+		return DiskSpace{}, Error.Wrap(err)
+	}
+
+	storageStatus, err := service.store.StorageStatus(ctx)
+	if err != nil {
+		return DiskSpace{}, Error.Wrap(err)
+	}
+
+	overused := int64(0)
+
+	available := service.allocatedDiskSpace - (usedForPieces + usedForTrash)
+	if available < 0 {
+		overused = -available
+	}
+	if storageStatus.DiskFree < available {
+		available = storageStatus.DiskFree
+	}
+
+	return DiskSpace{
+		Allocated:     service.allocatedDiskSpace,
+		UsedForPieces: usedForPieces,
+		UsedForTrash:  usedForTrash,
+		Free:          storageStatus.DiskFree,
+		Available:     available,
+		Overused:      overused,
+	}, nil
 }

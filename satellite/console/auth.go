@@ -12,14 +12,14 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 )
 
-//TODO: change to JWT or Macaroon based auth
+// TODO: change to JWT or Macaroon based auth
 
-// Signer creates signature for provided data
+// Signer creates signature for provided data.
 type Signer interface {
 	Sign(data []byte) ([]byte, error)
 }
 
-// signToken signs token with given signer
+// signToken signs token with given signer.
 func signToken(token *consoleauth.Token, signer Signer) error {
 	encoded := base64.URLEncoding.EncodeToString(token.Payload)
 
@@ -32,32 +32,35 @@ func signToken(token *consoleauth.Token, signer Signer) error {
 	return nil
 }
 
-// key is a context value key type
+// key is a context value key type.
 type key int
 
-// authKey is context key for Authorization
+// authKey is context key for Authorization.
 const authKey key = 0
 
-// ErrUnauthorized is error class for authorization related errors
-var ErrUnauthorized = errs.Class("unauthorized error")
+// requestKey is context key for Requests.
+const requestKey key = 1
 
-// Authorization contains auth info of authorized User
+// ErrUnauthorized is error class for authorization related errors.
+var ErrUnauthorized = errs.Class("unauthorized")
+
+// Authorization contains auth info of authorized User.
 type Authorization struct {
 	User   User
 	Claims consoleauth.Claims
 }
 
-// WithAuth creates new context with Authorization
+// WithAuth creates new context with Authorization.
 func WithAuth(ctx context.Context, auth Authorization) context.Context {
 	return context.WithValue(ctx, authKey, auth)
 }
 
-// WithAuthFailure creates new context with authorization failure
+// WithAuthFailure creates new context with authorization failure.
 func WithAuthFailure(ctx context.Context, err error) context.Context {
 	return context.WithValue(ctx, authKey, err)
 }
 
-// GetAuth gets Authorization from context
+// GetAuth gets Authorization from context.
 func GetAuth(ctx context.Context) (Authorization, error) {
 	value := ctx.Value(authKey)
 
@@ -66,8 +69,8 @@ func GetAuth(ctx context.Context) (Authorization, error) {
 	}
 
 	if err, ok := value.(error); ok {
-		return Authorization{}, err
+		return Authorization{}, ErrUnauthorized.Wrap(err)
 	}
 
-	return Authorization{}, errs.New(unauthorizedErrMsg)
+	return Authorization{}, ErrUnauthorized.New(unauthorizedErrMsg)
 }

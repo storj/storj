@@ -8,7 +8,7 @@ import (
 	"net/mail"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
+	"storj.io/common/uuid"
 )
 
 // Users exposes methods to manage User table in database.
@@ -25,27 +25,23 @@ type Users interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	// Update is a method for updating user entity.
 	Update(ctx context.Context, user *User) error
+	// GetProjectLimit is a method to get the users project limit
+	GetProjectLimit(ctx context.Context, id uuid.UUID) (limit int, err error)
 }
 
 // UserInfo holds User updatable data.
 type UserInfo struct {
 	FullName  string `json:"fullName"`
 	ShortName string `json:"shortName"`
-	Email     string `json:"email"`
-	PartnerID string `json:"partnerId"`
 }
 
 // IsValid checks UserInfo validity and returns error describing whats wrong.
 func (user *UserInfo) IsValid() error {
 	var errs validationErrors
 
-	// validate email
-	_, err := mail.ParseAddress(user.Email)
-	errs.AddWrap(err)
-
 	// validate fullName
-	if user.FullName == "" {
-		errs.Add("fullName can't be empty")
+	if err := ValidateFullName(user.FullName); err != nil {
+		errs.AddWrap(err)
 	}
 
 	return errs.Combine()
@@ -53,19 +49,31 @@ func (user *UserInfo) IsValid() error {
 
 // CreateUser struct holds info for User creation.
 type CreateUser struct {
-	UserInfo
-	Password string `json:"password"`
+	FullName       string `json:"fullName"`
+	ShortName      string `json:"shortName"`
+	Email          string `json:"email"`
+	PartnerID      string `json:"partnerId"`
+	Password       string `json:"password"`
+	IsProfessional bool   `json:"isProfessional"`
+	Position       string `json:"position"`
+	CompanyName    string `json:"companyName"`
+	WorkingOn      string `json:"workingOn"`
+	EmployeeCount  string `json:"employeeCount"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.
 func (user *CreateUser) IsValid() error {
 	var errs validationErrors
 
-	errs.AddWrap(user.UserInfo.IsValid())
-	errs.AddWrap(validatePassword(user.Password))
+	errs.AddWrap(ValidateFullName(user.FullName))
+	errs.AddWrap(ValidatePassword(user.Password))
+
+	// validate email
+	_, err := mail.ParseAddress(user.Email)
+	errs.AddWrap(err)
 
 	if user.PartnerID != "" {
-		_, err := uuid.Parse(user.PartnerID)
+		_, err := uuid.FromString(user.PartnerID)
 		if err != nil {
 			errs.AddWrap(err)
 		}
@@ -74,15 +82,15 @@ func (user *CreateUser) IsValid() error {
 	return errs.Combine()
 }
 
-// UserStatus - is used to indicate status of the users account
+// UserStatus - is used to indicate status of the users account.
 type UserStatus int
 
 const (
-	// Inactive is a user status that he receives after registration
+	// Inactive is a user status that he receives after registration.
 	Inactive UserStatus = 0
-	// Active is a user status that he receives after account activation
+	// Active is a user status that he receives after account activation.
 	Active UserStatus = 1
-	// Deleted is a user status that he receives after deleting account
+	// Deleted is a user status that he receives after deleting account.
 	Deleted UserStatus = 2
 )
 
@@ -100,4 +108,13 @@ type User struct {
 	PartnerID uuid.UUID  `json:"partnerId"`
 
 	CreatedAt time.Time `json:"createdAt"`
+
+	ProjectLimit int `json:"projectLimit"`
+
+	IsProfessional bool   `json:"isProfessional"`
+	Position       string `json:"position"`
+	CompanyName    string `json:"companyName"`
+	CompanySize    int    `json:"companySize"`
+	WorkingOn      string `json:"workingOn"`
+	EmployeeCount  string `json:"employeeCount"`
 }

@@ -9,13 +9,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/teststorj"
-	"storj.io/storj/pkg/pb"
+	"storj.io/common/pb"
+	"storj.io/common/testcontext"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/private/teststorj"
 )
 
-// Simple test for ensuring the service runs Rollups in the Loop
+// Simple test for ensuring the service runs Rollups in the Loop.
 func TestBandwidthService(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 1,

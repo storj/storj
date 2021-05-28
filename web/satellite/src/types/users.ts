@@ -2,18 +2,18 @@
 // See LICENSE for copying information.
 
 /**
- * Exposes all user-related functionality
+ * Exposes all user-related functionality.
  */
 export interface UsersApi {
     /**
-     * Updates users full name and short name
+     * Updates users full name and short name.
      *
      * @param user - contains information that should be updated
      * @throws Error
      */
     update(user: UpdatedUser): Promise<void>;
     /**
-     * Fetch user
+     * Fetch user.
      *
      * @returns User
      * @throws Error
@@ -25,22 +25,23 @@ export interface UsersApi {
  * User class holds info for User entity.
  */
 export class User {
-    public id: string;
-    public fullName: string;
-    public shortName: string;
-    public email: string;
-    public partnerId: string;
-
-    public constructor(id: string = '', fullName: string = '', shortName: string = '', email: string = '', partnerId: string = '') {
-        this.id = id;
-        this.fullName = fullName;
-        this.shortName = shortName;
-        this.email = email;
-        this.partnerId = partnerId;
-    }
+    public constructor(
+        public id: string = '',
+        public fullName: string = '',
+        public shortName: string = '',
+        public email: string = '',
+        public partner: string = '',
+        public partnerId: string = '',
+        public password: string = '',
+        public projectLimit: number = 0,
+        public isProfessional: boolean = false,
+        public position: string = '',
+        public companyName: string = '',
+        public employeeCount: string = '',
+    ) {}
 
     public getFullName(): string {
-        return this.shortName === '' ? this.fullName : this.shortName;
+        return !this.shortName ? this.fullName : this.shortName;
     }
 }
 
@@ -48,13 +49,10 @@ export class User {
  * User class holds info for updating User.
  */
 export class UpdatedUser {
-    public fullName: string;
-    public shortName: string;
-
-    public constructor(fullName: string, shortName: string) {
-        this.fullName = fullName;
-        this.shortName = shortName;
-    }
+    public constructor(
+        public fullName: string = '',
+        public shortName: string = '',
+    ) {}
 
     public setFullName(value: string) {
         this.fullName = value.trim();

@@ -6,44 +6,73 @@ package overlay
 import (
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+
+	"storj.io/common/memory"
 )
 
 var (
 	mon = monkit.Package()
-	// Error represents an overlay error
-	Error = errs.Class("overlay error")
+	// Error represents an overlay error.
+	Error = errs.Class("overlay")
 )
 
 // Config is a configuration for overlay service.
 type Config struct {
 	Node                 NodeSelectionConfig
+	NodeSelectionCache   UploadSelectionCacheConfig
 	UpdateStatsBatchSize int `help:"number of update requests to process per transaction" default:"100"`
+	AuditHistory         AuditHistoryConfig
+}
+
+// AsOfSystemTimeConfig is a configuration struct to enable 'AS OF SYSTEM TIME' for CRDB queries.
+type AsOfSystemTimeConfig struct {
+	Enabled         bool          `help:"enables the use of the AS OF SYSTEM TIME feature in CRDB" default:"true"`
+	DefaultInterval time.Duration `help:"default duration for AS OF SYSTEM TIME" devDefault:"-1µs" releaseDefault:"-10s"`
 }
 
 // NodeSelectionConfig is a configuration struct to determine the minimum
-// values for nodes to select
+// values for nodes to select.
 type NodeSelectionConfig struct {
-	UptimeCount       int64         `help:"the number of times a node's uptime has been checked to not be considered a New Node" releaseDefault:"100" devDefault:"0"`
-	AuditCount        int64         `help:"the number of times a node has been audited to not be considered a New Node" releaseDefault:"100" devDefault:"0"`
-	NewNodePercentage float64       `help:"the percentage of new nodes allowed per request" default:"0.05"` // TODO: fix, this is not percentage, it's ratio
-	MinimumVersion    string        `help:"the minimum node software version for node selection queries" default:""`
-	OnlineWindow      time.Duration `help:"the amount of time without seeing a node before its considered offline" default:"4h"`
-	DistinctIP        bool          `help:"require distinct IPs when choosing nodes for upload" releaseDefault:"true" devDefault:"false"`
+	AuditCount       int64         `help:"the number of times a node has been audited to not be considered a New Node" releaseDefault:"100" devDefault:"0"`
+	NewNodeFraction  float64       `help:"the fraction of new nodes allowed per request" releaseDefault:"0.05" devDefault:"1"`
+	MinimumVersion   string        `help:"the minimum node software version for node selection queries" default:""`
+	OnlineWindow     time.Duration `help:"the amount of time without seeing a node before its considered offline" default:"4h"`
+	DistinctIP       bool          `help:"require distinct IPs when choosing nodes for upload" releaseDefault:"true" devDefault:"false"`
+	MinimumDiskSpace memory.Size   `help:"how much disk space a node at minimum must have to be selected for upload" default:"500.00MB"`
 
-	AuditReputationRepairWeight  float64 `help:"weight to apply to audit reputation for total repair reputation calculation" default:"1.0"`
-	AuditReputationUplinkWeight  float64 `help:"weight to apply to audit reputation for total uplink reputation calculation" default:"1.0"`
-	AuditReputationAlpha0        float64 `help:"the initial shape 'alpha' used to calculate audit SNs reputation" default:"1.0"`
-	AuditReputationBeta0         float64 `help:"the initial shape 'beta' value used to calculate audit SNs reputation" default:"0.0"`
-	AuditReputationLambda        float64 `help:"the forgetting factor used to calculate the audit SNs reputation" default:"0.95"`
-	AuditReputationWeight        float64 `help:"the normalization weight used to calculate the audit SNs reputation" default:"1.0"`
-	AuditReputationDQ            float64 `help:"the reputation cut-off for disqualifying SNs based on audit history" default:"0.6"`
-	UptimeReputationRepairWeight float64 `help:"weight to apply to uptime reputation for total repair reputation calculation" default:"1.0"`
-	UptimeReputationUplinkWeight float64 `help:"weight to apply to uptime reputation for total uplink reputation calculation" default:"1.0"`
-	UptimeReputationAlpha0       float64 `help:"the initial shape 'alpha' used to calculate uptime SNs reputation" default:"2.0"`
-	UptimeReputationBeta0        float64 `help:"the initial shape 'beta' value used to calculate uptime SNs reputation" default:"0.0"`
-	UptimeReputationLambda       float64 `help:"the forgetting factor used to calculate the uptime SNs reputation" default:"0.99"`
-	UptimeReputationWeight       float64 `help:"the normalization weight used to calculate the uptime SNs reputation" default:"1.0"`
-	UptimeReputationDQ           float64 `help:"the reputation cut-off for disqualifying SNs based on uptime history" default:"0"`
+	AuditReputationRepairWeight float64       `help:"weight to apply to audit reputation for total repair reputation calculation" default:"1.0"`
+	AuditReputationUplinkWeight float64       `help:"weight to apply to audit reputation for total uplink reputation calculation" default:"1.0"`
+	AuditReputationLambda       float64       `help:"the forgetting factor used to calculate the audit SNs reputation" default:"0.95"`
+	AuditReputationWeight       float64       `help:"the normalization weight used to calculate the audit SNs reputation" default:"1.0"`
+	AuditReputationDQ           float64       `help:"the reputation cut-off for disqualifying SNs based on audit history" default:"0.6"`
+	SuspensionGracePeriod       time.Duration `help:"the time period that must pass before suspended nodes will be disqualified" releaseDefault:"168h" devDefault:"1h"`
+	SuspensionDQEnabled         bool          `help:"whether nodes will be disqualified if they have been suspended for longer than the suspended grace period" releaseDefault:"false" devDefault:"true"`
+
+	AsOfSystemTime AsOfSystemTimeConfig
+}
+
+// AuditHistoryConfig is a configuration struct defining time periods and thresholds for penalizing nodes for being offline.
+// It is used for downtime suspension and disqualification.
+type AuditHistoryConfig struct {
+	WindowSize               time.Duration `help:"The length of time spanning a single audit window" releaseDefault:"12h" devDefault:"5m"`
+	TrackingPeriod           time.Duration `help:"The length of time to track audit windows for node suspension and disqualification" releaseDefault:"720h" devDefault:"1h"`
+	GracePeriod              time.Duration `help:"The length of time to give suspended SNOs to diagnose and fix issues causing downtime. Afterwards, they will have one tracking period to reach the minimum online score before disqualification" releaseDefault:"168h" devDefault:"1h"`
+	OfflineThreshold         float64       `help:"The point below which a node is punished for offline audits. Determined by calculating the ratio of online/total audits within each window and finding the average across windows within the tracking period." default:"0.6"`
+	OfflineDQEnabled         bool          `help:"whether nodes will be disqualified if they have low online score after a review period" releaseDefault:"false" devDefault:"true"`
+	OfflineSuspensionEnabled bool          `help:"whether nodes will be suspended if they have low online score" releaseDefault:"true" devDefault:"true"`
+}
+
+func (aost *AsOfSystemTimeConfig) isValid() error {
+	if aost.Enabled {
+		if aost.DefaultInterval >= 0 {
+			return errs.New("AS OF SYSTEM TIME interval must be a negative number")
+		}
+		if aost.DefaultInterval > -time.Microsecond {
+			return errs.New("AS OF SYSTEM TIME interval cannot be in nanoseconds")
+		}
+	}
+
+	return nil
 }

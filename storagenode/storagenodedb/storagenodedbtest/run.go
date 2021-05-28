@@ -6,19 +6,26 @@ package storagenodedbtest
 // This package should be referenced only in test files!
 
 import (
+	"database/sql"
 	"path/filepath"
 	"testing"
 
+	"github.com/mattn/go-sqlite3"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/testcontext"
+	"storj.io/common/testcontext"
+	"storj.io/private/dbutil/utccheck"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb"
 )
 
+func init() {
+	sql.Register("sqlite3+utccheck", utccheck.WrapDriver(&sqlite3.SQLiteDriver{}))
+}
+
 // Run method will iterate over all supported databases. Will establish
 // connection and will create tables for each DB.
-func Run(t *testing.T, test func(t *testing.T, db storagenode.DB)) {
+func Run(t *testing.T, test func(ctx *testcontext.Context, t *testing.T, db storagenode.DB)) {
 	t.Run("Sqlite", func(t *testing.T) {
 		t.Parallel()
 		ctx := testcontext.New(t)
@@ -31,20 +38,21 @@ func Run(t *testing.T, test func(t *testing.T, db storagenode.DB)) {
 			Storage: storageDir,
 			Info:    filepath.Join(storageDir, "piecestore.db"),
 			Info2:   filepath.Join(storageDir, "info.db"),
+			Driver:  "sqlite3+utccheck",
 			Pieces:  storageDir,
 		}
 
-		db, err := storagenodedb.New(log, cfg)
+		db, err := storagenodedb.OpenNew(ctx, log, cfg)
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer ctx.Check(db.Close)
 
-		err = db.CreateTables(ctx)
+		err = db.MigrateToLatest(ctx)
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		test(t, db)
+		test(ctx, t, db)
 	})
 }

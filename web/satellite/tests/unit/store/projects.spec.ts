@@ -5,13 +5,31 @@ import Vuex from 'vuex';
 
 import { ProjectsApiGql } from '@/api/projects';
 import { makeProjectsModule, PROJECTS_ACTIONS, PROJECTS_MUTATIONS } from '@/store/modules/projects';
-import { Project } from '@/types/projects';
+import { Project, ProjectFields, ProjectLimits } from '@/types/projects';
 import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
 const projectsApi = new ProjectsApiGql();
-const { FETCH, CREATE, SELECT, DELETE, CLEAR, UPDATE } = PROJECTS_ACTIONS;
-const { ADD, SET_PROJECTS, SELECT_PROJECT, UPDATE_PROJECT, REMOVE, CLEAR_PROJECTS } = PROJECTS_MUTATIONS;
+const {
+    FETCH,
+    CREATE,
+    SELECT,
+    DELETE,
+    CLEAR,
+    UPDATE_NAME,
+    UPDATE_DESCRIPTION,
+    GET_LIMITS,
+} = PROJECTS_ACTIONS;
+const {
+    ADD,
+    SET_PROJECTS,
+    SELECT_PROJECT,
+    UPDATE_PROJECT_NAME,
+    UPDATE_PROJECT_DESCRIPTION,
+    REMOVE,
+    CLEAR_PROJECTS,
+    SET_LIMITS,
+} = PROJECTS_MUTATIONS;
 
 const projectsModule = makeProjectsModule(projectsApi);
 const selectedProject = new Project('1', '', '', '');
@@ -24,11 +42,27 @@ const store = new Vuex.Store({ modules: { projectsModule } });
 const state = (store.state as any).projectsModule;
 
 const projects = [
-    new Project('11', 'name', 'descr', '23'),
-    new Project('1', 'name2', 'descr2', '24'),
+    new Project(
+        '11',
+        'name',
+        'descr',
+        '23',
+        'testOwnerId',
+        false,
+    ),
+    new Project(
+        '1',
+        'name2',
+        'descr2',
+        '24',
+        'testOwnerId1',
+        false,
+    ),
 ];
 
-const project = new Project('11', 'name', 'descr', '23');
+const limits = new ProjectLimits(15, 12, 14, 13);
+
+const project = new Project('11', 'name', 'descr', '23', 'testOwnerId');
 
 describe('mutations', () => {
     beforeEach(() => {
@@ -43,6 +77,7 @@ describe('mutations', () => {
         expect(state.projects[0].name).toBe(project.name);
         expect(state.projects[0].description).toBe(project.description);
         expect(state.projects[0].createdAt).toBe(project.createdAt);
+        expect(state.projects[0].ownerId).toBe(project.ownerId);
     });
 
     it('set projects', () => {
@@ -57,14 +92,25 @@ describe('mutations', () => {
 
         store.commit(SELECT_PROJECT, '11');
         expect(state.selectedProject.id).toBe('11');
+        expect(state.currentLimits.bandwidthLimit).toBe(0);
     });
 
-    it('update project', () => {
+    it('update project name', () => {
+        state.projects = projects;
+
+        const newName = 'newName';
+
+        store.commit(UPDATE_PROJECT_NAME, { id: '11', name: newName });
+
+        expect(state.projects.find((pr: Project) => pr.id === '11').name).toBe(newName);
+    });
+
+    it('update project description', () => {
         state.projects = projects;
 
         const newDescription = 'newDescription';
 
-        store.commit(UPDATE_PROJECT, { id: '11', description: newDescription });
+        store.commit(UPDATE_PROJECT_DESCRIPTION, { id: '11', description: newDescription });
 
         expect(state.projects.find((pr: Project) => pr.id === '11').description).toBe(newDescription);
     });
@@ -76,6 +122,17 @@ describe('mutations', () => {
 
         expect(state.projects.length).toBe(1);
         expect(state.projects[0].id).toBe('1');
+    });
+
+    it('set limits', () => {
+        state.projects = projects;
+
+        store.commit(SET_LIMITS, limits);
+
+        expect(state.currentLimits.bandwidthUsed).toBe(12);
+        expect(state.currentLimits.bandwidthLimit).toBe(15);
+        expect(state.currentLimits.storageUsed).toBe(13);
+        expect(state.currentLimits.storageLimit).toBe(14);
     });
 
     it('clear projects', () => {
@@ -111,6 +168,7 @@ describe('actions', () => {
             await store.dispatch(FETCH);
         } catch (error) {
             expect(state.projects.length).toBe(0);
+            expect(state.currentLimits.bandwidthLimit).toBe(0);
         }
     });
 
@@ -122,6 +180,7 @@ describe('actions', () => {
 
         await store.dispatch(CREATE, {name: '', description: ''});
         expect(state.projects.length).toBe(1);
+        expect(state.currentLimits.bandwidthLimit).toBe(0);
     });
 
     it('create throws an error when create api call fails', async () => {
@@ -133,10 +192,11 @@ describe('actions', () => {
             expect(true).toBe(false);
         } catch (error) {
             expect(state.projects.length).toBe(0);
+            expect(state.currentLimits.bandwidthLimit).toBe(0);
         }
     });
 
-    it('success delete apiKeys', async () => {
+    it('success delete project', async () => {
         jest.spyOn(projectsApi, 'delete').mockReturnValue(
             Promise.resolve(),
         );
@@ -170,15 +230,30 @@ describe('actions', () => {
         expect(state.selectedProject.id).toEqual('1');
     });
 
-    it('success update project', async () => {
+    it('success update project name', async () => {
+        jest.spyOn(projectsApi, 'update').mockReturnValue(
+            Promise.resolve(),
+        );
+
+        state.projects = projects;
+        const newName = 'newName';
+        const fieldsToUpdate = new ProjectFields(newName, state.projects[0].description);
+
+        await store.dispatch(UPDATE_NAME, fieldsToUpdate);
+
+        expect(state.projects.find((pr: Project) => pr.id === '1').name).toBe(newName);
+    });
+
+    it('success update project description', async () => {
         jest.spyOn(projectsApi, 'update').mockReturnValue(
             Promise.resolve(),
         );
 
         state.projects = projects;
         const newDescription = 'newDescription1';
+        const fieldsToUpdate = new ProjectFields(state.projects[0].name, newDescription);
 
-        await store.dispatch(UPDATE, { id: '1', description: newDescription });
+        await store.dispatch(UPDATE_DESCRIPTION, fieldsToUpdate);
 
         expect(state.projects.find((pr: Project) => pr.id === '1').description).toBe(newDescription);
     });
@@ -188,13 +263,29 @@ describe('actions', () => {
 
         state.projects = projects;
         const newDescription = 'newDescription2';
+        const fieldsToUpdate = new ProjectFields(state.projects[0].name, newDescription);
 
         try {
-            await store.dispatch(UPDATE, { id: '1', description: newDescription });
+            await store.dispatch(UPDATE_DESCRIPTION, fieldsToUpdate);
             expect(true).toBe(false);
         } catch (error) {
             expect(state.projects.find((pr: Project) => pr.id === '1').description).toBe('newDescription1');
         }
+    });
+
+    it('success get project limits', async () => {
+        jest.spyOn(projectsApi, 'getLimits').mockReturnValue(
+            Promise.resolve(limits),
+        );
+
+        state.projects = projects;
+
+        await store.dispatch(GET_LIMITS, state.selectedProject.id);
+
+        expect(state.currentLimits.bandwidthUsed).toBe(12);
+        expect(state.currentLimits.bandwidthLimit).toBe(15);
+        expect(state.currentLimits.storageUsed).toBe(13);
+        expect(state.currentLimits.storageLimit).toBe(14);
     });
 
     it('success clearProjects', () => {
@@ -219,7 +310,7 @@ describe('getters', () => {
         expect(selectedProject.id).toBe('1');
     });
 
-    it('apiKeys array', () => {
+    it('projects array', () => {
         store.commit(PROJECTS_MUTATIONS.SET_PROJECTS, projects);
 
         const allProjects = store.getters.projects;

@@ -8,14 +8,14 @@ import (
 	"net"
 	"time"
 
-	"github.com/golang/protobuf/ptypes"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/pb"
+	"storj.io/common/rpc/rpcstatus"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/contact"
+	"storj.io/storj/storagenode/internalpb"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 )
@@ -23,14 +23,16 @@ import (
 var (
 	mon = monkit.Package()
 
-	// Error is the default error class for piecestore monitor errors
+	// Error is the default error class for piecestore monitor errors.
 	Error = errs.Class("piecestore inspector")
 )
 
-// Endpoint does inspectory things
+// Endpoint implements the inspector endpoints.
 //
 // architecture: Endpoint
 type Endpoint struct {
+	internalpb.DRPCPieceStoreInspectorUnimplementedServer
+
 	log        *zap.Logger
 	pieceStore *pieces.Store
 	contact    *contact.Service
@@ -43,7 +45,7 @@ type Endpoint struct {
 	externalAddress  string
 }
 
-// NewEndpoint creates piecestore inspector instance
+// NewEndpoint creates piecestore inspector instance.
 func NewEndpoint(
 	log *zap.Logger,
 	pieceStore *pieces.Store,
@@ -51,7 +53,7 @@ func NewEndpoint(
 	pingStats *contact.PingStats,
 	usageDB bandwidth.DB,
 	pieceStoreConfig piecestore.OldConfig,
-	dashbaordAddress net.Addr,
+	dashboardAddress net.Addr,
 	externalAddress string) *Endpoint {
 
 	return &Endpoint{
@@ -61,82 +63,68 @@ func NewEndpoint(
 		pingStats:        pingStats,
 		usageDB:          usageDB,
 		pieceStoreConfig: pieceStoreConfig,
-		dashboardAddress: dashbaordAddress,
+		dashboardAddress: dashboardAddress,
 		startTime:        time.Now(),
 		externalAddress:  externalAddress,
 	}
 }
 
-func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *pb.StatSummaryResponse, err error) {
+// Stats returns current statistics about the storage node.
+func (inspector *Endpoint) Stats(ctx context.Context, in *internalpb.StatsRequest) (out *internalpb.StatSummaryResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return inspector.retrieveStats(ctx)
+}
+
+func (inspector *Endpoint) retrieveStats(ctx context.Context) (_ *internalpb.StatSummaryResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Space Usage
-	totalUsedSpace, err := inspector.pieceStore.SpaceUsedForPieces(ctx)
+	piecesContentSize, err := inspector.pieceStore.SpaceUsedForPiecesAndTrash(ctx)
 	if err != nil {
-		return nil, err
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 	usage, err := bandwidth.TotalMonthlySummary(ctx, inspector.usageDB)
 	if err != nil {
-		return nil, err
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 	ingress := usage.Put + usage.PutRepair
 	egress := usage.Get + usage.GetAudit + usage.GetRepair
 
 	totalUsedBandwidth := usage.Total()
+	availableSpace := inspector.pieceStoreConfig.AllocatedDiskSpace.Int64() - piecesContentSize
 
-	return &pb.StatSummaryResponse{
-		UsedSpace:          totalUsedSpace,
-		AvailableSpace:     inspector.pieceStoreConfig.AllocatedDiskSpace.Int64() - totalUsedSpace,
-		UsedIngress:        ingress,
-		UsedEgress:         egress,
-		UsedBandwidth:      totalUsedBandwidth,
-		AvailableBandwidth: inspector.pieceStoreConfig.AllocatedBandwidth.Int64() - totalUsedBandwidth,
+	return &internalpb.StatSummaryResponse{
+		UsedSpace:      piecesContentSize,
+		AvailableSpace: availableSpace,
+		UsedIngress:    ingress,
+		UsedEgress:     egress,
+		UsedBandwidth:  totalUsedBandwidth,
 	}, nil
 }
 
-// Stats returns current statistics about the storage node
-func (inspector *Endpoint) Stats(ctx context.Context, in *pb.StatsRequest) (out *pb.StatSummaryResponse, err error) {
+// Dashboard returns dashboard information.
+func (inspector *Endpoint) Dashboard(ctx context.Context, in *internalpb.DashboardRequest) (out *internalpb.DashboardResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	return inspector.getDashboardData(ctx)
+}
+
+func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *internalpb.DashboardResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	statsSummary, err := inspector.retrieveStats(ctx)
 	if err != nil {
-		return nil, err
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
-	return statsSummary, nil
-}
-
-func (inspector *Endpoint) getDashboardData(ctx context.Context) (_ *pb.DashboardResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	statsSummary, err := inspector.retrieveStats(ctx)
-	if err != nil {
-		return &pb.DashboardResponse{}, Error.Wrap(err)
-	}
-
-	lastPingedAt, lastPingFromID, lastPingFromAddress := inspector.pingStats.WhenLastPinged()
-
-	return &pb.DashboardResponse{
-		NodeId:              inspector.contact.Local().Id,
-		InternalAddress:     "",
-		ExternalAddress:     inspector.contact.Local().Address.Address,
-		LastPinged:          lastPingedAt,
-		LastPingFromId:      &lastPingFromID,
-		LastPingFromAddress: lastPingFromAddress,
-		DashboardAddress:    inspector.dashboardAddress.String(),
-		Uptime:              ptypes.DurationProto(time.Since(inspector.startTime)),
-		Stats:               statsSummary,
+	lastPingedAt := inspector.pingStats.WhenLastPinged()
+	self := inspector.contact.Local()
+	return &internalpb.DashboardResponse{
+		NodeId:           self.ID,
+		InternalAddress:  "",
+		ExternalAddress:  self.Address,
+		LastPinged:       lastPingedAt,
+		DashboardAddress: inspector.dashboardAddress.String(),
+		Uptime:           time.Since(inspector.startTime).String(),
+		Stats:            statsSummary,
 	}, nil
-}
-
-// Dashboard returns dashboard information
-func (inspector *Endpoint) Dashboard(ctx context.Context, in *pb.DashboardRequest) (out *pb.DashboardResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	data, err := inspector.getDashboardData(ctx)
-	if err != nil {
-		inspector.log.Warn("unable to get dashboard information")
-		return nil, err
-	}
-	return data, nil
 }

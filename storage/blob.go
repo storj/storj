@@ -7,11 +7,14 @@ import (
 	"context"
 	"io"
 	"os"
+	"time"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/common/storj"
 )
 
-// ErrInvalidBlobRef is returned when an blob reference is invalid
+// ErrInvalidBlobRef is returned when an blob reference is invalid.
 var ErrInvalidBlobRef = errs.Class("invalid blob ref")
 
 // FormatVersion represents differing storage format version values. Different Blobs implementors
@@ -24,13 +27,13 @@ var ErrInvalidBlobRef = errs.Class("invalid blob ref")
 // the same FormatVersion is returned later when reading that stored blob.
 type FormatVersion int
 
-// BlobRef is a reference to a blob
+// BlobRef is a reference to a blob.
 type BlobRef struct {
 	Namespace []byte
 	Key       []byte
 }
 
-// IsValid returns whether both namespace and key are specified
+// IsValid returns whether both namespace and key are specified.
 func (ref *BlobRef) IsValid() bool {
 	return len(ref.Namespace) > 0 && len(ref.Key) > 0
 }
@@ -41,7 +44,7 @@ type BlobReader interface {
 	io.ReaderAt
 	io.Seeker
 	io.Closer
-	// Size returns the size of the blob
+	// Size returns the size of the blob.
 	Size() (int64, error)
 	// StorageFormatVersion returns the storage format version associated with the blob.
 	StorageFormatVersion() FormatVersion
@@ -66,28 +69,42 @@ type BlobWriter interface {
 //
 // architecture: Database
 type Blobs interface {
-	// Create creates a new blob that can be written
-	// optionally takes a size argument for performance improvements, -1 is unknown size
+	// Create creates a new blob that can be written.
+	// Optionally takes a size argument for performance improvements, -1 is unknown size.
 	Create(ctx context.Context, ref BlobRef, size int64) (BlobWriter, error)
-	// Open opens a reader with the specified namespace and key
+	// Open opens a reader with the specified namespace and key.
 	Open(ctx context.Context, ref BlobRef) (BlobReader, error)
 	// OpenWithStorageFormat opens a reader for the already-located blob, avoiding the potential
 	// need to check multiple storage formats to find the blob.
 	OpenWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) (BlobReader, error)
-	// Delete deletes the blob with the namespace and key
+	// Delete deletes the blob with the namespace and key.
 	Delete(ctx context.Context, ref BlobRef) error
-	// Stat looks up disk metadata on the blob file
+	// DeleteWithStorageFormat deletes a blob of a specific storage format.
+	DeleteWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) error
+	// DeleteNamespace deletes blobs folder for a specific namespace.
+	DeleteNamespace(ctx context.Context, ref []byte) (err error)
+	// Trash marks a file for pending deletion.
+	Trash(ctx context.Context, ref BlobRef) error
+	// RestoreTrash restores all files in the trash for a given namespace and returns the keys restored.
+	RestoreTrash(ctx context.Context, namespace []byte) ([][]byte, error)
+	// EmptyTrash removes all files in trash that were moved to trash prior to trashedBefore and returns the total bytes emptied and keys deleted.
+	EmptyTrash(ctx context.Context, namespace []byte, trashedBefore time.Time) (int64, [][]byte, error)
+	// Stat looks up disk metadata on the blob file.
 	Stat(ctx context.Context, ref BlobRef) (BlobInfo, error)
 	// StatWithStorageFormat looks up disk metadata for the blob file with the given storage format
 	// version. This avoids the potential need to check multiple storage formats for the blob
 	// when the format is already known.
 	StatWithStorageFormat(ctx context.Context, ref BlobRef, formatVer FormatVersion) (BlobInfo, error)
-	// FreeSpace return how much free space left for writing
+	// FreeSpace return how much free space is available to the blobstore.
 	FreeSpace() (int64, error)
-	// SpaceUsed adds up how much is used in all namespaces
-	SpaceUsed(ctx context.Context) (int64, error)
-	// SpaceUsedInNamespace adds up how much is used in the given namespace
-	SpaceUsedInNamespace(ctx context.Context, namespace []byte) (int64, error)
+	// CheckWritability tests writability of the storage directory by creating and deleting a file.
+	CheckWritability() error
+	// SpaceUsedForTrash returns the total space used by the trash.
+	SpaceUsedForTrash(ctx context.Context) (int64, error)
+	// SpaceUsedForBlobs adds up how much is used in all namespaces.
+	SpaceUsedForBlobs(ctx context.Context) (int64, error)
+	// SpaceUsedForBlobsInNamespace adds up how much is used in the given namespace.
+	SpaceUsedForBlobsInNamespace(ctx context.Context, namespace []byte) (int64, error)
 	// ListNamespaces finds all namespaces in which keys might currently be stored.
 	ListNamespaces(ctx context.Context) ([][]byte, error)
 	// WalkNamespace executes walkFunc for each locally stored blob, stored with
@@ -95,17 +112,24 @@ type Blobs interface {
 	// error, WalkNamespace will stop iterating and return the error immediately. The ctx
 	// parameter is intended to allow canceling iteration early.
 	WalkNamespace(ctx context.Context, namespace []byte, walkFunc func(BlobInfo) error) error
+	// CreateVerificationFile creates a file to be used for storage directory verification.
+	CreateVerificationFile(id storj.NodeID) error
+	// VerifyStorageDir verifies that the storage directory is correct by checking for the existence and validity
+	// of the verification file.
+	VerifyStorageDir(id storj.NodeID) error
+	// Close closes the blob store and any resources associated with it.
+	Close() error
 }
 
 // BlobInfo allows lazy inspection of a blob and its underlying file during iteration with
-// WalkNamespace-type methods
+// WalkNamespace-type methods.
 type BlobInfo interface {
-	// BlobRef returns the relevant BlobRef for the blob
+	// BlobRef returns the relevant BlobRef for the blob.
 	BlobRef() BlobRef
-	// StorageFormatVersion indicates the storage format version used to store the piece
+	// StorageFormatVersion indicates the storage format version used to store the piece.
 	StorageFormatVersion() FormatVersion
-	// FullPath gives the full path to the on-disk blob file
+	// FullPath gives the full path to the on-disk blob file.
 	FullPath(ctx context.Context) (string, error)
-	// Stat does a stat on the on-disk blob file
+	// Stat does a stat on the on-disk blob file.
 	Stat(ctx context.Context) (os.FileInfo, error)
 }

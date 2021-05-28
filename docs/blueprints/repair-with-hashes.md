@@ -9,9 +9,9 @@ The satellite should repair files also using piece hashes to minimize CPU and ba
 The white-paper states:
 
 > Data repair is an ongoing, costly operation that will use significant bandwidth, memory, and processing power, often impacting a single operator. As a result, repair resource usage should be aggressively minimized as much as possible.
-> 
+>
 > For repairing a segment to be effective at minimizing bandwidth usage, only as few pieces as needed for reconstruction should be downloaded. Unfortunately, Reed-Solomon is insufficient on its own for correcting errors when only a few redundant pieces are provided. Instead, piece hashes provide a better way to be confident that we’re repairing the data correctly.
-> 
+>
 > To solve this problem, hashes of every piece will be stored alongside each piece on each storage node. A validation hash that the set of hashes is correct will be stored in the pointer. During repair, the hashes of every piece can be retrieved and validated for correctness against the pointer, thus allowing each piece to be validated in its entirety. This allows the repair system to correctly assess whether or not repair has been completed successfully without using extra redundancy for the same task.
 
 Hash verification on the satellite requires understanding the current piece signing and verification workflow:
@@ -41,7 +41,7 @@ Downloading for repair is significantly different enough from streaming as to wa
 
 Using only the minimum number of pieces means that Reed-Solomon does not act as a check during repair. Hence hashing is used instead. While an uplink could potentially send signed bogus data to a storage node, the storage node would not be penalized by these actions. This requires that Audit implements a similar piece hash check instead of relying solely on Reed-Solomon encoding.
 
-The size of all piece hashes downloaded should be roughly equal to a default maximum segment size : 64MiB.  It seems preferable to keep this in memory over dealing with persistance to disk.
+The size of all piece hashes downloaded should be roughly equal to a default maximum segment size : 64MiB.  It seems preferable to keep this in memory over dealing with persistence to disk.
 
 ## Implementation
 

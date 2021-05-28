@@ -6,11 +6,11 @@ package overlay
 import (
 	"context"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/identity"
+	"storj.io/common/storj"
 )
 
-// PeerIdentities stores storagenode peer identities
+// PeerIdentities stores storagenode peer identities.
 //
 // architecture: Database
 type PeerIdentities interface {

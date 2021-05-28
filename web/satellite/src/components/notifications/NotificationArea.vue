@@ -2,26 +2,40 @@
 // See LICENSE for copying information.
 
 <template>
-    <div id="notificationArea" class="notification-container" v-if="notifications.length > 0" >
-        <Notification v-for="notification in notifications" :notification="notification" :key="notification.id" />
+    <div class="notification-container" v-if="doNotificationsExist">
+        <NotificationItem
+            v-for="notification in notifications"
+            :notification="notification"
+            :key="notification.id"
+        />
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import Notification from '@/components/notifications/Notification.vue';
+import NotificationItem from '@/components/notifications/NotificationItem.vue';
 
 import { DelayedNotification } from '@/types/DelayedNotification';
 
 @Component({
     components: {
-        Notification,
+        NotificationItem,
     },
 })
 export default class NotificationArea extends Vue {
+    /**
+     * Returns all notification queue from store.
+     */
     public get notifications(): DelayedNotification[] {
         return this.$store.state.notificationsModule.notificationQueue;
+    }
+
+    /**
+     * Indicates if any notifications are in queue.
+     */
+    public get doNotificationsExist(): boolean {
+        return this.notifications.length > 0;
     }
 }
 </script>

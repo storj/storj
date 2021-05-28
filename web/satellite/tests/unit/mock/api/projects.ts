@@ -1,19 +1,25 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { CreateProjectModel, Project, ProjectsApi } from '@/types/projects';
+import { Project, ProjectFields, ProjectLimits, ProjectsApi, ProjectsCursor, ProjectsPage } from '@/types/projects';
 
 /**
- * Mock for CreditsApi
+ * Mock for ProjectsApi
  */
 export class ProjectsApiMock implements ProjectsApi {
-    private mockProject: Project;
+    private mockProjects: Project[];
+    private mockLimits: ProjectLimits;
+    private mockProjectsPage: ProjectsPage;
 
-    public setMockProject(mockCredits: Project): void {
-        this.mockProject = mockCredits;
+    public setMockProjects(mockProjects: Project[]): void {
+        this.mockProjects = mockProjects;
     }
 
-    create(createProjectModel: CreateProjectModel): Promise<Project> {
+    public setMockLimits(mockLimits: ProjectLimits): void {
+        this.mockLimits = mockLimits;
+    }
+
+    create(createProjectFields: ProjectFields): Promise<Project> {
         throw new Error('not implemented');
     }
 
@@ -22,13 +28,18 @@ export class ProjectsApiMock implements ProjectsApi {
     }
 
     get(): Promise<Project[]> {
-        const result = Array<Project>();
-        result.push(this.mockProject);
-
-        return Promise.resolve(result);
+        return Promise.resolve(this.mockProjects);
     }
 
-    update(projectId: string, description: string): Promise<void> {
-        throw new Error('not implemented');
+    getOwnedProjects(cursor: ProjectsCursor): Promise<ProjectsPage> {
+        return Promise.resolve(this.mockProjectsPage);
+    }
+
+    update(projectId: string, name: string, description: string): Promise<void> {
+        return Promise.resolve();
+    }
+
+    getLimits(projectId: string): Promise<ProjectLimits> {
+        return Promise.resolve(this.mockLimits);
     }
 }

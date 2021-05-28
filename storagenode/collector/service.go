@@ -6,14 +6,16 @@ package collector
 
 import (
 	"context"
+	"errors"
+	"os"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/sync2"
+	"storj.io/common/sync2"
 	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/piecestore/usedserials"
 )
 
 var mon = monkit.Package()
@@ -29,27 +31,30 @@ type Config struct {
 type Service struct {
 	log         *zap.Logger
 	pieces      *pieces.Store
-	usedSerials piecestore.UsedSerials
+	usedSerials *usedserials.Table
 
-	Loop sync2.Cycle
+	Loop *sync2.Cycle
 }
 
 // NewService creates a new collector service.
-func NewService(log *zap.Logger, pieces *pieces.Store, usedSerials piecestore.UsedSerials, config Config) *Service {
+func NewService(log *zap.Logger, pieces *pieces.Store, usedSerials *usedserials.Table, config Config) *Service {
 	return &Service{
 		log:         log,
 		pieces:      pieces,
 		usedSerials: usedSerials,
-		Loop:        *sync2.NewCycle(config.Interval),
+		Loop:        sync2.NewCycle(config.Interval),
 	}
 }
 
-// Run runs monitor service
+// Run runs collector service.
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	return service.Loop.Run(ctx, func(ctx context.Context) error {
-		err := service.Collect(ctx, time.Now())
+		// V3-3143 Pieces should be collected at least 24 hours after expiration
+		// to avoid premature deletion due to timezone issues, which may lead to
+		// storage node disqualification.
+		err := service.Collect(ctx, time.Now().Add(-24*time.Hour))
 		if err != nil {
 			service.log.Error("error during collecting pieces: ", zap.Error(err))
 		}
@@ -67,9 +72,7 @@ func (service *Service) Close() (err error) {
 func (service *Service) Collect(ctx context.Context, now time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if deleteErr := service.usedSerials.DeleteExpired(ctx, now); err != nil {
-		service.log.Error("unable to delete expired used serials", zap.Error(deleteErr))
-	}
+	service.usedSerials.DeleteExpired(now)
 
 	const maxBatches = 100
 	const batchSize = 1000
@@ -93,13 +96,18 @@ func (service *Service) Collect(ctx context.Context, now time.Time) (err error) 
 		for _, expired := range infos {
 			err := service.pieces.Delete(ctx, expired.SatelliteID, expired.PieceID)
 			if err != nil {
+				if os.IsNotExist(errors.Unwrap(err)) {
+					service.log.Info("file does not exist", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID))
+					continue
+				}
 				errfailed := service.pieces.DeleteFailed(ctx, expired, now)
 				if errfailed != nil {
-					service.log.Error("unable to update piece info", zap.Stringer("satellite id", expired.SatelliteID), zap.Stringer("piece id", expired.PieceID), zap.Error(errfailed))
+					service.log.Error("unable to update piece info", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID), zap.Error(errfailed))
 				}
-				service.log.Error("unable to delete piece", zap.Stringer("satellite id", expired.SatelliteID), zap.Stringer("piece id", expired.PieceID), zap.Error(err))
+				service.log.Error("unable to delete piece", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID), zap.Error(err))
 				continue
 			}
+			service.log.Info("delete expired", zap.Stringer("Satellite ID", expired.SatelliteID), zap.Stringer("Piece ID", expired.PieceID))
 
 			count++
 		}

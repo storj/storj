@@ -10,19 +10,20 @@ import (
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
+	"storj.io/private/tagsql"
 	"storj.io/storj/storagenode/storageusage"
 )
 
 // StorageUsageDBName represents the database name.
 const StorageUsageDBName = "storage_usage"
 
-// storageUsageDB storage usage DB
+// storageUsageDB storage usage DB.
 type storageUsageDB struct {
-	migratableDB
+	dbContainerImpl
 }
 
-// Store stores storage usage stamps to db replacing conflicting entries
+// Store stores storage usage stamps to db replacing conflicting entries.
 func (db *storageUsageDB) Store(ctx context.Context, stamps []storageusage.Stamp) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -30,10 +31,10 @@ func (db *storageUsageDB) Store(ctx context.Context, stamps []storageusage.Stamp
 		return nil
 	}
 
-	query := `INSERT OR REPLACE INTO storage_usage(satellite_id, at_rest_total, interval_start) 
+	query := `INSERT OR REPLACE INTO storage_usage(satellite_id, at_rest_total, interval_start)
 			VALUES(?,?,?)`
 
-	return db.withTx(ctx, func(tx *sql.Tx) error {
+	return withTx(ctx, db.GetDB(), func(tx tagsql.Tx) error {
 		for _, stamp := range stamps {
 			_, err = tx.ExecContext(ctx, query, stamp.SatelliteID, stamp.AtRestTotal, stamp.IntervalStart.UTC())
 
@@ -47,7 +48,7 @@ func (db *storageUsageDB) Store(ctx context.Context, stamps []storageusage.Stamp
 }
 
 // GetDaily returns daily storage usage stamps for particular satellite
-// for provided time range
+// for provided time range.
 func (db *storageUsageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []storageusage.Stamp, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -64,10 +65,7 @@ func (db *storageUsageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 	if err != nil {
 		return nil, err
 	}
-
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
+	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	var stamps []storageusage.Stamp
 	for rows.Next() {
@@ -87,15 +85,15 @@ func (db *storageUsageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 		})
 	}
 
-	return stamps, nil
+	return stamps, rows.Err()
 }
 
 // GetDailyTotal returns daily storage usage stamps summed across all known satellites
-// for provided time range
+// for provided time range.
 func (db *storageUsageDB) GetDailyTotal(ctx context.Context, from, to time.Time) (_ []storageusage.Stamp, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT SUM(at_rest_total), interval_start 
+	query := `SELECT SUM(at_rest_total), interval_start
 				FROM storage_usage
 				WHERE ? <= interval_start AND interval_start <= ?
 				GROUP BY DATE(interval_start)
@@ -105,7 +103,6 @@ func (db *storageUsageDB) GetDailyTotal(ctx context.Context, from, to time.Time)
 	if err != nil {
 		return nil, err
 	}
-
 	defer func() {
 		err = errs.Combine(err, rows.Close())
 	}()
@@ -126,7 +123,7 @@ func (db *storageUsageDB) GetDailyTotal(ctx context.Context, from, to time.Time)
 		})
 	}
 
-	return stamps, nil
+	return stamps, rows.Err()
 }
 
 // Summary returns aggregated storage usage across all satellites.
@@ -134,7 +131,7 @@ func (db *storageUsageDB) Summary(ctx context.Context, from, to time.Time) (_ fl
 	defer mon.Task()(&ctx, from, to)(&err)
 	var summary sql.NullFloat64
 
-	query := `SELECT SUM(at_rest_total) 
+	query := `SELECT SUM(at_rest_total)
 				FROM storage_usage
 				WHERE ? <= interval_start AND interval_start <= ?`
 
@@ -147,30 +144,11 @@ func (db *storageUsageDB) SatelliteSummary(ctx context.Context, satelliteID stor
 	defer mon.Task()(&ctx, satelliteID, from, to)(&err)
 	var summary sql.NullFloat64
 
-	query := `SELECT SUM(at_rest_total) 
+	query := `SELECT SUM(at_rest_total)
 				FROM storage_usage
 				WHERE satellite_id = ?
 				AND ? <= interval_start AND interval_start <= ?`
 
 	err = db.QueryRowContext(ctx, query, satelliteID, from.UTC(), to.UTC()).Scan(&summary)
 	return summary.Float64, err
-}
-
-// withTx is a helper method which executes callback in transaction scope
-func (db *storageUsageDB) withTx(ctx context.Context, cb func(tx *sql.Tx) error) error {
-	tx, err := db.Begin()
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if err != nil {
-			err = errs.Combine(err, tx.Rollback())
-			return
-		}
-
-		err = tx.Commit()
-	}()
-
-	return cb(tx)
 }

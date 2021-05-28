@@ -1,0 +1,71 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`HeldHistoryAllStatsTableItemSmall renders correctly with actual values 1`] = `
+<div class="held-history-table-container--small__item">
+  <div class="held-history-table-container--small__item__satellite-info">
+    <div>
+      <p class="held-history-table-container--small__item__satellite-info__name">name1</p>
+      <p class="held-history-table-container--small__item__satellite-info__months">8 month</p>
+    </div>
+    <div class="held-history-table-container--small__item__satellite-info__button">
+      <div class="icon expand">
+        <blue-expand-icon-stub></blue-expand-icon-stub>
+      </div>
+    </div>
+  </div>
+  <transition-stub name="fade">
+    <!---->
+  </transition-stub>
+</div>
+`;
+
+exports[`HeldHistoryAllStatsTableItemSmall renders correctly with actual values 2`] = `
+<div class="held-history-table-container--small__item">
+  <div class="held-history-table-container--small__item__satellite-info">
+    <div>
+      <p class="held-history-table-container--small__item__satellite-info__name">name1</p>
+      <p class="held-history-table-container--small__item__satellite-info__months">8 month</p>
+    </div>
+    <div class="held-history-table-container--small__item__satellite-info__button">
+      <div class="icon hide">
+        <blue-hide-icon-stub></blue-hide-icon-stub>
+      </div>
+    </div>
+  </div>
+  <transition-stub name="fade">
+    <div class="held-history-table-container--small__item__held-info">
+      <div class="held-history-table-container--small__item__held-info__item">
+        <p class="held-history-table-container--small__item__held-info__item__label">First Contact</p>
+        <p class="held-history-table-container--small__item__held-info__item__value">2019-07-30</p>
+      </div>
+      <div class="held-history-table-container--small__item__held-info__item">
+        <p class="held-history-table-container--small__item__held-info__item__label">Held Total</p>
+        <p class="held-history-table-container--small__item__held-info__item__value">$7.09</p>
+      </div>
+      <div class="held-history-table-container--small__item__held-info__item">
+        <p class="held-history-table-container--small__item__held-info__item__label">Held Returned</p>
+        <p class="held-history-table-container--small__item__held-info__item__value">$0.76</p>
+      </div>
+    </div>
+  </transition-stub>
+</div>
+`;
+
+exports[`HeldHistoryAllStatsTableItemSmall renders correctly with actual values 3`] = `
+<div class="held-history-table-container--small__item">
+  <div class="held-history-table-container--small__item__satellite-info">
+    <div>
+      <p class="held-history-table-container--small__item__satellite-info__name">name1</p>
+      <p class="held-history-table-container--small__item__satellite-info__months">8 month</p>
+    </div>
+    <div class="held-history-table-container--small__item__satellite-info__button">
+      <div class="icon expand">
+        <blue-expand-icon-stub></blue-expand-icon-stub>
+      </div>
+    </div>
+  </div>
+  <transition-stub name="fade">
+    <!---->
+  </transition-stub>
+</div>
+`;

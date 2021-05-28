@@ -8,7 +8,7 @@ import { NOTIFICATION_TYPES } from '@/utils/constants/notification';
 
 import { NOTIFICATION_MUTATIONS } from '../mutationConstants';
 
-class NotificationsState {
+export class NotificationsState {
     public notificationQueue: DelayedNotification[] = [];
 }
 

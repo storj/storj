@@ -9,11 +9,12 @@ import (
 	"encoding/base64"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
+
+	"storj.io/common/uuid"
 )
 
-// ResetPasswordTokens is interface for working with reset password tokens
+// ResetPasswordTokens is interface for working with reset password tokens.
 //
 // architecture: Database
 type ResetPasswordTokens interface {
@@ -27,10 +28,10 @@ type ResetPasswordTokens interface {
 	Delete(ctx context.Context, secret ResetPasswordSecret) error
 }
 
-// ResetPasswordSecret stores secret of registration token
+// ResetPasswordSecret stores secret of registration token.
 type ResetPasswordSecret [32]byte
 
-// ResetPasswordToken describing reset password model in the database
+// ResetPasswordToken describing reset password model in the database.
 type ResetPasswordToken struct {
 	// Secret is PK of the table and keeps unique value for reset password token
 	Secret ResetPasswordSecret
@@ -40,7 +41,7 @@ type ResetPasswordToken struct {
 	CreatedAt time.Time `json:"createdAt"`
 }
 
-// NewResetPasswordSecret creates new reset password secret
+// NewResetPasswordSecret creates new reset password secret.
 func NewResetPasswordSecret() (ResetPasswordSecret, error) {
 	var b [32]byte
 
@@ -52,12 +53,12 @@ func NewResetPasswordSecret() (ResetPasswordSecret, error) {
 	return b, nil
 }
 
-// String implements Stringer
+// String implements Stringer.
 func (secret ResetPasswordSecret) String() string {
 	return base64.URLEncoding.EncodeToString(secret[:])
 }
 
-// ResetPasswordSecretFromBase64 creates new reset password secret from base64 string
+// ResetPasswordSecretFromBase64 creates new reset password secret from base64 string.
 func ResetPasswordSecretFromBase64(s string) (ResetPasswordSecret, error) {
 	var secret ResetPasswordSecret
 

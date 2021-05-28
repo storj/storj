@@ -8,14 +8,15 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
+
+	"storj.io/common/uuid"
 )
 
-// ErrBucketNotAttributed is returned if a requested bucket not attributed(entry not found)
+// ErrBucketNotAttributed is returned if a requested bucket not attributed(entry not found).
 var ErrBucketNotAttributed = errs.Class("bucket not attributed")
 
-// Info describing value attribution from partner to bucket
+// Info describing value attribution from partner to bucket.
 type Info struct {
 	ProjectID  uuid.UUID
 	BucketName []byte
@@ -23,7 +24,7 @@ type Info struct {
 	CreatedAt  time.Time
 }
 
-// CSVRow represents data from QueryAttribution without exposing dbx
+// CSVRow represents data from QueryAttribution without exposing dbx.
 type CSVRow struct {
 	PartnerID          []byte
 	ProjectID          []byte
@@ -33,7 +34,7 @@ type CSVRow struct {
 	EgressData         int64
 }
 
-// DB implements the database for value attribution table
+// DB implements the database for value attribution table.
 //
 // architecture: Database
 type DB interface {

@@ -8,5 +8,5 @@ const DeprecatedInfoDBName = "info"
 
 // deprecatedInfoDB represents the database that contains the original legacy sqlite3 database.
 type deprecatedInfoDB struct {
-	migratableDB
+	dbContainerImpl
 }

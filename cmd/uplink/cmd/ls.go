@@ -5,47 +5,45 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
-	"storj.io/storj/internal/fpath"
-	libuplink "storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/fpath"
+	"storj.io/uplink"
 )
 
 var (
-	recursiveFlag *bool
+	lsRecursiveFlag *bool
+	lsEncryptedFlag *bool
+	lsPendingFlag   *bool
 )
 
 func init() {
 	lsCmd := addCmd(&cobra.Command{
-		Use:   "ls",
+		Use:   "ls [sj://BUCKET[/PREFIX]]",
 		Short: "List objects and prefixes or all buckets",
 		RunE:  list,
+		Args:  cobra.MaximumNArgs(1),
 	}, RootCmd)
-	recursiveFlag = lsCmd.Flags().Bool("recursive", false, "if true, list recursively")
+	lsRecursiveFlag = lsCmd.Flags().Bool("recursive", false, "if true, list recursively")
+	lsEncryptedFlag = lsCmd.Flags().Bool("encrypted", false, "if true, show paths as base64-encoded encrypted paths")
+	lsPendingFlag = lsCmd.Flags().Bool("pending", false, "if true, list pending objects")
+
+	setBasicFlags(lsCmd.Flags(), "recursive", "encrypted", "pending")
 }
 
 func list(cmd *cobra.Command, args []string) error {
-	ctx, _ := process.Ctx(cmd)
+	ctx, _ := withTelemetry(cmd)
 
-	project, err := cfg.GetProject(ctx)
+	project, err := cfg.getProject(ctx, *lsEncryptedFlag)
 	if err != nil {
 		return err
 	}
-	defer func() {
-		if err := project.Close(); err != nil {
-			fmt.Printf("error closing project: %+v\n", err)
-		}
-	}()
-
-	scope, err := cfg.GetScope()
-	if err != nil {
-		return err
-	}
+	defer closeProject(project)
 
 	// list objects
 	if len(args) > 0 {
@@ -55,118 +53,141 @@ func list(cmd *cobra.Command, args []string) error {
 		}
 
 		if src.IsLocal() {
-			return fmt.Errorf("No bucket specified, use format sj://bucket/")
+			return fmt.Errorf("no bucket specified, use format sj://bucket/")
 		}
 
-		bucket, err := project.OpenBucket(ctx, src.Bucket(), scope.EncryptionAccess)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if err := bucket.Close(); err != nil {
-				fmt.Printf("error closing bucket: %+v\n", err)
+		if !strings.HasSuffix(args[0], "/") && src.Path() != "" {
+			err = listObject(ctx, project, src.Bucket(), src.Path())
+			if err != nil && !errors.Is(err, uplink.ErrObjectNotFound) {
+				return convertError(err, src)
 			}
-		}()
-
-		err = listFiles(ctx, bucket, src, false)
+		}
+		err = listObjects(ctx, project, src.Bucket(), src.Path(), false)
 		return convertError(err, src)
 	}
-
 	noBuckets := true
 
-	// list buckets
-	listOpts := storj.BucketListOptions{
-		Direction: storj.Forward,
-		Cursor:    "",
-	}
-	for {
-		list, err := project.ListBuckets(ctx, &listOpts)
-		if err != nil {
-			return err
+	buckets := project.ListBuckets(ctx, nil)
+	for buckets.Next() {
+		bucket := buckets.Item()
+
+		if !*lsPendingFlag {
+			fmt.Println("BKT", formatTime(bucket.Created), bucket.Name)
 		}
-		if len(list.Items) > 0 {
-			noBuckets = false
-			for _, bucket := range list.Items {
-				fmt.Println("BKT", formatTime(bucket.Created), bucket.Name)
-				if *recursiveFlag {
-					if err := listFilesFromBucket(ctx, project, bucket.Name, scope.EncryptionAccess); err != nil {
-						return err
-					}
-				}
+		if *lsRecursiveFlag {
+			if err := listObjectsFromBucket(ctx, project, bucket.Name); err != nil {
+				return err
 			}
 		}
-		if !list.More {
-			break
-		}
-
-		listOpts = listOpts.NextPage(list)
+		noBuckets = false
+	}
+	if buckets.Err() != nil {
+		return buckets.Err()
 	}
 
 	if noBuckets {
 		fmt.Println("No buckets")
 	}
+	return nil
+}
+
+func listObjectsFromBucket(ctx context.Context, project *uplink.Project, bucket string) error {
+	return listObjects(ctx, project, bucket, "", true)
+}
+
+func listObject(ctx context.Context, project *uplink.Project, bucket, path string) error {
+	if *lsPendingFlag {
+		return listPendingObject(ctx, project, bucket, path)
+	}
+	object, err := project.StatObject(ctx, bucket, path)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%v %v %12v %v\n", "OBJ", formatTime(object.System.Created), object.System.ContentLength, path)
+	return nil
+}
+
+func listObjects(ctx context.Context, project *uplink.Project, bucket, prefix string, prependBucket bool) error {
+	// TODO force adding slash at the end because fpath is removing it,
+	// most probably should be fixed in storj/common
+	if prefix != "" && !strings.HasSuffix(prefix, "/") {
+		prefix += "/"
+	}
+
+	var objects *uplink.ObjectIterator
+	if *lsPendingFlag {
+		return listPendingObjects(ctx, project, bucket, prefix, prependBucket)
+	}
+
+	objects = project.ListObjects(ctx, bucket, &uplink.ListObjectsOptions{
+		Prefix:    prefix,
+		Recursive: *lsRecursiveFlag,
+		System:    true,
+	})
+	for objects.Next() {
+		object := objects.Item()
+		path := object.Key
+		if prependBucket {
+			path = fmt.Sprintf("%s/%s", bucket, path)
+		}
+		if object.IsPrefix {
+			fmt.Println("PRE", path)
+		} else {
+			fmt.Printf("%v %v %12v %v\n", "OBJ", formatTime(object.System.Created), object.System.ContentLength, path)
+		}
+	}
+	if objects.Err() != nil {
+		return objects.Err()
+	}
 
 	return nil
 }
 
-func listFilesFromBucket(ctx context.Context, project *libuplink.Project, bucketName string, access *libuplink.EncryptionAccess) error {
-	prefix, err := fpath.New(fmt.Sprintf("sj://%s/", bucketName))
-	if err != nil {
-		return err
-	}
+func listPendingObject(ctx context.Context, project *uplink.Project, bucket, path string) error {
+	uploads := project.ListUploads(ctx, bucket, &uplink.ListUploadsOptions{
+		Prefix: path,
+		System: true,
+		Custom: true,
+	})
 
-	bucket, err := project.OpenBucket(ctx, bucketName, access)
-	if err != nil {
-		return err
+	for uploads.Next() {
+		object := uploads.Item()
+		path := object.Key
+		fmt.Printf("%v %v %12v %v\n", "OBJ", formatTime(object.System.Created), object.System.ContentLength, path)
 	}
-	defer func() {
-		if err := bucket.Close(); err != nil {
-			fmt.Printf("error closing bucket: %+v\n", err)
-		}
-	}()
-
-	err = listFiles(ctx, bucket, prefix, true)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return uploads.Err()
 }
 
-func listFiles(ctx context.Context, bucket *libuplink.Bucket, prefix fpath.FPath, prependBucket bool) error {
-	startAfter := ""
-
-	for {
-		list, err := bucket.ListObjects(ctx, &storj.ListOptions{
-			Direction: storj.After,
-			Cursor:    startAfter,
-			Prefix:    prefix.Path(),
-			Recursive: *recursiveFlag,
-		})
-		if err != nil {
-			return err
-		}
-
-		for _, object := range list.Items {
-			path := object.Path
-			if prependBucket {
-				path = fmt.Sprintf("%s/%s", prefix.Bucket(), path)
-			}
-			if object.IsPrefix {
-				fmt.Println("PRE", path)
-			} else {
-				fmt.Printf("%v %v %12v %v\n", "OBJ", formatTime(object.Modified), object.Size, path)
-			}
-		}
-
-		if !list.More {
-			break
-		}
-
-		startAfter = list.Items[len(list.Items)-1].Path
+func listPendingObjects(ctx context.Context, project *uplink.Project, bucket, prefix string, prependBucket bool) error {
+	// TODO force adding slash at the end because fpath is removing it,
+	// most probably should be fixed in storj/common
+	if prefix != "" && !strings.HasSuffix(prefix, "/") {
+		prefix += "/"
 	}
 
-	return nil
+	objects := project.ListUploads(ctx, bucket, &uplink.ListUploadsOptions{
+		Prefix:    prefix,
+		Cursor:    "",
+		Recursive: *lsRecursiveFlag,
+
+		System: true,
+		Custom: true,
+	})
+
+	for objects.Next() {
+		object := objects.Item()
+		path := object.Key
+		if prependBucket {
+			path = fmt.Sprintf("%s/%s", bucket, path)
+		}
+		if object.IsPrefix {
+			fmt.Println("PRE", path)
+		} else {
+			fmt.Printf("%v %v %12v %v\n", "OBJ", formatTime(object.System.Created), object.System.ContentLength, path)
+		}
+	}
+
+	return objects.Err()
 }
 
 func formatTime(t time.Time) string {

@@ -6,15 +6,16 @@ package pieces
 import (
 	"context"
 	"encoding/binary"
+	"errors"
 	"hash"
 	"io"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/pkcrypto"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/pkcrypto"
+	"storj.io/common/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 )
@@ -56,11 +57,12 @@ const (
 	v1PieceHeaderFramingSize = 2
 )
 
-// BadFormatVersion is returned when a storage format cannot support the request function
+// BadFormatVersion is returned when a storage format cannot support the request function.
 var BadFormatVersion = errs.Class("Incompatible storage format version")
 
 // Writer implements a piece writer that writes content to blob store and calculates a hash.
 type Writer struct {
+	log       *zap.Logger
 	hash      hash.Hash
 	blob      storage.BlobWriter
 	pieceSize int64 // piece size only; i.e., not including piece header
@@ -71,8 +73,8 @@ type Writer struct {
 }
 
 // NewWriter creates a new writer for storage.BlobWriter.
-func NewWriter(blobWriter storage.BlobWriter, blobs storage.Blobs, satellite storj.NodeID) (*Writer, error) {
-	w := &Writer{}
+func NewWriter(log *zap.Logger, blobWriter storage.BlobWriter, blobs storage.Blobs, satellite storj.NodeID) (*Writer, error) {
+	w := &Writer{log: log}
 	if blobWriter.StorageFormatVersion() >= filestore.FormatV1 {
 		// We skip past the reserved header area for now- we want the header to be at the
 		// beginning of the file, to make it quick to seek there and also to make it easier
@@ -99,7 +101,7 @@ func (w *Writer) Write(data []byte) (int, error) {
 	n, err := w.blob.Write(data)
 	w.pieceSize += int64(n)
 	_, _ = w.hash.Write(data[:n]) // guaranteed not to return an error
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return n, err
 	}
 	return n, Error.Wrap(err)
@@ -118,9 +120,7 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 	if w.closed {
 		return Error.New("already closed")
 	}
-	if cache, ok := w.blobs.(*BlobsUsageCache); ok {
-		cache.Update(ctx, w.satellite, w.Size())
-	}
+
 	// point of no return: after this we definitely either commit or cancel
 	w.closed = true
 	defer func() {
@@ -131,12 +131,29 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 		}
 	}()
 
+	// if the blob store is a cache, update the cache, but only if we did not
+	// encounter an error
+	if cache, ok := w.blobs.(*BlobsUsageCache); ok {
+		defer func() {
+			if err == nil {
+				totalSize, sizeErr := w.blob.Size()
+				if sizeErr != nil {
+					w.log.Error("Failed to calculate piece size, cannot update the cache",
+						zap.Error(sizeErr), zap.Stringer("piece ID", pieceHeader.GetOrderLimit().PieceId),
+						zap.Stringer("satellite ID", w.satellite))
+					return
+				}
+				cache.Update(ctx, w.satellite, totalSize, w.Size(), 0)
+			}
+		}()
+	}
+
 	formatVer := w.blob.StorageFormatVersion()
 	if formatVer == filestore.FormatV0 {
 		return nil
 	}
 	pieceHeader.FormatVersion = pb.PieceHeader_FormatVersion(formatVer)
-	headerBytes, err := proto.Marshal(pieceHeader)
+	headerBytes, err := pb.Marshal(pieceHeader)
 	if err != nil {
 		return err
 	}
@@ -164,12 +181,12 @@ func (w *Writer) Commit(ctx context.Context, pieceHeader *pb.PieceHeader) (err e
 	var framingBytes [v1PieceHeaderFramingSize]byte
 	binary.BigEndian.PutUint16(framingBytes[:], uint16(len(headerBytes)))
 	if _, err = w.blob.Write(framingBytes[:]); err != nil {
-		return Error.New("failed writing piece framing field at file start: %v", err)
+		return Error.New("failed writing piece framing field at file start: %w", err)
 	}
 
 	// Now write the serialized header bytes.
 	if _, err = w.blob.Write(headerBytes); err != nil {
-		return Error.New("failed writing piece header at file start: %v", err)
+		return Error.New("failed writing piece header at file start: %w", err)
 	}
 
 	// seek back to the end, as blob.Commit will truncate from the current file position.
@@ -228,8 +245,10 @@ func (r *Reader) StorageFormatVersion() storage.FormatVersion {
 }
 
 // GetPieceHeader reads, unmarshals, and returns the piece header. It may only be called once,
-// before any Read() calls. (Retrieving the header at any time could be supported, but for the sake
-// of performance we need to understand why and how often that would happen.)
+// before any Read() calls.
+//
+// Retrieving the header at any time could be supported, but for the sake
+// of performance we need to understand why and how often that would happen.
 func (r *Reader) GetPieceHeader() (*pb.PieceHeader, error) {
 	if r.formatVersion < filestore.FormatV1 {
 		return nil, BadFormatVersion.New("Can't get piece header from storage format V0 reader")
@@ -266,8 +285,8 @@ func (r *Reader) GetPieceHeader() (*pb.PieceHeader, error) {
 
 	// Deserialize and return.
 	header := &pb.PieceHeader{}
-	if err := proto.Unmarshal(pieceHeaderBytes, header); err != nil {
-		return nil, Error.New("piece header: %v", err)
+	if err := pb.Unmarshal(pieceHeaderBytes, header); err != nil {
+		return nil, Error.New("piece header: %w", err)
 	}
 	return header, nil
 }
@@ -282,7 +301,7 @@ func (r *Reader) Read(data []byte) (int, error) {
 	}
 	n, err := r.blob.Read(data)
 	r.pos += int64(n)
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return n, err
 	}
 	return n, Error.Wrap(err)
@@ -307,7 +326,7 @@ func (r *Reader) Seek(offset int64, whence int) (int64, error) {
 			pos -= V1PieceHeaderReservedArea
 		}
 	}
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return pos, err
 	}
 	return pos, Error.Wrap(err)
@@ -320,7 +339,7 @@ func (r *Reader) ReadAt(data []byte, offset int64) (int, error) {
 		offset += V1PieceHeaderReservedArea
 	}
 	n, err := r.blob.ReadAt(data, offset)
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		return n, err
 	}
 	return n, Error.Wrap(err)

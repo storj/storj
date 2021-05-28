@@ -12,11 +12,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/internal/memory"
+	"storj.io/common/memory"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/satellitedb"
 )
@@ -29,17 +29,17 @@ var headers = []string{
 	"bytes:BWEgress",
 }
 
-// GenerateAttributionCSV creates a report with
+// GenerateAttributionCSV creates a report with.
 func GenerateAttributionCSV(ctx context.Context, database string, partnerID uuid.UUID, start time.Time, end time.Time, output io.Writer) error {
 	log := zap.L().Named("db")
-	db, err := satellitedb.New(log, database)
+	db, err := satellitedb.Open(ctx, log, database, satellitedb.Options{ApplicationName: "satellite-attribution"})
 	if err != nil {
 		return errs.New("error connecting to master database on satellite: %+v", err)
 	}
 	defer func() {
 		err = errs.Combine(err, db.Close())
 		if err != nil {
-			log.Sugar().Errorf("error closing satellite DB connection after retrieving partner value attribution data: %+v", err)
+			log.Error("Error closing satellite DB connection after retrieving partner value attribution data.", zap.Error(err))
 		}
 	}()
 
@@ -77,7 +77,7 @@ func GenerateAttributionCSV(ctx context.Context, database string, partnerID uuid
 }
 
 func csvRowToStringSlice(p *attribution.CSVRow) ([]string, error) {
-	projectID, err := bytesToUUID(p.ProjectID)
+	projectID, err := uuid.FromBytes(p.ProjectID)
 	if err != nil {
 		return nil, errs.New("Invalid Project ID")
 	}
@@ -92,16 +92,4 @@ func csvRowToStringSlice(p *attribution.CSVRow) ([]string, error) {
 		strconv.FormatFloat(egressGBData, 'f', 4, 64),
 	}
 	return record, nil
-}
-
-// bytesToUUID is used to convert []byte to UUID
-func bytesToUUID(data []byte) (uuid.UUID, error) {
-	var id uuid.UUID
-
-	copy(id[:], data)
-	if len(id) != len(data) {
-		return uuid.UUID{}, errs.New("Invalid uuid")
-	}
-
-	return id, nil
 }

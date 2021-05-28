@@ -15,7 +15,7 @@ That leaves open the question for how a root key is created. Some requirements o
 
 These requirements allow users to be in full control of their encryption, and don't require users safely transporting high entropy (hard to remember) secrets to bootstrap new uplinks.
 
-This design accomodates more requirements that allow for additional features:
+This design accommodates more requirements that allow for additional features:
 
 3. A root key can be created for any encrypted path in a bucket, not just the bucket.
 4. A table of root keys for low entropy passwords should not be possible. In other words, an attacker with knowledge of the algorithm should not be able to use a dictionary of common passwords and pre-compute what keys to check in the event of a data breach.

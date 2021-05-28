@@ -4,11 +4,11 @@
 
 ## Abstract
 
-A satellite operator needs to know that status of exiting nodes in order to process escrows. 
+A satellite operator needs to know that status of exiting nodes in order to process held amount. 
 
 ## Background
 
-As a result of a Graceful Exit, satellite operators need to release the escrow to the exited storage node. This means we need a report for exited nodes. 
+As a result of a Graceful Exit, satellite operators need to release the held amount to the exited storage node. This means we need a report for exited nodes. 
 
 This report should contain:
 - NodeID

@@ -9,10 +9,10 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/post"
+	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/mailservice"
 )
 
@@ -20,18 +20,17 @@ var mon = monkit.Package()
 
 var _ mailservice.Sender = (*LinkClicker)(nil)
 
-// LinkClicker is mailservice.Sender that click all links
-// from html msg parts
+// LinkClicker is mailservice.Sender that click all links from html msg parts.
 //
 // architecture: Service
 type LinkClicker struct{}
 
-// FromAddress return empty mail address
+// FromAddress return empty mail address.
 func (clicker *LinkClicker) FromAddress() post.Address {
 	return post.Address{}
 }
 
-// SendEmail click all links from email html parts
+// SendEmail click all links from email html parts.
 func (clicker *LinkClicker) SendEmail(ctx context.Context, msg *post.Message) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -53,7 +52,14 @@ func (clicker *LinkClicker) SendEmail(ctx context.Context, msg *post.Message) (e
 	// click all links
 	var sendError error
 	for _, link := range links {
-		response, err := http.Get(link)
+		req, err := http.NewRequestWithContext(ctx, "GET", link, nil)
+		if err != nil {
+			continue
+		}
+		response, err := http.DefaultClient.Do(req)
+		if err != nil {
+			continue
+		}
 		sendError = errs.Combine(sendError, err, response.Body.Close())
 	}
 

@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/identity"
+	"storj.io/common/identity"
 )
 
 type verifyConfig struct {
@@ -21,7 +21,7 @@ type verifyConfig struct {
 }
 
 var (
-	errVerify = errs.Class("Verify error")
+	errVerify = errs.Class("verify")
 	verifyCmd = &cobra.Command{
 		Use:   "verify",
 		Short: "Verify identity and CA certificate chains are valid",

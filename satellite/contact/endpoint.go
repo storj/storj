@@ -5,21 +5,29 @@ package contact
 
 import (
 	"context"
-	"fmt"
-	"net"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc/rpcstatus"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/identity"
+	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcstatus"
+	"storj.io/common/storj"
+	"storj.io/storj/private/nodeoperator"
 	"storj.io/storj/satellite/overlay"
+)
+
+var (
+	errPingBackDial     = errs.Class("pingback dialing")
+	errCheckInIdentity  = errs.Class("check-in identity")
+	errCheckInRateLimit = errs.Class("check-in ratelimit")
+	errCheckInNetwork   = errs.Class("check-in network")
 )
 
 // Endpoint implements the contact service Endpoints.
 type Endpoint struct {
+	pb.DRPCNodeUnimplementedServer
 	log     *zap.Logger
 	service *Service
 }
@@ -42,73 +50,98 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 
 	peerID, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+		endpoint.log.Info("failed to get node ID from context", zap.String("node address", req.Address), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Unknown, errCheckInIdentity.New("failed to get ID from context: %v", err).Error())
 	}
 	nodeID := peerID.ID
 
+	// we need a string as a key for the limiter, but nodeID.String() has base58 encoding overhead
+	nodeIDBytesAsString := string(nodeID.Bytes())
+	if !endpoint.service.idLimiter.IsAllowed(nodeIDBytesAsString) {
+		endpoint.log.Info("node rate limited by id", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID))
+		return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, errCheckInRateLimit.New("node rate limited by id").Error())
+	}
+
 	err = endpoint.service.peerIDs.Set(ctx, nodeID, peerID)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+		endpoint.log.Info("failed to add peer identity entry for ID", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.FailedPrecondition, errCheckInIdentity.New("failed to add peer identity entry for ID: %v", err).Error())
 	}
 
-	lastIP, err := overlay.GetNetwork(ctx, req.Address)
+	resolvedIPPort, resolvedNetwork, err := overlay.ResolveIPAndNetwork(ctx, req.Address)
 	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+		endpoint.log.Info("failed to resolve IP from address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, errCheckInNetwork.New("failed to resolve IP from address: %s, err: %v", req.Address, err).Error())
 	}
 
-	pingNodeSuccess, pingErrorMessage, err := endpoint.pingBack(ctx, req, nodeID)
-	if err != nil {
-		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
+	nodeurl := storj.NodeURL{
+		ID:      nodeID,
+		Address: req.Address,
 	}
+	pingNodeSuccess, pingNodeSuccessQUIC, pingErrorMessage, err := endpoint.service.PingBack(ctx, nodeurl)
+	if err != nil {
+		endpoint.log.Info("failed to ping back address", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
+		if errPingBackDial.Has(err) {
+			err = errCheckInNetwork.New("failed dialing address when attempting to ping node (ID: %s): %s, err: %v", nodeID, req.Address, err)
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+		err = errCheckInNetwork.New("failed to ping node (ID: %s) at address: %s, err: %v", nodeID, req.Address, err)
+		return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+	}
+
+	// check wallet features
+	if req.Operator != nil {
+		if err := nodeoperator.DefaultWalletFeaturesValidation.Validate(req.Operator.WalletFeatures); err != nil {
+			endpoint.log.Debug("ignoring invalid wallet features",
+				zap.Stringer("Node ID", nodeID),
+				zap.Strings("Wallet Features", req.Operator.WalletFeatures))
+
+			// TODO: Update CheckInResponse to include wallet feature validation error
+			req.Operator.WalletFeatures = nil
+		}
+	}
+
 	nodeInfo := overlay.NodeCheckInInfo{
 		NodeID: peerID.ID,
 		Address: &pb.NodeAddress{
 			Address:   req.Address,
 			Transport: pb.NodeTransport_TCP_TLS_GRPC,
 		},
-		LastIP:   lastIP,
-		IsUp:     pingNodeSuccess,
-		Capacity: req.Capacity,
-		Operator: req.Operator,
-		Version:  req.Version,
+		LastNet:    resolvedNetwork,
+		LastIPPort: resolvedIPPort,
+		IsUp:       pingNodeSuccess,
+		Capacity:   req.Capacity,
+		Operator:   req.Operator,
+		Version:    req.Version,
 	}
-	err = endpoint.service.overlay.UpdateCheckIn(ctx, nodeInfo)
+
+	err = endpoint.service.overlay.UpdateCheckIn(ctx, nodeInfo, time.Now().UTC())
 	if err != nil {
+		endpoint.log.Info("failed to update check in", zap.String("node address", req.Address), zap.Stringer("Node ID", nodeID), zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, Error.Wrap(err).Error())
 	}
 
-	endpoint.log.Debug("checking in", zap.String("node addr", req.Address), zap.Bool("ping node succes", pingNodeSuccess))
+	endpoint.log.Debug("checking in", zap.String("node addr", req.Address), zap.Bool("ping node success", pingNodeSuccess), zap.String("ping node err msg", pingErrorMessage))
 	return &pb.CheckInResponse{
-		PingNodeSuccess:  pingNodeSuccess,
-		PingErrorMessage: pingErrorMessage,
+		PingNodeSuccess:     pingNodeSuccess,
+		PingNodeSuccessQuic: pingNodeSuccessQUIC,
+		PingErrorMessage:    pingErrorMessage,
 	}, nil
 }
 
-func (endpoint *Endpoint) pingBack(ctx context.Context, req *pb.CheckInRequest, peerID storj.NodeID) (bool, string, error) {
-	client, err := newClient(ctx, endpoint.service.dialer, req.Address, peerID)
-	if err != nil {
-		// if this is a network error, then return the error otherwise just report internal error
-		_, ok := err.(net.Error)
-		if ok {
-			return false, "", Error.New("failed to connect to %s: %v", req.Address, err)
-		}
-		endpoint.log.Info("pingBack internal error", zap.String("error", err.Error()))
-		return false, "", Error.New("couldn't connect to client at addr: %s due to internal error.", req.Address)
-	}
-	defer func() { err = errs.Combine(err, client.Close()) }()
+// GetTime returns current timestamp.
+func (endpoint *Endpoint) GetTime(ctx context.Context, req *pb.GetTimeRequest) (_ *pb.GetTimeResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	pingNodeSuccess := true
-	var pingErrorMessage string
-
-	_, err = client.pingNode(ctx, &pb.ContactPingRequest{})
+	peerID, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
-		pingNodeSuccess = false
-		pingErrorMessage = "erroring while trying to pingNode due to internal error"
-		_, ok := err.(net.Error)
-		if ok {
-			pingErrorMessage = fmt.Sprintf("network erroring while trying to pingNode: %v\n", err)
-		}
+		endpoint.log.Info("failed to get node ID from context", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Unauthenticated, errCheckInIdentity.New("failed to get ID from context: %v", err).Error())
 	}
 
-	return pingNodeSuccess, pingErrorMessage, err
+	currentTimestamp := time.Now().UTC()
+	endpoint.log.Debug("get system current time", zap.Stringer("timestamp", currentTimestamp), zap.Stringer("node id", peerID.ID))
+	return &pb.GetTimeResponse{
+		Timestamp: currentTimestamp,
+	}, nil
 }

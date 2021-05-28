@@ -4,6 +4,7 @@
 package checker_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"testing"
@@ -11,110 +12,137 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/storage"
 )
 
 func TestIdentifyInjuredSegments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		checker := planet.Satellites[0].Repair.Checker
-		checker.Loop.Stop()
+		repairQueue := planet.Satellites[0].DB.RepairQueue()
 
-		projectID := testrand.UUID()
-		pointerPathPrefix := storj.JoinPaths(projectID.String(), "l", "bucket") + "/"
+		checker.Loop.Pause()
+		planet.Satellites[0].Repair.Repairer.Loop.Pause()
 
-		//add noise to metainfo before bad record
-		for x := 0; x < 10; x++ {
-			makePointer(t, planet, pointerPathPrefix+fmt.Sprintf("a-%d", x), false)
+		rs := storj.RedundancyScheme{
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  4,
+			TotalShares:    5,
+			ShareSize:      256,
 		}
-		//create piece that needs repair
-		makePointer(t, planet, pointerPathPrefix+"b", true)
-		//add more noise to metainfo after bad record
-		for x := 0; x < 10; x++ {
-			makePointer(t, planet, pointerPathPrefix+fmt.Sprintf("c-%d", x), false)
-		}
-		err := checker.IdentifyInjuredSegments(ctx)
+
+		projectID := planet.Uplinks[0].Projects[0].ID
+		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test-bucket")
 		require.NoError(t, err)
 
-		//check if the expected segments were added to the queue
-		repairQueue := planet.Satellites[0].DB.RepairQueue()
+		expectedLocation := metabase.SegmentLocation{
+			ProjectID:  projectID,
+			BucketName: "test-bucket",
+		}
+
+		// add some valid pointers
+		for x := 0; x < 10; x++ {
+			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("a-%d", x))
+			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), time.Time{})
+		}
+
+		// add pointer that needs repair
+		expectedLocation.ObjectKey = metabase.ObjectKey("b-0")
+		insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), time.Time{})
+
+		// add pointer that is unhealthy, but is expired
+		expectedLocation.ObjectKey = metabase.ObjectKey("b-1")
+		insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), time.Now().Add(-time.Hour))
+
+		// add some valid pointers
+		for x := 0; x < 10; x++ {
+			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("c-%d", x))
+			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), time.Time{})
+		}
+
+		checker.Loop.TriggerWait()
+
+		// check that the unhealthy, non-expired segment was added to the queue
+		// and that the expired segment was ignored
 		injuredSegment, err := repairQueue.Select(ctx)
 		require.NoError(t, err)
 		err = repairQueue.Delete(ctx, injuredSegment)
 		require.NoError(t, err)
 
-		numValidNode := int32(len(planet.StorageNodes))
-		require.Equal(t, []byte(pointerPathPrefix+"b"), injuredSegment.Path)
-		require.Equal(t, len(planet.StorageNodes), len(injuredSegment.LostPieces))
+		expectedLocation.ObjectKey = "b-0"
+		require.Equal(t, string(expectedLocation.Encode()), string(injuredSegment.Path))
+		require.Equal(t, int(rs.OptimalShares-rs.RequiredShares), len(injuredSegment.LostPieces))
 		for _, lostPiece := range injuredSegment.LostPieces {
-			// makePointer() starts with numValidNode good pieces
-			require.True(t, lostPiece >= numValidNode, pointerPathPrefix+fmt.Sprintf("%d >= %d \n", lostPiece, numValidNode))
-			// makePointer() than has numValidNode bad pieces
-			require.True(t, lostPiece < numValidNode*2, pointerPathPrefix+fmt.Sprintf("%d < %d \n", lostPiece, numValidNode*2))
+			require.True(t, int32(rs.RequiredShares) <= lostPiece && lostPiece < int32(rs.OptimalShares), fmt.Sprintf("%v", lostPiece))
 		}
+
+		_, err = repairQueue.Select(ctx)
+		require.Error(t, err)
 	})
 }
 
 func TestIdentifyIrreparableSegments(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 0,
+		SatelliteCount: 1, StorageNodeCount: 3, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		checker := planet.Satellites[0].Repair.Checker
 		checker.Loop.Stop()
 		checker.IrreparableLoop.Stop()
 
 		const numberOfNodes = 10
-		pieces := make([]*pb.RemotePiece, 0, numberOfNodes)
+		pieces := make(metabase.Pieces, 0, numberOfNodes)
 		// use online nodes
 		for i, storagenode := range planet.StorageNodes {
-			pieces = append(pieces, &pb.RemotePiece{
-				PieceNum: int32(i),
-				NodeId:   storagenode.ID(),
+			pieces = append(pieces, metabase.Piece{
+				Number:      uint16(i),
+				StorageNode: storagenode.ID(),
 			})
 		}
 
 		// simulate offline nodes
 		expectedLostPieces := make(map[int32]bool)
 		for i := len(pieces); i < numberOfNodes; i++ {
-			pieces = append(pieces, &pb.RemotePiece{
-				PieceNum: int32(i),
-				NodeId:   storj.NodeID{byte(i)},
+			pieces = append(pieces, metabase.Piece{
+				Number:      uint16(i),
+				StorageNode: storj.NodeID{byte(i)},
 			})
 			expectedLostPieces[int32(i)] = true
 		}
 
-		projectID := testrand.UUID()
-		pointerPath := storj.JoinPaths(projectID.String(), "l", "bucket", "piece")
-		pieceID := testrand.PieceID()
+		rs := storj.RedundancyScheme{
+			ShareSize:      256,
+			RequiredShares: 4,
+			RepairShares:   8,
+			OptimalShares:  9,
+			TotalShares:    10,
+		}
+
+		projectID := planet.Uplinks[0].Projects[0].ID
+		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test-bucket")
+		require.NoError(t, err)
+
+		expectedLocation := metabase.SegmentLocation{
+			ProjectID:  projectID,
+			BucketName: "test-bucket",
+		}
 
 		// when number of healthy piece is less than minimum required number of piece in redundancy,
 		// the piece is considered irreparable and will be put into irreparable DB
-		pointer := &pb.Pointer{
-			Type:         pb.Pointer_REMOTE,
-			CreationDate: time.Now(),
-			Remote: &pb.RemoteSegment{
-				Redundancy: &pb.RedundancyScheme{
-					ErasureShareSize: int32(256),
-					MinReq:           int32(4),
-					RepairThreshold:  int32(8),
-					SuccessThreshold: int32(9),
-					Total:            int32(10),
-				},
-				RootPieceId:  pieceID,
-				RemotePieces: pieces,
-			},
-		}
 
-		// put test pointer to db
-		metainfo := planet.Satellites[0].Metainfo.Service
-		err := metainfo.Put(ctx, pointerPath, pointer)
-		require.NoError(t, err)
+		expectedLocation.ObjectKey = "piece"
+		insertSegment(ctx, t, planet, rs, expectedLocation, pieces, time.Time{})
+		pointerKey := expectedLocation.Encode()
+
+		expectedLocation.ObjectKey = "piece-expired"
+		insertSegment(ctx, t, planet, rs, expectedLocation, pieces, time.Now().Add(-time.Hour))
+		pointerExpiredKey := expectedLocation.Encode()
 
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
@@ -124,10 +152,13 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		_, err = repairQueue.Select(ctx)
 		require.True(t, storage.ErrEmptyQueue.Has(err))
 
-		//check if the expected segments were added to the irreparable DB
+		// check if the expected segments were added to the irreparable DB
 		irreparable := planet.Satellites[0].DB.Irreparable()
-		remoteSegmentInfo, err := irreparable.Get(ctx, []byte(pointerPath))
+		remoteSegmentInfo, err := irreparable.Get(ctx, pointerKey)
 		require.NoError(t, err)
+		// check that the expired segment was not added to the irreparable DB
+		_, err = irreparable.Get(ctx, pointerExpiredKey)
+		require.Error(t, err)
 
 		require.Equal(t, len(expectedLostPieces), int(remoteSegmentInfo.LostPieces))
 		require.Equal(t, 1, int(remoteSegmentInfo.RepairAttemptCount))
@@ -138,7 +169,7 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
 
-		remoteSegmentInfo, err = irreparable.Get(ctx, []byte(pointerPath))
+		remoteSegmentInfo, err = irreparable.Get(ctx, pointerKey)
 		require.NoError(t, err)
 
 		require.Equal(t, len(expectedLostPieces), int(remoteSegmentInfo.LostPieces))
@@ -146,77 +177,183 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		require.Equal(t, 2, int(remoteSegmentInfo.RepairAttemptCount))
 		require.True(t, firstRepair < remoteSegmentInfo.LastRepairAttempt)
 
-		// make the pointer repairable
-		pointer = &pb.Pointer{
-			Type:         pb.Pointer_REMOTE,
-			CreationDate: time.Now(),
-			Remote: &pb.RemoteSegment{
-				Redundancy: &pb.RedundancyScheme{
-					ErasureShareSize: int32(256),
-					MinReq:           int32(2),
-					RepairThreshold:  int32(8),
-					SuccessThreshold: int32(9),
-					Total:            int32(10),
-				},
-				RootPieceId:  pieceID,
-				RemotePieces: pieces,
-			},
-		}
-		// update test pointer in db
-		err = metainfo.Delete(ctx, pointerPath)
+		expectedLocation.ObjectKey = "piece"
+		_, err = planet.Satellites[0].Metainfo.Metabase.DeleteObjectLatestVersion(ctx, metabase.DeleteObjectLatestVersion{
+			ObjectLocation: expectedLocation.Object(),
+		})
 		require.NoError(t, err)
-		err = metainfo.Put(ctx, pointerPath, pointer)
-		require.NoError(t, err)
+
+		rs.RequiredShares = 2
+		insertSegment(ctx, t, planet, rs, expectedLocation, pieces, time.Time{})
+		pointerKey = expectedLocation.Encode()
 
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
 
-		_, err = irreparable.Get(ctx, []byte(pointerPath))
+		_, err = irreparable.Get(ctx, pointerKey)
 		require.Error(t, err)
 	})
 }
 
-func makePointer(t *testing.T, planet *testplanet.Planet, pointerPath string, createLost bool) {
-	ctx := context.TODO()
-	numOfStorageNodes := len(planet.StorageNodes)
-	pieces := make([]*pb.RemotePiece, 0, numOfStorageNodes)
-	// use online nodes
-	for i := 0; i < numOfStorageNodes; i++ {
-		pieces = append(pieces, &pb.RemotePiece{
-			PieceNum: int32(i),
-			NodeId:   planet.StorageNodes[i].Identity.ID,
-		})
-	}
-	// simulate offline nodes equal to the number of online nodes
-	if createLost {
-		for i := 0; i < numOfStorageNodes; i++ {
-			pieces = append(pieces, &pb.RemotePiece{
-				PieceNum: int32(numOfStorageNodes + i),
-				NodeId:   storj.NodeID{byte(i)},
-			})
+func TestCleanRepairQueue(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		checker := planet.Satellites[0].Repair.Checker
+		repairQueue := planet.Satellites[0].DB.RepairQueue()
+
+		checker.Loop.Pause()
+		planet.Satellites[0].Repair.Repairer.Loop.Pause()
+
+		rs := storj.RedundancyScheme{
+			RequiredShares: 2,
+			RepairShares:   3,
+			OptimalShares:  4,
+			TotalShares:    5,
+			ShareSize:      256,
+		}
+
+		projectID := planet.Uplinks[0].Projects[0].ID
+		err := planet.Uplinks[0].CreateBucket(ctx, planet.Satellites[0], "test-bucket")
+		require.NoError(t, err)
+
+		expectedLocation := metabase.SegmentLocation{
+			ProjectID:  projectID,
+			BucketName: "test-bucket",
+		}
+
+		healthyCount := 5
+		for i := 0; i < healthyCount; i++ {
+			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("healthy-%d", i))
+			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), time.Time{})
+		}
+		unhealthyCount := 5
+		for i := 0; i < unhealthyCount; i++ {
+			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("unhealthy-%d", i))
+			insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), time.Time{})
+		}
+
+		// suspend enough nodes to make healthy pointers unhealthy
+		for i := rs.RequiredShares; i < rs.OptimalShares; i++ {
+			require.NoError(t, planet.Satellites[0].Overlay.DB.SuspendNodeUnknownAudit(ctx, planet.StorageNodes[i].ID(), time.Now()))
+		}
+
+		require.NoError(t, planet.Satellites[0].Repair.Checker.RefreshReliabilityCache(ctx))
+
+		// check that repair queue is empty to avoid false positive
+		count, err := repairQueue.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 0, count)
+
+		checker.Loop.TriggerWait()
+
+		// check that the pointers were put into the repair queue
+		// and not cleaned up at the end of the checker iteration
+		count, err = repairQueue.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, healthyCount+unhealthyCount, count)
+
+		// unsuspend nodes to make the previously healthy pointers healthy again
+		for i := rs.RequiredShares; i < rs.OptimalShares; i++ {
+			require.NoError(t, planet.Satellites[0].Overlay.DB.UnsuspendNodeUnknownAudit(ctx, planet.StorageNodes[i].ID()))
+		}
+
+		require.NoError(t, planet.Satellites[0].Repair.Checker.RefreshReliabilityCache(ctx))
+
+		// The checker will not insert/update the now healthy segments causing
+		// them to be removed from the queue at the end of the checker iteration
+		checker.Loop.TriggerWait()
+
+		// only unhealthy segments should remain
+		count, err = repairQueue.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, unhealthyCount, count)
+
+		segs, err := repairQueue.SelectN(ctx, count)
+		require.NoError(t, err)
+
+		for _, s := range segs {
+			require.True(t, bytes.Contains(s.GetPath(), []byte("unhealthy")))
+		}
+	})
+}
+
+func createPieces(planet *testplanet.Planet, rs storj.RedundancyScheme) metabase.Pieces {
+	pieces := make(metabase.Pieces, rs.OptimalShares)
+	for i := range pieces {
+		pieces[i] = metabase.Piece{
+			Number:      uint16(i),
+			StorageNode: planet.StorageNodes[i].Identity.ID,
 		}
 	}
-	minReq, repairThreshold := numOfStorageNodes-1, numOfStorageNodes-1
-	if createLost {
-		minReq, repairThreshold = numOfStorageNodes-1, numOfStorageNodes+1
+	return pieces
+}
+
+func createLostPieces(planet *testplanet.Planet, rs storj.RedundancyScheme) metabase.Pieces {
+	pieces := make(metabase.Pieces, rs.OptimalShares)
+	for i := range pieces[:rs.RequiredShares] {
+		pieces[i] = metabase.Piece{
+			Number:      uint16(i),
+			StorageNode: planet.StorageNodes[i].Identity.ID,
+		}
 	}
-	pointer := &pb.Pointer{
-		Type:         pb.Pointer_REMOTE,
-		CreationDate: time.Now(),
-		Remote: &pb.RemoteSegment{
-			Redundancy: &pb.RedundancyScheme{
-				MinReq:           int32(minReq),
-				RepairThreshold:  int32(repairThreshold),
-				SuccessThreshold: int32(repairThreshold) + 1,
-				Total:            int32(repairThreshold) + 2,
-				ErasureShareSize: int32(256),
-			},
-			RootPieceId:  testrand.PieceID(),
-			RemotePieces: pieces,
+	for i := rs.RequiredShares; i < rs.OptimalShares; i++ {
+		pieces[i] = metabase.Piece{
+			Number:      uint16(i),
+			StorageNode: storj.NodeID{byte(0xFF)},
+		}
+	}
+	return pieces
+}
+
+func insertSegment(ctx context.Context, t *testing.T, planet *testplanet.Planet, rs storj.RedundancyScheme, location metabase.SegmentLocation, pieces metabase.Pieces, expire time.Time) {
+	var expiresAt *time.Time
+	if !expire.IsZero() {
+		expiresAt = &expire
+	}
+
+	metabaseDB := planet.Satellites[0].Metainfo.Metabase
+
+	obj := metabase.ObjectStream{
+		ProjectID:  location.ProjectID,
+		BucketName: location.BucketName,
+		ObjectKey:  location.ObjectKey,
+		Version:    1,
+		StreamID:   testrand.UUID(),
+	}
+
+	_, err := metabaseDB.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+		ObjectStream: obj,
+		Encryption: storj.EncryptionParameters{
+			CipherSuite: storj.EncAESGCM,
+			BlockSize:   256,
 		},
-	}
-	// put test pointer to db
-	pointerdb := planet.Satellites[0].Metainfo.Service
-	err := pointerdb.Put(ctx, pointerPath, pointer)
+		ExpiresAt: expiresAt,
+	})
+	require.NoError(t, err)
+
+	rootPieceID := testrand.PieceID()
+	err = metabaseDB.BeginSegment(ctx, metabase.BeginSegment{
+		ObjectStream: obj,
+		RootPieceID:  rootPieceID,
+		Pieces:       pieces,
+	})
+	require.NoError(t, err)
+
+	err = metabaseDB.CommitSegment(ctx, metabase.CommitSegment{
+		ObjectStream:      obj,
+		RootPieceID:       rootPieceID,
+		Pieces:            pieces,
+		EncryptedKey:      testrand.Bytes(256),
+		EncryptedKeyNonce: testrand.Bytes(256),
+		PlainSize:         1,
+		EncryptedSize:     1,
+		Redundancy:        rs,
+	})
+	require.NoError(t, err)
+
+	_, err = metabaseDB.CommitObject(ctx, metabase.CommitObject{
+		ObjectStream: obj,
+	})
 	require.NoError(t, err)
 }

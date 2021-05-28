@@ -8,14 +8,14 @@ import (
 	"crypto/sha256"
 )
 
-//TODO: change to JWT or Macaroon based auth
+// TODO: change to JWT or Macaroon based auth
 
-// Hmac is hmac256 based Signer
+// Hmac is hmac256 based Signer.
 type Hmac struct {
 	Secret []byte
 }
 
-// Sign implements satellite signer
+// Sign implements satellite signer.
 func (a *Hmac) Sign(data []byte) ([]byte, error) {
 	mac := hmac.New(sha256.New, a.Secret)
 

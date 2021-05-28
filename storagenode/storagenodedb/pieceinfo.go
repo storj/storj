@@ -8,36 +8,35 @@ import (
 	"os"
 	"time"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
 	"storj.io/storj/storagenode/pieces"
 )
 
 // ErrPieceInfo represents errors from the piece info database.
-var ErrPieceInfo = errs.Class("v0pieceinfodb error")
+var ErrPieceInfo = errs.Class("v0pieceinfodb")
 
 // PieceInfoDBName represents the database name.
 const PieceInfoDBName = "pieceinfo"
 
 type v0PieceInfoDB struct {
-	migratableDB
+	dbContainerImpl
 }
 
 // Add inserts piece information into the database.
 func (db *v0PieceInfoDB) Add(ctx context.Context, info *pieces.Info) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	orderLimit, err := proto.Marshal(info.OrderLimit)
+	orderLimit, err := pb.Marshal(info.OrderLimit)
 	if err != nil {
 		return ErrPieceInfo.Wrap(err)
 	}
 
-	uplinkPieceHash, err := proto.Marshal(info.UplinkPieceHash)
+	uplinkPieceHash, err := pb.Marshal(info.UplinkPieceHash)
 	if err != nil {
 		return ErrPieceInfo.Wrap(err)
 	}
@@ -81,7 +80,7 @@ func (db *v0PieceInfoDB) getAllPiecesOwnedBy(ctx context.Context, blobStore stor
 			return nil, ErrPieceInfo.Wrap(err)
 		}
 	}
-	return pieceInfos, nil
+	return pieceInfos, rows.Err()
 }
 
 // WalkSatelliteV0Pieces executes walkFunc for each locally stored piece, stored with storage
@@ -137,13 +136,13 @@ func (db *v0PieceInfoDB) Get(ctx context.Context, satelliteID storj.NodeID, piec
 	}
 
 	info.OrderLimit = &pb.OrderLimit{}
-	err = proto.Unmarshal(orderLimit, info.OrderLimit)
+	err = pb.Unmarshal(orderLimit, info.OrderLimit)
 	if err != nil {
 		return nil, ErrPieceInfo.Wrap(err)
 	}
 
 	info.UplinkPieceHash = &pb.PieceHash{}
-	err = proto.Unmarshal(uplinkPieceHash, info.UplinkPieceHash)
+	err = pb.Unmarshal(uplinkPieceHash, info.UplinkPieceHash)
 	if err != nil {
 		return nil, ErrPieceInfo.Wrap(err)
 	}
@@ -203,7 +202,7 @@ func (db *v0PieceInfoDB) GetExpired(ctx context.Context, expiredAt time.Time, li
 		}
 		infos = append(infos, info)
 	}
-	return infos, nil
+	return infos, rows.Err()
 }
 
 type v0StoredPieceAccess struct {
@@ -216,25 +215,25 @@ type v0StoredPieceAccess struct {
 	blobInfo       storage.BlobInfo
 }
 
-// PieceID returns the piece ID for the piece
-func (v0Access v0StoredPieceAccess) PieceID() storj.PieceID {
+// PieceID returns the piece ID for the piece.
+func (v0Access *v0StoredPieceAccess) PieceID() storj.PieceID {
 	return v0Access.pieceID
 }
 
-// Satellite returns the satellite ID that owns the piece
-func (v0Access v0StoredPieceAccess) Satellite() (storj.NodeID, error) {
+// Satellite returns the satellite ID that owns the piece.
+func (v0Access *v0StoredPieceAccess) Satellite() (storj.NodeID, error) {
 	return v0Access.satellite, nil
 }
 
-// BlobRef returns the relevant storage.BlobRef locator for the piece
-func (v0Access v0StoredPieceAccess) BlobRef() storage.BlobRef {
+// BlobRef returns the relevant storage.BlobRef locator for the piece.
+func (v0Access *v0StoredPieceAccess) BlobRef() storage.BlobRef {
 	return storage.BlobRef{
 		Namespace: v0Access.satellite.Bytes(),
 		Key:       v0Access.pieceID.Bytes(),
 	}
 }
 
-func (v0Access v0StoredPieceAccess) fillInBlobAccess(ctx context.Context) error {
+func (v0Access *v0StoredPieceAccess) fillInBlobAccess(ctx context.Context) error {
 	if v0Access.blobInfo == nil {
 		if v0Access.blobStore == nil {
 			return errs.New("this v0StoredPieceAccess instance has no blobStore reference, and cannot look up the relevant blob")
@@ -248,39 +247,39 @@ func (v0Access v0StoredPieceAccess) fillInBlobAccess(ctx context.Context) error 
 	return nil
 }
 
-// ContentSize gives the size of the piece content (not including the piece header, if applicable)
-func (v0Access v0StoredPieceAccess) ContentSize(ctx context.Context) (int64, error) {
-	return v0Access.pieceSize, nil
+// Size gives the size of the piece, and the piece content size (not including the piece header, if applicable).
+func (v0Access *v0StoredPieceAccess) Size(ctx context.Context) (int64, int64, error) {
+	return v0Access.pieceSize, v0Access.pieceSize, nil
 }
 
 // CreationTime returns the piece creation time as given in the original order (which is not
 // necessarily the same as the file mtime).
-func (v0Access v0StoredPieceAccess) CreationTime(ctx context.Context) (time.Time, error) {
+func (v0Access *v0StoredPieceAccess) CreationTime(ctx context.Context) (time.Time, error) {
 	return v0Access.creationTime, nil
 }
 
 // ModTime returns the same thing as CreationTime for V0 blobs. The intent is for ModTime to
 // be a little faster when CreationTime is too slow and the precision is not needed, but in
 // this case we already have the exact creation time from the database.
-func (v0Access v0StoredPieceAccess) ModTime(ctx context.Context) (time.Time, error) {
+func (v0Access *v0StoredPieceAccess) ModTime(ctx context.Context) (time.Time, error) {
 	return v0Access.creationTime, nil
 }
 
-// FullPath gives the full path to the on-disk blob file
-func (v0Access v0StoredPieceAccess) FullPath(ctx context.Context) (string, error) {
+// FullPath gives the full path to the on-disk blob file.
+func (v0Access *v0StoredPieceAccess) FullPath(ctx context.Context) (string, error) {
 	if err := v0Access.fillInBlobAccess(ctx); err != nil {
 		return "", err
 	}
 	return v0Access.blobInfo.FullPath(ctx)
 }
 
-// StorageFormatVersion indicates the storage format version used to store the piece
-func (v0Access v0StoredPieceAccess) StorageFormatVersion() storage.FormatVersion {
+// StorageFormatVersion indicates the storage format version used to store the piece.
+func (v0Access *v0StoredPieceAccess) StorageFormatVersion() storage.FormatVersion {
 	return filestore.FormatV0
 }
 
-// Stat does a stat on the on-disk blob file
-func (v0Access v0StoredPieceAccess) Stat(ctx context.Context) (os.FileInfo, error) {
+// Stat does a stat on the on-disk blob file.
+func (v0Access *v0StoredPieceAccess) Stat(ctx context.Context) (os.FileInfo, error) {
 	if err := v0Access.fillInBlobAccess(ctx); err != nil {
 		return nil, err
 	}

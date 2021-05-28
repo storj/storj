@@ -8,23 +8,23 @@ import (
 )
 
 const (
-	// RewardType is a graphql type for reward
+	// RewardType is a graphql type for reward.
 	RewardType = "reward"
-	// FieldAwardCreditInCent is a field name for award credit amount for referrers
+	// FieldAwardCreditInCent is a field name for award credit amount for referrers.
 	FieldAwardCreditInCent = "awardCreditInCent"
-	// FieldInviteeCreditInCents is a field name for credit amount rewarded to invitees
+	// FieldInviteeCreditInCents is a field name for credit amount rewarded to invitees.
 	FieldInviteeCreditInCents = "inviteeCreditInCents"
-	// FieldRedeemableCap is a field name for the total redeemable amount of the reward offer
+	// FieldRedeemableCap is a field name for the total redeemable amount of the reward offer.
 	FieldRedeemableCap = "redeemableCap"
-	// FieldAwardCreditDurationDays is a field name for the valid time frame of current award credit
+	// FieldAwardCreditDurationDays is a field name for the valid time frame of current award credit.
 	FieldAwardCreditDurationDays = "awardCreditDurationDays"
-	// FieldInviteeCreditDurationDays is a field name for the valid time frame of current invitee credit
+	// FieldInviteeCreditDurationDays is a field name for the valid time frame of current invitee credit.
 	FieldInviteeCreditDurationDays = "inviteeCreditDurationDays"
-	// FieldExpiresAt is a field name for the expiration time of a reward offer
+	// FieldExpiresAt is a field name for the expiration time of a reward offer.
 	FieldExpiresAt = "expiresAt"
-	// FieldType is a field name for the type of reward offers
+	// FieldType is a field name for the type of reward offers.
 	FieldType = "type"
-	// FieldStatus is a field name for the status of reward offers
+	// FieldStatus is a field name for the status of reward offers.
 	FieldStatus = "status"
 )
 

@@ -18,7 +18,7 @@ We need a service on the satellite that finds pieces in the metainfo database th
 
 The service starts by asking overlay for all exiting nodes where `nodes.exit_loop_completed_at` is null.
 
-Then joins a metainfo loop to iterate over all segments. For any segment that contains nodes that are exiting it will add an entry to a queue (if durability <= optimal). We call this the transfer queue. If durability > optimal, we remove the exiting node from the segment / pointer.
+Then joins a metainfo loop to iterate over all segments. For any segment that contains nodes that are exiting it will add an entry to a queue. We call this the transfer queue.
 
 
 The transfer queue is stored in database. We will need batching when inserting to database to avoid excessive load.

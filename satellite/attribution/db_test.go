@@ -7,14 +7,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/pb"
+	"storj.io/common/pb"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/attribution"
@@ -62,12 +61,8 @@ func (testData *AttributionTestData) init() {
 }
 
 func TestDB(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		attributionDB := db.Attribution()
-
 		project1, project2 := testrand.UUID(), testrand.UUID()
 		partner1, partner2 := testrand.UUID(), testrand.UUID()
 
@@ -95,11 +90,8 @@ func TestDB(t *testing.T) {
 }
 
 func TestQueryAttribution(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
-		now := time.Now().UTC()
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		now := time.Now()
 
 		projectID := testrand.UUID()
 		partnerID := testrand.UUID()
@@ -185,7 +177,7 @@ func verifyData(ctx *testcontext.Context, t *testing.T, attributionDB attributio
 	require.NotEqual(t, 0, len(results), "Results must not be empty.")
 	count := 0
 	for _, r := range results {
-		projectID, _ := bytesToUUID(r.ProjectID)
+		projectID, _ := uuid.FromBytes(r.ProjectID)
 		// The query returns results by partnerID, so we need to filter out by projectID
 		if projectID != testData.projectID {
 			continue
@@ -252,16 +244,4 @@ func createTallyData(ctx *testcontext.Context, projectAccoutingDB accounting.Pro
 		return accounting.BucketStorageTally{}, err
 	}
 	return tally, nil
-}
-
-// bytesToUUID is used to convert []byte to UUID
-func bytesToUUID(data []byte) (uuid.UUID, error) {
-	var id uuid.UUID
-
-	copy(id[:], data)
-	if len(id) != len(data) {
-		return uuid.UUID{}, errs.New("Invalid uuid")
-	}
-
-	return id, nil
 }

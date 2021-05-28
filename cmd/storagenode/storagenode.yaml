@@ -6,7 +6,7 @@ metadata:
     app: piecestore
 spec:
   ports:
-  - name: grpc
+  - name: rpc
     port: 7777
     targetPort: 7777
   - name: http
@@ -43,16 +43,10 @@ spec:
             value: "127.0.0.1"
           - name: RPC_PORT
             value: "7777"
-          - name: KAD_PORT
-            value: "8080"
-          - name: KAD_HOST
-            value: "bootstrap.storj.io"
-          - name: KAD_LISTEN_PORT
-            value: "7776"
           - name: PS_DIR
             value: "/home/"
         ports:
-        - name: grpc
+        - name: rpc
           containerPort: 7777
         - name: http
           containerPort: 7776

@@ -3,8 +3,8 @@
 
 package console
 
-// BandwidthInfo stores all info about storage node bandwidth usage
+// BandwidthInfo stores all info about storage node bandwidth usage.
 type BandwidthInfo struct {
-	Used      float64 `json:"used"`
-	Available float64 `json:"available"`
+	Used      int64 `json:"used"`
+	Available int64 `json:"available"`
 }

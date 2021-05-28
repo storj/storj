@@ -1,70 +1,96 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+//go:generate sh -c "go run schemagen.go > schema.go.tmp && mv schema.go.tmp schema.go"
+
 package storagenodedb
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/google/go-cmp/cmp"
 	_ "github.com/mattn/go-sqlite3" // used indirectly.
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/dbutil"
-	"storj.io/storj/internal/dbutil/sqliteutil"
-	"storj.io/storj/internal/migrate"
+	"storj.io/private/dbutil"
+	"storj.io/private/dbutil/dbschema"
+	"storj.io/private/dbutil/sqliteutil"
+	"storj.io/private/tagsql"
+	"storj.io/storj/private/migrate"
 	"storj.io/storj/storage"
 	"storj.io/storj/storage/filestore"
-	"storj.io/storj/storagenode"
+	"storj.io/storj/storagenode/apikeys"
 	"storj.io/storj/storagenode/bandwidth"
+	"storj.io/storj/storagenode/notifications"
 	"storj.io/storj/storagenode/orders"
+	"storj.io/storj/storagenode/payouts"
 	"storj.io/storj/storagenode/pieces"
-	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
+	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storageusage"
 )
 
-// VersionTable is the table that stores the version info in each db
+// VersionTable is the table that stores the version info in each db.
 const VersionTable = "versions"
 
 var (
 	mon = monkit.Package()
 
 	// ErrDatabase represents errors from the databases.
-	ErrDatabase = errs.Class("storage node database error")
+	ErrDatabase = errs.Class("database")
+	// ErrNoRows represents database error if rows weren't affected.
+	ErrNoRows = errs.New("no rows affected")
+	// ErrPreflight represents an error during the preflight check.
+	ErrPreflight = errs.Class("preflight")
 )
 
-var _ storagenode.DB = (*DB)(nil)
-
-// SQLDB defines an interface to allow accessing and setting an sql.DB
-type SQLDB interface {
-	Configure(sqlDB *sql.DB)
-	GetDB() *sql.DB
+// DBContainer defines an interface to allow accessing and setting a SQLDB.
+type DBContainer interface {
+	Configure(sqlDB tagsql.DB)
+	GetDB() tagsql.DB
 }
 
-// Config configures storage node database
+// withTx is a helper method which executes callback in transaction scope.
+func withTx(ctx context.Context, db tagsql.DB, cb func(tx tagsql.Tx) error) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, tx.Rollback())
+			return
+		}
+
+		err = tx.Commit()
+	}()
+	return cb(tx)
+}
+
+// Config configures storage node database.
 type Config struct {
 	// TODO: figure out better names
-	Storage string
-	Info    string
-	Info2   string
-
-	Pieces string
+	Storage   string
+	Info      string
+	Info2     string
+	Driver    string // if unset, uses sqlite3
+	Pieces    string
+	Filestore filestore.Config
 }
 
-// DB contains access to different database tables
+// DB contains access to different database tables.
 type DB struct {
-	log *zap.Logger
+	log    *zap.Logger
+	config Config
 
-	pieces interface {
-		storage.Blobs
-		Close() error
-	}
+	pieces storage.Blobs
 
 	dbDirectory string
 
@@ -78,17 +104,22 @@ type DB struct {
 	storageUsageDB    *storageUsageDB
 	usedSerialsDB     *usedSerialsDB
 	satellitesDB      *satellitesDB
+	notificationsDB   *notificationDB
+	payoutDB          *payoutDB
+	pricingDB         *pricingDB
+	apiKeysDB         *apiKeysDB
 
-	sqlDatabases map[string]SQLDB
+	SQLDBs map[string]DBContainer
 }
 
-// New creates a new master database for storage node
-func New(log *zap.Logger, config Config) (*DB, error) {
-	piecesDir, err := filestore.NewDir(config.Pieces)
+// OpenNew creates a new master database for storage node.
+func OpenNew(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
+	piecesDir, err := filestore.NewDir(log, config.Pieces)
 	if err != nil {
 		return nil, err
 	}
-	pieces := filestore.New(log, piecesDir)
+
+	pieces := filestore.New(log, piecesDir, config.Filestore)
 
 	deprecatedInfoDB := &deprecatedInfoDB{}
 	v0PieceInfoDB := &v0PieceInfoDB{}
@@ -100,9 +131,15 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 	storageUsageDB := &storageUsageDB{}
 	usedSerialsDB := &usedSerialsDB{}
 	satellitesDB := &satellitesDB{}
+	notificationsDB := &notificationDB{}
+	payoutDB := &payoutDB{}
+	pricingDB := &pricingDB{}
+	apiKeysDB := &apiKeysDB{}
 
 	db := &DB{
 		log:    log,
+		config: config,
+
 		pieces: pieces,
 
 		dbDirectory: filepath.Dir(config.Info2),
@@ -117,8 +154,12 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 		storageUsageDB:    storageUsageDB,
 		usedSerialsDB:     usedSerialsDB,
 		satellitesDB:      satellitesDB,
+		notificationsDB:   notificationsDB,
+		payoutDB:          payoutDB,
+		pricingDB:         pricingDB,
+		apiKeysDB:         apiKeysDB,
 
-		sqlDatabases: map[string]SQLDB{
+		SQLDBs: map[string]DBContainer{
 			DeprecatedInfoDBName:  deprecatedInfoDB,
 			PieceInfoDBName:       v0PieceInfoDB,
 			BandwidthDBName:       bandwidthDB,
@@ -129,96 +170,164 @@ func New(log *zap.Logger, config Config) (*DB, error) {
 			StorageUsageDBName:    storageUsageDB,
 			UsedSerialsDBName:     usedSerialsDB,
 			SatellitesDBName:      satellitesDB,
+			NotificationsDBName:   notificationsDB,
+			HeldAmountDBName:      payoutDB,
+			PricingDBName:         pricingDB,
+			APIKeysDBName:         apiKeysDB,
 		},
 	}
 
-	err = db.openDatabases()
+	return db, nil
+}
+
+// OpenExisting opens an existing master database for storage node.
+func OpenExisting(ctx context.Context, log *zap.Logger, config Config) (*DB, error) {
+	piecesDir, err := filestore.OpenDir(log, config.Pieces)
 	if err != nil {
 		return nil, err
 	}
+
+	pieces := filestore.New(log, piecesDir, config.Filestore)
+
+	deprecatedInfoDB := &deprecatedInfoDB{}
+	v0PieceInfoDB := &v0PieceInfoDB{}
+	bandwidthDB := &bandwidthDB{}
+	ordersDB := &ordersDB{}
+	pieceExpirationDB := &pieceExpirationDB{}
+	pieceSpaceUsedDB := &pieceSpaceUsedDB{}
+	reputationDB := &reputationDB{}
+	storageUsageDB := &storageUsageDB{}
+	usedSerialsDB := &usedSerialsDB{}
+	satellitesDB := &satellitesDB{}
+	notificationsDB := &notificationDB{}
+	payoutDB := &payoutDB{}
+	pricingDB := &pricingDB{}
+	apiKeysDB := &apiKeysDB{}
+
+	db := &DB{
+		log:    log,
+		config: config,
+
+		pieces: pieces,
+
+		dbDirectory: filepath.Dir(config.Info2),
+
+		deprecatedInfoDB:  deprecatedInfoDB,
+		v0PieceInfoDB:     v0PieceInfoDB,
+		bandwidthDB:       bandwidthDB,
+		ordersDB:          ordersDB,
+		pieceExpirationDB: pieceExpirationDB,
+		pieceSpaceUsedDB:  pieceSpaceUsedDB,
+		reputationDB:      reputationDB,
+		storageUsageDB:    storageUsageDB,
+		usedSerialsDB:     usedSerialsDB,
+		satellitesDB:      satellitesDB,
+		notificationsDB:   notificationsDB,
+		payoutDB:          payoutDB,
+		pricingDB:         pricingDB,
+		apiKeysDB:         apiKeysDB,
+
+		SQLDBs: map[string]DBContainer{
+			DeprecatedInfoDBName:  deprecatedInfoDB,
+			PieceInfoDBName:       v0PieceInfoDB,
+			BandwidthDBName:       bandwidthDB,
+			OrdersDBName:          ordersDB,
+			PieceExpirationDBName: pieceExpirationDB,
+			PieceSpaceUsedDBName:  pieceSpaceUsedDB,
+			ReputationDBName:      reputationDB,
+			StorageUsageDBName:    storageUsageDB,
+			UsedSerialsDBName:     usedSerialsDB,
+			SatellitesDBName:      satellitesDB,
+			NotificationsDBName:   notificationsDB,
+			HeldAmountDBName:      payoutDB,
+			PricingDBName:         pricingDB,
+			APIKeysDBName:         apiKeysDB,
+		},
+	}
+
+	err = db.openDatabases(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return db, nil
 }
 
 // openDatabases opens all the SQLite3 storage node databases and returns if any fails to open successfully.
-func (db *DB) openDatabases() error {
+func (db *DB) openDatabases(ctx context.Context) error {
 	// These objects have a Configure method to allow setting the underlining SQLDB connection
 	// that each uses internally to do data access to the SQLite3 databases.
 	// The reason it was done this way was because there's some outside consumers that are
 	// taking a reference to the business object.
-	err := db.openDatabase(DeprecatedInfoDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
+
+	dbs := []string{
+		DeprecatedInfoDBName,
+		BandwidthDBName,
+		OrdersDBName,
+		PieceExpirationDBName,
+		PieceInfoDBName,
+		PieceSpaceUsedDBName,
+		ReputationDBName,
+		StorageUsageDBName,
+		UsedSerialsDBName,
+		SatellitesDBName,
+		NotificationsDBName,
+		HeldAmountDBName,
+		PricingDBName,
+		APIKeysDBName,
 	}
 
-	err = db.openDatabase(BandwidthDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
+	for _, dbName := range dbs {
+		err := db.openExistingDatabase(ctx, dbName)
+		if err != nil {
+			return errs.Combine(err, db.closeDatabases())
+		}
 	}
 
-	err = db.openDatabase(OrdersDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-
-	err = db.openDatabase(PieceExpirationDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-
-	err = db.openDatabase(PieceInfoDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-
-	err = db.openDatabase(PieceSpaceUsedDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-
-	err = db.openDatabase(ReputationDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-
-	err = db.openDatabase(StorageUsageDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-
-	err = db.openDatabase(UsedSerialsDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
-
-	err = db.openDatabase(SatellitesDBName)
-	if err != nil {
-		return errs.Combine(err, db.closeDatabases())
-	}
 	return nil
 }
 
-func (db *DB) rawDatabaseFromName(dbName string) *sql.DB {
-	return db.sqlDatabases[dbName].GetDB()
+func (db *DB) rawDatabaseFromName(dbName string) tagsql.DB {
+	return db.SQLDBs[dbName].GetDB()
 }
 
-// openDatabase opens or creates a database at the specified path.
-func (db *DB) openDatabase(dbName string) error {
+// openExistingDatabase opens existing database at the specified path.
+func (db *DB) openExistingDatabase(ctx context.Context, dbName string) error {
 	path := db.filepathFromDBName(dbName)
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			db.log.Info("database does not exists", zap.String("database", dbName))
+			return nil
+		}
 		return ErrDatabase.Wrap(err)
 	}
 
-	sqlDB, err := sql.Open("sqlite3", "file:"+path+"?_journal=WAL&_busy_timeout=10000")
+	return db.openDatabase(ctx, dbName)
+}
+
+// openDatabase opens or creates a database at the specified path.
+func (db *DB) openDatabase(ctx context.Context, dbName string) error {
+	path := db.filepathFromDBName(dbName)
+
+	driver := db.config.Driver
+	if driver == "" {
+		driver = "sqlite3"
+	}
+
+	if err := db.closeDatabase(dbName); err != nil {
+		return ErrDatabase.Wrap(err)
+	}
+
+	sqlDB, err := tagsql.Open(ctx, driver, "file:"+path+"?_journal=WAL&_busy_timeout=10000")
 	if err != nil {
 		return ErrDatabase.Wrap(err)
 	}
 
-	mDB := db.sqlDatabases[dbName]
+	mDB := db.SQLDBs[dbName]
 	mDB.Configure(sqlDB)
 
-	dbutil.Configure(sqlDB, mon)
+	dbutil.Configure(ctx, sqlDB, dbName, mon)
 
-	db.log.Debug(fmt.Sprintf("opened database %s", dbName))
 	return nil
 }
 
@@ -231,10 +340,118 @@ func (db *DB) filepathFromDBName(dbName string) string {
 	return filepath.Join(db.dbDirectory, db.filenameFromDBName(dbName))
 }
 
-// CreateTables creates any necessary tables.
-func (db *DB) CreateTables(ctx context.Context) error {
+// MigrateToLatest creates any necessary tables.
+func (db *DB) MigrateToLatest(ctx context.Context) error {
 	migration := db.Migration(ctx)
-	return migration.Run(db.log.Named("migration"))
+	return migration.Run(ctx, db.log.Named("migration"))
+}
+
+// Preflight conducts a pre-flight check to ensure correct schemas and minimal read+write functionality of the database tables.
+func (db *DB) Preflight(ctx context.Context) (err error) {
+	for dbName, dbContainer := range db.SQLDBs {
+		if err := db.preflight(ctx, dbName, dbContainer); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (db *DB) preflight(ctx context.Context, dbName string, dbContainer DBContainer) error {
+	nextDB := dbContainer.GetDB()
+	// Preflight stage 1: test schema correctness
+	schema, err := sqliteutil.QuerySchema(ctx, nextDB)
+	if err != nil {
+		return ErrPreflight.New("database %q: schema check failed: %v", dbName, err)
+	}
+	// we don't care about changes in versions table
+	schema.DropTable("versions")
+	// if there was a previous pre-flight failure, test_table might still be in the schema
+	schema.DropTable("test_table")
+
+	// If tables and indexes of the schema are empty, set to nil
+	// to help with comparison to the snapshot.
+	if len(schema.Tables) == 0 {
+		schema.Tables = nil
+	}
+	if len(schema.Indexes) == 0 {
+		schema.Indexes = nil
+	}
+
+	// get expected schema
+	expectedSchema := Schema()[dbName]
+
+	// find extra indexes
+	var extraIdxs []*dbschema.Index
+	for _, idx := range schema.Indexes {
+		if _, exists := expectedSchema.FindIndex(idx.Name); exists {
+			continue
+		}
+
+		extraIdxs = append(extraIdxs, idx)
+	}
+	// drop index from schema if it is not unique to not fail preflight
+	for _, idx := range extraIdxs {
+		if !idx.Unique {
+			schema.DropIndex(idx.Name)
+		}
+	}
+	// warn that schema contains unexpected indexes
+	if len(extraIdxs) > 0 {
+		db.log.Warn(fmt.Sprintf("database %q: schema contains unexpected indices %v", dbName, extraIdxs))
+	}
+
+	// expect expected schema to match actual schema
+	if diff := cmp.Diff(expectedSchema, schema); diff != "" {
+		return ErrPreflight.New("database %q: expected schema does not match actual: %s", dbName, diff)
+	}
+
+	// Preflight stage 2: test basic read/write access
+	// for each database, create a new table, insert a row into that table, retrieve and validate that row, and drop the table.
+
+	// drop test table in case the last preflight check failed before table could be dropped
+	_, err = nextDB.ExecContext(ctx, "DROP TABLE IF EXISTS test_table")
+	if err != nil {
+		return ErrPreflight.New("database %q: failed drop if test_table: %w", dbName, err)
+	}
+	_, err = nextDB.ExecContext(ctx, "CREATE TABLE test_table(id int NOT NULL, name varchar(30), PRIMARY KEY (id))")
+	if err != nil {
+		return ErrPreflight.New("database %q: failed create test_table: %w", dbName, err)
+	}
+
+	var expectedID, actualID int
+	var expectedName, actualName string
+	expectedID = 1
+	expectedName = "TEST"
+	_, err = nextDB.ExecContext(ctx, "INSERT INTO test_table VALUES ( ?, ? )", expectedID, expectedName)
+	if err != nil {
+		return ErrPreflight.New("database: %q: failed inserting test value: %w", dbName, err)
+	}
+
+	rows, err := nextDB.QueryContext(ctx, "SELECT id, name FROM test_table")
+	if err != nil {
+		return ErrPreflight.New("database: %q: failed selecting test value: %w", dbName, err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	if !rows.Next() {
+		return ErrPreflight.New("database %q: no rows in test_table", dbName)
+	}
+	err = rows.Scan(&actualID, &actualName)
+	if err != nil {
+		return ErrPreflight.New("database %q: failed scanning row: %w", dbName, err)
+	}
+	if expectedID != actualID || expectedName != actualName {
+		return ErrPreflight.New("database %q: expected (%d, '%s'), actual (%d, '%s')", dbName, expectedID, expectedName, actualID, actualName)
+	}
+	if rows.Next() {
+		return ErrPreflight.New("database %q: more than one row in test_table", dbName)
+	}
+
+	_, err = nextDB.ExecContext(ctx, "DROP TABLE test_table")
+	if err != nil {
+		return ErrPreflight.New("database %q: failed drop test_table %w", dbName, err)
+	}
+
+	return nil
 }
 
 // Close closes any resources.
@@ -246,7 +463,7 @@ func (db *DB) Close() error {
 func (db *DB) closeDatabases() error {
 	var errlist errs.Group
 
-	for k := range db.sqlDatabases {
+	for k := range db.SQLDBs {
 		errlist.Add(db.closeDatabase(k))
 	}
 	return errlist.Err()
@@ -254,11 +471,16 @@ func (db *DB) closeDatabases() error {
 
 // closeDatabase closes the specified SQLite database connections and removes them from the associated maps.
 func (db *DB) closeDatabase(dbName string) (err error) {
-	mdb, ok := db.sqlDatabases[dbName]
+	mdb, ok := db.SQLDBs[dbName]
 	if !ok {
 		return ErrDatabase.New("no database with name %s found. database was never opened or already closed.", dbName)
 	}
-	return ErrDatabase.Wrap(mdb.GetDB().Close())
+	// if an error occurred during openDatabase, there will be no internal DB to close
+	dbHandle := mdb.GetDB()
+	if dbHandle == nil {
+		return nil
+	}
+	return ErrDatabase.Wrap(dbHandle.Close())
 }
 
 // V0PieceInfo returns the instance of the V0PieceInfoDB database.
@@ -276,7 +498,7 @@ func (db *DB) Orders() orders.DB {
 	return db.ordersDB
 }
 
-// Pieces returns blob storage for pieces
+// Pieces returns blob storage for pieces.
 func (db *DB) Pieces() storage.Blobs {
 	return db.pieces
 }
@@ -301,14 +523,34 @@ func (db *DB) StorageUsage() storageusage.DB {
 	return db.storageUsageDB
 }
 
-// UsedSerials returns the instance of the UsedSerials database.
-func (db *DB) UsedSerials() piecestore.UsedSerials {
-	return db.usedSerialsDB
+// Satellites returns the instance of the Satellites database.
+func (db *DB) Satellites() satellites.DB {
+	return db.satellitesDB
 }
 
-// RawDatabases are required for testing purposes
-func (db *DB) RawDatabases() map[string]SQLDB {
-	return db.sqlDatabases
+// Notifications returns the instance of the Notifications database.
+func (db *DB) Notifications() notifications.DB {
+	return db.notificationsDB
+}
+
+// Payout returns instance of the SnoPayout database.
+func (db *DB) Payout() payouts.DB {
+	return db.payoutDB
+}
+
+// Pricing returns instance of the Pricing database.
+func (db *DB) Pricing() pricing.DB {
+	return db.pricingDB
+}
+
+// APIKeys returns instance of the APIKeys database.
+func (db *DB) APIKeys() apikeys.DB {
+	return db.apiKeysDB
+}
+
+// RawDatabases are required for testing purposes.
+func (db *DB) RawDatabases() map[string]DBContainer {
+	return db.SQLDBs
 }
 
 // migrateToDB is a helper method that performs the migration from the
@@ -330,12 +572,15 @@ func (db *DB) migrateToDB(ctx context.Context, dbName string, tablesToKeep ...st
 		}
 	}
 
-	err = db.openDatabase(dbName)
+	err = db.openDatabase(ctx, dbName)
 	if err != nil {
 		return ErrDatabase.Wrap(err)
 	}
 
-	err = sqliteutil.MigrateTablesToDatabase(ctx, db.rawDatabaseFromName(DeprecatedInfoDBName), db.rawDatabaseFromName(dbName), tablesToKeep...)
+	err = sqliteutil.MigrateTablesToDatabase(ctx,
+		db.rawDatabaseFromName(DeprecatedInfoDBName),
+		db.rawDatabaseFromName(dbName),
+		tablesToKeep...)
 	if err != nil {
 		return ErrDatabase.Wrap(err)
 	}
@@ -347,12 +592,17 @@ func (db *DB) migrateToDB(ctx context.Context, dbName string, tablesToKeep ...st
 		return ErrDatabase.Wrap(err)
 	}
 
-	err = db.openDatabase(dbName)
+	err = db.openExistingDatabase(ctx, dbName)
 	if err != nil {
 		return ErrDatabase.Wrap(err)
 	}
 
 	return nil
+}
+
+// CheckVersion that the version of the migration matches the state of the database.
+func (db *DB) CheckVersion(ctx context.Context) error {
+	return db.Migration(ctx).ValidateVersions(ctx, db.log)
 }
 
 // Migration returns table migrations.
@@ -361,9 +611,16 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 		Table: VersionTable,
 		Steps: []*migrate.Step{
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Initial setup",
 				Version:     0,
+				CreateDB: func(ctx context.Context, log *zap.Logger) error {
+					if err := db.openDatabase(ctx, DeprecatedInfoDBName); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					return nil
+				},
 				Action: migrate.SQL{
 					// table for keeping serials that need to be verified against
 					`CREATE TABLE used_serial (
@@ -443,7 +700,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Network Wipe #2",
 				Version:     1,
 				Action: migrate.SQL{
@@ -451,7 +708,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Add tracking of deletion failures.",
 				Version:     2,
 				Action: migrate.SQL{
@@ -459,7 +716,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Add vouchersDB for storing and retrieving vouchers.",
 				Version:     3,
 				Action: migrate.SQL{
@@ -471,7 +728,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Add index on pieceinfo expireation",
 				Version:     4,
 				Action: migrate.SQL{
@@ -480,7 +737,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Partial Network Wipe - Tardigrade Satellites",
 				Version:     5,
 				Action: migrate.SQL{
@@ -492,7 +749,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Add creation date.",
 				Version:     6,
 				Action: migrate.SQL{
@@ -500,7 +757,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Drop certificate table.",
 				Version:     7,
 				Action: migrate.SQL{
@@ -509,7 +766,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Drop old used serials and remove pieceinfo_deletion_failed index.",
 				Version:     8,
 				Action: migrate.SQL{
@@ -518,7 +775,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Add order limit table.",
 				Version:     9,
 				Action: migrate.SQL{
@@ -526,7 +783,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Optimize index usage.",
 				Version:     10,
 				Action: migrate.SQL{
@@ -537,7 +794,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Create bandwidth_usage_rollup table.",
 				Version:     11,
 				Action: migrate.SQL{
@@ -551,7 +808,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Clear Tables from Alpha data",
 				Version:     12,
 				Action: migrate.SQL{
@@ -599,45 +856,45 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Free Storagenodes from trash data",
 				Version:     13,
-				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb tagsql.DB, tx tagsql.Tx) error {
 					err := os.RemoveAll(filepath.Join(db.dbDirectory, "blob/ukfu6bhbboxilvt7jrwlqk7y2tapb5d2r2tsmj2sjxvw5qaaaaaa")) // us-central1
 					if err != nil {
-						log.Sugar().Debug(err)
+						log.Debug("Error removing trash from us-central-1.", zap.Error(err))
 					}
 					err = os.RemoveAll(filepath.Join(db.dbDirectory, "blob/v4weeab67sbgvnbwd5z7tweqsqqun7qox2agpbxy44mqqaaaaaaa")) // europe-west1
 					if err != nil {
-						log.Sugar().Debug(err)
+						log.Debug("Error removing trash from europe-west-1.", zap.Error(err))
 					}
 					err = os.RemoveAll(filepath.Join(db.dbDirectory, "blob/qstuylguhrn2ozjv4h2c6xpxykd622gtgurhql2k7k75wqaaaaaa")) // asia-east1
 					if err != nil {
-						log.Sugar().Debug(err)
+						log.Debug("Error removing trash from asia-east-1.", zap.Error(err))
 					}
 					err = os.RemoveAll(filepath.Join(db.dbDirectory, "blob/abforhuxbzyd35blusvrifvdwmfx4hmocsva4vmpp3rgqaaaaaaa")) // "tothemoon (stefan)"
 					if err != nil {
-						log.Sugar().Debug(err)
+						log.Debug("Error removing trash from tothemoon.", zap.Error(err))
 					}
 					// To prevent the node from starting up, we just log errors and return nil
 					return nil
 				}),
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Free Storagenodes from orphaned tmp data",
 				Version:     14,
-				Action: migrate.Func(func(log *zap.Logger, mgdb migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, mgdb tagsql.DB, tx tagsql.Tx) error {
 					err := os.RemoveAll(filepath.Join(db.dbDirectory, "tmp"))
 					if err != nil {
-						log.Sugar().Debug(err)
+						log.Debug("Error removing orphaned tmp data.", zap.Error(err))
 					}
 					// To prevent the node from starting up, we just log errors and return nil
 					return nil
 				}),
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Start piece_expirations table, deprecate pieceinfo table",
 				Version:     15,
 				Action: migrate.SQL{
@@ -654,7 +911,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Add reputation and storage usage cache tables",
 				Version:     16,
 				Action: migrate.SQL{
@@ -675,14 +932,14 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					)`,
 					`CREATE TABLE storage_usage (
 						satellite_id BLOB NOT NULL,
-						at_rest_total REAL NOT NUll,
+						at_rest_total REAL NOT NULL,
 						timestamp TIMESTAMP NOT NULL,
 						PRIMARY KEY (satellite_id, timestamp)
 					)`,
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Create piece_space_used table",
 				Version:     17,
 				Action: migrate.SQL{
@@ -696,7 +953,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Drop vouchers table",
 				Version:     18,
 				Action: migrate.SQL{
@@ -704,7 +961,7 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Add disqualified field to reputation",
 				Version:     19,
 				Action: migrate.SQL{
@@ -728,27 +985,27 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Empty storage_usage table, rename storage_usage.timestamp to interval_start",
 				Version:     20,
 				Action: migrate.SQL{
 					`DROP TABLE storage_usage`,
 					`CREATE TABLE storage_usage (
 						satellite_id BLOB NOT NULL,
-						at_rest_total REAL NOT NUll,
+						at_rest_total REAL NOT NULL,
 						interval_start TIMESTAMP NOT NULL,
 						PRIMARY KEY (satellite_id, interval_start)
 					)`,
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Create satellites table and satellites_exit_progress table",
 				Version:     21,
 				Action: migrate.SQL{
 					`CREATE TABLE satellites (
 						node_id BLOB NOT NULL,
-						address TEXT NOT NUll,
+						address TEXT NOT NULL,
 						added_at TIMESTAMP NOT NULL,
 						status INTEGER NOT NULL,
 						PRIMARY KEY (node_id)
@@ -765,10 +1022,50 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				},
 			},
 			{
-				DB:          db.deprecatedInfoDB,
-				Description: "Split into multiple sqlite databases",
+				DB:          &db.deprecatedInfoDB.DB,
+				Description: "Vacuum info db",
 				Version:     22,
-				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
+					_, err := db.deprecatedInfoDB.GetDB().ExecContext(ctx, "VACUUM;")
+					return err
+				}),
+			},
+			{
+				DB:          &db.deprecatedInfoDB.DB,
+				Description: "Split into multiple sqlite databases",
+				Version:     23,
+				CreateDB: func(ctx context.Context, log *zap.Logger) error {
+					if err := db.openDatabase(ctx, BandwidthDBName); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.openDatabase(ctx, OrdersDBName); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.openDatabase(ctx, PieceExpirationDBName); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.openDatabase(ctx, PieceInfoDBName); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.openDatabase(ctx, PieceSpaceUsedDBName); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.openDatabase(ctx, ReputationDBName); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.openDatabase(ctx, StorageUsageDBName); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.openDatabase(ctx, UsedSerialsDBName); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+					if err := db.openDatabase(ctx, SatellitesDBName); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					return nil
+				},
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
 					// Migrate all the tables to new database files.
 					if err := db.migrateToDB(ctx, BandwidthDBName, "bandwidth_usage", "bandwidth_usage_rollups"); err != nil {
 						return ErrDatabase.Wrap(err)
@@ -802,10 +1099,10 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 				}),
 			},
 			{
-				DB:          db.deprecatedInfoDB,
+				DB:          &db.deprecatedInfoDB.DB,
 				Description: "Drop unneeded tables in deprecatedInfoDB",
-				Version:     23,
-				Action: migrate.Func(func(log *zap.Logger, _ migrate.DB, tx *sql.Tx) error {
+				Version:     24,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
 					// We drop the migrated tables from the deprecated database and VACUUM SQLite3
 					// in migration step 23 because if we were to keep that as part of step 22
 					// and an error occurred it would replay the entire migration but some tables
@@ -816,18 +1113,871 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 						return ErrDatabase.Wrap(err)
 					}
 
-					// Close the deprecated db in order to free up unused
-					// disk space
-					if err := db.closeDatabase(DeprecatedInfoDBName); err != nil {
-						return ErrDatabase.Wrap(err)
-					}
-
-					if err := db.openDatabase(DeprecatedInfoDBName); err != nil {
+					return nil
+				}),
+			},
+			{
+				DB:          &db.satellitesDB.DB,
+				Description: "Remove address from satellites table",
+				Version:     25,
+				Action: migrate.SQL{
+					`CREATE TABLE satellites_new (
+						node_id BLOB NOT NULL,
+						added_at TIMESTAMP NOT NULL,
+						status INTEGER NOT NULL,
+						PRIMARY KEY (node_id)
+					);
+					INSERT INTO satellites_new (node_id, added_at, status)
+						SELECT node_id, added_at, status
+						FROM satellites;
+					DROP TABLE satellites;
+					ALTER TABLE satellites_new RENAME TO satellites;
+					`,
+				},
+			},
+			{
+				DB:          &db.pieceExpirationDB.DB,
+				Description: "Add Trash column to pieceExpirationDB",
+				Version:     26,
+				Action: migrate.SQL{
+					`ALTER TABLE piece_expirations ADD COLUMN trash INTEGER NOT NULL DEFAULT 0`,
+					`CREATE INDEX idx_piece_expirations_trashed
+						ON piece_expirations(satellite_id, trash)
+						WHERE trash = 1`,
+				},
+			},
+			{
+				DB:          &db.ordersDB.DB,
+				Description: "Add index archived_at to ordersDB",
+				Version:     27,
+				Action: migrate.SQL{
+					`CREATE INDEX idx_order_archived_at ON order_archive_(archived_at)`,
+				},
+			},
+			{
+				DB:          &db.notificationsDB.DB,
+				Description: "Create notifications table",
+				Version:     28,
+				CreateDB: func(ctx context.Context, log *zap.Logger) error {
+					if err := db.openDatabase(ctx, NotificationsDBName); err != nil {
 						return ErrDatabase.Wrap(err)
 					}
 
 					return nil
+				},
+				Action: migrate.SQL{
+					`CREATE TABLE notifications (
+						id         BLOB NOT NULL,
+						sender_id  BLOB NOT NULL,
+						type       INTEGER NOT NULL,
+						title      TEXT NOT NULL,
+						message    TEXT NOT NULL,
+						read_at    TIMESTAMP,
+						created_at TIMESTAMP NOT NULL,
+						PRIMARY KEY (id)
+					);`,
+				},
+			},
+			{
+				DB:          &db.pieceSpaceUsedDB.DB,
+				Description: "Migrate piece_space_used to add total column",
+				Version:     29,
+				Action: migrate.SQL{
+					`
+					CREATE TABLE piece_space_used_new (
+						total INTEGER NOT NULL DEFAULT 0,
+						content_size INTEGER NOT NULL,
+						satellite_id BLOB
+					);
+					INSERT INTO piece_space_used_new (content_size, satellite_id)
+						SELECT total, satellite_id
+						FROM piece_space_used;
+					DROP TABLE piece_space_used;
+					ALTER TABLE piece_space_used_new RENAME TO piece_space_used;
+					`,
+					`CREATE UNIQUE INDEX idx_piece_space_used_satellite_id ON piece_space_used(satellite_id)`,
+				},
+			},
+			{
+				DB:          &db.pieceSpaceUsedDB.DB,
+				Description: "Initialize piece_space_used total column to content_size",
+				Version:     30,
+				Action: migrate.SQL{
+					`UPDATE piece_space_used SET total = content_size`,
+				},
+			},
+			{
+				DB:          &db.pieceSpaceUsedDB.DB,
+				Description: "Remove all 0 values from piece_space_used",
+				Version:     31,
+				Action: migrate.SQL{
+					`UPDATE piece_space_used SET total = 0 WHERE total < 0`,
+					`UPDATE piece_space_used SET content_size = 0 WHERE content_size < 0`,
+				},
+			},
+			{
+				DB:          &db.payoutDB.DB,
+				Description: "Create paystubs table and payments table",
+				Version:     32,
+				CreateDB: func(ctx context.Context, log *zap.Logger) error {
+					if err := db.openDatabase(ctx, HeldAmountDBName); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					return nil
+				},
+				Action: migrate.SQL{
+					`CREATE TABLE paystubs (
+						period text NOT NULL,
+						satellite_id bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						codes text NOT NULL,
+						usage_at_rest double precision NOT NULL,
+						usage_get bigint NOT NULL,
+						usage_put bigint NOT NULL,
+						usage_get_repair bigint NOT NULL,
+						usage_put_repair bigint NOT NULL,
+						usage_get_audit bigint NOT NULL,
+						comp_at_rest bigint NOT NULL,
+						comp_get bigint NOT NULL,
+						comp_put bigint NOT NULL,
+						comp_get_repair bigint NOT NULL,
+						comp_put_repair bigint NOT NULL,
+						comp_get_audit bigint NOT NULL,
+						surge_percent bigint NOT NULL,
+						held bigint NOT NULL,
+						owed bigint NOT NULL,
+						disposed bigint NOT NULL,
+						paid bigint NOT NULL,
+						PRIMARY KEY ( period, satellite_id )
+					);`,
+					`CREATE TABLE payments (
+						id bigserial NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						satellite_id bytea NOT NULL,
+						period text,
+						amount bigint NOT NULL,
+						receipt text,
+						notes text,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
+			{
+				DB:          &db.payoutDB.DB,
+				Description: "Remove time zone from created_at in paystubs and payments",
+				Version:     33,
+				Action: migrate.SQL{
+					`DROP TABLE paystubs;`,
+					`DROP TABLE payments;`,
+					`CREATE TABLE paystubs (
+						period text NOT NULL,
+						satellite_id bytea NOT NULL,
+						created_at timestamp NOT NULL,
+						codes text NOT NULL,
+						usage_at_rest double precision NOT NULL,
+						usage_get bigint NOT NULL,
+						usage_put bigint NOT NULL,
+						usage_get_repair bigint NOT NULL,
+						usage_put_repair bigint NOT NULL,
+						usage_get_audit bigint NOT NULL,
+						comp_at_rest bigint NOT NULL,
+						comp_get bigint NOT NULL,
+						comp_put bigint NOT NULL,
+						comp_get_repair bigint NOT NULL,
+						comp_put_repair bigint NOT NULL,
+						comp_get_audit bigint NOT NULL,
+						surge_percent bigint NOT NULL,
+						held bigint NOT NULL,
+						owed bigint NOT NULL,
+						disposed bigint NOT NULL,
+						paid bigint NOT NULL,
+						PRIMARY KEY ( period, satellite_id )
+					);`,
+					`CREATE TABLE payments (
+						id bigserial NOT NULL,
+						created_at timestamp NOT NULL,
+						satellite_id bytea NOT NULL,
+						period text,
+						amount bigint NOT NULL,
+						receipt text,
+						notes text,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
+			{
+				DB:          &db.reputationDB.DB,
+				Description: "Add suspended field to satellites db",
+				Version:     34,
+				Action: migrate.SQL{
+					`ALTER TABLE reputation ADD COLUMN suspended TIMESTAMP`,
+				},
+			},
+			{
+				DB:          &db.pricingDB.DB,
+				Description: "Create pricing table",
+				Version:     35,
+				CreateDB: func(ctx context.Context, log *zap.Logger) error {
+					if err := db.openDatabase(ctx, PricingDBName); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					return nil
+				},
+				Action: migrate.SQL{
+					`CREATE TABLE pricing (
+						satellite_id BLOB NOT NULL,
+						egress_bandwidth_price bigint NOT NULL,
+						repair_bandwidth_price bigint NOT NULL,
+						audit_bandwidth_price bigint NOT NULL,
+						disk_space_price bigint NOT NULL,
+						PRIMARY KEY ( satellite_id )
+					);`,
+				},
+			},
+			{
+				DB:          &db.reputationDB.DB,
+				Description: "Add joined_at field to satellites db",
+				Version:     36,
+				Action: migrate.SQL{
+					`ALTER TABLE reputation ADD COLUMN joined_at TIMESTAMP`,
+				},
+			},
+			{
+				DB:          &db.payoutDB.DB,
+				Description: "Drop payments table as unused",
+				Version:     37,
+				Action: migrate.SQL{
+					`DROP TABLE payments;`,
+				},
+			},
+			{
+				DB:          &db.reputationDB.DB,
+				Description: "Backfill joined_at column",
+				Version:     38,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					// We just need a value for joined_at until the node checks in with the
+					// satellites and gets the real value.
+					_, err = rtx.Exec(ctx, `UPDATE reputation SET joined_at = ? WHERE joined_at ISNULL`, time.Unix(0, 0).UTC())
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					// in order to add the not null constraint, we have to do a
+					// generalized ALTER TABLE procedure.
+					// see https://www.sqlite.org/lang_altertable.html
+					_, err = rtx.Exec(ctx, `
+						CREATE TABLE reputation_new (
+							satellite_id BLOB NOT NULL,
+							uptime_success_count INTEGER NOT NULL,
+							uptime_total_count INTEGER NOT NULL,
+							uptime_reputation_alpha REAL NOT NULL,
+							uptime_reputation_beta REAL NOT NULL,
+							uptime_reputation_score REAL NOT NULL,
+							audit_success_count INTEGER NOT NULL,
+							audit_total_count INTEGER NOT NULL,
+							audit_reputation_alpha REAL NOT NULL,
+							audit_reputation_beta REAL NOT NULL,
+							audit_reputation_score REAL NOT NULL,
+							disqualified TIMESTAMP,
+							updated_at TIMESTAMP NOT NULL,
+							suspended TIMESTAMP,
+							joined_at TIMESTAMP NOT NULL,
+							PRIMARY KEY (satellite_id)
+						);
+						INSERT INTO reputation_new SELECT
+							satellite_id,
+							uptime_success_count,
+							uptime_total_count,
+							uptime_reputation_alpha,
+							uptime_reputation_beta,
+							uptime_reputation_score,
+							audit_success_count,
+							audit_total_count,
+							audit_reputation_alpha,
+							audit_reputation_beta,
+							audit_reputation_score,
+							disqualified,
+							updated_at,
+							suspended,
+							joined_at
+							FROM reputation;
+						DROP TABLE reputation;
+						ALTER TABLE reputation_new RENAME TO reputation;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
 				}),
+			},
+			{
+				DB:          &db.reputationDB.DB,
+				Description: "Add unknown_audit_reputation_alpha and unknown_audit_reputation_beta fields to reputation db",
+				Version:     39,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					_, err = rtx.Exec(ctx, `ALTER TABLE reputation ADD COLUMN audit_unknown_reputation_alpha REAL`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `ALTER TABLE reputation ADD COLUMN audit_unknown_reputation_beta REAL`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `UPDATE reputation SET audit_unknown_reputation_alpha = ?, audit_unknown_reputation_beta = ?`,
+						1.0, 1.0)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `
+						CREATE TABLE reputation_new (
+							satellite_id BLOB NOT NULL,
+							uptime_success_count INTEGER NOT NULL,
+							uptime_total_count INTEGER NOT NULL,
+							uptime_reputation_alpha REAL NOT NULL,
+							uptime_reputation_beta REAL NOT NULL,
+							uptime_reputation_score REAL NOT NULL,
+							audit_success_count INTEGER NOT NULL,
+							audit_total_count INTEGER NOT NULL,
+							audit_reputation_alpha REAL NOT NULL,
+							audit_reputation_beta REAL NOT NULL,
+							audit_reputation_score REAL NOT NULL,
+							audit_unknown_reputation_alpha REAL NOT NULL,
+							audit_unknown_reputation_beta REAL NOT NULL,
+							disqualified TIMESTAMP,
+							updated_at TIMESTAMP NOT NULL,
+							suspended TIMESTAMP,
+							joined_at TIMESTAMP NOT NULL,
+							PRIMARY KEY (satellite_id)
+						);
+						INSERT INTO reputation_new SELECT
+							satellite_id,
+							uptime_success_count,
+							uptime_total_count,
+							uptime_reputation_alpha,
+							uptime_reputation_beta,
+							uptime_reputation_score,
+							audit_success_count,
+							audit_total_count,
+							audit_reputation_alpha,
+							audit_reputation_beta,
+							audit_reputation_score,
+							audit_unknown_reputation_alpha,
+							audit_unknown_reputation_beta,
+							disqualified,
+							updated_at,
+							suspended,
+							joined_at
+							FROM reputation;
+						DROP TABLE reputation;
+						ALTER TABLE reputation_new RENAME TO reputation;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          &db.reputationDB.DB,
+				Description: "Add unknown_audit_reputation_score field to reputation db",
+				Version:     40,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					stx, err := db.satellitesDB.Begin(ctx)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+					defer func() {
+						if err != nil {
+							err = errs.Combine(err, stx.Rollback())
+						} else {
+							err = errs.Wrap(stx.Commit())
+						}
+					}()
+
+					_, err = rtx.Exec(ctx, `ALTER TABLE reputation ADD COLUMN audit_unknown_reputation_score REAL`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `UPDATE reputation SET audit_unknown_reputation_score = ?`,
+						1.0)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `
+						CREATE TABLE reputation_new (
+							satellite_id BLOB NOT NULL,
+							uptime_success_count INTEGER NOT NULL,
+							uptime_total_count INTEGER NOT NULL,
+							uptime_reputation_alpha REAL NOT NULL,
+							uptime_reputation_beta REAL NOT NULL,
+							uptime_reputation_score REAL NOT NULL,
+							audit_success_count INTEGER NOT NULL,
+							audit_total_count INTEGER NOT NULL,
+							audit_reputation_alpha REAL NOT NULL,
+							audit_reputation_beta REAL NOT NULL,
+							audit_reputation_score REAL NOT NULL,
+							audit_unknown_reputation_alpha REAL NOT NULL,
+							audit_unknown_reputation_beta REAL NOT NULL,
+							audit_unknown_reputation_score REAL NOT NULL,
+							disqualified TIMESTAMP,
+							updated_at TIMESTAMP NOT NULL,
+							suspended TIMESTAMP,
+							joined_at TIMESTAMP NOT NULL,
+							PRIMARY KEY (satellite_id)
+						);
+						INSERT INTO reputation_new SELECT
+							satellite_id,
+							uptime_success_count,
+							uptime_total_count,
+							uptime_reputation_alpha,
+							uptime_reputation_beta,
+							uptime_reputation_score,
+							audit_success_count,
+							audit_total_count,
+							audit_reputation_alpha,
+							audit_reputation_beta,
+							audit_reputation_score,
+							audit_unknown_reputation_alpha,
+							audit_unknown_reputation_beta,
+							audit_unknown_reputation_score,
+							disqualified,
+							updated_at,
+							suspended,
+							joined_at
+							FROM reputation;
+						DROP TABLE reputation;
+						ALTER TABLE reputation_new RENAME TO reputation;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          &db.satellitesDB.DB,
+				Description: "Make satellite_id foreign key in satellite_exit_progress table",
+				Version:     41,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					_, err = rtx.Exec(ctx, `
+						CREATE TABLE satellite_exit_progress_new (
+							satellite_id BLOB NOT NULL,
+							initiated_at TIMESTAMP,
+							finished_at TIMESTAMP,
+							starting_disk_usage INTEGER NOT NULL,
+							bytes_deleted INTEGER NOT NULL,
+							completion_receipt BLOB,
+							FOREIGN KEY (satellite_id) REFERENCES satellites (node_id)
+						);
+
+						INSERT INTO satellite_exit_progress_new SELECT
+							satellite_id,
+							initiated_at,
+							finished_at,
+							starting_disk_usage,
+							bytes_deleted,
+							completion_receipt
+						FROM satellite_exit_progress;
+
+						DROP TABLE satellite_exit_progress;
+
+						ALTER TABLE satellite_exit_progress_new RENAME TO satellite_exit_progress;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          &db.usedSerialsDB.DB,
+				Description: "Drop used serials table",
+				Version:     42,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					_, err = rtx.Exec(ctx, `
+						DROP TABLE used_serial_;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          &db.payoutDB.DB,
+				Description: "Add table payments",
+				Version:     43,
+				Action: migrate.SQL{
+					`CREATE TABLE payments (
+						id bigserial NOT NULL,
+						created_at timestamp NOT NULL,
+						satellite_id bytea NOT NULL,
+						period text,
+						amount bigint NOT NULL,
+						receipt text,
+						notes text,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
+			{
+				DB:          &db.reputationDB.DB,
+				Description: "Add online_score and offline_suspended fields to reputation db, rename disqualified and suspended to disqualified_at and suspended_at",
+				Version:     44,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					stx, err := db.satellitesDB.Begin(ctx)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+					defer func() {
+						if err != nil {
+							err = errs.Combine(err, stx.Rollback())
+						} else {
+							err = errs.Wrap(stx.Commit())
+						}
+					}()
+
+					_, err = rtx.Exec(ctx, `ALTER TABLE reputation ADD COLUMN online_score REAL`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `ALTER TABLE reputation ADD COLUMN offline_suspended_at TIMESTAMP`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `ALTER TABLE reputation RENAME COLUMN disqualified TO disqualified_at`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `ALTER TABLE reputation RENAME COLUMN suspended TO suspended_at`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `UPDATE reputation SET online_score = ?`,
+						1.0)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `
+						CREATE TABLE reputation_new (
+							satellite_id BLOB NOT NULL,
+							uptime_success_count INTEGER NOT NULL,
+							uptime_total_count INTEGER NOT NULL,
+							uptime_reputation_alpha REAL NOT NULL,
+							uptime_reputation_beta REAL NOT NULL,
+							uptime_reputation_score REAL NOT NULL,
+							audit_success_count INTEGER NOT NULL,
+							audit_total_count INTEGER NOT NULL,
+							audit_reputation_alpha REAL NOT NULL,
+							audit_reputation_beta REAL NOT NULL,
+							audit_reputation_score REAL NOT NULL,
+							audit_unknown_reputation_alpha REAL NOT NULL,
+							audit_unknown_reputation_beta REAL NOT NULL,
+							audit_unknown_reputation_score REAL NOT NULL,
+							online_score REAL NOT NULL,
+							disqualified_at TIMESTAMP,
+							updated_at TIMESTAMP NOT NULL,
+							suspended_at TIMESTAMP,
+							offline_suspended_at TIMESTAMP,
+							joined_at TIMESTAMP NOT NULL,
+							PRIMARY KEY (satellite_id)
+						);
+						INSERT INTO reputation_new SELECT
+							satellite_id,
+							uptime_success_count,
+							uptime_total_count,
+							uptime_reputation_alpha,
+							uptime_reputation_beta,
+							uptime_reputation_score,
+							audit_success_count,
+							audit_total_count,
+							audit_reputation_alpha,
+							audit_reputation_beta,
+							audit_reputation_score,
+							audit_unknown_reputation_alpha,
+							audit_unknown_reputation_beta,
+							audit_unknown_reputation_score,
+							online_score,
+							disqualified_at,
+							updated_at,
+							suspended_at,
+							offline_suspended_at,
+							joined_at
+							FROM reputation;
+						DROP TABLE reputation;
+						ALTER TABLE reputation_new RENAME TO reputation;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          &db.reputationDB.DB,
+				Description: "Add offline_under_review_at field to reputation db",
+				Version:     45,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					stx, err := db.satellitesDB.Begin(ctx)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+					defer func() {
+						if err != nil {
+							err = errs.Combine(err, stx.Rollback())
+						} else {
+							err = errs.Wrap(stx.Commit())
+						}
+					}()
+
+					_, err = rtx.Exec(ctx, `ALTER TABLE reputation ADD COLUMN offline_under_review_at TIMESTAMP`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `
+						CREATE TABLE reputation_new (
+							satellite_id BLOB NOT NULL,
+							uptime_success_count INTEGER NOT NULL,
+							uptime_total_count INTEGER NOT NULL,
+							uptime_reputation_alpha REAL NOT NULL,
+							uptime_reputation_beta REAL NOT NULL,
+							uptime_reputation_score REAL NOT NULL,
+							audit_success_count INTEGER NOT NULL,
+							audit_total_count INTEGER NOT NULL,
+							audit_reputation_alpha REAL NOT NULL,
+							audit_reputation_beta REAL NOT NULL,
+							audit_reputation_score REAL NOT NULL,
+							audit_unknown_reputation_alpha REAL NOT NULL,
+							audit_unknown_reputation_beta REAL NOT NULL,
+							audit_unknown_reputation_score REAL NOT NULL,
+							online_score REAL NOT NULL,
+							disqualified_at TIMESTAMP,
+							updated_at TIMESTAMP NOT NULL,
+							suspended_at TIMESTAMP,
+							offline_suspended_at TIMESTAMP,
+							offline_under_review_at TIMESTAMP,
+							joined_at TIMESTAMP NOT NULL,
+							PRIMARY KEY (satellite_id)
+						);
+						INSERT INTO reputation_new SELECT
+							satellite_id,
+							uptime_success_count,
+							uptime_total_count,
+							uptime_reputation_alpha,
+							uptime_reputation_beta,
+							uptime_reputation_score,
+							audit_success_count,
+							audit_total_count,
+							audit_reputation_alpha,
+							audit_reputation_beta,
+							audit_reputation_score,
+							audit_unknown_reputation_alpha,
+							audit_unknown_reputation_beta,
+							audit_unknown_reputation_score,
+							online_score,
+							disqualified_at,
+							updated_at,
+							suspended_at,
+							offline_suspended_at,
+							offline_under_review_at,
+							joined_at
+							FROM reputation;
+						DROP TABLE reputation;
+						ALTER TABLE reputation_new RENAME TO reputation;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          &db.apiKeysDB.DB,
+				Description: "Create secret table",
+				Version:     46,
+				CreateDB: func(ctx context.Context, log *zap.Logger) error {
+					if err := db.openDatabase(ctx, APIKeysDBName); err != nil {
+						return ErrDatabase.Wrap(err)
+					}
+
+					return nil
+				},
+				Action: migrate.SQL{
+					`CREATE TABLE secret (
+						token bytea NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( token )
+					);`,
+				},
+			},
+			{
+				DB:          &db.reputationDB.DB,
+				Description: "Add audit_history field to reputation db",
+				Version:     47,
+				Action: migrate.SQL{
+					`ALTER TABLE reputation ADD COLUMN audit_history BLOB`,
+				},
+			},
+			{
+				DB:          &db.reputationDB.DB,
+				Description: "drop uptime columns",
+				Version:     48,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					_, err = rtx.Exec(ctx, `
+						CREATE TABLE reputation_new (
+							satellite_id BLOB NOT NULL,
+							audit_success_count INTEGER NOT NULL,
+							audit_total_count INTEGER NOT NULL,
+							audit_reputation_alpha REAL NOT NULL,
+							audit_reputation_beta REAL NOT NULL,
+							audit_reputation_score REAL NOT NULL,
+							audit_unknown_reputation_alpha REAL NOT NULL,
+							audit_unknown_reputation_beta REAL NOT NULL,
+							audit_unknown_reputation_score REAL NOT NULL,
+							online_score REAL NOT NULL,
+							audit_history BLOB,
+							disqualified_at TIMESTAMP,
+							updated_at TIMESTAMP NOT NULL,
+							suspended_at TIMESTAMP,
+							offline_suspended_at TIMESTAMP,
+							offline_under_review_at TIMESTAMP,
+							joined_at TIMESTAMP NOT NULL,
+							PRIMARY KEY (satellite_id)
+						);
+						INSERT INTO reputation_new SELECT
+							satellite_id,
+							audit_success_count,
+							audit_total_count,
+							audit_reputation_alpha,
+							audit_reputation_beta,
+							audit_reputation_score,
+							audit_unknown_reputation_alpha,
+							audit_unknown_reputation_beta,
+							audit_unknown_reputation_score,
+							online_score,
+							audit_history,
+							disqualified_at,
+							updated_at,
+							suspended_at,
+							offline_suspended_at,
+							offline_under_review_at,
+							joined_at
+							FROM reputation;
+						DROP TABLE reputation;
+						ALTER TABLE reputation_new RENAME TO reputation;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          &db.payoutDB.DB,
+				Description: "Add distributed field to paystubs table",
+				Version:     49,
+				Action: migrate.SQL{
+					`ALTER TABLE paystubs ADD COLUMN distributed bigint`,
+				},
+			},
+			{
+				DB:          &db.payoutDB.DB,
+				Description: "Make distributed field in paystubs table not null",
+				Version:     50,
+				Action: migrate.Func(func(ctx context.Context, _ *zap.Logger, rdb tagsql.DB, rtx tagsql.Tx) (err error) {
+					_, err = rtx.Exec(ctx, `UPDATE paystubs SET distributed = ? WHERE distributed ISNULL`, 0)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					_, err = rtx.Exec(ctx, `
+						CREATE TABLE paystubs_new (
+							period text NOT NULL,
+							satellite_id bytea NOT NULL,
+							created_at timestamp NOT NULL,
+							codes text NOT NULL,
+							usage_at_rest double precision NOT NULL,
+							usage_get bigint NOT NULL,
+							usage_put bigint NOT NULL,
+							usage_get_repair bigint NOT NULL,
+							usage_put_repair bigint NOT NULL,
+							usage_get_audit bigint NOT NULL,
+							comp_at_rest bigint NOT NULL,
+							comp_get bigint NOT NULL,
+							comp_put bigint NOT NULL,
+							comp_get_repair bigint NOT NULL,
+							comp_put_repair bigint NOT NULL,
+							comp_get_audit bigint NOT NULL,
+							surge_percent bigint NOT NULL,
+							held bigint NOT NULL,
+							owed bigint NOT NULL,
+							disposed bigint NOT NULL,
+							paid bigint NOT NULL,
+							distributed bigint NOT NULL,
+							PRIMARY KEY ( period, satellite_id )
+						);
+						INSERT INTO paystubs_new SELECT
+							period,
+							satellite_id,
+							created_at,
+							codes,
+							usage_at_rest,
+							usage_get,
+							usage_put,
+							usage_get_repair,
+							usage_put_repair,
+							usage_get_audit,
+							comp_at_rest,
+							comp_get,
+							comp_put,
+							comp_get_repair,
+							comp_put_repair,
+							comp_get_audit,
+							surge_percent,
+							held,
+							owed,
+							disposed,
+							paid,
+							distributed
+							FROM paystubs;
+						DROP TABLE paystubs;
+						ALTER TABLE paystubs_new RENAME TO paystubs;
+					`)
+					if err != nil {
+						return errs.Wrap(err)
+					}
+
+					return nil
+				}),
+			},
+			{
+				DB:          &db.payoutDB.DB,
+				Description: "Assume distributed == paid for paystubs before 2020-12.",
+				Version:     51,
+				Action: migrate.SQL{
+					`UPDATE paystubs SET distributed = paid WHERE period < '2020-12'`,
+				},
 			},
 		},
 	}

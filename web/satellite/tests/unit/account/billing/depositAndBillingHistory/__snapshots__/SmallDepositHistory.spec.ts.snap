@@ -1,0 +1,16 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`SmallDepositHistory renders correctly with items 1`] = `
+<div class="deposit-area">
+  <div class="deposit-area__header">
+    <h1 class="deposit-area__header__title">Short Balance History</h1>
+    <div class="deposit-area__header__button">View All</div>
+  </div>
+  <sortingheader-stub></sortingheader-stub>
+  <paymentsitem-stub billingitem="[object Object]"></paymentsitem-stub>
+  <paymentsitem-stub billingitem="[object Object]"></paymentsitem-stub>
+  <paymentsitem-stub billingitem="[object Object]"></paymentsitem-stub>
+</div>
+`;
+
+exports[`SmallDepositHistory renders correctly without items 1`] = ``;

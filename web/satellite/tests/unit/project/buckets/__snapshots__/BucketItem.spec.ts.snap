@@ -1,0 +1,10 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`BucketItem.vue renders correctly 1`] = `
+<div class="container">
+  <p title="name" class="container__item name">name</p>
+  <p class="container__item">1.00GB</p>
+  <p class="container__item">1.00GB</p>
+  <p class="container__item">1</p>
+</div>
+`;

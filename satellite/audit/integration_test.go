@@ -9,11 +9,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/memory"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/audit"
 )
 
@@ -37,33 +36,34 @@ func TestChoreAndWorkerIntegration(t *testing.T) {
 		}
 
 		audits.Chore.Loop.TriggerWait()
-		require.EqualValues(t, 2, audits.Queue.Size(), "audit queue")
+		queue := audits.Queues.Fetch()
+		require.EqualValues(t, 2, queue.Size(), "audit queue")
 
-		uniquePaths := make(map[storj.Path]struct{})
+		uniqueSegments := make(map[audit.Segment]struct{})
 		var err error
-		var path storj.Path
-		var pathCount int
+		var segment audit.Segment
+		var segmentCount int
 		for {
-			path, err = audits.Queue.Next()
+			segment, err = queue.Next()
 			if err != nil {
 				break
 			}
-			pathCount++
-			_, ok := uniquePaths[path]
-			require.False(t, ok, "expected unique path in chore queue")
+			segmentCount++
+			_, ok := uniqueSegments[segment]
+			require.False(t, ok, "expected unique segment in chore queue")
 
-			uniquePaths[path] = struct{}{}
+			uniqueSegments[segment] = struct{}{}
 		}
 		require.True(t, audit.ErrEmptyQueue.Has(err))
-		require.Equal(t, 2, pathCount)
-		require.Equal(t, 0, audits.Queue.Size())
+		require.Equal(t, 2, segmentCount)
+		require.Equal(t, 0, queue.Size())
 
 		// Repopulate the queue for the worker.
 		audits.Chore.Loop.TriggerWait()
-		require.EqualValues(t, 2, audits.Queue.Size(), "audit queue")
 
-		// Make sure the worker processes all the items in the audit queue.
+		// Make sure the worker processes the audit queue.
 		audits.Worker.Loop.TriggerWait()
-		require.EqualValues(t, 0, audits.Queue.Size(), "audit queue")
+		queue = audits.Queues.Fetch()
+		require.EqualValues(t, 0, queue.Size(), "audit queue")
 	})
 }

@@ -11,22 +11,24 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc/rpcpeer"
+	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcpeer"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/storj/private/testplanet"
+	"storj.io/storj/storagenode"
 )
 
 func TestSatelliteContactEndpoint(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		nodeDossier := planet.StorageNodes[0].Local()
+		nodeInfo := planet.StorageNodes[0].Contact.Service.Local()
 		ident := planet.StorageNodes[0].Identity
 
 		peer := rpcpeer.Peer{
 			Addr: &net.TCPAddr{
-				IP:   net.ParseIP(nodeDossier.Address.GetAddress()),
+				IP:   net.ParseIP(nodeInfo.Address),
 				Port: 5,
 			},
 			State: tls.ConnectionState{
@@ -35,33 +37,70 @@ func TestSatelliteContactEndpoint(t *testing.T) {
 		}
 		peerCtx := rpcpeer.NewContext(ctx, &peer)
 		resp, err := planet.Satellites[0].Contact.Endpoint.CheckIn(peerCtx, &pb.CheckInRequest{
-			Address:  nodeDossier.Address.GetAddress(),
-			Version:  &nodeDossier.Version,
-			Capacity: &nodeDossier.Capacity,
-			Operator: &nodeDossier.Operator,
+			Address:  nodeInfo.Address,
+			Version:  &nodeInfo.Version,
+			Capacity: &nodeInfo.Capacity,
+			Operator: &nodeInfo.Operator,
 		})
 		require.NoError(t, err)
 		require.NotNil(t, resp)
+		require.True(t, resp.PingNodeSuccess)
+		require.True(t, resp.PingNodeSuccessQuic)
 
-		peerID, err := planet.Satellites[0].DB.PeerIdentities().Get(ctx, nodeDossier.Id)
+		peerID, err := planet.Satellites[0].DB.PeerIdentities().Get(ctx, nodeInfo.ID)
 		require.NoError(t, err)
 		require.Equal(t, ident.PeerIdentity(), peerID)
 	})
 }
 
-func TestFetchInfo(t *testing.T) {
+func TestSatelliteContactEndpoint_QUIC_Unreachable(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Server.DisableQUIC = true
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		nodeDossier := planet.StorageNodes[0].Local()
-		node := pb.Node{Id: nodeDossier.Id, Address: nodeDossier.Address}
+		nodeInfo := planet.StorageNodes[0].Contact.Service.Local()
+		ident := planet.StorageNodes[0].Identity
 
-		resp, err := planet.Satellites[0].Contact.Service.FetchInfo(ctx, node)
-		require.NotNil(t, resp)
+		peer := rpcpeer.Peer{
+			Addr: &net.TCPAddr{
+				IP:   net.ParseIP(nodeInfo.Address),
+				Port: 5,
+			},
+			State: tls.ConnectionState{
+				PeerCertificates: []*x509.Certificate{ident.Leaf, ident.CA},
+			},
+		}
+		peerCtx := rpcpeer.NewContext(ctx, &peer)
+		resp, err := planet.Satellites[0].Contact.Endpoint.CheckIn(peerCtx, &pb.CheckInRequest{
+			Address:  nodeInfo.Address,
+			Version:  &nodeInfo.Version,
+			Capacity: &nodeInfo.Capacity,
+			Operator: &nodeInfo.Operator,
+		})
 		require.NoError(t, err)
-		require.Equal(t, nodeDossier.Type, resp.Type)
-		require.Equal(t, &nodeDossier.Operator, resp.Operator)
-		require.Equal(t, &nodeDossier.Capacity, resp.Capacity)
-		require.Equal(t, nodeDossier.Version.GetVersion(), resp.Version.GetVersion())
+		require.NotNil(t, resp)
+		require.True(t, resp.PingNodeSuccess)
+		require.False(t, resp.PingNodeSuccessQuic)
+
+		peerID, err := planet.Satellites[0].DB.PeerIdentities().Get(ctx, nodeInfo.ID)
+		require.NoError(t, err)
+		require.Equal(t, ident.PeerIdentity(), peerID)
+	})
+}
+
+func TestSatellitePingBack_Failure(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		pingNodeSuccess, pingNodeSuccessQUIC, pingErrorMessage, err := planet.Satellites[0].Contact.Service.PingBack(ctx, storj.NodeURL{})
+
+		require.NoError(t, err)
+		require.NotEmpty(t, pingErrorMessage)
+		require.False(t, pingNodeSuccess)
+		require.False(t, pingNodeSuccessQUIC)
 	})
 }

@@ -10,10 +10,11 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/common/testcontext"
 	"storj.io/storj/storage"
 )
 
-// RunBenchmarks runs common storage.KeyValueStore benchmarks
+// RunBenchmarks runs common storage.KeyValueStore benchmarks.
 func RunBenchmarks(b *testing.B, store storage.KeyValueStore) {
 	var words = []string{
 		"alpha", "beta", "gamma", "delta", "iota", "kappa", "lambda", "mu",
@@ -39,7 +40,10 @@ func RunBenchmarks(b *testing.B, store storage.KeyValueStore) {
 		}
 	}
 
-	defer cleanupItems(store, items)
+	ctx := testcontext.New(b)
+	defer ctx.Cleanup()
+
+	defer cleanupItems(b, ctx, store, items)
 
 	b.Run("Put", func(b *testing.B) {
 		b.SetBytes(int64(len(items)))

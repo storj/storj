@@ -6,22 +6,24 @@ package storagenodedb
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/pb"
+	"storj.io/common/storj"
 	"storj.io/storj/storagenode/reputation"
 )
 
 // ErrReputation represents errors from the reputation database.
-var ErrReputation = errs.Class("reputation error")
+var ErrReputation = errs.Class("reputation")
 
 // ReputationDBName represents the database name.
 const ReputationDBName = "reputation"
 
-// reputation works with node reputation DB
+// reputation works with node reputation DB.
 type reputationDB struct {
-	migratableDB
+	dbContainerImpl
 }
 
 // Store inserts or updates reputation stats into the db.
@@ -29,41 +31,69 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 	defer mon.Task()(&ctx)(&err)
 
 	query := `INSERT OR REPLACE INTO reputation (
-			satellite_id, 
-			uptime_success_count,
-			uptime_total_count,
-			uptime_reputation_alpha,
-			uptime_reputation_beta,
-			uptime_reputation_score,
+			satellite_id,
 			audit_success_count,
 			audit_total_count,
 			audit_reputation_alpha,
 			audit_reputation_beta,
 			audit_reputation_score,
-			disqualified,
-			updated_at
-		) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`
+			audit_unknown_reputation_alpha,
+			audit_unknown_reputation_beta,
+			audit_unknown_reputation_score,
+			online_score,
+			audit_history,
+			disqualified_at,
+			suspended_at,
+			offline_suspended_at,
+			offline_under_review_at,
+			updated_at,
+			joined_at
+		) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
 
 	// ensure we insert utc
-	if stats.Disqualified != nil {
-		utc := stats.Disqualified.UTC()
-		stats.Disqualified = &utc
+	if stats.DisqualifiedAt != nil {
+		utc := stats.DisqualifiedAt.UTC()
+		stats.DisqualifiedAt = &utc
+	}
+	if stats.SuspendedAt != nil {
+		utc := stats.SuspendedAt.UTC()
+		stats.SuspendedAt = &utc
+	}
+	if stats.OfflineSuspendedAt != nil {
+		utc := stats.OfflineSuspendedAt.UTC()
+		stats.OfflineSuspendedAt = &utc
+	}
+	if stats.OfflineUnderReviewAt != nil {
+		utc := stats.OfflineUnderReviewAt.UTC()
+		stats.OfflineUnderReviewAt = &utc
+	}
+
+	var auditHistoryBytes []byte
+	if stats.AuditHistory != nil {
+		auditHistoryBytes, err = pb.Marshal(stats.AuditHistory)
+		if err != nil {
+			return ErrReputation.Wrap(err)
+		}
 	}
 
 	_, err = db.ExecContext(ctx, query,
 		stats.SatelliteID,
-		stats.Uptime.SuccessCount,
-		stats.Uptime.TotalCount,
-		stats.Uptime.Alpha,
-		stats.Uptime.Beta,
-		stats.Uptime.Score,
 		stats.Audit.SuccessCount,
 		stats.Audit.TotalCount,
 		stats.Audit.Alpha,
 		stats.Audit.Beta,
 		stats.Audit.Score,
-		stats.Disqualified,
+		stats.Audit.UnknownAlpha,
+		stats.Audit.UnknownBeta,
+		stats.Audit.UnknownScore,
+		stats.OnlineScore,
+		auditHistoryBytes,
+		stats.DisqualifiedAt,
+		stats.SuspendedAt,
+		stats.OfflineSuspendedAt,
+		stats.OfflineUnderReviewAt,
 		stats.UpdatedAt.UTC(),
+		stats.JoinedAt.UTC(),
 	)
 
 	return ErrReputation.Wrap(err)
@@ -78,41 +108,58 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 	}
 
 	row := db.QueryRowContext(ctx,
-		`SELECT uptime_success_count,
-			uptime_total_count,
-			uptime_reputation_alpha,
-			uptime_reputation_beta,
-			uptime_reputation_score,
-			audit_success_count,
+		`SELECT audit_success_count,
 			audit_total_count,
 			audit_reputation_alpha,
 			audit_reputation_beta,
 			audit_reputation_score,
-			disqualified,
-			updated_at
+			audit_unknown_reputation_alpha,
+			audit_unknown_reputation_beta,
+			audit_unknown_reputation_score,
+			online_score,
+			audit_history,
+			disqualified_at,
+			suspended_at,
+			offline_suspended_at,
+			offline_under_review_at,
+			updated_at,
+			joined_at
 		FROM reputation WHERE satellite_id = ?`,
 		satelliteID,
 	)
 
+	var auditHistoryBytes []byte
 	err = row.Scan(
-		&stats.Uptime.SuccessCount,
-		&stats.Uptime.TotalCount,
-		&stats.Uptime.Alpha,
-		&stats.Uptime.Beta,
-		&stats.Uptime.Score,
 		&stats.Audit.SuccessCount,
 		&stats.Audit.TotalCount,
 		&stats.Audit.Alpha,
 		&stats.Audit.Beta,
 		&stats.Audit.Score,
-		&stats.Disqualified,
+		&stats.Audit.UnknownAlpha,
+		&stats.Audit.UnknownBeta,
+		&stats.Audit.UnknownScore,
+		&stats.OnlineScore,
+		&auditHistoryBytes,
+		&stats.DisqualifiedAt,
+		&stats.SuspendedAt,
+		&stats.OfflineSuspendedAt,
+		&stats.OfflineUnderReviewAt,
 		&stats.UpdatedAt,
+		&stats.JoinedAt,
 	)
 
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		err = nil
+		return &stats, nil
+	}
+	if err != nil {
+		return &stats, ErrReputation.Wrap(err)
 	}
 
+	if auditHistoryBytes != nil {
+		stats.AuditHistory = &pb.AuditHistory{}
+		err = pb.Unmarshal(auditHistoryBytes, stats.AuditHistory)
+	}
 	return &stats, ErrReputation.Wrap(err)
 }
 
@@ -120,19 +167,22 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := `SELECT satellite_id, 
-			uptime_success_count,
-			uptime_total_count,
-			uptime_reputation_alpha,
-			uptime_reputation_beta,
-			uptime_reputation_score,
+	query := `SELECT satellite_id,
 			audit_success_count,
 			audit_total_count,
 			audit_reputation_alpha,
 			audit_reputation_beta,
 			audit_reputation_score,
-			disqualified,
-			updated_at
+			audit_unknown_reputation_alpha,
+			audit_unknown_reputation_beta,
+			audit_unknown_reputation_score,
+			online_score,
+			disqualified_at,
+			suspended_at,
+			offline_suspended_at,
+			offline_under_review_at,
+			updated_at,
+			joined_at
 		FROM reputation`
 
 	rows, err := db.QueryContext(ctx, query)
@@ -147,18 +197,21 @@ func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err erro
 		var stats reputation.Stats
 
 		err := rows.Scan(&stats.SatelliteID,
-			&stats.Uptime.SuccessCount,
-			&stats.Uptime.TotalCount,
-			&stats.Uptime.Alpha,
-			&stats.Uptime.Beta,
-			&stats.Uptime.Score,
 			&stats.Audit.SuccessCount,
 			&stats.Audit.TotalCount,
 			&stats.Audit.Alpha,
 			&stats.Audit.Beta,
 			&stats.Audit.Score,
-			&stats.Disqualified,
+			&stats.Audit.UnknownAlpha,
+			&stats.Audit.UnknownBeta,
+			&stats.Audit.UnknownScore,
+			&stats.OnlineScore,
+			&stats.DisqualifiedAt,
+			&stats.SuspendedAt,
+			&stats.OfflineSuspendedAt,
+			&stats.OfflineUnderReviewAt,
 			&stats.UpdatedAt,
+			&stats.JoinedAt,
 		)
 
 		if err != nil {
@@ -168,5 +221,5 @@ func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err erro
 		statsList = append(statsList, stats)
 	}
 
-	return statsList, nil
+	return statsList, rows.Err()
 }

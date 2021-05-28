@@ -6,6 +6,12 @@ import { ProjectMember, ProjectMemberCursor, ProjectMembersApi, ProjectMembersPa
 
 export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
 
+    /**
+     * Used for adding team members to project.
+     *
+     * @param projectId
+     * @param emails
+     */
     public async add(projectId: string, emails: string[]): Promise<void> {
         const query =
             `mutation($projectId: String!, $emails:[String!]!) {
@@ -23,6 +29,12 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
         await this.mutate(query, variables);
     }
 
+    /**
+     * Used for deleting team members from project.
+     *
+     * @param projectId
+     * @param emails
+     */
     public async delete(projectId: string, emails: string[]): Promise<void> {
         const query =
             `mutation($projectId: String!, $emails:[String!]!) {
@@ -40,6 +52,12 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
         await this.mutate(query, variables);
     }
 
+    /**
+     * Used for fetching team members related to project.
+     *
+     * @param projectId
+     * @param cursor for pagination
+     */
     public async get(projectId: string, cursor: ProjectMemberCursor): Promise<ProjectMembersPage> {
         const query =
             `query($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {
@@ -88,13 +106,24 @@ export class ProjectMembersApiGql extends BaseGql implements ProjectMembersApi {
         return this.getProjectMembersList(response.data.project.members);
     }
 
+    /**
+     * Method for mapping project members page from json to ProjectMembersPage type.
+     *
+     * @param projectMembers anonymous object from json
+     */
     private getProjectMembersList(projectMembers: any): ProjectMembersPage {
         if (!projectMembers) {
             return new ProjectMembersPage();
         }
 
         const projectMembersPage: ProjectMembersPage = new ProjectMembersPage();
-        projectMembersPage.projectMembers = projectMembers.projectMembers.map(key => new ProjectMember(key.user.fullName, key.user.shortName, key.user.email, key.joinedAt, key.user.id));
+        projectMembersPage.projectMembers = projectMembers.projectMembers.map(key => new ProjectMember(
+            key.user.fullName,
+            key.user.shortName,
+            key.user.email,
+            new Date(key.joinedAt),
+            key.user.id,
+        ));
 
         projectMembersPage.search = projectMembers.search;
         projectMembersPage.limit = projectMembers.limit;

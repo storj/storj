@@ -9,23 +9,23 @@ import (
 	"testing"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/memory"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func TestSaveBucketTallies(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		// Setup: create bucket storage tallies
 		projectID := testrand.UUID()
 
@@ -48,13 +48,8 @@ func TestSaveBucketTallies(t *testing.T) {
 }
 
 func TestStorageNodeUsage(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
-		const (
-			days = 30
-		)
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		const days = 30
 
 		now := time.Now().UTC()
 
@@ -62,10 +57,7 @@ func TestStorageNodeUsage(t *testing.T) {
 		startDate := now.Add(time.Hour * 24 * -days)
 
 		var nodes storj.NodeIDList
-		nodes = append(nodes, nodeID)
-		nodes = append(nodes, testrand.NodeID())
-		nodes = append(nodes, testrand.NodeID())
-		nodes = append(nodes, testrand.NodeID())
+		nodes = append(nodes, nodeID, testrand.NodeID(), testrand.NodeID(), testrand.NodeID())
 
 		rollups, tallies, lastDate := makeRollupsAndStorageNodeStorageTallies(nodes, startDate, days)
 
@@ -97,21 +89,21 @@ func TestStorageNodeUsage(t *testing.T) {
 			// check usage from rollups
 			for _, usage := range nodeStorageUsages[:len(nodeStorageUsages)-1] {
 				assert.Equal(t, nodeID, usage.NodeID)
-				assert.Equal(t, rollups[usage.Timestamp.UTC()][nodeID].AtRestTotal, usage.StorageUsed)
+				dateRollup, ok := rollups[usage.Timestamp.UTC()]
+				if assert.True(t, ok) {
+					nodeRollup, ok := dateRollup[nodeID]
+					if assert.True(t, ok) {
+						assert.Equal(t, nodeRollup.AtRestTotal, usage.StorageUsed)
+					}
+				}
 			}
 
 			// check last usage that calculated from tallies
 			lastUsage := nodeStorageUsages[len(nodeStorageUsages)-1]
 
-			assert.Equal(t,
-				nodeID,
-				lastUsage.NodeID)
-			assert.Equal(t,
-				lastRollup[nodeID].StartTime,
-				lastUsage.Timestamp.UTC())
-			assert.Equal(t,
-				lastRollup[nodeID].AtRestTotal,
-				lastUsage.StorageUsed)
+			assert.Equal(t, nodeID, lastUsage.NodeID)
+			assert.Equal(t, lastRollup[nodeID].StartTime, lastUsage.Timestamp.UTC())
+			assert.Equal(t, lastRollup[nodeID].AtRestTotal, lastUsage.StorageUsed)
 		})
 
 		t.Run("usage entirely from rollups", func(t *testing.T) {
@@ -131,24 +123,114 @@ func TestStorageNodeUsage(t *testing.T) {
 
 			for _, usage := range nodeStorageUsages {
 				assert.Equal(t, nodeID, usage.NodeID)
-				assert.Equal(t, rollups[usage.Timestamp.UTC()][nodeID].AtRestTotal, usage.StorageUsed)
+				dateRollup, ok := rollups[usage.Timestamp.UTC()]
+				if assert.True(t, ok) {
+					nodeRollup, ok := dateRollup[nodeID]
+					if assert.True(t, ok) {
+						assert.Equal(t, nodeRollup.AtRestTotal, usage.StorageUsed)
+					}
+				}
 			}
 		})
 	})
 }
 
-func createBucketStorageTallies(projectID uuid.UUID) (map[string]*accounting.BucketTally, []accounting.BucketTally, error) {
-	bucketTallies := make(map[string]*accounting.BucketTally)
+// There can be more than one rollup in a day. Test that the sums are grouped by day.
+func TestStorageNodeUsage_TwoRollupsInADay(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		now := time.Now().UTC()
+
+		nodeID := testrand.NodeID()
+
+		accountingDB := db.StoragenodeAccounting()
+
+		// create last rollup timestamp
+		_, err := accountingDB.LastTimestamp(ctx, accounting.LastRollup)
+		require.NoError(t, err)
+
+		t1 := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		t2 := time.Date(now.Year(), now.Month(), now.Day(), 12, 0, 0, 0, now.Location())
+		rollups := make(accounting.RollupStats)
+
+		rollups[t1] = make(map[storj.NodeID]*accounting.Rollup)
+		rollups[t2] = make(map[storj.NodeID]*accounting.Rollup)
+
+		rollups[t1][nodeID] = &accounting.Rollup{
+			NodeID:      nodeID,
+			AtRestTotal: 1000,
+			StartTime:   t1,
+		}
+		rollups[t2][nodeID] = &accounting.Rollup{
+			NodeID:      nodeID,
+			AtRestTotal: 500,
+			StartTime:   t2,
+		}
+		// save rollup
+		err = accountingDB.SaveRollup(ctx, now.Add(time.Hour*-24), rollups)
+		require.NoError(t, err)
+
+		nodeStorageUsages, err := accountingDB.QueryStorageNodeUsage(ctx, nodeID, t1.Add(-24*time.Hour), t2.Add(24*time.Hour))
+		require.NoError(t, err)
+		require.NotNil(t, nodeStorageUsages)
+		require.Equal(t, 1, len(nodeStorageUsages))
+
+		require.Equal(t, nodeID, nodeStorageUsages[0].NodeID)
+		require.EqualValues(t, 1500, nodeStorageUsages[0].StorageUsed)
+	})
+}
+
+func TestProjectLimits(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		proj, err := db.Console().Projects().Insert(ctx, &console.Project{Name: "test", OwnerID: testrand.UUID()})
+		require.NoError(t, err)
+
+		err = db.ProjectAccounting().UpdateProjectUsageLimit(ctx, proj.ID, 1)
+		require.NoError(t, err)
+		err = db.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, proj.ID, 2)
+
+		t.Run("get", func(t *testing.T) {
+			storageLimit, err := db.ProjectAccounting().GetProjectStorageLimit(ctx, proj.ID)
+			assert.NoError(t, err)
+			assert.Equal(t, memory.Size(1).Int64(), *storageLimit)
+
+			bandwidthLimit, err := db.ProjectAccounting().GetProjectBandwidthLimit(ctx, proj.ID)
+			assert.NoError(t, err)
+			assert.Equal(t, memory.Size(2).Int64(), *bandwidthLimit)
+		})
+
+		t.Run("update", func(t *testing.T) {
+			err = db.ProjectAccounting().UpdateProjectUsageLimit(ctx, proj.ID, 4)
+			require.NoError(t, err)
+			err = db.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, proj.ID, 3)
+
+			storageLimit, err := db.ProjectAccounting().GetProjectStorageLimit(ctx, proj.ID)
+			assert.NoError(t, err)
+			assert.Equal(t, memory.Size(4).Int64(), *storageLimit)
+
+			bandwidthLimit, err := db.ProjectAccounting().GetProjectBandwidthLimit(ctx, proj.ID)
+			assert.NoError(t, err)
+			assert.Equal(t, memory.Size(3).Int64(), *bandwidthLimit)
+		})
+	})
+}
+
+func createBucketStorageTallies(projectID uuid.UUID) (map[metabase.BucketLocation]*accounting.BucketTally, []accounting.BucketTally, error) {
+	bucketTallies := make(map[metabase.BucketLocation]*accounting.BucketTally)
 	var expectedTallies []accounting.BucketTally
 
 	for i := 0; i < 4; i++ {
 		bucketName := fmt.Sprintf("%s%d", "testbucket", i)
-		bucketID := storj.JoinPaths(projectID.String(), bucketName)
+		bucketLocation := metabase.BucketLocation{
+			ProjectID:  projectID,
+			BucketName: bucketName,
+		}
 
 		// Setup: The data in this tally should match the pointer that the uplink.upload created
 		tally := accounting.BucketTally{
-			BucketName:     []byte(bucketName),
-			ProjectID:      projectID,
+			BucketLocation: metabase.BucketLocation{
+				ProjectID:  projectID,
+				BucketName: bucketName,
+			},
 			ObjectCount:    int64(1),
 			InlineSegments: int64(1),
 			RemoteSegments: int64(1),
@@ -156,7 +238,7 @@ func createBucketStorageTallies(projectID uuid.UUID) (map[string]*accounting.Buc
 			RemoteBytes:    int64(1),
 			MetadataSize:   int64(1),
 		}
-		bucketTallies[bucketID] = &tally
+		bucketTallies[bucketLocation] = &tally
 		expectedTallies = append(expectedTallies, tally)
 
 	}
@@ -199,6 +281,5 @@ func makeRollupsAndStorageNodeStorageTallies(nodes []storj.NodeID, start time.Ti
 		}
 	}
 
-	return rollups, tallies,
-		time.Date(start.Year(), start.Month(), start.Day()+days-1, 0, 0, 0, 0, start.Location())
+	return rollups, tallies, time.Date(start.Year(), start.Month(), start.Day()+days-1, 0, 0, 0, 0, start.Location())
 }

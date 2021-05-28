@@ -4,9 +4,9 @@ Design docs are now known as blueprints. We do not intend to keep blueprints up 
 the implementation has been completed. The final step of a blueprint is to update documentation
 elsewhere, such as:
  * https://github.com/storj/docs
- * https://documentation.storj.io
- * https://documentation.tardigrade.io
- * https://godoc.org/storj.io/storj/lib/uplink
+ * https://docs.storj.io/node
+ * https://docs.storj.io
+ * https://pkg.go.dev/storj.io/uplink
  * Other godoc documentation, etc.
 
 Blueprints will be checked in as Markdown files in `docs/blueprints` folder.

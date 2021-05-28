@@ -1,0 +1,76 @@
+// Copyright (C) 2019 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package metrics
+
+import (
+	"context"
+	"time"
+
+	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
+
+	"storj.io/common/sync2"
+	"storj.io/storj/satellite/metabase/metaloop"
+)
+
+var (
+	// Error defines the metrics chore errors class.
+	Error = errs.Class("metrics")
+	mon   = monkit.Package()
+)
+
+// Config contains configurable values for metrics collection.
+type Config struct {
+}
+
+// Chore implements the metrics chore.
+//
+// architecture: Chore
+type Chore struct {
+	log          *zap.Logger
+	config       Config
+	Loop         *sync2.Cycle
+	metainfoLoop *metaloop.Service
+	Counter      *Counter
+}
+
+// NewChore creates a new instance of the metrics chore.
+func NewChore(log *zap.Logger, config Config, loop *metaloop.Service) *Chore {
+	return &Chore{
+		log:    log,
+		config: config,
+		// This chore monitors metainfo loop, so it's fine to use very small cycle time.
+		Loop:         sync2.NewCycle(time.Nanosecond),
+		metainfoLoop: loop,
+	}
+}
+
+// Run starts the metrics chore.
+func (chore *Chore) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
+		defer mon.Task()(&ctx)(&err)
+
+		chore.Counter = NewCounter()
+
+		err = chore.metainfoLoop.Monitor(ctx, chore.Counter)
+		if err != nil {
+			chore.log.Error("error joining metainfoloop", zap.Error(err))
+			return nil
+		}
+		mon.IntVal("remote_dependent_object_count").Observe(chore.Counter.RemoteDependent)
+		mon.IntVal("inline_object_count").Observe(chore.Counter.InlineObjectCount())
+		mon.IntVal("total_object_count").Observe(chore.Counter.ObjectCount)
+
+		return nil
+	})
+}
+
+// Close closes metrics chore.
+func (chore *Chore) Close() error {
+	chore.Loop.Close()
+	return nil
+}

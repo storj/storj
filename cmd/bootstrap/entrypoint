@@ -1,8 +1,0 @@
-#!/bin/sh
-set -euo pipefail
-
-if [ ! -f $HOME/.local/share/storj/bootstrap/config.yaml ]; then
-	/app/bootstrap setup
-fi
-
-exec ./bootstrap run "$@"

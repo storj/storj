@@ -7,6 +7,7 @@
 *.so
 *.dylib
 *.db
+*.wasm
 
 # Test binary, build with `go test -c`
 *.test
@@ -17,7 +18,6 @@
 
 # VSCode
 /.vscode
-debug
 
 # Visual Studio
 /.vs
@@ -34,3 +34,5 @@ debug
 resource.syso
 
 *.resource.go
+
+.build

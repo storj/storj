@@ -3,23 +3,28 @@
 
 <template>
     <div class="chart">
-        <Chart
+        <p class="disk-space-chart__data-dimension">{{ chartDataDimension }}*h</p>
+        <VChart
             id="disk-space-chart"
             :chart-data="chartData"
-            :width="400"
-            :height="200"
-            :tooltip-constructor="diskSpaceTooltip" />
+            :width="chartWidth"
+            :height="chartHeight"
+            :tooltip-constructor="diskSpaceTooltip"
+            :key="chartKey"
+        />
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component } from 'vue-property-decorator';
 
-import Chart from '@/app/components/Chart.vue';
+import BaseChart from '@/app/components/BaseChart.vue';
+
 import { ChartData } from '@/app/types/chartData';
-import { ChartUtils } from '@/app/utils/chartUtils';
-import { formatBytes } from '@/app/utils/converter';
-import { Stamp } from '@/storagenode/satellite';
+import { Tooltip, TooltipParams } from '@/app/types/tooltip';
+import { ChartUtils } from '@/app/utils/chart';
+import { Size } from '@/private/memory/size';
+import { Stamp } from '@/storagenode/sno/sno';
 
 /**
  * stores stamp data for disc space chart's tooltip
@@ -29,27 +34,37 @@ class StampTooltip {
     public date: string;
 
     public constructor(stamp: Stamp) {
-        this.atRestTotal = formatBytes(stamp.atRestTotal);
-        this.date = stamp.intervalStart.toUTCString();
+        this.atRestTotal = Size.toBase10String(stamp.atRestTotal);
+        this.date = stamp.intervalStart.toUTCString().slice(0, 16);
     }
 }
 
-@Component ({
-    components: {
-        Chart,
-    },
-})
-export default class DiskSpaceChart extends Vue {
+@Component
+export default class DiskSpaceChart extends BaseChart {
+    private get chartBackgroundColor(): string {
+        return this.isDarkMode ? '#4F97F7' : '#F2F6FC';
+    }
+
     private get allStamps(): Stamp[] {
         return ChartUtils.populateEmptyStamps(this.$store.state.node.storageChartData);
     }
 
+    public get chartDataDimension(): string {
+        if (!this.$store.state.node.storageChartData.length) {
+            return 'Bytes';
+        }
+
+        return ChartUtils.getChartDataDimension(this.allStamps.map((elem) => {
+            return elem.atRestTotal;
+        }));
+    }
+
     public get chartData(): ChartData {
         let data: number[] = [0];
-        const daysCount = ChartUtils.daysDisplayedOnChart(new Date());
-        const chartBackgroundColor = '#F2F6FC';
+        const daysCount = ChartUtils.daysDisplayedOnChart();
+        const chartBackgroundColor = this.chartBackgroundColor;
         const chartBorderColor = '#1F49A3';
-        const chartBorderWidth = 2;
+        const chartBorderWidth = 1;
 
         if (this.allStamps.length) {
             data = ChartUtils.normalizeChartData(this.allStamps.map(elem => elem.atRestTotal));
@@ -59,57 +74,64 @@ export default class DiskSpaceChart extends Vue {
     }
 
     public diskSpaceTooltip(tooltipModel): void {
-        // Tooltip Element
-        let tooltipEl = document.getElementById('disk-space-tooltip');
-        // Create element on first render
-        if (!tooltipEl) {
-            tooltipEl = document.createElement('div');
-            tooltipEl.id = 'disk-space-tooltip';
-            document.body.appendChild(tooltipEl);
+        const tooltipParams = new TooltipParams(tooltipModel, 'disk-space-chart', 'disk-space-tooltip',
+            'disk-space-tooltip-arrow', 'disk-space-tooltip-point', this.tooltipMarkUp(tooltipModel),
+            125, 89, 38, 24, 6, 4, `#1f49a3`);
+
+        Tooltip.custom(tooltipParams);
+    }
+
+    private tooltipMarkUp(tooltipModel: any): string {
+        if (!tooltipModel.dataPoints) {
+            return '';
         }
 
-        // Hide if no tooltip
-        if (!tooltipModel.opacity) {
-            document.body.removeChild(tooltipEl);
+        const dataIndex = tooltipModel.dataPoints[0].index;
+        const dataPoint = new StampTooltip(this.allStamps[dataIndex]);
 
-            return;
-        }
-
-        // Set Text
-        if (tooltipModel.body) {
-            const dataIndex = tooltipModel.dataPoints[0].index;
-            const dataPoint = new StampTooltip(this.allStamps[dataIndex]);
-
-            tooltipEl.innerHTML = `<div class='tooltip-body'>
-                                       <p class='tooltip-body__data'><b>${dataPoint.atRestTotal}*h</b></p>
-                                       <p class='tooltip-body__footer'>${dataPoint.date}</p>
-                                   </div>`;
-        }
-
-        const diskSpaceChart = document.getElementById('disk-space-chart');
-
-        if (diskSpaceChart) {
-            const position = diskSpaceChart.getBoundingClientRect();
-            tooltipEl.style.opacity = '1';
-            tooltipEl.style.position = 'absolute';
-            tooltipEl.style.right = position.left + window.pageXOffset - tooltipModel.caretX - 20 + 'px';
-            tooltipEl.style.top = position.top + window.pageYOffset + tooltipModel.caretY + 'px';
-        }
-
-        return;
+        return `<div class='tooltip-body'>
+                    <p class='tooltip-body__data'><b>${dataPoint.atRestTotal}*h</b></p>
+                    <p class='tooltip-body__footer'>${dataPoint.date}</p>
+                </div>`;
     }
 }
 </script>
 
 <style lang="scss">
+    p {
+        margin: 0;
+    }
+
+    .disk-space-chart {
+        z-index: 102;
+
+        &__data-dimension {
+            font-size: 13px;
+            color: var(--regular-text-color);
+            margin: 0 0 5px 31px !important;
+            font-family: 'font_medium', sans-serif;
+        }
+    }
+
     #disk-space-tooltip {
-        background-color: #FFFFFF;
-        width: auto;
+        background-image: var(--tooltip-background-path);
+        background-repeat: no-repeat;
+        background-size: cover;
+        width: 180px;
+        height: 90px;
         font-size: 12px;
-        border-radius: 8px;
-        box-shadow: 0 2px 10px #D2D6DE;
-        color: #535F77;
-        padding: 6px;
+        border-radius: 14px;
+        color: var(--regular-text-color);
+        pointer-events: none;
+        z-index: 9999;
+    }
+
+    #disk-space-tooltip-arrow {
+        background-image: var(--tooltip-arrow-path);
+        background-repeat: no-repeat;
+        background-size: 50px 30px;
+        min-width: 50px;
+        min-height: 30px;
         pointer-events: none;
     }
 
@@ -119,7 +141,7 @@ export default class DiskSpaceChart extends Vue {
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 11px 44px 11px 44px;
+            padding: 11px 44px;
             font-size: 14px;
         }
 
@@ -129,7 +151,7 @@ export default class DiskSpaceChart extends Vue {
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 10px 0 16px 0;
+            padding: 10px 0;
         }
     }
 </style>

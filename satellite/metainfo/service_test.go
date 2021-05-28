@@ -4,54 +4,60 @@
 package metainfo_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/storage"
+	"storj.io/common/memory"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/storj/private/testplanet"
 )
 
-func TestIterate(t *testing.T) {
+func TestCountBuckets(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		saPeer := planet.Satellites[0]
 		uplinkPeer := planet.Uplinks[0]
-
-		// Setup: create 2 test buckets
-		err := uplinkPeer.CreateBucket(ctx, saPeer, "test1")
+		projectID := planet.Uplinks[0].Projects[0].ID
+		count, err := saPeer.Metainfo.Service.CountBuckets(ctx, projectID)
 		require.NoError(t, err)
+		require.Equal(t, 0, count)
+		// Setup: create 2 test buckets
+		err = uplinkPeer.CreateBucket(ctx, saPeer, "test1")
+		require.NoError(t, err)
+		count, err = saPeer.Metainfo.Service.CountBuckets(ctx, projectID)
+		require.NoError(t, err)
+		require.Equal(t, 1, count)
+
 		err = uplinkPeer.CreateBucket(ctx, saPeer, "test2")
 		require.NoError(t, err)
+		count, err = saPeer.Metainfo.Service.CountBuckets(ctx, projectID)
+		require.NoError(t, err)
+		require.Equal(t, 2, count)
+	})
+}
 
-		// Setup: upload an object in one of the buckets
-		expectedData := testrand.Bytes(50 * memory.KiB)
-		err = uplinkPeer.Upload(ctx, saPeer, "test2", "test/path", expectedData)
+func TestIsBucketEmpty(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		uplinkPeer := planet.Uplinks[0]
+
+		err := uplinkPeer.CreateBucket(ctx, satellite, "bucket")
 		require.NoError(t, err)
 
-		// Test: Confirm that only the objects are in pointerDB
-		// and not the bucket metadata
-		var itemCount int
-		metainfoSvc := saPeer.Metainfo.Service
-		err = metainfoSvc.Iterate(ctx, "", "", true, false, func(ctx context.Context, it storage.Iterator) error {
-			var item storage.ListItem
-			for it.Next(ctx, &item) {
-				itemCount++
-				pathElements := storj.SplitPath(storj.Path(item.Key))
-				// there should not be any objects in pointerDB with less than 4 path
-				// elements. i.e buckets should not be stored in pointerDB
-				require.True(t, len(pathElements) > 3)
-			}
-			return nil
-		})
+		empty, err := satellite.Metainfo.Service.IsBucketEmpty(ctx, uplinkPeer.Projects[0].ID, []byte("bucket"))
 		require.NoError(t, err)
-		// There should only be 1 item in pointerDB, the one object
-		require.Equal(t, 1, itemCount)
+		require.True(t, empty)
+
+		err = uplinkPeer.Upload(ctx, satellite, "bucket", "test/path", testrand.Bytes(5*memory.KiB))
+		require.NoError(t, err)
+
+		empty, err = satellite.Metainfo.Service.IsBucketEmpty(ctx, uplinkPeer.Projects[0].ID, []byte("bucket"))
+		require.NoError(t, err)
+		require.False(t, empty)
 	})
 }

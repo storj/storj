@@ -3,14 +3,14 @@
 
 import Vuex from 'vuex';
 
-import { UsersApiGql } from '@/api/users';
+import { AuthHttpApi } from '@/api/auth';
 import { makeUsersModule, USER_ACTIONS, USER_MUTATIONS } from '@/store/modules/users';
 import { UpdatedUser, User } from '@/types/users';
 import { createLocalVue } from '@vue/test-utils';
 
 const Vue = createLocalVue();
-const usersApi = new UsersApiGql();
-const usersModule = makeUsersModule(usersApi);
+const authApi = new AuthHttpApi();
+const usersModule = makeUsersModule(authApi);
 const { UPDATE, GET, CLEAR } = USER_ACTIONS;
 
 Vue.use(Vuex);
@@ -56,7 +56,7 @@ describe('actions', () => {
         jest.resetAllMocks();
     });
     it('success update account', async () => {
-        jest.spyOn(usersApi, 'update').mockReturnValue(
+        jest.spyOn(authApi, 'update').mockReturnValue(
             Promise.resolve(),
         );
 
@@ -69,7 +69,7 @@ describe('actions', () => {
     });
 
     it('update throws an error when api call fails', async () => {
-        jest.spyOn(usersApi, 'update').mockImplementation(() => { throw new Error(); });
+        jest.spyOn(authApi, 'update').mockImplementation(() => { throw new Error(); });
         const newUser = new UpdatedUser('', '');
         const oldUser = store.getters.user;
 
@@ -95,7 +95,7 @@ describe('actions', () => {
     it('success get user', async () => {
         const user = new User('2', 'newFullName', 'newShortName', 'example2@email.com');
 
-        jest.spyOn(usersApi, 'get').mockReturnValue(
+        jest.spyOn(authApi, 'get').mockReturnValue(
             Promise.resolve(user),
         );
 
@@ -109,7 +109,7 @@ describe('actions', () => {
 
     it('get throws an error when api call fails', async () => {
         const user = store.getters.user;
-        jest.spyOn(usersApi, 'get').mockImplementation(() => { throw new Error(); });
+        jest.spyOn(authApi, 'get').mockImplementation(() => { throw new Error(); });
 
         try {
             await store.dispatch(GET);

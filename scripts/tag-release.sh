@@ -19,8 +19,8 @@ set -o pipefail
 
 VERSION="${1-}"
 
-if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-  echo "usage: $0 vMAJOR.MINOR.PATCH"
+if ! [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-rc+(-.*)?)?$ ]]; then
+  echo "usage: $0 vMAJOR.MINOR.PATCH[-rc[-*]]"
   exit 1
 fi
 
@@ -34,24 +34,36 @@ fi
 TIMESTAMP=$(date +%s)
 COMMIT=$(git rev-parse HEAD)
 
-cat > ./internal/version/release.go <<EOF
-// Copyright (C) 2019 Storj Labs, Inc.
+cat > ./private/version/release.go <<EOF
+// Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package version
 
-func init() {
-  buildTimestamp = "$TIMESTAMP"
-  buildCommitHash = "$COMMIT"
-  buildVersion = "$VERSION"
-  buildRelease = "true"
-}
+import _ "unsafe" // needed for go:linkname
+
+//go:linkname buildTimestamp storj.io/private/version.buildTimestamp
+var buildTimestamp string = "$TIMESTAMP"
+
+//go:linkname buildCommitHash storj.io/private/version.buildCommitHash
+var buildCommitHash string = "$COMMIT"
+
+//go:linkname buildVersion storj.io/private/version.buildVersion
+var buildVersion string = "$VERSION"
+
+//go:linkname buildRelease storj.io/private/version.buildRelease
+var buildRelease string = "true"
+
+// ensure that linter understands that the variables are being used.
+func init() { use(buildTimestamp, buildCommitHash, buildVersion, buildRelease) }
+
+func use(...interface{}) {}
 EOF
 
-gofmt -w -s ./internal/version/release.go
-go install ./internal/version
+gofmt -w -s ./private/version/release.go
+go install ./private/version
 
-git add ./internal/version/release.go >/dev/null
+git add ./private/version/release.go >/dev/null
 git commit -m "release $VERSION" >/dev/null
 if git tag $VERSION; then
   echo successfully created tag $VERSION

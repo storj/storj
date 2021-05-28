@@ -7,75 +7,86 @@ import (
 	"context"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/internal/sync2"
-	"storj.io/storj/pkg/bloomfilter"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/satellite/metainfo"
+	"storj.io/common/bloomfilter"
+	"storj.io/common/pb"
+	"storj.io/common/rpc"
+	"storj.io/common/storj"
+	"storj.io/common/sync2"
+	"storj.io/storj/satellite/metabase/metaloop"
 	"storj.io/storj/satellite/overlay"
-	"storj.io/storj/uplink/piecestore"
+	"storj.io/uplink/private/piecestore"
 )
 
 var (
-	// Error defines the gc service errors class
-	Error = errs.Class("gc service error")
+	// Error defines the gc service errors class.
+	Error = errs.Class("gc")
 	mon   = monkit.Package()
 )
 
-// Config contains configurable values for garbage collection
+// Config contains configurable values for garbage collection.
 type Config struct {
-	Interval time.Duration `help:"the time between each send of garbage collection filters to storage nodes" releaseDefault:"120h" devDefault:"10m"`
-	Enabled  bool          `help:"set if garbage collection is enabled or not" releaseDefault:"true" devDefault:"true"`
+	Interval  time.Duration `help:"the time between each send of garbage collection filters to storage nodes" releaseDefault:"120h" devDefault:"10m"`
+	Enabled   bool          `help:"set if garbage collection is enabled or not" releaseDefault:"true" devDefault:"true"`
+	SkipFirst bool          `help:"if true, skip the first run of GC" releaseDefault:"true" devDefault:"false"`
+	RunInCore bool          `help:"if true, run garbage collection as part of the core" releaseDefault:"false" devDefault:"false"`
+
 	// value for InitialPieces currently based on average pieces per node
-	InitialPieces     int     `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
-	FalsePositiveRate float64 `help:"the false positive rate used for creating a garbage collection bloom filter" releaseDefault:"0.1" devDefault:"0.1"`
-	ConcurrentSends   int     `help:"the number of nodes to concurrently send garbage collection bloom filters to" releaseDefault:"1" devDefault:"1"`
+	InitialPieces     int           `help:"the initial number of pieces expected for a storage node to have, used for creating a filter" releaseDefault:"400000" devDefault:"10"`
+	FalsePositiveRate float64       `help:"the false positive rate used for creating a garbage collection bloom filter" releaseDefault:"0.1" devDefault:"0.1"`
+	ConcurrentSends   int           `help:"the number of nodes to concurrently send garbage collection bloom filters to" releaseDefault:"1" devDefault:"1"`
+	RetainSendTimeout time.Duration `help:"the amount of time to allow a node to handle a retain request" default:"1m"`
 }
 
-// Service implements the garbage collection service
+// Service implements the garbage collection service.
 //
 // architecture: Chore
 type Service struct {
 	log    *zap.Logger
 	config Config
-	Loop   sync2.Cycle
+	Loop   *sync2.Cycle
 
 	dialer       rpc.Dialer
 	overlay      overlay.DB
-	metainfoLoop *metainfo.Loop
+	metainfoLoop *metaloop.Service
 }
 
-// RetainInfo contains info needed for a storage node to retain important data and delete garbage data
+// RetainInfo contains info needed for a storage node to retain important data and delete garbage data.
 type RetainInfo struct {
 	Filter       *bloomfilter.Filter
 	CreationDate time.Time
 	Count        int
 }
 
-// NewService creates a new instance of the gc service
-func NewService(log *zap.Logger, config Config, dialer rpc.Dialer, overlay overlay.DB, loop *metainfo.Loop) *Service {
+// NewService creates a new instance of the gc service.
+func NewService(log *zap.Logger, config Config, dialer rpc.Dialer, overlay overlay.DB, loop *metaloop.Service) *Service {
 	return &Service{
-		log:    log,
-		config: config,
-		Loop:   *sync2.NewCycle(config.Interval),
-
+		log:          log,
+		config:       config,
+		Loop:         sync2.NewCycle(config.Interval),
 		dialer:       dialer,
 		overlay:      overlay,
 		metainfoLoop: loop,
 	}
 }
 
-// Run starts the gc loop service
+// Run starts the gc loop service.
 func (service *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if !service.config.Enabled {
 		return nil
+	}
+
+	if service.config.SkipFirst {
+		// make sure the metainfo loop runs once
+		err = service.metainfoLoop.Join(ctx, metaloop.NullObserver{})
+		if err != nil {
+			return err
+		}
 	}
 
 	// load last piece counts from overlay db
@@ -103,7 +114,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		for id := range lastPieceCounts {
 			delete(lastPieceCounts, id)
 		}
-		for id, info := range pieceTracker.retainInfos {
+		for id, info := range pieceTracker.RetainInfos {
 			lastPieceCounts[id] = info.Count
 		}
 
@@ -114,19 +125,19 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		}
 
 		// monitor information
-		for _, info := range pieceTracker.retainInfos {
+		for _, info := range pieceTracker.RetainInfos {
 			mon.IntVal("node_piece_count").Observe(int64(info.Count))
 			mon.IntVal("retain_filter_size_bytes").Observe(info.Filter.Size())
 		}
 
 		// send retain requests
 		limiter := sync2.NewLimiter(service.config.ConcurrentSends)
-		for id, info := range pieceTracker.retainInfos {
+		for id, info := range pieceTracker.RetainInfos {
 			id, info := id, info
 			limiter.Go(ctx, func() {
 				err := service.sendRetainRequest(ctx, id, info)
 				if err != nil {
-					service.log.Error("error sending retain info to node", zap.Stringer("node ID", id), zap.Error(err))
+					service.log.Warn("error sending retain info to node", zap.Stringer("Node ID", id), zap.Error(err))
 				}
 			})
 		}
@@ -139,14 +150,23 @@ func (service *Service) Run(ctx context.Context) (err error) {
 func (service *Service) sendRetainRequest(ctx context.Context, id storj.NodeID, info *RetainInfo) (err error) {
 	defer mon.Task()(&ctx, id.String())(&err)
 
-	log := service.log.Named(id.String())
-
 	dossier, err := service.overlay.Get(ctx, id)
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	client, err := piecestore.Dial(ctx, service.dialer, &dossier.Node, log, piecestore.DefaultConfig)
+	if service.config.RetainSendTimeout > 0 {
+		var cancel func()
+		ctx, cancel = context.WithTimeout(ctx, service.config.RetainSendTimeout)
+		defer cancel()
+	}
+
+	nodeurl := storj.NodeURL{
+		ID:      id,
+		Address: dossier.Address.Address,
+	}
+
+	client, err := piecestore.Dial(ctx, service.dialer, nodeurl, piecestore.DefaultConfig)
 	if err != nil {
 		return Error.Wrap(err)
 	}

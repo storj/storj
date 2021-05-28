@@ -1,0 +1,366 @@
+// Copyright (C) 2020 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package metabase
+
+import (
+	"math"
+	"sort"
+	"strconv"
+	"strings"
+
+	"github.com/zeebo/errs"
+
+	"storj.io/common/storj"
+	"storj.io/common/uuid"
+)
+
+// Error is the default error for metabase.
+var Error = errs.Class("metabase")
+
+// Common constants for segment keys.
+const (
+	Delimiter        = '/'
+	LastSegmentName  = "l"
+	LastSegmentIndex = uint32(math.MaxUint32)
+)
+
+// MaxListLimit is the maximum number of items the client can request for listing.
+const MaxListLimit = 1000
+
+const batchsizeLimit = 1000
+
+// BucketPrefix consists of <project id>/<bucket name>.
+type BucketPrefix string
+
+// BucketLocation defines a bucket that belongs to a project.
+type BucketLocation struct {
+	ProjectID  uuid.UUID
+	BucketName string
+}
+
+// ParseBucketPrefix parses BucketPrefix.
+func ParseBucketPrefix(prefix BucketPrefix) (BucketLocation, error) {
+	elements := strings.Split(string(prefix), "/")
+	if len(elements) != 2 {
+		return BucketLocation{}, Error.New("invalid prefix %q", prefix)
+	}
+
+	projectID, err := uuid.FromString(elements[0])
+	if err != nil {
+		return BucketLocation{}, Error.Wrap(err)
+	}
+
+	return BucketLocation{
+		ProjectID:  projectID,
+		BucketName: elements[1],
+	}, nil
+}
+
+// Verify object location fields.
+func (loc BucketLocation) Verify() error {
+	switch {
+	case loc.ProjectID.IsZero():
+		return ErrInvalidRequest.New("ProjectID missing")
+	case loc.BucketName == "":
+		return ErrInvalidRequest.New("BucketName missing")
+	}
+	return nil
+}
+
+// ParseCompactBucketPrefix parses BucketPrefix.
+func ParseCompactBucketPrefix(compactPrefix []byte) (BucketLocation, error) {
+	if len(compactPrefix) < len(uuid.UUID{}) {
+		return BucketLocation{}, Error.New("invalid prefix %q", compactPrefix)
+	}
+
+	var loc BucketLocation
+	copy(loc.ProjectID[:], compactPrefix)
+	loc.BucketName = string(compactPrefix[len(loc.ProjectID):])
+	return loc, nil
+}
+
+// Prefix converts bucket location into bucket prefix.
+func (loc BucketLocation) Prefix() BucketPrefix {
+	return BucketPrefix(loc.ProjectID.String() + "/" + loc.BucketName)
+}
+
+// CompactPrefix converts bucket location into bucket prefix with compact project ID.
+func (loc BucketLocation) CompactPrefix() []byte {
+	xs := make([]byte, 0, len(loc.ProjectID)+len(loc.BucketName))
+	xs = append(xs, loc.ProjectID[:]...)
+	xs = append(xs, []byte(loc.BucketName)...)
+	return xs
+}
+
+// ObjectKey is an encrypted object key encoded using Path Component Encoding.
+// It is not ascii safe.
+type ObjectKey string
+
+// ObjectLocation is decoded object key information.
+type ObjectLocation struct {
+	ProjectID  uuid.UUID
+	BucketName string
+	ObjectKey  ObjectKey
+}
+
+// Bucket returns bucket location this object belongs to.
+func (obj ObjectLocation) Bucket() BucketLocation {
+	return BucketLocation{
+		ProjectID:  obj.ProjectID,
+		BucketName: obj.BucketName,
+	}
+}
+
+// Verify object location fields.
+func (obj ObjectLocation) Verify() error {
+	switch {
+	case obj.ProjectID.IsZero():
+		return ErrInvalidRequest.New("ProjectID missing")
+	case obj.BucketName == "":
+		return ErrInvalidRequest.New("BucketName missing")
+	case len(obj.ObjectKey) == 0:
+		return ErrInvalidRequest.New("ObjectKey missing")
+	}
+	return nil
+}
+
+// SegmentKey is an encoded metainfo key. This is used as the key in pointerdb key-value store.
+type SegmentKey []byte
+
+// SegmentLocation is decoded segment key information.
+type SegmentLocation struct {
+	ProjectID  uuid.UUID
+	BucketName string
+	ObjectKey  ObjectKey
+	Position   SegmentPosition
+}
+
+// Bucket returns bucket location this segment belongs to.
+func (seg SegmentLocation) Bucket() BucketLocation {
+	return BucketLocation{
+		ProjectID:  seg.ProjectID,
+		BucketName: seg.BucketName,
+	}
+}
+
+// Object returns the object location associated with this segment location.
+func (seg SegmentLocation) Object() ObjectLocation {
+	return ObjectLocation{
+		ProjectID:  seg.ProjectID,
+		BucketName: seg.BucketName,
+		ObjectKey:  seg.ObjectKey,
+	}
+}
+
+// ParseSegmentKey parses an segment key into segment location.
+func ParseSegmentKey(encoded SegmentKey) (SegmentLocation, error) {
+	elements := strings.SplitN(string(encoded), "/", 4)
+	if len(elements) < 4 {
+		return SegmentLocation{}, Error.New("invalid key %q", encoded)
+	}
+
+	projectID, err := uuid.FromString(elements[0])
+	if err != nil {
+		return SegmentLocation{}, Error.New("invalid key %q", encoded)
+	}
+
+	var position SegmentPosition
+	if elements[1] == LastSegmentName {
+		position.Index = LastSegmentIndex
+	} else {
+		if !strings.HasPrefix(elements[1], "s") {
+			return SegmentLocation{}, Error.New("invalid %q, missing segment prefix in %q", string(encoded), elements[1])
+		}
+		// skip 's' prefix from segment index we got
+		parsed, err := strconv.ParseUint(elements[1][1:], 10, 64)
+		if err != nil {
+			return SegmentLocation{}, Error.New("invalid %q, segment number %q", string(encoded), elements[1])
+		}
+		position = SegmentPositionFromEncoded(parsed)
+	}
+
+	return SegmentLocation{
+		ProjectID:  projectID,
+		BucketName: elements[2],
+		Position:   position,
+		ObjectKey:  ObjectKey(elements[3]),
+	}, nil
+}
+
+// Encode converts segment location into a segment key.
+func (seg SegmentLocation) Encode() SegmentKey {
+	segment := LastSegmentName
+	if seg.Position.Index != LastSegmentIndex {
+		segment = "s" + strconv.FormatUint(seg.Position.Encode(), 10)
+	}
+	return SegmentKey(storj.JoinPaths(
+		seg.ProjectID.String(),
+		segment,
+		seg.BucketName,
+		string(seg.ObjectKey),
+	))
+}
+
+// Verify segment location fields.
+func (seg SegmentLocation) Verify() error {
+	switch {
+	case seg.ProjectID.IsZero():
+		return ErrInvalidRequest.New("ProjectID missing")
+	case seg.BucketName == "":
+		return ErrInvalidRequest.New("BucketName missing")
+	case len(seg.ObjectKey) == 0:
+		return ErrInvalidRequest.New("ObjectKey missing")
+	}
+	return nil
+}
+
+// ObjectStream uniquely defines an object and stream.
+type ObjectStream struct {
+	ProjectID  uuid.UUID
+	BucketName string
+	ObjectKey  ObjectKey
+	Version    Version
+	StreamID   uuid.UUID
+}
+
+// Verify object stream fields.
+func (obj *ObjectStream) Verify() error {
+	switch {
+	case obj.ProjectID.IsZero():
+		return ErrInvalidRequest.New("ProjectID missing")
+	case obj.BucketName == "":
+		return ErrInvalidRequest.New("BucketName missing")
+	case len(obj.ObjectKey) == 0:
+		return ErrInvalidRequest.New("ObjectKey missing")
+	case obj.Version < 0:
+		return ErrInvalidRequest.New("Version invalid: %v", obj.Version)
+	case obj.StreamID.IsZero():
+		return ErrInvalidRequest.New("StreamID missing")
+	}
+	return nil
+}
+
+// Location returns object location.
+func (obj *ObjectStream) Location() ObjectLocation {
+	return ObjectLocation{
+		ProjectID:  obj.ProjectID,
+		BucketName: obj.BucketName,
+		ObjectKey:  obj.ObjectKey,
+	}
+}
+
+// SegmentPosition is segment part and index combined.
+type SegmentPosition struct {
+	Part  uint32
+	Index uint32
+}
+
+// SegmentPositionFromEncoded decodes an uint64 into a SegmentPosition.
+func SegmentPositionFromEncoded(v uint64) SegmentPosition {
+	return SegmentPosition{
+		Part:  uint32(v >> 32),
+		Index: uint32(v),
+	}
+}
+
+// Encode encodes a segment position into an uint64, that can be stored in a database.
+func (pos SegmentPosition) Encode() uint64 { return uint64(pos.Part)<<32 | uint64(pos.Index) }
+
+// Less returns whether pos should before b.
+func (pos SegmentPosition) Less(b SegmentPosition) bool { return pos.Encode() < b.Encode() }
+
+// Version is used to uniquely identify objects with the same key.
+type Version int64
+
+// NextVersion means that the version should be chosen automatically.
+const NextVersion = Version(0)
+
+// ObjectStatus defines the statuses that the object might be in.
+type ObjectStatus byte
+
+const (
+	// Pending means that the object is being uploaded or that the client failed during upload.
+	// The failed upload may be continued in the future.
+	Pending = ObjectStatus(1)
+	// Committed means that the object is finished and should be visible for general listing.
+	Committed = ObjectStatus(3)
+
+	pendingStatus   = "1"
+	committedStatus = "3"
+)
+
+// Pieces defines information for pieces.
+type Pieces []Piece
+
+// Piece defines information for a segment piece.
+type Piece struct {
+	Number      uint16
+	StorageNode storj.NodeID
+}
+
+// Verify verifies pieces.
+func (p Pieces) Verify() error {
+	if len(p) == 0 {
+		return ErrInvalidRequest.New("pieces missing")
+	}
+
+	currentPiece := p[0]
+	if currentPiece.StorageNode == (storj.NodeID{}) {
+		return ErrInvalidRequest.New("piece number %d is missing storage node id", currentPiece.Number)
+	}
+
+	for _, piece := range p[1:] {
+		switch {
+		case piece.Number == currentPiece.Number:
+			return ErrInvalidRequest.New("duplicated piece number %d", piece.Number)
+		case piece.Number < currentPiece.Number:
+			return ErrInvalidRequest.New("pieces should be ordered")
+		case piece.StorageNode == (storj.NodeID{}):
+			return ErrInvalidRequest.New("piece number %d is missing storage node id", piece.Number)
+		}
+		currentPiece = piece
+	}
+	return nil
+}
+
+// Equal checks if Pieces structures are equal.
+func (p Pieces) Equal(pieces Pieces) bool {
+	if len(p) != len(pieces) {
+		return false
+	}
+
+	first := make(Pieces, len(p))
+	second := make(Pieces, len(p))
+
+	copy(first, p)
+	copy(second, pieces)
+
+	sort.Slice(first, func(i, j int) bool {
+		return first[i].Number < first[j].Number
+	})
+	sort.Slice(second, func(i, j int) bool {
+		return second[i].Number < second[j].Number
+	})
+
+	for i := range first {
+		if first[i].Number != second[i].Number {
+			return false
+		}
+		if first[i].StorageNode != second[i].StorageNode {
+			return false
+		}
+	}
+
+	return true
+}
+
+// Len is the number of pieces.
+func (p Pieces) Len() int { return len(p) }
+
+// Less reports whether the piece with
+// index i should sort before the piece with index j.
+func (p Pieces) Less(i, j int) bool { return p[i].Number < p[j].Number }
+
+// Swap swaps the pieces with indexes i and j.
+func (p Pieces) Swap(i, j int) { p[i], p[j] = p[j], p[i] }

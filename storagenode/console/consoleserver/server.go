@@ -5,31 +5,28 @@ package consoleserver
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"path/filepath"
-	"strings"
 
+	"github.com/gorilla/mux"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/errs2"
 	"storj.io/storj/storagenode/console"
+	"storj.io/storj/storagenode/console/consoleapi"
+	"storj.io/storj/storagenode/notifications"
+	"storj.io/storj/storagenode/payouts"
 )
 
-const (
-	contentType = "Content-Type"
-
-	applicationJSON = "application/json"
-)
-
-// Error is storagenode console web error type.
 var (
-	mon   = monkit.Package()
-	Error = errs.Class("storagenode console web error")
+	mon = monkit.Package()
+	// Error is storagenode console web error type.
+	Error = errs.Class("consoleserver")
 )
 
 // Config contains configuration for storagenode console web server.
@@ -44,40 +41,63 @@ type Config struct {
 type Server struct {
 	log *zap.Logger
 
-	config   Config
-	service  *console.Service
-	listener net.Listener
+	service       *console.Service
+	notifications *notifications.Service
+	payout        *payouts.Service
+	listener      net.Listener
 
 	server http.Server
 }
 
 // NewServer creates new instance of storagenode console web server.
-func NewServer(logger *zap.Logger, config Config, service *console.Service, listener net.Listener) *Server {
+func NewServer(logger *zap.Logger, assets http.FileSystem, notifications *notifications.Service, service *console.Service, payout *payouts.Service, listener net.Listener) *Server {
 	server := Server{
-		log:      logger,
-		service:  service,
-		config:   config,
-		listener: listener,
+		log:           logger,
+		service:       service,
+		listener:      listener,
+		notifications: notifications,
+		payout:        payout,
 	}
 
-	var fs http.Handler
-	mux := http.NewServeMux()
-
-	// handle static pages
-	if config.StaticDir != "" {
-		fs = http.FileServer(http.Dir(server.config.StaticDir))
-
-		mux.Handle("/static/", http.StripPrefix("/static", fs))
-		mux.Handle("/", http.HandlerFunc(server.appHandler))
-	}
+	router := mux.NewRouter()
 
 	// handle api endpoints
-	mux.Handle("/api/dashboard", http.HandlerFunc(server.dashboardHandler))
-	mux.Handle("/api/satellites", http.HandlerFunc(server.satellitesHandler))
-	mux.Handle("/api/satellite/", http.HandlerFunc(server.satelliteHandler))
+	storageNodeController := consoleapi.NewStorageNode(server.log, server.service)
+	storageNodeRouter := router.PathPrefix("/api/sno").Subrouter()
+	storageNodeRouter.StrictSlash(true)
+	storageNodeRouter.HandleFunc("/", storageNodeController.StorageNode).Methods(http.MethodGet)
+	storageNodeRouter.HandleFunc("/satellites", storageNodeController.Satellites).Methods(http.MethodGet)
+	storageNodeRouter.HandleFunc("/satellite/{id}", storageNodeController.Satellite).Methods(http.MethodGet)
+	storageNodeRouter.HandleFunc("/estimated-payout", storageNodeController.EstimatedPayout).Methods(http.MethodGet)
+
+	notificationController := consoleapi.NewNotifications(server.log, server.notifications)
+	notificationRouter := router.PathPrefix("/api/notifications").Subrouter()
+	notificationRouter.StrictSlash(true)
+	notificationRouter.HandleFunc("/list", notificationController.ListNotifications).Methods(http.MethodGet)
+	notificationRouter.HandleFunc("/{id}/read", notificationController.ReadNotification).Methods(http.MethodPost)
+	notificationRouter.HandleFunc("/readall", notificationController.ReadAllNotifications).Methods(http.MethodPost)
+
+	payoutController := consoleapi.NewPayout(server.log, server.payout)
+	payoutRouter := router.PathPrefix("/api/heldamount").Subrouter()
+	payoutRouter.StrictSlash(true)
+	payoutRouter.HandleFunc("/paystubs/{period}", payoutController.PayStubMonthly).Methods(http.MethodGet)
+	payoutRouter.HandleFunc("/paystubs/{start}/{end}", payoutController.PayStubPeriod).Methods(http.MethodGet)
+	payoutRouter.HandleFunc("/held-history", payoutController.HeldHistory).Methods(http.MethodGet)
+	payoutRouter.HandleFunc("/periods", payoutController.HeldAmountPeriods).Methods(http.MethodGet)
+	payoutRouter.HandleFunc("/payout-history/{period}", payoutController.PayoutHistory).Methods(http.MethodGet)
+
+	if assets != nil {
+		fs := http.FileServer(assets)
+		router.PathPrefix("/static/").Handler(server.cacheMiddleware(http.StripPrefix("/static", fs)))
+		router.PathPrefix("/").Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			req := r.Clone(r.Context())
+			req.URL.Path = "/dist/"
+			fs.ServeHTTP(w, req)
+		}))
+	}
 
 	server.server = http.Server{
-		Handler: mux,
+		Handler: router,
 	}
 
 	return &server
@@ -95,7 +115,11 @@ func (server *Server) Run(ctx context.Context) (err error) {
 	})
 	group.Go(func() error {
 		defer cancel()
-		return server.server.Serve(server.listener)
+		err := server.server.Serve(server.listener)
+		if errs2.IsCanceled(err) || errors.Is(err, http.ErrServerClosed) {
+			err = nil
+		}
+		return err
 	})
 
 	return group.Wait()
@@ -106,109 +130,22 @@ func (server *Server) Close() error {
 	return server.server.Close()
 }
 
-// appHandler is web app http handler function.
-func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, filepath.Join(server.config.StaticDir, "dist", "index.html"))
-}
+// cacheMiddleware is a middleware for caching static files.
+func (server *Server) cacheMiddleware(fn http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// "mime" package, which http.FileServer uses, depends on Operating System
+		// configuration for mime-types. When a system has hardcoded mime-types to
+		// something else, they might serve ".js" as a "plain/text".
+		//
+		// Override any of that default behavior to ensure we get the correct types for
+		// common files.
+		if contentType, ok := CommonContentType(filepath.Ext(r.URL.Path)); ok {
+			w.Header().Set("Content-Type", contentType)
+		}
 
-// dashboardHandler handles dashboard API requests.
-func (server *Server) dashboardHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	defer mon.Task()(&ctx)(nil)
+		w.Header().Set("Cache-Control", "public, max-age=31536000")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
 
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	data, err := server.service.GetDashboardData(ctx)
-	if err != nil {
-		server.writeError(w, http.StatusInternalServerError, Error.Wrap(err))
-		return
-	}
-
-	server.writeData(w, data)
-}
-
-// satelliteHandler handles satellites API request.
-func (server *Server) satellitesHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	defer mon.Task()(&ctx)(nil)
-
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	data, err := server.service.GetAllSatellitesData(ctx)
-	if err != nil {
-		server.writeError(w, http.StatusInternalServerError, Error.Wrap(err))
-		return
-	}
-
-	server.writeData(w, data)
-}
-
-// satelliteHandler handles satellite API requests.
-func (server *Server) satelliteHandler(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	defer mon.Task()(&ctx)(nil)
-
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	satelliteID, err := storj.NodeIDFromString(strings.TrimPrefix(r.URL.Path, "/api/satellite/"))
-	if err != nil {
-		server.writeError(w, http.StatusBadRequest, Error.Wrap(err))
-		return
-	}
-
-	if err = server.service.VerifySatelliteID(ctx, satelliteID); err != nil {
-		server.writeError(w, http.StatusNotFound, Error.Wrap(err))
-		return
-	}
-
-	data, err := server.service.GetSatelliteData(ctx, satelliteID)
-	if err != nil {
-		server.writeError(w, http.StatusInternalServerError, Error.Wrap(err))
-		return
-	}
-
-	server.writeData(w, data)
-}
-
-// jsonOutput defines json structure of api response data.
-type jsonOutput struct {
-	Data  interface{} `json:"data"`
-	Error string      `json:"error"`
-}
-
-// writeData is helper method to write JSON to http.ResponseWriter and log encoding error.
-func (server *Server) writeData(w http.ResponseWriter, data interface{}) {
-	w.Header().Set(contentType, applicationJSON)
-	w.WriteHeader(http.StatusOK)
-
-	output := jsonOutput{Data: data}
-
-	if err := json.NewEncoder(w).Encode(output); err != nil {
-		server.log.Error("json encoder error", zap.Error(err))
-	}
-}
-
-// writeError writes a JSON error payload to http.ResponseWriter log encoding error.
-func (server *Server) writeError(w http.ResponseWriter, status int, err error) {
-	if status >= http.StatusInternalServerError {
-		server.log.Error("api handler server error", zap.Int("status code", status), zap.Error(err))
-	}
-
-	w.Header().Set(contentType, applicationJSON)
-	w.WriteHeader(status)
-
-	output := jsonOutput{Error: err.Error()}
-
-	if err := json.NewEncoder(w).Encode(output); err != nil {
-		server.log.Error("json encoder error", zap.Error(err))
-	}
+		fn.ServeHTTP(w, r)
+	})
 }

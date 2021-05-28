@@ -1,0 +1,72 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`HeldHistoryAllStatsTable renders correctly with actual values 1`] = `
+<div>
+  <div class="held-history-table-container--large">
+    <div class="held-history-table-container--large__labels-area">
+      <div class="column justify-start column-1">
+        <p class="held-history-table-container--large__labels-area__text">Satellite</p>
+      </div>
+      <div class="column justify-end column-2">
+        <p class="held-history-table-container--large__labels-area__text">First Contact</p>
+      </div>
+      <div class="column justify-end column-3">
+        <p class="held-history-table-container--large__labels-area__text">Held Total</p>
+      </div>
+      <div class="column justify-end column-4">
+        <p class="held-history-table-container--large__labels-area__text">Held Returned</p>
+      </div>
+    </div>
+    <div class="held-history-table-container--large__info-area">
+      <div class="justify-start column-1">
+        <p class="held-history-table-container--large__info-area__text">name1</p>
+        <p class="held-history-table-container--large__info-area__months">8 month</p>
+      </div>
+      <div class="column justify-end column-2">
+        <p class="held-history-table-container--large__info-area__text">2019-07-30</p>
+      </div>
+      <div class="column justify-end column-3">
+        <p class="held-history-table-container--large__info-area__text">$0.00</p>
+      </div>
+      <div class="column justify-end column-4">
+        <p class="held-history-table-container--large__info-area__text">$0.00</p>
+      </div>
+    </div>
+    <div class="held-history-table-container--large__info-area">
+      <div class="justify-start column-1">
+        <p class="held-history-table-container--large__info-area__text">name2</p>
+        <p class="held-history-table-container--large__info-area__months">8 month</p>
+      </div>
+      <div class="column justify-end column-2">
+        <p class="held-history-table-container--large__info-area__text">2019-07-30</p>
+      </div>
+      <div class="column justify-end column-3">
+        <p class="held-history-table-container--large__info-area__text">$0.00</p>
+      </div>
+      <div class="column justify-end column-4">
+        <p class="held-history-table-container--large__info-area__text">$0.00</p>
+      </div>
+    </div>
+    <div class="held-history-table-container--large__info-area">
+      <div class="justify-start column-1">
+        <p class="held-history-table-container--large__info-area__text">name3</p>
+        <p class="held-history-table-container--large__info-area__months">8 month</p>
+      </div>
+      <div class="column justify-end column-2">
+        <p class="held-history-table-container--large__info-area__text">2019-07-30</p>
+      </div>
+      <div class="column justify-end column-3">
+        <p class="held-history-table-container--large__info-area__text">$7.85</p>
+      </div>
+      <div class="column justify-end column-4">
+        <p class="held-history-table-container--large__info-area__text">$0.00</p>
+      </div>
+    </div>
+  </div>
+  <div class="held-history-table-container--small">
+    <heldhistoryallstatstableitemsmall-stub heldhistoryitem="[object Object]"></heldhistoryallstatstableitemsmall-stub>
+    <heldhistoryallstatstableitemsmall-stub heldhistoryitem="[object Object]"></heldhistoryallstatstableitemsmall-stub>
+    <heldhistoryallstatstableitemsmall-stub heldhistoryitem="[object Object]"></heldhistoryallstatstableitemsmall-stub>
+  </div>
+</div>
+`;

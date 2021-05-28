@@ -4,42 +4,52 @@
 package redis
 
 import (
+	"context"
 	"testing"
 
-	"storj.io/storj/storage/redis/redisserver"
+	"github.com/stretchr/testify/require"
+
+	"storj.io/common/testcontext"
+	"storj.io/storj/private/testredis"
 	"storj.io/storj/storage/testsuite"
 )
 
 func TestSuite(t *testing.T) {
-	addr, cleanup, err := redisserver.Start()
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	redis, err := testredis.Start(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cleanup()
+	defer func() { require.NoError(t, redis.Close()) }()
 
-	client, err := NewClient(addr, "", 1)
+	client, err := OpenClient(ctx, redis.Addr(), "", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	client.SetLookupLimit(500)
 	testsuite.RunTests(t, client)
 }
 
 func TestInvalidConnection(t *testing.T) {
-	_, err := NewClient("", "", 1)
+	_, err := OpenClient(context.Background(), "", "", 1)
 	if err == nil {
 		t.Fatal("expected connection error")
 	}
 }
 
 func BenchmarkSuite(b *testing.B) {
-	addr, cleanup, err := redisserver.Start()
+	ctx := context.Background()
+
+	redis, err := testredis.Start(ctx)
 	if err != nil {
 		b.Fatal(err)
 	}
-	defer cleanup()
+	defer func() { require.NoError(b, redis.Close()) }()
 
-	client, err := NewClient(addr, "", 1)
+	client, err := OpenClient(ctx, redis.Addr(), "", 1)
 	if err != nil {
 		b.Fatal(err)
 	}

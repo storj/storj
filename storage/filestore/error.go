@@ -3,17 +3,23 @@
 
 package filestore
 
-import "os"
+import (
+	"errors"
+	"os"
+)
 
 // underlyingError returns the underlying error for known os error types.
 func underlyingError(err error) error {
-	switch err := err.(type) {
-	case *os.PathError:
-		return err.Err
-	case *os.LinkError:
-		return err.Err
-	case *os.SyscallError:
-		return err.Err
+	var perr *os.PathError
+	var lerr *os.LinkError
+	var serr *os.SyscallError
+	switch {
+	case errors.As(err, &perr):
+		return perr.Err
+	case errors.As(err, &lerr):
+		return lerr.Err
+	case errors.As(err, &serr):
+		return serr.Err
 	}
 	return err
 }

@@ -10,16 +10,16 @@ import (
 )
 
 const (
-	// APIKeyInfoType is graphql type name for api key
+	// APIKeyInfoType is graphql type name for api key.
 	APIKeyInfoType = "keyInfo"
 	// CreateAPIKeyType is graphql type name for createAPIKey struct
-	// which incapsulates the actual key and it's info
+	// which incapsulates the actual key and it's info.
 	CreateAPIKeyType = "graphqlCreateAPIKey"
-	// FieldKey is field name for the actual key in createAPIKey
+	// FieldKey is field name for the actual key in createAPIKey.
 	FieldKey = "key"
 )
 
-// graphqlAPIKeyInfo creates satellite.APIKeyInfo graphql object
+// graphqlAPIKeyInfo creates satellite.APIKeyInfo graphql object.
 func graphqlAPIKeyInfo() *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: APIKeyInfoType,
@@ -43,7 +43,7 @@ func graphqlAPIKeyInfo() *graphql.Object {
 	})
 }
 
-// graphqlCreateAPIKey creates createAPIKey graphql object
+// graphqlCreateAPIKey creates createAPIKey graphql object.
 func graphqlCreateAPIKey(types *TypeCreator) *graphql.Object {
 	return graphql.NewObject(graphql.ObjectConfig{
 		Name: CreateAPIKeyType,
@@ -116,7 +116,7 @@ func graphqlAPIKeysPage(types *TypeCreator) *graphql.Object {
 	})
 }
 
-// createAPIKey holds macaroon.APIKey and console.APIKeyInfo
+// createAPIKey holds macaroon.APIKey and console.APIKeyInfo.
 type createAPIKey struct {
 	Key     string
 	KeyInfo *console.APIKeyInfo

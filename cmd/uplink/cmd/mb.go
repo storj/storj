@@ -7,28 +7,24 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/fpath"
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/fpath"
 )
 
 func init() {
 	addCmd(&cobra.Command{
-		Use:   "mb",
+		Use:   "mb sj://BUCKET",
 		Short: "Create a new bucket",
 		RunE:  makeBucket,
+		Args:  cobra.ExactArgs(1),
 	}, RootCmd)
 }
 
 func makeBucket(cmd *cobra.Command, args []string) error {
-	ctx, _ := process.Ctx(cmd)
+	ctx, _ := withTelemetry(cmd)
 
 	if len(args) == 0 {
-		return fmt.Errorf("No bucket specified for creation")
+		return fmt.Errorf("no bucket specified for creation")
 	}
 
 	dst, err := fpath.New(args[0])
@@ -37,36 +33,20 @@ func makeBucket(cmd *cobra.Command, args []string) error {
 	}
 
 	if dst.IsLocal() {
-		return fmt.Errorf("No bucket specified, use format sj://bucket/")
+		return fmt.Errorf("no bucket specified, use format sj://bucket/")
 	}
 
 	if dst.Path() != "" {
-		return fmt.Errorf("Nested buckets not supported, use format sj://bucket/")
+		return fmt.Errorf("nested buckets not supported, use format sj://bucket/")
 	}
 
-	project, err := cfg.GetProject(ctx)
+	project, err := cfg.getProject(ctx, false)
 	if err != nil {
-		return errs.New("error setting up project: %+v", err)
+		return err
 	}
-	defer func() {
-		if err := project.Close(); err != nil {
-			fmt.Printf("error closing project: %+v\n", err)
-		}
-	}()
+	defer closeProject(project)
 
-	bucketCfg := &uplink.BucketConfig{}
-	bucketCfg.PathCipher = cfg.GetPathCipherSuite()
-	bucketCfg.EncryptionParameters = cfg.GetEncryptionParameters()
-	bucketCfg.Volatile = struct {
-		RedundancyScheme storj.RedundancyScheme
-		SegmentsSize     memory.Size
-	}{
-		RedundancyScheme: cfg.GetRedundancyScheme(),
-		SegmentsSize:     cfg.GetSegmentSize(),
-	}
-
-	_, err = project.CreateBucket(ctx, dst.Bucket(), bucketCfg)
-	if err != nil {
+	if _, err := project.CreateBucket(ctx, dst.Bucket()); err != nil {
 		return err
 	}
 

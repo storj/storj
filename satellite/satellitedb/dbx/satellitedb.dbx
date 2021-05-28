@@ -7,14 +7,10 @@ model value_attribution (
 	field project_id	blob
 	field bucket_name	blob
 	field partner_id	blob
-	field last_updated 	utimestamp  ( autoinsert, autoupdate )
+	field last_updated 	timestamp  ( autoinsert, autoupdate )
 )
 
 create value_attribution ()
-delete value_attribution (
-	where value_attribution.project_id = ?
-	where value_attribution.bucket_name = ?
-)
 
 read one (
     select value_attribution
@@ -35,8 +31,6 @@ model pending_audits (
 	field path                blob
 )
 
-create pending_audits ( )
-update pending_audits ( where pending_audits.node_id = ? )
 delete pending_audits ( where pending_audits.node_id = ? )
 read one (
 	select pending_audits
@@ -95,9 +89,9 @@ read scalar (
 )
 
 model accounting_rollup (
-	key id
+	key node_id start_time
+	index ( fields start_time )
 
-	field id               serial64
 	field node_id          blob
 	field start_time       timestamp
 	field put_total        int64
@@ -108,20 +102,7 @@ model accounting_rollup (
 	field at_rest_total    float64
 )
 
-create accounting_rollup ( noreturn )
-delete accounting_rollup ( where accounting_rollup.id = ? )
-
-read one (
-	select accounting_rollup
-	where  accounting_rollup.id = ?
-)
-
-read all (
-	select accounting_rollup
-	where  accounting_rollup.start_time >= ?
-)
-
-//--- statdb ---//
+//--- overlay cache ---//
 
 model node (
 	key id
@@ -131,55 +112,96 @@ model node (
 		fields last_net
 	)
 
-	field id             blob
-	field address        text  ( updatable ) // TODO: use compressed format
-	field last_net       text  ( updatable )
-	field protocol       int   ( updatable )
-	field type           int   ( updatable )
-	field email          text  ( updatable )
-	field wallet         text  ( updatable ) // TODO: use compressed format
-	field free_bandwidth int64 ( updatable )
-	field free_disk      int64 ( updatable )
-	field piece_count    int64 ( autoinsert, updatable )
+	index (
+		name nodes_dis_unk_off_exit_fin_last_success_index
+		fields disqualified unknown_audit_suspended offline_suspended exit_finished_at last_contact_success
+	)
 
- 	field major             int64 ( updatable )
-	field minor             int64 ( updatable )
-	field patch             int64 ( updatable )
-	field hash              text ( updatable )
-	field timestamp         timestamp ( updatable )
-	field release           bool ( updatable )
+	index (
+		// N.B. the index doesn't have a name which clarifies its purpose because
+		// it was created in the production DBs as it's before being added here
+		name nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index
+		fields type last_contact_success free_disk  major minor patch vetted_at
+		where node.disqualified = null
+		where node.unknown_audit_suspended = null
+		where node.exit_initiated_at = null
+		where node.release = true
+		where node.last_net != ""
+	)
 
-	field latency_90           int64   ( updatable )
-	field audit_success_count  int64   ( updatable )
-	field total_audit_count    int64   ( updatable )
-	field uptime_success_count int64   ( updatable )
-	field total_uptime_count   int64   ( updatable )
+	index (
+		// N.B. the index doesn't have a name which clarifies its purpose because
+		// it was created in the production DBs as it's before being added here
+		name nodes_dis_unk_aud_exit_init_rel_type_last_cont_success_stored_index
+		fields disqualified  unknown_audit_suspended  exit_initiated_at  release  type  last_contact_success
+		where node.disqualified = null
+		where node.unknown_audit_suspended = null
+		where node.exit_initiated_at = null
+		where node.release = true
+	)
 
-	field created_at           timestamp ( autoinsert )
-	field updated_at           timestamp ( autoinsert, autoupdate )
-	field last_contact_success timestamp ( updatable )
-	field last_contact_failure timestamp ( updatable )
+	field id              blob
+	// address is how to contact the node, this can be a hostname or IP and it contains the port
+	field address         text  ( updatable, default "" ) // TODO: use compressed format
+	// last_net is the /24 subnet of the IP
+	field last_net        text  ( updatable )
+	field last_ip_port    text  ( updatable, nullable )
+	field protocol        int   ( updatable, default 0 )
+	field type            int   ( updatable, default 0 )
+	field email           text  ( updatable )
+	field wallet          text  ( updatable ) // TODO: use compressed format
+	field wallet_features text  ( updatable, default "" )
+	field free_disk       int64 ( updatable, default -1 )
+	field piece_count     int64 ( autoinsert, updatable, default 0 )
 
-	field contained bool ( updatable )
+ 	field major             int64 ( updatable, default 0 )
+	field minor             int64 ( updatable, default 0 )
+	field patch             int64 ( updatable, default 0 )
+	field hash              text ( updatable, default "" )
+	field timestamp         timestamp ( updatable, default "0001-01-01 00:00:00+00" )
+	field release           bool ( updatable, default false )
+
+	field latency_90           int64   ( updatable, default 0 )
+	field audit_success_count  int64   ( updatable, default 0 )
+	field total_audit_count    int64   ( updatable, default 0 )
+	field vetted_at            timestamp ( updatable, nullable )
+
+	field created_at           timestamp ( autoinsert, default current_timestamp )
+	field updated_at           timestamp ( autoinsert, autoupdate, default current_timestamp )
+	field last_contact_success timestamp ( updatable, default "epoch" )
+	field last_contact_failure timestamp ( updatable, default "epoch" )
+
+	field contained bool ( updatable, default false )
+    // node is disqualified when it fails too many audits or is offline for too long
 	field disqualified timestamp ( updatable, nullable )
+    // node is placed under inspection when it has too many unknown-error audits
+	field suspended timestamp ( updatable, nullable )
+	// renamed column from suspended
+	field unknown_audit_suspended timestamp ( updatable, nullable )
+	// node is considered unhealthy if it is offline for too many audits
+	field offline_suspended timestamp ( updatable, nullable )
+	// once a node becomes offline_suspended, mark it as under review so we check it again later
+	field under_review timestamp ( updatable, nullable )
+	field online_score float64 ( updatable, default 1 )
 
-	field audit_reputation_alpha  float64 ( updatable )
-	field audit_reputation_beta   float64 ( updatable )
-	field uptime_reputation_alpha float64 ( updatable )
-	field uptime_reputation_beta  float64 ( updatable )
+	// audit_reputation_fields track information related to successful vs. failed error audits
+	field audit_reputation_alpha  float64 ( updatable, default 1 )
+	field audit_reputation_beta   float64 ( updatable, default 0 )
+	// unknown_audit_reputation fields track information related to successful vs. unknown error audits
+	field unknown_audit_reputation_alpha  float64 ( updatable, default 1 )
+	field unknown_audit_reputation_beta   float64 ( updatable, default 0 )
 
-    field exit_initiated_at         utimestamp ( updatable, nullable )
-    field exit_loop_completed_at    utimestamp ( updatable, nullable )
-    field exit_finished_at          utimestamp ( updatable, nullable )
+    field exit_initiated_at         timestamp ( updatable, nullable )
+    field exit_loop_completed_at    timestamp ( updatable, nullable )
+    field exit_finished_at          timestamp ( updatable, nullable )
+    field exit_success              bool ( updatable, default false )
 )
 
-create node ( noreturn )
 update node ( where node.id = ? )
 update node (
 	where node.id = ?
 	noreturn
 )
-delete node ( where node.id = ? )
 
 // "Get" query; fails if node not found
 read one (
@@ -191,22 +213,26 @@ read all (
 	select node.id
 )
 
-read limitoffset (
+read paged (
 	select node
-	where  node.id >= ?
-	orderby asc node.id
-)
-
-read limitoffset (
-	select node.id node.last_net node.address node.protocol
-	where  node.id >= ?
-	where  node.disqualified = null
-	orderby asc node.id
 )
 
 read all (
-    select node.id node.piece_count
-    where node.piece_count != 0
+	select node.id node.piece_count
+	where node.piece_count != 0
+)
+
+//--- audit history ---//
+model audit_history (
+	key node_id
+	field node_id blob
+	field history blob ( updatable )
+)
+create audit_history ()
+update audit_history ( where audit_history.node_id = ? )
+read one (
+	select audit_history
+	where audit_history.node_id = ?
 )
 
 //--- repairqueue ---//
@@ -216,28 +242,54 @@ model injuredsegment (
 
 	field path blob
 	field data blob
-	field attempted utimestamp (updatable, nullable)
+	field attempted timestamp (updatable, nullable)
+	field updated_at timestamp ( updatable, default current_timestamp )
+	field segment_health float64 (default 1)
 
 	index (
 		fields attempted
 	)
+
+	index (
+		fields segment_health
+	)
+
+	index (
+		fields updated_at
+	)
+
+	index (
+		name injuredsegments_num_healthy_pieces_attempted_index
+		fields segment_health attempted
+	)
 )
+
+delete injuredsegment ( where injuredsegment.updated_at < ? )
 
 //--- satellite console ---//
 
 model user (
     key id
 
-    field id               blob
-    field email            text      ( updatable )
-    field normalized_email text      ( updatable )
-    field full_name        text      ( updatable )
-    field short_name       text      ( updatable, nullable )
-    field password_hash    blob      ( updatable )
+    field id                 blob
+    field email              text      ( updatable )
+    field normalized_email   text      ( updatable )
+    field full_name          text      ( updatable )
+    field short_name         text      ( updatable, nullable )
+    field password_hash      blob      ( updatable )
 
-    field status           int       ( updatable, autoinsert )
-    field partner_id       blob      ( nullable )
-    field created_at       timestamp ( autoinsert )
+    field status             int       ( updatable, autoinsert )
+    field partner_id         blob      ( nullable )
+    field created_at         timestamp ( autoinsert )
+    field project_limit      int       ( updatable, default 0 )
+
+    field position           text      ( updatable, nullable )
+    field company_name       text      ( updatable, nullable )
+    field company_size       int       ( updatable, nullable )
+    field working_on         text      ( updatable, nullable )
+    field is_professional    bool      ( updatable, default false )
+    field employee_count     text      ( updatable, nullable )
+    field have_sales_contact bool      ( updatable, default false )
 )
 
 create user ( )
@@ -253,37 +305,26 @@ read one (
     select user
     where user.id = ?
 )
-
-// add payment method id to indentify if it has been set up
-model user_payment (
-    key    user_id
-    unique customer_id
-
-    field user_id       user.id   cascade
-    field customer_id   blob
-
-    field created_at    timestamp ( autoinsert )
-)
-
-create user_payment ( )
-
 read one (
-    select user_payment
-    where  user_payment.user_id = ?
+    select user.project_limit
+    where user.id = ?
 )
 
 model project (
     key id
 
-    field id             blob
+    field id              blob
 
-    field name           text
-    field description    text      ( updatable )
-    field usage_limit    int64     ( updatable )
-    field partner_id     blob      ( nullable  )
-    field owner_id       blob
+    field name            text      ( updatable )
+    field description     text      ( updatable )
+    field usage_limit     int64     ( nullable, updatable )
+    field bandwidth_limit int64     ( nullable, updatable )
+    field rate_limit      int       ( nullable, updatable )
+    field max_buckets     int       ( nullable, updatable )
+    field partner_id      blob      ( nullable )
+    field owner_id        blob
 
-    field created_at     timestamp ( autoinsert )
+    field created_at      timestamp ( autoinsert )
 )
 
 create project ( )
@@ -294,6 +335,23 @@ read one (
     select project
     where project.id = ?
 )
+read one (
+    select project.usage_limit
+    where  project.id = ?
+)
+read one (
+    select project.bandwidth_limit
+    where  project.id = ?
+)
+read one (
+    select project.max_buckets
+    where project.id = ?
+)
+read one (
+    select project.bandwidth_limit project.usage_limit
+    where  project.id = ?
+)
+
 read all (
     select project
 )
@@ -304,70 +362,20 @@ read all (
 )
 read all (
     select project
+    where project.owner_id = ?
+    orderby asc project.created_at
+)
+read all (
+    select project
     join project.id = project_member.project_id
     where project_member.member_id = ?
     orderby asc project.name
 )
 
-model project_payment (
-    key id
-
-    field id                blob
-
-    field project_id        project.id              cascade
-    field payer_id          user_payment.user_id    cascade
-    field payment_method_id blob
-    field is_default        bool ( updatable )
-
-    field created_at        timestamp  ( autoinsert )
-)
-
-create project_payment ( )
-update project_payment ( where project_payment.id = ? )
-delete project_payment ( where project_payment.id = ? )
-
-read one (
-    select project_payment
-    where project_payment.id = ? )
-read one (
-    select project_payment
-    where project_payment.project_id = ?
-    where project_payment.is_default = true
-)
-read all (
-    select project_payment
-    where project_payment.project_id = ?
-)
-read all (
-    select project_payment
-    where project_payment.payer_id = ?
-)
-
-model project_invoice_stamp (
-    key    project_id start_date end_date
-    unique invoice_id
-
-    field  project_id project.id  cascade
-    field  invoice_id blob
-
-    field  start_date timestamp
-    field  end_date   timestamp
-
-    field  created_at timestamp
-)
-
-create project_invoice_stamp ( )
-
-read one (
-    select project_invoice_stamp
-    where  project_invoice_stamp.project_id = ?
-    where  project_invoice_stamp.start_date = ?
-)
-// pagination ?
-read all (
-    select project_invoice_stamp
-    where  project_invoice_stamp.project_id = ?
-    orderby desc project_invoice_stamp.start_date
+read limitoffset (
+    select project
+    where project.created_at < ?
+    orderby asc project.created_at
 )
 
 model project_member (
@@ -389,10 +397,6 @@ read all (
     select project_member
     where project_member.member_id = ?
 )
-read limitoffset (
-    select project_member
-    where project_member.project_id = ?
-)
 
 model api_key (
     key    id
@@ -409,7 +413,7 @@ model api_key (
 )
 
 create api_key ( )
-update api_key ( 
+update api_key (
 	where api_key.id = ?
 	noreturn
 )
@@ -423,118 +427,29 @@ read one (
     select api_key
     where api_key.head = ?
 )
-read all (
-    select api_key
-    where api_key.project_id = ?
-    orderby asc api_key.name
-)
-
-//-----bucket_usage----//
-
-model bucket_usage (
-    key    id
-    index (
-    		name bucket_id_rollup
-    		fields bucket_id rollup_end_time
-    		unique
-    	)
-
-    field  id                 blob
-    field  bucket_id          blob      //--TODO: add foreign key constraint--//
-
-    field  rollup_end_time    timestamp
-
-    field  remote_stored_data uint64
-    field  inline_stored_data uint64
-    field  remote_segments    uint
-    field  inline_segments    uint
-    field  objects            uint
-    field  metadata_size      uint64
-    field  repair_egress      uint64
-    field  get_egress         uint64
-    field  audit_egress       uint64
-)
-
-create bucket_usage ( )
-delete bucket_usage ( where bucket_usage.id = ? )
-
 read one (
-    select bucket_usage
-    where  bucket_usage.id = ?
+    select api_key
+    where api_key.name = ?
+    where api_key.project_id = ?
 )
-read limitoffset (
-    select bucket_usage
-    where bucket_usage.bucket_id = ?
-    where bucket_usage.rollup_end_time > ?
-    where bucket_usage.rollup_end_time <= ?
-    orderby asc bucket_usage.rollup_end_time
-)
-read limitoffset (
-    select bucket_usage
-    where bucket_usage.bucket_id = ?
-    where bucket_usage.rollup_end_time > ?
-    where bucket_usage.rollup_end_time <= ?
-    orderby desc bucket_usage.rollup_end_time
-)
-
-//--- tracking serial numbers ---//
-
-model serial_number (
-	key    id
-	index (
-	    name serial_number
-	    fields serial_number
-	    unique
-	)
-
-	field id            serial
-	field serial_number blob
-
-	field bucket_id     blob
-	field expires_at    utimestamp
-
-	index (
-		fields expires_at
-	)
-)
-
-model used_serial (
-	key    serial_number_id storage_node_id
-
-	field serial_number_id serial_number.id cascade
-	field storage_node_id  blob
-)
-
-// inserting a new serial number
-create serial_number ( noreturn )
-
-// finding out information about the serial number
-read scalar (
-	select serial_number
-	where  serial_number.serial_number = ?
-)
-
-// deleting expired serial numbers
-delete serial_number (
-	where serial_number.expires_at <= ?
-)
-
-// for preventing duplicate serial numbers
-create used_serial ( noreturn )
 
 // --- bucket accounting tables --- //
 
 model bucket_bandwidth_rollup (
 	key    bucket_name project_id interval_start action
 	index (
-	    name bucket_name_project_id_interval_start_interval_seconds
-	    fields bucket_name project_id interval_start interval_seconds
+		name bucket_bandwidth_rollups_project_id_action_interval_index
+		fields project_id action interval_start
+	)
+	index (
+		name bucket_bandwidth_rollups_action_interval_project_id_index
+		fields action interval_start project_id
 	)
 
 	field bucket_name       blob
 	field project_id        blob
 
-	field interval_start   utimestamp
+	field interval_start   timestamp
 	field interval_seconds uint
 	field action           uint
 
@@ -543,21 +458,76 @@ model bucket_bandwidth_rollup (
 	field settled   uint64 ( updatable )
 )
 
-read scalar (
-	select bucket_bandwidth_rollup
-	where  bucket_bandwidth_rollup.bucket_name = ?
-	where  bucket_bandwidth_rollup.project_id = ?
-	where  bucket_bandwidth_rollup.interval_start = ?
-	where  bucket_bandwidth_rollup.action = ?
+read paged (
+    select bucket_bandwidth_rollup
+    where bucket_bandwidth_rollup.interval_start >= ?
+)
+
+model bucket_bandwidth_rollup_archive (
+	key    bucket_name project_id interval_start action
+	index (
+		name bucket_bandwidth_rollups_archive_project_id_action_interval_index
+		fields project_id action interval_start
+	)
+	index (
+		name bucket_bandwidth_rollups_archive_action_interval_project_id_index
+		fields action interval_start project_id
+	)
+
+	field bucket_name       blob
+	field project_id        blob
+
+	field interval_start   timestamp
+	field interval_seconds uint
+	field action           uint
+
+	field inline    uint64 ( updatable )
+	field allocated uint64 ( updatable )
+	field settled   uint64 ( updatable )
+)
+
+read paged (
+    select bucket_bandwidth_rollup_archive
+    where bucket_bandwidth_rollup_archive.interval_start >= ?
+)
+
+model revocation (
+    key revoked
+    field revoked blob
+    field api_key_id blob
+)
+
+create revocation ( noreturn )
+
+model project_bandwidth_rollup (
+	key    project_id interval_month
+
+	field project_id       blob
+	field interval_month   date
+	field egress_allocated uint64 ( updatable )
+)
+
+model project_bandwidth_daily_rollup (
+	key    project_id interval_day
+
+	field project_id       blob
+	field interval_day     date
+	field egress_allocated uint64 ( updatable )
+	field egress_settled   uint64 ( updatable )
 )
 
 model bucket_storage_tally (
 	key    bucket_name project_id interval_start
 
+	index (
+		name bucket_storage_tallies_project_id_interval_start_index
+		fields project_id interval_start
+	)
+
 	field bucket_name       blob
 	field project_id        blob
 
-	field interval_start   utimestamp
+	field interval_start   timestamp
 
 	field inline uint64
 	field remote uint64
@@ -570,12 +540,6 @@ model bucket_storage_tally (
 )
 
 create bucket_storage_tally ( noreturn )
-
-read first (
-    select bucket_storage_tally
-    where bucket_storage_tally.project_id = ?
-    orderby desc bucket_storage_tally.interval_start
-)
 
 read all (
     select bucket_storage_tally
@@ -594,53 +558,196 @@ read all (
 
 model storagenode_bandwidth_rollup (
 	key    storagenode_id interval_start action
+
 	index (
-	    name storagenode_id_interval_start_interval_seconds
-	    fields storagenode_id interval_start interval_seconds
+		name storagenode_bandwidth_rollups_interval_start_index
+		fields interval_start
 	)
 
 	field storagenode_id   blob
-	field interval_start   utimestamp
+	field interval_start   timestamp
 	field interval_seconds uint
 	field action           uint
 
-	field allocated uint64 ( updatable )
+	field allocated uint64 ( updatable, nullable, default 0 )
 	field settled   uint64 ( updatable )
 )
 
-read scalar (
-	select storagenode_bandwidth_rollup
-	where  storagenode_bandwidth_rollup.storagenode_id = ?
-	where  storagenode_bandwidth_rollup.interval_start = ?
-	where  storagenode_bandwidth_rollup.action = ?
-)
+create storagenode_bandwidth_rollup()
 
 read all (
 	select storagenode_bandwidth_rollup
-	where storagenode_bandwidth_rollup.interval_start >= ?
+	where storagenode_bandwidth_rollup.storagenode_id = ?
+	where storagenode_bandwidth_rollup.interval_start = ?
+)
+
+read paged (
+    select storagenode_bandwidth_rollup
+    where storagenode_bandwidth_rollup.interval_start >= ?
+)
+
+read paged (
+  select storagenode_bandwidth_rollup
+  where storagenode_bandwidth_rollup.storagenode_id = ?
+  where storagenode_bandwidth_rollup.interval_start >= ?
+)
+
+model storagenode_bandwidth_rollup_archive (
+	key    storagenode_id interval_start action
+
+	index (
+		name storagenode_bandwidth_rollup_archives_interval_start_index
+		fields interval_start
+	)
+
+	field storagenode_id   blob
+	field interval_start   timestamp
+	field interval_seconds uint
+	field action           uint
+
+	field allocated uint64 ( updatable, nullable, default 0 )
+	field settled   uint64 ( updatable )
+)
+
+read paged (
+    select storagenode_bandwidth_rollup_archive
+    where storagenode_bandwidth_rollup_archive.interval_start >= ?
+)
+
+///////////////////////////////////////
+// orders phase2->phase3 rollout table
+///////////////////////////////////////
+
+model storagenode_bandwidth_rollup_phase2 (
+	table storagenode_bandwidth_rollups_phase2 // make the pluralization consistent
+
+	key storagenode_id interval_start action
+
+	field storagenode_id   blob
+	field interval_start   timestamp
+	field interval_seconds uint
+	field action           uint
+
+	field allocated uint64 ( updatable, nullable, default 0 )
+	field settled   uint64 ( updatable )
+)
+
+read paged (
+  select storagenode_bandwidth_rollup_phase2
+  where storagenode_bandwidth_rollup_phase2.storagenode_id = ?
+  where storagenode_bandwidth_rollup_phase2.interval_start >= ?
 )
 
 model storagenode_storage_tally (
-	key   id
+	// this primary key will enforce uniqueness on interval_end_time,node_id
+	// and also creates an index on interval_end_time implicitly.
+	// the interval_end_time will be the same value for many rows so
+	// we put that first so we can use cockroachdb prefix compression.
+	// node_id is also used many times but interval_end_time is more
+	// repetative and will benefit greater.
+	key interval_end_time node_id
 
-	field id								serial64
-	field node_id						blob
+	index ( fields node_id )
+
+	field node_id		blob
 	field interval_end_time	timestamp
-	field data_total				float64
+	field data_total	float64
 )
 
-create storagenode_storage_tally ( noreturn )
-delete storagenode_storage_tally ( where storagenode_storage_tally.id = ? )
+read all (
+    select storagenode_storage_tally
+)
+
+read all (
+    select storagenode_storage_tally
+    where storagenode_storage_tally.interval_end_time >= ?
+)
+
+// --- storage node payment tables --- //
+
+model storagenode_paystub (
+	// The (period, node_id) tuple is the primary key. The primary key index
+	// should serve for quick queries for all paystubs in a given period since
+	// it comes first but efficient queries for all paystubs with a given
+	// node_id will require a distinct index.
+
+	key period node_id
+
+	index ( fields node_id )
+
+	field period     text                     // YYYY-MM, e.g. 2020-02
+	field node_id    blob                     //
+	field created_at timestamp ( autoinsert ) //
+	field codes      text                     // colon separated list
+
+	field usage_at_rest    float64            // byte-hours of data at rest
+	field usage_get        int64              // bytes of bandwidth
+	field usage_put        int64              // bytes of bandwidth
+	field usage_get_repair int64              // bytes of bandwidth
+	field usage_put_repair int64              // bytes of bandwidth
+	field usage_get_audit  int64              // bytes of bandwidth
+
+	field comp_at_rest    int64               // in micro-units of currency
+	field comp_get        int64               // in micro-units of currency
+	field comp_put        int64               // in micro-units of currency
+	field comp_get_repair int64               // in micro-units of currency
+	field comp_put_repair int64               // in micro-units of currency
+	field comp_get_audit  int64               // in micro-units of currency
+
+	field surge_percent int64                 // percentage
+
+	field held        int64                   // in micro-units of currency
+	field owed        int64                   // in micro-units of currency
+	field disposed    int64                   // in micro-units of currency
+	field paid        int64                   // in micro-units of currency
+	field distributed int64                   // in micro-units of currency
+)
+
+create storagenode_paystub ( noreturn, replace )
+
 read one (
-		select storagenode_storage_tally
-		where storagenode_storage_tally.id = ?
+	select storagenode_paystub
+	where storagenode_paystub.node_id = ?
+	where storagenode_paystub.period  = ?
 )
+
 read all (
-	select storagenode_storage_tally
+	select storagenode_paystub
+	where storagenode_paystub.node_id = ?
 )
+
+model storagenode_payment (
+	key id
+
+	index ( fields node_id period )
+
+	field id         serial64                 //
+	field created_at timestamp ( autoinsert ) //
+	field node_id    blob                     //
+	field period     text                     // YYYY-MM, e.g. 2020-02
+	field amount     int64                    // in micro-units of currency
+	field receipt    text      ( nullable )   //
+	field notes      text      ( nullable )   //
+)
+
+create storagenode_payment ( noreturn )
+
+read limitoffset (
+	select storagenode_payment
+	where storagenode_payment.node_id = ?
+	where storagenode_payment.period  = ?
+	orderby desc storagenode_payment.id
+)
+
 read all (
-	select storagenode_storage_tally
-	where storagenode_storage_tally.interval_end_time >= ?
+	select storagenode_payment
+	where storagenode_payment.node_id = ?
+)
+
+read all (
+	select storagenode_payment
+	where storagenode_payment.node_id = ?
+	where storagenode_payment.period  = ?
 )
 
 //--- peer_identity ---//
@@ -650,7 +757,7 @@ model peer_identity (
 
     field node_id            blob
     field leaf_serial_number blob (updatable)
-    field chain              blob (updatable) // x509 ASN.1 DER content 
+    field chain              blob (updatable) // x509 ASN.1 DER content
     field updated_at         timestamp ( autoinsert, autoupdate )
 )
 
@@ -727,8 +834,8 @@ model offer (
 	field name text ( updatable )
 	field description text ( updatable )
 
-	field award_credit_in_cents int ( updatable )
-	field invitee_credit_in_cents int ( updatable )
+	field award_credit_in_cents int ( updatable, default 0 )
+	field invitee_credit_in_cents int ( updatable, default 0 )
 
 	field award_credit_duration_days int ( updatable, nullable )
 	field invitee_credit_duration_days int ( updatable, nullable )
@@ -744,63 +851,37 @@ model offer (
 	field type int ( updatable )
 )
 
-read one (
-    select offer
-    where offer.id = ?
-)
-
-read all (
-	select offer
-	orderby asc offer.id
-)
-
-update offer (
-	where offer.id = ?
-	noreturn
-)
-
-create offer ( )
-
 
 //--- user credit table ---//
 
 model user_credit (
-	key	id
+	key id
+	unique id offer_id
+	index (
+		name credits_earned_user_id_offer_id
+		fields id offer_id
+		unique
+	)
 
-	field id				serial
+	field id serial
 
-	field user_id user.id	cascade
-	field offer_id offer.id	restrict
-	field referred_by user.id setnull ( nullable )
-	field type       text
+	field user_id     user.id  cascade
+	field offer_id    offer.id restrict
+	field referred_by user.id  setnull  ( nullable )
+	field type        text
 
-	field credits_earned_in_cents	int
-	field credits_used_in_cents	int ( updatable, autoinsert )
+	field credits_earned_in_cents int
+	field credits_used_in_cents   int ( updatable, autoinsert )
 
-	field expires_at		timestamp	( updatable )
-	field created_at		timestamp	( autoinsert )
+	field expires_at timestamp ( updatable )
+	field created_at timestamp ( autoinsert )
 )
-
-read all (
-	select user_credit
-	where user_credit.user_id = ?
-    where user_credit.expires_at > ?
-    where user_credit.credits_used_in_cents < user_credit.credits_earned_in_cents
-    orderby asc user_credit.expires_at
-)
-
-read count (
-    select user_credit
-    where user_credit.referred_by = ?
-)
-
-create user_credit ()
 
 //--- metainfo buckets ---//
 
 model bucket_metainfo (
 	key    id
-	unique name project_id
+	unique project_id name
 
 	field id             blob
 	field project_id     project.id restrict
@@ -836,6 +917,18 @@ read one (
 	where bucket_metainfo.name = ?
 )
 
+read one (
+	select bucket_metainfo.id
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
+
+read has (
+	select bucket_metainfo
+	where bucket_metainfo.project_id = ?
+	where bucket_metainfo.name = ?
+)
+
 delete bucket_metainfo (
 	where bucket_metainfo.project_id = ?
 	where bucket_metainfo.name = ?
@@ -855,76 +948,304 @@ read limitoffset ( // After
 	orderby asc bucket_metainfo.name
 )
 
+read count (
+	select bucket_metainfo.name
+	where bucket_metainfo.project_id = ?
+)
+
 //--- graceful exit progress ---//
 
 model graceful_exit_progress (
 	table graceful_exit_progress
-    key node_id
+	key node_id
 
-    field node_id              blob
-    field bytes_transferred    int64 ( updatable )
-	field pieces_transferred   int64 ( autoinsert, updatable )
-	field pieces_failed        int64 ( autoinsert, updatable )
-    field updated_at           utimestamp ( autoinsert, autoupdate )
+	field node_id            blob
+	field bytes_transferred  int64     ( updatable )
+	field pieces_transferred int64     ( autoinsert, updatable, default 0 )
+	field pieces_failed      int64     ( autoinsert, updatable, default 0 )
+	field updated_at         timestamp ( autoinsert, autoupdate )
 )
 
-create graceful_exit_progress ( noreturn )
-update graceful_exit_progress ( 
-	where graceful_exit_progress.node_id = ?
-	noreturn
-)
-delete graceful_exit_progress ( where graceful_exit_progress.node_id = ? )
 read one (
 	select graceful_exit_progress
-	where graceful_exit_progress.node_id = ? 
+	where graceful_exit_progress.node_id = ?
 )
 
 //--- graceful exit transfer queue ---//
 
 model graceful_exit_transfer_queue (
 	table graceful_exit_transfer_queue
-    key node_id path
+	key node_id path piece_num
 
-    field node_id             blob
-    field path                blob
-    field piece_num           int
-    field durability_ratio    float64    ( updatable )
-    field queued_at           utimestamp ( autoinsert ) 
-    field requested_at        utimestamp ( updatable, nullable ) 
-    field last_failed_at      utimestamp ( updatable, nullable ) 
-    field last_failed_code    int        ( updatable, nullable )
-    field failed_count        int        ( updatable, nullable )
-    field finished_at         utimestamp ( updatable, nullable )
+	field node_id                blob
+	field path                   blob
+	field piece_num              int
+	field root_piece_id          blob      ( nullable )
+	field durability_ratio       float64   ( updatable )
+	field queued_at              timestamp ( autoinsert )
+	field requested_at           timestamp ( updatable, nullable )
+	field last_failed_at         timestamp ( updatable, nullable )
+	field last_failed_code       int       ( updatable, nullable )
+	field failed_count           int       ( updatable, nullable )
+	field finished_at            timestamp ( updatable, nullable )
+	field order_limit_send_count int       ( updatable, default 0 )
+
+	index (
+		name graceful_exit_transfer_queue_nid_dr_qa_fa_lfa_index
+		fields node_id durability_ratio queued_at finished_at last_failed_at
+	)
 )
 
-create graceful_exit_transfer_queue ( noreturn )
-update graceful_exit_transfer_queue ( 
+update graceful_exit_transfer_queue (
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.path = ?
+	where graceful_exit_transfer_queue.piece_num = ?
 	noreturn
 )
-delete graceful_exit_transfer_queue ( 
+delete graceful_exit_transfer_queue (
 	where graceful_exit_transfer_queue.node_id = ?
 )
 
-delete graceful_exit_transfer_queue ( 
+delete graceful_exit_transfer_queue (
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.path = ?
+	where graceful_exit_transfer_queue.piece_num = ?
 )
 
-delete graceful_exit_transfer_queue ( 
+delete graceful_exit_transfer_queue (
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.finished_at != null
 )
 
-read one ( 
+read one (
 	select graceful_exit_transfer_queue
 	where graceful_exit_transfer_queue.node_id = ?
 	where graceful_exit_transfer_queue.path = ?
+	where graceful_exit_transfer_queue.piece_num = ?
+)
+
+//--- satellite payments ---//
+
+model stripe_customer (
+    key user_id
+    unique customer_id
+
+    field user_id     blob
+    field customer_id text
+    field created_at  timestamp ( autoinsert )
+)
+
+create stripe_customer ( )
+
+read one (
+	select stripe_customer.customer_id
+	where stripe_customer.user_id = ?
 )
 read limitoffset (
-	select graceful_exit_transfer_queue
-	where graceful_exit_transfer_queue.node_id = ?
-	where graceful_exit_transfer_queue.finished_at = null
-	orderby asc graceful_exit_transfer_queue.queued_at
+    select stripe_customer
+    where stripe_customer.created_at <= ?
+    orderby desc stripe_customer.created_at
+)
+
+model coinpayments_transaction (
+    key id
+
+    field id        text
+    field user_id   blob
+    field address   text
+    field amount    blob
+    field received  blob ( updatable )
+    field status    int  ( updatable )
+    field key       text
+    field timeout   int
+
+    field created_at timestamp ( autoinsert )
+)
+
+create coinpayments_transaction ()
+update coinpayments_transaction ( where coinpayments_transaction.id = ? )
+
+read all (
+    select coinpayments_transaction
+    where coinpayments_transaction.user_id = ?
+    orderby desc coinpayments_transaction.created_at
+)
+
+model stripecoinpayments_apply_balance_intent (
+    key tx_id
+
+    field tx_id coinpayments_transaction.id  cascade
+    field state int                          ( updatable )
+
+    field created_at timestamp ( autoinsert )
+)
+
+model stripecoinpayments_invoice_project_record (
+    key id
+
+    unique project_id period_start period_end
+
+    field id           blob
+    field project_id   blob
+    field storage      float64
+    field egress       int64
+    field objects      int64
+    field period_start timestamp
+    field period_end   timestamp
+    field state        int       ( updatable )
+
+    field created_at timestamp ( autoinsert )
+)
+
+create stripecoinpayments_invoice_project_record ()
+update stripecoinpayments_invoice_project_record (
+    where stripecoinpayments_invoice_project_record.id = ?
+)
+read one (
+    select stripecoinpayments_invoice_project_record
+    where stripecoinpayments_invoice_project_record.project_id = ?
+    where stripecoinpayments_invoice_project_record.period_start = ?
+    where stripecoinpayments_invoice_project_record.period_end = ?
+)
+read limitoffset (
+    select stripecoinpayments_invoice_project_record
+    where stripecoinpayments_invoice_project_record.period_start = ?
+    where stripecoinpayments_invoice_project_record.period_end = ?
+    where stripecoinpayments_invoice_project_record.state = ?
+)
+
+model stripecoinpayments_tx_conversion_rate (
+    key tx_id
+
+    field tx_id        text
+    field rate         blob
+
+    field created_at timestamp ( autoinsert )
+)
+
+create stripecoinpayments_tx_conversion_rate ()
+
+read one (
+    select stripecoinpayments_tx_conversion_rate
+    where stripecoinpayments_tx_conversion_rate.tx_id = ?
+)
+
+model coupon_code (
+    key    id
+    unique name
+
+    field id              blob
+    field name            text
+    field amount          int64
+    field description     text
+    field type            int
+    field billing_periods int64 ( nullable )
+
+    field created_at timestamp ( autoinsert )
+)
+
+create coupon_code ()
+delete coupon_code (
+    where coupon_code.name = ?
+)
+read one (
+    select coupon_code
+    where coupon_code.name = ?
+)
+
+model coupon (
+    key id
+
+    field id               blob
+    field user_id          blob
+    field amount           int64
+    field description      text
+    field type             int
+    field status           int   ( updatable )
+    field duration         int64
+    field billing_periods  int64 ( nullable )
+    field coupon_code_name text  ( nullable )
+
+    field created_at timestamp ( autoinsert )
+)
+
+create coupon ()
+update coupon (
+    where coupon.id = ?
+)
+delete coupon (
+    where coupon.id = ?
+)
+read one (
+    select coupon
+    where coupon.id = ?
+)
+read all (
+    select coupon
+    where coupon.user_id = ?
+    orderby desc coupon.created_at
+)
+read all (
+    select coupon
+    where coupon.user_id = ?
+    where coupon.status = ?
+    orderby desc coupon.created_at
+)
+read all (
+    select coupon
+    where coupon.status = ?
+    orderby desc coupon.created_at
+)
+read limitoffset (
+    select coupon
+    where coupon.created_at <= ?
+    where coupon.status = ?
+    orderby desc coupon.created_at
+)
+model coupon_usage (
+    key coupon_id period
+
+    field coupon_id  blob
+    field amount     int64
+    field status     int       ( updatable )
+    field period     timestamp
+)
+create coupon_usage ()
+read limitoffset (
+    select coupon_usage
+    where coupon_usage.period = ?
+    where coupon_usage.status = 0
+)
+update coupon_usage (
+    where coupon_usage.coupon_id = ?
+    where coupon_usage.period = ?
+)
+
+// -- node api version -- //
+
+model node_api_version (
+	key id
+
+	field id          blob
+	field api_version int  ( updatable )
+
+	field created_at timestamp ( autoinsert )
+	field updated_at timestamp ( autoinsert, autoupdate )
+)
+
+create node_api_version (
+	noreturn
+	replace
+)
+
+read has (
+	select node_api_version
+	where node_api_version.id          =  ?
+	where node_api_version.api_version >= ?
+)
+
+update node_api_version (
+	where node_api_version.id          = ?
+	where node_api_version.api_version < ?
+	noreturn
 )

@@ -7,10 +7,10 @@ import (
 	"context"
 	"time"
 
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
 )
 
-// DB works with storage usage database
+// DB works with storage usage database.
 //
 // architecture: Database
 type DB interface {

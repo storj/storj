@@ -6,29 +6,31 @@ package irreparable
 import (
 	"context"
 
-	monkit "gopkg.in/spacemonkeygo/monkit.v2"
+	"github.com/spacemonkeygo/monkit/v3"
 
-	"storj.io/storj/pkg/pb"
+	"storj.io/storj/satellite/internalpb"
 )
 
 var (
 	mon = monkit.Package()
 )
 
-// Inspector is a gRPC service for inspecting irreparable internals
+// Inspector is a RPC service for inspecting irreparable internals.
 //
 // architecture: Endpoint
 type Inspector struct {
+	internalpb.DRPCIrreparableInspectorUnimplementedServer
+
 	irrdb DB
 }
 
-// NewInspector creates an Inspector
+// NewInspector creates an Inspector.
 func NewInspector(irrdb DB) *Inspector {
 	return &Inspector{irrdb: irrdb}
 }
 
-// ListIrreparableSegments returns a number of irreparable segments by limit and offset
-func (srv *Inspector) ListIrreparableSegments(ctx context.Context, req *pb.ListIrreparableSegmentsRequest) (_ *pb.ListIrreparableSegmentsResponse, err error) {
+// ListIrreparableSegments returns a number of irreparable segments by limit and offset.
+func (srv *Inspector) ListIrreparableSegments(ctx context.Context, req *internalpb.ListIrreparableSegmentsRequest) (_ *internalpb.ListIrreparableSegmentsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 	last := req.GetLastSeenSegmentPath()
 	if len(req.GetLastSeenSegmentPath()) == 0 {
@@ -39,5 +41,5 @@ func (srv *Inspector) ListIrreparableSegments(ctx context.Context, req *pb.ListI
 		return nil, err
 	}
 
-	return &pb.ListIrreparableSegmentsResponse{Segments: segments}, err
+	return &internalpb.ListIrreparableSegmentsResponse{Segments: segments}, err
 }

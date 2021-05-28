@@ -13,31 +13,86 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/pkg/auth"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/storj/private/testredis"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
 	"storj.io/storj/satellite/mailservice"
-	"storj.io/storj/satellite/payments/localpayments"
+	"storj.io/storj/satellite/payments/paymentsconfig"
+	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
 func TestGraphqlQuery(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		log := zaptest.NewLogger(t)
 
+		partnersService := rewards.NewPartnersService(
+			log.Named("partners"),
+			rewards.DefaultPartnersDB,
+		)
+
+		analyticsService := analytics.NewService(log, analytics.Config{}, "test-satellite")
+
+		redis, err := testredis.Mini(ctx)
+		require.NoError(t, err)
+		defer ctx.Check(redis.Close)
+
+		cache, err := live.OpenCache(ctx, log.Named("cache"), live.Config{StorageBackend: "redis://" + redis.Addr() + "?db=0"})
+		require.NoError(t, err)
+
+		projectLimitCache := accounting.NewProjectLimitCache(db.ProjectAccounting(), 0, 0, accounting.ProjectLimitConfig{CacheCapacity: 100})
+
+		projectUsage := accounting.NewService(db.ProjectAccounting(), cache, projectLimitCache, 5*time.Minute)
+
+		// TODO maybe switch this test to testplanet to avoid defining config and Stripe service
+		pc := paymentsconfig.Config{
+			StorageTBPrice: "10",
+			EgressTBPrice:  "45",
+			ObjectPrice:    "0.0000022",
+		}
+
+		paymentsService, err := stripecoinpayments.NewService(
+			log.Named("payments.stripe:service"),
+			stripecoinpayments.NewStripeMock(
+				testrand.NodeID(),
+				db.StripeCoinPayments().Customers(),
+				db.Console().Users(),
+			),
+			pc.StripeCoinPayments,
+			db.StripeCoinPayments(),
+			db.Console().Projects(),
+			db.ProjectAccounting(),
+			pc.StorageTBPrice,
+			pc.EgressTBPrice,
+			pc.ObjectPrice,
+			pc.BonusRate,
+			pc.CouponValue,
+			pc.CouponDuration.IntPointer(),
+			pc.CouponProjectLimit,
+			pc.MinCoinPayment,
+			pc.PaywallProportion)
+		require.NoError(t, err)
+
 		service, err := console.NewService(
-			log,
+			log.Named("console"),
 			&consoleauth.Hmac{Secret: []byte("my-suppa-secret-key")},
 			db.Console(),
-			db.Rewards(),
-			localpayments.NewService(nil),
-			console.TestPasswordCost,
+			db.ProjectAccounting(),
+			projectUsage,
+			db.Buckets(),
+			partnersService,
+			paymentsService.Accounts(),
+			analyticsService,
+			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
+			5000,
 		)
 		require.NoError(t, err)
 
@@ -48,6 +103,9 @@ func TestGraphqlQuery(t *testing.T) {
 		rootObject := make(map[string]interface{})
 		rootObject["origin"] = "http://doesntmatter.com/"
 		rootObject[consoleql.ActivationPath] = "?activationToken="
+		rootObject[consoleql.LetUsKnowURL] = "letUsKnowURL"
+		rootObject[consoleql.ContactInfoURL] = "contactInfoURL"
+		rootObject[consoleql.TermsAndConditionsURL] = "termsAndConditionsURL"
 
 		creator := consoleql.TypeCreator{}
 		err = creator.Create(log, service, mailService)
@@ -60,19 +118,19 @@ func TestGraphqlQuery(t *testing.T) {
 		require.NoError(t, err)
 
 		createUser := console.CreateUser{
-			UserInfo: console.UserInfo{
-				FullName:  "John",
-				ShortName: "",
-				Email:     "mtest@mail.test",
-			},
-			Password: "123a123",
+			FullName:  "John",
+			ShortName: "",
+			Email:     "mtest@mail.test",
+			Password:  "123a123",
 		}
-		refUserID := ""
 
 		regToken, err := service.CreateRegToken(ctx, 2)
 		require.NoError(t, err)
 
-		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret, refUserID)
+		rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret)
+		require.NoError(t, err)
+
+		err = paymentsService.Accounts().Setup(ctx, rootUser.ID, rootUser.Email)
 		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {
@@ -90,7 +148,7 @@ func TestGraphqlQuery(t *testing.T) {
 		token, err := service.Token(ctx, createUser.Email, createUser.Password)
 		require.NoError(t, err)
 
-		sauth, err := service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
+		sauth, err := service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
 		require.NoError(t, err)
 
 		authCtx := console.WithAuth(ctx, sauth)
@@ -110,46 +168,6 @@ func TestGraphqlQuery(t *testing.T) {
 
 			return result.Data
 		}
-
-		t.Run("User query", func(t *testing.T) {
-			testUser := func(t *testing.T, actual map[string]interface{}, expected *console.User) {
-				assert.Equal(t, expected.ID.String(), actual[consoleql.FieldID])
-				assert.Equal(t, expected.Email, actual[consoleql.FieldEmail])
-				assert.Equal(t, expected.FullName, actual[consoleql.FieldFullName])
-				assert.Equal(t, expected.ShortName, actual[consoleql.FieldShortName])
-
-				createdAt := time.Time{}
-				err := createdAt.UnmarshalText([]byte(actual[consoleql.FieldCreatedAt].(string)))
-
-				assert.NoError(t, err)
-				assert.True(t, expected.CreatedAt.Equal(createdAt))
-			}
-
-			t.Run("With ID", func(t *testing.T) {
-				query := fmt.Sprintf(
-					"query {user(id:\"%s\"){id,email,fullName,shortName,createdAt}}",
-					rootUser.ID.String(),
-				)
-
-				result := testQuery(t, query)
-
-				data := result.(map[string]interface{})
-				user := data[consoleql.UserQuery].(map[string]interface{})
-
-				testUser(t, user, rootUser)
-			})
-
-			t.Run("With AuthFallback", func(t *testing.T) {
-				query := "query {user{id,email,fullName,shortName,createdAt}}"
-
-				result := testQuery(t, query)
-
-				data := result.(map[string]interface{})
-				user := data[consoleql.UserQuery].(map[string]interface{})
-
-				testUser(t, user, rootUser)
-			})
-		})
 
 		createdProject, err := service.CreateProject(authCtx, console.ProjectInfo{
 			Name: "TestProject",
@@ -183,13 +201,11 @@ func TestGraphqlQuery(t *testing.T) {
 		require.NoError(t, err)
 
 		user1, err := service.CreateUser(authCtx, console.CreateUser{
-			UserInfo: console.UserInfo{
-				FullName:  "Mickey Last",
-				ShortName: "Last",
-				Email:     "muu1@mail.test",
-			},
-			Password: "123a123",
-		}, regTokenUser1.Secret, refUserID)
+			FullName:  "Mickey Last",
+			ShortName: "Last",
+			Password:  "123a123",
+			Email:     "muu1@mail.test",
+		}, regTokenUser1.Secret)
 		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {
@@ -202,20 +218,17 @@ func TestGraphqlQuery(t *testing.T) {
 			err = service.ActivateAccount(ctx, activationToken1)
 			require.NoError(t, err)
 			user1.Email = "muu1@mail.test"
-
 		})
 
 		regTokenUser2, err := service.CreateRegToken(ctx, 2)
 		require.NoError(t, err)
 
 		user2, err := service.CreateUser(authCtx, console.CreateUser{
-			UserInfo: console.UserInfo{
-				FullName:  "Dubas Name",
-				ShortName: "Name",
-				Email:     "muu2@mail.test",
-			},
-			Password: "123a123",
-		}, regTokenUser2.Secret, refUserID)
+			FullName:  "Dubas Name",
+			ShortName: "Name",
+			Email:     "muu2@mail.test",
+			Password:  "123a123",
+		}, regTokenUser2.Secret)
 		require.NoError(t, err)
 
 		t.Run("Activation", func(t *testing.T) {
@@ -395,100 +408,58 @@ func TestGraphqlQuery(t *testing.T) {
 			assert.True(t, foundProj1)
 			assert.True(t, foundProj2)
 		})
-
-		t.Run("Token query", func(t *testing.T) {
+		t.Run("OwnedProjects query", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"query {token(email: \"%s\", password: \"%s\"){token,user{id,email,fullName,shortName,createdAt}}}",
-				createUser.Email,
-				createUser.Password,
+				"query {ownedProjects( cursor: { limit: %d, page: %d } ) {projects{id, name, ownerId, description, createdAt, memberCount}, limit, offset, pageCount, currentPage, totalCount } }",
+				5,
+				1,
 			)
 
 			result := testQuery(t, query)
 
 			data := result.(map[string]interface{})
-			queryToken := data[consoleql.TokenQuery].(map[string]interface{})
+			projectsPage := data[consoleql.OwnedProjectsQuery].(map[string]interface{})
 
-			token := queryToken[consoleql.TokenType].(string)
-			user := queryToken[consoleql.UserType].(map[string]interface{})
+			projectsList := projectsPage[consoleql.FieldProjects].([]interface{})
+			assert.Len(t, projectsList, 2)
 
-			tauth, err := service.Authorize(auth.WithAPIKey(ctx, []byte(token)))
-			require.NoError(t, err)
+			assert.EqualValues(t, 1, projectsPage[consoleql.FieldCurrentPage])
+			assert.EqualValues(t, 0, projectsPage[consoleql.OffsetArg])
+			assert.EqualValues(t, 5, projectsPage[consoleql.LimitArg])
+			assert.EqualValues(t, 1, projectsPage[consoleql.FieldPageCount])
+			assert.EqualValues(t, 2, projectsPage[consoleql.FieldTotalCount])
 
-			assert.Equal(t, rootUser.ID, tauth.User.ID)
-			assert.Equal(t, rootUser.ID.String(), user[consoleql.FieldID])
-			assert.Equal(t, rootUser.Email, user[consoleql.FieldEmail])
-			assert.Equal(t, rootUser.FullName, user[consoleql.FieldFullName])
-			assert.Equal(t, rootUser.ShortName, user[consoleql.FieldShortName])
+			testProject := func(t *testing.T, actual map[string]interface{}, expected *console.Project, expectedNumMembers int) {
+				assert.Equal(t, expected.Name, actual[consoleql.FieldName])
+				assert.Equal(t, expected.Description, actual[consoleql.FieldDescription])
 
-			createdAt := time.Time{}
-			err = createdAt.UnmarshalText([]byte(user[consoleql.FieldCreatedAt].(string)))
+				createdAt := time.Time{}
+				err := createdAt.UnmarshalText([]byte(actual[consoleql.FieldCreatedAt].(string)))
 
-			assert.NoError(t, err)
-			assert.True(t, rootUser.CreatedAt.Equal(createdAt))
-		})
+				assert.NoError(t, err)
+				assert.True(t, expected.CreatedAt.Equal(createdAt))
 
-		t.Run("PasswordReset query", func(t *testing.T) {
-			regToken, err := service.CreateRegToken(ctx, 2)
-			require.NoError(t, err)
-			user, err := service.CreateUser(authCtx, console.CreateUser{
-				UserInfo: console.UserInfo{
-					FullName:  "Example User",
-					ShortName: "Example",
-					Email:     "user@mail.test",
-				},
-				Password: "123a123",
-			}, regToken.Secret, refUserID)
+				assert.EqualValues(t, expectedNumMembers, actual[consoleql.FieldMemberCount])
+			}
 
-			require.NoError(t, err)
+			var foundProj1, foundProj2 bool
 
-			t.Run("Activation", func(t *testing.T) {
-				activationToken, err := service.GenerateActivationToken(
-					ctx,
-					user.ID,
-					"user@mail.test",
-				)
-				require.NoError(t, err)
+			for _, entry := range projectsList {
+				project := entry.(map[string]interface{})
 
-				err = service.ActivateAccount(ctx, activationToken)
-				require.NoError(t, err)
-				user.Email = "user@mail.test"
+				id := project[consoleql.FieldID].(string)
+				switch id {
+				case createdProject.ID.String():
+					foundProj1 = true
+					testProject(t, project, createdProject, 3)
+				case project2.ID.String():
+					foundProj2 = true
+					testProject(t, project, project2, 1)
+				}
+			}
 
-			})
-
-			rootObject[consoleql.PasswordRecoveryPath] = "?token="
-			rootObject[consoleql.CancelPasswordRecoveryPath] = "?token="
-			query := fmt.Sprintf("query {forgotPassword(email: \"%s\")}", user.Email)
-
-			result := testQuery(t, query)
-			assert.NotNil(t, result)
-			data := result.(map[string]interface{})
-
-			ok := data[consoleql.ForgotPasswordQuery].(bool)
-			assert.True(t, ok)
-		})
-
-		t.Run("Resend activation email query", func(t *testing.T) {
-			regToken, err := service.CreateRegToken(ctx, 2)
-			require.NoError(t, err)
-			user, err := service.CreateUser(authCtx, console.CreateUser{
-				UserInfo: console.UserInfo{
-					FullName:  "Example User",
-					ShortName: "Example",
-					Email:     "user1@mail.test",
-				},
-				Password: "123a123",
-			}, regToken.Secret, refUserID)
-
-			require.NoError(t, err)
-
-			query := fmt.Sprintf("query {resendAccountActivationEmail(id: \"%s\")}", user.ID)
-
-			result := testQuery(t, query)
-			assert.NotNil(t, result)
-			data := result.(map[string]interface{})
-
-			ok := data[consoleql.ResendAccountActivationEmailQuery].(bool)
-			assert.True(t, ok)
+			assert.True(t, foundProj1)
+			assert.True(t, foundProj2)
 		})
 	})
 }

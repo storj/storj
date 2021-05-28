@@ -12,9 +12,9 @@ import (
 	"github.com/zeebo/errs"
 )
 
-//TODO: change to JWT or Macaroon based auth
+// TODO: change to JWT or Macaroon based auth
 
-// Token represents authentication data structure
+// Token represents authentication data structure.
 type Token struct {
 	Payload   []byte
 	Signature []byte
@@ -28,7 +28,7 @@ func (t Token) String() string {
 	return strings.Join([]string{payload, signature}, ".")
 }
 
-// FromBase64URLString creates Token instance from base64URLEncoded string representation
+// FromBase64URLString creates Token instance from base64URLEncoded string representation.
 func FromBase64URLString(token string) (Token, error) {
 	i := strings.Index(token, ".")
 	if i < 0 {

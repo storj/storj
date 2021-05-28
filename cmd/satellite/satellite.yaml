@@ -6,7 +6,7 @@ metadata:
     app: satellite
 spec:
   ports:
-  - name: grpc
+  - name: rpc
     port: 7070
     targetPort: 7070
   - name: http
@@ -64,7 +64,7 @@ spec:
           - name: HTTP_PORT
             value: "8081"
         ports:
-        - name: grpc
+        - name: rpc
           containerPort: 8080
         - name: http
           containerPort: 8081

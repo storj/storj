@@ -6,13 +6,13 @@ package metainfo_test
 import (
 	"testing"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/stretchr/testify/require"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/macaroon"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/macaroon"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -41,15 +41,17 @@ func newTestBucket(name string, projectID uuid.UUID) storj.Bucket {
 }
 
 func TestBasicBucketOperations(t *testing.T) {
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		consoleDB := db.Console()
 		project, err := consoleDB.Projects().Insert(ctx, &console.Project{Name: "testproject1"})
 		require.NoError(t, err)
 
 		bucketsDB := db.Buckets()
 		expectedBucket := newTestBucket("testbucket", project.ID)
+
+		count, err := bucketsDB.CountBuckets(ctx, project.ID)
+		require.NoError(t, err)
+		require.Equal(t, 0, count)
 
 		// CreateBucket
 		_, err = bucketsDB.CreateBucket(ctx, expectedBucket)
@@ -65,6 +67,16 @@ func TestBasicBucketOperations(t *testing.T) {
 		require.Equal(t, expectedBucket.DefaultSegmentsSize, bucket.DefaultSegmentsSize)
 		require.Equal(t, expectedBucket.DefaultRedundancyScheme, bucket.DefaultRedundancyScheme)
 		require.Equal(t, expectedBucket.DefaultEncryptionParameters, bucket.DefaultEncryptionParameters)
+
+		// CountBuckets
+		count, err = bucketsDB.CountBuckets(ctx, project.ID)
+		require.NoError(t, err)
+		require.Equal(t, 1, count)
+		_, err = bucketsDB.CreateBucket(ctx, newTestBucket("testbucket2", project.ID))
+		require.NoError(t, err)
+		count, err = bucketsDB.CountBuckets(ctx, project.ID)
+		require.NoError(t, err)
+		require.Equal(t, 2, count)
 
 		// DeleteBucket
 		err = bucketsDB.DeleteBucket(ctx, []byte("testbucket"), project.ID)
@@ -88,9 +100,7 @@ func TestListBucketsAllAllowed(t *testing.T) {
 		{"non matching cursor, more", "ccc", 3, 3, true},
 		{"first bucket cursor, more", "0test", 5, 5, true},
 	}
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		consoleDB := db.Console()
 		project, err := consoleDB.Projects().Insert(ctx, &console.Project{Name: "testproject1"})
 		require.NoError(t, err)
@@ -150,9 +160,7 @@ func TestListBucketsNotAllowed(t *testing.T) {
 		{"last bucket cursor, allow all", "zzz", 2, 1, false, true, map[string]struct{}{"zzz": {}}, []string{"zzz"}},
 		{"empty string cursor, allow all, more", "", 5, 5, true, true, map[string]struct{}{"": {}}, []string{"123", "0test", "999", "aaa", "bbb"}},
 	}
-	satellitedbtest.Run(t, func(t *testing.T, db satellite.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		consoleDB := db.Console()
 		project, err := consoleDB.Projects().Insert(ctx, &console.Project{Name: "testproject1"})
 		require.NoError(t, err)

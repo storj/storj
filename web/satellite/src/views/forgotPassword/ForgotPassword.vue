@@ -8,29 +8,60 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
-import { AuthApi } from '@/api/auth';
+import AuthIcon from '@/../static/images/AuthImage.svg';
+import LogoIcon from '@/../static/images/dcs-logo.svg';
+
+import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
-import { NOTIFICATION_ACTIONS } from '@/utils/constants/actionNames';
-import { LOADING_CLASSES } from '@/utils/constants/classConstants';
-import { validateEmail } from '@/utils/validation';
+import { Validator } from '@/utils/validation';
 
 @Component({
     components: {
         HeaderlessInput,
+        AuthIcon,
+        LogoIcon,
     },
 })
 export default class ForgotPassword extends Vue {
-    public loadingClassName: string = LOADING_CLASSES.LOADING_OVERLAY;
     private email: string = '';
     private emailError: string = '';
 
-    private readonly auth: AuthApi = new AuthApi();
+    private readonly auth: AuthHttpApi = new AuthHttpApi();
+
+    // tardigrade logic
+    public isDropdownShown: boolean = false;
+
+    public readonly loginPath: string = RouteConfig.Login.path;
+
+    /**
+     * Checks if page is inside iframe
+     */
+    public get isInsideIframe(): boolean {
+        return window.self !== window.top;
+    }
 
     public setEmail(value: string): void {
         this.email = value;
         this.emailError = '';
     }
 
+    /**
+     * Toggles satellite selection dropdown visibility (Tardigrade).
+     */
+    public toggleDropdown(): void {
+        this.isDropdownShown = !this.isDropdownShown;
+    }
+
+    /**
+     * Closes satellite selection dropdown (Tardigrade).
+     */
+    public closeDropdown(): void {
+        this.isDropdownShown = false;
+    }
+
+    /**
+     * Sends recovery password email.
+     */
     public async onSendConfigurations(): Promise<void> {
         const self = this;
 
@@ -40,12 +71,18 @@ export default class ForgotPassword extends Vue {
 
         try {
             await this.auth.forgotPassword(this.email);
-            this.$store.dispatch(NOTIFICATION_ACTIONS.SUCCESS, 'Please look for instructions at your email');
         } catch (error) {
-            this.$store.dispatch(NOTIFICATION_ACTIONS.ERROR, error.message);
+            await this.$notify.error(error.message);
+
+            return;
         }
+
+        await this.$notify.success('Please look for instructions at your email');
     }
 
+    /**
+     * Changes location to Login route.
+     */
     public onBackToLoginClick(): void {
         this.$router.push(RouteConfig.Login.path);
     }
@@ -55,7 +92,7 @@ export default class ForgotPassword extends Vue {
     }
 
     private validateFields(): boolean {
-        const isEmailValid = validateEmail(this.email.trim());
+        const isEmailValid = Validator.email(this.email.trim());
 
         if (!isEmailValid) {
             this.emailError = 'Invalid Email';

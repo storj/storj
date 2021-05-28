@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/csv"
 	"encoding/json"
 	"flag"
@@ -13,43 +14,44 @@ import (
 	"strconv"
 	"strings"
 
-	prompt "github.com/segmentio/go-prompt"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/process"
-	"storj.io/storj/pkg/rpc"
-	"storj.io/storj/pkg/storj"
-	"storj.io/storj/uplink/eestream"
+	"storj.io/common/identity"
+	"storj.io/common/rpc"
+	"storj.io/common/storj"
+	"storj.io/private/process"
+	"storj.io/storj/private/prompt"
+	_ "storj.io/storj/private/version" // This attaches version information during release builds.
+	"storj.io/storj/satellite/internalpb"
+	"storj.io/uplink/private/eestream"
 )
 
 var (
-	// Addr is the address of peer from command flags
+	// Addr is the address of peer from command flags.
 	Addr = flag.String("address", "127.0.0.1:7778", "address of peer to inspect")
 
-	// IdentityPath is the path to the identity the inspector should use for network communication
+	// IdentityPath is the path to the identity the inspector should use for network communication.
 	IdentityPath = flag.String("identity-path", "", "path to the identity certificate for use on the network")
 
-	// CSVPath is the csv path where command output is written
+	// CSVPath is the csv path where command output is written.
 	CSVPath string
 
-	// ErrInspectorDial throws when there are errors dialing the inspector server
-	ErrInspectorDial = errs.Class("error dialing inspector server:")
+	// ErrInspectorDial throws when there are errors dialing the inspector server.
+	ErrInspectorDial = errs.Class("dialing inspector server")
 
-	// ErrRequest is for gRPC request errors after dialing
-	ErrRequest = errs.Class("error processing request:")
+	// ErrRequest is for request errors after dialing.
+	ErrRequest = errs.Class("processing request")
 
-	// ErrIdentity is for errors during identity creation for this CLI
-	ErrIdentity = errs.Class("error creating identity:")
+	// ErrIdentity is for errors during identity creation for this CLI.
+	ErrIdentity = errs.Class("creating identity")
 
-	// ErrArgs throws when there are errors with CLI args
-	ErrArgs = errs.Class("error with CLI args:")
+	// ErrArgs throws when there are errors with CLI args.
+	ErrArgs = errs.Class("invalid CLI args")
 
 	irreparableLimit int32
 
-	// Commander CLI
+	// Commander CLI.
 	rootCmd = &cobra.Command{
 		Use:   "inspector",
 		Short: "CLI for interacting with Storj network",
@@ -83,17 +85,14 @@ var (
 
 // Inspector gives access to overlay.
 type Inspector struct {
-	conn          *rpc.Conn
-	identity      *identity.FullIdentity
-	overlayclient rpc.OverlayInspectorClient
-	irrdbclient   rpc.IrreparableInspectorClient
-	healthclient  rpc.HealthInspectorClient
+	conn         *rpc.Conn
+	identity     *identity.FullIdentity
+	irrdbclient  internalpb.DRPCIrreparableInspectorClient
+	healthclient internalpb.DRPCHealthInspectorClient
 }
 
-// NewInspector creates a new gRPC inspector client for access to overlay.
-func NewInspector(address, path string) (*Inspector, error) {
-	ctx := context.Background()
-
+// NewInspector creates a new inspector client for access to overlay.
+func NewInspector(ctx context.Context, address, path string) (*Inspector, error) {
 	id, err := identity.Config{
 		CertPath: fmt.Sprintf("%s/identity.cert", path),
 		KeyPath:  fmt.Sprintf("%s/identity.key", path),
@@ -108,22 +107,20 @@ func NewInspector(address, path string) (*Inspector, error) {
 	}
 
 	return &Inspector{
-		conn:          conn,
-		identity:      id,
-		overlayclient: conn.OverlayInspectorClient(),
-		irrdbclient:   conn.IrreparableInspectorClient(),
-		healthclient:  conn.HealthInspectorClient(),
+		conn:         conn,
+		identity:     id,
+		irrdbclient:  internalpb.NewDRPCIrreparableInspectorClient(conn),
+		healthclient: internalpb.NewDRPCHealthInspectorClient(conn),
 	}, nil
 }
 
 // Close closes the inspector.
 func (i *Inspector) Close() error { return i.conn.Close() }
 
-// ObjectHealth gets information about the health of an object on the network
+// ObjectHealth gets information about the health of an object on the network.
 func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
-	ctx := context.Background()
-
-	i, err := NewInspector(*Addr, *IdentityPath)
+	ctx, _ := process.Ctx(cmd)
+	i, err := NewInspector(ctx, *Addr, *IdentityPath)
 	if err != nil {
 		return ErrArgs.Wrap(err)
 	}
@@ -154,11 +151,14 @@ func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 		fallthrough
 	default:
 	}
-
-	req := &pb.ObjectHealthRequest{
+	decodedPath, err := base64.URLEncoding.DecodeString(args[2])
+	if err != nil {
+		return err
+	}
+	req := &internalpb.ObjectHealthRequest{
 		ProjectId:         []byte(args[0]),
 		Bucket:            []byte(args[1]),
-		EncryptedPath:     []byte(args[2]),
+		EncryptedPath:     decodedPath,
 		StartAfterSegment: startAfterSegment,
 		EndBeforeSegment:  endBeforeSegment,
 		Limit:             int32(limit),
@@ -199,11 +199,10 @@ func ObjectHealth(cmd *cobra.Command, args []string) (err error) {
 	return nil
 }
 
-// SegmentHealth gets information about the health of a segment on the network
+// SegmentHealth gets information about the health of a segment on the network.
 func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
-	ctx := context.Background()
-
-	i, err := NewInspector(*Addr, *IdentityPath)
+	ctx, _ := process.Ctx(cmd)
+	i, err := NewInspector(ctx, *Addr, *IdentityPath)
 	if err != nil {
 		return ErrArgs.Wrap(err)
 	}
@@ -214,7 +213,7 @@ func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 		return ErrRequest.Wrap(err)
 	}
 
-	req := &pb.SegmentHealthRequest{
+	req := &internalpb.SegmentHealthRequest{
 		ProjectId:     []byte(args[0]),
 		SegmentIndex:  segmentIndex,
 		Bucket:        []byte(args[2]),
@@ -249,7 +248,7 @@ func SegmentHealth(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	if err := printSegmentHealthAndNodeTables(w, redundancy, []*pb.SegmentHealth{resp.GetHealth()}); err != nil {
+	if err := printSegmentHealthAndNodeTables(w, redundancy, []*internalpb.SegmentHealth{resp.GetHealth()}); err != nil {
 		return err
 	}
 
@@ -264,13 +263,13 @@ func csvOutput() (*os.File, error) {
 	return os.Create(CSVPath)
 }
 
-func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.RedundancyStrategy, segments []*pb.SegmentHealth) error {
+func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.RedundancyStrategy, segments []*internalpb.SegmentHealth) error {
 	segmentTableHeader := []string{
 		"Segment Index", "Healthy Nodes", "Unhealthy Nodes", "Offline Nodes",
 	}
 
 	if err := w.Write(segmentTableHeader); err != nil {
-		return fmt.Errorf("error writing record to csv: %s", err)
+		return fmt.Errorf("error writing record to csv: %w", err)
 	}
 
 	currentNodeIndex := 1                     // start at index 1 to leave first column empty
@@ -290,10 +289,12 @@ func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.Redundan
 		}
 
 		if err := w.Write(row); err != nil {
-			return fmt.Errorf("error writing record to csv: %s", err)
+			return fmt.Errorf("error writing record to csv: %w", err)
 		}
 
-		allNodes := append(healthyNodes, unhealthyNodes...)
+		allNodes := []storj.NodeID{}
+		allNodes = append(allNodes, healthyNodes...)
+		allNodes = append(allNodes, unhealthyNodes...)
 		allNodes = append(allNodes, offlineNodes...)
 		for _, id := range allNodes {
 			if nodeIndices[id] == 0 {
@@ -304,7 +305,7 @@ func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.Redundan
 	}
 
 	if err := w.Write([]string{}); err != nil {
-		return fmt.Errorf("error writing record to csv: %s", err)
+		return fmt.Errorf("error writing record to csv: %w", err)
 	}
 
 	numNodes := len(nodeIndices)
@@ -313,7 +314,7 @@ func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.Redundan
 		nodeTableHeader[i] = id.String()
 	}
 	if err := w.Write(nodeTableHeader); err != nil {
-		return fmt.Errorf("error writing record to csv: %s", err)
+		return fmt.Errorf("error writing record to csv: %w", err)
 	}
 
 	// Add online/offline info to the node table
@@ -333,7 +334,7 @@ func printSegmentHealthAndNodeTables(w *csv.Writer, redundancy eestream.Redundan
 		}
 		row[0] = string(segment.GetSegment())
 		if err := w.Write(row); err != nil {
-			return fmt.Errorf("error writing record to csv: %s", err)
+			return fmt.Errorf("error writing record to csv: %w", err)
 		}
 	}
 
@@ -354,7 +355,7 @@ func printRedundancyTable(w *csv.Writer, redundancy eestream.RedundancyStrategy)
 
 	for _, row := range redundancyTable {
 		if err := w.Write(row); err != nil {
-			return fmt.Errorf("error writing record to csv: %s", err)
+			return fmt.Errorf("error writing record to csv: %w", err)
 		}
 	}
 
@@ -366,7 +367,8 @@ func getSegments(cmd *cobra.Command, args []string) error {
 		return ErrArgs.New("limit must be greater than 0")
 	}
 
-	i, err := NewInspector(*Addr, *IdentityPath)
+	ctx, _ := process.Ctx(cmd)
+	i, err := NewInspector(ctx, *Addr, *IdentityPath)
 	if err != nil {
 		return ErrInspectorDial.Wrap(err)
 	}
@@ -376,11 +378,11 @@ func getSegments(cmd *cobra.Command, args []string) error {
 
 	// query DB and paginate results
 	for {
-		req := &pb.ListIrreparableSegmentsRequest{
+		req := &internalpb.ListIrreparableSegmentsRequest{
 			Limit:               irreparableLimit,
 			LastSeenSegmentPath: lastSeenSegmentPath,
 		}
-		res, err := i.irrdbclient.ListIrreparableSegments(context.Background(), req)
+		res, err := i.irrdbclient.ListIrreparableSegments(ctx, req)
 		if err != nil {
 			return ErrRequest.Wrap(err)
 		}
@@ -401,7 +403,11 @@ func getSegments(cmd *cobra.Command, args []string) error {
 
 		length := int32(len(res.Segments))
 		if length >= irreparableLimit {
-			if !prompt.Confirm("\nNext page? (y/n)") {
+			confirmed, err := prompt.Confirm("\nNext page? [y/n]")
+			if err != nil {
+				return err
+			}
+			if !confirmed {
 				break
 			}
 		}
@@ -409,9 +415,9 @@ func getSegments(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-// sortSegments by the object they belong to
-func sortSegments(segments []*pb.IrreparableSegment) map[string][]*pb.IrreparableSegment {
-	objects := make(map[string][]*pb.IrreparableSegment)
+// sortSegments by the object they belong to.
+func sortSegments(segments []*internalpb.IrreparableSegment) map[string][]*internalpb.IrreparableSegment {
+	objects := make(map[string][]*internalpb.IrreparableSegment)
 	for _, seg := range segments {
 		pathElements := storj.SplitPath(string(seg.Path))
 

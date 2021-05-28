@@ -1,107 +1,130 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { BandwidthInfo, Dashboard, DiskSpaceInfo, SatelliteInfo, Version } from '@/storagenode/dashboard';
-import { BandwidthUsed, Egress, Ingress, Metric, Satellite, Satellites, Stamp } from '@/storagenode/satellite';
+import {
+    Dashboard,
+    Metric,
+    Satellite,
+    SatelliteByDayInfo,
+    SatelliteInfo,
+    Satellites,
+    SatelliteScores,
+    Traffic,
+} from '@/storagenode/sno/sno';
+import { HttpClient } from '@/storagenode/utils/httpClient';
 
 /**
- * Implementation for HTTP GET requests
- * @param url - holds url of request target
- * @throws Error - holds error message if request wasn't successful
+ * Used to get dashboard and satellite data from json.
  */
-async function httpGet(url): Promise<Response> {
-    const response = await fetch(url);
+export class StorageNodeApi {
+    private readonly client: HttpClient = new HttpClient();
+    private readonly ROOT_PATH: string = '/api/sno';
 
-    if (response.ok) {
-        return response;
-    }
-
-    throw new Error(response.statusText);
-}
-
-/**
- * used to get dashboard and satellite data from json
- */
-export class SNOApi {
     /**
-     * parses dashboard data from json
-     * @returns dashboard - new dashboard instance filled with data from json
+     * Gets dashboard data from server.
+     * @returns dashboard - new dashboard instance filled with data from json.
      */
     public async dashboard(): Promise<Dashboard> {
-        const json = (await (await httpGet('/api/dashboard')).json() as any).data;
+        const response = await this.client.get(this.ROOT_PATH);
 
-        const satellitesJson = json.satellites ? json.satellites : [];
+        if (!response.ok) {
+            throw new Error('can not get node information');
+        }
+
+        const data = await response.json();
+
+        const satellitesJson = data.satellites || [];
 
         const satellites: SatelliteInfo[] = satellitesJson.map((satellite: any) => {
             const disqualified: Date | null = satellite.disqualified ? new Date(satellite.disqualified) : null;
+            const suspended: Date | null = satellite.suspended ? new Date(satellite.suspended) : null;
 
-            return new SatelliteInfo(satellite.id, disqualified);
+            return new SatelliteInfo(satellite.id, satellite.url, disqualified, suspended);
         });
 
-        const version: Version = new Version(json.version.major, json.version.minor, json.version.patch);
+        const diskSpace: Traffic = new Traffic(data.diskSpace.used, data.diskSpace.available, data.diskSpace.trash, data.diskSpace.overused);
+        const bandwidth: Traffic = new Traffic(data.bandwidth.used);
 
-        const diskSpace: DiskSpaceInfo = new DiskSpaceInfo(json.diskSpace.used, json.diskSpace.available);
-
-        const bandwidth: BandwidthInfo = new BandwidthInfo(json.bandwidth.used, json.bandwidth.available);
-
-        return new Dashboard(json.nodeID, json.wallet, satellites, diskSpace, bandwidth,
-                                        new Date(json.lastPinged), version, json.upToDate);
+        return new Dashboard(data.nodeID, data.wallet, data.walletFeatures || [], satellites, diskSpace, bandwidth,
+            new Date(data.lastPinged), new Date(data.startedAt), data.version, data.allowedVersion, data.upToDate);
     }
 
     /**
-     * parses satellite data from json
-     * @returns satellite - new satellite instance filled with data from json
+     * Gets satellite data from server.
+     * @returns satellite - new satellite instance filled with data from json.
      */
     public async satellite(id: string): Promise<Satellite> {
-        const url = '/api/satellite/' + id;
+        const url = `${this.ROOT_PATH}/satellite/${id}`;
 
-        const json = (await (await httpGet(url)).json() as any).data;
+        const response = await this.client.get(url);
 
-        const storageDailyJson = json.storageDaily ? json.storageDaily : [];
-        const bandwidthDailyJson = json.bandwidthDaily ? json.bandwidthDaily : [];
+        if (!response.ok) {
+            throw new Error('can not get satellite information');
+        }
 
-        const storageDaily: Stamp[] = storageDailyJson.map((stamp: any) => {
-            return new Stamp(stamp.atRestTotal, new Date(stamp.intervalStart));
-        });
+        const data = await response.json();
 
-        const bandwidthDaily: BandwidthUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
-            const egress = new Egress(bandwidth.egress.audit, bandwidth.egress.repair, bandwidth.egress.usage);
-            const ingress = new Ingress(bandwidth.ingress.repair, bandwidth.ingress.usage);
+        const satelliteByDayInfo = new SatelliteByDayInfo(data);
 
-            return new BandwidthUsed(egress, ingress, new Date(bandwidth.intervalStart));
-        });
+        const audits: SatelliteScores = new SatelliteScores(
+            data.audits.satelliteName,
+            data.audits.auditScore,
+            data.audits.suspensionScore,
+            data.audits.onlineScore,
+        );
 
-        const audit: Metric = new Metric(json.audit.totalCount, json.audit.successCount, json.audit.alpha,
-            json.audit.beta, json.audit.score);
-
-        const uptime: Metric = new Metric(json.uptime.totalCount, json.uptime.successCount, json.uptime.alpha,
-            json.uptime.beta, json.uptime.score);
-
-        return new Satellite(json.id, storageDaily, bandwidthDaily, json.storageSummary,
-            json.bandwidthSummary, audit, uptime);
+        return new Satellite(
+            data.id,
+            satelliteByDayInfo.storageDaily,
+            satelliteByDayInfo.bandwidthDaily,
+            satelliteByDayInfo.egressDaily,
+            satelliteByDayInfo.ingressDaily,
+            data.storageSummary,
+            data.bandwidthSummary,
+            data.egressSummary,
+            data.ingressSummary,
+            audits,
+            new Date(data.nodeJoinedAt),
+        );
     }
 
     /**
-     * parses data for all satellites from json
-     * @returns satellites - new satellites instance filled with data from json
+     * Gets data for all satellites from server.
+     * @returns satellites - new satellites instance filled with data from json.
      */
     public async satellites(): Promise<Satellites> {
-        const json = (await (await httpGet('/api/satellites')).json() as any).data;
+        const url = `${this.ROOT_PATH}/satellites`;
 
-        const storageDailyJson = json.storageDaily ? json.storageDaily : [];
-        const bandwidthDailyJson = json.bandwidthDaily ? json.bandwidthDaily : [];
+        const response = await this.client.get(url);
 
-        const storageDaily: Stamp[] = storageDailyJson.map((stamp: any) => {
-            return new Stamp(stamp.atRestTotal, new Date(stamp.intervalStart));
+        if (!response.ok) {
+            throw new Error('can not get all satellites information');
+        }
+
+        const data = await response.json();
+
+        const satelliteByDayInfo = new SatelliteByDayInfo(data);
+
+        const satellitesScores = data.audits.map(scoreInfo => {
+            return new SatelliteScores(
+                scoreInfo.satelliteName,
+                scoreInfo.auditScore,
+                scoreInfo.suspensionScore,
+                scoreInfo.onlineScore,
+            );
         });
 
-        const bandwidthDaily: BandwidthUsed[] =  bandwidthDailyJson.map((bandwidth: any) => {
-            const egress = new Egress(bandwidth.egress.audit, bandwidth.egress.repair, bandwidth.egress.usage);
-            const ingress = new Ingress(bandwidth.ingress.repair, bandwidth.ingress.usage);
-
-            return new BandwidthUsed(egress, ingress, new Date(bandwidth.intervalStart));
-        });
-
-        return new Satellites(storageDaily, bandwidthDaily, json.storageSummary, json.bandwidthSummary);
+        return new Satellites(
+            satelliteByDayInfo.storageDaily,
+            satelliteByDayInfo.bandwidthDaily,
+            satelliteByDayInfo.egressDaily,
+            satelliteByDayInfo.ingressDaily,
+            data.storageSummary,
+            data.bandwidthSummary,
+            data.egressSummary,
+            data.ingressSummary,
+            new Date(data.earliestJoinedAt),
+            satellitesScores,
+        );
     }
 }

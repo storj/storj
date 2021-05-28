@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -16,27 +17,32 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/internal/fpath"
-	libuplink "storj.io/storj/lib/uplink"
-	"storj.io/storj/pkg/process"
+	"storj.io/common/fpath"
+	"storj.io/uplink"
 )
 
 var (
 	progress *bool
 	expires  *string
+	metadata *string
 )
 
 func init() {
 	cpCmd := addCmd(&cobra.Command{
-		Use:   "cp",
+		Use:   "cp SOURCE DESTINATION",
 		Short: "Copies a local file or Storj object to another location locally or in Storj",
 		RunE:  copyMain,
+		Args:  cobra.ExactArgs(2),
 	}, RootCmd)
+
 	progress = cpCmd.Flags().Bool("progress", true, "if true, show progress")
 	expires = cpCmd.Flags().String("expires", "", "optional expiration date of an object. Please use format (yyyy-mm-ddThh:mm:ssZhh:mm)")
+	metadata = cpCmd.Flags().String("metadata", "", "optional metadata for the object. Please use a single level JSON object of string to string only")
+
+	setBasicFlags(cpCmd.Flags(), "progress", "expires", "metadata")
 }
 
-// upload transfers src from local machine to s3 compatible object dst
+// upload transfers src from local machine to s3 compatible object dst.
 func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress bool) (err error) {
 	if !src.IsLocal() {
 		return fmt.Errorf("source must be local path: %s", src)
@@ -53,7 +59,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 			return err
 		}
 		if expiration.Before(time.Now()) {
-			return fmt.Errorf("Invalid expiration date: (%s) has already passed", *expires)
+			return fmt.Errorf("invalid expiration date: (%s) has already passed", *expires)
 		}
 	}
 
@@ -82,11 +88,11 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		return fmt.Errorf("source cannot be a directory: %s", src)
 	}
 
-	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket())
+	project, err := cfg.getProject(ctx, false)
 	if err != nil {
 		return err
 	}
-	defer closeProjectAndBucket(project, bucket)
+	defer closeProject(project)
 
 	reader := io.Reader(file)
 	var bar *progressbar.ProgressBar
@@ -96,16 +102,43 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 		bar.Start()
 	}
 
-	opts := &libuplink.UploadOptions{}
+	var customMetadata uplink.CustomMetadata
+	if *metadata != "" {
+		err := json.Unmarshal([]byte(*metadata), &customMetadata)
+		if err != nil {
+			return err
+		}
 
-	if *expires != "" {
-		opts.Expires = expiration.UTC()
+		if err := customMetadata.Verify(); err != nil {
+			return err
+		}
 	}
 
-	opts.Volatile.RedundancyScheme = cfg.GetRedundancyScheme()
-	opts.Volatile.EncryptionParameters = cfg.GetEncryptionParameters()
+	upload, err := project.UploadObject(ctx, dst.Bucket(), dst.Path(), &uplink.UploadOptions{
+		Expires: expiration,
+	})
+	if err != nil {
+		return err
+	}
 
-	err = bucket.UploadObject(ctx, dst.Path(), reader, opts)
+	err = upload.SetCustomMetadata(ctx, customMetadata)
+	if err != nil {
+		abortErr := upload.Abort()
+		err = errs.Combine(err, abortErr)
+		return err
+	}
+
+	_, err = io.Copy(upload, reader)
+	if err != nil {
+		abortErr := upload.Abort()
+		err = errs.Combine(err, abortErr)
+		return err
+	}
+
+	if err := upload.Commit(); err != nil {
+		return err
+	}
+
 	if bar != nil {
 		bar.Finish()
 	}
@@ -118,7 +151,7 @@ func upload(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress 
 	return nil
 }
 
-// download transfers s3 compatible object src to dst on local machine
+// download transfers s3 compatible object src to dst on local machine.
 func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgress bool) (err error) {
 	if src.IsLocal() {
 		return fmt.Errorf("source must be Storj URL: %s", src)
@@ -128,35 +161,31 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 		return fmt.Errorf("destination must be local path: %s", dst)
 	}
 
-	project, bucket, err := cfg.GetProjectAndBucket(ctx, src.Bucket())
+	project, err := cfg.getProject(ctx, false)
 	if err != nil {
 		return err
 	}
-	defer closeProjectAndBucket(project, bucket)
+	defer closeProject(project)
 
-	object, err := bucket.OpenObject(ctx, src.Path())
-	if err != nil {
-		return convertError(err, src)
-	}
-
-	rc, err := object.DownloadRange(ctx, 0, object.Meta.Size)
+	download, err := project.DownloadObject(ctx, src.Bucket(), src.Path(), nil)
 	if err != nil {
 		return err
 	}
-	defer func() { err = errs.Combine(err, rc.Close()) }()
+	defer func() { err = errs.Combine(err, download.Close()) }()
 
 	var bar *progressbar.ProgressBar
 	var reader io.ReadCloser
 	if showProgress {
-		bar = progressbar.New64(object.Meta.Size)
-		reader = bar.NewProxyReader(rc)
+		info := download.Info()
+		bar = progressbar.New64(info.System.ContentLength)
+		reader = bar.NewProxyReader(download)
 		bar.Start()
 	} else {
-		reader = rc
+		reader = download
 	}
 
 	if fileInfo, err := os.Stat(dst.Path()); err == nil && fileInfo.IsDir() {
-		dst = dst.Join((src.Base()))
+		dst = dst.Join(src.Base())
 	}
 
 	var file *os.File
@@ -189,7 +218,7 @@ func download(ctx context.Context, src fpath.FPath, dst fpath.FPath, showProgres
 	return nil
 }
 
-// copy copies s3 compatible object src to s3 compatible object dst
+// copy copies s3 compatible object src to s3 compatible object dst.
 func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err error) {
 	if src.IsLocal() {
 		return fmt.Errorf("source must be Storj URL: %s", src)
@@ -199,31 +228,28 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 		return fmt.Errorf("destination must be Storj URL: %s", dst)
 	}
 
-	project, bucket, err := cfg.GetProjectAndBucket(ctx, dst.Bucket())
+	project, err := cfg.getProject(ctx, false)
 	if err != nil {
 		return err
 	}
-	defer closeProjectAndBucket(project, bucket)
+	defer closeProject(project)
 
-	object, err := bucket.OpenObject(ctx, src.Path())
-	if err != nil {
-		return convertError(err, src)
-	}
-
-	rc, err := object.DownloadRange(ctx, 0, object.Meta.Size)
+	download, err := project.DownloadObject(ctx, src.Bucket(), src.Path(), nil)
 	if err != nil {
 		return err
 	}
-	defer func() { err = errs.Combine(err, rc.Close()) }()
+	defer func() { err = errs.Combine(err, download.Close()) }()
+
+	downloadInfo := download.Info()
 
 	var bar *progressbar.ProgressBar
 	var reader io.Reader
 	if *progress {
-		bar = progressbar.New64(object.Meta.Size)
-		reader = bar.NewProxyReader(reader)
+		bar = progressbar.New64(downloadInfo.System.ContentLength)
+		reader = bar.NewProxyReader(download)
 		bar.Start()
 	} else {
-		reader = rc
+		reader = download
 	}
 
 	// if destination object name not specified, default to source object name
@@ -231,15 +257,27 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 		dst = dst.Join(src.Base())
 	}
 
-	opts := &libuplink.UploadOptions{
-		Expires:     object.Meta.Expires,
-		ContentType: object.Meta.ContentType,
-		Metadata:    object.Meta.Metadata,
-	}
-	opts.Volatile.RedundancyScheme = cfg.GetRedundancyScheme()
-	opts.Volatile.EncryptionParameters = cfg.GetEncryptionParameters()
+	upload, err := project.UploadObject(ctx, dst.Bucket(), dst.Path(), &uplink.UploadOptions{
+		Expires: downloadInfo.System.Expires,
+	})
 
-	err = bucket.UploadObject(ctx, dst.Path(), reader, opts)
+	_, err = io.Copy(upload, reader)
+	if err != nil {
+		abortErr := upload.Abort()
+		return errs.Combine(err, abortErr)
+	}
+
+	err = upload.SetCustomMetadata(ctx, downloadInfo.Custom)
+	if err != nil {
+		abortErr := upload.Abort()
+		return errs.Combine(err, abortErr)
+	}
+
+	err = upload.Commit()
+	if err != nil {
+		return err
+	}
+
 	if bar != nil {
 		bar.Finish()
 	}
@@ -252,16 +290,16 @@ func copyObject(ctx context.Context, src fpath.FPath, dst fpath.FPath) (err erro
 	return nil
 }
 
-// copyMain is the function executed when cpCmd is called
+// copyMain is the function executed when cpCmd is called.
 func copyMain(cmd *cobra.Command, args []string) (err error) {
 	if len(args) == 0 {
-		return fmt.Errorf("No object specified for copy")
+		return fmt.Errorf("no object specified for copy")
 	}
 	if len(args) == 1 {
-		return fmt.Errorf("No destination specified")
+		return fmt.Errorf("no destination specified")
 	}
 
-	ctx, _ := process.Ctx(cmd)
+	ctx, _ := withTelemetry(cmd)
 
 	src, err := fpath.New(args[0])
 	if err != nil {
@@ -275,7 +313,7 @@ func copyMain(cmd *cobra.Command, args []string) (err error) {
 
 	// if both local
 	if src.IsLocal() && dst.IsLocal() {
-		return errors.New("At least one of the source or the desination must be a Storj URL")
+		return errors.New("at least one of the source or the destination must be a Storj URL")
 	}
 
 	// if uploading

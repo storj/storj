@@ -1,13 +1,25 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { SNOApi } from '@/storagenode/api/storagenode';
-import { Dashboard, SatelliteInfo } from '@/storagenode/dashboard';
-import { BandwidthUsed, Satellite, Stamp } from '@/storagenode/satellite';
+import { StoreModule } from '@/app/store';
+import { StorageNodeState } from '@/app/types/sno';
+import { Duration, millisecondsInSecond, secondsInMinute } from '@/app/utils/duration';
+import { getMonthsBeforeNow } from '@/app/utils/payout';
+import { StorageNodeService } from '@/storagenode/sno/service';
+import {
+    Dashboard,
+    Node,
+    Satellite,
+    SatelliteInfo,
+    Satellites,
+    Utilization,
+} from '@/storagenode/sno/sno';
 
 export const NODE_MUTATIONS = {
     POPULATE_STORE: 'POPULATE_STORE',
     SELECT_SATELLITE: 'SELECT_SATELLITE',
+    SELECT_ALL_SATELLITES: 'SELECT_ALL_SATELLITES',
+    SET_DAILY_DATA: 'SET_DAILY_DATA',
 };
 
 export const NODE_ACTIONS = {
@@ -21,144 +33,102 @@ export const StatusOffline = 'Offline';
 const {
     POPULATE_STORE,
     SELECT_SATELLITE,
+    SELECT_ALL_SATELLITES,
+    SET_DAILY_DATA,
 } = NODE_MUTATIONS;
 
-const {
-    GET_NODE_INFO,
-} = NODE_ACTIONS;
+const STATUS_TRESHHOLD_MINUTES: number = 120;
 
-const statusThreshHoldMinutes = 10;
-const snoAPI = new SNOApi();
+export function newNodeModule(service: StorageNodeService): StoreModule<StorageNodeState> {
+    return {
+        state: new StorageNodeState(),
+        mutations: {
+            [POPULATE_STORE](state: any, nodeInfo: Dashboard): void {
+                const minutesPassed = Duration.difference(new Date(), new Date(nodeInfo.lastPinged)) / millisecondsInSecond / secondsInMinute;
+                const status = minutesPassed < STATUS_TRESHHOLD_MINUTES ? StatusOnline : StatusOffline;
+                state.info = new Node(
+                    nodeInfo.nodeID,
+                    status,
+                    nodeInfo.lastPinged,
+                    nodeInfo.startedAt,
+                    nodeInfo.version,
+                    nodeInfo.allowedVersion,
+                    nodeInfo.wallet,
+                    nodeInfo.walletFeatures,
+                    nodeInfo.isUpToDate,
+                );
 
-const allSatellites = {
-    id: null,
-    disqualified: null,
-};
+                state.utilization = new Utilization(
+                    nodeInfo.bandwidth,
+                    nodeInfo.diskSpace,
+                );
 
-export const node = {
-    state: {
-        info: {
-            id: '',
-            status: StatusOffline,
-            version: '',
-            wallet: '',
-            isLastVersion: false
-        },
-        utilization: {
-            bandwidth: {
-                used: 0,
-                remaining: 1,
-                available: 1,
+                state.disqualifiedSatellites = nodeInfo.satellites.filter((satellite: SatelliteInfo) => satellite.disqualified);
+                state.suspendedSatellites = nodeInfo.satellites.filter((satellite: SatelliteInfo) => satellite.suspended);
+
+                state.satellites = nodeInfo.satellites;
             },
-            diskSpace: {
-                used: 0,
-                remaining: 1,
-                available: 1,
-            },
-        },
-        satellites: new Array<SatelliteInfo>(),
-        disqualifiedSatellites: new Array<SatelliteInfo>(),
-        selectedSatellite: allSatellites,
-        bandwidthChartData: new Array<BandwidthUsed>(),
-        storageChartData: new Array<Stamp>(),
-        storageSummary: 0,
-        bandwidthSummary: 0,
-        checks: {
-            uptime: 0,
-            audit: 0,
-        },
-    },
-    mutations: {
-        [POPULATE_STORE](state: any, nodeInfo: Dashboard): void {
-            state.info.id = nodeInfo.nodeID;
-            state.info.isLastVersion = nodeInfo.isUpToDate;
-            state.info.version = nodeInfo.version;
-            state.info.wallet = nodeInfo.wallet;
-            state.utilization.diskSpace.used = nodeInfo.diskSpace.used;
-            state.utilization.diskSpace.remaining = nodeInfo.diskSpace.available - nodeInfo.diskSpace.used;
-            state.utilization.diskSpace.available = nodeInfo.diskSpace.available;
-            state.utilization.bandwidth.used = nodeInfo.bandwidth.used;
-            state.utilization.bandwidth.remaining = nodeInfo.bandwidth.available - nodeInfo.bandwidth.used;
-            state.utilization.bandwidth.available = nodeInfo.bandwidth.available;
+            [SELECT_SATELLITE](state: any, satelliteInfo: Satellite): void {
+                const selectedSatellite = state.satellites.find(satellite => satelliteInfo.id === satellite.id);
 
-            state.disqualifiedSatellites = nodeInfo.satellites.filter((satellite: SatelliteInfo) => {
-                return satellite.disqualified;
-            });
-
-            state.satellites = nodeInfo.satellites ? nodeInfo.satellites : [];
-
-            state.info.status = StatusOffline;
-
-            if (getDateDiffMinutes(new Date(), new Date(nodeInfo.lastPinged)) < statusThreshHoldMinutes) {
-                state.info.status = StatusOnline;
-            }
-        },
-        [SELECT_SATELLITE](state: any, satelliteInfo: Satellite): void {
-            if (satelliteInfo.id) {
-                state.satellites.forEach(satellite => {
-                    if (satelliteInfo.id === satellite.id) {
-                        const audit = calculateSuccessRatio(
-                            satelliteInfo.audit.successCount,
-                            satelliteInfo.audit.totalCount
-                        );
-
-                        const uptime = calculateSuccessRatio(
-                            satelliteInfo.uptime.successCount,
-                            satelliteInfo.uptime.totalCount
-                        );
-
-                        state.selectedSatellite = satellite;
-                        state.checks.audit = audit;
-                        state.checks.uptime = uptime;
-                    }
-
+                if (!selectedSatellite) {
                     return;
-                });
-            }
-            else {
-                state.selectedSatellite = allSatellites;
-            }
+                }
 
-            state.bandwidthChartData = satelliteInfo.bandwidthDaily;
-            state.storageChartData = satelliteInfo.storageDaily;
-            state.bandwidthSummary = satelliteInfo.bandwidthSummary;
-            state.storageSummary = satelliteInfo.storageSummary;
+                state.selectedSatellite = new SatelliteInfo(
+                    satelliteInfo.id,
+                    selectedSatellite.url,
+                    selectedSatellite.disqualified,
+                    selectedSatellite.suspended,
+                    satelliteInfo.joinDate,
+                );
+
+                state.audits = satelliteInfo.audits;
+            },
+            [SELECT_ALL_SATELLITES](state: any, satelliteInfo: Satellites): void {
+                state.selectedSatellite = new SatelliteInfo(
+                    '',
+                    '',
+                    null,
+                    null,
+                    satelliteInfo.joinDate,
+                );
+                state.satellitesScores = satelliteInfo.satellitesScores;
+            },
+            [SET_DAILY_DATA](state: any, satelliteInfo: Satellite): void {
+                state.bandwidthChartData = satelliteInfo.bandwidthDaily;
+                state.egressChartData = satelliteInfo.egressDaily;
+                state.ingressChartData = satelliteInfo.ingressDaily;
+                state.storageChartData = satelliteInfo.storageDaily;
+                state.bandwidthSummary = satelliteInfo.bandwidthSummary;
+                state.egressSummary = satelliteInfo.egressSummary;
+                state.ingressSummary = satelliteInfo.ingressSummary;
+                state.storageSummary = satelliteInfo.storageSummary;
+            },
         },
-    },
-    actions: {
-        [GET_NODE_INFO]: async function ({commit}: any): Promise<any> {
-            const response = await snoAPI.dashboard();
+        actions: {
+            [NODE_ACTIONS.GET_NODE_INFO]: async function ({commit}: any): Promise<void> {
+                const dashboard = await service.dashboard();
 
-            commit(NODE_MUTATIONS.POPULATE_STORE, response);
+                commit(NODE_MUTATIONS.POPULATE_STORE, dashboard);
+            },
+            [NODE_ACTIONS.SELECT_SATELLITE]: async function ({commit}, id?: string): Promise<void> {
+                let response: Satellite | Satellites;
+                if (id) {
+                    response = await service.satellite(id);
+                    commit(NODE_MUTATIONS.SELECT_SATELLITE, response);
+                } else {
+                    response = await service.satellites();
+                    commit(NODE_MUTATIONS.SELECT_ALL_SATELLITES, response);
+                }
+
+                commit(NODE_MUTATIONS.SET_DAILY_DATA, response);
+            },
         },
-        [NODE_ACTIONS.SELECT_SATELLITE]: async function ({commit}, id: any): Promise<any> {
-            const response = id ? await snoAPI.satellite(id) : await snoAPI.satellites();
-
-            commit(NODE_MUTATIONS.SELECT_SATELLITE, response);
+        getters: {
+            monthsOnNetwork: (state): number => {
+                return getMonthsBeforeNow(state.selectedSatellite.joinDate);
+            },
         },
-    },
-};
-
-/**
- * calculates percent of success attempts for reputation metric
- * @param successCount - holds amount of success attempts for reputation metric
- * @param totalCount - holds total amount of attempts for reputation metric
- */
-function calculateSuccessRatio(successCount: number, totalCount: number) : number {
-    if (totalCount === 0) {
-        return 100;
-    }
-
-    return successCount / totalCount * 100;
-}
-
-/**
- * returns difference between two dates in minutes
- * @param d1 - holds first date
- * @param d2 - holds second date
- */
-function getDateDiffMinutes(d1: Date, d2: Date): number {
-    const diff = d1.getTime() - d2.getTime();
-
-    return Math.floor(diff / 1000 / 60);
+    };
 }

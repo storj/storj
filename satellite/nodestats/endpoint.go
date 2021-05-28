@@ -6,39 +6,44 @@ package nodestats
 import (
 	"context"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
-	"gopkg.in/spacemonkeygo/monkit.v2"
 
-	"storj.io/storj/pkg/identity"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc/rpcstatus"
+	"storj.io/common/identity"
+	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcstatus"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 )
 
 var (
 	mon = monkit.Package()
 )
 
-// Endpoint for querying node stats for the SNO
+// Endpoint for querying node stats for the SNO.
 //
 // architecture: Endpoint
 type Endpoint struct {
+	pb.DRPCNodeStatsUnimplementedServer
+
 	log        *zap.Logger
 	overlay    overlay.DB
 	accounting accounting.StoragenodeAccounting
+	config     paymentsconfig.Config
 }
 
-// NewEndpoint creates new endpoint
-func NewEndpoint(log *zap.Logger, overlay overlay.DB, accounting accounting.StoragenodeAccounting) *Endpoint {
+// NewEndpoint creates new endpoint.
+func NewEndpoint(log *zap.Logger, overlay overlay.DB, accounting accounting.StoragenodeAccounting, config paymentsconfig.Config) *Endpoint {
 	return &Endpoint{
 		log:        log,
 		overlay:    overlay,
 		accounting: accounting,
+		config:     config,
 	}
 }
 
-// GetStats sends node stats for client node
+// GetStats sends node stats for client node.
 func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb.GetStatsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -49,40 +54,48 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 	node, err := e.overlay.Get(ctx, peer.ID)
 	if err != nil {
 		if overlay.ErrNodeNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
+			return nil, nil
 		}
 		e.log.Error("overlay.Get failed", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
-
-	uptimeScore := calculateReputationScore(
-		node.Reputation.UptimeReputationAlpha,
-		node.Reputation.UptimeReputationBeta)
+	auditHistory, err := e.overlay.GetAuditHistory(ctx, peer.ID)
+	// if there is no audit history for the node, that's fine and we can continue with a nil auditHistory struct.
+	if err != nil && !overlay.ErrNodeNotFound.Has(err) {
+		e.log.Error("overlay.GetAuditHistory failed", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
 
 	auditScore := calculateReputationScore(
 		node.Reputation.AuditReputationAlpha,
 		node.Reputation.AuditReputationBeta)
 
+	unknownScore := calculateReputationScore(
+		node.Reputation.UnknownAuditReputationAlpha,
+		node.Reputation.UnknownAuditReputationBeta)
+
 	return &pb.GetStatsResponse{
-		UptimeCheck: &pb.ReputationStats{
-			TotalCount:      node.Reputation.UptimeCount,
-			SuccessCount:    node.Reputation.UptimeSuccessCount,
-			ReputationAlpha: node.Reputation.UptimeReputationAlpha,
-			ReputationBeta:  node.Reputation.UptimeReputationBeta,
-			ReputationScore: uptimeScore,
-		},
 		AuditCheck: &pb.ReputationStats{
-			TotalCount:      node.Reputation.AuditCount,
-			SuccessCount:    node.Reputation.AuditSuccessCount,
-			ReputationAlpha: node.Reputation.AuditReputationAlpha,
-			ReputationBeta:  node.Reputation.AuditReputationBeta,
-			ReputationScore: auditScore,
+			TotalCount:             node.Reputation.AuditCount,
+			SuccessCount:           node.Reputation.AuditSuccessCount,
+			ReputationAlpha:        node.Reputation.AuditReputationAlpha,
+			ReputationBeta:         node.Reputation.AuditReputationBeta,
+			UnknownReputationAlpha: node.Reputation.UnknownAuditReputationAlpha,
+			UnknownReputationBeta:  node.Reputation.UnknownAuditReputationBeta,
+			ReputationScore:        auditScore,
+			UnknownReputationScore: unknownScore,
 		},
-		Disqualified: node.Disqualified,
+		OnlineScore:        node.Reputation.OnlineScore,
+		Disqualified:       node.Disqualified,
+		Suspended:          node.UnknownAuditSuspended,
+		OfflineSuspended:   node.OfflineSuspended,
+		OfflineUnderReview: node.OfflineUnderReview,
+		AuditHistory:       overlay.AuditHistoryToPB(auditHistory),
+		JoinedAt:           node.CreatedAt,
 	}, nil
 }
 
-// DailyStorageUsage returns slice of daily storage usage for given period of time sorted in ASC order by date
+// DailyStorageUsage returns slice of daily storage usage for given period of time sorted in ASC order by date.
 func (e *Endpoint) DailyStorageUsage(ctx context.Context, req *pb.DailyStorageUsageRequest) (_ *pb.DailyStorageUsageResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -93,7 +106,7 @@ func (e *Endpoint) DailyStorageUsage(ctx context.Context, req *pb.DailyStorageUs
 	node, err := e.overlay.Get(ctx, peer.ID)
 	if err != nil {
 		if overlay.ErrNodeNotFound.Has(err) {
-			return nil, rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
+			return nil, nil
 		}
 		e.log.Error("overlay.Get failed", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
@@ -111,7 +124,19 @@ func (e *Endpoint) DailyStorageUsage(ctx context.Context, req *pb.DailyStorageUs
 	}, nil
 }
 
-// toProtoDailyStorageUsage converts StorageNodeUsage to PB DailyStorageUsageResponse_StorageUsage
+// PricingModel returns pricing model for storagenode.
+func (e *Endpoint) PricingModel(ctx context.Context, req *pb.PricingModelRequest) (_ *pb.PricingModelResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return &pb.PricingModelResponse{
+		EgressBandwidthPrice: e.config.NodeEgressBandwidthPrice,
+		RepairBandwidthPrice: e.config.NodeRepairBandwidthPrice,
+		DiskSpacePrice:       e.config.NodeDiskSpacePrice,
+		AuditBandwidthPrice:  e.config.NodeAuditBandwidthPrice,
+	}, nil
+}
+
+// toProtoDailyStorageUsage converts StorageNodeUsage to PB DailyStorageUsageResponse_StorageUsage.
 func toProtoDailyStorageUsage(usages []accounting.StorageNodeUsage) []*pb.DailyStorageUsageResponse_StorageUsage {
 	var pbUsages []*pb.DailyStorageUsageResponse_StorageUsage
 
@@ -125,7 +150,7 @@ func toProtoDailyStorageUsage(usages []accounting.StorageNodeUsage) []*pb.DailyS
 	return pbUsages
 }
 
-// calculateReputationScore is helper method to calculate reputation score value
+// calculateReputationScore is helper method to calculate reputation score value.
 func calculateReputationScore(alpha, beta float64) float64 {
 	return alpha / (alpha + beta)
 }

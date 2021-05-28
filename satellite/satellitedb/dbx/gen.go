@@ -1,17 +1,24 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package satellitedb
+package dbx
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+
+	"storj.io/private/dbutil/cockroachutil"
+	"storj.io/private/dbutil/txutil"
+	"storj.io/private/tagsql"
 )
 
-//go:generate dbx.v1 schema -d postgres -d sqlite3 satellitedb.dbx .
-//go:generate dbx.v1 golang -d postgres -d sqlite3 satellitedb.dbx .
+//go:generate sh gen.sh
+
+var mon = monkit.Package()
 
 func init() {
 	// catch dbx errors
@@ -24,6 +31,12 @@ func init() {
 			return class.Wrap(&constraintError{e.Constraint, e.Err})
 		}
 		return class.Wrap(e)
+	}
+	ShouldRetry = func(driver string, err error) bool {
+		if driver == "pgxcockroach" || driver == "cockroach" {
+			return cockroachutil.NeedsRetry(err)
+		}
+		return false
 	}
 }
 
@@ -44,23 +57,23 @@ func (err *constraintError) Unwrap() error { return err.err }
 // Cause returns the underlying error.
 func (err *constraintError) Cause() error { return err.err }
 
+// IsConstraintError returns true if the error is a constraint error.
+func IsConstraintError(err error) bool {
+	var cerr *constraintError
+	return errors.As(err, &cerr)
+}
+
 // Error implements the error interface.
 func (err *constraintError) Error() string {
 	return fmt.Sprintf("violates constraint %q: %v", err.constraint, err.err)
 }
 
-// WithTx wraps DB code in a transaction
+// WithTx wraps DB code in a transaction.
 func (db *DB) WithTx(ctx context.Context, fn func(context.Context, *Tx) error) (err error) {
-	tx, err := db.Open(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err == nil {
-			err = tx.Commit()
-		} else {
-			err = errs.Combine(err, tx.Rollback())
-		}
-	}()
-	return fn(ctx, tx)
+	return txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+		return fn(ctx, &Tx{
+			Tx:        tx,
+			txMethods: db.wrapTx(tx),
+		})
+	})
 }

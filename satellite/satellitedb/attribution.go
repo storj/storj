@@ -6,16 +6,14 @@ package satellitedb
 import (
 	"context"
 	"database/sql"
-	"fmt"
+	"errors"
 	"time"
 
-	"github.com/lib/pq"
-	sqlite3 "github.com/mattn/go-sqlite3"
-	"github.com/skyrings/skyring-common/tools/uuid"
 	"github.com/zeebo/errs"
 
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/attribution"
-	dbx "storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 const (
@@ -47,7 +45,7 @@ const (
 					-- If there are more than 1 records within the hour, only the latest will be considered
 					SELECT 
 						va.partner_id, 
-						%v as hours, 
+						date_trunc('hour', bst.interval_start) as hours,
 						bst.project_id, 
 						bst.bucket_name, 
 						MAX(bst.interval_start) as max_interval 
@@ -65,7 +63,7 @@ const (
 						va.partner_id, 
 						bst.project_id, 
 						bst.bucket_name, 
-						hours 
+						date_trunc('hour', bst.interval_start) 
 					ORDER BY 
 						max_interval DESC
 				) bsti 
@@ -86,7 +84,7 @@ const (
 				bbr.bucket_name as bucket_name, 
 				0 as remote, 
 				0 as inline, 
-				SUM(settled) as settled, 
+				SUM(settled)::integer as settled, 
 				NULL as hours 
 			FROM 
 				bucket_bandwidth_rollups bbr 
@@ -109,16 +107,13 @@ const (
 		o.project_id, 
 		o.bucket_name;
 	`
-	// DB specific date/time truncations
-	slHour = "datetime(strftime('%Y-%m-%dT%H:00:00', bst.interval_start))"
-	pqHour = "date_trunc('hour', bst.interval_start)"
 )
 
 type attributionDB struct {
-	db *dbx.DB
+	db *satelliteDB
 }
 
-// Get reads the partner info
+// Get reads the partner info.
 func (keys *attributionDB) Get(ctx context.Context, projectID uuid.UUID, bucketName []byte) (info *attribution.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -126,7 +121,7 @@ func (keys *attributionDB) Get(ctx context.Context, projectID uuid.UUID, bucketN
 		dbx.ValueAttribution_ProjectId(projectID[:]),
 		dbx.ValueAttribution_BucketName(bucketName),
 	)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		return nil, attribution.ErrBucketNotAttributed.New("%q", bucketName)
 	}
 	if err != nil {
@@ -136,42 +131,37 @@ func (keys *attributionDB) Get(ctx context.Context, projectID uuid.UUID, bucketN
 	return attributionFromDBX(dbxInfo)
 }
 
-// Insert implements create partner info
+// Insert implements create partner info.
 func (keys *attributionDB) Insert(ctx context.Context, info *attribution.Info) (_ *attribution.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbxInfo, err := keys.db.Create_ValueAttribution(ctx,
-		dbx.ValueAttribution_ProjectId(info.ProjectID[:]),
-		dbx.ValueAttribution_BucketName(info.BucketName),
-		dbx.ValueAttribution_PartnerId(info.PartnerID[:]),
-	)
+	err = keys.db.QueryRowContext(ctx, `
+		INSERT INTO value_attributions (project_id, bucket_name, partner_id, last_updated) 
+		VALUES ($1, $2, $3, now())
+		ON CONFLICT (project_id, bucket_name) DO NOTHING
+		RETURNING last_updated
+	`, info.ProjectID[:], info.BucketName, info.PartnerID[:]).Scan(&info.CreatedAt)
+	// TODO when sql.ErrNoRows is returned then CreatedAt is not set
+	if errors.Is(err, sql.ErrNoRows) {
+		return info, nil
+	}
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	return attributionFromDBX(dbxInfo)
+	return info, nil
 }
 
-// QueryAttribution queries partner bucket attribution data
+// QueryAttribution queries partner bucket attribution data.
 func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.UUID, start time.Time, end time.Time) (_ []*attribution.CSVRow, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var query string
-	switch t := keys.db.Driver().(type) {
-	case *sqlite3.SQLiteDriver:
-		query = fmt.Sprintf(valueAttrQuery, slHour)
-	case *pq.Driver:
-		query = fmt.Sprintf(valueAttrQuery, pqHour)
-	default:
-		return nil, Error.New("Unsupported database %t", t)
-	}
-
-	rows, err := keys.db.DB.QueryContext(ctx, keys.db.Rebind(query), partnerID[:], start.UTC(), end.UTC(), partnerID[:], start.UTC(), end.UTC())
+	rows, err := keys.db.DB.QueryContext(ctx, keys.db.Rebind(valueAttrQuery), partnerID[:], start.UTC(), end.UTC(), partnerID[:], start.UTC(), end.UTC())
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-
 	defer func() { err = errs.Combine(err, rows.Close()) }()
+
 	results := []*attribution.CSVRow{}
 	for rows.Next() {
 		r := &attribution.CSVRow{}
@@ -181,15 +171,15 @@ func (keys *attributionDB) QueryAttribution(ctx context.Context, partnerID uuid.
 		}
 		results = append(results, r)
 	}
-	return results, nil
+	return results, Error.Wrap(rows.Err())
 }
 
 func attributionFromDBX(info *dbx.ValueAttribution) (*attribution.Info, error) {
-	partnerID, err := bytesToUUID(info.PartnerId)
+	partnerID, err := uuid.FromBytes(info.PartnerId)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	projectID, err := bytesToUUID(info.ProjectId)
+	projectID, err := uuid.FromBytes(info.ProjectId)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

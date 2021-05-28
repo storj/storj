@@ -4,40 +4,44 @@
 package contact_test
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/errs2"
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testplanet"
-	"storj.io/storj/pkg/pb"
-	"storj.io/storj/pkg/rpc/rpcstatus"
-	"storj.io/storj/storagenode"
+	"storj.io/common/identity/testidentity"
+	"storj.io/common/pb"
+	"storj.io/common/rpc/rpcpeer"
+	"storj.io/common/testcontext"
+	"storj.io/storj/private/testplanet"
 )
 
 func TestStoragenodeContactEndpoint(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		nodeDossier := planet.StorageNodes[0].Local()
 		pingStats := planet.StorageNodes[0].Contact.PingStats
 
-		conn, err := planet.Satellites[0].Dialer.DialNode(ctx, &nodeDossier.Node)
+		conn, err := planet.Satellites[0].Dialer.DialNodeURL(ctx, planet.StorageNodes[0].NodeURL())
 		require.NoError(t, err)
 		defer ctx.Check(conn.Close)
 
-		resp, err := conn.ContactClient().PingNode(ctx, &pb.ContactPingRequest{})
+		resp, err := pb.NewDRPCContactClient(conn).PingNode(ctx, &pb.ContactPingRequest{})
 		require.NotNil(t, resp)
 		require.NoError(t, err)
 
-		firstPing, _, _ := pingStats.WhenLastPinged()
+		firstPing := pingStats.WhenLastPinged()
 
-		resp, err = conn.ContactClient().PingNode(ctx, &pb.ContactPingRequest{})
+		time.Sleep(time.Second) // HACKFIX: windows has large time granularity
+
+		resp, err = pb.NewDRPCContactClient(conn).PingNode(ctx, &pb.ContactPingRequest{})
 		require.NotNil(t, resp)
 		require.NoError(t, err)
 
-		secondPing, _, _ := pingStats.WhenLastPinged()
+		secondPing := pingStats.WhenLastPinged()
 
 		require.True(t, secondPing.After(firstPing))
 	})
@@ -50,22 +54,18 @@ func TestNodeInfoUpdated(t *testing.T) {
 		satellite := planet.Satellites[0]
 		node := planet.StorageNodes[0]
 
-		node.Contact.Chore.Loop.Pause()
-
+		node.Contact.Chore.Pause(ctx)
 		oldInfo, err := satellite.Overlay.Service.Get(ctx, node.ID())
 		require.NoError(t, err)
-
 		oldCapacity := oldInfo.Capacity
 
 		newCapacity := pb.NodeCapacity{
-			FreeBandwidth: 0,
-			FreeDisk:      0,
+			FreeDisk: 0,
 		}
 		require.NotEqual(t, oldCapacity, newCapacity)
-
 		node.Contact.Service.UpdateSelf(&newCapacity)
 
-		node.Contact.Chore.Loop.TriggerWait()
+		node.Contact.Chore.TriggerWait(ctx)
 
 		newInfo, err := satellite.Overlay.Service.Get(ctx, node.ID())
 		require.NoError(t, err)
@@ -78,46 +78,73 @@ func TestNodeInfoUpdated(t *testing.T) {
 	})
 }
 
-func TestRequestInfoEndpointTrustedSatellite(t *testing.T) {
+func TestServicePingSatellites(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 2, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		nodeDossier := planet.StorageNodes[0].Local()
+		node := planet.StorageNodes[0]
+		node.Contact.Chore.Pause(ctx)
 
-		// Satellite Trusted
-		conn, err := planet.Satellites[0].Dialer.DialNode(ctx, &nodeDossier.Node)
-		require.NoError(t, err)
-		defer ctx.Check(conn.Close)
+		newCapacity := pb.NodeCapacity{
+			FreeDisk: 0,
+		}
+		for _, satellite := range planet.Satellites {
+			info, err := satellite.Overlay.Service.Get(ctx, node.ID())
+			require.NoError(t, err)
+			require.NotEqual(t, newCapacity, info.Capacity)
+		}
 
-		resp, err := conn.NodesClient().RequestInfo(ctx, &pb.InfoRequest{})
-		require.NotNil(t, resp)
+		node.Contact.Service.UpdateSelf(&newCapacity)
+		err := node.Contact.Service.PingSatellites(ctx, 10*time.Second)
 		require.NoError(t, err)
-		require.Equal(t, nodeDossier.Type, resp.Type)
-		require.Equal(t, &nodeDossier.Operator, resp.Operator)
-		require.Equal(t, &nodeDossier.Capacity, resp.Capacity)
-		require.Equal(t, nodeDossier.Version.GetVersion(), resp.Version.GetVersion())
+
+		for _, satellite := range planet.Satellites {
+			info, err := satellite.Overlay.Service.Get(ctx, node.ID())
+			require.NoError(t, err)
+			require.Equal(t, newCapacity, info.Capacity)
+		}
 	})
 }
 
-func TestRequestInfoEndpointUntrustedSatellite(t *testing.T) {
+func TestEndpointPingNode_UnTrust(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 2, StorageNodeCount: 1, UplinkCount: 0,
-		Reconfigure: testplanet.Reconfigure{
-			StorageNode: func(index int, config *storagenode.Config) {
-				config.Storage.WhitelistedSatellites = nil
-			},
-		},
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		nodeDossier := planet.StorageNodes[0].Local()
+		node := planet.StorageNodes[0]
+		node.Contact.Chore.Pause(ctx)
 
-		// Satellite Untrusted
-		conn, err := planet.Satellites[0].Dialer.DialNode(ctx, &nodeDossier.Node)
+		// make sure a trusted satellite is able to ping node
+		info, err := planet.Satellites[0].Overlay.Service.Get(ctx, node.ID())
 		require.NoError(t, err)
-		defer ctx.Check(conn.Close)
+		require.Equal(t, node.ID(), info.Id)
 
-		resp, err := conn.NodesClient().RequestInfo(ctx, &pb.InfoRequest{})
-		require.Nil(t, resp)
+		// an untrusted peer shouldn't be able to ping node successfully
+		ident, err := testidentity.NewTestIdentity(ctx)
+		require.NoError(t, err)
+
+		state := tls.ConnectionState{
+			PeerCertificates: []*x509.Certificate{ident.Leaf, ident.CA},
+		}
+		peerCtx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
+			Addr:  node.Server.Addr(),
+			State: state,
+		})
+		_, err = node.Contact.Endpoint.PingNode(peerCtx, &pb.ContactPingRequest{})
 		require.Error(t, err)
-		require.True(t, errs2.IsRPC(err, rpcstatus.PermissionDenied))
+	})
+}
+
+func TestLocalAndUpdateSelf(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		node := planet.StorageNodes[0]
+		var group errgroup.Group
+		group.Go(func() error {
+			_ = node.Contact.Service.Local()
+			return nil
+		})
+		node.Contact.Service.UpdateSelf(&pb.NodeCapacity{})
+		_ = group.Wait()
 	})
 }

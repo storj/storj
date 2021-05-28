@@ -7,68 +7,87 @@ import (
 	"context"
 	"time"
 
-	"github.com/skyrings/skyring-common/tools/uuid"
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"golang.org/x/sync/errgroup"
 
-	"storj.io/storj/internal/memory"
-	"storj.io/storj/satellite/accounting/live"
+	"storj.io/common/memory"
+	"storj.io/common/uuid"
 )
 
-const (
-	// AverageDaysInMonth is how many days in a month
-	AverageDaysInMonth = 30
-	// ExpansionFactor is the expansion for redundancy, based on the default
-	// redundancy scheme for the uplink.
-	ExpansionFactor = 3
-)
+var mon = monkit.Package()
 
 var (
-	// ErrProjectUsage general error for project usage
-	ErrProjectUsage = errs.Class("project usage error")
+	// ErrProjectUsage general error for project usage.
+	ErrProjectUsage = errs.Class("project usage")
 )
 
-// ProjectUsage defines project usage
+// Service is handling project usage related logic.
 //
 // architecture: Service
-type ProjectUsage struct {
+type Service struct {
 	projectAccountingDB ProjectAccounting
-	liveAccounting      live.Service
-	maxAlphaUsage       memory.Size
+	liveAccounting      Cache
+	projectLimitCache   *ProjectLimitCache
+	bandwidthCacheTTL   time.Duration
+	nowFn               func() time.Time
 }
 
-// NewProjectUsage created new instance of project usage service
-func NewProjectUsage(projectAccountingDB ProjectAccounting, liveAccounting live.Service, maxAlphaUsage memory.Size) *ProjectUsage {
-	return &ProjectUsage{
+// NewService created new instance of project usage service.
+func NewService(projectAccountingDB ProjectAccounting, liveAccounting Cache, limitCache *ProjectLimitCache, bandwidthCacheTTL time.Duration) *Service {
+	return &Service{
 		projectAccountingDB: projectAccountingDB,
 		liveAccounting:      liveAccounting,
-		maxAlphaUsage:       maxAlphaUsage,
+		projectLimitCache:   limitCache,
+		bandwidthCacheTTL:   bandwidthCacheTTL,
+		nowFn:               time.Now,
 	}
 }
 
 // ExceedsBandwidthUsage returns true if the bandwidth usage limits have been exceeded
 // for a project in the past month (30 days). The usage limit is (e.g 25GB) multiplied by the redundancy
 // expansion factor, so that the uplinks have a raw limit.
-// Ref: https://storjlabs.atlassian.net/browse/V3-1274
-func (usage *ProjectUsage) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.UUID, bucketID []byte) (_ bool, limit memory.Size, err error) {
+//
+// Among others,it can return one of the following errors returned by
+// storj.io/storj/satellite/accounting.Cache except the ErrKeyNotFound, wrapped
+// by ErrProjectUsage.
+func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, projectID uuid.UUID) (_ bool, limit memory.Size, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var group errgroup.Group
 	var bandwidthGetTotal int64
-	limit = usage.maxAlphaUsage
+	var bandwidthUsage int64
 
-	// TODO(michal): to reduce db load, consider using a cache to retrieve the project.UsageLimit value if needed
 	group.Go(func() error {
-		projectLimit, err := usage.projectAccountingDB.GetProjectUsageLimits(ctx, projectID)
-		if projectLimit > 0 {
-			limit = projectLimit
-		}
+		var err error
+		limit, err = usage.projectLimitCache.GetProjectBandwidthLimit(ctx, projectID)
 		return err
 	})
 	group.Go(func() error {
 		var err error
-		from := time.Now().AddDate(0, 0, -AverageDaysInMonth) // past 30 days
-		bandwidthGetTotal, err = usage.projectAccountingDB.GetAllocatedBandwidthTotal(ctx, projectID, from)
+
+		// Get the current bandwidth usage from cache.
+		bandwidthUsage, err = usage.liveAccounting.GetProjectBandwidthUsage(ctx, projectID, usage.nowFn())
+		if err != nil {
+			// Verify If the cache key was not found
+			if ErrKeyNotFound.Has(err) {
+
+				// Get current bandwidth value from database.
+				now := usage.nowFn()
+				bandwidthGetTotal, err = usage.GetProjectBandwidth(ctx, projectID, now.Year(), now.Month(), now.Day())
+				if err != nil {
+					return err
+				}
+
+				// Create cache key with database value.
+				err = usage.liveAccounting.UpdateProjectBandwidthUsage(ctx, projectID, bandwidthGetTotal, usage.bandwidthCacheTTL, usage.nowFn())
+				if err != nil {
+					return err
+				}
+
+				bandwidthUsage = bandwidthGetTotal
+			}
+		}
 		return err
 	})
 
@@ -77,69 +96,130 @@ func (usage *ProjectUsage) ExceedsBandwidthUsage(ctx context.Context, projectID 
 		return false, 0, ErrProjectUsage.Wrap(err)
 	}
 
-	maxUsage := limit.Int64() * int64(ExpansionFactor)
-	if bandwidthGetTotal >= maxUsage {
+	// Verify the bandwidth usage cache.
+	if bandwidthUsage >= limit.Int64() {
 		return true, limit, nil
 	}
 
 	return false, limit, nil
 }
 
-// ExceedsStorageUsage returns true if the storage usage limits have been exceeded
-// for a project in the past month (30 days). The usage limit is (e.g. 25GB) multiplied by the redundancy
-// expansion factor, so that the uplinks have a raw limit.
-// Ref: https://storjlabs.atlassian.net/browse/V3-1274
-func (usage *ProjectUsage) ExceedsStorageUsage(ctx context.Context, projectID uuid.UUID) (_ bool, limit memory.Size, err error) {
+// ExceedsStorageUsage returns true if the storage usage for a project is currently over that project's limit.
+func (usage *Service) ExceedsStorageUsage(ctx context.Context, projectID uuid.UUID) (_ bool, limit memory.Size, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var group errgroup.Group
-	var inlineTotal, remoteTotal int64
-	limit = usage.maxAlphaUsage
+	var totalUsed int64
 
-	// TODO(michal): to reduce db load, consider using a cache to retrieve the project.UsageLimit value if needed
 	group.Go(func() error {
-		projectLimit, err := usage.projectAccountingDB.GetProjectUsageLimits(ctx, projectID)
-		if projectLimit > 0 {
-			limit = projectLimit
-		}
+		var err error
+		limit, err = usage.projectLimitCache.GetProjectStorageLimit(ctx, projectID)
 		return err
 	})
 	group.Go(func() error {
 		var err error
-		inlineTotal, remoteTotal, err = usage.getProjectStorageTotals(ctx, projectID)
+		totalUsed, err = usage.GetProjectStorageTotals(ctx, projectID)
 		return err
 	})
+
 	err = group.Wait()
 	if err != nil {
 		return false, 0, ErrProjectUsage.Wrap(err)
 	}
 
-	maxUsage := limit.Int64() * int64(ExpansionFactor)
-	if inlineTotal+remoteTotal >= maxUsage {
+	if totalUsed >= limit.Int64() {
 		return true, limit, nil
 	}
 
 	return false, limit, nil
 }
 
-func (usage *ProjectUsage) getProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (inline int64, remote int64, err error) {
-	defer mon.Task()(&ctx)(&err)
+// GetProjectStorageTotals returns total amount of storage used by project.
+//
+// It can return one of the following errors returned by
+// storj.io/storj/satellite/accounting.Cache.GetProjectStorageUsage except the
+// ErrKeyNotFound, wrapped by ErrProjectUsage.
+func (usage *Service) GetProjectStorageTotals(ctx context.Context, projectID uuid.UUID) (total int64, err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
 
-	lastCountInline, lastCountRemote, err := usage.projectAccountingDB.GetStorageTotals(ctx, projectID)
-	if err != nil {
-		return 0, 0, err
+	total, err = usage.liveAccounting.GetProjectStorageUsage(ctx, projectID)
+	if ErrKeyNotFound.Has(err) {
+		return 0, nil
 	}
-	rtInline, rtRemote, err := usage.liveAccounting.GetProjectStorageUsage(ctx, projectID)
-	if err != nil {
-		return 0, 0, err
-	}
-	return lastCountInline + rtInline, lastCountRemote + rtRemote, nil
+
+	return total, ErrProjectUsage.Wrap(err)
+}
+
+// GetProjectBandwidthTotals returns total amount of allocated bandwidth used for past 30 days.
+func (usage *Service) GetProjectBandwidthTotals(ctx context.Context, projectID uuid.UUID) (_ int64, err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+
+	// from the beginning of the current month
+	year, month, _ := usage.nowFn().Date()
+	from := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
+
+	total, err := usage.projectAccountingDB.GetAllocatedBandwidthTotal(ctx, projectID, from)
+	return total, ErrProjectUsage.Wrap(err)
+}
+
+// GetProjectBandwidth returns project allocated bandwidth for the specified year, month and day.
+func (usage *Service) GetProjectBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (_ int64, err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+
+	total, err := usage.projectAccountingDB.GetProjectBandwidth(ctx, projectID, year, month, day)
+	return total, ErrProjectUsage.Wrap(err)
+}
+
+// GetProjectStorageLimit returns current project storage limit.
+func (usage *Service) GetProjectStorageLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+	return usage.projectLimitCache.GetProjectStorageLimit(ctx, projectID)
+}
+
+// GetProjectBandwidthLimit returns current project bandwidth limit.
+func (usage *Service) GetProjectBandwidthLimit(ctx context.Context, projectID uuid.UUID) (_ memory.Size, err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+	return usage.projectLimitCache.GetProjectBandwidthLimit(ctx, projectID)
+}
+
+// UpdateProjectLimits sets new value for project's bandwidth and storage limit.
+func (usage *Service) UpdateProjectLimits(ctx context.Context, projectID uuid.UUID, limit memory.Size) (err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+
+	return ErrProjectUsage.Wrap(usage.projectAccountingDB.UpdateProjectUsageLimit(ctx, projectID, limit))
+}
+
+// GetProjectBandwidthUsage get the current bandwidth usage from cache.
+//
+// It can return one of the following errors returned by
+// storj.io/storj/satellite/accounting.Cache.GetProjectBandwidthUsage, wrapped
+// by ErrProjectUsage.
+func (usage *Service) GetProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID) (currentUsed int64, err error) {
+	return usage.liveAccounting.GetProjectBandwidthUsage(ctx, projectID, usage.nowFn())
+}
+
+// UpdateProjectBandwidthUsage increments the bandwidth cache key for a specific project.
+//
+// It can return one of the following errors returned by
+// storj.io/storj/satellite/accounting.Cache.UpdatProjectBandwidthUsage, wrapped
+// by ErrProjectUsage.
+func (usage *Service) UpdateProjectBandwidthUsage(ctx context.Context, projectID uuid.UUID, increment int64) (err error) {
+	return usage.liveAccounting.UpdateProjectBandwidthUsage(ctx, projectID, increment, usage.bandwidthCacheTTL, usage.nowFn())
 }
 
 // AddProjectStorageUsage lets the live accounting know that the given
-// project has just added inlineSpaceUsed bytes of inline space usage
-// and remoteSpaceUsed bytes of remote space usage.
-func (usage *ProjectUsage) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, inlineSpaceUsed, remoteSpaceUsed int64) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	return usage.liveAccounting.AddProjectStorageUsage(ctx, projectID, inlineSpaceUsed, remoteSpaceUsed)
+// project has just added spaceUsed bytes of storage (from the user's
+// perspective; i.e. segment size).
+//
+// It can return one of the following errors returned by
+// storj.io/storj/satellite/accounting.Cache.AddProjectStorageUsage, wrapped by
+// ErrProjectUsage.
+func (usage *Service) AddProjectStorageUsage(ctx context.Context, projectID uuid.UUID, spaceUsed int64) (err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+	return usage.liveAccounting.AddProjectStorageUsage(ctx, projectID, spaceUsed)
+}
+
+// SetNow allows tests to have the Service act as if the current time is whatever they want.
+func (usage *Service) SetNow(now func() time.Time) {
+	usage.nowFn = now
 }

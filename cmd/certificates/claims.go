@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 
-	"storj.io/storj/pkg/certificate/authorization"
-	"storj.io/storj/pkg/process"
+	"storj.io/private/process"
+	"storj.io/storj/certificate/authorization"
 )
 
 var (
@@ -37,7 +37,7 @@ var (
 
 func cmdExportClaims(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
-	authDB, err := authorization.NewDBFromCfg(claimsExportCfg.Config.AuthorizationDB)
+	authDB, err := authorization.OpenDBFromCfg(ctx, claimsExportCfg.Config.AuthorizationDB)
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func cmdExportClaims(cmd *cobra.Command, args []string) (err error) {
 
 func cmdDeleteClaim(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
-	authDB, err := authorization.NewDBFromCfg(claimsDeleteCfg.AuthorizationDB)
+	authDB, err := authorization.OpenDBFromCfg(ctx, claimsDeleteCfg.AuthorizationDB)
 	if err != nil {
 		return err
 	}

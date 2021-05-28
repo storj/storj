@@ -10,9 +10,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"storj.io/storj/internal/testcontext"
-	"storj.io/storj/internal/testrand"
-	"storj.io/storj/pkg/storj"
+	"storj.io/common/storj"
+	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 	"storj.io/storj/storagenode/storageusage"
@@ -52,10 +52,7 @@ func TestStorageUsage(t *testing.T) {
 		dailyStampsTotals[stamp.IntervalStart.UTC()] += stamp.AtRestTotal
 	}
 
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		storageUsageDB := db.StorageUsage()
 
 		t.Run("test store", func(t *testing.T) {
@@ -101,10 +98,7 @@ func TestStorageUsage(t *testing.T) {
 }
 
 func TestEmptyStorageUsage(t *testing.T) {
-	storagenodedbtest.Run(t, func(t *testing.T, db storagenode.DB) {
-		ctx := testcontext.New(t)
-		defer ctx.Cleanup()
-
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
 		var emptySummary float64
 		now := time.Now()
 
