@@ -255,6 +255,7 @@ pipeline {
                         STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/testui?sslmode=disable'
                         STORJ_TEST_BROWSER  = '/usr/bin/chromium'
                         STORJ_TEST_SATELLITE_WEB = "${pwd()}/.build/satellite-web"
+                        STORJ_TEST_BROWSER_NOGPU = '1'
 
                         DISPLAY = ':99'
                     }
