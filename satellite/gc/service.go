@@ -16,7 +16,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/metabase/metaloop"
+	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/uplink/private/piecestore"
 )
@@ -49,9 +49,9 @@ type Service struct {
 	config Config
 	Loop   *sync2.Cycle
 
-	dialer       rpc.Dialer
-	overlay      overlay.DB
-	metainfoLoop *metaloop.Service
+	dialer      rpc.Dialer
+	overlay     overlay.DB
+	segmentLoop *segmentloop.Service
 }
 
 // RetainInfo contains info needed for a storage node to retain important data and delete garbage data.
@@ -62,14 +62,14 @@ type RetainInfo struct {
 }
 
 // NewService creates a new instance of the gc service.
-func NewService(log *zap.Logger, config Config, dialer rpc.Dialer, overlay overlay.DB, loop *metaloop.Service) *Service {
+func NewService(log *zap.Logger, config Config, dialer rpc.Dialer, overlay overlay.DB, loop *segmentloop.Service) *Service {
 	return &Service{
-		log:          log,
-		config:       config,
-		Loop:         sync2.NewCycle(config.Interval),
-		dialer:       dialer,
-		overlay:      overlay,
-		metainfoLoop: loop,
+		log:         log,
+		config:      config,
+		Loop:        sync2.NewCycle(config.Interval),
+		dialer:      dialer,
+		overlay:     overlay,
+		segmentLoop: loop,
 	}
 }
 
@@ -83,7 +83,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 
 	if service.config.SkipFirst {
 		// make sure the metainfo loop runs once
-		err = service.metainfoLoop.Join(ctx, metaloop.NullObserver{})
+		err = service.segmentLoop.Join(ctx, segmentloop.NullObserver{})
 		if err != nil {
 			return err
 		}
@@ -104,7 +104,7 @@ func (service *Service) Run(ctx context.Context) (err error) {
 		pieceTracker := NewPieceTracker(service.log.Named("gc observer"), service.config, lastPieceCounts)
 
 		// collect things to retain
-		err = service.metainfoLoop.Join(ctx, pieceTracker)
+		err = service.segmentLoop.Join(ctx, pieceTracker)
 		if err != nil {
 			service.log.Error("error joining metainfoloop", zap.Error(err))
 			return nil
