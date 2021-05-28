@@ -61,6 +61,8 @@ storj.io/storj/satellite/gracefulexit."graceful_exit_success" Meter
 storj.io/storj/satellite/gracefulexit."graceful_exit_successful_pieces_transfer_ratio" IntVal
 storj.io/storj/satellite/gracefulexit."graceful_exit_transfer_piece_fail" Meter
 storj.io/storj/satellite/gracefulexit."graceful_exit_transfer_piece_success" Meter
+storj.io/storj/satellite/metabase/segmentloop."segmentsProcessed" IntVal
+storj.io/storj/satellite/metabase/segmentloop.*Service.RunOnce Task
 storj.io/storj/satellite/metainfo."metainfo_rate_limit_exceeded" Event
 storj.io/storj/satellite/metainfo/metaloop."objectsIterated" IntVal
 storj.io/storj/satellite/metainfo/metaloop."objectsProcessed" IntVal
