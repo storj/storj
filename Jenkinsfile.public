@@ -263,8 +263,8 @@ pipeline {
                     }
                     steps {
                         sh 'cp -r ./web/satellite/ ${STORJ_TEST_SATELLITE_WEB}/'
-                        sh 'cd .build/satellite-web && npm install && npm run build'
-                        sh 'Xvfb -ac :99 -screen 0 1280x1024x16'
+                        sh 'cd .build/satellite-web && npm ci'
+                        sh 'Xvfb -ac :99 -screen 0 1280x1024x16 &'
                         sh 'go test -race ./integration/ui/... 2>&1 | tee .build/ui-tests.json | xunit -out .build/ui-tests.xml'
                     }
                     post {
