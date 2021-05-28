@@ -74,9 +74,6 @@ func Run(t *testing.T, test Test) {
 		if browserBin := os.Getenv("STORJ_TEST_BROWSER"); browserBin != "" {
 			launch = launch.Bin(browserBin)
 		}
-		if noGPU := os.Getenv("STORJ_TEST_BROWSER_NOGPU"); noGPU != "" {
-			launch = launch.Set("disable-gpu").Set("disable-software-rasterizer")
-		}
 
 		defer launch.Cleanup()
 
