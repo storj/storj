@@ -11,6 +11,7 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/storj/satellite/metabase/metaloop"
+	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 )
 
@@ -114,6 +115,7 @@ type Config struct {
 	Overlay              bool                 `default:"true" help:"toggle flag if overlay is enabled"`
 	RS                   RSConfig             `releaseDefault:"29/35/80/110-256B" devDefault:"4/6/8/10-256B" help:"redundancy scheme configuration in the format k/m/o/n-sharesize"`
 	Loop                 metaloop.Config      `help:"loop configuration"`
+	SegmentLoop          segmentloop.Config   `help:"segment loop configuration"`
 	RateLimiter          RateLimiterConfig    `help:"rate limiter configuration"`
 	ProjectLimits        ProjectLimitConfig   `help:"project limit configuration"`
 	PieceDeletion        piecedeletion.Config `help:"piece deletion configuration"`
