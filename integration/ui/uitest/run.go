@@ -68,7 +68,9 @@ func Run(t *testing.T, test Test) {
 			Leakless(false).
 			Devtools(false).
 			NoSandbox(true).
+			UserDataDir(ctx.Dir("browser")).
 			Logger(zapWriter{Logger: logLauncher})
+
 		if browserBin := os.Getenv("STORJ_TEST_BROWSER"); browserBin != "" {
 			launch = launch.Bin(browserBin)
 		}
