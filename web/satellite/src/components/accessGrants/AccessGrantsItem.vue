@@ -20,7 +20,7 @@
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import CheckboxIcon from '@/../static/images/common/checkbox.svg';
+import CheckboxIcon from '@/../static/images/accessGrants/vector.svg';
 
 import { AccessGrant } from '@/types/accessGrants';
 
@@ -59,8 +59,14 @@ export default class AccessGrantsItem extends Vue {
 
     .checkbox-container {
         margin-left: 28px;
-        max-height: 23px;
+        min-width: 21px;
+        min-height: 21px;
         border-radius: 4px;
+        border: 1px solid #1b2533;
+
+        &__image {
+            display: none;
+        }
     }
 
     .name-container {
@@ -93,17 +99,10 @@ export default class AccessGrantsItem extends Vue {
         .grants-item-container__common-info {
 
             .checkbox-container {
-                background-image: url('../../../static/images/accessGrants/vector.png');
-                background-repeat: no-repeat;
-                background-size: 18px 12px;
-                background-position: center;
-                background-color: #0068dc;
+                border: none;
 
                 &__image {
-
-                    &__rect {
-                        stroke: #fff;
-                    }
+                    display: block;
                 }
             }
         }
