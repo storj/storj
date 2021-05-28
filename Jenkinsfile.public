@@ -251,17 +251,17 @@ pipeline {
 */
                 stage('UI') {
                     environment {
-                        STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
-                            'cockroach://root@localhost:26257/testcockroach?sslmode=disable;' +
-                            'cockroach://root@localhost:26258/testcockroach?sslmode=disable;' +
-                            'cockroach://root@localhost:26259/testcockroach?sslmode=disable'
-                        STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
+                        STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testui?sslmode=disable'
+                        STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/testui?sslmode=disable'
                         STORJ_TEST_BROWSER  = '/usr/bin/chromium'
                         STORJ_TEST_SATELLITE_WEB = "${pwd()}/.build/satellite-web"
 
                         DISPLAY = ':99'
                     }
                     steps {
+                        sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testui;\''
+                        sh 'psql -U postgres -c \'create database testui;\''
+
                         sh 'cp -r ./web/satellite/ ${STORJ_TEST_SATELLITE_WEB}/'
                         sh 'cd .build/satellite-web && npm ci'
                         sh 'Xvfb -ac :99 -screen 0 1280x1024x16 &'
