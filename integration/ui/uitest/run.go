@@ -48,6 +48,14 @@ func Run(t *testing.T, test Test) {
 		},
 		NonParallel: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		defer func() {
+			// rod package panics on failure, which causes testing.T package not
+			// to properly finish a test.
+			if err := recover(); err != nil {
+				t.Fatal(err)
+			}
+		}()
+
 		showBrowser := os.Getenv("STORJ_TEST_SHOW_BROWSER") != ""
 
 		logLauncher := zaptest.NewLogger(t).Named("launcher")
