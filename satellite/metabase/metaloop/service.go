@@ -163,6 +163,8 @@ type Config struct {
 	CoalesceDuration time.Duration `help:"how long to wait for new observers before starting iteration" releaseDefault:"5s" devDefault:"5s"`
 	RateLimit        float64       `help:"rate limit (default is 0 which is unlimited segments per second)" default:"0"`
 	ListLimit        int           `help:"how many items to query in a batch" default:"2500"`
+
+	MaxAsOfSystemDuration time.Duration `help:"limits how old can AS OF SYSTEM TIME query be" releaseDefault:"5m" devDefault:"5m"`
 }
 
 // MetabaseDB contains iterators for the metabase data.
@@ -332,7 +334,7 @@ waitformore:
 	}
 	close(earlyExitDone)
 
-	return iterateDatabase(ctx, loop.metabaseDB, observers, loop.config.ListLimit, rate.NewLimiter(rate.Limit(loop.config.RateLimit), 1))
+	return iterateDatabase(ctx, loop.metabaseDB, observers, loop.config.ListLimit, rate.NewLimiter(rate.Limit(loop.config.RateLimit), 1), loop.config.MaxAsOfSystemDuration)
 }
 
 func stopTimer(t *time.Timer) {
@@ -350,7 +352,7 @@ func (loop *Service) Wait() {
 	<-loop.done
 }
 
-func iterateDatabase(ctx context.Context, metabaseDB MetabaseDB, observers []*observerContext, limit int, rateLimiter *rate.Limiter) (err error) {
+func iterateDatabase(ctx context.Context, metabaseDB MetabaseDB, observers []*observerContext, limit int, rateLimiter *rate.Limiter, maxAsOfSystemDuration time.Duration) (err error) {
 	defer func() {
 		if err != nil {
 			errorObservers(observers, err)
@@ -359,7 +361,7 @@ func iterateDatabase(ctx context.Context, metabaseDB MetabaseDB, observers []*ob
 		finishObservers(observers)
 	}()
 
-	observers, err = iterateObjects(ctx, metabaseDB, observers, limit, rateLimiter)
+	observers, err = iterateObjects(ctx, metabaseDB, observers, limit, rateLimiter, maxAsOfSystemDuration)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -367,7 +369,7 @@ func iterateDatabase(ctx context.Context, metabaseDB MetabaseDB, observers []*ob
 	return err
 }
 
-func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*observerContext, limit int, rateLimiter *rate.Limiter) (_ []*observerContext, err error) {
+func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*observerContext, limit int, rateLimiter *rate.Limiter, maxAsOfSystemDuration time.Duration) (_ []*observerContext, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if limit <= 0 || limit > batchsizeLimit {
@@ -386,6 +388,8 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 		return !observer.HandleError(err)
 	})
 
+	currentAsOfSystemTime := startingTime
+
 	if len(observers) == 0 {
 		return observers, noObserversErr
 	}
@@ -403,9 +407,13 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 			return nil
 		}
 
+		if time.Since(currentAsOfSystemTime) > maxAsOfSystemDuration {
+			currentAsOfSystemTime = time.Now().Add(-maxAsOfSystemDuration)
+		}
+
 		err = metabaseDB.IterateLoopStreams(ctx, metabase.IterateLoopStreams{
 			StreamIDs:      ids,
-			AsOfSystemTime: startingTime,
+			AsOfSystemTime: currentAsOfSystemTime,
 		}, func(ctx context.Context, streamID uuid.UUID, next metabase.SegmentIterator) (err error) {
 			defer mon.TaskNamed("iterateLoopStreamsCB")(&ctx, "objs", objectsProcessed, "segs", segmentsProcessed)(&err)
 
