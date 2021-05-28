@@ -29,8 +29,8 @@ pipeline {
 
                 sh 'service postgresql start'
 
-                sh 'make -j4 build-packages'
-                sh 'make install-sim'
+                // sh 'make -j4 build-packages'
+                // sh 'make install-sim'
 
                 dir(".build") {
                     sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 512MiB --max-sql-memory 512MiB --background'
@@ -44,6 +44,7 @@ pipeline {
 
         stage('Verification') {
             parallel {
+/*
                 stage('Lint') {
                     steps {
                         sh 'check-copyright'
@@ -247,7 +248,7 @@ pipeline {
                         }
                     }
                 }
-
+*/
                 stage('UI') {
                     environment {
                         STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
@@ -257,11 +258,13 @@ pipeline {
                         STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
                         STORJ_TEST_BROWSER  = '/usr/bin/chromium'
                         STORJ_TEST_SATELLITE_WEB = "${pwd()}/.build/satellite-web"
+
+                        DISPLAY = ':99'
                     }
                     steps {
                         sh 'cp -r ./web/satellite/ ${STORJ_TEST_SATELLITE_WEB}/'
-                        sh 'cd .build/satellite-web && npm ci'
-                        sh 'Xvfb -ac :99 -screen 0 1280x1024x16 & export DISPLAY=:99'
+                        sh 'cd .build/satellite-web && npm run build'
+                        sh 'Xvfb -ac :99 -screen 0 1280x1024x16'
                         sh 'go test -race ./integration/ui/... 2>&1 | tee .build/ui-tests.json | xunit -out .build/ui-tests.xml'
                     }
                     post {
