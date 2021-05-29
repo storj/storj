@@ -171,7 +171,7 @@ func (db *ProjectAccounting) GetProjectBandwidth(ctx context.Context, projectID 
 					SELECT
 						CASE WHEN interval_day < ?
 							THEN egress_settled
-							ELSE egress_allocated
+							ELSE egress_allocated-egress_dead
 						END AS amount
 					FROM project_bandwidth_daily_rollups
 					WHERE project_id = ? AND interval_day >= ? AND interval_day < ?
