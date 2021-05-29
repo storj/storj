@@ -286,7 +286,7 @@ func createBucketBandwidthRollupsForPast4Days(ctx *testcontext.Context, satellit
 			return expectedSum, err
 		}
 		err = ordersDB.UpdateBucketBandwidthSettle(ctx,
-			projectID, []byte(bucketName), pb.PieceAction_GET, amount, intervalStart,
+			projectID, []byte(bucketName), pb.PieceAction_GET, amount, 0, intervalStart,
 		)
 		if err != nil {
 			return expectedSum, err
@@ -421,7 +421,7 @@ func TestUsageRollups(t *testing.T) {
 				err := db.Orders().UpdateBucketBandwidthAllocation(ctx, project1, []byte(bucketName), action, value*6, now)
 				require.NoError(t, err)
 
-				err = db.Orders().UpdateBucketBandwidthSettle(ctx, project1, []byte(bucketName), action, value*3, now)
+				err = db.Orders().UpdateBucketBandwidthSettle(ctx, project1, []byte(bucketName), action, value*3, 0, now)
 				require.NoError(t, err)
 
 				err = db.Orders().UpdateBucketBandwidthInline(ctx, project1, []byte(bucketName), action, value, now)
@@ -438,7 +438,7 @@ func TestUsageRollups(t *testing.T) {
 				err := db.Orders().UpdateBucketBandwidthAllocation(ctx, project2, []byte(bucketName), action, value*6, now)
 				require.NoError(t, err)
 
-				err = db.Orders().UpdateBucketBandwidthSettle(ctx, project2, []byte(bucketName), action, value*3, now)
+				err = db.Orders().UpdateBucketBandwidthSettle(ctx, project2, []byte(bucketName), action, value*3, 0, now)
 				require.NoError(t, err)
 
 				err = db.Orders().UpdateBucketBandwidthInline(ctx, project2, []byte(bucketName), action, value, now)

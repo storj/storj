@@ -21,6 +21,7 @@ type CacheData struct {
 	Inline    int64
 	Allocated int64
 	Settled   int64
+	Dead      int64
 }
 
 // CacheKey is the key information for the cached map below.
@@ -62,17 +63,17 @@ func NewRollupsWriteCache(log *zap.Logger, db DB, batchSize int) *RollupsWriteCa
 
 // UpdateBucketBandwidthAllocation updates the rollups cache adding allocated data for a bucket bandwidth rollup.
 func (cache *RollupsWriteCache) UpdateBucketBandwidthAllocation(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
-	return cache.updateCacheValue(ctx, projectID, bucketName, action, amount, 0, 0, intervalStart.UTC())
+	return cache.updateCacheValue(ctx, projectID, bucketName, action, amount, 0, 0, 0, intervalStart.UTC())
 }
 
 // UpdateBucketBandwidthInline updates the rollups cache adding inline data for a bucket bandwidth rollup.
 func (cache *RollupsWriteCache) UpdateBucketBandwidthInline(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
-	return cache.updateCacheValue(ctx, projectID, bucketName, action, 0, amount, 0, intervalStart.UTC())
+	return cache.updateCacheValue(ctx, projectID, bucketName, action, 0, amount, 0, 0, intervalStart.UTC())
 }
 
-// UpdateBucketBandwidthSettle updates the rollups cache adding settled data for a bucket bandwidth rollup.
-func (cache *RollupsWriteCache) UpdateBucketBandwidthSettle(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, amount int64, intervalStart time.Time) error {
-	return cache.updateCacheValue(ctx, projectID, bucketName, action, 0, 0, amount, intervalStart.UTC())
+// UpdateBucketBandwidthSettle updates the rollups cache adding settled data for a bucket bandwidth rollup - deadAmount is not used.
+func (cache *RollupsWriteCache) UpdateBucketBandwidthSettle(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, settledAmount, deadAmount int64, intervalStart time.Time) error {
+	return cache.updateCacheValue(ctx, projectID, bucketName, action, 0, 0, settledAmount, deadAmount, intervalStart.UTC())
 }
 
 // resetCache should only be called after you have acquired the cache lock. It
@@ -142,6 +143,7 @@ func (cache *RollupsWriteCache) flush(ctx context.Context, pendingRollups Rollup
 				Inline:     cacheData.Inline,
 				Allocated:  cacheData.Allocated,
 				Settled:    cacheData.Settled,
+				Dead:       cacheData.Dead,
 			})
 		}
 
@@ -160,7 +162,7 @@ func (cache *RollupsWriteCache) flush(ctx context.Context, pendingRollups Rollup
 	cache.flushing = false
 }
 
-func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, allocated, inline, settled int64, intervalStart time.Time) error {
+func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID uuid.UUID, bucketName []byte, action pb.PieceAction, allocated, inline, settled, dead int64, intervalStart time.Time) error {
 	defer mon.Task()(&ctx)(nil)
 
 	cache.mu.Lock()
@@ -190,6 +192,7 @@ func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID 
 		data.Allocated += allocated
 		data.Inline += inline
 		data.Settled += settled
+		data.Dead += dead
 		cache.pendingRollups[key] = data
 	}
 

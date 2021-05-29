@@ -55,7 +55,7 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 			require.NoError(t, err)
 
 			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("testbucket"),
-				pb.PieceAction_GET, int64(i+10)*memory.GiB.Int64(), period)
+				pb.PieceAction_GET, int64(i+10)*memory.GiB.Int64(), 0, period)
 			require.NoError(t, err)
 		}
 
@@ -137,7 +137,7 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 			// generate egress
 			projectsEgress[i] = int64(i+10) * memory.GiB.Int64()
 			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, projects[i].ID, []byte("testbucket"),
-				pb.PieceAction_GET, projectsEgress[i], period)
+				pb.PieceAction_GET, projectsEgress[i], 0, period)
 			require.NoError(t, err)
 
 			// generate storage
@@ -249,7 +249,7 @@ func TestService_InvoiceUserWithManyCoupons(t *testing.T) {
 		{
 			// generate egress
 			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("testbucket"),
-				pb.PieceAction_GET, 10*memory.GiB.Int64(), period)
+				pb.PieceAction_GET, 10*memory.GiB.Int64(), 0, period)
 			require.NoError(t, err)
 
 			// generate storage
@@ -362,7 +362,7 @@ func TestService_ApplyCouponsInTheOrder(t *testing.T) {
 		{
 			// generate egress - 48 cents
 			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("testbucket"),
-				pb.PieceAction_GET, 10*memory.GiB.Int64(), period)
+				pb.PieceAction_GET, 10*memory.GiB.Int64(), 0, period)
 			require.NoError(t, err)
 		}
 
@@ -499,7 +499,7 @@ func TestService_CouponStatus(t *testing.T) {
 
 			// generate egress
 			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("testbucket"),
-				pb.PieceAction_GET, tt.egress.Int64(), period)
+				pb.PieceAction_GET, tt.egress.Int64(), 0, period)
 			require.NoError(t, err, errTag)
 
 			satellite.API.Payments.Service.SetNow(func() time.Time {
