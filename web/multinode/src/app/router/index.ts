@@ -29,20 +29,28 @@ export class Route {
     public readonly component: Component;
     public children?: Route[];
     public readonly meta?: Metadata;
+    public redirect?: Route;
 
     /**
      * default constructor.
      * @param path - route path.
      * @param name - name of the route, needed fot identifying route by name.
      * @param component - component mapped to route.
-     * @param children - all nested components of current route.
      * @param meta - arbitrary information to routes like transition names, who can access the route, etc.
+     * @param redirect
      */
-    public constructor(path: string, name: string, component: Component, meta: Metadata | undefined = undefined) {
+    public constructor(
+        path: string,
+        name: string,
+        component: Component,
+        meta: Metadata | undefined = undefined,
+        redirect: Route | undefined = undefined,
+    ) {
         this.path = path;
         this.name = name;
         this.component = component;
         this.meta = meta;
+        this.redirect = redirect;
     }
 
     /**
@@ -63,7 +71,7 @@ export class Route {
             throw new Error('provided child root is not defined');
         }
 
-        return new Route(`${this.path}/${child.path}`, child.name, child.component, child.meta);
+        return new Route(`${this.path}/${child.path}`, child.name, child.component, child.meta, child.redirect);
     }
 }
 
@@ -75,9 +83,9 @@ export class Config {
     public static Welcome: Route = new Route('/welcome', 'Welcome', WelcomeScreen);
     public static AddFirstNode: Route = new Route('/add-first-node', 'AddFirstNode', AddFirstNode);
     public static MyNodes: Route = new Route('/my-nodes', 'MyNodes', MyNodes);
-    public static Payouts: Route = new Route('/payouts', 'Payouts', PayoutsRoot);
     public static PayoutsSummary: Route = new Route('summary', 'PayoutsSummary', PayoutsPage);
     public static PayoutsByNode: Route = new Route('by-node/:id', 'PayoutsByNode', PayoutsByNode);
+    public static Payouts: Route = new Route('/payouts', 'Payouts', PayoutsRoot, undefined, Config.PayoutsSummary);
     public static Bandwidth: Route = new Route('/bandwidth', 'Bandwidth & Disk', BandwidthPage);
 
     public static mode: RouterMode = 'history';

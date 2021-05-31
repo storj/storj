@@ -45,12 +45,15 @@ export default class VDropdown extends Vue {
     @Prop({default: []})
     private readonly options: Option[];
 
+    @Prop({default: null})
+    private readonly preselectedOption: Option;
+
     public areOptionsShown: boolean = false;
 
     public selectedOption: Option;
 
     public created(): void {
-        this.selectedOption = this.options[0];
+        this.selectedOption = this.preselectedOption || this.options[0];
     }
 
     public toggleOptions(): void {
@@ -94,6 +97,7 @@ export default class VDropdown extends Vue {
         color: var(--c-title);
         cursor: pointer;
         font-family: 'font_medium', sans-serif;
+        z-index: 998;
 
         &:hover {
             border-color: var(--c-gray);

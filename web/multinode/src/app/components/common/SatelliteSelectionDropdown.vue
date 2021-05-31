@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-dropdown :options="trustedSatellitesOptions" />
+    <v-dropdown :options="trustedSatellitesOptions" :preselected-option="selectedSatelliteOption" />
 </template>
 
 <script lang="ts">
@@ -29,6 +29,15 @@ export default class SatelliteSelectionDropdown extends Vue {
         );
 
         return [ new Option('All Satellites', () => this.onSatelliteClick()), ...options ];
+    }
+
+    /**
+     * Preselected satellite from store if any.
+     */
+    public get selectedSatelliteOption(): Option | null {
+        if (!this.$store.state.nodes.selectedSatellite) return null;
+
+        return new Option(this.$store.state.nodes.selectedSatellite.id, async () => Promise.resolve());
     }
 
     /**
