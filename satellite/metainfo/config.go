@@ -94,24 +94,24 @@ func (rs *RSConfig) Set(s string) error {
 // RateLimiterConfig is a configuration struct for endpoint rate limiting.
 type RateLimiterConfig struct {
 	Enabled         bool          `help:"whether rate limiting is enabled." releaseDefault:"true" devDefault:"true"`
-	Rate            float64       `help:"request rate per project per second." releaseDefault:"1000" devDefault:"100"`
-	CacheCapacity   int           `help:"number of projects to cache." releaseDefault:"10000" devDefault:"10"`
+	Rate            float64       `help:"request rate per project per second." releaseDefault:"1000" devDefault:"100" testDefault:"1000"`
+	CacheCapacity   int           `help:"number of projects to cache." releaseDefault:"10000" devDefault:"10" testDefault:"100"`
 	CacheExpiration time.Duration `help:"how long to cache the projects limiter." releaseDefault:"10m" devDefault:"10s"`
 }
 
 // ProjectLimitConfig is a configuration struct for default project limits.
 type ProjectLimitConfig struct {
-	MaxBuckets int `help:"max bucket count for a project." default:"100"`
+	MaxBuckets int `help:"max bucket count for a project." default:"100" testDefault:"10"`
 }
 
 // Config is a configuration struct that is everything you need to start a metainfo.
 type Config struct {
 	DatabaseURL          string               `help:"the database connection string to use" default:"postgres://"`
-	MinRemoteSegmentSize memory.Size          `default:"1240" help:"minimum remote segment size"`
+	MinRemoteSegmentSize memory.Size          `default:"1240" testDefault:"0" help:"minimum remote segment size"` // TODO: fix tests to work with 1024
 	MaxInlineSegmentSize memory.Size          `default:"4KiB" help:"maximum inline segment size"`
 	MaxSegmentSize       memory.Size          `default:"64MiB" help:"maximum segment size"`
 	MaxMetadataSize      memory.Size          `default:"2KiB" help:"maximum segment metadata size"`
-	MaxCommitInterval    time.Duration        `default:"48h" help:"maximum time allowed to pass between creating and committing a segment"`
+	MaxCommitInterval    time.Duration        `default:"48h" testDefault:"1h" help:"maximum time allowed to pass between creating and committing a segment"`
 	Overlay              bool                 `default:"true" help:"toggle flag if overlay is enabled"`
 	RS                   RSConfig             `releaseDefault:"29/35/80/110-256B" devDefault:"4/6/8/10-256B" help:"redundancy scheme configuration in the format k/m/o/n-sharesize"`
 	Loop                 metaloop.Config      `help:"loop configuration"`

@@ -20,9 +20,9 @@ import (
 
 // Config defines values needed by mailservice service.
 type Config struct {
-	SMTPServerAddress string `help:"smtp server address" default:""`
+	SMTPServerAddress string `help:"smtp server address" default:"" testDefault:"smtp.mail.test:587"`
 	TemplatePath      string `help:"path to email templates source" default:""`
-	From              string `help:"sender email address" default:""`
+	From              string `help:"sender email address" default:"" testDefault:"Labs <storj@mail.test>"`
 	AuthType          string `help:"smtp authentication type" releaseDefault:"login" devDefault:"simulate"`
 	Login             string `help:"plain/login auth user login" default:""`
 	Password          string `help:"plain/login auth user password" default:""`

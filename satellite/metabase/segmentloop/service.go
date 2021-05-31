@@ -130,7 +130,7 @@ func (observer *observerContext) Wait() error {
 
 // Config contains configurable values for the segments loop.
 type Config struct {
-	CoalesceDuration time.Duration `help:"how long to wait for new observers before starting iteration" releaseDefault:"5s" devDefault:"5s"`
+	CoalesceDuration time.Duration `help:"how long to wait for new observers before starting iteration" releaseDefault:"5s" devDefault:"5s" testDefault:"1s"`
 	RateLimit        float64       `help:"rate limit (default is 0 which is unlimited segments per second)" default:"0"`
 	ListLimit        int           `help:"how many items to query in a batch" default:"2500"`
 }
