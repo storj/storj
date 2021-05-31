@@ -23,7 +23,7 @@ var (
 
 // Config contains configurable values for expired segment cleanup.
 type Config struct {
-	Interval  time.Duration `help:"the time between each attempt to go through the db and clean up expired segments" releaseDefault:"24h" devDefault:"10s"`
+	Interval  time.Duration `help:"the time between each attempt to go through the db and clean up expired segments" releaseDefault:"24h" devDefault:"10s" testDefault:"$TESTINTERVAL"`
 	Enabled   bool          `help:"set if expired segment cleanup is enabled or not" releaseDefault:"true" devDefault:"true"`
 	ListLimit int           `help:"how many expired objects to query in a batch" default:"100"`
 }

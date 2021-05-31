@@ -20,12 +20,12 @@ import (
 // Config defines configuration options for Service.
 type Config struct {
 	MaxConcurrency      int `help:"maximum number of concurrent requests to storage nodes" default:"100"`
-	MaxConcurrentPieces int `help:"maximum number of concurrent pieces can be processed" default:"1000000"`
+	MaxConcurrentPieces int `help:"maximum number of concurrent pieces can be processed" default:"1000000" testDefault:"1000"`
 
-	MaxPiecesPerBatch   int `help:"maximum number of pieces per batch" default:"5000"`
-	MaxPiecesPerRequest int `help:"maximum number pieces per single request" default:"1000"`
+	MaxPiecesPerBatch   int `help:"maximum number of pieces per batch" default:"5000" testDefault:"4000"`
+	MaxPiecesPerRequest int `help:"maximum number pieces per single request" default:"1000" testDefault:"2000"`
 
-	DialTimeout    time.Duration `help:"timeout for dialing nodes (0 means satellite default)" default:"0"`
+	DialTimeout    time.Duration `help:"timeout for dialing nodes (0 means satellite default)" default:"0" testDefault:"2s"`
 	FailThreshold  time.Duration `help:"threshold for retrying a failed node" releaseDefault:"5m" devDefault:"2s"`
 	RequestTimeout time.Duration `help:"timeout for a single delete request" releaseDefault:"1m" devDefault:"2s"`
 }

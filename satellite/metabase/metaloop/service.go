@@ -160,9 +160,9 @@ func (observer *observerContext) Wait() error {
 
 // Config contains configurable values for the metainfo loop.
 type Config struct {
-	CoalesceDuration time.Duration `help:"how long to wait for new observers before starting iteration" releaseDefault:"5s" devDefault:"5s"`
+	CoalesceDuration time.Duration `help:"how long to wait for new observers before starting iteration" releaseDefault:"5s" devDefault:"5s" testDefault:"1s"`
 	RateLimit        float64       `help:"rate limit (default is 0 which is unlimited segments per second)" default:"0"`
-	ListLimit        int           `help:"how many items to query in a batch" default:"2500"`
+	ListLimit        int           `help:"how many items to query in a batch" default:"2500" testDefault:"10000"`
 
 	MaxAsOfSystemDuration time.Duration `help:"limits how old can AS OF SYSTEM TIME query be" releaseDefault:"5m" devDefault:"5m"`
 }

@@ -23,7 +23,7 @@ import (
 // Config contains configurable values for contact service.
 type Config struct {
 	ExternalAddress string        `user:"true" help:"the public address of the node, useful for nodes behind NAT" default:""`
-	Timeout         time.Duration `help:"timeout for pinging storage nodes" default:"10m0s"`
+	Timeout         time.Duration `help:"timeout for pinging storage nodes" default:"10m0s" testDefault:"1m"`
 
 	RateLimitInterval  time.Duration `help:"the amount of time that should happen between contact attempts usually" releaseDefault:"10m0s" devDefault:"1ns"`
 	RateLimitBurst     int           `help:"the maximum burst size for the contact rate limit token bucket" releaseDefault:"2" devDefault:"1000"`

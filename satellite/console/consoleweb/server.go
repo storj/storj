@@ -61,12 +61,12 @@ var (
 
 // Config contains configuration for console web server.
 type Config struct {
-	Address         string `help:"server address of the graphql api gateway and frontend app" devDefault:"" releaseDefault:":10100"`
+	Address         string `help:"server address of the graphql api gateway and frontend app" devDefault:"127.0.0.1:0" releaseDefault:":10100"`
 	StaticDir       string `help:"path to static resources" default:""`
 	ExternalAddress string `help:"external endpoint of the satellite if hosted" default:""`
 
 	// TODO: remove after Vanguard release
-	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:""`
+	AuthToken       string `help:"auth token needed for access to registration token creation endpoint" default:"" testDefault:"very-secret-token"`
 	AuthTokenSecret string `help:"secret used to sign auth tokens" releaseDefault:"" devDefault:"my-suppa-secret-key"`
 
 	ContactInfoURL                  string  `help:"url link to contacts page" default:"https://forum.storj.io"`

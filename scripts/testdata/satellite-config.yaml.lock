@@ -133,6 +133,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # names and addresses of partnered satellites in JSON list format
 # console.partnered-satellites: '[["US1","https://us1.storj.io"],["EU1","https://eu1.storj.io"],["AP1","https://ap1.storj.io"]]'
 
+# password hashing cost (0=automatic)
+# console.password-cost: 0
+
 # indicates if the overview onboarding step should render with pathways
 # console.pathway-overview-enabled: true
 
@@ -253,7 +256,7 @@ contact.external-address: ""
 # if true, skip the first run of GC
 # garbage-collection.skip-first: true
 
-# interval for AS OF SYSTEM TIME clause (crdb specific) to read from db at a specific time in the past 
+# interval for AS OF SYSTEM TIME clause (crdb specific) to read from db at a specific time in the past
 # graceful-exit.as-of-system-time-interval: -10s
 
 # size of the buffer used to batch inserts into the transfer queue.
@@ -626,7 +629,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # repairer.interval: 5m0s
 
 # maximum buffer memory (in bytes) to be allocated for read buffers
-# repairer.max-buffer-mem: 4.00 MB
+# repairer.max-buffer-mem: 4.0 MiB
 
 # ratio applied to the optimal threshold to calculate the excess of the maximum number of repaired pieces to upload
 # repairer.max-excess-rate-optimal-threshold: 0.05
