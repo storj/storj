@@ -14,19 +14,19 @@ import (
 type Config struct {
 	Provider                 string `help:"payments provider to use" default:""`
 	StripeCoinPayments       stripecoinpayments.Config
-	StorageTBPrice           string         `help:"price user should pay for storing TB per month" default:"4"`
-	EgressTBPrice            string         `help:"price user should pay for each TB of egress" default:"7"`
-	ObjectPrice              string         `help:"price user should pay for each object stored in network per month" default:"0"`
+	StorageTBPrice           string         `help:"price user should pay for storing TB per month" default:"4" testDefault:"10"`
+	EgressTBPrice            string         `help:"price user should pay for each TB of egress" default:"7" testDefault:"45"`
+	ObjectPrice              string         `help:"price user should pay for each object stored in network per month" default:"0" testDefault:"0.0000022"`
 	BonusRate                int64          `help:"amount of percents that user will earn as bonus credits by depositing in STORJ tokens" default:"10"`
-	CouponValue              int64          `help:"coupon value in cents" default:"165"`
-	CouponDuration           CouponDuration `help:"duration a new coupon is valid in months/billing cycles. An empty string means the coupon never expires" default:"1"`
+	CouponValue              int64          `help:"coupon value in cents" default:"165" testDefault:"275"`
+	CouponDuration           CouponDuration `help:"duration a new coupon is valid in months/billing cycles. An empty string means the coupon never expires" default:"1" testDefault:"2"`
 	CouponProjectLimit       memory.Size    `help:"project limit to which increase to after applying the coupon, 0 B means not changing it from the default" default:"0 B"`
 	MinCoinPayment           int64          `help:"minimum value of coin payments in cents before coupon is applied" default:"1000"`
 	NodeEgressBandwidthPrice int64          `help:"price node receive for storing TB of egress in cents" default:"2000"`
 	NodeRepairBandwidthPrice int64          `help:"price node receive for storing TB of repair in cents" default:"1000"`
 	NodeAuditBandwidthPrice  int64          `help:"price node receive for storing TB of audit in cents" default:"1000"`
 	NodeDiskSpacePrice       int64          `help:"price node receive for storing disk space in cents/TB" default:"150"`
-	PaywallProportion        float64        `help:"proportion of users which require a balance to create projects [0-1]" default:"0"`
+	PaywallProportion        float64        `help:"proportion of users which require a balance to create projects [0-1]" default:"0" testDefault:"1"`
 }
 
 // CouponDuration is a configuration struct that keeps details about default

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/spf13/pflag"
 	"github.com/stripe/stripe-go"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -22,6 +23,7 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/private/cfgstruct"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -100,11 +102,23 @@ type Service struct {
 	minCoinPayment int64
 }
 
+func init() {
+	var c Config
+	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &c, cfgstruct.UseTestDefaults())
+	if c.PasswordCost != TestPasswordCost {
+		panic("invalid test constant defined in struct tag")
+	}
+	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &c, cfgstruct.UseReleaseDefaults())
+	if c.PasswordCost != 0 {
+		panic("invalid release constant defined in struct tag. should be 0 (=automatic)")
+	}
+}
+
 // Config keeps track of core console service configuration parameters.
 type Config struct {
-	PasswordCost            int  `help:"password hashing cost (0=automatic)" internal:"true"`
+	PasswordCost            int  `help:"password hashing cost (0=automatic)" testDefault:"4" default:"0"`
 	OpenRegistrationEnabled bool `help:"enable open registration" default:"false"`
-	DefaultProjectLimit     int  `help:"default project limits for users" default:"3"`
+	DefaultProjectLimit     int  `help:"default project limits for users" default:"3" testDefault:"5"`
 	UsageLimits             UsageLimitsConfig
 }
 
