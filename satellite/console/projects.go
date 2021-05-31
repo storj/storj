@@ -48,8 +48,8 @@ type Projects interface {
 
 // UsageLimitsConfig is a configuration struct for default per-project usage limits.
 type UsageLimitsConfig struct {
-	DefaultStorageLimit   memory.Size `help:"the default storage usage limit" default:"50.00GB"`
-	DefaultBandwidthLimit memory.Size `help:"the default bandwidth usage limit" default:"50.00GB"`
+	DefaultStorageLimit   memory.Size `help:"the default storage usage limit" default:"50.00GB" testDefault:"25.00 GB"`
+	DefaultBandwidthLimit memory.Size `help:"the default bandwidth usage limit" default:"50.00GB" testDefault:"25.00 GB"`
 }
 
 // Project is a database object that describes Project entity.

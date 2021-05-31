@@ -8,10 +8,12 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime/pprof"
 	"strconv"
 	"time"
 
+	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -24,6 +26,7 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/private/cfgstruct"
 	"storj.io/private/debug"
 	"storj.io/private/version"
 	"storj.io/storj/private/revocation"
@@ -40,6 +43,7 @@ import (
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleweb"
@@ -385,17 +389,14 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, err
 	}
 
-	// TODO: it is a huge surprise that this doesn't use the config
-	// parsing `default` or `devDefault` struct tag values.
-	// we should use storj.io/private/cfgstruct to autopopulate default
-	// config values and then only override ones in special cases.
-	config := satellite.Config{
+	// TODO: in a future PR, remove config2 entirely.
+	config2 := satellite.Config{
 		Server: server.Config{
 			Address:        "127.0.0.1:0",
 			PrivateAddress: "127.0.0.1:0",
 
 			Config: tlsopts.Config{
-				RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocation.db"),
+				RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocations.db"),
 				UsePeerCAWhitelist:  true,
 				PeerCAWhitelistPath: planet.whitelistPath,
 				PeerIDVersions:      "latest",
@@ -620,6 +621,90 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 			TransferQueueBatchSize: 1000,
 		},
 		Metrics: metrics.Config{},
+	}
+
+	var config satellite.Config
+	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &config,
+		cfgstruct.UseTestDefaults(),
+		cfgstruct.ConfDir(storageDir),
+		cfgstruct.IdentityDir(storageDir),
+		cfgstruct.ConfigVar("TESTINTERVAL", defaultInterval.String()))
+
+	// TODO: these are almost certainly mistakenly set to the zero value
+	// in tests due to a prior mismatch between testplanet config and
+	// cfgstruct devDefaults. we need to make sure it's safe to remove
+	// these lines and then remove them.
+	config.Debug.Control = false
+	config.Overlay.Node.AsOfSystemTime.Enabled = false
+	config.Overlay.Node.AsOfSystemTime.DefaultInterval = 0
+	config.Overlay.AuditHistory.OfflineDQEnabled = false
+	config.Server.Config.Extensions.Revocation = false
+	config.Metainfo.Loop.MaxAsOfSystemDuration = 0
+	config.Orders.OrdersSemaphoreSize = 0
+	config.Checker.NodeFailureRate = 0
+	config.Audit.MaxRetriesStatDB = 0
+	config.GarbageCollection.RetainSendTimeout = 0
+	config.ExpiredDeletion.ListLimit = 0
+	config.Tally.SaveRollupBatchSize = 0
+	config.Tally.ReadRollupBatchSize = 0
+	config.Rollup.DeleteTallies = false
+	config.Payments.BonusRate = 0
+	config.Payments.MinCoinPayment = 0
+	config.Payments.NodeEgressBandwidthPrice = 0
+	config.Payments.NodeRepairBandwidthPrice = 0
+	config.Payments.NodeAuditBandwidthPrice = 0
+	config.Payments.NodeDiskSpacePrice = 0
+	config.Identity.CertPath = ""
+	config.Identity.KeyPath = ""
+	config.Metainfo.DatabaseURL = ""
+	config.Console.ContactInfoURL = ""
+	config.Console.FrameAncestors = ""
+	config.Console.LetUsKnowURL = ""
+	config.Console.SEO = ""
+	config.Console.SatelliteName = ""
+	config.Console.SatelliteOperator = ""
+	config.Console.TermsAndConditionsURL = ""
+	config.Console.PartneredSatellites = ""
+	config.Console.GeneralRequestURL = ""
+	config.Console.ProjectLimitsIncreaseRequestURL = ""
+	config.Console.GatewayCredentialsRequestURL = ""
+	config.Console.DocumentationURL = ""
+	config.Console.LinksharingURL = ""
+	config.Console.PathwayOverviewEnabled = false
+	config.GracefulExit.AsOfSystemTimeInterval = 0
+	config.Compensation.Rates.AtRestGBHours = compensation.Rate{}
+	config.Compensation.Rates.GetTB = compensation.Rate{}
+	config.Compensation.Rates.GetRepairTB = compensation.Rate{}
+	config.Compensation.Rates.GetAuditTB = compensation.Rate{}
+	config.Compensation.WithheldPercents = nil
+	config.Compensation.DisposePercent = 0
+	config.ProjectLimit.CacheCapacity = 0
+	config.ProjectLimit.CacheExpiration = 0
+	config.Metainfo.SegmentLoop.ListLimit = 0
+
+	// Actual testplanet-specific configuration
+	config.Server.Address = "127.0.0.1:0"
+	config.Server.PrivateAddress = "127.0.0.1:0"
+	config.Admin.Address = "127.0.0.1:0"
+	config.Console.Address = "127.0.0.1:0"
+	config.Server.Config.PeerCAWhitelistPath = planet.whitelistPath
+	config.Server.Config.UsePeerCAWhitelist = true
+	config.Version = planet.NewVersionConfig()
+	config.Metainfo.RS.Min = atLeastOne(planet.config.StorageNodeCount * 1 / 5)
+	config.Metainfo.RS.Repair = atLeastOne(planet.config.StorageNodeCount * 2 / 5)
+	config.Metainfo.RS.Success = atLeastOne(planet.config.StorageNodeCount * 3 / 5)
+	config.Metainfo.RS.Total = atLeastOne(planet.config.StorageNodeCount * 4 / 5)
+	config.Orders.EncryptionKeys = *encryptionKeys
+	config.LiveAccounting.StorageBackend = "redis://" + redis.Addr() + "?db=0"
+	config.Mail.TemplatePath = filepath.Join(developmentRoot, "web/satellite/static/emails")
+	config.Console.StaticDir = filepath.Join(developmentRoot, "web/satellite")
+
+	// TODO: remove the following equality check in a future PR.
+	if !deepEqual(config, config2) {
+		if err := showInequality(reflect.ValueOf(config), reflect.ValueOf(config2)); err != nil {
+			return nil, err
+		}
+		return nil, errs.New("show inequality error")
 	}
 
 	if planet.config.Reconfigure.Satellite != nil {
