@@ -13,6 +13,28 @@ type SatelliteSummary struct {
 	Earned      int64        `json:"earned"`
 }
 
+// HeldAmountHistory contains held amount history of particular satellite.
+type HeldAmountHistory struct {
+	SatelliteID storj.NodeID `json:"satelliteId"`
+	HeldAmounts []HeldAmount `json:"heldAmounts"`
+}
+
+// HeldAmount contains amount held for period.
+type HeldAmount struct {
+	Period string `json:"period"`
+	Amount int64  `json:"amount"`
+}
+
+// HeldAmountSummary contains held amount summary for first 3 quarters.
+type HeldAmountSummary struct {
+	SatelliteID   storj.NodeID  `json:"satelliteId"`
+	SatelliteURL  storj.NodeURL `json:"satelliteUrl"`
+	FirstQuarter  int64         `json:"firstQuarter"`
+	SecondQuarter int64         `json:"secondQuarter"`
+	ThirdQuarter  int64         `json:"thirdQuarter"`
+	PeriodCount   int           `json:"periodCount"`
+}
+
 // NodeSummary contains node's payout information.
 type NodeSummary struct {
 	NodeID   storj.NodeID `json:"nodeId"`
@@ -61,4 +83,5 @@ type Paystub struct {
 	Held           int64   `json:"held"`
 	Paid           int64   `json:"paid"`
 	Distributed    int64   `json:"distributed"`
+	Disposed       int64   `json:"disposed"`
 }

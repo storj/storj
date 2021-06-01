@@ -519,6 +519,7 @@ func TestSummedPaystubs(t *testing.T) {
 			Period:      "2020-01",
 			Distributed: 150,
 			Paid:        250,
+			Disposed:    100,
 		})
 		require.NoError(t, err)
 
@@ -527,6 +528,7 @@ func TestSummedPaystubs(t *testing.T) {
 			Period:      "2020-02",
 			Distributed: 250,
 			Paid:        350,
+			Disposed:    200,
 		})
 		require.NoError(t, err)
 
@@ -535,6 +537,7 @@ func TestSummedPaystubs(t *testing.T) {
 			Period:      "2020-01",
 			Distributed: 100,
 			Paid:        300,
+			Disposed:    300,
 		})
 		require.NoError(t, err)
 
@@ -543,6 +546,7 @@ func TestSummedPaystubs(t *testing.T) {
 			Period:      "2020-02",
 			Distributed: 400,
 			Paid:        500,
+			Disposed:    400,
 		})
 		require.NoError(t, err)
 
@@ -551,6 +555,7 @@ func TestSummedPaystubs(t *testing.T) {
 			require.NoError(t, err)
 			require.EqualValues(t, paystub.Distributed, 500)
 			require.EqualValues(t, paystub.Paid, 800)
+			require.EqualValues(t, paystub.Disposed, 700)
 		})
 
 		t.Run("satellites period", func(t *testing.T) {
@@ -558,6 +563,7 @@ func TestSummedPaystubs(t *testing.T) {
 			require.NoError(t, err)
 			require.EqualValues(t, paystub.Distributed, 900)
 			require.EqualValues(t, paystub.Paid, 1400)
+			require.EqualValues(t, paystub.Disposed, 1000)
 		})
 
 		t.Run("all satellites period", func(t *testing.T) {
@@ -565,6 +571,7 @@ func TestSummedPaystubs(t *testing.T) {
 			require.NoError(t, err)
 			require.EqualValues(t, paystub.Distributed, 250)
 			require.EqualValues(t, paystub.Paid, 550)
+			require.EqualValues(t, paystub.Disposed, 400)
 		})
 
 		t.Run("satellites period", func(t *testing.T) {
@@ -572,6 +579,112 @@ func TestSummedPaystubs(t *testing.T) {
 			require.NoError(t, err)
 			require.EqualValues(t, paystub.Distributed, 250)
 			require.EqualValues(t, paystub.Paid, 350)
+			require.EqualValues(t, paystub.Disposed, 200)
 		})
+	})
+}
+
+func TestDBHeldAmountHistory(t *testing.T) {
+	storagenodedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db storagenode.DB) {
+		payoutsDB := db.Payout()
+		satelliteID1 := testrand.NodeID()
+		satelliteID2 := testrand.NodeID()
+
+		paystubs := []payouts.PayStub{
+			{
+				SatelliteID: satelliteID1,
+				Period:      "2021-01",
+				Held:        10,
+			},
+			{
+				SatelliteID: satelliteID1,
+				Period:      "2021-02",
+				Held:        10,
+			},
+			{
+				SatelliteID: satelliteID1,
+				Period:      "2021-03",
+				Held:        10,
+			},
+			{
+				SatelliteID: satelliteID1,
+				Period:      "2021-04",
+				Held:        10,
+			},
+			{
+				SatelliteID: satelliteID2,
+				Period:      "2021-01",
+				Held:        0,
+			},
+			{
+				SatelliteID: satelliteID2,
+				Period:      "2021-02",
+				Held:        0,
+			},
+			{
+				SatelliteID: satelliteID2,
+				Period:      "2021-03",
+				Held:        0,
+			},
+			{
+				SatelliteID: satelliteID2,
+				Period:      "2021-04",
+				Held:        0,
+			},
+		}
+
+		expected := []payouts.HeldAmountHistory{
+			{
+				SatelliteID: satelliteID1,
+				HeldAmounts: []payouts.HeldForPeriod{
+					{
+						Period: "2021-01",
+						Amount: 10,
+					},
+					{
+						Period: "2021-02",
+						Amount: 10,
+					},
+					{
+						Period: "2021-03",
+						Amount: 10,
+					},
+					{
+						Period: "2021-04",
+						Amount: 10,
+					},
+				},
+			},
+			{
+				SatelliteID: satelliteID2,
+				HeldAmounts: []payouts.HeldForPeriod{
+					{
+						Period: "2021-01",
+						Amount: 0,
+					},
+					{
+						Period: "2021-02",
+						Amount: 0,
+					},
+					{
+						Period: "2021-03",
+						Amount: 0,
+					},
+					{
+						Period: "2021-04",
+						Amount: 0,
+					},
+				},
+			},
+		}
+
+		for _, paystub := range paystubs {
+			err := payoutsDB.StorePayStub(ctx, paystub)
+			require.NoError(t, err)
+		}
+
+		history, err := payoutsDB.HeldAmountHistory(ctx)
+		require.NoError(t, err)
+		require.ElementsMatch(t, expected, history)
 	})
 }

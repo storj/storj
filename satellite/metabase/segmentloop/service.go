@@ -1,11 +1,10 @@
-// Copyright (C) 2019 Storj Labs, Inc.
+// Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package metaloop
+package segmentloop
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -13,7 +12,6 @@ import (
 	"github.com/zeebo/errs"
 	"golang.org/x/time/rate"
 
-	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -23,40 +21,26 @@ var (
 	mon = monkit.Package()
 
 	// Error is a standard error class for this component.
-	Error = errs.Class("metainfo loop")
+	Error = errs.Class("segments loop")
 	// ErrClosed is a loop closed error.
 	ErrClosed = Error.New("loop closed")
 )
 
-// Object is the object info passed to Observer by metainfo loop.
-type Object metabase.LoopObjectEntry
+// Segment contains information about segment metadata which will be received by observers.
+type Segment metabase.LoopSegmentEntry
 
-// Expired checks if object expired relative to now.
-func (object *Object) Expired(now time.Time) bool {
-	return object.ExpiresAt != nil && object.ExpiresAt.Before(now)
+// Inline returns true if segment is inline.
+func (s Segment) Inline() bool {
+	return s.Redundancy.IsZero() && len(s.Pieces) == 0
 }
 
-// Segment is the segment info passed to Observer by metainfo loop.
-type Segment struct {
-	Location       metabase.SegmentLocation // tally, repair, graceful exit, audit
-	ExpirationDate time.Time                // tally, repair
-
-	metabase.LoopSegmentEntry
-}
-
-// Expired checks if segment is expired relative to now.
-func (segment *Segment) Expired(now time.Time) bool {
-	return !segment.ExpirationDate.IsZero() && segment.ExpirationDate.Before(now)
-}
-
-// Observer is an interface defining an observer that can subscribe to the metainfo loop.
+// Observer is an interface defining an observer that can subscribe to the segments loop.
 //
 // architecture: Observer
 type Observer interface {
-	Object(context.Context, *Object) error
+	LoopStarted(context.Context, LoopInfo) error
 	RemoteSegment(context.Context, *Segment) error
 	InlineSegment(context.Context, *Segment) error
-	LoopStarted(context.Context, LoopInfo) error
 }
 
 // LoopInfo contains information about the current loop.
@@ -65,11 +49,11 @@ type LoopInfo struct {
 }
 
 // NullObserver is an observer that does nothing. This is useful for joining
-// and ensuring the metainfo loop runs once before you use a real observer.
+// and ensuring the segments loop runs once before you use a real observer.
 type NullObserver struct{}
 
-// Object implements the Observer interface.
-func (NullObserver) Object(context.Context, *Object) error {
+// LoopStarted is called at each loop start.
+func (NullObserver) LoopStarted(context.Context, LoopInfo) error {
 	return nil
 }
 
@@ -83,11 +67,6 @@ func (NullObserver) InlineSegment(context.Context, *Segment) error {
 	return nil
 }
 
-// LoopStarted is called at each loop start.
-func (NullObserver) LoopStarted(context.Context, LoopInfo) error {
-	return nil
-}
-
 type observerContext struct {
 	trigger  bool
 	observer Observer
@@ -95,7 +74,6 @@ type observerContext struct {
 	ctx  context.Context
 	done chan error
 
-	object *monkit.DurationDist
 	remote *monkit.DurationDist
 	inline *monkit.DurationDist
 }
@@ -110,17 +88,9 @@ func newObserverContext(ctx context.Context, obs Observer) *observerContext {
 		ctx:  ctx,
 		done: make(chan error),
 
-		object: monkit.NewDurationDist(key.WithTag("pointer_type", "object")),
 		inline: monkit.NewDurationDist(key.WithTag("pointer_type", "inline")),
 		remote: monkit.NewDurationDist(key.WithTag("pointer_type", "remote")),
 	}
-}
-
-func (observer *observerContext) Object(ctx context.Context, object *Object) error {
-	start := time.Now()
-	defer func() { observer.object.Insert(time.Since(start)) }()
-
-	return observer.observer.Object(ctx, object)
 }
 
 func (observer *observerContext) RemoteSegment(ctx context.Context, segment *Segment) error {
@@ -158,26 +128,22 @@ func (observer *observerContext) Wait() error {
 	return <-observer.done
 }
 
-// Config contains configurable values for the metainfo loop.
+// Config contains configurable values for the segments loop.
 type Config struct {
 	CoalesceDuration time.Duration `help:"how long to wait for new observers before starting iteration" releaseDefault:"5s" devDefault:"5s"`
 	RateLimit        float64       `help:"rate limit (default is 0 which is unlimited segments per second)" default:"0"`
 	ListLimit        int           `help:"how many items to query in a batch" default:"2500"`
-
-	MaxAsOfSystemDuration time.Duration `help:"limits how old can AS OF SYSTEM TIME query be" releaseDefault:"5m" devDefault:"5m"`
 }
 
 // MetabaseDB contains iterators for the metabase data.
 type MetabaseDB interface {
 	// Now returns the time on the database.
 	Now(ctx context.Context) (time.Time, error)
-	// IterateLoopObjects iterates through all objects in metabase for metainfo loop purpose.
-	IterateLoopObjects(ctx context.Context, opts metabase.IterateLoopObjects, fn func(context.Context, metabase.LoopObjectsIterator) error) (err error)
 	// IterateLoopStreams iterates through all streams passed in as arguments.
-	IterateLoopStreams(ctx context.Context, opts metabase.IterateLoopStreams, handleStream func(ctx context.Context, streamID uuid.UUID, next metabase.SegmentIterator) error) (err error)
+	IterateLoopSegments(ctx context.Context, opts metabase.IterateLoopSegments, fn func(context.Context, metabase.LoopSegmentsIterator) error) (err error)
 }
 
-// Service is a metainfo loop service.
+// Service is a segments loop service.
 //
 // architecture: Service
 type Service struct {
@@ -187,7 +153,7 @@ type Service struct {
 	done       chan struct{}
 }
 
-// New creates a new metainfo loop service.
+// New creates a new segments loop service.
 func New(config Config, metabaseDB MetabaseDB) *Service {
 	return &Service{
 		metabaseDB: metabaseDB,
@@ -255,14 +221,11 @@ func (loop *Service) Close() (err error) {
 	return nil
 }
 
-// monMetainfo is to preserve the monitoring names.
-var monMetainfo = monkit.ScopeNamed("storj.io/storj/satellite/metainfo/metaloop")
-
-// RunOnce goes through metainfo one time and sends information to observers.
+// RunOnce goes through segments one time and sends information to observers.
 //
 // It is not safe to call this concurrently with Run.
 func (loop *Service) RunOnce(ctx context.Context) (err error) {
-	defer monMetainfo.Task()(&ctx)(&err) //mon:locked
+	defer mon.Task()(&ctx)(&err) //mon:locked
 
 	coalesceTimer := time.NewTimer(loop.config.CoalesceDuration)
 	defer coalesceTimer.Stop()
@@ -334,7 +297,7 @@ waitformore:
 	}
 	close(earlyExitDone)
 
-	return iterateDatabase(ctx, loop.metabaseDB, observers, loop.config.ListLimit, rate.NewLimiter(rate.Limit(loop.config.RateLimit), 1), loop.config.MaxAsOfSystemDuration)
+	return iterateDatabase(ctx, loop.metabaseDB, observers, loop.config.ListLimit, rate.NewLimiter(rate.Limit(loop.config.RateLimit), 1))
 }
 
 func stopTimer(t *time.Timer) {
@@ -352,7 +315,7 @@ func (loop *Service) Wait() {
 	<-loop.done
 }
 
-func iterateDatabase(ctx context.Context, metabaseDB MetabaseDB, observers []*observerContext, limit int, rateLimiter *rate.Limiter, maxAsOfSystemDuration time.Duration) (err error) {
+func iterateDatabase(ctx context.Context, metabaseDB MetabaseDB, observers []*observerContext, limit int, rateLimiter *rate.Limiter) (err error) {
 	defer func() {
 		if err != nil {
 			errorObservers(observers, err)
@@ -361,7 +324,7 @@ func iterateDatabase(ctx context.Context, metabaseDB MetabaseDB, observers []*ob
 		finishObservers(observers)
 	}()
 
-	observers, err = iterateObjects(ctx, metabaseDB, observers, limit, rateLimiter, maxAsOfSystemDuration)
+	observers, err = iterateSegments(ctx, metabaseDB, observers, limit, rateLimiter)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -369,7 +332,7 @@ func iterateDatabase(ctx context.Context, metabaseDB MetabaseDB, observers []*ob
 	return err
 }
 
-func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*observerContext, limit int, rateLimiter *rate.Limiter, maxAsOfSystemDuration time.Duration) (_ []*observerContext, err error) {
+func iterateSegments(ctx context.Context, metabaseDB MetabaseDB, observers []*observerContext, limit int, rateLimiter *rate.Limiter) (_ []*observerContext, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if limit <= 0 || limit > batchsizeLimit {
@@ -388,110 +351,25 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 		return !observer.HandleError(err)
 	})
 
-	currentAsOfSystemTime := startingTime
-
 	if len(observers) == 0 {
 		return observers, noObserversErr
 	}
-	// TODO we may consider keeping only expiration time as its
-	// only thing we need to handle segments
-	objectsMap := make(map[uuid.UUID]metabase.LoopObjectEntry)
-	ids := make([]uuid.UUID, 0, limit)
 
-	var objectsProcessed, segmentsProcessed int64
+	var segmentsProcessed int64
 
-	processBatch := func(ctx context.Context) (err error) {
-		defer mon.TaskNamed("processBatch")(&ctx)(&err)
+	err = metabaseDB.IterateLoopSegments(ctx, metabase.IterateLoopSegments{
+		BatchSize:      limit,
+		AsOfSystemTime: startingTime,
+	}, func(ctx context.Context, iterator metabase.LoopSegmentsIterator) error {
+		defer mon.TaskNamed("iterateLoopSegmentsCB")(&ctx)(&err)
 
-		if len(objectsMap) == 0 {
-			return nil
-		}
-
-		if time.Since(currentAsOfSystemTime) > maxAsOfSystemDuration {
-			currentAsOfSystemTime = time.Now().Add(-maxAsOfSystemDuration)
-		}
-
-		err = metabaseDB.IterateLoopStreams(ctx, metabase.IterateLoopStreams{
-			StreamIDs:      ids,
-			AsOfSystemTime: currentAsOfSystemTime,
-		}, func(ctx context.Context, streamID uuid.UUID, next metabase.SegmentIterator) (err error) {
-			defer mon.TaskNamed("iterateLoopStreamsCB")(&ctx, "objs", objectsProcessed, "segs", segmentsProcessed)(&err)
-
+		var entry metabase.LoopSegmentEntry
+		for iterator.Next(ctx, &entry) {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
 
-			obj, ok := objectsMap[streamID]
-			if !ok {
-				return Error.New("unable to find corresponding object: %v", streamID)
-			}
-			delete(objectsMap, streamID)
-
-			observers = withObservers(ctx, observers, func(ctx context.Context, observer *observerContext) bool {
-				object := Object(obj)
-				return !observer.HandleError(handleObject(ctx, observer, &object))
-			})
-			if len(observers) == 0 {
-				return noObserversErr
-			}
-
-			objectsProcessed++
-			monMetainfo.IntVal("objectsProcessed").Observe(objectsProcessed) //mon:locked
-
-			for {
-				// if context has been canceled exit. Otherwise, continue
-				if err := ctx.Err(); err != nil {
-					return err
-				}
-
-				var segment metabase.LoopSegmentEntry
-				if !next(&segment) {
-					break
-				}
-
-				location := metabase.SegmentLocation{
-					ProjectID:  obj.ProjectID,
-					BucketName: obj.BucketName,
-					ObjectKey:  obj.ObjectKey,
-					Position:   segment.Position,
-				}
-
-				observers = withObservers(ctx, observers, func(ctx context.Context, observer *observerContext) bool {
-					return !observer.HandleError(handleSegment(ctx, observer, location, segment, obj.ExpiresAt))
-				})
-				if len(observers) == 0 {
-					return noObserversErr
-				}
-
-				segmentsProcessed++
-				monMetainfo.IntVal("segmentsProcessed").Observe(segmentsProcessed) //mon:locked
-
-			}
-
-			return nil
-		})
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		if len(objectsMap) > 0 {
-			return Error.New("unhandled objects %#v", objectsMap)
-		}
-
-		return nil
-	}
-
-	var objectsIterated int64
-
-	segmentsInBatch := int32(0)
-	err = metabaseDB.IterateLoopObjects(ctx, metabase.IterateLoopObjects{
-		BatchSize:      limit,
-		AsOfSystemTime: startingTime,
-	}, func(ctx context.Context, it metabase.LoopObjectsIterator) (err error) {
-		defer mon.TaskNamed("iterateLoopObjectsCB")(&ctx)(&err)
-		var entry metabase.LoopObjectEntry
-		for it.Next(ctx, &entry) {
-			timer := mon.Timer("iterateLoopObjectsRateLimit").Start()
+			timer := mon.Timer("iterateLoopSegmentsRateLimit").Start()
 			if err := rateLimiter.Wait(ctx); err != nil {
 				// We don't really execute concurrent batches so we should never
 				// exceed the burst size of 1 and this should never happen.
@@ -501,37 +379,18 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 			}
 			timer.Stop()
 
-			monMetainfo.IntVal("objectsIterated").Observe(objectsIterated) //mon:locked
-			objectsProcessed++
-
-			objectsMap[entry.StreamID] = entry
-			ids = append(ids, entry.StreamID)
-
-			// add +1 to reduce risk of crossing limit
-			segmentsInBatch += entry.SegmentCount + 1
-
-			if segmentsInBatch >= int32(limit) {
-				err := processBatch(ctx)
-				if err != nil {
-					if errors.Is(err, noObserversErr) {
-						return nil
-					}
-					return err
-				}
-
-				if len(objectsMap) > 0 {
-					return errs.New("objects map is not empty")
-				}
-
-				ids = ids[:0]
-				segmentsInBatch = 0
+			observers = withObservers(ctx, observers, func(ctx context.Context, observer *observerContext) bool {
+				segment := Segment(entry)
+				return !observer.HandleError(handleSegment(ctx, observer, &segment))
+			})
+			if len(observers) == 0 {
+				return noObserversErr
 			}
+
+			segmentsProcessed++
+			mon.IntVal("segmentsProcessed").Observe(segmentsProcessed) //mon:locked
 		}
-		err = processBatch(ctx)
-		if errors.Is(err, noObserversErr) {
-			return nil
-		}
-		return err
+		return nil
 	})
 
 	return observers, err
@@ -549,34 +408,15 @@ func withObservers(ctx context.Context, observers []*observerContext, handleObse
 	return nextObservers
 }
 
-func handleObject(ctx context.Context, observer *observerContext, object *Object) (err error) {
+func handleSegment(ctx context.Context, observer *observerContext, segment *Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := observer.Object(ctx, object); err != nil {
-		return err
-	}
-
-	return observer.ctx.Err()
-}
-
-func handleSegment(ctx context.Context, observer *observerContext, location metabase.SegmentLocation, segment metabase.LoopSegmentEntry, expirationDate *time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	loopSegment := &Segment{
-		Location:         location,
-		LoopSegmentEntry: segment,
-	}
-
-	if expirationDate != nil {
-		loopSegment.ExpirationDate = *expirationDate
-	}
-
-	if loopSegment.Inline() {
-		if err := observer.InlineSegment(ctx, loopSegment); err != nil {
+	if segment.Inline() {
+		if err := observer.InlineSegment(ctx, segment); err != nil {
 			return err
 		}
 	} else {
-		if err := observer.RemoteSegment(ctx, loopSegment); err != nil {
+		if err := observer.RemoteSegment(ctx, segment); err != nil {
 			return err
 		}
 	}

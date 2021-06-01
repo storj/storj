@@ -146,6 +146,9 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], bucket.BucketName, filePath, expectedData)
 				require.NoError(t, err)
 
+				projectUsage.SetNow(func() time.Time {
+					return now
+				})
 				actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, bucket.ProjectID)
 				require.NoError(t, err)
 				require.Equal(t, testCase.expectedExceeded, actualExceeded)

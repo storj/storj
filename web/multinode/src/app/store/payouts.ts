@@ -5,7 +5,7 @@ import { ActionContext, ActionTree, GetterTree, Module, MutationTree } from 'vue
 
 import { RootState } from '@/app/store/index';
 import { monthNames } from '@/app/types/date';
-import { PayoutsSummary } from '@/payouts';
+import { Expectations, PayoutsSummary } from '@/payouts';
 import { Payouts } from '@/payouts/service';
 
 /**
@@ -14,6 +14,8 @@ import { Payouts } from '@/payouts/service';
 export class PayoutsState {
     public summary: PayoutsSummary = new PayoutsSummary();
     public selectedPayoutPeriod: string | null = null;
+    public selectedNodeExpectations: Expectations = new Expectations();
+    public totalExpectations: Expectations = new Expectations();
 }
 
 /**
@@ -36,9 +38,12 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
         this.mutations = {
             setSummary: this.setSummary,
             setPayoutPeriod: this.setPayoutPeriod,
+            setCurrentNodeExpectations: this.setCurrentNodeExpectations,
+            setTotalExpectation: this.setTotalExpectation,
         };
         this.actions = {
             summary: this.summary.bind(this),
+            expectations: this.expectations.bind(this),
         };
         this.getters = {
             periodString: this.periodString,
@@ -47,7 +52,7 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
 
     // Mutations
     /**
-     * populate mutation will set payouts state.
+     * setSummary mutation will set payouts summary state.
      * @param state - state of the module.
      * @param summary - payouts summary information depends on selected time and satellite.
      */
@@ -64,6 +69,24 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
         state.selectedPayoutPeriod = period;
     }
 
+    /**
+     * setCurrentNodeExpectations mutation will set payouts expectation for selected node.
+     * @param state - state of the module.
+     * @param expectations - payouts summary information depends on selected time and satellite.
+     */
+    public setCurrentNodeExpectations(state: PayoutsState, expectations: Expectations): void {
+        state.selectedNodeExpectations = expectations;
+    }
+
+    /**
+     * setTotalExpectation mutation will set total payouts expectation for all nodes.
+     * @param state - state of the module.
+     * @param expectations - payouts summary information depends on selected time and satellite.
+     */
+    public setTotalExpectation(state: PayoutsState, expectations: Expectations): void {
+        state.totalExpectations = expectations;
+    }
+
     // Actions
     /**
      * summary action loads payouts summary information.
@@ -75,6 +98,17 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
         const summary = await this.payouts.summary(selectedSatelliteId, ctx.state.selectedPayoutPeriod);
 
         ctx.commit('setSummary', summary);
+    }
+
+    /**
+     * expectations action loads payouts total or by node payout expectation information.
+     * @param ctx - context of the Vuex action.
+     * @param nodeId - node id.
+     */
+    public async expectations(ctx: ActionContext<PayoutsState, RootState>, nodeId: string | null): Promise<void> {
+        const expectations = await this.payouts.expectations(nodeId);
+
+        ctx.commit(`${nodeId ? 'setCurrentNodeExpectations' : 'setTotalExpectation'}`, expectations);
     }
 
     // Getters

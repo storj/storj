@@ -17,7 +17,13 @@ read one (
     select node
     where node.id = ?
 )
+read count (
+    select node
+)
 read all(
+    select node
+)
+read limitoffset (
     select node
 )
 update node (

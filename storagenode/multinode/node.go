@@ -13,10 +13,12 @@ import (
 	"storj.io/storj/private/multinodepb"
 	"storj.io/storj/storagenode/apikeys"
 	"storj.io/storj/storagenode/contact"
+	"storj.io/storj/storagenode/operator"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/trust"
 )
 
+// ensures that NodeEndpoint implements multinodepb.DRPCNodeServer.
 var _ multinodepb.DRPCNodeServer = (*NodeEndpoint)(nil)
 
 // NodeEndpoint implements multinode node endpoint.
@@ -24,6 +26,8 @@ var _ multinodepb.DRPCNodeServer = (*NodeEndpoint)(nil)
 // architecture: Endpoint
 type NodeEndpoint struct {
 	multinodepb.DRPCNodeUnimplementedServer
+
+	config operator.Config
 
 	log        *zap.Logger
 	apiKeys    *apikeys.Service
@@ -34,9 +38,10 @@ type NodeEndpoint struct {
 }
 
 // NewNodeEndpoint creates new multinode node endpoint.
-func NewNodeEndpoint(log *zap.Logger, apiKeys *apikeys.Service, version version.Info, contact *contact.PingStats, reputation reputation.DB, trust *trust.Pool) *NodeEndpoint {
+func NewNodeEndpoint(log *zap.Logger, config operator.Config, apiKeys *apikeys.Service, version version.Info, contact *contact.PingStats, reputation reputation.DB, trust *trust.Pool) *NodeEndpoint {
 	return &NodeEndpoint{
 		log:        log,
+		config:     config,
 		apiKeys:    apiKeys,
 		version:    version,
 		contact:    contact,
@@ -119,4 +124,17 @@ func (node *NodeEndpoint) TrustedSatellites(ctx context.Context, req *multinodep
 	}
 
 	return response, nil
+}
+
+// Operator returns operators data.
+func (node *NodeEndpoint) Operator(ctx context.Context, req *multinodepb.OperatorRequest) (_ *multinodepb.OperatorResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if err = authenticate(ctx, node.apiKeys, req.GetHeader()); err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.Unauthenticated, err)
+	}
+	return &multinodepb.OperatorResponse{
+		Email:          node.config.Email,
+		Wallet:         node.config.Wallet,
+		WalletFeatures: node.config.WalletFeatures,
+	}, nil
 }
