@@ -252,6 +252,7 @@ func (payout *PayoutEndpoint) PaystubSatellite(ctx context.Context, req *multino
 		Held:           paystub.Held,
 		Paid:           paystub.Paid,
 		Distributed:    paystub.Distributed,
+		Disposed:       paystub.Disposed,
 	}}, nil
 }
 
@@ -280,6 +281,7 @@ func (payout *PayoutEndpoint) Paystub(ctx context.Context, req *multinodepb.Pays
 		Held:           paystub.Held,
 		Paid:           paystub.Paid,
 		Distributed:    paystub.Distributed,
+		Disposed:       paystub.Disposed,
 	}}, nil
 }
 
@@ -308,6 +310,7 @@ func (payout *PayoutEndpoint) PaystubPeriod(ctx context.Context, req *multinodep
 		Held:           paystub.Held,
 		Paid:           paystub.Paid,
 		Distributed:    paystub.Distributed,
+		Disposed:       paystub.Disposed,
 	}}, nil
 }
 
@@ -336,6 +339,7 @@ func (payout *PayoutEndpoint) PaystubPeriodSatellite(ctx context.Context, req *m
 		Held:           paystub.Held,
 		Paid:           paystub.Paid,
 		Distributed:    paystub.Distributed,
+		Disposed:       paystub.Disposed,
 	}}, nil
 }
 

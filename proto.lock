@@ -733,6 +733,37 @@
             ]
           },
           {
+            "name": "OperatorRequest",
+            "fields": [
+              {
+                "id": 1,
+                "name": "header",
+                "type": "RequestHeader"
+              }
+            ]
+          },
+          {
+            "name": "OperatorResponse",
+            "fields": [
+              {
+                "id": 1,
+                "name": "email",
+                "type": "string"
+              },
+              {
+                "id": 2,
+                "name": "wallet",
+                "type": "string"
+              },
+              {
+                "id": 3,
+                "name": "wallet_features",
+                "type": "string",
+                "is_repeated": true
+              }
+            ]
+          },
+          {
             "name": "EstimatedPayoutSatelliteRequest",
             "fields": [
               {
@@ -1132,58 +1163,63 @@
             "name": "Paystub",
             "fields": [
               {
-                "id": 5,
+                "id": 1,
                 "name": "usage_at_rest",
                 "type": "double"
               },
               {
-                "id": 6,
+                "id": 2,
                 "name": "usage_get",
                 "type": "int64"
               },
               {
-                "id": 8,
+                "id": 3,
                 "name": "usage_get_repair",
                 "type": "int64"
               },
               {
-                "id": 10,
+                "id": 4,
                 "name": "usage_get_audit",
                 "type": "int64"
               },
               {
-                "id": 11,
+                "id": 5,
                 "name": "comp_at_rest",
                 "type": "int64"
               },
               {
-                "id": 12,
+                "id": 6,
                 "name": "comp_get",
                 "type": "int64"
               },
               {
-                "id": 14,
+                "id": 7,
                 "name": "comp_get_repair",
                 "type": "int64"
               },
               {
-                "id": 16,
+                "id": 8,
                 "name": "comp_get_audit",
                 "type": "int64"
               },
               {
-                "id": 18,
+                "id": 9,
                 "name": "held",
                 "type": "int64"
               },
               {
-                "id": 21,
+                "id": 10,
                 "name": "paid",
                 "type": "int64"
               },
               {
-                "id": 22,
+                "id": 11,
                 "name": "distributed",
+                "type": "int64"
+              },
+              {
+                "id": 12,
+                "name": "disposed",
                 "type": "int64"
               }
             ]
@@ -1296,6 +1332,11 @@
                 "name": "TrustedSatellites",
                 "in_type": "TrustedSatellitesRequest",
                 "out_type": "TrustedSatellitesResponse"
+              },
+              {
+                "name": "Operator",
+                "in_type": "OperatorRequest",
+                "out_type": "OperatorResponse"
               }
             ]
           },

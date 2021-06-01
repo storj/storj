@@ -83,4 +83,5 @@ type Paystub struct {
 	Held           int64   `json:"held"`
 	Paid           int64   `json:"paid"`
 	Distributed    int64   `json:"distributed"`
+	Disposed       int64   `json:"disposed"`
 }

@@ -244,17 +244,18 @@ message PayoutInfo {
 }
 
 message Paystub {
-  double  usage_at_rest = 5;
-  int64   usage_get = 6;
-  int64   usage_get_repair = 8;
-  int64   usage_get_audit = 10;
-  int64   comp_at_rest = 11;
-  int64   comp_get = 12;
-  int64   comp_get_repair = 14;
-  int64   comp_get_audit = 16;
-  int64   held = 18;
-  int64   paid = 21;
-  int64   distributed = 22;
+  double  usage_at_rest = 1;
+  int64   usage_get = 2;
+  int64   usage_get_repair = 3;
+  int64   usage_get_audit = 4;
+  int64   comp_at_rest = 5;
+  int64   comp_get = 6;
+  int64   comp_get_repair = 7;
+  int64   comp_get_audit = 8;
+  int64   held = 9;
+  int64   paid = 10;
+  int64   distributed = 11;
+  int64   disposed = 12;
 }
 
 message HeldAmountHistoryRequest {
