@@ -11,7 +11,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
@@ -165,15 +164,6 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 		}
 	}
 
-	// Fetch when the last tally happened so we can roughly calculate the byte-hours.
-	lastTime, err := service.storagenodeAccountingDB.LastTimestamp(ctx, accounting.LastAtRestTally)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	if lastTime.IsZero() {
-		lastTime = service.nowFn()
-	}
-
 	// add up all nodes and buckets
 	observer := NewObserver(service.log.Named("observer"), service.nowFn())
 	err = service.metainfoLoop.Join(ctx, observer)
@@ -182,29 +172,13 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	}
 	finishTime := service.nowFn()
 
-	// calculate byte hours, not just bytes
-	hours := time.Since(lastTime).Hours()
-	var totalSum float64
-	for id, pieceSize := range observer.Node {
-		totalSum += pieceSize
-		observer.Node[id] = pieceSize * hours
-	}
-	mon.IntVal("nodetallies.totalsum").Observe(int64(totalSum)) //mon:locked
-
 	// save the new results
-	var errAtRest, errBucketInfo error
-	if len(observer.Node) > 0 {
-		err = service.storagenodeAccountingDB.SaveTallies(ctx, finishTime, observer.Node)
-		if err != nil {
-			errAtRest = errs.New("StorageNodeAccounting.SaveTallies failed: %v", err)
-		}
-	}
-
+	var errAtRest error
 	if len(observer.Bucket) > 0 {
 		// record bucket tallies to DB
 		err = service.projectAccountingDB.SaveTallies(ctx, finishTime, observer.Bucket)
 		if err != nil {
-			errAtRest = errs.New("ProjectAccounting.SaveTallies failed: %v", err)
+			errAtRest = Error.New("ProjectAccounting.SaveTallies failed: %v", err)
 		}
 
 		updateLiveAccountingTotals(projectTotalsFromBuckets(observer.Bucket))
@@ -236,7 +210,7 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 	}
 
 	// return errors if something went wrong.
-	return errs.Combine(errAtRest, errBucketInfo)
+	return errAtRest
 }
 
 var _ metaloop.Observer = (*Observer)(nil)
@@ -245,7 +219,6 @@ var _ metaloop.Observer = (*Observer)(nil)
 type Observer struct {
 	Now    time.Time
 	Log    *zap.Logger
-	Node   map[storj.NodeID]float64
 	Bucket map[metabase.BucketLocation]*accounting.BucketTally
 }
 
@@ -255,7 +228,6 @@ func NewObserver(log *zap.Logger, now time.Time) *Observer {
 	return &Observer{
 		Now:    now,
 		Log:    log,
-		Node:   make(map[storj.NodeID]float64),
 		Bucket: make(map[metabase.BucketLocation]*accounting.BucketTally),
 	}
 }
@@ -319,20 +291,6 @@ func (observer *Observer) RemoteSegment(ctx context.Context, segment *metaloop.S
 	bucket := observer.ensureBucket(ctx, segment.Location.Object())
 	bucket.RemoteSegments++
 	bucket.RemoteBytes += int64(segment.EncryptedSize)
-
-	// add node info
-	minimumRequired := segment.Redundancy.RequiredShares
-
-	if minimumRequired <= 0 {
-		observer.Log.Error("failed sanity check", zap.ByteString("key", segment.Location.Encode()))
-		return nil
-	}
-
-	pieceSize := float64(segment.EncryptedSize / int32(minimumRequired)) // TODO: Add this as a method to RedundancyScheme
-
-	for _, piece := range segment.Pieces {
-		observer.Node[piece.StorageNode] += pieceSize
-	}
 
 	return nil
 }

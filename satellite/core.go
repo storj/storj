@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/private/lifecycle"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/accounting/nodetally"
 	"storj.io/storj/satellite/accounting/projectbwcleanup"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/rolluparchive"
@@ -106,6 +107,7 @@ type Core struct {
 
 	Accounting struct {
 		Tally                 *tally.Service
+		NodeTally             *nodetally.Service
 		Rollup                *rollup.Service
 		RollupArchiveChore    *rolluparchive.Chore
 		ProjectBWCleanupChore *projectbwcleanup.Chore
@@ -363,6 +365,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Accounting Tally", peer.Accounting.Tally.Loop))
+
+		// storage nodes tally
+		peer.Accounting.NodeTally = nodetally.New(peer.Log.Named("accounting:nodetally"), peer.DB.StoragenodeAccounting(), peer.Metainfo.SegmentLoop, config.Tally.Interval)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "accounting:nodetally",
+			Run:   peer.Accounting.NodeTally.Run,
+			Close: peer.Accounting.NodeTally.Close,
+		})
 
 		// Lets add 1 more day so we catch any off by one errors when deleting tallies
 		orderExpirationPlusDay := config.Orders.Expiration + config.Rollup.Interval
