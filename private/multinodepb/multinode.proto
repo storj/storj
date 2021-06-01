@@ -47,6 +47,7 @@ service Node {
   rpc LastContact(LastContactRequest) returns (LastContactResponse);
   rpc Reputation(ReputationRequest) returns (ReputationResponse);
   rpc TrustedSatellites(TrustedSatellitesRequest) returns (TrustedSatellitesResponse);
+  rpc Operator(OperatorRequest) returns (OperatorResponse);
 }
 
 message VersionRequest {
@@ -94,6 +95,15 @@ message TrustedSatellitesResponse {
   }
 
   repeated NodeURL trusted_satellites = 1;
+}
+
+message OperatorRequest {
+  RequestHeader header = 1;
+}
+message OperatorResponse {
+  string email = 1;
+  string wallet = 2;
+  repeated string wallet_features = 3;
 }
 
 service Payouts {
