@@ -80,7 +80,7 @@ func TestNodesDB(t *testing.T) {
 				Page:  1,
 			})
 			assert.NoError(t, err)
-			assert.Equal(t, page.TotalCount, uint64(nodesAmount))
+			assert.Equal(t, page.TotalCount, int64(nodesAmount))
 			assert.Equal(t, 2, len(page.Nodes))
 			assert.Equal(t, 0, bytes.Compare(nodeList[0].ID.Bytes(), page.Nodes[0].ID.Bytes()))
 			assert.Equal(t, 0, bytes.Compare(nodeList[1].ID.Bytes(), page.Nodes[1].ID.Bytes()))
@@ -89,7 +89,7 @@ func TestNodesDB(t *testing.T) {
 				Page:  2,
 			})
 			assert.NoError(t, err)
-			assert.Equal(t, page.TotalCount, uint64(nodesAmount))
+			assert.Equal(t, page.TotalCount, int64(nodesAmount))
 			assert.Equal(t, 2, len(page.Nodes))
 			assert.Equal(t, 0, bytes.Compare(nodeList[2].ID.Bytes(), page.Nodes[0].ID.Bytes()))
 			assert.Equal(t, 0, bytes.Compare(nodeList[3].ID.Bytes(), page.Nodes[1].ID.Bytes()))
@@ -98,7 +98,7 @@ func TestNodesDB(t *testing.T) {
 				Page:  3,
 			})
 			assert.NoError(t, err)
-			assert.Equal(t, page.TotalCount, uint64(nodesAmount))
+			assert.Equal(t, page.TotalCount, int64(nodesAmount))
 			assert.Equal(t, 2, len(page.Nodes))
 			assert.Equal(t, 0, bytes.Compare(nodeList[4].ID.Bytes(), page.Nodes[0].ID.Bytes()))
 			assert.Equal(t, 0, bytes.Compare(nodeList[5].ID.Bytes(), page.Nodes[1].ID.Bytes()))
@@ -107,7 +107,7 @@ func TestNodesDB(t *testing.T) {
 				Page:  4,
 			})
 			assert.NoError(t, err)
-			assert.Equal(t, page.TotalCount, uint64(nodesAmount))
+			assert.Equal(t, page.TotalCount, int64(nodesAmount))
 			assert.Equal(t, 2, len(page.Nodes))
 			assert.Equal(t, 0, bytes.Compare(nodeList[6].ID.Bytes(), page.Nodes[0].ID.Bytes()))
 			assert.Equal(t, 0, bytes.Compare(nodeList[7].ID.Bytes(), page.Nodes[1].ID.Bytes()))
@@ -116,7 +116,7 @@ func TestNodesDB(t *testing.T) {
 				Page:  5,
 			})
 			assert.NoError(t, err)
-			assert.Equal(t, page.TotalCount, uint64(nodesAmount))
+			assert.Equal(t, page.TotalCount, int64(nodesAmount))
 			assert.Equal(t, 2, len(page.Nodes))
 			assert.Equal(t, 0, bytes.Compare(nodeList[8].ID.Bytes(), page.Nodes[0].ID.Bytes()))
 			assert.Equal(t, 0, bytes.Compare(nodeList[9].ID.Bytes(), page.Nodes[1].ID.Bytes()))

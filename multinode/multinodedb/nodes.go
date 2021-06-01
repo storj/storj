@@ -65,12 +65,12 @@ func (n *nodesdb) ListPaged(ctx context.Context, cursor nodes.Cursor) (page node
 	if err != nil {
 		return nodes.Page{}, ErrNodesDB.Wrap(err)
 	}
-	page.TotalCount = uint64(totalCount)
+	page.TotalCount = totalCount
 	page.PageCount = page.TotalCount / cursor.Limit
 	if page.TotalCount%cursor.Limit != 0 {
 		page.PageCount++
 	}
-	dbxNodes, err := n.methods.Limited_Node(ctx, int(page.Limit), int64(page.Offset))
+	dbxNodes, err := n.methods.Limited_Node(ctx, int(page.Limit), page.Offset)
 	if err != nil {
 		return nodes.Page{}, ErrNodesDB.Wrap(err)
 	}

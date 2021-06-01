@@ -71,16 +71,16 @@ type NodeInfoSatellite struct {
 
 // Cursor holds cursor entity which is used to create listed page.
 type Cursor struct {
-	Limit uint64
-	Page  uint64
+	Limit int64
+	Page  int64
 }
 
 // Page holds nodes page entity which is used to show listed page of nodes.
 type Page struct {
 	Nodes       []Node
-	Limit       uint64
-	Offset      uint64
-	PageCount   uint64
-	CurrentPage uint64
-	TotalCount  uint64
+	Limit       int64
+	Offset      int64
+	PageCount   int64
+	CurrentPage int64
+	TotalCount  int64
 }
