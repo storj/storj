@@ -21,6 +21,8 @@ type DB interface {
 	// List returns all connected nodes.
 	List(ctx context.Context) ([]Node, error)
 	// ListPaged returns paginated nodes list.
+	// TODO: rename to ListPaginated, because pagination is to divide up copy into pages,
+	// because paging doesn't necessarily mean pagination in computing.
 	ListPaged(ctx context.Context, cursor Cursor) (page Page, err error)
 	// Add creates new node in NodesDB.
 	// TODO: pass Node entity instead of set of a parameters.

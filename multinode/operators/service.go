@@ -43,8 +43,8 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, nodes nodes.DB) *Service {
 	}
 }
 
-// ListOperatorsPaginated returns paginated list of operators.
-func (service *Service) ListOperatorsPaginated(ctx context.Context, cursor Cursor) (_ Page, err error) {
+// ListPaginated returns paginated list of operators.
+func (service *Service) ListPaginated(ctx context.Context, cursor Cursor) (_ Page, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if cursor.Limit > MaxOperatorsOnPage {
 		cursor.Limit = MaxOperatorsOnPage

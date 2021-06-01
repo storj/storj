@@ -17,6 +17,7 @@ import (
 
 	"storj.io/storj/multinode/console/controllers"
 	"storj.io/storj/multinode/nodes"
+	"storj.io/storj/multinode/operators"
 	"storj.io/storj/multinode/payouts"
 )
 
@@ -37,9 +38,10 @@ type Config struct {
 type Server struct {
 	log *zap.Logger
 
-	config  Config
-	nodes   *nodes.Service
-	payouts *payouts.Service
+	config    Config
+	nodes     *nodes.Service
+	payouts   *payouts.Service
+	operators *operators.Service
 
 	listener net.Listener
 	http     http.Server
@@ -48,13 +50,14 @@ type Server struct {
 }
 
 // NewServer returns new instance of Multinode Dashboard http server.
-func NewServer(log *zap.Logger, config Config, nodes *nodes.Service, payouts *payouts.Service, listener net.Listener) (*Server, error) {
+func NewServer(log *zap.Logger, config Config, nodes *nodes.Service, payouts *payouts.Service, operators *operators.Service, listener net.Listener) (*Server, error) {
 	server := Server{
-		log:      log,
-		config:   config,
-		nodes:    nodes,
-		listener: listener,
-		payouts:  payouts,
+		log:       log,
+		config:    config,
+		nodes:     nodes,
+		operators: operators,
+		payouts:   payouts,
+		listener:  listener,
 	}
 
 	router := mux.NewRouter()
@@ -72,6 +75,10 @@ func NewServer(log *zap.Logger, config Config, nodes *nodes.Service, payouts *pa
 	nodesRouter.HandleFunc("/{id}", nodesController.Get).Methods(http.MethodGet)
 	nodesRouter.HandleFunc("/{id}", nodesController.UpdateName).Methods(http.MethodPatch)
 	nodesRouter.HandleFunc("/{id}", nodesController.Delete).Methods(http.MethodDelete)
+
+	operatorsController := controllers.NewOperators(server.log, server.operators)
+	operatorsRouter := apiRouter.PathPrefix("/operators").Subrouter()
+	operatorsRouter.HandleFunc("", operatorsController.ListPaginated).Methods(http.MethodGet)
 
 	payoutsController := controllers.NewPayouts(server.log, server.payouts)
 	payoutsRouter := apiRouter.PathPrefix("/payouts").Subrouter()
