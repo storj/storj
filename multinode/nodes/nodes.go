@@ -20,7 +20,10 @@ type DB interface {
 	Get(ctx context.Context, id storj.NodeID) (Node, error)
 	// List returns all connected nodes.
 	List(ctx context.Context) ([]Node, error)
+	// ListPaged returns paginated nodes list.
+	ListPaged(ctx context.Context, cursor Cursor) (page Page, err error)
 	// Add creates new node in NodesDB.
+	// TODO: pass Node entity instead of set of a parameters.
 	Add(ctx context.Context, id storj.NodeID, apiSecret []byte, publicAddress string) error
 	// Remove removed node from NodesDB.
 	Remove(ctx context.Context, id storj.NodeID) error
@@ -62,4 +65,22 @@ type NodeInfoSatellite struct {
 	AuditScore      float64      `json:"auditScore"`
 	SuspensionScore float64      `json:"suspensionScore"`
 	TotalEarned     int64        `json:"totalEarned"`
+}
+
+// TODO: separate common types and logic from nodes and operators and place it in private/pkg.
+
+// Cursor holds cursor entity which is used to create listed page.
+type Cursor struct {
+	Limit uint64
+	Page  uint64
+}
+
+// Page holds nodes page entity which is used to show listed page of nodes.
+type Page struct {
+	Nodes       []Node
+	Limit       uint64
+	Offset      uint64
+	PageCount   uint64
+	CurrentPage uint64
+	TotalCount  uint64
 }
