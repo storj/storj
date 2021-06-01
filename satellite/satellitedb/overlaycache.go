@@ -1262,11 +1262,6 @@ func buildUpdateStatement(update updateNodeStats, isUp bool) string {
 
 	sql += fmt.Sprintf(" WHERE nodes.id = decode('%v', 'hex');\n", hexNodeID)
 
-	// only remove from containment if node is online
-	if isUp {
-		sql += fmt.Sprintf("DELETE FROM pending_audits WHERE pending_audits.node_id = decode('%v', 'hex');\n", hexNodeID)
-	}
-
 	return sql
 }
 
