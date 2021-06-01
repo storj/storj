@@ -8,10 +8,8 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime/pprof"
 	"strconv"
-	"time"
 
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
@@ -20,20 +18,15 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/identity"
-	"storj.io/common/memory"
-	"storj.io/common/peertls/extensions"
-	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/private/cfgstruct"
-	"storj.io/private/debug"
 	"storj.io/private/version"
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/private/server"
 	"storj.io/storj/private/testredis"
 	versionchecker "storj.io/storj/private/version/checker"
-	"storj.io/storj/private/web"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
@@ -41,7 +34,6 @@ import (
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/rolluparchive"
 	"storj.io/storj/satellite/accounting/tally"
-	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
@@ -57,14 +49,11 @@ import (
 	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
-	"storj.io/storj/satellite/metainfo/piecedeletion"
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodestats"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/overlay/straynodes"
-	"storj.io/storj/satellite/payments/paymentsconfig"
-	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/repairer"
@@ -389,240 +378,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, err
 	}
 
-	// TODO: in a future PR, remove config2 entirely.
-	config2 := satellite.Config{
-		Server: server.Config{
-			Address:        "127.0.0.1:0",
-			PrivateAddress: "127.0.0.1:0",
-
-			Config: tlsopts.Config{
-				RevocationDBURL:     "bolt://" + filepath.Join(storageDir, "revocations.db"),
-				UsePeerCAWhitelist:  true,
-				PeerCAWhitelistPath: planet.whitelistPath,
-				PeerIDVersions:      "latest",
-				Extensions: extensions.Config{
-					Revocation:          false,
-					WhitelistSignedLeaf: false,
-				},
-			},
-		},
-		Debug: debug.Config{
-			Address: "",
-		},
-		Admin: admin.Config{
-			Address: "127.0.0.1:0",
-		},
-		Contact: contact.Config{
-			Timeout:            1 * time.Minute,
-			RateLimitInterval:  time.Nanosecond,
-			RateLimitBurst:     1000,
-			RateLimitCacheSize: 1000,
-		},
-		Overlay: overlay.Config{
-			Node: overlay.NodeSelectionConfig{
-				AuditCount:       0,
-				NewNodeFraction:  1,
-				OnlineWindow:     time.Minute,
-				DistinctIP:       false,
-				MinimumDiskSpace: 100 * memory.MB,
-
-				AuditReputationRepairWeight: 1,
-				AuditReputationUplinkWeight: 1,
-				AuditReputationLambda:       0.95,
-				AuditReputationWeight:       1,
-				AuditReputationDQ:           0.6,
-				SuspensionGracePeriod:       time.Hour,
-				SuspensionDQEnabled:         true,
-			},
-			NodeSelectionCache: overlay.UploadSelectionCacheConfig{
-				Staleness: 3 * time.Minute,
-			},
-			UpdateStatsBatchSize: 100,
-			AuditHistory: overlay.AuditHistoryConfig{
-				WindowSize:               10 * time.Minute,
-				TrackingPeriod:           time.Hour,
-				GracePeriod:              time.Hour,
-				OfflineThreshold:         0.6,
-				OfflineSuspensionEnabled: true,
-			},
-		},
-		StrayNodes: straynodes.Config{
-			EnableDQ:                  true,
-			Interval:                  time.Minute,
-			MaxDurationWithoutContact: 30 * time.Second,
-			Limit:                     1000,
-		},
-		Metainfo: metainfo.Config{
-			DatabaseURL:          "", // not used
-			MinRemoteSegmentSize: 0,  // TODO: fix tests to work with 1024
-			MaxInlineSegmentSize: 4 * memory.KiB,
-			MaxSegmentSize:       64 * memory.MiB,
-			MaxMetadataSize:      2 * memory.KiB,
-			MaxCommitInterval:    1 * time.Hour,
-			Overlay:              true,
-			RS: metainfo.RSConfig{
-				ErasureShareSize: memory.Size(256),
-				Min:              atLeastOne(planet.config.StorageNodeCount * 1 / 5),
-				Repair:           atLeastOne(planet.config.StorageNodeCount * 2 / 5),
-				Success:          atLeastOne(planet.config.StorageNodeCount * 3 / 5),
-				Total:            atLeastOne(planet.config.StorageNodeCount * 4 / 5),
-			},
-			Loop: metaloop.Config{
-				CoalesceDuration: 1 * time.Second,
-				ListLimit:        10000,
-			},
-			SegmentLoop: segmentloop.Config{
-				CoalesceDuration: 1 * time.Second,
-			},
-			RateLimiter: metainfo.RateLimiterConfig{
-				Enabled:         true,
-				Rate:            1000,
-				CacheCapacity:   100,
-				CacheExpiration: 10 * time.Second,
-			},
-			ProjectLimits: metainfo.ProjectLimitConfig{
-				MaxBuckets: 10,
-			},
-			PieceDeletion: piecedeletion.Config{
-				MaxConcurrency:      100,
-				MaxConcurrentPieces: 1000,
-
-				MaxPiecesPerBatch:   4000,
-				MaxPiecesPerRequest: 2000,
-
-				DialTimeout:    2 * time.Second,
-				RequestTimeout: 2 * time.Second,
-				FailThreshold:  2 * time.Second,
-			},
-		},
-		Orders: orders.Config{
-			Expiration:        7 * 24 * time.Hour,
-			FlushBatchSize:    10,
-			FlushInterval:     defaultInterval,
-			NodeStatusLogging: true,
-			EncryptionKeys:    *encryptionKeys,
-		},
-		Checker: checker.Config{
-			Interval:                  defaultInterval,
-			IrreparableInterval:       defaultInterval,
-			ReliabilityCacheStaleness: 1 * time.Minute,
-		},
-		Payments: paymentsconfig.Config{
-			StorageTBPrice: "10",
-			EgressTBPrice:  "45",
-			ObjectPrice:    "0.0000022",
-			StripeCoinPayments: stripecoinpayments.Config{
-				TransactionUpdateInterval:    defaultInterval,
-				AccountBalanceUpdateInterval: defaultInterval,
-				ConversionRatesCycleInterval: defaultInterval,
-				ListingLimit:                 100,
-			},
-			CouponDuration: paymentsconfig.CouponDuration{
-				Enabled:        true,
-				BillingPeriods: 2,
-			},
-			CouponValue:       275,
-			PaywallProportion: 1,
-		},
-		Repairer: repairer.Config{
-			MaxRepair:                     10,
-			Interval:                      defaultInterval,
-			Timeout:                       1 * time.Minute, // Repairs can take up to 10 seconds. Leaving room for outliers
-			DownloadTimeout:               1 * time.Minute,
-			TotalTimeout:                  10 * time.Minute,
-			MaxBufferMem:                  4 * memory.MiB,
-			MaxExcessRateOptimalThreshold: 0.05,
-			InMemoryRepair:                false,
-		},
-		Audit: audit.Config{
-			MaxRetriesStatDB:   0,
-			MinBytesPerSecond:  1 * memory.KB,
-			MinDownloadTimeout: 5 * time.Second,
-			MaxReverifyCount:   3,
-			ChoreInterval:      defaultInterval,
-			QueueInterval:      defaultInterval,
-			Slots:              3,
-			WorkerConcurrency:  2,
-		},
-		GarbageCollection: gc.Config{
-			Interval:          defaultInterval,
-			Enabled:           true,
-			InitialPieces:     10,
-			FalsePositiveRate: 0.1,
-			ConcurrentSends:   1,
-			RunInCore:         false,
-		},
-		ExpiredDeletion: expireddeletion.Config{
-			Interval: defaultInterval,
-			Enabled:  true,
-		},
-		Tally: tally.Config{
-			Interval: defaultInterval,
-		},
-		Rollup: rollup.Config{
-			Interval:      defaultInterval,
-			DeleteTallies: false,
-		},
-		RollupArchive: rolluparchive.Config{
-			Interval:   defaultInterval,
-			ArchiveAge: time.Hour * 24,
-			BatchSize:  1000,
-			Enabled:    true,
-		},
-		ProjectBWCleanup: projectbwcleanup.Config{
-			Interval:     defaultInterval,
-			RetainMonths: 1,
-		},
-		LiveAccounting: live.Config{
-			StorageBackend:    "redis://" + redis.Addr() + "?db=0",
-			BandwidthCacheTTL: 5 * time.Minute,
-		},
-		Mail: mailservice.Config{
-			SMTPServerAddress: "smtp.mail.test:587",
-			From:              "Labs <storj@mail.test>",
-			AuthType:          "simulate",
-			TemplatePath:      filepath.Join(developmentRoot, "web/satellite/static/emails"),
-		},
-		Console: consoleweb.Config{
-			Address:         "127.0.0.1:0",
-			StaticDir:       filepath.Join(developmentRoot, "web/satellite"),
-			AuthToken:       "very-secret-token",
-			AuthTokenSecret: "my-suppa-secret-key",
-			Config: console.Config{
-				PasswordCost:        console.TestPasswordCost,
-				DefaultProjectLimit: 5,
-				UsageLimits: console.UsageLimitsConfig{
-					DefaultStorageLimit:   25 * memory.GB,
-					DefaultBandwidthLimit: 25 * memory.GB,
-				},
-			},
-			RateLimit: web.IPRateLimiterConfig{
-				Duration:  5 * time.Minute,
-				Burst:     3,
-				NumLimits: 10,
-			},
-		},
-		Version: planet.NewVersionConfig(),
-		GracefulExit: gracefulexit.Config{
-			Enabled: true,
-
-			ChoreBatchSize: 10,
-			ChoreInterval:  defaultInterval,
-
-			EndpointBatchSize:            100,
-			MaxFailuresPerPiece:          5,
-			MaxInactiveTimeFrame:         time.Second * 10,
-			OverallMaxFailuresPercentage: 10,
-			RecvTimeout:                  time.Minute * 1,
-			MaxOrderLimitSendCount:       3,
-			NodeMinAgeInMonths:           0,
-
-			AsOfSystemTimeInterval: 0,
-			TransferQueueBatchSize: 1000,
-		},
-		Metrics: metrics.Config{},
-	}
-
 	var config satellite.Config
 	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &config,
 		cfgstruct.UseTestDefaults(),
@@ -698,14 +453,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.LiveAccounting.StorageBackend = "redis://" + redis.Addr() + "?db=0"
 	config.Mail.TemplatePath = filepath.Join(developmentRoot, "web/satellite/static/emails")
 	config.Console.StaticDir = filepath.Join(developmentRoot, "web/satellite")
-
-	// TODO: remove the following equality check in a future PR.
-	if !deepEqual(config, config2) {
-		if err := showInequality(reflect.ValueOf(config), reflect.ValueOf(config2)); err != nil {
-			return nil, err
-		}
-		return nil, errs.New("show inequality error")
-	}
 
 	if planet.config.Reconfigure.Satellite != nil {
 		planet.config.Reconfigure.Satellite(log, index, &config)
