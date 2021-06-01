@@ -383,7 +383,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 				config.GarbageCollection,
 				peer.Dialer,
 				peer.Overlay.DB,
-				peer.Metainfo.Loop,
+				peer.Metainfo.SegmentLoop,
 			)
 			peer.Services.Add(lifecycle.Item{
 				Name: "core-garbage-collection",
