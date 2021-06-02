@@ -13,6 +13,7 @@ import { Nodes } from '@/nodes/service';
 export class NodesState {
     public nodes: Node[] = [];
     public selectedSatellite: NodeURL | null = null;
+    public selectedNode: Node | null = null;
     public trustedSatellites: NodeURL[] = [];
 }
 
@@ -37,6 +38,7 @@ export class NodesModule implements Module<NodesState, RootState> {
             populate: this.populate,
             saveTrustedSatellites: this.saveTrustedSatellites,
             setSelectedSatellite: this.setSelectedSatellite,
+            setSelectedNode: this.setSelectedNode,
         };
         this.actions = {
             fetch: this.fetch.bind(this),
@@ -44,6 +46,7 @@ export class NodesModule implements Module<NodesState, RootState> {
             delete: this.delete.bind(this),
             trustedSatellites: this.trustedSatellites.bind(this),
             selectSatellite: this.selectSatellite.bind(this),
+            selectNode: this.selectNode.bind(this),
             updateName: this.updateName.bind(this),
         };
     }
@@ -73,6 +76,15 @@ export class NodesModule implements Module<NodesState, RootState> {
      */
     public setSelectedSatellite(state: NodesState, satelliteId: string) {
         state.selectedSatellite = state.trustedSatellites.find((satellite: NodeURL) => satellite.id === satelliteId) || null;
+    }
+
+    /**
+     * setSelectedNode mutation will set selected node to store.
+     * @param state
+     * @param nodeId - node id to select.
+     */
+    public setSelectedNode(state: NodesState, nodeId: string | null) {
+        state.selectedNode = state.nodes.find((node: Node) => node.id === nodeId) || null;
     }
 
     /**
@@ -131,6 +143,17 @@ export class NodesModule implements Module<NodesState, RootState> {
      */
     public async selectSatellite(ctx: ActionContext<NodesState, RootState>, satelliteId: string): Promise<void> {
         ctx.commit('setSelectedSatellite', satelliteId);
+
+        await this.fetch(ctx);
+    }
+
+    /**
+     * Saves node as selected node.
+     * @param ctx - context of the Vuex action.
+     * @param nodeId
+     */
+    public async selectNode(ctx: ActionContext<NodesState, RootState>, nodeId: string | null): Promise<void> {
+        ctx.commit('setSelectedNode', nodeId);
 
         await this.fetch(ctx);
     }

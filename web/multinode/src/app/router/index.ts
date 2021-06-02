@@ -5,6 +5,7 @@ import Router, { RouterMode } from 'vue-router';
 import { Component } from 'vue-router/types/router';
 
 import AddFirstNode from '@/app/views/AddFirstNode.vue';
+import BandwidthPage from '@/app/views/bandwidth/BandwidthPage.vue';
 import Dashboard from '@/app/views/Dashboard.vue';
 import MyNodes from '@/app/views/MyNodes.vue';
 import PayoutsByNode from '@/app/views/PayoutsByNode.vue';
@@ -77,6 +78,7 @@ export class Config {
     public static Payouts: Route = new Route('/payouts', 'Payouts', PayoutsRoot);
     public static PayoutsSummary: Route = new Route('summary', 'PayoutsSummary', PayoutsPage);
     public static PayoutsByNode: Route = new Route('by-node/:id', 'PayoutsByNode', PayoutsByNode);
+    public static Bandwidth: Route = new Route('/bandwidth', 'Bandwidth & Disk', BandwidthPage);
 
     public static mode: RouterMode = 'history';
     public static routes: Route[] = [
@@ -86,6 +88,7 @@ export class Config {
                 Config.PayoutsByNode,
                 Config.PayoutsSummary,
             ]),
+            Config.Bandwidth,
         ]),
         Config.Welcome,
         Config.AddFirstNode,

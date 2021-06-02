@@ -9,12 +9,11 @@
 import { Component, Vue } from 'vue-property-decorator';
 
 import VDropdown, { Option } from '@/app/components/common/VDropdown.vue';
-import NodesTable from '@/app/components/myNodes/tables/NodesTable.vue';
 
 import { NodeURL } from '@/nodes';
 
 @Component({
-    components: { VDropdown, NodesTable },
+    components: { VDropdown },
 })
 export default class SatelliteSelectionDropdown extends Vue {
     /**

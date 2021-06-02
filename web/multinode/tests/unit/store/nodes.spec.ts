@@ -38,6 +38,14 @@ describe('mutations', () => {
 
         expect(state.nodes.selectedSatellite.address).toBe(satellite.address);
     });
+
+    it('saves selected node', () => {
+        expect(state.nodes.selectedNode).toBe(null);
+
+        store.commit('nodes/setSelectedNode', node.id);
+
+        expect(state.nodes.selectedNode.id).toBe(node.id);
+    });
 });
 
 describe('actions', () => {
@@ -172,5 +180,13 @@ describe('actions', () => {
 
         expect(state.nodes.selectedSatellite.address).toBe(satellite.address);
         expect(state.nodes.nodes.length).toBe(1);
+    });
+
+    it('success set selected node', async () => {
+        store.commit('nodes/populate', nodes);
+
+        await store.dispatch('nodes/selectNode', node.id);
+
+        expect(state.nodes.selectedNode.id).toBe(node.id);
     });
 });

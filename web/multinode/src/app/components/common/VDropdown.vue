@@ -108,7 +108,7 @@ export default class VDropdown extends Vue {
             position: absolute;
             top: 52px;
             left: 0;
-            width: 300px;
+            width: 100%;
             border: 1px solid var(--c-gray--light);
             border-radius: 6px;
             overflow: hidden;
@@ -130,6 +130,7 @@ export default class VDropdown extends Vue {
                 width: 100% !important;
                 cursor: pointer;
                 border-bottom: 1px solid var(--c-gray--light);
+                box-sizing: border-box;
 
                 &:hover {
                     background: var(--c-background);
@@ -142,6 +143,7 @@ export default class VDropdown extends Vue {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        margin-right: 5px;
     }
 
     ::-webkit-scrollbar {
