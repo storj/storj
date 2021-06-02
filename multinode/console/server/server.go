@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/multinode/bandwidth"
 	"storj.io/storj/multinode/console/controllers"
 	"storj.io/storj/multinode/nodes"
 	"storj.io/storj/multinode/operators"
@@ -39,6 +40,7 @@ type Services struct {
 	Payouts   *payouts.Service
 	Operators *operators.Service
 	Storage   *storage.Service
+	Bandwidth *bandwidth.Service
 }
 
 // Server represents Multinode Dashboard http server.
@@ -53,6 +55,7 @@ type Server struct {
 	nodes     *nodes.Service
 	payouts   *payouts.Service
 	operators *operators.Service
+	bandwidth *bandwidth.Service
 	storage   *storage.Service
 
 	index *template.Template
@@ -68,6 +71,7 @@ func NewServer(log *zap.Logger, listener net.Listener, config Config, services S
 		operators: services.Operators,
 		payouts:   services.Payouts,
 		storage:   services.Storage,
+		bandwidth: services.Bandwidth,
 	}
 
 	router := mux.NewRouter()
@@ -89,6 +93,13 @@ func NewServer(log *zap.Logger, listener net.Listener, config Config, services S
 	operatorsController := controllers.NewOperators(server.log, server.operators)
 	operatorsRouter := apiRouter.PathPrefix("/operators").Subrouter()
 	operatorsRouter.HandleFunc("", operatorsController.ListPaginated).Methods(http.MethodGet)
+
+	bandwidthController := controllers.NewBandwidth(server.log, server.bandwidth)
+	bandwidthRouter := apiRouter.PathPrefix("/bandwidth").Subrouter()
+	bandwidthRouter.HandleFunc("/", bandwidthController.Monthly).Methods(http.MethodGet)
+	bandwidthRouter.HandleFunc("/{nodeID}", bandwidthController.MonthlyNode).Methods(http.MethodGet)
+	bandwidthRouter.HandleFunc("/satellites/{id}", bandwidthController.MonthlySatellite).Methods(http.MethodGet)
+	bandwidthRouter.HandleFunc("/satellites/{id}/{nodeID}", bandwidthController.MonthlySatelliteNode).Methods(http.MethodGet)
 
 	payoutsController := controllers.NewPayouts(server.log, server.payouts)
 	payoutsRouter := apiRouter.PathPrefix("/payouts").Subrouter()

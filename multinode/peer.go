@@ -15,6 +15,7 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/private/debug"
+	"storj.io/storj/multinode/bandwidth"
 	"storj.io/storj/multinode/console/server"
 	"storj.io/storj/multinode/nodes"
 	"storj.io/storj/multinode/operators"
@@ -62,6 +63,11 @@ type Peer struct {
 	// contains logic of nodes domain.
 	Nodes struct {
 		Service *nodes.Service
+	}
+
+	// contains logic of bandwidth domain.
+	Bandwidth struct {
+		Service *bandwidth.Service
 	}
 
 	// exposes operators related logic.
@@ -116,6 +122,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config, db DB) (_ 
 		)
 	}
 
+	{ // bandwidth setup
+		peer.Bandwidth.Service = bandwidth.NewService(
+			peer.Log.Named("bandwidth:service"),
+			peer.Dialer,
+			peer.Nodes.Service,
+		)
+	}
+
 	{ // operators setup
 		peer.Operators.Service = operators.NewService(
 			peer.Log.Named("operators:service"),
@@ -155,6 +169,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config, db DB) (_ 
 				Payouts:   peer.Payouts.Service,
 				Operators: peer.Operators.Service,
 				Storage:   peer.Storage.Service,
+				Bandwidth: peer.Bandwidth.Service,
 			},
 		)
 		if err != nil {
