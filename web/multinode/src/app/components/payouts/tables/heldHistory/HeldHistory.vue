@@ -14,7 +14,7 @@
         <tbody slot="body">
             <tr class="table-item" v-for="(heldHistoryItem, index) in heldHistory" :key="index">
                 <th class="align-left">
-                    <p class="table-item__name">{{ heldHistoryItem.satelliteName }}</p>
+                    <p class="table-item__name">{{ heldHistoryItem.satelliteAddress }}</p>
                     <p class="table-item__months">{{ heldHistoryItem.monthsCount }}</p>
                 </th>
                 <th>{{ heldHistoryItem.firstQuarter | centsToDollars }}</th>

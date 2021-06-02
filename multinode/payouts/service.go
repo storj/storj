@@ -399,10 +399,7 @@ func (service *Service) HeldAmountSummary(ctx context.Context, nodeID storj.Node
 
 		for _, trustedSatellite := range trustedSatellites {
 			if satelliteSummary.SatelliteID.Compare(trustedSatellite.NodeId) == 0 {
-				satelliteSummary.SatelliteURL = storj.NodeURL{
-					ID:      trustedSatellite.NodeId,
-					Address: trustedSatellite.GetAddress(),
-				}
+				satelliteSummary.SatelliteAddress = trustedSatellite.GetAddress()
 			}
 		}
 
