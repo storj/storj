@@ -5,6 +5,7 @@ package segmentloop
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -315,6 +316,8 @@ func (loop *Service) Wait() {
 	<-loop.done
 }
 
+var errNoObservers = errs.New("no observers")
+
 func iterateDatabase(ctx context.Context, metabaseDB MetabaseDB, observers []*observerContext, limit int, rateLimiter *rate.Limiter) (err error) {
 	defer func() {
 		if err != nil {
@@ -325,6 +328,9 @@ func iterateDatabase(ctx context.Context, metabaseDB MetabaseDB, observers []*ob
 	}()
 
 	observers, err = iterateSegments(ctx, metabaseDB, observers, limit, rateLimiter)
+	if errors.Is(err, errNoObservers) {
+		return nil
+	}
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -344,15 +350,13 @@ func iterateSegments(ctx context.Context, metabaseDB MetabaseDB, observers []*ob
 		return observers, Error.Wrap(err)
 	}
 
-	noObserversErr := errs.New("no observers")
-
 	observers = withObservers(ctx, observers, func(ctx context.Context, observer *observerContext) bool {
 		err := observer.observer.LoopStarted(ctx, LoopInfo{Started: startingTime})
 		return !observer.HandleError(err)
 	})
 
 	if len(observers) == 0 {
-		return observers, noObserversErr
+		return observers, errNoObservers
 	}
 
 	var segmentsProcessed int64
@@ -384,7 +388,7 @@ func iterateSegments(ctx context.Context, metabaseDB MetabaseDB, observers []*ob
 				return !observer.HandleError(handleSegment(ctx, observer, &segment))
 			})
 			if len(observers) == 0 {
-				return noObserversErr
+				return errNoObservers
 			}
 
 			segmentsProcessed++
