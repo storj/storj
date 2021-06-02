@@ -298,7 +298,7 @@ waitformore:
 	}
 	close(earlyExitDone)
 
-	return iterateDatabase(ctx, loop.metabaseDB, observers, loop.config.ListLimit, rate.NewLimiter(rate.Limit(loop.config.RateLimit), 1))
+	return loop.iterateDatabase(ctx, observers)
 }
 
 func stopTimer(t *time.Timer) {
@@ -318,7 +318,7 @@ func (loop *Service) Wait() {
 
 var errNoObservers = errs.New("no observers")
 
-func iterateDatabase(ctx context.Context, metabaseDB MetabaseDB, observers []*observerContext, limit int, rateLimiter *rate.Limiter) (err error) {
+func (loop *Service) iterateDatabase(ctx context.Context, observers []*observerContext) (err error) {
 	defer func() {
 		if err != nil {
 			errorObservers(observers, err)
@@ -327,7 +327,7 @@ func iterateDatabase(ctx context.Context, metabaseDB MetabaseDB, observers []*ob
 		finishObservers(observers)
 	}()
 
-	observers, err = iterateSegments(ctx, metabaseDB, observers, limit, rateLimiter)
+	observers, err = loop.iterateSegments(ctx, observers)
 	if errors.Is(err, errNoObservers) {
 		return nil
 	}
@@ -338,14 +338,16 @@ func iterateDatabase(ctx context.Context, metabaseDB MetabaseDB, observers []*ob
 	return err
 }
 
-func iterateSegments(ctx context.Context, metabaseDB MetabaseDB, observers []*observerContext, limit int, rateLimiter *rate.Limiter) (_ []*observerContext, err error) {
+func (loop *Service) iterateSegments(ctx context.Context, observers []*observerContext) (_ []*observerContext, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	rateLimiter := rate.NewLimiter(rate.Limit(loop.config.RateLimit), 1)
+	limit := loop.config.ListLimit
 	if limit <= 0 || limit > batchsizeLimit {
 		limit = batchsizeLimit
 	}
 
-	startingTime, err := metabaseDB.Now(ctx)
+	startingTime, err := loop.metabaseDB.Now(ctx)
 	if err != nil {
 		return observers, Error.Wrap(err)
 	}
@@ -361,7 +363,7 @@ func iterateSegments(ctx context.Context, metabaseDB MetabaseDB, observers []*ob
 
 	var segmentsProcessed int64
 
-	err = metabaseDB.IterateLoopSegments(ctx, metabase.IterateLoopSegments{
+	err = loop.metabaseDB.IterateLoopSegments(ctx, metabase.IterateLoopSegments{
 		BatchSize:      limit,
 		AsOfSystemTime: startingTime,
 	}, func(ctx context.Context, iterator metabase.LoopSegmentsIterator) error {
