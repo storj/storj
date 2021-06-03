@@ -148,7 +148,7 @@ func (db *ProjectAccounting) GetProjectBandwidth(ctx context.Context, projectID 
 	if day < allocatedExpirationInDays {
 		expiredSince = startOfMonth
 	} else {
-		expiredSince = time.Date(year, month, day-allocatedExpirationInDays+1, 0, 0, 0, 0, time.UTC)
+		expiredSince = time.Date(year, month, day-allocatedExpirationInDays, 0, 0, 0, 0, time.UTC)
 	}
 	periodEnd := time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
 
