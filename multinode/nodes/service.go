@@ -102,7 +102,7 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 			nodeClient := multinodepb.NewDRPCNodeClient(conn)
 			storageClient := multinodepb.NewDRPCStorageClient(conn)
 			bandwidthClient := multinodepb.NewDRPCBandwidthClient(conn)
-			payoutClient := multinodepb.NewDRPCPayoutClient(conn)
+			payoutClient := multinodepb.NewDRPCPayoutsClient(conn)
 
 			header := &multinodepb.RequestHeader{
 				ApiKey: node.APISecret,
@@ -185,7 +185,7 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 			}()
 
 			nodeClient := multinodepb.NewDRPCNodeClient(conn)
-			payoutClient := multinodepb.NewDRPCPayoutClient(conn)
+			payoutClient := multinodepb.NewDRPCPayoutsClient(conn)
 
 			header := &multinodepb.RequestHeader{
 				ApiKey: node.APISecret,

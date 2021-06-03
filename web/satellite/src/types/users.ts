@@ -38,6 +38,7 @@ export class User {
         public position: string = '',
         public companyName: string = '',
         public employeeCount: string = '',
+        public haveSalesContact: boolean = false,
     ) {}
 
     public getFullName(): string {

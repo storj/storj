@@ -31,7 +31,7 @@ func init() {
 	setBasicFlags(rmCmd.Flags(), "encrypted")
 }
 
-func deleteObject(cmd *cobra.Command, args []string) error {
+func deleteObject(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := withTelemetry(cmd)
 
 	if len(args) == 0 {
@@ -64,7 +64,7 @@ func deleteObject(cmd *cobra.Command, args []string) error {
 			if err != nil {
 				return convertError(err, dst)
 			}
-		} else if list.Err() != nil {
+		} else if err := list.Err(); err != nil {
 			return convertError(err, dst)
 		}
 	} else if _, err = project.DeleteObject(ctx, dst.Bucket(), dst.Path()); err != nil {

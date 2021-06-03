@@ -974,6 +974,26 @@ func (obj *pgxImpl) Get_Node_By_Id(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Count_Node(ctx context.Context) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM nodes")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxImpl) All_Node(ctx context.Context) (
 	rows []*Node, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -981,6 +1001,41 @@ func (obj *pgxImpl) All_Node(ctx context.Context) (
 	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.name, nodes.public_address, nodes.api_secret FROM nodes")
 
 	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		node := &Node{}
+		err = __rows.Scan(&node.Id, &node.Name, &node.PublicAddress, &node.ApiSecret)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, node)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *pgxImpl) Limited_Node(ctx context.Context,
+	limit int, offset int64) (
+	rows []*Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.name, nodes.public_address, nodes.api_secret FROM nodes LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+
+	__values = append(__values, limit, offset)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -1194,6 +1249,26 @@ func (obj *sqlite3Impl) Get_Node_By_Id(ctx context.Context,
 
 }
 
+func (obj *sqlite3Impl) Count_Node(ctx context.Context) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM nodes")
+
+	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *sqlite3Impl) All_Node(ctx context.Context) (
 	rows []*Node, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1201,6 +1276,41 @@ func (obj *sqlite3Impl) All_Node(ctx context.Context) (
 	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.name, nodes.public_address, nodes.api_secret FROM nodes")
 
 	var __values []interface{}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	defer __rows.Close()
+
+	for __rows.Next() {
+		node := &Node{}
+		err = __rows.Scan(&node.Id, &node.Name, &node.PublicAddress, &node.ApiSecret)
+		if err != nil {
+			return nil, obj.makeErr(err)
+		}
+		rows = append(rows, node)
+	}
+	if err := __rows.Err(); err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return rows, nil
+
+}
+
+func (obj *sqlite3Impl) Limited_Node(ctx context.Context,
+	limit int, offset int64) (
+	rows []*Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.name, nodes.public_address, nodes.api_secret FROM nodes LIMIT ? OFFSET ?")
+
+	var __values []interface{}
+
+	__values = append(__values, limit, offset)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -1445,6 +1555,15 @@ func (rx *Rx) All_Node(ctx context.Context) (
 	return tx.All_Node(ctx)
 }
 
+func (rx *Rx) Count_Node(ctx context.Context) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Count_Node(ctx)
+}
+
 func (rx *Rx) Create_Node(ctx context.Context,
 	node_id Node_Id_Field,
 	node_name Node_Name_Field,
@@ -1479,6 +1598,16 @@ func (rx *Rx) Get_Node_By_Id(ctx context.Context,
 	return tx.Get_Node_By_Id(ctx, node_id)
 }
 
+func (rx *Rx) Limited_Node(ctx context.Context,
+	limit int, offset int64) (
+	rows []*Node, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Limited_Node(ctx, limit, offset)
+}
+
 func (rx *Rx) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field,
 	update Node_Update_Fields) (
@@ -1505,6 +1634,9 @@ type Methods interface {
 	All_Node(ctx context.Context) (
 		rows []*Node, err error)
 
+	Count_Node(ctx context.Context) (
+		count int64, err error)
+
 	Create_Node(ctx context.Context,
 		node_id Node_Id_Field,
 		node_name Node_Name_Field,
@@ -1519,6 +1651,10 @@ type Methods interface {
 	Get_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field) (
 		node *Node, err error)
+
+	Limited_Node(ctx context.Context,
+		limit int, offset int64) (
+		rows []*Node, err error)
 
 	UpdateNoReturn_Node_By_Id(ctx context.Context,
 		node_id Node_Id_Field,

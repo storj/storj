@@ -12,16 +12,20 @@
                 </div>
                 <payouts-summary-table
                     class="payouts__left-area__table"
-                    v-if="payoutsSummary.nodeSummary"
-                    :node-payouts-summary="payoutsSummary.nodeSummary"
+                    v-if="payouts.summary.nodeSummary"
+                    :node-payouts-summary="payouts.summary.nodeSummary"
                 />
             </div>
             <div class="payouts__right-area">
                 <details-area
-                    :total-earned="payoutsSummary.totalEarned"
-                    :total-held="payoutsSummary.totalHeld"
-                    :total-paid="payoutsSummary.totalPaid"
+                    :total-earned="payouts.summary.totalEarned"
+                    :total-held="payouts.summary.totalHeld"
+                    :total-paid="payouts.summary.totalPaid"
                     :period="period"
+                />
+                <balance-area
+                    :current-month-estimation="payouts.totalExpectations.currentMonthEstimation"
+                    :undistributed="payouts.totalExpectations.undistributed"
                 />
 <!--                <payout-history-block />-->
             </div>
@@ -34,16 +38,18 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
 import NodesTable from '@/app/components/myNodes/tables/NodesTable.vue';
+import BalanceArea from '@/app/components/payouts/BalanceArea.vue';
 import DetailsArea from '@/app/components/payouts/DetailsArea.vue';
 import PayoutHistoryBlock from '@/app/components/payouts/PayoutHistoryBlock.vue';
 import PayoutPeriodCalendarButton from '@/app/components/payouts/PayoutPeriodCalendarButton.vue';
 import PayoutsSummaryTable from '@/app/components/payouts/tables/payoutSummary/PayoutsSummaryTable.vue';
 
 import { UnauthorizedError } from '@/api';
-import { PayoutsSummary } from '@/payouts';
+import { PayoutsState } from '@/app/store/payouts';
 
 @Component({
     components: {
+        BalanceArea,
         PayoutPeriodCalendarButton,
         PayoutHistoryBlock,
         DetailsArea,
@@ -63,13 +69,23 @@ export default class PayoutsPage extends Vue {
 
             // TODO: notify error
         }
+
+        try {
+            await this.$store.dispatch('payouts/expectations');
+        } catch (error) {
+            if (error instanceof UnauthorizedError) {
+                // TODO: redirect to login screen.
+            }
+
+            // TODO: notify error
+        }
     }
 
     /**
-     * payoutsSummary contains payouts summary from store.
+     * payoutsSummary contains payouts state from store.
      */
-    public get payoutsSummary(): PayoutsSummary {
-        return this.$store.state.payouts.summary;
+    public get payouts(): PayoutsState {
+        return this.$store.state.payouts;
     }
 
     /**

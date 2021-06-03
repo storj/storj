@@ -350,7 +350,6 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 		failed
 		contained
 		unknown
-		remove
 		erred
 	)
 
@@ -358,6 +357,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 		nodeID       storj.NodeID
 		status       int
 		pendingAudit *PendingAudit
+		release      bool
 		err          error
 	}
 
@@ -402,7 +402,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 			})
 			if err != nil {
 				if storj.ErrObjectNotFound.Has(err) {
-					ch <- result{nodeID: pending.NodeID, status: remove}
+					ch <- result{nodeID: pending.NodeID, status: skipped, release: true}
 					return
 				}
 
@@ -413,7 +413,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 
 			if pendingObject.ExpiresAt != nil && !pendingObject.ExpiresAt.IsZero() && pendingObject.ExpiresAt.Before(verifier.nowFn()) {
 				verifier.log.Debug("Reverify: segment already expired", zap.Stringer("Node ID", pending.NodeID))
-				ch <- result{nodeID: pending.NodeID, status: remove}
+				ch <- result{nodeID: pending.NodeID, status: skipped, release: true}
 				return
 			}
 
@@ -423,7 +423,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 			})
 			if err != nil {
 				if metabase.ErrSegmentNotFound.Has(err) {
-					ch <- result{nodeID: pending.NodeID, status: skipped}
+					ch <- result{nodeID: pending.NodeID, status: skipped, release: true}
 					return
 				}
 
@@ -434,7 +434,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 
 			// TODO: is this check still necessary? If the segment was found by its StreamID and position, the RootPieceID should not had changed.
 			if pendingSegmentInfo.RootPieceID != pending.PieceID {
-				ch <- result{nodeID: pending.NodeID, status: remove}
+				ch <- result{nodeID: pending.NodeID, status: skipped, release: true}
 				return
 			}
 			var pieceNum uint16
@@ -446,27 +446,19 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 				}
 			}
 			if !found {
-				ch <- result{nodeID: pending.NodeID, status: remove}
+				ch <- result{nodeID: pending.NodeID, status: skipped, release: true}
 				return
 			}
 
 			limit, piecePrivateKey, cachedIPAndPort, err := verifier.orders.CreateAuditOrderLimit(ctx, pending.Segment.Bucket(), pending.NodeID, pieceNum, pending.PieceID, pending.ShareSize)
 			if err != nil {
 				if overlay.ErrNodeDisqualified.Has(err) {
-					_, errDelete := verifier.containment.Delete(ctx, pending.NodeID)
-					if errDelete != nil {
-						verifier.log.Debug("Error deleting disqualified node from containment db", zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
-					}
-					ch <- result{nodeID: pending.NodeID, status: erred, err: err}
+					ch <- result{nodeID: pending.NodeID, status: skipped, release: true}
 					verifier.log.Debug("Reverify: order limit not created (disqualified)", zap.Stringer("Node ID", pending.NodeID))
 					return
 				}
 				if overlay.ErrNodeFinishedGE.Has(err) {
-					_, errDelete := verifier.containment.Delete(ctx, pending.NodeID)
-					if errDelete != nil {
-						verifier.log.Debug("Error deleting gracefully exited node from containment db", zap.Stringer("Node ID", pending.NodeID), zap.Error(errDelete))
-					}
-					ch <- result{nodeID: pending.NodeID, status: erred, err: err}
+					ch <- result{nodeID: pending.NodeID, status: skipped, release: true}
 					verifier.log.Debug("Reverify: order limit not created (completed graceful exit)", zap.Stringer("Node ID", pending.NodeID))
 					return
 				}
@@ -511,7 +503,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 						return
 					}
 					// unknown transport error
-					ch <- result{nodeID: pending.NodeID, status: unknown, pendingAudit: pending}
+					ch <- result{nodeID: pending.NodeID, status: unknown, pendingAudit: pending, release: true}
 					verifier.log.Info("Reverify: unknown transport error (skipped)", zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 					return
 				}
@@ -519,12 +511,12 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 					// Get the original segment
 					err := verifier.checkIfSegmentAltered(ctx, pending.Segment, pendingSegmentInfo)
 					if err != nil {
-						ch <- result{nodeID: pending.NodeID, status: remove}
+						ch <- result{nodeID: pending.NodeID, status: skipped, release: true}
 						verifier.log.Debug("Reverify: audit source changed before reverification", zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 						return
 					}
 					// missing share
-					ch <- result{nodeID: pending.NodeID, status: failed}
+					ch <- result{nodeID: pending.NodeID, status: failed, release: true}
 					verifier.log.Info("Reverify: piece not found (audit failed)", zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 					return
 				}
@@ -535,24 +527,24 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 					return
 				}
 				// unknown error
-				ch <- result{nodeID: pending.NodeID, status: unknown, pendingAudit: pending}
+				ch <- result{nodeID: pending.NodeID, status: unknown, pendingAudit: pending, release: true}
 				verifier.log.Info("Reverify: unknown error (skipped)", zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 				return
 			}
 			downloadedHash := pkcrypto.SHA256Hash(share.Data)
 			if bytes.Equal(downloadedHash, pending.ExpectedShareHash) {
-				ch <- result{nodeID: pending.NodeID, status: success}
+				ch <- result{nodeID: pending.NodeID, status: success, release: true}
 				verifier.log.Info("Reverify: hashes match (audit success)", zap.Stringer("Node ID", pending.NodeID))
 			} else {
 				err := verifier.checkIfSegmentAltered(ctx, pending.Segment, pendingSegmentInfo)
 				if err != nil {
-					ch <- result{nodeID: pending.NodeID, status: remove}
+					ch <- result{nodeID: pending.NodeID, status: skipped, release: true}
 					verifier.log.Debug("Reverify: audit source changed before reverification", zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
 					return
 				}
 				verifier.log.Info("Reverify: hashes mismatch (audit failed)", zap.Stringer("Node ID", pending.NodeID),
 					zap.Binary("expected hash", pending.ExpectedShareHash), zap.Binary("downloaded hash", downloadedHash))
-				ch <- result{nodeID: pending.NodeID, status: failed}
+				ch <- result{nodeID: pending.NodeID, status: failed, release: true}
 			}
 		}(pending)
 	}
@@ -571,14 +563,15 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 			report.PendingAudits = append(report.PendingAudits, result.pendingAudit)
 		case unknown:
 			report.Unknown = append(report.Unknown, result.nodeID)
-		case remove:
+		case erred:
+			err = errs.Combine(err, result.err)
+		default:
+		}
+		if result.release {
 			_, errDelete := verifier.containment.Delete(ctx, result.nodeID)
 			if errDelete != nil {
 				verifier.log.Debug("Error deleting node from containment db", zap.Stringer("Node ID", result.nodeID), zap.Error(errDelete))
 			}
-		case erred:
-			err = errs.Combine(err, result.err)
-		default:
 		}
 	}
 

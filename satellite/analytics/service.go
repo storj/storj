@@ -20,6 +20,7 @@ const (
 	eventPassphraseCreated         = "Passphrase Created"
 	eventExternalLinkClicked       = "External Link Clicked"
 	eventPathSelected              = "Path Selected"
+	eventLinkShared                = "Link Shared"
 )
 
 // Config is a configuration struct for analytics Service.
@@ -51,7 +52,7 @@ func NewService(log *zap.Logger, config Config, satelliteName string) *Service {
 	if config.Enabled {
 		service.segment = segment.New(config.SegmentWriteKey)
 	}
-	for _, name := range []string{eventGatewayCredentialsCreated, eventPassphraseCreated, eventExternalLinkClicked, eventPathSelected} {
+	for _, name := range []string{eventGatewayCredentialsCreated, eventPassphraseCreated, eventExternalLinkClicked, eventPathSelected, eventLinkShared} {
 		service.clientEvents[name] = true
 	}
 	return service
@@ -78,14 +79,15 @@ const (
 
 // TrackCreateUserFields contains input data for tracking a create user event.
 type TrackCreateUserFields struct {
-	ID            uuid.UUID
-	AnonymousID   string
-	FullName      string
-	Email         string
-	Type          UserType
-	EmployeeCount string
-	CompanyName   string
-	JobTitle      string
+	ID               uuid.UUID
+	AnonymousID      string
+	FullName         string
+	Email            string
+	Type             UserType
+	EmployeeCount    string
+	CompanyName      string
+	JobTitle         string
+	HaveSalesContact bool
 }
 
 func (service *Service) enqueueMessage(message segment.Message) {
@@ -121,6 +123,7 @@ func (service *Service) TrackCreateUser(fields TrackCreateUserFields) {
 		props.Set("company_size", fields.EmployeeCount)
 		props.Set("company_name", fields.CompanyName)
 		props.Set("job_title", fields.JobTitle)
+		props.Set("have_sales_contact", fields.HaveSalesContact)
 	}
 
 	service.enqueueMessage(segment.Track{

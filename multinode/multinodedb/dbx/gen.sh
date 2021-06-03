@@ -1,5 +1,5 @@
 #!/bin/sh
-set -euo pipefail
+set -e pipefail
 
 dbx schema -d pgx -d sqlite3 multinodedb.dbx .
 dbx golang -d pgx -d sqlite3 -p dbx -t templates multinodedb.dbx .

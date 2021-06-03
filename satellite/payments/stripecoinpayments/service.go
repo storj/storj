@@ -45,9 +45,9 @@ type Config struct {
 	StripeFreeTierCouponID       string        `help:"stripe free tier coupon ID" default:""`
 	CoinpaymentsPublicKey        string        `help:"coinpayments API public key" default:""`
 	CoinpaymentsPrivateKey       string        `help:"coinpayments API private key key" default:""`
-	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" default:"2m"`
-	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" default:"2m"`
-	ConversionRatesCycleInterval time.Duration `help:"amount of time we wait before running next conversion rates update loop" default:"10m"`
+	TransactionUpdateInterval    time.Duration `help:"amount of time we wait before running next transaction update loop" default:"2m" testDefault:"$TESTINTERVAL"`
+	AccountBalanceUpdateInterval time.Duration `help:"amount of time we wait before running next account balance update loop" default:"2m" testDefault:"$TESTINTERVAL"`
+	ConversionRatesCycleInterval time.Duration `help:"amount of time we wait before running next conversion rates update loop" default:"10m" testDefault:"$TESTINTERVAL"`
 	AutoAdvance                  bool          `help:"toogle autoadvance feature for invoice creation" default:"false"`
 	ListingLimit                 int           `help:"sets the maximum amount of items before we start paging on requests" default:"100" hidden:"true"`
 }
