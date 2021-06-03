@@ -508,7 +508,7 @@ func (loop *Service) iterateObjects(ctx context.Context, observers []*observerCo
 			timer.Stop()
 
 			monMetainfo.IntVal("objectsIterated").Observe(objectsIterated) //mon:locked
-			objectsProcessed++
+			objectsIterated++
 
 			objectsMap[entry.StreamID] = entry
 			ids = append(ids, entry.StreamID)
