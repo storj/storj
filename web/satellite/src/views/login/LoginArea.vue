@@ -9,10 +9,13 @@ import { Component, Vue } from 'vue-property-decorator';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
 import AuthIcon from '@/../static/images/AuthImage.svg';
+import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
+import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
 import LogoIcon from '@/../static/images/dcs-logo.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
+import { PartneredSatellite } from '@/types/common';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { Validator } from '@/utils/validation';
@@ -21,6 +24,8 @@ import { Validator } from '@/utils/validation';
     components: {
         HeaderlessInput,
         AuthIcon,
+        BottomArrowIcon,
+        SelectedCheckIcon,
         LogoIcon,
     },
 })
@@ -80,6 +85,20 @@ export default class Login extends Vue {
      */
     public onSignUpClick(): void {
         this.$router.push(RouteConfig.Register.path);
+    }
+
+    /**
+     * Name of the current satellite.
+     */
+    public get satelliteName(): string {
+        return this.$store.state.appStateModule.satelliteName;
+    }
+
+    /**
+     * Information about partnered satellites, including name and signup link.
+     */
+    public get partneredSatellites(): PartneredSatellite[] {
+        return this.$store.state.appStateModule.partneredSatellites;
     }
 
     /**
