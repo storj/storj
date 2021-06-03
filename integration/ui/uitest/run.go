@@ -58,7 +58,7 @@ func Run(t *testing.T, test Test) {
 		launch = launch.Bin(browserBin)
 	}
 
-	defer launch.Cleanup()
+	t.Cleanup(launch.Cleanup)
 
 	controlURL, err := launch.Launch()
 	require.NoError(t, err)
