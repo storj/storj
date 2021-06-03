@@ -43,6 +43,8 @@ type DRPCStorageClient interface {
 	DRPCConn() drpc.Conn
 
 	DiskSpace(ctx context.Context, in *DiskSpaceRequest) (*DiskSpaceResponse, error)
+	Usage(ctx context.Context, in *StorageUsageRequest) (*StorageUsageResponse, error)
+	UsageSatellite(ctx context.Context, in *StorageUsageSatelliteRequest) (*StorageUsageSatelliteResponse, error)
 }
 
 type drpcStorageClient struct {
@@ -64,8 +66,28 @@ func (c *drpcStorageClient) DiskSpace(ctx context.Context, in *DiskSpaceRequest)
 	return out, nil
 }
 
+func (c *drpcStorageClient) Usage(ctx context.Context, in *StorageUsageRequest) (*StorageUsageResponse, error) {
+	out := new(StorageUsageResponse)
+	err := c.cc.Invoke(ctx, "/multinode.Storage/Usage", drpcEncoding_File_multinode_proto{}, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *drpcStorageClient) UsageSatellite(ctx context.Context, in *StorageUsageSatelliteRequest) (*StorageUsageSatelliteResponse, error) {
+	out := new(StorageUsageSatelliteResponse)
+	err := c.cc.Invoke(ctx, "/multinode.Storage/UsageSatellite", drpcEncoding_File_multinode_proto{}, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 type DRPCStorageServer interface {
 	DiskSpace(context.Context, *DiskSpaceRequest) (*DiskSpaceResponse, error)
+	Usage(context.Context, *StorageUsageRequest) (*StorageUsageResponse, error)
+	UsageSatellite(context.Context, *StorageUsageSatelliteRequest) (*StorageUsageSatelliteResponse, error)
 }
 
 type DRPCStorageUnimplementedServer struct{}
@@ -74,9 +96,17 @@ func (s *DRPCStorageUnimplementedServer) DiskSpace(context.Context, *DiskSpaceRe
 	return nil, drpcerr.WithCode(errors.New("Unimplemented"), 12)
 }
 
+func (s *DRPCStorageUnimplementedServer) Usage(context.Context, *StorageUsageRequest) (*StorageUsageResponse, error) {
+	return nil, drpcerr.WithCode(errors.New("Unimplemented"), 12)
+}
+
+func (s *DRPCStorageUnimplementedServer) UsageSatellite(context.Context, *StorageUsageSatelliteRequest) (*StorageUsageSatelliteResponse, error) {
+	return nil, drpcerr.WithCode(errors.New("Unimplemented"), 12)
+}
+
 type DRPCStorageDescription struct{}
 
-func (DRPCStorageDescription) NumMethods() int { return 1 }
+func (DRPCStorageDescription) NumMethods() int { return 3 }
 
 func (DRPCStorageDescription) Method(n int) (string, drpc.Encoding, drpc.Receiver, interface{}, bool) {
 	switch n {
@@ -89,6 +119,24 @@ func (DRPCStorageDescription) Method(n int) (string, drpc.Encoding, drpc.Receive
 						in1.(*DiskSpaceRequest),
 					)
 			}, DRPCStorageServer.DiskSpace, true
+	case 1:
+		return "/multinode.Storage/Usage", drpcEncoding_File_multinode_proto{},
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCStorageServer).
+					Usage(
+						ctx,
+						in1.(*StorageUsageRequest),
+					)
+			}, DRPCStorageServer.Usage, true
+	case 2:
+		return "/multinode.Storage/UsageSatellite", drpcEncoding_File_multinode_proto{},
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCStorageServer).
+					UsageSatellite(
+						ctx,
+						in1.(*StorageUsageSatelliteRequest),
+					)
+			}, DRPCStorageServer.UsageSatellite, true
 	default:
 		return "", nil, nil, nil, false
 	}
@@ -108,6 +156,38 @@ type drpcStorage_DiskSpaceStream struct {
 }
 
 func (x *drpcStorage_DiskSpaceStream) SendAndClose(m *DiskSpaceResponse) error {
+	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCStorage_UsageStream interface {
+	drpc.Stream
+	SendAndClose(*StorageUsageResponse) error
+}
+
+type drpcStorage_UsageStream struct {
+	drpc.Stream
+}
+
+func (x *drpcStorage_UsageStream) SendAndClose(m *StorageUsageResponse) error {
+	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCStorage_UsageSatelliteStream interface {
+	drpc.Stream
+	SendAndClose(*StorageUsageSatelliteResponse) error
+}
+
+type drpcStorage_UsageSatelliteStream struct {
+	drpc.Stream
+}
+
+func (x *drpcStorage_UsageSatelliteStream) SendAndClose(m *StorageUsageSatelliteResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
 	}

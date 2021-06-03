@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/multinode/nodes"
 	"storj.io/storj/multinode/operators"
 	"storj.io/storj/multinode/payouts"
+	"storj.io/storj/multinode/storage"
 	"storj.io/storj/private/lifecycle"
 )
 
@@ -71,6 +72,10 @@ type Peer struct {
 	// contains logic of payouts domain.
 	Payouts struct {
 		Service *payouts.Service
+	}
+
+	Storage struct {
+		Service *storage.Service
 	}
 
 	// Web server with web UI.
@@ -127,6 +132,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config, db DB) (_ 
 		)
 	}
 
+	{ // storage setup
+		peer.Storage.Service = storage.NewService(
+			peer.Log.Named("storage:service"),
+			peer.Dialer,
+			peer.DB.Nodes(),
+		)
+	}
+
 	{ // console setup
 		peer.Console.Listener, err = net.Listen("tcp", config.Console.Address)
 		if err != nil {
@@ -135,11 +148,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config, db DB) (_ 
 
 		peer.Console.Endpoint, err = server.NewServer(
 			peer.Log.Named("console:endpoint"),
-			config.Console,
-			peer.Nodes.Service,
-			peer.Payouts.Service,
-			peer.Operators.Service,
 			peer.Console.Listener,
+			config.Console,
+			server.Services{
+				Nodes:     peer.Nodes.Service,
+				Payouts:   peer.Payouts.Service,
+				Operators: peer.Operators.Service,
+				Storage:   peer.Storage.Service,
+			},
 		)
 		if err != nil {
 			return nil, err
