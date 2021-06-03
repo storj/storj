@@ -22,6 +22,7 @@ module.exports = {
             }),
             new StyleLintPlugin({
                 files: ['**/*.{vue,sss,less,scss,sass}'],
+                ignoreFiles: ["./node_modules/**"],
                 emitWarning: true,
             }),
             new WorkerPlugin({
