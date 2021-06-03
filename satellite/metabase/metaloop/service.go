@@ -502,7 +502,7 @@ func iterateObjects(ctx context.Context, metabaseDB MetabaseDB, observers []*obs
 			timer.Stop()
 
 			monMetainfo.IntVal("objectsIterated").Observe(objectsIterated) //mon:locked
-			objectsProcessed++
+			objectsIterated++
 
 			objectsMap[entry.StreamID] = entry
 			ids = append(ids, entry.StreamID)
