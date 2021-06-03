@@ -6,7 +6,6 @@ package uitest
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -42,26 +41,6 @@ func Run(t *testing.T, test Test) {
 	if os.Getenv("STORJ_TEST_SATELLITE_WEB") == "omit" {
 		return
 	}
-	showBrowser := os.Getenv("STORJ_TEST_SHOW_BROWSER") != ""
-
-	logLauncher := zaptest.NewLogger(t).Named("launcher")
-
-	launch := launcher.New().
-		Headless(!showBrowser).
-		Leakless(false).
-		Devtools(false).
-		NoSandbox(true).
-		UserDataDir(filepath.Join(t.TempDir(), "browser")).
-		Logger(zapWriter{Logger: logLauncher})
-
-	if browserBin := os.Getenv("STORJ_TEST_BROWSER"); browserBin != "" {
-		launch = launch.Bin(browserBin)
-	}
-
-	t.Cleanup(launch.Cleanup)
-
-	controlURL, err := launch.Launch()
-	require.NoError(t, err)
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -80,11 +59,32 @@ func Run(t *testing.T, test Test) {
 			}
 		}()
 
+		showBrowser := os.Getenv("STORJ_TEST_SHOW_BROWSER") != ""
+
+		logLauncher := zaptest.NewLogger(t).Named("launcher")
+
+		launch := launcher.New().
+			Headless(!showBrowser).
+			Leakless(false).
+			Devtools(false).
+			NoSandbox(true).
+			UserDataDir(ctx.Dir("browser")).
+			Logger(zapWriter{Logger: logLauncher})
+
+		if browserBin := os.Getenv("STORJ_TEST_BROWSER"); browserBin != "" {
+			launch = launch.Bin(browserBin)
+		}
+
+		defer launch.Cleanup()
+
+		url, err := launch.Launch()
+		require.NoError(t, err)
+
 		logBrowser := zaptest.NewLogger(t).Named("rod")
 
 		browser := rod.New().
 			Timeout(time.Minute).
-			ControlURL(controlURL).
+			ControlURL(url).
 			SlowMotion(300 * time.Millisecond).
 			Logger(utils.Log(func(msg ...interface{}) {
 				logBrowser.Info(fmt.Sprintln(msg...))
