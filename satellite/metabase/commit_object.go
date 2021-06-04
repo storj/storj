@@ -146,6 +146,12 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 	if err != nil {
 		return Object{}, nil, err
 	}
+
+	mon.Meter("object_commit").Mark(1)
+	mon.IntVal("object_commit_segments").Observe(int64(object.SegmentCount))
+	mon.IntVal("object_commit_encrypted_size").Observe(object.TotalEncryptedSize)
+	mon.Meter("segment_delete").Mark(len(deletedSegments))
+
 	return object, deletedSegments, nil
 }
 

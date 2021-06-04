@@ -106,5 +106,7 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 		return storage.ErrValueChanged.New("segment remote_alias_pieces field was changed")
 	}
 
+	mon.Meter("segment_update").Mark(1)
+
 	return nil
 }
