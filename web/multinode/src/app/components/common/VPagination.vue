@@ -47,8 +47,17 @@ import { OnPageClickCallback, Page } from '@/app/types/pagination';
     },
 })
 export default class VPagination extends Vue {
+    @Prop({default: 0})
+    private readonly totalPageCount: number;
+    @Prop({default: 1})
+    private preselectedCurrentPageNumber: number;
+    @Prop({default: () => new Promise(() => false)})
+    private readonly onPageClickCallback: OnPageClickCallback;
+
+    // TODO: place to config.
     private readonly MAX_PAGES_PER_BLOCK: number = 3;
     private readonly MAX_PAGES_OFF_BLOCKS: number = 6;
+
     private currentPageNumber: number = 1;
     public isLoading = false;
     public pagesArray: Page[] = [];
@@ -56,16 +65,12 @@ export default class VPagination extends Vue {
     public middleBlockPages: Page[] = [];
     public lastBlockPages: Page[] = [];
 
-    @Prop({default: 0})
-    private readonly totalPageCount: number;
-    @Prop({default: () => new Promise(() => false)})
-    private readonly onPageClickCallback: OnPageClickCallback;
-
     /**
      * Component initialization.
      */
     public mounted() {
-        this.populatePagesArray();
+        this.populatePages();
+        this.currentPageNumber = this.preselectedCurrentPageNumber;
     }
 
     /**
@@ -165,13 +170,13 @@ export default class VPagination extends Vue {
         this.firstBlockPages = [];
         this.setCurrentPage(1);
 
-        this.populatePagesArray();
+        this.populatePages();
     }
 
     /**
      * creates pages blocks and pages depends of total page count.
      */
-    private populatePagesArray(): void {
+    private populatePages(): void {
         if (!this.totalPageCount) {
             return;
         }
@@ -180,7 +185,7 @@ export default class VPagination extends Vue {
             this.pagesArray.push(new Page(i, this.onPageClick));
         }
 
-        if (this.isPagesTotalOffBlocks()) {
+        if (this.isOneBlockRequired) {
             this.firstBlockPages = this.pagesArray.slice();
             this.middleBlockPages = [];
             this.lastBlockPages = [];
@@ -196,7 +201,7 @@ export default class VPagination extends Vue {
      * current selected page index.
      */
     private reorganizePageBlocks(): void {
-        if (this.isPagesTotalOffBlocks()) {
+        if (this.isOneBlockRequired) {
             return;
         }
 
@@ -243,7 +248,11 @@ export default class VPagination extends Vue {
         return this.totalPageCount - this.currentPageNumber < this.MAX_PAGES_PER_BLOCK - 1;
     }
 
-    private isPagesTotalOffBlocks(): boolean {
+    /**
+     * indicates if dots delimiter is needed to separate page numbers.
+     * f.e. 1,2,3,4,5,6, or 1,2...6,7...57,58.
+     */
+    private get isOneBlockRequired(): boolean {
         return this.totalPageCount <= this.MAX_PAGES_OFF_BLOCKS;
     }
 

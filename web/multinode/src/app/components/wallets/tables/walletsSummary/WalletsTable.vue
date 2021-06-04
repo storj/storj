@@ -11,14 +11,15 @@
             </tr>
         </thead>
         <tbody slot="body">
-            <tr class="table-item">
+            <!-- TODO: add node id as a v-key in future -->
+            <tr v-for="operator in operators" class="table-item">
                 <th class="align-left">
                     <div class="column">
-                        <p class="table-item__wallet" @click.prevent="redirectToWalletDetailsPage">
-                            {{ '0xb64ef51c888972c908cfacf59b47c1afbc0ab8ac' }}
+                        <p class="table-item__wallet" @click.prevent="() => redirectToWalletDetailsPage(operator.wallet)">
+                            {{ operator.wallet }}
                         </p>
-                        <div class="table-item__wallet-feature" :class="{ 'active': false }">
-                            <template v-if="false">
+                        <div class="table-item__wallet-feature" :class="{ 'active': operator.areWalletFeaturesEnabled }">
+                            <template v-if="operator.areWalletFeaturesEnabled">
                                 <svg class="table-item__wallet-feature__icon" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M15.5 8C15.5 9.98912 14.7098 11.8968 13.3033 13.3033C11.8968 14.7098 9.98912 15.5 8 15.5C6.01088 15.5 4.10322 14.7098 2.6967 13.3033C1.29018 11.8968 0.5 9.98912 0.5 8C0.5 6.01088 1.29018 4.10322 2.6967 2.6967C4.10322 1.29018 6.01088 0.5 8 0.5C9.98912 0.5 11.8968 1.29018 13.3033 2.6967C14.7098 4.10322 15.5 6.01088 15.5 8ZM11.7781 5.15937C11.7112 5.09264 11.6314 5.0401 11.5437 5.00489C11.4559 4.96968 11.362 4.95252 11.2675 4.95445C11.173 4.95637 11.0798 4.97734 10.9936 5.0161C10.9073 5.05485 10.8298 5.1106 10.7656 5.18L7.50969 9.32844L5.5475 7.36531C5.41421 7.24111 5.23792 7.1735 5.05576 7.17671C4.8736 7.17992 4.6998 7.25372 4.57098 7.38254C4.44215 7.51137 4.36836 7.68517 4.36515 7.86732C4.36193 8.04948 4.42955 8.22577 4.55375 8.35906L7.03437 10.8406C7.1012 10.9073 7.18078 10.9599 7.26836 10.9952C7.35594 11.0305 7.44973 11.0477 7.54414 11.046C7.63854 11.0442 7.73163 11.0235 7.81784 10.985C7.90405 10.9465 7.98163 10.891 8.04594 10.8219L11.7884 6.14375C11.916 6.01109 11.9865 5.8337 11.9848 5.64965C11.983 5.4656 11.9092 5.28958 11.7791 5.15937H11.7781Z" fill="#00CE7D"/>
                                 </svg>
@@ -34,11 +35,12 @@
                         </div>
                     </div>
                 </th>
-                <th>{{ 2000 | centsToDollars }}</th>
+                <!-- TODO: add node id to operators to show distributed amount, meanwhile it will be hardcoded -->
+                <th>N/A</th>
                 <th class="align-left">
                     <div class="column">
-                        <v-link uri="#" label="View on Etherscan" />
-                        <v-link uri="#" label="View on zkScan" />
+                        <v-link :uri="operator.etherscanLink" label="View on Etherscan" />
+                        <v-link :uri="operator.zkscanLink" label="View on zkScan" />
                     </div>
                 </th>
             </tr>
@@ -47,12 +49,12 @@
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import BaseTable from '@/app/components/common/BaseTable.vue';
 import VLink from '@/app/components/common/VLink.vue';
 
-import { Config as RouterConfig } from '@/app/router';
+import { Operator } from '@/operators';
 
 @Component({
     components: {
@@ -61,12 +63,15 @@ import { Config as RouterConfig } from '@/app/router';
     },
 })
 export default class WalletsTable extends Vue {
+    @Prop({default: []})
+    private readonly operators: Operator[];
 
-    public redirectToWalletDetailsPage(): void {
-        this.$router.push({
-            name: RouterConfig.Wallets.with(RouterConfig.WalletDetails).name,
-            params: { address: 'address' },
-        });
+    public redirectToWalletDetailsPage(walletAddress: string): void {
+        // TODO: uncomment when undistributed will be added.
+        // this.$router.push({
+        //     name: RouterConfig.Wallets.with(RouterConfig.WalletDetails).name,
+        //     params: { address: walletAddress },
+        // });
     }
 }
 </script>

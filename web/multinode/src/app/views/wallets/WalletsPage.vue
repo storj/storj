@@ -8,6 +8,7 @@
             <div class="wallets__left-area">
                 <wallets-table
                     class="wallets__left-area__table"
+                    :operators="operatorsState.operators"
                 />
             </div>
             <div class="wallets__right-area">
@@ -21,8 +22,12 @@
             </div>
         </div>
         <div class="wallets__pagination">
-            <v-pagination :total-page-count="10" />
-            <p class="wallets__pagination__info">Showing <strong>{{ 6 }} of {{ 200 }}</strong> wallets</p>
+            <v-pagination
+                :total-page-count="operatorsState.pageCount"
+                :preselected-current-page-number="operatorsState.currentPage"
+                :on-page-click-callback="listPaginated"
+            />
+            <p class="wallets__pagination__info">Showing <strong>{{ operatorsState.operators.length }} of {{ operatorsState.totalCount }}</strong> wallets</p>
         </div>
     </div>
 </template>
@@ -36,6 +41,7 @@ import VPagination from '@/app/components/common/VPagination.vue';
 import WalletsTable from '@/app/components/wallets/tables/walletsSummary/WalletsTable.vue';
 
 import { UnauthorizedError } from '@/api';
+import { OperatorsState } from '@/app/store/operators';
 
 @Component({
     components: {
@@ -46,9 +52,20 @@ import { UnauthorizedError } from '@/api';
     },
 })
 export default class WalletsPage extends Vue {
-    public mounted(): void {
+    public async mounted(): Promise<void> {
+        await this.listPaginated(this.operatorsState.currentPage);
+    }
+
+    /**
+     * retrieves all operator related data.
+     */
+    public get operatorsState(): OperatorsState {
+        return this.$store.state.operators;
+    }
+
+    public async listPaginated(pageNumber: number): Promise<void> {
         try {
-            // api call here
+            await this.$store.dispatch('operators/listPaginated', pageNumber);
         } catch (error) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
