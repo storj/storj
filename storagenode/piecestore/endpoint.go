@@ -735,6 +735,10 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	if err != nil {
 		return nil, rpcstatus.Wrap(rpcstatus.InvalidArgument, err)
 	}
+	filterHashCount, _ := filter.Parameters()
+	mon.IntVal("retain_filter_size").Observe(filter.Size())
+	mon.IntVal("retain_filter_hash_count").Observe(int64(filterHashCount))
+	mon.IntVal("retain_creation_date").Observe(retainReq.CreationDate.Unix())
 
 	// the queue function will update the created before time based on the configurable retain buffer
 	queued := endpoint.retain.Queue(retain.Request{
