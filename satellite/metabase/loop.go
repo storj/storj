@@ -23,7 +23,8 @@ const loopIteratorBatchSizeLimit = 2500
 type IterateLoopObjects struct {
 	BatchSize int
 
-	AsOfSystemTime time.Time
+	AsOfSystemTime     time.Time
+	AsOfSystemInterval time.Duration
 }
 
 // Verify verifies get object request fields.
@@ -62,9 +63,10 @@ func (db *DB) IterateLoopObjects(ctx context.Context, opts IterateLoopObjects, f
 
 		batchSize: opts.BatchSize,
 
-		curIndex:       0,
-		cursor:         loopIterateCursor{},
-		asOfSystemTime: opts.AsOfSystemTime,
+		curIndex:           0,
+		cursor:             loopIterateCursor{},
+		asOfSystemTime:     opts.AsOfSystemTime,
+		asOfSystemInterval: opts.AsOfSystemInterval,
 	}
 
 	// ensure batch size is reasonable
@@ -91,8 +93,9 @@ func (db *DB) IterateLoopObjects(ctx context.Context, opts IterateLoopObjects, f
 type loopIterator struct {
 	db *DB
 
-	batchSize      int
-	asOfSystemTime time.Time
+	batchSize          int
+	asOfSystemTime     time.Time
+	asOfSystemInterval time.Duration
 
 	curIndex int
 	curRows  tagsql.Rows
@@ -166,7 +169,7 @@ func (it *loopIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err err
 			segment_count,
 			LENGTH(COALESCE(encrypted_metadata,''))
 		FROM objects
-		`+it.db.impl.AsOfSystemTime(it.asOfSystemTime)+`
+		`+it.db.asOfTime(it.asOfSystemTime, it.asOfSystemInterval)+`
 		WHERE (project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
 		ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
 		LIMIT $5
@@ -192,7 +195,8 @@ func (it *loopIterator) scanItem(item *LoopObjectEntry) error {
 type IterateLoopStreams struct {
 	StreamIDs []uuid.UUID
 
-	AsOfSystemTime time.Time
+	AsOfSystemTime     time.Time
+	AsOfSystemInterval time.Duration
 }
 
 // SegmentIterator returns the next segment.
@@ -249,7 +253,7 @@ func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, h
 			redundancy,
 			remote_alias_pieces
 		FROM segments
-		`+db.impl.AsOfSystemTime(opts.AsOfSystemTime)+`
+		`+db.asOfTime(opts.AsOfSystemTime, opts.AsOfSystemInterval)+`
 		WHERE
 		    -- this turns out to be a little bit faster than stream_id IN (SELECT unnest($1::BYTEA[]))
 			stream_id = ANY ($1::BYTEA[])
@@ -323,6 +327,14 @@ func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, h
 	}
 
 	return nil
+}
+
+func (db *DB) asOfTime(asOfSystemTime time.Time, asOfSystemInterval time.Duration) string {
+	interval := time.Since(asOfSystemTime)
+	if asOfSystemInterval < 0 && interval > -asOfSystemInterval {
+		return db.impl.AsOfSystemInterval(asOfSystemInterval)
+	}
+	return db.impl.AsOfSystemTime(asOfSystemTime)
 }
 
 // LoopSegmentsIterator iterates over a sequence of LoopSegmentEntry items.
