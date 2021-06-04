@@ -34,6 +34,9 @@ type objectsIterator struct {
 
 	skipPrefix  ObjectKey
 	doNextQuery func(context.Context, *objectsIterator) (_ tagsql.Rows, err error)
+
+	// failErr is set when either scan or next query fails during iteration.
+	failErr error
 }
 
 type iterateCursor struct {
@@ -157,7 +160,7 @@ func iterate(ctx context.Context, it *objectsIterator, fn func(context.Context, 
 		if rowsErr := it.curRows.Err(); rowsErr != nil {
 			err = errs.Combine(err, rowsErr)
 		}
-		err = errs.Combine(err, it.curRows.Close())
+		err = errs.Combine(err, it.failErr, it.curRows.Close())
 	}()
 
 	return fn(ctx, it)
@@ -215,11 +218,12 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 
 		rows, err := it.doNextQuery(ctx, it)
 		if err != nil {
+			it.failErr = errs.Combine(it.failErr, err)
 			return false
 		}
 
-		if it.curRows.Close() != nil {
-			_ = rows.Close()
+		if closeErr := it.curRows.Close(); closeErr != nil {
+			it.failErr = errs.Combine(it.failErr, closeErr, rows.Close())
 			return false
 		}
 
@@ -232,6 +236,7 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 
 	err := it.scanItem(item)
 	if err != nil {
+		it.failErr = errs.Combine(it.failErr, err)
 		return false
 	}
 
