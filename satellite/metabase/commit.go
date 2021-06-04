@@ -83,6 +83,8 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 		return -1, Error.New("unable to insert object: %w", err)
 	}
 
+	mon.Meter("object_begin").Mark(1)
+
 	return Version(v), nil
 }
 
@@ -150,6 +152,8 @@ func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExact
 		return Object{}, Error.New("unable to insert object: %w", err)
 	}
 
+	mon.Meter("object_begin").Mark(1)
+
 	return object, nil
 }
 
@@ -183,7 +187,7 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 
 	// NOTE: these queries could be combined into one.
 
-	return txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
+	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
 		// Verify that object exists and is partial.
 		var value int
 		err = tx.QueryRow(ctx, `
@@ -217,6 +221,13 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	mon.Meter("segment_begin").Mark(1)
+
+	return nil
 }
 
 // CommitSegment contains all necessary information about the segment.
@@ -316,6 +327,10 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 		}
 		return Error.New("unable to insert segment: %w", err)
 	}
+
+	mon.Meter("segment_commit").Mark(1)
+	mon.IntVal("segment_commit_encrypted_size").Observe(int64(opts.EncryptedSize))
+
 	return nil
 }
 
@@ -392,6 +407,10 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 		}
 		return Error.New("unable to insert segment: %w", err)
 	}
+
+	mon.Meter("segment_commit").Mark(1)
+	mon.IntVal("segment_commit_encrypted_size").Observe(int64(len(opts.InlineData)))
+
 	return nil
 }
 
@@ -522,6 +541,11 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 	if err != nil {
 		return Object{}, err
 	}
+
+	mon.Meter("object_commit").Mark(1)
+	mon.IntVal("object_commit_segments").Observe(int64(object.SegmentCount))
+	mon.IntVal("object_commit_encrypted_size").Observe(object.TotalEncryptedSize)
+
 	return object, nil
 }
 
@@ -579,6 +603,8 @@ func (db *DB) UpdateObjectMetadata(ctx context.Context, opts UpdateObjectMetadat
 			Error.New("object with specified version and committed status is missing"),
 		)
 	}
+
+	mon.Meter("object_update_metadata").Mark(1)
 
 	return nil
 }
