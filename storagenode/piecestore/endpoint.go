@@ -63,8 +63,8 @@ type Config struct {
 	RetainTimeBuffer        time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s"`
 	ReportCapacityThreshold memory.Size   `help:"threshold below which to immediately notify satellite of capacity" default:"500MB" hidden:"true"`
 	MaxUsedSerialsSize      memory.Size   `help:"amount of memory allowed for used serials store - once surpassed, serials will be dropped at random" default:"1MB"`
-
-	Trust trust.Config
+	MinUploadSpeed          float64       `help:"a client upload speed should not be lower than MinUploadSpeed, otherwise, it will be flagged as slow-connection and potentially be closed"`
+	Trust                   trust.Config
 
 	Monitor monitor.Config
 	Orders  orders.Config
@@ -179,6 +179,26 @@ func (endpoint *Endpoint) DeletePieces(
 	return &pb.DeletePiecesResponse{
 		UnhandledCount: int64(unhandled),
 	}, nil
+}
+
+func (endpoint *Endpoint) flagSuspiciousSlowUpload(averageUploadRate float64, connectionCount int64) bool {
+	// rate defines the maximum capacities of the node
+	// if the total number of connections is above this limit
+	// then the node should be care in accepting slow upload connections.
+	rate := float64(0.8)
+
+	if averageUploadRate < endpoint.config.MinUploadSpeed {
+		if endpoint.config.MaxConcurrentRequests != 0 {
+			// if 80% of the connection pool is occupied and average upload falls below limit
+			// then the connection is flagged
+			if (connectionCount > int64(float64(endpoint.config.MaxConcurrentRequests)*rate)) && averageUploadRate < endpoint.config.MinUploadSpeed {
+				return true
+			}
+		} else if averageUploadRate < endpoint.config.MinUploadSpeed {
+			return true
+		}
+	}
+	return false
 }
 
 // Upload handles uploading a piece on piece store.
@@ -314,7 +334,43 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	largestOrder := pb.Order{}
 	defer commitOrderToStore(ctx, &largestOrder)
 
+	// Measure upload rate and average upload rate
+	uploadSize := int64(0)
+	previousSize := int64(0)
+
+	// currentUploadRate mesures the rate of upload for each chunk of data.
+	currentUploadRate := float64(0)
+	sumUploadRate := float64(0)
+	averageUploadRate := float64(0)
+	// number as of data chunks that have been received so far
+	// first chunk is counted as 0
+	chunks_count := float64(-1)
+
 	for {
+		// Increment counts
+		chunks_count += 1
+		// Measure upload rate (bytes per second)
+		currentTime := time.Now().UTC()
+		dt := currentTime.Sub(startTime)
+
+		if pieceWriter != nil {
+			uploadSize = pieceWriter.Size() - previousSize
+			previousSize = pieceWriter.Size()
+		}
+
+		if dt.Seconds() > 0 {
+			// Average upload rate is counted as: total upload rate samples per a period of time
+			// divides by total number of chunks
+			currentUploadRate = float64(uploadSize) / dt.Seconds()
+			sumUploadRate += currentUploadRate
+			averageUploadRate = sumUploadRate / chunks_count
+		}
+
+		// Verify if the upload is supiciously slow
+		if endpoint.flagSuspiciousSlowUpload(averageUploadRate, int64(liveRequests)) {
+			return rpcstatus.Errorf(rpcstatus.Aborted, "upload rate falls below limit")
+		}
+
 		// TODO: reuse messages to avoid allocations
 
 		// N.B.: we are only allowed to use message if the returned error is nil. it would be
