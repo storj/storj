@@ -3,11 +3,17 @@
 
 package operators
 
-// Operator contains contains SNO payouts contact details.
+import (
+	"storj.io/common/storj"
+)
+
+// Operator contains contains SNO payouts contact details and amount of undistributed payouts.
 type Operator struct {
-	Email          string   `json:"email"`
-	Wallet         string   `json:"wallet"`
-	WalletFeatures []string `json:"walletFeatures"`
+	NodeID         storj.NodeID `json:"nodeId"`
+	Email          string       `json:"email"`
+	Wallet         string       `json:"wallet"`
+	WalletFeatures []string     `json:"walletFeatures"`
+	Undistributed  int64        `json:"undistributed"`
 }
 
 // Cursor holds operator cursor entity which is used to create listed page.
