@@ -37,15 +37,15 @@ func NewReservoir(size int) *Reservoir {
 // Sample makes sure that for every segment in metainfo from index i=size..n-1,
 // pick a random number r = rand(0..i), and if r < size, replace reservoir.Segments[r] with segment.
 func (reservoir *Reservoir) Sample(r *rand.Rand, segment Segment) {
-	reservoir.index++
 	if reservoir.index < int64(reservoir.size) {
 		reservoir.Segments[reservoir.index] = segment
 	} else {
-		random := r.Int63n(reservoir.index)
+		random := r.Int63n(reservoir.index + 1)
 		if random < int64(reservoir.size) {
 			reservoir.Segments[random] = segment
 		}
 	}
+	reservoir.index++
 }
 
 // Segment is a segment to audit.
