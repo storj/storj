@@ -6,6 +6,7 @@ package audit
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"math/rand"
 	"time"
@@ -124,7 +125,8 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	offlineNodes = getOfflineNodes(segmentInfo, orderLimits, skip)
 	if len(offlineNodes) > 0 {
 		verifier.log.Debug("Verify: order limits not created for some nodes (offline/disqualified)",
-			zap.Strings("Node IDs", offlineNodes.Strings()))
+			zap.Strings("Node IDs", offlineNodes.Strings()),
+			zap.String("Segment", segmentInfoString(segment)))
 	}
 
 	shares, err := verifier.DownloadShares(ctx, orderLimits, privateKey, cachedIPsAndPorts, randomIndex, segmentInfo.Redundancy.ShareSize)
@@ -161,6 +163,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 				offlineNodes = append(offlineNodes, share.NodeID)
 				verifier.log.Debug("Verify: dial timeout (offline)",
 					zap.Stringer("Node ID", share.NodeID),
+					zap.String("Segment", segmentInfoString(segment)),
 					zap.Error(share.Error))
 				continue
 			}
@@ -169,6 +172,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 				offlineNodes = append(offlineNodes, share.NodeID)
 				verifier.log.Debug("Verify: dial failed (offline)",
 					zap.Stringer("Node ID", share.NodeID),
+					zap.String("Segment", segmentInfoString(segment)),
 					zap.Error(share.Error))
 				continue
 			}
@@ -176,6 +180,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 			unknownNodes = append(unknownNodes, share.NodeID)
 			verifier.log.Info("Verify: unknown transport error (skipped)",
 				zap.Stringer("Node ID", share.NodeID),
+				zap.String("Segment", segmentInfoString(segment)),
 				zap.Error(share.Error))
 			continue
 		}
@@ -185,6 +190,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 			failedNodes = append(failedNodes, share.NodeID)
 			verifier.log.Info("Verify: piece not found (audit failed)",
 				zap.Stringer("Node ID", share.NodeID),
+				zap.String("Segment", segmentInfoString(segment)),
 				zap.Error(share.Error))
 			continue
 		}
@@ -194,6 +200,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 			containedNodes[pieceNum] = share.NodeID
 			verifier.log.Info("Verify: download timeout (contained)",
 				zap.Stringer("Node ID", share.NodeID),
+				zap.String("Segment", segmentInfoString(segment)),
 				zap.Error(share.Error))
 			continue
 		}
@@ -202,6 +209,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 		unknownNodes = append(unknownNodes, share.NodeID)
 		verifier.log.Info("Verify: unknown error (skipped)",
 			zap.Stringer("Node ID", share.NodeID),
+			zap.String("Segment", segmentInfoString(segment)),
 			zap.Error(share.Error))
 	}
 
@@ -232,7 +240,8 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 
 	for _, pieceNum := range pieceNums {
 		verifier.log.Info("Verify: share data altered (audit failed)",
-			zap.Stringer("Node ID", shares[pieceNum].NodeID))
+			zap.Stringer("Node ID", shares[pieceNum].NodeID),
+			zap.String("Segment", segmentInfoString(segment)))
 		failedNodes = append(failedNodes, shares[pieceNum].NodeID)
 	}
 
@@ -298,6 +307,16 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 		PendingAudits: pendingAudits,
 		Unknown:       unknownNodes,
 	}, nil
+}
+
+func segmentInfoString(segment Segment) string {
+	return fmt.Sprintf("%s/%s/%x/%s/%d",
+		segment.ProjectID.String(),
+		segment.BucketName,
+		segment.ObjectKey,
+		segment.StreamID.String(),
+		segment.Position.Encode(),
+	)
 }
 
 // DownloadShares downloads shares from the nodes where remote pieces are located.
