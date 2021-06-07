@@ -74,9 +74,8 @@ func Open(ctx context.Context, log *zap.Logger, connstr string) (*DB, error) {
 	return db, nil
 }
 
-// InternalImplementation returns *metabase.DB.
-// TODO: remove.
-func (db *DB) InternalImplementation() interface{} { return db }
+// Implementation rturns the database implementation.
+func (db *DB) Implementation() dbutil.Implementation { return db.impl }
 
 // UnderlyingTagSQL returns *tagsql.DB.
 // TODO: remove.
