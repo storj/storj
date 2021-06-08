@@ -342,11 +342,12 @@ func TestIterateLoopStreams(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
 			now := time.Now()
+			expectedExpiresAt := now.Add((33 * time.Hour))
 
 			expectedObject00 := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 0)
 			expectedObject01 := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
 			expectedObject02 := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 5)
-			expectedObject03 := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 3)
+			expectedObject03 := metabasetest.CreateExpiredObject(ctx, t, db, metabasetest.RandObjectStream(), 3, expectedExpiresAt)
 
 			expectedRawSegments := []metabase.RawSegment{}
 
@@ -371,6 +372,7 @@ func TestIterateLoopStreams(t *testing.T) {
 							Index: uint32(i),
 						},
 						CreatedAt:     &now,
+						ExpiresAt:     object.ExpiresAt,
 						RootPieceID:   storj.PieceID{1},
 						EncryptedSize: 1024,
 						PlainSize:     512,
@@ -384,6 +386,7 @@ func TestIterateLoopStreams(t *testing.T) {
 						StreamID:          segment.StreamID,
 						Position:          segment.Position,
 						CreatedAt:         &now,
+						ExpiresAt:         object.ExpiresAt,
 						EncryptedSize:     segment.EncryptedSize,
 						Pieces:            segment.Pieces,
 						Redundancy:        segment.Redundancy,
@@ -491,6 +494,10 @@ func TestIterateLoopSegments(t *testing.T) {
 			committed := metabasetest.RandObjectStream()
 			metabasetest.CreateObject(ctx, t, db, committed, 3)
 
+			expectedExpiresAt := now.Add(33 * time.Hour)
+			committedExpires := metabasetest.RandObjectStream()
+			metabasetest.CreateExpiredObject(ctx, t, db, committedExpires, 1, expectedExpiresAt)
+
 			genericLoopEntry := metabase.LoopSegmentEntry{
 				RootPieceID:   storj.PieceID{1},
 				Pieces:        metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
@@ -506,17 +513,20 @@ func TestIterateLoopSegments(t *testing.T) {
 				StreamID    uuid.UUID
 				Position    metabase.SegmentPosition
 				PlainOffset int64
+				ExpiresAt   *time.Time
 			}{
-				{pending.StreamID, metabase.SegmentPosition{0, 0}, 0},
-				{pending.StreamID, metabase.SegmentPosition{0, 1}, 0},
-				{committed.StreamID, metabase.SegmentPosition{0, 0}, 0},
-				{committed.StreamID, metabase.SegmentPosition{0, 1}, 512},
-				{committed.StreamID, metabase.SegmentPosition{0, 2}, 1024},
+				{pending.StreamID, metabase.SegmentPosition{0, 0}, 0, nil},
+				{pending.StreamID, metabase.SegmentPosition{0, 1}, 0, nil},
+				{committed.StreamID, metabase.SegmentPosition{0, 0}, 0, nil},
+				{committed.StreamID, metabase.SegmentPosition{0, 1}, 512, nil},
+				{committed.StreamID, metabase.SegmentPosition{0, 2}, 1024, nil},
+				{committedExpires.StreamID, metabase.SegmentPosition{0, 0}, 0, &expectedExpiresAt},
 			} {
 				entry := genericLoopEntry
 				entry.StreamID = expect.StreamID
 				entry.Position = expect.Position
 				entry.PlainOffset = expect.PlainOffset
+				entry.ExpiresAt = expect.ExpiresAt
 				expected = append(expected, entry)
 			}
 

@@ -207,6 +207,7 @@ type LoopSegmentEntry struct {
 	StreamID      uuid.UUID
 	Position      SegmentPosition
 	CreatedAt     *time.Time // repair
+	ExpiresAt     *time.Time
 	RepairedAt    *time.Time // repair
 	RootPieceID   storj.PieceID
 	EncryptedSize int32 // size of the whole segment (not a piece)
@@ -246,7 +247,7 @@ func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, h
 	rows, err := db.db.Query(ctx, `
 		SELECT
 			stream_id, position,
-			created_at, repaired_at,
+			created_at, expires_at, repaired_at,
 			root_piece_id,
 			encrypted_size,
 			plain_offset, plain_size,
@@ -291,7 +292,7 @@ func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, h
 			var aliasPieces AliasPieces
 			err = rows.Scan(
 				&segment.StreamID, &segment.Position,
-				&segment.CreatedAt, &segment.RepairedAt,
+				&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
 				&segment.RootPieceID,
 				&segment.EncryptedSize,
 				&segment.PlainOffset, &segment.PlainSize,
@@ -458,7 +459,7 @@ func (it *loopSegmentIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, 
 	return it.db.db.Query(ctx, `
 		SELECT
 			stream_id, position,
-			created_at, repaired_at,
+			created_at, expires_at, repaired_at,
 			root_piece_id,
 			encrypted_size,
 			plain_offset, plain_size,
@@ -480,7 +481,7 @@ func (it *loopSegmentIterator) scanItem(ctx context.Context, item *LoopSegmentEn
 	var aliasPieces AliasPieces
 	err := it.curRows.Scan(
 		&item.StreamID, &item.Position,
-		&item.CreatedAt, &item.RepairedAt,
+		&item.CreatedAt, &item.ExpiresAt, &item.RepairedAt,
 		&item.RootPieceID,
 		&item.EncryptedSize,
 		&item.PlainOffset, &item.PlainSize,
