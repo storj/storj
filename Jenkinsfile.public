@@ -44,7 +44,6 @@ pipeline {
 
         stage('Verification') {
             parallel {
-/*
                 stage('Lint') {
                     steps {
                         sh 'check-copyright'
@@ -248,7 +247,7 @@ pipeline {
                         }
                     }
                 }
-*/
+
                 stage('UI') {
                     environment {
                         STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testui?sslmode=disable'
