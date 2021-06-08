@@ -63,7 +63,7 @@ type Config struct {
 	RetainTimeBuffer        time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s"`
 	ReportCapacityThreshold memory.Size   `help:"threshold below which to immediately notify satellite of capacity" default:"500MB" hidden:"true"`
 	MaxUsedSerialsSize      memory.Size   `help:"amount of memory allowed for used serials store - once surpassed, serials will be dropped at random" default:"1MB"`
-	MinUploadSpeed          float64       `help:"a client upload speed should not be lower than MinUploadSpeed - bytes per second, otherwise, it will be flagged as slow-connection and potentially be closed" default:"200000"`
+	MinUploadSpeed          float64       `help:"a client upload speed should not be lower than MinUploadSpeed - bytes per second, otherwise, it will be flagged as slow-connection and potentially be closed" default:"-1"`
 	Trust                   trust.Config
 
 	Monitor monitor.Config
