@@ -340,7 +340,9 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 	// currentUploadRate mesures the rate of upload for each chunk of data.
 	currentUploadRate := float64(0)
+	// sumUploadRate sums all previously sampled upload rate
 	sumUploadRate := float64(0)
+	// averageUploadRate= sum of sampled upload rate / total of samples
 	averageUploadRate := float64(0)
 	// number as of data chunks that have been received so far
 	// first chunk is counted as 0
@@ -354,6 +356,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		dt := currentTime.Sub(startTime)
 
 		if pieceWriter != nil {
+			// delta uploaded
 			uploadSize = pieceWriter.Size() - previousSize
 			previousSize = pieceWriter.Size()
 		}
