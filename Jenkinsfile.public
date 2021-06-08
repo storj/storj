@@ -264,6 +264,7 @@ pipeline {
 
                         sh 'cp -r ./web/satellite/ ${STORJ_TEST_SATELLITE_WEB}/'
 
+                        sh 'mkdir ${STORJ_TEST_SATELLITE_WEB}/wasm'
                         sh 'cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" ${STORJ_TEST_SATELLITE_WEB}/wasm/wasm_exec.js'
                         sh 'GOOS=js GOARCH=wasm go build -o ${STORJ_TEST_SATELLITE_WEB}/wasm/main.wasm storj.io/storj/satellite/console/wasm'
 
