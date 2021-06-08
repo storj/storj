@@ -346,11 +346,11 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	averageUploadRate := float64(0)
 	// number as of data chunks that have been received so far
 	// first chunk is counted as 0
-	chunks_count := float64(-1)
+	chunkCount := float64(-1)
 
 	for {
 		// Increment counts
-		chunks_count += 1
+		chunkCount++
 		// Measure upload rate (bytes per second)
 		currentTime := time.Now().UTC()
 		dt := currentTime.Sub(startTime)
@@ -365,8 +365,8 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			// Average upload rate is counted as: total upload rate samples per a period of time
 			// divides by total number of chunks
 			currentUploadRate = float64(uploadSize) / dt.Seconds()
-			sumUploadRate += currentUploadRate
-			averageUploadRate = sumUploadRate / chunks_count
+			sumUploadRate = sumUploadRate + currentUploadRate
+			averageUploadRate = sumUploadRate / chunkCount
 		}
 
 		// Verify if the upload is supiciously slow
