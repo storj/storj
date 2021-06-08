@@ -35,6 +35,11 @@ func (s Segment) Inline() bool {
 	return s.Redundancy.IsZero() && len(s.Pieces) == 0
 }
 
+// Expired checks if segment expired relative to now.
+func (s *Segment) Expired(now time.Time) bool {
+	return s.ExpiresAt != nil && s.ExpiresAt.Before(now)
+}
+
 // Observer is an interface defining an observer that can subscribe to the segments loop.
 //
 // architecture: Observer
