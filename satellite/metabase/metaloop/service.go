@@ -164,7 +164,7 @@ type Config struct {
 	RateLimit        float64       `help:"rate limit (default is 0 which is unlimited segments per second)" default:"0"`
 	ListLimit        int           `help:"how many items to query in a batch" default:"2500" testDefault:"10000"`
 
-	MaxAsOfSystemDuration time.Duration `help:"limits how old can AS OF SYSTEM TIME query be" releaseDefault:"5m" devDefault:"5m"`
+	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-5m"`
 }
 
 // MetabaseDB contains iterators for the metabase data.
@@ -394,8 +394,6 @@ func (loop *Service) iterateObjects(ctx context.Context, observers []*observerCo
 		return !observer.HandleError(err)
 	})
 
-	currentAsOfSystemTime := startingTime
-
 	if len(observers) == 0 {
 		return observers, errNoObservers
 	}
@@ -413,13 +411,10 @@ func (loop *Service) iterateObjects(ctx context.Context, observers []*observerCo
 			return nil
 		}
 
-		if time.Since(currentAsOfSystemTime) > loop.config.MaxAsOfSystemDuration {
-			currentAsOfSystemTime = time.Now().Add(-loop.config.MaxAsOfSystemDuration)
-		}
-
 		err = loop.metabaseDB.IterateLoopStreams(ctx, metabase.IterateLoopStreams{
-			StreamIDs:      ids,
-			AsOfSystemTime: currentAsOfSystemTime,
+			StreamIDs:          ids,
+			AsOfSystemTime:     startingTime,
+			AsOfSystemInterval: loop.config.AsOfSystemInterval,
 		}, func(ctx context.Context, streamID uuid.UUID, next metabase.SegmentIterator) (err error) {
 			defer mon.TaskNamed("iterateLoopStreamsCB")(&ctx, "objs", objectsProcessed, "segs", segmentsProcessed)(&err)
 
@@ -491,8 +486,9 @@ func (loop *Service) iterateObjects(ctx context.Context, observers []*observerCo
 
 	segmentsInBatch := int32(0)
 	err = loop.metabaseDB.IterateLoopObjects(ctx, metabase.IterateLoopObjects{
-		BatchSize:      limit,
-		AsOfSystemTime: startingTime,
+		BatchSize:          limit,
+		AsOfSystemTime:     startingTime,
+		AsOfSystemInterval: loop.config.AsOfSystemInterval,
 	}, func(ctx context.Context, it metabase.LoopObjectsIterator) (err error) {
 		defer mon.TaskNamed("iterateLoopObjectsCB")(&ctx)(&err)
 		var entry metabase.LoopObjectEntry
@@ -508,7 +504,7 @@ func (loop *Service) iterateObjects(ctx context.Context, observers []*observerCo
 			timer.Stop()
 
 			monMetainfo.IntVal("objectsIterated").Observe(objectsIterated) //mon:locked
-			objectsProcessed++
+			objectsIterated++
 
 			objectsMap[entry.StreamID] = entry
 			ids = append(ids, entry.StreamID)

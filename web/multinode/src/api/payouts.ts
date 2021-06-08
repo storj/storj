@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { APIClient } from '@/api/index';
-import { Expectations, NodePayoutsSummary, PayoutsSummary } from '@/payouts';
+import { Expectation, HeldAmountSummary, NodePayoutsSummary, PayoutsSummary, Paystub } from '@/payouts';
 
 /**
  * client for nodes controller of MND api.
@@ -26,7 +26,7 @@ export class PayoutsClient extends APIClient {
      * Thrown if something goes wrong on server side.
      */
     public async summary(satelliteId: string | null, period: string | null): Promise<PayoutsSummary> {
-        let path = `${this.ROOT_PATH}/`;
+        let path = `${this.ROOT_PATH}`;
 
         if (satelliteId) {
             path += `/satellites/${satelliteId}`;
@@ -73,7 +73,7 @@ export class PayoutsClient extends APIClient {
      * @throws {@link InternalError}
      * Thrown if something goes wrong on server side.
      */
-    public async expectations(nodeId: string | null): Promise<Expectations> {
+    public async expectations(nodeId: string | null): Promise<Expectation> {
         let path = `${this.ROOT_PATH}/expectations`;
 
         if (nodeId) {
@@ -88,9 +88,97 @@ export class PayoutsClient extends APIClient {
 
         const result = await response.json();
 
-        return new Expectations(
+        return new Expectation(
             result.currentMonthEstimation,
             result.undistributed,
         );
+    }
+
+    /**
+     * Handles fetch of payouts paystub information for node.
+     *
+     * @param satelliteId - satellite id.
+     * @param period - selected period.
+     * @param nodeId
+     *
+     * @throws {@link BadRequestError}
+     * This exception is thrown if the input is not a valid.
+     *
+     * @throws {@link UnauthorizedError}
+     * Thrown if the auth cookie is missing or invalid.
+     *
+     * @throws {@link InternalError}
+     * Thrown if something goes wrong on server side.
+     */
+    public async paystub(satelliteId: string | null, period: string | null, nodeId: string): Promise<Paystub> {
+        let path = `${this.ROOT_PATH}`;
+
+        if (satelliteId) {
+            path += `/satellites/${satelliteId}`;
+        }
+
+        path += '/paystubs';
+
+        if (period) {
+            path += `/${period}`;
+        }
+
+        path += `/${nodeId}`;
+
+        const response = await this.http.get(path);
+
+        if (!response.ok) {
+            await this.handleError(response);
+        }
+
+        const result = await response.json();
+
+        return new Paystub(
+            result.usageAtRest,
+            result.usageGet,
+            result.usageGetRepair,
+            result.usageGetAudit,
+            result.compAtRest,
+            result.compGet,
+            result.compGetRepair,
+            result.compGetAudit,
+            result.held,
+            result.paid,
+            result.distributed,
+        );
+    }
+
+    /**
+     * Handles fetch of payouts paystub information for node.
+     *
+     * @param nodeId
+     *
+     * @throws {@link BadRequestError}
+     * This exception is thrown if the input is not a valid.
+     *
+     * @throws {@link UnauthorizedError}
+     * Thrown if the auth cookie is missing or invalid.
+     *
+     * @throws {@link InternalError}
+     * Thrown if something goes wrong on server side.
+     */
+    public async heldHistory(nodeId: string): Promise<HeldAmountSummary[]> {
+        const path = `${this.ROOT_PATH}/held-amounts/${nodeId}`;
+
+        const response = await this.http.get(path);
+
+        if (!response.ok) {
+            await this.handleError(response);
+        }
+
+        const result = await response.json();
+
+        return result.map(heldHistoryItem => new HeldAmountSummary(
+            heldHistoryItem.satelliteUrl.Address,
+            heldHistoryItem.firstQuarter,
+            heldHistoryItem.secondQuarter,
+            heldHistoryItem.thirdQuarter,
+            heldHistoryItem.periodCount,
+        ));
     }
 }

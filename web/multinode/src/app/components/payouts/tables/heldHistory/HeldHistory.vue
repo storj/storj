@@ -12,30 +12,35 @@
             </tr>
         </thead>
         <tbody slot="body">
-            <tr class="table-item">
+            <tr class="table-item" v-for="(heldHistoryItem, index) in heldHistory" :key="index">
                 <th class="align-left">
-                    <p class="table-item__name">US-Central-1</p>
-                    <p class="table-item__months">7 month</p>
+                    <p class="table-item__name">{{ heldHistoryItem.satelliteName }}</p>
+                    <p class="table-item__months">{{ heldHistoryItem.monthsCount }}</p>
                 </th>
-                <th>$0.0005</th>
-                <th>$0.0053</th>
-                <th>$0.0005</th>
+                <th>{{ heldHistoryItem.firstQuarter | centsToDollars }}</th>
+                <th>{{ heldHistoryItem.secondQuarter | centsToDollars }}</th>
+                <th>{{ heldHistoryItem.thirdQuarter | centsToDollars }}</th>
             </tr>
         </tbody>
     </base-table>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import BaseTable from '@/app/components/common/BaseTable.vue';
+
+import { HeldAmountSummary } from '@/payouts';
 
 @Component({
     components: {
         BaseTable,
     },
 })
-export default class HeldHistory extends Vue {}
+export default class HeldHistory extends Vue {
+    @Prop({default: () => []})
+    public heldHistory: HeldAmountSummary[];
+}
 </script>
 
 <style lang="scss" scoped>

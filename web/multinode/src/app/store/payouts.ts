@@ -5,7 +5,7 @@ import { ActionContext, ActionTree, GetterTree, Module, MutationTree } from 'vue
 
 import { RootState } from '@/app/store/index';
 import { monthNames } from '@/app/types/date';
-import { Expectations, PayoutsSummary } from '@/payouts';
+import { Expectation, HeldAmountSummary, NodePayouts, PayoutsSummary, Paystub } from '@/payouts';
 import { Payouts } from '@/payouts/service';
 
 /**
@@ -14,8 +14,9 @@ import { Payouts } from '@/payouts/service';
 export class PayoutsState {
     public summary: PayoutsSummary = new PayoutsSummary();
     public selectedPayoutPeriod: string | null = null;
-    public selectedNodeExpectations: Expectations = new Expectations();
-    public totalExpectations: Expectations = new Expectations();
+    public selectedNodePayouts: NodePayouts = new NodePayouts();
+    public selectedNodeExpectations: Expectation = new Expectation();
+    public totalExpectations: Expectation = new Expectation();
 }
 
 /**
@@ -38,12 +39,18 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
         this.mutations = {
             setSummary: this.setSummary,
             setPayoutPeriod: this.setPayoutPeriod,
-            setCurrentNodeExpectations: this.setCurrentNodeExpectations,
             setTotalExpectation: this.setTotalExpectation,
+            setNodeTotals: this.setNodeTotals,
+            setNodePaystub: this.setNodePaystub,
+            setNodeHeldHistory: this.setNodeHeldHistory,
+            setCurrentNodeExpectations: this.setCurrentNodeExpectations,
         };
         this.actions = {
             summary: this.summary.bind(this),
             expectations: this.expectations.bind(this),
+            paystub: this.paystub.bind(this),
+            nodeTotals: this.nodeTotals.bind(this),
+            heldHistory: this.heldHistory.bind(this),
         };
         this.getters = {
             periodString: this.periodString,
@@ -70,21 +77,48 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
     }
 
     /**
-     * setCurrentNodeExpectations mutation will set payouts expectation for selected node.
-     * @param state - state of the module.
-     * @param expectations - payouts summary information depends on selected time and satellite.
-     */
-    public setCurrentNodeExpectations(state: PayoutsState, expectations: Expectations): void {
-        state.selectedNodeExpectations = expectations;
-    }
-
-    /**
      * setTotalExpectation mutation will set total payouts expectation for all nodes.
      * @param state - state of the module.
      * @param expectations - payouts summary information depends on selected time and satellite.
      */
-    public setTotalExpectation(state: PayoutsState, expectations: Expectations): void {
+    public setTotalExpectation(state: PayoutsState, expectations: Expectation): void {
         state.totalExpectations = expectations;
+    }
+
+    /**
+     * setNodeTotals mutation will total payout information for selected node to store.
+     * @param state
+     * @param paystub for all time
+     */
+    public setNodeTotals(state: PayoutsState, paystub: Paystub) {
+        state.selectedNodePayouts = { ...state.selectedNodePayouts, totalPaid: paystub.distributed, totalEarned: paystub.paid, totalHeld: paystub.held };
+    }
+
+    /**
+     * setNodePaystub mutation will save paystub for selected node, satellite and period to store.
+     * @param state
+     * @param paystub
+     */
+    public setNodePaystub(state: PayoutsState, paystub: Paystub) {
+        state.selectedNodePayouts = { ...state.selectedNodePayouts, paystubForPeriod: paystub };
+    }
+
+    /**
+     * setNodeHeldHistory mutation will save held history for selected node to store.
+     * @param state
+     * @param heldHistory
+     */
+    public setNodeHeldHistory(state: PayoutsState, heldHistory: HeldAmountSummary[]) {
+        state.selectedNodePayouts = { ...state.selectedNodePayouts, heldHistory };
+    }
+
+    /**
+     * setCurrentNodeExpectations mutation will save paystub for selected node, satellite and period to store.
+     * @param state
+     * @param expectations
+     */
+    public setCurrentNodeExpectations(state: PayoutsState, expectations: any) {
+        state.selectedNodePayouts = { ...state.selectedNodePayouts, expectations };
     }
 
     // Actions
@@ -109,6 +143,41 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
         const expectations = await this.payouts.expectations(nodeId);
 
         ctx.commit(`${nodeId ? 'setCurrentNodeExpectations' : 'setTotalExpectation'}`, expectations);
+    }
+
+    /**
+     * paystub action loads payouts information for table for selected node.
+     * @param ctx - context of the Vuex action.
+     * @param nodeId
+     */
+    public async paystub(ctx: ActionContext<PayoutsState, RootState>, nodeId: string): Promise<void> {
+        // @ts-ignore
+        const selectedSatelliteId = ctx.rootState.nodes.selectedSatellite ? ctx.rootState.nodes.selectedSatellite.id : null;
+        const paystub = await this.payouts.paystub(selectedSatelliteId, ctx.state.selectedPayoutPeriod, nodeId);
+
+        ctx.commit('setNodePaystub', paystub);
+    }
+
+    /**
+     * nodeTotals action loads total payouts information for selected node.
+     * @param ctx - context of the Vuex action.
+     * @param nodeId
+     */
+    public async nodeTotals(ctx: ActionContext<PayoutsState, RootState>, nodeId: string): Promise<void> {
+        const paystub = await this.payouts.paystub(null, null, nodeId);
+
+        ctx.commit('setNodeTotals', paystub);
+    }
+
+    /**
+     * heldHistory action loads held history for selected node.
+     * @param ctx - context of the Vuex action.
+     * @param nodeId
+     */
+    public async heldHistory(ctx: ActionContext<PayoutsState, RootState>, nodeId: string): Promise<void> {
+        const heldHistory = await this.payouts.heldHistory(nodeId);
+
+        ctx.commit('setNodeHeldHistory', heldHistory);
     }
 
     // Getters

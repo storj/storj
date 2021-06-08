@@ -1421,6 +1421,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`UPDATE coupons SET billing_periods = 2 WHERE billing_periods is NULL;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add column to track dead allocated bandwidth",
+				Version:     160,
+				Action: migrate.SQL{
+					`ALTER TABLE project_bandwidth_daily_rollups ADD COLUMN egress_dead bigint NOT NULL DEFAULT 0;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

@@ -14,13 +14,12 @@
 import { FileBrowser } from 'browser';
 import { Component, Vue } from 'vue-property-decorator';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant, GatewayCredentials } from '@/types/accessGrants';
-import { MetaUtils } from '@/utils/meta';
-
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { AnalyticsHttpApi } from '@/api/analytics';
+import { MetaUtils } from '@/utils/meta';
 
 @Component({
     components: {

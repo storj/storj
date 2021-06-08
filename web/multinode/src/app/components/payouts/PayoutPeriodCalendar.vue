@@ -2,14 +2,14 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="payout-period-calendar">
+    <div class="payout-period-calendar" v-click-outside="close">
         <div class="payout-period-calendar__header">
             <div class="payout-period-calendar__header__year-selection">
-                <div class="payout-period-calendar__header__year-selection__prev" @click="decrementYear">
+                <div class="payout-period-calendar__header__year-selection__prev" @click.stop="decrementYear">
                     <GrayArrowLeftIcon />
                 </div>
                 <p class="payout-period-calendar__header__year-selection__year">{{ displayedYear }}</p>
-                <div class="payout-period-calendar__header__year-selection__next" @click="incrementYear">
+                <div class="payout-period-calendar__header__year-selection__next" @click.stop="incrementYear">
                     <GrayArrowLeftIcon />
                 </div>
             </div>
@@ -21,7 +21,7 @@
                 :class="{ selected: item.selected, disabled: !item.active }"
                 v-for="item in currentDisplayedMonths"
                 :key="item.name"
-                @click="checkMonth(item)"
+                @click.stop="checkMonth(item)"
             >
                 <p class="month-item__label">{{ item.name }}</p>
             </div>

@@ -21,7 +21,7 @@ export default class BaseTable extends Vue {}
         border: 1px solid var(--c-gray--light);
         border-radius: var(--br-table);
         font-family: 'font_semiBold', sans-serif;
-        z-index: 999;
+        z-index: 997;
 
         th {
             box-sizing: border-box;

@@ -399,7 +399,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.Overlay.Node.AsOfSystemTime.DefaultInterval = 0
 	config.Overlay.AuditHistory.OfflineDQEnabled = false
 	config.Server.Config.Extensions.Revocation = false
-	config.Metainfo.Loop.MaxAsOfSystemDuration = 0
 	config.Orders.OrdersSemaphoreSize = 0
 	config.Checker.NodeFailureRate = 0
 	config.Audit.MaxRetriesStatDB = 0

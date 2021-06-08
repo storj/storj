@@ -1,7 +1,6 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-// TODO: move to config.
 /**
  * Divider to convert payout amounts to cents.
  */
@@ -77,9 +76,93 @@ export class PayoutPeriod {
 }
 
 /**
- * PayoutsSummary is a representation of current month estimated payout and undistributed payouts.
+ * Contains all payout information of particular node.
  */
-export class Expectations {
+export class NodePayouts {
+    public constructor(
+        public totalEarned: number = 0,
+        public totalHeld: number = 0,
+        public totalPaid: number = 0,
+        public heldHistory: HeldAmountSummary[] = [],
+        public paystubForPeriod: Paystub = new Paystub(),
+        public expectations: Expectation = new Expectation(),
+    ) {}
+}
+
+/**
+ * Holds held history information for all satellites.
+ */
+export class HeldAmountSummary {
+    public constructor(
+        public satelliteName: string = '',
+        public firstQuarter: number = 0,
+        public secondQuarter: number = 0,
+        public thirdQuarter: number = 0,
+        public periodCount: number = 0,
+    ) {
+        this.firstQuarter = this.convertToCents(this.firstQuarter);
+        this.secondQuarter = this.convertToCents(this.secondQuarter);
+        this.thirdQuarter = this.convertToCents(this.thirdQuarter);
+    }
+
+    /**
+     * Returns node age depends on period count.
+     */
+    public get monthsCount(): string {
+        return `${this.periodCount + 1} month${this.periodCount > 0 ? 's' : ''}`;
+    }
+
+    private convertToCents(value: number): number {
+        return value / PRICE_DIVIDER;
+    }
+}
+
+/**
+ * Payouts month-term representation.
+ */
+export class Paystub {
+    public gross: number = 0;
+
+    public constructor(
+        public usageAtRest: number = 0,
+        public usageGet: number = 0,
+        public usageGetRepair: number = 0,
+        public usageGetAudit: number = 0,
+        public compAtRest: number = 0,
+        public compGet: number = 0,
+        public compGetRepair: number = 0,
+        public compGetAudit: number = 0,
+        public held: number = 0,
+        public paid: number = 0,
+        public distributed: number = 0,
+    ) {
+        this.compAtRest = this.convertToCents(this.compAtRest);
+        this.compGet = this.convertToCents(this.compGet);
+        this.compGetRepair = this.convertToCents(this.compGetRepair);
+        this.compGetAudit = this.convertToCents(this.compGetAudit);
+        this.held = this.convertToCents(this.held);
+        this.paid = this.convertToCents(this.paid);
+        this.gross = this.convertToCents(this.paid + this.held);
+        this.distributed = this.convertToCents(this.distributed);
+    }
+
+    public get repairAndAuditUsage(): number {
+        return this.usageGetRepair + this.usageGetAudit;
+    }
+
+    public get repairAndAuditComp(): number {
+        return this.compGetRepair + this.compGetAudit;
+    }
+
+    private convertToCents(value: number): number {
+        return value / PRICE_DIVIDER;
+    }
+}
+
+/**
+ * Expectations is a representation of current month estimated payout and undistributed payouts.
+ */
+export class Expectation {
     public constructor(
         public currentMonthEstimation: number = 0,
         public undistributed: number = 0,

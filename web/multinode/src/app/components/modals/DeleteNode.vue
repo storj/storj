@@ -3,8 +3,8 @@
 
 <template>
     <div class="delete-node">
-        <div @click="openModal" class="delete-node__button">Delete Node</div>
-        <v-modal v-if="isModalShown" @close="closeModal">
+        <div @click.stop="openModal" class="delete-node__button">Delete Node</div>
+        <v-modal v-if="isModalShown" @onClose="closeModal">
             <h2 slot="header">Delete this node?</h2>
             <div class="delete-node__body" slot="body">
                 <div class="delete-node__body__node-id-container">
@@ -17,7 +17,6 @@
             </div>
         </v-modal>
     </div>
-
 </template>
 
 <script lang="ts">
@@ -47,6 +46,7 @@ export default class AddNewNode extends Vue {
     public closeModal(): void {
         this.isLoading = false;
         this.isModalShown = false;
+        this.$emit('closeOptions');
     }
 
     public async onDelete(): Promise<void> {
