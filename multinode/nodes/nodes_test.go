@@ -4,9 +4,12 @@
 package nodes_test
 
 import (
+	"bytes"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -57,5 +60,66 @@ func TestNodesDB(t *testing.T) {
 		_, err = nodesRepository.Get(ctx, nodeID)
 		assert.Error(t, err)
 		assert.True(t, nodes.ErrNoNode.Has(err))
+
+		t.Run("pagination tests", func(t *testing.T) {
+			const nodesAmount = 10
+			nodeList := make([]nodes.Node, 0)
+			for i := 0; i < nodesAmount; i++ {
+				node := nodes.Node{
+					ID:            testrand.NodeID(),
+					APISecret:     []byte{uint8(i)},
+					PublicAddress: fmt.Sprintf("%d", i),
+					Name:          fmt.Sprintf("%d", i),
+				}
+				nodeList = append(nodeList, node)
+				err := nodesRepository.Add(ctx, node.ID, node.APISecret, node.PublicAddress)
+				require.NoError(t, err)
+			}
+			page, err := nodesRepository.ListPaged(ctx, nodes.Cursor{
+				Limit: 2,
+				Page:  1,
+			})
+			assert.NoError(t, err)
+			assert.Equal(t, page.TotalCount, int64(nodesAmount))
+			assert.Equal(t, 2, len(page.Nodes))
+			assert.Equal(t, 0, bytes.Compare(nodeList[0].ID.Bytes(), page.Nodes[0].ID.Bytes()))
+			assert.Equal(t, 0, bytes.Compare(nodeList[1].ID.Bytes(), page.Nodes[1].ID.Bytes()))
+			page, err = nodesRepository.ListPaged(ctx, nodes.Cursor{
+				Limit: 2,
+				Page:  2,
+			})
+			assert.NoError(t, err)
+			assert.Equal(t, page.TotalCount, int64(nodesAmount))
+			assert.Equal(t, 2, len(page.Nodes))
+			assert.Equal(t, 0, bytes.Compare(nodeList[2].ID.Bytes(), page.Nodes[0].ID.Bytes()))
+			assert.Equal(t, 0, bytes.Compare(nodeList[3].ID.Bytes(), page.Nodes[1].ID.Bytes()))
+			page, err = nodesRepository.ListPaged(ctx, nodes.Cursor{
+				Limit: 2,
+				Page:  3,
+			})
+			assert.NoError(t, err)
+			assert.Equal(t, page.TotalCount, int64(nodesAmount))
+			assert.Equal(t, 2, len(page.Nodes))
+			assert.Equal(t, 0, bytes.Compare(nodeList[4].ID.Bytes(), page.Nodes[0].ID.Bytes()))
+			assert.Equal(t, 0, bytes.Compare(nodeList[5].ID.Bytes(), page.Nodes[1].ID.Bytes()))
+			page, err = nodesRepository.ListPaged(ctx, nodes.Cursor{
+				Limit: 2,
+				Page:  4,
+			})
+			assert.NoError(t, err)
+			assert.Equal(t, page.TotalCount, int64(nodesAmount))
+			assert.Equal(t, 2, len(page.Nodes))
+			assert.Equal(t, 0, bytes.Compare(nodeList[6].ID.Bytes(), page.Nodes[0].ID.Bytes()))
+			assert.Equal(t, 0, bytes.Compare(nodeList[7].ID.Bytes(), page.Nodes[1].ID.Bytes()))
+			page, err = nodesRepository.ListPaged(ctx, nodes.Cursor{
+				Limit: 2,
+				Page:  5,
+			})
+			assert.NoError(t, err)
+			assert.Equal(t, page.TotalCount, int64(nodesAmount))
+			assert.Equal(t, 2, len(page.Nodes))
+			assert.Equal(t, 0, bytes.Compare(nodeList[8].ID.Bytes(), page.Nodes[0].ID.Bytes()))
+			assert.Equal(t, 0, bytes.Compare(nodeList[9].ID.Bytes(), page.Nodes[1].ID.Bytes()))
+		})
 	})
 }

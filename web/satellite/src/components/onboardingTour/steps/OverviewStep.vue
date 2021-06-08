@@ -145,7 +145,7 @@ export default class OverviewStep extends Vue {
         await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'GatewayMT');
 
         try {
-            await this.createFirstProject();
+            await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
 
             this.isLoading = false;
 
@@ -168,7 +168,7 @@ export default class OverviewStep extends Vue {
         await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'CLI');
 
         try {
-            await this.createFirstProject();
+            await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
 
             this.isLoading = false;
 
@@ -190,7 +190,7 @@ export default class OverviewStep extends Vue {
         await this.analytics.linkEventTriggered(AnalyticsEvent.PATH_SELECTED, 'Continue in Browser');
 
         try {
-            await this.createFirstProject();
+            await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
 
             this.isLoading = false;
 
@@ -211,7 +211,7 @@ export default class OverviewStep extends Vue {
         this.isLoading = true;
 
         try {
-            await this.createFirstProject();
+            await this.$store.dispatch(PROJECTS_ACTIONS.CREATE_DEFAULT_PROJECT);
 
             this.isLoading = false;
 
@@ -220,32 +220,6 @@ export default class OverviewStep extends Vue {
             await this.$notify.error(error.message);
             this.isLoading = false;
         }
-    }
-
-    /**
-     * Creates untitled project in a background.
-     */
-    private async createFirstProject(): Promise<void> {
-        const FIRST_PAGE = 1;
-        const UNTITLED_PROJECT_NAME = 'My First Project';
-        const UNTITLED_PROJECT_DESCRIPTION = '___';
-        const project = new ProjectFields(
-            UNTITLED_PROJECT_NAME,
-            UNTITLED_PROJECT_DESCRIPTION,
-            this.$store.getters.user.id,
-        );
-        const createdProject = await this.$store.dispatch(PROJECTS_ACTIONS.CREATE, project);
-        const createdProjectId = createdProject.id;
-
-        await this.$store.dispatch(PROJECTS_ACTIONS.SELECT, createdProjectId);
-        await this.$store.dispatch(PM_ACTIONS.CLEAR);
-        await this.$store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
-        await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY);
-        await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
-        await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-        await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, createdProjectId);
-        await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR);
-        await this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
     }
 
     /**

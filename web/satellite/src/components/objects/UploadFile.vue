@@ -14,9 +14,11 @@
 import { FileBrowser } from 'browser';
 import { Component, Vue } from 'vue-property-decorator';
 
+import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant, GatewayCredentials } from '@/types/accessGrants';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MetaUtils } from '@/utils/meta';
 
 @Component({
@@ -27,6 +29,7 @@ import { MetaUtils } from '@/utils/meta';
 export default class UploadFile extends Vue {
     private linksharingURL = '';
     private worker: Worker;
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Lifecycle hook after initial render.
@@ -100,6 +103,8 @@ export default class UploadFile extends Vue {
             const key: string = await this.accessKey(cleanAPIKey.secret, path);
 
             path = encodeURIComponent(path.trim());
+
+            await this.analytics.eventTriggered(AnalyticsEvent.LINK_SHARED);
 
             return `${this.linksharingURL}/${key}/${path}`;
         } catch (error) {

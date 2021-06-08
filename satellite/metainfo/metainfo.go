@@ -939,8 +939,10 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 
+		downloadSizes := endpoint.calculateDownloadSizes(streamRange, segment, object.Encryption)
+
 		// Update the current bandwidth cache value incrementing the SegmentSize.
-		err = endpoint.projectUsage.UpdateProjectBandwidthUsage(ctx, keyInfo.ProjectID, int64(segment.EncryptedSize))
+		err = endpoint.projectUsage.UpdateProjectBandwidthUsage(ctx, keyInfo.ProjectID, downloadSizes.encryptedSize)
 		if err != nil {
 			// log it and continue. it's most likely our own fault that we couldn't
 			// track it, and the only thing that will be affected is our per-project
@@ -955,7 +957,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		}
 
 		if segment.Inline() {
-			err := endpoint.orders.UpdateGetInlineOrder(ctx, object.Location().Bucket(), int64(len(segment.InlineData)))
+			err := endpoint.orders.UpdateGetInlineOrder(ctx, object.Location().Bucket(), downloadSizes.plainSize)
 			if err != nil {
 				return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
@@ -978,7 +980,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			}}, nil
 		}
 
-		limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, object.Location().Bucket(), segment)
+		limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, object.Location().Bucket(), segment, downloadSizes.orderLimit)
 		if err != nil {
 			if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
 				endpoint.log.Error("Unable to create order limits.",
@@ -1061,6 +1063,83 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		// segmentListItems will be nil.
 		SegmentList: segmentList,
 	}, nil
+}
+
+type downloadSizes struct {
+	// amount of data that uplink eventually gets
+	plainSize int64
+	// amount of data that's present after encryption
+	encryptedSize int64
+	// amount of data that's read from a storage node
+	orderLimit int64
+}
+
+func (endpoint *Endpoint) calculateDownloadSizes(streamRange *metabase.StreamRange, segment metabase.Segment, encryptionParams storj.EncryptionParameters) downloadSizes {
+	if segment.Inline() {
+		return downloadSizes{
+			plainSize:     int64(len(segment.InlineData)),
+			encryptedSize: int64(segment.EncryptedSize),
+		}
+	}
+
+	// calculate the range inside the given segment
+	readStart := segment.PlainOffset
+	if streamRange != nil && readStart <= streamRange.PlainStart {
+		readStart = streamRange.PlainStart
+	}
+	readLimit := segment.PlainOffset + int64(segment.PlainSize)
+	if streamRange != nil && streamRange.PlainLimit < readLimit {
+		readLimit = streamRange.PlainLimit
+	}
+
+	plainSize := readLimit - readStart
+
+	// calculate the read range given the segment start
+	readStart -= segment.PlainOffset
+	readLimit -= segment.PlainOffset
+
+	// align to encryption block size
+	enc, err := encryption.NewEncrypter(encryptionParams.CipherSuite, &storj.Key{1}, &storj.Nonce{1}, int(encryptionParams.BlockSize))
+	if err != nil {
+		// We ignore the error and fallback to the max amount to download.
+		// It's unlikely that we fail here, but if we do, we don't want to block downloading.
+		endpoint.log.Error("unable to create encrypter", zap.Error(err))
+		return downloadSizes{
+			plainSize:     int64(segment.PlainSize),
+			encryptedSize: int64(segment.EncryptedSize),
+			orderLimit:    0,
+		}
+	}
+
+	encryptedStartBlock, encryptedLimitBlock := calculateBlocks(readStart, readLimit, int64(enc.InBlockSize()))
+	encryptedStart, encryptedLimit := encryptedStartBlock*int64(enc.OutBlockSize()), encryptedLimitBlock*int64(enc.OutBlockSize())
+	encryptedSize := encryptedLimit - encryptedStart
+
+	if encryptedSize > int64(segment.EncryptedSize) {
+		encryptedSize = int64(segment.EncryptedSize)
+	}
+
+	// align to blocks
+	stripeSize := int64(segment.Redundancy.StripeSize())
+	stripeStart, stripeLimit := alignToBlock(encryptedStart, encryptedLimit, stripeSize)
+
+	// calculate how much shares we need to download from a node
+	stripeCount := (stripeLimit - stripeStart) / stripeSize
+	orderLimit := stripeCount * int64(segment.Redundancy.ShareSize)
+
+	return downloadSizes{
+		plainSize:     plainSize,
+		encryptedSize: encryptedSize,
+		orderLimit:    orderLimit,
+	}
+}
+
+func calculateBlocks(start, limit int64, blockSize int64) (startBlock, limitBlock int64) {
+	return start / blockSize, (limit + blockSize - 1) / blockSize
+}
+
+func alignToBlock(start, limit int64, blockSize int64) (alignedStart, alignedLimit int64) {
+	return (start / blockSize) * blockSize, ((limit + blockSize - 1) / blockSize) * blockSize
 }
 
 func calculateStreamRange(object metabase.Object, req *pb.Range) (*metabase.StreamRange, error) {
@@ -2064,7 +2143,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}
 
 	// Remote segment
-	limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, bucket, segment)
+	limits, privateKey, err := endpoint.orders.CreateGetOrderLimits(ctx, bucket, segment, 0)
 	if err != nil {
 		if orders.ErrDownloadFailedNotEnoughPieces.Has(err) {
 			endpoint.log.Error("Unable to create order limits.",

@@ -23,7 +23,8 @@ const loopIteratorBatchSizeLimit = 2500
 type IterateLoopObjects struct {
 	BatchSize int
 
-	AsOfSystemTime time.Time
+	AsOfSystemTime     time.Time
+	AsOfSystemInterval time.Duration
 }
 
 // Verify verifies get object request fields.
@@ -62,9 +63,10 @@ func (db *DB) IterateLoopObjects(ctx context.Context, opts IterateLoopObjects, f
 
 		batchSize: opts.BatchSize,
 
-		curIndex:       0,
-		cursor:         loopIterateCursor{},
-		asOfSystemTime: opts.AsOfSystemTime,
+		curIndex:           0,
+		cursor:             loopIterateCursor{},
+		asOfSystemTime:     opts.AsOfSystemTime,
+		asOfSystemInterval: opts.AsOfSystemInterval,
 	}
 
 	// ensure batch size is reasonable
@@ -81,7 +83,7 @@ func (db *DB) IterateLoopObjects(ctx context.Context, opts IterateLoopObjects, f
 		if rowsErr := it.curRows.Err(); rowsErr != nil {
 			err = errs.Combine(err, rowsErr)
 		}
-		err = errs.Combine(err, it.curRows.Close())
+		err = errs.Combine(err, it.failErr, it.curRows.Close())
 	}()
 
 	return fn(ctx, it)
@@ -91,12 +93,16 @@ func (db *DB) IterateLoopObjects(ctx context.Context, opts IterateLoopObjects, f
 type loopIterator struct {
 	db *DB
 
-	batchSize      int
-	asOfSystemTime time.Time
+	batchSize          int
+	asOfSystemTime     time.Time
+	asOfSystemInterval time.Duration
 
 	curIndex int
 	curRows  tagsql.Rows
 	cursor   loopIterateCursor
+
+	// failErr is set when either scan or next query fails during iteration.
+	failErr error
 }
 
 type loopIterateCursor struct {
@@ -120,11 +126,12 @@ func (it *loopIterator) Next(ctx context.Context, item *LoopObjectEntry) bool {
 
 		rows, err := it.doNextQuery(ctx)
 		if err != nil {
+			it.failErr = errs.Combine(it.failErr, err)
 			return false
 		}
 
-		if it.curRows.Close() != nil {
-			_ = rows.Close()
+		if closeErr := it.curRows.Close(); closeErr != nil {
+			it.failErr = errs.Combine(it.failErr, closeErr, rows.Close())
 			return false
 		}
 
@@ -137,6 +144,7 @@ func (it *loopIterator) Next(ctx context.Context, item *LoopObjectEntry) bool {
 
 	err := it.scanItem(item)
 	if err != nil {
+		it.failErr = errs.Combine(it.failErr, err)
 		return false
 	}
 
@@ -161,7 +169,7 @@ func (it *loopIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err err
 			segment_count,
 			LENGTH(COALESCE(encrypted_metadata,''))
 		FROM objects
-		`+it.db.impl.AsOfSystemTime(it.asOfSystemTime)+`
+		`+it.db.asOfTime(it.asOfSystemTime, it.asOfSystemInterval)+`
 		WHERE (project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
 		ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
 		LIMIT $5
@@ -187,7 +195,8 @@ func (it *loopIterator) scanItem(item *LoopObjectEntry) error {
 type IterateLoopStreams struct {
 	StreamIDs []uuid.UUID
 
-	AsOfSystemTime time.Time
+	AsOfSystemTime     time.Time
+	AsOfSystemInterval time.Duration
 }
 
 // SegmentIterator returns the next segment.
@@ -244,7 +253,7 @@ func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, h
 			redundancy,
 			remote_alias_pieces
 		FROM segments
-		`+db.impl.AsOfSystemTime(opts.AsOfSystemTime)+`
+		`+db.asOfTime(opts.AsOfSystemTime, opts.AsOfSystemInterval)+`
 		WHERE
 		    -- this turns out to be a little bit faster than stream_id IN (SELECT unnest($1::BYTEA[]))
 			stream_id = ANY ($1::BYTEA[])
@@ -320,6 +329,14 @@ func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, h
 	return nil
 }
 
+func (db *DB) asOfTime(asOfSystemTime time.Time, asOfSystemInterval time.Duration) string {
+	interval := time.Since(asOfSystemTime)
+	if asOfSystemInterval < 0 && interval > -asOfSystemInterval {
+		return db.impl.AsOfSystemInterval(asOfSystemInterval)
+	}
+	return db.impl.AsOfSystemTime(asOfSystemTime)
+}
+
 // LoopSegmentsIterator iterates over a sequence of LoopSegmentEntry items.
 type LoopSegmentsIterator interface {
 	Next(ctx context.Context, item *LoopSegmentEntry) bool
@@ -371,7 +388,7 @@ func (db *DB) IterateLoopSegments(ctx context.Context, opts IterateLoopSegments,
 		if rowsErr := it.curRows.Err(); rowsErr != nil {
 			err = errs.Combine(err, rowsErr)
 		}
-		err = errs.Combine(err, it.curRows.Close())
+		err = errs.Combine(err, it.failErr, it.curRows.Close())
 	}()
 
 	return fn(ctx, it)
@@ -387,6 +404,9 @@ type loopSegmentIterator struct {
 	curIndex int
 	curRows  tagsql.Rows
 	cursor   loopSegmentIteratorCursor
+
+	// failErr is set when either scan or next query fails during iteration.
+	failErr error
 }
 
 type loopSegmentIteratorCursor struct {
@@ -408,11 +428,12 @@ func (it *loopSegmentIterator) Next(ctx context.Context, item *LoopSegmentEntry)
 
 		rows, err := it.doNextQuery(ctx)
 		if err != nil {
+			it.failErr = errs.Combine(it.failErr, err)
 			return false
 		}
 
-		if it.curRows.Close() != nil {
-			_ = rows.Close()
+		if failErr := it.curRows.Close(); failErr != nil {
+			it.failErr = errs.Combine(it.failErr, failErr, rows.Close())
 			return false
 		}
 
@@ -425,6 +446,7 @@ func (it *loopSegmentIterator) Next(ctx context.Context, item *LoopSegmentEntry)
 
 	err := it.scanItem(ctx, item)
 	if err != nil {
+		it.failErr = errs.Combine(it.failErr, err)
 		return false
 	}
 

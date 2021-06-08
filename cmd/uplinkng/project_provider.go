@@ -21,6 +21,19 @@ func (pp *projectProvider) Setup(a clingy.Arguments, f clingy.Flags) {
 	pp.access = f.New("access", "Which access to use", "").(string)
 }
 
+func (pp *projectProvider) OpenFilesystem(ctx context.Context, options ...projectOption) (filesystem, error) {
+	project, err := pp.OpenProject(ctx, options...)
+	if err != nil {
+		return nil, err
+	}
+	return &filesystemMixed{
+		local: &filesystemLocal{},
+		remote: &filesystemRemote{
+			project: project,
+		},
+	}, nil
+}
+
 func (pp *projectProvider) OpenProject(ctx context.Context, options ...projectOption) (*uplink.Project, error) {
 	if pp.openProject != nil {
 		return pp.openProject(ctx)

@@ -118,6 +118,8 @@ h1 {
                 border-top-right-radius: 20px;
                 border-bottom-right-radius: 20px;
                 border-left: none;
+                position: relative;
+                right: 1px;
             }
 
             &__personal,
@@ -145,7 +147,7 @@ h1 {
             padding: 60px 80px;
             background-color: #fff;
             border-radius: 6px;
-            min-height: 675px;
+            min-height: 655px;
 
             &__title-area {
                 display: flex;
@@ -169,7 +171,7 @@ h1 {
                 }
             }
 
-            &__terms-area {
+            &__checkbox-area {
                 display: flex;
                 align-items: center;
                 width: 100%;
@@ -181,6 +183,8 @@ h1 {
                     color: #354049;
 
                     &__msg {
+                        position: relative;
+                        top: 4px;
 
                         &__link {
                             margin: 0 4px;
@@ -219,7 +223,7 @@ h1 {
         }
 
         &__container.professional-container {
-            min-height: 901px;
+            min-height: 991px;
         }
 
         &__footer {
@@ -373,6 +377,16 @@ h1 {
                     left: -200px;
                 }
             }
+        }
+    }
+}
+
+@media screen and (max-width: 414px) {
+
+    .register-area {
+
+        &__logo-wrapper {
+            margin-top: 30px;
         }
     }
 }

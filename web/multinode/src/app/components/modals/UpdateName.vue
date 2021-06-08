@@ -3,8 +3,8 @@
 
 <template>
     <div class="update-name">
-        <div @click="openModal" class="update-name__button">Update Name</div>
-        <v-modal v-if="isModalShown" @close="closeModal">
+        <div @click.stop="openModal" class="update-name__button">Update Name</div>
+        <v-modal v-if="isModalShown" @onClose="closeModal">
             <h2 slot="header">Set name for node</h2>
             <div class="update-name__body" slot="body">
                 <div class="update-name__body__node-id-container">
@@ -67,6 +67,7 @@ export default class AddNewNode extends Vue {
     public closeModal(): void {
         this.isLoading = false;
         this.isModalShown = false;
+        this.$emit('closeOptions');
     }
 
     public async onSetName(): Promise<void> {
@@ -122,7 +123,7 @@ export default class AddNewNode extends Vue {
                 box-sizing: border-box;
                 padding: 10px 12px;
                 font-family: 'font_regular', sans-serif;
-                font-size: 14px;
+                font-size: 13px;
                 color: var(--c-title);
                 background: var(--c-background);
                 border-radius: 32px;

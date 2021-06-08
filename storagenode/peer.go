@@ -563,8 +563,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			debug.Cycle("Orders Cleanup", peer.Storage2.Orders.Cleanup))
 	}
 
-	{ // setup payouts service.
-		service, err := payouts.NewService(
+	{ // setup payouts.
+		peer.Payout.Service, err = payouts.NewService(
 			peer.Log.Named("payouts:service"),
 			peer.DB.Payout(),
 			peer.DB.Reputation(),
@@ -574,7 +574,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-		peer.Payout.Service = service
+
 		peer.Payout.Endpoint = payouts.NewEndpoint(
 			peer.Log.Named("payouts:endpoint"),
 			peer.Dialer,
@@ -786,26 +786,32 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		peer.Multinode.Storage = multinode.NewStorageEndpoint(
 			peer.Log.Named("multinode:storage-endpoint"),
 			apiKeys,
-			peer.Storage2.Monitor)
+			peer.Storage2.Monitor,
+		)
 
 		peer.Multinode.Bandwidth = multinode.NewBandwidthEndpoint(
 			peer.Log.Named("multinode:bandwidth-endpoint"),
 			apiKeys,
-			peer.DB.Bandwidth())
+			peer.DB.Bandwidth(),
+		)
 
 		peer.Multinode.Node = multinode.NewNodeEndpoint(
 			peer.Log.Named("multinode:node-endpoint"),
+			config.Operator,
 			apiKeys,
 			peer.Version.Service.Info,
 			peer.Contact.PingStats,
 			peer.DB.Reputation(),
-			peer.Storage2.Trust)
+			peer.Storage2.Trust,
+		)
 
 		peer.Multinode.Payout = multinode.NewPayoutEndpoint(
 			peer.Log.Named("multinode:payout-endpoint"),
 			apiKeys,
+			peer.DB.Payout(),
 			peer.Estimation.Service,
-			peer.DB.Payout())
+			peer.Payout.Service,
+		)
 
 		if err = multinodepb.DRPCRegisterStorage(peer.Server.DRPC(), peer.Multinode.Storage); err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -816,7 +822,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err = multinodepb.DRPCRegisterNode(peer.Server.DRPC(), peer.Multinode.Node); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-		if err = multinodepb.DRPCRegisterPayout(peer.Server.DRPC(), peer.Multinode.Payout); err != nil {
+		if err = multinodepb.DRPCRegisterPayouts(peer.Server.DRPC(), peer.Multinode.Payout); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 	}

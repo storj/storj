@@ -114,6 +114,8 @@ func TestContainDelete(t *testing.T) {
 	})
 }
 
+// UpdateStats used to remove nodes from containment. It doesn't anymore.
+// This is a sanity check.
 func TestContainUpdateStats(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1,
@@ -138,9 +140,8 @@ func TestContainUpdateStats(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, node.Contained)
 
-		// get pending audit that doesn't exist
+		// get pending audit
 		_, err = containment.Get(ctx, info1.NodeID)
-		assert.Error(t, err, audit.ErrContainedNotFound.New("%v", info1.NodeID))
-		assert.True(t, audit.ErrContainedNotFound.Has(err))
+		require.NoError(t, err)
 	})
 }

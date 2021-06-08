@@ -148,9 +148,9 @@ func (db *ProjectAccounting) GetProjectBandwidth(ctx context.Context, projectID 
 	if day < allocatedExpirationInDays {
 		expiredSince = startOfMonth
 	} else {
-		expiredSince = time.Date(year, month, day-allocatedExpirationInDays+1, 0, 0, 0, 0, time.UTC)
+		expiredSince = time.Date(year, month, day-allocatedExpirationInDays, 0, 0, 0, 0, time.UTC)
 	}
-	periodEnd := time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
+	periodEnd := time.Date(year, month+1, 0, 0, 0, 0, 0, time.UTC)
 
 	query := ` WITH egress AS (
 					SELECT
@@ -159,7 +159,7 @@ func (db *ProjectAccounting) GetProjectBandwidth(ctx context.Context, projectID 
 							ELSE egress_allocated
 						END AS amount
 					FROM project_bandwidth_daily_rollups
-					WHERE project_id = ? AND interval_day >= ? AND interval_day <= ?
+					WHERE project_id = ? AND interval_day >= ? AND interval_day < ?
 				) SELECT sum(amount) from egress;`
 	err = db.db.QueryRow(ctx, db.db.Rebind(query), expiredSince, projectID[:], startOfMonth, periodEnd).Scan(&egress)
 	if errors.Is(err, sql.ErrNoRows) || egress == nil {

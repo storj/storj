@@ -2,12 +2,12 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="options-button" @click.stop="toggleOptions">
+    <div class="options-button" @click.stop="openOptions">
         <more-icon />
         <div class="options" v-if="areOptionsShown" v-click-outside="closeOptions">
             <div @click.stop="onCopy" class="options__item">Copy Node ID</div>
-            <delete-node :node-id="id" />
-            <update-name :node-id="id" />
+            <delete-node :node-id="id" @closeOptions="closeOptions" />
+            <update-name :node-id="id" @closeOptions="closeOptions" />
         </div>
     </div>
 </template>
@@ -33,8 +33,8 @@ export default class NodeOptions extends Vue {
 
     public areOptionsShown: boolean = false;
 
-    public toggleOptions(): void {
-        this.areOptionsShown = !this.areOptionsShown;
+    public openOptions(): void {
+        this.areOptionsShown = true;
     }
 
     public closeOptions(): void {
@@ -75,8 +75,8 @@ export default class NodeOptions extends Vue {
 
     .options {
         position: absolute;
-        top: 16px;
-        right: 55px;
+        top: 0;
+        right: 45px;
         width: 140px;
         height: auto;
         background: white;

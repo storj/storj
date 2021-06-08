@@ -220,7 +220,7 @@ func TestGarbageCollection_PendingObject(t *testing.T) {
 			InitialPieces:     10,
 		}, lastPieceCounts)
 
-		err = satellite.Metainfo.Loop.Join(ctx, pieceTracker)
+		err = satellite.Metainfo.SegmentLoop.Join(ctx, pieceTracker)
 		require.NoError(t, err)
 
 		require.NotEmpty(t, pieceTracker.RetainInfos)

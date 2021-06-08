@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
+	"storj.io/storj/multinode/nodes"
 	"storj.io/storj/multinode/payouts"
 )
 
@@ -34,13 +35,13 @@ func NewPayouts(log *zap.Logger, service *payouts.Service) *Payouts {
 	}
 }
 
-// GetAllNodesTotalEarned handles retrieval total earned amount .
-func (controller *Payouts) GetAllNodesTotalEarned(w http.ResponseWriter, r *http.Request) {
+// Earned handles retrieval total earned amount .
+func (controller *Payouts) Earned(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	earned, err := controller.service.GetAllNodesAllTimeEarned(ctx)
+	earned, err := controller.service.Earned(ctx)
 	if err != nil {
 		controller.log.Error("all node total earned internal error", zap.Error(err))
 		controller.serveError(w, http.StatusInternalServerError, ErrPayouts.Wrap(err))
@@ -106,8 +107,8 @@ func (controller *Payouts) Expectations(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-// PeriodSummary handles retrieval from nodes for specific period.
-func (controller *Payouts) PeriodSummary(w http.ResponseWriter, r *http.Request) {
+// SummaryPeriod handles retrieval from nodes for specific period.
+func (controller *Payouts) SummaryPeriod(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -121,7 +122,7 @@ func (controller *Payouts) PeriodSummary(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	summary, err := controller.service.NodesPeriodSummary(ctx, period)
+	summary, err := controller.service.SummaryPeriod(ctx, period)
 	if err != nil {
 		controller.serveError(w, http.StatusInternalServerError, ErrPayouts.Wrap(err))
 		return
@@ -141,7 +142,7 @@ func (controller *Payouts) Summary(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Add("Content-Type", "application/json")
 
-	summary, err := controller.service.NodesSummary(ctx)
+	summary, err := controller.service.Summary(ctx)
 	if err != nil {
 		controller.serveError(w, http.StatusInternalServerError, ErrPayouts.Wrap(err))
 		return
@@ -153,8 +154,8 @@ func (controller *Payouts) Summary(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// SatellitePeriodSummary handles retrieval from nodes from specific satellite for specific period.
-func (controller *Payouts) SatellitePeriodSummary(w http.ResponseWriter, r *http.Request) {
+// SummarySatellitePeriod handles retrieval from nodes from specific satellite for specific period.
+func (controller *Payouts) SummarySatellitePeriod(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -170,7 +171,7 @@ func (controller *Payouts) SatellitePeriodSummary(w http.ResponseWriter, r *http
 
 	id, ok := segmentParams["id"]
 	if !ok {
-		controller.serveError(w, http.StatusBadRequest, ErrPayouts.New("couldn't receive route variable id"))
+		controller.serveError(w, http.StatusBadRequest, ErrPayouts.New("couldn't receive route variable satellite id"))
 		return
 	}
 
@@ -180,7 +181,7 @@ func (controller *Payouts) SatellitePeriodSummary(w http.ResponseWriter, r *http
 		return
 	}
 
-	summary, err := controller.service.NodesSatellitePeriodSummary(ctx, satelliteID, period)
+	summary, err := controller.service.SummarySatellitePeriod(ctx, satelliteID, period)
 	if err != nil {
 		controller.serveError(w, http.StatusInternalServerError, ErrPayouts.Wrap(err))
 		return
@@ -192,8 +193,8 @@ func (controller *Payouts) SatellitePeriodSummary(w http.ResponseWriter, r *http
 	}
 }
 
-// SatelliteSummary handles retrieval from nodes from specific satellite.
-func (controller *Payouts) SatelliteSummary(w http.ResponseWriter, r *http.Request) {
+// SummarySatellite handles retrieval from nodes from specific satellite.
+func (controller *Payouts) SummarySatellite(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -203,7 +204,7 @@ func (controller *Payouts) SatelliteSummary(w http.ResponseWriter, r *http.Reque
 
 	id, ok := segmentParams["id"]
 	if !ok {
-		controller.serveError(w, http.StatusBadRequest, ErrPayouts.New("couldn't receive route variable id"))
+		controller.serveError(w, http.StatusBadRequest, ErrPayouts.New("couldn't receive route variable satellite id"))
 		return
 	}
 
@@ -213,7 +214,7 @@ func (controller *Payouts) SatelliteSummary(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	summary, err := controller.service.NodesSatelliteSummary(ctx, satelliteID)
+	summary, err := controller.service.SummarySatellite(ctx, satelliteID)
 	if err != nil {
 		controller.serveError(w, http.StatusInternalServerError, ErrPayouts.Wrap(err))
 		return
@@ -258,8 +259,8 @@ func (controller *Payouts) Paystub(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// SatellitePaystub returns all summed paystubs from specific satellite.
-func (controller *Payouts) SatellitePaystub(w http.ResponseWriter, r *http.Request) {
+// PaystubSatellite returns all summed paystubs from specific satellite.
+func (controller *Payouts) PaystubSatellite(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -269,7 +270,7 @@ func (controller *Payouts) SatellitePaystub(w http.ResponseWriter, r *http.Reque
 
 	id, ok := segmentParams["id"]
 	if !ok {
-		controller.serveError(w, http.StatusBadRequest, ErrPayouts.New("couldn't receive route variable id"))
+		controller.serveError(w, http.StatusBadRequest, ErrPayouts.New("couldn't receive route variable satellite id"))
 		return
 	}
 
@@ -291,7 +292,7 @@ func (controller *Payouts) SatellitePaystub(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	paystub, err := controller.service.SatellitePaystub(ctx, nodeID, satelliteID)
+	paystub, err := controller.service.PaystubSatellite(ctx, nodeID, satelliteID)
 	if err != nil {
 		controller.serveError(w, http.StatusInternalServerError, ErrPayouts.Wrap(err))
 		return
@@ -303,8 +304,8 @@ func (controller *Payouts) SatellitePaystub(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-// SatellitePaystubPeriod returns satellite summed paystubs for period.
-func (controller *Payouts) SatellitePaystubPeriod(w http.ResponseWriter, r *http.Request) {
+// PaystubSatellitePeriod returns satellite summed paystubs for period.
+func (controller *Payouts) PaystubSatellitePeriod(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -314,7 +315,7 @@ func (controller *Payouts) SatellitePaystubPeriod(w http.ResponseWriter, r *http
 
 	id, ok := segmentParams["id"]
 	if !ok {
-		controller.serveError(w, http.StatusBadRequest, ErrPayouts.New("couldn't receive route variable id"))
+		controller.serveError(w, http.StatusBadRequest, ErrPayouts.New("couldn't receive route variable satellite id"))
 		return
 	}
 
@@ -342,7 +343,7 @@ func (controller *Payouts) SatellitePaystubPeriod(w http.ResponseWriter, r *http
 		return
 	}
 
-	paystub, err := controller.service.SatellitePaystubPeriod(ctx, period, nodeID, satelliteID)
+	paystub, err := controller.service.PaystubSatellitePeriod(ctx, period, nodeID, satelliteID)
 	if err != nil {
 		controller.serveError(w, http.StatusInternalServerError, ErrPayouts.Wrap(err))
 		return
@@ -388,6 +389,43 @@ func (controller *Payouts) PaystubPeriod(w http.ResponseWriter, r *http.Request)
 	}
 
 	if err = json.NewEncoder(w).Encode(paystub); err != nil {
+		controller.log.Error("failed to write json response", zap.Error(err))
+		return
+	}
+}
+
+// HeldAmountSummary handles retrieving held amount history for a node.
+func (controller *Payouts) HeldAmountSummary(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	vars := mux.Vars(r)
+
+	idString, ok := vars["nodeID"]
+	if !ok {
+		controller.serveError(w, http.StatusBadRequest, ErrPayouts.New("node id segment parameter is missing"))
+		return
+	}
+	nodeID, err := storj.NodeIDFromString(idString)
+	if err != nil {
+		controller.serveError(w, http.StatusBadRequest, ErrPayouts.Wrap(err))
+		return
+	}
+
+	heldSummary, err := controller.service.HeldAmountSummary(ctx, nodeID)
+	if err != nil {
+		if nodes.ErrNoNode.Has(err) {
+			controller.serveError(w, http.StatusNotFound, ErrPayouts.Wrap(err))
+			return
+		}
+
+		controller.log.Error("held amount history internal error", zap.Error(err))
+		controller.serveError(w, http.StatusInternalServerError, ErrPayouts.Wrap(err))
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(heldSummary); err != nil {
 		controller.log.Error("failed to write json response", zap.Error(err))
 		return
 	}

@@ -67,14 +67,14 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 		RETURNING segments.stream_id, segments.root_piece_id, segments.remote_alias_pieces
 	`
 	default:
-		return deletedObjectCount, Error.New("unhandled database: %v", db.impl)
+		return 0, Error.New("unhandled database: %v", db.impl)
 	}
 
 	// TODO: fix the count for objects without segments
-
 	var deleteSegments []DeletedSegmentInfo
 	for {
 		deleteSegments = deleteSegments[:0]
+		batchDeletedObjects := 0
 		err = withRows(db.db.Query(ctx, query,
 			opts.Bucket.ProjectID, []byte(opts.Bucket.BucketName), batchSize))(func(rows tagsql.Rows) error {
 			ids := map[uuid.UUID]struct{}{} // TODO: avoid map here
@@ -94,9 +94,14 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 				ids[streamID] = struct{}{}
 				deleteSegments = append(deleteSegments, segment)
 			}
+			batchDeletedObjects = len(ids)
 			deletedObjectCount += int64(len(ids))
 			return nil
 		})
+
+		mon.Meter("object_delete").Mark(batchDeletedObjects)
+		mon.Meter("segment_delete").Mark(len(deleteSegments))
+
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return deletedObjectCount, nil

@@ -13,22 +13,23 @@
                     </div>
                     <h1 class="payouts-by-node__top-area__left-area__title-area__title">{{ nodeTitle }}</h1>
                 </div>
-                <p class="payouts-by-node__top-area__left-area__wallet">0xb64ef51c888972c908cfacf59b47c1afbc0ab8ac</p>
-                <div class="payouts-by-node__top-area__left-area__links">
-                    <v-link uri="#" label="View on Etherscan (L1 payouts)" />
-                    <v-link uri="#" label="View on zkScan (L2 payouts)" />
-                </div>
+<!--                TODO: implement wallet info-->
+<!--                <p class="payouts-by-node__top-area__left-area__wallet">0xb64ef51c888972c908cfacf59b47c1afbc0ab8ac</p>-->
+<!--                <div class="payouts-by-node__top-area__left-area__links">-->
+<!--                    <v-link uri="#" label="View on Etherscan (L1 payouts)" />-->
+<!--                    <v-link uri="#" label="View on zkScan (L2 payouts)" />-->
+<!--                </div>-->
             </div>
             <info-block>
                 <div class="payouts-by-node__top-area__balance" slot="body">
                     <div class="payouts-by-node__top-area__balance__item">
                         <h3 class="payouts-by-node__top-area__balance__item__label">Undistributed Balance</h3>
-                        <h2 class="payouts-by-node__top-area__balance__item__value">$1,992.93</h2>
+                        <h2 class="payouts-by-node__top-area__balance__item__value">{{ selectedNodePayouts.expectations.undistributed | centsToDollars }}</h2>
                     </div>
                     <div class="payouts-by-node__top-area__balance__divider"></div>
                     <div class="payouts-by-node__top-area__balance__item">
                         <h3 class="payouts-by-node__top-area__balance__item__label">Estimated Earnings (Apr)</h3>
-                        <h2 class="payouts-by-node__top-area__balance__item__value">$1,992.93</h2>
+                        <h2 class="payouts-by-node__top-area__balance__item__value">{{ selectedNodePayouts.expectations.currentMonthEstimation | centsToDollars }}</h2>
                     </div>
                 </div>
             </info-block>
@@ -39,31 +40,32 @@
                 <payout-period-calendar-button :period="period" />
             </div>
             <section class="payouts-by-node__content-area__main-info">
-                <payouts-by-node-table class="payouts-by-node__content-area__main-info__table"/>
+                <payouts-by-node-table class="payouts-by-node__content-area__main-info__table" :paystub="selectedNodePayouts.paystubForPeriod"/>
                 <div class="payouts-by-node__content-area__main-info__totals-area">
                     <info-block>
                         <div class="payouts-by-node__content-area__main-info__totals-area__item" slot="body">
                             <p class="payouts-by-node__content-area__main-info__totals-area__item__label">TOTAL PAID</p>
-                            <p class="payouts-by-node__content-area__main-info__totals-area__item__value">$700.52</p>
+                            <p class="payouts-by-node__content-area__main-info__totals-area__item__value">{{ selectedNodePayouts.totalPaid | centsToDollars }}</p>
                         </div>
                     </info-block>
                     <info-block>
                         <div class="payouts-by-node__content-area__main-info__totals-area__item" slot="body">
                             <p class="payouts-by-node__content-area__main-info__totals-area__item__label">TOTAL HELD</p>
-                            <p class="payouts-by-node__content-area__main-info__totals-area__item__value">$130.52</p>
+                            <p class="payouts-by-node__content-area__main-info__totals-area__item__value">{{ selectedNodePayouts.totalHeld | centsToDollars }}</p>
                         </div>
                     </info-block>
                     <info-block>
                         <div class="payouts-by-node__content-area__main-info__totals-area__item" slot="body">
                             <p class="payouts-by-node__content-area__main-info__totals-area__item__label">TOTAL EARNED</p>
-                            <p class="payouts-by-node__content-area__main-info__totals-area__item__value">$830.52</p>
+                            <p class="payouts-by-node__content-area__main-info__totals-area__item__value">{{ selectedNodePayouts.totalEarned | centsToDollars }}</p>
                         </div>
                     </info-block>
                     <info-block class="information">
                         <div class="payouts-by-node__content-area__main-info__totals-area__information" slot="body">
                             <h3 class="payouts-by-node__content-area__main-info__totals-area__information__title">Minimal threshold & distributed payout system</h3>
                             <p class="payouts-by-node__content-area__main-info__totals-area__information__description">Short description how minimal threshold system works.</p>
-                            <a href="#"
+<!--                            TODO: consider moving link to config-->
+                            <a href="https://forum.storj.io/t/minimum-threshold-for-storage-node-operator-payouts/11064"
                                class="payouts-by-node__content-area__main-info__totals-area__information__link"
                             >
                                 Learn more
@@ -75,7 +77,7 @@
         </div>
         <section class="payouts-by-node__held-history">
             <h2 class="payouts-by-node__held-history__title">Held Amount History</h2>
-            <held-history />
+            <held-history :held-history="selectedNodePayouts.heldHistory" />
         </section>
     </div>
 </template>
@@ -92,6 +94,7 @@ import PayoutsByNodeTable from '@/app/components/payouts/tables/payoutsByNode/Pa
 
 import { UnauthorizedError } from '@/api';
 import { Config as RouterConfig } from '@/app/router';
+import { NodePayouts } from '@/payouts';
 
 @Component({
     components: {
@@ -114,6 +117,13 @@ export default class PayoutsPage extends Vue {
     }
 
     /**
+     * Node id path parameter.
+     */
+    public get nodeId(): string {
+        return this.$route.params.id;
+    }
+
+    /**
      * payoutsSummary contains payouts summary from store.
      */
     public get nodeTitle(): string {
@@ -121,21 +131,28 @@ export default class PayoutsPage extends Vue {
             return summary.nodeId === this.$route.params.id;
         });
 
-        if (!selectedNodeSummary) return '';
+        if (!selectedNodeSummary) return this.nodeId;
 
         return selectedNodeSummary.title;
     }
 
     /**
-     * period selected payout period from store.
+     * Period selected payout period from store.
      */
     public get period(): string {
         return this.$store.getters['payouts/periodString'];
     }
 
+    /**
+     * Payout information for selected node.
+     */
+    public get selectedNodePayouts(): NodePayouts {
+        return this.$store.state.payouts.selectedNodePayouts;
+    }
+
     public async mounted(): Promise<void> {
         try {
-            await this.$store.dispatch('payouts/summary');
+            await this.$store.dispatch('payouts/nodeTotals', this.$route.params.id);
         } catch (error) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
@@ -143,10 +160,56 @@ export default class PayoutsPage extends Vue {
 
             // TODO: notify error
         }
+
+        await this.fetchNodePayouts();
+
+        // Subscribes on period or satellite change
+        this.$store.subscribe(async (mutation) => {
+            const watchedMutations = ['payouts/setPayoutPeriod', 'nodes/setSelectedSatellite'];
+
+            if (watchedMutations.includes(mutation.type)) {
+                await this.fetchNodePayouts();
+            }
+        });
     }
 
     public redirectToPayoutSummary(): void {
         this.$router.push(RouterConfig.PayoutsSummary);
+    }
+
+    /**
+     * Fetches node payouts information.
+     */
+    private async fetchNodePayouts(): Promise<void> {
+        try {
+            await this.$store.dispatch('payouts/heldHistory', this.nodeId);
+        } catch (error) {
+            if (error instanceof UnauthorizedError) {
+                // TODO: redirect to login screen.
+            }
+
+            // TODO: notify error
+        }
+
+        try {
+            await this.$store.dispatch('payouts/paystub', this.nodeId);
+        } catch (error) {
+            if (error instanceof UnauthorizedError) {
+                // TODO: redirect to login screen.
+            }
+
+            // TODO: notify error
+        }
+
+        try {
+            await this.$store.dispatch('payouts/expectations', this.nodeId);
+        } catch (error) {
+            if (error instanceof UnauthorizedError) {
+                // TODO: redirect to login screen.
+            }
+
+            // TODO: notify error
+        }
     }
 }
 </script>
@@ -165,7 +228,8 @@ export default class PayoutsPage extends Vue {
             justify-content: space-between;
 
             &__left-area {
-                width: 53%;
+                width: 60%;
+                min-width: 60%;
                 margin-right: 36px;
 
                 &__title-area {

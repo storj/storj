@@ -2,6 +2,9 @@
 // See LICENSE for copying information.
 
 import { StoreModule } from '@/store';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import {
     Project,
     ProjectFields,
@@ -10,11 +13,13 @@ import {
     ProjectsCursor,
     ProjectsPage,
 } from '@/types/projects';
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
 
 export const PROJECTS_ACTIONS = {
     FETCH: 'fetchProjects',
     FETCH_OWNED: 'fetchOwnedProjects',
     CREATE: 'createProject',
+    CREATE_DEFAULT_PROJECT: 'createDefaultProject',
     SELECT: 'selectProject',
     UPDATE_NAME: 'updateProjectName',
     UPDATE_DESCRIPTION: 'updateProjectDescription',
@@ -49,6 +54,7 @@ export class ProjectsState {
 const {
     FETCH,
     CREATE,
+    CREATE_DEFAULT_PROJECT,
     SELECT,
     UPDATE_NAME,
     UPDATE_DESCRIPTION,
@@ -162,6 +168,27 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
                 commit(ADD, project);
 
                 return project;
+            },
+            [CREATE_DEFAULT_PROJECT]: async function ({rootGetters, dispatch}: any): Promise<void> {
+                const FIRST_PAGE = 1;
+                const UNTITLED_PROJECT_NAME = 'My First Project';
+                const UNTITLED_PROJECT_DESCRIPTION = '___';
+                const project = new ProjectFields(
+                    UNTITLED_PROJECT_NAME,
+                    UNTITLED_PROJECT_DESCRIPTION,
+                    rootGetters.user.id,
+                );
+                const createdProject = await dispatch(PROJECTS_ACTIONS.CREATE, project, {root: true});
+
+                await dispatch(PROJECTS_ACTIONS.SELECT, createdProject.id, {root: true});
+                await dispatch(PM_ACTIONS.CLEAR, null, {root: true});
+                await dispatch(PM_ACTIONS.FETCH, FIRST_PAGE, {root: true});
+                await dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY, null, {root: true});
+                await dispatch(PAYMENTS_ACTIONS.GET_BALANCE, null, {root: true});
+                await dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP, null, {root: true});
+                await dispatch(PROJECTS_ACTIONS.GET_LIMITS, createdProject.id, {root: true});
+                await dispatch(ACCESS_GRANTS_ACTIONS.CLEAR, null, {root: true});
+                await dispatch(BUCKET_ACTIONS.CLEAR, null, {root: true});
             },
             [SELECT]: function ({commit}: any, projectID: string): void {
                 commit(SELECT_PROJECT, projectID);

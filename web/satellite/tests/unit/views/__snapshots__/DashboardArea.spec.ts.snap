@@ -22,7 +22,9 @@ exports[`Dashboard renders correctly when data is loaded 1`] = `
 
 exports[`Dashboard renders correctly when data is loading 1`] = `
 <div class="dashboard">
-  <div class="loading-overlay active"><img src="@/../static/images/register/Loading.gif" alt="Company logo loading gif" class="loading-image"></div>
+  <div class="loading-overlay active">
+    <loaderimage-stub class="loading-icon"></loaderimage-stub>
+  </div>
   <!---->
   <!---->
 </div>

@@ -17,6 +17,7 @@ import (
 	"storj.io/private/debug"
 	"storj.io/storj/multinode/console/server"
 	"storj.io/storj/multinode/nodes"
+	"storj.io/storj/multinode/operators"
 	"storj.io/storj/multinode/payouts"
 	"storj.io/storj/private/lifecycle"
 )
@@ -62,6 +63,11 @@ type Peer struct {
 		Service *nodes.Service
 	}
 
+	// exposes operators related logic.
+	Operators struct {
+		Service *operators.Service
+	}
+
 	// contains logic of payouts domain.
 	Payouts struct {
 		Service *payouts.Service
@@ -105,6 +111,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config, db DB) (_ 
 		)
 	}
 
+	{ // operators setup
+		peer.Operators.Service = operators.NewService(
+			peer.Log.Named("operators:service"),
+			peer.Dialer,
+			peer.DB.Nodes(),
+		)
+	}
+
 	{ // payouts setup
 		peer.Payouts.Service = payouts.NewService(
 			peer.Log.Named("payouts:service"),
@@ -124,6 +138,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config, db DB) (_ 
 			config.Console,
 			peer.Nodes.Service,
 			peer.Payouts.Service,
+			peer.Operators.Service,
 			peer.Console.Listener,
 		)
 		if err != nil {

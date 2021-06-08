@@ -10,14 +10,14 @@ import (
 type cmdMetaGet struct {
 	projectProvider
 
-	path  string
-	entry *string
+	location string
+	entry    *string
 }
 
 func (c *cmdMetaGet) Setup(a clingy.Arguments, f clingy.Flags) {
 	c.projectProvider.Setup(a, f)
 
-	c.path = a.New("path", "Path to object (sj://BUCKET/KEY)").(string)
+	c.location = a.New("location", "Location of object (sj://BUCKET/KEY)").(string)
 	c.entry = a.New("entry", "Metadata entry to get", clingy.Optional).(*string)
 }
 

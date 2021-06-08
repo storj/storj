@@ -4,7 +4,7 @@
 <template>
     <div class="dashboard">
         <div v-if="isLoading" class="loading-overlay active">
-            <img class="loading-image" src="@/../static/images/register/Loading.gif" alt="Company logo loading gif">
+            <LoaderImage class="loading-icon"/>
         </div>
         <div v-if="isBetaSatellite" class="dashboard__beta-banner">
             <p class="dashboard__beta-banner__message">
@@ -55,6 +55,8 @@ import VInfoBar from '@/components/common/VInfoBar.vue';
 import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
+import LoaderImage from '@/../static/images/common/loader.svg';
+
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
@@ -86,6 +88,7 @@ const {
         NavigationArea,
         DashboardHeader,
         VInfoBar,
+        LoaderImage,
     },
 })
 export default class DashboardArea extends Vue {
@@ -338,13 +341,6 @@ export default class DashboardArea extends Vue {
     }
 
     /**
-     * Indicates if paywall is enabled.
-     */
-    private get isPaywallEnabled(): boolean {
-        return this.$store.state.paymentsModule.isPaywallEnabled;
-    }
-
-    /**
      * Checks if stored project is in fetched projects array and selects it.
      * Selects first fetched project if check is not successful.
      * @param fetchedProjects - fetched projects array
@@ -395,6 +391,11 @@ export default class DashboardArea extends Vue {
     .loading-overlay.active {
         visibility: visible;
         opacity: 1;
+    }
+
+    .loading-icon {
+        width: 100px;
+        height: 100px;
     }
 
     .dashboard {

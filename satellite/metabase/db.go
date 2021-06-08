@@ -295,6 +295,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`DROP INDEX IF EXISTS pending_index`,
 				},
 			},
+			{
+				DB:          &db.db,
+				Description: "add expires_at column to segments",
+				Version:     12,
+				Action: migrate.SQL{
+					`ALTER TABLE segments ADD COLUMN expires_at TIMESTAMPTZ`,
+				},
+			},
 		},
 	}
 }

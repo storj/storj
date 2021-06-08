@@ -141,6 +141,9 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 		return DeleteObjectResult{}, storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
 	}
 
+	mon.Meter("object_delete").Mark(len(result.Objects))
+	mon.Meter("segment_delete").Mark(len(result.Segments))
+
 	return result, nil
 }
 
@@ -209,6 +212,9 @@ func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject)
 	if len(result.Objects) == 0 {
 		return DeleteObjectResult{}, storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
 	}
+
+	mon.Meter("object_delete").Mark(len(result.Objects))
+	mon.Meter("segment_delete").Mark(len(result.Segments))
 
 	return result, nil
 }
@@ -314,6 +320,9 @@ func (db *DB) DeleteObjectLatestVersion(ctx context.Context, opts DeleteObjectLa
 		return DeleteObjectResult{}, storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
 	}
 
+	mon.Meter("object_delete").Mark(len(result.Objects))
+	mon.Meter("segment_delete").Mark(len(result.Segments))
+
 	return result, nil
 }
 
@@ -366,6 +375,9 @@ func (db *DB) DeleteObjectAnyStatusAllVersions(ctx context.Context, opts DeleteO
 	if len(result.Objects) == 0 {
 		return DeleteObjectResult{}, storj.ErrObjectNotFound.Wrap(Error.New("no rows deleted"))
 	}
+
+	mon.Meter("object_delete").Mark(len(result.Objects))
+	mon.Meter("segment_delete").Mark(len(result.Segments))
 
 	return result, nil
 }
@@ -437,6 +449,10 @@ func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAl
 	if err != nil {
 		return DeleteObjectResult{}, err
 	}
+
+	mon.Meter("object_delete").Mark(len(result.Objects))
+	mon.Meter("segment_delete").Mark(len(result.Segments))
+
 	return result, nil
 }
 
