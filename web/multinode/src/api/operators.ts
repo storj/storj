@@ -36,7 +36,13 @@ export class Operators extends APIClient {
         let operators: Operator[] = [];
         if (operatorsPageJson.operators) {
             operators = operatorsPageJson.operators.map(
-                operator => new Operator(operator.email, operator.wallet, operator.walletFeatures),
+                operator => new Operator(
+                    operator.nodeId,
+                    operator.email,
+                    operator.wallet,
+                    operator.walletFeatures,
+                    operator.undistributed,
+                ),
             );
         }
 

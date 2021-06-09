@@ -5,13 +5,15 @@ import { Operators as OperatorsClient } from '@/api/operators';
 import { Cursor, Page } from '@/private/pagination';
 
 /**
- *Operator contains contains SNO payouts contact details.
+ *Operator contains contains SNO payouts contact details and amount of undistributed payouts.
  */
 export class Operator {
     public constructor(
+        public nodeId: string,
         public email: string,
         public wallet: string,
         public walletFeatures: string[],
+        public undistributed: number,
     ) {}
 
     /**
