@@ -57,10 +57,13 @@ describe('EstimatedCostsAndCredits', (): void => {
             localVue,
         });
 
+        await wrapper.setData({ isDataFetching: false });
+
         expect(wrapper).toMatchSnapshot();
     });
 
     it('renders correctly with project and project usage and charges', async (): Promise<void> => {
+        await store.commit(PROJECTS_MUTATIONS.ADD, project);
         await store.commit(SET_PROJECT_USAGE_AND_CHARGES, [projectCharge]);
         await store.commit(SET_PRICE_SUMMARY, [projectCharge]);
 
@@ -69,10 +72,13 @@ describe('EstimatedCostsAndCredits', (): void => {
             localVue,
         });
 
+        await wrapper.setData({ isDataFetching: false });
+
         expect(wrapper).toMatchSnapshot();
     });
 
     it('renders correctly with 2 projects and project usage and charges', async (): Promise<void> => {
+        await store.commit(PROJECTS_MUTATIONS.ADD, project);
         await store.commit(PROJECTS_MUTATIONS.ADD, project1);
         await store.commit(SET_PROJECT_USAGE_AND_CHARGES, [projectCharge, projectCharge1]);
         await store.commit(SET_PRICE_SUMMARY, [projectCharge, projectCharge1]);
@@ -81,6 +87,8 @@ describe('EstimatedCostsAndCredits', (): void => {
             store,
             localVue,
         });
+
+        await wrapper.setData({ isDataFetching: false });
 
         expect(wrapper).toMatchSnapshot();
     });

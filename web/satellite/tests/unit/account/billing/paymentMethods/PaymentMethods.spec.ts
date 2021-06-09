@@ -45,11 +45,13 @@ localVue.use(notificationsPlugin);
 const ANIMATION_COMPLETE_TIME = 600;
 
 describe('PaymentMethods', () => {
-    it('renders correctly without card', () => {
+    it('renders correctly without card', async (): Promise<void> => {
         const wrapper = mount(PaymentMethods, {
             store,
             localVue,
         });
+
+        await wrapper.setData({ areCardsFetching: false });
 
         expect(wrapper).toMatchSnapshot();
     });
@@ -59,6 +61,8 @@ describe('PaymentMethods', () => {
             store,
             localVue,
         });
+
+        await wrapper.setData({ areCardsFetching: false });
 
         await wrapper.find('.add-card-button').trigger('click');
 
@@ -82,6 +86,8 @@ describe('PaymentMethods', () => {
             localVue,
         });
 
+        await wrapper.setData({ areCardsFetching: false });
+
         await wrapper.find('.add-storj-button').trigger('click');
 
         await new Promise(resolve => {
@@ -98,7 +104,7 @@ describe('PaymentMethods', () => {
         });
     });
 
-    it('renders correctly with card', () => {
+    it('renders correctly with card', async (): Promise<void> => {
         const card = new CreditCard('cardId', 12, 2100, 'test', '0000', true);
         store.commit(PAYMENTS_MUTATIONS.SET_CREDIT_CARDS, [card]);
 
@@ -106,6 +112,8 @@ describe('PaymentMethods', () => {
             store,
             localVue,
         });
+
+        await wrapper.setData({ areCardsFetching: false });
 
         expect(wrapper).toMatchSnapshot();
     });

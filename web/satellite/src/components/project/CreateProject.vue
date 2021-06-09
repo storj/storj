@@ -65,15 +65,8 @@ import HeaderedInput from '@/components/common/HeaderedInput.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import { RouteConfig } from '@/router';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { ProjectFields } from '@/types/projects';
-import {
-    APP_STATE_ACTIONS,
-    PM_ACTIONS,
-} from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
 
 @Component({
@@ -152,18 +145,6 @@ export default class NewProjectPopup extends Vue {
 
         this.selectCreatedProject();
 
-        try {
-            await this.fetchProjectMembers();
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.createdProjectId);
-        } catch (error) {
-            await this.$notify.error(`Unable to create project. ${error.message}`);
-        }
-
-        this.clearAccessGrants();
-
-        this.clearBucketUsage();
-
         await this.$notify.success('Project created successfully!');
 
         this.isLoading = false;
@@ -177,33 +158,6 @@ export default class NewProjectPopup extends Vue {
     private selectCreatedProject(): void {
         this.$store.dispatch(PROJECTS_ACTIONS.SELECT, this.createdProjectId);
         LocalData.setSelectedProjectId(this.createdProjectId);
-
-        if (this.$store.getters.projectsCount >= this.$store.getters.user.projectLimit) {
-            this.$store.dispatch(APP_STATE_ACTIONS.HIDE_CREATE_PROJECT_BUTTON);
-        }
-    }
-
-    /**
-     * Clears project members store and fetches new.
-     */
-    private async fetchProjectMembers(): Promise<void> {
-        await this.$store.dispatch(PM_ACTIONS.CLEAR);
-        const fistPage = 1;
-        await this.$store.dispatch(PM_ACTIONS.FETCH, fistPage);
-    }
-
-    /**
-     * Clears access grants store.
-     */
-    private clearAccessGrants(): void {
-        this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CLEAR);
-    }
-
-    /**
-     * Clears bucket usage store.
-     */
-    private clearBucketUsage(): void {
-        this.$store.dispatch(BUCKET_ACTIONS.CLEAR);
     }
 }
 </script>
@@ -211,6 +165,7 @@ export default class NewProjectPopup extends Vue {
 <style scoped lang="scss">
     .full-input {
         width: 100%;
+        margin-top: 20px;
     }
 
     .create-project-area {

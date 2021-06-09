@@ -7,7 +7,7 @@ import { Project, ProjectFields, ProjectLimits, ProjectsApi, ProjectsCursor, Pro
  * Mock for ProjectsApi
  */
 export class ProjectsApiMock implements ProjectsApi {
-    private mockProjects: Project[];
+    private mockProjects: Project[] = [];
     private mockLimits: ProjectLimits;
     private mockProjectsPage: ProjectsPage;
 

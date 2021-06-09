@@ -16,7 +16,7 @@ export class AccessGrantsMock implements AccessGrantsApi {
     private readonly date = new Date(0);
     private mockAccessGrantsPage: AccessGrantsPage;
 
-    public setMockApiKeysPage(mockAccessGrantsPage: AccessGrantsPage): void {
+    public setMockAccessGrantsPage(mockAccessGrantsPage: AccessGrantsPage): void {
         this.mockAccessGrantsPage = mockAccessGrantsPage;
     }
 

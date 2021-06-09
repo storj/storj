@@ -23,6 +23,7 @@
                         width="122px"
                         height="48px"
                         :on-press="onAddUsersClick"
+                        :is-disabled="isAddButtonDisabled"
                     />
                 </div>
                 <div class="header-selected-members" v-if="areProjectMembersSelected">
@@ -105,6 +106,8 @@ export default class HeaderArea extends Vue {
     private readonly headerState: ProjectMemberHeaderState;
     @Prop({default: 0})
     public readonly selectedProjectMembersCount: number;
+    @Prop({default: false})
+    public readonly isAddButtonDisabled: boolean;
 
     private FIRST_PAGE = 1;
 
