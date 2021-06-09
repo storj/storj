@@ -362,7 +362,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		if dt.Seconds() > 0 {
 			// currentUploadRate mesures the rate of upload for each chunk of data.
 			currentUploadRate := float64(uploadSize) / dt.Seconds()
-			sumUploadRate = sumUploadRate + currentUploadRate
+			sumUploadRate += currentUploadRate
 
 			// Average upload rate is counted as: total upload rate samples per a period of time
 			// divides by total number of chunks
