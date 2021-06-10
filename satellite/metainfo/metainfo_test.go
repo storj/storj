@@ -1934,3 +1934,33 @@ func TestStableUploadID(t *testing.T) {
 		assert.Equal(t, listResp[0].StreamID, listResp4.Items[0].StreamID)
 	})
 }
+
+func TestObjectSegmentExpiresAt(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		inlineData := testrand.Bytes(1 * memory.KiB)
+		inlineExpiration := time.Now().Add(2 * time.Hour)
+		err := planet.Uplinks[0].UploadWithExpiration(ctx, planet.Satellites[0], "hohoho", "inline_object", inlineData, inlineExpiration)
+		require.NoError(t, err)
+
+		remoteData := testrand.Bytes(10 * memory.KiB)
+		remoteExpiration := time.Now().Add(4 * time.Hour)
+		err = planet.Uplinks[0].UploadWithExpiration(ctx, planet.Satellites[0], "hohoho", "remote_object", remoteData, remoteExpiration)
+		require.NoError(t, err)
+
+		segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Len(t, segments, 2)
+
+		for _, segment := range segments {
+			if int(segment.PlainSize) == len(inlineData) {
+				require.Equal(t, inlineExpiration.Unix(), segment.ExpiresAt.Unix())
+			} else if int(segment.PlainSize) == len(remoteData) {
+				require.Equal(t, remoteExpiration.Unix(), segment.ExpiresAt.Unix())
+			} else {
+				t.Fail()
+			}
+		}
+	})
+}

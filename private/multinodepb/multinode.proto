@@ -15,6 +15,8 @@ message RequestHeader {
 
 service Storage {
   rpc DiskSpace(DiskSpaceRequest) returns (DiskSpaceResponse);
+  rpc Usage(StorageUsageRequest) returns (StorageUsageResponse);
+  rpc UsageSatellite(StorageUsageSatelliteRequest) returns (StorageUsageSatelliteResponse);
 }
 
 message DiskSpaceRequest {
@@ -28,6 +30,32 @@ message DiskSpaceResponse {
   int64 free = 4;
   int64 available = 5;
   int64 overused = 6;
+}
+
+message StorageUsage {
+  double at_rest_total = 1;
+  google.protobuf.Timestamp interval_start = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message StorageUsageRequest {
+  RequestHeader header = 1;
+  google.protobuf.Timestamp from = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp to = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message StorageUsageResponse {
+  repeated StorageUsage storage_usage = 1;
+}
+
+message StorageUsageSatelliteRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  google.protobuf.Timestamp from = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp to = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message StorageUsageSatelliteResponse {
+  repeated StorageUsage storage_usage = 1;
 }
 
 service Bandwidth {
