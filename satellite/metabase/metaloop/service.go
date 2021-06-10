@@ -164,7 +164,7 @@ type Config struct {
 	RateLimit        float64       `help:"rate limit (default is 0 which is unlimited segments per second)" default:"0"`
 	ListLimit        int           `help:"how many items to query in a batch" default:"2500" testDefault:"10000"`
 
-	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-5m"`
+	AsOfSystemInterval time.Duration `help:"as of system interval" default:"-5m"`
 }
 
 // MetabaseDB contains iterators for the metabase data.
