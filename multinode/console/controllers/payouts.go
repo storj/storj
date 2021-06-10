@@ -420,13 +420,13 @@ func (controller *Payouts) HeldAmountSummary(w http.ResponseWriter, r *http.Requ
 			return
 		}
 
-		controller.log.Error("held amount history internal error", zap.Error(err))
+		controller.log.Error("held amount history internal error", zap.Error(ErrPayouts.Wrap(err)))
 		controller.serveError(w, http.StatusInternalServerError, ErrPayouts.Wrap(err))
 		return
 	}
 
 	if err = json.NewEncoder(w).Encode(heldSummary); err != nil {
-		controller.log.Error("failed to write json response", zap.Error(err))
+		controller.log.Error("failed to write json response", zap.Error(ErrPayouts.Wrap(err)))
 		return
 	}
 }

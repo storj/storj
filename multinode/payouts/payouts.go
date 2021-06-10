@@ -27,12 +27,12 @@ type HeldAmount struct {
 
 // HeldAmountSummary contains held amount summary for first 3 quarters.
 type HeldAmountSummary struct {
-	SatelliteID   storj.NodeID  `json:"satelliteId"`
-	SatelliteURL  storj.NodeURL `json:"satelliteUrl"`
-	FirstQuarter  int64         `json:"firstQuarter"`
-	SecondQuarter int64         `json:"secondQuarter"`
-	ThirdQuarter  int64         `json:"thirdQuarter"`
-	PeriodCount   int           `json:"periodCount"`
+	SatelliteID      storj.NodeID `json:"satelliteId"`
+	SatelliteAddress string       `json:"satelliteAddress"`
+	FirstQuarter     int64        `json:"firstQuarter"`
+	SecondQuarter    int64        `json:"secondQuarter"`
+	ThirdQuarter     int64        `json:"thirdQuarter"`
+	PeriodCount      int          `json:"periodCount"`
 }
 
 // NodeSummary contains node's payout information.
