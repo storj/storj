@@ -1775,6 +1775,11 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
+	var expiresAt *time.Time
+	if !streamID.ExpirationDate.IsZero() {
+		expiresAt = &streamID.ExpirationDate
+	}
+
 	mbCommitSegment := metabase.CommitSegment{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
@@ -1783,6 +1788,7 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 			StreamID:   id,
 			Version:    1,
 		},
+		ExpiresAt:         expiresAt,
 		EncryptedKey:      req.EncryptedKey,
 		EncryptedKeyNonce: req.EncryptedKeyNonce[:],
 
@@ -1910,6 +1916,11 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
+	var expiresAt *time.Time
+	if !streamID.ExpirationDate.IsZero() {
+		expiresAt = &streamID.ExpirationDate
+	}
+
 	err = endpoint.metainfo.metabaseDB.CommitInlineSegment(ctx, metabase.CommitInlineSegment{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
@@ -1918,6 +1929,7 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 			StreamID:   id,
 			Version:    1,
 		},
+		ExpiresAt:         expiresAt,
 		EncryptedKey:      req.EncryptedKey,
 		EncryptedKeyNonce: req.EncryptedKeyNonce.Bytes(),
 
