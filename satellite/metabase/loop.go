@@ -329,14 +329,6 @@ func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, h
 	return nil
 }
 
-func (db *DB) asOfTime(asOfSystemTime time.Time, asOfSystemInterval time.Duration) string {
-	interval := time.Since(asOfSystemTime)
-	if asOfSystemInterval < 0 && interval > -asOfSystemInterval {
-		return db.impl.AsOfSystemInterval(asOfSystemInterval)
-	}
-	return db.impl.AsOfSystemTime(asOfSystemTime)
-}
-
 // LoopSegmentsIterator iterates over a sequence of LoopSegmentEntry items.
 type LoopSegmentsIterator interface {
 	Next(ctx context.Context, item *LoopSegmentEntry) bool
@@ -344,8 +336,9 @@ type LoopSegmentsIterator interface {
 
 // IterateLoopSegments contains arguments necessary for listing segments in metabase.
 type IterateLoopSegments struct {
-	BatchSize      int
-	AsOfSystemTime time.Time
+	BatchSize          int
+	AsOfSystemTime     time.Time
+	AsOfSystemInterval time.Duration
 }
 
 // Verify verifies segments request fields.
@@ -367,8 +360,9 @@ func (db *DB) IterateLoopSegments(ctx context.Context, opts IterateLoopSegments,
 	it := &loopSegmentIterator{
 		db: db,
 
-		asOfSystemTime: opts.AsOfSystemTime,
-		batchSize:      opts.BatchSize,
+		asOfSystemTime:     opts.AsOfSystemTime,
+		asOfSystemInterval: opts.AsOfSystemInterval,
+		batchSize:          opts.BatchSize,
 
 		curIndex: 0,
 		cursor:   loopSegmentIteratorCursor{},
@@ -398,8 +392,9 @@ func (db *DB) IterateLoopSegments(ctx context.Context, opts IterateLoopSegments,
 type loopSegmentIterator struct {
 	db *DB
 
-	batchSize      int
-	asOfSystemTime time.Time
+	batchSize          int
+	asOfSystemTime     time.Time
+	asOfSystemInterval time.Duration
 
 	curIndex int
 	curRows  tagsql.Rows
@@ -470,7 +465,7 @@ func (it *loopSegmentIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, 
 			redundancy,
 			remote_alias_pieces
 		FROM segments
-		`+it.db.impl.AsOfSystemTime(it.asOfSystemTime)+`
+		`+it.db.asOfTime(it.asOfSystemTime, it.asOfSystemInterval)+`
 		WHERE
 			(stream_id, position) > ($1, $2)
 		ORDER BY (stream_id, position) ASC
