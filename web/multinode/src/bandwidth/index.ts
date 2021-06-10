@@ -23,6 +23,19 @@ export class BandwidthRollup {
         public deletes: number = 0,
         public intervalStart: Date = new Date(),
     ) {}
+
+    /**
+     * Creates new empty instance of used bandwidth with defined date.
+     * @param date - holds specific date of the month
+     * @returns BandwidthUsed - new empty instance of used bandwidth with defined date
+     */
+    public static emptyWithDate(date: number): BandwidthRollup {
+        const now = new Date();
+        now.setUTCDate(date);
+        now.setUTCHours(0, 0, 0, 0);
+
+        return new BandwidthRollup(new Egress(0, 0, 0), new Ingress(0, 0), 0, now);
+    }
 }
 
 /**

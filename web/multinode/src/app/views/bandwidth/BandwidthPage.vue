@@ -8,27 +8,159 @@
             <node-selection-dropdown />
             <satellite-selection-dropdown />
         </div>
+        <div class="chart-container">
+            <div class="chart-container__title-area">
+                <p class="chart-container__title-area__title">Bandwidth Used This Month</p>
+                <div class="chart-container__title-area__buttons-area">
+                    <button
+                        name="Show Bandwidth Chart"
+                        class="chart-container__title-area__chart-choice-item"
+                        :class="{ 'active': (!isEgressChartShown && !isIngressChartShown) }"
+                        @click.stop="openBandwidthChart"
+                    >
+                        Bandwidth
+                    </button>
+                    <button
+                        name="Show Egress Chart"
+                        class="chart-container__title-area__chart-choice-item"
+                        :class="{ 'active': isEgressChartShown }"
+                        @click.stop="openEgressChart"
+                    >
+                        Egress
+                    </button>
+                    <button
+                        name="Show Ingress Chart"
+                        class="chart-container__title-area__chart-choice-item"
+                        :class="{ 'active': isIngressChartShown }"
+                        @click.stop="openIngressChart"
+                    >
+                        Ingress
+                    </button>
+                </div>
+            </div>
+            <p class="chart-container__amount" v-if="isEgressChartShown"><b>{{ bandwidth.egressSummary | bytesToBase10String }}</b></p>
+            <p class="chart-container__amount" v-else-if="isIngressChartShown"><b>{{ bandwidth.ingressSummary | bytesToBase10String }}</b></p>
+            <p class="chart-container__amount" v-else><b>{{ bandwidth.bandwidthSummary | bytesToBase10String }}</b></p>
+            <div class="chart-container__chart" ref="chart" onresize="recalculateChartDimensions()" >
+                <EgressChart v-if="isEgressChartShown" :height="chartHeight" :width="chartWidth"/>
+                <IngressChart v-else-if="isIngressChartShown" :height="chartHeight" :width="chartWidth"/>
+                <BandwidthChart v-else :height="chartHeight" :width="chartWidth"/>
+            </div>
+        </div>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import BandwidthChart from '@/app/components/bandwidth/BandwidthChart.vue';
+import EgressChart from '@/app/components/bandwidth/EgressChart.vue';
+import IngressChart from '@/app/components/bandwidth/IngressChart.vue';
 import NodeSelectionDropdown from '@/app/components/common/NodeSelectionDropdown.vue';
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
 
 import { UnauthorizedError } from '@/api';
+import { BandwidthTraffic } from '@/bandwidth';
 
 @Component({
     components: {
+        EgressChart,
+        IngressChart,
+        BandwidthChart,
         NodeSelectionDropdown,
         SatelliteSelectionDropdown,
     },
 })
 export default class BandwidthPage extends Vue {
+    public chartWidth: number = 0;
+    public chartHeight: number = 0;
+    public isEgressChartShown: boolean = false;
+    public isIngressChartShown: boolean = false;
+    public $refs: {
+        chart: HTMLElement;
+    };
+
+    public get bandwidth(): BandwidthTraffic {
+        return this.$store.state.bandwidth.traffic;
+    }
+
+    /**
+     * Used container size recalculation for charts resizing.
+     */
+    public recalculateChartDimensions(): void {
+        this.chartWidth = this.$refs['chart'].clientWidth;
+        this.chartHeight = this.$refs['chart'].clientHeight;
+    }
+
+    /**
+     * Lifecycle hook after initial render.
+     * Adds event on window resizing to recalculate size of charts.
+     */
     public async mounted(): Promise<void> {
+        window.addEventListener('resize', this.recalculateChartDimensions);
+
         try {
             await this.$store.dispatch('nodes/fetch');
+        } catch (error) {
+            if (error instanceof UnauthorizedError) {
+                // TODO: redirect to login screen.
+            }
+
+            // TODO: notify error
+        }
+
+        await this.fetchBandwidth();
+
+        // Subscribes on period or satellite change
+        this.$store.subscribe(async (mutation) => {
+            const watchedMutations = [ 'nodes/setSelectedNode', 'nodes/setSelectedSatellite' ];
+
+            if (watchedMutations.includes(mutation.type)) {
+                await this.fetchBandwidth();
+            }
+        });
+
+        this.recalculateChartDimensions();
+    }
+
+    /**
+     * Lifecycle hook before component destruction.
+     * Removes event on window resizing.
+     */
+    public beforeDestroy(): void {
+        window.removeEventListener('resize', this.recalculateChartDimensions);
+    }
+
+    /**
+     * Changes bandwidth chart source to summary of ingress and egress.
+     */
+    public openBandwidthChart(): void {
+        this.isEgressChartShown = false;
+        this.isIngressChartShown = false;
+    }
+
+    /**
+     * Changes bandwidth chart source to ingress.
+     */
+    public openIngressChart(): void {
+        this.isEgressChartShown = false;
+        this.isIngressChartShown = true;
+    }
+
+    /**
+     * Changes bandwidth chart source to egress.
+     */
+    public openEgressChart(): void {
+        this.isEgressChartShown = true;
+        this.isIngressChartShown = false;
+    }
+
+    /**
+     * Fetches bandwidth information.
+     */
+    private async fetchBandwidth(): Promise<void> {
+        try {
+            await this.$store.dispatch('bandwidth/fetch');
         } catch (error) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
@@ -66,6 +198,69 @@ export default class BandwidthPage extends Vue {
 
             .dropdown {
                 max-width: unset;
+            }
+        }
+
+        & .chart-container {
+            box-sizing: border-box;
+            width: 100%;
+            height: 401px;
+            background-color: white;
+            border: 1px solid var(--c-gray--light);
+            border-radius: 11px;
+            padding: 32px 30px;
+            margin: 20px 0 13px 0;
+            position: relative;
+
+            &__title-area {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+
+                &__buttons-area {
+                    display: flex;
+                    flex-direction: row;
+                    align-items: flex-end;
+                }
+
+                &__title {
+                    font-family: 'font_regular', sans-serif;
+                    font-size: 14px;
+                    color: var(--c-gray);
+                    user-select: none;
+                }
+
+                &__chart-choice-item {
+                    padding: 6px 8px;
+                    background-color: #e7e9eb;
+                    border-radius: 6px;
+                    font-size: 12px;
+                    color: #586474;
+                    max-height: 25px;
+                    cursor: pointer;
+                    user-select: none;
+                    margin-left: 9px;
+                    border: none;
+
+                    &.active {
+                        background-color: #d5d9dc;
+                        color: #131d3a;
+                    }
+                }
+            }
+
+            &__amount {
+                font-family: 'font_bold', sans-serif;
+                font-size: 32px;
+                line-height: 57px;
+                color: var(--c-title);
+            }
+
+            &__chart {
+                position: absolute;
+                left: 0;
+                width: calc(100% - 10px);
+                height: 240px;
             }
         }
     }
