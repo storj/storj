@@ -376,7 +376,8 @@ func TestGetSegmentByLocation(t *testing.T) {
 		t.Run("Get segment", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			metabasetest.CreateObject(ctx, t, db, obj, 1)
+			expectedExpiresAt := now.Add(6 * time.Hour)
+			metabasetest.CreateExpiredObject(ctx, t, db, obj, 1, expectedExpiresAt)
 
 			expectedSegment := metabase.Segment{
 				StreamID: obj.StreamID,
@@ -384,6 +385,7 @@ func TestGetSegmentByLocation(t *testing.T) {
 					Index: 0,
 				},
 				CreatedAt:         &now,
+				ExpiresAt:         &expectedExpiresAt,
 				RootPieceID:       storj.PieceID{1},
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
@@ -422,6 +424,7 @@ func TestGetSegmentByLocation(t *testing.T) {
 					{
 						ObjectStream: obj,
 						CreatedAt:    now,
+						ExpiresAt:    &expectedExpiresAt,
 						Status:       metabase.Committed,
 						SegmentCount: 1,
 
@@ -475,33 +478,42 @@ func TestGetSegmentByPosition(t *testing.T) {
 		t.Run("Get segment", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			metabasetest.CreateObject(ctx, t, db, obj, 1)
+			obj1 := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
 
-			expectedSegment := metabase.Segment{
-				StreamID: obj.StreamID,
-				Position: metabase.SegmentPosition{
-					Index: 0,
-				},
-				CreatedAt:         &now,
-				RootPieceID:       storj.PieceID{1},
-				EncryptedKey:      []byte{3},
-				EncryptedKeyNonce: []byte{4},
-				EncryptedETag:     []byte{5},
-				EncryptedSize:     1024,
-				PlainSize:         512,
-				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
-				Redundancy:        metabasetest.DefaultRedundancy,
-			}
+			expectedExpiresAt := now.Add(5 * time.Hour)
+			obj2 := metabasetest.CreateExpiredObject(ctx, t, db, metabasetest.RandObjectStream(), 1, expectedExpiresAt)
 
-			metabasetest.GetSegmentByPosition{
-				Opts: metabase.GetSegmentByPosition{
+			segments := make([]metabase.Segment, 0, 2)
+			for _, obj := range []metabase.Object{obj1, obj2} {
+				expectedSegment := metabase.Segment{
 					StreamID: obj.StreamID,
 					Position: metabase.SegmentPosition{
 						Index: 0,
 					},
-				},
-				Result: expectedSegment,
-			}.Check(ctx, t, db)
+					CreatedAt:         &obj.CreatedAt,
+					ExpiresAt:         obj.ExpiresAt,
+					RootPieceID:       storj.PieceID{1},
+					EncryptedKey:      []byte{3},
+					EncryptedKeyNonce: []byte{4},
+					EncryptedETag:     []byte{5},
+					EncryptedSize:     1024,
+					PlainSize:         512,
+					Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+					Redundancy:        metabasetest.DefaultRedundancy,
+				}
+
+				metabasetest.GetSegmentByPosition{
+					Opts: metabase.GetSegmentByPosition{
+						StreamID: obj.StreamID,
+						Position: metabase.SegmentPosition{
+							Index: 0,
+						},
+					},
+					Result: expectedSegment,
+				}.Check(ctx, t, db)
+
+				segments = append(segments, expectedSegment)
+			}
 
 			// check non existing segment in existing object
 			metabasetest.GetSegmentByPosition{
@@ -518,8 +530,21 @@ func TestGetSegmentByPosition(t *testing.T) {
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{
 					{
-						ObjectStream: obj,
+						ObjectStream: obj1.ObjectStream,
 						CreatedAt:    now,
+						Status:       metabase.Committed,
+						SegmentCount: 1,
+
+						TotalPlainSize:     512,
+						TotalEncryptedSize: 1024,
+						FixedSegmentSize:   512,
+
+						Encryption: metabasetest.DefaultEncryption,
+					},
+					{
+						ObjectStream: obj2.ObjectStream,
+						CreatedAt:    now,
+						ExpiresAt:    obj2.ExpiresAt,
 						Status:       metabase.Committed,
 						SegmentCount: 1,
 
@@ -531,7 +556,8 @@ func TestGetSegmentByPosition(t *testing.T) {
 					},
 				},
 				Segments: []metabase.RawSegment{
-					metabase.RawSegment(expectedSegment),
+					metabase.RawSegment(segments[0]),
+					metabase.RawSegment(segments[1]),
 				},
 			}.Check(ctx, t, db)
 		})
@@ -727,6 +753,20 @@ func TestGetSegmentByOffset(t *testing.T) {
 				}.Check(ctx, t, db)
 			}
 
+			objExp := metabasetest.CreateExpiredObject(ctx, t, db, metabasetest.RandObjectStream(), 1, now.Add(8*time.Hour))
+			segmentExpiresAt := metabase.Segment(metabasetest.DefaultRawSegment(objExp.ObjectStream, metabase.SegmentPosition{
+				Index: 0,
+			}))
+			segmentExpiresAt.ExpiresAt = objExp.ExpiresAt
+
+			metabasetest.GetSegmentByOffset{
+				Opts: metabase.GetSegmentByOffset{
+					ObjectLocation: objExp.Location(),
+					PlainOffset:    0,
+				},
+				Result: segmentExpiresAt,
+			}.Check(ctx, t, db)
+
 			metabasetest.GetSegmentByOffset{
 				Opts: metabase.GetSegmentByOffset{
 					ObjectLocation: location,
@@ -750,12 +790,14 @@ func TestGetSegmentByOffset(t *testing.T) {
 
 						Encryption: metabasetest.DefaultEncryption,
 					},
+					metabase.RawObject(objExp),
 				},
 				Segments: []metabase.RawSegment{
 					metabase.RawSegment(segments[0]),
 					metabase.RawSegment(segments[1]),
 					metabase.RawSegment(segments[2]),
 					metabase.RawSegment(segments[3]),
+					metabase.RawSegment(segmentExpiresAt),
 				},
 			}.Check(ctx, t, db)
 		})
