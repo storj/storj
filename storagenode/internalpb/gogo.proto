@@ -28,7 +28,7 @@
 
 syntax = "proto2";
 package gogoproto;
-
+option go_package = "storj.io/storj/storagenode/internalpb";
 import "google/protobuf/descriptor.proto";
 
 option java_package = "com.google.protobuf";
