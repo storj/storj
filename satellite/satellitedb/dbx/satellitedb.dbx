@@ -1008,16 +1008,73 @@ model graceful_exit_progress (
 	table graceful_exit_progress
 	key node_id
 
-	field node_id            blob
-	field bytes_transferred  int64     ( updatable )
-	field pieces_transferred int64     ( autoinsert, updatable, default 0 )
-	field pieces_failed      int64     ( autoinsert, updatable, default 0 )
-	field updated_at         timestamp ( autoinsert, autoupdate )
+	field node_id                     blob
+	field bytes_transferred           int64     ( updatable )
+	field pieces_transferred          int64     ( autoinsert, updatable, default 0 )
+	field pieces_failed               int64     ( autoinsert, updatable, default 0 )
+	field updated_at                  timestamp ( autoinsert, autoupdate )
+	field uses_segment_transfer_queue bool      ( updatable, default false )
 )
 
 read one (
 	select graceful_exit_progress
 	where graceful_exit_progress.node_id = ?
+)
+//--- graceful exit transfer queue with segment stream_id and position ---//
+
+model graceful_exit_segment_transfer (
+	table graceful_exit_segment_transfer_queue
+	key node_id stream_id position piece_num
+
+	field node_id                blob
+	field stream_id              blob
+	field position               uint64
+	field piece_num              int
+	field root_piece_id          blob      ( nullable )
+	field durability_ratio       float64   ( updatable )
+	field queued_at              timestamp ( autoinsert )
+	field requested_at           timestamp ( updatable, nullable )
+	field last_failed_at         timestamp ( updatable, nullable )
+	field last_failed_code       int       ( updatable, nullable )
+	field failed_count           int       ( updatable, nullable )
+	field finished_at            timestamp ( updatable, nullable )
+	field order_limit_send_count int       ( updatable, default 0 )
+
+	index (
+		name graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index
+		fields node_id durability_ratio queued_at finished_at last_failed_at
+	)
+)
+
+update graceful_exit_segment_transfer (
+	where graceful_exit_segment_transfer.node_id = ?
+	where graceful_exit_segment_transfer.stream_id = ?
+	where graceful_exit_segment_transfer.position = ?
+	where graceful_exit_segment_transfer.piece_num = ?
+	noreturn
+)
+delete graceful_exit_segment_transfer (
+	where graceful_exit_segment_transfer.node_id = ?
+)
+
+delete graceful_exit_segment_transfer (
+	where graceful_exit_segment_transfer.node_id = ?
+	where graceful_exit_segment_transfer.stream_id = ?
+	where graceful_exit_segment_transfer.position = ?
+	where graceful_exit_segment_transfer.piece_num = ?
+)
+
+delete graceful_exit_segment_transfer (
+	where graceful_exit_segment_transfer.node_id = ?
+	where graceful_exit_segment_transfer.finished_at != null
+)
+
+read one (
+	select graceful_exit_segment_transfer
+	where graceful_exit_segment_transfer.node_id = ?
+	where graceful_exit_segment_transfer.stream_id = ?
+	where graceful_exit_segment_transfer.position = ?
+	where graceful_exit_segment_transfer.piece_num = ?
 )
 
 //--- graceful exit transfer queue ---//

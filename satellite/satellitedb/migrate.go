@@ -1457,6 +1457,32 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add stream_id and position columns to graceful_exit_transfer_queue",
+				Version:     162,
+				Action: migrate.SQL{
+					`CREATE TABLE graceful_exit_segment_transfer_queue (
+						node_id bytea NOT NULL,
+						stream_id bytea NOT NULL,
+						position bigint NOT NULL,
+						piece_num integer NOT NULL,
+						root_piece_id bytea,
+						durability_ratio double precision NOT NULL,
+						queued_at timestamp with time zone NOT NULL,
+						requested_at timestamp with time zone,
+						last_failed_at timestamp with time zone,
+						last_failed_code integer,
+						failed_count integer,
+						finished_at timestamp with time zone,
+						order_limit_send_count integer NOT NULL DEFAULT 0,
+						PRIMARY KEY ( node_id, stream_id, position, piece_num )
+					);`,
+					`CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;`,
+					`ALTER TABLE graceful_exit_progress
+						ADD COLUMN uses_segment_transfer_queue boolean NOT NULL DEFAULT false;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
