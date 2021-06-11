@@ -136,7 +136,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 		}, err
 	}
 
-	err = verifier.checkIfSegmentAltered(ctx, segment.SegmentLocation, segmentInfo)
+	err = verifier.checkIfSegmentAltered(ctx, segmentInfo)
 	if err != nil {
 		if ErrSegmentDeleted.Has(err) {
 			verifier.log.Debug("segment deleted during Verify")
@@ -412,33 +412,20 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 			verifier.log.Debug("Reverify: error getting from containment db", zap.Stringer("Node ID", piece.StorageNode), zap.Error(err))
 			continue
 		}
+
+		// TODO remove this when old entries with empty StreamID will be deleted
+		if pending.StreamID.IsZero() {
+			verifier.log.Debug("Reverify: skip pending audit with empty StreamID", zap.Stringer("Node ID", piece.StorageNode))
+			ch <- result{nodeID: piece.StorageNode, status: skipped}
+			continue
+		}
+
 		containedInSegment++
 
 		go func(pending *PendingAudit) {
-			// TODO: Get the exact version of the object. But where to take the version from the pending audit?
-			pendingObject, err := verifier.metabase.GetObjectLatestVersion(ctx, metabase.GetObjectLatestVersion{
-				ObjectLocation: pending.Segment.Object(),
-			})
-			if err != nil {
-				if storj.ErrObjectNotFound.Has(err) {
-					ch <- result{nodeID: pending.NodeID, status: skipped, release: true}
-					return
-				}
-
-				ch <- result{nodeID: pending.NodeID, status: erred, err: err}
-				verifier.log.Debug("Reverify: error getting pending segment's object from metabase", zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
-				return
-			}
-
-			if pendingObject.ExpiresAt != nil && !pendingObject.ExpiresAt.IsZero() && pendingObject.ExpiresAt.Before(verifier.nowFn()) {
-				verifier.log.Debug("Reverify: segment already expired", zap.Stringer("Node ID", pending.NodeID))
-				ch <- result{nodeID: pending.NodeID, status: skipped, release: true}
-				return
-			}
-
-			pendingSegmentInfo, err := verifier.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
-				StreamID: pendingObject.StreamID,
-				Position: pending.Segment.Position,
+			pendingSegment, err := verifier.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: pending.StreamID,
+				Position: pending.Position,
 			})
 			if err != nil {
 				if metabase.ErrSegmentNotFound.Has(err) {
@@ -451,14 +438,20 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 				return
 			}
 
+			if pendingSegment.Expired(verifier.nowFn()) {
+				verifier.log.Debug("Reverify: segment already expired", zap.Stringer("Node ID", pending.NodeID))
+				ch <- result{nodeID: pending.NodeID, status: skipped, release: true}
+				return
+			}
+
 			// TODO: is this check still necessary? If the segment was found by its StreamID and position, the RootPieceID should not had changed.
-			if pendingSegmentInfo.RootPieceID != pending.PieceID {
+			if pendingSegment.RootPieceID != pending.PieceID {
 				ch <- result{nodeID: pending.NodeID, status: skipped, release: true}
 				return
 			}
 			var pieceNum uint16
 			found := false
-			for _, piece := range pendingSegmentInfo.Pieces {
+			for _, piece := range pendingSegment.Pieces {
 				if piece.StorageNode == pending.NodeID {
 					pieceNum = piece.Number
 					found = true
@@ -469,7 +462,8 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 				return
 			}
 
-			limit, piecePrivateKey, cachedIPAndPort, err := verifier.orders.CreateAuditOrderLimit(ctx, pending.Segment.Bucket(), pending.NodeID, pieceNum, pending.PieceID, pending.ShareSize)
+			// TODO verify what with empty bucket
+			limit, piecePrivateKey, cachedIPAndPort, err := verifier.orders.CreateAuditOrderLimit(ctx, metabase.BucketLocation{}, pending.NodeID, pieceNum, pending.PieceID, pending.ShareSize)
 			if err != nil {
 				if overlay.ErrNodeDisqualified.Has(err) {
 					ch <- result{nodeID: pending.NodeID, status: skipped, release: true}
@@ -528,7 +522,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 				}
 				if errs2.IsRPC(err, rpcstatus.NotFound) {
 					// Get the original segment
-					err := verifier.checkIfSegmentAltered(ctx, pending.Segment, pendingSegmentInfo)
+					err := verifier.checkIfSegmentAltered(ctx, pendingSegment)
 					if err != nil {
 						ch <- result{nodeID: pending.NodeID, status: skipped, release: true}
 						verifier.log.Debug("Reverify: audit source changed before reverification", zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
@@ -555,7 +549,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 				ch <- result{nodeID: pending.NodeID, status: success, release: true}
 				verifier.log.Info("Reverify: hashes match (audit success)", zap.Stringer("Node ID", pending.NodeID))
 			} else {
-				err := verifier.checkIfSegmentAltered(ctx, pending.Segment, pendingSegmentInfo)
+				err := verifier.checkIfSegmentAltered(ctx, pendingSegment)
 				if err != nil {
 					ch <- result{nodeID: pending.NodeID, status: skipped, release: true}
 					verifier.log.Debug("Reverify: audit source changed before reverification", zap.Stringer("Node ID", pending.NodeID), zap.Error(err))
@@ -688,7 +682,7 @@ func (verifier *Verifier) GetShare(ctx context.Context, limit *pb.AddressedOrder
 }
 
 // checkIfSegmentAltered checks if oldSegment has been altered since it was selected for audit.
-func (verifier *Verifier) checkIfSegmentAltered(ctx context.Context, location metabase.SegmentLocation, oldSegment metabase.Segment) (err error) {
+func (verifier *Verifier) checkIfSegmentAltered(ctx context.Context, oldSegment metabase.Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if verifier.OnTestingCheckSegmentAlteredHook != nil {
@@ -701,13 +695,13 @@ func (verifier *Verifier) checkIfSegmentAltered(ctx context.Context, location me
 	})
 	if err != nil {
 		if metabase.ErrSegmentNotFound.Has(err) {
-			return ErrSegmentDeleted.New("%q", location.Encode())
+			return ErrSegmentDeleted.New("StreamID: %q Position: %d", oldSegment.StreamID.String(), oldSegment.Position.Encode())
 		}
 		return err
 	}
 
 	if !oldSegment.Pieces.Equal(newSegment.Pieces) {
-		return ErrSegmentModified.New("%q", location.Encode())
+		return ErrSegmentModified.New("StreamID: %q Position: %d", oldSegment.StreamID.String(), oldSegment.Position.Encode())
 	}
 	return nil
 }
@@ -837,7 +831,8 @@ func createPendingAudits(ctx context.Context, containedNodes map[int]storj.NodeI
 			StripeIndex:       randomIndex,
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share),
-			Segment:           segment.SegmentLocation,
+			StreamID:          segment.StreamID,
+			Position:          segment.Position,
 		})
 	}
 

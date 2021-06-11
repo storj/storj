@@ -304,6 +304,17 @@ CREATE TABLE revocations (
 	api_key_id bytea NOT NULL,
 	PRIMARY KEY ( revoked )
 );
+CREATE TABLE segment_pending_audits (
+	node_id bytea NOT NULL,
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
+	piece_id bytea NOT NULL,
+	stripe_index bigint NOT NULL,
+	share_size bigint NOT NULL,
+	expected_share_hash bytea NOT NULL,
+	reverify_count bigint NOT NULL,
+	PRIMARY KEY ( node_id )
+);
 CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,

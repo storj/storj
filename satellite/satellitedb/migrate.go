@@ -1483,6 +1483,24 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 						ADD COLUMN uses_segment_transfer_queue boolean NOT NULL DEFAULT false;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create segment_pending_audits table, replacement for pending_audits",
+				Version:     163,
+				Action: migrate.SQL{
+					`CREATE TABLE segment_pending_audits (
+						node_id bytea NOT NULL,
+						stream_id bytea NOT NULL,
+						position bigint NOT NULL,
+						piece_id bytea NOT NULL,
+						stripe_index bigint NOT NULL,
+						share_size bigint NOT NULL,
+						expected_share_hash bytea NOT NULL,
+						reverify_count bigint NOT NULL,
+						PRIMARY KEY ( node_id )
+					);`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

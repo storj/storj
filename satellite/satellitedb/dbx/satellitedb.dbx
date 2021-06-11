@@ -19,6 +19,7 @@ read one (
 )
 
 //--- containment ---//
+// TODO drop it later
 model pending_audits (
 	key node_id
 
@@ -35,6 +36,25 @@ delete pending_audits ( where pending_audits.node_id = ? )
 read one (
 	select pending_audits
 	where  pending_audits.node_id = ?
+)
+
+model segment_pending_audits (
+	key node_id
+
+	field node_id             blob
+	field stream_id           blob
+	field position            uint64
+	field piece_id            blob
+	field stripe_index        int64
+	field share_size          int64
+	field expected_share_hash blob
+	field reverify_count      int64 ( updatable )
+)
+
+delete segment_pending_audits ( where segment_pending_audits.node_id = ? )
+read one (
+	select segment_pending_audits
+	where  segment_pending_audits.node_id = ?
 )
 
 //--- irreparableDB ---//

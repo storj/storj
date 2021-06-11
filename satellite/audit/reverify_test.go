@@ -85,7 +85,8 @@ func TestReverifySuccess(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -163,7 +164,8 @@ func TestReverifyFailMissingShare(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -239,7 +241,8 @@ func TestReverifyFailBadData(t *testing.T) {
 			ShareSize:         redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = satellite.DB.Containment().IncrementPending(ctx, pending)
@@ -310,7 +313,8 @@ func TestReverifyOffline(t *testing.T) {
 			ShareSize:         redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = satellite.DB.Containment().IncrementPending(ctx, pending)
@@ -410,7 +414,8 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 			ShareSize:         redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = satellite.DB.Containment().IncrementPending(ctx, pending)
@@ -481,7 +486,8 @@ func TestReverifyDeletedSegment(t *testing.T) {
 			ShareSize:         segment.Redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		containment := satellite.DB.Containment()
@@ -570,7 +576,8 @@ func TestReverifyModifiedSegment(t *testing.T) {
 			ShareSize:         segment.Redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		containment := satellite.DB.Containment()
@@ -666,7 +673,8 @@ func TestReverifyReplacedSegment(t *testing.T) {
 			ShareSize:         segment.Redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		containment := satellite.DB.Containment()
@@ -801,7 +809,8 @@ func TestReverifyDifferentShare(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment1.SegmentLocation,
+			StreamID:          queueSegment1.StreamID,
+			Position:          queueSegment1.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -959,7 +968,8 @@ func TestReverifyExpired2(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment1.SegmentLocation,
+			StreamID:          queueSegment1.StreamID,
+			Position:          queueSegment1.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -1054,7 +1064,8 @@ func TestReverifySlowDownload(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -1142,7 +1153,8 @@ func TestReverifyUnknownError(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)

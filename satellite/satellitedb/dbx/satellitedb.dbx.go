@@ -624,6 +624,17 @@ CREATE TABLE revocations (
 	api_key_id bytea NOT NULL,
 	PRIMARY KEY ( revoked )
 );
+CREATE TABLE segment_pending_audits (
+	node_id bytea NOT NULL,
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
+	piece_id bytea NOT NULL,
+	stripe_index bigint NOT NULL,
+	share_size bigint NOT NULL,
+	expected_share_hash bytea NOT NULL,
+	reverify_count bigint NOT NULL,
+	PRIMARY KEY ( node_id )
+);
 CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
@@ -1225,6 +1236,17 @@ CREATE TABLE revocations (
 	revoked bytea NOT NULL,
 	api_key_id bytea NOT NULL,
 	PRIMARY KEY ( revoked )
+);
+CREATE TABLE segment_pending_audits (
+	node_id bytea NOT NULL,
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
+	piece_id bytea NOT NULL,
+	stripe_index bigint NOT NULL,
+	share_size bigint NOT NULL,
+	expected_share_hash bytea NOT NULL,
+	reverify_count bigint NOT NULL,
+	PRIMARY KEY ( node_id )
 );
 CREATE TABLE storagenode_bandwidth_rollups (
 	storagenode_id bytea NOT NULL,
@@ -6913,6 +6935,175 @@ func (f Revocation_ApiKeyId_Field) value() interface{} {
 
 func (Revocation_ApiKeyId_Field) _Column() string { return "api_key_id" }
 
+type SegmentPendingAudits struct {
+	NodeId            []byte
+	StreamId          []byte
+	Position          uint64
+	PieceId           []byte
+	StripeIndex       int64
+	ShareSize         int64
+	ExpectedShareHash []byte
+	ReverifyCount     int64
+}
+
+func (SegmentPendingAudits) _Table() string { return "segment_pending_audits" }
+
+type SegmentPendingAudits_Update_Fields struct {
+	ReverifyCount SegmentPendingAudits_ReverifyCount_Field
+}
+
+type SegmentPendingAudits_NodeId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func SegmentPendingAudits_NodeId(v []byte) SegmentPendingAudits_NodeId_Field {
+	return SegmentPendingAudits_NodeId_Field{_set: true, _value: v}
+}
+
+func (f SegmentPendingAudits_NodeId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SegmentPendingAudits_NodeId_Field) _Column() string { return "node_id" }
+
+type SegmentPendingAudits_StreamId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func SegmentPendingAudits_StreamId(v []byte) SegmentPendingAudits_StreamId_Field {
+	return SegmentPendingAudits_StreamId_Field{_set: true, _value: v}
+}
+
+func (f SegmentPendingAudits_StreamId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SegmentPendingAudits_StreamId_Field) _Column() string { return "stream_id" }
+
+type SegmentPendingAudits_Position_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func SegmentPendingAudits_Position(v uint64) SegmentPendingAudits_Position_Field {
+	return SegmentPendingAudits_Position_Field{_set: true, _value: v}
+}
+
+func (f SegmentPendingAudits_Position_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SegmentPendingAudits_Position_Field) _Column() string { return "position" }
+
+type SegmentPendingAudits_PieceId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func SegmentPendingAudits_PieceId(v []byte) SegmentPendingAudits_PieceId_Field {
+	return SegmentPendingAudits_PieceId_Field{_set: true, _value: v}
+}
+
+func (f SegmentPendingAudits_PieceId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SegmentPendingAudits_PieceId_Field) _Column() string { return "piece_id" }
+
+type SegmentPendingAudits_StripeIndex_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func SegmentPendingAudits_StripeIndex(v int64) SegmentPendingAudits_StripeIndex_Field {
+	return SegmentPendingAudits_StripeIndex_Field{_set: true, _value: v}
+}
+
+func (f SegmentPendingAudits_StripeIndex_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SegmentPendingAudits_StripeIndex_Field) _Column() string { return "stripe_index" }
+
+type SegmentPendingAudits_ShareSize_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func SegmentPendingAudits_ShareSize(v int64) SegmentPendingAudits_ShareSize_Field {
+	return SegmentPendingAudits_ShareSize_Field{_set: true, _value: v}
+}
+
+func (f SegmentPendingAudits_ShareSize_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SegmentPendingAudits_ShareSize_Field) _Column() string { return "share_size" }
+
+type SegmentPendingAudits_ExpectedShareHash_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func SegmentPendingAudits_ExpectedShareHash(v []byte) SegmentPendingAudits_ExpectedShareHash_Field {
+	return SegmentPendingAudits_ExpectedShareHash_Field{_set: true, _value: v}
+}
+
+func (f SegmentPendingAudits_ExpectedShareHash_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SegmentPendingAudits_ExpectedShareHash_Field) _Column() string { return "expected_share_hash" }
+
+type SegmentPendingAudits_ReverifyCount_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func SegmentPendingAudits_ReverifyCount(v int64) SegmentPendingAudits_ReverifyCount_Field {
+	return SegmentPendingAudits_ReverifyCount_Field{_set: true, _value: v}
+}
+
+func (f SegmentPendingAudits_ReverifyCount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (SegmentPendingAudits_ReverifyCount_Field) _Column() string { return "reverify_count" }
+
 type StoragenodeBandwidthRollup struct {
 	StoragenodeId   []byte
 	IntervalStart   time.Time
@@ -11279,6 +11470,28 @@ func (obj *pgxImpl) Get_PendingAudits_By_NodeId(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Get_SegmentPendingAudits_By_NodeId(ctx context.Context,
+	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
+	segment_pending_audits *SegmentPendingAudits, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT segment_pending_audits.node_id, segment_pending_audits.stream_id, segment_pending_audits.position, segment_pending_audits.piece_id, segment_pending_audits.stripe_index, segment_pending_audits.share_size, segment_pending_audits.expected_share_hash, segment_pending_audits.reverify_count FROM segment_pending_audits WHERE segment_pending_audits.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, segment_pending_audits_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	segment_pending_audits = &SegmentPendingAudits{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&segment_pending_audits.NodeId, &segment_pending_audits.StreamId, &segment_pending_audits.Position, &segment_pending_audits.PieceId, &segment_pending_audits.StripeIndex, &segment_pending_audits.ShareSize, &segment_pending_audits.ExpectedShareHash, &segment_pending_audits.ReverifyCount)
+	if err != nil {
+		return (*SegmentPendingAudits)(nil), obj.makeErr(err)
+	}
+	return segment_pending_audits, nil
+
+}
+
 func (obj *pgxImpl) Get_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	irreparabledb *Irreparabledb, err error) {
@@ -15396,6 +15609,33 @@ func (obj *pgxImpl) Delete_PendingAudits_By_NodeId(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
+	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM segment_pending_audits WHERE segment_pending_audits.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, segment_pending_audits_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	deleted bool, err error) {
@@ -16000,6 +16240,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollups;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM segment_pending_audits;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -17234,6 +17484,28 @@ func (obj *pgxcockroachImpl) Get_PendingAudits_By_NodeId(ctx context.Context,
 		return (*PendingAudits)(nil), obj.makeErr(err)
 	}
 	return pending_audits, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_SegmentPendingAudits_By_NodeId(ctx context.Context,
+	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
+	segment_pending_audits *SegmentPendingAudits, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT segment_pending_audits.node_id, segment_pending_audits.stream_id, segment_pending_audits.position, segment_pending_audits.piece_id, segment_pending_audits.stripe_index, segment_pending_audits.share_size, segment_pending_audits.expected_share_hash, segment_pending_audits.reverify_count FROM segment_pending_audits WHERE segment_pending_audits.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, segment_pending_audits_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	segment_pending_audits = &SegmentPendingAudits{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&segment_pending_audits.NodeId, &segment_pending_audits.StreamId, &segment_pending_audits.Position, &segment_pending_audits.PieceId, &segment_pending_audits.StripeIndex, &segment_pending_audits.ShareSize, &segment_pending_audits.ExpectedShareHash, &segment_pending_audits.ReverifyCount)
+	if err != nil {
+		return (*SegmentPendingAudits)(nil), obj.makeErr(err)
+	}
+	return segment_pending_audits, nil
 
 }
 
@@ -21354,6 +21626,33 @@ func (obj *pgxcockroachImpl) Delete_PendingAudits_By_NodeId(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
+	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM segment_pending_audits WHERE segment_pending_audits.node_id = ?")
+
+	var __values []interface{}
+	__values = append(__values, segment_pending_audits_node_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_Irreparabledb_By_Segmentpath(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field) (
 	deleted bool, err error) {
@@ -21958,6 +22257,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM storagenode_bandwidth_rollups;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM segment_pending_audits;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -22999,6 +23308,16 @@ func (rx *Rx) Delete_ResetPasswordToken_By_Secret(ctx context.Context,
 	return tx.Delete_ResetPasswordToken_By_Secret(ctx, reset_password_token_secret)
 }
 
+func (rx *Rx) Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
+	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
+	deleted bool, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_SegmentPendingAudits_By_NodeId(ctx, segment_pending_audits_node_id)
+}
+
 func (rx *Rx) Delete_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	deleted bool, err error) {
@@ -23285,6 +23604,16 @@ func (rx *Rx) Get_ResetPasswordToken_By_Secret(ctx context.Context,
 		return
 	}
 	return tx.Get_ResetPasswordToken_By_Secret(ctx, reset_password_token_secret)
+}
+
+func (rx *Rx) Get_SegmentPendingAudits_By_NodeId(ctx context.Context,
+	segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
+	segment_pending_audits *SegmentPendingAudits, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_SegmentPendingAudits_By_NodeId(ctx, segment_pending_audits_node_id)
 }
 
 func (rx *Rx) Get_StoragenodePaystub_By_NodeId_And_Period(ctx context.Context,
@@ -24181,6 +24510,10 @@ type Methods interface {
 		reset_password_token_secret ResetPasswordToken_Secret_Field) (
 		deleted bool, err error)
 
+	Delete_SegmentPendingAudits_By_NodeId(ctx context.Context,
+		segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
+		deleted bool, err error)
+
 	Delete_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
 		deleted bool, err error)
@@ -24300,6 +24633,10 @@ type Methods interface {
 	Get_ResetPasswordToken_By_Secret(ctx context.Context,
 		reset_password_token_secret ResetPasswordToken_Secret_Field) (
 		reset_password_token *ResetPasswordToken, err error)
+
+	Get_SegmentPendingAudits_By_NodeId(ctx context.Context,
+		segment_pending_audits_node_id SegmentPendingAudits_NodeId_Field) (
+		segment_pending_audits *SegmentPendingAudits, err error)
 
 	Get_StoragenodePaystub_By_NodeId_And_Period(ctx context.Context,
 		storagenode_paystub_node_id StoragenodePaystub_NodeId_Field,
