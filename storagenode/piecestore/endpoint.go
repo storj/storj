@@ -63,7 +63,7 @@ type Config struct {
 	RetainTimeBuffer        time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s"`
 	ReportCapacityThreshold memory.Size   `help:"threshold below which to immediately notify satellite of capacity" default:"500MB" hidden:"true"`
 	MaxUsedSerialsSize      memory.Size   `help:"amount of memory allowed for used serials store - once surpassed, serials will be dropped at random" default:"1MB"`
-	MinUploadSpeed          float64       `help:"a client upload speed should not be lower than MinUploadSpeed - bytes per second, otherwise, it will be flagged as slow-connection and potentially be closed" default:"-1"`
+	MinUploadSpeed          memory.Size   `help:"a client upload speed should not be lower than MinUploadSpeed (E.g 1Mb), otherwise, it will be flagged as slow-connection and potentially be closed" default:"0Mb"`
 	Trust                   trust.Config
 
 	Monitor monitor.Config
@@ -181,20 +181,22 @@ func (endpoint *Endpoint) DeletePieces(
 	}, nil
 }
 
-func (endpoint *Endpoint) flagSuspiciousSlowUpload(averageUploadRate float64, connectionCount int64) bool {
-	// rate defines the maximum capacities of the node
-	// if the total number of connections is above this limit
-	// then the node should be care in accepting slow upload connections.
-	rate := float64(0.8)
+func (endpoint *Endpoint) flagUnusualSlowUpload(averageUploadRate float64, connectionCount int64) bool {
+	// congestionThreshold defines the proportion of MaxConcurrentRequests
+	// that must be reached before the storage node will begin dropping slow
+	// upload connections to preserve its own bandwidth.
+	const congestionThreshold = 0.8
 
-	if averageUploadRate < endpoint.config.MinUploadSpeed {
+	if averageUploadRate < float64(endpoint.config.MinUploadSpeed) {
 		if endpoint.config.MaxConcurrentRequests != 0 {
 			// if 80% of the connection pool is occupied and average upload falls below limit
 			// then the connection is flagged
-			if (connectionCount > int64(float64(endpoint.config.MaxConcurrentRequests)*rate)) && averageUploadRate < endpoint.config.MinUploadSpeed {
+			requestCongestionThreshold := int64(float64(endpoint.config.MaxConcurrentRequests) * congestionThreshold)
+
+			if (connectionCount > requestCongestionThreshold) && averageUploadRate < float64(endpoint.config.MinUploadSpeed) {
 				return true
 			}
-		} else if averageUploadRate < endpoint.config.MinUploadSpeed {
+		} else if averageUploadRate < float64(endpoint.config.MinUploadSpeed) {
 			return true
 		}
 	}
@@ -342,36 +344,38 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	sumUploadRate := float64(0)
 	// averageUploadRate= sum of sampled upload rate / total of samples
 	averageUploadRate := float64(0)
-	// number as of data chunks that have been received so far
+	// chunkCount is the number as of data chunks that have been received so far
 	// first chunk is counted as 0
 	chunkCount := float64(-1)
+
+	// delayUntilSlowConnectionFlagged indicates the delay in seconds until
+	// the connnection is flagged for unusual slow upload speed.
+	// This is to avoid false positive flag in the first moment of uploading
+	delayUntilSlowConnectionFlagged := float64(10)
 
 	for {
 		// Increment counts
 		chunkCount++
 		// Measure upload rate (bytes per second)
-		currentTime := time.Now().UTC()
-		dt := currentTime.Sub(startTime)
+		dt := time.Since(startTime)
 
-		if pieceWriter != nil {
-			// delta uploaded
+		// Skip flagging unusually slow connections in the first moments of uploading.
+		if dt.Seconds() < delayUntilSlowConnectionFlagged && chunkCount != 0 {
 			uploadSize = pieceWriter.Size() - previousSize
 			previousSize = pieceWriter.Size()
-		}
 
-		if dt.Seconds() > 0 {
 			// currentUploadRate mesures the rate of upload for each chunk of data.
 			currentUploadRate := float64(uploadSize) / dt.Seconds()
 			sumUploadRate += currentUploadRate
 
-			// Average upload rate is counted as: total upload rate samples per a period of time
+			// averageUploadRate is counted as: total upload rate samples per a period of time
 			// divides by total number of chunks
 			averageUploadRate = sumUploadRate / chunkCount
-		}
 
-		// Verify if the upload is supiciously slow
-		if endpoint.flagSuspiciousSlowUpload(averageUploadRate, int64(liveRequests)) {
-			return rpcstatus.Errorf(rpcstatus.Aborted, "upload rate falls below limit")
+			// Verify if the upload is unusually slow
+			if endpoint.flagUnusualSlowUpload(averageUploadRate, int64(liveRequests)) {
+				return rpcstatus.Errorf(rpcstatus.Aborted, "upload rate falls below limit")
+			}
 		}
 
 		// TODO: reuse messages to avoid allocations

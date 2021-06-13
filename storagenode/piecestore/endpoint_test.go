@@ -177,7 +177,7 @@ func TestSlowUpload(t *testing.T) {
 			StorageNode: func(index int, config *storagenode.Config) {
 				// Set MinUploadSpeed to extremely high to indicates that
 				// client upload rate is slow (relative to node's standards)
-				config.Storage2.MinUploadSpeed = 100000000000000000
+				config.Storage2.MinUploadSpeed = 10000000 * memory.MB
 				// Storage Node takes only 1 connection (to mock the case where
 				// the number of concurrent connections goes above 80% of the limit)
 				config.Storage2.MaxConcurrentRequests = 1
