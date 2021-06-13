@@ -337,13 +337,11 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	defer commitOrderToStore(ctx, &largestOrder)
 
 	// Measure upload rate and average upload rate
-	uploadSize := int64(0)
 	previousSize := int64(0)
 
 	// sumUploadRate sums all previously sampled upload rate
 	sumUploadRate := float64(0)
-	// averageUploadRate= sum of sampled upload rate / total of samples
-	averageUploadRate := float64(0)
+
 	// chunkCount is the number as of data chunks that have been received so far
 	// first chunk is counted as 0
 	chunkCount := float64(-1)
@@ -361,16 +359,16 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 		// Skip flagging unusually slow connections in the first moments of uploading.
 		if dt.Seconds() < delayUntilSlowConnectionFlagged && chunkCount != 0 {
-			uploadSize = pieceWriter.Size() - previousSize
+			uploadSize := pieceWriter.Size() - previousSize
 			previousSize = pieceWriter.Size()
 
-			// currentUploadRate mesures the rate of upload for each chunk of data.
+			// currentUploadRate measures the rate of upload for each chunk of data.
 			currentUploadRate := float64(uploadSize) / dt.Seconds()
 			sumUploadRate += currentUploadRate
 
 			// averageUploadRate is counted as: total upload rate samples per a period of time
 			// divides by total number of chunks
-			averageUploadRate = sumUploadRate / chunkCount
+			averageUploadRate := sumUploadRate / chunkCount
 
 			// Verify if the upload is unusually slow
 			if endpoint.flagUnusualSlowUpload(averageUploadRate, int64(liveRequests)) {
