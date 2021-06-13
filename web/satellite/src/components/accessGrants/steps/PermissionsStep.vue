@@ -34,7 +34,8 @@
                 </div>
                 <div class="permissions__content__right__buckets-select">
                     <p class="permissions__content__right__buckets-select__label">Buckets</p>
-                    <BucketsSelection />
+                    <VLoader v-if="areBucketNamesFetching" width="50px" height="50px"/>
+                    <BucketsSelection v-else/>
                 </div>
                 <div class="permissions__content__right__bucket-bullets">
                     <div
@@ -53,11 +54,11 @@
             width="100%"
             height="48px"
             :on-press="onContinueInBrowserClick"
-            :is-disabled="isLoading || !isAccessGrantsWebWorkerReady"
+            :is-disabled="isLoading || !isAccessGrantsWebWorkerReady || areBucketNamesFetching"
         />
         <p
             class="permissions__cli-link"
-            :class="{ disabled: !isAccessGrantsWebWorkerReady || isLoading }"
+            :class="{ disabled: !isAccessGrantsWebWorkerReady || isLoading || areBucketNamesFetching }"
             @click.stop="onContinueInCLIClick"
         >
             Continue in CLI
@@ -72,6 +73,7 @@ import BucketNameBullet from '@/components/accessGrants/permissions/BucketNameBu
 import BucketsSelection from '@/components/accessGrants/permissions/BucketsSelection.vue';
 import DurationSelection from '@/components/accessGrants/permissions/DurationSelection.vue';
 import VButton from '@/components/common/VButton.vue';
+import VLoader from '@/components/common/VLoader.vue';
 
 import BackIcon from '@/../static/images/accessGrants/back.svg';
 
@@ -87,6 +89,7 @@ import { DurationPermission } from '@/types/accessGrants';
         BucketNameBullet,
         DurationSelection,
         VButton,
+        VLoader,
     },
 })
 export default class PermissionsStep extends Vue {
@@ -99,6 +102,7 @@ export default class PermissionsStep extends Vue {
     public isUpload: boolean = true;
     public isList: boolean = true;
     public isDelete: boolean = true;
+    public areBucketNamesFetching: boolean = true;
 
     /**
      * Lifecycle hook after initial render.
@@ -124,6 +128,8 @@ export default class PermissionsStep extends Vue {
 
         try {
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
+
+            this.areBucketNamesFetching = false;
         } catch (error) {
             await this.$notify.error(`Unable to fetch all bucket names. ${error.message}`);
         }

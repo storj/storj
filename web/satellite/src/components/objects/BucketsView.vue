@@ -11,8 +11,8 @@
             </div>
         </div>
         <VLoader
-            width="120px"
-            height="120px"
+            width="100px"
+            height="100px"
             class="buckets-view__loader"
             v-if="isLoading"
         />

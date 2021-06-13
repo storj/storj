@@ -1290,6 +1290,77 @@ func TestCommitSegment(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
+		t.Run("commit segment of object with expires at", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			rootPieceID := testrand.PieceID()
+			pieces := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
+			encryptedKey := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Bytes(32)
+
+			now := time.Now()
+			expectedExpiresAt := now.Add(33 * time.Hour)
+			zombieDeadline := now.Add(24 * time.Hour)
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+					ExpiresAt:    &expectedExpiresAt,
+				},
+				Version: obj.Version,
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitSegment{
+				Opts: metabase.CommitSegment{
+					ObjectStream: obj,
+					ExpiresAt:    &expectedExpiresAt,
+					RootPieceID:  rootPieceID,
+					Pieces:       pieces,
+
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce,
+
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
+					Redundancy:    metabasetest.DefaultRedundancy,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						ExpiresAt:    &expectedExpiresAt,
+						Status:       metabase.Pending,
+
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+				},
+				Segments: []metabase.RawSegment{
+					{
+						StreamID:  obj.StreamID,
+						CreatedAt: &now,
+						ExpiresAt: &expectedExpiresAt,
+
+						RootPieceID:       rootPieceID,
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce,
+
+						EncryptedSize: 1024,
+						PlainOffset:   0,
+						PlainSize:     512,
+
+						Redundancy: metabasetest.DefaultRedundancy,
+
+						Pieces: pieces,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
 		t.Run("commit segment of pending object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -1691,6 +1762,70 @@ func TestCommitInlineSegment(t *testing.T) {
 					{
 						StreamID:  obj.StreamID,
 						CreatedAt: &now,
+
+						EncryptedKey:      encryptedKey,
+						EncryptedKeyNonce: encryptedKeyNonce,
+
+						PlainOffset: 0,
+						PlainSize:   512,
+
+						InlineData:    []byte{1, 2, 3},
+						EncryptedSize: 3,
+						EncryptedETag: encryptedETag,
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("commit segment of object with expires at", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			encryptedKey := testrand.Bytes(32)
+			encryptedKeyNonce := testrand.Bytes(32)
+			encryptedETag := testrand.Bytes(32)
+
+			now := time.Now()
+			expectedExpiresAt := now.Add(33 * time.Hour)
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+					ExpiresAt:    &expectedExpiresAt,
+				},
+				Version: obj.Version,
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitInlineSegment{
+				Opts: metabase.CommitInlineSegment{
+					ObjectStream: obj,
+					ExpiresAt:    &expectedExpiresAt,
+					InlineData:   []byte{1, 2, 3},
+
+					EncryptedKey:      encryptedKey,
+					EncryptedKeyNonce: encryptedKeyNonce,
+
+					PlainSize:     512,
+					PlainOffset:   0,
+					EncryptedETag: encryptedETag,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream:           obj,
+						CreatedAt:              now,
+						ExpiresAt:              &expectedExpiresAt,
+						Status:                 metabase.Pending,
+						Encryption:             metabasetest.DefaultEncryption,
+						ZombieDeletionDeadline: &zombieDeadline,
+					},
+				},
+				Segments: []metabase.RawSegment{
+					{
+						StreamID:  obj.StreamID,
+						CreatedAt: &now,
+						ExpiresAt: &expectedExpiresAt,
 
 						EncryptedKey:      encryptedKey,
 						EncryptedKeyNonce: encryptedKeyNonce,

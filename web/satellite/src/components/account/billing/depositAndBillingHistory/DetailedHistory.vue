@@ -9,15 +9,18 @@
         </div>
         <h1 class="history-area__title" v-if="isBillingHistory">Billing History</h1>
         <h1 class="history-area__title" v-else>Balance History</h1>
-        <div class="history-area__content" v-if="historyItems.length > 0">
-            <SortingHeader/>
-            <PaymentsItem
-                v-for="item in historyItems"
-                :billing-item="item"
-                :key="item.id"
-            />
-        </div>
-        <h2 class="history-area__empty-state" v-else>No Items Yet</h2>
+        <VLoader v-if="isDataFetching" height="100px" width="100px" class="history-loader"/>
+        <template v-else>
+            <div class="history-area__content" v-if="historyItems.length > 0">
+                <SortingHeader/>
+                <PaymentsItem
+                    v-for="item in historyItems"
+                    :billing-item="item"
+                    :key="item.id"
+                />
+            </div>
+            <h2 class="history-area__empty-state" v-else>No Items Yet</h2>
+        </template>
     </div>
 </template>
 
@@ -26,10 +29,12 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import PaymentsItem from '@/components/account/billing/depositAndBillingHistory/PaymentsItem.vue';
 import SortingHeader from '@/components/account/billing/depositAndBillingHistory/SortingHeader.vue';
+import VLoader from '@/components/common/VLoader.vue';
 
 import BackImage from '@/../static/images/account/billing/back.svg';
 
 import { RouteConfig } from '@/router';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 
 @Component({
@@ -37,9 +42,26 @@ import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
         PaymentsItem,
         SortingHeader,
         BackImage,
+        VLoader,
     },
 })
 export default class DetailedHistory extends Vue {
+    public isDataFetching: boolean = true;
+
+    /**
+     * Lifecycle hook after initial render.
+     * Fetches payments history.
+     */
+    public async mounted(): Promise<void> {
+        try {
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY);
+
+            this.isDataFetching = false;
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+    }
+
     /**
      * Returns list of history items depending on route name.
      */
@@ -132,6 +154,10 @@ export default class DetailedHistory extends Vue {
             text-align: center;
             margin-top: 200px;
         }
+    }
+
+    .history-loader {
+        margin-top: 50px;
     }
 
     ::-webkit-scrollbar,

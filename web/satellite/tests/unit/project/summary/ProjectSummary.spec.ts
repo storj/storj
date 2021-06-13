@@ -47,6 +47,9 @@ describe('ProjectSummary.vue', (): void => {
         const wrapper = mount(ProjectSummary, {
             store,
             localVue,
+            propsData: {
+                isDataFetching: false,
+            },
         });
 
         expect(wrapper).toMatchSnapshot();

@@ -94,7 +94,7 @@ export class NodePayouts {
  */
 export class HeldAmountSummary {
     public constructor(
-        public satelliteName: string = '',
+        public satelliteAddress: string = '',
         public firstQuarter: number = 0,
         public secondQuarter: number = 0,
         public thirdQuarter: number = 0,

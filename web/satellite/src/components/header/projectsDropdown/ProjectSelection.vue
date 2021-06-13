@@ -44,20 +44,6 @@ export default class ProjectSelection extends Vue {
     private isLoading: boolean = false;
 
     /**
-     * Life cycle hook before initial render.
-     * Toggles new project button visibility depending on user reaching project count limit or having payment method.
-     */
-    public beforeMount(): void {
-        if (this.isProjectLimitReached || !this.$store.getters.canUserCreateFirstProject) {
-            this.$store.dispatch(APP_STATE_ACTIONS.HIDE_CREATE_PROJECT_BUTTON);
-
-            return;
-        }
-
-        this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
-    }
-
-    /**
      * Indicates if current route is onboarding tour.
      */
     public get isOnboardingTour(): boolean {
@@ -107,13 +93,6 @@ export default class ProjectSelection extends Vue {
         if (!this.isDropdownShown) return;
 
         this.$store.dispatch(APP_STATE_ACTIONS.CLOSE_POPUPS);
-    }
-
-    /**
-     * Indicates if project count limit is reached.
-     */
-    private get isProjectLimitReached(): boolean {
-        return this.$store.getters.projectsCount >= this.$store.getters.user.projectLimit;
     }
 }
 </script>

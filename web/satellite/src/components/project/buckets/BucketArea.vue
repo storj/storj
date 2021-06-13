@@ -66,21 +66,6 @@ const {
 })
 export default class BucketArea extends Vue {
     /**
-     * Lifecycle hook after initial render where buckets list is fetched.
-     */
-    public async mounted(): Promise<void> {
-        if (!this.$store.getters.selectedProject.id) {
-            return;
-        }
-
-        try {
-            await this.$store.dispatch(FETCH, 1);
-        } catch (error) {
-            await this.$notify.error(error.message);
-        }
-    }
-
-    /**
      * Lifecycle hook before component destruction where buckets search query is cleared.
      */
     public async beforeDestroy(): Promise<void> {
@@ -178,7 +163,7 @@ export default class BucketArea extends Vue {
 
 <style scoped lang="scss">
     .buckets-area {
-        margin-top: 36px;
+        margin-top: 30px;
         position: relative;
 
         &__pagination-area {
@@ -198,9 +183,9 @@ export default class BucketArea extends Vue {
         &__title {
             margin: 0;
             font-family: 'font_bold', sans-serif;
-            font-size: 22px;
-            line-height: 27px;
-            color: #384b65;
+            font-size: 16px;
+            line-height: 16px;
+            color: #1b2533;
         }
     }
 

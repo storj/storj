@@ -78,7 +78,6 @@ export default class AddCardForm extends Vue {
             setTimeout(() => {
                 if (!this.userHasOwnProject) {
                     this.$router.push(RouteConfig.CreateProject.path);
-                    this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
                 }
             }, 500);
         }, 2000);

@@ -369,3 +369,23 @@ func (db *DB) Now(ctx context.Context) (time.Time, error) {
 	err := db.db.QueryRowContext(ctx, `SELECT now()`).Scan(&t)
 	return t, Error.Wrap(err)
 }
+
+func (db *DB) asOfTime(asOfSystemTime time.Time, asOfSystemInterval time.Duration) string {
+	return limitedAsOfSystemTime(db.impl, time.Now(), asOfSystemTime, asOfSystemInterval)
+}
+
+func limitedAsOfSystemTime(impl dbutil.Implementation, now, baseline time.Time, maxInterval time.Duration) string {
+	if baseline.IsZero() || now.IsZero() {
+		return impl.AsOfSystemInterval(maxInterval)
+	}
+
+	interval := now.Sub(baseline)
+	if interval < 0 {
+		return ""
+	}
+	// maxInterval is negative
+	if maxInterval < 0 && interval > -maxInterval {
+		return impl.AsOfSystemInterval(maxInterval)
+	}
+	return impl.AsOfSystemTime(baseline)
+}
