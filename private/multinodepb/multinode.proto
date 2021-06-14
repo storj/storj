@@ -15,6 +15,8 @@ message RequestHeader {
 
 service Storage {
   rpc DiskSpace(DiskSpaceRequest) returns (DiskSpaceResponse);
+  rpc Usage(StorageUsageRequest) returns (StorageUsageResponse);
+  rpc UsageSatellite(StorageUsageSatelliteRequest) returns (StorageUsageSatelliteResponse);
 }
 
 message DiskSpaceRequest {
@@ -30,8 +32,42 @@ message DiskSpaceResponse {
   int64 overused = 6;
 }
 
+message StorageUsage {
+  double at_rest_total = 1;
+  google.protobuf.Timestamp interval_start = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message StorageUsageRequest {
+  RequestHeader header = 1;
+  google.protobuf.Timestamp from = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp to = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message StorageUsageResponse {
+  repeated StorageUsage storage_usage = 1;
+}
+
+message StorageUsageSatelliteRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  google.protobuf.Timestamp from = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp to = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message StorageUsageSatelliteResponse {
+  repeated StorageUsage storage_usage = 1;
+}
+
 service Bandwidth {
   rpc MonthSummary(BandwidthMonthSummaryRequest) returns (BandwidthMonthSummaryResponse);
+  rpc BandwidthSummarySatellite(BandwidthSummarySatelliteRequest) returns (BandwidthSummarySatelliteResponse);
+  rpc BandwidthSummary(BandwidthSummaryRequest) returns (BandwidthSummaryResponse);
+  rpc EgressSummarySatellite(EgressSummarySatelliteRequest) returns (EgressSummarySatelliteResponse);
+  rpc EgressSummary(EgressSummaryRequest) returns (EgressSummaryResponse);
+  rpc IngressSummarySatellite(IngressSummarySatelliteRequest) returns (IngressSummarySatelliteResponse);
+  rpc IngressSummary(IngressSummaryRequest) returns (IngressSummaryResponse);
+  rpc DailySatellite(DailySatelliteRequest) returns (DailySatelliteResponse);
+  rpc Daily(DailyRequest) returns (DailyResponse);
 }
 
 message BandwidthMonthSummaryRequest {
@@ -40,6 +76,92 @@ message BandwidthMonthSummaryRequest {
 
 message BandwidthMonthSummaryResponse {
   int64 used = 1;
+}
+
+message BandwidthSummarySatelliteRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message BandwidthSummarySatelliteResponse {
+  int64 summary = 1;
+}
+
+message BandwidthSummaryRequest {
+  RequestHeader header = 1;
+}
+
+message BandwidthSummaryResponse {
+  int64 summary = 1;
+}
+
+message EgressSummarySatelliteRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message EgressSummarySatelliteResponse {
+  int64 summary = 1;
+}
+
+message EgressSummaryRequest {
+  RequestHeader header = 1;
+}
+
+message EgressSummaryResponse {
+  int64 summary = 1;
+}
+
+message IngressSummarySatelliteRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message IngressSummarySatelliteResponse {
+  int64 summary = 1;
+}
+
+message IngressSummaryRequest {
+  RequestHeader header = 1;
+}
+
+message IngressSummaryResponse {
+  int64 summary = 1;
+}
+
+message DailySatelliteRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message DailySatelliteResponse {
+  repeated UsageRollup usage_rollup = 1;
+}
+
+message DailyRequest {
+  RequestHeader header = 1;
+}
+
+message DailyResponse {
+  repeated UsageRollup usage_rollup = 1;
+}
+
+message UsageRollup {
+  Egress egress = 1;
+  Ingress ingress = 2;
+  int64 delete = 3;
+  google.protobuf.Timestamp interval_start = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+}
+
+message Egress {
+  int64 repair = 1;
+  int64 audit = 2;
+  int64 usage = 3;
+}
+
+message Ingress {
+  int64 repaid = 1;
+  int64 usage = 2;
 }
 
 service Node {
