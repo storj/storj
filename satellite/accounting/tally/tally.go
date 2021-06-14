@@ -280,6 +280,8 @@ func (observer *Observer) LoopStarted(context.Context, metaloop.LoopInfo) (err e
 
 // Object is called for each object once.
 func (observer *Observer) Object(ctx context.Context, object *metaloop.Object) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if object.Expired(observer.Now) {
 		return nil
 	}
@@ -293,6 +295,8 @@ func (observer *Observer) Object(ctx context.Context, object *metaloop.Object) (
 
 // InlineSegment is called for each inline segment.
 func (observer *Observer) InlineSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if segment.Expired(observer.Now) {
 		return nil
 	}
@@ -306,6 +310,8 @@ func (observer *Observer) InlineSegment(ctx context.Context, segment *metaloop.S
 
 // RemoteSegment is called for each remote segment.
 func (observer *Observer) RemoteSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if segment.Expired(observer.Now) {
 		return nil
 	}
