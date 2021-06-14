@@ -32,6 +32,6 @@ func TestPersonalUserCanSignUp(t *testing.T) {
 		page.MustElementX("//body/div[@id='app']/div[1]/div[2]/div[1]/div[7]/label[1]/span[1]").MustClick()
 		page.Keyboard.MustPress(input.Enter)
 		confirmAccountEmailMessage := page.MustElement("div.register-area div.register-area__content-area div.register-success-area div.register-success-area__form-container > h2.register-success-area__form-container__title:nth-child(2)").MustText()
-		require.Contains(t, confirmAccountEmailMessage,"You're almost there!")
+		require.Contains(t, confirmAccountEmailMessage, "You're almost there!")
 	})
 }
