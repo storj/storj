@@ -115,7 +115,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 	containedNodes := make(map[int]storj.NodeID)
 	sharesToAudit := make(map[int]Share)
 
-	orderLimits, privateKey, cachedIPsAndPorts, err := verifier.orders.CreateAuditOrderLimits(ctx, segment.Bucket(), segmentInfo, skip)
+	orderLimits, privateKey, cachedIPsAndPorts, err := verifier.orders.CreateAuditOrderLimits(ctx, segmentInfo, skip)
 	if err != nil {
 		return Report{}, err
 	}
@@ -310,10 +310,7 @@ func (verifier *Verifier) Verify(ctx context.Context, segment Segment, skip map[
 }
 
 func segmentInfoString(segment Segment) string {
-	return fmt.Sprintf("%s/%s/%x/%s/%d",
-		segment.ProjectID.String(),
-		segment.BucketName,
-		segment.ObjectKey,
+	return fmt.Sprintf("%s/%d",
 		segment.StreamID.String(),
 		segment.Position.Encode(),
 	)
@@ -462,8 +459,7 @@ func (verifier *Verifier) Reverify(ctx context.Context, segment Segment) (report
 				return
 			}
 
-			// TODO verify what with empty bucket
-			limit, piecePrivateKey, cachedIPAndPort, err := verifier.orders.CreateAuditOrderLimit(ctx, metabase.BucketLocation{}, pending.NodeID, pieceNum, pending.PieceID, pending.ShareSize)
+			limit, piecePrivateKey, cachedIPAndPort, err := verifier.orders.CreateAuditOrderLimit(ctx, pending.NodeID, pieceNum, pending.PieceID, pending.ShareSize)
 			if err != nil {
 				if overlay.ErrNodeDisqualified.Has(err) {
 					ch <- result{nodeID: pending.NodeID, status: skipped, release: true}
