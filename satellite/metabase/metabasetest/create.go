@@ -145,6 +145,7 @@ func CreateExpiredObject(ctx *testcontext.Context, t *testing.T, db *metabase.DB
 			Opts: metabase.CommitSegment{
 				ObjectStream: obj,
 				Position:     metabase.SegmentPosition{Part: 0, Index: uint32(i)},
+				ExpiresAt:    &expiresAt,
 				RootPieceID:  storj.PieceID{1},
 				Pieces:       metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
 

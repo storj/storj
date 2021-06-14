@@ -198,6 +198,14 @@ type DRPCBandwidthClient interface {
 	DRPCConn() drpc.Conn
 
 	MonthSummary(ctx context.Context, in *BandwidthMonthSummaryRequest) (*BandwidthMonthSummaryResponse, error)
+	BandwidthSummarySatellite(ctx context.Context, in *BandwidthSummarySatelliteRequest) (*BandwidthSummarySatelliteResponse, error)
+	BandwidthSummary(ctx context.Context, in *BandwidthSummaryRequest) (*BandwidthSummaryResponse, error)
+	EgressSummarySatellite(ctx context.Context, in *EgressSummarySatelliteRequest) (*EgressSummarySatelliteResponse, error)
+	EgressSummary(ctx context.Context, in *EgressSummaryRequest) (*EgressSummaryResponse, error)
+	IngressSummarySatellite(ctx context.Context, in *IngressSummarySatelliteRequest) (*IngressSummarySatelliteResponse, error)
+	IngressSummary(ctx context.Context, in *IngressSummaryRequest) (*IngressSummaryResponse, error)
+	DailySatellite(ctx context.Context, in *DailySatelliteRequest) (*DailySatelliteResponse, error)
+	Daily(ctx context.Context, in *DailyRequest) (*DailyResponse, error)
 }
 
 type drpcBandwidthClient struct {
@@ -219,8 +227,88 @@ func (c *drpcBandwidthClient) MonthSummary(ctx context.Context, in *BandwidthMon
 	return out, nil
 }
 
+func (c *drpcBandwidthClient) BandwidthSummarySatellite(ctx context.Context, in *BandwidthSummarySatelliteRequest) (*BandwidthSummarySatelliteResponse, error) {
+	out := new(BandwidthSummarySatelliteResponse)
+	err := c.cc.Invoke(ctx, "/multinode.Bandwidth/BandwidthSummarySatellite", drpcEncoding_File_multinode_proto{}, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *drpcBandwidthClient) BandwidthSummary(ctx context.Context, in *BandwidthSummaryRequest) (*BandwidthSummaryResponse, error) {
+	out := new(BandwidthSummaryResponse)
+	err := c.cc.Invoke(ctx, "/multinode.Bandwidth/BandwidthSummary", drpcEncoding_File_multinode_proto{}, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *drpcBandwidthClient) EgressSummarySatellite(ctx context.Context, in *EgressSummarySatelliteRequest) (*EgressSummarySatelliteResponse, error) {
+	out := new(EgressSummarySatelliteResponse)
+	err := c.cc.Invoke(ctx, "/multinode.Bandwidth/EgressSummarySatellite", drpcEncoding_File_multinode_proto{}, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *drpcBandwidthClient) EgressSummary(ctx context.Context, in *EgressSummaryRequest) (*EgressSummaryResponse, error) {
+	out := new(EgressSummaryResponse)
+	err := c.cc.Invoke(ctx, "/multinode.Bandwidth/EgressSummary", drpcEncoding_File_multinode_proto{}, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *drpcBandwidthClient) IngressSummarySatellite(ctx context.Context, in *IngressSummarySatelliteRequest) (*IngressSummarySatelliteResponse, error) {
+	out := new(IngressSummarySatelliteResponse)
+	err := c.cc.Invoke(ctx, "/multinode.Bandwidth/IngressSummarySatellite", drpcEncoding_File_multinode_proto{}, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *drpcBandwidthClient) IngressSummary(ctx context.Context, in *IngressSummaryRequest) (*IngressSummaryResponse, error) {
+	out := new(IngressSummaryResponse)
+	err := c.cc.Invoke(ctx, "/multinode.Bandwidth/IngressSummary", drpcEncoding_File_multinode_proto{}, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *drpcBandwidthClient) DailySatellite(ctx context.Context, in *DailySatelliteRequest) (*DailySatelliteResponse, error) {
+	out := new(DailySatelliteResponse)
+	err := c.cc.Invoke(ctx, "/multinode.Bandwidth/DailySatellite", drpcEncoding_File_multinode_proto{}, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *drpcBandwidthClient) Daily(ctx context.Context, in *DailyRequest) (*DailyResponse, error) {
+	out := new(DailyResponse)
+	err := c.cc.Invoke(ctx, "/multinode.Bandwidth/Daily", drpcEncoding_File_multinode_proto{}, in, out)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 type DRPCBandwidthServer interface {
 	MonthSummary(context.Context, *BandwidthMonthSummaryRequest) (*BandwidthMonthSummaryResponse, error)
+	BandwidthSummarySatellite(context.Context, *BandwidthSummarySatelliteRequest) (*BandwidthSummarySatelliteResponse, error)
+	BandwidthSummary(context.Context, *BandwidthSummaryRequest) (*BandwidthSummaryResponse, error)
+	EgressSummarySatellite(context.Context, *EgressSummarySatelliteRequest) (*EgressSummarySatelliteResponse, error)
+	EgressSummary(context.Context, *EgressSummaryRequest) (*EgressSummaryResponse, error)
+	IngressSummarySatellite(context.Context, *IngressSummarySatelliteRequest) (*IngressSummarySatelliteResponse, error)
+	IngressSummary(context.Context, *IngressSummaryRequest) (*IngressSummaryResponse, error)
+	DailySatellite(context.Context, *DailySatelliteRequest) (*DailySatelliteResponse, error)
+	Daily(context.Context, *DailyRequest) (*DailyResponse, error)
 }
 
 type DRPCBandwidthUnimplementedServer struct{}
@@ -229,9 +317,41 @@ func (s *DRPCBandwidthUnimplementedServer) MonthSummary(context.Context, *Bandwi
 	return nil, drpcerr.WithCode(errors.New("Unimplemented"), 12)
 }
 
+func (s *DRPCBandwidthUnimplementedServer) BandwidthSummarySatellite(context.Context, *BandwidthSummarySatelliteRequest) (*BandwidthSummarySatelliteResponse, error) {
+	return nil, drpcerr.WithCode(errors.New("Unimplemented"), 12)
+}
+
+func (s *DRPCBandwidthUnimplementedServer) BandwidthSummary(context.Context, *BandwidthSummaryRequest) (*BandwidthSummaryResponse, error) {
+	return nil, drpcerr.WithCode(errors.New("Unimplemented"), 12)
+}
+
+func (s *DRPCBandwidthUnimplementedServer) EgressSummarySatellite(context.Context, *EgressSummarySatelliteRequest) (*EgressSummarySatelliteResponse, error) {
+	return nil, drpcerr.WithCode(errors.New("Unimplemented"), 12)
+}
+
+func (s *DRPCBandwidthUnimplementedServer) EgressSummary(context.Context, *EgressSummaryRequest) (*EgressSummaryResponse, error) {
+	return nil, drpcerr.WithCode(errors.New("Unimplemented"), 12)
+}
+
+func (s *DRPCBandwidthUnimplementedServer) IngressSummarySatellite(context.Context, *IngressSummarySatelliteRequest) (*IngressSummarySatelliteResponse, error) {
+	return nil, drpcerr.WithCode(errors.New("Unimplemented"), 12)
+}
+
+func (s *DRPCBandwidthUnimplementedServer) IngressSummary(context.Context, *IngressSummaryRequest) (*IngressSummaryResponse, error) {
+	return nil, drpcerr.WithCode(errors.New("Unimplemented"), 12)
+}
+
+func (s *DRPCBandwidthUnimplementedServer) DailySatellite(context.Context, *DailySatelliteRequest) (*DailySatelliteResponse, error) {
+	return nil, drpcerr.WithCode(errors.New("Unimplemented"), 12)
+}
+
+func (s *DRPCBandwidthUnimplementedServer) Daily(context.Context, *DailyRequest) (*DailyResponse, error) {
+	return nil, drpcerr.WithCode(errors.New("Unimplemented"), 12)
+}
+
 type DRPCBandwidthDescription struct{}
 
-func (DRPCBandwidthDescription) NumMethods() int { return 1 }
+func (DRPCBandwidthDescription) NumMethods() int { return 9 }
 
 func (DRPCBandwidthDescription) Method(n int) (string, drpc.Encoding, drpc.Receiver, interface{}, bool) {
 	switch n {
@@ -244,6 +364,78 @@ func (DRPCBandwidthDescription) Method(n int) (string, drpc.Encoding, drpc.Recei
 						in1.(*BandwidthMonthSummaryRequest),
 					)
 			}, DRPCBandwidthServer.MonthSummary, true
+	case 1:
+		return "/multinode.Bandwidth/BandwidthSummarySatellite", drpcEncoding_File_multinode_proto{},
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCBandwidthServer).
+					BandwidthSummarySatellite(
+						ctx,
+						in1.(*BandwidthSummarySatelliteRequest),
+					)
+			}, DRPCBandwidthServer.BandwidthSummarySatellite, true
+	case 2:
+		return "/multinode.Bandwidth/BandwidthSummary", drpcEncoding_File_multinode_proto{},
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCBandwidthServer).
+					BandwidthSummary(
+						ctx,
+						in1.(*BandwidthSummaryRequest),
+					)
+			}, DRPCBandwidthServer.BandwidthSummary, true
+	case 3:
+		return "/multinode.Bandwidth/EgressSummarySatellite", drpcEncoding_File_multinode_proto{},
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCBandwidthServer).
+					EgressSummarySatellite(
+						ctx,
+						in1.(*EgressSummarySatelliteRequest),
+					)
+			}, DRPCBandwidthServer.EgressSummarySatellite, true
+	case 4:
+		return "/multinode.Bandwidth/EgressSummary", drpcEncoding_File_multinode_proto{},
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCBandwidthServer).
+					EgressSummary(
+						ctx,
+						in1.(*EgressSummaryRequest),
+					)
+			}, DRPCBandwidthServer.EgressSummary, true
+	case 5:
+		return "/multinode.Bandwidth/IngressSummarySatellite", drpcEncoding_File_multinode_proto{},
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCBandwidthServer).
+					IngressSummarySatellite(
+						ctx,
+						in1.(*IngressSummarySatelliteRequest),
+					)
+			}, DRPCBandwidthServer.IngressSummarySatellite, true
+	case 6:
+		return "/multinode.Bandwidth/IngressSummary", drpcEncoding_File_multinode_proto{},
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCBandwidthServer).
+					IngressSummary(
+						ctx,
+						in1.(*IngressSummaryRequest),
+					)
+			}, DRPCBandwidthServer.IngressSummary, true
+	case 7:
+		return "/multinode.Bandwidth/DailySatellite", drpcEncoding_File_multinode_proto{},
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCBandwidthServer).
+					DailySatellite(
+						ctx,
+						in1.(*DailySatelliteRequest),
+					)
+			}, DRPCBandwidthServer.DailySatellite, true
+	case 8:
+		return "/multinode.Bandwidth/Daily", drpcEncoding_File_multinode_proto{},
+			func(srv interface{}, ctx context.Context, in1, in2 interface{}) (drpc.Message, error) {
+				return srv.(DRPCBandwidthServer).
+					Daily(
+						ctx,
+						in1.(*DailyRequest),
+					)
+			}, DRPCBandwidthServer.Daily, true
 	default:
 		return "", nil, nil, nil, false
 	}
@@ -263,6 +455,134 @@ type drpcBandwidth_MonthSummaryStream struct {
 }
 
 func (x *drpcBandwidth_MonthSummaryStream) SendAndClose(m *BandwidthMonthSummaryResponse) error {
+	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCBandwidth_BandwidthSummarySatelliteStream interface {
+	drpc.Stream
+	SendAndClose(*BandwidthSummarySatelliteResponse) error
+}
+
+type drpcBandwidth_BandwidthSummarySatelliteStream struct {
+	drpc.Stream
+}
+
+func (x *drpcBandwidth_BandwidthSummarySatelliteStream) SendAndClose(m *BandwidthSummarySatelliteResponse) error {
+	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCBandwidth_BandwidthSummaryStream interface {
+	drpc.Stream
+	SendAndClose(*BandwidthSummaryResponse) error
+}
+
+type drpcBandwidth_BandwidthSummaryStream struct {
+	drpc.Stream
+}
+
+func (x *drpcBandwidth_BandwidthSummaryStream) SendAndClose(m *BandwidthSummaryResponse) error {
+	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCBandwidth_EgressSummarySatelliteStream interface {
+	drpc.Stream
+	SendAndClose(*EgressSummarySatelliteResponse) error
+}
+
+type drpcBandwidth_EgressSummarySatelliteStream struct {
+	drpc.Stream
+}
+
+func (x *drpcBandwidth_EgressSummarySatelliteStream) SendAndClose(m *EgressSummarySatelliteResponse) error {
+	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCBandwidth_EgressSummaryStream interface {
+	drpc.Stream
+	SendAndClose(*EgressSummaryResponse) error
+}
+
+type drpcBandwidth_EgressSummaryStream struct {
+	drpc.Stream
+}
+
+func (x *drpcBandwidth_EgressSummaryStream) SendAndClose(m *EgressSummaryResponse) error {
+	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCBandwidth_IngressSummarySatelliteStream interface {
+	drpc.Stream
+	SendAndClose(*IngressSummarySatelliteResponse) error
+}
+
+type drpcBandwidth_IngressSummarySatelliteStream struct {
+	drpc.Stream
+}
+
+func (x *drpcBandwidth_IngressSummarySatelliteStream) SendAndClose(m *IngressSummarySatelliteResponse) error {
+	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCBandwidth_IngressSummaryStream interface {
+	drpc.Stream
+	SendAndClose(*IngressSummaryResponse) error
+}
+
+type drpcBandwidth_IngressSummaryStream struct {
+	drpc.Stream
+}
+
+func (x *drpcBandwidth_IngressSummaryStream) SendAndClose(m *IngressSummaryResponse) error {
+	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCBandwidth_DailySatelliteStream interface {
+	drpc.Stream
+	SendAndClose(*DailySatelliteResponse) error
+}
+
+type drpcBandwidth_DailySatelliteStream struct {
+	drpc.Stream
+}
+
+func (x *drpcBandwidth_DailySatelliteStream) SendAndClose(m *DailySatelliteResponse) error {
+	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
+		return err
+	}
+	return x.CloseSend()
+}
+
+type DRPCBandwidth_DailyStream interface {
+	drpc.Stream
+	SendAndClose(*DailyResponse) error
+}
+
+type drpcBandwidth_DailyStream struct {
+	drpc.Stream
+}
+
+func (x *drpcBandwidth_DailyStream) SendAndClose(m *DailyResponse) error {
 	if err := x.MsgSend(m, drpcEncoding_File_multinode_proto{}); err != nil {
 		return err
 	}

@@ -35,6 +35,11 @@ func (s Segment) Inline() bool {
 	return s.Redundancy.IsZero() && len(s.Pieces) == 0
 }
 
+// Expired checks if segment expired relative to now.
+func (s *Segment) Expired(now time.Time) bool {
+	return s.ExpiresAt != nil && s.ExpiresAt.Before(now)
+}
+
 // Observer is an interface defining an observer that can subscribe to the segments loop.
 //
 // architecture: Observer
@@ -134,6 +139,8 @@ type Config struct {
 	CoalesceDuration time.Duration `help:"how long to wait for new observers before starting iteration" releaseDefault:"5s" devDefault:"5s" testDefault:"1s"`
 	RateLimit        float64       `help:"rate limit (default is 0 which is unlimited segments per second)" default:"0"`
 	ListLimit        int           `help:"how many items to query in a batch" default:"2500"`
+
+	AsOfSystemInterval time.Duration `help:"as of system interval" default:"-5m"`
 }
 
 // MetabaseDB contains iterators for the metabase data.
@@ -364,8 +371,9 @@ func (loop *Service) iterateSegments(ctx context.Context, observers []*observerC
 	var segmentsProcessed int64
 
 	err = loop.metabaseDB.IterateLoopSegments(ctx, metabase.IterateLoopSegments{
-		BatchSize:      limit,
-		AsOfSystemTime: startingTime,
+		BatchSize:          limit,
+		AsOfSystemTime:     startingTime,
+		AsOfSystemInterval: loop.config.AsOfSystemInterval,
 	}, func(ctx context.Context, iterator metabase.LoopSegmentsIterator) error {
 		defer mon.TaskNamed("iterateLoopSegmentsCB")(&ctx)(&err)
 
