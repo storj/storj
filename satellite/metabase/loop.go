@@ -200,7 +200,7 @@ type IterateLoopStreams struct {
 }
 
 // SegmentIterator returns the next segment.
-type SegmentIterator func(segment *LoopSegmentEntry) bool
+type SegmentIterator func(ctx context.Context, segment *LoopSegmentEntry) bool
 
 // LoopSegmentEntry contains information about segment metadata needed by metainfo loop.
 type LoopSegmentEntry struct {
@@ -270,7 +270,8 @@ func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, h
 	for _, streamID := range opts.StreamIDs {
 		streamID := streamID
 		var internalError error
-		err := handleStream(ctx, streamID, func(output *LoopSegmentEntry) bool {
+		err := handleStream(ctx, streamID, func(ctx context.Context, output *LoopSegmentEntry) bool {
+			mon.TaskNamed("handleStreamCB-SegmentIterator")(&ctx)(nil)
 			if nextSegment != nil {
 				if nextSegment.StreamID != streamID {
 					return false
