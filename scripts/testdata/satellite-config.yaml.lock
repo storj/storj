@@ -34,9 +34,6 @@
 # how frequently checker should check for bad segments
 # checker.interval: 30s
 
-# how frequently irrepairable checker should check for lost pieces
-# checker.irreparable-interval: 30m0s
-
 # the probability of a single node going down within the next checker iteration
 # checker.node-failure-rate: 5.435e-05
 

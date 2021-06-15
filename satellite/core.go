@@ -271,7 +271,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Repair.Checker = checker.NewChecker(
 			peer.Log.Named("repair:checker"),
 			peer.DB.RepairQueue(),
-			peer.DB.Irreparable(),
 			peer.Metainfo.Metabase,
 			peer.Metainfo.Loop,
 			peer.Overlay.Service,
@@ -283,8 +282,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Repair Checker", peer.Repair.Checker.Loop))
-		peer.Debug.Server.Panel.Add(
-			debug.Cycle("Repair Checker Irreparable", peer.Repair.Checker.IrreparableLoop))
 	}
 
 	{ // setup audit
