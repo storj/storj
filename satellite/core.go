@@ -29,7 +29,6 @@ import (
 	"storj.io/storj/satellite/accounting/rolluparchive"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metaloop"
@@ -99,10 +98,6 @@ type Core struct {
 		Chore    *audit.Chore
 		Verifier *audit.Verifier
 		Reporter *audit.Reporter
-	}
-
-	GarbageCollection struct {
-		Service *gc.Service
 	}
 
 	ExpiredDeletion struct {
@@ -345,24 +340,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Audit Chore", peer.Audit.Chore.Loop))
-	}
-
-	{ // setup garbage collection if configured to run with the core
-		if config.GarbageCollection.RunInCore {
-			peer.GarbageCollection.Service = gc.NewService(
-				peer.Log.Named("core-garbage-collection"),
-				config.GarbageCollection,
-				peer.Dialer,
-				peer.Overlay.DB,
-				peer.Metainfo.SegmentLoop,
-			)
-			peer.Services.Add(lifecycle.Item{
-				Name: "core-garbage-collection",
-				Run:  peer.GarbageCollection.Service.Run,
-			})
-			peer.Debug.Server.Panel.Add(
-				debug.Cycle("Core Garbage Collection", peer.GarbageCollection.Service.Loop))
-		}
 	}
 
 	{ // setup expired segment cleanup
