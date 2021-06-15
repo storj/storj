@@ -14,7 +14,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/identity"
-	"storj.io/common/pb"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
@@ -30,7 +29,6 @@ import (
 	"storj.io/storj/satellite/accounting/rolluparchive"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/contact"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metabase"
@@ -72,10 +70,6 @@ type Core struct {
 	}
 
 	// services and endpoints
-	Contact struct {
-		Service *contact.Service
-	}
-
 	Overlay struct {
 		DB           overlay.DB
 		Service      *overlay.Service
@@ -200,29 +194,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
-	}
-
-	{ // setup contact service
-		pbVersion, err := versionInfo.Proto()
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		self := &overlay.NodeDossier{
-			Node: pb.Node{
-				Id: peer.ID(),
-				Address: &pb.NodeAddress{
-					Address: config.Contact.ExternalAddress,
-				},
-			},
-			Type:    pb.NodeType_SATELLITE,
-			Version: *pbVersion,
-		}
-		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Dialer, config.Contact)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "contact:service",
-			Close: peer.Contact.Service.Close,
-		})
 	}
 
 	{ // setup overlay
