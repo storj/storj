@@ -39,6 +39,6 @@ type Config struct {
 	MaxOrderLimitSendCount       int           `help:"maximum number of order limits a satellite sends to a node before marking piece transfer failed" default:"10" testDefault:"3"`
 	NodeMinAgeInMonths           int           `help:"minimum age for a node on the network in order to initiate graceful exit" default:"6" testDefault:"0"`
 
-	AsOfSystemTimeInterval time.Duration `help:"interval for AS OF SYSTEM TIME clause (crdb specific) to read from db at a specific time in the past" default:"-10s"`
+	AsOfSystemTimeInterval time.Duration `help:"interval for AS OF SYSTEM TIME clause (crdb specific) to read from db at a specific time in the past" default:"-10s" testDefault:"-1µs"`
 	TransferQueueBatchSize int           `help:"batch size (crdb specific) for deleting and adding items to the transfer queue" default:"1000"`
 }
