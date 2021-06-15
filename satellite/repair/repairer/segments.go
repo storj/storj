@@ -165,11 +165,13 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		stats.repairerSegmentsBelowMinReq.Inc(1)
 		mon.Meter("repair_nodes_unavailable").Mark(1) //mon:locked
 		stats.repairerNodesUnavailable.Mark(1)
-		return true, &irreparableError{
-			path:            path,
-			piecesAvailable: int32(numHealthy),
-			piecesRequired:  int32(segment.Redundancy.RequiredShares),
-		}
+
+		repairer.log.Warn("irreparable segment",
+			zap.String("path", path),
+			zap.Int("piecesAvailable", numHealthy),
+			zap.Int16("piecesRequired", segment.Redundancy.RequiredShares),
+		)
+		return false, nil
 	}
 
 	// ensure we get values, even if only zero values, so that redash can have an alert based on this
@@ -301,8 +303,13 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, path storj.Path) (s
 		if errors.As(err, &irreparableErr) {
 			mon.Meter("repair_too_many_nodes_failed").Mark(1) //mon:locked
 			stats.repairTooManyNodesFailed.Mark(1)
-			// irreparableErr.segmentInfo = pointer
-			return true, irreparableErr
+
+			repairer.log.Warn("irreparable segment",
+				zap.String("path", irreparableErr.path),
+				zap.Int32("piecesAvailable", irreparableErr.piecesAvailable),
+				zap.Int32("piecesRequired", irreparableErr.piecesRequired),
+			)
+			return false, nil
 		}
 		// The segment's redundancy strategy is invalid, or else there was an internal error.
 		return true, repairReconstructError.New("segment could not be reconstructed: %w", err)
