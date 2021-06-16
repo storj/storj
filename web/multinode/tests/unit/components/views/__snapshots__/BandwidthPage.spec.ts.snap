@@ -1,0 +1,79 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`BandwidthPage renders correctly 1`] = `
+<div class="bandwidth">
+  <h1 class="bandwidth__title">Bandwidth &amp; Disk</h1>
+  <div class="bandwidth__dropdowns">
+    <node-selection-dropdown-stub></node-selection-dropdown-stub>
+    <satellite-selection-dropdown-stub></satellite-selection-dropdown-stub>
+  </div>
+  <div class="chart-container">
+    <div class="chart-container__title-area">
+      <p class="chart-container__title-area__title">Bandwidth Used This Month</p>
+      <div class="chart-container__title-area__buttons-area"><button name="Show Bandwidth Chart" class="chart-container__title-area__chart-choice-item active">
+          Bandwidth
+        </button> <button name="Show Egress Chart" class="chart-container__title-area__chart-choice-item">
+          Egress
+        </button> <button name="Show Ingress Chart" class="chart-container__title-area__chart-choice-item">
+          Ingress
+        </button></div>
+    </div>
+    <p class="chart-container__amount"><b>0.7GB</b></p>
+    <div onresize="recalculateChartDimensions()" class="chart-container__chart">
+      <bandwidthchart-stub width="0" height="0"></bandwidthchart-stub>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`BandwidthPage renders correctly with egress chart 1`] = `
+<div class="bandwidth">
+  <h1 class="bandwidth__title">Bandwidth &amp; Disk</h1>
+  <div class="bandwidth__dropdowns">
+    <node-selection-dropdown-stub></node-selection-dropdown-stub>
+    <satellite-selection-dropdown-stub></satellite-selection-dropdown-stub>
+  </div>
+  <div class="chart-container">
+    <div class="chart-container__title-area">
+      <p class="chart-container__title-area__title">Bandwidth Used This Month</p>
+      <div class="chart-container__title-area__buttons-area"><button name="Show Bandwidth Chart" class="chart-container__title-area__chart-choice-item">
+          Bandwidth
+        </button> <button name="Show Egress Chart" class="chart-container__title-area__chart-choice-item active">
+          Egress
+        </button> <button name="Show Ingress Chart" class="chart-container__title-area__chart-choice-item">
+          Ingress
+        </button></div>
+    </div>
+    <p class="chart-container__amount"><b>577.7GB</b></p>
+    <div onresize="recalculateChartDimensions()" class="chart-container__chart">
+      <egresschart-stub width="0" height="0"></egresschart-stub>
+    </div>
+  </div>
+</div>
+`;
+
+exports[`BandwidthPage renders correctly with ingress chart 1`] = `
+<div class="bandwidth">
+  <h1 class="bandwidth__title">Bandwidth &amp; Disk</h1>
+  <div class="bandwidth__dropdowns">
+    <node-selection-dropdown-stub></node-selection-dropdown-stub>
+    <satellite-selection-dropdown-stub></satellite-selection-dropdown-stub>
+  </div>
+  <div class="chart-container">
+    <div class="chart-container__title-area">
+      <p class="chart-container__title-area__title">Bandwidth Used This Month</p>
+      <div class="chart-container__title-area__buttons-area"><button name="Show Bandwidth Chart" class="chart-container__title-area__chart-choice-item">
+          Bandwidth
+        </button> <button name="Show Egress Chart" class="chart-container__title-area__chart-choice-item">
+          Egress
+        </button> <button name="Show Ingress Chart" class="chart-container__title-area__chart-choice-item active">
+          Ingress
+        </button></div>
+    </div>
+    <p class="chart-container__amount"><b>5MB</b></p>
+    <div onresize="recalculateChartDimensions()" class="chart-container__chart">
+      <ingresschart-stub width="0" height="0"></ingresschart-stub>
+    </div>
+  </div>
+</div>
+`;
