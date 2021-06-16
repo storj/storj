@@ -1,4 +1,4 @@
-# Audit Cache
+# Reputation Store
 
 ## Abstract
 
@@ -16,11 +16,11 @@ Having a separate store for reputation allows the audit service to make lots of 
 
 Some fields are necessary in both the `nodes` table and the new reputation store. We will call these "contested" columns. Some examples are `disqualified` and `suspended`. Node selection needs to read them frequently, and audit needs to update them depending on audit outcomes.
 
-Through [denormalization](https://en.wikipedia.org/wiki/Denormalization), we can duplicate these fields in two separate stores so that the audit service can update the `nodes` table only when needed. The uncontested columns can be frequently updated by the audit service and the contested columns can be frequently read by node selection. The contested columns will only need to be updated by the audit service if one of them changes.
+Through [denormalization](https://en.wikipedia.org/wiki/Denormalization), we can duplicate these fields in two separate stores so that the audit service can update the `nodes` table only when needed. The uncontested columns can be frequently updated by the audit service via the reputation store and the contested columns can be frequently read by node selection via the nodes table. The contested columns in the nodes table will only need to be updated by the reputation service if one of them changes.
 
 The reputation store will be considered the source of truth for the contested values, as it will contain the most recently-updated values for reputation.
 
-## Design / Implementation
+Note that we may replace the contested values in the overlay with a single `healthy` column (see "Other Details" below).
 
 ### Reputation Package
 
@@ -29,6 +29,11 @@ The reputation package will be responsible for maintaining the reputation store 
 It will contain a service with the following functionality. We can change this in the future if needed - this is just a starting point.
 
 ```
+type DB interface {
+    Update(nodeID storj.NodeID, overlay.AuditType) (_, *StatusChange, changed bool, err error)
+    Get(nodeID storj.NodeID) (*Info, error)
+}
+
 type Service struct {
     overlay *overlay.Service
     db      DB
@@ -40,6 +45,8 @@ func (service *Service) Get(nodeID storj.NodeID) (*Info, error)
 func (service *Service) TestingDisqualify(nodeID storj.NodeID) error
 func (service *Service) TestingSetState(state Info) error
 ```
+
+`DB` contains the low-level interface for the backing store. It is designed in a way so that we can implement a solution using any key-value store. For our initial solution, we plan to implement it using Cockroach. However, in the future we should be able to easily switch it out thanks to the simple interface.
 
 Here are some type definitions for the above. We should also move types such as `AuditHistory` and `AuditType` out of the `overlay` package and into the `reputation` package. 
 
@@ -92,7 +99,7 @@ In a later stage of this implementation, we should replace the "contested" field
 
 ## Rationale
 
-One solution to this problem that doesn't involve a store would be to back the reputation service with an in-memory cache. The cache would need to pull reputation information from the `nodes` table on startup, keep it up to date as audits occur, and flush on a time interval or whenever a contested field for a node changes due to audits (e.g. disqualified).
+One solution to this problem that doesn't involve a DB would be to back the reputation service with an in-memory cache. The cache would need to pull reputation information from the `nodes` table on startup, keep it up to date as audits occur, and flush on a time interval or whenever a contested field for a node changes due to audits (e.g. disqualified).
 
 We could still implement an in-memory cache with the design outlined above with a few key changes:
 * Add a `Initialize(nodeID storj.NodeID, reputation Info)` function to the service, allowing us to set the reputation for a node in the cache based on the `nodes` table on satellite startup.
