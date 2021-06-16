@@ -100,7 +100,7 @@ type API struct {
 		Metabase      *metabase.DB
 		Service       *metainfo.Service
 		PieceDeletion *piecedeletion.Service
-		Endpoint2     *metainfo.Endpoint
+		Endpoint      *metainfo.Endpoint
 	}
 
 	Inspector struct {
@@ -383,7 +383,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Close: peer.Metainfo.PieceDeletion.Close,
 		})
 
-		peer.Metainfo.Endpoint2, err = metainfo.NewEndpoint(
+		peer.Metainfo.Endpoint, err = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
 			peer.Metainfo.Service,
 			peer.Metainfo.PieceDeletion,
@@ -403,13 +403,13 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		if err := pb.DRPCRegisterMetainfo(peer.Server.DRPC(), peer.Metainfo.Endpoint2); err != nil {
+		if err := pb.DRPCRegisterMetainfo(peer.Server.DRPC(), peer.Metainfo.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
 		peer.Services.Add(lifecycle.Item{
 			Name:  "metainfo:endpoint",
-			Close: peer.Metainfo.Endpoint2.Close,
+			Close: peer.Metainfo.Endpoint.Close,
 		})
 	}
 
