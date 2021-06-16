@@ -21,13 +21,13 @@ func TestForTardigradeBranding(t *testing.T) {
 		page := browser.Timeout(10 * time.Second).MustPage(loginPageURL)
 		page.MustSetViewport(1350, 600, 1, false)
 		// Check for "Reset Password" - It exists only on tardigrade branding login page
-		resetPassword := page.MustElement("div.login-area div.login-area__content-area div.login-area__content-area div.login-area__content-area__forgot-container p.login-area__content-area__forgot-container__reset-msg > a.login-area__content-area__forgot-container__link").MustText()
+		resetPassword := page.MustElementX("//a[@class='login-area__content-area__forgot-container__link']").MustText()
 		require.Contains(t, resetPassword, "Reset Password")
 		// Check for "Need to create an account?" - It exists only on tardigrade branding login page
-		createAccount := page.MustElement("div.login-area div.login-area__content-area div.login-area__content-area div.login-area__content-area__forgot-container > a.login-area__content-area__forgot-container__link.register-link").MustText()
+		createAccount := page.MustElementX("//a[@class='login-area__content-area__forgot-container__link register-link']").MustText()
 		require.Contains(t, createAccount, "Need to create an account?")
 		// Check for "Satellite Dropdown" - It exists only on tardigrade branding login page
-		satellite := page.MustElement("div.login-area div.login-area__content-area div.login-area__content-area div.login-area__content-area__container div.login-area__content-area__container__title-area:nth-child(1) div.login-area__expand > span.login-area__expand__value").MustText()
+		satellite := page.MustElementX("//span[@class='login-area__expand__value']").MustText()
 		require.Contains(t, satellite, "")
 	})
 }
