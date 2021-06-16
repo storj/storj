@@ -36,9 +36,9 @@ type Service struct {
 }
 
 func (service *Service) ApplyAudit(nodeID storj.NodeID, overlay.AuditType) error
-func (service *Service) Get(nodeID storj.NodeID) (*Reputation, error)
+func (service *Service) Get(nodeID storj.NodeID) (*Info, error)
 func (service *Service) TestingDisqualify(nodeID storj.NodeID) error
-func (service *Service) TestingSetState(state Reputation) error
+func (service *Service) TestingSetState(state Info) error
 ```
 
 Here are some type definitions for the above. We should also move types such as `AuditHistory` and `AuditType` out of the `overlay` package and into the `reputation` package. 
@@ -55,7 +55,7 @@ type statusChange struct {
 }
 
 // these are all reputation values, including those in the statusChange struct
-type Reputation struct {
+type Info struct {
     AuditSuccessCount int64
     TotalAuditCount   int64
     VettedAt          *time.Time
@@ -82,7 +82,7 @@ The reputation service has a function called `ApplyAudit` to update a single nod
 
 ### Store
 
-The store that backs the reputation service needs to have all the same fields as the `Reputation` type defined above, plus a primary key,  `id`, which should be the node ID. 
+The store that backs the reputation service needs to have all the same fields as the `Info` type defined above, plus a primary key,  `id`, which should be the node ID. 
 
 ### Other Details
 
@@ -95,7 +95,7 @@ In a later stage of this implementation, we should replace the "contested" field
 One solution to this problem that doesn't involve a store would be to back the reputation service with an in-memory cache. The cache would need to pull reputation information from the `nodes` table on startup, keep it up to date as audits occur, and flush on a time interval or whenever a contested field for a node changes due to audits (e.g. disqualified).
 
 We could still implement an in-memory cache with the design outlined above with a few key changes:
-* Add a `Initialize(nodeID storj.NodeID, reputation Reputation)` function to the service, allowing us to set the reputation for a node in the cache based on the `nodes` table on satellite startup.
+* Add a `Initialize(nodeID storj.NodeID, reputation Info)` function to the service, allowing us to set the reputation for a node in the cache based on the `nodes` table on satellite startup.
 * Update the design to copy _all_ reputation values, not only the contested values, to the `nodes` table when a contested field changes or on shutdown. While a reputation store can keep track of the frequently-updated reputation values between restarts, a cache will need to update these values in the `nodes` table to preserve them.
 * Include a `last_flushed` field in the cache for _each_ node. Whenever we update a contested reputation value in the cache, the service transfers all reputation values for that node to the `nodes` table. Otherwise, when enough time (e.g. 1 hour) has passed since `last_flushed` for this particular node, the cache will transfer the values.
 
