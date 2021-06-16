@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 )
-var email= "test@ds4xd0.com"
+var email= "test@dtsff4xxxrvfdwqd0.com"
 var pass= "123qwe"
 var access_grant_name = "qwerty"
 func Test_e2e_user_create_login_access_in_browser(t *testing.T)  {
@@ -14,33 +14,33 @@ func Test_e2e_user_create_login_access_in_browser(t *testing.T)  {
 	defer browser.MustClose()
 
 	// creating new user
-	page.MustElement("div.login-container__register-button").MustClick()
+	page.MustElement("a.login-area__content-area__forgot-container__link.register-link").MustClick()
 	time.Sleep(1*time.Second)
 	page.MustElementX("(//*[@class=\"headerless-input\"])[1]").MustWaitStable().MustWaitEnabled().MustInput("test2")
 	page.MustElementX("(//*[@class=\"headerless-input\"])[2]").MustInput(email)
 	page.MustElementX("(//*[@type=\"password\"])[1]").MustInput(pass)
 	page.MustElementX("(//*[@type=\"password\"])[2]").MustInput(pass)
 	page.MustElement("span.checkmark").MustClick()
-	page.MustElement("div#createAccountButton").MustClick()
+	page.MustElement("p.register-area__content-area__container__button").MustClick()
 
 	time.Sleep(2*time.Second)
 	// checking elements on congrats screen
 	header:= page.MustElement("h2.register-success-area__form-container__title").MustText()
-	assert.Equal(t,header,"Account Created!")
-	text1:= page.MustElement("span.register-success-area__form-container__sub-title").MustText()
-	assert.Equal(t,text1,"Check your email to complete registration.")
+	assert.Equal(t,header,"You're almost there!")
+	text1:= page.MustElement("p.register-success-area__form-container__sub-title").MustText()
+	assert.Equal(t,text1,"Check your email to confirm your account and get started.")
 	countertext:= page.MustElement("p.register-success-area__form-container__text").MustText()
-	assert2.Contains(t, countertext, "Didn’t receive a verification email?")
+	assert2.Contains(t, countertext, "Didn't receive a verification email?")
 	resendbutton:= page.MustElement("div.register-success-area__form-container__button-container").MustText()
 	assert.DeepEqual(t,resendbutton,"Resend Email")
-	loginbutton:= page.MustElement("div.register-container__register-button").MustText()
-	assert.DeepEqual(t,loginbutton,"Login")
+	loginbutton:= page.MustElement("a.register-success-area__form-container__contact__link").MustText()
+	assert.DeepEqual(t,loginbutton,"Contact our support team")
 
 	// continue to login and onboarding flow
-	page.MustElement("div.register-container__register-button").MustClick()
+	page.MustElement("a.register-area__content-area__login-container__link").MustClick()
 	page.MustElement(".headerless-input").MustInput(email)
 	page.MustElement("[type=password]").MustInput(pass)
-	page.MustElement("div.login-area__submit-area__login-button").MustClick()
+	page.MustElement("p.login-area__content-area__container__button").MustClick()
 
 	// check welcome to Storj screen elements
 	welcomeHeader:= page.MustElement("h2.overview-area__header").MustText()
@@ -172,14 +172,14 @@ func Test_e2e_user_create_login_access_in_browser(t *testing.T)  {
 	encrWarnTitle:= page.MustElement(".generate-container__warning__title").MustText()
 	assert.Equal(t, encrWarnTitle, "Save Your Encryption Passphrase")
 	encrWarnMessage:= page.MustElement("p.generate-container__warning__message").MustText()
-	assert.Equal(t, encrWarnMessage, "You’ll need this passphrase500chars to access data in the future. This is the only time it will be displayed. Be sure to write it down.")
+	assert.Equal(t, encrWarnMessage, "You’ll need this passphrase to access data in the future. This is the only time it will be displayed. Be sure to write it down.")
 	encrPassType:= page.MustElement("p.generate-container__choosing__label")
 	assert.Equal(t,encrPassType.MustText(),"Passphrase")
 	generateTab:= page.MustElement("p.generate-container__choosing__right__option.left-option")
 	assert.Equal(t,generateTab.MustText(),"Generate Phrase")
 	createTab:= page.MustElementX("(//*[@class=\"generate-container__choosing__right__option\"])")
 	assert.Equal(t,createTab.MustText(),"Enter Phrase")
-	////checkout to create passphrase500chars tab
+	////checkout to create passphrase tab
 	//createTab.MustClick()
 	//createTitle:= page.MustElement("h3.label-container__main__label").MustText()
 	//assert.Equal(t,createTitle,"Create Your Passphrase")
@@ -187,7 +187,7 @@ func Test_e2e_user_create_login_access_in_browser(t *testing.T)  {
 	//assert.Equal(t, createInput,"Strong passphrases contain 12 characters or more")
 	//
 	//
-	//// checkout to Generate passphrase500chars and check success notification
+	// checkout to Generate passphrase and check success notification
 	//generateTab.MustClick()
 	passPhrase:= page.MustElement("p.generate-container__value-area__mnemonic__value")
 	passPhrase.MustVisible()
