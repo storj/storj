@@ -31,7 +31,7 @@ func TestPersonalUserCanSignUp(t *testing.T) {
 		page.MustElementX("//input[@placeholder='Retype Password']").MustInput(password)
 		page.MustElementX("//span[@class='checkmark']").MustClick()
 		page.Keyboard.MustPress(input.Enter)
-		confirmAccountEmailMessage := page.MustElement("div.register-area div.register-area__content-area div.register-success-area div.register-success-area__form-container > h2.register-success-area__form-container__title:nth-child(2)").MustText()
+		confirmAccountEmailMessage := page.MustElementX("//h2[@class='register-success-area__form-container__title']").MustText()
 		require.Contains(t, confirmAccountEmailMessage, "You're almost there!")
 	})
 }
