@@ -26,12 +26,12 @@ func TestPersonalUserCanSignUp(t *testing.T) {
 		page.MustSetViewport(1350, 600, 1, false)
 		// First time User signup
 		page.MustElement(".headerless-input").MustInput(fullName)
-		page.MustElementX("//input[@placeholder='example@email.com']").MustInput(emailAddress)
-		page.MustElementX("//input[@placeholder='Enter Password']").MustInput(password)
-		page.MustElementX("//input[@placeholder='Retype Password']").MustInput(password)
-		page.MustElementX("//span[@class='checkmark']").MustClick()
+		page.MustElement("[placeholder=\"example@email.com\"]").MustInput(emailAddress)
+		page.MustElement("[placeholder=\"Enter Password\"]").MustInput(password)
+		page.MustElement("[placeholder=\"Retype Password\"]").MustInput(password)
+		page.MustElement(".checkmark").MustClick()
 		page.Keyboard.MustPress(input.Enter)
-		confirmAccountEmailMessage := page.MustElementX("//h2[@class='register-success-area__form-container__title']").MustText()
+		confirmAccountEmailMessage := page.MustElement(".register-success-area__form-container__title").MustText()
 		require.Contains(t, confirmAccountEmailMessage, "You're almost there!")
 	})
 }
