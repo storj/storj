@@ -25,7 +25,7 @@ func (c *cmdAccessList) Setup(a clingy.Arguments, f clingy.Flags) {
 }
 
 func (c *cmdAccessList) Execute(ctx clingy.Context) error {
-	accessDefault, accesses, err := gf.GetAccessInfo()
+	accessDefault, accesses, err := gf.GetAccessInfo(true)
 	if err != nil {
 		return err
 	}

@@ -366,7 +366,7 @@ func (step IterateLoopStreams) Check(ctx *testcontext.Context, t testing.TB, db 
 			var segments []metabase.LoopSegmentEntry
 			for {
 				var segment metabase.LoopSegmentEntry
-				if !next(&segment) {
+				if !next(ctx, &segment) {
 					break
 				}
 				segments = append(segments, segment)

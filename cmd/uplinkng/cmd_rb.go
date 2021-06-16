@@ -4,9 +4,13 @@
 package main
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/zeebo/clingy"
+	"github.com/zeebo/errs"
+
+	"storj.io/storj/cmd/uplinkng/ulloc"
 )
 
 type cmdRb struct {
@@ -14,7 +18,7 @@ type cmdRb struct {
 
 	force bool
 
-	name string
+	loc ulloc.Location
 }
 
 func (c *cmdRb) Setup(a clingy.Arguments, f clingy.Flags) {
@@ -24,9 +28,35 @@ func (c *cmdRb) Setup(a clingy.Arguments, f clingy.Flags) {
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
 
-	c.name = a.New("name", "Bucket name (sj://BUCKET)").(string)
+	c.loc = a.New("name", "Bucket name (sj://BUCKET)",
+		clingy.Transform(ulloc.Parse),
+	).(ulloc.Location)
 }
 
 func (c *cmdRb) Execute(ctx clingy.Context) error {
+	project, err := c.OpenProject(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = project.Close() }()
+
+	bucket, key, ok := c.loc.RemoteParts()
+	if !ok {
+		return errs.New("location must be remote")
+	}
+	if key != "" {
+		return errs.New("key must not be specified: %q", key)
+	}
+
+	if c.force {
+		_, err = project.DeleteBucketWithObjects(ctx, bucket)
+	} else {
+		_, err = project.DeleteBucket(ctx, bucket)
+	}
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(ctx.Stdout(), "Bucket %q has been deleted.\n", bucket)
 	return nil
 }

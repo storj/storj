@@ -12,7 +12,7 @@ export class Operator {
         public nodeId: string,
         public email: string,
         public wallet: string,
-        public walletFeatures: string[],
+        public walletFeatures: string[] | null,
         public undistributed: number,
     ) {}
 
@@ -20,7 +20,7 @@ export class Operator {
      * indicates if wallet features are enabled.
      */
     public get areWalletFeaturesEnabled(): boolean {
-        return this.walletFeatures.length !== 0;
+        return !!(this.walletFeatures && this.walletFeatures.length !== 0);
     }
 
     /**

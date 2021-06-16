@@ -446,7 +446,7 @@ func (loop *Service) iterateObjects(ctx context.Context, observers []*observerCo
 				}
 
 				var segment metabase.LoopSegmentEntry
-				if !next(&segment) {
+				if !next(ctx, &segment) {
 					break
 				}
 
