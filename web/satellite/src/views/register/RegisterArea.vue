@@ -17,6 +17,8 @@ import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
 import LogoIcon from '@/../static/images/dcs-logo.svg';
 import InfoIcon from '@/../static/images/info.svg';
+import RegisterGlobe from '@/../static/images/register/RegisterGlobe.svg';
+import RegisterGlobeSmall from '@/../static/images/register/RegisterGlobeSmall.svg';
 
 import { AuthHttpApi } from '@/api/auth';
 import { RouteConfig } from '@/router';
@@ -38,6 +40,8 @@ import { Validator } from '@/utils/validation';
         PasswordStrength,
         AddCouponCodeInput,
         SelectInput,
+        RegisterGlobe,
+        RegisterGlobeSmall,
     },
 })
 export default class RegisterArea extends Vue {
