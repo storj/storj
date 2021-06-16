@@ -12,11 +12,11 @@ export class Cursor {
 // Page holds page entity which is used to show listed page.
 export class Page<T> {
     public constructor(
-        public items: T[],
-        public offset: number,
-        public limit: number,
-        public currentPage: number,
-        public pageCount: number,
-        public totalCount: number,
+        public items: T[] = [],
+        public offset: number = 0,
+        public limit: number = 0,
+        public currentPage: number = 1,
+        public pageCount: number = 0,
+        public totalCount: number = 0,
     ) {}
 }

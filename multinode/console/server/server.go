@@ -122,6 +122,8 @@ func NewServer(log *zap.Logger, listener net.Listener, config Config, services S
 	storageRouter.HandleFunc("/usage/{nodeID}", storageController.Usage).Methods(http.MethodGet)
 	storageRouter.HandleFunc("/satellites/{satelliteID}/usage", storageController.TotalUsageSatellite).Methods(http.MethodGet)
 	storageRouter.HandleFunc("/satellites/{satelliteID}/usage/{nodeID}", storageController.UsageSatellite).Methods(http.MethodGet)
+	storageRouter.HandleFunc("/disk-space", storageController.TotalDiskSpace).Methods(http.MethodGet)
+	storageRouter.HandleFunc("/disk-space/{nodeID}", storageController.DiskSpace).Methods(http.MethodGet)
 
 	if server.config.StaticDir != "" {
 		router.PathPrefix("/static/").Handler(http.StripPrefix("/static", fs))

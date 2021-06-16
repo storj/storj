@@ -14,7 +14,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/identity"
-	"storj.io/common/pb"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
@@ -30,8 +29,6 @@ import (
 	"storj.io/storj/satellite/accounting/rolluparchive"
 	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/contact"
-	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metaloop"
@@ -72,10 +69,6 @@ type Core struct {
 	}
 
 	// services and endpoints
-	Contact struct {
-		Service *contact.Service
-	}
-
 	Overlay struct {
 		DB           overlay.DB
 		Service      *overlay.Service
@@ -105,10 +98,6 @@ type Core struct {
 		Chore    *audit.Chore
 		Verifier *audit.Verifier
 		Reporter *audit.Reporter
-	}
-
-	GarbageCollection struct {
-		Service *gc.Service
 	}
 
 	ExpiredDeletion struct {
@@ -200,29 +189,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 
 		peer.Dialer = rpc.NewDefaultDialer(tlsOptions)
-	}
-
-	{ // setup contact service
-		pbVersion, err := versionInfo.Proto()
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		self := &overlay.NodeDossier{
-			Node: pb.Node{
-				Id: peer.ID(),
-				Address: &pb.NodeAddress{
-					Address: config.Contact.ExternalAddress,
-				},
-			},
-			Type:    pb.NodeType_SATELLITE,
-			Version: *pbVersion,
-		}
-		peer.Contact.Service = contact.NewService(peer.Log.Named("contact:service"), self, peer.Overlay.Service, peer.DB.PeerIdentities(), peer.Dialer, config.Contact)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "contact:service",
-			Close: peer.Contact.Service.Close,
-		})
 	}
 
 	{ // setup overlay
@@ -374,24 +340,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Audit Chore", peer.Audit.Chore.Loop))
-	}
-
-	{ // setup garbage collection if configured to run with the core
-		if config.GarbageCollection.RunInCore {
-			peer.GarbageCollection.Service = gc.NewService(
-				peer.Log.Named("core-garbage-collection"),
-				config.GarbageCollection,
-				peer.Dialer,
-				peer.Overlay.DB,
-				peer.Metainfo.SegmentLoop,
-			)
-			peer.Services.Add(lifecycle.Item{
-				Name: "core-garbage-collection",
-				Run:  peer.GarbageCollection.Service.Run,
-			})
-			peer.Debug.Server.Panel.Add(
-				debug.Cycle("Core Garbage Collection", peer.GarbageCollection.Service.Loop))
-		}
 	}
 
 	{ // setup expired segment cleanup
