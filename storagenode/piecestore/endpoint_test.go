@@ -181,6 +181,9 @@ func TestSlowUpload(t *testing.T) {
 				// Storage Node takes only 1 connection (to mock the case where
 				// the number of concurrent connections goes above 80% of the limit)
 				config.Storage2.MaxConcurrentRequests = 1
+				// Storage Node waits only few microsecond before starting the measurement
+				// of upload rate to flag unsually slow connection
+				config.Storage2.DelayUntilSlowConnectionFlagged = 500 * time.Microsecond
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -195,7 +198,9 @@ func TestSlowUpload(t *testing.T) {
 			err           string
 		}{
 			{ // connection should be aborted
-				pieceID:       storj.PieceID{1},
+				pieceID: storj.PieceID{1},
+				// As the server node only starts flagging unusually slow connection
+				// after 500 micro seconds, the file should be big enough to ensure the connection is still open.
 				contentLength: 50 * memory.MB,
 				action:        pb.PieceAction_PUT,
 				err:           "upload rate falls below limit",

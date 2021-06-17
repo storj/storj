@@ -52,19 +52,20 @@ type OldConfig struct {
 
 // Config defines parameters for piecestore endpoint.
 type Config struct {
-	DatabaseDir             string        `help:"directory to store databases. if empty, uses data path" default:""`
-	ExpirationGracePeriod   time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
-	MaxConcurrentRequests   int           `help:"how many concurrent requests are allowed, before uploads are rejected. 0 represents unlimited." default:"0"`
-	DeleteWorkers           int           `help:"how many piece delete workers" default:"1"`
-	DeleteQueueSize         int           `help:"size of the piece delete queue" default:"10000"`
-	OrderLimitGracePeriod   time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
-	CacheSyncInterval       time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
-	StreamOperationTimeout  time.Duration `help:"how long to spend waiting for a stream operation before canceling" default:"30m"`
-	RetainTimeBuffer        time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s"`
-	ReportCapacityThreshold memory.Size   `help:"threshold below which to immediately notify satellite of capacity" default:"500MB" hidden:"true"`
-	MaxUsedSerialsSize      memory.Size   `help:"amount of memory allowed for used serials store - once surpassed, serials will be dropped at random" default:"1MB"`
-	MinUploadSpeed          memory.Size   `help:"a client upload speed should not be lower than MinUploadSpeed in bytes-per-second (E.g: 1Mb), otherwise, it will be flagged as slow-connection and potentially be closed" default:"0Mb"`
-	Trust                   trust.Config
+	DatabaseDir                     string        `help:"directory to store databases. if empty, uses data path" default:""`
+	ExpirationGracePeriod           time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
+	MaxConcurrentRequests           int           `help:"how many concurrent requests are allowed, before uploads are rejected. 0 represents unlimited." default:"0"`
+	DeleteWorkers                   int           `help:"how many piece delete workers" default:"1"`
+	DeleteQueueSize                 int           `help:"size of the piece delete queue" default:"10000"`
+	OrderLimitGracePeriod           time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
+	CacheSyncInterval               time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
+	StreamOperationTimeout          time.Duration `help:"how long to spend waiting for a stream operation before canceling" default:"30m"`
+	RetainTimeBuffer                time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s"`
+	ReportCapacityThreshold         memory.Size   `help:"threshold below which to immediately notify satellite of capacity" default:"500MB" hidden:"true"`
+	MaxUsedSerialsSize              memory.Size   `help:"amount of memory allowed for used serials store - once surpassed, serials will be dropped at random" default:"1MB"`
+	MinUploadSpeed                  memory.Size   `help:"a client upload speed should not be lower than MinUploadSpeed in bytes-per-second (E.g: 1Mb), otherwise, it will be flagged as slow-connection and potentially be closed" default:"0Mb"`
+	DelayUntilSlowConnectionFlagged time.Duration `help:"if MinUploadSpeed is configured, after a period of time after the client initiated the upload, the server will flag unusually slow upload client" default:"0h0m10s"`
+	Trust                           trust.Config
 
 	Monitor monitor.Config
 	Orders  orders.Config
@@ -336,17 +337,12 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	largestOrder := pb.Order{}
 	defer commitOrderToStore(ctx, &largestOrder)
 
-	// delayUntilSlowConnectionFlagged indicates the delay in seconds until
-	// the connnection is flagged for unusual slow upload speed.
-	// This is to avoid false positive flag in the first moment of uploading
-	delayUntilSlowConnectionFlagged := 10 * time.Second
-
 	for {
 		// Measure upload rate (bytes per second)
 		dt := time.Since(startTime)
 
 		// Skip flagging unusually slow connections in the first moments of uploading.
-		if dt > delayUntilSlowConnectionFlagged {
+		if dt > endpoint.config.DelayUntilSlowConnectionFlagged {
 			// currentUploadSize indicates the size of uploaded data until this moment.
 			currentUploadSize := float64(pieceWriter.Size())
 
