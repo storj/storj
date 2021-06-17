@@ -31,8 +31,8 @@ pipeline {
         }
 
 
-        stage('Verification') {
-                stage('UI') {
+
+        stage('UI') {
                     environment {
                         STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testui?sslmode=disable'
                         STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/testui?sslmode=disable'
@@ -66,7 +66,7 @@ pipeline {
                         }
                     }
                 }
-            }
+
         }
     }
     post {
