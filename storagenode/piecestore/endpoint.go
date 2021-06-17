@@ -63,7 +63,7 @@ type Config struct {
 	RetainTimeBuffer        time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s"`
 	ReportCapacityThreshold memory.Size   `help:"threshold below which to immediately notify satellite of capacity" default:"500MB" hidden:"true"`
 	MaxUsedSerialsSize      memory.Size   `help:"amount of memory allowed for used serials store - once surpassed, serials will be dropped at random" default:"1MB"`
-	MinUploadSpeed          memory.Size   `help:"a client upload speed should not be lower than MinUploadSpeed (E.g 1Mb), otherwise, it will be flagged as slow-connection and potentially be closed" default:"0Mb"`
+	MinUploadSpeed          memory.Size   `help:"a client upload speed should not be lower than MinUploadSpeed in bytes-per-second (E.g: 1Mb), otherwise, it will be flagged as slow-connection and potentially be closed" default:"0Mb"`
 	Trust                   trust.Config
 
 	Monitor monitor.Config
@@ -349,7 +349,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	// delayUntilSlowConnectionFlagged indicates the delay in seconds until
 	// the connnection is flagged for unusual slow upload speed.
 	// This is to avoid false positive flag in the first moment of uploading
-	delayUntilSlowConnectionFlagged := float64(10)
+	delayUntilSlowConnectionFlagged := 10 * time.Second
 
 	for {
 		// Increment counts
@@ -358,7 +358,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		dt := time.Since(startTime)
 
 		// Skip flagging unusually slow connections in the first moments of uploading.
-		if dt.Seconds() < delayUntilSlowConnectionFlagged && chunkCount != 0 {
+		if dt < delayUntilSlowConnectionFlagged && chunkCount != 0 {
 			uploadSize := pieceWriter.Size() - previousSize
 			previousSize = pieceWriter.Size()
 
