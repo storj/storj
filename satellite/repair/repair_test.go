@@ -715,8 +715,7 @@ func TestRemoveDeletedSegmentFromQueue(t *testing.T) {
 // - Call checker to add segment to the repair queue
 // - Disqualify nodes so that online nodes < minimum threshold
 // - Run the repairer
-// - Verify segment is no longer in the repair queue and segment should be the same
-// - Verify segment is now in the irreparable db instead.
+// - Verify segment is still in the repair queue.
 func TestIrreparableSegmentAccordingToOverlay(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -733,7 +732,6 @@ func TestIrreparableSegmentAccordingToOverlay(t *testing.T) {
 		satellite.Audit.Worker.Loop.Stop()
 
 		satellite.Repair.Checker.Loop.Pause()
-		satellite.Repair.Checker.IrreparableLoop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()
 
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -741,7 +739,7 @@ func TestIrreparableSegmentAccordingToOverlay(t *testing.T) {
 		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		segment, segmentKey := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
+		segment, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
 
 		// dq 3 nodes so that pointer has 4 left (less than repair threshold)
 		toDQ := 3
@@ -762,7 +760,6 @@ func TestIrreparableSegmentAccordingToOverlay(t *testing.T) {
 		for _, piece := range remotePieces {
 			err := satellite.DB.OverlayCache().DisqualifyNode(ctx, piece.StorageNode)
 			require.NoError(t, err)
-
 		}
 
 		// Verify that the segment is on the repair queue
@@ -770,48 +767,17 @@ func TestIrreparableSegmentAccordingToOverlay(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, count, 1)
 
-		// Verify that the segment is not in the irreparable db
-		irreparableSegment, err := satellite.DB.Irreparable().Get(ctx, segmentKey)
-		require.Error(t, err)
-		require.Nil(t, irreparableSegment)
-
 		// Run the repairer
-		beforeRepair := time.Now().Truncate(time.Second)
 		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		satellite.Repair.Repairer.Loop.Pause()
 		satellite.Repair.Repairer.WaitForPendingRepairs()
-		afterRepair := time.Now().Truncate(time.Second)
 
-		// Verify that the segment was removed
+		// Verify that the irreparable segment is still in repair queue
 		count, err = satellite.DB.RepairQueue().Count(ctx)
 		require.NoError(t, err)
-		require.Equal(t, count, 0)
-
-		// Verify that the segment _is_ in the irreparable db
-		irreparableSegment, err = satellite.DB.Irreparable().Get(ctx, segmentKey)
-		require.NoError(t, err)
-		require.Equal(t, segmentKey, metabase.SegmentKey(irreparableSegment.Path))
-		lastAttemptTime := time.Unix(irreparableSegment.LastRepairAttempt, 0)
-		require.Falsef(t, lastAttemptTime.Before(beforeRepair), "%s is before %s", lastAttemptTime, beforeRepair)
-		require.Falsef(t, lastAttemptTime.After(afterRepair), "%s is after %s", lastAttemptTime, afterRepair)
+		require.Equal(t, count, 1)
 	})
-}
-
-func updateNodeCheckIn(ctx context.Context, overlayDB overlay.DB, node *testplanet.StorageNode, isUp bool, timestamp time.Time) error {
-	local := node.Contact.Service.Local()
-	checkInInfo := overlay.NodeCheckInInfo{
-		NodeID: node.ID(),
-		Address: &pb.NodeAddress{
-			Address: local.Address,
-		},
-		LastIPPort: local.Address,
-		IsUp:       isUp,
-		Operator:   &local.Operator,
-		Capacity:   &local.Capacity,
-		Version:    &local.Version,
-	}
-	return overlayDB.UpdateCheckIn(ctx, checkInInfo, time.Now().Add(-24*time.Hour), overlay.NodeSelectionConfig{})
 }
 
 // TestIrreparableSegmentNodesOffline
@@ -820,8 +786,7 @@ func updateNodeCheckIn(ctx context.Context, overlayDB overlay.DB, node *testplan
 // - Call checker to add segment to the repair queue
 // - Kill (as opposed to disqualifying) nodes so that online nodes < minimum threshold
 // - Run the repairer
-// - Verify segment is no longer in the repair queue and segment should be the same
-// - Verify segment is now in the irreparable db instead.
+// - Verify segment is still in the repair queue.
 func TestIrreparableSegmentNodesOffline(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
@@ -838,7 +803,6 @@ func TestIrreparableSegmentNodesOffline(t *testing.T) {
 		satellite.Audit.Worker.Loop.Stop()
 
 		satellite.Repair.Checker.Loop.Pause()
-		satellite.Repair.Checker.IrreparableLoop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()
 
 		testData := testrand.Bytes(8 * memory.KiB)
@@ -846,7 +810,7 @@ func TestIrreparableSegmentNodesOffline(t *testing.T) {
 		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
 		require.NoError(t, err)
 
-		segment, segmentKey := getRemoteSegment(ctx, t, satellite, uplinkPeer.Projects[0].ID, "testbucket")
+		segment, _ := getRemoteSegment(ctx, t, satellite, uplinkPeer.Projects[0].ID, "testbucket")
 
 		// kill 3 nodes and mark them as offline so that pointer has 4 left from overlay
 		// perspective (less than repair threshold)
@@ -887,32 +851,33 @@ func TestIrreparableSegmentNodesOffline(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		// Verify that the segment is not in the irreparable db
-		irreparableSegment, err := satellite.DB.Irreparable().Get(ctx, segmentKey)
-		require.Error(t, err)
-		require.Nil(t, irreparableSegment)
-
 		// Run the repairer
-		beforeRepair := time.Now().Truncate(time.Second)
 		satellite.Repair.Repairer.Loop.Restart()
 		satellite.Repair.Repairer.Loop.TriggerWait()
 		satellite.Repair.Repairer.Loop.Pause()
 		satellite.Repair.Repairer.WaitForPendingRepairs()
-		afterRepair := time.Now().Truncate(time.Second)
 
-		// Verify that the segment was removed from the repair queue
+		// Verify that the irreparable segment is still in repair queue
 		count, err = satellite.DB.RepairQueue().Count(ctx)
 		require.NoError(t, err)
-		require.Zero(t, count)
-
-		// Verify that the segment _is_ in the irreparable db
-		irreparableSegment, err = satellite.DB.Irreparable().Get(ctx, segmentKey)
-		require.NoError(t, err)
-		require.Equal(t, segmentKey, metabase.SegmentKey(irreparableSegment.Path))
-		lastAttemptTime := time.Unix(irreparableSegment.LastRepairAttempt, 0)
-		require.Falsef(t, lastAttemptTime.Before(beforeRepair), "%s is before %s", lastAttemptTime, beforeRepair)
-		require.Falsef(t, lastAttemptTime.After(afterRepair), "%s is after %s", lastAttemptTime, afterRepair)
+		require.Equal(t, 1, count)
 	})
+}
+
+func updateNodeCheckIn(ctx context.Context, overlayDB overlay.DB, node *testplanet.StorageNode, isUp bool, timestamp time.Time) error {
+	local := node.Contact.Service.Local()
+	checkInInfo := overlay.NodeCheckInInfo{
+		NodeID: node.ID(),
+		Address: &pb.NodeAddress{
+			Address: local.Address,
+		},
+		LastIPPort: local.Address,
+		IsUp:       isUp,
+		Operator:   &local.Operator,
+		Capacity:   &local.Capacity,
+		Version:    &local.Version,
+	}
+	return overlayDB.UpdateCheckIn(ctx, checkInInfo, time.Now().Add(-24*time.Hour), overlay.NodeSelectionConfig{})
 }
 
 // TestRepairMultipleDisqualifiedAndSuspended does the following:
