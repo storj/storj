@@ -50,7 +50,6 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
-	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/snopayouts"
 )
@@ -106,10 +105,6 @@ type API struct {
 
 	Inspector struct {
 		Endpoint *inspector.Endpoint
-	}
-
-	Repair struct {
-		Inspector *irreparable.Inspector
 	}
 
 	Accounting struct {
@@ -416,13 +411,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Name:  "metainfo:endpoint",
 			Close: peer.Metainfo.Endpoint2.Close,
 		})
-	}
-
-	{ // setup datarepair
-		peer.Repair.Inspector = irreparable.NewInspector(peer.DB.Irreparable())
-		if err := internalpb.DRPCRegisterIrreparableInspector(peer.Server.PrivateDRPC(), peer.Repair.Inspector); err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 	}
 
 	{ // setup inspector
