@@ -247,9 +247,6 @@ contact.external-address: ""
 # the amount of time to allow a node to handle a retain request
 # garbage-collection.retain-send-timeout: 1m0s
 
-# if true, skip the first run of GC
-# garbage-collection.skip-first: true
-
 # interval for AS OF SYSTEM TIME clause (crdb specific) to read from db at a specific time in the past
 # graceful-exit.as-of-system-time-interval: -10s
 
