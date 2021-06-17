@@ -37,7 +37,7 @@ func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 				t.Fatal(err)
 			}
 
-			fn(ctx, t, db.InternalImplementation().(*metabase.DB))
+			fn(ctx, t, db)
 		})
 	}
 }
@@ -65,7 +65,7 @@ func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *met
 			}
 
 			b.ResetTimer()
-			fn(ctx, b, db.InternalImplementation().(*metabase.DB))
+			fn(ctx, b, db)
 		})
 	}
 }

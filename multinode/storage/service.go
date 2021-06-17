@@ -125,6 +125,73 @@ func (service *Service) TotalUsageSatellite(ctx context.Context, satelliteID sto
 	return cache.Sorted(), nil
 }
 
+// TotalDiskSpace returns all info about all storagenodes disk space usage.
+func (service *Service) TotalDiskSpace(ctx context.Context) (totalDiskSpace DiskSpace, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	nodes, err := service.nodes.List(ctx)
+	if err != nil {
+		return DiskSpace{}, Error.Wrap(err)
+	}
+
+	for _, node := range nodes {
+		diskSpace, err := service.dialDiskSpace(ctx, node)
+		if err != nil {
+			// TODO: how should we handle offline node?
+			continue
+		}
+		totalDiskSpace.Add(diskSpace)
+	}
+
+	return totalDiskSpace, nil
+}
+
+// DiskSpace returns all info about concrete storagenode disk space usage.
+func (service *Service) DiskSpace(ctx context.Context, nodeID storj.NodeID) (_ DiskSpace, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	node, err := service.nodes.Get(ctx, nodeID)
+	if err != nil {
+		return DiskSpace{}, Error.Wrap(err)
+	}
+
+	return service.dialDiskSpace(ctx, node)
+}
+
+// dialDiskSpace dials node and retrieves all info about concrete storagenode disk space usage.
+func (service *Service) dialDiskSpace(ctx context.Context, node nodes.Node) (diskSpace DiskSpace, err error) {
+	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+		ID:      node.ID,
+		Address: node.PublicAddress,
+	})
+	if err != nil {
+		return DiskSpace{}, Error.Wrap(err)
+	}
+	defer func() {
+		err = errs.Combine(err, conn.Close())
+	}()
+
+	storageClient := multinodepb.NewDRPCStorageClient(conn)
+
+	diskSpaceResponse, err := storageClient.DiskSpace(ctx, &multinodepb.DiskSpaceRequest{
+		Header: &multinodepb.RequestHeader{
+			ApiKey: node.APISecret,
+		},
+	})
+	if err != nil {
+		return DiskSpace{}, Error.Wrap(err)
+	}
+
+	return DiskSpace{
+		Allocated: diskSpaceResponse.Allocated,
+		Used:      diskSpaceResponse.UsedPieces,
+		Trash:     diskSpaceResponse.UsedTrash,
+		Free:      diskSpaceResponse.Free,
+		Available: diskSpaceResponse.Available,
+		Overused:  diskSpaceResponse.Overused,
+	}, nil
+}
+
 // dialUsage dials node and retrieves it's storage usage for provided interval.
 func (service *Service) dialUsage(ctx context.Context, node nodes.Node, from, to time.Time) (_ []UsageStamp, err error) {
 	defer mon.Task()(&ctx)(&err)

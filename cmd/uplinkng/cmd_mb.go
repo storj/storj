@@ -5,6 +5,7 @@ package main
 
 import (
 	"github.com/zeebo/clingy"
+	"github.com/zeebo/errs"
 )
 
 type cmdMb struct {
@@ -20,5 +21,12 @@ func (c *cmdMb) Setup(a clingy.Arguments, f clingy.Flags) {
 }
 
 func (c *cmdMb) Execute(ctx clingy.Context) error {
-	return nil
+	project, err := c.OpenProject(ctx)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	defer func() { _ = project.Close() }()
+
+	_, err = project.CreateBucket(ctx, c.name)
+	return err
 }
