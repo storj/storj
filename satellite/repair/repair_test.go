@@ -21,6 +21,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
@@ -72,6 +73,10 @@ func testDataRepair(t *testing.T, inMemoryRepair bool) {
 
 		satellite.Repair.Checker.Loop.Pause()
 		satellite.Repair.Repairer.Loop.Pause()
+
+		for _, storageNode := range planet.StorageNodes {
+			storageNode.Storage2.Orders.Sender.Pause()
+		}
 
 		testData := testrand.Bytes(8 * memory.KiB)
 		err := uplinkPeer.Upload(ctx, satellite, "testbucket", "test/path", testData)
@@ -154,6 +159,31 @@ func testDataRepair(t *testing.T, inMemoryRepair bool) {
 				nodesToKillForMinThreshold--
 			}
 		}
+
+		{
+			// test that while repair, order limits without specified bucket are counted correctly
+			// for storage node repair bandwidth usage and the storage nodes will be paid for that
+
+			require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+			for _, storageNode := range planet.StorageNodes {
+				storageNode.Storage2.Orders.SendOrders(ctx, time.Now().Add(24*time.Hour))
+			}
+			repairSettled := make(map[storj.NodeID]uint64)
+			err = satellite.DB.StoragenodeAccounting().GetBandwidthSince(ctx, time.Time{}, func(c context.Context, sbr *accounting.StoragenodeBandwidthRollup) error {
+				if sbr.Action == uint(pb.PieceAction_GET_REPAIR) {
+					repairSettled[sbr.NodeID] += sbr.Settled
+				}
+				return nil
+			})
+			require.NoError(t, err)
+			require.Equal(t, minThreshold, len(repairSettled))
+
+			for _, value := range repairSettled {
+				// TODO verify node ids
+				require.NotZero(t, value)
+			}
+		}
+
 		// we should be able to download data without any of the original nodes
 		newData, err := uplinkPeer.Download(ctx, satellite, "testbucket", "test/path")
 		require.NoError(t, err)
