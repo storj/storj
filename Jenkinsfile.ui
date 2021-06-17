@@ -33,15 +33,15 @@ pipeline {
 
 
         stage('UI') {
-                    environment {
+                  environment {
                         STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testui?sslmode=disable'
                         STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/testui?sslmode=disable'
                         STORJ_TEST_BROWSER  = '/usr/bin/chromium'
                         STORJ_TEST_SATELLITE_WEB = "${pwd()}/.build/satellite-web"
 
                         DISPLAY = ':99'
-                    }
-                    steps {
+                  }
+                  steps {
                         sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testui;\''
                         sh 'psql -U postgres -c \'create database testui;\''
 
@@ -57,22 +57,22 @@ pipeline {
 
                         sh 'Xvfb -ac :99 -screen 0 1280x1024x16 &'
                         sh 'go test -vet=off -race -json ./integration/ui/... 2>&1 | tee .build/ui-tests.json | xunit -out .build/ui-tests.xml'
-                    }
-                    post {
+                  }
+                  post {
                         always {
                             sh script: 'cat .build/ui-tests.json | tparse -all -top -slow 100', returnStatus: true
                             archiveArtifacts artifacts: '.build/ui-tests.json'
                             junit '.build/ui-tests.xml'
                         }
-                    }
-                }
-
+                  }
         }
+
     }
+
     post {
         always {
             sh "chmod -R 777 ." // ensure Jenkins agent can delete the working directory
             deleteDir()
         }
     }
-
+}
