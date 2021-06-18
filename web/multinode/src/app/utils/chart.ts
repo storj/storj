@@ -3,35 +3,9 @@
 
 import { BandwidthRollup } from '@/bandwidth';
 import { SizeBreakpoints } from '@/private/memory/size';
+import { Stamp } from '@/storage';
 
 const shortMonthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec'];
-
-// TODO: move to diskspace package
-/**
- * Stamp is storage usage stamp for satellite at some point in time
- */
-export class Stamp {
-    public atRestTotal: number;
-    public intervalStart: Date;
-
-    public constructor(atRestTotal: number = 0, intervalStart: Date = new Date()) {
-        this.atRestTotal = atRestTotal;
-        this.intervalStart = intervalStart;
-    }
-
-    /**
-     * Creates new empty instance of stamp with defined date
-     * @param date - holds specific date of the month
-     * @returns Stamp - new empty instance of stamp with defined date
-     */
-    public static emptyWithDate(date: number): Stamp {
-        const now = new Date();
-        now.setUTCDate(date);
-        now.setUTCHours(0, 0, 0, 0);
-
-        return new Stamp(0, now);
-    }
-}
 
 /**
  * Used to display correct and convenient data on chart.

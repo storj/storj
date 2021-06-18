@@ -11,7 +11,7 @@ export class BandwidthClient extends APIClient {
     private readonly ROOT_PATH: string = '/api/v0/bandwidth';
 
     /**
-     * Returns bandwidth information for selected node and satellite in any.
+     * Returns bandwidth information for selected node and satellite if any.
      *
      * @throws {@link BadRequestError}
      * This exception is thrown if the input is not a valid.
@@ -26,7 +26,7 @@ export class BandwidthClient extends APIClient {
         let path = `${this.ROOT_PATH}`;
 
         if (satelliteId) {
-            path += `/satellite/${satelliteId}`;
+            path += `/satellites/${satelliteId}`;
         }
 
         if (nodeId) {
