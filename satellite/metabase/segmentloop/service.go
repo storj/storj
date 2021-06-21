@@ -140,7 +140,7 @@ type Config struct {
 	RateLimit        float64       `help:"rate limit (default is 0 which is unlimited segments per second)" default:"0"`
 	ListLimit        int           `help:"how many items to query in a batch" default:"2500"`
 
-	AsOfSystemInterval time.Duration `help:"as of system interval" default:"-5m"`
+	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
 
 	SuspiciousProcessedRatio float64 `help:"ratio where to consider processed count as supicious" default:"0.03"`
 }
@@ -339,7 +339,9 @@ func (loop *Service) iterateDatabase(ctx context.Context, observers []*observerC
 		finishObservers(observers)
 	}()
 
-	before, err := loop.metabaseDB.GetTableStats(ctx, metabase.GetTableStats{})
+	before, err := loop.metabaseDB.GetTableStats(ctx, metabase.GetTableStats{
+		AsOfSystemInterval: loop.config.AsOfSystemInterval,
+	})
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -353,7 +355,9 @@ func (loop *Service) iterateDatabase(ctx context.Context, observers []*observerC
 		return Error.Wrap(err)
 	}
 
-	after, err := loop.metabaseDB.GetTableStats(ctx, metabase.GetTableStats{})
+	after, err := loop.metabaseDB.GetTableStats(ctx, metabase.GetTableStats{
+		AsOfSystemInterval: loop.config.AsOfSystemInterval,
+	})
 	if err != nil {
 		return Error.Wrap(err)
 	}
