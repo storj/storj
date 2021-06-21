@@ -9,10 +9,6 @@ exports[`Dashboard renders correctly when data is loaded 1`] = `
     <div class="dashboard__wrap__main-area">
       <navigationarea-stub class="regular-navigation"></navigationarea-stub>
       <div class="dashboard__wrap__main-area__content">
-        <div class="dashboard__wrap__main-area__content__bar-area">
-          <!---->
-          <!---->
-        </div>
         <router-view-stub name="default"></router-view-stub>
       </div>
     </div>

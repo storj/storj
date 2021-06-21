@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <base-table >
+    <base-table>
         <thead slot="head">
             <tr>
                 <th class="align-left">WALLET ADDRESS</th>
@@ -11,8 +11,7 @@
             </tr>
         </thead>
         <tbody slot="body">
-            <!-- TODO: add node id as a v-key in future -->
-            <tr v-for="operator in operators" class="table-item">
+            <tr v-for="operator in operators" :key="operator.nodeId" class="table-item">
                 <th class="align-left">
                     <div class="column">
                         <p class="table-item__wallet" @click.prevent="() => redirectToWalletDetailsPage(operator.wallet)">
@@ -35,8 +34,7 @@
                         </div>
                     </div>
                 </th>
-                <!-- TODO: add node id to operators to show distributed amount, meanwhile it will be hardcoded -->
-                <th>N/A</th>
+                <th>{{ operator.undistributed | centsToDollars }}</th>
                 <th class="align-left">
                     <div class="column">
                         <v-link :uri="operator.etherscanLink" label="View on Etherscan" />
@@ -63,7 +61,7 @@ import { Operator } from '@/operators';
     },
 })
 export default class WalletsTable extends Vue {
-    @Prop({default: []})
+    @Prop({default: () => []})
     private readonly operators: Operator[];
 
     public redirectToWalletDetailsPage(walletAddress: string): void {

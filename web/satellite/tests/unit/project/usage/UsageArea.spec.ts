@@ -15,6 +15,7 @@ describe('UsageArea.vue', () => {
                 title: 'test Title',
                 used: 500000000,
                 limit: 1000000000,
+                isDataFetching: false,
             },
         });
 
@@ -28,6 +29,7 @@ describe('UsageArea.vue', () => {
                 title: 'test Title',
                 used: 1000000000,
                 limit: 500000000,
+                isDataFetching: false,
             },
         });
 

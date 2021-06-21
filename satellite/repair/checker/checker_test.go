@@ -17,7 +17,6 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/storage"
 )
 
 func TestIdentifyInjuredSegments(t *testing.T) {
@@ -94,7 +93,6 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		checker := planet.Satellites[0].Repair.Checker
 		checker.Loop.Stop()
-		checker.IrreparableLoop.Stop()
 
 		const numberOfNodes = 10
 		pieces := make(metabase.Pieces, 0, numberOfNodes)
@@ -134,48 +132,29 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		}
 
 		// when number of healthy piece is less than minimum required number of piece in redundancy,
-		// the piece is considered irreparable and will be put into irreparable DB
+		// the piece is considered irreparable but also will be put into repair queue
 
 		expectedLocation.ObjectKey = "piece"
 		insertSegment(ctx, t, planet, rs, expectedLocation, pieces, time.Time{})
-		pointerKey := expectedLocation.Encode()
 
 		expectedLocation.ObjectKey = "piece-expired"
 		insertSegment(ctx, t, planet, rs, expectedLocation, pieces, time.Now().Add(-time.Hour))
-		pointerExpiredKey := expectedLocation.Encode()
 
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
 
-		// check if nothing was added to repair queue
+		// check that single irreparable segment was added repair queue
 		repairQueue := planet.Satellites[0].DB.RepairQueue()
 		_, err = repairQueue.Select(ctx)
-		require.True(t, storage.ErrEmptyQueue.Has(err))
-
-		// check if the expected segments were added to the irreparable DB
-		irreparable := planet.Satellites[0].DB.Irreparable()
-		remoteSegmentInfo, err := irreparable.Get(ctx, pointerKey)
 		require.NoError(t, err)
-		// check that the expired segment was not added to the irreparable DB
-		_, err = irreparable.Get(ctx, pointerExpiredKey)
-		require.Error(t, err)
-
-		require.Equal(t, len(expectedLostPieces), int(remoteSegmentInfo.LostPieces))
-		require.Equal(t, 1, int(remoteSegmentInfo.RepairAttemptCount))
-		firstRepair := remoteSegmentInfo.LastRepairAttempt
+		count, err := repairQueue.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 1, count)
 
 		// check irreparable once again but wait a second
 		time.Sleep(1 * time.Second)
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
-
-		remoteSegmentInfo, err = irreparable.Get(ctx, pointerKey)
-		require.NoError(t, err)
-
-		require.Equal(t, len(expectedLostPieces), int(remoteSegmentInfo.LostPieces))
-		// check if repair attempt count was incremented
-		require.Equal(t, 2, int(remoteSegmentInfo.RepairAttemptCount))
-		require.True(t, firstRepair < remoteSegmentInfo.LastRepairAttempt)
 
 		expectedLocation.ObjectKey = "piece"
 		_, err = planet.Satellites[0].Metainfo.Metabase.DeleteObjectLatestVersion(ctx, metabase.DeleteObjectLatestVersion{
@@ -183,15 +162,12 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		rs.RequiredShares = 2
-		insertSegment(ctx, t, planet, rs, expectedLocation, pieces, time.Time{})
-		pointerKey = expectedLocation.Encode()
-
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
 
-		_, err = irreparable.Get(ctx, pointerKey)
-		require.Error(t, err)
+		count, err = repairQueue.Count(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 0, count)
 	})
 }
 

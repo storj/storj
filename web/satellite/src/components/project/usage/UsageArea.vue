@@ -4,16 +4,19 @@
 <template>
     <div class="usage-area">
         <p class="usage-area__title">{{title}}</p>
-        <pre class="usage-area__remaining">{{remainingFormatted}} Remaining</pre>
-        <VBar
-            :current="used"
-            :max="limit"
-            color="#0068DC"
-        />
-        <div class="usage-area__limits-area">
-            <pre class="usage-area__limits-area__title">{{title}} Used</pre>
-            <pre class="usage-area__limits-area__limits">{{usedFormatted}} / {{limitFormatted}}</pre>
-        </div>
+        <VLoader v-if="isDataFetching"/>
+        <template v-else>
+            <pre class="usage-area__remaining">{{remainingFormatted}} Remaining</pre>
+            <VBar
+                :current="used"
+                :max="limit"
+                color="#0068DC"
+            />
+            <div class="usage-area__limits-area">
+                <pre class="usage-area__limits-area__title">{{title}} Used</pre>
+                <pre class="usage-area__limits-area__limits">{{usedFormatted}} / {{limitFormatted}}</pre>
+            </div>
+        </template>
     </div>
 </template>
 
@@ -21,12 +24,14 @@
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import VBar from '@/components/common/VBar.vue';
+import VLoader from '@/components/common/VLoader.vue';
 
 import { Dimensions, Size } from '@/utils/bytesSize';
 
 @Component({
     components: {
         VBar,
+        VLoader,
     },
 })
 export default class UsageArea extends Vue {
@@ -36,6 +41,8 @@ export default class UsageArea extends Vue {
     public readonly used: number;
     @Prop({default: 0})
     public readonly limit: number;
+    @Prop({default: true})
+    public readonly isDataFetching: boolean;
 
     /**
      * Returns formatted remaining amount.
@@ -86,7 +93,7 @@ export default class UsageArea extends Vue {
     }
 
     .usage-area {
-        padding: 35px;
+        padding: 20px;
         border-radius: 6px;
         background-color: #fff;
 

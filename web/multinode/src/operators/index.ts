@@ -5,20 +5,22 @@ import { Operators as OperatorsClient } from '@/api/operators';
 import { Cursor, Page } from '@/private/pagination';
 
 /**
- *Operator contains contains SNO payouts contact details.
+ *Operator contains contains SNO payouts contact details and amount of undistributed payouts.
  */
 export class Operator {
     public constructor(
+        public nodeId: string,
         public email: string,
         public wallet: string,
-        public walletFeatures: string[],
+        public walletFeatures: string[] | null,
+        public undistributed: number,
     ) {}
 
     /**
      * indicates if wallet features are enabled.
      */
     public get areWalletFeaturesEnabled(): boolean {
-        return this.walletFeatures.length !== 0;
+        return !!(this.walletFeatures && this.walletFeatures.length !== 0);
     }
 
     /**

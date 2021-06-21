@@ -20,10 +20,12 @@
                     width="203px"
                     height="44px"
                     :on-press="onCreateClick"
+                    :is-disabled="areGrantsFetching"
                 />
             </div>
         </div>
-        <div v-if="accessGrantsList.length" class="access-grants-items">
+        <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader"/>
+        <div v-if="accessGrantsList.length && !areGrantsFetching" class="access-grants-items">
             <SortAccessGrantsHeader :on-header-click-callback="onHeaderSectionClickCallback"/>
             <div class="access-grants-items__content">
                 <VList
@@ -40,7 +42,7 @@
                 :on-page-click-callback="onPageClick"
             />
         </div>
-        <EmptyState v-else />
+        <EmptyState v-if="!accessGrantsList.length && !areGrantsFetching" />
         <ConfirmDeletePopup
             v-if="isDeleteClicked"
             @close="onClearSelection"
@@ -59,6 +61,7 @@ import EmptyState from '@/components/accessGrants/EmptyState.vue';
 import SortAccessGrantsHeader from '@/components/accessGrants/SortingHeader.vue';
 import VButton from '@/components/common/VButton.vue';
 import VList from '@/components/common/VList.vue';
+import VLoader from '@/components/common/VLoader.vue';
 import VPagination from '@/components/common/VPagination.vue';
 
 import { RouteConfig } from '@/router';
@@ -88,6 +91,7 @@ declare interface ResetPagination {
         VPagination,
         VButton,
         ConfirmDeletePopup,
+        VLoader,
     },
 })
 export default class AccessGrants extends Vue {
@@ -98,6 +102,8 @@ export default class AccessGrants extends Vue {
      */
     private isDeleteClicked: boolean = false;
 
+    public areGrantsFetching: boolean = true;
+
     public $refs!: {
         pagination: HTMLElement & ResetPagination;
     };
@@ -107,7 +113,9 @@ export default class AccessGrants extends Vue {
      */
     public async mounted(): Promise<void> {
         try {
-            await this.$store.dispatch(FETCH, 1);
+            await this.$store.dispatch(FETCH, this.FIRST_PAGE);
+
+            this.areGrantsFetching = false;
         } catch (error) {
             await this.$notify.error(`Unable to fetch Access Grants. ${error.message}`);
         }
@@ -261,5 +269,9 @@ export default class AccessGrants extends Vue {
                 border-radius: 0 0 8px 8px;
             }
         }
+    }
+
+    .grants-loader {
+        margin-top: 50px;
     }
 </style>

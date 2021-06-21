@@ -39,11 +39,13 @@ describe('ProjectMembersArea.vue', () => {
 
     pmApi.setMockPage(testProjectMembersPage);
 
-    it('renders correctly', () => {
+    it('renders correctly', async (): Promise<void> => {
         const wrapper = shallowMount(ProjectMembersArea, {
             store,
             localVue,
         });
+
+        await wrapper.setData({ areMembersFetching: false });
 
         expect(wrapper).toMatchSnapshot();
     });
@@ -59,13 +61,15 @@ describe('ProjectMembersArea.vue', () => {
         expect(wrapper.vm.projectMembers).toEqual([projectMember1]);
     });
 
-    it('team area renders correctly', () => {
+    it('team area renders correctly', async (): Promise<void> => {
         store.commit(FETCH, testProjectMembersPage);
 
         const wrapper = shallowMount(ProjectMembersArea, {
             store,
             localVue,
         });
+
+        await wrapper.setData({ areMembersFetching: false });
 
         const emptySearchResultArea = wrapper.findAll('.team-area__empty-search-result-area');
         expect(emptySearchResultArea.length).toBe(0);
@@ -138,7 +142,7 @@ describe('ProjectMembersArea.vue', () => {
         expect(wrapper.vm.projectMembers[0].user.id).toBe(projectMember2.user.id);
     });
 
-    it('empty search result area render correctly', () => {
+    it('empty search result area render correctly', async (): Promise<void> => {
         const testPage1 = new ProjectMembersPage();
         testPage1.projectMembers = [];
         testPage1.totalCount = 0;
@@ -152,6 +156,8 @@ describe('ProjectMembersArea.vue', () => {
             store,
             localVue,
         });
+
+        await wrapper.setData({ areMembersFetching: false });
 
         const emptySearchResultArea = wrapper.findAll('.team-area__empty-search-result-area');
         expect(emptySearchResultArea.length).toBe(1);

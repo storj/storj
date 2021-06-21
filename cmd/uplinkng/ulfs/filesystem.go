@@ -1,7 +1,7 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package main
+package ulfs
 
 import (
 	"context"
@@ -13,40 +13,38 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/cmd/uplinkng/ulloc"
 	"storj.io/uplink"
 )
 
-// filesystem represents either the local filesystem or the data backed by a project.
-type filesystem interface {
+// Filesystem represents either the local Filesystem or the data backed by a project.
+type Filesystem interface {
 	Close() error
-	Open(ctx clingy.Context, loc Location) (readHandle, error)
-	Create(ctx clingy.Context, loc Location) (writeHandle, error)
-	ListObjects(ctx context.Context, prefix Location, recursive bool) (objectIterator, error)
-	ListUploads(ctx context.Context, prefix Location, recursive bool) (objectIterator, error)
-	IsLocalDir(ctx context.Context, loc Location) bool
+	Open(ctx clingy.Context, loc ulloc.Location) (ReadHandle, error)
+	Create(ctx clingy.Context, loc ulloc.Location) (WriteHandle, error)
+	Remove(ctx context.Context, loc ulloc.Location) error
+	ListObjects(ctx context.Context, prefix ulloc.Location, recursive bool) (ObjectIterator, error)
+	ListUploads(ctx context.Context, prefix ulloc.Location, recursive bool) (ObjectIterator, error)
+	IsLocalDir(ctx context.Context, loc ulloc.Location) bool
 }
 
 //
 // object info
 //
 
-// objectInfo is a simpler *uplink.Object that contains the minimal information the
+// ObjectInfo is a simpler *uplink.Object that contains the minimal information the
 // uplink command needs that multiple types can be converted to.
-type objectInfo struct {
-	Loc           Location
+type ObjectInfo struct {
+	Loc           ulloc.Location
 	IsPrefix      bool
 	Created       time.Time
 	ContentLength int64
 }
 
 // uplinkObjectToObjectInfo returns an objectInfo converted from an *uplink.Object.
-func uplinkObjectToObjectInfo(bucket string, obj *uplink.Object) objectInfo {
-	return objectInfo{
-		Loc: Location{
-			bucket: bucket,
-			key:    obj.Key,
-			remote: true,
-		},
+func uplinkObjectToObjectInfo(bucket string, obj *uplink.Object) ObjectInfo {
+	return ObjectInfo{
+		Loc:           ulloc.NewRemote(bucket, obj.Key),
 		IsPrefix:      obj.IsPrefix,
 		Created:       obj.System.Created,
 		ContentLength: obj.System.ContentLength,
@@ -54,13 +52,9 @@ func uplinkObjectToObjectInfo(bucket string, obj *uplink.Object) objectInfo {
 }
 
 // uplinkUploadInfoToObjectInfo returns an objectInfo converted from an *uplink.Object.
-func uplinkUploadInfoToObjectInfo(bucket string, upl *uplink.UploadInfo) objectInfo {
-	return objectInfo{
-		Loc: Location{
-			bucket: bucket,
-			key:    upl.Key,
-			remote: true,
-		},
+func uplinkUploadInfoToObjectInfo(bucket string, upl *uplink.UploadInfo) ObjectInfo {
+	return ObjectInfo{
+		Loc:           ulloc.NewRemote(bucket, upl.Key),
 		IsPrefix:      upl.IsPrefix,
 		Created:       upl.System.Created,
 		ContentLength: upl.System.ContentLength,
@@ -71,11 +65,11 @@ func uplinkUploadInfoToObjectInfo(bucket string, upl *uplink.UploadInfo) objectI
 // read handles
 //
 
-// readHandle is something that can be read from.
-type readHandle interface {
+// ReadHandle is something that can be read from.
+type ReadHandle interface {
 	io.Reader
 	io.Closer
-	Info() objectInfo
+	Info() ObjectInfo
 }
 
 // uplinkReadHandle implements readHandle for *uplink.Downloads.
@@ -94,12 +88,12 @@ func newUplinkReadHandle(bucket string, dl *uplink.Download) *uplinkReadHandle {
 
 func (u *uplinkReadHandle) Read(p []byte) (int, error) { return u.dl.Read(p) }
 func (u *uplinkReadHandle) Close() error               { return u.dl.Close() }
-func (u *uplinkReadHandle) Info() objectInfo           { return uplinkObjectToObjectInfo(u.bucket, u.dl.Info()) }
+func (u *uplinkReadHandle) Info() ObjectInfo           { return uplinkObjectToObjectInfo(u.bucket, u.dl.Info()) }
 
 // osReadHandle implements readHandle for *os.Files.
 type osReadHandle struct {
 	raw  *os.File
-	info objectInfo
+	info ObjectInfo
 }
 
 // newOsReadHandle constructs an *osReadHandle from an *os.File.
@@ -110,8 +104,8 @@ func newOSReadHandle(fh *os.File) (*osReadHandle, error) {
 	}
 	return &osReadHandle{
 		raw: fh,
-		info: objectInfo{
-			Loc:           Location{path: fh.Name()},
+		info: ObjectInfo{
+			Loc:           ulloc.NewLocal(fh.Name()),
 			IsPrefix:      false,
 			Created:       fi.ModTime(), // TODO: os specific crtime
 			ContentLength: fi.Size(),
@@ -121,7 +115,7 @@ func newOSReadHandle(fh *os.File) (*osReadHandle, error) {
 
 func (o *osReadHandle) Read(p []byte) (int, error) { return o.raw.Read(p) }
 func (o *osReadHandle) Close() error               { return o.raw.Close() }
-func (o *osReadHandle) Info() objectInfo           { return o.info }
+func (o *osReadHandle) Info() ObjectInfo           { return o.info }
 
 // genericReadHandle implements readHandle for an io.Reader.
 type genericReadHandle struct{ r io.Reader }
@@ -133,14 +127,14 @@ func newGenericReadHandle(r io.Reader) *genericReadHandle {
 
 func (g *genericReadHandle) Read(p []byte) (int, error) { return g.r.Read(p) }
 func (g *genericReadHandle) Close() error               { return nil }
-func (g *genericReadHandle) Info() objectInfo           { return objectInfo{ContentLength: -1} }
+func (g *genericReadHandle) Info() ObjectInfo           { return ObjectInfo{ContentLength: -1} }
 
 //
 // write handles
 //
 
-// writeHandle is anything that can be written to with commit/abort semantics.
-type writeHandle interface {
+// WriteHandle is anything that can be written to with commit/abort semantics.
+type WriteHandle interface {
 	io.Writer
 	Commit() error
 	Abort() error
@@ -212,11 +206,11 @@ func (g *genericWriteHandle) Abort() error                { return nil }
 // object iteration
 //
 
-// objectIterator is an interface type for iterating over objectInfo values.
-type objectIterator interface {
+// ObjectIterator is an interface type for iterating over objectInfo values.
+type ObjectIterator interface {
 	Next() bool
 	Err() error
-	Item() objectInfo
+	Item() ObjectInfo
 }
 
 // filteredObjectIterator removes any iteration entries that do not begin with the filter.
@@ -225,7 +219,7 @@ type objectIterator interface {
 type filteredObjectIterator struct {
 	trim   string
 	filter string
-	iter   objectIterator
+	iter   ObjectIterator
 }
 
 func (f *filteredObjectIterator) Next() bool {
@@ -245,15 +239,9 @@ func (f *filteredObjectIterator) Next() bool {
 
 func (f *filteredObjectIterator) Err() error { return f.iter.Err() }
 
-func (f *filteredObjectIterator) Item() objectInfo {
+func (f *filteredObjectIterator) Item() ObjectInfo {
 	item := f.iter.Item()
-	path := item.Loc
-	if path.remote {
-		path.key = path.key[len(f.trim):]
-	} else {
-		path.path = path.path[len(f.trim):]
-	}
-	item.Loc = path
+	item.Loc = item.Loc.RemoveKeyPrefix(f.trim)
 	return item
 }
 
@@ -262,4 +250,4 @@ type emptyObjectIterator struct{}
 
 func (emptyObjectIterator) Next() bool       { return false }
 func (emptyObjectIterator) Err() error       { return nil }
-func (emptyObjectIterator) Item() objectInfo { return objectInfo{} }
+func (emptyObjectIterator) Item() ObjectInfo { return ObjectInfo{} }
