@@ -36,6 +36,7 @@ import ProjectsList from '@/components/projectsList/ProjectsList.vue';
 import ProjectMembersArea from '@/components/team/ProjectMembersArea.vue';
 
 import store from '@/store';
+import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { NavigationLink } from '@/types/navigation';
 
 const DashboardArea = () => import('@/views/DashboardArea.vue');
@@ -178,11 +179,6 @@ export const router = new Router({
                 {
                     path: RouteConfig.ProjectDashboard.path,
                     name: RouteConfig.ProjectDashboard.name,
-                    component: ProjectDashboard,
-                },
-                {
-                    path: RouteConfig.Root.path,
-                    name: 'default',
                     component: ProjectDashboard,
                 },
                 {
@@ -347,6 +343,7 @@ export const router = new Router({
                             children: [
                                 {
                                     path: '*',
+                                    name: RouteConfig.UploadFile.name,
                                     component: UploadFile,
                                 },
                             ],
@@ -363,7 +360,12 @@ export const router = new Router({
     ],
 });
 
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
+    if (from.name === RouteConfig.UploadFile.name && !store.state.appStateModule.appState.isUploadCancelPopupVisible) {
+        const areUploadsInProgress: boolean = await store.dispatch(OBJECTS_ACTIONS.CHECK_ONGOING_UPLOADS, to.path);
+        if (areUploadsInProgress) return;
+    }
+
     if (navigateToDefaultSubTab(to.matched, RouteConfig.Account)) {
         next(RouteConfig.Account.with(RouteConfig.Billing).path);
 
@@ -394,12 +396,6 @@ router.beforeEach((to, from, next) => {
         return;
     }
 
-    if (to.name === 'default') {
-        next(RouteConfig.ProjectDashboard.path);
-
-        return;
-    }
-
     next();
 });
 
@@ -424,7 +420,6 @@ router.afterEach(({ name }, from) => {
  * if our route is a tab and has no sub tab route - we will navigate to default subtab.
  * F.E. /account/ -> /account/billing/;
  * @param routes - array of RouteRecord from vue-router
- * @param next - callback to process next route
  * @param tabRoute - tabNavigator route
  */
 function navigateToDefaultSubTab(routes: RouteRecord[], tabRoute: NavigationLink): boolean {

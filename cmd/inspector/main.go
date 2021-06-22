@@ -7,12 +7,10 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/csv"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -21,7 +19,6 @@ import (
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/private/process"
-	"storj.io/storj/private/prompt"
 	_ "storj.io/storj/private/version" // This attaches version information during release builds.
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/uplink/private/eestream"
@@ -49,8 +46,6 @@ var (
 	// ErrArgs throws when there are errors with CLI args.
 	ErrArgs = errs.Class("invalid CLI args")
 
-	irreparableLimit int32
-
 	// Commander CLI.
 	rootCmd = &cobra.Command{
 		Use:   "inspector",
@@ -63,11 +58,6 @@ var (
 	healthCmd = &cobra.Command{
 		Use:   "health",
 		Short: "commands for querying health of a stored data",
-	}
-	irreparableCmd = &cobra.Command{
-		Use:   "irreparable",
-		Short: "list segments in irreparable database",
-		RunE:  getSegments,
 	}
 	objectHealthCmd = &cobra.Command{
 		Use:   "object <project-id> <bucket> <encrypted-path>",
@@ -87,7 +77,6 @@ var (
 type Inspector struct {
 	conn         *rpc.Conn
 	identity     *identity.FullIdentity
-	irrdbclient  internalpb.DRPCIrreparableInspectorClient
 	healthclient internalpb.DRPCHealthInspectorClient
 }
 
@@ -109,7 +98,6 @@ func NewInspector(ctx context.Context, address, path string) (*Inspector, error)
 	return &Inspector{
 		conn:         conn,
 		identity:     id,
-		irrdbclient:  internalpb.NewDRPCIrreparableInspectorClient(conn),
 		healthclient: internalpb.NewDRPCHealthInspectorClient(conn),
 	}, nil
 }
@@ -362,84 +350,14 @@ func printRedundancyTable(w *csv.Writer, redundancy eestream.RedundancyStrategy)
 	return nil
 }
 
-func getSegments(cmd *cobra.Command, args []string) error {
-	if irreparableLimit <= int32(0) {
-		return ErrArgs.New("limit must be greater than 0")
-	}
-
-	ctx, _ := process.Ctx(cmd)
-	i, err := NewInspector(ctx, *Addr, *IdentityPath)
-	if err != nil {
-		return ErrInspectorDial.Wrap(err)
-	}
-	defer func() { err = errs.Combine(err, i.Close()) }()
-
-	var lastSeenSegmentPath = []byte{}
-
-	// query DB and paginate results
-	for {
-		req := &internalpb.ListIrreparableSegmentsRequest{
-			Limit:               irreparableLimit,
-			LastSeenSegmentPath: lastSeenSegmentPath,
-		}
-		res, err := i.irrdbclient.ListIrreparableSegments(ctx, req)
-		if err != nil {
-			return ErrRequest.Wrap(err)
-		}
-
-		if len(res.Segments) == 0 {
-			break
-		}
-		lastSeenSegmentPath = res.Segments[len(res.Segments)-1].Path
-
-		objects := sortSegments(res.Segments)
-		// format and print segments
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		err = enc.Encode(objects)
-		if err != nil {
-			return err
-		}
-
-		length := int32(len(res.Segments))
-		if length >= irreparableLimit {
-			confirmed, err := prompt.Confirm("\nNext page? [y/n]")
-			if err != nil {
-				return err
-			}
-			if !confirmed {
-				break
-			}
-		}
-	}
-	return nil
-}
-
-// sortSegments by the object they belong to.
-func sortSegments(segments []*internalpb.IrreparableSegment) map[string][]*internalpb.IrreparableSegment {
-	objects := make(map[string][]*internalpb.IrreparableSegment)
-	for _, seg := range segments {
-		pathElements := storj.SplitPath(string(seg.Path))
-
-		// by removing the segment index, we can easily sort segments into a map of objects
-		pathElements = append(pathElements[:1], pathElements[2:]...)
-		objPath := strings.Join(pathElements, "/")
-		objects[objPath] = append(objects[objPath], seg)
-	}
-	return objects
-}
-
 func init() {
 	rootCmd.AddCommand(statsCmd)
-	rootCmd.AddCommand(irreparableCmd)
 	rootCmd.AddCommand(healthCmd)
 
 	healthCmd.AddCommand(objectHealthCmd)
 	healthCmd.AddCommand(segmentHealthCmd)
 
 	objectHealthCmd.Flags().StringVar(&CSVPath, "csv-path", "stdout", "csv path where command output is written")
-
-	irreparableCmd.Flags().Int32Var(&irreparableLimit, "limit", 50, "max number of results per page")
 
 	flag.Parse()
 }

@@ -32,6 +32,11 @@ var nodeSelectionConfig = overlay.NodeSelectionConfig{
 	OnlineWindow:     4 * time.Hour,
 	DistinctIP:       true,
 	MinimumDiskSpace: 100 * memory.MiB,
+
+	AsOfSystemTime: overlay.AsOfSystemTimeConfig{
+		Enabled:         true,
+		DefaultInterval: -time.Microsecond,
+	},
 }
 
 const (

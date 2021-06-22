@@ -23,11 +23,11 @@ export const appStateModule = {
             isPeriodsDropdownShown: false,
             isDeleteProjectPopupShown: false,
             isDeleteAccountPopupShown: false,
-            isSortProjectMembersByPopupShown: false,
             isSuccessfulRegistrationShown: false,
             isEditProfilePopupShown: false,
             isChangePasswordPopupShown: false,
             isPaymentSelectionShown: false,
+            isUploadCancelPopupVisible: false,
         },
         satelliteName: '',
         partneredSatellites: new Array<PartneredSatellite>(),
@@ -79,10 +79,6 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.TOGGLE_DELETE_ACCOUNT_DROPDOWN](state: any): void {
             state.appState.isDeleteAccountPopupShown = !state.appState.isDeleteAccountPopupShown;
         },
-        // Mutation changing 'sort project members by' popup visibility.
-        [APP_STATE_MUTATIONS.TOGGLE_SORT_PM_BY_DROPDOWN](state: any): void {
-            state.appState.isSortProjectMembersByPopupShown = !state.appState.isSortProjectMembersByPopupShown;
-        },
         // Mutation changing 'successful registration' area visibility.
         [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_REGISTRATION](state: any): void {
             state.appState.isSuccessfulRegistrationShown = !state.appState.isSuccessfulRegistrationShown;
@@ -92,6 +88,9 @@ export const appStateModule = {
         },
         [APP_STATE_MUTATIONS.TOGGLE_EDIT_PROFILE_POPUP](state: any): void {
             state.appState.isEditProfilePopupShown = !state.appState.isEditProfilePopupShown;
+        },
+        [APP_STATE_MUTATIONS.TOGGLE_UPLOAD_CANCEL_POPUP](state: any): void {
+            state.appState.isUploadCancelPopupVisible = !state.appState.isUploadCancelPopupVisible;
         },
         [APP_STATE_MUTATIONS.SHOW_SET_DEFAULT_PAYMENT_METHOD_POPUP](state: any, id: string): void {
             state.appState.setDefaultPaymentMethodID = id;
@@ -110,7 +109,6 @@ export const appStateModule = {
             state.appState.isAvailableBalanceDropdownShown = false;
             state.appState.isPeriodsDropdownShown = false;
             state.appState.isPaymentSelectionShown = false;
-            state.appState.isSortProjectMembersByPopupShown = false;
         },
         [APP_STATE_MUTATIONS.CHANGE_STATE](state: any, newFetchState: AppState): void {
             state.appState.fetchState = newFetchState;
@@ -218,13 +216,6 @@ export const appStateModule = {
 
             commit(APP_STATE_MUTATIONS.TOGGLE_DELETE_ACCOUNT_DROPDOWN);
         },
-        [APP_STATE_ACTIONS.TOGGLE_SORT_PM_BY_DROPDOWN]: function ({commit, state}: any): void {
-            if (!state.appState.isSortProjectMembersByPopupShown) {
-                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
-            }
-
-            commit(APP_STATE_MUTATIONS.TOGGLE_SORT_PM_BY_DROPDOWN);
-        },
         [APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION]: function ({commit, state}: any): void {
             if (!state.appState.isSuccessfulRegistrationShown) {
                 commit(APP_STATE_MUTATIONS.CLOSE_ALL);
@@ -234,6 +225,9 @@ export const appStateModule = {
         },
         [APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP]: function ({commit}: any): void {
             commit(APP_STATE_MUTATIONS.TOGGLE_CHANGE_PASSWORD_POPUP);
+        },
+        [APP_STATE_ACTIONS.TOGGLE_UPLOAD_CANCEL_POPUP]: function ({commit}: any): void {
+            commit(APP_STATE_MUTATIONS.TOGGLE_UPLOAD_CANCEL_POPUP);
         },
         [APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP]: function ({commit}: any): void {
             commit(APP_STATE_MUTATIONS.TOGGLE_EDIT_PROFILE_POPUP);

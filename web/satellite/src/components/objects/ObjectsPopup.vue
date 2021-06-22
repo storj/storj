@@ -131,7 +131,7 @@ export default class ObjectsPopup extends Vue {
                 border-radius: 9px;
 
                 &__msg {
-                    font-family: 'font_Bold', sans-serif;
+                    font-family: 'font_medium', sans-serif;
                     font-size: 16px;
                     line-height: 19px;
                     color: #1b2533;
