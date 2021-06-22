@@ -368,7 +368,7 @@ export default class GeneratePassphrase extends Vue {
     }
 
     .active {
-        font-family: 'font_bold', sans-serif;
+        font-family: 'font_medium', sans-serif;
         color: #0068dc;
         border-bottom: 3px solid #0068dc;
     }

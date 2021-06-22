@@ -4,7 +4,7 @@
 <template>
     <div class="edit-project">
         <div class="edit-project__selection-area" :class="{ active: isDropdownShown, 'on-edit': isEditPage }" @click.stop.prevent="toggleDropdown">
-            <h1 class="edit-project__selection-area__name" :title="projectName">{{ projectName }}</h1>
+            <p class="edit-project__selection-area__name" :title="projectName">{{ projectName }}</p>
             <DotsImage class="edit-project__selection-area__image"/>
         </div>
         <div class="edit-project__dropdown" v-if="isDropdownShown" v-click-outside="closeDropdown">
@@ -96,7 +96,7 @@ export default class EditProjectDropdown extends Vue {
             cursor: pointer;
 
             &__name {
-                font-family: 'font_bold', sans-serif;
+                font-family: 'font_medium', sans-serif;
                 font-size: 18px;
                 line-height: 22px;
                 color: #000;

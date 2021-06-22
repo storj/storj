@@ -208,7 +208,7 @@ export default class ChangePasswordPopup extends Vue {
         flex-direction: row;
         align-content: center;
         justify-content: flex-start;
-        margin-bottom: 20px;
+        margin-bottom: 40px;
     }
 
     .change-password-popup {

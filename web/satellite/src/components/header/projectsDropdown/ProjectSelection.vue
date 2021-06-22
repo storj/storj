@@ -7,7 +7,7 @@
             class="project-selection__toggle-container"
             @click.stop="toggleSelection"
         >
-            <h1 class="project-selection__toggle-container__name" :class="{ white: isDropdownShown }">Projects</h1>
+            <p class="project-selection__toggle-container__name" :class="{ white: isDropdownShown }">Projects</p>
             <ExpandIcon
                 class="project-selection__toggle-container__expand-icon"
                 :class="{ expanded: isDropdownShown }"
