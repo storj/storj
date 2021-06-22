@@ -27,7 +27,6 @@ import (
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
-	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -199,11 +198,6 @@ func (dbc *satelliteDBCollection) StoragenodeAccounting() accounting.Storagenode
 // ProjectAccounting returns database for tracking project data use.
 func (dbc *satelliteDBCollection) ProjectAccounting() accounting.ProjectAccounting {
 	return &ProjectAccounting{db: dbc.getByName("projectaccounting")}
-}
-
-// Irreparable returns database for storing segments that failed repair.
-func (dbc *satelliteDBCollection) Irreparable() irreparable.DB {
-	return &irreparableDB{db: dbc.getByName("irreparable")}
 }
 
 // Revocation returns the database to deal with macaroon revocation.

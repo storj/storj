@@ -8,35 +8,39 @@ import (
 
 	"github.com/zeebo/clingy"
 
+	"storj.io/storj/cmd/uplinkng/ulfs"
 	"storj.io/uplink"
 	privateAccess "storj.io/uplink/private/access"
 )
 
 type projectProvider struct {
-	access      string
-	openProject func(ctx context.Context) (*uplink.Project, error)
+	access string
+
+	testProject    *uplink.Project
+	testFilesystem ulfs.Filesystem
 }
 
 func (pp *projectProvider) Setup(a clingy.Arguments, f clingy.Flags) {
 	pp.access = f.New("access", "Which access to use", "").(string)
 }
 
-func (pp *projectProvider) OpenFilesystem(ctx context.Context, options ...projectOption) (filesystem, error) {
+func (pp *projectProvider) SetTestFilesystem(fs ulfs.Filesystem) { pp.testFilesystem = fs }
+
+func (pp *projectProvider) OpenFilesystem(ctx context.Context, options ...projectOption) (ulfs.Filesystem, error) {
+	if pp.testFilesystem != nil {
+		return pp.testFilesystem, nil
+	}
+
 	project, err := pp.OpenProject(ctx, options...)
 	if err != nil {
 		return nil, err
 	}
-	return &filesystemMixed{
-		local: &filesystemLocal{},
-		remote: &filesystemRemote{
-			project: project,
-		},
-	}, nil
+	return ulfs.NewMixed(ulfs.NewLocal(), ulfs.NewRemote(project)), nil
 }
 
 func (pp *projectProvider) OpenProject(ctx context.Context, options ...projectOption) (*uplink.Project, error) {
-	if pp.openProject != nil {
-		return pp.openProject(ctx)
+	if pp.testProject != nil {
+		return pp.testProject, nil
 	}
 
 	var opts projectOptions
@@ -44,7 +48,7 @@ func (pp *projectProvider) OpenProject(ctx context.Context, options ...projectOp
 		opt.apply(&opts)
 	}
 
-	accessDefault, accesses, err := gf.GetAccessInfo()
+	accessDefault, accesses, err := gf.GetAccessInfo(true)
 	if err != nil {
 		return nil, err
 	}
@@ -57,6 +61,8 @@ func (pp *projectProvider) OpenProject(ctx context.Context, options ...projectOp
 		access, err = uplink.ParseAccess(data)
 	} else {
 		access, err = uplink.ParseAccess(accessDefault)
+		// TODO: if this errors then it's probably a name so don't report an error
+		// that says "it failed to parse"
 	}
 	if err != nil {
 		return nil, err

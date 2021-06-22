@@ -56,11 +56,14 @@ func (collector *PathCollector) LoopStarted(context.Context, metaloop.LoopInfo) 
 
 // Flush persists the current buffer items to the database.
 func (collector *PathCollector) Flush(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	return collector.flush(ctx, 1)
 }
 
 // RemoteSegment takes a remote segment found in metainfo and creates a graceful exit transfer queue item if it doesn't exist already.
 func (collector *PathCollector) RemoteSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if len(collector.nodeIDStorage) == 0 {
 		return nil
 	}
@@ -114,6 +117,8 @@ func (collector *PathCollector) InlineSegment(ctx context.Context, segment *meta
 }
 
 func (collector *PathCollector) flush(ctx context.Context, limit int) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if len(collector.buffer) >= limit {
 		err = collector.db.Enqueue(ctx, collector.buffer, collector.batchSize)
 		collector.buffer = collector.buffer[:0]

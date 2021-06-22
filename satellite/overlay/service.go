@@ -487,7 +487,44 @@ func (service *Service) UpdateNodeInfo(ctx context.Context, node storj.NodeID, n
 // UpdateCheckIn updates a single storagenode's check-in info.
 func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
+	oldInfo, err := service.Get(ctx, node.NodeID)
+	if err != nil && !ErrNodeNotFound.Has(err) {
+		return Error.New("failed to get node info from DB")
+	}
+
+	if oldInfo == nil {
+		return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
+	}
+
+	lastUp, lastDown := oldInfo.Reputation.LastContactSuccess, oldInfo.Reputation.LastContactFailure
+	lastContact := lastUp
+	if lastContact.Before(lastDown) {
+		lastContact = lastDown
+	}
+
+	dbStale := lastContact.Add(service.config.NodeCheckInWaitPeriod).Before(timestamp) ||
+		(node.IsUp && lastUp.Before(lastDown)) || (!node.IsUp && lastDown.Before(lastUp))
+
+	addrChanged := ((node.Address == nil) != (oldInfo.Address == nil)) ||
+		(oldInfo.Address != nil && node.Address != nil && oldInfo.Address.Address != node.Address.Address)
+
+	walletChanged := (node.Operator == nil && oldInfo.Operator.Wallet != "") ||
+		(node.Operator != nil && oldInfo.Operator.Wallet != node.Operator.Wallet)
+
+	verChanged := (node.Version == nil && oldInfo.Version.Version != "") ||
+		(node.Version != nil && oldInfo.Version.Version != node.Version.Version)
+
+	spaceChanged := (node.Capacity == nil && oldInfo.Capacity.FreeDisk != 0) ||
+		(node.Capacity != nil && node.Capacity.FreeDisk != oldInfo.Capacity.FreeDisk)
+
+	if dbStale || addrChanged || walletChanged || verChanged || spaceChanged ||
+		oldInfo.LastNet != node.LastNet || oldInfo.LastIPPort != node.LastIPPort {
+		return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
+	}
+	service.log.Debug("ignoring unnecessary check-in",
+		zap.String("node address", node.Address.Address),
+		zap.Stringer("Node ID", node.NodeID))
+	return nil
 }
 
 // GetMissingPieces returns the list of offline nodes.

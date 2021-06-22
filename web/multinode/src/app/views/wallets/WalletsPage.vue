@@ -7,6 +7,7 @@
         <div class="wallets__content-area">
             <div class="wallets__left-area">
                 <wallets-table
+                    v-if="operatorsState.operators.length"
                     class="wallets__left-area__table"
                     :operators="operatorsState.operators"
                 />
@@ -16,12 +17,12 @@
                     <div class="wallets__information" slot="body">
                         <h3 class="wallets__information__title">Payouts with zkSync</h3>
                         <p class="wallets__information__description">Short description how minimal threshold system works.</p>
-                        <v-link uri="#" label="Learn more" />
+                      <v-link uri="https://forum.storj.io/t/minimum-threshold-for-storage-node-operator-payouts/11064" label="Learn more" />
                     </div>
                 </info-block>
             </div>
         </div>
-        <div class="wallets__pagination">
+        <div class="wallets__pagination" v-if="operatorsState.pageCount > 1">
             <v-pagination
                 :total-page-count="operatorsState.pageCount"
                 :preselected-current-page-number="operatorsState.currentPage"

@@ -5,7 +5,6 @@ package repairer
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -16,7 +15,6 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/storage"
 )
@@ -49,13 +47,12 @@ type Service struct {
 	JobLimiter *semaphore.Weighted
 	Loop       *sync2.Cycle
 	repairer   *SegmentRepairer
-	irrDB      irreparable.DB
 
 	nowFn func() time.Time
 }
 
 // NewService creates repairing service.
-func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, repairer *SegmentRepairer, irrDB irreparable.DB) *Service {
+func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, repairer *SegmentRepairer) *Service {
 	return &Service{
 		log:        log,
 		queue:      queue,
@@ -63,7 +60,6 @@ func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, repair
 		JobLimiter: semaphore.NewWeighted(int64(config.MaxRepair)),
 		Loop:       sync2.NewCycle(config.Interval),
 		repairer:   repairer,
-		irrDB:      irrDB,
 
 		nowFn: time.Now,
 	}
@@ -163,23 +159,8 @@ func (service *Service) worker(ctx context.Context, seg *internalpb.InjuredSegme
 	// note that shouldDelete is used even in the case where err is not null
 	shouldDelete, err := service.repairer.Repair(ctx, string(seg.GetPath()))
 	if shouldDelete {
-		var irreparableErr *irreparableError
-		if errors.As(err, &irreparableErr) {
-			service.log.Error("segment could not be repaired! adding to irreparableDB for more attention",
-				zap.Error(err))
-			segmentInfo := &internalpb.IrreparableSegment{
-				Path:               seg.GetPath(),
-				LostPieces:         irreparableErr.piecesRequired - irreparableErr.piecesAvailable,
-				LastRepairAttempt:  service.nowFn().Unix(),
-				RepairAttemptCount: int64(1),
-			}
-			if err := service.irrDB.IncrementRepairAttempts(ctx, segmentInfo); err != nil {
-				service.log.Error("failed to add segment to irreparableDB! will leave in repair queue", zap.Error(err))
-				shouldDelete = false
-			}
-		} else if err != nil {
-			service.log.Error("unexpected error repairing segment!",
-				zap.Error(err))
+		if err != nil {
+			service.log.Error("unexpected error repairing segment!", zap.Error(err))
 		} else {
 			service.log.Debug("removing repaired segment from repair queue")
 		}

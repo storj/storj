@@ -28,7 +28,7 @@ func TestResolvePartnerID(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		endpoint := planet.Satellites[0].Metainfo.Endpoint2
+		endpoint := planet.Satellites[0].Metainfo.Endpoint
 
 		zenkoPartnerID, err := uuid.FromString("8cd605fa-ad00-45b6-823e-550eddc611d6")
 		require.NoError(t, err)
@@ -364,7 +364,7 @@ func TestBucketAttributionConcurrentUpload(t *testing.T) {
 
 		ctx.Wait()
 
-		expectedPartnerID, err := satellite.Metainfo.Endpoint2.ResolvePartnerID(ctx, &pb.RequestHeader{
+		expectedPartnerID, err := satellite.Metainfo.Endpoint.ResolvePartnerID(ctx, &pb.RequestHeader{
 			UserAgent: []byte("Minio"),
 		})
 		require.NoError(t, err)

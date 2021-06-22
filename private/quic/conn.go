@@ -97,7 +97,7 @@ func (c *Conn) ConnectionState() tls.ConnectionState {
 
 // Close closes the quic connection.
 func (c *Conn) Close() error {
-	return c.session.CloseWithError(quic.ErrorCode(0), "")
+	return c.session.CloseWithError(0, "")
 }
 
 // LocalAddr returns the local address.

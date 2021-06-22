@@ -133,7 +133,7 @@ export default class EditProfilePopup extends Vue {
         flex-direction: row;
         align-content: center;
         justify-content: flex-start;
-        margin-bottom: 20px;
+        margin-bottom: 40px;
     }
 
     .edit-profile-popup-container {
