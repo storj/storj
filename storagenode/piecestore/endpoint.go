@@ -52,20 +52,22 @@ type OldConfig struct {
 
 // Config defines parameters for piecestore endpoint.
 type Config struct {
-	DatabaseDir                     string        `help:"directory to store databases. if empty, uses data path" default:""`
-	ExpirationGracePeriod           time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
-	MaxConcurrentRequests           int           `help:"how many concurrent requests are allowed, before uploads are rejected. 0 represents unlimited." default:"0"`
-	DeleteWorkers                   int           `help:"how many piece delete workers" default:"1"`
-	DeleteQueueSize                 int           `help:"size of the piece delete queue" default:"10000"`
-	OrderLimitGracePeriod           time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
-	CacheSyncInterval               time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
-	StreamOperationTimeout          time.Duration `help:"how long to spend waiting for a stream operation before canceling" default:"30m"`
-	RetainTimeBuffer                time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s"`
-	ReportCapacityThreshold         memory.Size   `help:"threshold below which to immediately notify satellite of capacity" default:"500MB" hidden:"true"`
-	MaxUsedSerialsSize              memory.Size   `help:"amount of memory allowed for used serials store - once surpassed, serials will be dropped at random" default:"1MB"`
-	MinUploadSpeed                  memory.Size   `help:"a client upload speed should not be lower than MinUploadSpeed in bytes-per-second (E.g: 1Mb), otherwise, it will be flagged as slow-connection and potentially be closed" default:"0Mb"`
-	DelayUntilSlowConnectionFlagged time.Duration `help:"if MinUploadSpeed is configured, after a period of time after the client initiated the upload, the server will flag unusually slow upload client" default:"0h0m10s"`
-	Trust                           trust.Config
+	DatabaseDir             string        `help:"directory to store databases. if empty, uses data path" default:""`
+	ExpirationGracePeriod   time.Duration `help:"how soon before expiration date should things be considered expired" default:"48h0m0s"`
+	MaxConcurrentRequests   int           `help:"how many concurrent requests are allowed, before uploads are rejected. 0 represents unlimited." default:"0"`
+	DeleteWorkers           int           `help:"how many piece delete workers" default:"1"`
+	DeleteQueueSize         int           `help:"size of the piece delete queue" default:"10000"`
+	OrderLimitGracePeriod   time.Duration `help:"how long after OrderLimit creation date are OrderLimits no longer accepted" default:"1h0m0s"`
+	CacheSyncInterval       time.Duration `help:"how often the space used cache is synced to persistent storage" releaseDefault:"1h0m0s" devDefault:"0h1m0s"`
+	StreamOperationTimeout  time.Duration `help:"how long to spend waiting for a stream operation before canceling" default:"30m"`
+	RetainTimeBuffer        time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s"`
+	ReportCapacityThreshold memory.Size   `help:"threshold below which to immediately notify satellite of capacity" default:"500MB" hidden:"true"`
+	MaxUsedSerialsSize      memory.Size   `help:"amount of memory allowed for used serials store - once surpassed, serials will be dropped at random" default:"1MB"`
+
+	MinUploadSpeed              memory.Size   `help:"a client upload speed should not be lower than MinUploadSpeed in bytes-per-second (E.g: 1Mb), otherwise, it will be flagged as slow-connection and potentially be closed" default:"0Mb"`
+	MinUploadSpeedGraceDuration time.Duration `help:"if MinUploadSpeed is configured, after a period of time after the client initiated the upload, the server will flag unusually slow upload client" default:"0h0m10s"`
+
+	Trust trust.Config
 
 	Monitor monitor.Config
 	Orders  orders.Config
@@ -180,28 +182,6 @@ func (endpoint *Endpoint) DeletePieces(
 	return &pb.DeletePiecesResponse{
 		UnhandledCount: int64(unhandled),
 	}, nil
-}
-
-func (endpoint *Endpoint) flagUnusualSlowUpload(averageUploadRate float64, connectionCount int64) bool {
-	// congestionThreshold defines the proportion of MaxConcurrentRequests
-	// that must be reached before the storage node will begin dropping slow
-	// upload connections to preserve its own bandwidth.
-	const congestionThreshold = 0.8
-
-	if averageUploadRate < float64(endpoint.config.MinUploadSpeed) {
-		if endpoint.config.MaxConcurrentRequests != 0 {
-			// if 80% of the connection pool is occupied and average upload falls below limit
-			// then the connection is flagged
-			requestCongestionThreshold := int64(float64(endpoint.config.MaxConcurrentRequests) * congestionThreshold)
-
-			if (connectionCount > requestCongestionThreshold) && averageUploadRate < float64(endpoint.config.MinUploadSpeed) {
-				return true
-			}
-		} else if averageUploadRate < float64(endpoint.config.MinUploadSpeed) {
-			return true
-		}
-	}
-	return false
 }
 
 // Upload handles uploading a piece on piece store.
@@ -341,19 +321,9 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		// Measure upload rate (bytes per second)
 		dt := time.Since(startTime)
 
-		// Skip flagging unusually slow connections in the first moments of uploading.
-		if dt > endpoint.config.DelayUntilSlowConnectionFlagged {
-			// currentUploadSize indicates the size of uploaded data until this moment.
-			currentUploadSize := float64(pieceWriter.Size())
-
-			// averageUploadRate is counted as average rate of upload over the lifetime of
-			// the connection.
-			averageUploadRate := currentUploadSize / dt.Seconds()
-
-			// Verify if the upload is unusually slow
-			if endpoint.flagUnusualSlowUpload(averageUploadRate, int64(liveRequests)) {
-				return rpcstatus.Errorf(rpcstatus.Aborted, "upload rate falls below limit")
-			}
+		// Verify if the upload is unusually slow
+		if endpoint.isSlowUpload(float64(pieceWriter.Size()), dt) {
+			return rpcstatus.Errorf(rpcstatus.Aborted, "upload rate falls below limit")
 		}
 
 		// TODO: reuse messages to avoid allocations
@@ -458,6 +428,46 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			return nil
 		}
 	}
+}
+
+// isSlowUpload verifies if the upload speed of a client falls below the acceptance level.
+// The conditions to flag a slow loris attack:
+// + Upload speed falls below endpoint.config.MinUploadSpeed
+// + endpoint.config.MaxConcurrentRequests is set, the total number of concurrent connections must remain below 80% of the capacity.
+// The verification is carried out only for connection that is kept alive longer than the MinUploadSpeedGraceDuration configuration.
+
+func (endpoint *Endpoint) isSlowUpload(currentUploadSize float64, connectionDuration time.Duration) bool {
+	// Skip flagging unusually slow connections in the first moments of uploading.
+	if connectionDuration < endpoint.config.MinUploadSpeedGraceDuration || connectionDuration == 0 {
+		return false
+	}
+
+	// Latest number of alive connection
+	connectionCount := atomic.AddInt32(&endpoint.liveRequests, 1)
+
+	// averageUploadRate is counted as average rate of upload over the lifetime of
+	// the connection.
+	averageUploadRate := currentUploadSize / connectionDuration.Seconds()
+
+	// congestionThreshold defines the proportion of MaxConcurrentRequests
+	// that must be reached before the storage node will begin dropping slow
+	// upload connections to preserve its own bandwidth.
+	const congestionThreshold = 0.8
+
+	if averageUploadRate < float64(endpoint.config.MinUploadSpeed) {
+		if endpoint.config.MaxConcurrentRequests != 0 {
+			// if 80% of the connection pool is occupied and average upload falls below limit
+			// then the connection is flagged
+			requestCongestionThreshold := int32(float64(endpoint.config.MaxConcurrentRequests) * congestionThreshold)
+
+			if (connectionCount > requestCongestionThreshold) && averageUploadRate < float64(endpoint.config.MinUploadSpeed) {
+				return true
+			}
+		} else if averageUploadRate < float64(endpoint.config.MinUploadSpeed) {
+			return true
+		}
+	}
+	return false
 }
 
 // Download handles Downloading a piece on piecestore.

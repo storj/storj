@@ -161,14 +161,6 @@ func TestUpload(t *testing.T) {
 }
 
 // TestSlowUpload tries to mock a SlowLoris attack.
-// The conditions to flag a slow loris attack:
-// +----------------------------------+-----------------------------------------------------------------------------------------------------------------------------------+
-// |            Categories            |                                                             Condition                                                             |
-// +----------------------------------+-----------------------------------------------------------------------------------------------------------------------------------+
-// | Upload Rate                      | Upload speed falls below endpoint.config.MinUploadSpeed                                                                           |
-// | Number of Concurrent Connections | If endpoint.config.MaxConcurrentRequests is set, the total number of concurrent connections must remain below 80% of the capacity |
-// +----------------------------------+-----------------------------------------------------------------------------------------------------------------------------------+
-
 func TestSlowUpload(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
@@ -183,7 +175,7 @@ func TestSlowUpload(t *testing.T) {
 				config.Storage2.MaxConcurrentRequests = 1
 				// Storage Node waits only few microsecond before starting the measurement
 				// of upload rate to flag unsually slow connection
-				config.Storage2.DelayUntilSlowConnectionFlagged = 500 * time.Microsecond
+				config.Storage2.MinUploadSpeedGraceDuration = 500 * time.Microsecond
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
