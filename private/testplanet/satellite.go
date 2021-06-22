@@ -94,7 +94,7 @@ type Satellite struct {
 	Metainfo struct {
 		Metabase    *metabase.DB
 		Service     *metainfo.Service
-		Endpoint2   *metainfo.Endpoint
+		Endpoint    *metainfo.Endpoint
 		Loop        *metaloop.Service
 		SegmentLoop *segmentloop.Service
 	}
@@ -393,8 +393,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	// cfgstruct devDefaults. we need to make sure it's safe to remove
 	// these lines and then remove them.
 	config.Debug.Control = false
-	config.Overlay.Node.AsOfSystemTime.Enabled = false
-	config.Overlay.Node.AsOfSystemTime.DefaultInterval = 0
 	config.Overlay.AuditHistory.OfflineDQEnabled = false
 	config.Server.Config.Extensions.Revocation = false
 	config.Orders.OrdersSemaphoreSize = 0
@@ -428,7 +426,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.Console.DocumentationURL = ""
 	config.Console.LinksharingURL = ""
 	config.Console.PathwayOverviewEnabled = false
-	config.GracefulExit.AsOfSystemTimeInterval = 0
 	config.Compensation.Rates.AtRestGBHours = compensation.Rate{}
 	config.Compensation.Rates.GetTB = compensation.Rate{}
 	config.Compensation.Rates.GetRepairTB = compensation.Rate{}
@@ -545,7 +542,7 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 
 	system.Metainfo.Metabase = api.Metainfo.Metabase
 	system.Metainfo.Service = peer.Metainfo.Service
-	system.Metainfo.Endpoint2 = api.Metainfo.Endpoint2
+	system.Metainfo.Endpoint = api.Metainfo.Endpoint
 	system.Metainfo.Loop = peer.Metainfo.Loop
 	system.Metainfo.SegmentLoop = peer.Metainfo.SegmentLoop
 

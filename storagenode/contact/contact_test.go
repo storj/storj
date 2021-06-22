@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/identity/testidentity"
@@ -17,6 +18,7 @@ import (
 	"storj.io/common/rpc/rpcpeer"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 )
 
 func TestStoragenodeContactEndpoint(t *testing.T) {
@@ -50,6 +52,11 @@ func TestStoragenodeContactEndpoint(t *testing.T) {
 func TestNodeInfoUpdated(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.NodeCheckInWaitPeriod = 0
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		node := planet.StorageNodes[0]
@@ -81,6 +88,11 @@ func TestNodeInfoUpdated(t *testing.T) {
 func TestServicePingSatellites(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 2, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.NodeCheckInWaitPeriod = 0
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		node := planet.StorageNodes[0]
 		node.Contact.Chore.Pause(ctx)

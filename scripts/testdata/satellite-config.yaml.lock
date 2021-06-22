@@ -247,9 +247,6 @@ contact.external-address: ""
 # the amount of time to allow a node to handle a retain request
 # garbage-collection.retain-send-timeout: 1m0s
 
-# if true, skip the first run of GC
-# garbage-collection.skip-first: true
-
 # interval for AS OF SYSTEM TIME clause (crdb specific) to read from db at a specific time in the past
 # graceful-exit.as-of-system-time-interval: -10s
 
@@ -486,6 +483,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # The length of time spanning a single audit window
 # overlay.audit-history.window-size: 12h0m0s
+
+# the amount of time to wait before accepting a redundant check-in from a node (unmodified info since last check-in)
+# overlay.node-check-in-wait-period: 2h0m0s
 
 # disable node cache
 # overlay.node-selection-cache.disabled: false
