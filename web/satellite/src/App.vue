@@ -32,7 +32,8 @@ export default class App extends Vue {
         const satelliteName = MetaUtils.getMetaContent('satellite-name');
         const partneredSatellitesJson = JSON.parse(MetaUtils.getMetaContent('partnered-satellites'));
         const isBetaSatellite = MetaUtils.getMetaContent('is-beta-satellite');
-        const couponCodeUIEnabled = MetaUtils.getMetaContent('coupon-code-ui-enabled');
+        const couponCodeBillingUIEnabled = MetaUtils.getMetaContent('coupon-code-billing-ui-enabled');
+        const couponCodeSignupUIEnabled = MetaUtils.getMetaContent('coupon-code-signup-ui-enabled');
 
         if (satelliteName) {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_NAME, satelliteName);
@@ -55,8 +56,11 @@ export default class App extends Vue {
             this.$store.dispatch(APP_STATE_ACTIONS.SET_SATELLITE_STATUS, isBetaSatellite === 'true');
         }
 
-        if (couponCodeUIEnabled) {
-            this.$store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_UI_STATUS, couponCodeUIEnabled === 'true');
+        if (couponCodeBillingUIEnabled) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS, couponCodeBillingUIEnabled === 'true');
+        }
+        if (couponCodeSignupUIEnabled) {
+            this.$store.dispatch(APP_STATE_ACTIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS, couponCodeSignupUIEnabled === 'true');
         }
 
     }

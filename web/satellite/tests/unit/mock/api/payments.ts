@@ -50,7 +50,7 @@ export class PaymentsMock implements PaymentsApi {
         return Promise.resolve(new TokenDeposit(amount, 'testAddress', 'testLink'));
     }
 
-    getPaywallStatus(userId: string): Promise<boolean> {
+    applyCouponCode(code: string): Promise<void> {
         throw new Error('Method not implemented');
     }
 }

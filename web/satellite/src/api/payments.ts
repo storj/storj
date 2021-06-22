@@ -253,4 +253,24 @@ export class PaymentsHttpApi implements PaymentsApi {
 
         return new TokenDeposit(result.amount, result.address, result.link);
     }
+
+    /**
+     * applyCouponCode applies a coupon code.
+     *
+     * @param couponCode
+     * @throws Error
+     */
+    public async applyCouponCode(couponCode: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/couponcodes/apply`;
+        const response = await this.client.patch(path, couponCode);
+
+        if (response.ok) {
+            return;
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+        throw new Error(`Can not apply coupon code "${couponCode}"`);
+    }
 }

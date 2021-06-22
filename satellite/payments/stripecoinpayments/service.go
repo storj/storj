@@ -15,7 +15,7 @@ import (
 
 	"github.com/shopspring/decimal"
 	"github.com/spacemonkeygo/monkit/v3"
-	"github.com/stripe/stripe-go"
+	"github.com/stripe/stripe-go/v72"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 

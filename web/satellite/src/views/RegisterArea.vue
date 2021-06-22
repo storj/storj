@@ -151,7 +151,7 @@
                             is-password="true"
                         />
                     </div>
-                    <AddCouponCodeInput v-if="couponCodeUIEnabled" />
+                    <AddCouponCodeInput v-if="couponCodeSignupUIEnabled" />
                     <div v-if="isBetaSatellite" class="register-area__input-area__container__warning">
                         <div class="register-area__input-area__container__warning__header">
                             <label class="container">
@@ -463,8 +463,8 @@ export default class RegisterArea extends Vue {
     /**
      * Indicates if coupon code ui is enabled
      */
-    public get couponCodeUIEnabled(): boolean {
-        return this.$store.state.appStateModule.couponCodeUIEnabled;
+    public get couponCodeSignupUIEnabled(): boolean {
+        return this.$store.state.appStateModule.couponCodeSigunpUIEnabled;
     }
 
     /**
