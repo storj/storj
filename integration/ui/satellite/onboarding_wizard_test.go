@@ -5,7 +5,6 @@ package satellite
 
 import (
 	"testing"
-	"time"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
@@ -42,19 +41,16 @@ func TestOnboardingWizard(t *testing.T) {
 		wait := page.MustWaitOpen()
 		page.MustElement("a.overview-area__path-section__button").MustClick()
 		syncFilesWithRclonePage := wait()
-		time.Sleep(1 *time.Second)
 		require.Equal(t,"https://docs.storj.io/how-tos/sync-files-with-rclone", syncFilesWithRclonePage.MustInfo().URL )
 		syncFilesWithRclonePage.MustClose()
 		wait2 := page.MustWaitOpen()
 		page.MustElement(".overview-area__integrations-button").MustClick()
 		storjOtherIntegrationsPage := wait2()
-		//time.Sleep(1 *time.Second)
 		storjIntegrationsTitle := storjOtherIntegrationsPage.MustElement(".blog-heading").MustText()
 		require.Contains(t, storjIntegrationsTitle,"Integrations")
 		featuredIntegrationsSubHeader := storjOtherIntegrationsPage.MustElement(".marketplace-content-title:nth-child(1)").MustText()
 		require.Contains(t, featuredIntegrationsSubHeader, "Featured Integrations")
 		storjOtherIntegrationsPage.MustClose()
-		//time.Sleep(1 *time.Second)
 		page.MustElement(".overview-area__skip-button").MustClick()
 		dashboardTitle := page.MustElement(".dashboard-area__header-wrapper__title").MustText()
 		require.Contains(t, dashboardTitle, "Dashboard")
