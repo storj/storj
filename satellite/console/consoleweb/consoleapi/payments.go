@@ -5,6 +5,7 @@ package consoleapi
 
 import (
 	"encoding/json"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -305,6 +306,27 @@ func (p *Payments) TokenDeposit(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(responseData)
 	if err != nil {
 		p.log.Error("failed to write json token deposit response", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
+// ApplyCouponCode applies a coupon code to the user's account.
+func (p *Payments) ApplyCouponCode(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	// limit the size of the body to prevent excessive memory usage
+	bodyBytes, err := ioutil.ReadAll(io.LimitReader(r.Body, 1*1024*1024))
+	if err != nil {
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+	couponCode := string(bodyBytes)
+
+	err = p.service.Payments().ApplyCouponCode(ctx, couponCode)
+	if err != nil {
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
 	}
 }
 

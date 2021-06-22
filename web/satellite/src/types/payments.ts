@@ -69,6 +69,14 @@ export interface PaymentsApi {
      * @throws Error
      */
     makeTokenDeposit(amount: number): Promise<TokenDeposit>;
+
+    /**
+     * applyCouponCode applies a coupon code.
+     *
+     * @param couponCode
+     * @throws Error
+     */
+    applyCouponCode(couponCode: string): Promise<void>;
 }
 
 export class AccountBalance {

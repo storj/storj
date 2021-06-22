@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
-	"github.com/stripe/stripe-go"
+	"github.com/stripe/stripe-go/v72"
 
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"

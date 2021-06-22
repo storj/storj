@@ -6,7 +6,7 @@ package stripecoinpayments
 import (
 	"context"
 
-	"github.com/stripe/stripe-go"
+	"github.com/stripe/stripe-go/v72"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"

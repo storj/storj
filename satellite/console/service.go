@@ -15,7 +15,7 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/pflag"
-	"github.com/stripe/stripe-go"
+	"github.com/stripe/stripe-go/v72"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
@@ -521,6 +521,17 @@ func (paymentService PaymentsService) checkProjectInvoicingStatus(ctx context.Co
 	}
 
 	return paymentService.service.accounts.CheckProjectInvoicingStatus(ctx, projectID)
+}
+
+// ApplyCouponCode applies a coupon code to a Stripe customer.
+func (paymentService PaymentsService) ApplyCouponCode(ctx context.Context, couponCode string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "apply coupon code")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	return paymentService.service.accounts.Coupons().ApplyCouponCode(ctx, auth.User.ID, couponCode)
 }
 
 // AddPromotionalCoupon creates new coupon for specified user.

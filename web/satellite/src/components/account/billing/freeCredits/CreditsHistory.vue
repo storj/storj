@@ -9,7 +9,7 @@
             width="174px"
             :on-press="onCreateClick"
             label="Add Coupon Code"
-            v-if="couponCodeUIEnabled"
+            v-if="couponCodeBillingUIEnabled"
         />
         <div class="credit-history__container">
             <div class="credit-history__content">
@@ -93,10 +93,10 @@ export default class CreditsHistory extends Vue {
     }
 
     /**
-     * Indicates if coupon code ui is enabled
+     * Indicates if coupon code ui is enabled on the billing page.
      */
-    public get couponCodeUIEnabled(): boolean {
-        return this.$store.state.appStateModule.couponCodeUIEnabled;
+    public get couponCodeBillingUIEnabled(): boolean {
+        return this.$store.state.appStateModule.couponCodeBillingUIEnabled;
     }
 }
 </script>
