@@ -58,6 +58,7 @@ import (
 	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/repairer"
+	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -122,6 +123,10 @@ type Satellite struct {
 		Chore    *audit.Chore
 		Verifier *audit.Verifier
 		Reporter *audit.Reporter
+	}
+
+	Reputation struct {
+		Service *reputation.Service
 	}
 
 	GarbageCollection struct {
@@ -549,6 +554,8 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Overlay.DB = api.Overlay.DB
 	system.Overlay.Service = api.Overlay.Service
 	system.Overlay.DQStrayNodes = peer.Overlay.DQStrayNodes
+
+	system.Reputation.Service = peer.Reputation.Service
 
 	system.Metainfo.Metabase = api.Metainfo.Metabase
 	system.Metainfo.Service = peer.Metainfo.Service

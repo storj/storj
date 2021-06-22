@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/reputation"
 )
 
 // TestAuditSuspendBasic ensures that we can suspend a node using overlayService.SuspendNode and that we can unsuspend a node using overlayservice.UnsuspendNode.
@@ -25,6 +26,7 @@ func TestAuditSuspendBasic(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		nodeID := planet.StorageNodes[0].ID()
+		repService := planet.Satellites[0].Reputation.Service
 		oc := planet.Satellites[0].Overlay.DB
 
 		node, err := oc.Get(ctx, nodeID)
@@ -32,7 +34,7 @@ func TestAuditSuspendBasic(t *testing.T) {
 		require.Nil(t, node.UnknownAuditSuspended)
 
 		timeToSuspend := time.Now().UTC().Truncate(time.Second)
-		err = oc.SuspendNodeUnknownAudit(ctx, nodeID, timeToSuspend)
+		err = repService.TestingSuspendNodeUnknownAudit(ctx, nodeID, timeToSuspend)
 		require.NoError(t, err)
 
 		node, err = oc.Get(ctx, nodeID)
@@ -40,7 +42,7 @@ func TestAuditSuspendBasic(t *testing.T) {
 		require.NotNil(t, node.UnknownAuditSuspended)
 		require.True(t, node.UnknownAuditSuspended.Equal(timeToSuspend))
 
-		err = oc.UnsuspendNodeUnknownAudit(ctx, nodeID)
+		err = repService.TestingUnsuspendNodeUnknownAudit(ctx, nodeID)
 		require.NoError(t, err)
 
 		node, err = oc.Get(ctx, nodeID)
@@ -53,9 +55,16 @@ func TestAuditSuspendBasic(t *testing.T) {
 func TestAuditSuspendWithUpdateStats(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Reputation.AuditWeight = 1
+				config.Reputation.AuditDQ = 0.6
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		nodeID := planet.StorageNodes[0].ID()
 		oc := planet.Satellites[0].Overlay.Service
+		repService := planet.Satellites[0].Reputation.Service
 
 		node, err := oc.Get(ctx, nodeID)
 		require.NoError(t, err)
@@ -63,36 +72,27 @@ func TestAuditSuspendWithUpdateStats(t *testing.T) {
 		testStartTime := time.Now()
 
 		// give node one unknown audit - bringing unknown audit rep to 0.5, and suspending node
-		_, err = oc.UpdateStats(ctx, &overlay.UpdateRequest{
-			NodeID:       nodeID,
-			AuditOutcome: overlay.AuditUnknown,
-			AuditLambda:  1,
-			AuditWeight:  1,
-			AuditDQ:      0.6,
-		})
+		err = repService.ApplyAudit(ctx, nodeID, reputation.AuditUnknown)
 		require.NoError(t, err)
 
-		node, err = oc.Get(ctx, nodeID)
+		reputationInfo, err := repService.Get(ctx, nodeID)
 		require.NoError(t, err)
 		// expect unknown audit alpha/beta to change and suspended to be set
-		require.True(t, node.Reputation.UnknownAuditReputationAlpha < 1)
-		require.True(t, node.Reputation.UnknownAuditReputationBeta > 0)
-		require.NotNil(t, node.UnknownAuditSuspended)
-		require.True(t, node.UnknownAuditSuspended.After(testStartTime))
-		// expect node is not disqualified and that normal audit alpha/beta remain unchanged
+		require.True(t, reputationInfo.UnknownAuditReputationAlpha < 1)
+		require.True(t, reputationInfo.UnknownAuditReputationBeta > 0)
+		require.NotNil(t, reputationInfo.UnknownAuditSuspended)
+		require.True(t, reputationInfo.UnknownAuditSuspended.After(testStartTime))
+		// expect normal audit alpha/beta remain unchanged
+		require.EqualValues(t, reputationInfo.AuditReputationAlpha, 1)
+		require.EqualValues(t, reputationInfo.AuditReputationBeta, 0)
+		// expect node is not disqualified
+		node, err = oc.Get(ctx, nodeID)
+		require.NoError(t, err)
 		require.Nil(t, node.Disqualified)
-		require.EqualValues(t, node.Reputation.AuditReputationAlpha, 1)
-		require.EqualValues(t, node.Reputation.AuditReputationBeta, 0)
 
 		// give node two successful audits - bringing unknown audit rep to 0.75, and unsuspending node
 		for i := 0; i < 2; i++ {
-			_, err = oc.UpdateStats(ctx, &overlay.UpdateRequest{
-				NodeID:       nodeID,
-				AuditOutcome: overlay.AuditSuccess,
-				AuditLambda:  1,
-				AuditWeight:  1,
-				AuditDQ:      0.6,
-			})
+			err = repService.ApplyAudit(ctx, nodeID, reputation.AuditSuccess)
 			require.NoError(t, err)
 		}
 		node, err = oc.Get(ctx, nodeID)
@@ -141,7 +141,7 @@ func TestAuditSuspendExceedGracePeriod(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.Node.SuspensionGracePeriod = time.Hour
+				config.Reputation.SuspensionGracePeriod = time.Hour
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -151,15 +151,15 @@ func TestAuditSuspendExceedGracePeriod(t *testing.T) {
 		unknownNodeID := planet.StorageNodes[3].ID()
 
 		// suspend each node two hours ago (more than grace period)
-		oc := planet.Satellites[0].DB.OverlayCache()
+		repService := planet.Satellites[0].Reputation.Service
 		for _, node := range (storj.NodeIDList{successNodeID, failNodeID, offlineNodeID, unknownNodeID}) {
-			err := oc.SuspendNodeUnknownAudit(ctx, node, time.Now().Add(-2*time.Hour))
+			err := repService.TestingSuspendNodeUnknownAudit(ctx, node, time.Now().Add(-2*time.Hour))
 			require.NoError(t, err)
 		}
 
 		// no nodes should be disqualified
 		for _, node := range (storj.NodeIDList{successNodeID, failNodeID, offlineNodeID, unknownNodeID}) {
-			n, err := oc.Get(ctx, node)
+			n, err := repService.Get(ctx, node)
 			require.NoError(t, err)
 			require.Nil(t, n.Disqualified)
 		}
@@ -178,12 +178,12 @@ func TestAuditSuspendExceedGracePeriod(t *testing.T) {
 		// success and offline nodes should not be disqualified
 		// fail and unknown nodes should be disqualified
 		for _, node := range (storj.NodeIDList{successNodeID, offlineNodeID}) {
-			n, err := oc.Get(ctx, node)
+			n, err := repService.Get(ctx, node)
 			require.NoError(t, err)
 			require.Nil(t, n.Disqualified)
 		}
 		for _, node := range (storj.NodeIDList{failNodeID, unknownNodeID}) {
-			n, err := oc.Get(ctx, node)
+			n, err := repService.Get(ctx, node)
 			require.NoError(t, err)
 			require.NotNil(t, n.Disqualified)
 		}

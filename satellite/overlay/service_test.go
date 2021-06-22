@@ -813,6 +813,7 @@ func TestUpdateReputation(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		service := planet.Satellites[0].Overlay.Service
+		overlaydb := planet.Satellites[0].Overlay.DB
 		node := planet.StorageNodes[0]
 
 		info, err := service.Get(ctx, node.ID())
@@ -856,6 +857,26 @@ func TestUpdateReputation(t *testing.T) {
 		require.NoError(t, err)
 		require.False(t, info.Contained)
 		require.Equal(t, reputationChange.Disqualified, info.Disqualified)
+
+		nodeInfo, err := overlaydb.UpdateExitStatus(ctx, &overlay.ExitStatusRequest{
+			NodeID:              node.ID(),
+			ExitInitiatedAt:     t0,
+			ExitLoopCompletedAt: t1,
+			ExitFinishedAt:      t1,
+			ExitSuccess:         true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, nodeInfo.ExitStatus.ExitFinishedAt)
+
+		// make sure Disqualified field is not updated if a node has finished
+		// graceful exit
+		reputationChange.Disqualified = &t0
+		err = service.UpdateReputation(ctx, node.ID(), reputationChange)
+		require.NoError(t, err)
+
+		exitedNodeInfo, err := service.Get(ctx, node.ID())
+		require.NoError(t, err)
+		require.Equal(t, info.Disqualified, exitedNodeInfo.Disqualified)
 	})
 }
 

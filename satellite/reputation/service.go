@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
@@ -20,7 +19,17 @@ var mon = monkit.Package()
 // DB is an interface for storing reputation data.
 type DB interface {
 	Update(ctx context.Context, request UpdateRequest, now time.Time) (_ *overlay.ReputationStatus, changed bool, err error)
+	SetNodeStatus(ctx context.Context, id storj.NodeID, status overlay.ReputationStatus) error
 	Get(ctx context.Context, nodeID storj.NodeID) (*Info, error)
+
+	// UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
+	UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (_ *overlay.ReputationStatus, err error)
+	// DisqualifyNode disqualifies a storage node.
+	DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (_ *overlay.ReputationStatus, err error)
+	// SuspendNodeUnknownAudit suspends a storage node for unknown audits.
+	SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (_ *overlay.ReputationStatus, err error)
+
+	AuditHistoryDB
 }
 
 // Info contains all reputation data to be stored in DB.
@@ -83,6 +92,9 @@ func (service *Service) ApplyAudit(ctx context.Context, nodeID storj.NodeID, res
 
 	if changed {
 		err = service.overlay.UpdateReputation(ctx, nodeID, statusUpdate)
+		if err != nil {
+			return err
+		}
 	}
 
 	return err
@@ -94,7 +106,35 @@ func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (info *Inf
 	return service.db.Get(ctx, nodeID)
 }
 
-// TestingSetState manually sets a node's info in DB.
-func (service *Service) TestingSetState(state Info) error {
-	return errs.New("reputation service method TestingSetState is NI")
+// TestingSuspendNodeUnknownAudit suspends a storage node for unknown audits.
+func (service *Service) TestingSuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
+	statusUpdate, err := service.db.SuspendNodeUnknownAudit(ctx, nodeID, suspendedAt)
+	if err != nil {
+		return err
+	}
+
+	return service.overlay.UpdateReputation(ctx, nodeID, statusUpdate)
 }
+
+// TestingDisqualifyNode disqualifies a storage node.
+func (service *Service) TestingDisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error) {
+	statusUpdate, err := service.db.DisqualifyNode(ctx, nodeID)
+	if err != nil {
+		return err
+	}
+
+	return service.overlay.UpdateReputation(ctx, nodeID, statusUpdate)
+}
+
+// TestingUnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
+func (service *Service) TestingUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error) {
+	statusUpdate, err := service.db.UnsuspendNodeUnknownAudit(ctx, nodeID)
+	if err != nil {
+		return err
+	}
+
+	return service.overlay.UpdateReputation(ctx, nodeID, statusUpdate)
+}
+
+// Close closes resources.
+func (service *Service) Close() error { return nil }

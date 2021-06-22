@@ -63,16 +63,3 @@ const (
 	// AuditOffline represents an audit where a node was offline.
 	AuditOffline
 )
-
-// AuditHistory represents a node's audit history for the most recent tracking period.
-type AuditHistory struct {
-	Score   float64
-	Windows []*AuditWindow
-}
-
-// AuditWindow represents the number of online and total audits a node received for a specific time period.
-type AuditWindow struct {
-	WindowStart time.Time
-	TotalCount  int32
-	OnlineCount int32
-}

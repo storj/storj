@@ -499,21 +499,35 @@ func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeC
 func (cache *overlaycache) UpdateReputation(ctx context.Context, id storj.NodeID, request *overlay.ReputationStatus) (err error) {
 	mon.Task()(&ctx)(&err)
 
-	updateFields := dbx.Node_Update_Fields{}
-	updateFields.Contained = dbx.Node_Contained(request.Contained)
-	updateFields.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended_Raw(request.UnknownAuditSuspended)
-	updateFields.Disqualified = dbx.Node_Disqualified_Raw(request.Disqualified)
-	updateFields.OfflineSuspended = dbx.Node_OfflineSuspended_Raw(request.OfflineSuspended)
-	updateFields.VettedAt = dbx.Node_VettedAt_Raw(request.VettedAt)
+	err = cache.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
+		_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
+		if err != nil {
+			return err
+		}
+		dbNode, err := tx.Get_Node_By_Id(ctx, dbx.Node_Id(id.Bytes()))
+		if err != nil {
+			return err
+		}
 
-	dbNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(id.Bytes()), updateFields)
-	if err != nil {
-		return err
-	}
-	if dbNode == nil {
-		return errs.New("unable to get node by ID: %v", id)
-	}
-	return nil
+		// do not update reputation if node has gracefully exited
+		if dbNode.ExitFinishedAt != nil {
+			return nil
+		}
+
+		updateFields := dbx.Node_Update_Fields{}
+		updateFields.Contained = dbx.Node_Contained(request.Contained)
+		updateFields.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended_Raw(request.UnknownAuditSuspended)
+		updateFields.Disqualified = dbx.Node_Disqualified_Raw(request.Disqualified)
+		updateFields.OfflineSuspended = dbx.Node_OfflineSuspended_Raw(request.OfflineSuspended)
+		updateFields.VettedAt = dbx.Node_VettedAt_Raw(request.VettedAt)
+
+		_, err = cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(id.Bytes()), updateFields)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+	return Error.Wrap(err)
 }
 
 // BatchUpdateStats updates multiple storagenode's stats in one transaction.

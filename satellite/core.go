@@ -42,6 +42,7 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
+	"storj.io/storj/satellite/reputation"
 )
 
 // Core is the satellite core process that runs chores.
@@ -85,6 +86,10 @@ type Core struct {
 		DB      orders.DB
 		Service *orders.Service
 		Chore   *orders.Chore
+	}
+
+	Reputation struct {
+		Service *reputation.Service
 	}
 
 	Repair struct {
@@ -275,6 +280,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			debug.Cycle("Repair Checker", peer.Repair.Checker.Loop))
 	}
 
+	{ // setup reputation
+		peer.Reputation.Service = reputation.NewService(log.Named("reputation:service"),
+			peer.Overlay.Service,
+			peer.DB.Reputation(),
+			config.Reputation,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "reputation",
+			Close: peer.Reputation.Service.Close,
+		})
+	}
+
 	{ // setup audit
 		config := config.Audit
 
@@ -292,7 +309,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		)
 
 		peer.Audit.Reporter = audit.NewReporter(log.Named("audit:reporter"),
-			peer.Overlay.Service,
+			peer.Reputation.Service,
 			peer.DB.Containment(),
 			config.MaxRetriesStatDB,
 			int32(config.MaxReverifyCount),

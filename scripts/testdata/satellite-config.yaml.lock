@@ -652,6 +652,48 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # time limit for an entire repair job, from queue pop to upload completion
 # repairer.total-timeout: 45m0s
 
+# the number of times a node has been audited to not be considered a New Node
+# reputation.audit-count: 100
+
+# the reputation cut-off for disqualifying SNs based on audit history
+# reputation.audit-dq: 0.6
+
+# The length of time to give suspended SNOs to diagnose and fix issues causing downtime. Afterwards, they will have one tracking period to reach the minimum online score before disqualification
+# reputation.audit-history.grace-period: 168h0m0s
+
+# whether nodes will be disqualified if they have low online score after a review period
+# reputation.audit-history.offline-dq-enabled: false
+
+# whether nodes will be suspended if they have low online score
+# reputation.audit-history.offline-suspension-enabled: true
+
+# The point below which a node is punished for offline audits. Determined by calculating the ratio of online/total audits within each window and finding the average across windows within the tracking period.
+# reputation.audit-history.offline-threshold: 0.6
+
+# The length of time to track audit windows for node suspension and disqualification
+# reputation.audit-history.tracking-period: 720h0m0s
+
+# The length of time spanning a single audit window
+# reputation.audit-history.window-size: 12h0m0s
+
+# the forgetting factor used to calculate the audit SNs reputation
+# reputation.audit-lambda: 0.95
+
+# weight to apply to audit reputation for total repair reputation calculation
+# reputation.audit-repair-weight: 1
+
+# weight to apply to audit reputation for total uplink reputation calculation
+# reputation.audit-uplink-weight: 1
+
+# the normalization weight used to calculate the audit SNs reputation
+# reputation.audit-weight: 1
+
+# whether nodes will be disqualified if they have been suspended for longer than the suspended grace period
+# reputation.suspension-dq-enabled: false
+
+# the time period that must pass before suspended nodes will be disqualified
+# reputation.suspension-grace-period: 168h0m0s
+
 # age at which a rollup is archived
 # rollup-archive.archive-age: 2160h0m0s
 

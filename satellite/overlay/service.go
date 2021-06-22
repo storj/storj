@@ -177,6 +177,47 @@ type ReputationStatus struct {
 	VettedAt              *time.Time
 }
 
+// Equal checks if two ReputationStatus contains the same value.
+func (status ReputationStatus) Equal(value ReputationStatus) bool {
+	if status.Contained != value.Contained {
+		return false
+	}
+
+	if status.Disqualified != nil && value.Disqualified != nil {
+		if !status.Disqualified.Equal(*value.Disqualified) {
+			return false
+		}
+	} else if !(status.Disqualified == nil && value.Disqualified == nil) {
+		return false
+	}
+
+	if status.UnknownAuditSuspended != nil && value.UnknownAuditSuspended != nil {
+		if !status.UnknownAuditSuspended.Equal(*value.UnknownAuditSuspended) {
+			return false
+		}
+	} else if !(status.UnknownAuditSuspended == nil && value.UnknownAuditSuspended == nil) {
+		return false
+	}
+
+	if status.OfflineSuspended != nil && value.OfflineSuspended != nil {
+		if !status.OfflineSuspended.Equal(*value.OfflineSuspended) {
+			return false
+		}
+	} else if !(status.OfflineSuspended == nil && value.OfflineSuspended == nil) {
+		return false
+	}
+
+	if status.VettedAt != nil && value.VettedAt != nil {
+		if !status.VettedAt.Equal(*value.VettedAt) {
+			return false
+		}
+	} else if !(status.VettedAt == nil && value.VettedAt == nil) {
+		return false
+	}
+
+	return true
+}
+
 // UpdateRequest is used to update a node status.
 //
 // TODO: remove after migrating to using reputation package for auditing.
