@@ -33,6 +33,9 @@ type Coupons interface {
 	// a project, payment method and do not have a promotional coupon yet.
 	// And updates project limits to selected size.
 	PopulatePromotionalCoupons(ctx context.Context, duration *int, amount int64, projectLimit memory.Size) error
+
+	// ApplyCouponCode attempts to apply a coupon code to the user.
+	ApplyCouponCode(ctx context.Context, userID uuid.UUID, couponCode string) error
 }
 
 // Coupon is an entity that adds some funds to Accounts balance for some fixed period.

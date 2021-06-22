@@ -88,8 +88,11 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to contacts page
 # console.contact-info-url: https://forum.storj.io
 
-# indicates if user is allowed to add coupon codes to account
-# console.coupon-code-ui-enabled: false
+# indicates if user is allowed to add coupon codes to account from billing
+# console.coupon-code-billing-ui-enabled: false
+
+# indicates if user is allowed to add coupon codes to account from signup
+# console.coupon-code-signup-ui-enabled: false
 
 # indicates if Content Security Policy is enabled
 # console.csp-enabled: true
