@@ -235,6 +235,54 @@ read one (
 	where audit_history.node_id = ?
 )
 
+//--- reputation store ---//
+
+model reputation (
+	key id
+
+	field id              blob
+
+	field audit_success_count  int64   ( updatable, default 0 )
+	field total_audit_count    int64   ( updatable, default 0 )
+	field vetted_at            timestamp ( updatable, nullable )
+
+	field created_at           timestamp ( autoinsert, default current_timestamp )
+	field updated_at           timestamp ( autoinsert, autoupdate, default current_timestamp )
+
+	field contained bool ( updatable, default false )
+    // node is disqualified when it fails too many audits or is offline for too long
+	field disqualified timestamp ( updatable, nullable )
+    // node is placed under inspection when it has too many unknown-error audits
+	field suspended timestamp ( updatable, nullable )
+	// renamed column from suspended
+	field unknown_audit_suspended timestamp ( updatable, nullable )
+	// node is considered unhealthy if it is offline for too many audits
+	field offline_suspended timestamp ( updatable, nullable )
+	// once a node becomes offline_suspended, mark it as under review so we check it again later
+	field under_review timestamp ( updatable, nullable )
+	field online_score float64 ( updatable, default 1 )
+	field audit_history blob ( updatable )
+
+	// audit_reputation_fields track information related to successful vs. failed error audits
+	field audit_reputation_alpha  float64 ( updatable, default 1 )
+	field audit_reputation_beta   float64 ( updatable, default 0 )
+	// unknown_audit_reputation fields track information related to successful vs. unknown error audits
+	field unknown_audit_reputation_alpha  float64 ( updatable, default 1 )
+	field unknown_audit_reputation_beta   float64 ( updatable, default 0 )
+)
+
+update reputation ( where reputation.id = ? )
+update reputation (
+	where reputation.id = ?
+	noreturn
+)
+
+// "Get" query; fails if reputation not found
+read one (
+	select reputation
+	where  reputation.id = ?
+)
+
 //--- repairqueue ---//
 
 model injuredsegment (
