@@ -330,6 +330,27 @@ func (p *Payments) ApplyCouponCode(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ApplyCouponCode applies a coupon code to the user's account.
+func (p *Payments) ApplyCouponCode(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	// limit the size of the body to prevent excessive memory usage
+	bodyBytes, err := ioutil.ReadAll(io.LimitReader(r.Body, 1*1024*1024))
+	if err != nil {
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+	couponCode := string(bodyBytes)
+
+	err = p.service.Payments().ApplyCouponCode(ctx, couponCode)
+	if err != nil {
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+}
+
 // serveJSONError writes JSON error to response output stream.
 func (p *Payments) serveJSONError(w http.ResponseWriter, status int, err error) {
 	serveJSONError(p.log, w, status, err)

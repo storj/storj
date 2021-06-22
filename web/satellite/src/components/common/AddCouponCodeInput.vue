@@ -51,6 +51,7 @@ import VButton from '@/components/common/VButton.vue';
 import CloseIcon from '@/../static/images/common/closeCross.svg';
 import CheckIcon from '@/../static/images/common/validCheck.svg';
 
+import { PaymentsHttpApi } from '@/api/payments';
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 
@@ -74,6 +75,8 @@ export default class AddCouponCodeInput extends Vue {
     private isCodeValid = false;
 
     private couponCode = '';
+
+    private readonly payments: PaymentsHttpApi = new PaymentsHttpApi();
 
     /**
      * Signup view requires some unque styling and element text.
@@ -99,7 +102,7 @@ export default class AddCouponCodeInput extends Vue {
      */
     public async onApplyClick() {
         try {
-            await this.$store.dispatch(APPLY_COUPON_CODE, this.couponCode);
+            await this.payments.applyCouponCode(this.couponCode);
         } catch (error) {
 
             this.errorMessage = error.message;
