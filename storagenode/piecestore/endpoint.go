@@ -443,7 +443,7 @@ func (endpoint *Endpoint) isSlowUpload(currentUploadSize float64, connectionDura
 	}
 
 	// Latest number of alive connection
-	connectionCount := atomic.AddInt32(&endpoint.liveRequests, 1)
+	connectionCount := atomic.LoadInt32(&endpoint.liveRequests)
 
 	// averageUploadRate is counted as average rate of upload over the lifetime of
 	// the connection.
