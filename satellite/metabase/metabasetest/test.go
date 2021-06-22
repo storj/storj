@@ -366,7 +366,7 @@ func (step IterateLoopStreams) Check(ctx *testcontext.Context, t testing.TB, db 
 			var segments []metabase.LoopSegmentEntry
 			for {
 				var segment metabase.LoopSegmentEntry
-				if !next(&segment) {
+				if !next(ctx, &segment) {
 					break
 				}
 				segments = append(segments, segment)
@@ -720,4 +720,23 @@ func (step DeletePart) Check(ctx *testcontext.Context, t testing.TB, db *metabas
 	sortDeletedSegments(result)
 	diff := cmp.Diff(step.Result, result, cmpopts.EquateApproxTime(5*time.Second))
 	require.Zero(t, diff)
+}
+
+// GetTableStats is for testing metabase.GetTableStats.
+type GetTableStats struct {
+	Opts     metabase.GetTableStats
+	Result   metabase.TableStats
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step GetTableStats) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) metabase.TableStats {
+	result, err := db.GetTableStats(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+
+	diff := cmp.Diff(step.Result, result)
+	require.Zero(t, diff)
+
+	return result
 }

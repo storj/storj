@@ -40,7 +40,6 @@ import (
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/checker"
-	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/revocation"
@@ -79,8 +78,6 @@ type DB interface {
 	ProjectAccounting() accounting.ProjectAccounting
 	// RepairQueue returns queue for segments that need repairing
 	RepairQueue() queue.RepairQueue
-	// Irreparable returns database for failed repairs
-	Irreparable() irreparable.DB
 	// Console returns database for satellite console
 	Console() console.DB
 	// Orders returns database for orders

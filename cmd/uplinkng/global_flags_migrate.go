@@ -143,7 +143,7 @@ func (g *globalFlags) loadOldConfig(r io.Reader) (string, map[string]string, []i
 }
 
 // saveConfig writes out the config file using the provided values.
-// It is only intended to be used during initial migration.
+// It is only intended to be used during initial migration and setup.
 func (g *globalFlags) saveConfig(entries []ini.Entry) error {
 	// TODO(jeff): write it atomically
 

@@ -5,6 +5,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -43,11 +44,13 @@ func (g *globalFlags) Setup(f clingy.Flags) {
 	).(bool)
 
 	g.configDir = f.New(
-		"config-dir", "Directory that stores the configuration", appDir(false, "storj", "uplink"),
+		"config-dir", "Directory that stores the configuration",
+		appDir(false, "storj", "uplink"),
 	).(string)
 
 	g.oldConfigDir = f.New(
-		"old-config-dir", "Directory that stores legacy configuration. Only used during migration", appDir(true, "storj", "uplink"),
+		"old-config-dir", "Directory that stores legacy configuration. Only used during migration",
+		appDir(true, "storj", "uplink"),
 		clingy.Advanced,
 	).(string)
 
@@ -134,13 +137,13 @@ func (g *globalFlags) loadAccesses() error {
 	return nil
 }
 
-func (g *globalFlags) GetAccessInfo() (string, map[string]string, error) {
+func (g *globalFlags) GetAccessInfo(required bool) (string, map[string]string, error) {
 	if !g.accessesLoaded {
 		if err := g.loadAccesses(); err != nil {
 			return "", nil, err
 		}
-		if !g.accessesLoaded {
-			return "", nil, errs.New("must configure accesses")
+		if required && !g.accessesLoaded {
+			return "", nil, errs.New("No accesses configured. Use 'access save' to create one")
 		}
 	}
 
@@ -200,4 +203,13 @@ func (g *globalFlags) Wrap(ctx clingy.Context, cmd clingy.Cmd) error {
 		_ = false
 	}
 	return cmd.Execute(ctx)
+}
+
+func (g *globalFlags) PromptInput(ctx clingy.Context, prompt string) (input string, err error) {
+	if !g.interactive {
+		return "", errs.New("required user input in non-interactive setting")
+	}
+	fmt.Fprint(ctx.Stdout(), prompt, " ")
+	_, err = fmt.Fscanln(ctx.Stdin(), &input)
+	return input, err
 }
