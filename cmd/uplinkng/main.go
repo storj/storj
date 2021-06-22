@@ -40,6 +40,7 @@ func commands(cmds clingy.Commands, ex ulext.External) {
 		cmds.New("save", "Save an existing access", newCmdAccessSave(ex))
 		cmds.New("create", "Create an access from a setup token", newCmdAccessCreate(ex))
 		cmds.New("delete", "Delete an access from local store", newCmdAccessDelete(ex))
+		cmds.New("restrict", "Restrict an access", newCmdAccessRestrict(ex))
 		cmds.New("list", "List saved accesses", newCmdAccessList(ex))
 		cmds.New("use", "Set default access to use", newCmdAccessUse(ex))
 		cmds.New("revoke", "Revoke an access", newCmdAccessRevoke(ex))

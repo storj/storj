@@ -32,6 +32,9 @@ func (l *Local) abs(path string) (string, error) {
 		!strings.HasSuffix(abs, string(filepath.Separator)) {
 		abs += string(filepath.Separator)
 	}
+	if filepath.Separator != '/' {
+		abs = strings.ReplaceAll(abs, string(filepath.Separator), "/")
+	}
 	return abs, nil
 }
 
@@ -108,9 +111,13 @@ func (l *Local) ListObjects(ctx context.Context, path string, recursive bool) (O
 	if recursive {
 		err = filepath.Walk(prefix, func(path string, info os.FileInfo, err error) error {
 			if err == nil && !info.IsDir() {
+				rel, err := filepath.Rel(prefix, path)
+				if err != nil {
+					return err
+				}
 				files = append(files, &namedFileInfo{
 					FileInfo: info,
-					name:     path[len(prefix):],
+					name:     rel,
 				})
 			}
 			return nil
@@ -175,13 +182,6 @@ func (fi *fileinfoObjectIterator) Item() ObjectInfo {
 	if isDir {
 		name += string(filepath.Separator)
 	}
-
-	// TODO(jeff): is this the right thing to do on windows? is there more to do?
-	// convert the paths to be forward slash based because keys are supposed to always be remote
-	if filepath.Separator != '/' {
-		name = strings.ReplaceAll(name, string(filepath.Separator), "/")
-	}
-
 	return ObjectInfo{
 		Loc:           ulloc.NewLocal(name),
 		IsPrefix:      isDir,

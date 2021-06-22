@@ -4,22 +4,18 @@
 package main
 
 import (
-	"strconv"
-
 	"github.com/zeebo/clingy"
+	"github.com/zeebo/errs"
 
 	"storj.io/storj/cmd/uplinkng/ulext"
 )
 
 type cmdAccessCreate struct {
 	ex ulext.External
-
-	accessPermissions
+	am accessMaker
 
 	token      string
 	passphrase string
-	name       string
-	save       bool
 }
 
 func newCmdAccessCreate(ex ulext.External) *cmdAccessCreate {
@@ -29,12 +25,31 @@ func newCmdAccessCreate(ex ulext.External) *cmdAccessCreate {
 func (c *cmdAccessCreate) Setup(params clingy.Parameters) {
 	c.token = params.Flag("token", "Setup token from satellite UI (prompted if unspecified)", "").(string)
 	c.passphrase = params.Flag("passphrase", "Passphrase used for encryption (prompted if unspecified)", "").(string)
-	c.name = params.Flag("name", "Name to save newly created access, if --save is true", "default").(string)
-	c.save = params.Flag("save", "Save the access", true, clingy.Transform(strconv.ParseBool)).(bool)
 
-	c.accessPermissions.Setup(params)
+	params.Break()
+	c.am.Setup(params, c.ex, false)
 }
 
-func (c *cmdAccessCreate) Execute(ctx clingy.Context) error {
-	return nil
+func (c *cmdAccessCreate) Execute(ctx clingy.Context) (err error) {
+	if c.token == "" {
+		c.token, err = c.ex.PromptInput(ctx, "Setup token:")
+		if err != nil {
+			return errs.Wrap(err)
+		}
+	}
+
+	if c.passphrase == "" {
+		// TODO: secret prompt
+		c.passphrase, err = c.ex.PromptInput(ctx, "Passphrase:")
+		if err != nil {
+			return errs.Wrap(err)
+		}
+	}
+
+	access, err := c.ex.RequestAccess(ctx, c.token, c.passphrase)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+
+	return c.am.Execute(ctx, access)
 }

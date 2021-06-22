@@ -15,6 +15,8 @@ import (
 )
 
 type external struct {
+	ulext.External
+
 	fs      ulfs.Filesystem
 	project *uplink.Project
 }
@@ -32,6 +34,10 @@ func (ex *external) OpenFilesystem(ctx context.Context, access string, options .
 
 func (ex *external) OpenProject(ctx context.Context, access string, options ...ulext.Option) (*uplink.Project, error) {
 	return ex.project, nil
+}
+
+func (ex *external) OpenAccess(accessName string) (access *uplink.Access, err error) {
+	return nil, errs.New("not implemented")
 }
 
 func (ex *external) GetAccessInfo(required bool) (string, map[string]string, error) {

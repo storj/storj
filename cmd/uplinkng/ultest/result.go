@@ -26,8 +26,8 @@ type Result struct {
 func (r Result) RequireSuccess(t *testing.T) {
 	if !r.Ok {
 		errs := parseErrors(r.Stdout)
-		require.True(t, r.Ok, "test did not run successfully. errors:\n%s",
-			strings.Join(errs, "\n"))
+		require.FailNow(t, "test did not run successfully",
+			"%s", strings.Join(errs, "\n"))
 	}
 	require.NoError(t, r.Err)
 }
