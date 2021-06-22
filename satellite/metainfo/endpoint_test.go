@@ -36,7 +36,7 @@ func TestEndpoint_DeleteCommittedObject(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, items, 1)
 
-		_, err = planet.Satellites[0].Metainfo.Endpoint2.DeleteCommittedObject(ctx, projectID, bucketName, items[0].ObjectKey)
+		_, err = planet.Satellites[0].Metainfo.Endpoint.DeleteCommittedObject(ctx, projectID, bucketName, items[0].ObjectKey)
 		require.NoError(t, err)
 
 		items, err = planet.Satellites[0].Metainfo.Metabase.TestingAllCommittedObjects(ctx, projectID, bucketName)
@@ -71,7 +71,7 @@ func TestEndpoint_DeletePendingObject(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, items, 1)
 
-		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint2.DeletePendingObject(ctx,
+		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeletePendingObject(ctx,
 			metabase.ObjectStream{
 				ProjectID:  projectID,
 				BucketName: bucketName,
@@ -101,7 +101,7 @@ func TestEndpoint_DeleteObjectAnyStatus(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, items, 1)
 
-		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint2.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
+		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
 			ProjectID:  projectID,
 			BucketName: bucketName,
 			ObjectKey:  items[0].ObjectKey,
@@ -139,7 +139,7 @@ func TestEndpoint_DeleteObjectAnyStatus(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, items, 1)
 
-		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint2.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
+		deletedObjects, err := planet.Satellites[0].Metainfo.Endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
 			ProjectID:  projectID,
 			BucketName: bucketName,
 			ObjectKey:  items[0].ObjectKey,
@@ -366,7 +366,7 @@ func TestDeleteBucket(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, objects, 3)
 
-		delResp, err := satelliteSys.API.Metainfo.Endpoint2.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+		delResp, err := satelliteSys.API.Metainfo.Endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
@@ -377,7 +377,7 @@ func TestDeleteBucket(t *testing.T) {
 		require.Equal(t, int64(3), delResp.DeletedObjectsCount)
 
 		// confirm the bucket is deleted
-		buckets, err := satelliteSys.Metainfo.Endpoint2.ListBuckets(ctx, &pb.BucketListRequest{
+		buckets, err := satelliteSys.Metainfo.Endpoint.ListBuckets(ctx, &pb.BucketListRequest{
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},

@@ -164,7 +164,9 @@ type Config struct {
 	RateLimit        float64       `help:"rate limit (default is 0 which is unlimited segments per second)" default:"0"`
 	ListLimit        int           `help:"how many items to query in a batch" default:"2500" testDefault:"10000"`
 
-	AsOfSystemInterval time.Duration `help:"as of system interval" default:"-5m"`
+	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
+
+	SuspiciousProcessedRatio float64 `help:"ratio where to consider processed count as supicious" default:"0.03"`
 }
 
 // MetabaseDB contains iterators for the metabase data.
@@ -175,6 +177,9 @@ type MetabaseDB interface {
 	IterateLoopObjects(ctx context.Context, opts metabase.IterateLoopObjects, fn func(context.Context, metabase.LoopObjectsIterator) error) (err error)
 	// IterateLoopStreams iterates through all streams passed in as arguments.
 	IterateLoopStreams(ctx context.Context, opts metabase.IterateLoopStreams, handleStream func(ctx context.Context, streamID uuid.UUID, next metabase.SegmentIterator) error) (err error)
+
+	// GetTableStats gathers statistics about the tables.
+	GetTableStats(context.Context, metabase.GetTableStats) (metabase.TableStats, error)
 }
 
 // Service is a metainfo loop service.
@@ -363,7 +368,15 @@ func (loop *Service) iterateDatabase(ctx context.Context, observers []*observerC
 		finishObservers(observers)
 	}()
 
-	observers, err = loop.iterateObjects(ctx, observers)
+	before, err := loop.metabaseDB.GetTableStats(ctx, metabase.GetTableStats{
+		AsOfSystemInterval: loop.config.AsOfSystemInterval,
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	var processed processedStats
+	processed, observers, err = loop.iterateObjects(ctx, observers)
 	if errors.Is(err, errNoObservers) {
 		return nil
 	}
@@ -371,10 +384,64 @@ func (loop *Service) iterateDatabase(ctx context.Context, observers []*observerC
 		return Error.Wrap(err)
 	}
 
+	after, err := loop.metabaseDB.GetTableStats(ctx, metabase.GetTableStats{
+		AsOfSystemInterval: loop.config.AsOfSystemInterval,
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	if err := loop.verifyProcessedCount(before, after, processed); err != nil {
+		return Error.Wrap(err)
+	}
+
 	return nil
 }
 
-func (loop *Service) iterateObjects(ctx context.Context, observers []*observerContext) (_ []*observerContext, err error) {
+func (loop *Service) verifyProcessedCount(before, after metabase.TableStats, processed processedStats) error {
+	return errs.Combine(
+		loop.verifyCount("object", before.ObjectCount, after.ObjectCount, processed.objects),
+		loop.verifyCount("segment", before.SegmentCount, after.SegmentCount, processed.segments),
+	)
+}
+
+func (loop *Service) verifyCount(kind string, before, after, processed int64) error {
+	low, high := before, after
+	if low > high {
+		low, high = high, low
+	}
+
+	var deltaFromBounds int64
+	var ratio float64
+	if processed < low {
+		deltaFromBounds = low - processed
+		// +1 to avoid division by zero
+		ratio = float64(deltaFromBounds) / float64(low+1)
+	} else if processed > high {
+		deltaFromBounds = processed - high
+		// +1 to avoid division by zero
+		ratio = float64(deltaFromBounds) / float64(high+1)
+	}
+
+	mon.IntVal("metaloop_verify_" + kind + "_before").Observe(before)
+	mon.IntVal("metaloop_verify_" + kind + "_after").Observe(after)
+	mon.IntVal("metaloop_verify_" + kind + "_processed").Observe(processed)
+	mon.IntVal("metaloop_verify_" + kind + "_outside").Observe(deltaFromBounds)
+	mon.FloatVal("metaloop_verify_" + kind + "_outside_ratio").Observe(ratio)
+
+	if ratio > loop.config.SuspiciousProcessedRatio {
+		return Error.New("%s processed count looks suspicious: before:%v after:%v processed:%v ratio:%v threshold:%v", kind, before, after, processed, ratio, loop.config.SuspiciousProcessedRatio)
+	}
+
+	return nil
+}
+
+type processedStats struct {
+	objects  int64
+	segments int64
+}
+
+func (loop *Service) iterateObjects(ctx context.Context, observers []*observerContext) (processed processedStats, _ []*observerContext, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	limit := loop.config.ListLimit
@@ -386,7 +453,7 @@ func (loop *Service) iterateObjects(ctx context.Context, observers []*observerCo
 
 	startingTime, err := loop.metabaseDB.Now(ctx)
 	if err != nil {
-		return observers, Error.Wrap(err)
+		return processed, observers, Error.Wrap(err)
 	}
 
 	observers = withObservers(ctx, observers, func(ctx context.Context, observer *observerContext) bool {
@@ -395,14 +462,12 @@ func (loop *Service) iterateObjects(ctx context.Context, observers []*observerCo
 	})
 
 	if len(observers) == 0 {
-		return observers, errNoObservers
+		return processed, observers, errNoObservers
 	}
 	// TODO we may consider keeping only expiration time as its
 	// only thing we need to handle segments
 	objectsMap := make(map[uuid.UUID]metabase.LoopObjectEntry)
 	ids := make([]uuid.UUID, 0, limit)
-
-	var objectsProcessed, segmentsProcessed int64
 
 	processBatch := func(ctx context.Context) (err error) {
 		defer mon.TaskNamed("processBatch")(&ctx)(&err)
@@ -416,7 +481,7 @@ func (loop *Service) iterateObjects(ctx context.Context, observers []*observerCo
 			AsOfSystemTime:     startingTime,
 			AsOfSystemInterval: loop.config.AsOfSystemInterval,
 		}, func(ctx context.Context, streamID uuid.UUID, next metabase.SegmentIterator) (err error) {
-			defer mon.TaskNamed("iterateLoopStreamsCB")(&ctx, "objs", objectsProcessed, "segs", segmentsProcessed)(&err)
+			defer mon.TaskNamed("iterateLoopStreamsCB")(&ctx, "objs", processed.objects, "segs", processed.segments)(&err)
 
 			if err := ctx.Err(); err != nil {
 				return err
@@ -436,8 +501,8 @@ func (loop *Service) iterateObjects(ctx context.Context, observers []*observerCo
 				return errNoObservers
 			}
 
-			objectsProcessed++
-			monMetainfo.IntVal("objectsProcessed").Observe(objectsProcessed) //mon:locked
+			processed.objects++
+			monMetainfo.IntVal("objectsProcessed").Observe(processed.objects) //mon:locked
 
 			for {
 				// if context has been canceled exit. Otherwise, continue
@@ -446,7 +511,7 @@ func (loop *Service) iterateObjects(ctx context.Context, observers []*observerCo
 				}
 
 				var segment metabase.LoopSegmentEntry
-				if !next(&segment) {
+				if !next(ctx, &segment) {
 					break
 				}
 
@@ -464,9 +529,8 @@ func (loop *Service) iterateObjects(ctx context.Context, observers []*observerCo
 					return errNoObservers
 				}
 
-				segmentsProcessed++
-				monMetainfo.IntVal("segmentsProcessed").Observe(segmentsProcessed) //mon:locked
-
+				processed.segments++
+				monMetainfo.IntVal("segmentsProcessed").Observe(processed.segments) //mon:locked
 			}
 
 			return nil
@@ -530,7 +594,7 @@ func (loop *Service) iterateObjects(ctx context.Context, observers []*observerCo
 		return processBatch(ctx)
 	})
 
-	return observers, err
+	return processed, observers, err
 }
 
 func withObservers(ctx context.Context, observers []*observerContext, handleObserver func(ctx context.Context, observer *observerContext) bool) []*observerContext {

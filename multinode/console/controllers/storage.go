@@ -244,6 +244,65 @@ func (storage *Storage) TotalUsageSatellite(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// TotalDiskSpace returns all info about all storagenodes disk space usage.
+func (storage *Storage) TotalDiskSpace(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Add("Content-Type", "application/json")
+
+	totalDiskSpace, err := storage.service.TotalDiskSpace(ctx)
+	if err != nil {
+		storage.log.Error("could not get total disk space", zap.Error(err))
+		storage.serveError(w, http.StatusInternalServerError, ErrStorage.Wrap(err))
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(totalDiskSpace); err != nil {
+		storage.log.Error("failed to write json response", zap.Error(err))
+		return
+	}
+}
+
+// DiskSpace returns all info about concrete storagenode disk space usage.
+func (storage *Storage) DiskSpace(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Add("Content-Type", "application/json")
+	segments := mux.Vars(r)
+
+	nodeIDparam, ok := segments["nodeID"]
+	if !ok {
+		storage.serveError(w, http.StatusBadRequest, ErrStorage.New("node id is missing"))
+		return
+	}
+	nodeID, err := storj.NodeIDFromString(nodeIDparam)
+	if err != nil {
+		storage.serveError(w, http.StatusBadRequest, ErrStorage.Wrap(err))
+		return
+	}
+
+	diskSpace, err := storage.service.DiskSpace(ctx, nodeID)
+	if err != nil {
+		if nodes.ErrNoNode.Has(err) {
+			storage.serveError(w, http.StatusNotFound, ErrStorage.Wrap(err))
+			return
+		}
+
+		storage.log.Error("could not get disk space", zap.Error(err))
+		storage.serveError(w, http.StatusInternalServerError, ErrStorage.Wrap(err))
+		return
+	}
+
+	if err = json.NewEncoder(w).Encode(diskSpace); err != nil {
+		storage.log.Error("failed to write json response", zap.Error(err))
+		return
+	}
+}
+
 // serveError set http statuses and send json error.
 func (storage *Storage) serveError(w http.ResponseWriter, status int, err error) {
 	w.WriteHeader(status)

@@ -24,14 +24,14 @@ require (
 	github.com/jackc/pgx/v4 v4.10.1
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20191108235325-141a0da276b3
 	github.com/loov/hrtime v1.0.3
-	github.com/lucas-clemente/quic-go v0.20.1
+	github.com/lucas-clemente/quic-go v0.21.0
 	github.com/mattn/go-sqlite3 v2.0.3+incompatible
 	github.com/nsf/jsondiff v0.0.0-20200515183724-f29ed568f4ce
 	github.com/nsf/termbox-go v0.0.0-20200418040025-38ba6e5628f1
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/segmentio/backo-go v0.0.0-20200129164019-23eae7c10bd3 // indirect
 	github.com/shopspring/decimal v1.2.0
-	github.com/spacemonkeygo/monkit/v3 v3.0.12
+	github.com/spacemonkeygo/monkit/v3 v3.0.13
 	github.com/spf13/cobra v1.1.3
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
@@ -57,6 +57,6 @@ require (
 	storj.io/common v0.0.0-20210504141454-bcb03a80052f
 	storj.io/drpc v0.0.20
 	storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7
-	storj.io/private v0.0.0-20210531210843-5b0f672699d1
+	storj.io/private v0.0.0-20210615185437-f53a5fcf98e0
 	storj.io/uplink v1.5.0-rc.1.0.20210512164354-e2e5889614a9
 )

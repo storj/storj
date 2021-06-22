@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/storj/multinode/storage"
@@ -149,4 +150,80 @@ func TestUsageStampDailyCache(t *testing.T) {
 
 	stamps := cache.Sorted()
 	require.Equal(t, expected, stamps)
+}
+
+func TestDiskSpaceAdd(t *testing.T) {
+	totalDiskSpace := storage.DiskSpace{
+		Allocated: 0,
+		Used:      0,
+		Trash:     0,
+		Free:      0,
+		Available: 0,
+		Overused:  0,
+	}
+
+	testData := []struct {
+		diskSpace storage.DiskSpace
+		expected  storage.DiskSpace
+	}{
+		{
+			diskSpace: storage.DiskSpace{
+				Allocated: 1,
+				Used:      1,
+				Trash:     1,
+				Free:      1,
+				Available: 1,
+				Overused:  1,
+			},
+			expected: storage.DiskSpace{
+				Allocated: 1,
+				Used:      1,
+				Trash:     1,
+				Free:      1,
+				Available: 1,
+				Overused:  1,
+			},
+		},
+		{
+			diskSpace: storage.DiskSpace{
+				Allocated: 2,
+				Used:      2,
+				Trash:     2,
+				Free:      2,
+				Available: 2,
+				Overused:  2,
+			},
+			expected: storage.DiskSpace{
+				Allocated: 3,
+				Used:      3,
+				Trash:     3,
+				Free:      3,
+				Available: 3,
+				Overused:  3,
+			},
+		},
+		{
+			diskSpace: storage.DiskSpace{
+				Allocated: 3,
+				Used:      3,
+				Trash:     3,
+				Free:      3,
+				Available: 3,
+				Overused:  3,
+			},
+			expected: storage.DiskSpace{
+				Allocated: 6,
+				Used:      6,
+				Trash:     6,
+				Free:      6,
+				Available: 6,
+				Overused:  6,
+			},
+		},
+	}
+
+	for _, test := range testData {
+		totalDiskSpace.Add(test.diskSpace)
+		assert.Equal(t, totalDiskSpace, test.expected)
+	}
 }
