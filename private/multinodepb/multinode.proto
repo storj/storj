@@ -397,3 +397,99 @@ message HeldAmountHistoryResponse {
 
   repeated HeldAmountHistory history = 1;
 }
+
+service Payout {
+  rpc AllSatellitesSummary(AllSatellitesSummaryRequest) returns (AllSatellitesSummaryResponse);
+  rpc AllSatellitesPeriodSummary(AllSatellitesPeriodSummaryRequest) returns (AllSatellitesPeriodSummaryResponse);
+  rpc SatelliteSummary(SatelliteSummaryRequest) returns (SatelliteSummaryResponse);
+  rpc SatellitePeriodSummary(SatellitePeriodSummaryRequest) returns (SatellitePeriodSummaryResponse);
+  rpc Earned(EarnedRequest) returns (EarnedResponse);
+  rpc EarnedPerSatellite(EarnedPerSatelliteRequest) returns (EarnedPerSatelliteResponse);
+  rpc EstimatedPayoutSatellite(EstimatedPayoutSatelliteRequest) returns (EstimatedPayoutSatelliteResponse);
+  rpc EstimatedPayoutTotal(EstimatedPayoutTotalRequest) returns (EstimatedPayoutTotalResponse);
+  rpc Undistributed(UndistributedRequest) returns (UndistributedResponse);
+  rpc SatellitePaystub(SatellitePaystubRequest) returns (SatellitePaystubResponse);
+  rpc Paystub(PaystubRequest) returns (PaystubResponse);
+  rpc PeriodPaystub(PeriodPaystubRequest) returns (PeriodPaystubResponse);
+  rpc SatellitePeriodPaystub(SatellitePeriodPaystubRequest) returns (SatellitePeriodPaystubResponse);
+}
+
+message EstimatedPayoutTotalRequest {
+  RequestHeader header = 1;
+}
+
+message EstimatedPayoutTotalResponse {
+  int64 estimated_earnings = 1;
+}
+
+message AllSatellitesSummaryRequest {
+  RequestHeader header = 1;
+}
+
+message AllSatellitesSummaryResponse {
+  PayoutInfo payout_info = 1;
+}
+
+message AllSatellitesPeriodSummaryRequest {
+  RequestHeader header = 1;
+  string period = 2;
+}
+
+message AllSatellitesPeriodSummaryResponse {
+  PayoutInfo payout_info = 1;
+}
+
+message SatelliteSummaryRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message SatelliteSummaryResponse {
+  PayoutInfo payout_info = 1;
+}
+
+message SatellitePeriodSummaryRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  string period = 3;
+}
+
+message SatellitePeriodSummaryResponse {
+  PayoutInfo payout_info = 1;
+}
+
+message EarnedPerSatelliteRequest {
+  RequestHeader header = 1;
+}
+
+message EarnedPerSatelliteResponse {
+  repeated EarnedSatellite earned_satellite = 1;
+}
+
+message SatellitePaystubRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+}
+
+message SatellitePaystubResponse {
+  Paystub paystub = 1;
+}
+
+message PeriodPaystubRequest {
+  RequestHeader header = 1;
+  string period = 2;
+}
+
+message PeriodPaystubResponse {
+  Paystub paystub = 1;
+}
+
+message SatellitePeriodPaystubRequest {
+  RequestHeader header = 1;
+  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  string period = 3;
+}
+
+message SatellitePeriodPaystubResponse {
+  Paystub paystub = 1;
+}
