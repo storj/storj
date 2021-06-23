@@ -4,12 +4,10 @@
 package satellite
 
 import (
-	"testing"
-	"time"
-
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
 	"github.com/stretchr/testify/require"
+	"testing"
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/integration/ui/uitest"
@@ -22,7 +20,7 @@ func TestOnboardingWizardBrowser(t *testing.T) {
 		fullName := "John Doe"
 		emailAddress := "test@email.com"
 		password := "qazwsx123"
-		page := browser.Timeout(20 * time.Second).MustPage(signupPageURL)
+		page := browser.MustPage(signupPageURL)
 		page.MustSetViewport(1350, 600, 1, false)
 		// first time User signup
 		page.MustElement(".headerless-input").MustInput(fullName)

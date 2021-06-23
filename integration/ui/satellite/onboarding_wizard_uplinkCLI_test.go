@@ -5,7 +5,6 @@ package satellite
 
 import (
 	"testing"
-	"time"
 
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
@@ -22,7 +21,7 @@ func TestOnboardingWizardUplinkCLI(t *testing.T) {
 		fullName := "John Doe"
 		emailAddress := "test@email.com"
 		password := "qazwsx123"
-		page := browser.Timeout(20 * time.Second).MustPage(signupPageURL)
+		page := browser.MustPage(signupPageURL)
 		page.MustSetViewport(1350, 600, 1, false)
 		// First time User signup
 		page.MustElement(".headerless-input").MustInput(fullName)
