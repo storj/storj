@@ -574,6 +574,27 @@ CREATE TABLE registration_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
+CREATE TABLE reputations (
+	id bytea NOT NULL,
+	audit_success_count bigint NOT NULL DEFAULT 0,
+	total_audit_count bigint NOT NULL DEFAULT 0,
+	vetted_at timestamp with time zone,
+	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	contained boolean NOT NULL DEFAULT false,
+	disqualified timestamp with time zone,
+	suspended timestamp with time zone,
+	unknown_audit_suspended timestamp with time zone,
+	offline_suspended timestamp with time zone,
+	under_review timestamp with time zone,
+	online_score double precision NOT NULL DEFAULT 1,
+	audit_history bytea NOT NULL,
+	audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	PRIMARY KEY ( id )
+);
 CREATE TABLE reset_password_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea NOT NULL,
@@ -1136,6 +1157,27 @@ CREATE TABLE registration_tokens (
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
+);
+CREATE TABLE reputations (
+	id bytea NOT NULL,
+	audit_success_count bigint NOT NULL DEFAULT 0,
+	total_audit_count bigint NOT NULL DEFAULT 0,
+	vetted_at timestamp with time zone,
+	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	contained boolean NOT NULL DEFAULT false,
+	disqualified timestamp with time zone,
+	suspended timestamp with time zone,
+	unknown_audit_suspended timestamp with time zone,
+	offline_suspended timestamp with time zone,
+	under_review timestamp with time zone,
+	online_score double precision NOT NULL DEFAULT 1,
+	audit_history bytea NOT NULL,
+	audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
+	PRIMARY KEY ( id )
 );
 CREATE TABLE reset_password_tokens (
 	secret bytea NOT NULL,
@@ -5827,6 +5869,492 @@ func (f RegistrationToken_CreatedAt_Field) value() interface{} {
 }
 
 func (RegistrationToken_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Reputation struct {
+	Id                          []byte
+	AuditSuccessCount           int64
+	TotalAuditCount             int64
+	VettedAt                    *time.Time
+	CreatedAt                   time.Time
+	UpdatedAt                   time.Time
+	Contained                   bool
+	Disqualified                *time.Time
+	Suspended                   *time.Time
+	UnknownAuditSuspended       *time.Time
+	OfflineSuspended            *time.Time
+	UnderReview                 *time.Time
+	OnlineScore                 float64
+	AuditHistory                []byte
+	AuditReputationAlpha        float64
+	AuditReputationBeta         float64
+	UnknownAuditReputationAlpha float64
+	UnknownAuditReputationBeta  float64
+}
+
+func (Reputation) _Table() string { return "reputations" }
+
+type Reputation_Create_Fields struct {
+	AuditSuccessCount           Reputation_AuditSuccessCount_Field
+	TotalAuditCount             Reputation_TotalAuditCount_Field
+	VettedAt                    Reputation_VettedAt_Field
+	Contained                   Reputation_Contained_Field
+	Disqualified                Reputation_Disqualified_Field
+	Suspended                   Reputation_Suspended_Field
+	UnknownAuditSuspended       Reputation_UnknownAuditSuspended_Field
+	OfflineSuspended            Reputation_OfflineSuspended_Field
+	UnderReview                 Reputation_UnderReview_Field
+	OnlineScore                 Reputation_OnlineScore_Field
+	AuditReputationAlpha        Reputation_AuditReputationAlpha_Field
+	AuditReputationBeta         Reputation_AuditReputationBeta_Field
+	UnknownAuditReputationAlpha Reputation_UnknownAuditReputationAlpha_Field
+	UnknownAuditReputationBeta  Reputation_UnknownAuditReputationBeta_Field
+}
+
+type Reputation_Update_Fields struct {
+	AuditSuccessCount           Reputation_AuditSuccessCount_Field
+	TotalAuditCount             Reputation_TotalAuditCount_Field
+	VettedAt                    Reputation_VettedAt_Field
+	Contained                   Reputation_Contained_Field
+	Disqualified                Reputation_Disqualified_Field
+	Suspended                   Reputation_Suspended_Field
+	UnknownAuditSuspended       Reputation_UnknownAuditSuspended_Field
+	OfflineSuspended            Reputation_OfflineSuspended_Field
+	UnderReview                 Reputation_UnderReview_Field
+	OnlineScore                 Reputation_OnlineScore_Field
+	AuditHistory                Reputation_AuditHistory_Field
+	AuditReputationAlpha        Reputation_AuditReputationAlpha_Field
+	AuditReputationBeta         Reputation_AuditReputationBeta_Field
+	UnknownAuditReputationAlpha Reputation_UnknownAuditReputationAlpha_Field
+	UnknownAuditReputationBeta  Reputation_UnknownAuditReputationBeta_Field
+}
+
+type Reputation_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Reputation_Id(v []byte) Reputation_Id_Field {
+	return Reputation_Id_Field{_set: true, _value: v}
+}
+
+func (f Reputation_Id_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_Id_Field) _Column() string { return "id" }
+
+type Reputation_AuditSuccessCount_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Reputation_AuditSuccessCount(v int64) Reputation_AuditSuccessCount_Field {
+	return Reputation_AuditSuccessCount_Field{_set: true, _value: v}
+}
+
+func (f Reputation_AuditSuccessCount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_AuditSuccessCount_Field) _Column() string { return "audit_success_count" }
+
+type Reputation_TotalAuditCount_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func Reputation_TotalAuditCount(v int64) Reputation_TotalAuditCount_Field {
+	return Reputation_TotalAuditCount_Field{_set: true, _value: v}
+}
+
+func (f Reputation_TotalAuditCount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_TotalAuditCount_Field) _Column() string { return "total_audit_count" }
+
+type Reputation_VettedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Reputation_VettedAt(v time.Time) Reputation_VettedAt_Field {
+	return Reputation_VettedAt_Field{_set: true, _value: &v}
+}
+
+func Reputation_VettedAt_Raw(v *time.Time) Reputation_VettedAt_Field {
+	if v == nil {
+		return Reputation_VettedAt_Null()
+	}
+	return Reputation_VettedAt(*v)
+}
+
+func Reputation_VettedAt_Null() Reputation_VettedAt_Field {
+	return Reputation_VettedAt_Field{_set: true, _null: true}
+}
+
+func (f Reputation_VettedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Reputation_VettedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_VettedAt_Field) _Column() string { return "vetted_at" }
+
+type Reputation_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Reputation_CreatedAt(v time.Time) Reputation_CreatedAt_Field {
+	return Reputation_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f Reputation_CreatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_CreatedAt_Field) _Column() string { return "created_at" }
+
+type Reputation_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func Reputation_UpdatedAt(v time.Time) Reputation_UpdatedAt_Field {
+	return Reputation_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f Reputation_UpdatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_UpdatedAt_Field) _Column() string { return "updated_at" }
+
+type Reputation_Contained_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func Reputation_Contained(v bool) Reputation_Contained_Field {
+	return Reputation_Contained_Field{_set: true, _value: v}
+}
+
+func (f Reputation_Contained_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_Contained_Field) _Column() string { return "contained" }
+
+type Reputation_Disqualified_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Reputation_Disqualified(v time.Time) Reputation_Disqualified_Field {
+	return Reputation_Disqualified_Field{_set: true, _value: &v}
+}
+
+func Reputation_Disqualified_Raw(v *time.Time) Reputation_Disqualified_Field {
+	if v == nil {
+		return Reputation_Disqualified_Null()
+	}
+	return Reputation_Disqualified(*v)
+}
+
+func Reputation_Disqualified_Null() Reputation_Disqualified_Field {
+	return Reputation_Disqualified_Field{_set: true, _null: true}
+}
+
+func (f Reputation_Disqualified_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Reputation_Disqualified_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_Disqualified_Field) _Column() string { return "disqualified" }
+
+type Reputation_Suspended_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Reputation_Suspended(v time.Time) Reputation_Suspended_Field {
+	return Reputation_Suspended_Field{_set: true, _value: &v}
+}
+
+func Reputation_Suspended_Raw(v *time.Time) Reputation_Suspended_Field {
+	if v == nil {
+		return Reputation_Suspended_Null()
+	}
+	return Reputation_Suspended(*v)
+}
+
+func Reputation_Suspended_Null() Reputation_Suspended_Field {
+	return Reputation_Suspended_Field{_set: true, _null: true}
+}
+
+func (f Reputation_Suspended_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Reputation_Suspended_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_Suspended_Field) _Column() string { return "suspended" }
+
+type Reputation_UnknownAuditSuspended_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Reputation_UnknownAuditSuspended(v time.Time) Reputation_UnknownAuditSuspended_Field {
+	return Reputation_UnknownAuditSuspended_Field{_set: true, _value: &v}
+}
+
+func Reputation_UnknownAuditSuspended_Raw(v *time.Time) Reputation_UnknownAuditSuspended_Field {
+	if v == nil {
+		return Reputation_UnknownAuditSuspended_Null()
+	}
+	return Reputation_UnknownAuditSuspended(*v)
+}
+
+func Reputation_UnknownAuditSuspended_Null() Reputation_UnknownAuditSuspended_Field {
+	return Reputation_UnknownAuditSuspended_Field{_set: true, _null: true}
+}
+
+func (f Reputation_UnknownAuditSuspended_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f Reputation_UnknownAuditSuspended_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_UnknownAuditSuspended_Field) _Column() string { return "unknown_audit_suspended" }
+
+type Reputation_OfflineSuspended_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Reputation_OfflineSuspended(v time.Time) Reputation_OfflineSuspended_Field {
+	return Reputation_OfflineSuspended_Field{_set: true, _value: &v}
+}
+
+func Reputation_OfflineSuspended_Raw(v *time.Time) Reputation_OfflineSuspended_Field {
+	if v == nil {
+		return Reputation_OfflineSuspended_Null()
+	}
+	return Reputation_OfflineSuspended(*v)
+}
+
+func Reputation_OfflineSuspended_Null() Reputation_OfflineSuspended_Field {
+	return Reputation_OfflineSuspended_Field{_set: true, _null: true}
+}
+
+func (f Reputation_OfflineSuspended_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f Reputation_OfflineSuspended_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_OfflineSuspended_Field) _Column() string { return "offline_suspended" }
+
+type Reputation_UnderReview_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func Reputation_UnderReview(v time.Time) Reputation_UnderReview_Field {
+	return Reputation_UnderReview_Field{_set: true, _value: &v}
+}
+
+func Reputation_UnderReview_Raw(v *time.Time) Reputation_UnderReview_Field {
+	if v == nil {
+		return Reputation_UnderReview_Null()
+	}
+	return Reputation_UnderReview(*v)
+}
+
+func Reputation_UnderReview_Null() Reputation_UnderReview_Field {
+	return Reputation_UnderReview_Field{_set: true, _null: true}
+}
+
+func (f Reputation_UnderReview_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f Reputation_UnderReview_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_UnderReview_Field) _Column() string { return "under_review" }
+
+type Reputation_OnlineScore_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func Reputation_OnlineScore(v float64) Reputation_OnlineScore_Field {
+	return Reputation_OnlineScore_Field{_set: true, _value: v}
+}
+
+func (f Reputation_OnlineScore_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_OnlineScore_Field) _Column() string { return "online_score" }
+
+type Reputation_AuditHistory_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func Reputation_AuditHistory(v []byte) Reputation_AuditHistory_Field {
+	return Reputation_AuditHistory_Field{_set: true, _value: v}
+}
+
+func (f Reputation_AuditHistory_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_AuditHistory_Field) _Column() string { return "audit_history" }
+
+type Reputation_AuditReputationAlpha_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func Reputation_AuditReputationAlpha(v float64) Reputation_AuditReputationAlpha_Field {
+	return Reputation_AuditReputationAlpha_Field{_set: true, _value: v}
+}
+
+func (f Reputation_AuditReputationAlpha_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_AuditReputationAlpha_Field) _Column() string { return "audit_reputation_alpha" }
+
+type Reputation_AuditReputationBeta_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func Reputation_AuditReputationBeta(v float64) Reputation_AuditReputationBeta_Field {
+	return Reputation_AuditReputationBeta_Field{_set: true, _value: v}
+}
+
+func (f Reputation_AuditReputationBeta_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_AuditReputationBeta_Field) _Column() string { return "audit_reputation_beta" }
+
+type Reputation_UnknownAuditReputationAlpha_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func Reputation_UnknownAuditReputationAlpha(v float64) Reputation_UnknownAuditReputationAlpha_Field {
+	return Reputation_UnknownAuditReputationAlpha_Field{_set: true, _value: v}
+}
+
+func (f Reputation_UnknownAuditReputationAlpha_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_UnknownAuditReputationAlpha_Field) _Column() string {
+	return "unknown_audit_reputation_alpha"
+}
+
+type Reputation_UnknownAuditReputationBeta_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func Reputation_UnknownAuditReputationBeta(v float64) Reputation_UnknownAuditReputationBeta_Field {
+	return Reputation_UnknownAuditReputationBeta_Field{_set: true, _value: v}
+}
+
+func (f Reputation_UnknownAuditReputationBeta_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (Reputation_UnknownAuditReputationBeta_Field) _Column() string {
+	return "unknown_audit_reputation_beta"
+}
 
 type ResetPasswordToken struct {
 	Secret    []byte
@@ -10596,6 +11124,28 @@ func (obj *pgxImpl) Get_AuditHistory_By_NodeId(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Get_Reputation_By_Id(ctx context.Context,
+	reputation_id Reputation_Id_Field) (
+	reputation *Reputation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.contained, reputations.disqualified, reputations.suspended, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta FROM reputations WHERE reputations.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, reputation_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reputation = &Reputation{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Contained, &reputation.Disqualified, &reputation.Suspended, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+	if err != nil {
+		return (*Reputation)(nil), obj.makeErr(err)
+	}
+	return reputation, nil
+
+}
+
 func (obj *pgxImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx context.Context,
 	user_normalized_email User_NormalizedEmail_Field) (
 	user *User, err error) {
@@ -13406,6 +13956,226 @@ func (obj *pgxImpl) Update_AuditHistory_By_NodeId(ctx context.Context,
 	return audit_history, nil
 }
 
+func (obj *pgxImpl) Update_Reputation_By_Id(ctx context.Context,
+	reputation_id Reputation_Id_Field,
+	update Reputation_Update_Fields) (
+	reputation *Reputation, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ? RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.contained, reputations.disqualified, reputations.suspended, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.AuditSuccessCount._set {
+		__values = append(__values, update.AuditSuccessCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
+	}
+
+	if update.TotalAuditCount._set {
+		__values = append(__values, update.TotalAuditCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
+	}
+
+	if update.VettedAt._set {
+		__values = append(__values, update.VettedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
+	}
+
+	if update.Contained._set {
+		__values = append(__values, update.Contained.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
+	}
+
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.Suspended._set {
+		__values = append(__values, update.Suspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("suspended = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
+	}
+
+	if update.OnlineScore._set {
+		__values = append(__values, update.OnlineScore.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
+	}
+
+	if update.AuditHistory._set {
+		__values = append(__values, update.AuditHistory.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_history = ?"))
+	}
+
+	if update.AuditReputationAlpha._set {
+		__values = append(__values, update.AuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
+	}
+
+	if update.AuditReputationBeta._set {
+		__values = append(__values, update.AuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
+	}
+
+	if update.UnknownAuditReputationAlpha._set {
+		__values = append(__values, update.UnknownAuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
+	}
+
+	if update.UnknownAuditReputationBeta._set {
+		__values = append(__values, update.UnknownAuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, reputation_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reputation = &Reputation{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Contained, &reputation.Disqualified, &reputation.Suspended, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reputation, nil
+}
+
+func (obj *pgxImpl) UpdateNoReturn_Reputation_By_Id(ctx context.Context,
+	reputation_id Reputation_Id_Field,
+	update Reputation_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.AuditSuccessCount._set {
+		__values = append(__values, update.AuditSuccessCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
+	}
+
+	if update.TotalAuditCount._set {
+		__values = append(__values, update.TotalAuditCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
+	}
+
+	if update.VettedAt._set {
+		__values = append(__values, update.VettedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
+	}
+
+	if update.Contained._set {
+		__values = append(__values, update.Contained.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
+	}
+
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.Suspended._set {
+		__values = append(__values, update.Suspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("suspended = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
+	}
+
+	if update.OnlineScore._set {
+		__values = append(__values, update.OnlineScore.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
+	}
+
+	if update.AuditHistory._set {
+		__values = append(__values, update.AuditHistory.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_history = ?"))
+	}
+
+	if update.AuditReputationAlpha._set {
+		__values = append(__values, update.AuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
+	}
+
+	if update.AuditReputationBeta._set {
+		__values = append(__values, update.AuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
+	}
+
+	if update.UnknownAuditReputationAlpha._set {
+		__values = append(__values, update.UnknownAuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
+	}
+
+	if update.UnknownAuditReputationBeta._set {
+		__values = append(__values, update.UnknownAuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, reputation_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
 func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
 	user_id User_Id_Field,
 	update User_Update_Fields) (
@@ -14631,6 +15401,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reset_password_tokens;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reputations;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -16110,6 +16890,28 @@ func (obj *pgxcockroachImpl) Get_AuditHistory_By_NodeId(ctx context.Context,
 		return (*AuditHistory)(nil), obj.makeErr(err)
 	}
 	return audit_history, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_Reputation_By_Id(ctx context.Context,
+	reputation_id Reputation_Id_Field) (
+	reputation *Reputation, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.contained, reputations.disqualified, reputations.suspended, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta FROM reputations WHERE reputations.id = ?")
+
+	var __values []interface{}
+	__values = append(__values, reputation_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reputation = &Reputation{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Contained, &reputation.Disqualified, &reputation.Suspended, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+	if err != nil {
+		return (*Reputation)(nil), obj.makeErr(err)
+	}
+	return reputation, nil
 
 }
 
@@ -18923,6 +19725,226 @@ func (obj *pgxcockroachImpl) Update_AuditHistory_By_NodeId(ctx context.Context,
 	return audit_history, nil
 }
 
+func (obj *pgxcockroachImpl) Update_Reputation_By_Id(ctx context.Context,
+	reputation_id Reputation_Id_Field,
+	update Reputation_Update_Fields) (
+	reputation *Reputation, err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ? RETURNING reputations.id, reputations.audit_success_count, reputations.total_audit_count, reputations.vetted_at, reputations.created_at, reputations.updated_at, reputations.contained, reputations.disqualified, reputations.suspended, reputations.unknown_audit_suspended, reputations.offline_suspended, reputations.under_review, reputations.online_score, reputations.audit_history, reputations.audit_reputation_alpha, reputations.audit_reputation_beta, reputations.unknown_audit_reputation_alpha, reputations.unknown_audit_reputation_beta")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.AuditSuccessCount._set {
+		__values = append(__values, update.AuditSuccessCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
+	}
+
+	if update.TotalAuditCount._set {
+		__values = append(__values, update.TotalAuditCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
+	}
+
+	if update.VettedAt._set {
+		__values = append(__values, update.VettedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
+	}
+
+	if update.Contained._set {
+		__values = append(__values, update.Contained.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
+	}
+
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.Suspended._set {
+		__values = append(__values, update.Suspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("suspended = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
+	}
+
+	if update.OnlineScore._set {
+		__values = append(__values, update.OnlineScore.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
+	}
+
+	if update.AuditHistory._set {
+		__values = append(__values, update.AuditHistory.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_history = ?"))
+	}
+
+	if update.AuditReputationAlpha._set {
+		__values = append(__values, update.AuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
+	}
+
+	if update.AuditReputationBeta._set {
+		__values = append(__values, update.AuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
+	}
+
+	if update.UnknownAuditReputationAlpha._set {
+		__values = append(__values, update.UnknownAuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
+	}
+
+	if update.UnknownAuditReputationBeta._set {
+		__values = append(__values, update.UnknownAuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, reputation_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	reputation = &Reputation{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&reputation.Id, &reputation.AuditSuccessCount, &reputation.TotalAuditCount, &reputation.VettedAt, &reputation.CreatedAt, &reputation.UpdatedAt, &reputation.Contained, &reputation.Disqualified, &reputation.Suspended, &reputation.UnknownAuditSuspended, &reputation.OfflineSuspended, &reputation.UnderReview, &reputation.OnlineScore, &reputation.AuditHistory, &reputation.AuditReputationAlpha, &reputation.AuditReputationBeta, &reputation.UnknownAuditReputationAlpha, &reputation.UnknownAuditReputationBeta)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return reputation, nil
+}
+
+func (obj *pgxcockroachImpl) UpdateNoReturn_Reputation_By_Id(ctx context.Context,
+	reputation_id Reputation_Id_Field,
+	update Reputation_Update_Fields) (
+	err error) {
+	defer mon.Task()(&ctx)(&err)
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE reputations SET "), __sets, __sqlbundle_Literal(" WHERE reputations.id = ?")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []interface{}
+	var __args []interface{}
+
+	if update.AuditSuccessCount._set {
+		__values = append(__values, update.AuditSuccessCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_success_count = ?"))
+	}
+
+	if update.TotalAuditCount._set {
+		__values = append(__values, update.TotalAuditCount.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("total_audit_count = ?"))
+	}
+
+	if update.VettedAt._set {
+		__values = append(__values, update.VettedAt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("vetted_at = ?"))
+	}
+
+	if update.Contained._set {
+		__values = append(__values, update.Contained.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("contained = ?"))
+	}
+
+	if update.Disqualified._set {
+		__values = append(__values, update.Disqualified.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("disqualified = ?"))
+	}
+
+	if update.Suspended._set {
+		__values = append(__values, update.Suspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("suspended = ?"))
+	}
+
+	if update.UnknownAuditSuspended._set {
+		__values = append(__values, update.UnknownAuditSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_suspended = ?"))
+	}
+
+	if update.OfflineSuspended._set {
+		__values = append(__values, update.OfflineSuspended.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("offline_suspended = ?"))
+	}
+
+	if update.UnderReview._set {
+		__values = append(__values, update.UnderReview.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
+	}
+
+	if update.OnlineScore._set {
+		__values = append(__values, update.OnlineScore.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
+	}
+
+	if update.AuditHistory._set {
+		__values = append(__values, update.AuditHistory.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_history = ?"))
+	}
+
+	if update.AuditReputationAlpha._set {
+		__values = append(__values, update.AuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
+	}
+
+	if update.AuditReputationBeta._set {
+		__values = append(__values, update.AuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
+	}
+
+	if update.UnknownAuditReputationAlpha._set {
+		__values = append(__values, update.UnknownAuditReputationAlpha.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
+	}
+
+	if update.UnknownAuditReputationBeta._set {
+		__values = append(__values, update.UnknownAuditReputationBeta.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+
+	__values = append(__values, __now)
+	__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("updated_at = ?"))
+
+	__args = append(__args, reputation_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return obj.makeErr(err)
+	}
+	return nil
+}
+
 func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
 	user_id User_Id_Field,
 	update User_Update_Fields) (
@@ -20157,6 +21179,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reputations;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM registration_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -21359,6 +22391,16 @@ func (rx *Rx) Get_RegistrationToken_By_Secret(ctx context.Context,
 	return tx.Get_RegistrationToken_By_Secret(ctx, registration_token_secret)
 }
 
+func (rx *Rx) Get_Reputation_By_Id(ctx context.Context,
+	reputation_id Reputation_Id_Field) (
+	reputation *Reputation, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Get_Reputation_By_Id(ctx, reputation_id)
+}
+
 func (rx *Rx) Get_ResetPasswordToken_By_OwnerId(ctx context.Context,
 	reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
 	reset_password_token *ResetPasswordToken, err error) {
@@ -21791,6 +22833,17 @@ func (rx *Rx) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
 	return tx.UpdateNoReturn_PeerIdentity_By_NodeId(ctx, peer_identity_node_id, update)
 }
 
+func (rx *Rx) UpdateNoReturn_Reputation_By_Id(ctx context.Context,
+	reputation_id Reputation_Id_Field,
+	update Reputation_Update_Fields) (
+	err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.UpdateNoReturn_Reputation_By_Id(ctx, reputation_id, update)
+}
+
 func (rx *Rx) Update_AuditHistory_By_NodeId(ctx context.Context,
 	audit_history_node_id AuditHistory_NodeId_Field,
 	update AuditHistory_Update_Fields) (
@@ -21879,6 +22932,17 @@ func (rx *Rx) Update_RegistrationToken_By_Secret(ctx context.Context,
 		return
 	}
 	return tx.Update_RegistrationToken_By_Secret(ctx, registration_token_secret, update)
+}
+
+func (rx *Rx) Update_Reputation_By_Id(ctx context.Context,
+	reputation_id Reputation_Id_Field,
+	update Reputation_Update_Fields) (
+	reputation *Reputation, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Update_Reputation_By_Id(ctx, reputation_id, update)
 }
 
 func (rx *Rx) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx context.Context,
@@ -22323,6 +23387,10 @@ type Methods interface {
 		registration_token_secret RegistrationToken_Secret_Field) (
 		registration_token *RegistrationToken, err error)
 
+	Get_Reputation_By_Id(ctx context.Context,
+		reputation_id Reputation_Id_Field) (
+		reputation *Reputation, err error)
+
 	Get_ResetPasswordToken_By_OwnerId(ctx context.Context,
 		reset_password_token_owner_id ResetPasswordToken_OwnerId_Field) (
 		reset_password_token *ResetPasswordToken, err error)
@@ -22531,6 +23599,11 @@ type Methods interface {
 		update PeerIdentity_Update_Fields) (
 		err error)
 
+	UpdateNoReturn_Reputation_By_Id(ctx context.Context,
+		reputation_id Reputation_Id_Field,
+		update Reputation_Update_Fields) (
+		err error)
+
 	Update_AuditHistory_By_NodeId(ctx context.Context,
 		audit_history_node_id AuditHistory_NodeId_Field,
 		update AuditHistory_Update_Fields) (
@@ -22572,6 +23645,11 @@ type Methods interface {
 		registration_token_secret RegistrationToken_Secret_Field,
 		update RegistrationToken_Update_Fields) (
 		registration_token *RegistrationToken, err error)
+
+	Update_Reputation_By_Id(ctx context.Context,
+		reputation_id Reputation_Id_Field,
+		update Reputation_Update_Fields) (
+		reputation *Reputation, err error)
 
 	Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx context.Context,
 		stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field,

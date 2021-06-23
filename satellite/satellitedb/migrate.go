@@ -1429,6 +1429,34 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE project_bandwidth_daily_rollups ADD COLUMN egress_dead bigint NOT NULL DEFAULT 0;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add table for node reputation",
+				Version:     161,
+				Action: migrate.SQL{
+					`CREATE TABLE reputations (
+						id bytea NOT NULL,
+						audit_success_count bigint NOT NULL DEFAULT 0,
+						total_audit_count bigint NOT NULL DEFAULT 0,
+						vetted_at timestamp with time zone,
+						created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						contained boolean NOT NULL DEFAULT false,
+						disqualified timestamp with time zone,
+						suspended timestamp with time zone,
+						unknown_audit_suspended timestamp with time zone,
+						offline_suspended timestamp with time zone,
+						under_review timestamp with time zone,
+						online_score double precision NOT NULL DEFAULT 1,
+						audit_history bytea NOT NULL,
+						audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+						audit_reputation_beta double precision NOT NULL DEFAULT 0,
+						unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+						unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
