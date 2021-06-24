@@ -152,6 +152,33 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
     }
 
     /**
+     * Get total limits for all the projects that user owns.
+     *
+     * throws Error
+     */
+    public async getTotalLimits(): Promise<ProjectLimits> {
+        const path = `${this.ROOT_PATH}/usage-limits`;
+        const response = await this.http.get(path);
+
+        if (response.ok) {
+            const limits = await response.json();
+
+            return new ProjectLimits(
+                limits.bandwidthLimit,
+                limits.bandwidthUsed,
+                limits.storageLimit,
+                limits.storageUsed,
+            );
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('can not get total usage limits');
+    }
+
+    /**
      * Fetch owned projects.
      *
      * @returns ProjectsPage
