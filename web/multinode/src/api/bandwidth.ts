@@ -25,6 +25,10 @@ export class BandwidthClient extends APIClient {
     public async fetch(satelliteId: string | null, nodeId: string | null): Promise<BandwidthTraffic> {
         let path = `${this.ROOT_PATH}`;
 
+        if (!satelliteId && !nodeId) {
+            path += '/';
+        }
+
         if (satelliteId) {
             path += `/satellites/${satelliteId}`;
         }
@@ -40,9 +44,10 @@ export class BandwidthClient extends APIClient {
         }
 
         const traffic = await response.json();
+        const daily = traffic.bandwidthDaily || [];
 
         return new BandwidthTraffic(
-            traffic.bandwidthDaily.map(daily => {
+            daily.map(daily => {
                 return new BandwidthRollup(
                     new Egress(daily.egress.repair, daily.egress.audit, daily.egress.usage),
                     new Ingress(daily.ingress.repair, daily.ingress.usage),

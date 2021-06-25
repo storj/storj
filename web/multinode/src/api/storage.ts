@@ -33,6 +33,13 @@ export class StorageClient extends APIClient {
             path += `/${nodeId}`;
         }
 
+        const now = new Date();
+        const year = now.getUTCFullYear();
+        const month = now.getUTCMonth() + 1;
+        const period = `${year}-${month > 9 ? month : `0${month}`}`;
+
+        path += `?period=${period}`;
+
         const response = await this.http.get(path);
 
         if (!response.ok) {

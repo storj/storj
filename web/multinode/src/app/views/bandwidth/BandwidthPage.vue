@@ -8,7 +8,7 @@
             <node-selection-dropdown />
             <satellite-selection-dropdown />
         </div>
-        <div class="chart-container">
+        <div class="chart-container bandwidth-chart">
             <div class="chart-container__title-area">
                 <p class="chart-container__title-area__title">Bandwidth Used This Month</p>
                 <div class="chart-container__title-area__buttons-area">
@@ -42,11 +42,25 @@
             <p class="chart-container__amount" v-else-if="isIngressChartShown"><b>{{ bandwidth.ingressSummary | bytesToBase10String }}</b></p>
             <p class="chart-container__amount" v-else><b>{{ bandwidth.bandwidthSummary | bytesToBase10String }}</b></p>
             <div class="chart-container__chart" ref="chart" onresize="recalculateChartDimensions()" >
-                <EgressChart v-if="isEgressChartShown" :height="chartHeight" :width="chartWidth"/>
-                <IngressChart v-else-if="isIngressChartShown" :height="chartHeight" :width="chartWidth"/>
-                <BandwidthChart v-else :height="chartHeight" :width="chartWidth"/>
+                <egress-chart v-if="isEgressChartShown" :height="chartHeight" :width="chartWidth"/>
+                <ingress-chart v-else-if="isIngressChartShown" :height="chartHeight" :width="chartWidth"/>
+                <bandwidth-chart v-else :height="chartHeight" :width="chartWidth"/>
             </div>
         </div>
+        <section class="bandwidth__chart-area">
+            <section class="chart-container">
+                <div class="chart-container__title-area disk-space-title">
+                    <p class="chart-container__title-area__title">Disk Space Used This Month</p>
+                </div>
+                <p class="chart-container__amount disk-space-amount"><b>{{ 0 | bytesToBase10String }}*h</b></p>
+                <div class="chart-container__chart" ref="diskSpaceChart" onresize="recalculateChartDimensions()" >
+                    <disk-space-chart :height="diskSpaceChartHeight" :width="diskSpaceChartWidth"/>
+                </div>
+            </section>
+            <section class="disk-stat-chart">
+                <disk-stat-chart />
+            </section>
+        </section>
     </div>
 </template>
 
@@ -58,12 +72,16 @@ import EgressChart from '@/app/components/bandwidth/EgressChart.vue';
 import IngressChart from '@/app/components/bandwidth/IngressChart.vue';
 import NodeSelectionDropdown from '@/app/components/common/NodeSelectionDropdown.vue';
 import SatelliteSelectionDropdown from '@/app/components/common/SatelliteSelectionDropdown.vue';
+import DiskSpaceChart from '@/app/components/storage/DiskSpaceChart.vue';
+import DiskStatChart from '@/app/components/storage/DiskStatChart.vue';
 
 import { UnauthorizedError } from '@/api';
 import { BandwidthTraffic } from '@/bandwidth';
 
 @Component({
     components: {
+        DiskStatChart,
+        DiskSpaceChart,
         EgressChart,
         IngressChart,
         BandwidthChart,
@@ -74,6 +92,8 @@ import { BandwidthTraffic } from '@/bandwidth';
 export default class BandwidthPage extends Vue {
     public chartWidth: number = 0;
     public chartHeight: number = 0;
+    public diskSpaceChartWidth: number = 0;
+    public diskSpaceChartHeight: number = 0;
     public isEgressChartShown: boolean = false;
     public isIngressChartShown: boolean = false;
     public $refs: {
@@ -90,6 +110,8 @@ export default class BandwidthPage extends Vue {
     public recalculateChartDimensions(): void {
         this.chartWidth = this.$refs['chart'].clientWidth;
         this.chartHeight = this.$refs['chart'].clientHeight;
+        this.diskSpaceChartWidth = this.$refs['diskSpaceChart'].clientWidth;
+        this.diskSpaceChartHeight = this.$refs['diskSpaceChart'].clientHeight;
     }
 
     /**
@@ -109,14 +131,14 @@ export default class BandwidthPage extends Vue {
             // TODO: notify error
         }
 
-        await this.fetchBandwidth();
+        await this.fetchTraffic();
 
         // Subscribes on period or satellite change
         this.$store.subscribe(async (mutation) => {
             const watchedMutations = [ 'nodes/setSelectedNode', 'nodes/setSelectedSatellite' ];
 
             if (watchedMutations.includes(mutation.type)) {
-                await this.fetchBandwidth();
+                await this.fetchTraffic();
             }
         });
 
@@ -156,11 +178,31 @@ export default class BandwidthPage extends Vue {
     }
 
     /**
-     * Fetches bandwidth information.
+     * Fetches bandwidth and disk space information.
      */
-    private async fetchBandwidth(): Promise<void> {
+    private async fetchTraffic(): Promise<void> {
         try {
             await this.$store.dispatch('bandwidth/fetch');
+        } catch (error) {
+            if (error instanceof UnauthorizedError) {
+                // TODO: redirect to login screen.
+            }
+
+            // TODO: notify error
+        }
+
+        try {
+            await this.$store.dispatch('storage/usage');
+        } catch (error) {
+            if (error instanceof UnauthorizedError) {
+                // TODO: redirect to login screen.
+            }
+
+            // TODO: notify error
+        }
+
+        try {
+            await this.$store.dispatch('storage/diskSpace');
         } catch (error) {
             if (error instanceof UnauthorizedError) {
                 // TODO: redirect to login screen.
@@ -203,7 +245,7 @@ export default class BandwidthPage extends Vue {
 
         & .chart-container {
             box-sizing: border-box;
-            width: 100%;
+            width: 65%;
             height: 401px;
             background-color: white;
             border: 1px solid var(--c-gray--light);
@@ -263,5 +305,25 @@ export default class BandwidthPage extends Vue {
                 height: 240px;
             }
         }
+
+        &__chart-area {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            width: 100%;
+        }
+    }
+
+    .disk-space-amount {
+        margin-top: 5px;
+    }
+
+    .bandwidth-chart {
+        width: 100% !important;
+    }
+
+    .disk-stat-chart {
+        margin: 20px 0 13px 0;
+        width: auto;
     }
 </style>
