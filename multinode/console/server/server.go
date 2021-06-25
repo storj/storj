@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/multinode/nodes"
 	"storj.io/storj/multinode/operators"
 	"storj.io/storj/multinode/payouts"
+	"storj.io/storj/multinode/reputation"
 	"storj.io/storj/multinode/storage"
 )
 
@@ -36,11 +37,12 @@ type Config struct {
 
 // Services contains services utilized by multinode dashboard.
 type Services struct {
-	Nodes     *nodes.Service
-	Payouts   *payouts.Service
-	Operators *operators.Service
-	Storage   *storage.Service
-	Bandwidth *bandwidth.Service
+	Nodes      *nodes.Service
+	Payouts    *payouts.Service
+	Operators  *operators.Service
+	Storage    *storage.Service
+	Bandwidth  *bandwidth.Service
+	Reputation *reputation.Service
 }
 
 // Server represents Multinode Dashboard http server.
@@ -52,11 +54,12 @@ type Server struct {
 	http     http.Server
 	config   Config
 
-	nodes     *nodes.Service
-	payouts   *payouts.Service
-	operators *operators.Service
-	bandwidth *bandwidth.Service
-	storage   *storage.Service
+	nodes      *nodes.Service
+	payouts    *payouts.Service
+	operators  *operators.Service
+	bandwidth  *bandwidth.Service
+	storage    *storage.Service
+	reputation *reputation.Service
 
 	index *template.Template
 }
@@ -64,14 +67,15 @@ type Server struct {
 // NewServer returns new instance of Multinode Dashboard http server.
 func NewServer(log *zap.Logger, listener net.Listener, config Config, services Services) (*Server, error) {
 	server := Server{
-		log:       log,
-		listener:  listener,
-		config:    config,
-		nodes:     services.Nodes,
-		operators: services.Operators,
-		payouts:   services.Payouts,
-		storage:   services.Storage,
-		bandwidth: services.Bandwidth,
+		log:        log,
+		listener:   listener,
+		config:     config,
+		nodes:      services.Nodes,
+		operators:  services.Operators,
+		payouts:    services.Payouts,
+		storage:    services.Storage,
+		bandwidth:  services.Bandwidth,
+		reputation: services.Reputation,
 	}
 
 	router := mux.NewRouter()
@@ -124,6 +128,10 @@ func NewServer(log *zap.Logger, listener net.Listener, config Config, services S
 	storageRouter.HandleFunc("/satellites/{satelliteID}/usage/{nodeID}", storageController.UsageSatellite).Methods(http.MethodGet)
 	storageRouter.HandleFunc("/disk-space", storageController.TotalDiskSpace).Methods(http.MethodGet)
 	storageRouter.HandleFunc("/disk-space/{nodeID}", storageController.DiskSpace).Methods(http.MethodGet)
+
+	reputationController := controllers.NewReputation(server.log, server.reputation)
+	reputationRouter := apiRouter.PathPrefix("/reputation").Subrouter()
+	reputationRouter.HandleFunc("/satellites/{satelliteID}", reputationController.Stats)
 
 	if server.config.StaticDir != "" {
 		router.PathPrefix("/static/").Handler(http.StripPrefix("/static", fs))
