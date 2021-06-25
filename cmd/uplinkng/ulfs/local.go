@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -23,28 +24,8 @@ func NewLocal() *Local {
 	return &Local{}
 }
 
-func (l *Local) abs(path string) (string, error) {
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return "", errs.Wrap(err)
-	}
-	if strings.HasSuffix(path, string(filepath.Separator)) &&
-		!strings.HasSuffix(abs, string(filepath.Separator)) {
-		abs += string(filepath.Separator)
-	}
-	if filepath.Separator != '/' {
-		abs = strings.ReplaceAll(abs, string(filepath.Separator), "/")
-	}
-	return abs, nil
-}
-
 // Open returns a read ReadHandle for the given local path.
 func (l *Local) Open(ctx context.Context, path string) (ReadHandle, error) {
-	path, err := l.abs(path)
-	if err != nil {
-		return nil, err
-	}
-
 	fh, err := os.Open(path)
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -54,11 +35,6 @@ func (l *Local) Open(ctx context.Context, path string) (ReadHandle, error) {
 
 // Create makes any directories necessary to create a file at path and returns a WriteHandle.
 func (l *Local) Create(ctx context.Context, path string) (WriteHandle, error) {
-	path, err := l.abs(path)
-	if err != nil {
-		return nil, err
-	}
-
 	fi, err := os.Stat(path)
 	if err != nil && !os.IsNotExist(err) {
 		return nil, errs.Wrap(err)
@@ -80,11 +56,6 @@ func (l *Local) Create(ctx context.Context, path string) (WriteHandle, error) {
 
 // Remove unlinks the file at the path. It is not an error if the file does not exist.
 func (l *Local) Remove(ctx context.Context, path string) error {
-	path, err := l.abs(path)
-	if err != nil {
-		return err
-	}
-
 	if err := os.Remove(path); os.IsNotExist(err) {
 		return nil
 	} else if err != nil {
@@ -97,15 +68,16 @@ func (l *Local) Remove(ctx context.Context, path string) error {
 // ListObjects returns an ObjectIterator listing files and directories that have string prefix
 // with the provided path.
 func (l *Local) ListObjects(ctx context.Context, path string, recursive bool) (ObjectIterator, error) {
-	path, err := l.abs(path)
-	if err != nil {
-		return nil, err
-	}
-
 	prefix := path
-	if idx := strings.LastIndexByte(path, filepath.Separator); idx >= 0 {
+	if idx := strings.LastIndex(path, "/"); idx >= 0 {
 		prefix = path[:idx+1]
 	}
+
+	prefix, err := filepath.Abs(prefix)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+	prefix += string(filepath.Separator)
 
 	var files []os.FileInfo
 	if recursive {
@@ -129,14 +101,24 @@ func (l *Local) ListObjects(ctx context.Context, path string, recursive bool) (O
 		return nil, err
 	}
 
-	trim := prefix
-	if recursive {
-		trim = ""
+	sort.Slice(files, func(i, j int) bool {
+		if files[i].IsDir() && files[j].IsDir() {
+			return files[i].Name() < files[j].Name()
+		} else if files[i].IsDir() {
+			return true
+		} else {
+			return false
+		}
+	})
+
+	var trim ulloc.Location
+	if !recursive {
+		trim = ulloc.NewLocal(prefix)
 	}
 
 	return &filteredObjectIterator{
 		trim:   trim,
-		filter: path,
+		filter: ulloc.NewLocal(prefix),
 		iter: &fileinfoObjectIterator{
 			base:  prefix,
 			files: files,

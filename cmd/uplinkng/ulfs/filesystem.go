@@ -7,7 +7,6 @@ import (
 	"context"
 	"io"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/zeebo/clingy"
@@ -217,8 +216,8 @@ type ObjectIterator interface {
 // all entries must begin with the trim string which is removed before checking for the
 // filter.
 type filteredObjectIterator struct {
-	trim   string
-	filter string
+	trim   ulloc.Location
+	filter ulloc.Location
 	iter   ObjectIterator
 }
 
@@ -227,11 +226,11 @@ func (f *filteredObjectIterator) Next() bool {
 		if !f.iter.Next() {
 			return false
 		}
-		key := f.iter.Item().Loc.Key()
-		if !strings.HasPrefix(key, f.trim) {
+		loc := f.iter.Item().Loc
+		if !loc.HasPrefix(f.trim) {
 			return false
 		}
-		if strings.HasPrefix(key, f.filter) {
+		if loc.HasPrefix(f.filter.AsDirectoryish()) || loc == f.filter {
 			return true
 		}
 	}
@@ -241,7 +240,7 @@ func (f *filteredObjectIterator) Err() error { return f.iter.Err() }
 
 func (f *filteredObjectIterator) Item() ObjectInfo {
 	item := f.iter.Item()
-	item.Loc = item.Loc.RemoveKeyPrefix(f.trim)
+	item.Loc = item.Loc.RemovePrefix(f.trim)
 	return item
 }
 
