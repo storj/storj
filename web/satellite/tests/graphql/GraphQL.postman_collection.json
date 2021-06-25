@@ -1,0 +1,2625 @@
+{
+	"info": {
+		"_postman_id": "4b191858-a117-446d-a6a6-c991e71dc398",
+		"name": "GraphQL",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Pre-Test Requirements",
+			"item": [
+				{
+					"name": "Force Logout",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "text"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/logout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"logout"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "CreateUser",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"email\":\"test@cheese.com\",\"password\":\"test_testerson\"}",
+							"options": {
+								"raw": {
+									"language": "text"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/user",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"user"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"let debug = pm.environment.get(\"debug_mode\");",
+							"",
+							"if (debug) {",
+							"    console.info(\"Pre-test ......\");",
+							"}"
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "Authentication Controller",
+			"item": [
+				{
+					"name": "Login_GetToken_Fail",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"verify cookie is unset\", function () {\r",
+									"    pm.expect(pm.cookies.has(\"_tokenKey\")).to.be.false; \r",
+									"});\r",
+									"\r",
+									"var stringToMatch = \"unauthorized\";\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.json().error).to.include(stringToMatch);\r",
+									"});\r",
+									"\r",
+									"pm.test(\"login unsuccessful\", function () {\r",
+									"    pm.response.to.have.status(401);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"email\":\"wrong@again.io\",\"password\":\"wrong\"}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/token",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"token"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login_GetToken_Pass",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"\r",
+									"let raw_token = pm.response.json();\r",
+									"let cookieValue = pm.cookies.get(\"_tokenKey\");\r",
+									"\r",
+									"pm.test(\"token retrieval\", function () {\r",
+									"    pm.environment.set(\"token\", raw_token);\r",
+									"});\r",
+									"\r",
+									"pm.test(\"validate token in cookie\", function () {\r",
+									"    pm.expect(cookieValue).to.equal(raw_token);\r",
+									"});\r",
+									"\r",
+									"pm.test(\"login successful\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"email\":\"{{user_name}}\",\"password\":\"{{password}}\"}",
+							"options": {
+								"raw": {
+									"language": "text"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/token",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"token"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login_ChangePassword_IncorrectCurrentPassword",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"password not changed\", function () {\r",
+									"    pm.response.to.have.status(401);\r",
+									"});\r",
+									"\r",
+									"var stringToMatch = \"password was incorrect\";\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.json().error).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"password\":\"{{password}}1\",\"newPassword\":\"{{password}}\"}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/account/change-password",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"account",
+								"change-password"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login_ChangePassword",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"password changed\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"password\":\"{{password}}\",\"newPassword\":\"{{password}}\"}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/account/change-password",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"account",
+								"change-password"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get_AccountInfo",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"var stringToMatch = \"fullName\";\r",
+									"\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});\r",
+									"\r",
+									"pm.test(\"get user identifier\", function () { \r",
+									"    var raw_user_identifier = JSON.parse(responseBody);\r",
+									"    pm.environment.set(\"user_identifier\", raw_user_identifier.id);\r",
+									"    pm.expect(raw_user_identifier.id).not.eq(undefined);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "*/*"
+							}
+						],
+						"body": {
+							"mode": "graphql",
+							"graphql": {
+								"query": "",
+								"variables": ""
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/account",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"account"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"let debug = pm.environment.get(\"debug_mode\");",
+							"",
+							"if (debug) {",
+							"    console.info(\"Authentication Controller\");",
+							"}"
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "Payment Controller",
+			"item": [
+				{
+					"name": "Get_PaymentCards_EmptyReturn",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"pm.test(\"expect undefined response\", function () {\r",
+									"    pm.expect(pm.response.body).to.be.empty;\r",
+									"} );"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "*/*"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/payments/cards",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"payments",
+								"cards"
+							]
+						},
+						"description": "payment cards"
+					},
+					"response": []
+				},
+				{
+					"name": "Get_AccountBalance",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"let stringToMatch = \"freeCredits\";\r",
+									"\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});\r",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36"
+							},
+							{
+								"key": "Content-Type",
+								"value": "text/plain"
+							},
+							{
+								"key": "Accept",
+								"value": "*/*"
+							},
+							{
+								"key": "Content-Length",
+								"value": "<calculated when request is sent>",
+								"type": "text"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/payments/account/balance",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"payments",
+								"account",
+								"balance"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get_PaywallEnabledByOwnerId",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"pm.test(\"Body matches string\", function () {\r",
+									"    pm.expect(pm.response.text()).to.include(\"false\" || \"true\");\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "*/*"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/payments/paywall-enabled/{{user_identifier}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"payments",
+								"paywall-enabled",
+								"{{user_identifier}}"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get_BillingHistory",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"let stringToMatch = \"description\";\r",
+									"\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "*/*"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/payments/billing-history",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"payments",
+								"billing-history"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get_AccountChargesByDateRange",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"let stringToMatch = \"egress\";\r",
+									"\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "*/*"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v0/payments/account/charges?from=1619827200&to=1620844320",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0",
+								"payments",
+								"account",
+								"charges"
+							],
+							"query": [
+								{
+									"key": "from",
+									"value": "1619827200"
+								},
+								{
+									"key": "to",
+									"value": "1620844320"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"let debug = pm.environment.get(\"debug_mode\");",
+							"",
+							"if (debug) {",
+							"    console.info(\"Payment Controller\");",
+							"}"
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "Bucket Controller",
+			"item": [
+				{
+					"name": "Get_BucketNamesByProjectId",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"var stringToMatch = \"[\";\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "*/*"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v0/buckets/bucket-names?projectID={{project_identifier}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0",
+								"buckets",
+								"bucket-names"
+							],
+							"query": [
+								{
+									"key": "projectID",
+									"value": "{{project_identifier}}"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get_BucketUsageByProjectId",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"var stringToMatch = \"bucketUsagePage\";\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "accept",
+								"value": "*/*"
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "content-type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"before\":\"2021-05-12T18:32:30.533Z\",\"limit\":7,\"search\":\"\",\"page\":1},\"query\":\"query ($projectId: String!, $before: DateTime!, $limit: Int!, $search: String!, $page: Int!) {\\n  project(id: $projectId) {\\n    bucketUsages(before: $before, cursor: {limit: $limit, search: $search, page: $page}) {\\n      bucketUsages {\\n        bucketName\\n        storage\\n        egress\\n        objectCount\\n        since\\n        before\\n        __typename\\n      }\\n      search\\n      limit\\n      offset\\n      pageCount\\n      currentPage\\n      totalCount\\n      __typename\\n    }\\n    __typename\\n  }\\n}\\n\"}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v0/graphql",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0",
+								"graphql"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"let debug = pm.environment.get(\"debug_mode\");",
+							"",
+							"if (debug) {",
+							"    console.info(\"Bucket Controller\");",
+							"}"
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "API Controller",
+			"item": [
+				{
+					"name": "Post_GenerateApiKey",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"let ApiKeyName = \"{{$randomFirstName}} \" + \"{{$randomLastName}} - \" + \"{{$timestamp}}\"\r",
+									"pm.variables.set(\"randomApiName\", ApiKeyName);"
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"var stringToMatch = \"createAPIKey\";\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "accept",
+								"value": "*/*"
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "content-type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"name\":\"{{randomApiName}}\"},\"query\":\"mutation ($projectId: String!, $name: String!) {\\n  createAPIKey(projectID: $projectId, name: $name) {\\n    key\\n    keyInfo {\\n      id\\n      name\\n      createdAt\\n      __typename\\n    }\\n    __typename\\n  }\\n}\\n\"}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v0/graphql",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0",
+								"graphql"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get_APIKeyInfoByProjectId",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"var stringToMatch = \"apiKeysPage\";\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "accept",
+								"value": "*/*"
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "content-type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"limit\":6,\"search\":\"\",\"page\":1,\"order\":1,\"orderDirection\":1},\"query\":\"query ($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {\\n  project(id: $projectId) {\\n    apiKeys(cursor: {limit: $limit, search: $search, page: $page, order: $order, orderDirection: $orderDirection}) {\\n      apiKeys {\\n        id\\n        name\\n        createdAt\\n        __typename\\n      }\\n      search\\n      limit\\n      order\\n      pageCount\\n      currentPage\\n      totalCount\\n      __typename\\n    }\\n    __typename\\n  }\\n}\\n\"}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v0/graphql",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0",
+								"graphql"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"let debug = pm.environment.get(\"debug_mode\");",
+							"",
+							"if (debug) {",
+							"    console.info(\"API Controller\");",
+							"}"
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "Project Controller",
+			"item": [
+				{
+					"name": "Get_ProjectId",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"pm.environment.set(\"project_identifier\", pm.response.json().data.myProjects[0].id);"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "accept",
+								"value": "*/*"
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36"
+							},
+							{
+								"key": "content-type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\r\n    \"operationName\": null,\r\n    \"variables\": {},\r\n    \"query\": \"{\\n  myProjects {\\n    name\\n    id\\n    description\\n    createdAt\\n    ownerId\\n    __typename\\n  }\\n}\\n\"\r\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/graphql",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"graphql"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get_ProjectInfo",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"let stringToMatch = \"bucketUsagePage\";\r",
+									"\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "accept",
+								"value": "*/*"
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36"
+							},
+							{
+								"key": "content-type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"before\":\"2021-05-11T17:03:23.924Z\",\"limit\":7,\"search\":\"\",\"page\":1},\"query\":\"query ($projectId: String!, $before: DateTime!, $limit: Int!, $search: String!, $page: Int!) {\\n  project(id: $projectId) {\\n    bucketUsages(before: $before, cursor: {limit: $limit, search: $search, page: $page}) {\\n      bucketUsages {\\n        bucketName\\n        storage\\n        egress\\n        objectCount\\n        since\\n        before\\n        __typename\\n      }\\n      search\\n      limit\\n      offset\\n      pageCount\\n      currentPage\\n      totalCount\\n      __typename\\n    }\\n    __typename\\n  }\\n}\\n\"}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v0/graphql",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0",
+								"graphql"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get_ProjectUsageLimitById",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "*/*"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/v0/projects/{{project_identifier}}/usage-limits",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0",
+								"projects",
+								"{{project_identifier}}",
+								"usage-limits"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get_OwnedProjects",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"var stringToMatch = \"projectsPage\";\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "accept",
+								"value": "*/*"
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "content-type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"operationName\":null,\"variables\":{\"limit\":7,\"page\":1},\"query\":\"query ($limit: Int!, $page: Int!) {\\n  ownedProjects(cursor: {limit: $limit, page: $page}) {\\n    projects {\\n      id\\n      name\\n      ownerId\\n      description\\n      createdAt\\n      memberCount\\n      __typename\\n    }\\n    limit\\n    offset\\n    pageCount\\n    currentPage\\n    totalCount\\n    __typename\\n  }\\n}\\n\"}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v0/graphql",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0",
+								"graphql"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get_ProjectMemebersByProjectId",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"var stringToMatch = \"projectMembersPage\";\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "accept",
+								"value": "*/*"
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "content-type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"limit\":6,\"search\":\"\",\"page\":1,\"order\":1,\"orderDirection\":1},\"query\":\"query ($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {\\n  project(id: $projectId) {\\n    members(cursor: {limit: $limit, search: $search, page: $page, order: $order, orderDirection: $orderDirection}) {\\n      projectMembers {\\n        user {\\n          id\\n          fullName\\n          shortName\\n          email\\n          __typename\\n        }\\n        joinedAt\\n        __typename\\n      }\\n      search\\n      limit\\n      order\\n      pageCount\\n      currentPage\\n      totalCount\\n      __typename\\n    }\\n    __typename\\n  }\\n}\\n\"}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v0/graphql",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0",
+								"graphql"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Post_AddUserToProject",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"var stringToMatch = \"addProjectMemebers\";\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "accept",
+								"value": "*/*"
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "content-type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"emails\":[\"{{user_2}}\"]},\"query\":\"mutation ($projectId: String!, $emails: [String!]!) {\\n  addProjectMembers(projectID: $projectId, email: $emails) {\\n    id\\n    __typename\\n  }\\n}\\n\"}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v0/graphql",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0",
+								"graphql"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Post_RemoveUserFromProject",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"var stringToMatch = \"deleteProjectMembers\";\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "accept",
+								"value": "*/*"
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "content-type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"emails\":[\"{{user_2}}\"]},\"query\":\"mutation ($projectId: String!, $emails: [String!]!) {\\n  deleteProjectMembers(projectID: $projectId, email: $emails) {\\n    id\\n    __typename\\n  }\\n}\\n\"}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v0/graphql",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0",
+								"graphql"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Post_AddMultipleUsersToProjectWhere1UserIsInvalid",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"\r",
+									"var stringToMatch = \"There is no account on this Satellite for the user(s) you have entered\";\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "accept",
+								"value": "*/*"
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "content-type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"emails\":[\"{{user_2}}\",\"{{test@ts.com}}\"]},\"query\":\"mutation ($projectId: String!, $emails: [String!]!) {\\n  addProjectMembers(projectID: $projectId, email: $emails) {\\n    id\\n    __typename\\n  }\\n}\\n\"}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v0/graphql",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0",
+								"graphql"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Post_AddMultipleUsersToProjectWhere1UserIsAlreadyAMember",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 500\", function () {\r",
+									"    pm.response.to.have.status(500);\r",
+									"});\r",
+									"\r",
+									"var stringToMatch = \"error\";\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "accept",
+								"value": "*/*"
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "content-type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"emails\":[\"{{user_2}}\",\"{{user_name}}\"]},\"query\":\"mutation ($projectId: String!, $emails: [String!]!) {\\n  addProjectMembers(projectID: $projectId, email: $emails) {\\n    id\\n    __typename\\n  }\\n}\\n\"}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v0/graphql",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0",
+								"graphql"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Post_ProjectRename",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "accept",
+								"value": "*/*"
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "content-type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"e4a929a6-cc69-4920-ad06-c84f3c943928\",\"name\":\"My Second Project\",\"description\":\"___\"},\"query\":\"mutation ($projectId: String!, $name: String!, $description: String!) {\\n  updateProject(id: $projectId, name: $name, description: $description) {\\n    name\\n    __typename\\n  }\\n}\\n\"}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v0/graphql",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0",
+								"graphql"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Post_ProjectChangeDescription",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});\r",
+									"var stringToMatch = \"updateProject\";\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});\r",
+									""
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "accept",
+								"value": "*/*"
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "content-type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"084e70b2-a716-42c3-9f2b-7494bb44a3cf\",\"name\":\"Test\",\"description\":\"Test option description\"},\"query\":\"mutation ($projectId: String!, $name: String!, $description: String!) {\\n  updateProject(id: $projectId, name: $name, description: $description) {\\n    name\\n    __typename\\n  }\\n}\\n\"}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v0/graphql",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"v0",
+								"graphql"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"let debug = pm.environment.get(\"debug_mode\");",
+							"",
+							"if (debug) {",
+							"    console.info(\"Project Controller\");",
+							"}"
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "Security",
+			"item": [
+				{
+					"name": "Force Logout",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "text"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/logout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"logout"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login as User 2",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"\r",
+									"let raw_token = pm.response.json();\r",
+									"let cookieValue = pm.cookies.get(\"_tokenKey\");\r",
+									"\r",
+									"pm.test(\"token retrieval\", function () {\r",
+									"    pm.environment.set(\"token\", raw_token);\r",
+									"});\r",
+									"\r",
+									"pm.test(\"validate token in cookie\", function () {\r",
+									"    pm.expect(cookieValue).to.equal(raw_token);\r",
+									"});\r",
+									"\r",
+									"pm.test(\"login successful\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"email\":\"netsource.afranco@gmail.com\",\"password\":\"073611@Am\"}",
+							"options": {
+								"raw": {
+									"language": "text"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/token",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"token"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get_User1ProjectInfo",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 500\", function () {\r",
+									"    pm.response.to.have.status(500);\r",
+									"});\r",
+									"\r",
+									"let stringToMatch = \"not authorized\";\r",
+									"\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "accept",
+								"value": "*/*"
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36"
+							},
+							{
+								"key": "content-type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"before\":\"2021-05-11T17:03:23.924Z\",\"limit\":7,\"search\":\"\",\"page\":1},\"query\":\"query ($projectId: String!, $before: DateTime!, $limit: Int!, $search: String!, $page: Int!) {\\n  project(id: $projectId) {\\n    bucketUsages(before: $before, cursor: {limit: $limit, search: $search, page: $page}) {\\n      bucketUsages {\\n        bucketName\\n        storage\\n        egress\\n        objectCount\\n        since\\n        before\\n        __typename\\n      }\\n      search\\n      limit\\n      offset\\n      pageCount\\n      currentPage\\n      totalCount\\n      __typename\\n    }\\n    __typename\\n  }\\n}\\n\"}"
+						},
+						"url": {
+							"raw": "{{base_url}}/graphql",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"graphql"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get_User1ProjectUsageLimitById",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 500\", function () {\r",
+									"    pm.response.to.have.status(500);\r",
+									"});\r",
+									"\r",
+									"let stringToMatch = \"not authorized\";\r",
+									"\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "*/*"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/projects/{{project_identifier}}/usage-limits",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"projects",
+								"{{project_identifier}}",
+								"usage-limits"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get_User1ProjectMemebersByProjectId",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 500\", function () {\r",
+									"    pm.response.to.have.status(500);\r",
+									"});\r",
+									"\r",
+									"let stringToMatch = \"not authorized\";\r",
+									"\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "accept",
+								"value": "*/*"
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "content-type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"limit\":6,\"search\":\"\",\"page\":1,\"order\":1,\"orderDirection\":1},\"query\":\"query ($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {\\n  project(id: $projectId) {\\n    members(cursor: {limit: $limit, search: $search, page: $page, order: $order, orderDirection: $orderDirection}) {\\n      projectMembers {\\n        user {\\n          id\\n          fullName\\n          shortName\\n          email\\n          __typename\\n        }\\n        joinedAt\\n        __typename\\n      }\\n      search\\n      limit\\n      order\\n      pageCount\\n      currentPage\\n      totalCount\\n      __typename\\n    }\\n    __typename\\n  }\\n}\\n\"}"
+						},
+						"url": {
+							"raw": "{{base_url}}/graphql",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"graphql"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Post_RemoveUserFromUser1Project",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 500\", function () {\r",
+									"    pm.response.to.have.status(500);\r",
+									"});\r",
+									"\r",
+									"let stringToMatch = \"not authorized\";\r",
+									"\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "accept",
+								"value": "*/*"
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "content-type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"emails\":[\"{{user_2}}\"]},\"query\":\"mutation ($projectId: String!, $emails: [String!]!) {\\n  deleteProjectMembers(projectID: $projectId, email: $emails) {\\n    id\\n    __typename\\n  }\\n}\\n\"}"
+						},
+						"url": {
+							"raw": "{{base_url}}/graphql",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"graphql"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Post_AddUserToUser1Project",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 500\", function () {\r",
+									"    pm.response.to.have.status(500);\r",
+									"});\r",
+									"\r",
+									"let stringToMatch = \"not authorized\";\r",
+									"\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "accept",
+								"value": "*/*"
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "content-type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"emails\":[\"{{user_2}}\"]},\"query\":\"mutation ($projectId: String!, $emails: [String!]!) {\\n  addProjectMembers(projectID: $projectId, email: $emails) {\\n    id\\n    __typename\\n  }\\n}\\n\"}"
+						},
+						"url": {
+							"raw": "{{base_url}}/graphql",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"graphql"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Post_RenameUser1Project",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 500\", function () {\r",
+									"    pm.response.to.have.status(500);\r",
+									"});\r",
+									"\r",
+									"let stringToMatch = \"You are not authorized\";\r",
+									"\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "accept",
+								"value": "*/*"
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "content-type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"e4a929a6-cc69-4920-ad06-c84f3c943928\",\"name\":\"Test\",\"description\":\"___\"},\"query\":\"mutation ($projectId: String!, $name: String!, $description: String!) {\\n  updateProject(id: $projectId, name: $name, description: $description) {\\n    name\\n    __typename\\n  }\\n}\\n\"}"
+						},
+						"url": {
+							"raw": "{{base_url}}/graphql",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"graphql"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Post_ChangeUser1ProjectDescription",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 500\", function () {\r",
+									"    pm.response.to.have.status(500);\r",
+									"});\r",
+									"\r",
+									"let stringToMatch = \"not authorized\";\r",
+									"\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "accept",
+								"value": "*/*"
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "content-type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"e4a929a6-cc69-4920-ad06-c84f3c943928\",\"name\":\"My Second Project\",\"description\":\"___\"},\"query\":\"mutation ($projectId: String!, $name: String!, $description: String!) {\\n  updateProject(id: $projectId, name: $name, description: $description) {\\n    name\\n    __typename\\n  }\\n}\\n\"}"
+						},
+						"url": {
+							"raw": "{{base_url}}/graphql",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"graphql"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get_User1BucketUsageByProjectId",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 500\", function () {\r",
+									"    pm.response.to.have.status(500);\r",
+									"});\r",
+									"\r",
+									"let stringToMatch = \"not authorized\";\r",
+									"\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "accept",
+								"value": "*/*"
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "content-type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"before\":\"2021-05-12T18:32:30.533Z\",\"limit\":7,\"search\":\"\",\"page\":1},\"query\":\"query ($projectId: String!, $before: DateTime!, $limit: Int!, $search: String!, $page: Int!) {\\n  project(id: $projectId) {\\n    bucketUsages(before: $before, cursor: {limit: $limit, search: $search, page: $page}) {\\n      bucketUsages {\\n        bucketName\\n        storage\\n        egress\\n        objectCount\\n        since\\n        before\\n        __typename\\n      }\\n      search\\n      limit\\n      offset\\n      pageCount\\n      currentPage\\n      totalCount\\n      __typename\\n    }\\n    __typename\\n  }\\n}\\n\"}"
+						},
+						"url": {
+							"raw": "{{base_url}}/graphql",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"graphql"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get_User1BucketNamesByProjectId",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 500\", function () {\r",
+									"    pm.response.to.have.status(500);\r",
+									"});\r",
+									"\r",
+									"let stringToMatch = \"not authorized\";\r",
+									"\r",
+									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "sec-ch-ua",
+								"value": "\" Not A;Brand\";v=\"99\", \"Chromium\";v=\"90\", \"Google Chrome\";v=\"90\""
+							},
+							{
+								"key": "sec-ch-ua-mobile",
+								"value": "?0"
+							},
+							{
+								"key": "User-Agent",
+								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "*/*"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/buckets/bucket-names?projectID={{project_identifier}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"buckets",
+								"bucket-names"
+							],
+							"query": [
+								{
+									"key": "projectID",
+									"value": "{{project_identifier}}"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"let debug = pm.environment.get(\"debug_mode\");",
+							"",
+							"if (debug) {",
+							"    console.info(\"GraphQL Security Tests\");",
+							"}"
+						]
+					}
+				}
+			]
+		},
+		{
+			"name": "Finalize Test",
+			"item": [
+				{
+					"name": "Logout",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"pm.test(\"Status code is 200\", function () {\r",
+									"    pm.response.to.have.status(200);\r",
+									"});"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "",
+							"options": {
+								"raw": {
+									"language": "text"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/logout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"logout"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Login_Looper",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var responseCode = pm.response.code;\r",
+									"var localCounterValue = pm.collectionVariables.get(\"Loop Counter\");\r",
+									"var localAuthString = pm.collectionVariables.get(\"AuthString\");\r",
+									"\r",
+									"pm.test(\"Status code expecting 401, 422, 429 received: \" + responseCode, function () {\r",
+									"    //pm.response.to.have.status(401 || 422);\r",
+									"    pm.expect(responseCode).to.be.oneOf([401, 422, 429]);\r",
+									"});\r",
+									"\r",
+									"let Match1 = \"unauthorized\";\r",
+									"let Match2 = \"Too Many Requests\\n\";\r",
+									"\r",
+									"pm.test(\"Body matches string \" + Match1 + \" or \" + Match2, function () {\r",
+									"    pm.expect(pm.response.text()).to.include.oneOf([Match1, Match2]);\r",
+									"});\r",
+									"\r",
+									"if (localCounterValue > 1) {\r",
+									"    console.log(\"Login attempted using \" + localAuthString + \" - \" + localCounterValue);\r",
+									"    pm.collectionVariables.set(\"Loop Counter\", localCounterValue - 1);\r",
+									"    postman.setNextRequest(\"Login_Looper\");\r",
+									"}\r",
+									"else {\r",
+									"    console.log(\"Test Completed\")\r",
+									"    postman.setNextRequest(null);\r",
+									"    pm.collectionVariables.unset(\"Loop Counter\");\r",
+									"}\r",
+									""
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"let UniquePassword = pm.variables.replaceIn('{{$randomPassword}}');\r",
+									"let UniqueUsername = pm.variables.replaceIn('{{$randomEmail}}');\r",
+									"var AuthString = \"u: \" + UniqueUsername + \" p: \" + UniquePassword;\r",
+									"\r",
+									"pm.variables.set(\"UniquePassword\", UniquePassword);\r",
+									"pm.variables.set(\"UniqueUsername\", UniqueUsername);\r",
+									"pm.collectionVariables.set(\"AuthString\", AuthString);\r",
+									"\r",
+									"if (!pm.collectionVariables.has(\"Loop Counter\")) {\r",
+									"    pm.collectionVariables.set(\"Loop Counter\", 30);\r",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\"email\":\"{{UniqueUsername}}\",\"password\":\"{{UniquePassword}}\"}",
+							"options": {
+								"raw": {
+									"language": "text"
+								}
+							}
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/token",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"auth",
+								"token"
+							]
+						}
+					},
+					"response": []
+				}
+			],
+			"event": [
+				{
+					"listen": "prerequest",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							""
+						]
+					}
+				},
+				{
+					"listen": "test",
+					"script": {
+						"type": "text/javascript",
+						"exec": [
+							"let debug = pm.environment.get(\"debug_mode\");",
+							"",
+							"if (debug) {",
+							"    console.info(\"Finalize Test\");",
+							"}"
+						]
+					}
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"let r_name = pm.info.requestName;",
+					"let r_timeout = parseInt(pm.environment.get(\"r_timeout\"));",
+					"let r_time = pm.response.responseTime;",
+					"let debug = pm.environment.get(\"debug_mode\");",
+					"",
+					"pm.collectionVariables.set(\"current_test\", r_name);",
+					"",
+					"if (debug) {",
+					"    console.info(\"-------------------------------------------\");",
+					"    console.info(\"Current Test: \" + r_name);",
+					"    console.info(\"Timing:\" + r_time + \"/\" + r_timeout + \"ms\");",
+					"    console.info(\"-------------------------------------------\");",
+					"}",
+					"",
+					"pm.test(r_name + \" - Response time is less than \" + r_timeout + \"ms\", function () {",
+					"    pm.expect(r_time).to.be.below(r_timeout);",
+					"});",
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "current_test",
+			"value": "New Request"
+		},
+		{
+			"key": "AuthString",
+			"value": null
+		}
+	]
+}
