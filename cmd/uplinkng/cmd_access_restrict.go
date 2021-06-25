@@ -21,10 +21,10 @@ func newCmdAccessRestrict(ex ulext.External) *cmdAccessRestrict {
 }
 
 func (c *cmdAccessRestrict) Setup(params clingy.Parameters) {
-	c.access = params.Flag("access", "Which access to restrict", "").(string)
+	c.access = params.Flag("access", "Access name or value to restrict", "").(string)
 
 	params.Break()
-	c.am.Setup(params, c.ex, false)
+	c.am.Setup(params, c.ex, amSaveDefaultFalse)
 }
 
 func (c *cmdAccessRestrict) Execute(ctx clingy.Context) error {

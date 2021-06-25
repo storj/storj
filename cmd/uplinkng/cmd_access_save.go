@@ -23,10 +23,10 @@ func newCmdAccessSave(ex ulext.External) *cmdAccessSave {
 }
 
 func (c *cmdAccessSave) Setup(params clingy.Parameters) {
-	c.access = params.Flag("access", "Access value to save (prompted if unspecified)", "").(string)
+	c.access = params.Flag("access", "Serialized access value to save (prompted if unspecified)", "").(string)
 
 	params.Break()
-	c.am.Setup(params, c.ex, true)
+	c.am.Setup(params, c.ex, amSaveForced)
 }
 
 func (c *cmdAccessSave) Execute(ctx clingy.Context) (err error) {

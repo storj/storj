@@ -27,7 +27,7 @@ func (c *cmdAccessCreate) Setup(params clingy.Parameters) {
 	c.passphrase = params.Flag("passphrase", "Passphrase used for encryption (prompted if unspecified)", "").(string)
 
 	params.Break()
-	c.am.Setup(params, c.ex, false)
+	c.am.Setup(params, c.ex, amSaveDefaultTrue)
 }
 
 func (c *cmdAccessCreate) Execute(ctx clingy.Context) (err error) {

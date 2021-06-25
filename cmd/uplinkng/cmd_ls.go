@@ -31,7 +31,7 @@ func newCmdLs(ex ulext.External) *cmdLs {
 }
 
 func (c *cmdLs) Setup(params clingy.Parameters) {
-	c.access = params.Flag("access", "Which access to use", "").(string)
+	c.access = params.Flag("access", "Access name or value to use", "").(string)
 	c.recursive = params.Flag("recursive", "List recursively", false,
 		clingy.Short('r'),
 		clingy.Transform(strconv.ParseBool),

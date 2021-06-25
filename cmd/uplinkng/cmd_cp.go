@@ -37,7 +37,7 @@ func newCmdCp(ex ulext.External) *cmdCp {
 }
 
 func (c *cmdCp) Setup(params clingy.Parameters) {
-	c.access = params.Flag("access", "Which access to use", "").(string)
+	c.access = params.Flag("access", "Access name or value to use", "").(string)
 	c.recursive = params.Flag("recursive", "Peform a recursive copy", false,
 		clingy.Short('r'),
 		clingy.Transform(strconv.ParseBool),

@@ -4,6 +4,8 @@
 package main
 
 import (
+	"fmt"
+
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
@@ -13,7 +15,7 @@ import (
 type cmdAccessDelete struct {
 	ex ulext.External
 
-	name string
+	access string
 }
 
 func newCmdAccessDelete(ex ulext.External) *cmdAccessDelete {
@@ -21,7 +23,7 @@ func newCmdAccessDelete(ex ulext.External) *cmdAccessDelete {
 }
 
 func (c *cmdAccessDelete) Setup(params clingy.Parameters) {
-	c.name = params.Arg("name", "Access to delete").(string)
+	c.access = params.Arg("name", "Access name to delete").(string)
 }
 
 func (c *cmdAccessDelete) Execute(ctx clingy.Context) error {
@@ -29,12 +31,20 @@ func (c *cmdAccessDelete) Execute(ctx clingy.Context) error {
 	if err != nil {
 		return err
 	}
-	if c.name == defaultName {
+
+	if c.access == defaultName {
 		return errs.New("cannot delete current access")
 	}
-	if _, ok := accesses[c.name]; !ok {
-		return errs.New("unknown access: %q", c.name)
+	if _, ok := accesses[c.access]; !ok {
+		return errs.New("unknown access: %q", c.access)
 	}
-	delete(accesses, c.name)
-	return c.ex.SaveAccessInfo(defaultName, accesses)
+
+	delete(accesses, c.access)
+	if err := c.ex.SaveAccessInfo(defaultName, accesses); err != nil {
+		return err
+	}
+
+	fmt.Fprintf(ctx, "Removed access %q from %q\n", c.access, c.ex.AccessInfoFile())
+
+	return nil
 }

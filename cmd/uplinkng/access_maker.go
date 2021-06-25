@@ -14,10 +14,17 @@ import (
 	"storj.io/uplink"
 )
 
+type amSaveKind int
+
+const (
+	amSaveDefaultFalse amSaveKind = iota
+	amSaveDefaultTrue
+	amSaveForced
+)
+
 type accessMaker struct {
 	ex ulext.External
 
-	print bool
 	save  bool
 	name  string
 	force bool
@@ -26,29 +33,30 @@ type accessMaker struct {
 	perms accessPermissions
 }
 
-func (am *accessMaker) Setup(params clingy.Parameters, ex ulext.External, forceSave bool) {
+func (am *accessMaker) Setup(params clingy.Parameters, ex ulext.External, saveKind amSaveKind) {
 	am.ex = ex
-	am.save = forceSave
-	am.print = !forceSave
+	am.save = saveKind == amSaveForced
 
-	if !forceSave {
-		am.save = params.Flag("save", "Save the access", true,
+	if saveKind != amSaveForced {
+		am.save = params.Flag("save", "Save the access", saveKind == amSaveDefaultTrue,
 			clingy.Transform(strconv.ParseBool),
 		).(bool)
+
+		am.name = params.Flag("name", "Name to save the access value under, if --save is true", "").(string)
+	} else {
+		am.name = params.Flag("name", "Name to save the access value under", "").(string)
 	}
 
-	am.name = params.Flag("name", "Name to save newly created access, if --save is true", "").(string)
-
-	am.force = params.Flag("force", "Force overwrite an existing saved access grant", false,
+	am.force = params.Flag("force", "Force overwrite an existing saved access", false,
 		clingy.Short('f'),
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
 
-	am.use = params.Flag("use", "Set the saved access to be the one used by default", false,
+	am.use = params.Flag("use", "Switch the access to be the default", false,
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
 
-	if !forceSave {
+	if saveKind != amSaveForced {
 		params.Break()
 		am.perms.Setup(params)
 	}
@@ -89,10 +97,6 @@ func (am *accessMaker) Execute(ctx clingy.Context, access *uplink.Access) (err e
 		return errs.Wrap(err)
 	}
 
-	if am.print {
-		fmt.Fprintln(ctx, accessValue)
-	}
-
 	if am.save {
 		accesses[am.name] = accessValue
 		if am.use || defaultName == "" {
@@ -103,7 +107,9 @@ func (am *accessMaker) Execute(ctx clingy.Context, access *uplink.Access) (err e
 			return errs.Wrap(err)
 		}
 
-		fmt.Fprintf(ctx, "Access %q saved to %q\n", am.name, am.ex.AccessInfoFile())
+		fmt.Fprintf(ctx, "Saved access %q to %q\n", am.name, am.ex.AccessInfoFile())
+	} else {
+		fmt.Fprintln(ctx, accessValue)
 	}
 
 	return nil
