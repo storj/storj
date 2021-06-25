@@ -1,3 +1,5 @@
+storj.io/storj/private/lifecycle."slow_shutdown" Event
+storj.io/storj/private/lifecycle."unexpected_shutdown" Event
 storj.io/storj/satellite/accounting."bucket_bytes" IntVal
 storj.io/storj/satellite/accounting."bucket_inline_bytes" IntVal
 storj.io/storj/satellite/accounting."bucket_inline_segments" IntVal
