@@ -49,21 +49,22 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		// add some valid pointers
 		for x := 0; x < 10; x++ {
 			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("a-%d", x))
-			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), time.Time{})
+			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), nil)
 		}
 
 		// add pointer that needs repair
 		expectedLocation.ObjectKey = metabase.ObjectKey("b-0")
-		b0StreamID := insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), time.Time{})
+		b0StreamID := insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), nil)
 
 		// add pointer that is unhealthy, but is expired
 		expectedLocation.ObjectKey = metabase.ObjectKey("b-1")
-		insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), time.Now().Add(-time.Hour))
+		expiresAt := time.Now().Add(-time.Hour)
+		insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), &expiresAt)
 
 		// add some valid pointers
 		for x := 0; x < 10; x++ {
 			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("c-%d", x))
-			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), time.Time{})
+			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), nil)
 		}
 
 		checker.Loop.TriggerWait()
@@ -130,10 +131,11 @@ func TestIdentifyIrreparableSegments(t *testing.T) {
 		// the piece is considered irreparable but also will be put into repair queue
 
 		expectedLocation.ObjectKey = "piece"
-		insertSegment(ctx, t, planet, rs, expectedLocation, pieces, time.Time{})
+		insertSegment(ctx, t, planet, rs, expectedLocation, pieces, nil)
 
 		expectedLocation.ObjectKey = "piece-expired"
-		insertSegment(ctx, t, planet, rs, expectedLocation, pieces, time.Now().Add(-time.Hour))
+		expiresAt := time.Now().Add(-time.Hour)
+		insertSegment(ctx, t, planet, rs, expectedLocation, pieces, &expiresAt)
 
 		err = checker.IdentifyInjuredSegments(ctx)
 		require.NoError(t, err)
@@ -196,13 +198,13 @@ func TestCleanRepairQueue(t *testing.T) {
 		healthyCount := 5
 		for i := 0; i < healthyCount; i++ {
 			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("healthy-%d", i))
-			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), time.Time{})
+			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), nil)
 		}
 		unhealthyCount := 5
 		unhealthyIDs := make(map[uuid.UUID]struct{})
 		for i := 0; i < unhealthyCount; i++ {
 			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("unhealthy-%d", i))
-			unhealthyStreamID := insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), time.Time{})
+			unhealthyStreamID := insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), nil)
 			unhealthyIDs[unhealthyStreamID] = struct{}{}
 		}
 
@@ -281,12 +283,7 @@ func createLostPieces(planet *testplanet.Planet, rs storj.RedundancyScheme) meta
 	return pieces
 }
 
-func insertSegment(ctx context.Context, t *testing.T, planet *testplanet.Planet, rs storj.RedundancyScheme, location metabase.SegmentLocation, pieces metabase.Pieces, expire time.Time) uuid.UUID {
-	var expiresAt *time.Time
-	if !expire.IsZero() {
-		expiresAt = &expire
-	}
-
+func insertSegment(ctx context.Context, t *testing.T, planet *testplanet.Planet, rs storj.RedundancyScheme, location metabase.SegmentLocation, pieces metabase.Pieces, expiresAt *time.Time) uuid.UUID {
 	metabaseDB := planet.Satellites[0].Metainfo.Metabase
 
 	obj := metabase.ObjectStream{
@@ -324,6 +321,7 @@ func insertSegment(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 		PlainSize:         1,
 		EncryptedSize:     1,
 		Redundancy:        rs,
+		ExpiresAt:         expiresAt,
 	})
 	require.NoError(t, err)
 

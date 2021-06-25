@@ -272,7 +272,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Log.Named("repair:checker"),
 			peer.DB.RepairQueue(),
 			peer.Metainfo.Metabase,
-			peer.Metainfo.Loop,
+			peer.Metainfo.SegmentLoop,
 			peer.Overlay.Service,
 			config.Checker)
 		peer.Services.Add(lifecycle.Item{
