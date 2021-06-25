@@ -135,10 +135,7 @@ func iteratePendingObjectsByKey(ctx context.Context, db *DB, opts IteratePending
 }
 
 func iterate(ctx context.Context, it *objectsIterator, fn func(context.Context, ObjectsIterator) error) (err error) {
-	// ensure batch size is reasonable
-	if it.batchSize <= 0 || it.batchSize > batchsizeLimit {
-		it.batchSize = batchsizeLimit
-	}
+	batchsizeLimit.Ensure(&it.batchSize)
 
 	it.curRows, err = it.doNextQuery(ctx, it)
 	if err != nil {

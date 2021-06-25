@@ -25,10 +25,10 @@ const (
 	LastSegmentIndex = uint32(math.MaxUint32)
 )
 
-// MaxListLimit is the maximum number of items the client can request for listing.
-const MaxListLimit = 1000
+// ListLimit is the maximum number of items the client can request for listing.
+const ListLimit = intLimitRange(1000)
 
-const batchsizeLimit = 1000
+const batchsizeLimit = intLimitRange(1000)
 
 // BucketPrefix consists of <project id>/<bucket name>.
 type BucketPrefix string

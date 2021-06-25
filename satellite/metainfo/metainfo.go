@@ -1217,9 +1217,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	if limit < 0 {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "limit is negative")
 	}
-	if limit == 0 {
-		limit = metabase.MaxListLimit
-	}
+	metabase.ListLimit.Ensure(&limit)
 
 	var prefix metabase.ObjectKey
 	if len(req.EncryptedPrefix) != 0 {
@@ -1330,10 +1328,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 	if limit < 0 {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "limit is negative")
 	}
-
-	if limit == 0 {
-		limit = metabase.MaxListLimit
-	}
+	metabase.ListLimit.Ensure(&limit)
 
 	resp = &pb.ObjectListPendingStreamsResponse{}
 	resp.Items = []*pb.ObjectListItem{}
