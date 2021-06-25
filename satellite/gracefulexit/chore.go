@@ -92,7 +92,7 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 				}
 
 				// remove all items from the transfer queue
-				err := chore.db.DeleteTransferQueueItems(ctx, node.NodeID)
+				err := chore.db.DeleteTransferQueueItems(ctx, node.NodeID, false)
 				if err != nil {
 					chore.log.Error("error deleting node from transfer queue", zap.Error(err))
 				}

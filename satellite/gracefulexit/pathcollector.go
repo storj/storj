@@ -120,7 +120,7 @@ func (collector *PathCollector) flush(ctx context.Context, limit int) (err error
 	defer mon.Task()(&ctx)(&err)
 
 	if len(collector.buffer) >= limit {
-		err = collector.db.Enqueue(ctx, collector.buffer, collector.batchSize)
+		err = collector.db.Enqueue(ctx, collector.buffer, collector.batchSize, false)
 		collector.buffer = collector.buffer[:0]
 
 		return errs.Wrap(err)

@@ -69,7 +69,7 @@ func TestWorkerSuccess(t *testing.T) {
 		require.Len(t, exitingNodes, 1)
 		require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
 
-		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0)
+		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0, false)
 		require.NoError(t, err)
 		require.Len(t, queueItems, 1)
 
@@ -142,7 +142,7 @@ func TestWorkerTimeout(t *testing.T) {
 		require.Len(t, exitingNodes, 1)
 		require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
 
-		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0)
+		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0, false)
 		require.NoError(t, err)
 		require.Len(t, queueItems, 1)
 
