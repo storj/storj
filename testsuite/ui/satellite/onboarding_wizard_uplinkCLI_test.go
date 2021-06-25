@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/integration/ui/uitest"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/testsuite/ui/uitest"
 )
 
 func TestOnboardingWizardUplinkCLI(t *testing.T) {
