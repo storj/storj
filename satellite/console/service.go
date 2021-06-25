@@ -96,6 +96,7 @@ type Service struct {
 	buckets           Buckets
 	partners          *rewards.PartnersService
 	accounts          payments.Accounts
+	recaptchaHandler  RecaptchaHandler
 	analytics         *analytics.Service
 
 	config Config
@@ -121,6 +122,14 @@ type Config struct {
 	OpenRegistrationEnabled bool `help:"enable open registration" default:"false" testDefault:"true"`
 	DefaultProjectLimit     int  `help:"default project limits for users" default:"3" testDefault:"5"`
 	UsageLimits             UsageLimitsConfig
+	Recaptcha               RecaptchaConfig
+}
+
+// RecaptchaConfig contains configurations for the reCAPTCHA system.
+type RecaptchaConfig struct {
+	Enabled   bool   `help:"whether or not reCAPTCHA is enabled for user registration" default:"false"`
+	SiteKey   string `help:"reCAPTCHA site key"`
+	SecretKey string `help:"reCAPTCHA secret key"`
 }
 
 // PaymentsService separates all payment related functionality.
@@ -153,6 +162,7 @@ func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting acco
 		buckets:           buckets,
 		partners:          partners,
 		accounts:          accounts,
+		recaptchaHandler:  NewDefaultRecaptcha(config.Recaptcha.SecretKey),
 		analytics:         analytics,
 		config:            config,
 		minCoinPayment:    minCoinPayment,
@@ -545,6 +555,18 @@ func (s *Service) checkRegistrationSecret(ctx context.Context, tokenSecret Regis
 // CreateUser gets password hash value and creates new inactive User.
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if s.config.Recaptcha.Enabled {
+		valid, err := s.recaptchaHandler.Verify(ctx, user.RecaptchaResponse, user.IP)
+		if err != nil {
+			s.log.Error("reCAPTCHA authorization failed", zap.Error(err))
+			return nil, ErrValidation.Wrap(err)
+		}
+		if !valid {
+			return nil, ErrValidation.New("reCAPTCHA validation unsuccessful")
+		}
+	}
+
 	if err := user.IsValid(); err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -625,6 +647,12 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	s.auditLog(ctx, "create user", nil, user.Email)
 
 	return u, nil
+}
+
+// TestSwapRecaptchaHandler replaces the existing handler for reCAPTCHAs with
+// the one specified for use in testing.
+func (s *Service) TestSwapRecaptchaHandler(h RecaptchaHandler) {
+	s.recaptchaHandler = h
 }
 
 // GenerateActivationToken - is a method for generating activation token.

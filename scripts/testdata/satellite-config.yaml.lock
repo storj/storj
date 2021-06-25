@@ -148,6 +148,15 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # number of IPs whose rate limits we store
 # console.rate-limit.num-limits: 1000
 
+# whether or not reCAPTCHA is enabled for user registration
+# console.recaptcha.enabled: false
+
+# reCAPTCHA secret key
+# console.recaptcha.secret-key: ""
+
+# reCAPTCHA site key
+# console.recaptcha.site-key: ""
+
 # used to display at web satellite console
 # console.satellite-name: Storj
 

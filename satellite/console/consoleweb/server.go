@@ -358,6 +358,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		StorageTBPrice                  string
 		EgressTBPrice                   string
 		ObjectPrice                     string
+		RecaptchaEnabled                bool
+		RecaptchaSiteKey                string
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -380,6 +382,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.StorageTBPrice = server.pricing.StorageTBPrice
 	data.EgressTBPrice = server.pricing.EgressTBPrice
 	data.ObjectPrice = server.pricing.ObjectPrice
+	data.RecaptchaEnabled = server.config.Recaptcha.Enabled
+	data.RecaptchaSiteKey = server.config.Recaptcha.SiteKey
 
 	if server.templates.index == nil {
 		server.log.Error("index template is not set")

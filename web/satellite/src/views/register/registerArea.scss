@@ -42,7 +42,7 @@ h1 {
         display: flex;
         background-color: #fff;
         border-radius: 20px;
-        min-height: 655px;
+        min-height: 733px;
         width: 75%;
         margin-top: 50px;
         padding: 70px 90px 40px 90px;
@@ -265,6 +265,24 @@ h1 {
 
                 &:hover {
                     background-color: #0059d0;
+                }
+            }
+
+            &__recaptcha-wrapper {
+                margin-top: 30px;
+
+                &__label-container {
+                    display: flex;
+                    justify-content: flex-start;
+                    align-items: flex-end;
+                    padding-bottom: 8px;
+                    flex-direction: row;
+
+                    &__error {
+                        font-size: 16px;
+                        margin-left: 10px;
+                        color: #ff5560;
+                    }
                 }
             }
         }

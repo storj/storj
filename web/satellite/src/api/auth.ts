@@ -1,6 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { ErrorEmailUsed } from '@/api/errors/ErrorEmailUsed';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
@@ -206,7 +207,7 @@ export class AuthHttpApi {
      * @returns id of created user
      * @throws Error
      */
-    public async register(user: {fullName: string; shortName: string; email: string; partner: string; partnerId: string; password: string; isProfessional: boolean; position: string; companyName: string; employeeCount: string; haveSalesContact: boolean }, secret: string): Promise<string> {
+    public async register(user: {fullName: string; shortName: string; email: string; partner: string; partnerId: string; password: string; isProfessional: boolean; position: string; companyName: string; employeeCount: string; haveSalesContact: boolean }, secret: string, recaptchaResponse: string): Promise<string> {
         const path = `${this.ROOT_PATH}/register`;
         const body = {
             secret: secret,
@@ -221,10 +222,13 @@ export class AuthHttpApi {
             companyName: user.companyName,
             employeeCount: user.employeeCount,
             haveSalesContact: user.haveSalesContact,
+            recaptchaResponse: recaptchaResponse,
         };
         const response = await this.http.post(path, JSON.stringify(body));
         if (!response.ok) {
             switch (response.status) {
+                case 400:
+                    throw new ErrorBadRequest('Validation of reCAPTCHA was unsuccessful');
                 case 401:
                     throw new ErrorUnauthorized('We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation');
                 case 409:
