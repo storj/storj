@@ -217,9 +217,16 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 		return rpcstatus.Error(rpcstatus.Unauthenticated, err.Error())
 	}
 
-	err = endpoint.nodeAPIVersionDB.UpdateVersionAtLeast(ctx, peer.ID, nodeapiversion.HasWindowedOrders)
+	versionAtLeast, err := endpoint.nodeAPIVersionDB.VersionAtLeast(ctx, peer.ID, nodeapiversion.HasWindowedOrders)
 	if err != nil {
-		return rpcstatus.Wrap(rpcstatus.Internal, err)
+		endpoint.log.Info("could not query if node version was new enough", zap.Error(err))
+		versionAtLeast = false
+	}
+	if !versionAtLeast {
+		err = endpoint.nodeAPIVersionDB.UpdateVersionAtLeast(ctx, peer.ID, nodeapiversion.HasWindowedOrders)
+		if err != nil {
+			return rpcstatus.Wrap(rpcstatus.Internal, err)
+		}
 	}
 
 	log := endpoint.log.Named(peer.ID.String())

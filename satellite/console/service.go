@@ -1517,27 +1517,86 @@ func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID
 func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (_ *ProjectUsageLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = s.getAuthAndAuditLog(ctx, "get project usage limits", zap.String("projectID", projectID.String()))
+	auth, err := s.getAuthAndAuditLog(ctx, "get project usage limits", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	storageLimit, err := s.projectUsage.GetProjectStorageLimit(ctx, projectID)
+	if _, err = s.isProjectMember(ctx, auth.User.ID, projectID); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	prUsageLimits, err := s.getProjectUsageLimits(ctx, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	bandwidthLimit, err := s.projectUsage.GetProjectBandwidthLimit(ctx, projectID)
+
+	return &ProjectUsageLimits{
+		StorageLimit:   prUsageLimits.StorageLimit,
+		BandwidthLimit: prUsageLimits.BandwidthLimit,
+		StorageUsed:    prUsageLimits.StorageUsed,
+		BandwidthUsed:  prUsageLimits.BandwidthUsed,
+	}, nil
+}
+
+// GetTotalUsageLimits returns total limits and current usage for all the projects.
+func (s *Service) GetTotalUsageLimits(ctx context.Context) (_ *ProjectUsageLimits, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := s.getAuthAndAuditLog(ctx, "get total usage and limits for all the projects")
 	if err != nil {
 		return nil, Error.Wrap(err)
+	}
+
+	projects, err := s.store.Projects().GetOwn(ctx, auth.User.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	var totalStorageLimit int64
+	var totalBandwidthLimit int64
+	var totalStorageUsed int64
+	var totalBandwidthUsed int64
+
+	for _, pr := range projects {
+		prUsageLimits, err := s.getProjectUsageLimits(ctx, pr.ID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		totalStorageLimit += prUsageLimits.StorageLimit
+		totalBandwidthLimit += prUsageLimits.BandwidthLimit
+		totalStorageUsed += prUsageLimits.StorageUsed
+		totalBandwidthUsed += prUsageLimits.BandwidthUsed
+	}
+
+	return &ProjectUsageLimits{
+		StorageLimit:   totalStorageLimit,
+		BandwidthLimit: totalBandwidthLimit,
+		StorageUsed:    totalStorageUsed,
+		BandwidthUsed:  totalBandwidthUsed,
+	}, nil
+}
+
+func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (_ *ProjectUsageLimits, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	storageLimit, err := s.projectUsage.GetProjectStorageLimit(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	bandwidthLimit, err := s.projectUsage.GetProjectBandwidthLimit(ctx, projectID)
+	if err != nil {
+		return nil, err
 	}
 
 	storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, projectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, err
 	}
 	bandwidthUsed, err := s.projectUsage.GetProjectBandwidthTotals(ctx, projectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, err
 	}
 
 	return &ProjectUsageLimits{

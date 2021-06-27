@@ -808,6 +808,57 @@ func getNodeInfo(nodeID storj.NodeID) overlay.NodeCheckInInfo {
 	}
 }
 
+func TestUpdateReputation(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		service := planet.Satellites[0].Overlay.Service
+		node := planet.StorageNodes[0]
+
+		info, err := service.Get(ctx, node.ID())
+		require.NoError(t, err)
+		require.False(t, info.Contained)
+		require.Nil(t, info.Disqualified)
+		require.Nil(t, info.UnknownAuditSuspended)
+		require.Nil(t, info.OfflineSuspended)
+		require.Nil(t, info.Reputation.VettedAt)
+
+		t0 := time.Now().Truncate(time.Hour)
+		t1 := t0.Add(time.Hour)
+		t2 := t0.Add(2 * time.Hour)
+		t3 := t0.Add(3 * time.Hour)
+
+		reputationChange := &overlay.ReputationStatus{
+			Contained:             true,
+			Disqualified:          &t0,
+			UnknownAuditSuspended: &t1,
+			OfflineSuspended:      &t2,
+			VettedAt:              &t3,
+		}
+		err = service.UpdateReputation(ctx, node.ID(), reputationChange)
+		require.NoError(t, err)
+
+		info, err = service.Get(ctx, node.ID())
+		require.NoError(t, err)
+		require.True(t, info.Contained)
+		require.Equal(t, reputationChange.Disqualified, info.Disqualified)
+		require.Equal(t, reputationChange.UnknownAuditSuspended, info.UnknownAuditSuspended)
+		require.Equal(t, reputationChange.OfflineSuspended, info.OfflineSuspended)
+		require.Equal(t, reputationChange.VettedAt, info.Reputation.VettedAt)
+
+		reputationChange.Contained = false
+		reputationChange.Disqualified = nil
+
+		err = service.UpdateReputation(ctx, node.ID(), reputationChange)
+		require.NoError(t, err)
+
+		info, err = service.Get(ctx, node.ID())
+		require.NoError(t, err)
+		require.False(t, info.Contained)
+		require.Equal(t, reputationChange.Disqualified, info.Disqualified)
+	})
+}
+
 func TestVetAndUnvetNode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 2, UplinkCount: 0,
