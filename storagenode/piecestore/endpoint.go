@@ -101,6 +101,48 @@ type Endpoint struct {
 	liveRequests int32
 }
 
+// speedEstimation monitors state of incoming traffic. It would signal slow-speed
+// client in non-congested traffic condition.
+type speedEstimation struct {
+	// grace indicates a certain period of time before the observator kicks in
+	grace time.Duration
+	// limit for flagging slow connections. Speed below this limit is considered to be slow.
+	limit memory.Size
+	// active indicates the duration of active connection.
+	active      time.Duration
+	lastChecked time.Time
+}
+
+// EnsureLimit makes sure that in non-congested condition, a slow-upload client will be flagged out.
+func (estimate *speedEstimation) EnsureLimit(transferred memory.Size, congested bool, now time.Time) error {
+	if estimate.lastChecked.IsZero() {
+		estimate.lastChecked = now
+		return nil
+	}
+
+	delta := now.Sub(estimate.lastChecked)
+	estimate.lastChecked = now
+
+	// In congested condition, the speed check would produce false-positive results,
+	// thus it shall be skipped.
+	if congested {
+		return nil
+	}
+
+	estimate.active += delta
+	if estimate.active <= 0 || estimate.active <= estimate.grace {
+		// not enough data
+		return nil
+	}
+	bytesPerSec := float64(transferred) / float64(estimate.active.Seconds())
+
+	if bytesPerSec < float64(estimate.limit) {
+		return errs.New("speed too low, current:%v < limit:%v", bytesPerSec, estimate.limit)
+	}
+
+	return nil
+}
+
 // NewEndpoint creates a new piecestore endpoint.
 func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
 	return &Endpoint{
@@ -317,13 +359,17 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	largestOrder := pb.Order{}
 	defer commitOrderToStore(ctx, &largestOrder)
 
-	for {
-		// Measure upload rate (bytes per second)
-		dt := time.Since(startTime)
+	// monitor speed of upload client to flag out slow uploads.
+	speedEstimate := speedEstimation{
+		grace: endpoint.config.MinUploadSpeedGraceDuration,
+		limit: endpoint.config.MinUploadSpeed,
+	}
 
-		// Verify if the upload is unusually slow
-		if endpoint.isSlowUpload(float64(pieceWriter.Size()), dt) {
-			return rpcstatus.Errorf(rpcstatus.Aborted, "upload rate falls below limit")
+	for {
+		congested := endpoint.isCongested()
+
+		if err := speedEstimate.EnsureLimit(memory.Size(pieceWriter.Size()), congested, time.Now()); err != nil {
+			return rpcstatus.Wrap(rpcstatus.Aborted, err)
 		}
 
 		// TODO: reuse messages to avoid allocations
@@ -430,44 +476,19 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	}
 }
 
-// isSlowUpload verifies if the upload speed of a client falls below the acceptance level.
-// The conditions to flag a slow loris attack:
-// + Upload speed falls below endpoint.config.MinUploadSpeed
-// + endpoint.config.MaxConcurrentRequests is set, the total number of concurrent connections must remain below 80% of the capacity.
-// The verification is carried out only for connection that is kept alive longer than the MinUploadSpeedGraceDuration configuration.
-
-func (endpoint *Endpoint) isSlowUpload(currentUploadSize float64, connectionDuration time.Duration) bool {
-	// Skip flagging unusually slow connections in the first moments of uploading.
-	if connectionDuration < endpoint.config.MinUploadSpeedGraceDuration || connectionDuration == 0 {
-		return false
-	}
-
-	// Latest number of alive connection
-	connectionCount := atomic.LoadInt32(&endpoint.liveRequests)
-
-	// averageUploadRate is counted as average rate of upload over the lifetime of
-	// the connection.
-	averageUploadRate := currentUploadSize / connectionDuration.Seconds()
-
+// isCongested identifies state of congestion. If the total number of
+// connections is above 80% of the MaxConcurrentRequests, then it is defined
+// as congestion
+func (endpoint *Endpoint) isCongested() bool {
 	// congestionThreshold defines the proportion of MaxConcurrentRequests
 	// that must be reached before the storage node will begin dropping slow
 	// upload connections to preserve its own bandwidth.
 	const congestionThreshold = 0.8
+	// then the connection is flagged
+	requestCongestionThreshold := int32(float64(endpoint.config.MaxConcurrentRequests) * congestionThreshold)
 
-	if averageUploadRate < float64(endpoint.config.MinUploadSpeed) {
-		if endpoint.config.MaxConcurrentRequests != 0 {
-			// if 80% of the connection pool is occupied and average upload falls below limit
-			// then the connection is flagged
-			requestCongestionThreshold := int32(float64(endpoint.config.MaxConcurrentRequests) * congestionThreshold)
-
-			if (connectionCount > requestCongestionThreshold) && averageUploadRate < float64(endpoint.config.MinUploadSpeed) {
-				return true
-			}
-		} else if averageUploadRate < float64(endpoint.config.MinUploadSpeed) {
-			return true
-		}
-	}
-	return false
+	connectionCount := atomic.LoadInt32(&endpoint.liveRequests)
+	return connectionCount > requestCongestionThreshold
 }
 
 // Download handles Downloading a piece on piecestore.

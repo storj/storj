@@ -170,9 +170,7 @@ func TestSlowUpload(t *testing.T) {
 				// Set MinUploadSpeed to extremely high to indicates that
 				// client upload rate is slow (relative to node's standards)
 				config.Storage2.MinUploadSpeed = 10000000 * memory.MB
-				// Storage Node takes only 1 connection (to mock the case where
-				// the number of concurrent connections goes above 80% of the limit)
-				config.Storage2.MaxConcurrentRequests = 1
+
 				// Storage Node waits only few microsecond before starting the measurement
 				// of upload rate to flag unsually slow connection
 				config.Storage2.MinUploadSpeedGraceDuration = 500 * time.Microsecond
@@ -195,7 +193,7 @@ func TestSlowUpload(t *testing.T) {
 				// after 500 micro seconds, the file should be big enough to ensure the connection is still open.
 				contentLength: 50 * memory.MB,
 				action:        pb.PieceAction_PUT,
-				err:           "upload rate falls below limit",
+				err:           "speed too low",
 			},
 		} {
 			data := testrand.Bytes(tt.contentLength)
