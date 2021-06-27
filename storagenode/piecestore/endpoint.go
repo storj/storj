@@ -134,7 +134,7 @@ func (estimate *speedEstimation) EnsureLimit(transferred memory.Size, congested 
 		// not enough data
 		return nil
 	}
-	bytesPerSec := float64(transferred) / float64(estimate.active.Seconds())
+	bytesPerSec := float64(transferred) / estimate.active.Seconds()
 
 	if bytesPerSec < float64(estimate.limit) {
 		return errs.New("speed too low, current:%v < limit:%v", bytesPerSec, estimate.limit)
@@ -478,7 +478,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 // isCongested identifies state of congestion. If the total number of
 // connections is above 80% of the MaxConcurrentRequests, then it is defined
-// as congestion
+// as congestion.
 func (endpoint *Endpoint) isCongested() bool {
 	// congestionThreshold defines the proportion of MaxConcurrentRequests
 	// that must be reached before the storage node will begin dropping slow
