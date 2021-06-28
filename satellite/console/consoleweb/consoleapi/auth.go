@@ -455,18 +455,8 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 
 // serveJSONError writes JSON error to response output stream.
 func (a *Auth) serveJSONError(w http.ResponseWriter, err error) {
-	w.WriteHeader(a.getStatusCode(err))
-
-	var response struct {
-		Error string `json:"error"`
-	}
-
-	response.Error = err.Error()
-
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		a.log.Error("failed to write json error response", zap.Error(ErrAuthAPI.Wrap(err)))
-	}
+	status := a.getStatusCode(err)
+	serveJSONError(a.log, w, status, err)
 }
 
 // getStatusCode returns http.StatusCode depends on console error class.
