@@ -525,8 +525,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.CouponValue,
 			pc.CouponDuration.IntPointer(),
 			pc.CouponProjectLimit,
-			pc.MinCoinPayment,
-			pc.PaywallProportion)
+			pc.MinCoinPayment)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
