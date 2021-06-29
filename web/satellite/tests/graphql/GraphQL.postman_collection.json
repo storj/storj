@@ -685,13 +685,11 @@
 							}
 						],
 						"url": {
-							"raw": "{{base_url}}/api/v0/payments/account/charges?from=1619827200&to=1620844320",
+							"raw": "{{base_url}}/payments/account/charges?from=1619827200&to=1620844320",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
-								"v0",
 								"payments",
 								"account",
 								"charges"
@@ -784,13 +782,11 @@
 							}
 						],
 						"url": {
-							"raw": "{{base_url}}/api/v0/buckets/bucket-names?projectID={{project_identifier}}",
+							"raw": "{{base_url}}/buckets/bucket-names?projectID={{project_identifier}}",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
-								"v0",
 								"buckets",
 								"bucket-names"
 							],
@@ -853,13 +849,11 @@
 							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"before\":\"2021-05-12T18:32:30.533Z\",\"limit\":7,\"search\":\"\",\"page\":1},\"query\":\"query ($projectId: String!, $before: DateTime!, $limit: Int!, $search: String!, $page: Int!) {\\n  project(id: $projectId) {\\n    bucketUsages(before: $before, cursor: {limit: $limit, search: $search, page: $page}) {\\n      bucketUsages {\\n        bucketName\\n        storage\\n        egress\\n        objectCount\\n        since\\n        before\\n        __typename\\n      }\\n      search\\n      limit\\n      offset\\n      pageCount\\n      currentPage\\n      totalCount\\n      __typename\\n    }\\n    __typename\\n  }\\n}\\n\"}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v0/graphql",
+							"raw": "{{base_url}}/graphql",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
-								"v0",
 								"graphql"
 							]
 						}
@@ -954,13 +948,11 @@
 							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"name\":\"{{randomApiName}}\"},\"query\":\"mutation ($projectId: String!, $name: String!) {\\n  createAPIKey(projectID: $projectId, name: $name) {\\n    key\\n    keyInfo {\\n      id\\n      name\\n      createdAt\\n      __typename\\n    }\\n    __typename\\n  }\\n}\\n\"}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v0/graphql",
+							"raw": "{{base_url}}/graphql",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
-								"v0",
 								"graphql"
 							]
 						}
@@ -1016,13 +1008,11 @@
 							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"limit\":6,\"search\":\"\",\"page\":1,\"order\":1,\"orderDirection\":1},\"query\":\"query ($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {\\n  project(id: $projectId) {\\n    apiKeys(cursor: {limit: $limit, search: $search, page: $page, order: $order, orderDirection: $orderDirection}) {\\n      apiKeys {\\n        id\\n        name\\n        createdAt\\n        __typename\\n      }\\n      search\\n      limit\\n      order\\n      pageCount\\n      currentPage\\n      totalCount\\n      __typename\\n    }\\n    __typename\\n  }\\n}\\n\"}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v0/graphql",
+							"raw": "{{base_url}}/graphql",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
-								"v0",
 								"graphql"
 							]
 						}
@@ -1170,13 +1160,11 @@
 							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"before\":\"2021-05-11T17:03:23.924Z\",\"limit\":7,\"search\":\"\",\"page\":1},\"query\":\"query ($projectId: String!, $before: DateTime!, $limit: Int!, $search: String!, $page: Int!) {\\n  project(id: $projectId) {\\n    bucketUsages(before: $before, cursor: {limit: $limit, search: $search, page: $page}) {\\n      bucketUsages {\\n        bucketName\\n        storage\\n        egress\\n        objectCount\\n        since\\n        before\\n        __typename\\n      }\\n      search\\n      limit\\n      offset\\n      pageCount\\n      currentPage\\n      totalCount\\n      __typename\\n    }\\n    __typename\\n  }\\n}\\n\"}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v0/graphql",
+							"raw": "{{base_url}}/graphql",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
-								"v0",
 								"graphql"
 							]
 						}
@@ -1223,13 +1211,11 @@
 							}
 						],
 						"url": {
-							"raw": "{{base_url}}/api/v0/projects/{{project_identifier}}/usage-limits",
+							"raw": "{{base_url}}/projects/{{project_identifier}}/usage-limits",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
-								"v0",
 								"projects",
 								"{{project_identifier}}",
 								"usage-limits"
@@ -1287,13 +1273,11 @@
 							"raw": "{\"operationName\":null,\"variables\":{\"limit\":7,\"page\":1},\"query\":\"query ($limit: Int!, $page: Int!) {\\n  ownedProjects(cursor: {limit: $limit, page: $page}) {\\n    projects {\\n      id\\n      name\\n      ownerId\\n      description\\n      createdAt\\n      memberCount\\n      __typename\\n    }\\n    limit\\n    offset\\n    pageCount\\n    currentPage\\n    totalCount\\n    __typename\\n  }\\n}\\n\"}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v0/graphql",
+							"raw": "{{base_url}}/graphql",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
-								"v0",
 								"graphql"
 							]
 						}
@@ -1348,13 +1332,11 @@
 							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"limit\":6,\"search\":\"\",\"page\":1,\"order\":1,\"orderDirection\":1},\"query\":\"query ($projectId: String!, $limit: Int!, $search: String!, $page: Int!, $order: Int!, $orderDirection: Int!) {\\n  project(id: $projectId) {\\n    members(cursor: {limit: $limit, search: $search, page: $page, order: $order, orderDirection: $orderDirection}) {\\n      projectMembers {\\n        user {\\n          id\\n          fullName\\n          shortName\\n          email\\n          __typename\\n        }\\n        joinedAt\\n        __typename\\n      }\\n      search\\n      limit\\n      order\\n      pageCount\\n      currentPage\\n      totalCount\\n      __typename\\n    }\\n    __typename\\n  }\\n}\\n\"}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v0/graphql",
+							"raw": "{{base_url}}/graphql",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
-								"v0",
 								"graphql"
 							]
 						}
@@ -1409,13 +1391,11 @@
 							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"emails\":[\"{{user_2}}\"]},\"query\":\"mutation ($projectId: String!, $emails: [String!]!) {\\n  addProjectMembers(projectID: $projectId, email: $emails) {\\n    id\\n    __typename\\n  }\\n}\\n\"}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v0/graphql",
+							"raw": "{{base_url}}/graphql",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
-								"v0",
 								"graphql"
 							]
 						}
@@ -1470,13 +1450,11 @@
 							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"emails\":[\"{{user_2}}\"]},\"query\":\"mutation ($projectId: String!, $emails: [String!]!) {\\n  deleteProjectMembers(projectID: $projectId, email: $emails) {\\n    id\\n    __typename\\n  }\\n}\\n\"}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v0/graphql",
+							"raw": "{{base_url}}/graphql",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
-								"v0",
 								"graphql"
 							]
 						}
@@ -1532,13 +1510,11 @@
 							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"emails\":[\"{{user_2}}\",\"{{test@ts.com}}\"]},\"query\":\"mutation ($projectId: String!, $emails: [String!]!) {\\n  addProjectMembers(projectID: $projectId, email: $emails) {\\n    id\\n    __typename\\n  }\\n}\\n\"}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v0/graphql",
+							"raw": "{{base_url}}/graphql",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
-								"v0",
 								"graphql"
 							]
 						}
@@ -1594,13 +1570,11 @@
 							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"emails\":[\"{{user_2}}\",\"{{user_name}}\"]},\"query\":\"mutation ($projectId: String!, $emails: [String!]!) {\\n  addProjectMembers(projectID: $projectId, email: $emails) {\\n    id\\n    __typename\\n  }\\n}\\n\"}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v0/graphql",
+							"raw": "{{base_url}}/graphql",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
-								"v0",
 								"graphql"
 							]
 						}
@@ -1638,13 +1612,11 @@
 							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"e4a929a6-cc69-4920-ad06-c84f3c943928\",\"name\":\"My Second Project\",\"description\":\"___\"},\"query\":\"mutation ($projectId: String!, $name: String!, $description: String!) {\\n  updateProject(id: $projectId, name: $name, description: $description) {\\n    name\\n    __typename\\n  }\\n}\\n\"}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v0/graphql",
+							"raw": "{{base_url}}/graphql",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
-								"v0",
 								"graphql"
 							]
 						}
@@ -1700,13 +1672,11 @@
 							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"084e70b2-a716-42c3-9f2b-7494bb44a3cf\",\"name\":\"Test\",\"description\":\"Test option description\"},\"query\":\"mutation ($projectId: String!, $name: String!, $description: String!) {\\n  updateProject(id: $projectId, name: $name, description: $description) {\\n    name\\n    __typename\\n  }\\n}\\n\"}"
 						},
 						"url": {
-							"raw": "{{base_url}}/api/v0/graphql",
+							"raw": "{{base_url}}/graphql",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"api",
-								"v0",
 								"graphql"
 							]
 						}

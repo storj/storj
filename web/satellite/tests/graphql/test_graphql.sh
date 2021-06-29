@@ -16,6 +16,6 @@ function onExit {
 
 trap onExit EXIT;
 
+go run .
 docker pull postman/newman:alpine;
-
-docker run -v .:/etc/newman -t postman/newman:alpine run GraphQL.postman_collection.json -e GraphQLEndoints.postman_environment.json;
+docker run -v ${PWD}:/etc/newman -t postman/newman:alpine run GraphQL.postman_collection.json -e GraphQLEndoints.postman_environment.json;
