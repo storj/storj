@@ -101,48 +101,6 @@ type Endpoint struct {
 	liveRequests int32
 }
 
-// speedEstimation monitors state of incoming traffic. It would signal slow-speed
-// client in non-congested traffic condition.
-type speedEstimation struct {
-	// grace indicates a certain period of time before the observator kicks in
-	grace time.Duration
-	// limit for flagging slow connections. Speed below this limit is considered to be slow.
-	limit memory.Size
-	// active indicates the duration of active connection.
-	active      time.Duration
-	lastChecked time.Time
-}
-
-// EnsureLimit makes sure that in non-congested condition, a slow-upload client will be flagged out.
-func (estimate *speedEstimation) EnsureLimit(transferred memory.Size, congested bool, now time.Time) error {
-	if estimate.lastChecked.IsZero() {
-		estimate.lastChecked = now
-		return nil
-	}
-
-	delta := now.Sub(estimate.lastChecked)
-	estimate.lastChecked = now
-
-	// In congested condition, the speed check would produce false-positive results,
-	// thus it shall be skipped.
-	if congested {
-		return nil
-	}
-
-	estimate.active += delta
-	if estimate.active <= 0 || estimate.active <= estimate.grace {
-		// not enough data
-		return nil
-	}
-	bytesPerSec := float64(transferred) / estimate.active.Seconds()
-
-	if bytesPerSec < float64(estimate.limit) {
-		return errs.New("speed too low, current:%v < limit:%v", bytesPerSec, estimate.limit)
-	}
-
-	return nil
-}
-
 // NewEndpoint creates a new piecestore endpoint.
 func NewEndpoint(log *zap.Logger, signer signing.Signer, trust *trust.Pool, monitor *monitor.Service, retain *retain.Service, pingStats pingStatsSource, store *pieces.Store, pieceDeleter *pieces.Deleter, ordersStore *orders.FileStore, usage bandwidth.DB, usedSerials *usedserials.Table, config Config) (*Endpoint, error) {
 	return &Endpoint{
@@ -836,4 +794,46 @@ func min(a, b int64) int64 {
 		return a
 	}
 	return b
+}
+
+// speedEstimation monitors state of incoming traffic. It would signal slow-speed
+// client in non-congested traffic condition.
+type speedEstimation struct {
+	// grace indicates a certain period of time before the observator kicks in
+	grace time.Duration
+	// limit for flagging slow connections. Speed below this limit is considered to be slow.
+	limit memory.Size
+	// active indicates the duration of active connection.
+	active      time.Duration
+	lastChecked time.Time
+}
+
+// EnsureLimit makes sure that in non-congested condition, a slow-upload client will be flagged out.
+func (estimate *speedEstimation) EnsureLimit(transferred memory.Size, congested bool, now time.Time) error {
+	if estimate.lastChecked.IsZero() {
+		estimate.lastChecked = now
+		return nil
+	}
+
+	delta := now.Sub(estimate.lastChecked)
+	estimate.lastChecked = now
+
+	// In congested condition, the speed check would produce false-positive results,
+	// thus it shall be skipped.
+	if congested {
+		return nil
+	}
+
+	estimate.active += delta
+	if estimate.active <= 0 || estimate.active <= estimate.grace {
+		// not enough data
+		return nil
+	}
+	bytesPerSec := float64(transferred) / estimate.active.Seconds()
+
+	if bytesPerSec < float64(estimate.limit) {
+		return errs.New("speed too low, current:%v < limit:%v", bytesPerSec, estimate.limit)
+	}
+
+	return nil
 }
