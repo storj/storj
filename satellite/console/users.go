@@ -110,7 +110,8 @@ type User struct {
 
 	CreatedAt time.Time `json:"createdAt"`
 
-	ProjectLimit int `json:"projectLimit"`
+	ProjectLimit int  `json:"projectLimit"`
+	PaidTier     bool `json:"paidTier"`
 
 	IsProfessional bool   `json:"isProfessional"`
 	Position       string `json:"position"`
