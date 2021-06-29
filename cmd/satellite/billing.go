@@ -67,8 +67,7 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripecoinpayments.Servic
 		pc.CouponValue,
 		pc.CouponDuration.IntPointer(),
 		pc.CouponProjectLimit,
-		pc.MinCoinPayment,
-		pc.PaywallProportion)
+		pc.MinCoinPayment)
 }
 
 // parseBillingPeriodFromString parses provided date string and returns corresponding time.Time.

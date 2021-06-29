@@ -244,10 +244,6 @@ func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditC
 		return Error.Wrap(err)
 	}
 
-	if !paymentService.service.accounts.PaywallEnabled(auth.User.ID) {
-		return nil
-	}
-
 	return nil
 }
 
@@ -493,16 +489,6 @@ func (paymentService PaymentsService) checkProjectInvoicingStatus(ctx context.Co
 func (paymentService PaymentsService) AddPromotionalCoupon(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
-	if paymentService.service.accounts.PaywallEnabled(userID) {
-		cards, err := paymentService.ListCreditCards(ctx)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		if len(cards) == 0 {
-			return Error.New("user don't have a payment method")
-		}
-	}
-
 	return paymentService.service.accounts.Coupons().AddPromotionalCoupon(ctx, userID)
 }
 
@@ -685,10 +671,6 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return Error.Wrap(err)
 	}
 	s.auditLog(ctx, "activate account", &user.ID, user.Email)
-
-	if s.accounts.PaywallEnabled(user.ID) {
-		return nil
-	}
 
 	s.analytics.TrackAccountVerified(user.ID, user.Email)
 
@@ -993,32 +975,6 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 	currentProjectCount, err := s.checkProjectLimit(ctx, auth.User.ID)
 	if err != nil {
 		return nil, ErrProjLimit.Wrap(err)
-	}
-
-	if s.accounts.PaywallEnabled(auth.User.ID) {
-		cards, err := s.accounts.CreditCards().List(ctx, auth.User.ID)
-		if err != nil {
-			s.log.Debug(fmt.Sprintf("could not list credit cards for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-			return nil, Error.Wrap(err)
-		}
-
-		balance, err := s.accounts.Balance(ctx, auth.User.ID)
-		if err != nil {
-			s.log.Debug(fmt.Sprintf("could not get balance for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-			return nil, Error.Wrap(err)
-		}
-
-		coupons, err := s.accounts.Coupons().ListByUserID(ctx, auth.User.ID)
-		if err != nil {
-			s.log.Debug(fmt.Sprintf("could not list coupons for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-			return nil, Error.Wrap(err)
-		}
-
-		if len(cards) == 0 && balance.Coins < s.minCoinPayment && len(coupons) == 0 {
-			err = errs.New("no valid payment methods found")
-			s.log.Debug(fmt.Sprintf("could not create project for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-			return nil, Error.Wrap(err)
-		}
 	}
 
 	var projectID uuid.UUID
@@ -1806,10 +1762,4 @@ func findMembershipByProjectID(memberships []ProjectMember, projectID uuid.UUID)
 		}
 	}
 	return ProjectMember{}, false
-}
-
-// PaywallEnabled returns a true if a credit card or account
-// balance is required to create projects.
-func (s *Service) PaywallEnabled(userID uuid.UUID) bool {
-	return s.accounts.PaywallEnabled(userID)
 }

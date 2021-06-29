@@ -115,6 +115,11 @@ func TestProjectUsageBandwidth(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			testplanet.Run(t, testplanet.Config{
 				SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+				Reconfigure: testplanet.Reconfigure{
+					Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+						config.LiveAccounting.AsOfSystemInterval = -time.Millisecond
+					},
+				},
 			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 				saDB := planet.Satellites[0].DB
 				orderDB := saDB.Orders()
@@ -248,7 +253,7 @@ func TestProjectBandwidthRollups(t *testing.T) {
 		err = db.Orders().UpdateBucketBandwidthBatch(ctx, hour, rollups)
 		require.NoError(t, err)
 
-		alloc, err := db.ProjectAccounting().GetProjectBandwidth(ctx, p1, now.Year(), now.Month(), now.Day())
+		alloc, err := db.ProjectAccounting().GetProjectBandwidth(ctx, p1, now.Year(), now.Month(), now.Day(), 0)
 		require.NoError(t, err)
 		require.EqualValues(t, 4000, alloc)
 	})
@@ -629,6 +634,7 @@ func TestProjectUsageBandwidthResetAfter3days(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.UsageLimits.DefaultStorageLimit = 1 * memory.MB
 				config.Console.UsageLimits.DefaultBandwidthLimit = 1 * memory.MB
+				config.LiveAccounting.AsOfSystemInterval = -time.Millisecond
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

@@ -245,7 +245,10 @@ func (reporter *Reporter) recordPendingAudits(ctx context.Context, pendingAudits
 
 	if len(failed) > 0 {
 		for _, v := range failed {
-			reporter.log.Debug("failed to record Pending Nodes ", zap.Stringer("NodeID", v.NodeID), zap.ByteString("Segment Location", []byte(v.Segment.Encode())))
+			reporter.log.Debug("failed to record Pending Nodes ",
+				zap.Stringer("NodeID", v.NodeID),
+				zap.String("Segment StreamID", v.StreamID.String()),
+				zap.Uint64("Segment Position", v.Position.Encode()))
 		}
 		return failed, errs.Combine(Error.New("failed to record some pending audits"), errlist.Err())
 	}

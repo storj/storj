@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/zeebo/errs"
 
@@ -37,6 +38,11 @@ type Segment RawSegment
 // Inline returns true if segment is inline.
 func (s Segment) Inline() bool {
 	return s.Redundancy.IsZero() && len(s.Pieces) == 0
+}
+
+// Expired checks if segment is expired relative to now.
+func (s Segment) Expired(now time.Time) bool {
+	return s.ExpiresAt != nil && s.ExpiresAt.Before(now)
 }
 
 // GetObjectExactVersion contains arguments necessary for fetching an information

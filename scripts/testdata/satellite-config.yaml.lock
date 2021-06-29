@@ -289,6 +289,9 @@ identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
 # path to the private key for this identity
 identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
+# as of system interval
+# live-accounting.as-of-system-interval: -10s
+
 # bandwidth cache key time to live
 # live-accounting.bandwidth-cache-ttl: 5m0s
 
@@ -573,9 +576,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # price user should pay for each object stored in network per month
 # payments.object-price: "0"
-
-# proportion of users which require a balance to create projects [0-1]
-# payments.paywall-proportion: 0
 
 # payments provider to use
 # payments.provider: ""

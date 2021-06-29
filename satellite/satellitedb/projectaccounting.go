@@ -138,7 +138,7 @@ func (db *ProjectAccounting) GetAllocatedBandwidthTotal(ctx context.Context, pro
 }
 
 // GetProjectBandwidth returns the used bandwidth (settled or allocated) for the specified year, month and day.
-func (db *ProjectAccounting) GetProjectBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (_ int64, err error) {
+func (db *ProjectAccounting) GetProjectBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int, asOfSystemInterval time.Duration) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var egress *int64
 
@@ -152,7 +152,7 @@ func (db *ProjectAccounting) GetProjectBandwidth(ctx context.Context, projectID 
 	}
 	periodEnd := time.Date(year, month+1, 0, 0, 0, 0, 0, time.UTC)
 
-	query := ` WITH egress AS (
+	query := `WITH egress AS (
 					SELECT
 						CASE WHEN interval_day < ?
 							THEN egress_settled
@@ -160,7 +160,7 @@ func (db *ProjectAccounting) GetProjectBandwidth(ctx context.Context, projectID 
 						END AS amount
 					FROM project_bandwidth_daily_rollups
 					WHERE project_id = ? AND interval_day >= ? AND interval_day < ?
-				) SELECT sum(amount) from egress;`
+				) SELECT sum(amount) FROM egress` + db.db.impl.AsOfSystemInterval(asOfSystemInterval)
 	err = db.db.QueryRow(ctx, db.db.Rebind(query), expiredSince, projectID[:], startOfMonth, periodEnd).Scan(&egress)
 	if errors.Is(err, sql.ErrNoRows) || egress == nil {
 		return 0, nil

@@ -10,6 +10,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -32,7 +33,8 @@ type PendingAudit struct {
 	ShareSize         int32
 	ExpectedShareHash []byte
 	ReverifyCount     int32
-	Segment           metabase.SegmentLocation
+	StreamID          uuid.UUID
+	Position          metabase.SegmentPosition
 }
 
 // Containment holds information about pending audits for contained nodes.

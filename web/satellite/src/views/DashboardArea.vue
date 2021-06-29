@@ -47,7 +47,6 @@ import { LocalData } from '@/utils/localData';
 import { MetaUtils } from '@/utils/meta';
 
 const {
-    GET_PAYWALL_ENABLED_STATUS,
     SETUP_ACCOUNT,
     GET_BALANCE,
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
@@ -90,12 +89,6 @@ export default class DashboardArea extends Vue {
             setTimeout(async () => await this.$router.push(RouteConfig.Login.path), 1000);
 
             return;
-        }
-
-        try {
-            await this.$store.dispatch(GET_PAYWALL_ENABLED_STATUS);
-        } catch (error) {
-            await this.$notify.error(`Unable to get paywall enabled status. ${error.message}`);
         }
 
         try {

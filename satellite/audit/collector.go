@@ -8,12 +8,12 @@ import (
 	"math/rand"
 
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/metabase/metaloop"
+	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
-var _ metaloop.Observer = (*Collector)(nil)
+var _ segmentloop.Observer = (*Collector)(nil)
 
-// Collector uses the metainfo loop to add segments to node reservoirs.
+// Collector uses the segment loop to add segments to node reservoirs.
 type Collector struct {
 	Reservoirs map[storj.NodeID]*Reservoir
 	slotCount  int
@@ -30,12 +30,12 @@ func NewCollector(reservoirSlots int, r *rand.Rand) *Collector {
 }
 
 // LoopStarted is called at each start of a loop.
-func (collector *Collector) LoopStarted(context.Context, metaloop.LoopInfo) (err error) {
+func (collector *Collector) LoopStarted(context.Context, segmentloop.LoopInfo) (err error) {
 	return nil
 }
 
 // RemoteSegment takes a remote segment found in metainfo and creates a reservoir for it if it doesn't exist already.
-func (collector *Collector) RemoteSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
+func (collector *Collector) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for _, piece := range segment.Pieces {
@@ -47,12 +47,7 @@ func (collector *Collector) RemoteSegment(ctx context.Context, segment *metaloop
 	return nil
 }
 
-// Object returns nil because the audit service does not interact with objects.
-func (collector *Collector) Object(ctx context.Context, object *metaloop.Object) (err error) {
-	return nil
-}
-
 // InlineSegment returns nil because we're only auditing for storage nodes for now.
-func (collector *Collector) InlineSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
+func (collector *Collector) InlineSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
 	return nil
 }
