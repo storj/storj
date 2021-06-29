@@ -184,7 +184,7 @@ type ProjectAccounting interface {
 	// GetAllocatedBandwidthTotal returns the sum of GET bandwidth usage allocated for a projectID in the past time frame
 	GetAllocatedBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (int64, error)
 	// GetProjectBandwidth returns project allocated bandwidth for the specified year, month and day.
-	GetProjectBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (int64, error)
+	GetProjectBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int, asOfSystemInterval time.Duration) (int64, error)
 	// GetProjectDailyBandwidth returns bandwidth (allocated and settled) for the specified day.
 	GetProjectDailyBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (int64, int64, error)
 	// DeleteProjectBandwidthBefore deletes project bandwidth rollups before the given time

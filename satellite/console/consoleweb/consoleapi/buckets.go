@@ -16,7 +16,7 @@ import (
 
 var (
 	// ErrBucketsAPI - console buckets api error type.
-	ErrBucketsAPI = errs.Class("consoleapi buckets")
+	ErrBucketsAPI = errs.Class("console api buckets")
 )
 
 // Buckets is an api controller that exposes all buckets related functionality.

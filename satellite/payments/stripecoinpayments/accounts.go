@@ -167,6 +167,8 @@ func (accounts *accounts) CheckProjectInvoicingStatus(ctx context.Context, proje
 			if record.State == 0 {
 				return true, errors.New("unapplied project invoice record exist")
 			}
+			// Record has been applied, so project can be deleted.
+			return false, nil
 		}
 		if err != nil {
 			return true, err

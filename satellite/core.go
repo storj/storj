@@ -327,7 +327,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Audit.Chore = audit.NewChore(peer.Log.Named("audit:chore"),
 			peer.Audit.Queues,
-			peer.Metainfo.Loop,
+			peer.Metainfo.SegmentLoop,
 			config,
 		)
 		peer.Services.Add(lifecycle.Item{

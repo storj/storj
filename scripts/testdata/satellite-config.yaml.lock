@@ -289,6 +289,9 @@ identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
 # path to the private key for this identity
 identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
+# as of system interval
+# live-accounting.as-of-system-interval: -10s
+
 # bandwidth cache key time to live
 # live-accounting.bandwidth-cache-ttl: 5m0s
 

@@ -42,4 +42,8 @@ export class ProjectsApiMock implements ProjectsApi {
     getLimits(projectId: string): Promise<ProjectLimits> {
         return Promise.resolve(this.mockLimits);
     }
+
+    getTotalLimits(): Promise<ProjectLimits> {
+        return Promise.resolve(this.mockLimits);
+    }
 }

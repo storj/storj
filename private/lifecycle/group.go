@@ -72,6 +72,7 @@ func (group *Group) Run(ctx context.Context, g *errgroup.Group) {
 			defer shutdownDeadline.Stop()
 			select {
 			case <-shutdownDeadline.C:
+				mon.Event("slow_shutdown") //mon:locked
 				group.log.Warn("service takes long to shutdown", zap.String("name", item.Name))
 				group.logStackTrace()
 			case <-shutdownCtx.Done():
@@ -89,6 +90,7 @@ func (group *Group) Run(ctx context.Context, g *errgroup.Group) {
 				err = errs2.IgnoreCanceled(err)
 			}
 			if err != nil {
+				mon.Event("unexpected_shutdown") //mon:locked
 				group.log.Error("unexpected shutdown of a runner", zap.String("name", item.Name), zap.Error(err))
 			}
 			return err

@@ -62,6 +62,8 @@ type DB interface {
 	BatchUpdateStats(ctx context.Context, updateRequests []*UpdateRequest, batchSize int, now time.Time) (failed storj.NodeIDList, err error)
 	// UpdateStats all parts of single storagenode's stats.
 	UpdateStats(ctx context.Context, request *UpdateRequest, now time.Time) (stats *NodeStats, err error)
+	// UpdateReputation updates the DB columns for all reputation fields in ReputationStatus.
+	UpdateReputation(ctx context.Context, id storj.NodeID, request *ReputationStatus) error
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error)
 	// UpdateCheckIn updates a single storagenode's check-in stats.
@@ -151,6 +153,8 @@ type NodeCriteria struct {
 }
 
 // AuditType is an enum representing the outcome of a particular audit reported to the overlay.
+//
+// TODO: remove after migrating to using reputation package for auditing.
 type AuditType int
 
 const (
@@ -164,7 +168,18 @@ const (
 	AuditOffline
 )
 
+// ReputationStatus indicates current reputation status for a node.
+type ReputationStatus struct {
+	Contained             bool // TODO: check to see if this column is still used.
+	Disqualified          *time.Time
+	UnknownAuditSuspended *time.Time
+	OfflineSuspended      *time.Time
+	VettedAt              *time.Time
+}
+
 // UpdateRequest is used to update a node status.
+//
+// TODO: remove after migrating to using reputation package for auditing.
 type UpdateRequest struct {
 	NodeID       storj.NodeID
 	AuditOutcome AuditType
@@ -461,6 +476,12 @@ func (service *Service) BatchUpdateStats(ctx context.Context, requests []*Update
 		request.AuditHistory = service.config.AuditHistory
 	}
 	return service.db.BatchUpdateStats(ctx, requests, service.config.UpdateStatsBatchSize, time.Now())
+}
+
+// UpdateReputation updates the DB columns for any of the reputation fields.
+func (service *Service) UpdateReputation(ctx context.Context, id storj.NodeID, request *ReputationStatus) (err error) {
+	mon.Task()(&ctx)(&err)
+	return service.db.UpdateReputation(ctx, id, request)
 }
 
 // UpdateStats all parts of single storagenode's stats.

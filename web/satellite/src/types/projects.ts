@@ -46,6 +46,13 @@ export interface ProjectsApi {
     getLimits(projectId: string): Promise<ProjectLimits>;
 
     /**
+     * Get project limits.
+     *
+     * throws Error
+     */
+    getTotalLimits(): Promise<ProjectLimits>;
+
+    /**
      * Fetch owned projects.
      *
      * @returns ProjectsPage
