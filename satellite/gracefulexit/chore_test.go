@@ -84,7 +84,7 @@ func TestChore(t *testing.T) {
 
 		satellite.GracefulExit.Chore.Loop.TriggerWait()
 
-		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0, false)
+		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0, true)
 		require.NoError(t, err)
 		require.Len(t, incompleteTransfers, 3)
 		for _, incomplete := range incompleteTransfers {
@@ -97,7 +97,7 @@ func TestChore(t *testing.T) {
 			if node.ID() == exitingNode.ID() {
 				continue
 			}
-			incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, node.ID(), 20, 0, false)
+			incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, node.ID(), 20, 0, true)
 			require.NoError(t, err)
 			require.Len(t, incompleteTransfers, 0)
 		}
@@ -116,7 +116,7 @@ func TestChore(t *testing.T) {
 		err = satellite.DB.GracefulExit().IncrementProgress(ctx, exitingNode.ID(), 0, 0, 0)
 		require.NoError(t, err)
 
-		incompleteTransfers, err = satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0, false)
+		incompleteTransfers, err = satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0, true)
 		require.NoError(t, err)
 		require.Len(t, incompleteTransfers, 3)
 
@@ -129,7 +129,7 @@ func TestChore(t *testing.T) {
 		require.False(t, exitStatus.ExitSuccess)
 		require.NotNil(t, exitStatus.ExitFinishedAt)
 
-		incompleteTransfers, err = satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0, false)
+		incompleteTransfers, err = satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0, true)
 		require.NoError(t, err)
 		require.Len(t, incompleteTransfers, 0)
 
@@ -223,7 +223,7 @@ func TestDurabilityRatio(t *testing.T) {
 
 		satellite.GracefulExit.Chore.Loop.TriggerWait()
 
-		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0, false)
+		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 20, 0, true)
 		require.NoError(t, err)
 		require.Len(t, incompleteTransfers, 2)
 		for _, incomplete := range incompleteTransfers {
@@ -270,7 +270,7 @@ func batch(ctx context.Context, b *testing.B, db gracefulexit.DB, size int) {
 			transferQueueItems = append(transferQueueItems, item)
 		}
 		batchSize := 1000
-		err := db.Enqueue(ctx, transferQueueItems, batchSize, false)
+		err := db.Enqueue(ctx, transferQueueItems, batchSize, true)
 		require.NoError(b, err)
 	}
 }

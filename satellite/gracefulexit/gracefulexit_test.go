@@ -15,6 +15,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/gracefulexit"
@@ -172,7 +173,7 @@ func TestGracefulExit_DeleteAllFinishedTransferQueueItems(t *testing.T) {
 		gracefulExitDB := planet.Satellites[0].DB.GracefulExit()
 		batchSize := 1000
 
-		err = gracefulExitDB.Enqueue(ctx, queueItems, batchSize, false)
+		err = gracefulExitDB.Enqueue(ctx, queueItems, batchSize, true)
 		require.NoError(t, err)
 
 		asOfSystemTime := -1 * time.Microsecond
@@ -259,7 +260,7 @@ func TestGracefulExit_Enqueue_And_DeleteAllFinishedTransferQueueItems_batchsize(
 			queueItems := generateNTransferQueueItemsPerNode(t, numItems, exitedNodeIDs...)
 
 			// Add some items to the transfer queue for the exited nodes.
-			err := gracefulExitDB.Enqueue(ctx, queueItems, batchSize, false)
+			err := gracefulExitDB.Enqueue(ctx, queueItems, batchSize, true)
 			require.NoError(t, err)
 
 			disableAsOfSystemTime := time.Second * 0
@@ -404,7 +405,7 @@ func TestGracefulExit_DeleteAllFinishedTransferQueueItems_batch(t *testing.T) {
 
 		queueItems := generateNTransferQueueItemsPerNode(t, 25, exitedNodeIDs...)
 		// Add some items to the transfer queue for the exited nodes.
-		err := gracefulExitDB.Enqueue(ctx, queueItems, batchSize, false)
+		err := gracefulExitDB.Enqueue(ctx, queueItems, batchSize, true)
 		require.NoError(t, err)
 
 		disableAsOfSystemTime := time.Second * 0
@@ -456,7 +457,8 @@ func generateNTransferQueueItemsPerNode(t *testing.T, n int, nodeIDs ...storj.No
 		for i := 0; i < n; i++ {
 			items = append(items, gracefulexit.TransferQueueItem{
 				NodeID:   nodeID,
-				Key:      metabase.SegmentKey{byte(rand.Int31n(256))},
+				StreamID: testrand.UUID(),
+				Position: metabase.SegmentPositionFromEncoded(rand.Uint64()),
 				PieceNum: rand.Int31(),
 			})
 		}

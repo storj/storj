@@ -304,7 +304,7 @@ func TestRecvTimeout(t *testing.T) {
 		require.Len(t, exitingNodes, 1)
 		require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
 
-		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0, false)
+		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0, true)
 		require.NoError(t, err)
 		require.Len(t, queueItems, 1)
 
@@ -1031,7 +1031,7 @@ func TestSegmentChangedOrDeleted(t *testing.T) {
 		satellite.GracefulExit.Chore.Loop.TriggerWait()
 
 		// make sure all the pieces are in the transfer queue
-		incomplete, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0, false)
+		incomplete, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0, true)
 		require.NoError(t, err)
 		require.Len(t, incomplete, 2)
 
@@ -1071,7 +1071,7 @@ func TestSegmentChangedOrDeleted(t *testing.T) {
 			require.FailNow(t, "should not reach this case: %#v", m)
 		}
 
-		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 2, 0, false)
+		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 2, 0, true)
 		require.NoError(t, err)
 		require.Len(t, queueItems, 0)
 	})
@@ -1142,7 +1142,7 @@ func TestSegmentChangedOrDeletedMultipart(t *testing.T) {
 		satellite.GracefulExit.Chore.Loop.TriggerWait()
 
 		// make sure all the pieces are in the transfer queue
-		incomplete, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0, false)
+		incomplete, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0, true)
 		require.NoError(t, err)
 		require.Len(t, incomplete, 1)
 		// TODO: change to this when an object part can be overwritten
@@ -1185,7 +1185,7 @@ func TestSegmentChangedOrDeletedMultipart(t *testing.T) {
 			require.FailNow(t, "should not reach this case: %#v", m)
 		}
 
-		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 2, 0, false)
+		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 2, 0, true)
 		require.NoError(t, err)
 		require.Len(t, queueItems, 0)
 	})
@@ -1321,7 +1321,7 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 		satellite.GracefulExit.Chore.Loop.TriggerWait()
 
 		// make sure all the pieces are in the transfer queue
-		_, err = satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 1, 0, false)
+		_, err = satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 1, 0, true)
 		require.NoError(t, err)
 
 		var messageCount int
@@ -1365,7 +1365,7 @@ func TestFailureStorageNodeIgnoresTransferMessages(t *testing.T) {
 		require.Equal(t, messageCount, maxOrderLimitSendCount)
 
 		// make sure not responding piece not in queue
-		incompletes, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0, false)
+		incompletes, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0, true)
 		require.NoError(t, err)
 		require.Len(t, incompletes, 0)
 
@@ -1525,7 +1525,7 @@ func testTransfers(t *testing.T, objects int, multipartObjects int, verifier fun
 		satellite.GracefulExit.Chore.Loop.TriggerWait()
 
 		// make sure all the pieces are in the transfer queue
-		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), objects+multipartObjects, 0, false)
+		incompleteTransfers, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), objects+multipartObjects, 0, true)
 		require.NoError(t, err)
 
 		// connect to satellite again to start receiving transfers

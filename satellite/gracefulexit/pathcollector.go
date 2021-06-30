@@ -86,7 +86,8 @@ func (collector *PathCollector) RemoteSegment(ctx context.Context, segment *meta
 
 		item := TransferQueueItem{
 			NodeID:          piece.StorageNode,
-			Key:             key,
+			StreamID:        segment.StreamID,
+			Position:        segment.Position,
 			PieceNum:        int32(piece.Number),
 			RootPieceID:     segment.RootPieceID,
 			DurabilityRatio: float64(numPieces) / float64(segment.Redundancy.TotalShares),
@@ -120,7 +121,7 @@ func (collector *PathCollector) flush(ctx context.Context, limit int) (err error
 	defer mon.Task()(&ctx)(&err)
 
 	if len(collector.buffer) >= limit {
-		err = collector.db.Enqueue(ctx, collector.buffer, collector.batchSize, false)
+		err = collector.db.Enqueue(ctx, collector.buffer, collector.batchSize, true)
 		collector.buffer = collector.buffer[:0]
 
 		return errs.Wrap(err)

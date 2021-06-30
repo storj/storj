@@ -69,7 +69,7 @@ func TestWorkerSuccess(t *testing.T) {
 		require.Len(t, exitingNodes, 1)
 		require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
 
-		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0, false)
+		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0, true)
 		require.NoError(t, err)
 		require.Len(t, queueItems, 1)
 
@@ -84,6 +84,7 @@ func TestWorkerSuccess(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, progress.PiecesFailed, 0)
 		require.EqualValues(t, progress.PiecesTransferred, 1)
+		require.True(t, progress.UsesSegmentTransferQueue)
 
 		exitStatus, err := satellite.DB.OverlayCache().GetExitStatus(ctx, exitingNode.ID())
 		require.NoError(t, err)
@@ -142,7 +143,7 @@ func TestWorkerTimeout(t *testing.T) {
 		require.Len(t, exitingNodes, 1)
 		require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
 
-		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0, false)
+		queueItems, err := satellite.DB.GracefulExit().GetIncomplete(ctx, exitingNode.ID(), 10, 0, true)
 		require.NoError(t, err)
 		require.Len(t, queueItems, 1)
 

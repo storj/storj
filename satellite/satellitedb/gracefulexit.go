@@ -36,7 +36,7 @@ func (db *gracefulexitDB) IncrementProgress(ctx context.Context, nodeID storj.No
 	defer mon.Task()(&ctx)(&err)
 
 	statement := db.db.Rebind(
-		`INSERT INTO graceful_exit_progress (node_id, bytes_transferred, pieces_transferred, pieces_failed, updated_at) VALUES (?, ?, ?, ?, ?)
+		`INSERT INTO graceful_exit_progress (node_id, bytes_transferred, pieces_transferred, pieces_failed, updated_at, uses_segment_transfer_queue) VALUES (?, ?, ?, ?, ?, TRUE)
 		 ON CONFLICT(node_id)
 		 DO UPDATE SET bytes_transferred = graceful_exit_progress.bytes_transferred + excluded.bytes_transferred,
 		 	pieces_transferred = graceful_exit_progress.pieces_transferred + excluded.pieces_transferred,
