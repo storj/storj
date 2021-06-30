@@ -591,6 +591,15 @@ CREATE TABLE registration_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
+CREATE TABLE repair_queue (
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
+	attempted_at timestamp with time zone,
+	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	segment_health double precision NOT NULL DEFAULT 1,
+	PRIMARY KEY ( stream_id, position )
+);
 CREATE TABLE reputations (
 	id bytea NOT NULL,
 	audit_success_count bigint NOT NULL DEFAULT 0,
@@ -829,6 +838,8 @@ CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
 CREATE INDEX nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( type, last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
 CREATE INDEX nodes_dis_unk_aud_exit_init_rel_type_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, type, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
+CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
+CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
 CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start ) ;
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;
@@ -1205,6 +1216,15 @@ CREATE TABLE registration_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
+CREATE TABLE repair_queue (
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
+	attempted_at timestamp with time zone,
+	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	segment_health double precision NOT NULL DEFAULT 1,
+	PRIMARY KEY ( stream_id, position )
+);
 CREATE TABLE reputations (
 	id bytea NOT NULL,
 	audit_success_count bigint NOT NULL DEFAULT 0,
@@ -1443,6 +1463,8 @@ CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
 CREATE INDEX nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( type, last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
 CREATE INDEX nodes_dis_unk_aud_exit_init_rel_type_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, type, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
+CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
+CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
 CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start ) ;
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;
@@ -6333,6 +6355,156 @@ func (f RegistrationToken_CreatedAt_Field) value() interface{} {
 }
 
 func (RegistrationToken_CreatedAt_Field) _Column() string { return "created_at" }
+
+type RepairQueue struct {
+	StreamId      []byte
+	Position      uint64
+	AttemptedAt   *time.Time
+	UpdatedAt     time.Time
+	InsertedAt    time.Time
+	SegmentHealth float64
+}
+
+func (RepairQueue) _Table() string { return "repair_queue" }
+
+type RepairQueue_Create_Fields struct {
+	AttemptedAt   RepairQueue_AttemptedAt_Field
+	UpdatedAt     RepairQueue_UpdatedAt_Field
+	InsertedAt    RepairQueue_InsertedAt_Field
+	SegmentHealth RepairQueue_SegmentHealth_Field
+}
+
+type RepairQueue_Update_Fields struct {
+	AttemptedAt RepairQueue_AttemptedAt_Field
+	UpdatedAt   RepairQueue_UpdatedAt_Field
+}
+
+type RepairQueue_StreamId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func RepairQueue_StreamId(v []byte) RepairQueue_StreamId_Field {
+	return RepairQueue_StreamId_Field{_set: true, _value: v}
+}
+
+func (f RepairQueue_StreamId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RepairQueue_StreamId_Field) _Column() string { return "stream_id" }
+
+type RepairQueue_Position_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func RepairQueue_Position(v uint64) RepairQueue_Position_Field {
+	return RepairQueue_Position_Field{_set: true, _value: v}
+}
+
+func (f RepairQueue_Position_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RepairQueue_Position_Field) _Column() string { return "position" }
+
+type RepairQueue_AttemptedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func RepairQueue_AttemptedAt(v time.Time) RepairQueue_AttemptedAt_Field {
+	return RepairQueue_AttemptedAt_Field{_set: true, _value: &v}
+}
+
+func RepairQueue_AttemptedAt_Raw(v *time.Time) RepairQueue_AttemptedAt_Field {
+	if v == nil {
+		return RepairQueue_AttemptedAt_Null()
+	}
+	return RepairQueue_AttemptedAt(*v)
+}
+
+func RepairQueue_AttemptedAt_Null() RepairQueue_AttemptedAt_Field {
+	return RepairQueue_AttemptedAt_Field{_set: true, _null: true}
+}
+
+func (f RepairQueue_AttemptedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f RepairQueue_AttemptedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RepairQueue_AttemptedAt_Field) _Column() string { return "attempted_at" }
+
+type RepairQueue_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func RepairQueue_UpdatedAt(v time.Time) RepairQueue_UpdatedAt_Field {
+	return RepairQueue_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f RepairQueue_UpdatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RepairQueue_UpdatedAt_Field) _Column() string { return "updated_at" }
+
+type RepairQueue_InsertedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func RepairQueue_InsertedAt(v time.Time) RepairQueue_InsertedAt_Field {
+	return RepairQueue_InsertedAt_Field{_set: true, _value: v}
+}
+
+func (f RepairQueue_InsertedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RepairQueue_InsertedAt_Field) _Column() string { return "inserted_at" }
+
+type RepairQueue_SegmentHealth_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func RepairQueue_SegmentHealth(v float64) RepairQueue_SegmentHealth_Field {
+	return RepairQueue_SegmentHealth_Field{_set: true, _value: v}
+}
+
+func (f RepairQueue_SegmentHealth_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RepairQueue_SegmentHealth_Field) _Column() string { return "segment_health" }
 
 type Reputation struct {
 	Id                          []byte
@@ -15725,6 +15897,33 @@ func (obj *pgxImpl) Delete_Injuredsegment_By_UpdatedAt_Less(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
+	repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM repair_queue WHERE repair_queue.updated_at < ?")
+
+	var __values []interface{}
+	__values = append(__values, repair_queue_updated_at_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxImpl) Delete_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	deleted bool, err error) {
@@ -16315,6 +16514,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reputations;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM repair_queue;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -21753,6 +21962,33 @@ func (obj *pgxcockroachImpl) Delete_Injuredsegment_By_UpdatedAt_Less(ctx context
 
 }
 
+func (obj *pgxcockroachImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
+	repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM repair_queue WHERE repair_queue.updated_at < ?")
+
+	var __values []interface{}
+	__values = append(__values, repair_queue_updated_at_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	deleted bool, err error) {
@@ -22343,6 +22579,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM reputations;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM repair_queue;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -23342,6 +23588,17 @@ func (rx *Rx) Delete_Project_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Delete_Project_By_Id(ctx, project_id)
+}
+
+func (rx *Rx) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
+	repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_RepairQueue_By_UpdatedAt_Less(ctx, repair_queue_updated_at_less)
+
 }
 
 func (rx *Rx) Delete_ResetPasswordToken_By_Secret(ctx context.Context,
@@ -24551,6 +24808,10 @@ type Methods interface {
 	Delete_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
 		deleted bool, err error)
+
+	Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
+		repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (
+		count int64, err error)
 
 	Delete_ResetPasswordToken_By_Secret(ctx context.Context,
 		reset_password_token_secret ResetPasswordToken_Secret_Field) (

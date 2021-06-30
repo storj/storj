@@ -15,7 +15,6 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metaloop"
 	"storj.io/storj/satellite/overlay"
@@ -275,7 +274,6 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metaloop
 	mon.FloatVal("checker_segment_health").Observe(segmentHealth) //mon:locked
 	stats.segmentHealth.Observe(segmentHealth)
 
-	key := segment.Location.Encode()
 	// we repair when the number of healthy pieces is less than or equal to the repair threshold and is greater or equal to
 	// minimum required pieces in redundancy
 	// except for the case when the repair and success thresholds are the same (a case usually seen during testing)
@@ -284,11 +282,12 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *metaloop
 		stats.injuredSegmentHealth.Observe(segmentHealth)
 		obs.monStats.remoteSegmentsNeedingRepair++
 		stats.iterationAggregates.remoteSegmentsNeedingRepair++
-		alreadyInserted, err := obs.repairQueue.Insert(ctx, &internalpb.InjuredSegment{
-			Path:         key,
-			LostPieces:   missingPieces,
-			InsertedTime: time.Now().UTC(),
-		}, segmentHealth)
+		alreadyInserted, err := obs.repairQueue.Insert(ctx, &queue.InjuredSegment{
+			StreamID:      segment.StreamID,
+			Position:      segment.Position,
+			UpdatedAt:     time.Now().UTC(),
+			SegmentHealth: segmentHealth,
+		})
 		if err != nil {
 			obs.log.Error("error adding injured segment to queue", zap.Error(err))
 			return nil

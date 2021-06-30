@@ -4,7 +4,6 @@
 package checker_test
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"testing"
@@ -15,6 +14,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/metabase"
 )
@@ -54,7 +54,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 
 		// add pointer that needs repair
 		expectedLocation.ObjectKey = metabase.ObjectKey("b-0")
-		insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), time.Time{})
+		b0StreamID := insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), time.Time{})
 
 		// add pointer that is unhealthy, but is expired
 		expectedLocation.ObjectKey = metabase.ObjectKey("b-1")
@@ -75,12 +75,7 @@ func TestIdentifyInjuredSegments(t *testing.T) {
 		err = repairQueue.Delete(ctx, injuredSegment)
 		require.NoError(t, err)
 
-		expectedLocation.ObjectKey = "b-0"
-		require.Equal(t, string(expectedLocation.Encode()), string(injuredSegment.Path))
-		require.Equal(t, int(rs.OptimalShares-rs.RequiredShares), len(injuredSegment.LostPieces))
-		for _, lostPiece := range injuredSegment.LostPieces {
-			require.True(t, int32(rs.RequiredShares) <= lostPiece && lostPiece < int32(rs.OptimalShares), fmt.Sprintf("%v", lostPiece))
-		}
+		require.Equal(t, b0StreamID, injuredSegment.StreamID)
 
 		_, err = repairQueue.Select(ctx)
 		require.Error(t, err)
@@ -204,9 +199,11 @@ func TestCleanRepairQueue(t *testing.T) {
 			insertSegment(ctx, t, planet, rs, expectedLocation, createPieces(planet, rs), time.Time{})
 		}
 		unhealthyCount := 5
+		unhealthyIDs := make(map[uuid.UUID]struct{})
 		for i := 0; i < unhealthyCount; i++ {
 			expectedLocation.ObjectKey = metabase.ObjectKey(fmt.Sprintf("unhealthy-%d", i))
-			insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), time.Time{})
+			unhealthyStreamID := insertSegment(ctx, t, planet, rs, expectedLocation, createLostPieces(planet, rs), time.Time{})
+			unhealthyIDs[unhealthyStreamID] = struct{}{}
 		}
 
 		// suspend enough nodes to make healthy pointers unhealthy
@@ -247,9 +244,11 @@ func TestCleanRepairQueue(t *testing.T) {
 
 		segs, err := repairQueue.SelectN(ctx, count)
 		require.NoError(t, err)
+		require.Equal(t, len(unhealthyIDs), len(segs))
 
 		for _, s := range segs {
-			require.True(t, bytes.Contains(s.GetPath(), []byte("unhealthy")))
+			_, ok := unhealthyIDs[s.StreamID]
+			require.True(t, ok)
 		}
 	})
 }
@@ -282,7 +281,7 @@ func createLostPieces(planet *testplanet.Planet, rs storj.RedundancyScheme) meta
 	return pieces
 }
 
-func insertSegment(ctx context.Context, t *testing.T, planet *testplanet.Planet, rs storj.RedundancyScheme, location metabase.SegmentLocation, pieces metabase.Pieces, expire time.Time) {
+func insertSegment(ctx context.Context, t *testing.T, planet *testplanet.Planet, rs storj.RedundancyScheme, location metabase.SegmentLocation, pieces metabase.Pieces, expire time.Time) uuid.UUID {
 	var expiresAt *time.Time
 	if !expire.IsZero() {
 		expiresAt = &expire
@@ -332,4 +331,6 @@ func insertSegment(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 		ObjectStream: obj,
 	})
 	require.NoError(t, err)
+
+	return obj.StreamID
 }
