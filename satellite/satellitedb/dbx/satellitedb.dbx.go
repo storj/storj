@@ -367,8 +367,10 @@ CREATE TABLE bucket_storage_tallies (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
+	total_bytes bigint NOT NULL DEFAULT 0,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
+	total_segments_count integer NOT NULL DEFAULT 0,
 	remote_segments_count integer NOT NULL,
 	inline_segments_count integer NOT NULL,
 	object_count integer NOT NULL,
@@ -992,8 +994,10 @@ CREATE TABLE bucket_storage_tallies (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
+	total_bytes bigint NOT NULL DEFAULT 0,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
+	total_segments_count integer NOT NULL DEFAULT 0,
 	remote_segments_count integer NOT NULL,
 	inline_segments_count integer NOT NULL,
 	object_count integer NOT NULL,
@@ -2146,8 +2150,10 @@ type BucketStorageTally struct {
 	BucketName          []byte
 	ProjectId           []byte
 	IntervalStart       time.Time
+	TotalBytes          uint64
 	Inline              uint64
 	Remote              uint64
+	TotalSegmentsCount  uint
 	RemoteSegmentsCount uint
 	InlineSegmentsCount uint
 	ObjectCount         uint
@@ -2155,6 +2161,11 @@ type BucketStorageTally struct {
 }
 
 func (BucketStorageTally) _Table() string { return "bucket_storage_tallies" }
+
+type BucketStorageTally_Create_Fields struct {
+	TotalBytes         BucketStorageTally_TotalBytes_Field
+	TotalSegmentsCount BucketStorageTally_TotalSegmentsCount_Field
+}
 
 type BucketStorageTally_Update_Fields struct {
 }
@@ -2216,6 +2227,25 @@ func (f BucketStorageTally_IntervalStart_Field) value() interface{} {
 
 func (BucketStorageTally_IntervalStart_Field) _Column() string { return "interval_start" }
 
+type BucketStorageTally_TotalBytes_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketStorageTally_TotalBytes(v uint64) BucketStorageTally_TotalBytes_Field {
+	return BucketStorageTally_TotalBytes_Field{_set: true, _value: v}
+}
+
+func (f BucketStorageTally_TotalBytes_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketStorageTally_TotalBytes_Field) _Column() string { return "total_bytes" }
+
 type BucketStorageTally_Inline_Field struct {
 	_set   bool
 	_null  bool
@@ -2253,6 +2283,25 @@ func (f BucketStorageTally_Remote_Field) value() interface{} {
 }
 
 func (BucketStorageTally_Remote_Field) _Column() string { return "remote" }
+
+type BucketStorageTally_TotalSegmentsCount_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func BucketStorageTally_TotalSegmentsCount(v uint) BucketStorageTally_TotalSegmentsCount_Field {
+	return BucketStorageTally_TotalSegmentsCount_Field{_set: true, _value: v}
+}
+
+func (f BucketStorageTally_TotalSegmentsCount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketStorageTally_TotalSegmentsCount_Field) _Column() string { return "total_segments_count" }
 
 type BucketStorageTally_RemoteSegmentsCount_Field struct {
 	_set   bool
@@ -11030,44 +11079,6 @@ func (obj *pgxImpl) CreateNoReturn_Revocation(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) CreateNoReturn_BucketStorageTally(ctx context.Context,
-	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
-	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
-	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
-	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
-	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
-	bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
-	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
-	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
-	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
-	err error) {
-	defer mon.Task()(&ctx)(&err)
-	__bucket_name_val := bucket_storage_tally_bucket_name.value()
-	__project_id_val := bucket_storage_tally_project_id.value()
-	__interval_start_val := bucket_storage_tally_interval_start.value()
-	__inline_val := bucket_storage_tally_inline.value()
-	__remote_val := bucket_storage_tally_remote.value()
-	__remote_segments_count_val := bucket_storage_tally_remote_segments_count.value()
-	__inline_segments_count_val := bucket_storage_tally_inline_segments_count.value()
-	__object_count_val := bucket_storage_tally_object_count.value()
-	__metadata_size_val := bucket_storage_tally_metadata_size.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_storage_tallies ( bucket_name, project_id, interval_start, inline, remote, remote_segments_count, inline_segments_count, object_count, metadata_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
-
-	var __values []interface{}
-	__values = append(__values, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
-
-}
-
 func (obj *pgxImpl) Create_StoragenodeBandwidthRollup(ctx context.Context,
 	storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
 	storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field,
@@ -12678,7 +12689,7 @@ func (obj *pgxImpl) All_BucketStorageTally(ctx context.Context) (
 	rows []*BucketStorageTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies")
 
 	var __values []interface{}
 
@@ -12695,7 +12706,7 @@ func (obj *pgxImpl) All_BucketStorageTally(ctx context.Context) (
 
 			for __rows.Next() {
 				bucket_storage_tally := &BucketStorageTally{}
-				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.TotalBytes, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.TotalSegmentsCount, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
 				if err != nil {
 					return nil, err
 				}
@@ -12725,7 +12736,7 @@ func (obj *pgxImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_And_Inter
 	rows []*BucketStorageTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? AND bucket_storage_tallies.bucket_name = ? AND bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start <= ? ORDER BY bucket_storage_tallies.interval_start DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? AND bucket_storage_tallies.bucket_name = ? AND bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start <= ? ORDER BY bucket_storage_tallies.interval_start DESC")
 
 	var __values []interface{}
 	__values = append(__values, bucket_storage_tally_project_id.value(), bucket_storage_tally_bucket_name.value(), bucket_storage_tally_interval_start_greater_or_equal.value(), bucket_storage_tally_interval_start_less_or_equal.value())
@@ -12743,7 +12754,7 @@ func (obj *pgxImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_And_Inter
 
 			for __rows.Next() {
 				bucket_storage_tally := &BucketStorageTally{}
-				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.TotalBytes, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.TotalSegmentsCount, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
 				if err != nil {
 					return nil, err
 				}
@@ -17095,44 +17106,6 @@ func (obj *pgxcockroachImpl) CreateNoReturn_Revocation(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) CreateNoReturn_BucketStorageTally(ctx context.Context,
-	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
-	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
-	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
-	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
-	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
-	bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
-	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
-	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
-	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
-	err error) {
-	defer mon.Task()(&ctx)(&err)
-	__bucket_name_val := bucket_storage_tally_bucket_name.value()
-	__project_id_val := bucket_storage_tally_project_id.value()
-	__interval_start_val := bucket_storage_tally_interval_start.value()
-	__inline_val := bucket_storage_tally_inline.value()
-	__remote_val := bucket_storage_tally_remote.value()
-	__remote_segments_count_val := bucket_storage_tally_remote_segments_count.value()
-	__inline_segments_count_val := bucket_storage_tally_inline_segments_count.value()
-	__object_count_val := bucket_storage_tally_object_count.value()
-	__metadata_size_val := bucket_storage_tally_metadata_size.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_storage_tallies ( bucket_name, project_id, interval_start, inline, remote, remote_segments_count, inline_segments_count, object_count, metadata_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
-
-	var __values []interface{}
-	__values = append(__values, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
-
-}
-
 func (obj *pgxcockroachImpl) Create_StoragenodeBandwidthRollup(ctx context.Context,
 	storagenode_bandwidth_rollup_storagenode_id StoragenodeBandwidthRollup_StoragenodeId_Field,
 	storagenode_bandwidth_rollup_interval_start StoragenodeBandwidthRollup_IntervalStart_Field,
@@ -18743,7 +18716,7 @@ func (obj *pgxcockroachImpl) All_BucketStorageTally(ctx context.Context) (
 	rows []*BucketStorageTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies")
 
 	var __values []interface{}
 
@@ -18760,7 +18733,7 @@ func (obj *pgxcockroachImpl) All_BucketStorageTally(ctx context.Context) (
 
 			for __rows.Next() {
 				bucket_storage_tally := &BucketStorageTally{}
-				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.TotalBytes, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.TotalSegmentsCount, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
 				if err != nil {
 					return nil, err
 				}
@@ -18790,7 +18763,7 @@ func (obj *pgxcockroachImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_
 	rows []*BucketStorageTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? AND bucket_storage_tallies.bucket_name = ? AND bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start <= ? ORDER BY bucket_storage_tallies.interval_start DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? AND bucket_storage_tallies.bucket_name = ? AND bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start <= ? ORDER BY bucket_storage_tallies.interval_start DESC")
 
 	var __values []interface{}
 	__values = append(__values, bucket_storage_tally_project_id.value(), bucket_storage_tally_bucket_name.value(), bucket_storage_tally_interval_start_greater_or_equal.value(), bucket_storage_tally_interval_start_less_or_equal.value())
@@ -18808,7 +18781,7 @@ func (obj *pgxcockroachImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_
 
 			for __rows.Next() {
 				bucket_storage_tally := &BucketStorageTally{}
-				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.TotalBytes, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.TotalSegmentsCount, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
 				if err != nil {
 					return nil, err
 				}
@@ -23098,25 +23071,6 @@ func (rx *Rx) CreateNoReturn_AccountingTimestamps(ctx context.Context,
 
 }
 
-func (rx *Rx) CreateNoReturn_BucketStorageTally(ctx context.Context,
-	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
-	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
-	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
-	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
-	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
-	bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
-	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
-	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
-	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
-	err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.CreateNoReturn_BucketStorageTally(ctx, bucket_storage_tally_bucket_name, bucket_storage_tally_project_id, bucket_storage_tally_interval_start, bucket_storage_tally_inline, bucket_storage_tally_remote, bucket_storage_tally_remote_segments_count, bucket_storage_tally_inline_segments_count, bucket_storage_tally_object_count, bucket_storage_tally_metadata_size)
-
-}
-
 func (rx *Rx) CreateNoReturn_Irreparabledb(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
@@ -24564,18 +24518,6 @@ type Methods interface {
 	CreateNoReturn_AccountingTimestamps(ctx context.Context,
 		accounting_timestamps_name AccountingTimestamps_Name_Field,
 		accounting_timestamps_value AccountingTimestamps_Value_Field) (
-		err error)
-
-	CreateNoReturn_BucketStorageTally(ctx context.Context,
-		bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
-		bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
-		bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
-		bucket_storage_tally_inline BucketStorageTally_Inline_Field,
-		bucket_storage_tally_remote BucketStorageTally_Remote_Field,
-		bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
-		bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
-		bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
-		bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
 		err error)
 
 	CreateNoReturn_Irreparabledb(ctx context.Context,

@@ -1527,6 +1527,15 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at NULLS FIRST)`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add total_bytes table and total_segments_count for bucket_storage_tallies table",
+				Version:     166,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_storage_tallies ADD COLUMN total_bytes bigint NOT NULL DEFAULT 0;`,
+					`ALTER TABLE bucket_storage_tallies ADD COLUMN total_segments_count integer NOT NULL DEFAULT 0;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

@@ -623,17 +623,17 @@ model bucket_storage_tally (
 
 	field interval_start   timestamp
 
+	field total_bytes uint64 ( default 0)
 	field inline uint64
 	field remote uint64
 
-	field  remote_segments_count    uint
-	field  inline_segments_count    uint
-	field  object_count             uint
+	field total_segments_count     uint ( default 0)
+	field remote_segments_count    uint
+	field inline_segments_count    uint
+	field object_count             uint
 
-	field  metadata_size      uint64
+	field metadata_size      uint64
 )
-
-create bucket_storage_tally ( noreturn )
 
 read all (
     select bucket_storage_tally
