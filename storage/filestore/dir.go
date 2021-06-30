@@ -273,7 +273,7 @@ func (dir *Dir) Open(ctx context.Context, ref storage.BlobRef) (_ *os.File, _ st
 		if os.IsNotExist(err) {
 			// Check and monitor if the file is in the trash
 			if dir.fileConfirmedInTrash(ctx, ref, formatVer) {
-				monFileInTrash.Mark(1)
+				monFileInTrash(ref.Namespace).Mark(1)
 			}
 		} else {
 			return nil, FormatV0, Error.New("unable to open %q: %v", vPath, err)
@@ -298,7 +298,7 @@ func (dir *Dir) OpenWithStorageFormat(ctx context.Context, ref storage.BlobRef, 
 	if os.IsNotExist(err) {
 		// Check and monitor if the file is in the trash
 		if dir.fileConfirmedInTrash(ctx, ref, formatVer) {
-			monFileInTrash.Mark(1)
+			monFileInTrash(ref.Namespace).Mark(1)
 		}
 		return nil, err
 	}
