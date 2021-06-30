@@ -93,6 +93,7 @@
       "declaration-block-trailing-semicolon": "always",
       "declaration-colon-space-before": "never",
       "declaration-colon-space-after": "always",
+      "declaration-colon-newline-after": null,
       "number-leading-zero": "always",
       "function-url-quotes": "always",
       "font-family-name-quotes": "always-unless-keyword",

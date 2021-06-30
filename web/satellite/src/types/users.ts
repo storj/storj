@@ -34,6 +34,7 @@ export class User {
         public partnerId: string = '',
         public password: string = '',
         public projectLimit: number = 0,
+        public paidTier: boolean = false,
         public isProfessional: boolean = false,
         public position: string = '',
         public companyName: string = '',

@@ -30,7 +30,8 @@ import ProjectUsage from '@/components/project/usage/ProjectUsage.vue';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { PAYMENTS_ACTIONS, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { MetaUtils } from '@/utils/meta';
 
@@ -60,6 +61,10 @@ export default class ProjectDashboard extends Vue {
         const FIRST_PAGE = 1;
 
         try {
+            await this.$store.commit(PAYMENTS_MUTATIONS.TOGGLE_PAID_TIER_BANNER_TO_LOADING);
+            await this.$store.dispatch(PROJECTS_ACTIONS.GET_TOTAL_LIMITS);
+            await this.$store.commit(PAYMENTS_MUTATIONS.TOGGLE_PAID_TIER_BANNER_TO_LOADED);
+
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH, FIRST_PAGE);
 
             this.areBucketsFetching = false;

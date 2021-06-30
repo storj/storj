@@ -15,6 +15,7 @@
             </p>
         </div>
         <div v-if="!isLoading" class="dashboard__wrap">
+            <PaidTierBar v-if="!isPaidTierStatus && !isOnboardingTour"/>
             <DashboardHeader/>
             <div class="dashboard__wrap__main-area">
                 <NavigationArea class="regular-navigation"/>
@@ -29,6 +30,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import PaidTierBar from '@/components/account/billing/paidTier/PaidTierBar.vue';
 import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
@@ -48,7 +50,6 @@ import { MetaUtils } from '@/utils/meta';
 
 const {
     SETUP_ACCOUNT,
-    GET_BALANCE,
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
 } = PAYMENTS_ACTIONS;
 
@@ -57,6 +58,7 @@ const {
         NavigationArea,
         DashboardHeader,
         LoaderImage,
+        PaidTierBar,
     },
 })
 export default class DashboardArea extends Vue {
@@ -122,6 +124,20 @@ export default class DashboardArea extends Vue {
         this.selectProject(projects);
 
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+    }
+
+    /**
+     * Returns user's paid tier status from store.
+     */
+    public get isPaidTierStatus(): boolean {
+        return this.$store.state.usersModule.paidTier;
+    }
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    public get isOnboardingTour(): boolean {
+        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 
     /**
