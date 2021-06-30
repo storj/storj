@@ -72,26 +72,5 @@ func (a *Analytics) EventTriggered(w http.ResponseWriter, r *http.Request) {
 
 // serveJSONError writes JSON error to response output stream.
 func (a *Analytics) serveJSONError(w http.ResponseWriter, status int, err error) {
-	w.WriteHeader(status)
-
-	if status == http.StatusNoContent {
-		return
-	}
-
-	if status == http.StatusInternalServerError {
-		a.log.Error("returning internal server error to client", zap.Int("code", status), zap.Error(err))
-	} else {
-		a.log.Debug("returning error to client", zap.Int("code", status), zap.Error(err))
-	}
-
-	var response struct {
-		Error string `json:"error"`
-	}
-
-	response.Error = err.Error()
-
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		a.log.Error("failed to write json error response", zap.Error(ErrAPIKeysAPI.Wrap(err)))
-	}
+	serveJSONError(a.log, w, status, err)
 }

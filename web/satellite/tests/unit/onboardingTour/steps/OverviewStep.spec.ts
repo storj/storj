@@ -23,18 +23,12 @@ const paymentsModule = makePaymentsModule(paymentsApi);
 const store = new Vuex.Store({ modules: { projectsModule, paymentsModule }});
 
 describe('OverviewStep.vue', (): void => {
-    it('renders correctly', async (): Promise<void> => {
+    it('renders correctly', (): void => {
         const wrapper = mount(OverviewStep, {
             localVue,
             router,
             store,
         });
-
-        await store.commit(PAYMENTS_MUTATIONS.SET_PAYWALL_ENABLED_STATUS, true);
-
-        expect(wrapper).toMatchSnapshot();
-
-        await store.commit(PAYMENTS_MUTATIONS.SET_PAYWALL_ENABLED_STATUS, false);
 
         expect(wrapper).toMatchSnapshot();
     });

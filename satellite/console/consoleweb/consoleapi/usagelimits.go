@@ -103,18 +103,5 @@ func (ul *UsageLimits) TotalUsageLimits(w http.ResponseWriter, r *http.Request) 
 
 // serveJSONError writes JSON error to response output stream.
 func (ul *UsageLimits) serveJSONError(w http.ResponseWriter, status int, err error) {
-	ul.log.Error("returning error to client", zap.Int("code", status), zap.Error(err))
-
-	w.WriteHeader(status)
-
-	var response struct {
-		Error string `json:"error"`
-	}
-
-	response.Error = err.Error()
-
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		ul.log.Error("failed to write json error response", zap.Error(ErrUsageLimitsAPI.Wrap(err)))
-	}
+	serveJSONError(ul.log, w, status, err)
 }
