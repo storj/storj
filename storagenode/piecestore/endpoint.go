@@ -66,7 +66,7 @@ type Config struct {
 
 	MinUploadSpeed                    memory.Size   `help:"a client upload speed should not be lower than MinUploadSpeed in bytes-per-second (E.g: 1Mb), otherwise, it will be flagged as slow-connection and potentially be closed" default:"0Mb"`
 	MinUploadSpeedGraceDuration       time.Duration `help:"if MinUploadSpeed is configured, after a period of time after the client initiated the upload, the server will flag unusually slow upload client" default:"0h0m10s"`
-	MinUploadSpeedCongestionThreshold float64       `help:"defines the proportion of MaxConcurrentRequests that must be reached before the storage node will begin dropping slow upload connections to preserve its own bandwidth" default:"0.8"`
+	MinUploadSpeedCongestionThreshold float64       `help:"if the portion defined by the total number of alive connection per MaxConcurrentRequest reaches this threshold, a slow upload client will no longer be monitored and flagged" default:"0.8"`
 
 	Trust trust.Config
 
@@ -439,7 +439,6 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 // as congestion.
 func (endpoint *Endpoint) isCongested() bool {
 
-	// then the connection is flagged
 	requestCongestionThreshold := int32(float64(endpoint.config.MaxConcurrentRequests) * endpoint.config.MinUploadSpeedCongestionThreshold)
 
 	connectionCount := atomic.LoadInt32(&endpoint.liveRequests)
@@ -800,9 +799,9 @@ type speedEstimation struct {
 	grace time.Duration
 	// limit for flagging slow connections. Speed below this limit is considered to be slow.
 	limit memory.Size
-	// active indicates the duration of active connection.
-	active      time.Duration
-	lastChecked time.Time
+	// uncongestedTime indicates the duration of connection, measured in non-congested state
+	uncongestedTime time.Duration
+	lastChecked     time.Time
 }
 
 // EnsureLimit makes sure that in non-congested condition, a slow-upload client will be flagged out.
@@ -821,12 +820,12 @@ func (estimate *speedEstimation) EnsureLimit(transferred memory.Size, congested 
 		return nil
 	}
 
-	estimate.active += delta
-	if estimate.active <= 0 || estimate.active <= estimate.grace {
+	estimate.uncongestedTime += delta
+	if estimate.uncongestedTime <= 0 || estimate.uncongestedTime <= estimate.grace {
 		// not enough data
 		return nil
 	}
-	bytesPerSec := float64(transferred) / estimate.active.Seconds()
+	bytesPerSec := float64(transferred) / estimate.uncongestedTime.Seconds()
 
 	if bytesPerSec < float64(estimate.limit) {
 		return errs.New("speed too low, current:%v < limit:%v", bytesPerSec, estimate.limit)
