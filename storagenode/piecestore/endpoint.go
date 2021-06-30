@@ -64,8 +64,9 @@ type Config struct {
 	ReportCapacityThreshold memory.Size   `help:"threshold below which to immediately notify satellite of capacity" default:"500MB" hidden:"true"`
 	MaxUsedSerialsSize      memory.Size   `help:"amount of memory allowed for used serials store - once surpassed, serials will be dropped at random" default:"1MB"`
 
-	MinUploadSpeed              memory.Size   `help:"a client upload speed should not be lower than MinUploadSpeed in bytes-per-second (E.g: 1Mb), otherwise, it will be flagged as slow-connection and potentially be closed" default:"0Mb"`
-	MinUploadSpeedGraceDuration time.Duration `help:"if MinUploadSpeed is configured, after a period of time after the client initiated the upload, the server will flag unusually slow upload client" default:"0h0m10s"`
+	MinUploadSpeed                    memory.Size   `help:"a client upload speed should not be lower than MinUploadSpeed in bytes-per-second (E.g: 1Mb), otherwise, it will be flagged as slow-connection and potentially be closed" default:"0Mb"`
+	MinUploadSpeedGraceDuration       time.Duration `help:"if MinUploadSpeed is configured, after a period of time after the client initiated the upload, the server will flag unusually slow upload client" default:"0h0m10s"`
+	MinUploadSpeedCongestionThreshold float64       `help:"defines the proportion of MaxConcurrentRequests that must be reached before the storage node will begin dropping slow upload connections to preserve its own bandwidth" default:"0.8"`
 
 	Trust trust.Config
 
@@ -324,9 +325,8 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	}
 
 	for {
-		congested := endpoint.isCongested()
 
-		if err := speedEstimate.EnsureLimit(memory.Size(pieceWriter.Size()), congested, time.Now()); err != nil {
+		if err := speedEstimate.EnsureLimit(memory.Size(pieceWriter.Size()), endpoint.isCongested(), time.Now()); err != nil {
 			return rpcstatus.Wrap(rpcstatus.Aborted, err)
 		}
 
@@ -438,12 +438,9 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 // connections is above 80% of the MaxConcurrentRequests, then it is defined
 // as congestion.
 func (endpoint *Endpoint) isCongested() bool {
-	// congestionThreshold defines the proportion of MaxConcurrentRequests
-	// that must be reached before the storage node will begin dropping slow
-	// upload connections to preserve its own bandwidth.
-	const congestionThreshold = 0.8
+
 	// then the connection is flagged
-	requestCongestionThreshold := int32(float64(endpoint.config.MaxConcurrentRequests) * congestionThreshold)
+	requestCongestionThreshold := int32(float64(endpoint.config.MaxConcurrentRequests) * endpoint.config.MinUploadSpeedCongestionThreshold)
 
 	connectionCount := atomic.LoadInt32(&endpoint.liveRequests)
 	return connectionCount > requestCongestionThreshold

@@ -174,6 +174,8 @@ func TestSlowUpload(t *testing.T) {
 				// Storage Node waits only few microsecond before starting the measurement
 				// of upload rate to flag unsually slow connection
 				config.Storage2.MinUploadSpeedGraceDuration = 500 * time.Microsecond
+
+				config.Storage2.MinUploadSpeedCongestionThreshold = 0.8
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
