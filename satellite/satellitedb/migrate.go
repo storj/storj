@@ -1501,6 +1501,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add paid_tier column to users table",
+				Version:     164,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN paid_tier bool NOT NULL DEFAULT false;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

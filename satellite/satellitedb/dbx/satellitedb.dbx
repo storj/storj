@@ -350,6 +350,7 @@ model user (
     field partner_id         blob      ( nullable )
     field created_at         timestamp ( autoinsert )
     field project_limit      int       ( updatable, default 0 )
+    field paid_tier          bool      ( updatable, default false )
 
     field position           text      ( updatable, nullable )
     field company_name       text      ( updatable, nullable )

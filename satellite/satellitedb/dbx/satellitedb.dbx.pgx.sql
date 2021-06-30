@@ -420,6 +420,7 @@ CREATE TABLE users (
 	partner_id bytea,
 	created_at timestamp with time zone NOT NULL,
 	project_limit integer NOT NULL DEFAULT 0,
+	paid_tier boolean NOT NULL DEFAULT false,
 	position text,
 	company_name text,
 	company_size integer,
