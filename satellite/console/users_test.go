@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -113,6 +114,47 @@ func TestUserEmailCase(t *testing.T) {
 			assert.NoError(t, err)
 			assert.Equal(t, testCase.email, retrievedUser.Email)
 		}
+	})
+}
+
+func TestUserUpdatePaidTier(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		email := "testemail@mail.test"
+		fullName := "first name last name"
+		shortName := "short name"
+		password := "password"
+		newUser := &console.User{
+			ID:           testrand.UUID(),
+			FullName:     fullName,
+			ShortName:    shortName,
+			Email:        email,
+			Status:       console.Active,
+			PasswordHash: []byte(password),
+		}
+
+		createdUser, err := db.Console().Users().Insert(ctx, newUser)
+		require.NoError(t, err)
+		require.Equal(t, email, createdUser.Email)
+		require.Equal(t, fullName, createdUser.FullName)
+		require.Equal(t, shortName, createdUser.ShortName)
+		require.False(t, createdUser.PaidTier)
+
+		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, true)
+		require.NoError(t, err)
+
+		retrievedUser, err := db.Console().Users().Get(ctx, createdUser.ID)
+		require.NoError(t, err)
+		require.Equal(t, email, retrievedUser.Email)
+		require.Equal(t, fullName, retrievedUser.FullName)
+		require.Equal(t, shortName, retrievedUser.ShortName)
+		require.True(t, retrievedUser.PaidTier)
+
+		err = db.Console().Users().UpdatePaidTier(ctx, createdUser.ID, false)
+		require.NoError(t, err)
+
+		retrievedUser, err = db.Console().Users().Get(ctx, createdUser.ID)
+		require.NoError(t, err)
+		require.False(t, retrievedUser.PaidTier)
 	})
 }
 

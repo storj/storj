@@ -21,6 +21,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"storj.io/common/macaroon"
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/private/cfgstruct"
@@ -242,6 +243,33 @@ func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditC
 	err = paymentService.service.accounts.CreditCards().Add(ctx, auth.User.ID, creditCardToken)
 	if err != nil {
 		return Error.Wrap(err)
+	}
+
+	if !auth.User.PaidTier {
+		// put this user into the paid tier and convert projects to upgraded limits.
+		err = paymentService.service.store.Users().UpdatePaidTier(ctx, auth.User.ID, true)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		projects, err := paymentService.service.store.Projects().GetOwn(ctx, auth.User.ID)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		for _, project := range projects {
+			if project.StorageLimit == nil || *project.StorageLimit < paymentService.service.config.UsageLimits.Storage.Paid {
+				project.StorageLimit = new(memory.Size)
+				*project.StorageLimit = paymentService.service.config.UsageLimits.Storage.Paid
+			}
+			if project.BandwidthLimit == nil || *project.BandwidthLimit < paymentService.service.config.UsageLimits.Bandwidth.Paid {
+				project.BandwidthLimit = new(memory.Size)
+				*project.BandwidthLimit = paymentService.service.config.UsageLimits.Bandwidth.Paid
+			}
+			err = paymentService.service.store.Projects().Update(ctx, &project)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+		}
 	}
 
 	return nil
@@ -979,14 +1007,20 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 
 	var projectID uuid.UUID
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		storageLimit := s.config.UsageLimits.Storage.Free
+		bandwidthLimit := s.config.UsageLimits.Bandwidth.Free
+		if auth.User.PaidTier {
+			storageLimit = s.config.UsageLimits.Storage.Paid
+			bandwidthLimit = s.config.UsageLimits.Bandwidth.Paid
+		}
 		p, err = tx.Projects().Insert(ctx,
 			&Project{
 				Description:    projectInfo.Description,
 				Name:           projectInfo.Name,
 				OwnerID:        auth.User.ID,
 				PartnerID:      auth.User.PartnerID,
-				StorageLimit:   &s.config.UsageLimits.DefaultStorageLimit,
-				BandwidthLimit: &s.config.UsageLimits.DefaultBandwidthLimit,
+				StorageLimit:   &storageLimit,
+				BandwidthLimit: &bandwidthLimit,
 			},
 		)
 		if err != nil {

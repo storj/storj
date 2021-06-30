@@ -163,11 +163,17 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to terms and conditions page
 # console.terms-and-conditions-url: https://storj.io/storage-sla/
 
-# the default bandwidth usage limit
-# console.usage-limits.default-bandwidth-limit: 50.00 GB
+# the default free-tier bandwidth usage limit
+# console.usage-limits.bandwidth.free: 50.00 GB
 
-# the default storage usage limit
-# console.usage-limits.default-storage-limit: 50.00 GB
+# the default paid-tier bandwidth usage limit
+# console.usage-limits.bandwidth.paid: 100.00 TB
+
+# the default free-tier storage usage limit
+# console.usage-limits.storage.free: 50.00 GB
+
+# the default paid-tier storage usage limit
+# console.usage-limits.storage.paid: 25.00 TB
 
 # the public address of the node, useful for nodes behind NAT
 contact.external-address: ""

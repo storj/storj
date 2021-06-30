@@ -25,6 +25,8 @@ type Users interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	// Update is a method for updating user entity.
 	Update(ctx context.Context, user *User) error
+	// UpdatePaidTier sets whether the user is in the paid tier.
+	UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool) error
 	// GetProjectLimit is a method to get the users project limit
 	GetProjectLimit(ctx context.Context, id uuid.UUID) (limit int, err error)
 }
