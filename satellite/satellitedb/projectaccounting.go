@@ -150,7 +150,7 @@ func (db *ProjectAccounting) GetProjectBandwidth(ctx context.Context, projectID 
 	} else {
 		expiredSince = time.Date(year, month, day-allocatedExpirationInDays, 0, 0, 0, 0, time.UTC)
 	}
-	periodEnd := time.Date(year, month+1, 0, 0, 0, 0, 0, time.UTC)
+	periodEnd := time.Date(year, month+1, 1, 0, 0, 0, 0, time.UTC)
 
 	query := `WITH egress AS (
 					SELECT
