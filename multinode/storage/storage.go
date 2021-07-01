@@ -8,10 +8,16 @@ import (
 	"time"
 )
 
+// Usage holds storage usage stamps and summary for a particular period.
+type Usage struct {
+	Stamps  []UsageStamp `json:"stamps"`
+	Summary float64      `json:"summary"`
+}
+
 // UsageStamp holds data at rest total for an interval beginning at interval start.
 type UsageStamp struct {
-	AtRestTotal   float64
-	IntervalStart time.Time
+	AtRestTotal   float64   `json:"atRestTotal"`
+	IntervalStart time.Time `json:"intervalStart"`
 }
 
 // UsageStampDailyCache caches storage usage stamps by interval date.

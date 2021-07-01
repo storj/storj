@@ -42,87 +42,97 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, nodes nodes.DB) *Service {
 }
 
 // Usage retrieves node's daily storage usage for provided interval.
-func (service *Service) Usage(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (_ []UsageStamp, err error) {
+func (service *Service) Usage(ctx context.Context, nodeID storj.NodeID, from, to time.Time) (_ Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.nodes.Get(ctx, nodeID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return Usage{}, Error.Wrap(err)
 	}
 
-	stamps, err := service.dialUsage(ctx, node, from, to)
+	usage, err := service.dialUsage(ctx, node, from, to)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return Usage{}, Error.Wrap(err)
 	}
 
-	return stamps, nil
+	return usage, nil
 }
 
 // UsageSatellite retrieves node's daily storage usage for provided interval and satellite.
-func (service *Service) UsageSatellite(ctx context.Context, nodeID, satelliteID storj.NodeID, from, to time.Time) (_ []UsageStamp, err error) {
+func (service *Service) UsageSatellite(ctx context.Context, nodeID, satelliteID storj.NodeID, from, to time.Time) (_ Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	node, err := service.nodes.Get(ctx, nodeID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return Usage{}, Error.Wrap(err)
 	}
 
-	stamps, err := service.dialUsageSatellite(ctx, node, satelliteID, from, to)
+	usage, err := service.dialUsageSatellite(ctx, node, satelliteID, from, to)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return Usage{}, Error.Wrap(err)
 	}
 
-	return stamps, nil
+	return usage, nil
 }
 
 // TotalUsage retrieves aggregated daily storage usage for provided interval.
-func (service *Service) TotalUsage(ctx context.Context, from, to time.Time) (_ []UsageStamp, err error) {
+func (service *Service) TotalUsage(ctx context.Context, from, to time.Time) (_ Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodesList, err := service.nodes.List(ctx)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return Usage{}, Error.Wrap(err)
 	}
 
+	var totalSummary float64
 	cache := make(UsageStampDailyCache)
 
 	for _, node := range nodesList {
-		stamps, err := service.dialUsage(ctx, node, from, to)
+		usage, err := service.dialUsage(ctx, node, from, to)
 		if err != nil {
-			return nil, Error.Wrap(err)
+			return Usage{}, Error.Wrap(err)
 		}
 
-		for _, stamp := range stamps {
+		totalSummary += usage.Summary
+		for _, stamp := range usage.Stamps {
 			cache.Add(stamp)
 		}
 	}
 
-	return cache.Sorted(), nil
+	return Usage{
+		Stamps:  cache.Sorted(),
+		Summary: totalSummary,
+	}, nil
 }
 
 // TotalUsageSatellite retrieves aggregated daily storage usage for provided interval and satellite.
-func (service *Service) TotalUsageSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []UsageStamp, err error) {
+func (service *Service) TotalUsageSatellite(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodesList, err := service.nodes.List(ctx)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return Usage{}, Error.Wrap(err)
 	}
 
+	var totalSummary float64
 	cache := make(UsageStampDailyCache)
 
 	for _, node := range nodesList {
-		stamps, err := service.dialUsageSatellite(ctx, node, satelliteID, from, to)
+		usage, err := service.dialUsageSatellite(ctx, node, satelliteID, from, to)
 		if err != nil {
-			return nil, Error.Wrap(err)
+			return Usage{}, Error.Wrap(err)
 		}
 
-		for _, stamp := range stamps {
+		totalSummary += usage.Summary
+		for _, stamp := range usage.Stamps {
 			cache.Add(stamp)
 		}
 	}
 
-	return cache.Sorted(), nil
+	return Usage{
+		Stamps:  cache.Sorted(),
+		Summary: totalSummary,
+	}, nil
 }
 
 // TotalDiskSpace returns all info about all storagenodes disk space usage.
@@ -193,7 +203,7 @@ func (service *Service) dialDiskSpace(ctx context.Context, node nodes.Node) (dis
 }
 
 // dialUsage dials node and retrieves it's storage usage for provided interval.
-func (service *Service) dialUsage(ctx context.Context, node nodes.Node, from, to time.Time) (_ []UsageStamp, err error) {
+func (service *Service) dialUsage(ctx context.Context, node nodes.Node, from, to time.Time) (_ Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
@@ -201,7 +211,7 @@ func (service *Service) dialUsage(ctx context.Context, node nodes.Node, from, to
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return Usage{}, Error.Wrap(err)
 	}
 	defer func() {
 		err = errs.Combine(err, conn.Close())
@@ -218,7 +228,7 @@ func (service *Service) dialUsage(ctx context.Context, node nodes.Node, from, to
 	}
 	resp, err := storageClient.Usage(ctx, req)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return Usage{}, Error.Wrap(err)
 	}
 
 	var stamps []UsageStamp
@@ -229,11 +239,14 @@ func (service *Service) dialUsage(ctx context.Context, node nodes.Node, from, to
 		})
 	}
 
-	return stamps, nil
+	return Usage{
+		Stamps:  stamps,
+		Summary: resp.GetSummary(),
+	}, nil
 }
 
 // dialUsageSatellite dials node and retrieves it's storage usage for provided interval and satellite.
-func (service *Service) dialUsageSatellite(ctx context.Context, node nodes.Node, satelliteID storj.NodeID, from, to time.Time) (_ []UsageStamp, err error) {
+func (service *Service) dialUsageSatellite(ctx context.Context, node nodes.Node, satelliteID storj.NodeID, from, to time.Time) (_ Usage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
@@ -241,7 +254,7 @@ func (service *Service) dialUsageSatellite(ctx context.Context, node nodes.Node,
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return Usage{}, Error.Wrap(err)
 	}
 	defer func() {
 		err = errs.Combine(err, conn.Close())
@@ -259,7 +272,7 @@ func (service *Service) dialUsageSatellite(ctx context.Context, node nodes.Node,
 	}
 	resp, err := storageClient.UsageSatellite(ctx, req)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return Usage{}, Error.Wrap(err)
 	}
 
 	var stamps []UsageStamp
@@ -270,5 +283,8 @@ func (service *Service) dialUsageSatellite(ctx context.Context, node nodes.Node,
 		})
 	}
 
-	return stamps, nil
+	return Usage{
+		Stamps:  stamps,
+		Summary: resp.GetSummary(),
+	}, nil
 }
