@@ -138,6 +138,11 @@ export const router = new Router({
             component: DashboardArea,
             children: [
                 {
+                    path: RouteConfig.Root.path,
+                    name: 'default',
+                    component: ProjectDashboard,
+                },
+                {
                     path: RouteConfig.Account.path,
                     name: RouteConfig.Account.name,
                     component: AccountArea,
@@ -392,6 +397,12 @@ router.beforeEach(async (to, from, next) => {
 
     if (navigateToDefaultSubTab(to.matched, RouteConfig.Objects)) {
         next(RouteConfig.Objects.with(RouteConfig.Warning).path);
+
+        return;
+    }
+
+    if (to.name === 'default') {
+        next(RouteConfig.ProjectDashboard.path);
 
         return;
     }
