@@ -84,10 +84,10 @@ func TestOnlyInline(t *testing.T) {
 				ProjectID:  uplink.Projects[0].ID,
 				BucketName: expectedBucketName,
 			},
-			ObjectCount:    1,
-			InlineSegments: 1,
-			InlineBytes:    int64(expectedTotalBytes),
-			MetadataSize:   0,
+			ObjectCount:   1,
+			TotalSegments: 1,
+			TotalBytes:    int64(expectedTotalBytes),
+			MetadataSize:  0,
 		}
 
 		// Execute test: upload a file, then calculate at rest data
@@ -96,16 +96,16 @@ func TestOnlyInline(t *testing.T) {
 
 		// run multiple times to ensure we add tallies
 		for i := 0; i < 2; i++ {
-			obs := tally.NewObserver(planet.Satellites[0].Log.Named("observer"), time.Now())
-			err := planet.Satellites[0].Metainfo.Loop.Join(ctx, obs)
+			collector := tally.NewBucketTallyCollector(planet.Satellites[0].Log.Named("bucket tally"), time.Now(), planet.Satellites[0].Metainfo.Metabase, planet.Satellites[0].Config.Tally)
+			err := collector.Run(ctx)
 			require.NoError(t, err)
 
 			now := time.Now().Add(time.Duration(i) * time.Second)
-			err = planet.Satellites[0].DB.ProjectAccounting().SaveTallies(ctx, now, obs.Bucket)
+			err = planet.Satellites[0].DB.ProjectAccounting().SaveTallies(ctx, now, collector.Bucket)
 			require.NoError(t, err)
 
-			assert.Equal(t, 1, len(obs.Bucket))
-			for _, actualTally := range obs.Bucket {
+			assert.Equal(t, 1, len(collector.Bucket))
+			for _, actualTally := range collector.Bucket {
 				// checking the exact metadata size is brittle, instead, verify that it's not zero
 				assert.NotZero(t, actualTally.MetadataSize)
 				actualTally.MetadataSize = expectedTally.MetadataSize
@@ -166,20 +166,15 @@ func TestCalculateBucketAtRestData(t *testing.T) {
 		for _, segment := range segments {
 			loc := streamLocation[segment.StreamID]
 			t := ensure(loc)
-			if len(segment.Pieces) > 0 {
-				t.RemoteSegments++
-				t.RemoteBytes += int64(segment.EncryptedSize)
-			} else {
-				t.InlineSegments++
-				t.InlineBytes += int64(segment.EncryptedSize)
-			}
+			t.TotalSegments++
+			t.TotalBytes += int64(segment.EncryptedSize)
 		}
 		require.Len(t, expectedTotal, 3)
 
-		obs := tally.NewObserver(satellite.Log.Named("observer"), time.Now())
-		err = satellite.Metainfo.Loop.Join(ctx, obs)
+		collector := tally.NewBucketTallyCollector(satellite.Log.Named("bucket tally"), time.Now(), satellite.Metainfo.Metabase, planet.Satellites[0].Config.Tally)
+		err = collector.Run(ctx)
 		require.NoError(t, err)
-		require.Equal(t, expectedTotal, obs.Bucket)
+		require.Equal(t, expectedTotal, collector.Bucket)
 	})
 }
 
@@ -193,12 +188,12 @@ func TestTallyIgnoresExpiredPointers(t *testing.T) {
 		err := planet.Uplinks[0].UploadWithExpiration(ctx, planet.Satellites[0], "bucket", "path", []byte{1}, now.Add(12*time.Hour))
 		require.NoError(t, err)
 
-		obs := tally.NewObserver(satellite.Log.Named("observer"), now.Add(24*time.Hour))
-		err = satellite.Metainfo.Loop.Join(ctx, obs)
+		collector := tally.NewBucketTallyCollector(satellite.Log.Named("bucket tally"), now.Add(24*time.Hour), satellite.Metainfo.Metabase, planet.Satellites[0].Config.Tally)
+		err = collector.Run(ctx)
 		require.NoError(t, err)
 
-		// there should be no observed buckets because all of the pointers are expired
-		require.Equal(t, obs.Bucket, map[metabase.BucketLocation]*accounting.BucketTally{})
+		// there should be no observed buckets because all of the objects are expired
+		require.Equal(t, collector.Bucket, map[metabase.BucketLocation]*accounting.BucketTally{})
 	})
 }
 
