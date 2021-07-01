@@ -480,7 +480,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Metrics.Chore = metrics.NewChore(
 			peer.Log.Named("metrics"),
 			config.Metrics,
-			peer.Metainfo.Loop,
+			peer.Metainfo.SegmentLoop,
 		)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "metrics",
