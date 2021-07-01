@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/repair/queue"
 )
 
 func TestBilling_DownloadWithoutExpansionFactor(t *testing.T) {
@@ -260,13 +261,11 @@ func TestBilling_AuditRepairTraffic(t *testing.T) {
 		}
 
 		// trigger repair
-		loc := metabase.SegmentLocation{
-			ProjectID:  objectsBefore[0].ProjectID,
-			BucketName: objectsBefore[0].BucketName,
-			ObjectKey:  objectsBefore[0].ObjectKey,
-			Position:   metabase.SegmentPosition{Index: 0},
+		queueSegment := queue.InjuredSegment{
+			StreamID: objectsBefore[0].StreamID,
+			Position: metabase.SegmentPosition{Index: 0},
 		}
-		_, err = satelliteSys.Repairer.SegmentRepairer.Repair(ctx, string(loc.Encode()))
+		_, err = satelliteSys.Repairer.SegmentRepairer.Repair(ctx, &queueSegment)
 		require.NoError(t, err)
 
 		// get the only metainfo record (our upload)

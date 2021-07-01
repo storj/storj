@@ -19,6 +19,7 @@ read one (
 )
 
 //--- containment ---//
+// TODO drop it later
 model pending_audits (
 	key node_id
 
@@ -35,6 +36,25 @@ delete pending_audits ( where pending_audits.node_id = ? )
 read one (
 	select pending_audits
 	where  pending_audits.node_id = ?
+)
+
+model segment_pending_audits (
+	key node_id
+
+	field node_id             blob
+	field stream_id           blob
+	field position            uint64
+	field piece_id            blob
+	field stripe_index        int64
+	field share_size          int64
+	field expected_share_hash blob
+	field reverify_count      int64 ( updatable )
+)
+
+delete segment_pending_audits ( where segment_pending_audits.node_id = ? )
+read one (
+	select segment_pending_audits
+	where  segment_pending_audits.node_id = ?
 )
 
 //--- irreparableDB ---//
@@ -284,7 +304,7 @@ read one (
 )
 
 //--- repairqueue ---//
-
+// TODO drop it later
 model injuredsegment (
 	key path
 
@@ -314,6 +334,30 @@ model injuredsegment (
 
 delete injuredsegment ( where injuredsegment.updated_at < ? )
 
+model repair_queue (
+	table repair_queue
+
+	key stream_id position
+
+	field stream_id blob
+	field position uint64
+	field attempted_at timestamp (updatable, nullable)
+	field updated_at timestamp ( updatable, default current_timestamp )
+	field inserted_at timestamp ( default current_timestamp )
+	field segment_health float64 (default 1)
+
+	index (
+		fields updated_at
+	)
+
+	index (
+		name repair_queue_num_healthy_pieces_attempted_at_index
+		fields segment_health attempted_at
+	)
+)
+
+delete repair_queue ( where repair_queue.updated_at < ? )
+
 //--- satellite console ---//
 
 model user (
@@ -330,6 +374,7 @@ model user (
     field partner_id         blob      ( nullable )
     field created_at         timestamp ( autoinsert )
     field project_limit      int       ( updatable, default 0 )
+    field paid_tier          bool      ( updatable, default false )
 
     field position           text      ( updatable, nullable )
     field company_name       text      ( updatable, nullable )
@@ -578,17 +623,17 @@ model bucket_storage_tally (
 
 	field interval_start   timestamp
 
+	field total_bytes uint64 ( default 0)
 	field inline uint64
 	field remote uint64
 
-	field  remote_segments_count    uint
-	field  inline_segments_count    uint
-	field  object_count             uint
+	field total_segments_count     uint ( default 0)
+	field remote_segments_count    uint
+	field inline_segments_count    uint
+	field object_count             uint
 
-	field  metadata_size      uint64
+	field metadata_size      uint64
 )
-
-create bucket_storage_tally ( noreturn )
 
 read all (
     select bucket_storage_tally
@@ -1008,16 +1053,73 @@ model graceful_exit_progress (
 	table graceful_exit_progress
 	key node_id
 
-	field node_id            blob
-	field bytes_transferred  int64     ( updatable )
-	field pieces_transferred int64     ( autoinsert, updatable, default 0 )
-	field pieces_failed      int64     ( autoinsert, updatable, default 0 )
-	field updated_at         timestamp ( autoinsert, autoupdate )
+	field node_id                     blob
+	field bytes_transferred           int64     ( updatable )
+	field pieces_transferred          int64     ( autoinsert, updatable, default 0 )
+	field pieces_failed               int64     ( autoinsert, updatable, default 0 )
+	field updated_at                  timestamp ( autoinsert, autoupdate )
+	field uses_segment_transfer_queue bool      ( updatable, default false )
 )
 
 read one (
 	select graceful_exit_progress
 	where graceful_exit_progress.node_id = ?
+)
+//--- graceful exit transfer queue with segment stream_id and position ---//
+
+model graceful_exit_segment_transfer (
+	table graceful_exit_segment_transfer_queue
+	key node_id stream_id position piece_num
+
+	field node_id                blob
+	field stream_id              blob
+	field position               uint64
+	field piece_num              int
+	field root_piece_id          blob      ( nullable )
+	field durability_ratio       float64   ( updatable )
+	field queued_at              timestamp ( autoinsert )
+	field requested_at           timestamp ( updatable, nullable )
+	field last_failed_at         timestamp ( updatable, nullable )
+	field last_failed_code       int       ( updatable, nullable )
+	field failed_count           int       ( updatable, nullable )
+	field finished_at            timestamp ( updatable, nullable )
+	field order_limit_send_count int       ( updatable, default 0 )
+
+	index (
+		name graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index
+		fields node_id durability_ratio queued_at finished_at last_failed_at
+	)
+)
+
+update graceful_exit_segment_transfer (
+	where graceful_exit_segment_transfer.node_id = ?
+	where graceful_exit_segment_transfer.stream_id = ?
+	where graceful_exit_segment_transfer.position = ?
+	where graceful_exit_segment_transfer.piece_num = ?
+	noreturn
+)
+delete graceful_exit_segment_transfer (
+	where graceful_exit_segment_transfer.node_id = ?
+)
+
+delete graceful_exit_segment_transfer (
+	where graceful_exit_segment_transfer.node_id = ?
+	where graceful_exit_segment_transfer.stream_id = ?
+	where graceful_exit_segment_transfer.position = ?
+	where graceful_exit_segment_transfer.piece_num = ?
+)
+
+delete graceful_exit_segment_transfer (
+	where graceful_exit_segment_transfer.node_id = ?
+	where graceful_exit_segment_transfer.finished_at != null
+)
+
+read one (
+	select graceful_exit_segment_transfer
+	where graceful_exit_segment_transfer.node_id = ?
+	where graceful_exit_segment_transfer.stream_id = ?
+	where graceful_exit_segment_transfer.position = ?
+	where graceful_exit_segment_transfer.piece_num = ?
 )
 
 //--- graceful exit transfer queue ---//

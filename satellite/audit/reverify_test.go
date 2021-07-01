@@ -72,7 +72,7 @@ func TestReverifySuccess(t *testing.T) {
 		pieces := segment.Pieces
 		rootPieceID := segment.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, queueSegment.Bucket(), pieces[0].StorageNode, pieces[0].Number, rootPieceID, shareSize)
+		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, pieces[0].StorageNode, pieces[0].Number, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(pieces[0].Number))
@@ -85,7 +85,8 @@ func TestReverifySuccess(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -150,7 +151,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		pieces := segment.Pieces
 		rootPieceID := segment.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, queueSegment.Bucket(), pieces[0].StorageNode, pieces[0].Number, rootPieceID, shareSize)
+		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, pieces[0].StorageNode, pieces[0].Number, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(pieces[0].Number))
@@ -163,7 +164,8 @@ func TestReverifyFailMissingShare(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -239,7 +241,8 @@ func TestReverifyFailBadData(t *testing.T) {
 			ShareSize:         redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = satellite.DB.Containment().IncrementPending(ctx, pending)
@@ -310,7 +313,8 @@ func TestReverifyOffline(t *testing.T) {
 			ShareSize:         redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = satellite.DB.Containment().IncrementPending(ctx, pending)
@@ -410,7 +414,8 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 			ShareSize:         redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = satellite.DB.Containment().IncrementPending(ctx, pending)
@@ -481,7 +486,8 @@ func TestReverifyDeletedSegment(t *testing.T) {
 			ShareSize:         segment.Redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		containment := satellite.DB.Containment()
@@ -570,7 +576,8 @@ func TestReverifyModifiedSegment(t *testing.T) {
 			ShareSize:         segment.Redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		containment := satellite.DB.Containment()
@@ -666,7 +673,8 @@ func TestReverifyReplacedSegment(t *testing.T) {
 			ShareSize:         segment.Redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		containment := satellite.DB.Containment()
@@ -788,7 +796,7 @@ func TestReverifyDifferentShare(t *testing.T) {
 		shareSize := segment1.Redundancy.ShareSize
 		rootPieceID := segment1.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, queueSegment1.Bucket(), selectedNode, selectedPieceNum, rootPieceID, shareSize)
+		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, selectedNode, selectedPieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(selectedPieceNum))
@@ -801,7 +809,8 @@ func TestReverifyDifferentShare(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment1.SegmentLocation,
+			StreamID:          queueSegment1.StreamID,
+			Position:          queueSegment1.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -903,7 +912,7 @@ func TestReverifyExpired2(t *testing.T) {
 		require.NotEqual(t, queueSegment1, queueSegment2)
 
 		// make sure queueSegment1 is the one with the expiration date
-		if queueSegment1.ExpirationDate.IsZero() {
+		if queueSegment1.ExpiresAt == nil {
 			queueSegment1, queueSegment2 = queueSegment2, queueSegment1
 		}
 
@@ -946,7 +955,7 @@ func TestReverifyExpired2(t *testing.T) {
 		shareSize := segment1.Redundancy.ShareSize
 		rootPieceID := segment1.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, queueSegment1.Bucket(), selectedNode, selectedPieceNum, rootPieceID, shareSize)
+		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, selectedNode, selectedPieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(selectedPieceNum))
@@ -959,7 +968,8 @@ func TestReverifyExpired2(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment1.SegmentLocation,
+			StreamID:          queueSegment1.StreamID,
+			Position:          queueSegment1.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -1041,7 +1051,7 @@ func TestReverifySlowDownload(t *testing.T) {
 		shareSize := segment.Redundancy.ShareSize
 		rootPieceID := segment.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, queueSegment.Bucket(), slowNode, slowPiece.Number, rootPieceID, shareSize)
+		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, slowNode, slowPiece.Number, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(slowPiece.Number))
@@ -1054,7 +1064,8 @@ func TestReverifySlowDownload(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -1129,7 +1140,7 @@ func TestReverifyUnknownError(t *testing.T) {
 		shareSize := segment.Redundancy.ShareSize
 		rootPieceID := segment.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, queueSegment.Bucket(), badNode, badPiece.Number, rootPieceID, shareSize)
+		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, badNode, badPiece.Number, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(badPiece.Number))
@@ -1142,7 +1153,8 @@ func TestReverifyUnknownError(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)

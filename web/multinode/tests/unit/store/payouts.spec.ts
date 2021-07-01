@@ -3,12 +3,13 @@
 
 import Vuex from 'vuex';
 
+import { RootState } from '@/app/store';
 import { Expectation, HeldAmountSummary, PayoutsSummary, Paystub } from '@/payouts';
 import { createLocalVue } from '@vue/test-utils';
 
 import store, { payoutsService } from '../mock/store';
 
-const state = store.state as any;
+const state = store.state as RootState;
 
 const summary = new PayoutsSummary(5000000, 6000000, 9000000);
 const expectations = new Expectation(4000000, 3000000);

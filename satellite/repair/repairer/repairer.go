@@ -14,7 +14,6 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/storage"
 )
@@ -150,14 +149,14 @@ func (service *Service) process(ctx context.Context) (err error) {
 	return nil
 }
 
-func (service *Service) worker(ctx context.Context, seg *internalpb.InjuredSegment) (err error) {
+func (service *Service) worker(ctx context.Context, seg *queue.InjuredSegment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	workerStartTime := service.nowFn().UTC()
 
 	service.log.Debug("Limiter running repair on segment")
 	// note that shouldDelete is used even in the case where err is not null
-	shouldDelete, err := service.repairer.Repair(ctx, string(seg.GetPath()))
+	shouldDelete, err := service.repairer.Repair(ctx, seg)
 	if shouldDelete {
 		if err != nil {
 			service.log.Error("unexpected error repairing segment!", zap.Error(err))
@@ -179,7 +178,7 @@ func (service *Service) worker(ctx context.Context, seg *internalpb.InjuredSegme
 	timeForRepair := repairedTime.Sub(workerStartTime)
 	mon.FloatVal("time_for_repair").Observe(timeForRepair.Seconds()) //mon:locked
 
-	insertedTime := seg.GetInsertedTime()
+	insertedTime := seg.InsertedAt
 	// do not send metrics if segment was added before the InsertedTime field was added
 	if !insertedTime.IsZero() {
 		timeSinceQueued := workerStartTime.Sub(insertedTime)

@@ -128,6 +128,7 @@ func toUpdateUser(user *console.User) dbx.User_Update_Fields {
 		NormalizedEmail: dbx.User_NormalizedEmail(normalizeEmail(user.Email)),
 		Status:          dbx.User_Status(int(user.Status)),
 		ProjectLimit:    dbx.User_ProjectLimit(user.ProjectLimit),
+		PaidTier:        dbx.User_PaidTier(user.PaidTier),
 	}
 
 	// extra password check to update only calculated hash from service
@@ -158,6 +159,7 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		Status:           console.UserStatus(user.Status),
 		CreatedAt:        user.CreatedAt,
 		ProjectLimit:     user.ProjectLimit,
+		PaidTier:         user.PaidTier,
 		IsProfessional:   user.IsProfessional,
 		HaveSalesContact: user.HaveSalesContact,
 	}

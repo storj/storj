@@ -47,7 +47,13 @@ type LoopObjectEntry struct {
 	CreatedAt             time.Time    // temp used by metabase-createdat-migration
 	ExpiresAt             *time.Time   // tally
 	SegmentCount          int32        // metrics
+	TotalEncryptedSize    int64        // tally
 	EncryptedMetadataSize int          // tally
+}
+
+// Expired checks if object is expired relative to now.
+func (o LoopObjectEntry) Expired(now time.Time) bool {
+	return o.ExpiresAt != nil && o.ExpiresAt.Before(now)
 }
 
 // IterateLoopObjects iterates through all objects in metabase.
@@ -166,7 +172,7 @@ func (it *loopIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err err
 			object_key, stream_id, version,
 			status,
 			created_at, expires_at,
-			segment_count,
+			segment_count, total_encrypted_size,
 			LENGTH(COALESCE(encrypted_metadata,''))
 		FROM objects
 		`+it.db.asOfTime(it.asOfSystemTime, it.asOfSystemInterval)+`
@@ -186,7 +192,7 @@ func (it *loopIterator) scanItem(item *LoopObjectEntry) error {
 		&item.ObjectKey, &item.StreamID, &item.Version,
 		&item.Status,
 		&item.CreatedAt, &item.ExpiresAt,
-		&item.SegmentCount,
+		&item.SegmentCount, &item.TotalEncryptedSize,
 		&item.EncryptedMetadataSize,
 	)
 }
