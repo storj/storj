@@ -52,7 +52,7 @@
 					"response": []
 				},
 				{
-					"name": "CreateUser",
+					"name": "CreateUser2",
 					"event": [
 						{
 							"listen": "test",
@@ -60,12 +60,35 @@
 								"exec": [
 									"pm.test(\"Status code is 200\", function () {\r",
 									"    pm.response.to.have.status(200);\r",
-									"});"
+									"});\r",
+									"\r",
+									"//were gonna get the UUID as a response to creating the user. \r",
+									"//best that we store it in case its needed later.\r",
+									"pm.test(\"responds with UUID\", function (){\r",
+									"    pm.expect(pm.response.text()).to.not.equal(null);\r",
+									"    pm.environment.set(\"user_identifier_2\", pm.response.body);\r",
+									"});\r",
+									""
+								],
+								"type": "text/javascript"
+							}
+						},
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									"pm.environment.set(\"user_2\", pm.variables.replaceIn('{{$randomEmail}}'));\r",
+									"pm.environment.set(\"password_2\", pm.variables.replaceIn('{{$randomPassword}}'));"
 								],
 								"type": "text/javascript"
 							}
 						}
 					],
+					"protocolProfileBehavior": {
+						"disabledSystemHeaders": {
+							"connection": true
+						}
+					},
 					"request": {
 						"auth": {
 							"type": "noauth"
@@ -74,7 +97,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\"email\":\"test@cheese.com\",\"password\":\"test_testerson\"}",
+							"raw": "{\"secret\":\"\",\"password\":\"{{password_2}}\",\"fullName\":\"Chester Cheeto\",\"shortName\":\"\",\"email\":\"{{user_2}}\",\"partner\":\"\",\"partnerId\":\"\",\"isProfessional\":false,\"position\":\"\",\"companyName\":\"\",\"employeeCount\":\"\",\"haveSalesContact\":false}",
 							"options": {
 								"raw": {
 									"language": "text"
@@ -82,12 +105,13 @@
 							}
 						},
 						"url": {
-							"raw": "{{base_url}}/user",
+							"raw": "{{base_url}}/auth/register",
 							"host": [
 								"{{base_url}}"
 							],
 							"path": [
-								"user"
+								"auth",
+								"register"
 							]
 						}
 					},
@@ -422,7 +446,7 @@
 									"});\r",
 									"\r",
 									"pm.test(\"expect undefined response\", function () {\r",
-									"    pm.expect(pm.response.body).to.be.empty;\r",
+									"    (pm.expect(pm.response.body).is.oneOf([null, undefined]))\r",
 									"} );"
 								],
 								"type": "text/javascript"
@@ -491,25 +515,7 @@
 					],
 					"request": {
 						"method": "GET",
-						"header": [
-							{
-								"key": "User-Agent",
-								"value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36"
-							},
-							{
-								"key": "Content-Type",
-								"value": "text/plain"
-							},
-							{
-								"key": "Accept",
-								"value": "*/*"
-							},
-							{
-								"key": "Content-Length",
-								"value": "<calculated when request is sent>",
-								"type": "text"
-							}
-						],
+						"header": [],
 						"url": {
 							"raw": "{{base_url}}/payments/account/balance",
 							"host": [
@@ -1353,8 +1359,8 @@
 									"pm.test(\"Status code is 200\", function () {\r",
 									"    pm.response.to.have.status(200);\r",
 									"});\r",
-									"var stringToMatch = \"addProjectMemebers\";\r",
-									"pm.test(\"Body matches string \" + stringToMatch, function () {\r",
+									"var stringToMatch = \"addProjectMembers\";\r",
+									"pm.test(\"Body matches string \", function () {\r",
 									"    pm.expect(pm.response.text()).to.include(stringToMatch);\r",
 									"});"
 								],
@@ -1669,7 +1675,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"084e70b2-a716-42c3-9f2b-7494bb44a3cf\",\"name\":\"Test\",\"description\":\"Test option description\"},\"query\":\"mutation ($projectId: String!, $name: String!, $description: String!) {\\n  updateProject(id: $projectId, name: $name, description: $description) {\\n    name\\n    __typename\\n  }\\n}\\n\"}"
+							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"name\":\"Test\",\"description\":\"Test option description\"},\"query\":\"mutation ($projectId: String!, $name: String!, $description: String!) {\\n  updateProject(id: $projectId, name: $name, description: $description) {\\n    name\\n    __typename\\n  }\\n}\\n\"}"
 						},
 						"url": {
 							"raw": "{{base_url}}/graphql",
@@ -1790,7 +1796,7 @@
 						"header": [],
 						"body": {
 							"mode": "raw",
-							"raw": "{\"email\":\"netsource.afranco@gmail.com\",\"password\":\"073611@Am\"}",
+							"raw": "{\"email\":\"{{user_2}}\",\"password\":\"{{password_2}}\"}",
 							"options": {
 								"raw": {
 									"language": "text"
@@ -2160,7 +2166,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"e4a929a6-cc69-4920-ad06-c84f3c943928\",\"name\":\"Test\",\"description\":\"___\"},\"query\":\"mutation ($projectId: String!, $name: String!, $description: String!) {\\n  updateProject(id: $projectId, name: $name, description: $description) {\\n    name\\n    __typename\\n  }\\n}\\n\"}"
+							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"name\":\"Test\",\"description\":\"___\"},\"query\":\"mutation ($projectId: String!, $name: String!, $description: String!) {\\n  updateProject(id: $projectId, name: $name, description: $description) {\\n    name\\n    __typename\\n  }\\n}\\n\"}"
 						},
 						"url": {
 							"raw": "{{base_url}}/graphql",
@@ -2221,7 +2227,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"e4a929a6-cc69-4920-ad06-c84f3c943928\",\"name\":\"My Second Project\",\"description\":\"___\"},\"query\":\"mutation ($projectId: String!, $name: String!, $description: String!) {\\n  updateProject(id: $projectId, name: $name, description: $description) {\\n    name\\n    __typename\\n  }\\n}\\n\"}"
+							"raw": "{\"operationName\":null,\"variables\":{\"projectId\":\"{{project_identifier}}\",\"name\":\"My Second Project\",\"description\":\"___\"},\"query\":\"mutation ($projectId: String!, $name: String!, $description: String!) {\\n  updateProject(id: $projectId, name: $name, description: $description) {\\n    name\\n    __typename\\n  }\\n}\\n\"}"
 						},
 						"url": {
 							"raw": "{{base_url}}/graphql",

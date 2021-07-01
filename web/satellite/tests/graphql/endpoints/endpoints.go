@@ -23,6 +23,7 @@ var (
 func Endpoints() int {
 	//sets the path up for the environment.
 	fname = filepath.FromSlash(fname)
+	uutname = filepath.FromSlash(uutname)
 
 	//build the satellite url from the environment variable.
 	satenv = os.Getenv("SATELLITE_0_ADDR")

@@ -2,7 +2,6 @@
 
 # Stop on first error
 set -e;
-
 function onExit {
     if [ "$?" != "0" ]; then
         echo "Tests failed";
@@ -11,11 +10,12 @@ function onExit {
     else
         echo "Tests passed";
         # deploy build
+		exit 0;
     fi
 }
 
 trap onExit EXIT;
 
-go run .
+go run web/satellite/tests/graphql/main.go
 docker pull postman/newman:alpine;
-docker run -v ${PWD}:/etc/newman -t postman/newman:alpine run GraphQL.postman_collection.json -e GraphQLEndoints.postman_environment.json;
+docker run --network="host" -v ${PWD}/web/satellite/tests/graphql/:/etc/newman -t postman/newman:alpine run GraphQL.postman_collection.json -e GraphQLEndoints.postman_environment.json;
