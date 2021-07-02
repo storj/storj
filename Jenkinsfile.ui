@@ -73,10 +73,9 @@ pipeline {
   }
   catch (err) {
       echo "Caught errors! ${err}"
-      echo "Setting build result to FAILURE"
-      currentBuild.result = "FAILURE"
+      echo "Setting build result to FAILURE
 
-      slackSend color: 'danger', message: "@team-qa ${env.BRANCH_NAME} build failed during stage ${lastStage} ${env.BUILD_URL}"
+      slackSend color: 'danger', message: "@team-qa build failed"
   }
     post {
         always {
