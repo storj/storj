@@ -73,8 +73,6 @@ pipeline {
   }
   catch (err) {
       echo "Caught errors! ${err}"
-      echo "Setting build result to FAILURE
-
       slackSend color: 'danger', message: "@team-qa build failed"
   }
     post {
