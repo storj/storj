@@ -1979,6 +1979,14 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					`UPDATE paystubs SET distributed = paid WHERE period < '2020-12'`,
 				},
 			},
+			{
+				DB:          &db.reputationDB.DB,
+				Description: "Add vetted_at field to reputation db",
+				Version:     52,
+				Action: migrate.SQL{
+					`ALTER TABLE reputation ADD COLUMN vetted_at TIMESTAMP`,
+				},
+			},
 		},
 	}
 }

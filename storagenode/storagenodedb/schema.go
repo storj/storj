@@ -611,6 +611,11 @@ func Schema() map[string]*dbschema.Schema {
 							Type:       "TIMESTAMP",
 							IsNullable: false,
 						},
+						&dbschema.Column{
+							Name:       "vetted_at",
+							Type:       "TIMESTAMP",
+							IsNullable: true,
+						},
 					},
 				},
 			},
