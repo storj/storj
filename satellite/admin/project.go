@@ -488,6 +488,8 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 				httpJSONError(w, "unapplied project invoice record exist", "", http.StatusConflict)
 				return true
 			}
+			// Record has been applied, so project can be deleted.
+			return false
 		}
 		if err != nil {
 			httpJSONError(w, "unable to get project records", err.Error(), http.StatusInternalServerError)

@@ -103,7 +103,7 @@ func (g *globalFlags) loadOldConfig(r io.Reader) (string, map[string]string, []i
 				// because they go into a separate file now. check for keys that match
 				// one of those and stuff them away outside of entries.
 				if key == "access" {
-					access = key
+					access = value
 				} else if strings.HasPrefix(key, "accesses.") {
 					accesses[key[len("accesses."):]] = value
 				} else if section == "accesses" {
@@ -143,7 +143,7 @@ func (g *globalFlags) loadOldConfig(r io.Reader) (string, map[string]string, []i
 }
 
 // saveConfig writes out the config file using the provided values.
-// It is only intended to be used during initial migration.
+// It is only intended to be used during initial migration and setup.
 func (g *globalFlags) saveConfig(entries []ini.Entry) error {
 	// TODO(jeff): write it atomically
 

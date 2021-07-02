@@ -33,10 +33,10 @@ var (
 // Config is a configuration struct for orders Service.
 type Config struct {
 	EncryptionKeys      EncryptionKeys `help:"encryption keys to encrypt info in orders" default:""`
-	Expiration          time.Duration  `help:"how long until an order expires" default:"48h"` // 2 days
-	FlushBatchSize      int            `help:"how many items in the rollups write cache before they are flushed to the database" devDefault:"20" releaseDefault:"1000"`
-	FlushInterval       time.Duration  `help:"how often to flush the rollups write cache to the database" devDefault:"30s" releaseDefault:"1m"`
-	NodeStatusLogging   bool           `hidden:"true" help:"deprecated, log the offline/disqualification status of nodes" default:"false"`
+	Expiration          time.Duration  `help:"how long until an order expires" default:"48h" testDefault:"168h"` // default is 2 days
+	FlushBatchSize      int            `help:"how many items in the rollups write cache before they are flushed to the database" devDefault:"20" releaseDefault:"1000" testDefault:"10"`
+	FlushInterval       time.Duration  `help:"how often to flush the rollups write cache to the database" devDefault:"30s" releaseDefault:"1m" testDefault:"$TESTINTERVAL"`
+	NodeStatusLogging   bool           `hidden:"true" help:"deprecated, log the offline/disqualification status of nodes" default:"false" testDefault:"true"`
 	OrdersSemaphoreSize int            `help:"how many concurrent orders to process at once. zero is unlimited" default:"2"`
 }
 
@@ -125,14 +125,17 @@ func (service *Service) updateBandwidth(ctx context.Context, bucket metabase.Buc
 }
 
 // CreateGetOrderLimits creates the order limits for downloading the pieces of a segment.
-func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment) (_ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
+func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment, overrideLimit int64) (_ []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
-	pieceSize := eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy)
+	orderLimit := eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy)
+	if overrideLimit > 0 && overrideLimit < orderLimit {
+		orderLimit = overrideLimit
+	}
 
 	nodeIDs := make([]storj.NodeID, len(segment.Pieces))
 	for i, piece := range segment.Pieces {
@@ -145,7 +148,7 @@ func (service *Service) CreateGetOrderLimits(ctx context.Context, bucket metabas
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
 
-	signer, err := NewSignerGet(service, segment.RootPieceID, time.Now(), pieceSize, bucket)
+	signer, err := NewSignerGet(service, segment.RootPieceID, time.Now(), orderLimit, bucket)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
 	}
@@ -223,7 +226,7 @@ func (service *Service) CreatePutOrderLimits(ctx context.Context, bucket metabas
 }
 
 // CreateAuditOrderLimits creates the order limits for auditing the pieces of a segment.
-func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucket metabase.BucketLocation, segment metabase.Segment, skip map[storj.NodeID]bool) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedIPsAndPorts map[storj.NodeID]string, err error) {
+func (service *Service) CreateAuditOrderLimits(ctx context.Context, segment metabase.Segment, skip map[storj.NodeID]bool) (_ []*pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedIPsAndPorts map[storj.NodeID]string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nodeIDs := make([]storj.NodeID, len(segment.Pieces))
@@ -237,6 +240,7 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucket metab
 		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
 	}
 
+	bucket := metabase.BucketLocation{}
 	signer, err := NewSignerAudit(service, segment.RootPieceID, time.Now(), int64(segment.Redundancy.ShareSize), bucket)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
@@ -276,15 +280,12 @@ func (service *Service) CreateAuditOrderLimits(ctx context.Context, bucket metab
 		err = Error.New("not enough nodes available: got %d, required %d", limitsCount, segment.Redundancy.RequiredShares)
 		return nil, storj.PiecePrivateKey{}, nil, errs.Combine(err, nodeErrors.Err())
 	}
-	if err := service.updateBandwidth(ctx, bucket, limits...); err != nil {
-		return nil, storj.PiecePrivateKey{}, nil, Error.Wrap(err)
-	}
 
 	return limits, signer.PrivateKey, cachedIPsAndPorts, nil
 }
 
 // CreateAuditOrderLimit creates an order limit for auditing a single the piece from a segment.
-func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucket metabase.BucketLocation, nodeID storj.NodeID, pieceNum uint16, rootPieceID storj.PieceID, shareSize int32) (limit *pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedIPAndPort string, err error) {
+func (service *Service) CreateAuditOrderLimit(ctx context.Context, nodeID storj.NodeID, pieceNum uint16, rootPieceID storj.PieceID, shareSize int32) (limit *pb.AddressedOrderLimit, _ storj.PiecePrivateKey, cachedIPAndPort string, err error) {
 	// TODO reduce number of params ?
 	defer mon.Task()(&ctx)(&err)
 
@@ -302,7 +303,7 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucket metaba
 		return nil, storj.PiecePrivateKey{}, "", overlay.ErrNodeOffline.New("%v", nodeID)
 	}
 
-	signer, err := NewSignerAudit(service, rootPieceID, time.Now(), int64(shareSize), bucket)
+	signer, err := NewSignerAudit(service, rootPieceID, time.Now(), int64(shareSize), metabase.BucketLocation{})
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, "", Error.Wrap(err)
 	}
@@ -312,10 +313,6 @@ func (service *Service) CreateAuditOrderLimit(ctx context.Context, bucket metaba
 		Address: node.Address.Address,
 	}, int32(pieceNum))
 	if err != nil {
-		return nil, storj.PiecePrivateKey{}, "", Error.Wrap(err)
-	}
-
-	if err := service.updateBandwidth(ctx, bucket, limit); err != nil {
 		return nil, storj.PiecePrivateKey{}, "", Error.Wrap(err)
 	}
 

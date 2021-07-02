@@ -8,10 +8,12 @@ import DetailedHistory from '@/components/account/billing/depositAndBillingHisto
 
 import { PaymentsHttpApi } from '@/api/payments';
 import { router } from '@/router';
+import { makeNotificationsModule } from '@/store/modules/notifications';
 import { makePaymentsModule, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
 import { PaymentsHistoryItem, PaymentsHistoryItemType } from '@/types/payments';
 import { Project } from '@/types/projects';
+import { Notificator } from '@/utils/plugins/notificator';
 import { createLocalVue, mount, shallowMount } from '@vue/test-utils';
 
 import { ProjectsApiMock } from '../../../mock/api/projects';
@@ -21,6 +23,7 @@ const projectsApi = new ProjectsApiMock();
 const projectsModule = makeProjectsModule(projectsApi);
 const paymentsApi = new PaymentsHttpApi();
 const paymentsModule = makePaymentsModule(paymentsApi);
+const notificationsModule = makeNotificationsModule();
 const itemInvoice = new PaymentsHistoryItem('testId', 'Invoice', 500, 500, 'test', 'test', new Date(1), new Date(1), PaymentsHistoryItemType.Invoice);
 const itemCharge = new PaymentsHistoryItem('testId1', 'Charge', 500, 500, 'test', 'test', new Date(1), new Date(1), PaymentsHistoryItemType.Charge);
 const itemTransaction = new PaymentsHistoryItem('testId2', 'Transaction', 500, 500, 'test', 'test', new Date(1), new Date(1), PaymentsHistoryItemType.Transaction);
@@ -29,29 +32,42 @@ const project = new Project('id', 'projectName', 'projectDescription', 'test', '
 
 localVue.use(Vuex);
 
-const store = new Vuex.Store({ modules: { paymentsModule, projectsModule }});
+const store = new Vuex.Store({ modules: { paymentsModule, projectsModule, notificationsModule }});
 store.commit(PROJECTS_MUTATIONS.SET_PROJECTS, [project]);
 store.commit(PROJECTS_MUTATIONS.SELECT_PROJECT, project.id);
 
+class NotificatorPlugin {
+    public install() {
+        localVue.prototype.$notify = new Notificator(store);
+    }
+}
+
+const notificationsPlugin = new NotificatorPlugin();
+localVue.use(notificationsPlugin);
+
 describe('DetailedHistory', (): void => {
-    it('renders correctly without items', (): void => {
+    it('renders correctly without items', async (): Promise<void> => {
         const wrapper = shallowMount(DetailedHistory, {
             localVue,
             store,
             router,
         });
+
+        await wrapper.setData({ isDataFetching: false });
 
         expect(wrapper).toMatchSnapshot();
     });
 
-    it('renders correctly with deposit items', (): void => {
-        store.commit(PAYMENTS_MUTATIONS.SET_PAYMENTS_HISTORY, [itemTransaction, itemTransaction1, itemInvoice, itemCharge]);
+    it('renders correctly with deposit items', async (): Promise<void> => {
+        await store.commit(PAYMENTS_MUTATIONS.SET_PAYMENTS_HISTORY, [itemTransaction, itemTransaction1, itemInvoice, itemCharge]);
 
         const wrapper = shallowMount(DetailedHistory, {
             localVue,
             store,
             router,
         });
+
+        await wrapper.setData({ isDataFetching: false });
 
         expect(wrapper).toMatchSnapshot();
     });

@@ -34,9 +34,6 @@
 # how frequently checker should check for bad segments
 # checker.interval: 30s
 
-# how frequently irrepairable checker should check for lost pieces
-# checker.irreparable-interval: 30m0s
-
 # the probability of a single node going down within the next checker iteration
 # checker.node-failure-rate: 5.435e-05
 
@@ -132,6 +129,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # names and addresses of partnered satellites in JSON list format
 # console.partnered-satellites: '[["US1","https://us1.storj.io"],["EU1","https://eu1.storj.io"],["AP1","https://ap1.storj.io"]]'
+
+# password hashing cost (0=automatic)
+# console.password-cost: 0
 
 # indicates if the overview onboarding step should render with pathways
 # console.pathway-overview-enabled: true
@@ -247,13 +247,7 @@ contact.external-address: ""
 # the amount of time to allow a node to handle a retain request
 # garbage-collection.retain-send-timeout: 1m0s
 
-# if true, run garbage collection as part of the core
-# garbage-collection.run-in-core: false
-
-# if true, skip the first run of GC
-# garbage-collection.skip-first: true
-
-# interval for AS OF SYSTEM TIME clause (crdb specific) to read from db at a specific time in the past 
+# interval for AS OF SYSTEM TIME clause (crdb specific) to read from db at a specific time in the past
 # graceful-exit.as-of-system-time-interval: -10s
 
 # size of the buffer used to batch inserts into the transfer queue.
@@ -294,6 +288,9 @@ identity.cert-path: /root/.local/share/storj/identity/satellite/identity.cert
 
 # path to the private key for this identity
 identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
+
+# as of system interval
+# live-accounting.as-of-system-interval: -10s
 
 # bandwidth cache key time to live
 # live-accounting.bandwidth-cache-ttl: 5m0s
@@ -352,6 +349,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the database connection string to use
 # metainfo.database-url: postgres://
 
+# as of system interval
+# metainfo.loop.as-of-system-interval: -5m0s
+
 # how long to wait for new observers before starting iteration
 # metainfo.loop.coalesce-duration: 5s
 
@@ -360,6 +360,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # rate limit (default is 0 which is unlimited segments per second)
 # metainfo.loop.rate-limit: 0
+
+# ratio where to consider processed count as supicious
+# metainfo.loop.suspicious-processed-ratio: 0.03
 
 # maximum time allowed to pass between creating and committing a segment
 # metainfo.max-commit-interval: 48h0m0s
@@ -418,6 +421,21 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # redundancy scheme configuration in the format k/m/o/n-sharesize
 # metainfo.rs: 29/35/80/110-256 B
 
+# as of system interval
+# metainfo.segment-loop.as-of-system-interval: -5m0s
+
+# how long to wait for new observers before starting iteration
+# metainfo.segment-loop.coalesce-duration: 5s
+
+# how many items to query in a batch
+# metainfo.segment-loop.list-limit: 2500
+
+# rate limit (default is 0 which is unlimited segments per second)
+# metainfo.segment-loop.rate-limit: 0
+
+# ratio where to consider processed count as supicious
+# metainfo.segment-loop.suspicious-processed-ratio: 0.03
+
 # address(es) to send telemetry to (comma-separated)
 # metrics.addr: collectora.storj.io:9000
 
@@ -468,6 +486,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # The length of time spanning a single audit window
 # overlay.audit-history.window-size: 12h0m0s
+
+# the amount of time to wait before accepting a redundant check-in from a node (unmodified info since last check-in)
+# overlay.node-check-in-wait-period: 2h0m0s
 
 # disable node cache
 # overlay.node-selection-cache.disabled: false
@@ -556,9 +577,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # price user should pay for each object stored in network per month
 # payments.object-price: "0"
 
-# proportion of users which require a balance to create projects [0-1]
-# payments.paywall-proportion: 0
-
 # payments provider to use
 # payments.provider: ""
 
@@ -614,7 +632,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # repairer.interval: 5m0s
 
 # maximum buffer memory (in bytes) to be allocated for read buffers
-# repairer.max-buffer-mem: 4.00 MB
+# repairer.max-buffer-mem: 4.0 MiB
 
 # ratio applied to the optimal threshold to calculate the excess of the maximum number of repaired pieces to upload
 # repairer.max-excess-rate-optimal-threshold: 0.05

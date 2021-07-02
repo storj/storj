@@ -2,18 +2,28 @@
 // See LICENSE for copying information.
 
 <template>
-    <div :style="style" class="loader"/>
+    <div class="loader">
+        <LoaderImage :class="{ white: isWhite }" :style="style"/>
+    </div>
 </template>
 
 <script lang="ts">
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
-@Component
+import LoaderImage from '@/../static/images/common/loader.svg';
+
+@Component({
+    components: {
+        LoaderImage,
+    },
+})
 export default class VLoader extends Vue {
-    @Prop({ default: 'inherit' })
+    @Prop({ default: 'unset' })
     private readonly width: string;
-    @Prop({ default: 'inherit' })
+    @Prop({ default: 'unset' })
     private readonly height: string;
+    @Prop({ default: false })
+    private readonly isWhite: boolean;
 
     /**
      * Returns loader's width and height from props.
@@ -26,14 +36,15 @@ export default class VLoader extends Vue {
 
 <style scoped lang="scss">
     .loader {
-        border: 16px solid #f3f3f3;
-        border-top: 16px solid #3498db;
-        border-radius: 50%;
-        animation: spin 2s linear infinite;
+        width: 100%;
+        display: flex;
+        justify-content: center;
     }
 
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
+    .white {
+
+        path {
+            fill: #fff;
+        }
     }
 </style>

@@ -7,6 +7,7 @@
         <div class="file-browser">
             <FileBrowser></FileBrowser>
         </div>
+        <UploadCancelPopup v-if="isCancelUploadPopupVisible"/>
     </div>
 </template>
 
@@ -14,19 +15,25 @@
 import { FileBrowser } from 'browser';
 import { Component, Vue } from 'vue-property-decorator';
 
+import UploadCancelPopup from '@/components/objects/UploadCancelPopup.vue';
+
+import { AnalyticsHttpApi } from '@/api/analytics';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { AccessGrant, GatewayCredentials } from '@/types/accessGrants';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { MetaUtils } from '@/utils/meta';
 
 @Component({
     components: {
         FileBrowser,
+        UploadCancelPopup,
     },
 })
 export default class UploadFile extends Vue {
     private linksharingURL = '';
     private worker: Worker;
+    private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 
     /**
      * Lifecycle hook after initial render.
@@ -101,6 +108,8 @@ export default class UploadFile extends Vue {
 
             path = encodeURIComponent(path.trim());
 
+            await this.analytics.eventTriggered(AnalyticsEvent.LINK_SHARED);
+
             return `${this.linksharingURL}/${key}/${path}`;
         } catch (error) {
             await this.$notify.error(error.message);
@@ -117,6 +126,13 @@ export default class UploadFile extends Vue {
         this.worker.onerror = (error: ErrorEvent) => {
             this.$notify.error(error.message);
         };
+    }
+
+    /**
+     * Indicates if upload cancel popup is visible.
+     */
+    public get isCancelUploadPopupVisible(): boolean {
+        return this.$store.state.appStateModule.appState.isUploadCancelPopupVisible;
     }
 
     /**

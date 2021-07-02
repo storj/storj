@@ -69,14 +69,6 @@ export interface PaymentsApi {
      * @throws Error
      */
     makeTokenDeposit(amount: number): Promise<TokenDeposit>;
-
-    /**
-     * Indicates if paywall is enabled.
-     *
-     * @param userId
-     * @throws Error
-    */
-    getPaywallStatus(userId: string): Promise<boolean>;
 }
 
 export class AccountBalance {

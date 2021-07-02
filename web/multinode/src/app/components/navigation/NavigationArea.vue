@@ -54,9 +54,10 @@ export default class NavigationArea extends Vue {
      * Array of navigation links with icons.
      */
     public readonly navigation: NavigationLink[] = [
-        new NavigationLink('My Nodes', RouterConfig.MyNodes.path, MyNodesIcon),
-        new NavigationLink('Payouts', RouterConfig.Payouts.with(RouterConfig.PayoutsSummary).path, PayoutsIcon),
-        new NavigationLink('Bandwidth & Disk', '/traffic', TrafficIcon),
+        new NavigationLink(RouterConfig.MyNodes.name, RouterConfig.MyNodes.path, MyNodesIcon),
+        new NavigationLink(RouterConfig.Wallets.name, RouterConfig.Wallets.with(RouterConfig.WalletsSummary).path, PayoutsIcon),
+        new NavigationLink(RouterConfig.Payouts.name, RouterConfig.Payouts.path, PayoutsIcon),
+        new NavigationLink(RouterConfig.Bandwidth.name, RouterConfig.Bandwidth.path, TrafficIcon),
         new NavigationLink('Reputation', '/reputation', ReputationIcon),
         new NavigationLink('Notifications', '/notifications', NotificationIcon),
     ];

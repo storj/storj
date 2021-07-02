@@ -3,7 +3,7 @@
 
 <template>
     <div class="summary-item" :style="{ backgroundColor: backgroundColor }">
-        <h1 class="summary-item__title" :style="{ color: titleColor }">{{ title }}</h1>
+        <p class="summary-item__title" :style="{ color: titleColor }">{{ title }}</p>
         <p v-if="isMoney" class="summary-item__value" :style="{ color: valueColor }">{{ value | centsToDollars }}</p>
         <p v-else class="summary-item__value" :style="{ color: valueColor }">{{ value }}</p>
     </div>
@@ -36,8 +36,7 @@ export default class SummaryItem extends Vue {
         border-radius: 6px;
 
         &__title {
-            font-family: 'font_bold', sans-serif;
-            font-style: normal;
+            font-family: 'font_medium', sans-serif;
             font-size: 14px;
             line-height: 14px;
             margin: 0 0 12px 0;
@@ -45,7 +44,6 @@ export default class SummaryItem extends Vue {
 
         &__value {
             font-family: 'font_bold', sans-serif;
-            font-style: normal;
             font-size: 28px;
             line-height: 23px;
             letter-spacing: -1px;

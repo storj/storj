@@ -20,6 +20,7 @@ var (
 	lsRecursiveFlag *bool
 	lsEncryptedFlag *bool
 	lsPendingFlag   *bool
+	lsExpandedFlag  *bool
 )
 
 func init() {
@@ -32,8 +33,9 @@ func init() {
 	lsRecursiveFlag = lsCmd.Flags().Bool("recursive", false, "if true, list recursively")
 	lsEncryptedFlag = lsCmd.Flags().Bool("encrypted", false, "if true, show paths as base64-encoded encrypted paths")
 	lsPendingFlag = lsCmd.Flags().Bool("pending", false, "if true, list pending objects")
+	lsExpandedFlag = lsCmd.Flags().BoolP("expanded", "x", false, "if true, use an expanded output, showing object expiration times and whether there is custom metadata attached")
 
-	setBasicFlags(lsCmd.Flags(), "recursive", "encrypted", "pending")
+	setBasicFlags(lsCmd.Flags(), "recursive", "encrypted", "pending", "expanded")
 }
 
 func list(cmd *cobra.Command, args []string) error {
@@ -44,6 +46,10 @@ func list(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	defer closeProject(project)
+
+	if *lsExpandedFlag {
+		printExpandedHeader()
+	}
 
 	// list objects
 	if len(args) > 0 {
@@ -72,7 +78,7 @@ func list(cmd *cobra.Command, args []string) error {
 		bucket := buckets.Item()
 
 		if !*lsPendingFlag {
-			fmt.Println("BKT", formatTime(bucket.Created), bucket.Name)
+			printBucket(bucket, *lsExpandedFlag)
 		}
 		if *lsRecursiveFlag {
 			if err := listObjectsFromBucket(ctx, project, bucket.Name); err != nil {
@@ -103,7 +109,7 @@ func listObject(ctx context.Context, project *uplink.Project, bucket, path strin
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%v %v %12v %v\n", "OBJ", formatTime(object.System.Created), object.System.ContentLength, path)
+	printObject(path, object.System, *lsExpandedFlag, object.Custom)
 	return nil
 }
 
@@ -123,6 +129,7 @@ func listObjects(ctx context.Context, project *uplink.Project, bucket, prefix st
 		Prefix:    prefix,
 		Recursive: *lsRecursiveFlag,
 		System:    true,
+		Custom:    *lsExpandedFlag,
 	})
 	for objects.Next() {
 		object := objects.Item()
@@ -131,9 +138,9 @@ func listObjects(ctx context.Context, project *uplink.Project, bucket, prefix st
 			path = fmt.Sprintf("%s/%s", bucket, path)
 		}
 		if object.IsPrefix {
-			fmt.Println("PRE", path)
+			printPrefix(path, *lsExpandedFlag)
 		} else {
-			fmt.Printf("%v %v %12v %v\n", "OBJ", formatTime(object.System.Created), object.System.ContentLength, path)
+			printObject(path, object.System, *lsExpandedFlag, object.Custom)
 		}
 	}
 	if objects.Err() != nil {
@@ -153,7 +160,7 @@ func listPendingObject(ctx context.Context, project *uplink.Project, bucket, pat
 	for uploads.Next() {
 		object := uploads.Item()
 		path := object.Key
-		fmt.Printf("%v %v %12v %v\n", "OBJ", formatTime(object.System.Created), object.System.ContentLength, path)
+		printObject(path, object.System, *lsExpandedFlag, object.Custom)
 	}
 	return uploads.Err()
 }
@@ -181,13 +188,86 @@ func listPendingObjects(ctx context.Context, project *uplink.Project, bucket, pr
 			path = fmt.Sprintf("%s/%s", bucket, path)
 		}
 		if object.IsPrefix {
-			fmt.Println("PRE", path)
+			printPrefix(path, *lsExpandedFlag)
 		} else {
-			fmt.Printf("%v %v %12v %v\n", "OBJ", formatTime(object.System.Created), object.System.ContentLength, path)
+			printObject(path, object.System, *lsExpandedFlag, object.Custom)
 		}
 	}
 
 	return objects.Err()
+}
+
+var (
+	objTypeFieldWidth        = 3
+	creationTimeFieldWidth   = 19
+	expirationTimeFieldWidth = 19
+	sizeFieldWidth           = 12
+	metadataSizeFieldWidth   = 8
+)
+
+func printExpandedHeader() {
+	fmt.Printf("%*s %-*s %-*s %*s %*s %s\n",
+		objTypeFieldWidth, "",
+		creationTimeFieldWidth, "CREATE-TIME",
+		expirationTimeFieldWidth, "EXPIRE-TIME",
+		sizeFieldWidth, "SIZE",
+		metadataSizeFieldWidth, "META",
+		"PATH")
+}
+
+func printObject(path string, system uplink.SystemMetadata, expandedFormat bool, custom uplink.CustomMetadata) {
+	if expandedFormat {
+		expiryTime := "---------- --------"
+		if !system.Expires.IsZero() {
+			expiryTime = formatTime(system.Expires)
+		}
+		fmt.Printf("%*s %*s %*s %*d %*d %s\n",
+			objTypeFieldWidth, "OBJ",
+			creationTimeFieldWidth, formatTime(system.Created),
+			expirationTimeFieldWidth, expiryTime,
+			sizeFieldWidth, system.ContentLength,
+			metadataSizeFieldWidth, sumMetadataSize(custom),
+			path)
+	} else {
+		fmt.Printf("%v %v %12v %v\n", "OBJ", formatTime(system.Created), system.ContentLength, path)
+	}
+}
+
+func printBucket(bucket *uplink.Bucket, expandedFormat bool) {
+	if expandedFormat {
+		fmt.Printf("%*s %*s %*s %*s %*s %s\n",
+			objTypeFieldWidth, "BKT",
+			creationTimeFieldWidth, formatTime(bucket.Created),
+			expirationTimeFieldWidth, "",
+			sizeFieldWidth, "",
+			metadataSizeFieldWidth, "",
+			bucket.Name)
+	} else {
+		fmt.Println("BKT", formatTime(bucket.Created), bucket.Name)
+	}
+}
+
+func printPrefix(path string, expandedFormat bool) {
+	if expandedFormat {
+		fmt.Printf("%*s %*s %*s %*s %*s %s\n",
+			objTypeFieldWidth, "PRE",
+			creationTimeFieldWidth, "",
+			expirationTimeFieldWidth, "",
+			sizeFieldWidth, "",
+			metadataSizeFieldWidth, "",
+			path)
+	} else {
+		fmt.Println("PRE", path)
+	}
+}
+
+func sumMetadataSize(md uplink.CustomMetadata) int {
+	size := 0
+	for k, v := range md {
+		size += len(k)
+		size += len(v)
+	}
+	return size
 }
 
 func formatTime(t time.Time) string {

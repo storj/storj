@@ -158,6 +158,10 @@ export default class HeaderedInput extends HeaderlessInput {
         border-radius: 6px;
         outline: none;
         box-shadow: none;
+
+        &::placeholder {
+            font-family: 'font_medium', sans-serif;
+        }
     }
 
     .headered-textarea {

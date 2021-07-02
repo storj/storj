@@ -1421,6 +1421,121 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`UPDATE coupons SET billing_periods = 2 WHERE billing_periods is NULL;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add column to track dead allocated bandwidth",
+				Version:     160,
+				Action: migrate.SQL{
+					`ALTER TABLE project_bandwidth_daily_rollups ADD COLUMN egress_dead bigint NOT NULL DEFAULT 0;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add table for node reputation",
+				Version:     161,
+				Action: migrate.SQL{
+					`CREATE TABLE reputations (
+						id bytea NOT NULL,
+						audit_success_count bigint NOT NULL DEFAULT 0,
+						total_audit_count bigint NOT NULL DEFAULT 0,
+						vetted_at timestamp with time zone,
+						created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						contained boolean NOT NULL DEFAULT false,
+						disqualified timestamp with time zone,
+						suspended timestamp with time zone,
+						unknown_audit_suspended timestamp with time zone,
+						offline_suspended timestamp with time zone,
+						under_review timestamp with time zone,
+						online_score double precision NOT NULL DEFAULT 1,
+						audit_history bytea NOT NULL,
+						audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+						audit_reputation_beta double precision NOT NULL DEFAULT 0,
+						unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
+						unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
+						PRIMARY KEY ( id )
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add stream_id and position columns to graceful_exit_transfer_queue",
+				Version:     162,
+				Action: migrate.SQL{
+					`CREATE TABLE graceful_exit_segment_transfer_queue (
+						node_id bytea NOT NULL,
+						stream_id bytea NOT NULL,
+						position bigint NOT NULL,
+						piece_num integer NOT NULL,
+						root_piece_id bytea,
+						durability_ratio double precision NOT NULL,
+						queued_at timestamp with time zone NOT NULL,
+						requested_at timestamp with time zone,
+						last_failed_at timestamp with time zone,
+						last_failed_code integer,
+						failed_count integer,
+						finished_at timestamp with time zone,
+						order_limit_send_count integer NOT NULL DEFAULT 0,
+						PRIMARY KEY ( node_id, stream_id, position, piece_num )
+					);`,
+					`CREATE INDEX graceful_exit_segment_transfer_nid_dr_qa_fa_lfa_index ON graceful_exit_segment_transfer_queue ( node_id, durability_ratio, queued_at, finished_at, last_failed_at ) ;`,
+					`ALTER TABLE graceful_exit_progress
+						ADD COLUMN uses_segment_transfer_queue boolean NOT NULL DEFAULT false;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "create segment_pending_audits table, replacement for pending_audits",
+				Version:     163,
+				Action: migrate.SQL{
+					`CREATE TABLE segment_pending_audits (
+						node_id bytea NOT NULL,
+						stream_id bytea NOT NULL,
+						position bigint NOT NULL,
+						piece_id bytea NOT NULL,
+						stripe_index bigint NOT NULL,
+						share_size bigint NOT NULL,
+						expected_share_hash bytea NOT NULL,
+						reverify_count bigint NOT NULL,
+						PRIMARY KEY ( node_id )
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add paid_tier column to users table",
+				Version:     164,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN paid_tier bool NOT NULL DEFAULT false;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add repair_queue table, replacement for injuredsegments table",
+				Version:     165,
+				Action: migrate.SQL{
+					`CREATE TABLE repair_queue (
+						stream_id bytea NOT NULL,
+						position bigint NOT NULL,
+						attempted_at timestamp with time zone,
+						updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						segment_health double precision NOT NULL DEFAULT 1,
+						PRIMARY KEY ( stream_id, position )
+					)`,
+					`CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at )`,
+					`CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at NULLS FIRST)`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add total_bytes table and total_segments_count for bucket_storage_tallies table",
+				Version:     166,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_storage_tallies ADD COLUMN total_bytes bigint NOT NULL DEFAULT 0;`,
+					`ALTER TABLE bucket_storage_tallies ADD COLUMN total_segments_count integer NOT NULL DEFAULT 0;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

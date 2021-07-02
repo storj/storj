@@ -196,11 +196,29 @@ func (db *DB) deleteObjectsAndSegments(ctx context.Context, objects []ObjectStre
 		results := conn.SendBatch(ctx, &batch)
 		defer func() { err = errs.Combine(err, results.Close()) }()
 
+		var objectsDeleted, segmentsDeleted int64
+
 		var errlist errs.Group
 		for i := 0; i < batch.Len(); i++ {
-			_, err := results.Exec()
+			result, err := results.Exec()
 			errlist.Add(err)
+
+			switch i % 3 {
+			case 0: // start transcation
+			case 1: // delete objects
+				if err == nil {
+					objectsDeleted += result.RowsAffected()
+				}
+			case 2: // delete segments
+				if err == nil {
+					segmentsDeleted += result.RowsAffected()
+				}
+			case 3: // commit transaction
+			}
 		}
+
+		mon.Meter("object_delete").Mark64(objectsDeleted)
+		mon.Meter("segment_delete").Mark64(segmentsDeleted)
 
 		return errlist.Err()
 	})

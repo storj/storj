@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"time"
 
 	"github.com/zeebo/errs"
 
@@ -37,6 +38,11 @@ type Segment RawSegment
 // Inline returns true if segment is inline.
 func (s Segment) Inline() bool {
 	return s.Redundancy.IsZero() && len(s.Pieces) == 0
+}
+
+// Expired checks if segment is expired relative to now.
+func (s Segment) Expired(now time.Time) bool {
+	return s.ExpiresAt != nil && s.ExpiresAt.Before(now)
 }
 
 // GetObjectExactVersion contains arguments necessary for fetching an information
@@ -180,7 +186,7 @@ func (db *DB) GetSegmentByLocation(ctx context.Context, opts GetSegmentByLocatio
 	err = db.db.QueryRow(ctx, `
 			SELECT
 				stream_id,
-				created_at, repaired_at,
+				created_at, expires_at, repaired_at,
 				root_piece_id, encrypted_key_nonce, encrypted_key,
 				encrypted_size, plain_offset, plain_size,
 				encrypted_etag,
@@ -199,7 +205,7 @@ func (db *DB) GetSegmentByLocation(ctx context.Context, opts GetSegmentByLocatio
 		`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Position.Encode()).
 		Scan(
 			&segment.StreamID,
-			&segment.CreatedAt, &segment.RepairedAt,
+			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
 			&segment.EncryptedETag,
@@ -247,7 +253,7 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 	var aliasPieces AliasPieces
 	err = db.db.QueryRow(ctx, `
 		SELECT
-			created_at, repaired_at,
+			created_at, expires_at, repaired_at,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size, plain_offset, plain_size,
 			encrypted_etag,
@@ -259,7 +265,7 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 			position  = $2
 	`, opts.StreamID, opts.Position.Encode()).
 		Scan(
-			&segment.CreatedAt, &segment.RepairedAt,
+			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
 			&segment.EncryptedETag,
@@ -366,7 +372,7 @@ func (db *DB) GetSegmentByOffset(ctx context.Context, opts GetSegmentByOffset) (
 	err = db.db.QueryRow(ctx, `
 		SELECT
 			stream_id, position,
-			created_at, repaired_at,
+			created_at, expires_at, repaired_at,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size, plain_offset, plain_size,
 			encrypted_etag,
@@ -389,7 +395,7 @@ func (db *DB) GetSegmentByOffset(ctx context.Context, opts GetSegmentByOffset) (
 	`, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.PlainOffset).
 		Scan(
 			&segment.StreamID, &segment.Position,
-			&segment.CreatedAt, &segment.RepairedAt,
+			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
 			&segment.EncryptedETag,

@@ -20,12 +20,11 @@ import StripeCardInput from '@/components/account/billing/paymentMethods/StripeC
 
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { USER_ACTIONS } from '@/store/modules/users';
 
 const {
     ADD_CREDIT_CARD,
     GET_CREDIT_CARDS,
-    GET_BALANCE,
 } = PAYMENTS_ACTIONS;
 
 interface StripeForm {
@@ -52,6 +51,9 @@ export default class AddCardForm extends Vue {
 
         try {
             await this.$store.dispatch(ADD_CREDIT_CARD, token);
+
+            // We fetch User one more time to update their Paid Tier status.
+            await this.$store.dispatch(USER_ACTIONS.GET);
         } catch (error) {
             await this.$notify.error(error.message);
 
@@ -78,7 +80,6 @@ export default class AddCardForm extends Vue {
             setTimeout(() => {
                 if (!this.userHasOwnProject) {
                     this.$router.push(RouteConfig.CreateProject.path);
-                    this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
                 }
             }, 500);
         }, 2000);

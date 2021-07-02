@@ -64,6 +64,10 @@ type Config struct {
 	ReportCapacityThreshold memory.Size   `help:"threshold below which to immediately notify satellite of capacity" default:"500MB" hidden:"true"`
 	MaxUsedSerialsSize      memory.Size   `help:"amount of memory allowed for used serials store - once surpassed, serials will be dropped at random" default:"1MB"`
 
+	MinUploadSpeed                    memory.Size   `help:"a client upload speed should not be lower than MinUploadSpeed in bytes-per-second (E.g: 1Mb), otherwise, it will be flagged as slow-connection and potentially be closed" default:"0Mb"`
+	MinUploadSpeedGraceDuration       time.Duration `help:"if MinUploadSpeed is configured, after a period of time after the client initiated the upload, the server will flag unusually slow upload client" default:"0h0m10s"`
+	MinUploadSpeedCongestionThreshold float64       `help:"if the portion defined by the total number of alive connection per MaxConcurrentRequest reaches this threshold, a slow upload client will no longer be monitored and flagged" default:"0.8"`
+
 	Trust trust.Config
 
 	Monitor monitor.Config
@@ -314,7 +318,18 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 	largestOrder := pb.Order{}
 	defer commitOrderToStore(ctx, &largestOrder)
 
+	// monitor speed of upload client to flag out slow uploads.
+	speedEstimate := speedEstimation{
+		grace: endpoint.config.MinUploadSpeedGraceDuration,
+		limit: endpoint.config.MinUploadSpeed,
+	}
+
 	for {
+
+		if err := speedEstimate.EnsureLimit(memory.Size(pieceWriter.Size()), endpoint.isCongested(), time.Now()); err != nil {
+			return rpcstatus.Wrap(rpcstatus.Aborted, err)
+		}
+
 		// TODO: reuse messages to avoid allocations
 
 		// N.B.: we are only allowed to use message if the returned error is nil. it would be
@@ -417,6 +432,17 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			return nil
 		}
 	}
+}
+
+// isCongested identifies state of congestion. If the total number of
+// connections is above 80% of the MaxConcurrentRequests, then it is defined
+// as congestion.
+func (endpoint *Endpoint) isCongested() bool {
+
+	requestCongestionThreshold := int32(float64(endpoint.config.MaxConcurrentRequests) * endpoint.config.MinUploadSpeedCongestionThreshold)
+
+	connectionCount := atomic.LoadInt32(&endpoint.liveRequests)
+	return connectionCount > requestCongestionThreshold
 }
 
 // Download handles Downloading a piece on piecestore.
@@ -735,6 +761,10 @@ func (endpoint *Endpoint) Retain(ctx context.Context, retainReq *pb.RetainReques
 	if err != nil {
 		return nil, rpcstatus.Wrap(rpcstatus.InvalidArgument, err)
 	}
+	filterHashCount, _ := filter.Parameters()
+	mon.IntVal("retain_filter_size").Observe(filter.Size())
+	mon.IntVal("retain_filter_hash_count").Observe(int64(filterHashCount))
+	mon.IntVal("retain_creation_date").Observe(retainReq.CreationDate.Unix())
 
 	// the queue function will update the created before time based on the configurable retain buffer
 	queued := endpoint.retain.Queue(retain.Request{
@@ -760,4 +790,46 @@ func min(a, b int64) int64 {
 		return a
 	}
 	return b
+}
+
+// speedEstimation monitors state of incoming traffic. It would signal slow-speed
+// client in non-congested traffic condition.
+type speedEstimation struct {
+	// grace indicates a certain period of time before the observator kicks in
+	grace time.Duration
+	// limit for flagging slow connections. Speed below this limit is considered to be slow.
+	limit memory.Size
+	// uncongestedTime indicates the duration of connection, measured in non-congested state
+	uncongestedTime time.Duration
+	lastChecked     time.Time
+}
+
+// EnsureLimit makes sure that in non-congested condition, a slow-upload client will be flagged out.
+func (estimate *speedEstimation) EnsureLimit(transferred memory.Size, congested bool, now time.Time) error {
+	if estimate.lastChecked.IsZero() {
+		estimate.lastChecked = now
+		return nil
+	}
+
+	delta := now.Sub(estimate.lastChecked)
+	estimate.lastChecked = now
+
+	// In congested condition, the speed check would produce false-positive results,
+	// thus it shall be skipped.
+	if congested {
+		return nil
+	}
+
+	estimate.uncongestedTime += delta
+	if estimate.uncongestedTime <= 0 || estimate.uncongestedTime <= estimate.grace {
+		// not enough data
+		return nil
+	}
+	bytesPerSec := float64(transferred) / estimate.uncongestedTime.Seconds()
+
+	if bytesPerSec < float64(estimate.limit) {
+		return errs.New("speed too low, current:%v < limit:%v", bytesPerSec, estimate.limit)
+	}
+
+	return nil
 }

@@ -15,59 +15,59 @@
             <tr class="table-item">
                 <th class="align-left">Download</th>
                 <th>--</th>
-                <th>98.24 GB</th>
-                <th>204.25$</th>
+                <th>{{ paystub.usageGet | bytesToBase10String }}</th>
+                <th>{{ paystub.compGet | centsToDollars }}</th>
             </tr>
             <tr class="table-item">
                 <th class="align-left">Download Repair</th>
                 <th>--</th>
-                <th>98.24 GB</th>
-                <th>1 420.68$</th>
+                <th>{{ paystub.repairAndAuditUsage | bytesToBase10String }}</th>
+                <th>{{ paystub.repairAndAuditComp | centsToDollars }}</th>
             </tr>
             <tr class="table-item">
                 <th class="align-left">Disk Space</th>
-                <th>25.45 GBm</th>
+                <th>{{ paystub.usageAtRest | bytesToBase10String }}m</th>
                 <th>--</th>
-                <th>30.77$</th>
+                <th>{{ paystub.compAtRest | centsToDollars }}</th>
             </tr>
             <tr class="table-item">
                 <th class="align-left">Gross Total</th>
                 <th></th><th></th>
-                <th>163.18$</th>
+                <th>{{ paystub.gross | centsToDollars }}</th>
             </tr>
             <tr class="table-item">
                 <th class="align-left">Held amount</th>
                 <th></th><th></th>
-                <th>11 204.25$</th>
+                <th>{{ paystub.held | centsToDollars }}</th>
             </tr>
             <tr class="table-item">
                 <th class="align-left">NET TOTAL</th>
                 <th></th><th></th>
-                <th>$14.5</th>
-            </tr>
-            <tr class="table-item">
-                <th class="align-left">Minimal Threshold</th>
-                <th></th><th></th>
-                <th>$35</th>
+                <th>{{ paystub.paid | centsToDollars }}</th>
             </tr>
             <tr class="table-item">
                 <th class="align-left">Distributed</th>
                 <th></th><th></th>
-                <th>$0</th>
+                <th>{{ paystub.distributed | centsToDollars }}</th>
             </tr>
         </tbody>
     </base-table>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import BaseTable from '@/app/components/common/BaseTable.vue';
+
+import { Paystub } from '@/payouts';
 
 @Component({
     components: {
         BaseTable,
     },
 })
-export default class PayoutsByNodeTable extends Vue {}
+export default class PayoutsByNodeTable extends Vue {
+    @Prop({default: () => new Paystub()})
+    public paystub: Paystub;
+}
 </script>

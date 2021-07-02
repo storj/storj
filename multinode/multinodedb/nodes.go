@@ -53,6 +53,37 @@ func (n *nodesdb) List(ctx context.Context) (allNodes []nodes.Node, err error) {
 	return allNodes, ErrNodesDB.Wrap(err)
 }
 
+// ListPaged returns paginated nodes list.
+func (n *nodesdb) ListPaged(ctx context.Context, cursor nodes.Cursor) (page nodes.Page, err error) {
+	defer mon.Task()(&ctx)(&err)
+	page = nodes.Page{
+		CurrentPage: cursor.Page,
+		Limit:       cursor.Limit,
+		Offset:      (cursor.Page - 1) * cursor.Limit,
+	}
+	totalCount, err := n.methods.Count_Node(ctx)
+	if err != nil {
+		return nodes.Page{}, ErrNodesDB.Wrap(err)
+	}
+	page.TotalCount = totalCount
+	page.PageCount = page.TotalCount / cursor.Limit
+	if page.TotalCount%cursor.Limit != 0 {
+		page.PageCount++
+	}
+	dbxNodes, err := n.methods.Limited_Node(ctx, int(page.Limit), page.Offset)
+	if err != nil {
+		return nodes.Page{}, ErrNodesDB.Wrap(err)
+	}
+	for _, dbxNode := range dbxNodes {
+		node, err := fromDBXNode(ctx, dbxNode)
+		if err != nil {
+			return nodes.Page{}, ErrNodesDB.Wrap(err)
+		}
+		page.Nodes = append(page.Nodes, node)
+	}
+	return page, nil
+}
+
 // Get return node from NodesDB by its id.
 func (n *nodesdb) Get(ctx context.Context, id storj.NodeID) (_ nodes.Node, err error) {
 	defer mon.Task()(&ctx)(&err)

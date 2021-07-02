@@ -83,6 +83,8 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 		return -1, Error.New("unable to insert object: %w", err)
 	}
 
+	mon.Meter("object_begin").Mark(1)
+
 	return Version(v), nil
 }
 
@@ -150,6 +152,8 @@ func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExact
 		return Object{}, Error.New("unable to insert object: %w", err)
 	}
 
+	mon.Meter("object_begin").Mark(1)
+
 	return object, nil
 }
 
@@ -183,7 +187,7 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 
 	// NOTE: these queries could be combined into one.
 
-	return txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
+	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
 		// Verify that object exists and is partial.
 		var value int
 		err = tx.QueryRow(ctx, `
@@ -217,6 +221,13 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	mon.Meter("segment_begin").Mark(1)
+
+	return nil
 }
 
 // CommitSegment contains all necessary information about the segment.
@@ -225,6 +236,8 @@ type CommitSegment struct {
 
 	Position    SegmentPosition
 	RootPieceID storj.PieceID
+
+	ExpiresAt *time.Time
 
 	EncryptedKeyNonce []byte
 	EncryptedKey      []byte
@@ -281,7 +294,7 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 	// Verify that object exists and is partial.
 	_, err = db.db.ExecContext(ctx, `
 		INSERT INTO segments (
-			stream_id, position,
+			stream_id, position, expires_at,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size, plain_offset, plain_size, encrypted_etag,
 			redundancy,
@@ -289,18 +302,18 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 		) VALUES (
 			(SELECT stream_id
 				FROM objects WHERE
-					project_id   = $11 AND
-					bucket_name  = $12 AND
-					object_key   = $13 AND
-					version      = $14 AND
-					stream_id    = $15 AND
+					project_id   = $12 AND
+					bucket_name  = $13 AND
+					object_key   = $14 AND
+					version      = $15 AND
+					stream_id    = $16 AND
 					status       = `+pendingStatus+
-		`	), $1,
-			$2, $3, $4,
-			$5, $6, $7, $8,
-			$9,
-			$10
-		)`, opts.Position,
+		`	), $1, $2,
+			$3, $4, $5,
+			$6, $7, $8, $9,
+			$10,
+			$11
+		)`, opts.Position, opts.ExpiresAt,
 		opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
 		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
 		redundancyScheme{&opts.Redundancy},
@@ -316,6 +329,10 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 		}
 		return Error.New("unable to insert segment: %w", err)
 	}
+
+	mon.Meter("segment_commit").Mark(1)
+	mon.IntVal("segment_commit_encrypted_size").Observe(int64(opts.EncryptedSize))
+
 	return nil
 }
 
@@ -324,6 +341,8 @@ type CommitInlineSegment struct {
 	ObjectStream
 
 	Position SegmentPosition
+
+	ExpiresAt *time.Time
 
 	EncryptedKeyNonce []byte
 	EncryptedKey      []byte
@@ -360,24 +379,24 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 	// Verify that object exists and is partial.
 	_, err = db.db.ExecContext(ctx, `
 		INSERT INTO segments (
-			stream_id, position,
+			stream_id, position, expires_at,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size, plain_offset, plain_size, encrypted_etag,
 			inline_data
 		) VALUES (
 			(SELECT stream_id
 				FROM objects WHERE
-					project_id   = $10 AND
-					bucket_name  = $11 AND
-					object_key   = $12 AND
-					version      = $13 AND
-					stream_id    = $14 AND
+					project_id   = $11 AND
+					bucket_name  = $12 AND
+					object_key   = $13 AND
+					version      = $14 AND
+					stream_id    = $15 AND
 					status       = `+pendingStatus+
-		`	), $1,
-			$2, $3, $4,
-			$5, $6, $7, $8,
-			$9
-		)`, opts.Position,
+		`	), $1, $2,
+			$3, $4, $5,
+			$6, $7, $8, $9,
+			$10
+		)`, opts.Position, opts.ExpiresAt,
 		storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
 		len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
 		opts.InlineData,
@@ -392,6 +411,10 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 		}
 		return Error.New("unable to insert segment: %w", err)
 	}
+
+	mon.Meter("segment_commit").Mark(1)
+	mon.IntVal("segment_commit_encrypted_size").Observe(int64(len(opts.InlineData)))
+
 	return nil
 }
 
@@ -522,6 +545,11 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 	if err != nil {
 		return Object{}, err
 	}
+
+	mon.Meter("object_commit").Mark(1)
+	mon.IntVal("object_commit_segments").Observe(int64(object.SegmentCount))
+	mon.IntVal("object_commit_encrypted_size").Observe(object.TotalEncryptedSize)
+
 	return object, nil
 }
 
@@ -579,6 +607,8 @@ func (db *DB) UpdateObjectMetadata(ctx context.Context, opts UpdateObjectMetadat
 			Error.New("object with specified version and committed status is missing"),
 		)
 	}
+
+	mon.Meter("object_update_metadata").Mark(1)
 
 	return nil
 }

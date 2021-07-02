@@ -226,5 +226,28 @@ func TestDeleteBucketObjects(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("object with multiple segments", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.CreateObject(ctx, t, db, obj1, 104)
+
+			metabasetest.DeleteBucketObjects{
+				Opts: metabase.DeleteBucketObjects{
+					Bucket:                obj1.Location().Bucket(),
+					BatchSize:             2,
+					DeletePiecesBatchSize: 10,
+					DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
+						if len(segments) != 10 && len(segments) != 4 {
+							return errors.New("expected 4 or 10 segments")
+						}
+						return nil
+					},
+				},
+				Deleted: 1,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
 	})
 }

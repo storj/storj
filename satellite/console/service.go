@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
+	"github.com/spf13/pflag"
 	"github.com/stripe/stripe-go"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -22,6 +23,7 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/private/cfgstruct"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -100,11 +102,23 @@ type Service struct {
 	minCoinPayment int64
 }
 
+func init() {
+	var c Config
+	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &c, cfgstruct.UseTestDefaults())
+	if c.PasswordCost != TestPasswordCost {
+		panic("invalid test constant defined in struct tag")
+	}
+	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &c, cfgstruct.UseReleaseDefaults())
+	if c.PasswordCost != 0 {
+		panic("invalid release constant defined in struct tag. should be 0 (=automatic)")
+	}
+}
+
 // Config keeps track of core console service configuration parameters.
 type Config struct {
-	PasswordCost            int  `help:"password hashing cost (0=automatic)" internal:"true"`
-	OpenRegistrationEnabled bool `help:"enable open registration" default:"false"`
-	DefaultProjectLimit     int  `help:"default project limits for users" default:"3"`
+	PasswordCost            int  `help:"password hashing cost (0=automatic)" testDefault:"4" default:"0"`
+	OpenRegistrationEnabled bool `help:"enable open registration" default:"false" testDefault:"true"`
+	DefaultProjectLimit     int  `help:"default project limits for users" default:"3" testDefault:"5"`
 	UsageLimits             UsageLimitsConfig
 }
 
@@ -228,10 +242,6 @@ func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditC
 	err = paymentService.service.accounts.CreditCards().Add(ctx, auth.User.ID, creditCardToken)
 	if err != nil {
 		return Error.Wrap(err)
-	}
-
-	if !paymentService.service.accounts.PaywallEnabled(auth.User.ID) {
-		return nil
 	}
 
 	return nil
@@ -479,16 +489,6 @@ func (paymentService PaymentsService) checkProjectInvoicingStatus(ctx context.Co
 func (paymentService PaymentsService) AddPromotionalCoupon(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
-	if paymentService.service.accounts.PaywallEnabled(userID) {
-		cards, err := paymentService.ListCreditCards(ctx)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		if len(cards) == 0 {
-			return Error.New("user don't have a payment method")
-		}
-	}
-
 	return paymentService.service.accounts.Coupons().AddPromotionalCoupon(ctx, userID)
 }
 
@@ -547,17 +547,19 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		}
 
 		newUser := &User{
-			ID:             userID,
-			Email:          user.Email,
-			FullName:       user.FullName,
-			ShortName:      user.ShortName,
-			PasswordHash:   hash,
-			Status:         Inactive,
-			IsProfessional: user.IsProfessional,
-			Position:       user.Position,
-			CompanyName:    user.CompanyName,
-			EmployeeCount:  user.EmployeeCount,
+			ID:               userID,
+			Email:            user.Email,
+			FullName:         user.FullName,
+			ShortName:        user.ShortName,
+			PasswordHash:     hash,
+			Status:           Inactive,
+			IsProfessional:   user.IsProfessional,
+			Position:         user.Position,
+			CompanyName:      user.CompanyName,
+			EmployeeCount:    user.EmployeeCount,
+			HaveSalesContact: user.HaveSalesContact,
 		}
+
 		if user.PartnerID != "" {
 			newUser.PartnerID, err = uuid.FromString(user.PartnerID)
 			if err != nil {
@@ -669,10 +671,6 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return Error.Wrap(err)
 	}
 	s.auditLog(ctx, "activate account", &user.ID, user.Email)
-
-	if s.accounts.PaywallEnabled(user.ID) {
-		return nil
-	}
 
 	s.analytics.TrackAccountVerified(user.ID, user.Email)
 
@@ -977,32 +975,6 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 	currentProjectCount, err := s.checkProjectLimit(ctx, auth.User.ID)
 	if err != nil {
 		return nil, ErrProjLimit.Wrap(err)
-	}
-
-	if s.accounts.PaywallEnabled(auth.User.ID) {
-		cards, err := s.accounts.CreditCards().List(ctx, auth.User.ID)
-		if err != nil {
-			s.log.Debug(fmt.Sprintf("could not list credit cards for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-			return nil, Error.Wrap(err)
-		}
-
-		balance, err := s.accounts.Balance(ctx, auth.User.ID)
-		if err != nil {
-			s.log.Debug(fmt.Sprintf("could not get balance for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-			return nil, Error.Wrap(err)
-		}
-
-		coupons, err := s.accounts.Coupons().ListByUserID(ctx, auth.User.ID)
-		if err != nil {
-			s.log.Debug(fmt.Sprintf("could not list coupons for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-			return nil, Error.Wrap(err)
-		}
-
-		if len(cards) == 0 && balance.Coins < s.minCoinPayment && len(coupons) == 0 {
-			err = errs.New("no valid payment methods found")
-			s.log.Debug(fmt.Sprintf("could not create project for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-			return nil, Error.Wrap(err)
-		}
 	}
 
 	var projectID uuid.UUID
@@ -1501,27 +1473,86 @@ func (s *Service) GetBucketUsageRollups(ctx context.Context, projectID uuid.UUID
 func (s *Service) GetProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (_ *ProjectUsageLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	_, err = s.getAuthAndAuditLog(ctx, "get project usage limits", zap.String("projectID", projectID.String()))
+	auth, err := s.getAuthAndAuditLog(ctx, "get project usage limits", zap.String("projectID", projectID.String()))
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
-	storageLimit, err := s.projectUsage.GetProjectStorageLimit(ctx, projectID)
+	if _, err = s.isProjectMember(ctx, auth.User.ID, projectID); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	prUsageLimits, err := s.getProjectUsageLimits(ctx, projectID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	bandwidthLimit, err := s.projectUsage.GetProjectBandwidthLimit(ctx, projectID)
+
+	return &ProjectUsageLimits{
+		StorageLimit:   prUsageLimits.StorageLimit,
+		BandwidthLimit: prUsageLimits.BandwidthLimit,
+		StorageUsed:    prUsageLimits.StorageUsed,
+		BandwidthUsed:  prUsageLimits.BandwidthUsed,
+	}, nil
+}
+
+// GetTotalUsageLimits returns total limits and current usage for all the projects.
+func (s *Service) GetTotalUsageLimits(ctx context.Context) (_ *ProjectUsageLimits, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := s.getAuthAndAuditLog(ctx, "get total usage and limits for all the projects")
 	if err != nil {
 		return nil, Error.Wrap(err)
+	}
+
+	projects, err := s.store.Projects().GetOwn(ctx, auth.User.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	var totalStorageLimit int64
+	var totalBandwidthLimit int64
+	var totalStorageUsed int64
+	var totalBandwidthUsed int64
+
+	for _, pr := range projects {
+		prUsageLimits, err := s.getProjectUsageLimits(ctx, pr.ID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		totalStorageLimit += prUsageLimits.StorageLimit
+		totalBandwidthLimit += prUsageLimits.BandwidthLimit
+		totalStorageUsed += prUsageLimits.StorageUsed
+		totalBandwidthUsed += prUsageLimits.BandwidthUsed
+	}
+
+	return &ProjectUsageLimits{
+		StorageLimit:   totalStorageLimit,
+		BandwidthLimit: totalBandwidthLimit,
+		StorageUsed:    totalStorageUsed,
+		BandwidthUsed:  totalBandwidthUsed,
+	}, nil
+}
+
+func (s *Service) getProjectUsageLimits(ctx context.Context, projectID uuid.UUID) (_ *ProjectUsageLimits, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	storageLimit, err := s.projectUsage.GetProjectStorageLimit(ctx, projectID)
+	if err != nil {
+		return nil, err
+	}
+	bandwidthLimit, err := s.projectUsage.GetProjectBandwidthLimit(ctx, projectID)
+	if err != nil {
+		return nil, err
 	}
 
 	storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, projectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, err
 	}
 	bandwidthUsed, err := s.projectUsage.GetProjectBandwidthTotals(ctx, projectID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, err
 	}
 
 	return &ProjectUsageLimits{
@@ -1731,10 +1762,4 @@ func findMembershipByProjectID(memberships []ProjectMember, projectID uuid.UUID)
 		}
 	}
 	return ProjectMember{}, false
-}
-
-// PaywallEnabled returns a true if a credit card or account
-// balance is required to create projects.
-func (s *Service) PaywallEnabled(userID uuid.UUID) bool {
-	return s.accounts.PaywallEnabled(userID)
 }

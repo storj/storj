@@ -47,8 +47,4 @@ type Accounts interface {
 
 	// Coupons exposes all needed functionality to manage coupons.
 	Coupons() Coupons
-
-	// PaywallEnabled returns a true if a credit card or account
-	// balance is required to create projects
-	PaywallEnabled(uuid.UUID) bool
 }

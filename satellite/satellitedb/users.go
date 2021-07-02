@@ -68,6 +68,7 @@ func (users *users) Insert(ctx context.Context, user *console.User) (_ *console.
 		optional.CompanyName = dbx.User_CompanyName(user.CompanyName)
 		optional.WorkingOn = dbx.User_WorkingOn(user.WorkingOn)
 		optional.EmployeeCount = dbx.User_EmployeeCount(user.EmployeeCount)
+		optional.HaveSalesContact = dbx.User_HaveSalesContact(user.HaveSalesContact)
 	}
 
 	createdUser, err := users.db.Create_User(ctx,
@@ -127,6 +128,7 @@ func toUpdateUser(user *console.User) dbx.User_Update_Fields {
 		NormalizedEmail: dbx.User_NormalizedEmail(normalizeEmail(user.Email)),
 		Status:          dbx.User_Status(int(user.Status)),
 		ProjectLimit:    dbx.User_ProjectLimit(user.ProjectLimit),
+		PaidTier:        dbx.User_PaidTier(user.PaidTier),
 	}
 
 	// extra password check to update only calculated hash from service
@@ -150,14 +152,16 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 	}
 
 	result := console.User{
-		ID:             id,
-		FullName:       user.FullName,
-		Email:          user.Email,
-		PasswordHash:   user.PasswordHash,
-		Status:         console.UserStatus(user.Status),
-		CreatedAt:      user.CreatedAt,
-		ProjectLimit:   user.ProjectLimit,
-		IsProfessional: user.IsProfessional,
+		ID:               id,
+		FullName:         user.FullName,
+		Email:            user.Email,
+		PasswordHash:     user.PasswordHash,
+		Status:           console.UserStatus(user.Status),
+		CreatedAt:        user.CreatedAt,
+		ProjectLimit:     user.ProjectLimit,
+		PaidTier:         user.PaidTier,
+		IsProfessional:   user.IsProfessional,
+		HaveSalesContact: user.HaveSalesContact,
 	}
 
 	if user.PartnerId != nil {

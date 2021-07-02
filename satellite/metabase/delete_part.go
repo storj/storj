@@ -71,6 +71,8 @@ func (db *DB) DeletePart(ctx context.Context, opts DeletePart) (err error) {
 		return Error.Wrap(err)
 	}
 
+	mon.Meter("segment_delete").Mark(len(deleted))
+
 	for _, item := range deleted {
 		deleteInfo := DeletedSegmentInfo{
 			RootPieceID: item.RootPieceID,

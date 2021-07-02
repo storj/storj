@@ -495,6 +495,27 @@ func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeC
 	return nodes, Error.Wrap(rows.Err())
 }
 
+// UpdateReputation updates the DB columns for any of the reputation fields in UpdateReputationRequest.
+func (cache *overlaycache) UpdateReputation(ctx context.Context, id storj.NodeID, request *overlay.ReputationStatus) (err error) {
+	mon.Task()(&ctx)(&err)
+
+	updateFields := dbx.Node_Update_Fields{}
+	updateFields.Contained = dbx.Node_Contained(request.Contained)
+	updateFields.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended_Raw(request.UnknownAuditSuspended)
+	updateFields.Disqualified = dbx.Node_Disqualified_Raw(request.Disqualified)
+	updateFields.OfflineSuspended = dbx.Node_OfflineSuspended_Raw(request.OfflineSuspended)
+	updateFields.VettedAt = dbx.Node_VettedAt_Raw(request.VettedAt)
+
+	dbNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(id.Bytes()), updateFields)
+	if err != nil {
+		return err
+	}
+	if dbNode == nil {
+		return errs.New("unable to get node by ID: %v", id)
+	}
+	return nil
+}
+
 // BatchUpdateStats updates multiple storagenode's stats in one transaction.
 func (cache *overlaycache) BatchUpdateStats(ctx context.Context, updateRequests []*overlay.UpdateRequest, batchSize int, now time.Time) (failed storj.NodeIDList, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1261,11 +1282,6 @@ func buildUpdateStatement(update updateNodeStats, isUp bool) string {
 	hexNodeID := hex.EncodeToString(update.NodeID.Bytes())
 
 	sql += fmt.Sprintf(" WHERE nodes.id = decode('%v', 'hex');\n", hexNodeID)
-
-	// only remove from containment if node is online
-	if isUp {
-		sql += fmt.Sprintf("DELETE FROM pending_audits WHERE pending_audits.node_id = decode('%v', 'hex');\n", hexNodeID)
-	}
 
 	return sql
 }

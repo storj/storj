@@ -71,7 +71,8 @@
                 Your card is secured by Stripe through TLS and AES-256 encryption. Your information is secure.
             </span>
         </div>
-        <div class="payment-methods-area__existing-cards-container" v-if="!noCreditCards">
+        <VLoader v-if="areCardsFetching" class="pm-loader"/>
+        <div class="payment-methods-area__existing-cards-container" v-if="!noCreditCards && !areCardsFetching">
             <CardComponent
                 v-for="card in creditCards"
                 :key="card.id"
@@ -90,6 +91,7 @@ import AddStorjForm from '@/components/account/billing/paymentMethods/AddStorjFo
 import CardComponent from '@/components/account/billing/paymentMethods/CardComponent.vue';
 import PaymentsBonus from '@/components/account/billing/paymentMethods/PaymentsBonus.vue';
 import VButton from '@/components/common/VButton.vue';
+import VLoader from '@/components/common/VLoader.vue';
 
 import LockImage from '@/../static/images/account/billing/lock.svg';
 import SuccessImage from '@/../static/images/account/billing/success.svg';
@@ -97,11 +99,6 @@ import SuccessImage from '@/../static/images/account/billing/success.svg';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { CreditCard } from '@/types/payments';
 import { PaymentMethodsBlockState } from '@/utils/constants/billingEnums';
-
-const {
-    GET_CREDIT_CARDS,
-    GET_BALANCE,
-} = PAYMENTS_ACTIONS;
 
 interface AddCardConfirm {
     onConfirmAddStripe(): Promise<void>;
@@ -116,6 +113,7 @@ interface AddCardConfirm {
         PaymentsBonus,
         LockImage,
         SuccessImage,
+        VLoader,
     },
 })
 export default class PaymentMethods extends Vue {
@@ -125,15 +123,18 @@ export default class PaymentMethods extends Vue {
     public isLoaded: boolean = false;
     public isAddCardClicked: boolean = false;
     public isAddStorjClicked: boolean = false;
+    public areCardsFetching: boolean = true;
 
     /**
      * Lifecycle hook after initial render where credit cards are fetched.
      */
-    public mounted() {
+    public async mounted(): Promise<void> {
         try {
-            this.$store.dispatch(GET_CREDIT_CARDS);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_CREDIT_CARDS);
+
+            this.areCardsFetching = false;
         } catch (error) {
-            this.$notify.error(error.message);
+            await this.$notify.error(error.message);
         }
     }
 
@@ -307,7 +308,7 @@ export default class PaymentMethods extends Vue {
     }
 
     .button-moved {
-        top: 95px;
+        top: 83px;
     }
 
     .payment-methods-area {
@@ -426,5 +427,9 @@ export default class PaymentMethods extends Vue {
 
     .reduced {
         height: 170px;
+    }
+
+    .pm-loader {
+        margin-top: 40px;
     }
 </style>

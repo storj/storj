@@ -5,7 +5,7 @@ const path = require('path');
 const CompressionWebpackPlugin = require('compression-webpack-plugin');
 const StyleLintPlugin = require('stylelint-webpack-plugin');
 const WorkerPlugin = require('worker-plugin');
-const productionBrotliExtensions = ['js', 'css', 'ttf'];
+const productionBrotliExtensions = ['js', 'css', 'ttf', 'woff', 'woff2'];
 
 module.exports = {
     publicPath: "/static/dist",
@@ -22,6 +22,7 @@ module.exports = {
             }),
             new StyleLintPlugin({
                 files: ['**/*.{vue,sss,less,scss,sass}'],
+                ignoreFiles: ["./node_modules/**"],
                 emitWarning: true,
             }),
             new WorkerPlugin({

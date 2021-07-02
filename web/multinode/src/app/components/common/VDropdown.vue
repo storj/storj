@@ -45,12 +45,15 @@ export default class VDropdown extends Vue {
     @Prop({default: []})
     private readonly options: Option[];
 
+    @Prop({default: null})
+    private readonly preselectedOption: Option;
+
     public areOptionsShown: boolean = false;
 
     public selectedOption: Option;
 
     public created(): void {
-        this.selectedOption = this.options[0];
+        this.selectedOption = this.preselectedOption || this.options[0];
     }
 
     public toggleOptions(): void {
@@ -94,6 +97,7 @@ export default class VDropdown extends Vue {
         color: var(--c-title);
         cursor: pointer;
         font-family: 'font_medium', sans-serif;
+        z-index: 998;
 
         &:hover {
             border-color: var(--c-gray);
@@ -108,7 +112,7 @@ export default class VDropdown extends Vue {
             position: absolute;
             top: 52px;
             left: 0;
-            width: 300px;
+            width: 100%;
             border: 1px solid var(--c-gray--light);
             border-radius: 6px;
             overflow: hidden;
@@ -130,6 +134,7 @@ export default class VDropdown extends Vue {
                 width: 100% !important;
                 cursor: pointer;
                 border-bottom: 1px solid var(--c-gray--light);
+                box-sizing: border-box;
 
                 &:hover {
                     background: var(--c-background);
@@ -142,6 +147,7 @@ export default class VDropdown extends Vue {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+        margin-right: 5px;
     }
 
     ::-webkit-scrollbar {

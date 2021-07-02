@@ -33,27 +33,26 @@ func (c *cmdAccessSave) Setup(a clingy.Arguments, f clingy.Flags) {
 }
 
 func (c *cmdAccessSave) Execute(ctx clingy.Context) error {
-	// TODO(jeff): need to distinguish errors from reading the file from
-	// errors due to the file not existing. otherwise, there's no way
-	// to save the first access.
-
-	accessDefault, accesses, err := gf.GetAccessInfo()
+	accessDefault, accesses, err := gf.GetAccessInfo(false)
 	if err != nil {
 		return err
 	}
 
 	if c.access == "" {
-		return errs.New("TODO: implement prompting for the access")
+		c.access, err = gf.PromptInput(ctx, "Access:")
+		if err != nil {
+			return err
+		}
 	}
 	if _, err := uplink.ParseAccess(c.access); err != nil {
 		return err
 	}
 	if _, ok := accesses[c.name]; ok && !c.force {
-		return errs.New("Access %q already exists. Overwrite by specifying --force", c.name)
+		return errs.New("Access %q already exists. Overwrite by specifying --force or choose a new name with --name", c.name)
 	}
 
 	accesses[c.name] = c.access
-	if c.use {
+	if c.use || accessDefault == "" {
 		accessDefault = c.name
 	}
 

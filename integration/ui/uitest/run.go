@@ -38,6 +38,9 @@ func Run(t *testing.T, test Test) {
 	if os.Getenv("STORJ_TEST_SATELLITE_WEB") == "" {
 		t.Skip("Enable UI tests by setting STORJ_TEST_SATELLITE_WEB to built npm")
 	}
+	if os.Getenv("STORJ_TEST_SATELLITE_WEB") == "omit" {
+		return
+	}
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -57,10 +60,13 @@ func Run(t *testing.T, test Test) {
 			Leakless(false).
 			Devtools(false).
 			NoSandbox(true).
+			UserDataDir(ctx.Dir("browser")).
 			Logger(zapWriter{Logger: logLauncher})
+
 		if browserBin := os.Getenv("STORJ_TEST_BROWSER"); browserBin != "" {
 			launch = launch.Bin(browserBin)
 		}
+
 		defer launch.Cleanup()
 
 		url, err := launch.Launch()
@@ -75,7 +81,8 @@ func Run(t *testing.T, test Test) {
 			Logger(utils.Log(func(msg ...interface{}) {
 				logBrowser.Info(fmt.Sprintln(msg...))
 			})).
-			Context(ctx)
+			Context(ctx).
+			WithPanic(func(v interface{}) { require.Fail(t, "check failed", v) })
 		defer ctx.Check(browser.Close)
 
 		require.NoError(t, browser.Connect())

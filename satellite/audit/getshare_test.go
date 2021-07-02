@@ -98,7 +98,7 @@ func TestGetShareDoesNameLookupIfNecessary(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		orderLimits, privateKey, _, err := testSatellite.Orders.Service.CreateAuditOrderLimits(ctx, queueSegment.Bucket(), segment, nil)
+		orderLimits, privateKey, _, err := testSatellite.Orders.Service.CreateAuditOrderLimits(ctx, segment, nil)
 		require.NoError(t, err)
 
 		// find any non-nil limit
@@ -152,7 +152,7 @@ func TestGetSharePrefers(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		orderLimits, privateKey, _, err := testSatellite.Orders.Service.CreateAuditOrderLimits(ctx, queueSegment.Bucket(), segment, nil)
+		orderLimits, privateKey, _, err := testSatellite.Orders.Service.CreateAuditOrderLimits(ctx, segment, nil)
 		require.NoError(t, err)
 		require.GreaterOrEqual(t, len(orderLimits), 1)
 

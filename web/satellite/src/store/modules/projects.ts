@@ -15,12 +15,14 @@ export const PROJECTS_ACTIONS = {
     FETCH: 'fetchProjects',
     FETCH_OWNED: 'fetchOwnedProjects',
     CREATE: 'createProject',
+    CREATE_DEFAULT_PROJECT: 'createDefaultProject',
     SELECT: 'selectProject',
     UPDATE_NAME: 'updateProjectName',
     UPDATE_DESCRIPTION: 'updateProjectDescription',
     DELETE: 'deleteProject',
     CLEAR: 'clearProjects',
     GET_LIMITS: 'getProjectLimits',
+    GET_TOTAL_LIMITS: 'getTotalLimits',
 };
 
 export const PROJECTS_MUTATIONS = {
@@ -32,6 +34,7 @@ export const PROJECTS_MUTATIONS = {
     SELECT_PROJECT: 'SELECT_PROJECT',
     CLEAR_PROJECTS: 'CLEAR_PROJECTS',
     SET_LIMITS: 'SET_PROJECT_LIMITS',
+    SET_TOTAL_LIMITS: 'SET_TOTAL_LIMITS',
     SET_PAGE_NUMBER: 'SET_PAGE_NUMBER',
     SET_PAGE: 'SET_PAGE',
 };
@@ -42,6 +45,7 @@ export class ProjectsState {
     public projects: Project[] = [];
     public selectedProject: Project = defaultSelectedProject;
     public currentLimits: ProjectLimits = new ProjectLimits();
+    public totalLimits: ProjectLimits = new ProjectLimits();
     public cursor: ProjectsCursor = new ProjectsCursor();
     public page: ProjectsPage = new ProjectsPage();
 }
@@ -49,12 +53,14 @@ export class ProjectsState {
 const {
     FETCH,
     CREATE,
+    CREATE_DEFAULT_PROJECT,
     SELECT,
     UPDATE_NAME,
     UPDATE_DESCRIPTION,
     DELETE,
     CLEAR,
     GET_LIMITS,
+    GET_TOTAL_LIMITS,
     FETCH_OWNED,
 } = PROJECTS_ACTIONS;
 
@@ -67,6 +73,7 @@ const {
     SELECT_PROJECT,
     CLEAR_PROJECTS,
     SET_LIMITS,
+    SET_TOTAL_LIMITS,
     SET_PAGE_NUMBER,
     SET_PAGE,
 } = PROJECTS_MUTATIONS;
@@ -127,6 +134,9 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
             [SET_LIMITS](state: ProjectsState, limits: ProjectLimits): void {
                 state.currentLimits = limits;
             },
+            [SET_TOTAL_LIMITS](state: ProjectsState, limits: ProjectLimits): void {
+                state.totalLimits = limits;
+            },
             [CLEAR_PROJECTS](state: ProjectsState): void {
                 state.projects = [];
                 state.selectedProject = defaultSelectedProject;
@@ -163,6 +173,18 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
 
                 return project;
             },
+            [CREATE_DEFAULT_PROJECT]: async function ({rootGetters, dispatch}: any): Promise<void> {
+                const UNTITLED_PROJECT_NAME = 'My First Project';
+                const UNTITLED_PROJECT_DESCRIPTION = '___';
+                const project = new ProjectFields(
+                    UNTITLED_PROJECT_NAME,
+                    UNTITLED_PROJECT_DESCRIPTION,
+                    rootGetters.user.id,
+                );
+                const createdProject = await dispatch(CREATE, project);
+
+                await dispatch(SELECT, createdProject.id);
+            },
             [SELECT]: function ({commit}: any, projectID: string): void {
                 commit(SELECT_PROJECT, projectID);
             },
@@ -185,6 +207,13 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
                 const limits = await api.getLimits(projectID);
 
                 commit(SET_LIMITS, limits);
+
+                return limits;
+            },
+            [GET_TOTAL_LIMITS]: async function ({commit}: any): Promise<ProjectLimits> {
+                const limits = await api.getTotalLimits();
+
+                commit(SET_TOTAL_LIMITS, limits);
 
                 return limits;
             },

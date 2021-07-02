@@ -82,20 +82,35 @@ export default class App extends Vue {
 
     @font-face {
         font-family: 'font_regular';
+        font-style: normal;
+        font-weight: 400;
         font-display: swap;
-        src: url('../static/fonts/font_regular.ttf');
+        src: local(''),
+            url('../static/fonts/inter-v3-latin-regular.woff2') format('woff2'),
+            url('../static/fonts/inter-v3-latin-regular.woff') format('woff'),
+            url('../static/fonts/inter-v3-latin-regular.ttf') format('truetype');
     }
 
     @font-face {
         font-family: 'font_medium';
+        font-style: normal;
+        font-weight: 600;
         font-display: swap;
-        src: url('../static/fonts/font_medium.ttf');
+        src: local(''),
+            url('../static/fonts/inter-v3-latin-600.woff2') format('woff2'),
+            url('../static/fonts/inter-v3-latin-600.woff') format('woff'),
+            url('../static/fonts/inter-v3-latin-600.ttf') format('truetype');
     }
 
     @font-face {
         font-family: 'font_bold';
+        font-style: normal;
+        font-weight: 800;
         font-display: swap;
-        src: url('../static/fonts/font_bold.ttf');
+        src: local(''),
+            url('../static/fonts/inter-v3-latin-800.woff2') format('woff2'),
+            url('../static/fonts/inter-v3-latin-800.woff') format('woff'),
+            url('../static/fonts/inter-v3-latin-800.ttf') format('truetype');
     }
 
     a {
@@ -107,7 +122,6 @@ export default class App extends Vue {
     input,
     textarea {
         font-family: inherit;
-        font-weight: 600;
         border: 1px solid rgba(56, 75, 101, 0.4);
         color: #354049;
         caret-color: #2683ff;

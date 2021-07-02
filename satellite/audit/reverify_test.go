@@ -72,7 +72,7 @@ func TestReverifySuccess(t *testing.T) {
 		pieces := segment.Pieces
 		rootPieceID := segment.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, queueSegment.Bucket(), pieces[0].StorageNode, pieces[0].Number, rootPieceID, shareSize)
+		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, pieces[0].StorageNode, pieces[0].Number, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(pieces[0].Number))
@@ -85,7 +85,8 @@ func TestReverifySuccess(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -100,11 +101,7 @@ func TestReverifySuccess(t *testing.T) {
 		require.Len(t, report.Successes, 1)
 		require.Equal(t, report.Successes[0], pieces[0].StorageNode)
 
-		// record  audit
-		_, err = audits.Reporter.RecordAudits(ctx, report)
-		require.NoError(t, err)
-
-		// make sure that pending audit is removed by the reporter when audit is recorded
+		// make sure that pending audit is removed
 		_, err = containment.Get(ctx, pending.NodeID)
 		require.True(t, audit.ErrContainedNotFound.Has(err))
 	})
@@ -154,7 +151,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		pieces := segment.Pieces
 		rootPieceID := segment.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, queueSegment.Bucket(), pieces[0].StorageNode, pieces[0].Number, rootPieceID, shareSize)
+		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, pieces[0].StorageNode, pieces[0].Number, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(pieces[0].Number))
@@ -167,7 +164,8 @@ func TestReverifyFailMissingShare(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -189,11 +187,7 @@ func TestReverifyFailMissingShare(t *testing.T) {
 		require.Len(t, report.Fails, 1)
 		require.Equal(t, report.Fails[0], pieces[0].StorageNode)
 
-		// record  audit
-		_, err = audits.Reporter.RecordAudits(ctx, report)
-		require.NoError(t, err)
-
-		// make sure that pending audit is removed by the reporter when audit is recorded
+		// make sure that pending audit is removed
 		_, err = containment.Get(ctx, pending.NodeID)
 		require.True(t, audit.ErrContainedNotFound.Has(err))
 	})
@@ -247,7 +241,8 @@ func TestReverifyFailBadData(t *testing.T) {
 			ShareSize:         redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = satellite.DB.Containment().IncrementPending(ctx, pending)
@@ -263,11 +258,7 @@ func TestReverifyFailBadData(t *testing.T) {
 		require.Len(t, report.Fails, 1)
 		require.Equal(t, report.Fails[0], nodeID)
 
-		// record  audit
-		_, err = audits.Reporter.RecordAudits(ctx, report)
-		require.NoError(t, err)
-
-		// make sure that pending audit is removed by the reporter when audit is recorded
+		// make sure that pending audit is removed
 		containment := satellite.DB.Containment()
 		_, err = containment.Get(ctx, pending.NodeID)
 		require.True(t, audit.ErrContainedNotFound.Has(err))
@@ -322,7 +313,8 @@ func TestReverifyOffline(t *testing.T) {
 			ShareSize:         redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(testrand.Bytes(10)),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = satellite.DB.Containment().IncrementPending(ctx, pending)
@@ -339,9 +331,6 @@ func TestReverifyOffline(t *testing.T) {
 		require.Len(t, report.PendingAudits, 0)
 		require.Len(t, report.Offlines, 1)
 		require.Equal(t, report.Offlines[0], pieces[0].StorageNode)
-
-		_, err = audits.Reporter.RecordAudits(ctx, report)
-		require.NoError(t, err)
 
 		// make sure that pending audit is not removed
 		containment := satellite.DB.Containment()
@@ -425,7 +414,8 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 			ShareSize:         redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = satellite.DB.Containment().IncrementPending(ctx, pending)
@@ -439,9 +429,6 @@ func TestReverifyOfflineDialTimeout(t *testing.T) {
 		require.Len(t, report.PendingAudits, 0)
 		require.Len(t, report.Offlines, 1)
 		require.Equal(t, report.Offlines[0], pending.NodeID)
-
-		_, err = audits.Reporter.RecordAudits(ctx, report)
-		require.NoError(t, err)
 
 		// make sure that pending audit is not removed
 		containment := satellite.DB.Containment()
@@ -499,7 +486,8 @@ func TestReverifyDeletedSegment(t *testing.T) {
 			ShareSize:         segment.Redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		containment := satellite.DB.Containment()
@@ -535,9 +523,6 @@ func TestReverifyDeletedSegment(t *testing.T) {
 		assert.Empty(t, report.Fails)
 		assert.Empty(t, report.Successes)
 		assert.Empty(t, report.PendingAudits)
-
-		_, err = audits.Reporter.RecordAudits(ctx, report)
-		require.NoError(t, err)
 
 		// expect that the node was removed from containment since the segment it was contained for has been deleted
 		_, err = containment.Get(ctx, nodeID)
@@ -591,7 +576,8 @@ func TestReverifyModifiedSegment(t *testing.T) {
 			ShareSize:         segment.Redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		containment := satellite.DB.Containment()
@@ -634,9 +620,6 @@ func TestReverifyModifiedSegment(t *testing.T) {
 		assert.Empty(t, report.Fails)
 		assert.Empty(t, report.Successes)
 		assert.Empty(t, report.PendingAudits)
-
-		_, err = audits.Reporter.RecordAudits(ctx, report)
-		require.NoError(t, err)
 
 		// expect that the node was removed from containment since the segment it was contained for has been changed
 		_, err = containment.Get(ctx, nodeID)
@@ -690,7 +673,8 @@ func TestReverifyReplacedSegment(t *testing.T) {
 			ShareSize:         segment.Redundancy.ShareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(nil),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		containment := satellite.DB.Containment()
@@ -725,9 +709,6 @@ func TestReverifyReplacedSegment(t *testing.T) {
 		assert.Empty(t, report.Fails)
 		assert.Empty(t, report.Successes)
 		assert.Empty(t, report.PendingAudits)
-
-		_, err = audits.Reporter.RecordAudits(ctx, report)
-		require.NoError(t, err)
 
 		// expect that the node was removed from containment since the segment it was contained for has been changed
 		_, err = containment.Get(ctx, nodeID)
@@ -815,7 +796,7 @@ func TestReverifyDifferentShare(t *testing.T) {
 		shareSize := segment1.Redundancy.ShareSize
 		rootPieceID := segment1.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, queueSegment1.Bucket(), selectedNode, selectedPieceNum, rootPieceID, shareSize)
+		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, selectedNode, selectedPieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(selectedPieceNum))
@@ -828,7 +809,8 @@ func TestReverifyDifferentShare(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment1.SegmentLocation,
+			StreamID:          queueSegment1.StreamID,
+			Position:          queueSegment1.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -851,11 +833,7 @@ func TestReverifyDifferentShare(t *testing.T) {
 		require.Len(t, report.Fails, 1)
 		require.Equal(t, report.Fails[0], selectedNode)
 
-		// record audit
-		_, err = audits.Reporter.RecordAudits(ctx, report)
-		require.NoError(t, err)
-
-		// make sure that pending audit is removed by the reporter when audit is recorded
+		// make sure that pending audit is removed
 		_, err = containment.Get(ctx, pending.NodeID)
 		require.True(t, audit.ErrContainedNotFound.Has(err))
 	})
@@ -890,9 +868,6 @@ func TestReverifyExpired1(t *testing.T) {
 
 		// Reverify should not return an error
 		report, err := audits.Verifier.Reverify(ctx, queueSegment)
-		require.NoError(t, err)
-
-		_, err = audits.Reporter.RecordAudits(ctx, report)
 		require.NoError(t, err)
 
 		assert.Len(t, report.Successes, 0)
@@ -937,7 +912,7 @@ func TestReverifyExpired2(t *testing.T) {
 		require.NotEqual(t, queueSegment1, queueSegment2)
 
 		// make sure queueSegment1 is the one with the expiration date
-		if queueSegment1.ExpirationDate.IsZero() {
+		if queueSegment1.ExpiresAt == nil {
 			queueSegment1, queueSegment2 = queueSegment2, queueSegment1
 		}
 
@@ -980,7 +955,7 @@ func TestReverifyExpired2(t *testing.T) {
 		shareSize := segment1.Redundancy.ShareSize
 		rootPieceID := segment1.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, queueSegment1.Bucket(), selectedNode, selectedPieceNum, rootPieceID, shareSize)
+		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, selectedNode, selectedPieceNum, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(selectedPieceNum))
@@ -993,7 +968,8 @@ func TestReverifyExpired2(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment1.SegmentLocation,
+			StreamID:          queueSegment1.StreamID,
+			Position:          queueSegment1.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -1015,9 +991,6 @@ func TestReverifyExpired2(t *testing.T) {
 		require.Len(t, report.Offlines, 0)
 		require.Len(t, report.PendingAudits, 0)
 		require.Len(t, report.Fails, 0)
-
-		_, err = audits.Reporter.RecordAudits(ctx, report)
-		require.NoError(t, err)
 
 		// Reverify should remove the node from containment mode
 		_, err = containment.Get(ctx, pending.NodeID)
@@ -1078,7 +1051,7 @@ func TestReverifySlowDownload(t *testing.T) {
 		shareSize := segment.Redundancy.ShareSize
 		rootPieceID := segment.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, queueSegment.Bucket(), slowNode, slowPiece.Number, rootPieceID, shareSize)
+		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, slowNode, slowPiece.Number, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(slowPiece.Number))
@@ -1091,7 +1064,8 @@ func TestReverifySlowDownload(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -1166,7 +1140,7 @@ func TestReverifyUnknownError(t *testing.T) {
 		shareSize := segment.Redundancy.ShareSize
 		rootPieceID := segment.RootPieceID
 
-		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, queueSegment.Bucket(), badNode, badPiece.Number, rootPieceID, shareSize)
+		limit, privateKey, cachedIPAndPort, err := orders.CreateAuditOrderLimit(ctx, badNode, badPiece.Number, rootPieceID, shareSize)
 		require.NoError(t, err)
 
 		share, err := audits.Verifier.GetShare(ctx, limit, privateKey, cachedIPAndPort, randomIndex, shareSize, int(badPiece.Number))
@@ -1179,7 +1153,8 @@ func TestReverifyUnknownError(t *testing.T) {
 			ShareSize:         shareSize,
 			ExpectedShareHash: pkcrypto.SHA256Hash(share.Data),
 			ReverifyCount:     0,
-			Segment:           queueSegment.SegmentLocation,
+			StreamID:          queueSegment.StreamID,
+			Position:          queueSegment.Position,
 		}
 
 		err = containment.IncrementPending(ctx, pending)
@@ -1200,11 +1175,7 @@ func TestReverifyUnknownError(t *testing.T) {
 		require.Len(t, report.Unknown, 1)
 		require.Equal(t, report.Unknown[0], badNode)
 
-		// record audit
-		_, err = audits.Reporter.RecordAudits(ctx, report)
-		require.NoError(t, err)
-
-		// make sure that pending audit is removed by the reporter when audit is recorded
+		// make sure that pending audit is removed
 		_, err = containment.Get(ctx, pending.NodeID)
 		require.True(t, audit.ErrContainedNotFound.Has(err))
 	})

@@ -213,12 +213,12 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						userEmails = append(userEmails, email.(string))
 					}
 
-					err = service.DeleteProjectMembers(p.Context, projectID, userEmails)
+					project, err := service.GetProject(p.Context, projectID)
 					if err != nil {
 						return nil, err
 					}
 
-					project, err := service.GetProject(p.Context, projectID)
+					err = service.DeleteProjectMembers(p.Context, project.ID, userEmails)
 					if err != nil {
 						return nil, err
 					}

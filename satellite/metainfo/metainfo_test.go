@@ -895,7 +895,7 @@ func TestRemoteSegment(t *testing.T) {
 		uplink := planet.Uplinks[0]
 
 		expectedBucketName := "remote-segments-bucket"
-		err := uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "file-object", testrand.Bytes(10*memory.KiB))
+		err := uplink.Upload(ctx, planet.Satellites[0], expectedBucketName, "file-object", testrand.Bytes(50*memory.KiB))
 		require.NoError(t, err)
 
 		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
@@ -926,6 +926,36 @@ func TestRemoteSegment(t *testing.T) {
 			})
 			require.NoError(t, err)
 			require.NotEmpty(t, limits)
+		}
+
+		{
+			// Download Object
+			download, err := metainfoClient.DownloadObject(ctx, metaclient.DownloadObjectParams{
+				Bucket:             []byte(expectedBucketName),
+				EncryptedObjectKey: items[0].EncryptedPath,
+				Range: metaclient.StreamRange{
+					Mode:  metaclient.StreamRangeStartLimit,
+					Start: 1,
+					Limit: 2,
+				},
+			})
+			require.NoError(t, err)
+			require.Len(t, download.DownloadedSegments, 1)
+			require.NotEmpty(t, download.DownloadedSegments[0].Limits)
+			for _, limit := range download.DownloadedSegments[0].Limits {
+				if limit == nil {
+					continue
+				}
+				// requested download size is
+				//      [1:2}
+				// calculating encryption input block size (7408) indices gives us:
+				//      0 and 1
+				// converting these into output block size (7424), gives us:
+				//      [0:7424}
+				// this aligned to stripe size (256), gives us:
+				//      [0:7424}
+				require.Equal(t, int64(7424), limit.Limit.Limit)
+			}
 		}
 
 		{
@@ -1902,5 +1932,35 @@ func TestStableUploadID(t *testing.T) {
 		require.Len(t, listResp4.Items, 1)
 		// check that the StreamID is still the same.
 		assert.Equal(t, listResp[0].StreamID, listResp4.Items[0].StreamID)
+	})
+}
+
+func TestObjectSegmentExpiresAt(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		inlineData := testrand.Bytes(1 * memory.KiB)
+		inlineExpiration := time.Now().Add(2 * time.Hour)
+		err := planet.Uplinks[0].UploadWithExpiration(ctx, planet.Satellites[0], "hohoho", "inline_object", inlineData, inlineExpiration)
+		require.NoError(t, err)
+
+		remoteData := testrand.Bytes(10 * memory.KiB)
+		remoteExpiration := time.Now().Add(4 * time.Hour)
+		err = planet.Uplinks[0].UploadWithExpiration(ctx, planet.Satellites[0], "hohoho", "remote_object", remoteData, remoteExpiration)
+		require.NoError(t, err)
+
+		segments, err := planet.Satellites[0].Metainfo.Metabase.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Len(t, segments, 2)
+
+		for _, segment := range segments {
+			if int(segment.PlainSize) == len(inlineData) {
+				require.Equal(t, inlineExpiration.Unix(), segment.ExpiresAt.Unix())
+			} else if int(segment.PlainSize) == len(remoteData) {
+				require.Equal(t, remoteExpiration.Unix(), segment.ExpiresAt.Unix())
+			} else {
+				t.Fail()
+			}
+		}
 	})
 }

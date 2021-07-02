@@ -27,7 +27,7 @@ var (
 
 // Config contains configurable values for the tally service.
 type Config struct {
-	Interval            time.Duration `help:"how frequently the tally service should run" releaseDefault:"1h" devDefault:"30s"`
+	Interval            time.Duration `help:"how frequently the tally service should run" releaseDefault:"1h" devDefault:"30s" testDefault:"$TESTINTERVAL"`
 	SaveRollupBatchSize int           `help:"how large of batches SaveRollup should process at a time" default:"1000"`
 	ReadRollupBatchSize int           `help:"how large of batches GetBandwidthSince should process at a time" default:"10000"`
 }
@@ -280,6 +280,8 @@ func (observer *Observer) LoopStarted(context.Context, metaloop.LoopInfo) (err e
 
 // Object is called for each object once.
 func (observer *Observer) Object(ctx context.Context, object *metaloop.Object) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if object.Expired(observer.Now) {
 		return nil
 	}
@@ -293,6 +295,8 @@ func (observer *Observer) Object(ctx context.Context, object *metaloop.Object) (
 
 // InlineSegment is called for each inline segment.
 func (observer *Observer) InlineSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if segment.Expired(observer.Now) {
 		return nil
 	}
@@ -306,6 +310,8 @@ func (observer *Observer) InlineSegment(ctx context.Context, segment *metaloop.S
 
 // RemoteSegment is called for each remote segment.
 func (observer *Observer) RemoteSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	if segment.Expired(observer.Now) {
 		return nil
 	}

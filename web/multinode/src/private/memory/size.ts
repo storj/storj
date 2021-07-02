@@ -4,7 +4,7 @@
 /**
  * Base10 sizes.
  */
-enum SizeBreakpoints {
+export enum SizeBreakpoints {
     KB = 1e3,
     MB = 1e6,
     GB = 1e9,

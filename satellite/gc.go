@@ -24,7 +24,7 @@ import (
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/gc"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metaloop"
+	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -56,7 +56,7 @@ type GarbageCollection struct {
 	}
 
 	Metainfo struct {
-		Loop *metaloop.Service
+		SegmentLoop *segmentloop.Service
 	}
 
 	GarbageCollection struct {
@@ -128,18 +128,18 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup metainfo
-		// Garbage Collection creates its own instance of the metainfo loop here. Since
-		// GC runs infrequently, this shouldn't add too much extra load on the metainfo db.
-		// As long as garbage collection is the only observer joining the metainfo loop, then by default
-		// the metainfo loop will only run when the garbage collection joins (which happens every GarbageCollection.Interval)
-		peer.Metainfo.Loop = metaloop.New(
-			config.Metainfo.Loop,
+		// Garbage Collection creates its own instance of the loop here. Since
+		// GC runs infrequently, this shouldn't add too much extra load on the metabase db.
+		// As long as garbage collection is the only observer joining the loop, then by default
+		// the loop will only run when the garbage collection joins (which happens every GarbageCollection.Interval)
+		peer.Metainfo.SegmentLoop = segmentloop.New(
+			config.Metainfo.SegmentLoop,
 			metabaseDB,
 		)
 		peer.Services.Add(lifecycle.Item{
-			Name:  "metainfo:loop",
-			Run:   peer.Metainfo.Loop.Run,
-			Close: peer.Metainfo.Loop.Close,
+			Name:  "metainfo:segmentloop",
+			Run:   peer.Metainfo.SegmentLoop.Run,
+			Close: peer.Metainfo.SegmentLoop.Close,
 		})
 	}
 
@@ -149,7 +149,7 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.GarbageCollection,
 			peer.Dialer,
 			peer.Overlay.DB,
-			peer.Metainfo.Loop,
+			peer.Metainfo.SegmentLoop,
 		)
 		peer.Services.Add(lifecycle.Item{
 			Name: "garbage-collection",

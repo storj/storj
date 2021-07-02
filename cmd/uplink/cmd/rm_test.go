@@ -67,6 +67,12 @@ func TestRmPending(t *testing.T) {
 			require.NoError(t, err)
 		}
 
+		// Ensure all of the objects exist
+		{
+			require.True(t, pendingObjectExists(ctx, satellite, project, bucketName, "pending-object"))
+			require.True(t, pendingObjectExists(ctx, satellite, project, bucketName, "prefixed/pending-object"))
+		}
+
 		// Try to delete a non-existing object.
 		{
 			cmd := exec.Command(uplinkExe,
