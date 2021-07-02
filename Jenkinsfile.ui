@@ -15,8 +15,9 @@ pipeline {
         GOTRACEBACK = 'all'
         COCKROACH_MEMPROF_INTERVAL=0
     }
-  try {
+
     stages {
+      try {
         stage('Build') {
             steps {
                 checkout scm
@@ -68,13 +69,13 @@ pipeline {
                 }
             }
         }
-
+      }
+      catch (err) {
+            echo "Caught errors! ${err}"
+            slackSend color: 'danger', message: "@team-qa build failed"
+      }
     }
-  }
-  catch (err) {
-      echo "Caught errors! ${err}"
-      slackSend color: 'danger', message: "@team-qa build failed"
-  }
+
     post {
         always {
             sh "chmod -R 777 ." // ensure Jenkins agent can delete the working directory
