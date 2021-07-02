@@ -17,7 +17,7 @@ pipeline {
     }
 
     stages {
-      try {
+
         stage('Build') {
             steps {
                 checkout scm
@@ -67,13 +67,16 @@ pipeline {
                     archiveArtifacts artifacts: '.build/ui-tests.json'
                     junit '.build/ui-tests.xml'
                 }
+                success {
+                            echo 'Successfully!'
+                        }
+                        failure {
+                            echo 'Failed!'
+                            slackSend color: 'danger', message: "@team-qa build failed"
+                        }
+                }
             }
         }
-      }
-      catch (err) {
-            echo "Caught errors! ${err}"
-            slackSend color: 'danger', message: "@team-qa build failed"
-      }
     }
 
     post {
