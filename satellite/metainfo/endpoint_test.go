@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/errs2"
@@ -566,5 +567,53 @@ func TestCommitSegment_Validation(t *testing.T) {
 		})
 		require.Error(t, err)
 		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+	})
+}
+
+func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+		satelliteSys := planet.Satellites[0]
+		uplnk := planet.Uplinks[0]
+
+		// upload a small inline object
+		err := uplnk.Upload(ctx, planet.Satellites[0], "testbucket", "testobject", testrand.Bytes(1*memory.KiB))
+		require.NoError(t, err)
+
+		objects, err := satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objects, 1)
+		// TODO: we expect no encrypted metadata at this point, but for some reason there are 111 bytes of metadata.
+		// assert.Nil(t, objects[0].EncryptedMetadata, len(objects[0].EncryptedMetadata))
+		assert.Nil(t, objects[0].EncryptedMetadataEncryptedKey)
+		zeroNonce := storj.Nonce{}
+		assert.Equal(t, zeroNonce[:], objects[0].EncryptedMetadataNonce)
+
+		testEncryptedMetadata := testrand.BytesInt(64)
+		testEncryptedMetadataEncryptedKey := testrand.BytesInt(32)
+		testEncryptedMetadataNonce := testrand.Nonce()
+
+		// update the object metadata
+		_, err = satelliteSys.API.Metainfo.Endpoint.UpdateObjectMetadata(ctx, &pb.ObjectUpdateMetadataRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Bucket:                        []byte("testbucket"),
+			EncryptedObjectKey:            []byte(objects[0].ObjectKey),
+			EncryptedMetadataNonce:        testEncryptedMetadataNonce,
+			EncryptedMetadata:             testEncryptedMetadata,
+			EncryptedMetadataEncryptedKey: testEncryptedMetadataEncryptedKey,
+		})
+		require.NoError(t, err)
+
+		// assert the metadata has been updated
+		objects, err = satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objects, 1)
+		assert.Equal(t, testEncryptedMetadata, objects[0].EncryptedMetadata)
+		assert.Equal(t, testEncryptedMetadataEncryptedKey, objects[0].EncryptedMetadataEncryptedKey)
+		assert.Equal(t, testEncryptedMetadataNonce[:], objects[0].EncryptedMetadataNonce)
 	})
 }
