@@ -69,12 +69,12 @@ pipeline {
                 }
                 success {
                             echo 'Successfully!'
-                        }
-                        failure {
+                }
+                failure {
                             echo 'Failed!'
                             slackSend color: 'danger', message: "@team-qa build failed"
-                        }
                 }
+
             }
         }
     }
