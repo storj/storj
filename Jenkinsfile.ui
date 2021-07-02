@@ -67,19 +67,18 @@ pipeline {
                     archiveArtifacts artifacts: '.build/ui-tests.json'
                     junit '.build/ui-tests.xml'
                 }
-                success {
-                            echo 'Successfully!'
-                }
-                failure {
-                            echo 'Failed!'
-                            slackSend color: 'danger', message: "@team-qa build failed"
-                }
-
             }
         }
     }
 
     post {
+         success {
+             echo 'Successfully!'
+         }
+         failure {
+             echo 'Failed!'
+             slackSend color: 'danger', message: "@team-qa build failed"
+         }
         always {
             sh "chmod -R 777 ." // ensure Jenkins agent can delete the working directory
             deleteDir()
