@@ -1,3 +1,6 @@
+// Copyright (C) 2021 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package endpoints
 
 //delete the graphql_schema.txt if the endpoints were modified.

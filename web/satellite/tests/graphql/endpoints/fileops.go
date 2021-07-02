@@ -1,3 +1,6 @@
+// Copyright (C) 2021 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package endpoints
 
 import (
@@ -51,4 +54,3 @@ func deletefile(fn string) {
 	err := os.Remove(fn)
 	check(err)
 }
-
