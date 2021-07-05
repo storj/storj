@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/storj/private/multinodepb"
 )
@@ -24,6 +25,8 @@ var (
 	Error = errs.Class("nodes")
 	// ErrNodeNotReachable is an error class that indicates that we are not able to establish drpc connection with node.
 	ErrNodeNotReachable = errs.Class("node is not reachable")
+	// ErrNodeAPIKeyInvalid is an error class that indicates that we uses wrong api key.
+	ErrNodeAPIKeyInvalid = errs.Class("node api key is invalid")
 )
 
 // Service exposes all nodes related logic.
@@ -47,6 +50,33 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, nodes DB) *Service {
 // Add adds new node to the system.
 func (service *Service) Add(ctx context.Context, id storj.NodeID, apiSecret []byte, publicAddress string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// trying to connect to node to check its availability.
+	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+		ID:      id,
+		Address: publicAddress,
+	})
+	if err != nil {
+		return ErrNodeNotReachable.Wrap(err)
+	}
+	defer func() {
+		err = errs.Combine(err, conn.Close())
+	}()
+
+	nodeClient := multinodepb.NewDRPCNodeClient(conn)
+	header := &multinodepb.RequestHeader{
+		ApiKey: apiSecret,
+	}
+
+	// making test request to check node api key.
+	_, err = nodeClient.Version(ctx, &multinodepb.VersionRequest{Header: header})
+	if err != nil {
+		if rpcstatus.Code(err) == rpcstatus.Unauthenticated {
+			return ErrNodeAPIKeyInvalid.Wrap(err)
+		}
+		return Error.Wrap(err)
+	}
+
 	return Error.Wrap(service.nodes.Add(ctx, id, apiSecret, publicAddress))
 }
 
