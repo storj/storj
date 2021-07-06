@@ -122,6 +122,7 @@ func (node *NodeEndpoint) Reputation(ctx context.Context, req *multinodepb.Reput
 		SuspendedAt:          rep.SuspendedAt,
 		OfflineSuspendedAt:   rep.OfflineSuspendedAt,
 		OfflineUnderReviewAt: rep.OfflineUnderReviewAt,
+		VettedAt:             rep.VettedAt,
 		UpdatedAt:            rep.UpdatedAt,
 		JoinedAt:             rep.JoinedAt,
 	}, nil

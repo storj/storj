@@ -132,6 +132,7 @@ func (service *Service) dialStats(ctx context.Context, node nodes.Node, satellit
 		SuspendedAt:          resp.SuspendedAt,
 		OfflineSuspendedAt:   resp.OfflineSuspendedAt,
 		OfflineUnderReviewAt: resp.OfflineUnderReviewAt,
+		VettedAt:             resp.VettedAt,
 		UpdatedAt:            resp.UpdatedAt,
 		JoinedAt:             resp.JoinedAt,
 	}, nil
