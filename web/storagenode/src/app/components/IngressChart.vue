@@ -156,7 +156,6 @@ export default class IngressChart extends BaseChart {
             margin-bottom: 14px;
             position: relative;
             color: var(--ingress-font-color);
-            z-index: 9999;
         }
     }
 
