@@ -162,7 +162,6 @@ export default class EgressChart extends BaseChart {
             margin-bottom: 14px;
             position: relative;
             color: var(--egress-font-color);
-            z-index: 9999;
         }
     }
 
