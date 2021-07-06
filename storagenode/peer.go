@@ -826,6 +826,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if err = multinodepb.DRPCRegisterPayout(peer.Server.DRPC(), peer.Multinode.Payout); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+		if err = multinodepb.DRPCRegisterPayouts(peer.Server.DRPC(), peer.Multinode.Payout); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 	}
 
 	return peer, nil
