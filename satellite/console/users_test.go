@@ -135,6 +135,7 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.Equal(t, name, userByEmail.FullName)
 		assert.Equal(t, lastName, userByEmail.ShortName)
 		assert.Equal(t, user.PartnerID, userByEmail.PartnerID)
+		assert.False(t, user.PaidTier)
 		if user.IsProfessional {
 			assert.Equal(t, workingOn, userByEmail.WorkingOn)
 			assert.Equal(t, position, userByEmail.Position)
@@ -189,6 +190,7 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 			ShortName:    newLastName,
 			Email:        newEmail,
 			Status:       console.Active,
+			PaidTier:     true,
 			PasswordHash: []byte(newPass),
 		}
 
@@ -202,6 +204,7 @@ func testUsers(ctx context.Context, t *testing.T, repository console.Users, user
 		assert.Equal(t, newLastName, newUser.ShortName)
 		assert.Equal(t, newEmail, newUser.Email)
 		assert.Equal(t, []byte(newPass), newUser.PasswordHash)
+		assert.True(t, newUser.PaidTier)
 		// PartnerID should not change
 		assert.Equal(t, user.PartnerID, newUser.PartnerID)
 		assert.Equal(t, oldUser.CreatedAt, newUser.CreatedAt)

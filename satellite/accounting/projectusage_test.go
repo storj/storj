@@ -117,7 +117,7 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
 				Reconfigure: testplanet.Reconfigure{
 					Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-						config.LiveAccounting.AsOfSystemInterval = time.Millisecond
+						config.LiveAccounting.AsOfSystemInterval = -time.Millisecond
 					},
 				},
 			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -634,7 +634,7 @@ func TestProjectUsageBandwidthResetAfter3days(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.UsageLimits.DefaultStorageLimit = 1 * memory.MB
 				config.Console.UsageLimits.DefaultBandwidthLimit = 1 * memory.MB
-				config.LiveAccounting.AsOfSystemInterval = time.Millisecond
+				config.LiveAccounting.AsOfSystemInterval = -time.Millisecond
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

@@ -5,6 +5,7 @@ exports[`Dashboard renders correctly when data is loaded 1`] = `
   <!---->
   <!---->
   <div class="dashboard__wrap">
+    <!---->
     <dashboardheader-stub></dashboardheader-stub>
     <div class="dashboard__wrap__main-area">
       <navigationarea-stub class="regular-navigation"></navigationarea-stub>

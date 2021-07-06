@@ -160,6 +160,80 @@ func TestUpload(t *testing.T) {
 	})
 }
 
+// TestSlowUpload tries to mock a SlowLoris attack.
+func TestSlowUpload(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+
+			StorageNode: func(index int, config *storagenode.Config) {
+				// Set MinUploadSpeed to extremely high to indicates that
+				// client upload rate is slow (relative to node's standards)
+				config.Storage2.MinUploadSpeed = 10000000 * memory.MB
+
+				// Storage Node waits only few microsecond before starting the measurement
+				// of upload rate to flag unsually slow connection
+				config.Storage2.MinUploadSpeedGraceDuration = 500 * time.Microsecond
+
+				config.Storage2.MinUploadSpeedCongestionThreshold = 0.8
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		client, err := planet.Uplinks[0].DialPiecestore(ctx, planet.StorageNodes[0])
+		require.NoError(t, err)
+		defer ctx.Check(client.Close)
+
+		for _, tt := range []struct {
+			pieceID       storj.PieceID
+			contentLength memory.Size
+			action        pb.PieceAction
+			err           string
+		}{
+			{ // connection should be aborted
+				pieceID: storj.PieceID{1},
+				// As the server node only starts flagging unusually slow connection
+				// after 500 micro seconds, the file should be big enough to ensure the connection is still open.
+				contentLength: 50 * memory.MB,
+				action:        pb.PieceAction_PUT,
+				err:           "speed too low",
+			},
+		} {
+			data := testrand.Bytes(tt.contentLength)
+
+			serialNumber := testrand.SerialNumber()
+
+			orderLimit, piecePrivateKey := GenerateOrderLimit(
+				t,
+				planet.Satellites[0].ID(),
+				planet.StorageNodes[0].ID(),
+				tt.pieceID,
+				tt.action,
+				serialNumber,
+				24*time.Hour,
+				24*time.Hour,
+				int64(len(data)),
+			)
+			signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
+			orderLimit, err = signing.SignOrderLimit(ctx, signer, orderLimit)
+			require.NoError(t, err)
+
+			pieceHash, err := client.UploadReader(ctx, orderLimit, piecePrivateKey, bytes.NewReader(data))
+
+			if tt.err != "" {
+				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.err)
+			} else {
+				require.NoError(t, err)
+
+				expectedHash := pkcrypto.SHA256Hash(data)
+				assert.Equal(t, expectedHash, pieceHash.Hash)
+
+				signee := signing.SignerFromFullIdentity(planet.StorageNodes[0].Identity)
+				require.NoError(t, signing.VerifyPieceHashSignature(ctx, signee, pieceHash))
+			}
+		}
+	})
+}
 func TestUploadOverAvailable(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,

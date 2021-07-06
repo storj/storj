@@ -54,6 +54,7 @@ export function makeUsersModule(api: UsersApi): StoreModule<User> {
                 }
 
                 state.projectLimit = user.projectLimit;
+                state.paidTier = user.paidTier;
             },
 
             [CLEAR](state: User): void {

@@ -124,10 +124,10 @@ type API struct {
 	}
 
 	Payments struct {
-		Accounts payments.Accounts
-		Version  *stripecoinpayments.VersionService
-		Service  *stripecoinpayments.Service
-		Stripe   stripecoinpayments.StripeClient
+		Accounts   payments.Accounts
+		Conversion *stripecoinpayments.ConversionService
+		Service    *stripecoinpayments.Service
+		Stripe     stripecoinpayments.StripeClient
 	}
 
 	Console struct {
@@ -525,8 +525,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.CouponValue,
 			pc.CouponDuration.IntPointer(),
 			pc.CouponProjectLimit,
-			pc.MinCoinPayment,
-			pc.PaywallProportion)
+			pc.MinCoinPayment)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -534,15 +533,15 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Payments.Stripe = stripeClient
 		peer.Payments.Accounts = peer.Payments.Service.Accounts()
-		peer.Payments.Version = stripecoinpayments.NewVersionService(
+		peer.Payments.Conversion = stripecoinpayments.NewConversionService(
 			peer.Log.Named("payments.stripe:version"),
 			peer.Payments.Service,
 			pc.StripeCoinPayments.ConversionRatesCycleInterval)
 
 		peer.Services.Add(lifecycle.Item{
 			Name:  "payments.stripe:version",
-			Run:   peer.Payments.Version.Run,
-			Close: peer.Payments.Version.Close,
+			Run:   peer.Payments.Conversion.Run,
+			Close: peer.Payments.Conversion.Close,
 		})
 	}
 

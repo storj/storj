@@ -193,6 +193,12 @@ message ReputationRequest {
   bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
 }
 
+message AuditWindow {
+  google.protobuf.Timestamp window_start = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  int32 online_count = 2;
+  int32 total_count = 3;
+}
+
 message ReputationResponse {
   message Online {
     double score = 1;
@@ -200,10 +206,23 @@ message ReputationResponse {
   message Audit {
     double score = 1;
     double suspension_score = 2;
+    int64 total_count = 3;
+    int64 success_count = 4;
+    double alpha = 5;
+    double beta = 6;
+    double unknown_alpha = 7;
+    double unknown_beta = 8;
+    repeated AuditWindow history = 9;
   }
 
   Online online = 1;
   Audit audit = 2;
+  google.protobuf.Timestamp disqualified_at = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  google.protobuf.Timestamp suspended_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  google.protobuf.Timestamp offline_suspended_at = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  google.protobuf.Timestamp offline_under_review_at = 6 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  google.protobuf.Timestamp updated_at = 7 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp joined_at = 8 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 }
 
 message TrustedSatellitesRequest {

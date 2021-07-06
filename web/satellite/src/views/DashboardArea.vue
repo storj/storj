@@ -15,6 +15,7 @@
             </p>
         </div>
         <div v-if="!isLoading" class="dashboard__wrap">
+            <PaidTierBar v-if="!isPaidTierStatus && !isOnboardingTour"/>
             <DashboardHeader/>
             <div class="dashboard__wrap__main-area">
                 <NavigationArea class="regular-navigation"/>
@@ -29,6 +30,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import PaidTierBar from '@/components/account/billing/paidTier/PaidTierBar.vue';
 import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
@@ -47,9 +49,7 @@ import { LocalData } from '@/utils/localData';
 import { MetaUtils } from '@/utils/meta';
 
 const {
-    GET_PAYWALL_ENABLED_STATUS,
     SETUP_ACCOUNT,
-    GET_BALANCE,
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
 } = PAYMENTS_ACTIONS;
 
@@ -58,6 +58,7 @@ const {
         NavigationArea,
         DashboardHeader,
         LoaderImage,
+        PaidTierBar,
     },
 })
 export default class DashboardArea extends Vue {
@@ -93,12 +94,6 @@ export default class DashboardArea extends Vue {
         }
 
         try {
-            await this.$store.dispatch(GET_PAYWALL_ENABLED_STATUS);
-        } catch (error) {
-            await this.$notify.error(`Unable to get paywall enabled status. ${error.message}`);
-        }
-
-        try {
             await this.$store.dispatch(SETUP_ACCOUNT);
         } catch (error) {
             await this.$notify.error(`Unable to setup account. ${error.message}`);
@@ -129,6 +124,20 @@ export default class DashboardArea extends Vue {
         this.selectProject(projects);
 
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+    }
+
+    /**
+     * Returns user's paid tier status from store.
+     */
+    public get isPaidTierStatus(): boolean {
+        return this.$store.state.usersModule.paidTier;
+    }
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    public get isOnboardingTour(): boolean {
+        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 
     /**

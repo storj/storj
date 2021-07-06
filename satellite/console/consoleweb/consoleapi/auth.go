@@ -264,6 +264,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		CompanyName      string    `json:"companyName"`
 		EmployeeCount    string    `json:"employeeCount"`
 		HaveSalesContact bool      `json:"haveSalesContact"`
+		PaidTier         bool      `json:"paidTier"`
 	}
 
 	auth, err := console.GetAuth(ctx)
@@ -283,6 +284,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.Position = auth.User.Position
 	user.EmployeeCount = auth.User.EmployeeCount
 	user.HaveSalesContact = auth.User.HaveSalesContact
+	user.PaidTier = auth.User.PaidTier
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(&user)
@@ -455,18 +457,8 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 
 // serveJSONError writes JSON error to response output stream.
 func (a *Auth) serveJSONError(w http.ResponseWriter, err error) {
-	w.WriteHeader(a.getStatusCode(err))
-
-	var response struct {
-		Error string `json:"error"`
-	}
-
-	response.Error = err.Error()
-
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		a.log.Error("failed to write json error response", zap.Error(ErrAuthAPI.Wrap(err)))
-	}
+	status := a.getStatusCode(err)
+	serveJSONError(a.log, w, status, err)
 }
 
 // getStatusCode returns http.StatusCode depends on console error class.

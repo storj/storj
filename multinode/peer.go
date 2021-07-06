@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/multinode/nodes"
 	"storj.io/storj/multinode/operators"
 	"storj.io/storj/multinode/payouts"
+	"storj.io/storj/multinode/reputation"
 	"storj.io/storj/multinode/storage"
 	"storj.io/storj/private/lifecycle"
 )
@@ -82,6 +83,10 @@ type Peer struct {
 
 	Storage struct {
 		Service *storage.Service
+	}
+
+	Reputation struct {
+		Service *reputation.Service
 	}
 
 	// Web server with web UI.
@@ -154,6 +159,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config, db DB) (_ 
 		)
 	}
 
+	{ // reputation setup
+		peer.Reputation.Service = reputation.NewService(
+			peer.Log.Named("reputation:service"),
+			peer.Dialer,
+			peer.DB.Nodes(),
+		)
+	}
+
 	{ // console setup
 		peer.Console.Listener, err = net.Listen("tcp", config.Console.Address)
 		if err != nil {
@@ -165,11 +178,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config, db DB) (_ 
 			peer.Console.Listener,
 			config.Console,
 			server.Services{
-				Nodes:     peer.Nodes.Service,
-				Payouts:   peer.Payouts.Service,
-				Operators: peer.Operators.Service,
-				Storage:   peer.Storage.Service,
-				Bandwidth: peer.Bandwidth.Service,
+				Nodes:      peer.Nodes.Service,
+				Payouts:    peer.Payouts.Service,
+				Operators:  peer.Operators.Service,
+				Storage:    peer.Storage.Service,
+				Bandwidth:  peer.Bandwidth.Service,
+				Reputation: peer.Reputation.Service,
 			},
 		)
 		if err != nil {

@@ -1501,6 +1501,41 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add paid_tier column to users table",
+				Version:     164,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN paid_tier bool NOT NULL DEFAULT false;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add repair_queue table, replacement for injuredsegments table",
+				Version:     165,
+				Action: migrate.SQL{
+					`CREATE TABLE repair_queue (
+						stream_id bytea NOT NULL,
+						position bigint NOT NULL,
+						attempted_at timestamp with time zone,
+						updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						segment_health double precision NOT NULL DEFAULT 1,
+						PRIMARY KEY ( stream_id, position )
+					)`,
+					`CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at )`,
+					`CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at NULLS FIRST)`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add total_bytes table and total_segments_count for bucket_storage_tallies table",
+				Version:     166,
+				Action: migrate.SQL{
+					`ALTER TABLE bucket_storage_tallies ADD COLUMN total_bytes bigint NOT NULL DEFAULT 0;`,
+					`ALTER TABLE bucket_storage_tallies ADD COLUMN total_segments_count integer NOT NULL DEFAULT 0;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
