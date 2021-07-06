@@ -8,12 +8,14 @@
             title="Storage"
             :used="storageUsed"
             :limit="storageLimit"
+            :is-data-fetching="isDataFetching"
         />
         <UsageArea
             class="project-usage__bandwidth-used"
             title="Bandwidth"
             :used="bandwidthUsed"
             :limit="bandwidthLimit"
+            :is-data-fetching="isDataFetching"
         />
     </div>
 </template>
@@ -31,6 +33,8 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
     },
 })
 export default class ProjectUsage extends Vue {
+    public isDataFetching: boolean = true;
+
     /**
      * Lifecycle hook after initial render.
      * Fetches project limits.
@@ -42,6 +46,8 @@ export default class ProjectUsage extends Vue {
 
         try {
             await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
+
+            this.isDataFetching = false;
         } catch (error) {
             await this.$notify.error(error.message);
         }

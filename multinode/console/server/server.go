@@ -15,10 +15,13 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
+	"storj.io/storj/multinode/bandwidth"
 	"storj.io/storj/multinode/console/controllers"
 	"storj.io/storj/multinode/nodes"
 	"storj.io/storj/multinode/operators"
 	"storj.io/storj/multinode/payouts"
+	"storj.io/storj/multinode/reputation"
+	"storj.io/storj/multinode/storage"
 )
 
 var (
@@ -32,32 +35,47 @@ type Config struct {
 	StaticDir string `help:"path to static resources" default:""`
 }
 
+// Services contains services utilized by multinode dashboard.
+type Services struct {
+	Nodes      *nodes.Service
+	Payouts    *payouts.Service
+	Operators  *operators.Service
+	Storage    *storage.Service
+	Bandwidth  *bandwidth.Service
+	Reputation *reputation.Service
+}
+
 // Server represents Multinode Dashboard http server.
 //
 // architecture: Endpoint
 type Server struct {
-	log *zap.Logger
-
-	config    Config
-	nodes     *nodes.Service
-	payouts   *payouts.Service
-	operators *operators.Service
-
+	log      *zap.Logger
 	listener net.Listener
 	http     http.Server
+	config   Config
+
+	nodes      *nodes.Service
+	payouts    *payouts.Service
+	operators  *operators.Service
+	bandwidth  *bandwidth.Service
+	storage    *storage.Service
+	reputation *reputation.Service
 
 	index *template.Template
 }
 
 // NewServer returns new instance of Multinode Dashboard http server.
-func NewServer(log *zap.Logger, config Config, nodes *nodes.Service, payouts *payouts.Service, operators *operators.Service, listener net.Listener) (*Server, error) {
+func NewServer(log *zap.Logger, listener net.Listener, config Config, services Services) (*Server, error) {
 	server := Server{
-		log:       log,
-		config:    config,
-		nodes:     nodes,
-		operators: operators,
-		payouts:   payouts,
-		listener:  listener,
+		log:        log,
+		listener:   listener,
+		config:     config,
+		nodes:      services.Nodes,
+		operators:  services.Operators,
+		payouts:    services.Payouts,
+		storage:    services.Storage,
+		bandwidth:  services.Bandwidth,
+		reputation: services.Reputation,
 	}
 
 	router := mux.NewRouter()
@@ -80,6 +98,13 @@ func NewServer(log *zap.Logger, config Config, nodes *nodes.Service, payouts *pa
 	operatorsRouter := apiRouter.PathPrefix("/operators").Subrouter()
 	operatorsRouter.HandleFunc("", operatorsController.ListPaginated).Methods(http.MethodGet)
 
+	bandwidthController := controllers.NewBandwidth(server.log, server.bandwidth)
+	bandwidthRouter := apiRouter.PathPrefix("/bandwidth").Subrouter()
+	bandwidthRouter.HandleFunc("/", bandwidthController.Monthly).Methods(http.MethodGet)
+	bandwidthRouter.HandleFunc("/{nodeID}", bandwidthController.MonthlyNode).Methods(http.MethodGet)
+	bandwidthRouter.HandleFunc("/satellites/{id}", bandwidthController.MonthlySatellite).Methods(http.MethodGet)
+	bandwidthRouter.HandleFunc("/satellites/{id}/{nodeID}", bandwidthController.MonthlySatelliteNode).Methods(http.MethodGet)
+
 	payoutsController := controllers.NewPayouts(server.log, server.payouts)
 	payoutsRouter := apiRouter.PathPrefix("/payouts").Subrouter()
 	payoutsRouter.HandleFunc("/summaries", payoutsController.Summary).Methods(http.MethodGet)
@@ -94,6 +119,19 @@ func NewServer(log *zap.Logger, config Config, nodes *nodes.Service, payouts *pa
 	payoutsRouter.HandleFunc("/satellites/{id}/summaries/{period}", payoutsController.SummarySatellitePeriod).Methods(http.MethodGet)
 	payoutsRouter.HandleFunc("/satellites/{id}/paystubs/{nodeID}", payoutsController.PaystubSatellite).Methods(http.MethodGet)
 	payoutsRouter.HandleFunc("/satellites/{id}/paystubs/{period}/{nodeID}", payoutsController.PaystubSatellitePeriod).Methods(http.MethodGet)
+
+	storageController := controllers.NewStorage(server.log, server.storage)
+	storageRouter := apiRouter.PathPrefix("/storage").Subrouter()
+	storageRouter.HandleFunc("/usage", storageController.TotalUsage).Methods(http.MethodGet)
+	storageRouter.HandleFunc("/usage/{nodeID}", storageController.Usage).Methods(http.MethodGet)
+	storageRouter.HandleFunc("/satellites/{satelliteID}/usage", storageController.TotalUsageSatellite).Methods(http.MethodGet)
+	storageRouter.HandleFunc("/satellites/{satelliteID}/usage/{nodeID}", storageController.UsageSatellite).Methods(http.MethodGet)
+	storageRouter.HandleFunc("/disk-space", storageController.TotalDiskSpace).Methods(http.MethodGet)
+	storageRouter.HandleFunc("/disk-space/{nodeID}", storageController.DiskSpace).Methods(http.MethodGet)
+
+	reputationController := controllers.NewReputation(server.log, server.reputation)
+	reputationRouter := apiRouter.PathPrefix("/reputation").Subrouter()
+	reputationRouter.HandleFunc("/satellites/{satelliteID}", reputationController.Stats)
 
 	if server.config.StaticDir != "" {
 		router.PathPrefix("/static/").Handler(http.StripPrefix("/static", fs))

@@ -27,7 +27,8 @@ export const PAYMENTS_MUTATIONS = {
     SET_PREVIOUS_ROLLUP_PRICE: 'SET_PREVIOUS_ROLLUP_PRICE',
     SET_PRICE_SUMMARY: 'SET_PRICE_SUMMARY',
     SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT: 'SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT',
-    SET_PAYWALL_ENABLED_STATUS: 'SET_PAYWALL_ENABLED_STATUS',
+    TOGGLE_PAID_TIER_BANNER_TO_LOADING: 'TOGGLE_PAID_TIER_BANNER_TO_LOADING',
+    TOGGLE_PAID_TIER_BANNER_TO_LOADED: 'TOGGLE_PAID_TIER_BANNER_TO_LOADED',
 };
 
 export const PAYMENTS_ACTIONS = {
@@ -45,7 +46,6 @@ export const PAYMENTS_ACTIONS = {
     GET_PROJECT_USAGE_AND_CHARGES: 'getProjectUsageAndCharges',
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP: 'getProjectUsageAndChargesCurrentRollup',
     GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP: 'getProjectUsageAndChargesPreviousRollup',
-    GET_PAYWALL_ENABLED_STATUS: 'getPaywallEnabledStatus',
 };
 
 const {
@@ -59,7 +59,8 @@ const {
     SET_PROJECT_USAGE_AND_CHARGES,
     SET_PRICE_SUMMARY,
     SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT,
-    SET_PAYWALL_ENABLED_STATUS,
+    TOGGLE_PAID_TIER_BANNER_TO_LOADING,
+    TOGGLE_PAID_TIER_BANNER_TO_LOADED,
 } = PAYMENTS_MUTATIONS;
 
 const {
@@ -76,7 +77,6 @@ const {
     MAKE_TOKEN_DEPOSIT,
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
     GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP,
-    GET_PAYWALL_ENABLED_STATUS,
 } = PAYMENTS_ACTIONS;
 
 export class PaymentsState {
@@ -91,7 +91,7 @@ export class PaymentsState {
     public priceSummaryForSelectedProject: number = 0;
     public startDate: Date = new Date();
     public endDate: Date = new Date();
-    public isPaywallEnabled: boolean = true;
+    public isPaidTierBarLoading: boolean = true;
 }
 
 /**
@@ -170,8 +170,11 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
 
                 state.priceSummaryForSelectedProject = usageAndChargesForSelectedProject.summary();
             },
-            [SET_PAYWALL_ENABLED_STATUS](state: PaymentsState, isPaywallEnabled: boolean): void {
-                state.isPaywallEnabled = isPaywallEnabled;
+            [TOGGLE_PAID_TIER_BANNER_TO_LOADING](state: PaymentsState): void {
+                state.isPaidTierBarLoading = true;
+            },
+            [TOGGLE_PAID_TIER_BANNER_TO_LOADED](state: PaymentsState): void {
+                state.isPaidTierBarLoading = false;
             },
             [CLEAR](state: PaymentsState) {
                 state.balance = new AccountBalance();
@@ -181,7 +184,6 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 state.creditCards = [];
                 state.startDate = new Date();
                 state.endDate = new Date();
-                state.isPaywallEnabled = true;
             },
         },
         actions: {
@@ -254,11 +256,6 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 commit(SET_DATE, new DateRange(startUTC, endUTC));
                 commit(SET_PROJECT_USAGE_AND_CHARGES, usageAndCharges);
                 commit(SET_PRICE_SUMMARY, usageAndCharges);
-            },
-            [GET_PAYWALL_ENABLED_STATUS]: async function({commit, rootGetters}: any): Promise<void> {
-                const isPaywallEnabled: boolean = await api.getPaywallStatus(rootGetters.user.id);
-
-                commit(SET_PAYWALL_ENABLED_STATUS, isPaywallEnabled);
             },
         },
         getters: {

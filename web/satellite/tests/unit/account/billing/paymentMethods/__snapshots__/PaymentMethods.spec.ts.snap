@@ -57,6 +57,7 @@ exports[`PaymentMethods renders correctly after add STORJ and cancel click 1`] =
   <!---->
   <!---->
   <!---->
+  <!---->
 </div>
 `;
 
@@ -96,6 +97,7 @@ exports[`PaymentMethods renders correctly after add STORJ and cancel click 2`] =
   <!---->
   <!---->
   <!---->
+  <!---->
 </div>
 `;
 
@@ -125,6 +127,7 @@ exports[`PaymentMethods renders correctly after add card and cancel click 1`] = 
   </div>
   <!---->
   <!---->
+  <!---->
 </div>
 `;
 
@@ -147,6 +150,7 @@ exports[`PaymentMethods renders correctly after add card and cancel click 2`] = 
       <!----> <span>Add Card</span>
     </div>
   </div>
+  <!---->
   <!---->
   <!---->
   <!---->
@@ -189,6 +193,7 @@ exports[`PaymentMethods renders correctly with card 1`] = `
       <!----> <span>Add Card</span>
     </div>
   </div>
+  <!---->
   <!---->
   <div class="payment-methods-area__existing-cards-container">
     <div class="payment-methods-container__card-container">
@@ -254,6 +259,7 @@ exports[`PaymentMethods renders correctly without card 1`] = `
       <!----> <span>Add Card</span>
     </div>
   </div>
+  <!---->
   <!---->
   <!---->
   <!---->

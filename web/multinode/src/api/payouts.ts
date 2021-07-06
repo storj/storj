@@ -174,7 +174,7 @@ export class PayoutsClient extends APIClient {
         const result = await response.json();
 
         return result.map(heldHistoryItem => new HeldAmountSummary(
-            heldHistoryItem.satelliteUrl.Address,
+            heldHistoryItem.satelliteAddress,
             heldHistoryItem.firstQuarter,
             heldHistoryItem.secondQuarter,
             heldHistoryItem.thirdQuarter,

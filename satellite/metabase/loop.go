@@ -23,7 +23,8 @@ const loopIteratorBatchSizeLimit = 2500
 type IterateLoopObjects struct {
 	BatchSize int
 
-	AsOfSystemTime time.Time
+	AsOfSystemTime     time.Time
+	AsOfSystemInterval time.Duration
 }
 
 // Verify verifies get object request fields.
@@ -46,7 +47,13 @@ type LoopObjectEntry struct {
 	CreatedAt             time.Time    // temp used by metabase-createdat-migration
 	ExpiresAt             *time.Time   // tally
 	SegmentCount          int32        // metrics
+	TotalEncryptedSize    int64        // tally
 	EncryptedMetadataSize int          // tally
+}
+
+// Expired checks if object is expired relative to now.
+func (o LoopObjectEntry) Expired(now time.Time) bool {
+	return o.ExpiresAt != nil && o.ExpiresAt.Before(now)
 }
 
 // IterateLoopObjects iterates through all objects in metabase.
@@ -62,9 +69,10 @@ func (db *DB) IterateLoopObjects(ctx context.Context, opts IterateLoopObjects, f
 
 		batchSize: opts.BatchSize,
 
-		curIndex:       0,
-		cursor:         loopIterateCursor{},
-		asOfSystemTime: opts.AsOfSystemTime,
+		curIndex:           0,
+		cursor:             loopIterateCursor{},
+		asOfSystemTime:     opts.AsOfSystemTime,
+		asOfSystemInterval: opts.AsOfSystemInterval,
 	}
 
 	// ensure batch size is reasonable
@@ -91,8 +99,9 @@ func (db *DB) IterateLoopObjects(ctx context.Context, opts IterateLoopObjects, f
 type loopIterator struct {
 	db *DB
 
-	batchSize      int
-	asOfSystemTime time.Time
+	batchSize          int
+	asOfSystemTime     time.Time
+	asOfSystemInterval time.Duration
 
 	curIndex int
 	curRows  tagsql.Rows
@@ -163,10 +172,10 @@ func (it *loopIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err err
 			object_key, stream_id, version,
 			status,
 			created_at, expires_at,
-			segment_count,
+			segment_count, total_encrypted_size,
 			LENGTH(COALESCE(encrypted_metadata,''))
 		FROM objects
-		`+it.db.impl.AsOfSystemTime(it.asOfSystemTime)+`
+		`+it.db.asOfTime(it.asOfSystemTime, it.asOfSystemInterval)+`
 		WHERE (project_id, bucket_name, object_key, version) > ($1, $2, $3, $4)
 		ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
 		LIMIT $5
@@ -183,7 +192,7 @@ func (it *loopIterator) scanItem(item *LoopObjectEntry) error {
 		&item.ObjectKey, &item.StreamID, &item.Version,
 		&item.Status,
 		&item.CreatedAt, &item.ExpiresAt,
-		&item.SegmentCount,
+		&item.SegmentCount, &item.TotalEncryptedSize,
 		&item.EncryptedMetadataSize,
 	)
 }
@@ -192,17 +201,19 @@ func (it *loopIterator) scanItem(item *LoopObjectEntry) error {
 type IterateLoopStreams struct {
 	StreamIDs []uuid.UUID
 
-	AsOfSystemTime time.Time
+	AsOfSystemTime     time.Time
+	AsOfSystemInterval time.Duration
 }
 
 // SegmentIterator returns the next segment.
-type SegmentIterator func(segment *LoopSegmentEntry) bool
+type SegmentIterator func(ctx context.Context, segment *LoopSegmentEntry) bool
 
 // LoopSegmentEntry contains information about segment metadata needed by metainfo loop.
 type LoopSegmentEntry struct {
 	StreamID      uuid.UUID
 	Position      SegmentPosition
 	CreatedAt     *time.Time // repair
+	ExpiresAt     *time.Time
 	RepairedAt    *time.Time // repair
 	RootPieceID   storj.PieceID
 	EncryptedSize int32 // size of the whole segment (not a piece)
@@ -242,14 +253,14 @@ func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, h
 	rows, err := db.db.Query(ctx, `
 		SELECT
 			stream_id, position,
-			created_at, repaired_at,
+			created_at, expires_at, repaired_at,
 			root_piece_id,
 			encrypted_size,
 			plain_offset, plain_size,
 			redundancy,
 			remote_alias_pieces
 		FROM segments
-		`+db.impl.AsOfSystemTime(opts.AsOfSystemTime)+`
+		`+db.asOfTime(opts.AsOfSystemTime, opts.AsOfSystemInterval)+`
 		WHERE
 		    -- this turns out to be a little bit faster than stream_id IN (SELECT unnest($1::BYTEA[]))
 			stream_id = ANY ($1::BYTEA[])
@@ -265,7 +276,8 @@ func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, h
 	for _, streamID := range opts.StreamIDs {
 		streamID := streamID
 		var internalError error
-		err := handleStream(ctx, streamID, func(output *LoopSegmentEntry) bool {
+		err := handleStream(ctx, streamID, func(ctx context.Context, output *LoopSegmentEntry) bool {
+			mon.TaskNamed("handleStreamCB-SegmentIterator")(&ctx)(nil)
 			if nextSegment != nil {
 				if nextSegment.StreamID != streamID {
 					return false
@@ -287,7 +299,7 @@ func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, h
 			var aliasPieces AliasPieces
 			err = rows.Scan(
 				&segment.StreamID, &segment.Position,
-				&segment.CreatedAt, &segment.RepairedAt,
+				&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
 				&segment.RootPieceID,
 				&segment.EncryptedSize,
 				&segment.PlainOffset, &segment.PlainSize,
@@ -332,8 +344,9 @@ type LoopSegmentsIterator interface {
 
 // IterateLoopSegments contains arguments necessary for listing segments in metabase.
 type IterateLoopSegments struct {
-	BatchSize      int
-	AsOfSystemTime time.Time
+	BatchSize          int
+	AsOfSystemTime     time.Time
+	AsOfSystemInterval time.Duration
 }
 
 // Verify verifies segments request fields.
@@ -355,8 +368,9 @@ func (db *DB) IterateLoopSegments(ctx context.Context, opts IterateLoopSegments,
 	it := &loopSegmentIterator{
 		db: db,
 
-		asOfSystemTime: opts.AsOfSystemTime,
-		batchSize:      opts.BatchSize,
+		asOfSystemTime:     opts.AsOfSystemTime,
+		asOfSystemInterval: opts.AsOfSystemInterval,
+		batchSize:          opts.BatchSize,
 
 		curIndex: 0,
 		cursor:   loopSegmentIteratorCursor{},
@@ -386,8 +400,9 @@ func (db *DB) IterateLoopSegments(ctx context.Context, opts IterateLoopSegments,
 type loopSegmentIterator struct {
 	db *DB
 
-	batchSize      int
-	asOfSystemTime time.Time
+	batchSize          int
+	asOfSystemTime     time.Time
+	asOfSystemInterval time.Duration
 
 	curIndex int
 	curRows  tagsql.Rows
@@ -451,14 +466,14 @@ func (it *loopSegmentIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, 
 	return it.db.db.Query(ctx, `
 		SELECT
 			stream_id, position,
-			created_at, repaired_at,
+			created_at, expires_at, repaired_at,
 			root_piece_id,
 			encrypted_size,
 			plain_offset, plain_size,
 			redundancy,
 			remote_alias_pieces
 		FROM segments
-		`+it.db.impl.AsOfSystemTime(it.asOfSystemTime)+`
+		`+it.db.asOfTime(it.asOfSystemTime, it.asOfSystemInterval)+`
 		WHERE
 			(stream_id, position) > ($1, $2)
 		ORDER BY (stream_id, position) ASC
@@ -473,7 +488,7 @@ func (it *loopSegmentIterator) scanItem(ctx context.Context, item *LoopSegmentEn
 	var aliasPieces AliasPieces
 	err := it.curRows.Scan(
 		&item.StreamID, &item.Position,
-		&item.CreatedAt, &item.RepairedAt,
+		&item.CreatedAt, &item.ExpiresAt, &item.RepairedAt,
 		&item.RootPieceID,
 		&item.EncryptedSize,
 		&item.PlainOffset, &item.PlainSize,

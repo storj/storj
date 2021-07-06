@@ -33,7 +33,6 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/web"
-	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth"
@@ -206,9 +205,14 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 
 	router.Handle("/api/v0/graphql", server.withAuth(http.HandlerFunc(server.graphqlHandler)))
 
+	usageLimitsController := consoleapi.NewUsageLimits(logger, service)
 	router.Handle(
 		"/api/v0/projects/{id}/usage-limits",
-		server.withAuth(http.HandlerFunc(server.projectUsageLimitsHandler)),
+		server.withAuth(http.HandlerFunc(usageLimitsController.ProjectUsageLimits)),
+	).Methods(http.MethodGet)
+	router.Handle(
+		"/api/v0/projects/usage-limits",
+		server.withAuth(http.HandlerFunc(usageLimitsController.TotalUsageLimits)),
 	).Methods(http.MethodGet)
 
 	authController := consoleapi.NewAuth(logger, service, mailService, server.cookieAuth, partners, server.analytics, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL)
@@ -236,7 +240,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost)
 	paymentsRouter.HandleFunc("/billing-history", paymentController.BillingHistory).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/tokens/deposit", paymentController.TokenDeposit).Methods(http.MethodPost)
-	paymentsRouter.HandleFunc("/paywall-enabled/{userId}", paymentController.PaywallEnabled).Methods(http.MethodGet)
 
 	bucketsController := consoleapi.NewBuckets(logger, service)
 	bucketsRouter := router.PathPrefix("/api/v0/buckets").Subrouter()
@@ -619,67 +622,6 @@ func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *ht
 
 	// TODO: Should place this link to config
 	http.Redirect(w, r, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
-}
-
-// projectUsageLimitsHandler api handler for project usage limits.
-func (server *Server) projectUsageLimitsHandler(w http.ResponseWriter, r *http.Request) {
-	err := error(nil)
-	ctx := r.Context()
-
-	defer mon.Task()(&ctx)(&err)
-
-	var ok bool
-	var idParam string
-
-	handleError := func(code int, err error) {
-		w.WriteHeader(code)
-
-		var jsonError struct {
-			Error string `json:"error"`
-		}
-
-		// N.B. we are probably leaking internal details to the client
-		jsonError.Error = err.Error()
-
-		if err := json.NewEncoder(w).Encode(jsonError); err != nil {
-			server.log.Error("error encoding project usage limits error", zap.Error(err))
-		}
-	}
-
-	handleServiceError := func(err error) {
-		switch {
-		case console.ErrUnauthorized.Has(err):
-			handleError(http.StatusUnauthorized, err)
-		case accounting.ErrInvalidArgument.Has(err):
-			handleError(http.StatusBadRequest, err)
-		default:
-			handleError(http.StatusInternalServerError, err)
-		}
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-
-	if idParam, ok = mux.Vars(r)["id"]; !ok {
-		handleError(http.StatusBadRequest, errs.New("missing project id route param"))
-		return
-	}
-
-	projectID, err := uuid.FromString(idParam)
-	if err != nil {
-		handleError(http.StatusBadRequest, errs.New("invalid project id: %v", err))
-		return
-	}
-
-	limits, err := server.service.GetProjectUsageLimits(ctx, projectID)
-	if err != nil {
-		handleServiceError(err)
-		return
-	}
-
-	if err := json.NewEncoder(w).Encode(limits); err != nil {
-		server.log.Error("error encoding project usage limits", zap.Error(err))
-		return
-	}
 }
 
 // graphqlHandler is graphql endpoint http handler function.

@@ -2,9 +2,6 @@
 // See LICENSE for copying information.
 
 import { StoreModule } from '@/store';
-import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import {
     Project,
     ProjectFields,
@@ -13,7 +10,6 @@ import {
     ProjectsCursor,
     ProjectsPage,
 } from '@/types/projects';
-import { PM_ACTIONS } from '@/utils/constants/actionNames';
 
 export const PROJECTS_ACTIONS = {
     FETCH: 'fetchProjects',
@@ -26,6 +22,7 @@ export const PROJECTS_ACTIONS = {
     DELETE: 'deleteProject',
     CLEAR: 'clearProjects',
     GET_LIMITS: 'getProjectLimits',
+    GET_TOTAL_LIMITS: 'getTotalLimits',
 };
 
 export const PROJECTS_MUTATIONS = {
@@ -37,6 +34,7 @@ export const PROJECTS_MUTATIONS = {
     SELECT_PROJECT: 'SELECT_PROJECT',
     CLEAR_PROJECTS: 'CLEAR_PROJECTS',
     SET_LIMITS: 'SET_PROJECT_LIMITS',
+    SET_TOTAL_LIMITS: 'SET_TOTAL_LIMITS',
     SET_PAGE_NUMBER: 'SET_PAGE_NUMBER',
     SET_PAGE: 'SET_PAGE',
 };
@@ -47,6 +45,7 @@ export class ProjectsState {
     public projects: Project[] = [];
     public selectedProject: Project = defaultSelectedProject;
     public currentLimits: ProjectLimits = new ProjectLimits();
+    public totalLimits: ProjectLimits = new ProjectLimits();
     public cursor: ProjectsCursor = new ProjectsCursor();
     public page: ProjectsPage = new ProjectsPage();
 }
@@ -61,6 +60,7 @@ const {
     DELETE,
     CLEAR,
     GET_LIMITS,
+    GET_TOTAL_LIMITS,
     FETCH_OWNED,
 } = PROJECTS_ACTIONS;
 
@@ -73,6 +73,7 @@ const {
     SELECT_PROJECT,
     CLEAR_PROJECTS,
     SET_LIMITS,
+    SET_TOTAL_LIMITS,
     SET_PAGE_NUMBER,
     SET_PAGE,
 } = PROJECTS_MUTATIONS;
@@ -133,6 +134,9 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
             [SET_LIMITS](state: ProjectsState, limits: ProjectLimits): void {
                 state.currentLimits = limits;
             },
+            [SET_TOTAL_LIMITS](state: ProjectsState, limits: ProjectLimits): void {
+                state.totalLimits = limits;
+            },
             [CLEAR_PROJECTS](state: ProjectsState): void {
                 state.projects = [];
                 state.selectedProject = defaultSelectedProject;
@@ -170,7 +174,6 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
                 return project;
             },
             [CREATE_DEFAULT_PROJECT]: async function ({rootGetters, dispatch}: any): Promise<void> {
-                const FIRST_PAGE = 1;
                 const UNTITLED_PROJECT_NAME = 'My First Project';
                 const UNTITLED_PROJECT_DESCRIPTION = '___';
                 const project = new ProjectFields(
@@ -178,17 +181,9 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
                     UNTITLED_PROJECT_DESCRIPTION,
                     rootGetters.user.id,
                 );
-                const createdProject = await dispatch(PROJECTS_ACTIONS.CREATE, project, {root: true});
+                const createdProject = await dispatch(CREATE, project);
 
-                await dispatch(PROJECTS_ACTIONS.SELECT, createdProject.id, {root: true});
-                await dispatch(PM_ACTIONS.CLEAR, null, {root: true});
-                await dispatch(PM_ACTIONS.FETCH, FIRST_PAGE, {root: true});
-                await dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY, null, {root: true});
-                await dispatch(PAYMENTS_ACTIONS.GET_BALANCE, null, {root: true});
-                await dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP, null, {root: true});
-                await dispatch(PROJECTS_ACTIONS.GET_LIMITS, createdProject.id, {root: true});
-                await dispatch(ACCESS_GRANTS_ACTIONS.CLEAR, null, {root: true});
-                await dispatch(BUCKET_ACTIONS.CLEAR, null, {root: true});
+                await dispatch(SELECT, createdProject.id);
             },
             [SELECT]: function ({commit}: any, projectID: string): void {
                 commit(SELECT_PROJECT, projectID);
@@ -212,6 +207,13 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
                 const limits = await api.getLimits(projectID);
 
                 commit(SET_LIMITS, limits);
+
+                return limits;
+            },
+            [GET_TOTAL_LIMITS]: async function ({commit}: any): Promise<ProjectLimits> {
+                const limits = await api.getTotalLimits();
+
+                commit(SET_TOTAL_LIMITS, limits);
 
                 return limits;
             },

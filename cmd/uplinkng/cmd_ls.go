@@ -8,6 +8,9 @@ import (
 	"time"
 
 	"github.com/zeebo/clingy"
+
+	"storj.io/storj/cmd/uplinkng/ulfs"
+	"storj.io/storj/cmd/uplinkng/ulloc"
 )
 
 type cmdLs struct {
@@ -16,8 +19,9 @@ type cmdLs struct {
 	recursive bool
 	encrypted bool
 	pending   bool
+	utc       bool
 
-	prefix *Location
+	prefix *ulloc.Location
 }
 
 func (c *cmdLs) Setup(a clingy.Arguments, f clingy.Flags) {
@@ -33,10 +37,13 @@ func (c *cmdLs) Setup(a clingy.Arguments, f clingy.Flags) {
 	c.pending = f.New("pending", "List pending object uploads instead", false,
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
+	c.utc = f.New("utc", "Show all timestamps in UTC instead of local time", false,
+		clingy.Transform(strconv.ParseBool),
+	).(bool)
 
 	c.prefix = a.New("prefix", "Prefix to list (sj://BUCKET[/KEY])", clingy.Optional,
-		clingy.Transform(parseLocation),
-	).(*Location)
+		clingy.Transform(ulloc.Parse),
+	).(*ulloc.Location)
 }
 
 func (c *cmdLs) Execute(ctx clingy.Context) error {
@@ -59,12 +66,12 @@ func (c *cmdLs) listBuckets(ctx clingy.Context) error {
 	iter := project.ListBuckets(ctx, nil)
 	for iter.Next() {
 		item := iter.Item()
-		tw.WriteLine(formatTime(item.Created), item.Name)
+		tw.WriteLine(formatTime(c.utc, item.Created), item.Name)
 	}
 	return iter.Err()
 }
 
-func (c *cmdLs) listLocation(ctx clingy.Context, prefix Location) error {
+func (c *cmdLs) listLocation(ctx clingy.Context, prefix ulloc.Location) error {
 	fs, err := c.OpenFilesystem(ctx, bypassEncryption(c.encrypted))
 	if err != nil {
 		return err
@@ -75,7 +82,7 @@ func (c *cmdLs) listLocation(ctx clingy.Context, prefix Location) error {
 	defer tw.Done()
 
 	// create the object iterator of either existing objects or pending multipart uploads
-	var iter objectIterator
+	var iter ulfs.ObjectIterator
 	if c.pending {
 		iter, err = fs.ListUploads(ctx, prefix, c.recursive)
 	} else {
@@ -91,12 +98,17 @@ func (c *cmdLs) listLocation(ctx clingy.Context, prefix Location) error {
 		if obj.IsPrefix {
 			tw.WriteLine("PRE", "", "", obj.Loc.Key())
 		} else {
-			tw.WriteLine("OBJ", formatTime(obj.Created), obj.ContentLength, obj.Loc.Key())
+			tw.WriteLine("OBJ", formatTime(c.utc, obj.Created), obj.ContentLength, obj.Loc.Key())
 		}
 	}
 	return iter.Err()
 }
 
-func formatTime(x time.Time) string {
-	return x.Local().Format("2006-01-02 15:04:05")
+func formatTime(utc bool, x time.Time) string {
+	if utc {
+		x = x.UTC()
+	} else {
+		x = x.Local()
+	}
+	return x.Format("2006-01-02 15:04:05")
 }

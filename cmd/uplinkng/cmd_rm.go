@@ -4,10 +4,13 @@
 package main
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/cmd/uplinkng/ulloc"
 )
 
 type cmdRm struct {
@@ -16,7 +19,7 @@ type cmdRm struct {
 	recursive bool
 	encrypted bool
 
-	location string
+	location ulloc.Location
 }
 
 func (c *cmdRm) Setup(a clingy.Arguments, f clingy.Flags) {
@@ -30,26 +33,48 @@ func (c *cmdRm) Setup(a clingy.Arguments, f clingy.Flags) {
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
 
-	c.location = a.New("location", "Location to remove (sj://BUCKET[/KEY])").(string)
+	c.location = a.New("location", "Location to remove (sj://BUCKET[/KEY])",
+		clingy.Transform(ulloc.Parse),
+	).(ulloc.Location)
 }
 
 func (c *cmdRm) Execute(ctx clingy.Context) error {
-	project, err := c.OpenProject(ctx, bypassEncryption(c.encrypted))
+	fs, err := c.OpenFilesystem(ctx, bypassEncryption(c.encrypted))
 	if err != nil {
 		return err
 	}
-	defer func() { _ = project.Close() }()
+	defer func() { _ = fs.Close() }()
 
-	// TODO: use the filesystem interface
-	// TODO: recursive remove
+	if !c.recursive {
+		if err := fs.Remove(ctx, c.location); err != nil {
+			return err
+		}
 
-	p, err := parseLocation(c.location)
-	if err != nil {
-		return err
-	} else if !p.remote {
-		return errs.New("can only delete remote objects")
+		fmt.Fprintln(ctx.Stdout(), "removed", c.location)
+		return nil
 	}
 
-	_, err = project.DeleteObject(ctx, p.bucket, p.key)
-	return err
+	iter, err := fs.ListObjects(ctx, c.location, c.recursive)
+	if err != nil {
+		return err
+	}
+
+	anyFailed := false
+	for iter.Next() {
+		loc := iter.Item().Loc
+
+		if err := fs.Remove(ctx, loc); err != nil {
+			fmt.Fprintln(ctx.Stderr(), "remove", loc, "failed:", err.Error())
+			anyFailed = true
+		} else {
+			fmt.Fprintln(ctx.Stdout(), "removed", loc)
+		}
+	}
+
+	if err := iter.Err(); err != nil {
+		return errs.Wrap(err)
+	} else if anyFailed {
+		return errs.New("some removals failed")
+	}
+	return nil
 }

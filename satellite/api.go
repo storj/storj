@@ -50,7 +50,6 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
-	"storj.io/storj/satellite/repair/irreparable"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/snopayouts"
 )
@@ -101,15 +100,11 @@ type API struct {
 		Metabase      *metabase.DB
 		Service       *metainfo.Service
 		PieceDeletion *piecedeletion.Service
-		Endpoint2     *metainfo.Endpoint
+		Endpoint      *metainfo.Endpoint
 	}
 
 	Inspector struct {
 		Endpoint *inspector.Endpoint
-	}
-
-	Repair struct {
-		Inspector *irreparable.Inspector
 	}
 
 	Accounting struct {
@@ -129,10 +124,10 @@ type API struct {
 	}
 
 	Payments struct {
-		Accounts payments.Accounts
-		Version  *stripecoinpayments.VersionService
-		Service  *stripecoinpayments.Service
-		Stripe   stripecoinpayments.StripeClient
+		Accounts   payments.Accounts
+		Conversion *stripecoinpayments.ConversionService
+		Service    *stripecoinpayments.Service
+		Stripe     stripecoinpayments.StripeClient
 	}
 
 	Console struct {
@@ -309,6 +304,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.LiveAccounting.Cache,
 			peer.ProjectLimits.Cache,
 			config.LiveAccounting.BandwidthCacheTTL,
+			config.LiveAccounting.AsOfSystemInterval,
 		)
 	}
 
@@ -388,7 +384,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			Close: peer.Metainfo.PieceDeletion.Close,
 		})
 
-		peer.Metainfo.Endpoint2, err = metainfo.NewEndpoint(
+		peer.Metainfo.Endpoint, err = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
 			peer.Metainfo.Service,
 			peer.Metainfo.PieceDeletion,
@@ -408,21 +404,14 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
-		if err := pb.DRPCRegisterMetainfo(peer.Server.DRPC(), peer.Metainfo.Endpoint2); err != nil {
+		if err := pb.DRPCRegisterMetainfo(peer.Server.DRPC(), peer.Metainfo.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 
 		peer.Services.Add(lifecycle.Item{
 			Name:  "metainfo:endpoint",
-			Close: peer.Metainfo.Endpoint2.Close,
+			Close: peer.Metainfo.Endpoint.Close,
 		})
-	}
-
-	{ // setup datarepair
-		peer.Repair.Inspector = irreparable.NewInspector(peer.DB.Irreparable())
-		if err := internalpb.DRPCRegisterIrreparableInspector(peer.Server.PrivateDRPC(), peer.Repair.Inspector); err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
 	}
 
 	{ // setup inspector
@@ -536,8 +525,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.CouponValue,
 			pc.CouponDuration.IntPointer(),
 			pc.CouponProjectLimit,
-			pc.MinCoinPayment,
-			pc.PaywallProportion)
+			pc.MinCoinPayment)
 
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -545,15 +533,15 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 		peer.Payments.Stripe = stripeClient
 		peer.Payments.Accounts = peer.Payments.Service.Accounts()
-		peer.Payments.Version = stripecoinpayments.NewVersionService(
+		peer.Payments.Conversion = stripecoinpayments.NewConversionService(
 			peer.Log.Named("payments.stripe:version"),
 			peer.Payments.Service,
 			pc.StripeCoinPayments.ConversionRatesCycleInterval)
 
 		peer.Services.Add(lifecycle.Item{
 			Name:  "payments.stripe:version",
-			Run:   peer.Payments.Version.Run,
-			Close: peer.Payments.Version.Close,
+			Run:   peer.Payments.Conversion.Run,
+			Close: peer.Payments.Conversion.Close,
 		})
 	}
 

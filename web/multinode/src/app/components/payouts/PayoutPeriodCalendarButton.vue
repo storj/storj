@@ -22,7 +22,7 @@ import PayoutPeriodCalendar from './PayoutPeriodCalendar.vue';
 @Component({
     components: { PayoutPeriodCalendar },
 })
-export default class Payout extends Vue {
+export default class PayoutPeriodCalendarButton extends Vue {
     @Prop({default: ''})
     public period: string;
 

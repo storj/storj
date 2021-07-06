@@ -237,6 +237,8 @@ type CommitSegment struct {
 	Position    SegmentPosition
 	RootPieceID storj.PieceID
 
+	ExpiresAt *time.Time
+
 	EncryptedKeyNonce []byte
 	EncryptedKey      []byte
 
@@ -292,7 +294,7 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 	// Verify that object exists and is partial.
 	_, err = db.db.ExecContext(ctx, `
 		INSERT INTO segments (
-			stream_id, position,
+			stream_id, position, expires_at,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size, plain_offset, plain_size, encrypted_etag,
 			redundancy,
@@ -300,18 +302,18 @@ func (db *DB) CommitSegment(ctx context.Context, opts CommitSegment) (err error)
 		) VALUES (
 			(SELECT stream_id
 				FROM objects WHERE
-					project_id   = $11 AND
-					bucket_name  = $12 AND
-					object_key   = $13 AND
-					version      = $14 AND
-					stream_id    = $15 AND
+					project_id   = $12 AND
+					bucket_name  = $13 AND
+					object_key   = $14 AND
+					version      = $15 AND
+					stream_id    = $16 AND
 					status       = `+pendingStatus+
-		`	), $1,
-			$2, $3, $4,
-			$5, $6, $7, $8,
-			$9,
-			$10
-		)`, opts.Position,
+		`	), $1, $2,
+			$3, $4, $5,
+			$6, $7, $8, $9,
+			$10,
+			$11
+		)`, opts.Position, opts.ExpiresAt,
 		opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
 		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
 		redundancyScheme{&opts.Redundancy},
@@ -339,6 +341,8 @@ type CommitInlineSegment struct {
 	ObjectStream
 
 	Position SegmentPosition
+
+	ExpiresAt *time.Time
 
 	EncryptedKeyNonce []byte
 	EncryptedKey      []byte
@@ -375,24 +379,24 @@ func (db *DB) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment)
 	// Verify that object exists and is partial.
 	_, err = db.db.ExecContext(ctx, `
 		INSERT INTO segments (
-			stream_id, position,
+			stream_id, position, expires_at,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size, plain_offset, plain_size, encrypted_etag,
 			inline_data
 		) VALUES (
 			(SELECT stream_id
 				FROM objects WHERE
-					project_id   = $10 AND
-					bucket_name  = $11 AND
-					object_key   = $12 AND
-					version      = $13 AND
-					stream_id    = $14 AND
+					project_id   = $11 AND
+					bucket_name  = $12 AND
+					object_key   = $13 AND
+					version      = $14 AND
+					stream_id    = $15 AND
 					status       = `+pendingStatus+
-		`	), $1,
-			$2, $3, $4,
-			$5, $6, $7, $8,
-			$9
-		)`, opts.Position,
+		`	), $1, $2,
+			$3, $4, $5,
+			$6, $7, $8, $9,
+			$10
+		)`, opts.Position, opts.ExpiresAt,
 		storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
 		len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
 		opts.InlineData,
@@ -547,64 +551,4 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 	mon.IntVal("object_commit_encrypted_size").Observe(object.TotalEncryptedSize)
 
 	return object, nil
-}
-
-// UpdateObjectMetadata contains arguments necessary for updating an object metadata.
-type UpdateObjectMetadata struct {
-	ObjectStream
-
-	EncryptedMetadata             []byte
-	EncryptedMetadataNonce        []byte
-	EncryptedMetadataEncryptedKey []byte
-}
-
-// UpdateObjectMetadata updates an object metadata.
-func (db *DB) UpdateObjectMetadata(ctx context.Context, opts UpdateObjectMetadata) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := opts.ObjectStream.Verify(); err != nil {
-		return err
-	}
-
-	if opts.ObjectStream.Version <= 0 {
-		return ErrInvalidRequest.New("Version invalid: %v", opts.Version)
-	}
-
-	// TODO So the issue is that during a multipart upload of an object,
-	// uplink can update object metadata. If we add the arguments EncryptedMetadata
-	// to CommitObject, they will need to account for them being optional.
-	// Leading to scenarios where uplink calls update metadata, but wants to clear them
-	// during commit object.
-	result, err := db.db.ExecContext(ctx, `
-		UPDATE objects SET
-			encrypted_metadata_nonce         = $6,
-			encrypted_metadata               = $7,
-			encrypted_metadata_encrypted_key = $8
-		WHERE
-			project_id   = $1 AND
-			bucket_name  = $2 AND
-			object_key   = $3 AND
-			version      = $4 AND
-			stream_id    = $5 AND
-			status       = `+committedStatus,
-		opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID,
-		opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey)
-	if err != nil {
-		return Error.New("unable to update object metadata: %w", err)
-	}
-
-	affected, err := result.RowsAffected()
-	if err != nil {
-		return Error.New("failed to get rows affected: %w", err)
-	}
-
-	if affected == 0 {
-		return storj.ErrObjectNotFound.Wrap(
-			Error.New("object with specified version and committed status is missing"),
-		)
-	}
-
-	mon.Meter("object_update_metadata").Mark(1)
-
-	return nil
 }

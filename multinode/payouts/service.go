@@ -73,7 +73,7 @@ func (service *Service) EarnedSatellite(ctx context.Context) (earned []Satellite
 	}
 
 	var listSatellites storj.NodeIDList
-	var listNodesEarnedPerSatellite []multinodepb.EarnedSatelliteResponse
+	var listNodesEarnedPerSatellite []multinodepb.EarnedPerSatelliteResponse
 
 	for _, node := range storageNodes {
 		earnedPerSatellite, err := service.earnedSatellite(ctx, node)
@@ -217,12 +217,12 @@ func (service *Service) summarySatellite(ctx context.Context, node nodes.Node, s
 		err = errs.Combine(err, conn.Close())
 	}()
 
-	payoutClient := multinodepb.NewDRPCPayoutsClient(conn)
+	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
 	header := &multinodepb.RequestHeader{
 		ApiKey: node.APISecret,
 	}
 
-	response, err := payoutClient.SummarySatellite(ctx, &multinodepb.SummarySatelliteRequest{Header: header, SatelliteId: satelliteID})
+	response, err := payoutClient.SatelliteSummary(ctx, &multinodepb.SatelliteSummaryRequest{Header: header, SatelliteId: satelliteID})
 	if err != nil {
 		return &multinodepb.PayoutInfo{}, Error.Wrap(err)
 	}
@@ -244,12 +244,12 @@ func (service *Service) summarySatellitePeriod(ctx context.Context, node nodes.N
 		err = errs.Combine(err, conn.Close())
 	}()
 
-	payoutClient := multinodepb.NewDRPCPayoutsClient(conn)
+	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
 	header := &multinodepb.RequestHeader{
 		ApiKey: node.APISecret,
 	}
 
-	response, err := payoutClient.SummarySatellitePeriod(ctx, &multinodepb.SummarySatellitePeriodRequest{Header: header, SatelliteId: satelliteID, Period: period})
+	response, err := payoutClient.SatellitePeriodSummary(ctx, &multinodepb.SatellitePeriodSummaryRequest{Header: header, SatelliteId: satelliteID, Period: period})
 	if err != nil {
 		return &multinodepb.PayoutInfo{}, Error.Wrap(err)
 	}
@@ -271,12 +271,12 @@ func (service *Service) summaryPeriod(ctx context.Context, node nodes.Node, peri
 		err = errs.Combine(err, conn.Close())
 	}()
 
-	payoutClient := multinodepb.NewDRPCPayoutsClient(conn)
+	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
 	header := &multinodepb.RequestHeader{
 		ApiKey: node.APISecret,
 	}
 
-	response, err := payoutClient.SummaryPeriod(ctx, &multinodepb.SummaryPeriodRequest{Header: header, Period: period})
+	response, err := payoutClient.AllSatellitesPeriodSummary(ctx, &multinodepb.AllSatellitesPeriodSummaryRequest{Header: header, Period: period})
 	if err != nil {
 		return &multinodepb.PayoutInfo{}, Error.Wrap(err)
 	}
@@ -298,12 +298,12 @@ func (service *Service) summary(ctx context.Context, node nodes.Node) (info *mul
 		err = errs.Combine(err, conn.Close())
 	}()
 
-	payoutClient := multinodepb.NewDRPCPayoutsClient(conn)
+	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
 	header := &multinodepb.RequestHeader{
 		ApiKey: node.APISecret,
 	}
 
-	response, err := payoutClient.Summary(ctx, &multinodepb.SummaryRequest{Header: header})
+	response, err := payoutClient.AllSatellitesSummary(ctx, &multinodepb.AllSatellitesSummaryRequest{Header: header})
 	if err != nil {
 		return &multinodepb.PayoutInfo{}, Error.Wrap(err)
 	}
@@ -399,10 +399,7 @@ func (service *Service) HeldAmountSummary(ctx context.Context, nodeID storj.Node
 
 		for _, trustedSatellite := range trustedSatellites {
 			if satelliteSummary.SatelliteID.Compare(trustedSatellite.NodeId) == 0 {
-				satelliteSummary.SatelliteURL = storj.NodeURL{
-					ID:      trustedSatellite.NodeId,
-					Address: trustedSatellite.GetAddress(),
-				}
+				satelliteSummary.SatelliteAddress = trustedSatellite.GetAddress()
 			}
 		}
 
@@ -479,12 +476,12 @@ func (service *Service) nodeExpectations(ctx context.Context, node nodes.Node) (
 		err = errs.Combine(err, conn.Close())
 	}()
 
-	payoutClient := multinodepb.NewDRPCPayoutsClient(conn)
+	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
 	header := &multinodepb.RequestHeader{
 		ApiKey: node.APISecret,
 	}
 
-	estimated, err := payoutClient.EstimatedPayout(ctx, &multinodepb.EstimatedPayoutRequest{Header: header})
+	estimated, err := payoutClient.EstimatedPayoutTotal(ctx, &multinodepb.EstimatedPayoutTotalRequest{Header: header})
 	if err != nil {
 		return Expectations{}, Error.Wrap(err)
 	}
@@ -511,7 +508,7 @@ func (service *Service) earned(ctx context.Context, node nodes.Node) (_ int64, e
 		err = errs.Combine(err, conn.Close())
 	}()
 
-	payoutClient := multinodepb.NewDRPCPayoutsClient(conn)
+	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
 	header := &multinodepb.RequestHeader{
 		ApiKey: node.APISecret,
 	}
@@ -525,27 +522,27 @@ func (service *Service) earned(ctx context.Context, node nodes.Node) (_ int64, e
 }
 
 // earnedSatellite returns earned split by satellites.
-func (service *Service) earnedSatellite(ctx context.Context, node nodes.Node) (_ multinodepb.EarnedSatelliteResponse, err error) {
+func (service *Service) earnedSatellite(ctx context.Context, node nodes.Node) (_ multinodepb.EarnedPerSatelliteResponse, err error) {
 	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
 		ID:      node.ID,
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return multinodepb.EarnedSatelliteResponse{}, Error.Wrap(err)
+		return multinodepb.EarnedPerSatelliteResponse{}, Error.Wrap(err)
 	}
 
 	defer func() {
 		err = errs.Combine(err, conn.Close())
 	}()
 
-	payoutClient := multinodepb.NewDRPCPayoutsClient(conn)
+	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
 	header := &multinodepb.RequestHeader{
 		ApiKey: node.APISecret,
 	}
 
-	response, err := payoutClient.EarnedSatellite(ctx, &multinodepb.EarnedSatelliteRequest{Header: header})
+	response, err := payoutClient.EarnedPerSatellite(ctx, &multinodepb.EarnedPerSatelliteRequest{Header: header})
 	if err != nil {
-		return multinodepb.EarnedSatelliteResponse{}, Error.Wrap(err)
+		return multinodepb.EarnedPerSatelliteResponse{}, Error.Wrap(err)
 	}
 
 	return *response, nil
@@ -572,12 +569,12 @@ func (service *Service) PaystubSatellitePeriod(ctx context.Context, period strin
 		err = errs.Combine(err, conn.Close())
 	}()
 
-	payoutClient := multinodepb.NewDRPCPayoutsClient(conn)
+	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
 	header := &multinodepb.RequestHeader{
 		ApiKey: node.APISecret,
 	}
 
-	response, err := payoutClient.PaystubSatellitePeriod(ctx, &multinodepb.PaystubSatellitePeriodRequest{
+	response, err := payoutClient.SatellitePeriodPaystub(ctx, &multinodepb.SatellitePeriodPaystubRequest{
 		Header:      header,
 		SatelliteId: satelliteID,
 		Period:      period,
@@ -623,12 +620,12 @@ func (service *Service) PaystubPeriod(ctx context.Context, period string, nodeID
 		err = errs.Combine(err, conn.Close())
 	}()
 
-	payoutClient := multinodepb.NewDRPCPayoutsClient(conn)
+	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
 	header := &multinodepb.RequestHeader{
 		ApiKey: node.APISecret,
 	}
 
-	response, err := payoutClient.PaystubPeriod(ctx, &multinodepb.PaystubPeriodRequest{
+	response, err := payoutClient.PeriodPaystub(ctx, &multinodepb.PeriodPaystubRequest{
 		Header: header,
 		Period: period,
 	})
@@ -673,12 +670,12 @@ func (service *Service) PaystubSatellite(ctx context.Context, nodeID, satelliteI
 		err = errs.Combine(err, conn.Close())
 	}()
 
-	payoutClient := multinodepb.NewDRPCPayoutsClient(conn)
+	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
 	header := &multinodepb.RequestHeader{
 		ApiKey: node.APISecret,
 	}
 
-	response, err := payoutClient.PaystubSatellite(ctx, &multinodepb.PaystubSatelliteRequest{
+	response, err := payoutClient.SatellitePaystub(ctx, &multinodepb.SatellitePaystubRequest{
 		Header:      header,
 		SatelliteId: satelliteID,
 	})
@@ -723,7 +720,7 @@ func (service *Service) Paystub(ctx context.Context, nodeID storj.NodeID) (_ Pay
 		err = errs.Combine(err, conn.Close())
 	}()
 
-	payoutClient := multinodepb.NewDRPCPayoutsClient(conn)
+	payoutClient := multinodepb.NewDRPCPayoutClient(conn)
 	header := &multinodepb.RequestHeader{
 		ApiKey: node.APISecret,
 	}

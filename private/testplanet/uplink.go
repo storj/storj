@@ -39,6 +39,7 @@ type Uplink struct {
 
 	APIKey map[storj.NodeID]*macaroon.APIKey
 	Access map[storj.NodeID]*uplink.Access
+	User   map[storj.NodeID]UserLogin
 
 	// Projects is indexed by the satellite number.
 	Projects []*Project
@@ -61,6 +62,12 @@ type Project struct {
 type ProjectOwner struct {
 	ID    uuid.UUID
 	Email string
+}
+
+// UserLogin contains information about the user login.
+type UserLogin struct {
+	Email    string
+	Password string
 }
 
 // DialMetainfo dials the satellite with the appropriate api key.
@@ -106,6 +113,7 @@ func (planet *Planet) newUplink(ctx context.Context, name string) (*Uplink, erro
 		Identity: identity,
 		APIKey:   map[storj.NodeID]*macaroon.APIKey{},
 		Access:   map[storj.NodeID]*uplink.Access{},
+		User:     map[storj.NodeID]UserLogin{},
 	}
 
 	planetUplink.Log.Debug("id=" + identity.ID.String())
@@ -122,6 +130,11 @@ func (planet *Planet) newUplink(ctx context.Context, name string) (*Uplink, erro
 		}, 10)
 		if err != nil {
 			return nil, err
+		}
+
+		planetUplink.User[satellite.ID()] = UserLogin{
+			Email:    user.Email,
+			Password: user.FullName,
 		}
 
 		project, err := satellite.AddProject(ctx, user.ID, projectName)

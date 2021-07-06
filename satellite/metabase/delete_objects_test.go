@@ -146,6 +146,7 @@ func TestDeleteExpiredObjects(t *testing.T) {
 
 			expectedObj3Segment := expectedObj1Segment
 			expectedObj3Segment.StreamID = obj3.StreamID
+			expectedObj3Segment.ExpiresAt = &futureTime
 
 			metabasetest.DeleteExpiredObjects{
 				Opts: metabase.DeleteExpiredObjects{

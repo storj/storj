@@ -15,10 +15,13 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/private/debug"
+	"storj.io/storj/multinode/bandwidth"
 	"storj.io/storj/multinode/console/server"
 	"storj.io/storj/multinode/nodes"
 	"storj.io/storj/multinode/operators"
 	"storj.io/storj/multinode/payouts"
+	"storj.io/storj/multinode/reputation"
+	"storj.io/storj/multinode/storage"
 	"storj.io/storj/private/lifecycle"
 )
 
@@ -63,6 +66,11 @@ type Peer struct {
 		Service *nodes.Service
 	}
 
+	// contains logic of bandwidth domain.
+	Bandwidth struct {
+		Service *bandwidth.Service
+	}
+
 	// exposes operators related logic.
 	Operators struct {
 		Service *operators.Service
@@ -71,6 +79,14 @@ type Peer struct {
 	// contains logic of payouts domain.
 	Payouts struct {
 		Service *payouts.Service
+	}
+
+	Storage struct {
+		Service *storage.Service
+	}
+
+	Reputation struct {
+		Service *reputation.Service
 	}
 
 	// Web server with web UI.
@@ -111,6 +127,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config, db DB) (_ 
 		)
 	}
 
+	{ // bandwidth setup
+		peer.Bandwidth.Service = bandwidth.NewService(
+			peer.Log.Named("bandwidth:service"),
+			peer.Dialer,
+			peer.Nodes.Service,
+		)
+	}
+
 	{ // operators setup
 		peer.Operators.Service = operators.NewService(
 			peer.Log.Named("operators:service"),
@@ -127,6 +151,22 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config, db DB) (_ 
 		)
 	}
 
+	{ // storage setup
+		peer.Storage.Service = storage.NewService(
+			peer.Log.Named("storage:service"),
+			peer.Dialer,
+			peer.DB.Nodes(),
+		)
+	}
+
+	{ // reputation setup
+		peer.Reputation.Service = reputation.NewService(
+			peer.Log.Named("reputation:service"),
+			peer.Dialer,
+			peer.DB.Nodes(),
+		)
+	}
+
 	{ // console setup
 		peer.Console.Listener, err = net.Listen("tcp", config.Console.Address)
 		if err != nil {
@@ -135,11 +175,16 @@ func New(log *zap.Logger, full *identity.FullIdentity, config Config, db DB) (_ 
 
 		peer.Console.Endpoint, err = server.NewServer(
 			peer.Log.Named("console:endpoint"),
-			config.Console,
-			peer.Nodes.Service,
-			peer.Payouts.Service,
-			peer.Operators.Service,
 			peer.Console.Listener,
+			config.Console,
+			server.Services{
+				Nodes:      peer.Nodes.Service,
+				Payouts:    peer.Payouts.Service,
+				Operators:  peer.Operators.Service,
+				Storage:    peer.Storage.Service,
+				Bandwidth:  peer.Bandwidth.Service,
+				Reputation: peer.Reputation.Service,
+			},
 		)
 		if err != nil {
 			return nil, err

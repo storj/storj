@@ -52,5 +52,4 @@ export default class SortingHeader extends Vue {}
             }
         }
     }
-
 </style>

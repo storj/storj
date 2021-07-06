@@ -5,6 +5,7 @@ package filestore
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -25,11 +26,14 @@ var (
 	// Error is the default filestore error class.
 	Error = errs.Class("filestore error")
 
-	mon            = monkit.Package()
-	monFileInTrash = mon.Meter("open_file_in_trash") //mon:locked
+	mon = monkit.Package()
 
 	_ storage.Blobs = (*blobStore)(nil)
 )
+
+func monFileInTrash(namespace []byte) *monkit.Meter {
+	return mon.Meter("open_file_in_trash", monkit.NewSeriesTag("namespace", hex.EncodeToString(namespace))) //mon:locked
+}
 
 // Config is configuration for the blob store.
 type Config struct {

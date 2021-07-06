@@ -7,7 +7,7 @@
             class="settings-selection__toggle-container"
             @click.stop="toggleDropdown"
         >
-            <h1 class="settings-selection__toggle-container__name" :class="{ white: isDropdownShown }">Settings</h1>
+            <p class="settings-selection__toggle-container__name" :class="{ white: isDropdownShown }">Settings</p>
             <ExpandIcon
                 class="settings-selection__toggle-container__expand-icon"
                 :class="{ expanded: isDropdownShown }"

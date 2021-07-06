@@ -47,6 +47,18 @@ func (service *Service) Add(ctx context.Context, id storj.NodeID, apiSecret []by
 	return Error.Wrap(service.nodes.Add(ctx, id, apiSecret, publicAddress))
 }
 
+// List returns list of all nodes.
+func (service *Service) List(ctx context.Context) (_ []Node, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	nodes, err := service.nodes.List(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return nodes, nil
+}
+
 // UpdateName will update name of the specified node.
 func (service *Service) UpdateName(ctx context.Context, id storj.NodeID, name string) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -102,7 +114,7 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 			nodeClient := multinodepb.NewDRPCNodeClient(conn)
 			storageClient := multinodepb.NewDRPCStorageClient(conn)
 			bandwidthClient := multinodepb.NewDRPCBandwidthClient(conn)
-			payoutClient := multinodepb.NewDRPCPayoutsClient(conn)
+			payoutClient := multinodepb.NewDRPCPayoutClient(conn)
 
 			header := &multinodepb.RequestHeader{
 				ApiKey: node.APISecret,
@@ -185,7 +197,7 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 			}()
 
 			nodeClient := multinodepb.NewDRPCNodeClient(conn)
-			payoutClient := multinodepb.NewDRPCPayoutsClient(conn)
+			payoutClient := multinodepb.NewDRPCPayoutClient(conn)
 
 			header := &multinodepb.RequestHeader{
 				ApiKey: node.APISecret,

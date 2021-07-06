@@ -257,10 +257,8 @@ export default class HeaderlessInput extends Vue {
                 padding: 0;
                 background: #fff;
                 z-index: 21;
-                border-radius: 6px;
+                border-radius: 0 0 6px 6px;
                 list-style: none;
-                border-top-right-radius: 0;
-                border-top-left-radius: 0;
                 border-top: none;
                 height: 176px;
                 margin-top: 0;

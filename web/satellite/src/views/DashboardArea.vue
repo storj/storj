@@ -15,32 +15,11 @@
             </p>
         </div>
         <div v-if="!isLoading" class="dashboard__wrap">
+            <PaidTierBar v-if="!isPaidTierStatus && !isOnboardingTour"/>
             <DashboardHeader/>
             <div class="dashboard__wrap__main-area">
                 <NavigationArea class="regular-navigation"/>
                 <div class="dashboard__wrap__main-area__content">
-                    <div class="dashboard__wrap__main-area__content__bar-area">
-                        <VInfoBar
-                            v-if="isBillingInfoBarShown"
-                            :first-value="storageRemaining"
-                            :second-value="bandwidthRemaining"
-                            first-description="of Storage Remaining"
-                            second-description="of Bandwidth Remaining"
-                            :path="projectDashboardPath"
-                            :link="projectLimitsIncreaseRequestURL"
-                            link-label="Request Limit Increase ->"
-                        />
-                        <VInfoBar
-                            v-if="isProjectLimitInfoBarShown"
-                            is-blue="true"
-                            :first-value="`You have used ${projectsCount}`"
-                            first-description="of your"
-                            :second-value="projectLimit"
-                            second-description="available projects."
-                            :link="projectLimitsIncreaseRequestURL"
-                            link-label="Request Project Limit Increase"
-                        />
-                    </div>
                     <router-view/>
                 </div>
             </div>
@@ -51,7 +30,7 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
-import VInfoBar from '@/components/common/VInfoBar.vue';
+import PaidTierBar from '@/components/account/billing/paidTier/PaidTierBar.vue';
 import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
@@ -60,26 +39,17 @@ import LoaderImage from '@/../static/images/common/loader.svg';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { BUCKET_ACTIONS } from '@/store/modules/buckets';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { Project } from '@/types/projects';
-import { Size } from '@/utils/bytesSize';
-import {
-    APP_STATE_ACTIONS,
-    PM_ACTIONS,
-} from '@/utils/constants/actionNames';
+import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { LocalData } from '@/utils/localData';
 import { MetaUtils } from '@/utils/meta';
 
 const {
-    GET_PAYWALL_ENABLED_STATUS,
     SETUP_ACCOUNT,
-    GET_BALANCE,
-    GET_CREDIT_CARDS,
-    GET_PAYMENTS_HISTORY,
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
 } = PAYMENTS_ACTIONS;
 
@@ -87,18 +57,11 @@ const {
     components: {
         NavigationArea,
         DashboardHeader,
-        VInfoBar,
         LoaderImage,
+        PaidTierBar,
     },
 })
 export default class DashboardArea extends Vue {
-    private FIRST_PAGE: number = 1;
-
-    /**
-     * Holds router link to project dashboard page.
-     */
-    public readonly projectDashboardPath: string = RouteConfig.ProjectDashboard.path;
-
     /**
      * Lifecycle hook before initial render.
      * Sets access grants web worker.
@@ -117,7 +80,6 @@ export default class DashboardArea extends Vue {
      * Pre fetches user`s and project information.
      */
     public async mounted(): Promise<void> {
-        // TODO: combine all project related requests in one
         try {
             await this.$store.dispatch(USER_ACTIONS.GET);
         } catch (error) {
@@ -132,39 +94,9 @@ export default class DashboardArea extends Vue {
         }
 
         try {
-            await this.$store.dispatch(GET_PAYWALL_ENABLED_STATUS);
-        } catch (error) {
-            await this.$notify.error(`Unable to get paywall enabled status. ${error.message}`);
-        }
-
-        try {
             await this.$store.dispatch(SETUP_ACCOUNT);
         } catch (error) {
             await this.$notify.error(`Unable to setup account. ${error.message}`);
-        }
-
-        try {
-            await this.$store.dispatch(GET_BALANCE);
-        } catch (error) {
-            await this.$notify.error(`Unable to get account balance. ${error.message}`);
-        }
-
-        try {
-            await this.$store.dispatch(GET_CREDIT_CARDS);
-        } catch (error) {
-            await this.$notify.error(`Unable to get credit cards. ${error.message}`);
-        }
-
-        try {
-            await this.$store.dispatch(GET_PAYMENTS_HISTORY);
-        } catch (error) {
-            await this.$notify.error(`Unable to get account payments history. ${error.message}`);
-        }
-
-        try {
-            await this.$store.dispatch(GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
-        } catch (error) {
-            await this.$notify.error(`Unable to get usage and charges for current billing period. ${error.message}`);
         }
 
         let projects: Project[] = [];
@@ -191,44 +123,21 @@ export default class DashboardArea extends Vue {
 
         this.selectProject(projects);
 
-        try {
-            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, this.FIRST_PAGE);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch access grants. ${error.message}`);
-        }
-
-        try {
-            await this.$store.dispatch(PROJECTS_ACTIONS.FETCH_OWNED, this.FIRST_PAGE);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch owned projects. ${error.message}`);
-        }
-
-        try {
-            await this.$store.dispatch(BUCKET_ACTIONS.FETCH_ALL_BUCKET_NAMES);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch all bucket names. ${error.message}`);
-        }
-
-        await this.$store.dispatch(PM_ACTIONS.SET_SEARCH_QUERY, '');
-        try {
-            await this.$store.dispatch(PM_ACTIONS.FETCH, this.FIRST_PAGE);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch project members. ${error.message}`);
-        }
-
-        try {
-            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch project limits. ${error.message}`);
-        }
-
-        try {
-            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, this.FIRST_PAGE);
-        } catch (error) {
-            await this.$notify.error(`Unable to fetch buckets. ${error.message}`);
-        }
-
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+    }
+
+    /**
+     * Returns user's paid tier status from store.
+     */
+    public get isPaidTierStatus(): boolean {
+        return this.$store.state.usersModule.paidTier;
+    }
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    public get isOnboardingTour(): boolean {
+        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 
     /**
@@ -257,80 +166,6 @@ export default class DashboardArea extends Vue {
      */
     public get isBetaSatellite(): boolean {
         return this.$store.state.appStateModule.isBetaSatellite;
-    }
-
-    /**
-     * Indicates if billing info bar is shown.
-     */
-    public get isBillingInfoBarShown(): boolean {
-        const showBillingInfoBar = (this.$route.name === RouteConfig.Billing.name) || (this.$route.name === RouteConfig.ProjectDashboard.name);
-
-        return showBillingInfoBar && this.projectsCount > 0;
-    }
-
-    /**
-     * Indicates if project limit info bar is shown.
-     */
-    public get isProjectLimitInfoBarShown(): boolean {
-        return this.$route.name === RouteConfig.ProjectsList.name;
-    }
-
-    /**
-     * Returns user's projects count.
-     */
-    public get projectsCount(): number {
-        return this.$store.getters.projectsCount;
-    }
-
-    /**
-     * Returns project limit from store.
-     */
-    public get projectLimit(): number {
-        const projectLimit: number = this.$store.getters.user.projectLimit;
-        if (projectLimit < this.projectsCount) return this.projectsCount;
-
-        return projectLimit;
-    }
-
-    /**
-     * Returns project limits increase request url from config.
-     */
-    public get projectLimitsIncreaseRequestURL(): string {
-        return MetaUtils.getMetaContent('project-limits-increase-request-url');
-    }
-
-    /**
-     * Returns formatted string of remaining storage.
-     */
-    public get storageRemaining(): string {
-        const storageUsed = this.$store.state.projectsModule.currentLimits.storageUsed;
-        const storageLimit = this.$store.state.projectsModule.currentLimits.storageLimit;
-
-        const difference = storageLimit - storageUsed;
-        if (difference < 0) {
-            return '0 Bytes';
-        }
-
-        const remaining = new Size(difference, 2);
-
-        return `${remaining.formattedBytes}${remaining.label}`;
-    }
-
-    /**
-     * Returns formatted string of remaining bandwidth.
-     */
-    public get bandwidthRemaining(): string {
-        const bandwidthUsed = this.$store.state.projectsModule.currentLimits.bandwidthUsed;
-        const bandwidthLimit = this.$store.state.projectsModule.currentLimits.bandwidthLimit;
-
-        const difference = bandwidthLimit - bandwidthUsed;
-        if (difference < 0) {
-            return '0 Bytes';
-        }
-
-        const remaining = new Size(difference, 2);
-
-        return `${remaining.formattedBytes}${remaining.label}`;
     }
 
     /**
@@ -379,7 +214,7 @@ export default class DashboardArea extends Vue {
         left: 0;
         right: 0;
         bottom: 0;
-        background-color: rgba(134, 134, 148, 1);
+        background-color: rgba(134, 134, 148, 0.3);
         visibility: hidden;
         opacity: 0;
         -webkit-transition: all 0.5s linear;
@@ -445,10 +280,7 @@ export default class DashboardArea extends Vue {
                     overflow-y: scroll;
                     height: calc(100vh - 62px);
                     width: 100%;
-
-                    &__bar-area {
-                        position: relative;
-                    }
+                    position: relative;
                 }
             }
         }

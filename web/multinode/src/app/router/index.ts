@@ -7,10 +7,13 @@ import { Component } from 'vue-router/types/router';
 import AddFirstNode from '@/app/views/AddFirstNode.vue';
 import BandwidthPage from '@/app/views/bandwidth/BandwidthPage.vue';
 import Dashboard from '@/app/views/Dashboard.vue';
-import MyNodes from '@/app/views/MyNodes.vue';
-import PayoutsByNode from '@/app/views/PayoutsByNode.vue';
-import PayoutsPage from '@/app/views/PayoutsPage.vue';
-import PayoutsRoot from '@/app/views/PayoutsRoot.vue';
+import MyNodes from '@/app/views/myNodes/MyNodes.vue';
+import PayoutsByNode from '@/app/views/payouts/PayoutsByNode.vue';
+import PayoutsPage from '@/app/views/payouts/PayoutsPage.vue';
+import PayoutsRoot from '@/app/views/payouts/PayoutsRoot.vue';
+import WalletDetailsPage from '@/app/views/wallets/WalletDetailsPage.vue';
+import WalletsPage from '@/app/views/wallets/WalletsPage.vue';
+import WalletsRoot from '@/app/views/wallets/WalletsRoot.vue';
 import WelcomeScreen from '@/app/views/WelcomeScreen.vue';
 
 /**
@@ -62,10 +65,17 @@ export class Route {
         return this;
     }
 
+    /**
+     * indicates if this route is a child route.
+     */
     public isChild(): boolean {
         return this.path[0] !== '/';
     }
 
+    /**
+     * combines child route with its ancestor.
+     * @param child
+     */
     public with(child: Route): Route {
         if (!child.isChild()) {
             throw new Error('provided child root is not defined');
@@ -81,12 +91,19 @@ export class Route {
 export class Config {
     public static Root: Route = new Route('/', 'Root', Dashboard, {requiresAuth: true});
     public static Welcome: Route = new Route('/welcome', 'Welcome', WelcomeScreen);
+    // nodes.
     public static AddFirstNode: Route = new Route('/add-first-node', 'AddFirstNode', AddFirstNode);
     public static MyNodes: Route = new Route('/my-nodes', 'MyNodes', MyNodes);
+    // payouts.
     public static PayoutsSummary: Route = new Route('summary', 'PayoutsSummary', PayoutsPage);
     public static PayoutsByNode: Route = new Route('by-node/:id', 'PayoutsByNode', PayoutsByNode);
     public static Payouts: Route = new Route('/payouts', 'Payouts', PayoutsRoot, undefined, Config.PayoutsSummary);
+    // bandwidth and disk.
     public static Bandwidth: Route = new Route('/bandwidth', 'Bandwidth & Disk', BandwidthPage);
+    // wallets.
+    public static WalletsSummary: Route = new Route('summary', 'WalletsSummary', WalletsPage);
+    public static WalletDetails: Route = new Route('details/:address', 'WalletDetails', WalletDetailsPage);
+    public static Wallets: Route = new Route('/wallets', 'Wallets', WalletsRoot, undefined, Config.WalletsSummary);
 
     public static mode: RouterMode = 'history';
     public static routes: Route[] = [
@@ -95,6 +112,10 @@ export class Config {
             Config.Payouts.addChildren([
                 Config.PayoutsByNode,
                 Config.PayoutsSummary,
+            ]),
+            Config.Wallets.addChildren([
+                Config.WalletDetails,
+                Config.WalletsSummary,
             ]),
             Config.Bandwidth,
         ]),

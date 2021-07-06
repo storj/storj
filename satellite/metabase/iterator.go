@@ -18,14 +18,13 @@ import (
 type objectsIterator struct {
 	db *DB
 
-	projectID       uuid.UUID
-	bucketName      []byte
-	status          ObjectStatus
-	prefix          ObjectKey
-	prefixLimit     ObjectKey
-	batchSize       int
-	recursive       bool
-	includePrefixes bool
+	projectID   uuid.UUID
+	bucketName  []byte
+	status      ObjectStatus
+	prefix      ObjectKey
+	prefixLimit ObjectKey
+	batchSize   int
+	recursive   bool
 
 	curIndex        int
 	curRows         tagsql.Rows
@@ -57,7 +56,6 @@ func iterateAllVersions(ctx context.Context, db *DB, opts IterateObjects, fn fun
 		prefixLimit:     prefixLimit(opts.Prefix),
 		batchSize:       opts.BatchSize,
 		recursive:       true,
-		includePrefixes: true,
 		inclusiveCursor: false,
 
 		curIndex: 0,
@@ -84,14 +82,13 @@ func iterateAllVersionsWithStatus(ctx context.Context, db *DB, opts IterateObjec
 	it := &objectsIterator{
 		db: db,
 
-		projectID:       opts.ProjectID,
-		bucketName:      []byte(opts.BucketName),
-		status:          opts.Status,
-		prefix:          opts.Prefix,
-		prefixLimit:     prefixLimit(opts.Prefix),
-		batchSize:       opts.BatchSize,
-		recursive:       opts.Recursive,
-		includePrefixes: true,
+		projectID:   opts.ProjectID,
+		bucketName:  []byte(opts.BucketName),
+		status:      opts.Status,
+		prefix:      opts.Prefix,
+		prefixLimit: prefixLimit(opts.Prefix),
+		batchSize:   opts.BatchSize,
+		recursive:   opts.Recursive,
 
 		curIndex: 0,
 		cursor: iterateCursor{
@@ -123,13 +120,12 @@ func iteratePendingObjectsByKey(ctx context.Context, db *DB, opts IteratePending
 	it := &objectsIterator{
 		db: db,
 
-		projectID:       opts.ProjectID,
-		bucketName:      []byte(opts.BucketName),
-		prefix:          "",
-		prefixLimit:     "",
-		batchSize:       opts.BatchSize,
-		recursive:       false,
-		includePrefixes: false,
+		projectID:   opts.ProjectID,
+		bucketName:  []byte(opts.BucketName),
+		prefix:      "",
+		prefixLimit: "",
+		batchSize:   opts.BatchSize,
+		recursive:   true,
 
 		curIndex: 0,
 		cursor: iterateCursor{
@@ -189,18 +185,17 @@ func (it *objectsIterator) Next(ctx context.Context, item *ObjectEntry) bool {
 		it.skipPrefix = ""
 	}
 
-	if it.includePrefixes {
-		// should this be treated as a prefix?
-		p := strings.IndexByte(string(item.ObjectKey), Delimiter)
-		if p >= 0 {
-			it.skipPrefix = item.ObjectKey[:p+1]
-			*item = ObjectEntry{
-				IsPrefix:  true,
-				ObjectKey: item.ObjectKey[:p+1],
-				Status:    it.status,
-			}
+	// should this be treated as a prefix?
+	p := strings.IndexByte(string(item.ObjectKey), Delimiter)
+	if p >= 0 {
+		it.skipPrefix = item.ObjectKey[:p+1]
+		*item = ObjectEntry{
+			IsPrefix:  true,
+			ObjectKey: item.ObjectKey[:p+1],
+			Status:    it.status,
 		}
 	}
+
 	return true
 }
 

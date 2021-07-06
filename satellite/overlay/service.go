@@ -62,6 +62,8 @@ type DB interface {
 	BatchUpdateStats(ctx context.Context, updateRequests []*UpdateRequest, batchSize int, now time.Time) (failed storj.NodeIDList, err error)
 	// UpdateStats all parts of single storagenode's stats.
 	UpdateStats(ctx context.Context, request *UpdateRequest, now time.Time) (stats *NodeStats, err error)
+	// UpdateReputation updates the DB columns for all reputation fields in ReputationStatus.
+	UpdateReputation(ctx context.Context, id storj.NodeID, request *ReputationStatus) error
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
 	UpdateNodeInfo(ctx context.Context, node storj.NodeID, nodeInfo *InfoResponse) (stats *NodeDossier, err error)
 	// UpdateCheckIn updates a single storagenode's check-in stats.
@@ -151,6 +153,8 @@ type NodeCriteria struct {
 }
 
 // AuditType is an enum representing the outcome of a particular audit reported to the overlay.
+//
+// TODO: remove after migrating to using reputation package for auditing.
 type AuditType int
 
 const (
@@ -164,7 +168,18 @@ const (
 	AuditOffline
 )
 
+// ReputationStatus indicates current reputation status for a node.
+type ReputationStatus struct {
+	Contained             bool // TODO: check to see if this column is still used.
+	Disqualified          *time.Time
+	UnknownAuditSuspended *time.Time
+	OfflineSuspended      *time.Time
+	VettedAt              *time.Time
+}
+
 // UpdateRequest is used to update a node status.
+//
+// TODO: remove after migrating to using reputation package for auditing.
 type UpdateRequest struct {
 	NodeID       storj.NodeID
 	AuditOutcome AuditType
@@ -463,6 +478,12 @@ func (service *Service) BatchUpdateStats(ctx context.Context, requests []*Update
 	return service.db.BatchUpdateStats(ctx, requests, service.config.UpdateStatsBatchSize, time.Now())
 }
 
+// UpdateReputation updates the DB columns for any of the reputation fields.
+func (service *Service) UpdateReputation(ctx context.Context, id storj.NodeID, request *ReputationStatus) (err error) {
+	mon.Task()(&ctx)(&err)
+	return service.db.UpdateReputation(ctx, id, request)
+}
+
 // UpdateStats all parts of single storagenode's stats.
 func (service *Service) UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -487,7 +508,44 @@ func (service *Service) UpdateNodeInfo(ctx context.Context, node storj.NodeID, n
 // UpdateCheckIn updates a single storagenode's check-in info.
 func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
+	oldInfo, err := service.Get(ctx, node.NodeID)
+	if err != nil && !ErrNodeNotFound.Has(err) {
+		return Error.New("failed to get node info from DB")
+	}
+
+	if oldInfo == nil {
+		return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
+	}
+
+	lastUp, lastDown := oldInfo.Reputation.LastContactSuccess, oldInfo.Reputation.LastContactFailure
+	lastContact := lastUp
+	if lastContact.Before(lastDown) {
+		lastContact = lastDown
+	}
+
+	dbStale := lastContact.Add(service.config.NodeCheckInWaitPeriod).Before(timestamp) ||
+		(node.IsUp && lastUp.Before(lastDown)) || (!node.IsUp && lastDown.Before(lastUp))
+
+	addrChanged := ((node.Address == nil) != (oldInfo.Address == nil)) ||
+		(oldInfo.Address != nil && node.Address != nil && oldInfo.Address.Address != node.Address.Address)
+
+	walletChanged := (node.Operator == nil && oldInfo.Operator.Wallet != "") ||
+		(node.Operator != nil && oldInfo.Operator.Wallet != node.Operator.Wallet)
+
+	verChanged := (node.Version == nil && oldInfo.Version.Version != "") ||
+		(node.Version != nil && oldInfo.Version.Version != node.Version.Version)
+
+	spaceChanged := (node.Capacity == nil && oldInfo.Capacity.FreeDisk != 0) ||
+		(node.Capacity != nil && node.Capacity.FreeDisk != oldInfo.Capacity.FreeDisk)
+
+	if dbStale || addrChanged || walletChanged || verChanged || spaceChanged ||
+		oldInfo.LastNet != node.LastNet || oldInfo.LastIPPort != node.LastIPPort {
+		return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
+	}
+	service.log.Debug("ignoring unnecessary check-in",
+		zap.String("node address", node.Address.Address),
+		zap.Stringer("Node ID", node.NodeID))
+	return nil
 }
 
 // GetMissingPieces returns the list of offline nodes.

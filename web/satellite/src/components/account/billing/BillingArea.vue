@@ -21,16 +21,20 @@
         <div class="account-billing-area__title-area" v-if="userHasOwnProject" :class="{ 'custom-position': hasNoCreditCard && (isBalanceLow || isBalanceNegative) }">
             <div class="account-billing-area__title-area__balance-area">
                 <div class="account-billing-area__title-area__balance-area__free-credits">
-                    <span class="account-billing-area__title-area__balance-area__free-credits__amount">
-                        Free Credits: {{ balance.freeCredits | centsToDollars }}
-                    </span>
+                    <p class="account-billing-area__title-area__balance-area__free-credits__label">Free Credits:</p>
+                    <VLoader v-if="isBalanceFetching" width="20px" height="20px"/>
+                    <p v-else>{{ balance.freeCredits | centsToDollars }}</p>
                 </div>
                 <div @click.stop="toggleBalanceDropdown" class="account-billing-area__title-area__balance-area__tokens-area">
-                    <span class="account-billing-area__title-area__balance-area__tokens-area__amount" :style="{ color: balanceColor }">
-                        Available Balance: {{ balance.coins | centsToDollars }}
-                    </span>
-                    <HideIcon v-if="isBalanceDropdownShown"/>
-                    <ExpandIcon v-else/>
+                    <p class="account-billing-area__title-area__balance-area__tokens-area__label" :style="{ color: balanceColor }">
+                        Available Balance:
+                    </p>
+                    <VLoader v-if="isBalanceFetching" width="20px" height="20px"/>
+                    <p v-else>
+                        {{ balance.coins | centsToDollars }}
+                    </p>
+                    <HideIcon v-if="isBalanceDropdownShown" class="icon"/>
+                    <ExpandIcon v-else class="icon"/>
                     <HistoryDropdown
                         v-show="isBalanceDropdownShown"
                         @close="closeDropdown"
@@ -58,6 +62,7 @@ import EstimatedCostsAndCredits from '@/components/account/billing/estimatedCost
 import CreditsHistory from '@/components/account/billing/freeCredits/CreditsHistory.vue';
 import HistoryDropdown from '@/components/account/billing/HistoryDropdown.vue';
 import PaymentMethods from '@/components/account/billing/paymentMethods/PaymentMethods.vue';
+import VLoader from '@/components/common/VLoader.vue';
 
 import DatePickerIcon from '@/../static/images/account/billing/datePicker.svg';
 import ExpandIcon from '@/../static/images/account/billing/expand.svg';
@@ -67,7 +72,6 @@ import NegativeBalanceIcon from '@/../static/images/account/billing/negativeBala
 
 import { RouteConfig } from '@/router';
 import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
-import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { AccountBalance } from '@/types/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
@@ -84,29 +88,22 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
         ExpandIcon,
         HideIcon,
         CreditsHistory,
+        VLoader,
     },
 })
 export default class BillingArea extends Vue {
-
-    public readonly creditHistoryRoute: string = RouteConfig.Account.with(RouteConfig.CreditsHistory).path;
     public readonly balanceHistoryRoute: string = RouteConfig.Account.with(RouteConfig.DepositHistory).path;
+    public isBalanceFetching: boolean = true;
 
     /**
-     * Mounted lifecycle hook before initial render.
-     * Fetches billing history and project limits.
+     * Mounted lifecycle hook after initial render.
+     * Fetches account balance.
      */
-    public async beforeMount(): Promise<void> {
+    public async mounted(): Promise<void> {
         try {
-            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PAYMENTS_HISTORY);
-            if (this.$store.getters.canUserCreateFirstProject && !this.userHasOwnProject) {
-                await this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
-            }
-        } catch (error) {
-            await this.$notify.error(error.message);
-        }
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_BALANCE);
 
-        try {
-            await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);
+            this.isBalanceFetching = false;
         } catch (error) {
             await this.$notify.error(error.message);
         }
@@ -203,7 +200,6 @@ export default class BillingArea extends Vue {
 </script>
 
 <style scoped lang="scss">
-
     .label-header {
         display: none;
     }
@@ -239,9 +235,8 @@ export default class BillingArea extends Vue {
                 font-weight: bold;
                 font-size: 16px;
                 line-height: 148.31%;
-                margin: 30px 0;
+                margin: 30px 0 10px 0;
                 display: inline-block;
-                margin-bottom: 10px;
             }
 
             &__input-wrapper {
@@ -290,7 +285,7 @@ export default class BillingArea extends Vue {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin: 60px 0 20px 0;
+            margin: 20px 0;
 
             &__balance-area {
                 display: flex;
@@ -303,13 +298,13 @@ export default class BillingArea extends Vue {
                     align-items: center;
                     position: relative;
                     cursor: pointer;
-                    margin-right: 50px;
                     color: #768394;
+                    font-size: 16px;
+                    line-height: 19px;
 
-                    &__amount {
+                    &__label {
                         margin-right: 10px;
-                        font-size: 16px;
-                        line-height: 19px;
+                        white-space: nowrap;
                     }
                 }
 
@@ -320,18 +315,19 @@ export default class BillingArea extends Vue {
                     cursor: default;
                     margin-right: 50px;
                     color: #768394;
+                    font-size: 16px;
+                    line-height: 19px;
 
-                    &__amount {
+                    &__label {
                         margin-right: 10px;
-                        font-size: 16px;
-                        line-height: 19px;
+                        white-space: nowrap;
                     }
                 }
             }
         }
 
         &__notification-container {
-            margin-top: 60px;
+            margin-top: 20px;
 
             &__negative-balance,
             &__low-balance {
@@ -340,7 +336,6 @@ export default class BillingArea extends Vue {
                 justify-content: flex-start;
                 padding: 20px 20px 20px 20px;
                 border-radius: 12px;
-                margin-bottom: 32px;
 
                 &__text {
                     font-family: 'font_medium', sans-serif;
@@ -363,5 +358,10 @@ export default class BillingArea extends Vue {
 
     .custom-position {
         margin: 30px 0 20px 0;
+    }
+
+    .icon {
+        min-width: 14px;
+        margin-left: 10px;
     }
 </style>

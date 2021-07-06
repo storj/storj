@@ -10,20 +10,29 @@
             </p>
         </div>
         <ProjectUsage/>
-        <ProjectSummary/>
-        <BucketArea/>
+        <ProjectSummary :is-data-fetching="isSummaryDataFetching"/>
+        <div v-if="areBucketsFetching" class="dashboard-area__container">
+            <p class="dashboard-area__container__title">Buckets</p>
+            <VLoader/>
+        </div>
+        <BucketArea v-else/>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import VLoader from '@/components/common/VLoader.vue';
 import BucketArea from '@/components/project/buckets/BucketArea.vue';
 import ProjectSummary from '@/components/project/summary/ProjectSummary.vue';
 import ProjectUsage from '@/components/project/usage/ProjectUsage.vue';
 
 import { RouteConfig } from '@/router';
-import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
+import { BUCKET_ACTIONS } from '@/store/modules/buckets';
+import { PAYMENTS_ACTIONS, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
+import { PROJECTS_ACTIONS } from '@/store/modules/projects';
+import { PM_ACTIONS } from '@/utils/constants/actionNames';
 import { MetaUtils } from '@/utils/meta';
 
 @Component({
@@ -31,22 +40,42 @@ import { MetaUtils } from '@/utils/meta';
         BucketArea,
         ProjectUsage,
         ProjectSummary,
+        VLoader,
     },
 })
 export default class ProjectDashboard extends Vue {
+    public areBucketsFetching: boolean = true;
+    public isSummaryDataFetching: boolean = true;
+
     /**
      * Lifecycle hook after initial render.
+     * Fetches buckets, usage rollup, project members and access grants.
      */
-    public mounted(): void {
+    public async mounted(): Promise<void> {
         if (!this.$store.getters.selectedProject.id) {
-            this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
+            await this.$router.push(RouteConfig.OnboardingTour.with(RouteConfig.OverviewStep).path);
 
             return;
         }
 
-        const projectLimit: number = this.$store.getters.user.projectLimit;
-        if (projectLimit && this.$store.getters.projectsCount < projectLimit) {
-            this.$store.dispatch(APP_STATE_ACTIONS.SHOW_CREATE_PROJECT_BUTTON);
+        const FIRST_PAGE = 1;
+
+        try {
+            await this.$store.commit(PAYMENTS_MUTATIONS.TOGGLE_PAID_TIER_BANNER_TO_LOADING);
+            await this.$store.dispatch(PROJECTS_ACTIONS.GET_TOTAL_LIMITS);
+            await this.$store.commit(PAYMENTS_MUTATIONS.TOGGLE_PAID_TIER_BANNER_TO_LOADED);
+
+            await this.$store.dispatch(BUCKET_ACTIONS.FETCH, FIRST_PAGE);
+
+            this.areBucketsFetching = false;
+
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP);
+            await this.$store.dispatch(PM_ACTIONS.FETCH, FIRST_PAGE);
+            await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.FETCH, FIRST_PAGE);
+
+            this.isSummaryDataFetching = false;
+        } catch (error) {
+            await this.$notify.error(error.message);
         }
     }
 
@@ -68,7 +97,7 @@ export default class ProjectDashboard extends Vue {
 
 <style scoped lang="scss">
     .dashboard-area {
-        padding: 50px 30px 60px 30px;
+        padding: 30px 30px 60px 30px;
         font-family: 'font_regular', sans-serif;
 
         &__header-wrapper {
@@ -89,6 +118,21 @@ export default class ProjectDashboard extends Vue {
                 line-height: 20px;
                 color: #384b65;
                 margin: 10px 0 0 0;
+            }
+        }
+
+        &__container {
+            background-color: #fff;
+            border-radius: 6px;
+            padding: 20px;
+            margin-top: 30px;
+
+            &__title {
+                margin: 0 0 20px 0;
+                font-family: 'font_bold', sans-serif;
+                font-size: 16px;
+                line-height: 16px;
+                color: #1b2533;
             }
         }
     }

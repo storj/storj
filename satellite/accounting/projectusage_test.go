@@ -115,6 +115,11 @@ func TestProjectUsageBandwidth(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			testplanet.Run(t, testplanet.Config{
 				SatelliteCount: 1, StorageNodeCount: 6, UplinkCount: 1,
+				Reconfigure: testplanet.Reconfigure{
+					Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+						config.LiveAccounting.AsOfSystemInterval = -time.Millisecond
+					},
+				},
 			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 				saDB := planet.Satellites[0].DB
 				orderDB := saDB.Orders()
@@ -248,7 +253,7 @@ func TestProjectBandwidthRollups(t *testing.T) {
 		err = db.Orders().UpdateBucketBandwidthBatch(ctx, hour, rollups)
 		require.NoError(t, err)
 
-		alloc, err := db.ProjectAccounting().GetProjectBandwidth(ctx, p1, now.Year(), now.Month(), now.Day())
+		alloc, err := db.ProjectAccounting().GetProjectBandwidth(ctx, p1, now.Year(), now.Month(), now.Day(), 0)
 		require.NoError(t, err)
 		require.EqualValues(t, 4000, alloc)
 	})
@@ -622,6 +627,57 @@ func TestProjectUsage_FreeUsedStorageSpace(t *testing.T) {
 	})
 }
 
+func TestProjectUsageBandwidthResetAfter3days(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.UsageLimits.DefaultStorageLimit = 1 * memory.MB
+				config.Console.UsageLimits.DefaultBandwidthLimit = 1 * memory.MB
+				config.LiveAccounting.AsOfSystemInterval = -time.Millisecond
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		orderDB := planet.Satellites[0].DB.Orders()
+		bucket := metabase.BucketLocation{ProjectID: planet.Uplinks[0].Projects[0].ID, BucketName: "testbucket"}
+		projectUsage := planet.Satellites[0].Accounting.ProjectUsage
+
+		now := time.Now()
+
+		allocationTime := time.Date(now.Year(), now.Month(), 2, now.Hour(), now.Minute(), now.Second(), now.Nanosecond(), now.Location())
+
+		amount := 1 * memory.MB.Int64()
+		err := orderDB.UpdateBucketBandwidthAllocation(ctx, bucket.ProjectID, []byte(bucket.BucketName), pb.PieceAction_GET, amount, allocationTime)
+		require.NoError(t, err)
+
+		beforeResetDay := allocationTime.Add(2 * time.Hour * 24)
+		resetDay := allocationTime.Add(3 * time.Hour * 24)
+		endOfMonth := time.Date(now.Year(), now.Month()+1, 0, now.Hour(), now.Minute(), now.Second(), now.Nanosecond(), now.Location())
+
+		for _, tt := range []struct {
+			description     string
+			now             time.Time
+			expectedExceeds bool
+		}{
+			{"allocation day", allocationTime, true},
+			{"day before reset", beforeResetDay, true},
+			{"reset day", resetDay, false},
+			{"end of month", endOfMonth, false},
+		} {
+			projectUsage.SetNow(func() time.Time {
+				return tt.now
+			})
+
+			actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, bucket.ProjectID)
+			require.NoError(t, err)
+			require.Equal(t, tt.expectedExceeds, actualExceeded, tt.description)
+
+		}
+	})
+
+}
+
 func TestProjectUsage_ResetLimitsFirstDayOfNextMonth(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
@@ -737,12 +793,22 @@ func TestProjectUsage_BandwidthDownloadLimit(t *testing.T) {
 			require.NoError(t, err)
 		}
 
+		// send orders so we get the egress settled
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+		tomorrow := time.Now().Add(24 * time.Hour)
+		for _, storageNode := range planet.StorageNodes {
+			storageNode.Storage2.Orders.SendOrders(ctx, tomorrow)
+		}
+
+		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
+
 		// An extra download should return 'Exceeded Usage Limit' error
 		_, err = planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "test/path1")
 		require.Error(t, err)
 		require.True(t, errors.Is(err, uplink.ErrBandwidthLimitExceeded))
+		planet.Satellites[0].Orders.Chore.Loop.TriggerWait()
 
-		// Simulate new billing cycle (newxt month)
+		// Simulate new billing cycle (next month)
 		planet.Satellites[0].API.Accounting.ProjectUsage.SetNow(func() time.Time {
 			return time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, time.UTC)
 		})

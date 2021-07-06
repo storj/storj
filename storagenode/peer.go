@@ -787,6 +787,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Log.Named("multinode:storage-endpoint"),
 			apiKeys,
 			peer.Storage2.Monitor,
+			peer.DB.StorageUsage(),
 		)
 
 		peer.Multinode.Bandwidth = multinode.NewBandwidthEndpoint(
@@ -820,6 +821,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			return nil, errs.Combine(err, peer.Close())
 		}
 		if err = multinodepb.DRPCRegisterNode(peer.Server.DRPC(), peer.Multinode.Node); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		if err = multinodepb.DRPCRegisterPayout(peer.Server.DRPC(), peer.Multinode.Payout); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 		if err = multinodepb.DRPCRegisterPayouts(peer.Server.DRPC(), peer.Multinode.Payout); err != nil {

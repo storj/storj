@@ -135,6 +135,7 @@ export class AuthHttpApi {
                 userResponse.partnerId,
                 userResponse.password,
                 userResponse.projectLimit,
+                userResponse.paidTier,
             );
         }
 
