@@ -27,28 +27,28 @@ type accessPermissions struct {
 	notAfter  time.Time
 }
 
-func (ap *accessPermissions) Setup(a clingy.Arguments, f clingy.Flags) {
-	ap.prefixes = f.New("prefix", "Key prefix access will be restricted to", []string{},
+func (ap *accessPermissions) Setup(params clingy.Parameters) {
+	ap.prefixes = params.Flag("prefix", "Key prefix access will be restricted to", []string{},
 		clingy.Repeated).([]string)
 
-	ap.readonly = f.New("readonly", "Implies --disallow-writes and --disallow-deletes", true,
+	ap.readonly = params.Flag("readonly", "Implies --disallow-writes and --disallow-deletes", true,
 		clingy.Transform(strconv.ParseBool)).(bool)
-	ap.writeonly = f.New("writeonly", "Implies --disallow-reads and --disallow-lists", false,
-		clingy.Transform(strconv.ParseBool)).(bool)
-
-	ap.disallowDeletes = f.New("disallow-deletes", "Disallow deletes with the access", false,
-		clingy.Transform(strconv.ParseBool)).(bool)
-	ap.disallowLists = f.New("disallow-lists", "Disallow lists with the access", false,
-		clingy.Transform(strconv.ParseBool)).(bool)
-	ap.disallowReads = f.New("disallow-reads", "Disallow reasd with the access", false,
-		clingy.Transform(strconv.ParseBool)).(bool)
-	ap.disallowWrites = f.New("disallow-writes", "Disallow writes with the access", false,
+	ap.writeonly = params.Flag("writeonly", "Implies --disallow-reads and --disallow-lists", false,
 		clingy.Transform(strconv.ParseBool)).(bool)
 
-	ap.notBefore = f.New("not-before",
+	ap.disallowDeletes = params.Flag("disallow-deletes", "Disallow deletes with the access", false,
+		clingy.Transform(strconv.ParseBool)).(bool)
+	ap.disallowLists = params.Flag("disallow-lists", "Disallow lists with the access", false,
+		clingy.Transform(strconv.ParseBool)).(bool)
+	ap.disallowReads = params.Flag("disallow-reads", "Disallow reasd with the access", false,
+		clingy.Transform(strconv.ParseBool)).(bool)
+	ap.disallowWrites = params.Flag("disallow-writes", "Disallow writes with the access", false,
+		clingy.Transform(strconv.ParseBool)).(bool)
+
+	ap.notBefore = params.Flag("not-before",
 		"Disallow access before this time (e.g. '+2h', '2020-01-02T15:04:05Z0700')",
 		time.Time{}, clingy.Transform(parseRelativeTime), clingy.Type("relative_time")).(time.Time)
-	ap.notAfter = f.New("not-after",
+	ap.notAfter = params.Flag("not-after",
 		"Disallow access after this time (e.g. '+2h', '2020-01-02T15:04:05Z0700')",
 		time.Time{}, clingy.Transform(parseRelativeTime), clingy.Type("relative_time")).(time.Time)
 }
