@@ -15,7 +15,7 @@
             </p>
         </div>
         <div v-if="!isLoading" class="dashboard__wrap">
-            <PaidTierBar v-if="!isPaidTierStatus && !isOnboardingTour"/>
+            <PaidTierBar v-if="!isPaidTierStatus && !isOnboardingTour" :open-add-p-m-modal="togglePMModal"/>
             <DashboardHeader/>
             <div class="dashboard__wrap__main-area">
                 <NavigationArea class="regular-navigation"/>
@@ -24,12 +24,14 @@
                 </div>
             </div>
         </div>
+        <AddPaymentMethodModal v-if="isAddPMModal" :on-close="togglePMModal"/>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import AddPaymentMethodModal from '@/components/account/billing/paidTier/AddPaymentMethodModal.vue';
 import PaidTierBar from '@/components/account/billing/paidTier/PaidTierBar.vue';
 import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
@@ -39,7 +41,7 @@ import LoaderImage from '@/../static/images/common/loader.svg';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { PAYMENTS_ACTIONS, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { Project } from '@/types/projects';
@@ -59,6 +61,7 @@ const {
         DashboardHeader,
         LoaderImage,
         PaidTierBar,
+        AddPaymentMethodModal,
     },
 })
 export default class DashboardArea extends Vue {
@@ -124,6 +127,20 @@ export default class DashboardArea extends Vue {
         this.selectProject(projects);
 
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+    }
+
+    /**
+     * Opens add payment method modal.
+     */
+    public togglePMModal(): void {
+        this.$store.commit(PAYMENTS_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
+    }
+
+    /**
+     * Indicates if add payment method modal is shown.
+     */
+    public get isAddPMModal(): boolean {
+        return this.$store.state.paymentsModule.isAddPMModalShown;
     }
 
     /**

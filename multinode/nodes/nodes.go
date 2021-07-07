@@ -45,6 +45,18 @@ type Node struct {
 	Name          string `json:"name"`
 }
 
+// Status represents node online status.
+type Status string
+
+const (
+	// StatusOnline represents online status.
+	StatusOnline Status = "online"
+	// StatusOffline represents offline status.
+	StatusOffline Status = "offline"
+	// StatusNotReachable indicates that we could not reach storagenode via drpc request.
+	StatusNotReachable Status = "not reachable"
+)
+
 // NodeInfo contains basic node internal state.
 type NodeInfo struct {
 	ID            storj.NodeID `json:"id"`
@@ -55,6 +67,7 @@ type NodeInfo struct {
 	DiskSpaceLeft int64        `json:"diskSpaceLeft"`
 	BandwidthUsed int64        `json:"bandwidthUsed"`
 	TotalEarned   int64        `json:"totalEarned"`
+	Status        Status       `json:"status"`
 }
 
 // NodeInfoSatellite contains satellite specific node internal state.
@@ -67,6 +80,7 @@ type NodeInfoSatellite struct {
 	AuditScore      float64      `json:"auditScore"`
 	SuspensionScore float64      `json:"suspensionScore"`
 	TotalEarned     int64        `json:"totalEarned"`
+	Status          Status       `json:"status"`
 }
 
 // TODO: separate common types and logic from nodes and operators and place it in private/pkg.

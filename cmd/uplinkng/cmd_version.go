@@ -16,8 +16,12 @@ type cmdVersion struct {
 	verbose bool
 }
 
-func (c *cmdVersion) Setup(a clingy.Arguments, f clingy.Flags) {
-	c.verbose = f.New(
+func newCmdVersion() *cmdVersion {
+	return &cmdVersion{}
+}
+
+func (c *cmdVersion) Setup(params clingy.Parameters) {
+	c.verbose = params.Flag(
 		"verbose", "prints all dependency versions", false,
 		clingy.Short('v'),
 		clingy.Transform(strconv.ParseBool)).(bool)

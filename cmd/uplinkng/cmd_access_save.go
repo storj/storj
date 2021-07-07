@@ -9,41 +9,49 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/cmd/uplinkng/ulext"
 	"storj.io/uplink"
 )
 
 type cmdAccessSave struct {
+	ex ulext.External
+
 	access string
 	name   string
 	force  bool
 	use    bool
 }
 
-func (c *cmdAccessSave) Setup(a clingy.Arguments, f clingy.Flags) {
-	c.access = f.New("access", "Access to save (prompted if unspecified)", "").(string)
-	c.name = f.New("name", "Name to save the access grant under", "default").(string)
+func newCmdAccessSave(ex ulext.External) *cmdAccessSave {
+	return &cmdAccessSave{ex: ex}
+}
 
-	c.force = f.New("force", "Force overwrite an existing saved access grant", false,
+func (c *cmdAccessSave) Setup(params clingy.Parameters) {
+	c.access = params.Flag("access", "Access to save (prompted if unspecified)", "").(string)
+	c.name = params.Flag("name", "Name to save the access grant under", "default").(string)
+
+	c.force = params.Flag("force", "Force overwrite an existing saved access grant", false,
 		clingy.Short('f'),
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
-	c.use = f.New("use", "Set the saved access to be the one used by default", false,
+	c.use = params.Flag("use", "Set the saved access to be the one used by default", false,
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
 }
 
 func (c *cmdAccessSave) Execute(ctx clingy.Context) error {
-	accessDefault, accesses, err := gf.GetAccessInfo(false)
+	defaultName, accesses, err := c.ex.GetAccessInfo(false)
 	if err != nil {
 		return err
 	}
 
 	if c.access == "" {
-		c.access, err = gf.PromptInput(ctx, "Access:")
+		c.access, err = c.ex.PromptInput(ctx, "Access:")
 		if err != nil {
-			return err
+			return errs.Wrap(err)
 		}
 	}
+
 	if _, err := uplink.ParseAccess(c.access); err != nil {
 		return err
 	}
@@ -52,9 +60,9 @@ func (c *cmdAccessSave) Execute(ctx clingy.Context) error {
 	}
 
 	accesses[c.name] = c.access
-	if c.use || accessDefault == "" {
-		accessDefault = c.name
+	if c.use || defaultName == "" {
+		defaultName = c.name
 	}
 
-	return gf.SaveAccessInfo(accessDefault, accesses)
+	return c.ex.SaveAccessInfo(defaultName, accesses)
 }

@@ -61,9 +61,11 @@ export default class ProjectDashboard extends Vue {
         const FIRST_PAGE = 1;
 
         try {
-            await this.$store.commit(PAYMENTS_MUTATIONS.TOGGLE_PAID_TIER_BANNER_TO_LOADING);
-            await this.$store.dispatch(PROJECTS_ACTIONS.GET_TOTAL_LIMITS);
-            await this.$store.commit(PAYMENTS_MUTATIONS.TOGGLE_PAID_TIER_BANNER_TO_LOADED);
+            if (!this.isPaidTierStatus) {
+                await this.$store.commit(PAYMENTS_MUTATIONS.TOGGLE_PAID_TIER_BANNER_TO_LOADING);
+                await this.$store.dispatch(PROJECTS_ACTIONS.GET_TOTAL_LIMITS);
+                await this.$store.commit(PAYMENTS_MUTATIONS.TOGGLE_PAID_TIER_BANNER_TO_LOADED);
+            }
 
             await this.$store.dispatch(BUCKET_ACTIONS.FETCH, FIRST_PAGE);
 
@@ -91,6 +93,13 @@ export default class ProjectDashboard extends Vue {
      */
     public get projectLimitsIncreaseRequestURL(): string {
         return MetaUtils.getMetaContent('project-limits-increase-request-url');
+    }
+
+    /**
+     * Returns user's paid tier status from store.
+     */
+    private get isPaidTierStatus(): boolean {
+        return this.$store.state.usersModule.paidTier;
     }
 }
 </script>

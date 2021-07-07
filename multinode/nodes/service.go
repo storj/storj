@@ -6,6 +6,7 @@ package nodes
 import (
 	"bytes"
 	"context"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -75,7 +76,6 @@ func (service *Service) Get(ctx context.Context, id storj.NodeID) (_ Node, err e
 	}
 
 	return node, nil
-
 }
 
 // Remove removes node from the system.
@@ -104,7 +104,11 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 				Address: node.PublicAddress,
 			})
 			if err != nil {
-				return NodeInfo{}, Error.Wrap(err)
+				return NodeInfo{
+					ID:     node.ID,
+					Name:   node.Name,
+					Status: StatusNotReachable,
+				}, nil
 			}
 
 			defer func() {
@@ -157,6 +161,7 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 				DiskSpaceLeft: diskSpace.GetAvailable(),
 				BandwidthUsed: bandwidthSummary.GetUsed(),
 				TotalEarned:   earned.Total,
+				Status:        nodeStatus(lastContact.LastContact),
 			}, nil
 		}()
 		if err != nil {
@@ -189,7 +194,11 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 				Address: node.PublicAddress,
 			})
 			if err != nil {
-				return NodeInfoSatellite{}, Error.Wrap(err)
+				return NodeInfoSatellite{
+					ID:     node.ID,
+					Name:   node.Name,
+					Status: StatusNotReachable,
+				}, nil
 			}
 
 			defer func() {
@@ -235,6 +244,7 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 				AuditScore:      rep.Audit.Score,
 				SuspensionScore: rep.Audit.SuspensionScore,
 				TotalEarned:     earned.Total,
+				Status:          nodeStatus(lastContact.LastContact),
 			}, nil
 		}()
 		if err != nil {
@@ -305,6 +315,17 @@ func (service *Service) trustedSatellites(ctx context.Context, node Node) (_ sto
 	}
 
 	return nodeURLs, nil
+}
+
+// nodeStatus chooses node status offline or online depends on LastContact.
+func nodeStatus(lastContact time.Time) Status {
+	now := time.Now().UTC()
+
+	if now.Sub(lastContact) < time.Hour*3 {
+		return StatusOnline
+	}
+
+	return StatusOffline
 }
 
 // appendUniqueNodeURLs appends unique node urls from incoming slice.
