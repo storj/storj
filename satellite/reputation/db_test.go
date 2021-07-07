@@ -22,7 +22,7 @@ func TestUpdate(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.Node.AuditCount = 2
+				config.Reputation.AuditCount = 2
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -35,7 +35,7 @@ func TestUpdate(t *testing.T) {
 		updateReq := reputation.UpdateRequest{
 			NodeID:                   node.ID(),
 			AuditOutcome:             reputation.AuditOffline,
-			AuditsRequiredForVetting: planet.Satellites[0].Config.Overlay.Node.AuditCount,
+			AuditsRequiredForVetting: planet.Satellites[0].Config.Reputation.AuditCount,
 			AuditHistory:             testAuditHistoryConfig(),
 		}
 		nodeStats, changed, err := db.Update(ctx, updateReq, time.Now())

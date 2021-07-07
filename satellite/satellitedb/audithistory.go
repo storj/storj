@@ -13,11 +13,11 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/internalpb"
-	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
-func addAudit(a *internalpb.AuditHistory, auditTime time.Time, online bool, config overlay.AuditHistoryConfig) error {
+func addAudit(a *internalpb.AuditHistory, auditTime time.Time, online bool, config reputation.AuditHistoryConfig) error {
 	newAuditWindowStartTime := auditTime.Truncate(config.WindowSize)
 	earliestWindow := newAuditWindowStartTime.Add(-config.TrackingPeriod)
 	// windowsModified is used to determine whether we will need to recalculate the score because windows have been added or removed.
@@ -78,16 +78,16 @@ func addAudit(a *internalpb.AuditHistory, auditTime time.Time, online bool, conf
 }
 
 // UpdateAuditHistory updates a node's audit history with an online or offline audit.
-func (cache *overlaycache) UpdateAuditHistory(ctx context.Context, nodeID storj.NodeID, auditTime time.Time, online bool, config overlay.AuditHistoryConfig) (res *overlay.UpdateAuditHistoryResponse, err error) {
+func (reputations *reputations) UpdateAuditHistory(ctx context.Context, nodeID storj.NodeID, auditTime time.Time, online bool, config reputation.AuditHistoryConfig) (res *reputation.UpdateAuditHistoryResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = cache.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
+	err = reputations.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
 		_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
 		if err != nil {
 			return err
 		}
 
-		res, err = cache.updateAuditHistoryWithTx(ctx, tx, nodeID, auditTime, online, config)
+		res, err = reputations.updateAuditHistoryWithTx(ctx, tx, nodeID, auditTime, online, config)
 		if err != nil {
 			return err
 		}
@@ -96,10 +96,10 @@ func (cache *overlaycache) UpdateAuditHistory(ctx context.Context, nodeID storj.
 	return res, err
 }
 
-func (cache *overlaycache) updateAuditHistoryWithTx(ctx context.Context, tx *dbx.Tx, nodeID storj.NodeID, auditTime time.Time, online bool, config overlay.AuditHistoryConfig) (res *overlay.UpdateAuditHistoryResponse, err error) {
+func (reputations *reputations) updateAuditHistoryWithTx(ctx context.Context, tx *dbx.Tx, nodeID storj.NodeID, auditTime time.Time, online bool, config reputation.AuditHistoryConfig) (res *reputation.UpdateAuditHistoryResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	res = &overlay.UpdateAuditHistoryResponse{
+	res = &reputation.UpdateAuditHistoryResponse{
 		NewScore:           1,
 		TrackingPeriodFull: false,
 	}
@@ -161,16 +161,16 @@ func (cache *overlaycache) updateAuditHistoryWithTx(ctx context.Context, tx *dbx
 }
 
 // GetAuditHistory gets a node's audit history.
-func (cache *overlaycache) GetAuditHistory(ctx context.Context, nodeID storj.NodeID) (auditHistory *overlay.AuditHistory, err error) {
+func (reputations *reputations) GetAuditHistory(ctx context.Context, nodeID storj.NodeID) (auditHistory *reputation.AuditHistory, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbAuditHistory, err := cache.db.Get_AuditHistory_By_NodeId(
+	dbAuditHistory, err := reputations.db.Get_AuditHistory_By_NodeId(
 		ctx,
 		dbx.AuditHistory_NodeId(nodeID.Bytes()),
 	)
 	if err != nil {
 		if errs.Is(err, sql.ErrNoRows) {
-			return nil, overlay.ErrNodeNotFound.New("no audit history for node")
+			return nil, reputation.ErrNodeNotFound.New("no audit history for node")
 		}
 		return nil, err
 	}
@@ -181,18 +181,18 @@ func (cache *overlaycache) GetAuditHistory(ctx context.Context, nodeID storj.Nod
 	return history, nil
 }
 
-func auditHistoryFromPB(historyBytes []byte) (auditHistory *overlay.AuditHistory, err error) {
+func auditHistoryFromPB(historyBytes []byte) (auditHistory *reputation.AuditHistory, err error) {
 	historyPB := &internalpb.AuditHistory{}
 	err = pb.Unmarshal(historyBytes, historyPB)
 	if err != nil {
 		return nil, err
 	}
-	history := &overlay.AuditHistory{
+	history := &reputation.AuditHistory{
 		Score:   historyPB.Score,
-		Windows: make([]*overlay.AuditWindow, len(historyPB.Windows)),
+		Windows: make([]*reputation.AuditWindow, len(historyPB.Windows)),
 	}
 	for i, window := range historyPB.Windows {
-		history.Windows[i] = &overlay.AuditWindow{
+		history.Windows[i] = &reputation.AuditWindow{
 			TotalCount:  window.TotalCount,
 			OnlineCount: window.OnlineCount,
 			WindowStart: window.WindowStart,

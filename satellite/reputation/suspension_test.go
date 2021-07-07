@@ -1,7 +1,7 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package overlay_test
+package reputation_test
 
 import (
 	"context"
@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/audit"
-	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/reputation"
 )
 
@@ -34,7 +33,7 @@ func TestAuditSuspendBasic(t *testing.T) {
 		require.Nil(t, node.UnknownAuditSuspended)
 
 		timeToSuspend := time.Now().UTC().Truncate(time.Second)
-		err = repService.TestingSuspendNodeUnknownAudit(ctx, nodeID, timeToSuspend)
+		err = repService.TestSuspendNodeUnknownAudit(ctx, nodeID, timeToSuspend)
 		require.NoError(t, err)
 
 		node, err = oc.Get(ctx, nodeID)
@@ -42,7 +41,7 @@ func TestAuditSuspendBasic(t *testing.T) {
 		require.NotNil(t, node.UnknownAuditSuspended)
 		require.True(t, node.UnknownAuditSuspended.Equal(timeToSuspend))
 
-		err = repService.TestingUnsuspendNodeUnknownAudit(ctx, nodeID)
+		err = repService.TestUnsuspendNodeUnknownAudit(ctx, nodeID)
 		require.NoError(t, err)
 
 		node, err = oc.Get(ctx, nodeID)
@@ -105,9 +104,14 @@ func TestAuditSuspendWithUpdateStats(t *testing.T) {
 func TestAuditSuspendFailedAudit(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		nodeID := planet.StorageNodes[0].ID()
 		oc := planet.Satellites[0].Overlay.DB
+		repService := planet.Satellites[0].Reputation.Service
 
 		node, err := oc.Get(ctx, nodeID)
 		require.NoError(t, err)
@@ -116,22 +120,17 @@ func TestAuditSuspendFailedAudit(t *testing.T) {
 
 		// give node one failed audit - bringing audit rep to 0.5, and disqualifying node
 		// expect that suspended field and unknown audit reputation remain unchanged
-		_, err = oc.UpdateStats(ctx, &overlay.UpdateRequest{
-			NodeID:       nodeID,
-			AuditOutcome: overlay.AuditFailure,
-			AuditLambda:  1,
-			AuditWeight:  1,
-			AuditDQ:      0.6,
-			AuditHistory: testAuditHistoryConfig(),
-		}, time.Now())
+		err = repService.ApplyAudit(ctx, nodeID, reputation.AuditFailure)
 		require.NoError(t, err)
 
 		node, err = oc.Get(ctx, nodeID)
 		require.NoError(t, err)
 		require.NotNil(t, node.Disqualified)
 		require.Nil(t, node.UnknownAuditSuspended)
-		require.EqualValues(t, node.Reputation.UnknownAuditReputationAlpha, 1)
-		require.EqualValues(t, node.Reputation.UnknownAuditReputationBeta, 0)
+		reputationInfo, err := repService.Get(ctx, nodeID)
+		require.NoError(t, err)
+		require.EqualValues(t, reputationInfo.UnknownAuditReputationAlpha, 1)
+		require.EqualValues(t, reputationInfo.UnknownAuditReputationBeta, 0)
 	})
 }
 
@@ -153,7 +152,7 @@ func TestAuditSuspendExceedGracePeriod(t *testing.T) {
 		// suspend each node two hours ago (more than grace period)
 		repService := planet.Satellites[0].Reputation.Service
 		for _, node := range (storj.NodeIDList{successNodeID, failNodeID, offlineNodeID, unknownNodeID}) {
-			err := repService.TestingSuspendNodeUnknownAudit(ctx, node, time.Now().Add(-2*time.Hour))
+			err := repService.TestSuspendNodeUnknownAudit(ctx, node, time.Now().Add(-2*time.Hour))
 			require.NoError(t, err)
 		}
 
@@ -196,8 +195,8 @@ func TestAuditSuspendDQDisabled(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.Node.SuspensionGracePeriod = time.Hour
-				config.Overlay.Node.SuspensionDQEnabled = false
+				config.Reputation.SuspensionGracePeriod = time.Hour
+				config.Reputation.SuspensionDQEnabled = false
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -208,8 +207,9 @@ func TestAuditSuspendDQDisabled(t *testing.T) {
 
 		// suspend each node two hours ago (more than grace period)
 		oc := planet.Satellites[0].DB.OverlayCache()
+		repService := planet.Satellites[0].Reputation.Service
 		for _, node := range (storj.NodeIDList{successNodeID, failNodeID, offlineNodeID, unknownNodeID}) {
-			err := oc.TestSuspendNodeUnknownAudit(ctx, node, time.Now().Add(-2*time.Hour))
+			err := repService.TestSuspendNodeUnknownAudit(ctx, node, time.Now().Add(-2*time.Hour))
 			require.NoError(t, err)
 		}
 
@@ -264,15 +264,16 @@ func TestOfflineAuditSuspensionDisabled(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.AuditHistory.OfflineSuspensionEnabled = false
-				config.Overlay.AuditHistory.WindowSize = time.Hour
-				config.Overlay.AuditHistory.TrackingPeriod = 2 * time.Hour
+				config.Reputation.AuditHistory.OfflineSuspensionEnabled = false
+				config.Reputation.AuditHistory.WindowSize = time.Hour
+				config.Reputation.AuditHistory.TrackingPeriod = 2 * time.Hour
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		nodeID := planet.StorageNodes[0].ID()
 		oc := planet.Satellites[0].Overlay.DB
-		config := planet.Satellites[0].Config.Overlay.AuditHistory
+		reputationdb := planet.Satellites[0].DB.Reputation()
+		config := planet.Satellites[0].Config.Reputation.AuditHistory
 
 		node, err := oc.Get(ctx, nodeID)
 		require.NoError(t, err)
@@ -280,109 +281,50 @@ func TestOfflineAuditSuspensionDisabled(t *testing.T) {
 		require.Nil(t, node.OfflineUnderReview)
 		require.Nil(t, node.Disqualified)
 
-		req := &overlay.UpdateRequest{
-			NodeID:       nodeID,
-			AuditOutcome: overlay.AuditOffline,
-			AuditHistory: config,
-		}
 		windowSize := config.WindowSize
 		trackingPeriodLength := config.TrackingPeriod
 		currentWindow := time.Now()
 
+		req := reputation.UpdateRequest{
+			NodeID:       nodeID,
+			AuditOutcome: reputation.AuditOffline,
+			AuditHistory: config,
+		}
+
 		// check that unsuspended node does not get suspended
 		for i := 0; i <= int(trackingPeriodLength/windowSize); i++ {
-			_, err = planet.Satellites[0].DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{req}, 1, currentWindow)
+			_, _, err = reputationdb.Update(ctx, req, currentWindow)
 			require.NoError(t, err)
 			currentWindow = currentWindow.Add(windowSize)
 		}
 
-		n, err := oc.Get(ctx, nodeID)
+		reputationInfo, err := reputationdb.Get(ctx, nodeID)
 		require.NoError(t, err)
-		require.Less(t, n.Reputation.OnlineScore, config.OfflineThreshold)
-		require.Nil(t, n.OfflineSuspended)
-		require.Nil(t, n.OfflineUnderReview)
+		require.Nil(t, reputationInfo.OfflineSuspended)
+		require.Nil(t, reputationInfo.UnderReview)
+		require.Less(t, reputationInfo.OnlineScore, config.OfflineThreshold)
 
 		// check that enabling flag suspends the node
 		req.AuditHistory.OfflineSuspensionEnabled = true
-		_, err = planet.Satellites[0].DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{req}, 1, currentWindow)
+		_, _, err = reputationdb.Update(ctx, req, currentWindow)
 		require.NoError(t, err)
 
-		n, err = oc.Get(ctx, nodeID)
+		reputationInfo, err = reputationdb.Get(ctx, nodeID)
 		require.NoError(t, err)
-		require.Less(t, n.Reputation.OnlineScore, config.OfflineThreshold)
-		require.NotNil(t, n.OfflineSuspended)
-		require.NotNil(t, n.OfflineUnderReview)
+		require.NotNil(t, reputationInfo.OfflineSuspended)
+		require.NotNil(t, reputationInfo.UnderReview)
+		require.Less(t, reputationInfo.OnlineScore, config.OfflineThreshold)
 
 		// check that disabling flag clears suspension and under review
 		req.AuditHistory.OfflineSuspensionEnabled = false
-		_, err = planet.Satellites[0].DB.OverlayCache().BatchUpdateStats(ctx, []*overlay.UpdateRequest{req}, 1, currentWindow)
+		_, _, err = reputationdb.Update(ctx, req, currentWindow)
 		require.NoError(t, err)
 
-		n, err = oc.Get(ctx, nodeID)
+		reputationInfo, err = reputationdb.Get(ctx, nodeID)
 		require.NoError(t, err)
-		require.Less(t, n.Reputation.OnlineScore, config.OfflineThreshold)
-		require.Nil(t, n.OfflineSuspended)
-		require.Nil(t, n.OfflineUnderReview)
-	})
-}
-
-// TestAuditSuspendBatchUpdateStats ensures that suspension and alpha/beta fields are properly updated from batch update stats.
-func TestAuditSuspendBatchUpdateStats(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		nodeID := planet.StorageNodes[0].ID()
-		oc := planet.Satellites[0].Overlay.Service
-
-		node, err := oc.Get(ctx, nodeID)
-		require.NoError(t, err)
-		require.Nil(t, node.UnknownAuditSuspended)
-		testStartTime := time.Now()
-
-		nodeUpdateReq := &overlay.UpdateRequest{
-			NodeID:       nodeID,
-			AuditOutcome: overlay.AuditSuccess,
-			AuditLambda:  1,
-			AuditWeight:  1,
-			AuditDQ:      0.6,
-		}
-
-		// give node successful audit - expect alpha to be > 1 and beta to be 0
-		_, err = oc.BatchUpdateStats(ctx, []*overlay.UpdateRequest{nodeUpdateReq})
-		require.NoError(t, err)
-
-		node, err = oc.Get(ctx, nodeID)
-		require.NoError(t, err)
-		// expect unknown audit alpha/beta to change and suspended to be nil
-		require.True(t, node.Reputation.UnknownAuditReputationAlpha > 1)
-		require.True(t, node.Reputation.UnknownAuditReputationBeta == 0)
-		require.Nil(t, node.UnknownAuditSuspended)
-		// expect audit alpha/beta to change and disqualified to be nil
-		require.True(t, node.Reputation.AuditReputationAlpha > 1)
-		require.True(t, node.Reputation.AuditReputationBeta == 0)
-		require.Nil(t, node.Disqualified)
-		require.EqualValues(t, node.Reputation.AuditReputationAlpha, 1)
-		require.EqualValues(t, node.Reputation.AuditReputationBeta, 0)
-
-		oldReputation := node.Reputation
-
-		// give node two unknown audits to suspend node
-		nodeUpdateReq.AuditOutcome = overlay.AuditUnknown
-		_, err = oc.BatchUpdateStats(ctx, []*overlay.UpdateRequest{nodeUpdateReq})
-		require.NoError(t, err)
-		_, err = oc.BatchUpdateStats(ctx, []*overlay.UpdateRequest{nodeUpdateReq})
-		require.NoError(t, err)
-
-		node, err = oc.Get(ctx, nodeID)
-		require.NoError(t, err)
-		require.True(t, node.Reputation.UnknownAuditReputationAlpha < oldReputation.UnknownAuditReputationAlpha)
-		require.True(t, node.Reputation.UnknownAuditReputationBeta > oldReputation.UnknownAuditReputationBeta)
-		require.NotNil(t, node.UnknownAuditSuspended)
-		require.True(t, node.Reputation.UnknownAuditSuspended.After(testStartTime))
-		// node should not be disqualified and normal audit reputation should not change
-		require.EqualValues(t, node.Reputation.AuditReputationAlpha, oldReputation.AuditReputationAlpha)
-		require.EqualValues(t, node.Reputation.AuditReputationBeta, oldReputation.AuditReputationBeta)
-		require.Nil(t, node.Disqualified)
+		require.Less(t, reputationInfo.OnlineScore, config.OfflineThreshold)
+		require.Nil(t, reputationInfo.OfflineSuspended)
+		require.Nil(t, reputationInfo.UnderReview)
 	})
 }
 
@@ -393,21 +335,27 @@ func TestAuditSuspendBatchUpdateStats(t *testing.T) {
 func TestOfflineSuspend(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Reputation.AuditHistory.OfflineSuspensionEnabled = false
+				config.Reputation.AuditHistory.WindowSize = time.Hour
+				config.Reputation.AuditHistory.TrackingPeriod = 2 * time.Hour
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		nodeID := planet.StorageNodes[0].ID()
-		oc := planet.Satellites[0].Overlay.DB
+		reputationdb := planet.Satellites[0].DB.Reputation()
+		oc := planet.Satellites[0].DB.OverlayCache()
 
 		node, err := oc.Get(ctx, nodeID)
 		require.NoError(t, err)
 		require.Nil(t, node.OfflineSuspended)
-		require.Nil(t, node.OfflineUnderReview)
 		require.Nil(t, node.Disqualified)
-		require.EqualValues(t, 1, node.Reputation.OnlineScore)
 
-		updateReq := &overlay.UpdateRequest{
+		updateReq := reputation.UpdateRequest{
 			NodeID:       nodeID,
-			AuditOutcome: overlay.AuditOffline,
-			AuditHistory: overlay.AuditHistoryConfig{
+			AuditOutcome: reputation.AuditOffline,
+			AuditHistory: reputation.AuditHistoryConfig{
 				WindowSize:               time.Hour,
 				TrackingPeriod:           2 * time.Hour,
 				GracePeriod:              time.Hour,
@@ -427,105 +375,105 @@ func TestOfflineSuspend(t *testing.T) {
 		// give node an offline audit
 		// node's score is still 1 until its first window is complete
 		nextWindowTime := time.Now()
-		_, err = oc.UpdateStats(ctx, updateReq, nextWindowTime)
+		_, _, err = reputationdb.Update(ctx, updateReq, nextWindowTime)
 		require.NoError(t, err)
 
-		node, err = oc.Get(ctx, nodeID)
+		reputationInfo, err := reputationdb.Get(ctx, nodeID)
 		require.NoError(t, err)
-		require.Nil(t, node.OfflineSuspended)
-		require.Nil(t, node.OfflineUnderReview)
-		require.Nil(t, node.Disqualified)
-		require.EqualValues(t, 1, node.Reputation.OnlineScore)
+		require.Nil(t, reputationInfo.OfflineSuspended)
+		require.Nil(t, reputationInfo.UnderReview)
+		require.Nil(t, reputationInfo.Disqualified)
+		require.EqualValues(t, 1, reputationInfo.OnlineScore)
 
 		nextWindowTime = nextWindowTime.Add(updateReq.AuditHistory.WindowSize)
 
 		// node now has one full window, so its score should be 0
 		// should not be suspended or DQ since it only has 1 window out of 2 for tracking period
-		_, err = oc.UpdateStats(ctx, updateReq, nextWindowTime)
+		_, _, err = reputationdb.Update(ctx, updateReq, nextWindowTime)
 		require.NoError(t, err)
 
-		node, err = oc.Get(ctx, nodeID)
+		reputationInfo, err = reputationdb.Get(ctx, nodeID)
 		require.NoError(t, err)
-		require.Nil(t, node.OfflineSuspended)
-		require.Nil(t, node.OfflineUnderReview)
-		require.Nil(t, node.Disqualified)
-		require.EqualValues(t, 0, node.Reputation.OnlineScore)
+		require.Nil(t, reputationInfo.OfflineSuspended)
+		require.Nil(t, reputationInfo.UnderReview)
+		require.Nil(t, reputationInfo.Disqualified)
+		require.EqualValues(t, 0, reputationInfo.OnlineScore)
 
 		nextWindowTime = nextWindowTime.Add(updateReq.AuditHistory.WindowSize)
 
-		nextWindowTime, err = setOnlineScore(ctx, updateReq, 0.5, time.Hour, nextWindowTime, oc)
+		nextWindowTime, err = setOnlineScore(ctx, updateReq, 0.5, time.Hour, nextWindowTime, reputationdb)
 		require.NoError(t, err)
 
 		// node should be offline suspended and under review
-		node, err = oc.Get(ctx, nodeID)
+		reputationInfo, err = reputationdb.Get(ctx, nodeID)
 		require.NoError(t, err)
-		require.NotNil(t, node.OfflineSuspended)
-		require.NotNil(t, node.OfflineUnderReview)
+		require.NotNil(t, reputationInfo.OfflineSuspended)
+		require.NotNil(t, reputationInfo.UnderReview)
 		require.Nil(t, node.Disqualified)
-		require.EqualValues(t, 0.5, node.Reputation.OnlineScore)
+		require.EqualValues(t, 0.5, reputationInfo.OnlineScore)
 
 		// set online score to be good, but use a long grace period so that node remains under review
-		nextWindowTime, err = setOnlineScore(ctx, updateReq, 1, 100*time.Hour, nextWindowTime, oc)
+		nextWindowTime, err = setOnlineScore(ctx, updateReq, 1, 100*time.Hour, nextWindowTime, reputationdb)
 		require.NoError(t, err)
 
-		node, err = oc.Get(ctx, nodeID)
+		reputationInfo, err = reputationdb.Get(ctx, nodeID)
 		require.NoError(t, err)
-		require.Nil(t, node.OfflineSuspended)
-		require.NotNil(t, node.OfflineUnderReview)
-		require.Nil(t, node.Disqualified)
-		oldUnderReview := node.OfflineUnderReview
-		require.EqualValues(t, 1, node.Reputation.OnlineScore)
+		require.Nil(t, reputationInfo.OfflineSuspended)
+		require.NotNil(t, reputationInfo.UnderReview)
+		require.Nil(t, reputationInfo.Disqualified)
+		oldUnderReview := reputationInfo.UnderReview
+		require.EqualValues(t, 1, reputationInfo.OnlineScore)
 
 		// suspend again, under review should be the same
-		nextWindowTime, err = setOnlineScore(ctx, updateReq, 0.5, 100*time.Hour, nextWindowTime, oc)
+		nextWindowTime, err = setOnlineScore(ctx, updateReq, 0.5, 100*time.Hour, nextWindowTime, reputationdb)
 		require.NoError(t, err)
 
-		node, err = oc.Get(ctx, nodeID)
+		reputationInfo, err = reputationdb.Get(ctx, nodeID)
 		require.NoError(t, err)
-		require.NotNil(t, node.OfflineSuspended)
-		require.NotNil(t, node.OfflineUnderReview)
+		require.NotNil(t, reputationInfo.OfflineSuspended)
+		require.NotNil(t, reputationInfo.UnderReview)
 		require.Nil(t, node.Disqualified)
-		require.Equal(t, oldUnderReview, node.OfflineUnderReview)
-		require.EqualValues(t, 0.5, node.Reputation.OnlineScore)
+		require.Equal(t, oldUnderReview, reputationInfo.UnderReview)
+		require.EqualValues(t, 0.5, reputationInfo.OnlineScore)
 
 		// node will exit review after grace period + 1 tracking window, so set grace period to be time since put under review
 		// subtract one hour so that review window ends when setOnlineScore adds the last window
-		gracePeriod := nextWindowTime.Sub(*node.OfflineUnderReview) - time.Hour
-		nextWindowTime, err = setOnlineScore(ctx, updateReq, 1, gracePeriod, nextWindowTime, oc)
+		gracePeriod := nextWindowTime.Sub(*reputationInfo.UnderReview) - time.Hour
+		nextWindowTime, err = setOnlineScore(ctx, updateReq, 1, gracePeriod, nextWindowTime, reputationdb)
 		require.NoError(t, err)
 
-		node, err = oc.Get(ctx, nodeID)
+		reputationInfo, err = reputationdb.Get(ctx, nodeID)
 		require.NoError(t, err)
-		require.Nil(t, node.OfflineSuspended)
-		require.Nil(t, node.OfflineUnderReview)
-		require.Nil(t, node.Disqualified)
-		require.EqualValues(t, 1, node.Reputation.OnlineScore)
+		require.Nil(t, reputationInfo.OfflineSuspended)
+		require.Nil(t, reputationInfo.UnderReview)
+		require.Nil(t, reputationInfo.Disqualified)
+		require.EqualValues(t, 1, reputationInfo.OnlineScore)
 
 		// put into suspension and under review again
-		nextWindowTime, err = setOnlineScore(ctx, updateReq, 0.5, 100*time.Hour, nextWindowTime, oc)
+		nextWindowTime, err = setOnlineScore(ctx, updateReq, 0.5, 100*time.Hour, nextWindowTime, reputationdb)
 		require.NoError(t, err)
 
-		node, err = oc.Get(ctx, nodeID)
+		reputationInfo, err = reputationdb.Get(ctx, nodeID)
 		require.NoError(t, err)
-		require.NotNil(t, node.OfflineSuspended)
-		require.NotNil(t, node.OfflineUnderReview)
+		require.NotNil(t, reputationInfo.OfflineSuspended)
+		require.NotNil(t, reputationInfo.UnderReview)
 		require.Nil(t, node.Disqualified)
-		require.EqualValues(t, 0.5, node.Reputation.OnlineScore)
+		require.EqualValues(t, 0.5, reputationInfo.OnlineScore)
 
 		// if grace period + 1 tracking window passes and online score is still bad, expect node to be DQed
-		_, err = setOnlineScore(ctx, updateReq, 0.5, 0, nextWindowTime, oc)
+		_, err = setOnlineScore(ctx, updateReq, 0.5, 0, nextWindowTime, reputationdb)
 		require.NoError(t, err)
 
-		node, err = oc.Get(ctx, nodeID)
+		reputationInfo, err = reputationdb.Get(ctx, nodeID)
 		require.NoError(t, err)
-		require.NotNil(t, node.OfflineSuspended)
-		require.NotNil(t, node.OfflineUnderReview)
-		require.NotNil(t, node.Disqualified)
-		require.EqualValues(t, 0.5, node.Reputation.OnlineScore)
+		require.NotNil(t, reputationInfo.OfflineSuspended)
+		require.NotNil(t, reputationInfo.UnderReview)
+		require.NotNil(t, reputationInfo.Disqualified)
+		require.EqualValues(t, 0.5, reputationInfo.OnlineScore)
 	})
 }
 
-func setOnlineScore(ctx context.Context, reqPtr *overlay.UpdateRequest, desiredScore float64, gracePeriod time.Duration, startTime time.Time, oc overlay.DB) (nextWindowTime time.Time, err error) {
+func setOnlineScore(ctx context.Context, reqPtr reputation.UpdateRequest, desiredScore float64, gracePeriod time.Duration, startTime time.Time, reputationdb reputation.DB) (nextWindowTime time.Time, err error) {
 	// for our tests, we are only using values of 1 and 0.5, so two audits per window is sufficient
 	totalAudits := 2
 	onlineAudits := int(float64(totalAudits) * desiredScore)
@@ -533,20 +481,18 @@ func setOnlineScore(ctx context.Context, reqPtr *overlay.UpdateRequest, desiredS
 
 	windowsPerTrackingPeriod := int(reqPtr.AuditHistory.TrackingPeriod.Seconds() / reqPtr.AuditHistory.WindowSize.Seconds())
 	for window := 0; window < windowsPerTrackingPeriod+1; window++ {
-		updateReqs := []*overlay.UpdateRequest{}
 		for i := 0; i < totalAudits; i++ {
-			updateReq := *reqPtr
-			updateReq.AuditOutcome = overlay.AuditSuccess
+			updateReq := reqPtr
+			updateReq.AuditOutcome = reputation.AuditSuccess
 			if i >= onlineAudits {
-				updateReq.AuditOutcome = overlay.AuditOffline
+				updateReq.AuditOutcome = reputation.AuditOffline
 			}
 			updateReq.AuditHistory.GracePeriod = gracePeriod
 
-			updateReqs = append(updateReqs, &updateReq)
-		}
-		_, err = oc.BatchUpdateStats(ctx, updateReqs, 100, nextWindowTime)
-		if err != nil {
-			return nextWindowTime, err
+			_, _, err = reputationdb.Update(ctx, updateReq, nextWindowTime)
+			if err != nil {
+				return nextWindowTime, err
+			}
 		}
 		// increment nextWindowTime so in the next iteration, we are adding to a different window
 		nextWindowTime = nextWindowTime.Add(reqPtr.AuditHistory.WindowSize)

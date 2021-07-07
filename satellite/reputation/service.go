@@ -107,8 +107,8 @@ func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (info *Inf
 	return service.db.Get(ctx, nodeID)
 }
 
-// TestingSuspendNodeUnknownAudit suspends a storage node for unknown audits.
-func (service *Service) TestingSuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
+// TestSuspendNodeUnknownAudit suspends a storage node for unknown audits.
+func (service *Service) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
 	err = service.db.SuspendNodeUnknownAudit(ctx, nodeID, suspendedAt)
 	if err != nil {
 		return err
@@ -127,8 +127,8 @@ func (service *Service) TestDisqualifyNode(ctx context.Context, nodeID storj.Nod
 	return service.overlay.DisqualifyNode(ctx, nodeID)
 }
 
-// TestingUnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
-func (service *Service) TestingUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error) {
+// TestUnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
+func (service *Service) TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error) {
 	err = service.db.UnsuspendNodeUnknownAudit(ctx, nodeID)
 	if err != nil {
 		return err

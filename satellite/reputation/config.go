@@ -6,8 +6,13 @@ package reputation
 import (
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/storj"
 )
+
+// ErrNodeNotFound is returned if a node does not exist in database.
+var ErrNodeNotFound = errs.Class("node not found")
 
 // Config contains all config values for the reputation service.
 type Config struct {

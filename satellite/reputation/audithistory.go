@@ -55,10 +55,7 @@ func (service *Service) GetAuditHistory(ctx context.Context, nodeID storj.NodeID
 }
 
 // AuditHistoryToPB converts an overlay.AuditHistory to a pb.AuditHistory.
-func AuditHistoryToPB(auditHistory *AuditHistory) (historyPB *pb.AuditHistory) {
-	if auditHistory == nil {
-		return nil
-	}
+func AuditHistoryToPB(auditHistory AuditHistory) (historyPB *pb.AuditHistory) {
 	historyPB = &pb.AuditHistory{
 		Score:   auditHistory.Score,
 		Windows: make([]*pb.AuditWindow, len(auditHistory.Windows)),

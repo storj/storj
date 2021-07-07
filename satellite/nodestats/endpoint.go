@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/paymentsconfig"
+	"storj.io/storj/satellite/reputation"
 )
 
 var (
@@ -29,15 +30,17 @@ type Endpoint struct {
 
 	log        *zap.Logger
 	overlay    overlay.DB
+	reputation reputation.DB
 	accounting accounting.StoragenodeAccounting
 	config     paymentsconfig.Config
 }
 
 // NewEndpoint creates new endpoint.
-func NewEndpoint(log *zap.Logger, overlay overlay.DB, accounting accounting.StoragenodeAccounting, config paymentsconfig.Config) *Endpoint {
+func NewEndpoint(log *zap.Logger, overlay overlay.DB, reputation reputation.DB, accounting accounting.StoragenodeAccounting, config paymentsconfig.Config) *Endpoint {
 	return &Endpoint{
 		log:        log,
 		overlay:    overlay,
+		reputation: reputation,
 		accounting: accounting,
 		config:     config,
 	}
@@ -59,39 +62,44 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 		e.log.Error("overlay.Get failed", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
-	auditHistory, err := e.overlay.GetAuditHistory(ctx, peer.ID)
-	// if there is no audit history for the node, that's fine and we can continue with a nil auditHistory struct.
-	if err != nil && !overlay.ErrNodeNotFound.Has(err) {
-		e.log.Error("overlay.GetAuditHistory failed", zap.Error(err))
-		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	reputationInfo, err := e.reputation.Get(ctx, peer.ID)
+	if err != nil {
+		// if there is no audit history for the node, that's fine and we can
+		// continue with a nil reputation.Info struct.
+		if reputation.ErrNodeNotFound.Has(err) {
+			reputationInfo = &reputation.Info{}
+		} else {
+			e.log.Error("reputation.Get failed", zap.Error(err))
+			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+		}
 	}
 
 	auditScore := calculateReputationScore(
-		node.Reputation.AuditReputationAlpha,
-		node.Reputation.AuditReputationBeta)
+		reputationInfo.AuditReputationAlpha,
+		reputationInfo.AuditReputationBeta)
 
 	unknownScore := calculateReputationScore(
-		node.Reputation.UnknownAuditReputationAlpha,
-		node.Reputation.UnknownAuditReputationBeta)
+		reputationInfo.UnknownAuditReputationAlpha,
+		reputationInfo.UnknownAuditReputationBeta)
 
 	return &pb.GetStatsResponse{
 		AuditCheck: &pb.ReputationStats{
-			TotalCount:             node.Reputation.AuditCount,
-			SuccessCount:           node.Reputation.AuditSuccessCount,
-			ReputationAlpha:        node.Reputation.AuditReputationAlpha,
-			ReputationBeta:         node.Reputation.AuditReputationBeta,
-			UnknownReputationAlpha: node.Reputation.UnknownAuditReputationAlpha,
-			UnknownReputationBeta:  node.Reputation.UnknownAuditReputationBeta,
+			TotalCount:             reputationInfo.TotalAuditCount,
+			SuccessCount:           reputationInfo.AuditSuccessCount,
+			ReputationAlpha:        reputationInfo.AuditReputationAlpha,
+			ReputationBeta:         reputationInfo.AuditReputationBeta,
+			UnknownReputationAlpha: reputationInfo.UnknownAuditReputationAlpha,
+			UnknownReputationBeta:  reputationInfo.UnknownAuditReputationBeta,
 			ReputationScore:        auditScore,
 			UnknownReputationScore: unknownScore,
 		},
-		OnlineScore:        node.Reputation.OnlineScore,
-		Disqualified:       node.Disqualified,
-		Suspended:          node.UnknownAuditSuspended,
-		OfflineSuspended:   node.OfflineSuspended,
-		OfflineUnderReview: node.OfflineUnderReview,
-		VettedAt:           node.Reputation.VettedAt,
-		AuditHistory:       overlay.AuditHistoryToPB(auditHistory),
+		OnlineScore:        reputationInfo.OnlineScore,
+		Disqualified:       reputationInfo.Disqualified,
+		Suspended:          reputationInfo.UnknownAuditSuspended,
+		OfflineSuspended:   reputationInfo.OfflineSuspended,
+		OfflineUnderReview: reputationInfo.UnderReview,
+		VettedAt:           reputationInfo.VettedAt,
+		AuditHistory:       reputation.AuditHistoryToPB(reputationInfo.AuditHistory),
 		JoinedAt:           node.CreatedAt,
 	}, nil
 }

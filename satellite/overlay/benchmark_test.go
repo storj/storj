@@ -115,114 +115,6 @@ func BenchmarkOverlay(b *testing.B) {
 			}
 		})
 
-		b.Run("UpdateStatsSuccess", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				id := all[i%len(all)]
-				_, err := overlaydb.UpdateStats(ctx, &overlay.UpdateRequest{
-					NodeID:       id,
-					AuditOutcome: overlay.AuditSuccess,
-					AuditHistory: testAuditHistoryConfig(),
-				}, time.Now())
-				require.NoError(b, err)
-			}
-		})
-
-		b.Run("UpdateStatsFailure", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				id := all[i%len(all)]
-				_, err := overlaydb.UpdateStats(ctx, &overlay.UpdateRequest{
-					NodeID:       id,
-					AuditOutcome: overlay.AuditFailure,
-					AuditHistory: testAuditHistoryConfig(),
-				}, time.Now())
-				require.NoError(b, err)
-			}
-		})
-
-		b.Run("UpdateStatsUnknown", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				id := all[i%len(all)]
-				_, err := overlaydb.UpdateStats(ctx, &overlay.UpdateRequest{
-					NodeID:       id,
-					AuditOutcome: overlay.AuditUnknown,
-					AuditHistory: testAuditHistoryConfig(),
-				}, time.Now())
-				require.NoError(b, err)
-			}
-		})
-
-		b.Run("UpdateStatsOffline", func(b *testing.B) {
-			for i := 0; i < b.N; i++ {
-				id := all[i%len(all)]
-				_, err := overlaydb.UpdateStats(ctx, &overlay.UpdateRequest{
-					NodeID:       id,
-					AuditOutcome: overlay.AuditOffline,
-					AuditHistory: testAuditHistoryConfig(),
-				}, time.Now())
-				require.NoError(b, err)
-			}
-		})
-
-		b.Run("BatchUpdateStatsSuccess", func(b *testing.B) {
-			var updateRequests []*overlay.UpdateRequest
-			for i := 0; i < b.N; i++ {
-				id := all[i%len(all)]
-				updateRequests = append(updateRequests, &overlay.UpdateRequest{
-					NodeID:       id,
-					AuditOutcome: overlay.AuditSuccess,
-					AuditHistory: testAuditHistoryConfig(),
-				})
-
-			}
-			_, err := overlaydb.BatchUpdateStats(ctx, updateRequests, 100, time.Now())
-			require.NoError(b, err)
-		})
-
-		b.Run("BatchUpdateStatsFailure", func(b *testing.B) {
-			var updateRequests []*overlay.UpdateRequest
-			for i := 0; i < b.N; i++ {
-				id := all[i%len(all)]
-				updateRequests = append(updateRequests, &overlay.UpdateRequest{
-					NodeID:       id,
-					AuditOutcome: overlay.AuditFailure,
-					AuditHistory: testAuditHistoryConfig(),
-				})
-
-			}
-			_, err := overlaydb.BatchUpdateStats(ctx, updateRequests, 100, time.Now())
-			require.NoError(b, err)
-		})
-
-		b.Run("BatchUpdateStatsUnknown", func(b *testing.B) {
-			var updateRequests []*overlay.UpdateRequest
-			for i := 0; i < b.N; i++ {
-				id := all[i%len(all)]
-				updateRequests = append(updateRequests, &overlay.UpdateRequest{
-					NodeID:       id,
-					AuditOutcome: overlay.AuditUnknown,
-					AuditHistory: testAuditHistoryConfig(),
-				})
-
-			}
-			_, err := overlaydb.BatchUpdateStats(ctx, updateRequests, 100, time.Now())
-			require.NoError(b, err)
-		})
-
-		b.Run("BatchUpdateStatsOffline", func(b *testing.B) {
-			var updateRequests []*overlay.UpdateRequest
-			for i := 0; i < b.N; i++ {
-				id := all[i%len(all)]
-				updateRequests = append(updateRequests, &overlay.UpdateRequest{
-					NodeID:       id,
-					AuditOutcome: overlay.AuditOffline,
-					AuditHistory: testAuditHistoryConfig(),
-				})
-
-			}
-			_, err := overlaydb.BatchUpdateStats(ctx, updateRequests, 100, time.Now())
-			require.NoError(b, err)
-		})
-
 		b.Run("UpdateNodeInfo", func(b *testing.B) {
 			now := time.Now()
 			for i := 0; i < b.N; i++ {
@@ -309,7 +201,6 @@ func BenchmarkNodeSelection(b *testing.B) {
 		ctx := context.Background()
 
 		nodeSelectionConfig := overlay.NodeSelectionConfig{
-			AuditCount:       1,
 			NewNodeFraction:  newNodeFraction,
 			MinimumVersion:   "v1.0.0",
 			OnlineWindow:     time.Hour,
@@ -336,6 +227,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 					NodeID:     nodeID,
 					Address:    &pb.NodeAddress{Address: addr},
 					LastIPPort: addr,
+					IsUp:       true,
 					LastNet:    lastNet,
 					Version:    &pb.NodeVersion{Version: "v1.0.0"},
 					Capacity: &pb.NodeCapacity{
@@ -359,14 +251,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 				require.NoError(b, err)
 
 				if i%2 == 0 { // make half of nodes "new" and half "vetted"
-					_, err = overlaydb.UpdateStats(ctx, &overlay.UpdateRequest{
-						NodeID:       nodeID,
-						AuditOutcome: overlay.AuditSuccess,
-						AuditLambda:  1,
-						AuditWeight:  1,
-						AuditDQ:      0.5,
-						AuditHistory: testAuditHistoryConfig(),
-					}, time.Now())
+					_, err = overlaydb.TestVetNode(ctx, nodeID)
 					require.NoError(b, err)
 				}
 
