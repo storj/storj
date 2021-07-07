@@ -9,7 +9,7 @@
     "test": "vue-cli-service test:unit"
   },
   "dependencies": {
-    "chart.js": "2.9.3",
+    "chart.js": "2.9.4",
     "vue": "2.6.11",
     "vue-chartjs": "3.5.0",
     "vue-class-component": "7.2.6",
