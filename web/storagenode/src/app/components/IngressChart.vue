@@ -140,6 +140,7 @@ export default class IngressChart extends BaseChart {
         min-width: 50px;
         min-height: 30px;
         pointer-events: none;
+        z-index: 9999;
     }
 
     .ingress-tooltip-body {
