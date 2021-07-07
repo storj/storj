@@ -19,13 +19,13 @@
         </p>
         <p class="pt-bar__functional">
             Upload up to 75TB.
-            <b class="pt-bar__info__bold upgrade">Upgrade now.</b>
+            <b class="pt-bar__info__bold upgrade" @click.stop="openAddPMModal">Upgrade now.</b>
         </p>
     </div>
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import VLoader from '@/components/common/VLoader.vue';
 
@@ -40,6 +40,9 @@ import { Size } from '@/utils/bytesSize';
     },
 })
 export default class PaidTierBar extends Vue {
+    @Prop({default: () => false})
+    public readonly openAddPMModal: () => void;
+
     /**
      * Mounted lifecycle hook after initial render.
      * Fetches total limits.

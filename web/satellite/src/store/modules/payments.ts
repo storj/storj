@@ -29,6 +29,7 @@ export const PAYMENTS_MUTATIONS = {
     SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT: 'SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT',
     TOGGLE_PAID_TIER_BANNER_TO_LOADING: 'TOGGLE_PAID_TIER_BANNER_TO_LOADING',
     TOGGLE_PAID_TIER_BANNER_TO_LOADED: 'TOGGLE_PAID_TIER_BANNER_TO_LOADED',
+    TOGGLE_IS_ADD_PM_MODAL_SHOWN: 'TOGGLE_IS_ADD_PM_MODAL_SHOWN',
 };
 
 export const PAYMENTS_ACTIONS = {
@@ -61,6 +62,7 @@ const {
     SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT,
     TOGGLE_PAID_TIER_BANNER_TO_LOADING,
     TOGGLE_PAID_TIER_BANNER_TO_LOADED,
+    TOGGLE_IS_ADD_PM_MODAL_SHOWN,
 } = PAYMENTS_MUTATIONS;
 
 const {
@@ -92,6 +94,7 @@ export class PaymentsState {
     public startDate: Date = new Date();
     public endDate: Date = new Date();
     public isPaidTierBarLoading: boolean = true;
+    public isAddPMModalShown: boolean = false;
 }
 
 /**
@@ -175,6 +178,9 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
             },
             [TOGGLE_PAID_TIER_BANNER_TO_LOADED](state: PaymentsState): void {
                 state.isPaidTierBarLoading = false;
+            },
+            [TOGGLE_IS_ADD_PM_MODAL_SHOWN](state: PaymentsState): void {
+                state.isAddPMModalShown = !state.isAddPMModalShown;
             },
             [CLEAR](state: PaymentsState) {
                 state.balance = new AccountBalance();

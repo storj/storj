@@ -25,7 +25,7 @@ func (s *stdlibFlags) Setup(f clingy.Flags) {
 	// the expected clingy pipeline.
 	s.fs.VisitAll(func(fl *flag.Flag) {
 		name, _ := flag.UnquoteUsage(fl)
-		f.New(fl.Name, fl.Usage, fl.DefValue,
+		f.Flag(fl.Name, fl.Usage, fl.DefValue,
 			clingy.Advanced,
 			clingy.Type(name),
 			clingy.Transform(func(val string) (string, error) {

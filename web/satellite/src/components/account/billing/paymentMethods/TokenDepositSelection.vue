@@ -31,13 +31,12 @@ import {PaymentsHistoryItemType} from "@/types/payments";
         </label>
         <div
             class="options-container"
-            :class="{ 'top-expand': isExpandingTop }"
             v-if="isSelectionShown"
             v-click-outside="close"
         >
             <div
                 class="options-container__item"
-                v-for="option in options"
+                v-for="option in paymentOptions"
                 :key="option.label"
                 @click.prevent.stop="select(option)"
             >
@@ -62,40 +61,20 @@ import {PaymentsHistoryItemType} from "@/types/payments";
 </template>
 
 <script lang="ts">
-import { Component, Vue } from 'vue-property-decorator';
+import { Component, Prop, Vue } from 'vue-property-decorator';
 
-import { RouteConfig } from '@/router';
-import { PaymentAmountOption, PaymentsHistoryItem } from '@/types/payments';
+import { PaymentAmountOption } from '@/types/payments';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 
 @Component
 export default class TokenDepositSelection extends Vue {
-    /**
-     * Set of default payment options.
-     */
-    public paymentOptions: PaymentAmountOption[] = [
-        new PaymentAmountOption(10, `USD $10`),
-        new PaymentAmountOption(20, `USD $20`),
-        new PaymentAmountOption(50, `USD $50`),
-        new PaymentAmountOption(100, `USD $100`),
-        new PaymentAmountOption(1000, `USD $1000`),
-    ];
-
-    /**
-     * Set of payment options for the first ever transaction.
-     */
-    public initialPaymentOptions: PaymentAmountOption[] = [
-        new PaymentAmountOption(10, `USD $10`),
-        new PaymentAmountOption(20, `USD $20`),
-        new PaymentAmountOption(50, `USD $50`),
-        new PaymentAmountOption(100, `USD $100`),
-        new PaymentAmountOption(200, `USD $200`),
-    ];
+    @Prop({default: () => []})
+    public readonly paymentOptions: PaymentAmountOption[];
 
     /**
      * current selected payment option from default ones.
      */
-    public current: PaymentAmountOption = this.paymentOptions[0];
+    public current: PaymentAmountOption;
     public customAmount: string = '';
     /**
      * Indicates if custom amount selection state is active.
@@ -103,32 +82,18 @@ export default class TokenDepositSelection extends Vue {
     public isCustomAmount = false;
 
     /**
+     * Lifecycle hook before initial render.
+     * Sets initial deposit amount.
+     */
+    public beforeMount(): void {
+        this.current = this.paymentOptions[0];
+    }
+
+    /**
      * Indicates if concrete payment option is currently selected.
      */
     public isOptionSelected(option: PaymentAmountOption): boolean {
         return (option.value === this.current.value) && !this.isCustomAmount;
-    }
-
-    /**
-     * Indicates if dropdown expands top.
-     */
-    public get isExpandingTop(): boolean {
-        const hasNoTransactionsOrDepositBonuses: boolean =
-            !this.$store.state.paymentsModule.paymentsHistory.some((item: PaymentsHistoryItem) => item.isTransactionOrDeposit(),
-        );
-
-        return hasNoTransactionsOrDepositBonuses && !this.isOnboardingTour;
-    }
-
-    /**
-     * Returns payment options depending on user having his own project.
-     */
-    public get options(): PaymentAmountOption[] {
-        if (this.$store.getters.projectsCount === 0 && this.noCreditCards) {
-            return this.initialPaymentOptions;
-        }
-
-        return this.paymentOptions;
     }
 
     /**
@@ -186,20 +151,6 @@ export default class TokenDepositSelection extends Vue {
         this.current = option;
         this.$emit('onChangeTokenValue', option.value);
         this.close();
-    }
-
-    /**
-     * Indicates if user has no credit cards.
-     */
-    private get noCreditCards(): boolean {
-        return this.$store.state.paymentsModule.creditCards.length === 0;
-    }
-
-    /**
-     * Indicates if app state is in onboarding tour state.
-     */
-    private get isOnboardingTour(): boolean {
-        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 }
 </script>
@@ -356,10 +307,5 @@ export default class TokenDepositSelection extends Vue {
         position: absolute;
         top: 0;
         left: 0;
-    }
-
-    .top-expand {
-        top: -290px;
-        box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.25);
     }
 </style>
