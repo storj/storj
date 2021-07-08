@@ -62,11 +62,11 @@ func TestPayoutsEndpointSummary(t *testing.T) {
 		}
 		poolConfig.Sources = append(poolConfig.Sources, &trust.StaticURLSource{URL: trust.SatelliteURL{ID: satelliteID}})
 
-		trustPool, err := trust.NewPool(zaptest.NewLogger(t), trust.Dialer(rpc.Dialer{}), poolConfig)
+		trustPool, err := trust.NewPool(zaptest.NewLogger(t), trust.Dialer(rpc.Dialer{}), poolConfig, db.Satellites())
 		require.NoError(t, err)
 		require.NoError(t, trustPool.Refresh(ctx))
 
-		payoutsService, err := payouts.NewService(log, db.Payout(), db.Reputation(), db.Satellites(), trustPool)
+		payoutsService, err := payouts.NewService(log, db.Payout(), db.Reputation(), db.Satellites(), nil)
 		require.NoError(t, err)
 		estimatedPayoutsService := estimatedpayouts.NewService(db.Bandwidth(), db.Reputation(), db.StorageUsage(), db.Pricing(), db.Satellites(), trustPool)
 		endpoint := multinode.NewPayoutEndpoint(log, service, db.Payout(), estimatedPayoutsService, payoutsService)
@@ -155,11 +155,11 @@ func TestPayoutsEndpointEstimations(t *testing.T) {
 		}
 		poolConfig.Sources = append(poolConfig.Sources, &trust.StaticURLSource{URL: trust.SatelliteURL{ID: satelliteID}})
 
-		trustPool, err := trust.NewPool(zaptest.NewLogger(t), trust.Dialer(rpc.Dialer{}), poolConfig)
+		trustPool, err := trust.NewPool(zaptest.NewLogger(t), trust.Dialer(rpc.Dialer{}), poolConfig, db.Satellites())
 		require.NoError(t, err)
 		require.NoError(t, trustPool.Refresh(ctx))
 
-		payoutsService, err := payouts.NewService(log, db.Payout(), db.Reputation(), db.Satellites(), trustPool)
+		payoutsService, err := payouts.NewService(log, db.Payout(), db.Reputation(), db.Satellites(), nil)
 		require.NoError(t, err)
 		estimatedPayoutsService := estimatedpayouts.NewService(db.Bandwidth(), db.Reputation(), db.StorageUsage(), db.Pricing(), db.Satellites(), trustPool)
 		endpoint := multinode.NewPayoutEndpoint(log, service, db.Payout(), estimatedPayoutsService, payoutsService)
@@ -226,11 +226,11 @@ func TestPayoutsUndistributedEndpoint(t *testing.T) {
 		}
 		poolConfig.Sources = append(poolConfig.Sources, &trust.StaticURLSource{URL: trust.SatelliteURL{ID: satelliteID}})
 
-		trustPool, err := trust.NewPool(zaptest.NewLogger(t), trust.Dialer(rpc.Dialer{}), poolConfig)
+		trustPool, err := trust.NewPool(zaptest.NewLogger(t), trust.Dialer(rpc.Dialer{}), poolConfig, db.Satellites())
 		require.NoError(t, err)
 		require.NoError(t, trustPool.Refresh(ctx))
 
-		payoutsService, err := payouts.NewService(log, db.Payout(), db.Reputation(), db.Satellites(), trustPool)
+		payoutsService, err := payouts.NewService(log, db.Payout(), db.Reputation(), db.Satellites(), nil)
 		require.NoError(t, err)
 		estimatedPayoutsService := estimatedpayouts.NewService(db.Bandwidth(), db.Reputation(), db.StorageUsage(), db.Pricing(), db.Satellites(), trustPool)
 		endpoint := multinode.NewPayoutEndpoint(log, service, db.Payout(), estimatedPayoutsService, payoutsService)

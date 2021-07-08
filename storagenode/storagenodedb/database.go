@@ -1987,6 +1987,15 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					`ALTER TABLE reputation ADD COLUMN vetted_at TIMESTAMP`,
 				},
 			},
+			{
+				DB:          &db.satellitesDB.DB,
+				Description: "Add address to satellites, inserts stefan-benten satellite into satellites db",
+				Version:     53,
+				Action: migrate.SQL{
+					`ALTER TABLE satellites ADD COLUMN address TEXT;
+					 UPDATE satellites SET address = 'satellite.stefan-benten.de:7777' WHERE node_id = X'004ae89e970e703df42ba4ab1416a3b30b7e1d8e14aa0e558f7ee26800000000'`,
+				},
+			},
 		},
 	}
 }

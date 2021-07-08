@@ -19,6 +19,7 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/storj/storagenode/satellites"
 )
 
 // Error is the default error class.
@@ -68,6 +69,8 @@ type Pool struct {
 	listMu sync.Mutex
 	list   *List
 
+	satellitesDB satellites.DB
+
 	satellitesMu sync.RWMutex
 	satellites   map[storj.NodeID]*satelliteInfoCache
 }
@@ -80,7 +83,7 @@ type satelliteInfoCache struct {
 }
 
 // NewPool creates a new trust pool of the specified list of trusted satellites.
-func NewPool(log *zap.Logger, resolver IdentityResolver, config Config) (*Pool, error) {
+func NewPool(log *zap.Logger, resolver IdentityResolver, config Config, satellitesDB satellites.DB) (*Pool, error) {
 	// TODO: preload all satellite peer identities
 
 	cache, err := LoadCache(config.CachePath)
@@ -98,6 +101,7 @@ func NewPool(log *zap.Logger, resolver IdentityResolver, config Config) (*Pool, 
 		resolver:        resolver,
 		refreshInterval: config.RefreshInterval,
 		list:            list,
+		satellitesDB:    satellitesDB,
 		satellites:      make(map[storj.NodeID]*satelliteInfoCache),
 	}, nil
 }
@@ -114,6 +118,12 @@ func (pool *Pool) Run(ctx context.Context) error {
 		if err := pool.Refresh(ctx); err != nil {
 			pool.log.Error("Failed to refresh", zap.Error(err))
 			return err
+		}
+
+		for _, trustedSatellite := range pool.satellites {
+			if err := pool.satellitesDB.SetAddress(ctx, trustedSatellite.url.ID, trustedSatellite.url.Address); err != nil {
+				return err
+			}
 		}
 	}
 }

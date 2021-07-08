@@ -18,7 +18,6 @@ import (
 	"storj.io/storj/storagenode/payouts"
 	"storj.io/storj/storagenode/pricing"
 	"storj.io/storj/storagenode/reputation"
-	"storj.io/storj/storagenode/satellites"
 	"storj.io/storj/storagenode/storageusage"
 	"storj.io/storj/storagenode/trust"
 )
@@ -36,7 +35,6 @@ type CacheStorage struct {
 	StorageUsage storageusage.DB
 	Payout       payouts.DB
 	Pricing      pricing.DB
-	Satellites   satellites.DB
 }
 
 // Cache runs cache loop and stores reputation stats and storage usage into db.

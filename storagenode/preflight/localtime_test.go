@@ -113,7 +113,7 @@ func TestLocalTime_OutOfSync(t *testing.T) {
 		pool, err := trust.NewPool(log, trust.Dialer(dialer), trust.Config{
 			Sources:   []trust.Source{source},
 			CachePath: ctx.File("trust-cache.json"),
-		})
+		}, nil)
 		require.NoError(t, err)
 		err = pool.Refresh(ctx)
 		require.NoError(t, err)
@@ -169,7 +169,7 @@ func TestLocalTime_OutOfSync(t *testing.T) {
 		pool, err := trust.NewPool(log, trust.Dialer(dialer), trust.Config{
 			Sources:   []trust.Source{source},
 			CachePath: ctx.File("trust-cache.json"),
-		})
+		}, nil)
 		require.NoError(t, err)
 		err = pool.Refresh(ctx)
 		require.NoError(t, err)

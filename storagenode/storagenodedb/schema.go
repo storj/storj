@@ -668,6 +668,11 @@ func Schema() map[string]*dbschema.Schema {
 							IsNullable: false,
 						},
 						&dbschema.Column{
+							Name:       "address",
+							Type:       "TEXT",
+							IsNullable: true,
+						},
+						&dbschema.Column{
 							Name:       "node_id",
 							Type:       "BLOB",
 							IsNullable: false,
@@ -729,3 +734,4 @@ func Schema() map[string]*dbschema.Schema {
 		"used_serial": &dbschema.Schema{},
 	}
 }
+
