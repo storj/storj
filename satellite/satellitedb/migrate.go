@@ -1536,6 +1536,17 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE bucket_storage_tallies ADD COLUMN total_segments_count integer NOT NULL DEFAULT 0;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add multi-factor authentication columns mfa_enabled, mfa_secret_key, and mfa_recovery_codes into users table",
+				Version:     167,
+				Action: migrate.SQL{
+					`ALTER TABLE users
+						ADD COLUMN mfa_enabled boolean NOT NULL DEFAULT false,
+						ADD COLUMN mfa_secret_key text,
+						ADD COLUMN mfa_recovery_codes text;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
