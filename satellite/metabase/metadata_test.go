@@ -14,20 +14,18 @@ import (
 	"storj.io/storj/satellite/metabase/metabasetest"
 )
 
-func TestSetObjectMetadataLatestVersion(t *testing.T) {
+func TestUpdateObjectMetadata(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		obj := metabasetest.RandObjectStream()
 		now := time.Now()
 
-		location := obj.Location()
-
-		for _, test := range metabasetest.InvalidObjectLocations(location) {
+		for _, test := range metabasetest.InvalidObjectStreams(obj) {
 			test := test
 			t.Run(test.Name, func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-				metabasetest.SetObjectMetadataLatestVersion{
-					Opts: metabase.SetObjectMetadataLatestVersion{
-						ObjectLocation: test.ObjectLocation,
+				metabasetest.UpdateObjectMetadata{
+					Opts: metabase.UpdateObjectMetadata{
+						ObjectStream: test.ObjectStream,
 					},
 					ErrClass: test.ErrClass,
 					ErrText:  test.ErrText,
@@ -36,15 +34,34 @@ func TestSetObjectMetadataLatestVersion(t *testing.T) {
 			})
 		}
 
+		t.Run("Version invalid", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.UpdateObjectMetadata{
+				Opts: metabase.UpdateObjectMetadata{
+					ObjectStream: metabase.ObjectStream{
+						ProjectID:  obj.ProjectID,
+						BucketName: obj.BucketName,
+						ObjectKey:  obj.ObjectKey,
+						Version:    0,
+						StreamID:   obj.StreamID,
+					},
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "Version invalid: 0",
+			}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
 		t.Run("Object missing", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			metabasetest.SetObjectMetadataLatestVersion{
-				Opts: metabase.SetObjectMetadataLatestVersion{
-					ObjectLocation: location,
+			metabasetest.UpdateObjectMetadata{
+				Opts: metabase.UpdateObjectMetadata{
+					ObjectStream: obj,
 				},
 				ErrClass: &storj.ErrObjectNotFound,
-				ErrText:  "metabase: object with specified committed status is missing",
+				ErrText:  "metabase: object with specified version and committed status is missing",
 			}.Check(ctx, t, db)
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
@@ -69,9 +86,9 @@ func TestSetObjectMetadataLatestVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			metabasetest.SetObjectMetadataLatestVersion{
-				Opts: metabase.SetObjectMetadataLatestVersion{
-					ObjectLocation:                location,
+			metabasetest.UpdateObjectMetadata{
+				Opts: metabase.UpdateObjectMetadata{
+					ObjectStream:                  obj,
 					EncryptedMetadata:             encryptedMetadata,
 					EncryptedMetadataNonce:        encryptedMetadataNonce[:],
 					EncryptedMetadataEncryptedKey: encryptedMetadataKey,

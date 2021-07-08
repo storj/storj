@@ -585,11 +585,15 @@ func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
 		objects, err := satelliteSys.API.Metainfo.Metabase.TestingAllObjects(ctx)
 		require.NoError(t, err)
 		require.Len(t, objects, 1)
-		// TODO: we expect no encrypted metadata at this point, but for some reason there are 111 bytes of metadata.
-		// assert.Nil(t, objects[0].EncryptedMetadata, len(objects[0].EncryptedMetadata))
-		assert.Nil(t, objects[0].EncryptedMetadataEncryptedKey)
-		zeroNonce := storj.Nonce{}
-		assert.Equal(t, zeroNonce[:], objects[0].EncryptedMetadataNonce)
+
+		getResp, err := satelliteSys.API.Metainfo.Endpoint.GetObject(ctx, &pb.ObjectGetRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: apiKey.SerializeRaw(),
+			},
+			Bucket:        []byte("testbucket"),
+			EncryptedPath: []byte(objects[0].ObjectKey),
+		})
+		require.NoError(t, err)
 
 		testEncryptedMetadata := testrand.BytesInt(64)
 		testEncryptedMetadataEncryptedKey := testrand.BytesInt(32)
@@ -600,8 +604,10 @@ func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
 			Header: &pb.RequestHeader{
 				ApiKey: apiKey.SerializeRaw(),
 			},
-			Bucket:                        []byte("testbucket"),
-			EncryptedObjectKey:            []byte(objects[0].ObjectKey),
+			Bucket:                        getResp.Object.Bucket,
+			EncryptedObjectKey:            getResp.Object.EncryptedPath,
+			Version:                       getResp.Object.Version,
+			StreamId:                      getResp.Object.StreamId,
 			EncryptedMetadataNonce:        testEncryptedMetadataNonce,
 			EncryptedMetadata:             testEncryptedMetadata,
 			EncryptedMetadataEncryptedKey: testEncryptedMetadataEncryptedKey,

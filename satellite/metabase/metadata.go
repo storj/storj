@@ -9,21 +9,25 @@ import (
 	"storj.io/common/storj"
 )
 
-// SetObjectMetadataLatestVersion contains arguments necessary for replacing an object metadata.
-type SetObjectMetadataLatestVersion struct {
-	ObjectLocation
+// UpdateObjectMetadata contains arguments necessary for replacing an object metadata.
+type UpdateObjectMetadata struct {
+	ObjectStream
 
 	EncryptedMetadata             []byte
 	EncryptedMetadataNonce        []byte
 	EncryptedMetadataEncryptedKey []byte
 }
 
-// SetObjectMetadataLatestVersion replaces an object metadata.
-func (db *DB) SetObjectMetadataLatestVersion(ctx context.Context, opts SetObjectMetadataLatestVersion) (err error) {
+// UpdateObjectMetadata updates an object metadata.
+func (db *DB) UpdateObjectMetadata(ctx context.Context, opts UpdateObjectMetadata) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if err := opts.ObjectLocation.Verify(); err != nil {
+	if err := opts.ObjectStream.Verify(); err != nil {
 		return err
+	}
+
+	if opts.ObjectStream.Version <= 0 {
+		return ErrInvalidRequest.New("Version invalid: %v", opts.Version)
 	}
 
 	// TODO So the issue is that during a multipart upload of an object,
@@ -33,26 +37,17 @@ func (db *DB) SetObjectMetadataLatestVersion(ctx context.Context, opts SetObject
 	// during commit object.
 	result, err := db.db.ExecContext(ctx, `
 		UPDATE objects SET
-			encrypted_metadata_nonce         = $4,
-			encrypted_metadata               = $5,
-			encrypted_metadata_encrypted_key = $6
-		FROM (
-			SELECT version, stream_id FROM objects WHERE
-				project_id   = $1 AND
-				bucket_name  = $2 AND
-				object_key   = $3 AND
-				status       = `+committedStatus+`
-			ORDER BY version DESC
-			LIMIT 1
-		) AS latest_object
+			encrypted_metadata_nonce         = $6,
+			encrypted_metadata               = $7,
+			encrypted_metadata_encrypted_key = $8
 		WHERE
-			project_id        = $1 AND
-			bucket_name       = $2 AND
-			object_key        = $3 AND
-			objects.version   = latest_object.version AND
-			objects.stream_id = latest_object.stream_id AND
-			status            = `+committedStatus,
-		opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey),
+			project_id   = $1 AND
+			bucket_name  = $2 AND
+			object_key   = $3 AND
+			version      = $4 AND
+			stream_id    = $5 AND
+			status       = `+committedStatus,
+		opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey), opts.Version, opts.StreamID,
 		opts.EncryptedMetadataNonce, opts.EncryptedMetadata, opts.EncryptedMetadataEncryptedKey)
 	if err != nil {
 		return Error.New("unable to update object metadata: %w", err)
@@ -65,7 +60,7 @@ func (db *DB) SetObjectMetadataLatestVersion(ctx context.Context, opts SetObject
 
 	if affected == 0 {
 		return storj.ErrObjectNotFound.Wrap(
-			Error.New("object with specified committed status is missing"),
+			Error.New("object with specified version and committed status is missing"),
 		)
 	}
 

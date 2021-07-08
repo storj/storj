@@ -1580,11 +1580,23 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
 	}
 
-	err = endpoint.metainfo.metabaseDB.SetObjectMetadataLatestVersion(ctx, metabase.SetObjectMetadataLatestVersion{
-		ObjectLocation: metabase.ObjectLocation{
+	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	id, err := uuid.FromBytes(streamID.StreamId)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	err = endpoint.metainfo.metabaseDB.UpdateObjectMetadata(ctx, metabase.UpdateObjectMetadata{
+		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: string(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
+			Version:    metabase.Version(req.Version),
+			StreamID:   id,
 		},
 		EncryptedMetadata:             req.EncryptedMetadata,
 		EncryptedMetadataNonce:        req.EncryptedMetadataNonce[:],
