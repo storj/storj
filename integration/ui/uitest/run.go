@@ -56,7 +56,7 @@ func Run(t *testing.T, test Test) {
 		logLauncher := zaptest.NewLogger(t).Named("launcher")
 
 		launch := launcher.New().
-			Headless(showBrowser).
+			Headless(!showBrowser).
 			Leakless(false).
 			Devtools(false).
 			NoSandbox(true).

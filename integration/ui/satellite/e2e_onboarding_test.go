@@ -20,36 +20,36 @@ func TestE2eUserCreateLoginAccessInBrowser(t *testing.T) {
 	uitest.Run(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, browser *rod.Browser) {
 		loginPageURL := planet.Satellites[0].ConsoleURL() + "/login"
 		email := "test@dtsff4xxxrvfdwqd0.com"
+		nickname := "test2"
 		pass := "123qwe"
-		access_grant_name := "qwerty"
+		accessGrantName := "qwerty"
 		page := browser.MustPage(loginPageURL)
 		page.MustSetViewport(1350, 600, 1, false)
 
-		// creating new user
+		// new user creation
 		page.MustElement("a.login-area__content-area__forgot-container__link.register-link").MustClick()
 		time.Sleep(1 * time.Second)
-		page.MustElementX("(//*[@class=\"headerless-input\"])[1]").MustWaitStable().MustWaitEnabled().MustInput("test2")
+		page.MustElementX("(//*[@class=\"headerless-input\"])[1]").MustWaitStable().MustWaitEnabled().MustInput(nickname)
 		page.MustElementX("(//*[@class=\"headerless-input\"])[2]").MustInput(email)
 		page.MustElementX("(//*[@type=\"password\"])[1]").MustInput(pass)
 		page.MustElementX("(//*[@type=\"password\"])[2]").MustInput(pass)
 		page.MustElement("span.checkmark").MustClick()
 		page.MustElement("p.register-area__input-area__container__button").MustClick()
-		time.Sleep(2 * time.Second)
 
 		// checking elements on congrats screen
 		header := page.MustElement("h2.register-success-area__form-container__title").MustText()
 		assert.Equal(t, header, "You're almost there!")
-		text1 := page.MustElement("p.register-success-area__form-container__sub-title").MustText()
-		assert.Equal(t, text1, "Check your email to confirm your account and get started.")
-		countertext := page.MustElement("p.register-success-area__form-container__text").MustText()
-		assert2.Contains(t, countertext, "Didn't receive a verification email?")
-		resendbutton := page.MustElement("div.register-success-area__form-container__button-container").MustText()
-		assert.DeepEqual(t, resendbutton, "Resend Email")
-		loginbutton := page.MustElement("a.register-area__input-area__login-container__link").MustText()
-		assert.DeepEqual(t, loginbutton, "Contact our support team")
+		textCheck := page.MustElement("p.register-success-area__form-container__sub-title").MustText()
+		assert.Equal(t, textCheck, "Check your email to confirm your account and get started.")
+		counterText := page.MustElement("p.register-success-area__form-container__text").MustText()
+		assert2.Contains(t, counterText, "Didn't receive a verification email?")
+		resendButton := page.MustElement("div.register-success-area__form-container__button-container").MustText()
+		assert.DeepEqual(t, resendButton, "Resend Email")
+		loginButton := page.MustElement("a.register-success-area__form-container__contact__link").MustText()
+		assert.DeepEqual(t, loginButton, "Contact our support team")
 
 		// continue to login and onboarding flow
-		page.MustElement("a.register-area__content-area__login-container__link").MustClick()
+		page.MustElement("a.register-area__input-area__login-container__link").MustClick()
 		page.MustElement(".headerless-input").MustInput(email)
 		page.MustElement("[type=password]").MustInput(pass)
 		page.MustElement("p.login-area__content-area__container__button").MustClick()
@@ -102,14 +102,14 @@ func TestE2eUserCreateLoginAccessInBrowser(t *testing.T) {
 		// create an access grant screen - check elements
 		createHeader := page.MustElement("h1.onboarding-access__title").MustText()
 		assert.DeepEqual(t, createHeader, "Create an Access Grant")
-		createtext := page.MustElement("p.onboarding-access__sub-title").MustText()
-		assert.DeepEqual(t, createtext, "Access Grants are keys that allow access to upload, delete, and view your project’s data.")
+		createText := page.MustElement("p.onboarding-access__sub-title").MustText()
+		assert.DeepEqual(t, createText, "Access Grants are keys that allow access to upload, delete, and view your project’s data.")
 		progressbar := page.MustElement("div.progress-bar").MustVisible()
 		assert.True(t, progressbar)
-		createname := page.MustElement("h1.name-step__title").MustText()
-		assert.DeepEqual(t, createname, "Name Your Access Grant")
-		nametext := page.MustElement("p.name-step__sub-title").MustText()
-		assert.DeepEqual(t, nametext, "Enter a name for your new Access grant to get started.")
+		createName := page.MustElement("h1.name-step__title").MustText()
+		assert.DeepEqual(t, createName, "Name Your Access Grant")
+		nameText := page.MustElement("p.name-step__sub-title").MustText()
+		assert.DeepEqual(t, nameText, "Enter a name for your new Access grant to get started.")
 		accessTitle := page.MustElement("h3.label-container__main__label").MustText()
 		assert.DeepEqual(t, accessTitle, "Access Grant Name")
 		accessInput := *page.MustElement("input.headered-input").MustAttribute("placeholder")
@@ -118,7 +118,7 @@ func TestE2eUserCreateLoginAccessInBrowser(t *testing.T) {
 		assert.DeepEqual(t, nextButton, "Next")
 
 		// set access name and continue
-		page.MustElement("input.headered-input").MustInput(access_grant_name)
+		page.MustElement("input.headered-input").MustInput(accessGrantName)
 		page.MustElement("div.container").MustClick()
 
 		// Access permission - check elements
@@ -216,7 +216,7 @@ func TestE2eUserCreateLoginAccessInBrowser(t *testing.T) {
 		doneButton.MustClick()
 		page.MustWindowMaximize().MustElement("#app > div > div > div.dashboard__wrap__main-area > div.navigation-area.regular-navigation > a:nth-child(4)").MustWaitVisible().MustClick()
 		createdAGInList := page.MustElement("p.name").MustText()
-		assert.Equal(t, createdAGInList, access_grant_name)
+		assert.Equal(t, createdAGInList, accessGrantName)
 
 	})
 }
