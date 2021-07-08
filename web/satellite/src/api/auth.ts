@@ -5,7 +5,7 @@ import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { ErrorEmailUsed } from '@/api/errors/ErrorEmailUsed';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { UpdatedUser, User } from '@/types/users';
+import { EnableUserMFARequest, UpdatedUser, User } from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
 
 /**
@@ -241,5 +241,65 @@ export class AuthHttpApi {
         }
 
         return await response.json();
+    }
+
+    /**
+     * Used to enable user's MFA.
+     *
+     * @throws Error
+     */
+    public async enableUserMFA(body: EnableUserMFARequest): Promise<void> {
+        const path = `${this.ROOT_PATH}/mfa/enable`;
+        const response = await this.http.post(path, JSON.stringify(body));
+
+        if (response.ok) {
+            return;
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('Can not enable MFA. Please try again later');
+    }
+
+    /**
+     * Used to disable user's MFA.
+     *
+     * @throws Error
+     */
+    public async disableUserMFA(): Promise<void> {
+        const path = `${this.ROOT_PATH}/mfa/disable`;
+        const response = await this.http.post(path, null);
+
+        if (response.ok) {
+            return;
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('Can not enable MFA. Please try again later');
+    }
+
+    /**
+     * Used to generate user's MFA recovery codes.
+     *
+     * @throws Error
+     */
+    public async generateUserMFARecoveryCodes(): Promise<string[]> {
+        const path = `${this.ROOT_PATH}/mfa/generate-recovery-codes`;
+        const response = await this.http.post(path, null);
+
+        if (response.ok) {
+            return await response.json();
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('Can not enable MFA. Please try again later');
     }
 }
