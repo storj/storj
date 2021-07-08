@@ -1,3 +1,6 @@
+// Copyright (C) 2021 Storj Labs, Inc.
+// See LICENSE for copying information.
+
 package satellite
 
 import (
@@ -30,7 +33,7 @@ func TestE2eUserCreateLoginAccessInBrowser(t *testing.T) {
 		page.MustElementX("(//*[@type=\"password\"])[1]").MustInput(pass)
 		page.MustElementX("(//*[@type=\"password\"])[2]").MustInput(pass)
 		page.MustElement("span.checkmark").MustClick()
-		page.MustElement("p.register-area__content-area__container__button").MustClick()
+		page.MustElement("p.register-area__input-area__container__button").MustClick()
 		time.Sleep(2 * time.Second)
 
 		// checking elements on congrats screen
@@ -42,7 +45,7 @@ func TestE2eUserCreateLoginAccessInBrowser(t *testing.T) {
 		assert2.Contains(t, countertext, "Didn't receive a verification email?")
 		resendbutton := page.MustElement("div.register-success-area__form-container__button-container").MustText()
 		assert.DeepEqual(t, resendbutton, "Resend Email")
-		loginbutton := page.MustElement("a.register-success-area__form-container__contact__link").MustText()
+		loginbutton := page.MustElement("a.register-area__input-area__login-container__link").MustText()
 		assert.DeepEqual(t, loginbutton, "Contact our support team")
 
 		// continue to login and onboarding flow
