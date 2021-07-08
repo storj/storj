@@ -540,6 +540,18 @@ func (paymentService PaymentsService) ApplyCouponCode(ctx context.Context, coupo
 	return paymentService.service.accounts.Coupons().ApplyCouponCode(ctx, auth.User.ID, couponCode)
 }
 
+// HasCouponApplied checks if a user as a coupon applied to their Stripe account.
+func (paymentService PaymentsService) HasCouponApplied(ctx context.Context) (_ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "list coupon codes")
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+
+	return paymentService.service.accounts.Coupons().HasCouponApplied(ctx, auth.User.ID)
+}
+
 // AddPromotionalCoupon creates new coupon for specified user.
 func (paymentService PaymentsService) AddPromotionalCoupon(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx, userID)(&err)

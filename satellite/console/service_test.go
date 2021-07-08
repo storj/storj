@@ -430,3 +430,34 @@ func TestMFA(t *testing.T) {
 		})
 	})
 }
+
+func TestHasCouponApplied(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		paymentService := service.Payments()
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "MFA Test User",
+			Email:    "mfauser@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		authCtx, err := sat.AuthenticatedContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		hasCoupon, err := paymentService.HasCouponApplied(authCtx)
+		require.NoError(t, err)
+		require.False(t, hasCoupon)
+
+		// "testpromocode" defined in satellite/payments/stripecoinpayments/stripemock.go
+		err = paymentService.ApplyCouponCode(authCtx, "testpromocode")
+		require.NoError(t, err)
+
+		hasCoupon, err = paymentService.HasCouponApplied(authCtx)
+		require.NoError(t, err)
+		require.True(t, hasCoupon)
+	})
+}

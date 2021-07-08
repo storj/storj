@@ -330,6 +330,32 @@ func (p *Payments) ApplyCouponCode(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// HasCouponApplied checks if user has coupon applied to account.
+func (p *Payments) HasCouponApplied(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	hasCoupon, err := p.service.Payments().HasCouponApplied(ctx)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
+		p.serveJSONError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(&hasCoupon)
+
+	if err != nil {
+		p.log.Error("failed to return coupon check", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
+}
+
 // serveJSONError writes JSON error to response output stream.
 func (p *Payments) serveJSONError(w http.ResponseWriter, status int, err error) {
 	serveJSONError(p.log, w, status, err)
