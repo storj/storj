@@ -50,7 +50,6 @@ export default class AddCouponCode extends Vue {
     public onCloseClick(): void {
         this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).path);
     }
-
 }
 </script>
 

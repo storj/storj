@@ -41,6 +41,8 @@ var mocks = struct {
 	m: make(map[storj.NodeID]*mockStripeState),
 }
 
+const testPromoCode string = "testpromocode"
+
 // mockStripeState Stripe client mock.
 type mockStripeState struct {
 	customers                   *mockCustomersState
@@ -78,6 +80,9 @@ func NewStripeMock(id storj.NodeID, customersDB CustomersDB, usersDB console.Use
 
 	state, ok := mocks.m[id]
 	if !ok {
+		promoCodes := make(map[string][]*stripe.PromotionCode)
+		promoCodes[testPromoCode] = []*stripe.PromotionCode{{}}
+
 		state = &mockStripeState{
 			customers:                   &mockCustomersState{},
 			paymentMethods:              newMockPaymentMethods(),
@@ -85,7 +90,9 @@ func NewStripeMock(id storj.NodeID, customersDB CustomersDB, usersDB console.Use
 			invoiceItems:                &mockInvoiceItems{},
 			customerBalanceTransactions: newMockCustomerBalanceTransactions(),
 			charges:                     &mockCharges{},
-			promoCodes:                  &mockPromoCodes{},
+			promoCodes: &mockPromoCodes{
+				promoCodes: promoCodes,
+			},
 		}
 		mocks.m[id] = state
 	}
@@ -219,6 +226,7 @@ func (m *mockCustomers) New(params *stripe.CustomerParams) (*stripe.Customer, er
 
 func (m *mockCustomers) Get(id string, params *stripe.CustomerParams) (*stripe.Customer, error) {
 	if err := m.repopulate(); err != nil {
+
 		return nil, err
 	}
 
@@ -253,6 +261,9 @@ func (m *mockCustomers) Update(id string, params *stripe.CustomerParams) (*strip
 
 	if params.Metadata != nil {
 		customer.Metadata = params.Metadata
+	}
+	if params.PromotionCode != nil {
+		customer.Discount = &stripe.Discount{Coupon: &stripe.Coupon{}}
 	}
 
 	// TODO update customer with more params as necessary

@@ -18,6 +18,9 @@ type Coupons interface {
 	// ListByUserID return list of all coupons of specified payment account.
 	ListByUserID(ctx context.Context, userID uuid.UUID) ([]Coupon, error)
 
+	// HasCouponApplied checks if a user as a coupon applied to their Stripe account.
+	HasCouponApplied(ctx context.Context, userID uuid.UUID) (bool, error)
+
 	// TotalUsage returns sum of all usage records for specified coupon.
 	TotalUsage(ctx context.Context, couponID uuid.UUID) (int64, error)
 

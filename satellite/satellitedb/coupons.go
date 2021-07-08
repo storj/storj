@@ -280,9 +280,9 @@ func (coupons *coupons) GetLatest(ctx context.Context, couponID uuid.UUID) (_ ti
 	defer mon.Task()(&ctx, couponID)(&err)
 
 	query := coupons.db.Rebind(
-		`SELECT period 
-			  FROM coupon_usages 
-			  WHERE coupon_id = ? 
+		`SELECT period
+			  FROM coupon_usages
+			  WHERE coupon_id = ?
 			  ORDER BY period DESC
 			  LIMIT 1;`,
 	)
