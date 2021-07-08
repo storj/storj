@@ -23,10 +23,12 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
+import ValidationMessage from '@/components/common/ValidationMessage.vue';
 
 import CloseIcon from '@/../static/images/common/closeCross.svg';
 import CheckIcon from '@/../static/images/common/success-check.svg';
 
+import { PaymentsHttpApi } from '@/api/payments';
 import { RouteConfig } from '@/router';
 
 @Component({
@@ -50,7 +52,6 @@ export default class AddCouponCode extends Vue {
     public onCloseClick(): void {
         this.$router.push(RouteConfig.Account.with(RouteConfig.Billing).path);
     }
-
 }
 </script>
 

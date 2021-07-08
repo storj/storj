@@ -330,24 +330,29 @@ func (p *Payments) ApplyCouponCode(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// ApplyCouponCode applies a coupon code to the user's account.
-func (p *Payments) ApplyCouponCode(w http.ResponseWriter, r *http.Request) {
+// ListByUserID return list of all coupons of specified payment account.
+func (p *Payments) ListByUserID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	// limit the size of the body to prevent excessive memory usage
-	bodyBytes, err := ioutil.ReadAll(io.LimitReader(r.Body, 1*1024*1024))
+	w.Header().Set("Content-Type", "application/json")
+
+	couponList, err := p.service.Payments().ListByUserID(ctx)
 	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+
 		p.serveJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
-	couponCode := string(bodyBytes)
 
-	err = p.service.Payments().ApplyCouponCode(ctx, couponCode)
+	err = json.NewEncoder(w).Encode(&couponList)
+
 	if err != nil {
-		p.serveJSONError(w, http.StatusInternalServerError, err)
-		return
+		p.log.Error("failed to return coupon list", zap.Error(ErrPaymentsAPI.Wrap(err)))
 	}
 }
 

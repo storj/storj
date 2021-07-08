@@ -540,6 +540,23 @@ func (paymentService PaymentsService) ApplyCouponCode(ctx context.Context, coupo
 	return paymentService.service.accounts.Coupons().ApplyCouponCode(ctx, auth.User.ID, couponCode)
 }
 
+// ListByUserID return list of all coupons of specified payment account.
+func (paymentService PaymentsService) ListByUserID(ctx context.Context) (_ []payments.Coupon, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "list coupon codes")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	couponList, err := paymentService.service.accounts.Coupons().ListByUserID(ctx, auth.User.ID)
+
+    if err != nil {
+		return nil, Error.Wrap(err)
+	}
+    return couponList, nil
+}
+
 // AddPromotionalCoupon creates new coupon for specified user.
 func (paymentService PaymentsService) AddPromotionalCoupon(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx, userID)(&err)

@@ -275,22 +275,22 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
-     * applyCouponCode applies a coupon code.
+     * listCouponCodes lists user coupon codes.
      *
-     * @param couponCode
      * @throws Error
      */
-    public async applyCouponCode(couponCode: string): Promise<void> {
-        const path = `${this.ROOT_PATH}/couponcodes/apply`;
-        const response = await this.client.patch(path, couponCode);
+    public async listCouponCodes(): Promise<PaymentsHistoryItem[]> {
+        const path = `${this.ROOT_PATH}/couponcodes/list`;
+        const response = await this.client.get(path);
 
-        if (response.ok) {
-            return;
+        if (!response.ok) {
+            if (response.status === 401) {
+                throw new ErrorUnauthorized();
+            }
+
+            throw new Error('cannot list coupons');
         }
 
-        if (response.status === 401) {
-            throw new ErrorUnauthorized();
-        }
-        throw new Error(`Can not apply coupon code "${couponCode}"`);
+        return await response.json();
     }
 }

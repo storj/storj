@@ -23,7 +23,6 @@ type StripeClient interface {
 	InvoiceItems() StripeInvoiceItems
 	CustomerBalanceTransactions() StripeCustomerBalanceTransactions
 	Charges() StripeCharges
-	Coupons() StripeCoupons
 	PromoCodes() StripePromoCodes
 }
 
@@ -58,11 +57,6 @@ type StripeInvoiceItems interface {
 // StripeCharges Stripe Charges interface.
 type StripeCharges interface {
 	List(listParams *stripe.ChargeListParams) *charge.Iter
-}
-
-// StripeCoupons Stripe Coupons interface.
-type StripeCoupons interface {
-	Get(id string, params *stripe.CouponParams) (*stripe.Coupon, error)
 }
 
 // StripePromoCodes is the Stripe PromoCodes interface.
@@ -104,13 +98,6 @@ func (s *stripeClient) Charges() StripeCharges {
 	return s.client.Charges
 }
 
-<<<<<<< HEAD
-=======
-func (s *stripeClient) Coupons() StripeCoupons {
-	return s.client.Coupons
-}
-
->>>>>>> satellite/payments: Implement coupon codes
 func (s *stripeClient) PromoCodes() StripePromoCodes {
 	return s.client.PromotionCodes
 }
