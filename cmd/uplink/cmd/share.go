@@ -63,13 +63,25 @@ func init() {
 func shareMain(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := withTelemetry(cmd)
 
+	isPublic := (shareCfg.Public || shareCfg.URL || shareCfg.DNS != "")
+
+	if isPublic {
+		if shareCfg.NotAfter == "" {
+			fmt.Println("It's not recommended to create a shared Access without an expiration date.")
+			fmt.Println("If you wish to do so anyway, please run this command with --not-after=none.")
+			return
+		}
+		if shareCfg.NotAfter == "none" {
+			shareCfg.NotAfter = ""
+		}
+	}
+
 	newAccess, newAccessData, sharePrefixes, permission, err := createAccessGrant(args)
 	if err != nil {
 		return err
 	}
 
 	if shareCfg.Register || shareCfg.URL || shareCfg.DNS != "" {
-		isPublic := (shareCfg.Public || shareCfg.URL || shareCfg.DNS != "")
 		accessKey, secretKey, endpoint, err := RegisterAccess(ctx, newAccess, shareCfg.AuthService, isPublic, defaultAccessRegisterTimeout)
 		if err != nil {
 			return err
