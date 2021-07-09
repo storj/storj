@@ -107,7 +107,7 @@ func DefaultPartners() PartnerList {
 			Name: "key4web",
 			ID:   "9af99cf8-d68b-48c8-95ab-ef39641b8b06",
 			UUID: parseUUID("9af99cf8-d68b-48c8-95ab-ef39641b8b06"),
-		}, {	
+		}, {
 			Name: "MariaDB",
 			ID:   "8ee019ef-2aae-4867-9c18-41c65ea318c4",
 			UUID: parseUUID("8ee019ef-2aae-4867-9c18-41c65ea318c4"),
