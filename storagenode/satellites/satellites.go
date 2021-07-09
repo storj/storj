@@ -52,8 +52,8 @@ type DB interface {
 	SetAddress(ctx context.Context, satelliteID storj.NodeID, address string) error
 	// GetSatellite retrieves that satellite by ID
 	GetSatellite(ctx context.Context, satelliteID storj.NodeID) (satellite Satellite, err error)
-	// GetSatellitesUrls retrieves all satellite's id and urls.
-	GetSatellitesUrls(ctx context.Context) (satelliteURLs []storj.NodeURL, err error)
+	// GetSatellitesURLs retrieves all satellite's id and urls.
+	GetSatellitesURLs(ctx context.Context) (satelliteURLs []storj.NodeURL, err error)
 	// InitiateGracefulExit updates the database to reflect the beginning of a graceful exit
 	InitiateGracefulExit(ctx context.Context, satelliteID storj.NodeID, intitiatedAt time.Time, startingDiskUsage int64) error
 	// CancelGracefulExit removes that satellite by ID

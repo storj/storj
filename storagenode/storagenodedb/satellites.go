@@ -59,8 +59,8 @@ func (db *satellitesDB) GetSatellite(ctx context.Context, satelliteID storj.Node
 	return satellite, rows.Err()
 }
 
-// GetSatellitesUrls retrieves all satellite's id and urls.
-func (db *satellitesDB) GetSatellitesUrls(ctx context.Context) (satelliteURLs []storj.NodeURL, err error) {
+// GetSatellitesURLs retrieves all satellite's id and urls.
+func (db *satellitesDB) GetSatellitesURLs(ctx context.Context) (satelliteURLs []storj.NodeURL, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	query := `SELECT

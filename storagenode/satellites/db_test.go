@@ -22,14 +22,14 @@ func TestSatellitesDB(t *testing.T) {
 		err := satellitesDB.SetAddress(ctx, id, "test_addr1")
 		require.NoError(t, err)
 
-		satellites, err := satellitesDB.GetSatellitesUrls(ctx)
+		satellites, err := satellitesDB.GetSatellitesURLs(ctx)
 		require.NoError(t, err)
 		require.Equal(t, satellites[0].Address, "test_addr1")
 
 		err = satellitesDB.SetAddress(ctx, id, "test_addr2")
 		require.NoError(t, err)
 
-		satellites, err = satellitesDB.GetSatellitesUrls(ctx)
+		satellites, err = satellitesDB.GetSatellitesURLs(ctx)
 		require.NoError(t, err)
 		require.Equal(t, satellites[0].Address, "test_addr2")
 	})
