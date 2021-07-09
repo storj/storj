@@ -1,5 +1,4 @@
 pipeline {
-
     agent {
         docker {
             label 'main'
@@ -16,62 +15,105 @@ pipeline {
         COCKROACH_MEMPROF_INTERVAL=0
     }
     stages {
-        stage('Build') {
+        stage('Checkout') {
             steps {
                 checkout scm
-
                 sh 'mkdir -p .build'
-
+                // make a backup of the mod file in case, for later linting
+                sh 'cp go.mod .build/go.mod.orig'
+                // download dependencies
                 sh 'go mod download'
-                sh 'service postgresql start'
+            }
+        }
+        stage('Build') {
+            parallel {
+                stage('go') {
+                    steps {
+                        sh 'go build -v ./...'
+                    }
+                }
+                stage('go -race') {
+                    steps {
+                        sh 'go build -v -race ./...'
 
-                dir(".build") {
-                    sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 512MiB --max-sql-memory 512MiB --background'
+                        // install storj-sim
+                        sh 'go install -race -v storj.io/storj/cmd/satellite '+
+                                'storj.io/storj/cmd/storagenode ' +
+                                'storj.io/storj/cmd/storj-sim ' +
+                                'storj.io/storj/cmd/versioncontrol ' +
+                                'storj.io/storj/cmd/uplink ' +
+                                'storj.io/storj/cmd/identity ' +
+                                'storj.io/storj/cmd/certificates ' +
+                                'storj.io/storj/cmd/multinode'
+                    }
+                }
+                stage('go -race gateway') {
+                    steps {
+                        // install gateway for storj-sim
+                        sh 'go install -race -v storj.io/gateway@latest'
+                    }
+                }
+
+                stage('db') {
+                    steps {
+                        sh 'service postgresql start'
+                        dir('.build') {
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 512MiB --max-sql-memory 512MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 512MiB --max-sql-memory 512MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26258 --http-addr=localhost:8088 --cache 512MiB --max-sql-memory 512MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26259 --http-addr=localhost:8089 --cache 512MiB --max-sql-memory 512MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26260 --http-addr=localhost:8090 --cache 256MiB --max-sql-memory 256MiB --background'
+                        }
+                    }
+                }
+
+                stage('web/satellite') {
+                    steps {
+                        dir('web/satellite') {
+                            sh 'npm ci --prefer-offline --no-audit'
+                            sh 'npm run build'
+                        }
+                    }
+                }
+                stage('web/storagenode') {
+                    steps {
+                        dir('web/storagenode') {
+                            sh 'npm ci --prefer-offline --no-audit'
+                            sh 'npm run build'
+                        }
+                    }
+                }
+                stage('web/multinode') {
+                    steps {
+                        dir('web/multinode') {
+                            sh 'npm ci --prefer-offline --no-audit'
+                            sh 'npm run build'
+                        }
+                    }
                 }
             }
         }
-        stage('UI') {
+        stage('API Test'){
             environment {
-                STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testui?sslmode=disable'
-                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/testui?sslmode=disable'
-                STORJ_TEST_BROWSER  = '/usr/bin/chromium'
-                STORJ_TEST_SATELLITE_WEB = "${pwd()}/.build/satellite-web"
-
-                DISPLAY = ':99'
-            }
-            steps {
-                sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testui;\''
-                sh 'psql -U postgres -c \'create database testui;\''
-
-                sh 'cp -r ./web/satellite/ ${STORJ_TEST_SATELLITE_WEB}/'
-
-                // TODO: this is not quite correct
-                sh 'mkdir ${STORJ_TEST_SATELLITE_WEB}/wasm'
-                sh 'cp "$(go env GOROOT)/misc/wasm/wasm_exec.js" ${STORJ_TEST_SATELLITE_WEB}/wasm/wasm_exec.js'
-                sh 'GOOS=js GOARCH=wasm go build -o ${STORJ_TEST_SATELLITE_WEB}/wasm/main.wasm storj.io/storj/satellite/console/wasm'
-
-                sh 'cd .build/satellite-web && npm install'
-                sh 'cd .build/satellite-web && npm run build'
-
-                sh 'Xvfb -ac :99 -screen 0 1280x1024x16 &'
-                sh 'go test -vet=off -race -json ./integration/ui/... 2>&1 | tee .build/ui-tests.json | xunit -out .build/ui-tests.xml'
-            }
-            post {
-                always {
-                    sh script: 'cat .build/ui-tests.json | tparse -all -top -slow 100', returnStatus: true
-                    archiveArtifacts artifacts: '.build/ui-tests.json'
-                    junit '.build/ui-tests.xml'
+                // use different hostname to avoid port conflicts
+                STORJ_NETWORK_HOST4 = '127.0.0.2'
+                STORJ_NETWORK_HOST6 = '127.0.0.2'
+                SATELLITE_0_ADDR='localhost:10002'
+                STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj2?sslmode=disable'
                 }
+            steps {
+                sh 'psql -U postgres -c \'create database teststorj2;\''
+                sh 'make test-sim-api'
             }
         }
     }
     post {
          success {
-             echo 'Successfully!'
+             echo 'Win!!'
          }
          failure {
-             echo 'Failed!'
-             slackSend color: 'danger', message: "@qa UI tests build failed"
+             echo 'Oh no :('
+             slackSend color: 'danger', message: "@Antonio  UI tests build failed"
          }
         always {
             sh "chmod -R 777 ." // ensure Jenkins agent can delete the working directory
