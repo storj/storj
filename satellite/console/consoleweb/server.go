@@ -322,12 +322,12 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	if server.config.CSPEnabled {
 		cspValues := []string{
 			"default-src 'self'",
-			"connect-src 'self' api.segment.io *.tardigradeshare.io *.storjshare.io " + server.config.GatewayCredentialsRequestURL,
+			"connect-src 'self' *.tardigradeshare.io *.storjshare.io " + server.config.GatewayCredentialsRequestURL,
 			"frame-ancestors " + server.config.FrameAncestors,
-			"frame-src 'self' *.stripe.com",
-			"img-src 'self' data: *.customer.io *.tardigradeshare.io *.storjshare.io",
+			"frame-src 'self' *.stripe.com https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/",
+			"img-src 'self' data: *.tardigradeshare.io *.storjshare.io",
 			"media-src 'self' *.tardigradeshare.io *.storjshare.io",
-			"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com cdn.segment.com *.customer.io",
+			"script-src 'sha256-wAqYV6m2PHGd1WDyFBnZmSoyfCK0jxFAns0vGbdiWUA=' 'self' *.stripe.com https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/",
 		}
 
 		header.Set("Content-Security-Policy", strings.Join(cspValues, "; "))
