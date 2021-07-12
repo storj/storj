@@ -6,9 +6,9 @@ package server
 import (
 	"context"
 	"html/template"
+	"io/ioutil"
 	"net"
 	"net/http"
-	"path/filepath"
 
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
@@ -52,7 +52,7 @@ type Server struct {
 	log      *zap.Logger
 	listener net.Listener
 	http     http.Server
-	config   Config
+	assets   http.FileSystem
 
 	nodes      *nodes.Service
 	payouts    *payouts.Service
@@ -65,11 +65,11 @@ type Server struct {
 }
 
 // NewServer returns new instance of Multinode Dashboard http server.
-func NewServer(log *zap.Logger, listener net.Listener, config Config, services Services) (*Server, error) {
+func NewServer(log *zap.Logger, listener net.Listener, assets http.FileSystem, services Services) (*Server, error) {
 	server := Server{
 		log:        log,
 		listener:   listener,
-		config:     config,
+		assets:     assets,
 		nodes:      services.Nodes,
 		operators:  services.Operators,
 		payouts:    services.Payouts,
@@ -79,7 +79,6 @@ func NewServer(log *zap.Logger, listener net.Listener, config Config, services S
 	}
 
 	router := mux.NewRouter()
-	fs := http.FileServer(http.Dir(server.config.StaticDir))
 
 	apiRouter := router.PathPrefix("/api/v0").Subrouter()
 	apiRouter.NotFoundHandler = controllers.NewNotFound(server.log)
@@ -133,7 +132,8 @@ func NewServer(log *zap.Logger, listener net.Listener, config Config, services S
 	reputationRouter := apiRouter.PathPrefix("/reputation").Subrouter()
 	reputationRouter.HandleFunc("/satellites/{satelliteID}", reputationController.Stats)
 
-	if server.config.StaticDir != "" {
+	if server.assets != nil {
+		fs := http.FileServer(server.assets)
 		router.PathPrefix("/static/").Handler(http.StripPrefix("/static", fs))
 		router.PathPrefix("/").HandlerFunc(server.appHandler)
 	}
@@ -193,9 +193,19 @@ func (server *Server) Close() error {
 
 // initializeTemplates is used to initialize all templates.
 func (server *Server) initializeTemplates() (err error) {
-	server.index, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "dist", "index.html"))
+	f, err := server.assets.Open("/dist/index.html")
 	if err != nil {
 		server.log.Error("dist folder is not generated. use 'npm run build' command", zap.Error(err))
+		return nil
+	}
+	b, err := ioutil.ReadAll(f)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	server.index, err = template.New("index.html").Parse(string(b))
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
 	return nil
