@@ -145,6 +145,8 @@ export class NodesModule implements Module<NodesState, RootState> {
      * @param satelliteId - satellite id to select.
      */
     public async selectSatellite(ctx: ActionContext<NodesState, RootState>, satelliteId: string): Promise<void> {
+        await this.trustedSatellites(ctx);
+
         ctx.commit('setSelectedSatellite', satelliteId);
 
         await this.fetch(ctx);

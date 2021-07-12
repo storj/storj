@@ -181,6 +181,9 @@ describe('actions', () => {
         jest.spyOn(nodesService, 'listBySatellite').mockReturnValue(
             Promise.resolve(nodes),
         );
+        jest.spyOn(nodesService, 'trustedSatellites').mockReturnValue(
+            Promise.resolve(trustedSatellites),
+        );
 
         store.commit('nodes/saveTrustedSatellites', trustedSatellites);
 

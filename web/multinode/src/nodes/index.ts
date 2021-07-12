@@ -10,9 +10,9 @@ const PRICE_DIVIDER = 10000;
  * Describes node online statuses.
  */
 export enum NodeStatus {
-    Online = 'online',
-    Offline = 'offline',
-    NotReachable = 'not reachable',
+    'online' = 'Online',
+    'offline' = 'Offline',
+    'not reachable' = 'Not reachable',
 }
 
 /**
@@ -31,7 +31,7 @@ export class Node {
         public auditScore: number = 0,
         public suspensionScore: number = 0,
         public earned: number = 0,
-        public status: string = NodeStatus.Online,
+        public status: NodeStatus = NodeStatus['online'],
     ) {}
 
     /**

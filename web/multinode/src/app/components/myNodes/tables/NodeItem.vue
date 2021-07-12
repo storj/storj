@@ -16,7 +16,7 @@
         </template>
         <th>{{ node.earnedCents | centsToDollars }}</th>
         <th>{{ node.version }}</th>
-        <th :class="node.status">{{ node.statusText }}</th>
+        <th :class="node.status">{{ node.status }}</th>
         <th class="overflow-visible">
             <node-options :id="node.id" />
         </th>

@@ -23,11 +23,13 @@ export class StorageClient extends APIClient {
      * Thrown if something goes wrong on server side.
      */
     public async usage(satelliteId: string | null, nodeId: string | null): Promise<DiskSpaceUsage> {
-        let path = `${this.ROOT_PATH}/usage`;
+        let path = `${this.ROOT_PATH}`;
 
         if (satelliteId) {
             path += `/satellites/${satelliteId}`;
         }
+
+        path += '/usage';
 
         if (nodeId) {
             path += `/${nodeId}`;
