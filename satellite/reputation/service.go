@@ -21,6 +21,7 @@ type DB interface {
 	Update(ctx context.Context, request UpdateRequest, now time.Time) (_ *overlay.ReputationStatus, changed bool, err error)
 	SetNodeStatus(ctx context.Context, id storj.NodeID, status overlay.ReputationStatus) error
 	Get(ctx context.Context, nodeID storj.NodeID) (*Info, error)
+	Init(ctx context.Context, nodeID storj.NodeID) error
 
 	// UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
 	UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (_ *overlay.ReputationStatus, err error)

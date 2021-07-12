@@ -369,6 +369,17 @@ func (reputations *reputations) UnsuspendNodeUnknownAudit(ctx context.Context, n
 	}, nil
 }
 
+// Init creates an entry for a node with its reputaion in zero value.
+func (reputations *reputations) Init(ctx context.Context, nodeID storj.NodeID) error {
+	historyBytes, err := pb.Marshal(&internalpb.AuditHistory{})
+	if err != nil {
+		return err
+	}
+
+	_, err = reputations.db.Create_Reputation(ctx, dbx.Reputation_Id(nodeID.Bytes()), dbx.Reputation_AuditHistory(historyBytes), dbx.Reputation_Create_Fields{})
+	return Error.Wrap(err)
+}
+
 func (reputations *reputations) populateUpdateFields(dbNode *dbx.Reputation, updateReq reputation.UpdateRequest, auditHistoryResponse *reputation.UpdateAuditHistoryResponse, now time.Time) dbx.Reputation_Update_Fields {
 
 	update := reputations.populateUpdateNodeStats(dbNode, updateReq, auditHistoryResponse, now)
