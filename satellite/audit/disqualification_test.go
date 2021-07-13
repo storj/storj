@@ -137,7 +137,7 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 		segment := segments[0]
 		disqualifiedNode := segment.Pieces[0].StorageNode
 
-		err = satellitePeer.DB.OverlayCache().DisqualifyNode(ctx, disqualifiedNode)
+		err = satellitePeer.Reputation.Service.TestDisqualifyNode(ctx, disqualifiedNode)
 		require.NoError(t, err)
 
 		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucket, segment, 0)
@@ -163,7 +163,7 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 		disqualifiedNode := planet.StorageNodes[0]
 		satellitePeer.Audit.Worker.Loop.Pause()
 
-		err := satellitePeer.DB.OverlayCache().DisqualifyNode(ctx, disqualifiedNode.ID())
+		err := satellitePeer.Reputation.Service.TestDisqualifyNode(ctx, disqualifiedNode.ID())
 		require.NoError(t, err)
 
 		request := overlay.FindStorageNodesRequest{
@@ -191,12 +191,22 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.Node.MinimumDiskSpace = 10 * memory.MB
+				config.Reputation.AuditLambda = 0 // forget about history
+				config.Reputation.AuditWeight = 1
+				config.Reputation.AuditDQ = 0 // make sure new reputation scores are larger than the DQ thresholds
+				config.Reputation.SuspensionGracePeriod = time.Hour
+				config.Reputation.SuspensionDQEnabled = true
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellitePeer := planet.Satellites[0]
 		satellitePeer.Audit.Worker.Loop.Pause()
 
 		disqualifiedNode := planet.StorageNodes[0]
-		err := satellitePeer.DB.OverlayCache().DisqualifyNode(ctx, disqualifiedNode.ID())
+		err := satellitePeer.Reputation.Service.TestDisqualifyNode(ctx, disqualifiedNode.ID())
 		require.NoError(t, err)
 
 		info := overlay.NodeCheckInInfo{
@@ -216,16 +226,7 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
-
-		_, err = satellitePeer.Overlay.Service.BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
-			NodeID:                disqualifiedNode.ID(),
-			AuditOutcome:          overlay.AuditSuccess,
-			AuditLambda:           0, // forget about history
-			AuditWeight:           1,
-			AuditDQ:               0, // make sure new reputation scores are larger than the DQ thresholds
-			SuspensionGracePeriod: time.Hour,
-			SuspensionDQEnabled:   true,
-		}})
+		err = satellitePeer.Reputation.Service.ApplyAudit(ctx, disqualifiedNode.ID(), reputation.AuditSuccess)
 		require.NoError(t, err)
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
 	})
