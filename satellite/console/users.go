@@ -87,6 +87,14 @@ func (user *CreateUser) IsValid() error {
 	return errs.Combine()
 }
 
+// AuthUser holds info for user authentication token requests.
+type AuthUser struct {
+	Email           string `json:"email"`
+	Password        string `json:"password"`
+	MFAPasscode     string `json:"mfaPasscode"`
+	MFARecoveryCode string `json:"mfaRecoveryCode"`
+}
+
 // UserStatus - is used to indicate status of the users account.
 type UserStatus int
 
@@ -125,4 +133,8 @@ type User struct {
 	EmployeeCount  string `json:"employeeCount"`
 
 	HaveSalesContact bool `json:"haveSalesContact"`
+
+	MFAEnabled       bool     `json:"mfaEnabled"`
+	MFASecretKey     string   `json:"mfaSecretKey"`
+	MFARecoveryCodes []string `json:"mfaRecoveryCodes"`
 }

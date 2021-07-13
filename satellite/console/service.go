@@ -798,17 +798,51 @@ func (s *Service) RevokeResetPasswordToken(ctx context.Context, resetPasswordTok
 }
 
 // Token authenticates User by credentials and returns auth token.
-func (s *Service) Token(ctx context.Context, email, password string) (token string, err error) {
+func (s *Service) Token(ctx context.Context, request AuthUser) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.store.Users().GetByEmail(ctx, email)
+	user, err := s.store.Users().GetByEmail(ctx, request.Email)
 	if err != nil {
 		return "", ErrUnauthorized.New(credentialsErrMsg)
 	}
 
-	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(password))
+	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(request.Password))
 	if err != nil {
 		return "", ErrUnauthorized.New(credentialsErrMsg)
+	}
+
+	if user.MFAEnabled {
+		if request.MFARecoveryCode != "" {
+			found := false
+			codeIndex := -1
+			for i, code := range user.MFARecoveryCodes {
+				if code == request.MFARecoveryCode {
+					found = true
+					codeIndex = i
+					break
+				}
+			}
+			if !found {
+				return "", ErrUnauthorized.New(mfaRecoveryInvalidErrMsg)
+			}
+
+			user.MFARecoveryCodes = append(user.MFARecoveryCodes[:codeIndex], user.MFARecoveryCodes[codeIndex+1:]...)
+
+			err = s.store.Users().Update(ctx, user)
+			if err != nil {
+				return "", err
+			}
+		} else if request.MFAPasscode != "" {
+			valid, err := ValidateMFAPasscode(request.MFAPasscode, user.MFASecretKey, time.Now())
+			if err != nil {
+				return "", ErrUnauthorized.Wrap(err)
+			}
+			if !valid {
+				return "", ErrUnauthorized.New(mfaPasscodeInvalidErrMsg)
+			}
+		} else {
+			return "", ErrMFAPasscodeRequired.New(mfaPasscodeRequiredErrMsg)
+		}
 	}
 
 	claims := consoleauth.Claims{

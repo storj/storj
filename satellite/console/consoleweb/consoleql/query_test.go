@@ -144,7 +144,7 @@ func TestGraphqlQuery(t *testing.T) {
 			rootUser.Email = "mtest@mail.test"
 		})
 
-		token, err := service.Token(ctx, createUser.Email, createUser.Password)
+		token, err := service.Token(ctx, console.AuthUser{Email: createUser.Email, Password: createUser.Password})
 		require.NoError(t, err)
 
 		sauth, err := service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))

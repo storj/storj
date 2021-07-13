@@ -10,7 +10,9 @@ import (
 	"path/filepath"
 	"runtime/pprof"
 	"strconv"
+	"time"
 
+	"github.com/pquerna/otp/totp"
 	"github.com/spf13/pflag"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -252,7 +254,15 @@ func (system *Satellite) AuthenticatedContext(ctx context.Context, userID uuid.U
 	}
 
 	// we are using full name as a password
-	token, err := system.API.Console.Service.Token(ctx, user.Email, user.FullName)
+	request := console.AuthUser{Email: user.Email, Password: user.FullName}
+	if user.MFAEnabled {
+		code, err := totp.GenerateCode(user.MFASecretKey, time.Now())
+		if err != nil {
+			return nil, err
+		}
+		request.MFAPasscode = code
+	}
+	token, err := system.API.Console.Service.Token(ctx, request)
 	if err != nil {
 		return nil, err
 	}
