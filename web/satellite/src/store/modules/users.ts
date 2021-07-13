@@ -90,10 +90,10 @@ export function makeUsersModule(api: UsersApi): StoreModule<UsersState> {
 
                 return user;
             },
-            [ENABLE_USER_MFA]: async function (_): Promise<void> {
+            [DISABLE_USER_MFA]: async function (_): Promise<void> {
                 await api.disableUserMFA();
             },
-            [DISABLE_USER_MFA]: async function (_, request: EnableUserMFARequest): Promise<void> {
+            [ENABLE_USER_MFA]: async function (_, request: EnableUserMFARequest): Promise<void> {
                 await api.enableUserMFA(request);
             },
             [GENERATE_USER_MFA_RECOVERY_CODES]: async function ({commit}: any): Promise<void> {

@@ -2,14 +2,14 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="profile-container">
-        <h1 class="profile-container__title">Account Settings</h1>
-        <div class="profile-container__edit-profile no-margin" >
-            <div class="profile-container__edit-profile__row">
-                <div class="profile-container__edit-profile__avatar">
-                    <h1 class="profile-container__edit-profile__avatar__letter">{{avatarLetter}}</h1>
+    <div class="settings">
+        <h1 class="settings__title">Account Settings</h1>
+        <div class="settings__edit-profile" >
+            <div class="settings__edit-profile__row">
+                <div class="settings__edit-profile__avatar">
+                    <h1 class="settings__edit-profile__avatar__letter">{{avatarLetter}}</h1>
                 </div>
-                <div class="profile-container__edit-profile__text">
+                <div class="settings__edit-profile__text">
                     <h2 class="profile-bold-text">Edit Profile</h2>
                     <h3 class="profile-regular-text">This information will be visible to all users</h3>
                 </div>
@@ -19,11 +19,11 @@
                 @click="toggleEditProfilePopup"
             />
         </div>
-        <div class="profile-container__secondary-container">
-            <div class="profile-container__secondary-container__change-password">
-                <div class="profile-container__edit-profile__row">
-                    <ChangePasswordIcon class="profile-container__secondary-container__img"/>
-                    <div class="profile-container__secondary-container__change-password__text-container">
+        <div class="settings__secondary-container">
+            <div class="settings__secondary-container__change-password">
+                <div class="settings__edit-profile__row">
+                    <ChangePasswordIcon class="settings__secondary-container__img"/>
+                    <div class="settings__secondary-container__change-password__text-container">
                         <h2 class="profile-bold-text">Change Password</h2>
                         <h3 class="profile-regular-text">6 or more characters</h3>
                     </div>
@@ -33,17 +33,31 @@
                     @click="toggleChangePasswordPopup"
                 />
             </div>
-            <div class="profile-container__secondary-container__email-container">
-                <div class="profile-container__edit-profile__row">
-                    <EmailIcon class="profile-container__secondary-container__img"/>
-                    <div class="profile-container__secondary-container__email-container__text-container">
+            <div class="settings__secondary-container__email-container">
+                <div class="settings__edit-profile__row">
+                    <EmailIcon class="settings__secondary-container__img"/>
+                    <div class="settings__secondary-container__email-container__text-container">
                         <h2 class="profile-bold-text email">{{user.email}}</h2>
                     </div>
                 </div>
             </div>
         </div>
+        <div class="settings__mfa" v-if="isMFAEnabled">
+            <h2 class="profile-bold-text">Two-Factor Authentication</h2>
+            <p class="profile-regular-text">
+                To increase your account security, we strongly recommend enabling 2FA on your account.
+            </p>
+            <VButton
+                class="settings__mfa__button"
+                label="Enable 2FA"
+                width="173px"
+                height="44px"
+                :on-press="toggleEnableMFAModal"
+            />
+        </div>
         <ChangePasswordPopup v-if="isChangePasswordPopupShown"/>
         <EditProfilePopup v-if="isEditProfilePopupShown"/>
+        <EnableMFAPopup v-if="isEnableMFAModal" :toggle-modal="toggleEnableMFAModal"/>
     </div>
 </template>
 
@@ -53,6 +67,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import ChangePasswordPopup from '@/components/account/ChangePasswordPopup.vue';
 import DeleteAccountPopup from '@/components/account/DeleteAccountPopup.vue';
 import EditProfilePopup from '@/components/account/EditProfilePopup.vue';
+import EnableMFAPopup from '@/components/account/mfa/EnableMFAPopup.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import ChangePasswordIcon from '@/../static/images/account/profile/changePassword.svg';
@@ -62,6 +77,7 @@ import EditIcon from '@/../static/images/common/edit.svg';
 import { USER_ACTIONS } from '@/store/modules/users';
 import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
+import { MetaUtils } from '@/utils/meta';
 
 @Component({
     components: {
@@ -72,14 +88,25 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
         DeleteAccountPopup,
         ChangePasswordPopup,
         EditProfilePopup,
+        EnableMFAPopup,
     },
 })
 export default class SettingsArea extends Vue {
+    public isMFAEnabled: boolean = MetaUtils.getMetaContent('mfa-enabled') === 'true';
+    public isEnableMFAModal = false;
+
     /**
      * Lifecycle hook after initial render where user info is fetching.
      */
     public mounted(): void {
         this.$store.dispatch(USER_ACTIONS.GET);
+    }
+
+    /**
+     * Toggles enable MFA modal visibility.
+     */
+    public toggleEnableMFAModal(): void {
+        this.isEnableMFAModal = !this.isEnableMFAModal;
     }
 
     /**
@@ -125,13 +152,6 @@ export default class SettingsArea extends Vue {
     }
 
     /**
-     * Indicates if delete account popup is shown.
-     */
-    public get isDeleteAccountPopupShown(): boolean {
-        return this.$store.state.appStateModule.appState.isDeleteAccountPopupShown;
-    }
-
-    /**
      * Returns first letter of user name.
      */
     public get avatarLetter(): string {
@@ -141,10 +161,10 @@ export default class SettingsArea extends Vue {
 </script>
 
 <style scoped lang="scss">
-    .profile-container {
+    .settings {
         position: relative;
         font-family: 'font_regular', sans-serif;
-        padding-bottom: 100px;
+        padding-bottom: 70px;
 
         &__title {
             font-family: 'font_bold', sans-serif;
@@ -159,16 +179,13 @@ export default class SettingsArea extends Vue {
             width: calc(100% - 80px);
             border-radius: 6px;
             display: flex;
-            flex-direction: row;
             justify-content: space-between;
             align-items: center;
             padding: 37px 40px;
-            margin-top: 40px;
             background-color: #fff;
 
             &__row {
                 display: flex;
-                flex-direction: row;
                 justify-content: flex-start;
                 align-items: center;
             }
@@ -194,7 +211,6 @@ export default class SettingsArea extends Vue {
 
         &__secondary-container {
             display: flex;
-            flex-direction: row;
             justify-content: space-between;
             align-items: center;
             margin-top: 40px;
@@ -203,7 +219,6 @@ export default class SettingsArea extends Vue {
                 height: 66px;
                 border-radius: 6px;
                 display: flex;
-                flex-direction: row;
                 justify-content: space-between;
                 align-items: center;
                 padding: 37px 40px;
@@ -219,7 +234,6 @@ export default class SettingsArea extends Vue {
                 height: 66px;
                 border-radius: 6px;
                 display: flex;
-                flex-direction: row;
                 justify-content: flex-start;
                 align-items: center;
                 padding: 37px 40px;
@@ -236,10 +250,17 @@ export default class SettingsArea extends Vue {
                 min-height: 60px;
             }
         }
-    }
 
-    .no-margin {
-        margin-top: 0;
+        &__mfa {
+            margin-top: 40px;
+            padding: 40px;
+            border-radius: 6px;
+            background-color: #fff;
+
+            &__button {
+                margin-top: 20px;
+            }
+        }
     }
 
     .edit-svg {
@@ -265,24 +286,19 @@ export default class SettingsArea extends Vue {
     .profile-bold-text {
         font-family: 'font_bold', sans-serif;
         color: #354049;
-        margin-block-start: 0.5em;
-        margin-block-end: 0.5em;
         font-size: 18px;
         line-height: 27px;
-        word-break: break-all;
-        max-height: 80px;
     }
 
     .profile-regular-text {
-        margin-block-start: 0.5em;
-        margin-block-end: 0.5em;
+        margin: 10px 0;
         color: #afb7c1;
         font-size: 16px;
         line-height: 21px;
     }
 
     .email {
-        user-select: text;
+        word-break: break-all;
     }
 
     @media screen and (max-width: 1300px) {
@@ -308,6 +324,8 @@ export default class SettingsArea extends Vue {
     @media screen and (max-height: 825px) {
 
         .profile-container {
+            height: 535px;
+            overflow-y: scroll;
 
             &__secondary-container {
                 margin-top: 20px;
@@ -320,48 +338,6 @@ export default class SettingsArea extends Vue {
             &__button-area {
                 margin-top: 20px;
             }
-        }
-    }
-
-    @media screen and (max-height: 790px) {
-
-        .profile-container {
-            height: 535px;
-            overflow-y: scroll;
-
-            &::-webkit-scrollbar,
-            &::-webkit-scrollbar-track,
-            &::-webkit-scrollbar-thumb {
-                visibility: hidden;
-            }
-        }
-    }
-
-    @media screen and (max-height: 770px) {
-
-        .profile-container {
-            height: 515px;
-        }
-    }
-
-    @media screen and (max-height: 750px) {
-
-        .profile-container {
-            height: 495px;
-        }
-    }
-
-    @media screen and (max-height: 730px) {
-
-        .profile-container {
-            height: 475px;
-        }
-    }
-
-    @media screen and (max-height: 710px) {
-
-        .profile-container {
-            height: 455px;
         }
     }
 </style>

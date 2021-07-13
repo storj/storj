@@ -280,7 +280,7 @@ export class AuthHttpApi {
             throw new ErrorUnauthorized();
         }
 
-        throw new Error('Can not enable MFA. Please try again later');
+        throw new Error('Can not disable MFA. Please try again later');
     }
 
     /**
@@ -300,6 +300,6 @@ export class AuthHttpApi {
             throw new ErrorUnauthorized();
         }
 
-        throw new Error('Can not enable MFA. Please try again later');
+        throw new Error('Can not generate MFA recovery codes. Please try again later');
     }
 }
