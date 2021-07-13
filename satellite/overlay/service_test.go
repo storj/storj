@@ -831,7 +831,7 @@ func TestUpdateReputation(t *testing.T) {
 
 		reputationChange := &overlay.ReputationStatus{
 			Contained:             true,
-			Disqualified:          &t0,
+			Disqualified:          nil,
 			UnknownAuditSuspended: &t1,
 			OfflineSuspended:      &t2,
 			VettedAt:              &t3,
@@ -848,7 +848,7 @@ func TestUpdateReputation(t *testing.T) {
 		require.Equal(t, reputationChange.VettedAt, info.Reputation.VettedAt)
 
 		reputationChange.Contained = false
-		reputationChange.Disqualified = nil
+		reputationChange.Disqualified = &t0
 
 		err = service.UpdateReputation(ctx, node.ID(), reputationChange)
 		require.NoError(t, err)

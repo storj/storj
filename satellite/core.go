@@ -282,7 +282,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup reputation
 		peer.Reputation.Service = reputation.NewService(log.Named("reputation:service"),
-			peer.Overlay.Service,
+			peer.Overlay.DB,
 			peer.DB.Reputation(),
 			config.Reputation,
 		)

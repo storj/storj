@@ -24,11 +24,11 @@ type DB interface {
 	Init(ctx context.Context, nodeID storj.NodeID) error
 
 	// UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
-	UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (_ *overlay.ReputationStatus, err error)
+	UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error)
 	// DisqualifyNode disqualifies a storage node.
-	DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (_ *overlay.ReputationStatus, err error)
+	DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error)
 	// SuspendNodeUnknownAudit suspends a storage node for unknown audits.
-	SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (_ *overlay.ReputationStatus, err error)
+	SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
 
 	AuditHistoryDB
 }
@@ -56,13 +56,13 @@ type Info struct {
 // the overlay cache when a node's status changes.
 type Service struct {
 	log     *zap.Logger
-	overlay *overlay.Service
+	overlay overlay.DB
 	db      DB
 	config  Config
 }
 
 // NewService creates a new reputation service.
-func NewService(log *zap.Logger, overlay *overlay.Service, db DB, config Config) *Service {
+func NewService(log *zap.Logger, overlay overlay.DB, db DB, config Config) *Service {
 	return &Service{
 		log:     log,
 		overlay: overlay,
@@ -109,32 +109,32 @@ func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (info *Inf
 
 // TestingSuspendNodeUnknownAudit suspends a storage node for unknown audits.
 func (service *Service) TestingSuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
-	statusUpdate, err := service.db.SuspendNodeUnknownAudit(ctx, nodeID, suspendedAt)
+	err = service.db.SuspendNodeUnknownAudit(ctx, nodeID, suspendedAt)
 	if err != nil {
 		return err
 	}
 
-	return service.overlay.UpdateReputation(ctx, nodeID, statusUpdate)
+	return service.overlay.SuspendNodeUnknownAudit(ctx, nodeID, suspendedAt)
 }
 
-// TestingDisqualifyNode disqualifies a storage node.
-func (service *Service) TestingDisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error) {
-	statusUpdate, err := service.db.DisqualifyNode(ctx, nodeID)
+// TestDisqualifyNode disqualifies a storage node.
+func (service *Service) TestDisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error) {
+	err = service.db.DisqualifyNode(ctx, nodeID)
 	if err != nil {
 		return err
 	}
 
-	return service.overlay.UpdateReputation(ctx, nodeID, statusUpdate)
+	return service.overlay.DisqualifyNode(ctx, nodeID)
 }
 
 // TestingUnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
 func (service *Service) TestingUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error) {
-	statusUpdate, err := service.db.UnsuspendNodeUnknownAudit(ctx, nodeID)
+	err = service.db.UnsuspendNodeUnknownAudit(ctx, nodeID)
 	if err != nil {
 		return err
 	}
 
-	return service.overlay.UpdateReputation(ctx, nodeID, statusUpdate)
+	return service.overlay.UnsuspendNodeUnknownAudit(ctx, nodeID)
 }
 
 // Close closes resources.

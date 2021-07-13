@@ -509,6 +509,11 @@ func (cache *overlaycache) UpdateReputation(ctx context.Context, id storj.NodeID
 			return err
 		}
 
+		// do not update reputation if node has been disqualified already
+		if dbNode.Disqualified != nil {
+			return nil
+		}
+
 		// do not update reputation if node has gracefully exited
 		if dbNode.ExitFinishedAt != nil {
 			return nil

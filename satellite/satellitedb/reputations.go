@@ -212,10 +212,9 @@ func (reputations *reputations) UpdateAuditHistory(ctx context.Context, nodeID s
 }
 
 // DisqualifyNode disqualifies a storage node.
-func (reputations *reputations) DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (_ *overlay.ReputationStatus, err error) {
+func (reputations *reputations) DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var dbNode *dbx.Reputation
 	err = reputations.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
 		_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
 		if err != nil {
@@ -244,31 +243,16 @@ func (reputations *reputations) DisqualifyNode(ctx context.Context, nodeID storj
 		updateFields := dbx.Reputation_Update_Fields{}
 		updateFields.Disqualified = dbx.Reputation_Disqualified(time.Now().UTC())
 
-		dbNode, err = tx.Update_Reputation_By_Id(ctx, dbx.Reputation_Id(nodeID.Bytes()), updateFields)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		_, err = tx.Update_Reputation_By_Id(ctx, dbx.Reputation_Id(nodeID.Bytes()), updateFields)
+		return err
 	})
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	return &overlay.ReputationStatus{
-		Contained:             dbNode.Contained,
-		Disqualified:          dbNode.Disqualified,
-		UnknownAuditSuspended: dbNode.UnknownAuditSuspended,
-		OfflineSuspended:      dbNode.OfflineSuspended,
-		VettedAt:              dbNode.VettedAt,
-	}, nil
+	return Error.Wrap(err)
 }
 
 // SuspendNodeUnknownAudit suspends a storage node for unknown audits.
-func (reputations *reputations) SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (_ *overlay.ReputationStatus, err error) {
+func (reputations *reputations) SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var dbNode *dbx.Reputation
 	err = reputations.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
 		_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
 		if err != nil {
@@ -297,30 +281,17 @@ func (reputations *reputations) SuspendNodeUnknownAudit(ctx context.Context, nod
 		updateFields := dbx.Reputation_Update_Fields{}
 		updateFields.UnknownAuditSuspended = dbx.Reputation_UnknownAuditSuspended(suspendedAt.UTC())
 
-		dbNode, err = tx.Update_Reputation_By_Id(ctx, dbx.Reputation_Id(nodeID.Bytes()), updateFields)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		_, err = tx.Update_Reputation_By_Id(ctx, dbx.Reputation_Id(nodeID.Bytes()), updateFields)
+		return err
 	})
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
+	return Error.Wrap(err)
 
-	return &overlay.ReputationStatus{
-		Contained:             dbNode.Contained,
-		Disqualified:          dbNode.Disqualified,
-		UnknownAuditSuspended: dbNode.UnknownAuditSuspended,
-		OfflineSuspended:      dbNode.OfflineSuspended,
-		VettedAt:              dbNode.VettedAt,
-	}, nil
 }
 
 // UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
-func (reputations *reputations) UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (_ *overlay.ReputationStatus, err error) {
+func (reputations *reputations) UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	var dbNode *dbx.Reputation
+
 	err = reputations.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
 		_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
 		if err != nil {
@@ -349,24 +320,12 @@ func (reputations *reputations) UnsuspendNodeUnknownAudit(ctx context.Context, n
 		updateFields := dbx.Reputation_Update_Fields{}
 		updateFields.UnknownAuditSuspended = dbx.Reputation_UnknownAuditSuspended_Null()
 
-		dbNode, err = tx.Update_Reputation_By_Id(ctx, dbx.Reputation_Id(nodeID.Bytes()), updateFields)
-		if err != nil {
-			return err
-		}
+		_, err = tx.Update_Reputation_By_Id(ctx, dbx.Reputation_Id(nodeID.Bytes()), updateFields)
+		return err
 
-		return nil
 	})
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
 
-	return &overlay.ReputationStatus{
-		Contained:             dbNode.Contained,
-		Disqualified:          dbNode.Disqualified,
-		UnknownAuditSuspended: dbNode.UnknownAuditSuspended,
-		OfflineSuspended:      dbNode.OfflineSuspended,
-		VettedAt:              dbNode.VettedAt,
-	}, nil
+	return Error.Wrap(err)
 }
 
 // Init creates an entry for a node with its reputaion in zero value.
