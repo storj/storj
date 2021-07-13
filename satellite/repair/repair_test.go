@@ -5,16 +5,22 @@ package repair_test
 
 import (
 	"context"
+	"crypto/tls"
+	"fmt"
 	"io"
 	"math"
+	"net"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
+	"storj.io/common/rpc"
+	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -25,7 +31,9 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
+	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/storage"
+	"storj.io/uplink/private/eestream"
 )
 
 // TestDataRepair does the following:
@@ -1524,4 +1532,204 @@ func corruptPieceData(ctx context.Context, t *testing.T, planet *testplanet.Plan
 
 	err = writer.Commit(ctx)
 	require.NoError(t, err)
+}
+
+type mockConnector struct {
+	realConnector   rpc.Connector
+	addressesDialed []string
+	dialInstead     map[string]string
+}
+
+func (m *mockConnector) DialContext(ctx context.Context, tlsConfig *tls.Config, address string) (rpc.ConnectorConn, error) {
+	m.addressesDialed = append(m.addressesDialed, address)
+	replacement := m.dialInstead[address]
+	if replacement == "" {
+		// allow numeric ip addresses through, return errors for unexpected dns lookups
+		host, _, err := net.SplitHostPort(address)
+		if err != nil {
+			return nil, err
+		}
+		if net.ParseIP(host) == nil {
+			return nil, &net.DNSError{
+				Err:        "unexpected lookup",
+				Name:       address,
+				Server:     "a.totally.real.dns.server.i.promise",
+				IsNotFound: true,
+			}
+		}
+		replacement = address
+	}
+	return m.realConnector.DialContext(ctx, tlsConfig, replacement)
+}
+
+func ecRepairerWithMockConnector(t testing.TB, sat *testplanet.Satellite, mock *mockConnector) *repairer.ECRepairer {
+	tlsOptions := sat.Dialer.TLSOptions
+	newDialer := rpc.NewDefaultDialer(tlsOptions)
+	mock.realConnector = newDialer.Connector
+	newDialer.Connector = mock
+
+	ec := repairer.NewECRepairer(
+		zaptest.NewLogger(t).Named("a-special-repairer"),
+		newDialer,
+		signing.SigneeFromPeerIdentity(sat.Identity.PeerIdentity()),
+		sat.Config.Repairer.DownloadTimeout,
+		sat.Config.Repairer.InMemoryRepair,
+	)
+	return ec
+}
+
+func TestECRepairerGetDoesNameLookupIfNecessary(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		testSatellite := planet.Satellites[0]
+		audits := testSatellite.Audit
+
+		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
+
+		ul := planet.Uplinks[0]
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := ul.Upload(ctx, testSatellite, "test.bucket", "some//path", testData)
+		require.NoError(t, err)
+
+		audits.Chore.Loop.TriggerWait()
+		queue := audits.Queues.Fetch()
+		queueSegment, err := queue.Next()
+		require.NoError(t, err)
+
+		segment, err := testSatellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: queueSegment.StreamID,
+			Position: queueSegment.Position,
+		})
+		require.NoError(t, err)
+		require.True(t, len(segment.Pieces) > 1)
+
+		limits, privateKey, _, err := testSatellite.Orders.Service.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, segment.Pieces)
+		require.NoError(t, err)
+
+		cachedIPsAndPorts := make(map[storj.NodeID]string)
+		for i, l := range limits {
+			if l == nil {
+				continue
+			}
+			cachedIPsAndPorts[l.Limit.StorageNodeId] = fmt.Sprintf("garbageXXX#:%d", i)
+		}
+
+		mock := &mockConnector{}
+		ec := ecRepairerWithMockConnector(t, testSatellite, mock)
+
+		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+		require.NoError(t, err)
+
+		readCloser, failed, err := ec.Get(ctx, limits, cachedIPsAndPorts, privateKey, redundancy, int64(segment.EncryptedSize))
+		require.NoError(t, err)
+		require.Len(t, failed, 0)
+		require.NotNil(t, readCloser)
+
+		// repair will only download minimum required
+		minReq := redundancy.RequiredCount()
+		var numDialed int
+		for _, ip := range cachedIPsAndPorts {
+			for _, dialed := range mock.addressesDialed {
+				if dialed == ip {
+					numDialed++
+					if numDialed == minReq {
+						break
+					}
+				}
+			}
+			if numDialed == minReq {
+				break
+			}
+		}
+		require.True(t, numDialed == minReq)
+	})
+}
+
+func TestECRepairerGetPrefersCachedIPPort(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+
+		testSatellite := planet.Satellites[0]
+		audits := testSatellite.Audit
+
+		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
+
+		ul := planet.Uplinks[0]
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := ul.Upload(ctx, testSatellite, "test.bucket", "some//path", testData)
+		require.NoError(t, err)
+
+		audits.Chore.Loop.TriggerWait()
+		queue := audits.Queues.Fetch()
+		queueSegment, err := queue.Next()
+		require.NoError(t, err)
+
+		segment, err := testSatellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: queueSegment.StreamID,
+			Position: queueSegment.Position,
+		})
+		require.NoError(t, err)
+		require.True(t, len(segment.Pieces) > 1)
+
+		limits, privateKey, _, err := testSatellite.Orders.Service.CreateGetRepairOrderLimits(ctx, metabase.BucketLocation{}, segment, segment.Pieces)
+		require.NoError(t, err)
+
+		// make it so that when the cached IP is dialed, we dial the "right" address,
+		// but when the "right" address is dialed (meaning it came from the OrderLimit,
+		// we dial something else!
+		cachedIPsAndPorts := make(map[storj.NodeID]string)
+		mock := &mockConnector{
+			dialInstead: make(map[string]string),
+		}
+		var realAddresses []string
+		for i, l := range limits {
+			if l == nil {
+				continue
+			}
+			ip := fmt.Sprintf("garbageXXX#:%d", i)
+			cachedIPsAndPorts[l.Limit.StorageNodeId] = ip
+
+			address := l.StorageNodeAddress.Address
+			mock.dialInstead[ip] = address
+			mock.dialInstead[address] = "utter.failure?!*"
+
+			realAddresses = append(realAddresses, address)
+		}
+
+		ec := ecRepairerWithMockConnector(t, testSatellite, mock)
+
+		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+		require.NoError(t, err)
+
+		readCloser, failed, err := ec.Get(ctx, limits, cachedIPsAndPorts, privateKey, redundancy, int64(segment.EncryptedSize))
+		require.NoError(t, err)
+		require.Len(t, failed, 0)
+		require.NotNil(t, readCloser)
+		// repair will only download minimum required.
+		minReq := redundancy.RequiredCount()
+		var numDialed int
+		for _, ip := range cachedIPsAndPorts {
+			for _, dialed := range mock.addressesDialed {
+				if dialed == ip {
+					numDialed++
+					if numDialed == minReq {
+						break
+					}
+				}
+			}
+			if numDialed == minReq {
+				break
+			}
+		}
+		require.True(t, numDialed == minReq)
+		// and that the right address was never dialed directly
+		require.NotContains(t, mock.addressesDialed, realAddresses)
+	})
 }
