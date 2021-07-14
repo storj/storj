@@ -30,7 +30,7 @@ export interface UsersApi {
      *
      * @throws Error
      */
-    disableUserMFA(): Promise<void>;
+    disableUserMFA(code: string): Promise<void>;
     /**
      * Generate user's MFA recovery codes.
      *

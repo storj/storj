@@ -268,9 +268,14 @@ export class AuthHttpApi {
      *
      * @throws Error
      */
-    public async disableUserMFA(): Promise<void> {
+    public async disableUserMFA(code: string): Promise<void> {
         const path = `${this.ROOT_PATH}/mfa/disable`;
-        const response = await this.http.post(path, null);
+
+        const body = {
+            passcode: code,
+        };
+
+        const response = await this.http.post(path, JSON.stringify(body));
 
         if (response.ok) {
             return;

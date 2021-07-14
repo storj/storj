@@ -25,7 +25,7 @@ export class UsersApiMock implements UsersApi {
         return Promise.resolve();
     }
 
-    public disableUserMFA(): Promise<void> {
+    public disableUserMFA(_: string): Promise<void> {
         return Promise.resolve();
     }
 

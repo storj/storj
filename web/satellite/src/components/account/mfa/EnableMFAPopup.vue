@@ -107,9 +107,8 @@ export default class EnableMFAPopup extends Vue {
     public isCodes = false;
     public isError = false;
     public recoveryCodes: string[] = ['test', 'test', 'test', 'test', 'test', 'test', 'test', 'test', 'test', 'test'];
-
-    private confirmPasscode = '';
-    private isLoading = false;
+    public isLoading = false;
+    public confirmPasscode = '';
 
     public $refs!: {
         canvas: HTMLCanvasElement;

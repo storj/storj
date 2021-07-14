@@ -47,17 +47,26 @@
             <p class="profile-regular-text">
                 To increase your account security, we strongly recommend enabling 2FA on your account.
             </p>
-            <VButton
-                class="settings__mfa__button"
-                label="Enable 2FA"
-                width="173px"
-                height="44px"
-                :on-press="toggleEnableMFAModal"
-            />
+            <div class="settings__mfa__buttons">
+                <VButton
+                    label="Enable 2FA"
+                    width="173px"
+                    height="44px"
+                    :on-press="toggleEnableMFAPopup"
+                />
+                <VButton
+                    label="Disable 2FA"
+                    width="173px"
+                    height="44px"
+                    :on-press="toggleDisableMFAPopup"
+                    is-deletion="true"
+                />
+            </div>
         </div>
         <ChangePasswordPopup v-if="isChangePasswordPopupShown"/>
         <EditProfilePopup v-if="isEditProfilePopupShown"/>
-        <EnableMFAPopup v-if="isEnableMFAModal" :toggle-modal="toggleEnableMFAModal"/>
+        <EnableMFAPopup v-if="isEnableMFAPopup" :toggle-modal="toggleEnableMFAPopup"/>
+        <DisableMFAPopup v-if="isDisableMFAPopup" :toggle-modal="toggleDisableMFAPopup"/>
     </div>
 </template>
 
@@ -67,6 +76,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import ChangePasswordPopup from '@/components/account/ChangePasswordPopup.vue';
 import DeleteAccountPopup from '@/components/account/DeleteAccountPopup.vue';
 import EditProfilePopup from '@/components/account/EditProfilePopup.vue';
+import DisableMFAPopup from '@/components/account/mfa/DisableMFAPopup.vue';
 import EnableMFAPopup from '@/components/account/mfa/EnableMFAPopup.vue';
 import VButton from '@/components/common/VButton.vue';
 
@@ -89,11 +99,13 @@ import { MetaUtils } from '@/utils/meta';
         ChangePasswordPopup,
         EditProfilePopup,
         EnableMFAPopup,
+        DisableMFAPopup,
     },
 })
 export default class SettingsArea extends Vue {
     public isMFAEnabled: boolean = MetaUtils.getMetaContent('mfa-enabled') === 'true';
-    public isEnableMFAModal = false;
+    public isEnableMFAPopup = false;
+    public isDisableMFAPopup = false;
 
     /**
      * Lifecycle hook after initial render where user info is fetching.
@@ -103,10 +115,17 @@ export default class SettingsArea extends Vue {
     }
 
     /**
-     * Toggles enable MFA modal visibility.
+     * Toggles enable MFA popup visibility.
      */
-    public toggleEnableMFAModal(): void {
-        this.isEnableMFAModal = !this.isEnableMFAModal;
+    public toggleEnableMFAPopup(): void {
+        this.isEnableMFAPopup = !this.isEnableMFAPopup;
+    }
+
+    /**
+     * Toggles disable MFA popup visibility.
+     */
+    public toggleDisableMFAPopup(): void {
+        this.isDisableMFAPopup = !this.isDisableMFAPopup;
     }
 
     /**
@@ -257,7 +276,7 @@ export default class SettingsArea extends Vue {
             border-radius: 6px;
             background-color: #fff;
 
-            &__button {
+            &__buttons {
                 margin-top: 20px;
             }
         }
