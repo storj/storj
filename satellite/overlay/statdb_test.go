@@ -61,7 +61,7 @@ func testDatabase(ctx context.Context, t *testing.T, cache overlay.DB) {
 			require.NoError(t, err)
 
 			if tt.unknownAuditSuspended {
-				err = cache.SuspendNodeUnknownAudit(ctx, tt.nodeID, time.Now())
+				err = cache.TestSuspendNodeUnknownAudit(ctx, tt.nodeID, time.Now())
 				require.NoError(t, err)
 			}
 

@@ -114,7 +114,7 @@ func (service *Service) TestingSuspendNodeUnknownAudit(ctx context.Context, node
 		return err
 	}
 
-	return service.overlay.SuspendNodeUnknownAudit(ctx, nodeID, suspendedAt)
+	return service.overlay.TestSuspendNodeUnknownAudit(ctx, nodeID, suspendedAt)
 }
 
 // TestDisqualifyNode disqualifies a storage node.
@@ -134,7 +134,7 @@ func (service *Service) TestingUnsuspendNodeUnknownAudit(ctx context.Context, no
 		return err
 	}
 
-	return service.overlay.UnsuspendNodeUnknownAudit(ctx, nodeID)
+	return service.overlay.TestUnsuspendNodeUnknownAudit(ctx, nodeID)
 }
 
 // Close closes resources.

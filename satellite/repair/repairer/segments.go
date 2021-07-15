@@ -23,6 +23,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
+	"storj.io/storj/satellite/reputation"
 	"storj.io/uplink/private/eestream"
 )
 
@@ -55,6 +56,7 @@ type SegmentRepairer struct {
 	metabase       *metabase.DB
 	orders         *orders.Service
 	overlay        *overlay.Service
+	reputation     *reputation.Service
 	ec             *ECRepairer
 	timeout        time.Duration
 
@@ -76,10 +78,10 @@ type SegmentRepairer struct {
 // when negative, 0 is applied.
 func NewSegmentRepairer(
 	log *zap.Logger, metabase *metabase.DB, orders *orders.Service,
-	overlay *overlay.Service, dialer rpc.Dialer, timeout time.Duration,
-	excessOptimalThreshold float64, repairOverrides checker.RepairOverrides,
-	downloadTimeout time.Duration, inMemoryRepair bool,
-	satelliteSignee signing.Signee,
+	overlay *overlay.Service, reputation *reputation.Service, dialer rpc.Dialer,
+	timeout time.Duration, excessOptimalThreshold float64,
+	repairOverrides checker.RepairOverrides, downloadTimeout time.Duration,
+	inMemoryRepair bool, satelliteSignee signing.Signee,
 ) *SegmentRepairer {
 
 	if excessOptimalThreshold < 0 {
@@ -92,6 +94,7 @@ func NewSegmentRepairer(
 		metabase:                   metabase,
 		orders:                     orders,
 		overlay:                    overlay,
+		reputation:                 reputation,
 		ec:                         NewECRepairer(log.Named("ec repairer"), dialer, satelliteSignee, downloadTimeout, inMemoryRepair),
 		timeout:                    timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
@@ -481,18 +484,17 @@ func (repairer *SegmentRepairer) loadRedundancy(redundancy *pb.RedundancyScheme)
 }
 
 func (repairer *SegmentRepairer) updateAuditFailStatus(ctx context.Context, failedAuditNodeIDs storj.NodeIDList) (failedNum int, err error) {
-	updateRequests := make([]*overlay.UpdateRequest, len(failedAuditNodeIDs))
-	for i, nodeID := range failedAuditNodeIDs {
-		updateRequests[i] = &overlay.UpdateRequest{
-			NodeID:       nodeID,
-			AuditOutcome: overlay.AuditFailure,
+	var errGroup errs.Group
+	for _, nodeID := range failedAuditNodeIDs {
+		err := repairer.reputation.ApplyAudit(ctx, nodeID, reputation.AuditFailure)
+		if err != nil {
+			failedNum++
+			errGroup.Add(err)
+			continue
 		}
 	}
-	if len(updateRequests) > 0 {
-		failed, err := repairer.overlay.BatchUpdateStats(ctx, updateRequests)
-		if err != nil || len(failed) > 0 {
-			return len(failed), errs.Combine(Error.New("failed to update some audit fail statuses in overlay"), err)
-		}
+	if failedNum > 0 {
+		return failedNum, errs.Combine(Error.New("failed to update some audit fail statuses in overlay"), errGroup.Err())
 	}
 	return 0, nil
 }

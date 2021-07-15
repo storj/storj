@@ -94,10 +94,10 @@ type DB interface {
 	// or gracefully exited or where last_contact_success = '0001-01-01 00:00:00+00'.
 	DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (count int, err error)
 
-	// SuspendNodeUnknownAudit suspends a storage node for unknown audits.
-	SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
-	// UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
-	UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error)
+	// TestSuspendNodeUnknownAudit suspends a storage node for unknown audits.
+	TestSuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
+	// TestUnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
+	TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error)
 
 	// TestVetNode directly sets a node's vetted_at timestamp to make testing easier
 	TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error)

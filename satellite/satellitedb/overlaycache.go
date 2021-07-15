@@ -746,8 +746,8 @@ func (cache *overlaycache) DisqualifyNode(ctx context.Context, nodeID storj.Node
 	return nil
 }
 
-// SuspendNodeUnknownAudit suspends a storage node for unknown audits.
-func (cache *overlaycache) SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
+// TestSuspendNodeUnknownAudit suspends a storage node for unknown audits.
+func (cache *overlaycache) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	updateFields := dbx.Node_Update_Fields{}
 	updateFields.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended(suspendedAt.UTC())
@@ -762,8 +762,8 @@ func (cache *overlaycache) SuspendNodeUnknownAudit(ctx context.Context, nodeID s
 	return nil
 }
 
-// UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
-func (cache *overlaycache) UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error) {
+// TestUnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
+func (cache *overlaycache) TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	updateFields := dbx.Node_Update_Fields{}
 	updateFields.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended_Null()

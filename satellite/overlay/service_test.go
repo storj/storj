@@ -474,7 +474,7 @@ func TestKnownReliable(t *testing.T) {
 		require.False(t, service.IsOnline(node))
 
 		// unknown audit suspend storage node #2
-		err = satellite.DB.OverlayCache().SuspendNodeUnknownAudit(ctx, planet.StorageNodes[2].ID(), time.Now())
+		err = satellite.DB.OverlayCache().TestSuspendNodeUnknownAudit(ctx, planet.StorageNodes[2].ID(), time.Now())
 		require.NoError(t, err)
 
 		// offline suspend storage node #3
@@ -709,7 +709,7 @@ func TestSuspendedSelection(t *testing.T) {
 					require.NoError(t, offlineSuspendNode(ctx, cache, ahConfig, newID))
 					continue
 				}
-				err = cache.SuspendNodeUnknownAudit(ctx, newID, time.Now())
+				err = cache.TestSuspendNodeUnknownAudit(ctx, newID, time.Now())
 				require.NoError(t, err)
 				suspendedIDs[newID] = true
 			}

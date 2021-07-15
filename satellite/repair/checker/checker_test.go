@@ -210,7 +210,7 @@ func TestCleanRepairQueue(t *testing.T) {
 
 		// suspend enough nodes to make healthy pointers unhealthy
 		for i := rs.RequiredShares; i < rs.OptimalShares; i++ {
-			require.NoError(t, planet.Satellites[0].Overlay.DB.SuspendNodeUnknownAudit(ctx, planet.StorageNodes[i].ID(), time.Now()))
+			require.NoError(t, planet.Satellites[0].Overlay.DB.TestSuspendNodeUnknownAudit(ctx, planet.StorageNodes[i].ID(), time.Now()))
 		}
 
 		require.NoError(t, planet.Satellites[0].Repair.Checker.RefreshReliabilityCache(ctx))
@@ -230,7 +230,7 @@ func TestCleanRepairQueue(t *testing.T) {
 
 		// unsuspend nodes to make the previously healthy pointers healthy again
 		for i := rs.RequiredShares; i < rs.OptimalShares; i++ {
-			require.NoError(t, planet.Satellites[0].Overlay.DB.UnsuspendNodeUnknownAudit(ctx, planet.StorageNodes[i].ID()))
+			require.NoError(t, planet.Satellites[0].Overlay.DB.TestUnsuspendNodeUnknownAudit(ctx, planet.StorageNodes[i].ID()))
 		}
 
 		require.NoError(t, planet.Satellites[0].Repair.Checker.RefreshReliabilityCache(ctx))

@@ -373,7 +373,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 				if i > Total-Offline {
 					switch i % 3 {
 					case 0:
-						err := overlaydb.SuspendNodeUnknownAudit(ctx, nodeID, now)
+						err := overlaydb.TestSuspendNodeUnknownAudit(ctx, nodeID, now)
 						require.NoError(b, err)
 					case 1:
 						err := overlaydb.DisqualifyNode(ctx, nodeID)

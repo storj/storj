@@ -209,7 +209,7 @@ func TestAuditSuspendDQDisabled(t *testing.T) {
 		// suspend each node two hours ago (more than grace period)
 		oc := planet.Satellites[0].DB.OverlayCache()
 		for _, node := range (storj.NodeIDList{successNodeID, failNodeID, offlineNodeID, unknownNodeID}) {
-			err := oc.SuspendNodeUnknownAudit(ctx, node, time.Now().Add(-2*time.Hour))
+			err := oc.TestSuspendNodeUnknownAudit(ctx, node, time.Now().Add(-2*time.Hour))
 			require.NoError(t, err)
 		}
 
