@@ -373,7 +373,7 @@ export default class RegisterArea extends Vue {
 
             await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
         } catch (error) {
-            if (error instanceof ErrorBadRequest) {
+            if (this.$refs.recaptcha) {
                 (this.$refs.recaptcha as VueRecaptcha).reset();
             }
             await this.$notify.error(error.message);
