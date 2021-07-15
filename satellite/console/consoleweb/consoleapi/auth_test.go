@@ -197,7 +197,7 @@ func TestDeleteAccount(t *testing.T) {
 	}
 
 	expectedHandler := func(_ *http.Request) (status int, body []byte) {
-		return http.StatusNotImplemented, []byte("{\"error\":\"not implemented\"}\n")
+		return http.StatusNotImplemented, []byte("{\"error\":\"The server is incapable of fulfilling the request\"}\n")
 	}
 
 	actualHandler := func(r *http.Request) (status int, body []byte) {

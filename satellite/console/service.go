@@ -81,6 +81,12 @@ var (
 
 	// ErrNoAPIKey is error type that occurs when there is no api key found.
 	ErrNoAPIKey = errs.Class("no api key found")
+
+	// ErrRegToken describes registration token errors.
+	ErrRegToken = errs.Class("registration token")
+
+	// ErrRecaptcha describes reCAPTCHA validation errors.
+	ErrRecaptcha = errs.Class("recaptcha validation")
 )
 
 // Service is handling accounts related logic.
@@ -560,10 +566,10 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		valid, err := s.recaptchaHandler.Verify(ctx, user.RecaptchaResponse, user.IP)
 		if err != nil {
 			s.log.Error("reCAPTCHA authorization failed", zap.Error(err))
-			return nil, ErrValidation.Wrap(err)
+			return nil, ErrRecaptcha.Wrap(err)
 		}
 		if !valid {
-			return nil, ErrValidation.New("reCAPTCHA validation unsuccessful")
+			return nil, ErrRecaptcha.New("reCAPTCHA validation unsuccessful")
 		}
 	}
 
@@ -573,7 +579,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	registrationToken, err := s.checkRegistrationSecret(ctx, tokenSecret)
 	if err != nil {
-		return nil, err
+		return nil, ErrRegToken.Wrap(err)
 	}
 
 	u, err = s.store.Users().GetByEmail(ctx, user.Email)

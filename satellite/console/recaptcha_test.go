@@ -64,6 +64,6 @@ func TestRecaptcha(t *testing.T) {
 		}, regToken2.Secret)
 
 		require.Nil(t, user)
-		require.True(t, console.ErrValidation.Has(err))
+		require.True(t, console.ErrRecaptcha.Has(err))
 	})
 }
