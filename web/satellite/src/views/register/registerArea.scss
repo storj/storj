@@ -22,7 +22,6 @@ h1 {
     left: 0;
     right: 0;
     bottom: 0;
-    min-height: 100%;
     overflow-y: scroll;
 
     &__logo-wrapper {
@@ -42,19 +41,15 @@ h1 {
         display: flex;
         background-color: #fff;
         border-radius: 20px;
-        min-height: 733px;
         width: 75%;
         margin-top: 50px;
-        padding: 70px 90px 40px 90px;
-        overflow: hidden;
+        padding: 70px 90px 30px 90px;
         max-width: 1200px;
     }
 
-    &__container.professional-container {
-        min-height: 980px;
-    }
-
     &__intro-area {
+        overflow: hidden;
+        margin-bottom: -30px;
 
         &__wrapper {
             width: 80%;
@@ -97,7 +92,7 @@ h1 {
     }
 
     &__input-area {
-        padding: 0 0 0 20px;
+        padding: 0 0 40px 20px;
         margin: 0 auto;
         width: 70%;
 
@@ -220,6 +215,36 @@ h1 {
                 }
             }
 
+            &__warning {
+                margin-top: 30px;
+                padding: 15px;
+                width: calc(100% - 32px);
+                background: #fff9f7;
+                border: 1px solid #f84b00;
+                border-radius: 8px;
+
+                &__header {
+                    display: flex;
+                    align-items: center;
+
+                    &__label {
+                        font-style: normal;
+                        font-family: 'font_bold', sans-serif;
+                        font-size: 16px;
+                        line-height: 19px;
+                        color: #1b2533;
+                        margin: 0;
+                    }
+                }
+
+                &__message {
+                    font-size: 16px;
+                    line-height: 22px;
+                    color: #1b2533;
+                    margin: 8px 0 0 0;
+                }
+            }
+
             &__checkbox-area {
                 display: flex;
                 align-items: center;
@@ -285,10 +310,6 @@ h1 {
                     }
                 }
             }
-        }
-
-        &__container.professional-container {
-            min-height: 991px;
         }
 
         &__footer {
@@ -437,10 +458,6 @@ h1 {
 
     .register-area {
 
-        &__container.professional-container {
-            min-height: 985px;
-        }
-
         &__intro-area {
 
             &__width {
@@ -491,16 +508,12 @@ h1 {
         &__container {
             display: inline;
             text-align: center;
-            min-height: auto;
             overflow: visible;
-        }
-
-        &__container.professional-container {
-            min-height: auto;
         }
 
         &__intro-area {
             margin: 0 auto 130px auto;
+            overflow: visible;
 
             &__wrapper {
                 text-align: center;
