@@ -9,6 +9,7 @@ import (
 	"github.com/go-rod/rod"
 	"github.com/go-rod/rod/lib/input"
 	"github.com/stretchr/testify/require"
+
 	"storj.io/common/testcontext"
 	"storj.io/storj/integration/ui/uitest"
 	"storj.io/storj/private/testplanet"
