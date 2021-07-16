@@ -32,6 +32,12 @@ export interface UsersApi {
      */
     disableUserMFA(code: string): Promise<void>;
     /**
+     * Generate user's MFA secret.
+     *
+     * @throws Error
+     */
+    generateUserMFASecret(): Promise<string>;
+    /**
      * Generate user's MFA recovery codes.
      *
      * @throws Error

@@ -52,7 +52,8 @@
                     label="Enable 2FA"
                     width="173px"
                     height="44px"
-                    :on-press="toggleEnableMFAPopup"
+                    :on-press="enableMFA"
+                    :is-disabled="isLoading"
                 />
                 <VButton
                     label="Disable 2FA"
@@ -104,6 +105,7 @@ import { MetaUtils } from '@/utils/meta';
 })
 export default class SettingsArea extends Vue {
     public isMFAEnabled: boolean = MetaUtils.getMetaContent('mfa-enabled') === 'true';
+    public isLoading = false;
     public isEnableMFAPopup = false;
     public isDisableMFAPopup = false;
 
@@ -112,6 +114,24 @@ export default class SettingsArea extends Vue {
      */
     public mounted(): void {
         this.$store.dispatch(USER_ACTIONS.GET);
+    }
+
+    /**
+     * Generates user's MFA secret and opens popup.
+     */
+    public async enableMFA(): Promise<void> {
+        if (this.isLoading) return;
+
+        this.isLoading = true;
+
+        try {
+            await this.$store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_SECRET);
+            this.toggleEnableMFAPopup();
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+
+        this.isLoading = false;
     }
 
     /**

@@ -10,12 +10,14 @@ export const USER_ACTIONS = {
     GET: 'getUser',
     ENABLE_USER_MFA: 'enableUserMFA',
     DISABLE_USER_MFA: 'disableUserMFA',
+    GENERATE_USER_MFA_SECRET: 'generateUserMFASecret',
     GENERATE_USER_MFA_RECOVERY_CODES: 'generateUserMFARecoveryCodes',
     CLEAR: 'clearUser',
 };
 
 export const USER_MUTATIONS = {
     SET_USER: 'setUser',
+    SET_USER_MFA_SECRET: 'setUserMFASecret',
     SET_USER_MFA_RECOVERY_CODES: 'setUserMFARecoveryCodes',
     UPDATE_USER: 'updateUser',
     CLEAR: 'clearUser',
@@ -23,6 +25,7 @@ export const USER_MUTATIONS = {
 
 export class UsersState {
     public user: User = new User();
+    public userMFASecret: string = '';
     public userMFARecoveryCodes: string[] = [];
 }
 
@@ -31,12 +34,14 @@ const {
     UPDATE,
     ENABLE_USER_MFA,
     DISABLE_USER_MFA,
+    GENERATE_USER_MFA_SECRET,
     GENERATE_USER_MFA_RECOVERY_CODES,
 } = USER_ACTIONS;
 
 const {
     SET_USER,
     UPDATE_USER,
+    SET_USER_MFA_SECRET,
     SET_USER_MFA_RECOVERY_CODES,
     CLEAR,
 } = USER_MUTATIONS;
@@ -72,6 +77,9 @@ export function makeUsersModule(api: UsersApi): StoreModule<UsersState> {
                 state.user.fullName = user.fullName;
                 state.user.shortName = user.shortName;
             },
+            [SET_USER_MFA_SECRET](state: UsersState, secret: string): void {
+                state.userMFASecret = secret;
+            },
             [SET_USER_MFA_RECOVERY_CODES](state: UsersState, codes: string[]): void {
                 state.userMFARecoveryCodes = codes;
             },
@@ -95,6 +103,14 @@ export function makeUsersModule(api: UsersApi): StoreModule<UsersState> {
             },
             [ENABLE_USER_MFA]: async function (_, request: EnableUserMFARequest): Promise<void> {
                 await api.enableUserMFA(request);
+            },
+            [GENERATE_USER_MFA_SECRET]: function ({commit}: any): void {
+                // TODO: use this when backend is ready
+                // const secret = await api.generateUserMFASecret();
+
+                const secret = 'AAAAAAAAAAAA';
+
+                commit(SET_USER_MFA_SECRET, secret);
             },
             [GENERATE_USER_MFA_RECOVERY_CODES]: async function ({commit}: any): Promise<void> {
                 const codes = await api.generateUserMFARecoveryCodes();

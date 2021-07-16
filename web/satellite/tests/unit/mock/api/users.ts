@@ -29,6 +29,10 @@ export class UsersApiMock implements UsersApi {
         return Promise.resolve();
     }
 
+    public generateUserMFASecret(): Promise<string> {
+        return Promise.resolve('test');
+    }
+
     public generateUserMFARecoveryCodes(): Promise<string[]> {
         return Promise.resolve(['test', 'test1', 'test2']);
     }

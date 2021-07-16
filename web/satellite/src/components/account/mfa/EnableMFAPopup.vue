@@ -21,7 +21,7 @@
                     <canvas class="enable-mfa__container__scan__qr__canvas" ref="canvas"/>
                 </div>
                 <p class="enable-mfa__container__scan__subtitle">Unable to scan? Use the following code instead:</p>
-                <p class="enable-mfa__container__scan__secret">{{secret}}</p>
+                <p class="enable-mfa__container__scan__secret">{{userMFASecret}}</p>
             </div>
             <div class="enable-mfa__container__confirm" v-if="isEnable">
                 <h2 class="enable-mfa__container__confirm__title">Confirm Authentication Code</h2>
@@ -79,7 +79,6 @@
 </template>
 
 <script lang="ts">
-import { authenticator } from 'otplib';
 import QRCode from 'qrcode';
 import { Component, Prop, Vue } from 'vue-property-decorator';
 
@@ -99,9 +98,8 @@ export default class EnableMFAPopup extends Vue {
     @Prop({default: () => false})
     public readonly toggleModal: () => void;
 
-    public readonly secret = authenticator.generateSecret();
     public readonly qrLink =
-        `otpauth://totp/${encodeURIComponent(this.$store.getters.user.email)}?secret=${this.secret}&issuer=${encodeURIComponent('STORJ DCS')}&algorithm=SHA1&digits=6&period=30`;
+        `otpauth://totp/${encodeURIComponent(this.$store.getters.user.email)}?secret=${this.userMFASecret}&issuer=${encodeURIComponent('STORJ DCS')}&algorithm=SHA1&digits=6&period=30`;
     public isScan = true;
     public isEnable = false;
     public isCodes = false;
@@ -167,6 +165,13 @@ export default class EnableMFAPopup extends Vue {
         }
 
         this.isLoading = false;
+    }
+
+    /**
+     * Returns pre-generated MFA secret from store.
+     */
+    private get userMFASecret(): string {
+        return this.$store.state.usersModule.userMFASecret;
     }
 }
 </script>

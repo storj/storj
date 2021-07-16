@@ -204,6 +204,7 @@ export class AuthHttpApi {
      *
      * @param user - stores user information
      * @param secret - registration token used in Vanguard release
+     * @param recaptchaResponse - recaptcha response
      * @returns id of created user
      * @throws Error
      */
@@ -244,6 +245,26 @@ export class AuthHttpApi {
         }
 
         return await response.json();
+    }
+
+    /**
+     * Used to enable user's MFA.
+     *
+     * @throws Error
+     */
+    public async generateUserMFASecret(): Promise<string> {
+        const path = `${this.ROOT_PATH}/mfa/generate-secret-key`;
+        const response = await this.http.post(path, null);
+
+        if (response.ok) {
+            return await response.json();
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('Can not generate MFA secret. Please try again later');
     }
 
     /**

@@ -23,7 +23,6 @@
     "graphql": "15.3.0",
     "graphql-tag": "2.11.0",
     "load-script": "1.0.0",
-    "otplib": "12.0.1",
     "pbkdf2": "3.1.1",
     "qrcode": "1.4.4",
     "stripe": "8.96.0",
