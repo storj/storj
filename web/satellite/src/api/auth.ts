@@ -228,7 +228,10 @@ export class AuthHttpApi {
         if (!response.ok) {
             switch (response.status) {
                 case 400:
-                    throw new ErrorBadRequest('Validation of reCAPTCHA was unsuccessful');
+                    // TODO: eventually we will want to return the server's error message in every case
+                    // but for now, we just need to be able to distinguish between different 400 errors.
+                    const errResponse = await response.json();
+                    throw new ErrorBadRequest(errResponse.error);
                 case 401:
                     throw new ErrorUnauthorized('We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation');
                 case 409:
