@@ -130,17 +130,18 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 
 	var infos []NodeInfo
 	for _, node := range nodes {
-		info, err := func() (_ NodeInfo, err error) {
+		info := func() NodeInfo {
+			nodeInfo := NodeInfo{
+				ID:   node.ID,
+				Name: node.Name,
+			}
 			conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
 				ID:      node.ID,
 				Address: node.PublicAddress,
 			})
 			if err != nil {
-				return NodeInfo{
-					ID:     node.ID,
-					Name:   node.Name,
-					Status: StatusNotReachable,
-				}, nil
+				nodeInfo.Status = StatusNotReachable
+				return nodeInfo
 			}
 
 			defer func() {
@@ -158,22 +159,33 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 
 			nodeVersion, err := nodeClient.Version(ctx, &multinodepb.VersionRequest{Header: header})
 			if err != nil {
-				return NodeInfo{}, Error.Wrap(err)
+				if rpcstatus.Code(err) == rpcstatus.Unauthenticated {
+					nodeInfo.Status = StatusUnauthorized
+					return nodeInfo
+				}
+
+				nodeInfo.Status = StatusStorageNodeInternalError
+				return nodeInfo
 			}
 
 			lastContact, err := nodeClient.LastContact(ctx, &multinodepb.LastContactRequest{Header: header})
 			if err != nil {
-				return NodeInfo{}, Error.Wrap(err)
+				// TODO: since rpcstatus.Unauthenticated was checked in nodeVersion this sort of error can be caused
+				// only if new apikey was issued during ListInfos method call.
+				nodeInfo.Status = StatusStorageNodeInternalError
+				return nodeInfo
 			}
 
 			diskSpace, err := storageClient.DiskSpace(ctx, &multinodepb.DiskSpaceRequest{Header: header})
 			if err != nil {
-				return NodeInfo{}, Error.Wrap(err)
+				nodeInfo.Status = StatusStorageNodeInternalError
+				return nodeInfo
 			}
 
 			earned, err := payoutClient.Earned(ctx, &multinodepb.EarnedRequest{Header: header})
 			if err != nil {
-				return NodeInfo{}, Error.Wrap(err)
+				nodeInfo.Status = StatusStorageNodeInternalError
+				return nodeInfo
 			}
 
 			bandwidthSummaryRequest := &multinodepb.BandwidthMonthSummaryRequest{
@@ -181,24 +193,20 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 			}
 			bandwidthSummary, err := bandwidthClient.MonthSummary(ctx, bandwidthSummaryRequest)
 			if err != nil {
-				return NodeInfo{}, Error.Wrap(err)
+				nodeInfo.Status = StatusStorageNodeInternalError
+				return nodeInfo
 			}
 
-			return NodeInfo{
-				ID:            node.ID,
-				Name:          node.Name,
-				Version:       nodeVersion.Version,
-				LastContact:   lastContact.LastContact,
-				DiskSpaceUsed: diskSpace.GetUsedPieces() + diskSpace.GetUsedTrash(),
-				DiskSpaceLeft: diskSpace.GetAvailable(),
-				BandwidthUsed: bandwidthSummary.GetUsed(),
-				TotalEarned:   earned.Total,
-				Status:        nodeStatus(lastContact.LastContact),
-			}, nil
+			nodeInfo.Version = nodeVersion.Version
+			nodeInfo.LastContact = lastContact.LastContact
+			nodeInfo.DiskSpaceUsed = diskSpace.GetUsedPieces() + diskSpace.GetUsedTrash()
+			nodeInfo.DiskSpaceLeft = diskSpace.GetAvailable()
+			nodeInfo.BandwidthUsed = bandwidthSummary.GetUsed()
+			nodeInfo.TotalEarned = earned.Total
+			nodeInfo.Status = nodeStatus(lastContact.LastContact)
+
+			return nodeInfo
 		}()
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
 
 		infos = append(infos, info)
 	}
@@ -220,17 +228,18 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 
 	var infos []NodeInfoSatellite
 	for _, node := range nodes {
-		info, err := func() (_ NodeInfoSatellite, err error) {
+		info := func() NodeInfoSatellite {
+			nodeInfoSatellite := NodeInfoSatellite{
+				ID:   node.ID,
+				Name: node.Name,
+			}
 			conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
 				ID:      node.ID,
 				Address: node.PublicAddress,
 			})
 			if err != nil {
-				return NodeInfoSatellite{
-					ID:     node.ID,
-					Name:   node.Name,
-					Status: StatusNotReachable,
-				}, nil
+				nodeInfoSatellite.Status = StatusNotReachable
+				return nodeInfoSatellite
 			}
 
 			defer func() {
@@ -246,12 +255,21 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 
 			nodeVersion, err := nodeClient.Version(ctx, &multinodepb.VersionRequest{Header: header})
 			if err != nil {
-				return NodeInfoSatellite{}, Error.Wrap(err)
+				if rpcstatus.Code(err) == rpcstatus.Unauthenticated {
+					nodeInfoSatellite.Status = StatusUnauthorized
+					return nodeInfoSatellite
+				}
+
+				nodeInfoSatellite.Status = StatusStorageNodeInternalError
+				return nodeInfoSatellite
 			}
 
 			lastContact, err := nodeClient.LastContact(ctx, &multinodepb.LastContactRequest{Header: header})
 			if err != nil {
-				return NodeInfoSatellite{}, Error.Wrap(err)
+				// TODO: since rpcstatus.Unauthenticated was checked in Version this sort of error can be caused
+				// only if new apikey was issued during ListInfosSatellite method call.
+				nodeInfoSatellite.Status = StatusStorageNodeInternalError
+				return nodeInfoSatellite
 			}
 
 			rep, err := nodeClient.Reputation(ctx, &multinodepb.ReputationRequest{
@@ -259,29 +277,26 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 				SatelliteId: satelliteID,
 			})
 			if err != nil {
-				return NodeInfoSatellite{}, Error.Wrap(err)
+				nodeInfoSatellite.Status = StatusStorageNodeInternalError
+				return nodeInfoSatellite
 			}
 
 			earned, err := payoutClient.Earned(ctx, &multinodepb.EarnedRequest{Header: header})
 			if err != nil {
-				return NodeInfoSatellite{}, Error.Wrap(err)
+				nodeInfoSatellite.Status = StatusStorageNodeInternalError
+				return nodeInfoSatellite
 			}
 
-			return NodeInfoSatellite{
-				ID:              node.ID,
-				Name:            node.Name,
-				Version:         nodeVersion.Version,
-				LastContact:     lastContact.LastContact,
-				OnlineScore:     rep.Online.Score,
-				AuditScore:      rep.Audit.Score,
-				SuspensionScore: rep.Audit.SuspensionScore,
-				TotalEarned:     earned.Total,
-				Status:          nodeStatus(lastContact.LastContact),
-			}, nil
+			nodeInfoSatellite.Version = nodeVersion.Version
+			nodeInfoSatellite.LastContact = lastContact.LastContact
+			nodeInfoSatellite.OnlineScore = rep.Online.Score
+			nodeInfoSatellite.AuditScore = rep.Audit.Score
+			nodeInfoSatellite.SuspensionScore = rep.Audit.SuspensionScore
+			nodeInfoSatellite.TotalEarned = earned.Total
+			nodeInfoSatellite.Status = nodeStatus(lastContact.LastContact)
+
+			return nodeInfoSatellite
 		}()
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
 
 		infos = append(infos, info)
 	}
