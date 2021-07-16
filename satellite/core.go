@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/private/lifecycle"
 	version_checker "storj.io/storj/private/version/checker"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/accounting/nodetally"
 	"storj.io/storj/satellite/accounting/projectbwcleanup"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/rolluparchive"
@@ -106,6 +107,7 @@ type Core struct {
 
 	Accounting struct {
 		Tally                 *tally.Service
+		NodeTally             *nodetally.Service
 		Rollup                *rollup.Service
 		RollupArchiveChore    *rolluparchive.Chore
 		ProjectBWCleanupChore *projectbwcleanup.Chore
@@ -272,7 +274,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Log.Named("repair:checker"),
 			peer.DB.RepairQueue(),
 			peer.Metainfo.Metabase,
-			peer.Metainfo.Loop,
+			peer.Metainfo.SegmentLoop,
 			peer.Overlay.Service,
 			config.Checker)
 		peer.Services.Add(lifecycle.Item{
@@ -364,6 +366,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Accounting Tally", peer.Accounting.Tally.Loop))
 
+		// storage nodes tally
+		peer.Accounting.NodeTally = nodetally.New(peer.Log.Named("accounting:nodetally"), peer.DB.StoragenodeAccounting(), peer.Metainfo.SegmentLoop, config.Tally.Interval)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "accounting:nodetally",
+			Run:   peer.Accounting.NodeTally.Run,
+			Close: peer.Accounting.NodeTally.Close,
+		})
+
 		// Lets add 1 more day so we catch any off by one errors when deleting tallies
 		orderExpirationPlusDay := config.Orders.Expiration + config.Rollup.Interval
 		peer.Accounting.Rollup = rollup.New(peer.Log.Named("accounting:rollup"), peer.DB.StoragenodeAccounting(), config.Rollup.Interval, config.Rollup.DeleteTallies, orderExpirationPlusDay)
@@ -428,8 +438,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			pc.CouponValue,
 			pc.CouponDuration.IntPointer(),
 			pc.CouponProjectLimit,
-			pc.MinCoinPayment,
-			pc.PaywallProportion)
+			pc.MinCoinPayment)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -471,7 +480,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Metrics.Chore = metrics.NewChore(
 			peer.Log.Named("metrics"),
 			config.Metrics,
-			peer.Metainfo.Loop,
+			peer.Metainfo.SegmentLoop,
 		)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "metrics",

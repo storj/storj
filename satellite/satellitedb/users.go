@@ -108,6 +108,21 @@ func (users *users) Update(ctx context.Context, user *console.User) (err error) 
 	return err
 }
 
+// UpdatePaidTier sets whether the user is in the paid tier.
+func (users *users) UpdatePaidTier(ctx context.Context, id uuid.UUID, paidTier bool) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = users.db.Update_User_By_Id(
+		ctx,
+		dbx.User_Id(id[:]),
+		dbx.User_Update_Fields{
+			PaidTier: dbx.User_PaidTier(paidTier),
+		},
+	)
+
+	return err
+}
+
 // GetProjectLimit is a method to get the users project limit.
 func (users *users) GetProjectLimit(ctx context.Context, id uuid.UUID) (limit int, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -128,6 +143,7 @@ func toUpdateUser(user *console.User) dbx.User_Update_Fields {
 		NormalizedEmail: dbx.User_NormalizedEmail(normalizeEmail(user.Email)),
 		Status:          dbx.User_Status(int(user.Status)),
 		ProjectLimit:    dbx.User_ProjectLimit(user.ProjectLimit),
+		PaidTier:        dbx.User_PaidTier(user.PaidTier),
 	}
 
 	// extra password check to update only calculated hash from service
@@ -158,6 +174,7 @@ func userFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		Status:           console.UserStatus(user.Status),
 		CreatedAt:        user.CreatedAt,
 		ProjectLimit:     user.ProjectLimit,
+		PaidTier:         user.PaidTier,
 		IsProfessional:   user.IsProfessional,
 		HaveSalesContact: user.HaveSalesContact,
 	}

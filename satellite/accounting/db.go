@@ -123,13 +123,11 @@ type BucketUsageRollup struct {
 	ProjectID  uuid.UUID
 	BucketName []byte
 
-	RemoteStoredData float64
-	InlineStoredData float64
+	TotalStoredData float64
 
-	RemoteSegments float64
-	InlineSegments float64
-	ObjectCount    float64
-	MetadataSize   float64
+	TotalSegments float64
+	ObjectCount   float64
+	MetadataSize  float64
 
 	RepairEgress float64
 	GetEgress    float64
@@ -190,8 +188,6 @@ type ProjectAccounting interface {
 	// DeleteProjectBandwidthBefore deletes project bandwidth rollups before the given time
 	DeleteProjectBandwidthBefore(ctx context.Context, before time.Time) error
 
-	// GetStorageTotals returns the current inline and remote storage usage for a projectID
-	GetStorageTotals(ctx context.Context, projectID uuid.UUID) (int64, int64, error)
 	// UpdateProjectUsageLimit updates project usage limit.
 	UpdateProjectUsageLimit(ctx context.Context, projectID uuid.UUID, limit memory.Size) error
 	// UpdateProjectBandwidthLimit updates project bandwidth limit.

@@ -15,6 +15,7 @@
             </p>
         </div>
         <div v-if="!isLoading" class="dashboard__wrap">
+            <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal"/>
             <DashboardHeader/>
             <div class="dashboard__wrap__main-area">
                 <NavigationArea class="regular-navigation"/>
@@ -23,12 +24,15 @@
                 </div>
             </div>
         </div>
+        <AddPaymentMethodModal v-if="isAddPMModal" :on-close="togglePMModal"/>
     </div>
 </template>
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import AddPaymentMethodModal from '@/components/account/billing/paidTier/AddPaymentMethodModal.vue';
+import PaidTierBar from '@/components/account/billing/paidTier/PaidTierBar.vue';
 import DashboardHeader from '@/components/header/HeaderArea.vue';
 import NavigationArea from '@/components/navigation/NavigationArea.vue';
 
@@ -37,9 +41,10 @@ import LoaderImage from '@/../static/images/common/loader.svg';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { RouteConfig } from '@/router';
 import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
-import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+import { PAYMENTS_ACTIONS, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
+import { CreditCard } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
@@ -47,10 +52,9 @@ import { LocalData } from '@/utils/localData';
 import { MetaUtils } from '@/utils/meta';
 
 const {
-    GET_PAYWALL_ENABLED_STATUS,
     SETUP_ACCOUNT,
-    GET_BALANCE,
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
+    GET_CREDIT_CARDS,
 } = PAYMENTS_ACTIONS;
 
 @Component({
@@ -58,6 +62,8 @@ const {
         NavigationArea,
         DashboardHeader,
         LoaderImage,
+        PaidTierBar,
+        AddPaymentMethodModal,
     },
 })
 export default class DashboardArea extends Vue {
@@ -93,15 +99,15 @@ export default class DashboardArea extends Vue {
         }
 
         try {
-            await this.$store.dispatch(GET_PAYWALL_ENABLED_STATUS);
-        } catch (error) {
-            await this.$notify.error(`Unable to get paywall enabled status. ${error.message}`);
-        }
-
-        try {
             await this.$store.dispatch(SETUP_ACCOUNT);
         } catch (error) {
             await this.$notify.error(`Unable to setup account. ${error.message}`);
+        }
+
+        try {
+            await this.$store.dispatch(GET_CREDIT_CARDS);
+        } catch (error) {
+            await this.$notify.error(`Unable to get credit cards. ${error.message}`);
         }
 
         let projects: Project[] = [];
@@ -129,6 +135,34 @@ export default class DashboardArea extends Vue {
         this.selectProject(projects);
 
         await this.$store.dispatch(APP_STATE_ACTIONS.CHANGE_STATE, AppState.LOADED);
+    }
+
+    /**
+     * Opens add payment method modal.
+     */
+    public togglePMModal(): void {
+        this.$store.commit(PAYMENTS_MUTATIONS.TOGGLE_IS_ADD_PM_MODAL_SHOWN);
+    }
+
+    /**
+     * Indicates if add payment method modal is shown.
+     */
+    public get isAddPMModal(): boolean {
+        return this.$store.state.paymentsModule.isAddPMModalShown;
+    }
+
+    /**
+     * Returns credit cards from store.
+     */
+    public get creditCards(): CreditCard[] {
+        return this.$store.state.paymentsModule.creditCards;
+    }
+
+    /**
+     * Indicates if current route is onboarding tour.
+     */
+    public get isOnboardingTour(): boolean {
+        return this.$route.path.includes(RouteConfig.OnboardingTour.path);
     }
 
     /**

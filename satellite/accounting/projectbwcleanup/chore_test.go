@@ -39,7 +39,7 @@ func testProjectAllocatedBandwidthRetain(t *testing.T, retain int) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.ProjectBWCleanup.RetainMonths = retain
-				config.LiveAccounting.AsOfSystemInterval = time.Millisecond
+				config.LiveAccounting.AsOfSystemInterval = -time.Millisecond
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

@@ -225,6 +225,12 @@ var (
 		Long:  "Ensures that we have a stripe customer for every satellite user.",
 		RunE:  cmdStripeCustomer,
 	}
+	checkPaidTierCmd = &cobra.Command{
+		Use:   "check-paid-tier",
+		Short: "Ensures that all customers with a credit card are in the paid tier.",
+		Long:  "Ensures that all customers with a credit card are in the paid tier.",
+		RunE:  cmdCheckPaidTier,
+	}
 	consistencyCmd = &cobra.Command{
 		Use:   "consistency",
 		Short: "Readdress DB consistency issues",
@@ -319,6 +325,7 @@ func init() {
 	billingCmd.AddCommand(createCustomerInvoicesCmd)
 	billingCmd.AddCommand(finalizeCustomerInvoicesCmd)
 	billingCmd.AddCommand(stripeCustomerCmd)
+	billingCmd.AddCommand(checkPaidTierCmd)
 	consistencyCmd.AddCommand(consistencyGECleanupCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -342,6 +349,7 @@ func init() {
 	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(finalizeCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(stripeCustomerCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(checkPaidTierCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(consistencyGECleanupCmd, &consistencyGECleanupCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 
 	if err := consistencyGECleanupCmd.MarkFlagRequired("before"); err != nil {
@@ -516,11 +524,11 @@ func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 	// initialize the table header (fields)
 	const padding = 3
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, padding, ' ', tabwriter.AlignRight|tabwriter.Debug)
-	fmt.Fprintln(w, "Path\tLost Pieces\t")
+	fmt.Fprintln(w, "Segment StreamID\tSegment Position\tSegment Health\t")
 
 	// populate the row fields
 	for _, v := range list {
-		fmt.Fprint(w, v.GetPath(), "\t", v.GetLostPieces(), "\t")
+		fmt.Fprint(w, v.StreamID.String(), "\t", v.Position.Encode(), "\t", v.SegmentHealth, "\t")
 	}
 
 	// display the data
@@ -741,6 +749,12 @@ func cmdStripeCustomer(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
 	return generateStripeCustomers(ctx)
+}
+
+func cmdCheckPaidTier(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	return checkPaidTier(ctx)
 }
 
 func cmdConsistencyGECleanup(cmd *cobra.Command, args []string) error {

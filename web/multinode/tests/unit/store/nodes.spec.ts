@@ -3,6 +3,7 @@
 
 import Vuex from 'vuex';
 
+import { RootState } from '@/app/store';
 import { CreateNodeFields, Node, NodeURL } from '@/nodes';
 import { createLocalVue } from '@vue/test-utils';
 
@@ -14,7 +15,7 @@ const satellite = new NodeURL('testId', '127.0.0.1:test');
 const trustedSatellites = [ satellite ];
 const nodeToAdd = new CreateNodeFields('newId', 'secret', 'newAddress');
 
-const state = store.state as any;
+const state = store.state as RootState;
 
 describe('mutations', () => {
     beforeEach(() => {
@@ -36,6 +37,7 @@ describe('mutations', () => {
     it('saves selected satellite', () => {
         store.commit('nodes/setSelectedSatellite', satellite.id);
 
+        // @ts-ignore
         expect(state.nodes.selectedSatellite.address).toBe(satellite.address);
     });
 
@@ -44,6 +46,7 @@ describe('mutations', () => {
 
         store.commit('nodes/setSelectedNode', node.id);
 
+        // @ts-ignore
         expect(state.nodes.selectedNode.id).toBe(node.id);
     });
 });
@@ -178,6 +181,7 @@ describe('actions', () => {
 
         await store.dispatch('nodes/selectSatellite', satellite.id);
 
+        // @ts-ignore
         expect(state.nodes.selectedSatellite.address).toBe(satellite.address);
         expect(state.nodes.nodes.length).toBe(1);
     });
@@ -187,6 +191,7 @@ describe('actions', () => {
 
         await store.dispatch('nodes/selectNode', node.id);
 
+        // @ts-ignore
         expect(state.nodes.selectedNode.id).toBe(node.id);
     });
 });

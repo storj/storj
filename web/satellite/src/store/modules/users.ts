@@ -2,29 +2,42 @@
 // See LICENSE for copying information.
 
 import { StoreModule } from '@/store';
-import { UpdatedUser, User, UsersApi } from '@/types/users';
+import { EnableUserMFARequest, UpdatedUser, User, UsersApi } from '@/types/users';
 import { MetaUtils } from '@/utils/meta';
 
 export const USER_ACTIONS = {
     UPDATE: 'updateUser',
     GET: 'getUser',
+    ENABLE_USER_MFA: 'enableUserMFA',
+    DISABLE_USER_MFA: 'disableUserMFA',
+    GENERATE_USER_MFA_RECOVERY_CODES: 'generateUserMFARecoveryCodes',
     CLEAR: 'clearUser',
 };
 
 export const USER_MUTATIONS = {
     SET_USER: 'setUser',
+    SET_USER_MFA_RECOVERY_CODES: 'setUserMFARecoveryCodes',
     UPDATE_USER: 'updateUser',
     CLEAR: 'clearUser',
 };
 
+export class UsersState {
+    public user: User = new User();
+    public userMFARecoveryCodes: string[] = [];
+}
+
 const {
     GET,
     UPDATE,
+    ENABLE_USER_MFA,
+    DISABLE_USER_MFA,
+    GENERATE_USER_MFA_RECOVERY_CODES,
 } = USER_ACTIONS;
 
 const {
     SET_USER,
     UPDATE_USER,
+    SET_USER_MFA_RECOVERY_CODES,
     CLEAR,
 } = USER_MUTATIONS;
 
@@ -33,41 +46,34 @@ const {
  *
  * @param api - users api
  */
-export function makeUsersModule(api: UsersApi): StoreModule<User> {
+export function makeUsersModule(api: UsersApi): StoreModule<UsersState> {
     return {
-        state: new User(),
+        state: new UsersState(),
 
         mutations: {
-            [SET_USER](state: User, user: User): void {
-                state.id = user.id;
-                state.email = user.email;
-                state.shortName = user.shortName;
-                state.fullName = user.fullName;
-                state.partnerId = user.partnerId;
+            [SET_USER](state: UsersState, user: User): void {
+                state.user = user;
 
                 if (user.projectLimit === 0) {
                     const limitFromConfig = MetaUtils.getMetaContent('default-project-limit');
 
-                    state.projectLimit = parseInt(limitFromConfig);
+                    state.user.projectLimit = parseInt(limitFromConfig);
 
                     return;
                 }
 
-                state.projectLimit = user.projectLimit;
+                state.user.projectLimit = user.projectLimit;
             },
-
-            [CLEAR](state: User): void {
-                state.id = '';
-                state.email = '';
-                state.shortName = '';
-                state.fullName = '';
-                state.partnerId = '';
-                state.projectLimit = 1;
+            [CLEAR](state: UsersState): void {
+                state.user = new User();
+                state.user.projectLimit = 1;
             },
-
-            [UPDATE_USER](state: User, user: UpdatedUser): void {
-                state.fullName = user.fullName;
-                state.shortName = user.shortName;
+            [UPDATE_USER](state: UsersState, user: UpdatedUser): void {
+                state.user.fullName = user.fullName;
+                state.user.shortName = user.shortName;
+            },
+            [SET_USER_MFA_RECOVERY_CODES](state: UsersState, codes: string[]): void {
+                state.userMFARecoveryCodes = codes;
             },
         },
 
@@ -84,14 +90,25 @@ export function makeUsersModule(api: UsersApi): StoreModule<User> {
 
                 return user;
             },
+            [DISABLE_USER_MFA]: async function (_, code: string): Promise<void> {
+                await api.disableUserMFA(code);
+            },
+            [ENABLE_USER_MFA]: async function (_, request: EnableUserMFARequest): Promise<void> {
+                await api.enableUserMFA(request);
+            },
+            [GENERATE_USER_MFA_RECOVERY_CODES]: async function ({commit}: any): Promise<void> {
+                const codes = await api.generateUserMFARecoveryCodes();
+
+                commit(SET_USER_MFA_RECOVERY_CODES, codes);
+            },
             [CLEAR]: function({commit}: any) {
                 commit(CLEAR);
             },
         },
 
         getters: {
-            user: (state: User): User => state,
-            userName: (state: User): string => state.getFullName(),
+            user: (state: UsersState): User => state.user,
+            userName: (state: UsersState): string => state.user.getFullName(),
         },
     };
 }

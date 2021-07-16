@@ -124,6 +124,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link for linksharing requests
 # console.linksharing-url: https://link.us1.storjshare.io
 
+# indicates if MFA is enabled
+# console.mfa-enabled: false
+
 # enable open registration
 # console.open-registration-enabled: false
 
@@ -148,6 +151,15 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # number of IPs whose rate limits we store
 # console.rate-limit.num-limits: 1000
 
+# whether or not reCAPTCHA is enabled for user registration
+# console.recaptcha.enabled: false
+
+# reCAPTCHA secret key
+# console.recaptcha.secret-key: ""
+
+# reCAPTCHA site key
+# console.recaptcha.site-key: ""
+
 # used to display at web satellite console
 # console.satellite-name: Storj
 
@@ -163,11 +175,17 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to terms and conditions page
 # console.terms-and-conditions-url: https://storj.io/storage-sla/
 
-# the default bandwidth usage limit
-# console.usage-limits.default-bandwidth-limit: 50.00 GB
+# the default free-tier bandwidth usage limit
+# console.usage-limits.bandwidth.free: 50.00 GB
 
-# the default storage usage limit
-# console.usage-limits.default-storage-limit: 50.00 GB
+# the default paid-tier bandwidth usage limit
+# console.usage-limits.bandwidth.paid: 100.00 TB
+
+# the default free-tier storage usage limit
+# console.usage-limits.storage.free: 50.00 GB
+
+# the default paid-tier storage usage limit
+# console.usage-limits.storage.paid: 25.00 TB
 
 # the public address of the node, useful for nodes behind NAT
 contact.external-address: ""
@@ -576,9 +594,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # price user should pay for each object stored in network per month
 # payments.object-price: "0"
-
-# proportion of users which require a balance to create projects [0-1]
-# payments.paywall-proportion: 0
 
 # payments provider to use
 # payments.provider: ""

@@ -47,8 +47,10 @@ CREATE TABLE bucket_storage_tallies (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
+	total_bytes bigint NOT NULL DEFAULT 0,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
+	total_segments_count integer NOT NULL DEFAULT 0,
 	remote_segments_count integer NOT NULL,
 	inline_segments_count integer NOT NULL,
 	object_count integer NOT NULL,
@@ -271,6 +273,15 @@ CREATE TABLE registration_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
+CREATE TABLE repair_queue (
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
+	attempted_at timestamp with time zone,
+	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	segment_health double precision NOT NULL DEFAULT 1,
+	PRIMARY KEY ( stream_id, position )
+);
 CREATE TABLE reputations (
 	id bytea NOT NULL,
 	audit_success_count bigint NOT NULL DEFAULT 0,
@@ -420,6 +431,7 @@ CREATE TABLE users (
 	partner_id bytea,
 	created_at timestamp with time zone NOT NULL,
 	project_limit integer NOT NULL DEFAULT 0,
+	paid_tier boolean NOT NULL DEFAULT false,
 	position text,
 	company_name text,
 	company_size integer,
@@ -427,6 +439,9 @@ CREATE TABLE users (
 	is_professional boolean NOT NULL DEFAULT false,
 	employee_count text,
 	have_sales_contact boolean NOT NULL DEFAULT false,
+	mfa_enabled boolean NOT NULL DEFAULT false,
+	mfa_secret_key text,
+	mfa_recovery_codes text,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (
@@ -508,6 +523,8 @@ CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
 CREATE INDEX nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( type, last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
 CREATE INDEX nodes_dis_unk_aud_exit_init_rel_type_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, type, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
+CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
+CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
 CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start ) ;
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;

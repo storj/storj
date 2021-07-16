@@ -5,7 +5,6 @@ package queue_test
 
 import (
 	"math/rand"
-	"strconv"
 	"testing"
 	"time"
 
@@ -14,10 +13,13 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/private/dbutil/pgtest"
 	"storj.io/private/dbutil/tempdb"
 	"storj.io/storj/satellite"
-	"storj.io/storj/satellite/internalpb"
+	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	"storj.io/storj/storage"
@@ -28,14 +30,15 @@ func TestUntilEmpty(t *testing.T) {
 		repairQueue := db.RepairQueue()
 
 		// insert a bunch of segments
-		pathsMap := make(map[string]int)
+		idsMap := make(map[uuid.UUID]int)
 		for i := 0; i < 20; i++ {
-			path := "/path/" + strconv.Itoa(i)
-			injuredSeg := &internalpb.InjuredSegment{Path: []byte(path)}
-			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, 10)
+			injuredSeg := &queue.InjuredSegment{
+				StreamID: testrand.UUID(),
+			}
+			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg)
 			require.NoError(t, err)
 			require.False(t, alreadyInserted)
-			pathsMap[path] = 0
+			idsMap[injuredSeg.StreamID] = 0
 		}
 
 		// select segments until no more are returned, and we should get each one exactly once
@@ -45,10 +48,10 @@ func TestUntilEmpty(t *testing.T) {
 				require.True(t, storage.ErrEmptyQueue.Has(err))
 				break
 			}
-			pathsMap[string(injuredSeg.Path)]++
+			idsMap[injuredSeg.StreamID]++
 		}
 
-		for _, selectCount := range pathsMap {
+		for _, selectCount := range idsMap {
 			assert.Equal(t, selectCount, 1)
 		}
 	})
@@ -58,48 +61,52 @@ func TestOrder(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		repairQueue := db.RepairQueue()
 
-		nullPath := []byte("/path/null")
-		recentRepairPath := []byte("/path/recent")
-		oldRepairPath := []byte("/path/old")
-		olderRepairPath := []byte("/path/older")
+		nullID := testrand.UUID()
+		recentID := testrand.UUID()
+		oldID := testrand.UUID()
+		olderID := testrand.UUID()
 
-		for _, path := range [][]byte{oldRepairPath, recentRepairPath, nullPath, olderRepairPath} {
-			injuredSeg := &internalpb.InjuredSegment{Path: path}
-			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, 10)
+		for _, streamID := range []uuid.UUID{oldID, recentID, nullID, olderID} {
+			injuredSeg := &queue.InjuredSegment{
+				StreamID:      streamID,
+				SegmentHealth: 10,
+			}
+			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg)
 			require.NoError(t, err)
 			require.False(t, alreadyInserted)
 		}
 
 		updateList := []struct {
-			path      []byte
-			attempted time.Time
+			streamID    uuid.UUID
+			attemptedAt time.Time
 		}{
-			{recentRepairPath, time.Now()},
-			{oldRepairPath, time.Now().Add(-7 * time.Hour)},
-			{olderRepairPath, time.Now().Add(-8 * time.Hour)},
+			{recentID, time.Now()},
+			{oldID, time.Now().Add(-7 * time.Hour)},
+			{olderID, time.Now().Add(-8 * time.Hour)},
 		}
 		for _, item := range updateList {
-			rowsAffected, err := db.RepairQueue().TestingSetAttemptedTime(ctx, item.path, item.attempted)
+			rowsAffected, err := db.RepairQueue().TestingSetAttemptedTime(ctx,
+				item.streamID, metabase.SegmentPosition{}, item.attemptedAt)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, rowsAffected)
 		}
 
-		// path with attempted = null should be selected first
+		// segment with attempted = null should be selected first
 		injuredSeg, err := repairQueue.Select(ctx)
 		require.NoError(t, err)
-		assert.Equal(t, string(nullPath), string(injuredSeg.Path))
+		assert.Equal(t, nullID, injuredSeg.StreamID)
 
-		// path with attempted = 8 hours ago should be selected next
+		// segment with attempted = 8 hours ago should be selected next
 		injuredSeg, err = repairQueue.Select(ctx)
 		require.NoError(t, err)
-		assert.Equal(t, string(olderRepairPath), string(injuredSeg.Path))
+		assert.Equal(t, olderID, injuredSeg.StreamID)
 
-		// path with attempted = 7 hours ago should be selected next
+		// segment with attempted = 7 hours ago should be selected next
 		injuredSeg, err = repairQueue.Select(ctx)
 		require.NoError(t, err)
-		assert.Equal(t, string(oldRepairPath), string(injuredSeg.Path))
+		assert.Equal(t, oldID, injuredSeg.StreamID)
 
-		// queue should be considered "empty" now
+		// segment should be considered "empty" now
 		injuredSeg, err = repairQueue.Select(ctx)
 		assert.True(t, storage.ErrEmptyQueue.Has(err))
 		assert.Nil(t, injuredSeg)
@@ -128,29 +135,29 @@ func testorderHealthyPieces(t *testing.T, connStr string) {
 
 	repairQueue := db.RepairQueue()
 	// we insert (path, segmentHealth, lastAttempted) as follows:
-	// ("path/a", 6, now-8h)
-	// ("path/b", 7, now)
-	// ("path/c", 8, null)
-	// ("path/d", 9, null)
-	// ("path/e", 9, now-7h)
-	// ("path/f", 9, now-8h)
-	// ("path/g", 10, null)
-	// ("path/h", 10, now-8h)
+	// ("a", 6, now-8h)
+	// ("b", 7, now)
+	// ("c", 8, null)
+	// ("d", 9, null)
+	// ("e", 9, now-7h)
+	// ("f", 9, now-8h)
+	// ("g", 10, null)
+	// ("h", 10, now-8h)
 
 	// insert the 8 segments according to the plan above
 	injuredSegList := []struct {
-		path          []byte
+		streamID      uuid.UUID
 		segmentHealth float64
 		attempted     time.Time
 	}{
-		{[]byte("path/a"), 6, time.Now().Add(-8 * time.Hour)},
-		{[]byte("path/b"), 7, time.Now()},
-		{[]byte("path/c"), 8, time.Time{}},
-		{[]byte("path/d"), 9, time.Time{}},
-		{[]byte("path/e"), 9, time.Now().Add(-7 * time.Hour)},
-		{[]byte("path/f"), 9, time.Now().Add(-8 * time.Hour)},
-		{[]byte("path/g"), 10, time.Time{}},
-		{[]byte("path/h"), 10, time.Now().Add(-8 * time.Hour)},
+		{uuid.UUID{'a'}, 6, time.Now().Add(-8 * time.Hour)},
+		{uuid.UUID{'b'}, 7, time.Now()},
+		{uuid.UUID{'c'}, 8, time.Time{}},
+		{uuid.UUID{'d'}, 9, time.Time{}},
+		{uuid.UUID{'e'}, 9, time.Now().Add(-7 * time.Hour)},
+		{uuid.UUID{'f'}, 9, time.Now().Add(-8 * time.Hour)},
+		{uuid.UUID{'g'}, 10, time.Time{}},
+		{uuid.UUID{'h'}, 10, time.Now().Add(-8 * time.Hour)},
 	}
 	// shuffle list since select order should not depend on insert order
 	rand.Seed(time.Now().UnixNano())
@@ -159,14 +166,17 @@ func testorderHealthyPieces(t *testing.T, connStr string) {
 	})
 	for _, item := range injuredSegList {
 		// first, insert the injured segment
-		injuredSeg := &internalpb.InjuredSegment{Path: item.path}
-		alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, item.segmentHealth)
+		injuredSeg := &queue.InjuredSegment{
+			StreamID:      item.streamID,
+			SegmentHealth: item.segmentHealth,
+		}
+		alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg)
 		require.NoError(t, err)
 		require.False(t, alreadyInserted)
 
 		// next, if applicable, update the "attempted at" timestamp
 		if !item.attempted.IsZero() {
-			rowsAffected, err := db.RepairQueue().TestingSetAttemptedTime(ctx, item.path, item.attempted)
+			rowsAffected, err := db.RepairQueue().TestingSetAttemptedTime(ctx, item.streamID, metabase.SegmentPosition{}, item.attempted)
 			require.NoError(t, err)
 			require.EqualValues(t, 1, rowsAffected)
 		}
@@ -177,21 +187,21 @@ func testorderHealthyPieces(t *testing.T, connStr string) {
 	// (excluding segments that have been attempted in the past six hours)
 	// we do not expect to see segments that have been attempted in the past hour
 	// therefore, the order of selection should be:
-	// "path/a", "path/c", "path/d", "path/f", "path/e", "path/g", "path/h"
-	// "path/b" will not be selected because it was attempted recently
+	// "a", "c", "d", "f", "e", "g", "h"
+	// "b" will not be selected because it was attempted recently
 
-	for _, nextPath := range []string{
-		"path/a",
-		"path/c",
-		"path/d",
-		"path/f",
-		"path/e",
-		"path/g",
-		"path/h",
+	for _, nextID := range []uuid.UUID{
+		{'a'},
+		{'c'},
+		{'d'},
+		{'f'},
+		{'e'},
+		{'g'},
+		{'h'},
 	} {
 		injuredSeg, err := repairQueue.Select(ctx)
 		require.NoError(t, err)
-		assert.Equal(t, nextPath, string(injuredSeg.Path))
+		assert.Equal(t, nextID, injuredSeg.StreamID)
 	}
 
 	// queue should be considered "empty" now
@@ -205,23 +215,28 @@ func TestOrderOverwrite(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		repairQueue := db.RepairQueue()
 
-		// insert "path/a" with segment segment health 10
-		// insert "path/b" with segment segment health 9
-		// re-insert "path/a" with segment segment health 8
-		// when we select, expect "path/a" first since after the re-insert, it is the least durable segment.
+		// insert segment A with segment health 10
+		// insert segment B with segment health 9
+		// re-insert segment A with segment segment health 8
+		// when we select, expect segment A first since after the re-insert, it is the least durable segment.
 
+		segmentA := uuid.UUID{1}
+		segmentB := uuid.UUID{2}
 		// insert the 8 segments according to the plan above
 		injuredSegList := []struct {
-			path          []byte
+			streamID      uuid.UUID
 			segmentHealth float64
 		}{
-			{[]byte("path/a"), 10},
-			{[]byte("path/b"), 9},
-			{[]byte("path/a"), 8},
+			{segmentA, 10},
+			{segmentB, 9},
+			{segmentA, 8},
 		}
 		for i, item := range injuredSegList {
-			injuredSeg := &internalpb.InjuredSegment{Path: item.path}
-			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, item.segmentHealth)
+			injuredSeg := &queue.InjuredSegment{
+				StreamID:      item.streamID,
+				SegmentHealth: item.segmentHealth,
+			}
+			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg)
 			require.NoError(t, err)
 			if i == 2 {
 				require.True(t, alreadyInserted)
@@ -230,13 +245,13 @@ func TestOrderOverwrite(t *testing.T) {
 			}
 		}
 
-		for _, nextPath := range []string{
-			"path/a",
-			"path/b",
+		for _, nextStreamID := range []uuid.UUID{
+			segmentA,
+			segmentB,
 		} {
 			injuredSeg, err := repairQueue.Select(ctx)
 			require.NoError(t, err)
-			assert.Equal(t, nextPath, string(injuredSeg.Path))
+			assert.Equal(t, nextStreamID, injuredSeg.StreamID)
 		}
 
 		// queue should be considered "empty" now
@@ -251,15 +266,14 @@ func TestCount(t *testing.T) {
 		repairQueue := db.RepairQueue()
 
 		// insert a bunch of segments
-		pathsMap := make(map[string]int)
 		numSegments := 20
 		for i := 0; i < numSegments; i++ {
-			path := "/path/" + strconv.Itoa(i)
-			injuredSeg := &internalpb.InjuredSegment{Path: []byte(path)}
-			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg, 10)
+			injuredSeg := &queue.InjuredSegment{
+				StreamID: testrand.UUID(),
+			}
+			alreadyInserted, err := repairQueue.Insert(ctx, injuredSeg)
 			require.NoError(t, err)
 			require.False(t, alreadyInserted)
-			pathsMap[path] = 0
 		}
 
 		count, err := repairQueue.Count(ctx)

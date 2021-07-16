@@ -5,6 +5,7 @@ exports[`Dashboard renders correctly when data is loaded 1`] = `
   <!---->
   <!---->
   <div class="dashboard__wrap">
+    <!---->
     <dashboardheader-stub></dashboardheader-stub>
     <div class="dashboard__wrap__main-area">
       <navigationarea-stub class="regular-navigation"></navigationarea-stub>
@@ -13,6 +14,7 @@ exports[`Dashboard renders correctly when data is loaded 1`] = `
       </div>
     </div>
   </div>
+  <!---->
 </div>
 `;
 
@@ -21,6 +23,7 @@ exports[`Dashboard renders correctly when data is loading 1`] = `
   <div class="loading-overlay active">
     <loaderimage-stub class="loading-icon"></loaderimage-stub>
   </div>
+  <!---->
   <!---->
   <!---->
 </div>

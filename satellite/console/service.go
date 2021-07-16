@@ -21,6 +21,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"storj.io/common/macaroon"
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/private/cfgstruct"
@@ -95,6 +96,7 @@ type Service struct {
 	buckets           Buckets
 	partners          *rewards.PartnersService
 	accounts          payments.Accounts
+	recaptchaHandler  RecaptchaHandler
 	analytics         *analytics.Service
 
 	config Config
@@ -120,6 +122,14 @@ type Config struct {
 	OpenRegistrationEnabled bool `help:"enable open registration" default:"false" testDefault:"true"`
 	DefaultProjectLimit     int  `help:"default project limits for users" default:"3" testDefault:"5"`
 	UsageLimits             UsageLimitsConfig
+	Recaptcha               RecaptchaConfig
+}
+
+// RecaptchaConfig contains configurations for the reCAPTCHA system.
+type RecaptchaConfig struct {
+	Enabled   bool   `help:"whether or not reCAPTCHA is enabled for user registration" default:"false"`
+	SiteKey   string `help:"reCAPTCHA site key"`
+	SecretKey string `help:"reCAPTCHA secret key"`
 }
 
 // PaymentsService separates all payment related functionality.
@@ -152,6 +162,7 @@ func NewService(log *zap.Logger, signer Signer, store DB, projectAccounting acco
 		buckets:           buckets,
 		partners:          partners,
 		accounts:          accounts,
+		recaptchaHandler:  NewDefaultRecaptcha(config.Recaptcha.SecretKey),
 		analytics:         analytics,
 		config:            config,
 		minCoinPayment:    minCoinPayment,
@@ -244,8 +255,31 @@ func (paymentService PaymentsService) AddCreditCard(ctx context.Context, creditC
 		return Error.Wrap(err)
 	}
 
-	if !paymentService.service.accounts.PaywallEnabled(auth.User.ID) {
-		return nil
+	if !auth.User.PaidTier {
+		// put this user into the paid tier and convert projects to upgraded limits.
+		err = paymentService.service.store.Users().UpdatePaidTier(ctx, auth.User.ID, true)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		projects, err := paymentService.service.store.Projects().GetOwn(ctx, auth.User.ID)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		for _, project := range projects {
+			if project.StorageLimit == nil || *project.StorageLimit < paymentService.service.config.UsageLimits.Storage.Paid {
+				project.StorageLimit = new(memory.Size)
+				*project.StorageLimit = paymentService.service.config.UsageLimits.Storage.Paid
+			}
+			if project.BandwidthLimit == nil || *project.BandwidthLimit < paymentService.service.config.UsageLimits.Bandwidth.Paid {
+				project.BandwidthLimit = new(memory.Size)
+				*project.BandwidthLimit = paymentService.service.config.UsageLimits.Bandwidth.Paid
+			}
+			err = paymentService.service.store.Projects().Update(ctx, &project)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+		}
 	}
 
 	return nil
@@ -493,16 +527,6 @@ func (paymentService PaymentsService) checkProjectInvoicingStatus(ctx context.Co
 func (paymentService PaymentsService) AddPromotionalCoupon(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
-	if paymentService.service.accounts.PaywallEnabled(userID) {
-		cards, err := paymentService.ListCreditCards(ctx)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		if len(cards) == 0 {
-			return Error.New("user don't have a payment method")
-		}
-	}
-
 	return paymentService.service.accounts.Coupons().AddPromotionalCoupon(ctx, userID)
 }
 
@@ -531,6 +555,18 @@ func (s *Service) checkRegistrationSecret(ctx context.Context, tokenSecret Regis
 // CreateUser gets password hash value and creates new inactive User.
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if s.config.Recaptcha.Enabled {
+		valid, err := s.recaptchaHandler.Verify(ctx, user.RecaptchaResponse, user.IP)
+		if err != nil {
+			s.log.Error("reCAPTCHA authorization failed", zap.Error(err))
+			return nil, ErrValidation.Wrap(err)
+		}
+		if !valid {
+			return nil, ErrValidation.New("reCAPTCHA validation unsuccessful")
+		}
+	}
+
 	if err := user.IsValid(); err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -613,6 +649,12 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 	return u, nil
 }
 
+// TestSwapRecaptchaHandler replaces the existing handler for reCAPTCHAs with
+// the one specified for use in testing.
+func (s *Service) TestSwapRecaptchaHandler(h RecaptchaHandler) {
+	s.recaptchaHandler = h
+}
+
 // GenerateActivationToken - is a method for generating activation token.
 func (s *Service) GenerateActivationToken(ctx context.Context, id uuid.UUID, email string) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -685,10 +727,6 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return Error.Wrap(err)
 	}
 	s.auditLog(ctx, "activate account", &user.ID, user.Email)
-
-	if s.accounts.PaywallEnabled(user.ID) {
-		return nil
-	}
 
 	s.analytics.TrackAccountVerified(user.ID, user.Email)
 
@@ -995,42 +1033,22 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo ProjectInfo) (p
 		return nil, ErrProjLimit.Wrap(err)
 	}
 
-	if s.accounts.PaywallEnabled(auth.User.ID) {
-		cards, err := s.accounts.CreditCards().List(ctx, auth.User.ID)
-		if err != nil {
-			s.log.Debug(fmt.Sprintf("could not list credit cards for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-			return nil, Error.Wrap(err)
-		}
-
-		balance, err := s.accounts.Balance(ctx, auth.User.ID)
-		if err != nil {
-			s.log.Debug(fmt.Sprintf("could not get balance for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-			return nil, Error.Wrap(err)
-		}
-
-		coupons, err := s.accounts.Coupons().ListByUserID(ctx, auth.User.ID)
-		if err != nil {
-			s.log.Debug(fmt.Sprintf("could not list coupons for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-			return nil, Error.Wrap(err)
-		}
-
-		if len(cards) == 0 && balance.Coins < s.minCoinPayment && len(coupons) == 0 {
-			err = errs.New("no valid payment methods found")
-			s.log.Debug(fmt.Sprintf("could not create project for user %s", auth.User.ID.String()), zap.Error(Error.Wrap(err)))
-			return nil, Error.Wrap(err)
-		}
-	}
-
 	var projectID uuid.UUID
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		storageLimit := s.config.UsageLimits.Storage.Free
+		bandwidthLimit := s.config.UsageLimits.Bandwidth.Free
+		if auth.User.PaidTier {
+			storageLimit = s.config.UsageLimits.Storage.Paid
+			bandwidthLimit = s.config.UsageLimits.Bandwidth.Paid
+		}
 		p, err = tx.Projects().Insert(ctx,
 			&Project{
 				Description:    projectInfo.Description,
 				Name:           projectInfo.Name,
 				OwnerID:        auth.User.ID,
 				PartnerID:      auth.User.PartnerID,
-				StorageLimit:   &s.config.UsageLimits.DefaultStorageLimit,
-				BandwidthLimit: &s.config.UsageLimits.DefaultBandwidthLimit,
+				StorageLimit:   &storageLimit,
+				BandwidthLimit: &bandwidthLimit,
 			},
 		)
 		if err != nil {
@@ -1806,10 +1824,4 @@ func findMembershipByProjectID(memberships []ProjectMember, projectID uuid.UUID)
 		}
 	}
 	return ProjectMember{}, false
-}
-
-// PaywallEnabled returns a true if a credit card or account
-// balance is required to create projects.
-func (s *Service) PaywallEnabled(userID uuid.UUID) bool {
-	return s.accounts.PaywallEnabled(userID)
 }

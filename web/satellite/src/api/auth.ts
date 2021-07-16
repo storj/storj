@@ -1,10 +1,11 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { ErrorEmailUsed } from '@/api/errors/ErrorEmailUsed';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { UpdatedUser, User } from '@/types/users';
+import { EnableUserMFARequest, UpdatedUser, User } from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
 
 /**
@@ -135,6 +136,7 @@ export class AuthHttpApi {
                 userResponse.partnerId,
                 userResponse.password,
                 userResponse.projectLimit,
+                userResponse.paidTier,
             );
         }
 
@@ -205,7 +207,7 @@ export class AuthHttpApi {
      * @returns id of created user
      * @throws Error
      */
-    public async register(user: {fullName: string; shortName: string; email: string; partner: string; partnerId: string; password: string; isProfessional: boolean; position: string; companyName: string; employeeCount: string; haveSalesContact: boolean }, secret: string): Promise<string> {
+    public async register(user: {fullName: string; shortName: string; email: string; partner: string; partnerId: string; password: string; isProfessional: boolean; position: string; companyName: string; employeeCount: string; haveSalesContact: boolean }, secret: string, recaptchaResponse: string): Promise<string> {
         const path = `${this.ROOT_PATH}/register`;
         const body = {
             secret: secret,
@@ -220,10 +222,13 @@ export class AuthHttpApi {
             companyName: user.companyName,
             employeeCount: user.employeeCount,
             haveSalesContact: user.haveSalesContact,
+            recaptchaResponse: recaptchaResponse,
         };
         const response = await this.http.post(path, JSON.stringify(body));
         if (!response.ok) {
             switch (response.status) {
+                case 400:
+                    throw new ErrorBadRequest('Validation of reCAPTCHA was unsuccessful');
                 case 401:
                     throw new ErrorUnauthorized('We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation');
                 case 409:
@@ -236,5 +241,70 @@ export class AuthHttpApi {
         }
 
         return await response.json();
+    }
+
+    /**
+     * Used to enable user's MFA.
+     *
+     * @throws Error
+     */
+    public async enableUserMFA(body: EnableUserMFARequest): Promise<void> {
+        const path = `${this.ROOT_PATH}/mfa/enable`;
+        const response = await this.http.post(path, JSON.stringify(body));
+
+        if (response.ok) {
+            return;
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('Can not enable MFA. Please try again later');
+    }
+
+    /**
+     * Used to disable user's MFA.
+     *
+     * @throws Error
+     */
+    public async disableUserMFA(code: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/mfa/disable`;
+
+        const body = {
+            passcode: code,
+        };
+
+        const response = await this.http.post(path, JSON.stringify(body));
+
+        if (response.ok) {
+            return;
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('Can not disable MFA. Please try again later');
+    }
+
+    /**
+     * Used to generate user's MFA recovery codes.
+     *
+     * @throws Error
+     */
+    public async generateUserMFARecoveryCodes(): Promise<string[]> {
+        const path = `${this.ROOT_PATH}/mfa/generate-recovery-codes`;
+        const response = await this.http.post(path, null);
+
+        if (response.ok) {
+            return await response.json();
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('Can not generate MFA recovery codes. Please try again later');
     }
 }

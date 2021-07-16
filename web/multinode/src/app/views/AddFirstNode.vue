@@ -13,17 +13,26 @@
             <p class="add-first-node__left-area__info">Please add authentication data below:</p>
             <headered-input
                 class="add-first-node__left-area__input"
-                label="IP Address"
+                label="Node ID"
+                placeholder="Enter Node ID"
+                :error="idError"
+                @setData="setNodeId"
             />
             <headered-input
                 class="add-first-node__left-area__input"
-                label="Secret Key"
+                label="Public IP Address"
+                placeholder="Enter Public IP Address"
+                :error="publicIPError"
+                @setData="setPublicIP"
             />
             <headered-input
                 class="add-first-node__left-area__input"
-                label="Add name"
+                label="API Key"
+                placeholder="Enter API Key"
+                :error="apiKeyError"
+                @setData="setApiKey"
             />
-            <v-button class="add-first-node__left-area__button" label="Add Node" width="120px"></v-button>
+            <v-button class="add-first-node__left-area__button" label="Add Node" width="120px" :on-press="onCreate"></v-button>
         </div>
         <div class="add-first-node__right-area">
             <img src="@/../static/images/Illustration.png" alt="Storj Logo Illustration">
@@ -37,13 +46,90 @@ import { Component, Vue } from 'vue-property-decorator';
 import HeaderedInput from '@/app/components/common/HeaderedInput.vue';
 import VButton from '@/app/components/common/VButton.vue';
 
+import { Config as RouterConfig } from '@/app/router';
+import { CreateNodeFields } from '@/nodes';
+
 @Component({
     components: {
         HeaderedInput,
         VButton,
     },
 })
-export default class AddFirstNode extends Vue {}
+export default class AddFirstNode extends Vue {
+    private nodeToAdd: CreateNodeFields = new CreateNodeFields();
+
+    private isLoading: boolean = false;
+    // errors
+    private idError: string = '';
+    private publicIPError: string = '';
+    private apiKeyError: string = '';
+
+    /**
+     * Sets node id field from value string.
+     */
+    public setNodeId(value: string): void {
+        this.nodeToAdd.id = value.trim();
+        this.idError = '';
+    }
+
+    /**
+     * Sets node public ip field from value string.
+     */
+    public setPublicIP(value: string): void {
+        this.nodeToAdd.publicAddress = value.trim();
+        this.publicIPError = '';
+    }
+
+    /**
+     * Sets API key field from value string.
+     */
+    public setApiKey(value: string): void {
+        this.nodeToAdd.apiSecret = value.trim();
+        this.apiKeyError = '';
+    }
+
+    public async onCreate(): Promise<void> {
+        if (this.isLoading) return;
+
+        this.isLoading = true;
+
+        if (!this.validateFields()) {
+            this.isLoading = false;
+
+            return;
+        }
+
+        try {
+            await this.$store.dispatch('nodes/add', this.nodeToAdd);
+        } catch (error) {
+            console.error(error.message);
+            this.isLoading = false;
+        }
+
+        await this.$router.push(RouterConfig.MyNodes.path);
+    }
+
+    private validateFields(): boolean {
+        let hasNoErrors: boolean = true;
+
+        if (!this.nodeToAdd.id) {
+            this.idError = 'This field is required. Please enter a valid node ID';
+            hasNoErrors = false;
+        }
+
+        if (!this.nodeToAdd.publicAddress) {
+            this.publicIPError = 'This field is required. Please enter a valid node Public Address';
+            hasNoErrors = false;
+        }
+
+        if (!this.nodeToAdd.apiSecret) {
+            this.apiKeyError = 'This field is required. Please enter a valid API Key';
+            hasNoErrors = false;
+        }
+
+        return hasNoErrors;
+    }
+}
 </script>
 
 <style lang="scss">

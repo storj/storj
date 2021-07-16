@@ -367,8 +367,10 @@ CREATE TABLE bucket_storage_tallies (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
+	total_bytes bigint NOT NULL DEFAULT 0,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
+	total_segments_count integer NOT NULL DEFAULT 0,
 	remote_segments_count integer NOT NULL,
 	inline_segments_count integer NOT NULL,
 	object_count integer NOT NULL,
@@ -591,6 +593,15 @@ CREATE TABLE registration_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
+CREATE TABLE repair_queue (
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
+	attempted_at timestamp with time zone,
+	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	segment_health double precision NOT NULL DEFAULT 1,
+	PRIMARY KEY ( stream_id, position )
+);
 CREATE TABLE reputations (
 	id bytea NOT NULL,
 	audit_success_count bigint NOT NULL DEFAULT 0,
@@ -740,6 +751,7 @@ CREATE TABLE users (
 	partner_id bytea,
 	created_at timestamp with time zone NOT NULL,
 	project_limit integer NOT NULL DEFAULT 0,
+	paid_tier boolean NOT NULL DEFAULT false,
 	position text,
 	company_name text,
 	company_size integer,
@@ -747,6 +759,9 @@ CREATE TABLE users (
 	is_professional boolean NOT NULL DEFAULT false,
 	employee_count text,
 	have_sales_contact boolean NOT NULL DEFAULT false,
+	mfa_enabled boolean NOT NULL DEFAULT false,
+	mfa_secret_key text,
+	mfa_recovery_codes text,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (
@@ -828,6 +843,8 @@ CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
 CREATE INDEX nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( type, last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
 CREATE INDEX nodes_dis_unk_aud_exit_init_rel_type_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, type, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
+CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
+CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
 CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start ) ;
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;
@@ -980,8 +997,10 @@ CREATE TABLE bucket_storage_tallies (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
 	interval_start timestamp with time zone NOT NULL,
+	total_bytes bigint NOT NULL DEFAULT 0,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
+	total_segments_count integer NOT NULL DEFAULT 0,
 	remote_segments_count integer NOT NULL,
 	inline_segments_count integer NOT NULL,
 	object_count integer NOT NULL,
@@ -1204,6 +1223,15 @@ CREATE TABLE registration_tokens (
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
 );
+CREATE TABLE repair_queue (
+	stream_id bytea NOT NULL,
+	position bigint NOT NULL,
+	attempted_at timestamp with time zone,
+	updated_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	inserted_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	segment_health double precision NOT NULL DEFAULT 1,
+	PRIMARY KEY ( stream_id, position )
+);
 CREATE TABLE reputations (
 	id bytea NOT NULL,
 	audit_success_count bigint NOT NULL DEFAULT 0,
@@ -1353,6 +1381,7 @@ CREATE TABLE users (
 	partner_id bytea,
 	created_at timestamp with time zone NOT NULL,
 	project_limit integer NOT NULL DEFAULT 0,
+	paid_tier boolean NOT NULL DEFAULT false,
 	position text,
 	company_name text,
 	company_size integer,
@@ -1360,6 +1389,9 @@ CREATE TABLE users (
 	is_professional boolean NOT NULL DEFAULT false,
 	employee_count text,
 	have_sales_contact boolean NOT NULL DEFAULT false,
+	mfa_enabled boolean NOT NULL DEFAULT false,
+	mfa_secret_key text,
+	mfa_recovery_codes text,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (
@@ -1441,6 +1473,8 @@ CREATE INDEX node_last_ip ON nodes ( last_net ) ;
 CREATE INDEX nodes_dis_unk_off_exit_fin_last_success_index ON nodes ( disqualified, unknown_audit_suspended, offline_suspended, exit_finished_at, last_contact_success ) ;
 CREATE INDEX nodes_type_last_cont_success_free_disk_ma_mi_patch_vetted_partial_index ON nodes ( type, last_contact_success, free_disk, major, minor, patch, vetted_at ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true AND nodes.last_net != '' ;
 CREATE INDEX nodes_dis_unk_aud_exit_init_rel_type_last_cont_success_stored_index ON nodes ( disqualified, unknown_audit_suspended, exit_initiated_at, release, type, last_contact_success ) WHERE nodes.disqualified is NULL AND nodes.unknown_audit_suspended is NULL AND nodes.exit_initiated_at is NULL AND nodes.release = true ;
+CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
+CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX storagenode_bandwidth_rollups_interval_start_index ON storagenode_bandwidth_rollups ( interval_start ) ;
 CREATE INDEX storagenode_bandwidth_rollup_archives_interval_start_index ON storagenode_bandwidth_rollup_archives ( interval_start ) ;
 CREATE INDEX storagenode_payments_node_id_period_index ON storagenode_payments ( node_id, period ) ;
@@ -2122,8 +2156,10 @@ type BucketStorageTally struct {
 	BucketName          []byte
 	ProjectId           []byte
 	IntervalStart       time.Time
+	TotalBytes          uint64
 	Inline              uint64
 	Remote              uint64
+	TotalSegmentsCount  uint
 	RemoteSegmentsCount uint
 	InlineSegmentsCount uint
 	ObjectCount         uint
@@ -2131,6 +2167,11 @@ type BucketStorageTally struct {
 }
 
 func (BucketStorageTally) _Table() string { return "bucket_storage_tallies" }
+
+type BucketStorageTally_Create_Fields struct {
+	TotalBytes         BucketStorageTally_TotalBytes_Field
+	TotalSegmentsCount BucketStorageTally_TotalSegmentsCount_Field
+}
 
 type BucketStorageTally_Update_Fields struct {
 }
@@ -2192,6 +2233,25 @@ func (f BucketStorageTally_IntervalStart_Field) value() interface{} {
 
 func (BucketStorageTally_IntervalStart_Field) _Column() string { return "interval_start" }
 
+type BucketStorageTally_TotalBytes_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func BucketStorageTally_TotalBytes(v uint64) BucketStorageTally_TotalBytes_Field {
+	return BucketStorageTally_TotalBytes_Field{_set: true, _value: v}
+}
+
+func (f BucketStorageTally_TotalBytes_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketStorageTally_TotalBytes_Field) _Column() string { return "total_bytes" }
+
 type BucketStorageTally_Inline_Field struct {
 	_set   bool
 	_null  bool
@@ -2229,6 +2289,25 @@ func (f BucketStorageTally_Remote_Field) value() interface{} {
 }
 
 func (BucketStorageTally_Remote_Field) _Column() string { return "remote" }
+
+type BucketStorageTally_TotalSegmentsCount_Field struct {
+	_set   bool
+	_null  bool
+	_value uint
+}
+
+func BucketStorageTally_TotalSegmentsCount(v uint) BucketStorageTally_TotalSegmentsCount_Field {
+	return BucketStorageTally_TotalSegmentsCount_Field{_set: true, _value: v}
+}
+
+func (f BucketStorageTally_TotalSegmentsCount_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (BucketStorageTally_TotalSegmentsCount_Field) _Column() string { return "total_segments_count" }
 
 type BucketStorageTally_RemoteSegmentsCount_Field struct {
 	_set   bool
@@ -6332,6 +6411,156 @@ func (f RegistrationToken_CreatedAt_Field) value() interface{} {
 
 func (RegistrationToken_CreatedAt_Field) _Column() string { return "created_at" }
 
+type RepairQueue struct {
+	StreamId      []byte
+	Position      uint64
+	AttemptedAt   *time.Time
+	UpdatedAt     time.Time
+	InsertedAt    time.Time
+	SegmentHealth float64
+}
+
+func (RepairQueue) _Table() string { return "repair_queue" }
+
+type RepairQueue_Create_Fields struct {
+	AttemptedAt   RepairQueue_AttemptedAt_Field
+	UpdatedAt     RepairQueue_UpdatedAt_Field
+	InsertedAt    RepairQueue_InsertedAt_Field
+	SegmentHealth RepairQueue_SegmentHealth_Field
+}
+
+type RepairQueue_Update_Fields struct {
+	AttemptedAt RepairQueue_AttemptedAt_Field
+	UpdatedAt   RepairQueue_UpdatedAt_Field
+}
+
+type RepairQueue_StreamId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func RepairQueue_StreamId(v []byte) RepairQueue_StreamId_Field {
+	return RepairQueue_StreamId_Field{_set: true, _value: v}
+}
+
+func (f RepairQueue_StreamId_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RepairQueue_StreamId_Field) _Column() string { return "stream_id" }
+
+type RepairQueue_Position_Field struct {
+	_set   bool
+	_null  bool
+	_value uint64
+}
+
+func RepairQueue_Position(v uint64) RepairQueue_Position_Field {
+	return RepairQueue_Position_Field{_set: true, _value: v}
+}
+
+func (f RepairQueue_Position_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RepairQueue_Position_Field) _Column() string { return "position" }
+
+type RepairQueue_AttemptedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value *time.Time
+}
+
+func RepairQueue_AttemptedAt(v time.Time) RepairQueue_AttemptedAt_Field {
+	return RepairQueue_AttemptedAt_Field{_set: true, _value: &v}
+}
+
+func RepairQueue_AttemptedAt_Raw(v *time.Time) RepairQueue_AttemptedAt_Field {
+	if v == nil {
+		return RepairQueue_AttemptedAt_Null()
+	}
+	return RepairQueue_AttemptedAt(*v)
+}
+
+func RepairQueue_AttemptedAt_Null() RepairQueue_AttemptedAt_Field {
+	return RepairQueue_AttemptedAt_Field{_set: true, _null: true}
+}
+
+func (f RepairQueue_AttemptedAt_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f RepairQueue_AttemptedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RepairQueue_AttemptedAt_Field) _Column() string { return "attempted_at" }
+
+type RepairQueue_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func RepairQueue_UpdatedAt(v time.Time) RepairQueue_UpdatedAt_Field {
+	return RepairQueue_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f RepairQueue_UpdatedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RepairQueue_UpdatedAt_Field) _Column() string { return "updated_at" }
+
+type RepairQueue_InsertedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func RepairQueue_InsertedAt(v time.Time) RepairQueue_InsertedAt_Field {
+	return RepairQueue_InsertedAt_Field{_set: true, _value: v}
+}
+
+func (f RepairQueue_InsertedAt_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RepairQueue_InsertedAt_Field) _Column() string { return "inserted_at" }
+
+type RepairQueue_SegmentHealth_Field struct {
+	_set   bool
+	_null  bool
+	_value float64
+}
+
+func RepairQueue_SegmentHealth(v float64) RepairQueue_SegmentHealth_Field {
+	return RepairQueue_SegmentHealth_Field{_set: true, _value: v}
+}
+
+func (f RepairQueue_SegmentHealth_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (RepairQueue_SegmentHealth_Field) _Column() string { return "segment_health" }
+
 type Reputation struct {
 	Id                          []byte
 	AuditSuccessCount           int64
@@ -8600,6 +8829,7 @@ type User struct {
 	PartnerId        []byte
 	CreatedAt        time.Time
 	ProjectLimit     int
+	PaidTier         bool
 	Position         *string
 	CompanyName      *string
 	CompanySize      *int
@@ -8607,6 +8837,9 @@ type User struct {
 	IsProfessional   bool
 	EmployeeCount    *string
 	HaveSalesContact bool
+	MfaEnabled       bool
+	MfaSecretKey     *string
+	MfaRecoveryCodes *string
 }
 
 func (User) _Table() string { return "users" }
@@ -8615,6 +8848,7 @@ type User_Create_Fields struct {
 	ShortName        User_ShortName_Field
 	PartnerId        User_PartnerId_Field
 	ProjectLimit     User_ProjectLimit_Field
+	PaidTier         User_PaidTier_Field
 	Position         User_Position_Field
 	CompanyName      User_CompanyName_Field
 	CompanySize      User_CompanySize_Field
@@ -8622,6 +8856,9 @@ type User_Create_Fields struct {
 	IsProfessional   User_IsProfessional_Field
 	EmployeeCount    User_EmployeeCount_Field
 	HaveSalesContact User_HaveSalesContact_Field
+	MfaEnabled       User_MfaEnabled_Field
+	MfaSecretKey     User_MfaSecretKey_Field
+	MfaRecoveryCodes User_MfaRecoveryCodes_Field
 }
 
 type User_Update_Fields struct {
@@ -8632,6 +8869,7 @@ type User_Update_Fields struct {
 	PasswordHash     User_PasswordHash_Field
 	Status           User_Status_Field
 	ProjectLimit     User_ProjectLimit_Field
+	PaidTier         User_PaidTier_Field
 	Position         User_Position_Field
 	CompanyName      User_CompanyName_Field
 	CompanySize      User_CompanySize_Field
@@ -8639,6 +8877,9 @@ type User_Update_Fields struct {
 	IsProfessional   User_IsProfessional_Field
 	EmployeeCount    User_EmployeeCount_Field
 	HaveSalesContact User_HaveSalesContact_Field
+	MfaEnabled       User_MfaEnabled_Field
+	MfaSecretKey     User_MfaSecretKey_Field
+	MfaRecoveryCodes User_MfaRecoveryCodes_Field
 }
 
 type User_Id_Field struct {
@@ -8857,6 +9098,25 @@ func (f User_ProjectLimit_Field) value() interface{} {
 
 func (User_ProjectLimit_Field) _Column() string { return "project_limit" }
 
+type User_PaidTier_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func User_PaidTier(v bool) User_PaidTier_Field {
+	return User_PaidTier_Field{_set: true, _value: v}
+}
+
+func (f User_PaidTier_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (User_PaidTier_Field) _Column() string { return "paid_tier" }
+
 type User_Position_Field struct {
 	_set   bool
 	_null  bool
@@ -9054,6 +9314,89 @@ func (f User_HaveSalesContact_Field) value() interface{} {
 }
 
 func (User_HaveSalesContact_Field) _Column() string { return "have_sales_contact" }
+
+type User_MfaEnabled_Field struct {
+	_set   bool
+	_null  bool
+	_value bool
+}
+
+func User_MfaEnabled(v bool) User_MfaEnabled_Field {
+	return User_MfaEnabled_Field{_set: true, _value: v}
+}
+
+func (f User_MfaEnabled_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (User_MfaEnabled_Field) _Column() string { return "mfa_enabled" }
+
+type User_MfaSecretKey_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func User_MfaSecretKey(v string) User_MfaSecretKey_Field {
+	return User_MfaSecretKey_Field{_set: true, _value: &v}
+}
+
+func User_MfaSecretKey_Raw(v *string) User_MfaSecretKey_Field {
+	if v == nil {
+		return User_MfaSecretKey_Null()
+	}
+	return User_MfaSecretKey(*v)
+}
+
+func User_MfaSecretKey_Null() User_MfaSecretKey_Field {
+	return User_MfaSecretKey_Field{_set: true, _null: true}
+}
+
+func (f User_MfaSecretKey_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f User_MfaSecretKey_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (User_MfaSecretKey_Field) _Column() string { return "mfa_secret_key" }
+
+type User_MfaRecoveryCodes_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func User_MfaRecoveryCodes(v string) User_MfaRecoveryCodes_Field {
+	return User_MfaRecoveryCodes_Field{_set: true, _value: &v}
+}
+
+func User_MfaRecoveryCodes_Raw(v *string) User_MfaRecoveryCodes_Field {
+	if v == nil {
+		return User_MfaRecoveryCodes_Null()
+	}
+	return User_MfaRecoveryCodes(*v)
+}
+
+func User_MfaRecoveryCodes_Null() User_MfaRecoveryCodes_Field {
+	return User_MfaRecoveryCodes_Field{_set: true, _null: true}
+}
+
+func (f User_MfaRecoveryCodes_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f User_MfaRecoveryCodes_Field) value() interface{} {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+func (User_MfaRecoveryCodes_Field) _Column() string { return "mfa_recovery_codes" }
 
 type ValueAttribution struct {
 	ProjectId   []byte
@@ -10651,15 +10994,17 @@ func (obj *pgxImpl) Create_User(ctx context.Context,
 	__company_size_val := optional.CompanySize.value()
 	__working_on_val := optional.WorkingOn.value()
 	__employee_count_val := optional.EmployeeCount.value()
+	__mfa_secret_key_val := optional.MfaSecretKey.value()
+	__mfa_recovery_codes_val := optional.MfaRecoveryCodes.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, email, normalized_email, full_name, short_name, password_hash, status, partner_id, created_at, position, company_name, company_size, working_on, employee_count")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, email, normalized_email, full_name, short_name, password_hash, status, partner_id, created_at, position, company_name, company_size, working_on, employee_count, mfa_secret_key, mfa_recovery_codes")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO users "), __clause, __sqlbundle_Literal(" RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO users "), __clause, __sqlbundle_Literal(" RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes")}}
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val, __position_val, __company_name_val, __company_size_val, __working_on_val, __employee_count_val)
+	__values = append(__values, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val, __position_val, __company_name_val, __company_size_val, __working_on_val, __employee_count_val, __mfa_secret_key_val, __mfa_recovery_codes_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -10667,6 +11012,12 @@ func (obj *pgxImpl) Create_User(ctx context.Context,
 	if optional.ProjectLimit._set {
 		__values = append(__values, optional.ProjectLimit.value())
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("project_limit"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.PaidTier._set {
+		__values = append(__values, optional.PaidTier.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("paid_tier"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
@@ -10682,6 +11033,12 @@ func (obj *pgxImpl) Create_User(ctx context.Context,
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
+	if optional.MfaEnabled._set {
+		__values = append(__values, optional.MfaEnabled.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("mfa_enabled"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
 	if len(__optional_columns.SQLs) == 0 {
 		if __columns.SQL == nil {
 			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
@@ -10694,7 +11051,7 @@ func (obj *pgxImpl) Create_User(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -10816,44 +11173,6 @@ func (obj *pgxImpl) CreateNoReturn_Revocation(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, __revoked_val, __api_key_id_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
-
-}
-
-func (obj *pgxImpl) CreateNoReturn_BucketStorageTally(ctx context.Context,
-	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
-	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
-	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
-	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
-	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
-	bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
-	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
-	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
-	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
-	err error) {
-	defer mon.Task()(&ctx)(&err)
-	__bucket_name_val := bucket_storage_tally_bucket_name.value()
-	__project_id_val := bucket_storage_tally_project_id.value()
-	__interval_start_val := bucket_storage_tally_interval_start.value()
-	__inline_val := bucket_storage_tally_inline.value()
-	__remote_val := bucket_storage_tally_remote.value()
-	__remote_segments_count_val := bucket_storage_tally_remote_segments_count.value()
-	__inline_segments_count_val := bucket_storage_tally_inline_segments_count.value()
-	__object_count_val := bucket_storage_tally_object_count.value()
-	__metadata_size_val := bucket_storage_tally_metadata_size.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_storage_tallies ( bucket_name, project_id, interval_start, inline, remote, remote_segments_count, inline_segments_count, object_count, metadata_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
-
-	var __values []interface{}
-	__values = append(__values, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -11804,7 +12123,7 @@ func (obj *pgxImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx contex
 	user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
 
 	var __values []interface{}
 	__values = append(__values, user_normalized_email.value())
@@ -11828,7 +12147,7 @@ func (obj *pgxImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(ctx contex
 			}
 
 			user = &User{}
-			err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact)
+			err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
 			if err != nil {
 				return nil, err
 			}
@@ -11862,7 +12181,7 @@ func (obj *pgxImpl) Get_User_By_Id(ctx context.Context,
 	user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes FROM users WHERE users.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
@@ -11871,7 +12190,7 @@ func (obj *pgxImpl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
 	if err != nil {
 		return (*User)(nil), obj.makeErr(err)
 	}
@@ -12476,7 +12795,7 @@ func (obj *pgxImpl) All_BucketStorageTally(ctx context.Context) (
 	rows []*BucketStorageTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies")
 
 	var __values []interface{}
 
@@ -12493,7 +12812,7 @@ func (obj *pgxImpl) All_BucketStorageTally(ctx context.Context) (
 
 			for __rows.Next() {
 				bucket_storage_tally := &BucketStorageTally{}
-				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.TotalBytes, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.TotalSegmentsCount, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
 				if err != nil {
 					return nil, err
 				}
@@ -12523,7 +12842,7 @@ func (obj *pgxImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_And_Inter
 	rows []*BucketStorageTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? AND bucket_storage_tallies.bucket_name = ? AND bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start <= ? ORDER BY bucket_storage_tallies.interval_start DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? AND bucket_storage_tallies.bucket_name = ? AND bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start <= ? ORDER BY bucket_storage_tallies.interval_start DESC")
 
 	var __values []interface{}
 	__values = append(__values, bucket_storage_tally_project_id.value(), bucket_storage_tally_bucket_name.value(), bucket_storage_tally_interval_start_greater_or_equal.value(), bucket_storage_tally_interval_start_less_or_equal.value())
@@ -12541,7 +12860,7 @@ func (obj *pgxImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_And_Inter
 
 			for __rows.Next() {
 				bucket_storage_tally := &BucketStorageTally{}
-				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.TotalBytes, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.TotalSegmentsCount, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
 				if err != nil {
 					return nil, err
 				}
@@ -14861,7 +15180,7 @@ func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -14902,6 +15221,11 @@ func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("project_limit = ?"))
 	}
 
+	if update.PaidTier._set {
+		__values = append(__values, update.PaidTier.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("paid_tier = ?"))
+	}
+
 	if update.Position._set {
 		__values = append(__values, update.Position.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("position = ?"))
@@ -14937,6 +15261,21 @@ func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("have_sales_contact = ?"))
 	}
 
+	if update.MfaEnabled._set {
+		__values = append(__values, update.MfaEnabled.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_enabled = ?"))
+	}
+
+	if update.MfaSecretKey._set {
+		__values = append(__values, update.MfaSecretKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_secret_key = ?"))
+	}
+
+	if update.MfaRecoveryCodes._set {
+		__values = append(__values, update.MfaRecoveryCodes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_recovery_codes = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -14950,7 +15289,7 @@ func (obj *pgxImpl) Update_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -15690,6 +16029,33 @@ func (obj *pgxImpl) Delete_Injuredsegment_By_UpdatedAt_Less(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
+	repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM repair_queue WHERE repair_queue.updated_at < ?")
+
+	var __values []interface{}
+	__values = append(__values, repair_queue_updated_at_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxImpl) Delete_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	deleted bool, err error) {
@@ -16289,6 +16655,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM repair_queue;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM registration_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -16668,15 +17044,17 @@ func (obj *pgxcockroachImpl) Create_User(ctx context.Context,
 	__company_size_val := optional.CompanySize.value()
 	__working_on_val := optional.WorkingOn.value()
 	__employee_count_val := optional.EmployeeCount.value()
+	__mfa_secret_key_val := optional.MfaSecretKey.value()
+	__mfa_recovery_codes_val := optional.MfaRecoveryCodes.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, email, normalized_email, full_name, short_name, password_hash, status, partner_id, created_at, position, company_name, company_size, working_on, employee_count")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("id, email, normalized_email, full_name, short_name, password_hash, status, partner_id, created_at, position, company_name, company_size, working_on, employee_count, mfa_secret_key, mfa_recovery_codes")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO users "), __clause, __sqlbundle_Literal(" RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO users "), __clause, __sqlbundle_Literal(" RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes")}}
 
 	var __values []interface{}
-	__values = append(__values, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val, __position_val, __company_name_val, __company_size_val, __working_on_val, __employee_count_val)
+	__values = append(__values, __id_val, __email_val, __normalized_email_val, __full_name_val, __short_name_val, __password_hash_val, __status_val, __partner_id_val, __created_at_val, __position_val, __company_name_val, __company_size_val, __working_on_val, __employee_count_val, __mfa_secret_key_val, __mfa_recovery_codes_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -16684,6 +17062,12 @@ func (obj *pgxcockroachImpl) Create_User(ctx context.Context,
 	if optional.ProjectLimit._set {
 		__values = append(__values, optional.ProjectLimit.value())
 		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("project_limit"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if optional.PaidTier._set {
+		__values = append(__values, optional.PaidTier.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("paid_tier"))
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
@@ -16699,6 +17083,12 @@ func (obj *pgxcockroachImpl) Create_User(ctx context.Context,
 		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
 	}
 
+	if optional.MfaEnabled._set {
+		__values = append(__values, optional.MfaEnabled.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("mfa_enabled"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
 	if len(__optional_columns.SQLs) == 0 {
 		if __columns.SQL == nil {
 			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
@@ -16711,7 +17101,7 @@ func (obj *pgxcockroachImpl) Create_User(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -16833,44 +17223,6 @@ func (obj *pgxcockroachImpl) CreateNoReturn_Revocation(ctx context.Context,
 
 	var __values []interface{}
 	__values = append(__values, __revoked_val, __api_key_id_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	_, err = obj.driver.ExecContext(ctx, __stmt, __values...)
-	if err != nil {
-		return obj.makeErr(err)
-	}
-	return nil
-
-}
-
-func (obj *pgxcockroachImpl) CreateNoReturn_BucketStorageTally(ctx context.Context,
-	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
-	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
-	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
-	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
-	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
-	bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
-	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
-	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
-	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
-	err error) {
-	defer mon.Task()(&ctx)(&err)
-	__bucket_name_val := bucket_storage_tally_bucket_name.value()
-	__project_id_val := bucket_storage_tally_project_id.value()
-	__interval_start_val := bucket_storage_tally_interval_start.value()
-	__inline_val := bucket_storage_tally_inline.value()
-	__remote_val := bucket_storage_tally_remote.value()
-	__remote_segments_count_val := bucket_storage_tally_remote_segments_count.value()
-	__inline_segments_count_val := bucket_storage_tally_inline_segments_count.value()
-	__object_count_val := bucket_storage_tally_object_count.value()
-	__metadata_size_val := bucket_storage_tally_metadata_size.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO bucket_storage_tallies ( bucket_name, project_id, interval_start, inline, remote, remote_segments_count, inline_segments_count, object_count, metadata_size ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? )")
-
-	var __values []interface{}
-	__values = append(__values, __bucket_name_val, __project_id_val, __interval_start_val, __inline_val, __remote_val, __remote_segments_count_val, __inline_segments_count_val, __object_count_val, __metadata_size_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -17821,7 +18173,7 @@ func (obj *pgxcockroachImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(c
 	user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes FROM users WHERE users.normalized_email = ? AND users.status != 0 LIMIT 2")
 
 	var __values []interface{}
 	__values = append(__values, user_normalized_email.value())
@@ -17845,7 +18197,7 @@ func (obj *pgxcockroachImpl) Get_User_By_NormalizedEmail_And_Status_Not_Number(c
 			}
 
 			user = &User{}
-			err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact)
+			err = __rows.Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
 			if err != nil {
 				return nil, err
 			}
@@ -17879,7 +18231,7 @@ func (obj *pgxcockroachImpl) Get_User_By_Id(ctx context.Context,
 	user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact FROM users WHERE users.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes FROM users WHERE users.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, user_id.value())
@@ -17888,7 +18240,7 @@ func (obj *pgxcockroachImpl) Get_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
 	if err != nil {
 		return (*User)(nil), obj.makeErr(err)
 	}
@@ -18493,7 +18845,7 @@ func (obj *pgxcockroachImpl) All_BucketStorageTally(ctx context.Context) (
 	rows []*BucketStorageTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies")
 
 	var __values []interface{}
 
@@ -18510,7 +18862,7 @@ func (obj *pgxcockroachImpl) All_BucketStorageTally(ctx context.Context) (
 
 			for __rows.Next() {
 				bucket_storage_tally := &BucketStorageTally{}
-				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.TotalBytes, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.TotalSegmentsCount, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
 				if err != nil {
 					return nil, err
 				}
@@ -18540,7 +18892,7 @@ func (obj *pgxcockroachImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_
 	rows []*BucketStorageTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? AND bucket_storage_tallies.bucket_name = ? AND bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start <= ? ORDER BY bucket_storage_tallies.interval_start DESC")
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_storage_tallies.bucket_name, bucket_storage_tallies.project_id, bucket_storage_tallies.interval_start, bucket_storage_tallies.total_bytes, bucket_storage_tallies.inline, bucket_storage_tallies.remote, bucket_storage_tallies.total_segments_count, bucket_storage_tallies.remote_segments_count, bucket_storage_tallies.inline_segments_count, bucket_storage_tallies.object_count, bucket_storage_tallies.metadata_size FROM bucket_storage_tallies WHERE bucket_storage_tallies.project_id = ? AND bucket_storage_tallies.bucket_name = ? AND bucket_storage_tallies.interval_start >= ? AND bucket_storage_tallies.interval_start <= ? ORDER BY bucket_storage_tallies.interval_start DESC")
 
 	var __values []interface{}
 	__values = append(__values, bucket_storage_tally_project_id.value(), bucket_storage_tally_bucket_name.value(), bucket_storage_tally_interval_start_greater_or_equal.value(), bucket_storage_tally_interval_start_less_or_equal.value())
@@ -18558,7 +18910,7 @@ func (obj *pgxcockroachImpl) All_BucketStorageTally_By_ProjectId_And_BucketName_
 
 			for __rows.Next() {
 				bucket_storage_tally := &BucketStorageTally{}
-				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
+				err = __rows.Scan(&bucket_storage_tally.BucketName, &bucket_storage_tally.ProjectId, &bucket_storage_tally.IntervalStart, &bucket_storage_tally.TotalBytes, &bucket_storage_tally.Inline, &bucket_storage_tally.Remote, &bucket_storage_tally.TotalSegmentsCount, &bucket_storage_tally.RemoteSegmentsCount, &bucket_storage_tally.InlineSegmentsCount, &bucket_storage_tally.ObjectCount, &bucket_storage_tally.MetadataSize)
 				if err != nil {
 					return nil, err
 				}
@@ -20878,7 +21230,7 @@ func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE users SET "), __sets, __sqlbundle_Literal(" WHERE users.id = ? RETURNING users.id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.status, users.partner_id, users.created_at, users.project_limit, users.paid_tier, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -20919,6 +21271,11 @@ func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("project_limit = ?"))
 	}
 
+	if update.PaidTier._set {
+		__values = append(__values, update.PaidTier.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("paid_tier = ?"))
+	}
+
 	if update.Position._set {
 		__values = append(__values, update.Position.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("position = ?"))
@@ -20954,6 +21311,21 @@ func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("have_sales_contact = ?"))
 	}
 
+	if update.MfaEnabled._set {
+		__values = append(__values, update.MfaEnabled.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_enabled = ?"))
+	}
+
+	if update.MfaSecretKey._set {
+		__values = append(__values, update.MfaSecretKey.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_secret_key = ?"))
+	}
+
+	if update.MfaRecoveryCodes._set {
+		__values = append(__values, update.MfaRecoveryCodes.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("mfa_recovery_codes = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -20967,7 +21339,7 @@ func (obj *pgxcockroachImpl) Update_User_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user = &User{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user.Id, &user.Email, &user.NormalizedEmail, &user.FullName, &user.ShortName, &user.PasswordHash, &user.Status, &user.PartnerId, &user.CreatedAt, &user.ProjectLimit, &user.PaidTier, &user.Position, &user.CompanyName, &user.CompanySize, &user.WorkingOn, &user.IsProfessional, &user.EmployeeCount, &user.HaveSalesContact, &user.MfaEnabled, &user.MfaSecretKey, &user.MfaRecoveryCodes)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -21707,6 +22079,33 @@ func (obj *pgxcockroachImpl) Delete_Injuredsegment_By_UpdatedAt_Less(ctx context
 
 }
 
+func (obj *pgxcockroachImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
+	repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM repair_queue WHERE repair_queue.updated_at < ?")
+
+	var __values []interface{}
+	__values = append(__values, repair_queue_updated_at_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	deleted bool, err error) {
@@ -22306,6 +22705,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM repair_queue;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM registration_tokens;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -22806,25 +23215,6 @@ func (rx *Rx) CreateNoReturn_AccountingTimestamps(ctx context.Context,
 
 }
 
-func (rx *Rx) CreateNoReturn_BucketStorageTally(ctx context.Context,
-	bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
-	bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
-	bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
-	bucket_storage_tally_inline BucketStorageTally_Inline_Field,
-	bucket_storage_tally_remote BucketStorageTally_Remote_Field,
-	bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
-	bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
-	bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
-	bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
-	err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.CreateNoReturn_BucketStorageTally(ctx, bucket_storage_tally_bucket_name, bucket_storage_tally_project_id, bucket_storage_tally_interval_start, bucket_storage_tally_inline, bucket_storage_tally_remote, bucket_storage_tally_remote_segments_count, bucket_storage_tally_inline_segments_count, bucket_storage_tally_object_count, bucket_storage_tally_metadata_size)
-
-}
-
 func (rx *Rx) CreateNoReturn_Irreparabledb(ctx context.Context,
 	irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 	irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
@@ -23296,6 +23686,17 @@ func (rx *Rx) Delete_Project_By_Id(ctx context.Context,
 		return
 	}
 	return tx.Delete_Project_By_Id(ctx, project_id)
+}
+
+func (rx *Rx) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
+	repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (
+	count int64, err error) {
+	var tx *Tx
+	if tx, err = rx.getTx(ctx); err != nil {
+		return
+	}
+	return tx.Delete_RepairQueue_By_UpdatedAt_Less(ctx, repair_queue_updated_at_less)
+
 }
 
 func (rx *Rx) Delete_ResetPasswordToken_By_Secret(ctx context.Context,
@@ -24263,18 +24664,6 @@ type Methods interface {
 		accounting_timestamps_value AccountingTimestamps_Value_Field) (
 		err error)
 
-	CreateNoReturn_BucketStorageTally(ctx context.Context,
-		bucket_storage_tally_bucket_name BucketStorageTally_BucketName_Field,
-		bucket_storage_tally_project_id BucketStorageTally_ProjectId_Field,
-		bucket_storage_tally_interval_start BucketStorageTally_IntervalStart_Field,
-		bucket_storage_tally_inline BucketStorageTally_Inline_Field,
-		bucket_storage_tally_remote BucketStorageTally_Remote_Field,
-		bucket_storage_tally_remote_segments_count BucketStorageTally_RemoteSegmentsCount_Field,
-		bucket_storage_tally_inline_segments_count BucketStorageTally_InlineSegmentsCount_Field,
-		bucket_storage_tally_object_count BucketStorageTally_ObjectCount_Field,
-		bucket_storage_tally_metadata_size BucketStorageTally_MetadataSize_Field) (
-		err error)
-
 	CreateNoReturn_Irreparabledb(ctx context.Context,
 		irreparabledb_segmentpath Irreparabledb_Segmentpath_Field,
 		irreparabledb_segmentdetail Irreparabledb_Segmentdetail_Field,
@@ -24505,6 +24894,10 @@ type Methods interface {
 	Delete_Project_By_Id(ctx context.Context,
 		project_id Project_Id_Field) (
 		deleted bool, err error)
+
+	Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
+		repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (
+		count int64, err error)
 
 	Delete_ResetPasswordToken_By_Secret(ctx context.Context,
 		reset_password_token_secret ResetPasswordToken_Secret_Field) (

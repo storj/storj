@@ -375,7 +375,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 	}
 
 	{ // setup trust pool
-		peer.Storage2.Trust, err = trust.NewPool(log.Named("trust"), trust.Dialer(peer.Dialer), config.Storage2.Trust)
+		peer.Storage2.Trust, err = trust.NewPool(log.Named("trust"), trust.Dialer(peer.Dialer), config.Storage2.Trust, peer.DB.Satellites())
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -569,7 +569,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.Payout(),
 			peer.DB.Reputation(),
 			peer.DB.Satellites(),
-			peer.Storage2.Trust,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -606,7 +605,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 				StorageUsage: peer.DB.StorageUsage(),
 				Payout:       peer.DB.Payout(),
 				Pricing:      peer.DB.Pricing(),
-				Satellites:   peer.DB.Satellites(),
 			},
 			peer.NodeStats.Service,
 			peer.Payout.Endpoint,
@@ -824,6 +822,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			return nil, errs.Combine(err, peer.Close())
 		}
 		if err = multinodepb.DRPCRegisterPayout(peer.Server.DRPC(), peer.Multinode.Payout); err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		if err = multinodepb.DRPCRegisterPayouts(peer.Server.DRPC(), peer.Multinode.Payout); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 	}

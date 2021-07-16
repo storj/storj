@@ -78,7 +78,7 @@ export default class CreatePassphrase extends Vue {
 
         this.isLoading = false;
 
-        await this.$router.push({name: RouteConfig.EnterPassphrase.name});
+        await this.$router.push({name: RouteConfig.BucketsManagement.name});
     }
 
     /**

@@ -90,6 +90,7 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 		Suspended:          node.UnknownAuditSuspended,
 		OfflineSuspended:   node.OfflineSuspended,
 		OfflineUnderReview: node.OfflineUnderReview,
+		VettedAt:           node.Reputation.VettedAt,
 		AuditHistory:       overlay.AuditHistoryToPB(auditHistory),
 		JoinedAt:           node.CreatedAt,
 	}, nil

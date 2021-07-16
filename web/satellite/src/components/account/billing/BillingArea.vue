@@ -3,7 +3,6 @@
 
 <template>
     <div class="account-billing-area">
-        <InfoBar/>
         <div class="account-billing-area__notification-container" v-if="hasNoCreditCard">
             <div class="account-billing-area__notification-container__negative-balance" v-if="isBalanceNegative">
                 <NegativeBalanceIcon/>
@@ -62,7 +61,6 @@ import SmallDepositHistory from '@/components/account/billing/depositAndBillingH
 import EstimatedCostsAndCredits from '@/components/account/billing/estimatedCostsAndCredits/EstimatedCostsAndCredits.vue';
 import CreditsHistory from '@/components/account/billing/freeCredits/CreditsHistory.vue';
 import HistoryDropdown from '@/components/account/billing/HistoryDropdown.vue';
-import InfoBar from '@/components/account/billing/InfoBar.vue';
 import PaymentMethods from '@/components/account/billing/paymentMethods/PaymentMethods.vue';
 import VLoader from '@/components/common/VLoader.vue';
 
@@ -90,7 +88,6 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
         ExpandIcon,
         HideIcon,
         CreditsHistory,
-        InfoBar,
         VLoader,
     },
 })
@@ -330,7 +327,7 @@ export default class BillingArea extends Vue {
         }
 
         &__notification-container {
-            margin-top: 60px;
+            margin-top: 20px;
 
             &__negative-balance,
             &__low-balance {

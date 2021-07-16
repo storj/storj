@@ -12,15 +12,13 @@ const PRICE_DIVIDER: number = 10000;
 export enum NodeStatus {
     Online = 'online',
     Offline = 'offline',
+    NotReachable = 'not reachable',
 }
 
 /**
  * NodeInfo contains basic node internal state.
  */
 export class Node {
-    public status: NodeStatus = NodeStatus.Offline;
-    private readonly STATUS_TRESHHOLD_MILISECONDS: number = 10.8e6;
-
     public constructor(
         public id: string = '',
         public name: string = '',
@@ -33,21 +31,27 @@ export class Node {
         public auditScore: number = 0,
         public suspensionScore: number = 0,
         public earned: number = 0,
-    ) {
-        const now = new Date();
-        if (now.getTime() - this.lastContact.getTime() < this.STATUS_TRESHHOLD_MILISECONDS) {
-            this.status = NodeStatus.Online;
-        }
-        this.earned = this.convertToCents(this.earned);
-    }
+        public status: string = NodeStatus.Online,
+    ) {}
 
+    /**
+     * displayedName handles displayed name of the node.
+     */
     public get displayedName(): string {
         return this.name || this.id;
     }
 
-    private convertToCents(value: number): number {
-        return value / PRICE_DIVIDER;
+    /**
+     * earnedCents returns earned value in cents.
+     */
+    public get earnedCents(): number {
+        return this.earned / PRICE_DIVIDER;
     }
+
+    public get statusText(): string {
+        return NodeStatus[this.status];
+    }
+
 }
 
 /**

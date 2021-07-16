@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +13,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
@@ -67,8 +69,7 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripecoinpayments.Servic
 		pc.CouponValue,
 		pc.CouponDuration.IntPointer(),
 		pc.CouponProjectLimit,
-		pc.MinCoinPayment,
-		pc.PaywallProportion)
+		pc.MinCoinPayment)
 }
 
 // parseBillingPeriodFromString parses provided date string and returns corresponding time.Time.
@@ -136,5 +137,117 @@ func generateStripeCustomers(ctx context.Context) (err error) {
 		zap.L().Info("Ensured Stripe-Customer", zap.Int64("created", n))
 
 		return err
+	})
+}
+
+// checkPaidTier ensures that all customers with a credit card are in the paid tier.
+func checkPaidTier(ctx context.Context) (err error) {
+	usageLimitsConfig := runCfg.Console.UsageLimits
+
+	fmt.Println("This command will do the following:\nFor every user who has added a credit card and is not already in the paid tier:")
+	fmt.Printf("Move this user to the paid tier and change their current project limits to:\n\tStorage: %s\n\tBandwidth: %s\n", usageLimitsConfig.Storage.Paid.String(), usageLimitsConfig.Bandwidth.Paid.String())
+	fmt.Printf("Do you really want to run this command? (confirm with 'yes') ")
+
+	var confirm string
+	n, err := fmt.Scanln(&confirm)
+	if err != nil {
+		if n != 0 {
+			return err
+		}
+		// fmt.Scanln cannot handle empty input
+		confirm = "n"
+	}
+
+	if strings.ToLower(confirm) != "yes" {
+		fmt.Println("Aborted - no users or projects have been modified")
+		return nil
+	}
+
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripecoinpayments.Service, db satellite.DB) error {
+		customers := db.StripeCoinPayments().Customers()
+		creditCards := payments.Accounts().CreditCards()
+		users := db.Console().Users()
+		projects := db.Console().Projects()
+
+		usersUpgraded := 0
+		projectsUpgraded := 0
+		failedUsers := make(map[uuid.UUID]bool)
+		morePages := true
+		nextOffset := int64(0)
+		listingLimit := 100
+		end := time.Now()
+		for morePages {
+			if err = ctx.Err(); err != nil {
+				return err
+			}
+
+			customersPage, err := customers.List(ctx, nextOffset, listingLimit, end)
+			if err != nil {
+				return err
+			}
+			morePages = customersPage.Next
+			nextOffset = customersPage.NextOffset
+
+			for _, c := range customersPage.Customers {
+				user, err := users.Get(ctx, c.UserID)
+				if err != nil {
+					return err
+				}
+				if user.PaidTier {
+					// already in paid tier; go to next customer
+					continue
+				}
+				cards, err := creditCards.List(ctx, user.ID)
+				if err != nil {
+					return err
+				}
+				if len(cards) == 0 {
+					// no card added, so no paid tier; go to next customer
+					continue
+				}
+
+				// convert user to paid tier
+				err = users.UpdatePaidTier(ctx, user.ID, true)
+				if err != nil {
+					return err
+				}
+				usersUpgraded++
+
+				// increase limits of existing projects to paid tier
+				userProjects, err := projects.GetOwn(ctx, user.ID)
+				if err != nil {
+					failedUsers[user.ID] = true
+					fmt.Printf("Error getting user's projects; skipping: %v\n", err)
+					continue
+				}
+				for _, project := range userProjects {
+					if project.StorageLimit == nil || *project.StorageLimit < usageLimitsConfig.Storage.Paid {
+						project.StorageLimit = new(memory.Size)
+						*project.StorageLimit = usageLimitsConfig.Storage.Paid
+					}
+					if project.BandwidthLimit == nil || *project.BandwidthLimit < usageLimitsConfig.Bandwidth.Paid {
+						project.BandwidthLimit = new(memory.Size)
+						*project.BandwidthLimit = usageLimitsConfig.Bandwidth.Paid
+					}
+					err = projects.Update(ctx, &project)
+					if err != nil {
+						failedUsers[user.ID] = true
+						fmt.Printf("Error updating user's project; skipping: %v\n", err)
+						continue
+					}
+					projectsUpgraded++
+				}
+			}
+		}
+		fmt.Printf("Finished. Upgraded %d users and %d projects.\n", usersUpgraded, projectsUpgraded)
+
+		if len(failedUsers) > 0 {
+			fmt.Println("Failed to upgrade some users' projects to paid tier:")
+			for id := range failedUsers {
+				fmt.Println(id.String())
+			}
+		}
+
+		return nil
 	})
 }

@@ -93,8 +93,7 @@ func TestGraphqlMutation(t *testing.T) {
 			pc.CouponValue,
 			pc.CouponDuration.IntPointer(),
 			pc.CouponProjectLimit,
-			pc.MinCoinPayment,
-			pc.PaywallProportion)
+			pc.MinCoinPayment)
 		require.NoError(t, err)
 
 		service, err := console.NewService(
