@@ -88,6 +88,20 @@ func (node *NodeEndpoint) Reputation(ctx context.Context, req *multinodepb.Reput
 	if err != nil {
 		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
+	if rep.JoinedAt.IsZero() {
+		return nil, rpcstatus.Error(rpcstatus.NotFound, "satellite reputation not found")
+	}
+
+	var windows []*multinodepb.AuditWindow
+	if rep.AuditHistory != nil {
+		for _, window := range rep.AuditHistory.Windows {
+			windows = append(windows, &multinodepb.AuditWindow{
+				WindowStart: window.WindowStart,
+				OnlineCount: window.OnlineCount,
+				TotalCount:  window.TotalCount,
+			})
+		}
+	}
 
 	return &multinodepb.ReputationResponse{
 		Online: &multinodepb.ReputationResponse_Online{
@@ -96,7 +110,21 @@ func (node *NodeEndpoint) Reputation(ctx context.Context, req *multinodepb.Reput
 		Audit: &multinodepb.ReputationResponse_Audit{
 			Score:           rep.Audit.Score,
 			SuspensionScore: rep.Audit.UnknownScore,
+			TotalCount:      rep.Audit.TotalCount,
+			SuccessCount:    rep.Audit.SuccessCount,
+			Alpha:           rep.Audit.Alpha,
+			Beta:            rep.Audit.Beta,
+			UnknownAlpha:    rep.Audit.UnknownAlpha,
+			UnknownBeta:     rep.Audit.UnknownBeta,
+			History:         windows,
 		},
+		DisqualifiedAt:       rep.DisqualifiedAt,
+		SuspendedAt:          rep.SuspendedAt,
+		OfflineSuspendedAt:   rep.OfflineSuspendedAt,
+		OfflineUnderReviewAt: rep.OfflineUnderReviewAt,
+		VettedAt:             rep.VettedAt,
+		UpdatedAt:            rep.UpdatedAt,
+		JoinedAt:             rep.JoinedAt,
 	}, nil
 }
 

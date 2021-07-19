@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { APIClient } from '@/api/index';
-import { CreateNodeFields, Node, NodeURL } from '@/nodes';
+import { CreateNodeFields, Node, NodeStatus, NodeURL } from '@/nodes';
 
 /**
  * client for nodes controller of MND api.
@@ -67,6 +67,7 @@ export class NodesClient extends APIClient {
             0,
             0,
             node.totalEarned,
+            NodeStatus[node.status],
         ));
     }
 
@@ -106,6 +107,7 @@ export class NodesClient extends APIClient {
             node.auditScore,
             node.suspensionScore,
             node.totalEarned,
+            NodeStatus[node.status],
         ));
     }
 

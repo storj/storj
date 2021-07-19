@@ -10,36 +10,41 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/cmd/uplinkng/ulext"
 	"storj.io/storj/cmd/uplinkng/ulloc"
 )
 
 type cmdRm struct {
-	projectProvider
+	ex ulext.External
 
+	access    string
 	recursive bool
 	encrypted bool
 
 	location ulloc.Location
 }
 
-func (c *cmdRm) Setup(a clingy.Arguments, f clingy.Flags) {
-	c.projectProvider.Setup(a, f)
+func newCmdRm(ex ulext.External) *cmdRm {
+	return &cmdRm{ex: ex}
+}
 
-	c.recursive = f.New("recursive", "Remove recursively", false,
+func (c *cmdRm) Setup(params clingy.Parameters) {
+	c.access = params.Flag("access", "Which access to use", "").(string)
+	c.recursive = params.Flag("recursive", "Remove recursively", false,
 		clingy.Short('r'),
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
-	c.encrypted = f.New("encrypted", "Interprets keys base64 encoded without decrypting", false,
+	c.encrypted = params.Flag("encrypted", "Interprets keys base64 encoded without decrypting", false,
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
 
-	c.location = a.New("location", "Location to remove (sj://BUCKET[/KEY])",
+	c.location = params.Arg("location", "Location to remove (sj://BUCKET[/KEY])",
 		clingy.Transform(ulloc.Parse),
 	).(ulloc.Location)
 }
 
 func (c *cmdRm) Execute(ctx clingy.Context) error {
-	fs, err := c.OpenFilesystem(ctx, bypassEncryption(c.encrypted))
+	fs, err := c.ex.OpenFilesystem(ctx, c.access, ulext.BypassEncryption(c.encrypted))
 	if err != nil {
 		return err
 	}

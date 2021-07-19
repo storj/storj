@@ -5,79 +5,70 @@
     <div class="register-area__logo-wrapper">
         <LogoIcon class="logo" @click="onLogoClick"/>
     </div>
-    <div class="register-area__content-area">
-        <div
-            class="register-area__content-area__container"
-            :class="{ 'professional-container': isProfessional }"
-            v-if="!isRegistrationSuccessful"
-        >
-            <div class="register-area__content-area__container__title-area">
-                <div class="register-area__content-area__container__title-container">
-                    <h1 class="register-area__content-area__container__title-area__title">Start for Free</h1>
-                    <p class="register-area__content-area__container__title-area__sub-title">What are you using Storj DCS for?</p>
-                </div>
-                <div class="register-area__content-area__expand" @click.stop="toggleDropdown">
-                    <span class="register-area__content-area__expand__value">{{ satelliteName }}</span>
-                    <BottomArrowIcon />
-                    <div class="register-area__content-area__expand__dropdown" v-if="isDropdownShown" v-click-outside="closeDropdown">
-                        <div class="register-area__content-area__expand__dropdown__item" @click.stop="closeDropdown">
-                            <SelectedCheckIcon />
-                            <span class="register-area__content-area__expand__dropdown__item__name">{{ satelliteName }}</span>
+    <div
+        class="register-area__container"
+        :class="{'professional-container': isProfessional}"
+    >
+        <div class="register-area__intro-area">
+            <div class="register-area__intro-area__wrapper">
+                <h1 class="register-area__intro-area__title">Welcome to the decentralized cloud.</h1>
+                <p class="register-area__intro-area__sub-title">Join thousands of developers building on the safer, decentralized cloud, and start uploading data in just a few minutes.</p>
+            </div>
+            <RegisterGlobe
+                class="register-area__intro-area__globe-image"
+                :class="{'professional-globe': isProfessional}"
+            />
+            <RegisterGlobeSmall class="register-area__intro-area__globe-image-sm" />
+        </div>
+        <div class="register-area__input-area">
+            <div
+                class="register-area__input-area__container"
+                :class="{ 'professional-container': isProfessional }"
+                v-if="!isRegistrationSuccessful"
+            >
+                <div class="register-area__input-area__container__title-area">
+                    <div class="register-area__input-area__container__title-container">
+                        <h1 class="register-area__input-area__container__title-area__title">Get 150 GB Free</h1>
+                    </div>
+                    <div class="register-area__input-area__expand" @click.stop="toggleDropdown">
+                        <span class="register-area__input-area__expand__value">{{ satelliteName }}</span>
+                        <BottomArrowIcon />
+                        <div class="register-area__input-area__expand__dropdown" v-if="isDropdownShown" v-click-outside="closeDropdown">
+                            <div class="register-area__input-area__expand__dropdown__item" @click.stop="closeDropdown">
+                                <SelectedCheckIcon />
+                                <span class="register-area__input-area__expand__dropdown__item__name">{{ satelliteName }}</span>
+                            </div>
+                            <a v-for="sat in partneredSatellites" class="register-area__input-area__expand__dropdown__item" :href="sat.address + '/signup'">
+                                {{ sat.name }}
+                            </a>
                         </div>
-                        <a v-for="sat in partneredSatellites" class="register-area__content-area__expand__dropdown__item" :href="sat.address + '/signup'">
-                            {{ sat.name }}
-                        </a>
                     </div>
                 </div>
-            </div>
-            <div class="register-area__content-area__toggle__conatainer">
-                <ul class="register-area__content-area__toggle__wrapper">
-                    <li
-                        class="register-area__content-area__toggle__personal"
-                        :class="{ 'active': !isProfessional }"
-                         @click.prevent="toggleAccountType(false)"
-                    >
-                        Personal
-                    </li>
-                    <li
-                        class="register-area__content-area__toggle__professional"
-                        :class="{ 'active': isProfessional }"
-                         @click.prevent="toggleAccountType(true)"
-                    >
-                        Business
-                    </li>
-                </ul>
-            </div>
-            <div class="register-area__input-wrapper first-input">
-                <HeaderlessInput
-                    class="full-input"
-                    label="Full Name"
-                    placeholder="Enter Full Name"
-                    :error="fullNameError"
-                    @setData="setFullName"
-                    width="calc(100% - 2px)"
-                    height="46px"
-                />
-            </div>
-            <div class="register-area__input-wrapper">
-                <HeaderlessInput
-                    class="full-input"
-                    label="Email Address"
-                    placeholder="example@email.com"
-                    :error="emailError"
-                    @setData="setEmail"
-                    width="calc(100% - 2px)"
-                    height="46px"
-                />
-            </div>
-            <div v-if="isProfessional">
-                <div class="register-area__input-wrapper">
+                <div class="register-area__input-area__toggle__conatainer">
+                    <ul class="register-area__input-area__toggle__wrapper">
+                        <li
+                            class="register-area__input-area__toggle__personal"
+                            :class="{ 'active': !isProfessional }"
+                             @click.prevent="toggleAccountType(false)"
+                        >
+                            Personal
+                        </li>
+                        <li
+                            class="register-area__input-area__toggle__professional"
+                            :class="{ 'active': isProfessional }"
+                             @click.prevent="toggleAccountType(true)"
+                        >
+                            Business
+                        </li>
+                    </ul>
+                </div>
+                <div class="register-area__input-wrapper first-input">
                     <HeaderlessInput
                         class="full-input"
-                        label="Company Name"
-                        placeholder="Acme Corp."
-                        :error="companyNameError"
-                        @setData="setCompanyName"
+                        label="Full Name"
+                        placeholder="Enter Full Name"
+                        :error="fullNameError"
+                        @setData="setFullName"
                         width="calc(100% - 2px)"
                         height="46px"
                     />
@@ -85,92 +76,145 @@
                 <div class="register-area__input-wrapper">
                     <HeaderlessInput
                         class="full-input"
-                        label="Position"
-                        placeholder="Position Title"
-                        :error="positionError"
-                        @setData="setPosition"
+                        label="Email Address"
+                        placeholder="example@email.com"
+                        :error="emailError"
+                        @setData="setEmail"
                         width="calc(100% - 2px)"
                         height="46px"
                     />
                 </div>
-                <div class="register-area__input-wrapper">
-                    <SelectInput
-                        class="full-input"
-                        label="Employees"
-                        @setData="setEmployeeCount"
-                        width="calc(100% - 2px)"
-                        height="46px"
-                        :optionsList="employeeCountOptions"
-                    />
+                <div v-if="isProfessional">
+                    <div class="register-area__input-wrapper">
+                        <HeaderlessInput
+                            class="full-input"
+                            label="Company Name"
+                            placeholder="Acme Corp."
+                            :error="companyNameError"
+                            @setData="setCompanyName"
+                            width="calc(100% - 2px)"
+                            height="46px"
+                        />
+                    </div>
+                    <div class="register-area__input-wrapper">
+                        <HeaderlessInput
+                            class="full-input"
+                            label="Position"
+                            placeholder="Position Title"
+                            :error="positionError"
+                            @setData="setPosition"
+                            width="calc(100% - 2px)"
+                            height="46px"
+                        />
+                    </div>
+                    <div class="register-area__input-wrapper">
+                        <SelectInput
+                            class="full-input"
+                            label="Employees"
+                            @setData="setEmployeeCount"
+                            width="calc(100% - 2px)"
+                            height="46px"
+                            :optionsList="employeeCountOptions"
+                        />
+                    </div>
                 </div>
-            </div>
-            <div class="register-input">
+                <div class="register-input">
+                    <div class="register-area__input-wrapper">
+                        <HeaderlessInput
+                            class="full-input"
+                            label="Password"
+                            placeholder="Enter Password"
+                            :error="passwordError"
+                            @setData="setPassword"
+                            width="calc(100% - 2px)"
+                            height="46px"
+                            is-password="true"
+                            @showPasswordStrength="showPasswordStrength"
+                            @hidePasswordStrength="hidePasswordStrength"
+                        />
+                        <PasswordStrength
+                            :password-string="password"
+                            :is-shown="isPasswordStrengthShown"
+                        />
+                    </div>
+                </div>
                 <div class="register-area__input-wrapper">
                     <HeaderlessInput
                         class="full-input"
-                        label="Password"
-                        placeholder="Enter Password"
-                        :error="passwordError"
-                        @setData="setPassword"
+                        label="Retype Password"
+                        placeholder="Retype Password"
+                        :error="repeatedPasswordError"
+                        @setData="setRepeatedPassword"
                         width="calc(100% - 2px)"
                         height="46px"
                         is-password="true"
-                        @showPasswordStrength="showPasswordStrength"
-                        @hidePasswordStrength="hidePasswordStrength"
-                    />
-                    <PasswordStrength
-                        :password-string="password"
-                        :is-shown="isPasswordStrengthShown"
                     />
                 </div>
-            </div>
-            <div class="register-area__input-wrapper">
-                <HeaderlessInput
-                    class="full-input"
-                    label="Retype Password"
-                    placeholder="Retype Password"
-                    :error="repeatedPasswordError"
-                    @setData="setRepeatedPassword"
-                    width="calc(100% - 2px)"
-                    height="46px"
-                    is-password="true"
-                />
-            </div>
-            <AddCouponCodeInput v-if="couponCodeUIEnabled" />
-            <div v-if="isProfessional" class="register-area__content-area__container__checkbox-area">
-                <label class="container">
-                    <input type="checkbox" v-model="haveSalesContact">
-                    <span class="checkmark"></span>
-                </label>
-                <label class="register-area__content-area__container__checkbox-area__msg-box" for="terms">
-                    <p class="register-area__content-area__container__checkbox-area__msg-box__msg">
-                        Please have the Sales Team contact me
+                <AddCouponCodeInput v-if="couponCodeUIEnabled" />
+                <div v-if="isBetaSatellite" class="register-area__input-area__container__warning">
+                    <div class="register-area__input-area__container__warning__header">
+                        <label class="container">
+                            <input type="checkbox" v-model="areBetaTermsAccepted">
+                            <span class="checkmark" :class="{'error': areBetaTermsAcceptedError}"></span>
+                        </label>
+                        <h2 class="register-area__input-area__container__warning__header__label">
+                            This is a BETA satellite
+                        </h2>
+                    </div>
+                    <p class="register-area__input-area__container__warning__message">
+                        This means any data you upload to this satellite can be
+                        deleted at any time and your storage/bandwidth limits
+                        can fluctuate. To use our production service please
+                        create an account on one of our production Satellites.
+                         <a href="https://storj.io/signup/" target="_blank" rel="noopener noreferrer">https://storj.io/signup/</a>
                     </p>
-                </label>
+                </div>
+                <div v-if="isProfessional" class="register-area__input-area__container__checkbox-area">
+                    <label class="container">
+                        <input id="sales" type="checkbox" v-model="haveSalesContact">
+                        <span class="checkmark"></span>
+                    </label>
+                    <label class="register-area__input-area__container__checkbox-area__msg-box" for="sales">
+                        <p class="register-area__input-area__container__checkbox-area__msg-box__msg">
+                            Please have the Sales Team contact me
+                        </p>
+                    </label>
+                </div>
+                <div class="register-area__input-area__container__checkbox-area">
+                    <label class="container">
+                        <input id="terms" type="checkbox" v-model="isTermsAccepted">
+                        <span class="checkmark" :class="{'error': isTermsAcceptedError}"></span>
+                    </label>
+                    <label class="register-area__input-area__container__checkbox-area__msg-box" for="terms">
+                        <p class="register-area__input-area__container__checkbox-area__msg-box__msg">
+                            I agree to the
+                            <a class="register-area__input-area__container__checkbox-area__msg-box__msg__link" href="https://storj.io/terms-of-service/" target="_blank" rel="noopener">Terms of Service</a>
+                            and
+                            <a class="register-area__input-area__container__checkbox-area__msg-box__msg__link" href="https://storj.io/privacy-policy/" target="_blank" rel="noopener">Privacy Policy</a>
+                        </p>
+                    </label>
+                </div>
+                <div class="register-area__input-area__container__recaptcha-wrapper" v-if="recaptchaEnabled">
+                    <div class="register-area__input-area__container__recaptcha-wrapper__label-container" v-if="recaptchaError">
+                        <ErrorIcon/>
+                        <p class="register-area__input-area__container__recaptcha-wrapper__label-container__error">reCAPTCHA is required</p>
+                    </div>
+                    <vue-recaptcha
+                        :sitekey="recaptchaSiteKey"
+                        loadRecaptchaScript="true"
+                        @verify="onRecaptchaVerified"
+                        @expired="onRecaptchaError"
+                        @error="onRecaptchaError"
+                        ref="recaptcha">
+                    </vue-recaptcha>
+                </div>
+                <p class="register-area__input-area__container__button" @click.prevent="onCreateClick">Sign Up</p>
             </div>
-            <div class="register-area__content-area__container__checkbox-area">
-                <label class="container">
-                    <input id="terms" type="checkbox" v-model="isTermsAccepted">
-                    <span class="checkmark" :class="{'error': isTermsAcceptedError}"></span>
-                </label>
-                <label class="register-area__content-area__container__checkbox-area__msg-box" for="terms">
-                    <p class="register-area__content-area__container__checkbox-area__msg-box__msg">
-                        I agree to the
-                        <a class="register-area__content-area__container__checkbox-area__msg-box__msg__link" href="https://storj.io/terms-of-service/" target="_blank" rel="noopener">Terms of Service</a>
-                        and
-                        <a class="register-area__content-area__container__checkbox-area__msg-box__msg__link" href="https://storj.io/privacy-policy/" target="_blank" rel="noopener">Privacy Policy</a>
-                    </p>
-                </label>
-            </div>
-            <p class="register-area__content-area__container__button" @click.prevent="onCreateClick">Sign Up</p>
-        </div>
 
-        <RegistrationSuccess v-if="isRegistrationSuccessful"/>
-
-        <div class="register-area__content-area__login-container">
-            <router-link :to="loginPath" class="register-area__content-area__login-container__link">
-                Already have an account? Login.
-            </router-link>
+            <RegistrationSuccess v-if="isRegistrationSuccessful"/>
         </div>
+    </div>
+    <div class="register-area__input-area__login-container">
+        Already have an account? <router-link :to="loginPath" class="register-area__input-area__login-container__link">Login.</router-link>
     </div>
 </div>

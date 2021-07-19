@@ -393,6 +393,12 @@ func (loop *Service) verifyCount(before, after, processed int64) error {
 	mon.IntVal("segmentloop_verify_outside").Observe(deltaFromBounds)
 	mon.FloatVal("segmentloop_verify_outside_ratio").Observe(ratio)
 
+	// If we have very few items from the bounds, then it's expected and the ratio does not capture it well.
+	const minimumDeltaThreshold = 100
+	if deltaFromBounds < minimumDeltaThreshold {
+		return nil
+	}
+
 	if ratio > loop.config.SuspiciousProcessedRatio {
 		return Error.New("processed count looks suspicious: before:%v after:%v processed:%v ratio:%v threshold:%v", before, after, processed, ratio, loop.config.SuspiciousProcessedRatio)
 	}

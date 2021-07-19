@@ -33,7 +33,7 @@ func TestBusinessUserCanSignUp(t *testing.T) {
 		page.MustElement("[placeholder=\"Position Title\"]").MustInput(positionTitle)
 		page.MustElement("[placeholder=\"Enter Password\"]").MustInput(password)
 		page.MustElement("[placeholder=\"Retype Password\"]").MustInput(password)
-		page.MustElement(".checkmark").MustClick()
+		page.MustElementX("(//*[@class=\"checkmark\"])[2]").MustClick()
 		page.Keyboard.MustPress(input.Enter)
 		confirmAccountEmailMessage := page.MustElement(".register-success-area__form-container__title").MustText()
 		require.Contains(t, confirmAccountEmailMessage, "You're almost there!")

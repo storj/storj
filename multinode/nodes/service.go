@@ -6,12 +6,14 @@ package nodes
 import (
 	"bytes"
 	"context"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/storj/private/multinodepb"
 )
@@ -21,6 +23,10 @@ var (
 
 	// Error is an error class for nodes service error.
 	Error = errs.Class("nodes")
+	// ErrNodeNotReachable is an error class that indicates that we are not able to establish drpc connection with node.
+	ErrNodeNotReachable = errs.Class("node is not reachable")
+	// ErrNodeAPIKeyInvalid is an error class that indicates that we uses wrong api key.
+	ErrNodeAPIKeyInvalid = errs.Class("node api key is invalid")
 )
 
 // Service exposes all nodes related logic.
@@ -44,6 +50,33 @@ func NewService(log *zap.Logger, dialer rpc.Dialer, nodes DB) *Service {
 // Add adds new node to the system.
 func (service *Service) Add(ctx context.Context, id storj.NodeID, apiSecret []byte, publicAddress string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	// trying to connect to node to check its availability.
+	conn, err := service.dialer.DialNodeURL(ctx, storj.NodeURL{
+		ID:      id,
+		Address: publicAddress,
+	})
+	if err != nil {
+		return ErrNodeNotReachable.Wrap(err)
+	}
+	defer func() {
+		err = errs.Combine(err, conn.Close())
+	}()
+
+	nodeClient := multinodepb.NewDRPCNodeClient(conn)
+	header := &multinodepb.RequestHeader{
+		ApiKey: apiSecret,
+	}
+
+	// making test request to check node api key.
+	_, err = nodeClient.Version(ctx, &multinodepb.VersionRequest{Header: header})
+	if err != nil {
+		if rpcstatus.Code(err) == rpcstatus.Unauthenticated {
+			return ErrNodeAPIKeyInvalid.Wrap(err)
+		}
+		return Error.Wrap(err)
+	}
+
 	return Error.Wrap(service.nodes.Add(ctx, id, apiSecret, publicAddress))
 }
 
@@ -75,7 +108,6 @@ func (service *Service) Get(ctx context.Context, id storj.NodeID) (_ Node, err e
 	}
 
 	return node, nil
-
 }
 
 // Remove removes node from the system.
@@ -104,7 +136,11 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 				Address: node.PublicAddress,
 			})
 			if err != nil {
-				return NodeInfo{}, Error.Wrap(err)
+				return NodeInfo{
+					ID:     node.ID,
+					Name:   node.Name,
+					Status: StatusNotReachable,
+				}, nil
 			}
 
 			defer func() {
@@ -157,6 +193,7 @@ func (service *Service) ListInfos(ctx context.Context) (_ []NodeInfo, err error)
 				DiskSpaceLeft: diskSpace.GetAvailable(),
 				BandwidthUsed: bandwidthSummary.GetUsed(),
 				TotalEarned:   earned.Total,
+				Status:        nodeStatus(lastContact.LastContact),
 			}, nil
 		}()
 		if err != nil {
@@ -189,7 +226,11 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 				Address: node.PublicAddress,
 			})
 			if err != nil {
-				return NodeInfoSatellite{}, Error.Wrap(err)
+				return NodeInfoSatellite{
+					ID:     node.ID,
+					Name:   node.Name,
+					Status: StatusNotReachable,
+				}, nil
 			}
 
 			defer func() {
@@ -235,6 +276,7 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 				AuditScore:      rep.Audit.Score,
 				SuspensionScore: rep.Audit.SuspensionScore,
 				TotalEarned:     earned.Total,
+				Status:          nodeStatus(lastContact.LastContact),
 			}, nil
 		}()
 		if err != nil {
@@ -251,15 +293,19 @@ func (service *Service) ListInfosSatellite(ctx context.Context, satelliteID stor
 func (service *Service) TrustedSatellites(ctx context.Context) (_ storj.NodeURLs, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	nodes, err := service.nodes.List(ctx)
+	listNodes, err := service.nodes.List(ctx)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
 
 	var trustedSatellites storj.NodeURLs
-	for _, node := range nodes {
+	for _, node := range listNodes {
 		nodeURLs, err := service.trustedSatellites(ctx, node)
 		if err != nil {
+			if ErrNodeNotReachable.Has(err) {
+				continue
+			}
+
 			return nil, Error.Wrap(err)
 		}
 
@@ -278,7 +324,7 @@ func (service *Service) trustedSatellites(ctx context.Context, node Node) (_ sto
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return storj.NodeURLs{}, ErrNodeNotReachable.Wrap(err)
 	}
 
 	defer func() {
@@ -305,6 +351,17 @@ func (service *Service) trustedSatellites(ctx context.Context, node Node) (_ sto
 	}
 
 	return nodeURLs, nil
+}
+
+// nodeStatus chooses node status offline or online depends on LastContact.
+func nodeStatus(lastContact time.Time) Status {
+	now := time.Now().UTC()
+
+	if now.Sub(lastContact) < time.Hour*3 {
+		return StatusOnline
+	}
+
+	return StatusOffline
 }
 
 // appendUniqueNodeURLs appends unique node urls from incoming slice.

@@ -24,7 +24,7 @@ import (
 
 func TestPoolRequiresCachePath(t *testing.T) {
 	log := zaptest.NewLogger(t)
-	_, err := trust.NewPool(log, newFakeIdentityResolver(), trust.Config{})
+	_, err := trust.NewPool(log, newFakeIdentityResolver(), trust.Config{}, nil)
 	require.EqualError(t, err, "trust: cache path cannot be empty")
 }
 
@@ -203,7 +203,7 @@ func newPoolTest(t *testing.T) (*testcontext.Context, *trust.Pool, *fakeSource, 
 	pool, err := trust.NewPool(log, resolver, trust.Config{
 		Sources:   []trust.Source{source},
 		CachePath: ctx.File("trust-cache.json"),
-	})
+	}, nil)
 	if err != nil {
 		ctx.Cleanup()
 		require.NoError(t, err)

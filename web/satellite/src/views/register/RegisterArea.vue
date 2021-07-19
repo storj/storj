@@ -5,6 +5,7 @@
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
+import VueRecaptcha from 'vue-recaptcha';
 
 import AddCouponCodeInput from '@/components/common/AddCouponCodeInput.vue';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
@@ -17,13 +18,18 @@ import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
 import LogoIcon from '@/../static/images/dcs-logo.svg';
 import InfoIcon from '@/../static/images/info.svg';
+import ErrorIcon from '@/../static/images/register/ErrorInfo.svg';
+import RegisterGlobe from '@/../static/images/register/RegisterGlobe.svg';
+import RegisterGlobeSmall from '@/../static/images/register/RegisterGlobeSmall.svg';
 
 import { AuthHttpApi } from '@/api/auth';
+import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { RouteConfig } from '@/router';
 import { PartneredSatellite } from '@/types/common';
 import { User } from '@/types/users';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { LocalData } from '@/utils/localData';
+import { MetaUtils } from '@/utils/meta';
 import { Validator } from '@/utils/validation';
 
 @Component({
@@ -32,12 +38,16 @@ import { Validator } from '@/utils/validation';
         RegistrationSuccess,
         AuthIcon,
         BottomArrowIcon,
+        ErrorIcon,
         SelectedCheckIcon,
         LogoIcon,
         InfoIcon,
         PasswordStrength,
         AddCouponCodeInput,
         SelectInput,
+        RegisterGlobe,
+        RegisterGlobeSmall,
+        VueRecaptcha,
     },
 })
 export default class RegisterArea extends Vue {
@@ -67,7 +77,13 @@ export default class RegisterArea extends Vue {
     private isProfessional: boolean = false;
     private haveSalesContact: boolean = false;
 
+    private recaptchaError: boolean = false;
+    private recaptchaResponseToken: string = '';
+
     private readonly auth: AuthHttpApi = new AuthHttpApi();
+
+    private readonly recaptchaEnabled: boolean = MetaUtils.getMetaContent('recaptcha-enabled') === 'true';
+    private readonly recaptchaSiteKey: string = MetaUtils.getMetaContent('recaptcha-site-key');
 
     public isPasswordStrengthShown: boolean = false;
 
@@ -266,6 +282,21 @@ export default class RegisterArea extends Vue {
     }
 
     /**
+     * Handles reCAPTCHA verification response.
+     */
+    public onRecaptchaVerified(response: string): void {
+        this.recaptchaResponseToken = response;
+        this.recaptchaError = false;
+    }
+
+    /**
+     * Handles reCAPTCHA error and expiry.
+     */
+    public onRecaptchaError(): void {
+        this.recaptchaResponseToken = '';
+    }
+
+    /**
      * Validates input values to satisfy expected rules.
      */
     private validateFields(): boolean {
@@ -321,6 +352,11 @@ export default class RegisterArea extends Vue {
             isNoErrors = false;
         }
 
+        if (this.recaptchaEnabled && !this.recaptchaResponseToken) {
+            this.recaptchaError = true;
+            isNoErrors = false;
+        }
+
         return isNoErrors;
     }
 
@@ -332,11 +368,14 @@ export default class RegisterArea extends Vue {
         this.user.haveSalesContact = this.haveSalesContact;
 
         try {
-            this.userId = await this.auth.register(this.user, this.secret);
+            this.userId = await this.auth.register(this.user, this.secret, this.recaptchaResponseToken);
             LocalData.setUserId(this.userId);
 
             await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
         } catch (error) {
+            if (this.$refs.recaptcha) {
+                (this.$refs.recaptcha as VueRecaptcha).reset();
+            }
             await this.$notify.error(error.message);
             this.isLoading = false;
         }

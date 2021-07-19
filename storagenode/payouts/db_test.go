@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -211,7 +212,8 @@ func TestSatellitePayStubPeriodCached(t *testing.T) {
 		heldAmountDB := db.Payout()
 		reputationDB := db.Reputation()
 		satellitesDB := db.Satellites()
-		service, err := payouts.NewService(nil, heldAmountDB, reputationDB, satellitesDB, nil)
+		log := zaptest.NewLogger(t)
+		service, err := payouts.NewService(log, heldAmountDB, reputationDB, satellitesDB)
 		require.NoError(t, err)
 
 		payStub := payouts.PayStub{
@@ -262,7 +264,8 @@ func TestAllPayStubPeriodCached(t *testing.T) {
 		heldAmountDB := db.Payout()
 		reputationDB := db.Reputation()
 		satellitesDB := db.Satellites()
-		service, err := payouts.NewService(nil, heldAmountDB, reputationDB, satellitesDB, nil)
+		log := zaptest.NewLogger(t)
+		service, err := payouts.NewService(log, heldAmountDB, reputationDB, satellitesDB)
 		require.NoError(t, err)
 
 		payStub := payouts.PayStub{

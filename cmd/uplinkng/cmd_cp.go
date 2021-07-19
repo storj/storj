@@ -12,13 +12,15 @@ import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
 
+	"storj.io/storj/cmd/uplinkng/ulext"
 	"storj.io/storj/cmd/uplinkng/ulfs"
 	"storj.io/storj/cmd/uplinkng/ulloc"
 )
 
 type cmdCp struct {
-	projectProvider
+	ex ulext.External
 
+	access    string
 	recursive bool
 	dryrun    bool
 	progress  bool
@@ -27,26 +29,29 @@ type cmdCp struct {
 	dest   ulloc.Location
 }
 
-func (c *cmdCp) Setup(a clingy.Arguments, f clingy.Flags) {
-	c.projectProvider.Setup(a, f)
+func newCmdCp(ex ulext.External) *cmdCp {
+	return &cmdCp{ex: ex}
+}
 
-	c.recursive = f.New("recursive", "Peform a recursive copy", false,
+func (c *cmdCp) Setup(params clingy.Parameters) {
+	c.access = params.Flag("access", "Which access to use", "").(string)
+	c.recursive = params.Flag("recursive", "Peform a recursive copy", false,
 		clingy.Short('r'),
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
-	c.dryrun = f.New("dryrun", "Print what operations would happen but don't execute them", false,
+	c.dryrun = params.Flag("dryrun", "Print what operations would happen but don't execute them", false,
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
-	c.progress = f.New("progress", "Show a progress bar when possible", true,
+	c.progress = params.Flag("progress", "Show a progress bar when possible", true,
 		clingy.Transform(strconv.ParseBool),
 	).(bool)
 
-	c.source = a.New("source", "Source to copy", clingy.Transform(ulloc.Parse)).(ulloc.Location)
-	c.dest = a.New("dest", "Desination to copy", clingy.Transform(ulloc.Parse)).(ulloc.Location)
+	c.source = params.Arg("source", "Source to copy", clingy.Transform(ulloc.Parse)).(ulloc.Location)
+	c.dest = params.Arg("dest", "Desination to copy", clingy.Transform(ulloc.Parse)).(ulloc.Location)
 }
 
 func (c *cmdCp) Execute(ctx clingy.Context) error {
-	fs, err := c.OpenFilesystem(ctx)
+	fs, err := c.ex.OpenFilesystem(ctx, c.access)
 	if err != nil {
 		return err
 	}

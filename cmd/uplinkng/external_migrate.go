@@ -16,44 +16,47 @@ import (
 // migrate attempts to create the config file from the old config file if the
 // config file does not exist. It will only attempt to do so at most once
 // and so calls to migrate are idempotent.
-func (g *globalFlags) migrate() (err error) {
-	if g.migrated {
-		return nil
+func (ex *external) migrate() (err error) {
+	if ex.migration.migrated {
+		return ex.migration.err
 	}
-	g.migrated = true
+	ex.migration.migrated = true
+
+	// save any migration error that may have happened
+	defer func() { ex.migration.err = err }()
 
 	// if the config file exists, there is no need to migrate
-	if _, err := os.Stat(g.configFile()); err == nil {
+	if _, err := os.Stat(ex.configFile()); err == nil {
 		return nil
 	}
 
 	// if the old config file does not exist, we cannot migrate
-	oldFh, err := os.Open(g.oldConfigFile())
+	legacyFh, err := os.Open(ex.legacyConfigFile())
 	if err != nil {
 		return nil
 	}
-	defer func() { _ = oldFh.Close() }()
+	defer func() { _ = legacyFh.Close() }()
 
 	// load the information necessary to write the new config from
 	// the old file.
-	access, accesses, entries, err := g.loadOldConfig(oldFh)
+	access, accesses, entries, err := ex.parseLegacyConfig(legacyFh)
 	if err != nil {
 		return errs.Wrap(err)
 	}
 
 	// ensure the directory that will hold the config files exists.
-	if err := os.MkdirAll(g.configDir, 0755); err != nil {
+	if err := os.MkdirAll(ex.dirs.current, 0755); err != nil {
 		return errs.Wrap(err)
 	}
 
 	// first, create and write the access file. that way, if there's an error
 	// creating the config file, we will recreate this file.
-	if err := g.SaveAccessInfo(access, accesses); err != nil {
+	if err := ex.SaveAccessInfo(access, accesses); err != nil {
 		return errs.Wrap(err)
 	}
 
 	// now, write out the config file from the stored entries.
-	if err := g.saveConfig(entries); err != nil {
+	if err := ex.saveConfig(entries); err != nil {
 		return errs.Wrap(err)
 	}
 
@@ -61,9 +64,9 @@ func (g *globalFlags) migrate() (err error) {
 	return nil
 }
 
-// loadOldConfig loads the default access name, the map of available accesses, and
+// parseLegacyConfig loads the default access name, the map of available accesses, and
 // a list of config entries from the yaml file in the reader.
-func (g *globalFlags) loadOldConfig(r io.Reader) (string, map[string]string, []ini.Entry, error) {
+func (ex *external) parseLegacyConfig(r io.Reader) (string, map[string]string, []ini.Entry, error) {
 	access := ""
 	accesses := make(map[string]string)
 	entries := make([]ini.Entry, 0)
@@ -140,31 +143,4 @@ func (g *globalFlags) loadOldConfig(r io.Reader) (string, map[string]string, []i
 	}
 
 	return access, accesses, entries, nil
-}
-
-// saveConfig writes out the config file using the provided values.
-// It is only intended to be used during initial migration and setup.
-func (g *globalFlags) saveConfig(entries []ini.Entry) error {
-	// TODO(jeff): write it atomically
-
-	newFh, err := os.Create(g.configFile())
-	if err != nil {
-		return errs.Wrap(err)
-	}
-	defer func() { _ = newFh.Close() }()
-
-	err = ini.Write(newFh, func(emit func(ini.Entry)) {
-		for _, ent := range entries {
-			emit(ent)
-		}
-	})
-	if err != nil {
-		return errs.Wrap(err)
-	}
-
-	if err := newFh.Close(); err != nil {
-		return errs.Wrap(err)
-	}
-
-	return nil
 }

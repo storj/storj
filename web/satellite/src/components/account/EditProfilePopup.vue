@@ -21,15 +21,6 @@
                     :init-value="userInfo.fullName"
                     @setData="setFullName"
                 />
-                <HeaderedInput
-                    class="full-input"
-                    label="Nickname"
-                    placeholder="Enter Nickname"
-                    width="100%"
-                    ref="shortNameInput"
-                    :init-value="userInfo.shortName"
-                    @setData="setShortName"
-                />
                 <div class="edit-profile-popup__form-container__button-container">
                     <VButton
                         label="Cancel"
@@ -83,10 +74,6 @@ export default class EditProfilePopup extends Vue {
         this.fullNameError = '';
     }
 
-    public setShortName(value: string): void {
-        this.userInfo.setShortName(value);
-    }
-
     /**
      * Validates name and tries to update user info and close popup.
      */
@@ -107,7 +94,7 @@ export default class EditProfilePopup extends Vue {
 
         await this.$notify.success('Account info successfully updated!');
 
-        this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
+        await this.$store.dispatch(APP_STATE_ACTIONS.TOGGLE_EDIT_PROFILE_POPUP);
     }
 
     /**

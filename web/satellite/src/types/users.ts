@@ -19,6 +19,30 @@ export interface UsersApi {
      * @throws Error
      */
     get(): Promise<User>;
+    /**
+     * Enable user's MFA.
+     *
+     * @throws Error
+     */
+    enableUserMFA(request: EnableUserMFARequest): Promise<void>;
+    /**
+     * Disable user's MFA.
+     *
+     * @throws Error
+     */
+    disableUserMFA(code: string): Promise<void>;
+    /**
+     * Generate user's MFA secret.
+     *
+     * @throws Error
+     */
+    generateUserMFASecret(): Promise<string>;
+    /**
+     * Generate user's MFA recovery codes.
+     *
+     * @throws Error
+     */
+    generateUserMFARecoveryCodes(): Promise<string[]>;
 }
 
 /**
@@ -34,6 +58,7 @@ export class User {
         public partnerId: string = '',
         public password: string = '',
         public projectLimit: number = 0,
+        public paidTier: boolean = false,
         public isProfessional: boolean = false,
         public position: string = '',
         public companyName: string = '',
@@ -66,4 +91,12 @@ export class UpdatedUser {
     public isValid(): boolean {
         return !!this.fullName;
     }
+}
+
+/**
+ * Represents request to enable user's MFA.
+ */
+export interface EnableUserMFARequest {
+    secret: string;
+    passcode: string;
 }

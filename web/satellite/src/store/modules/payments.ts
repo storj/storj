@@ -27,6 +27,7 @@ export const PAYMENTS_MUTATIONS = {
     SET_PREVIOUS_ROLLUP_PRICE: 'SET_PREVIOUS_ROLLUP_PRICE',
     SET_PRICE_SUMMARY: 'SET_PRICE_SUMMARY',
     SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT: 'SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT',
+    TOGGLE_IS_ADD_PM_MODAL_SHOWN: 'TOGGLE_IS_ADD_PM_MODAL_SHOWN',
 };
 
 export const PAYMENTS_ACTIONS = {
@@ -57,6 +58,7 @@ const {
     SET_PROJECT_USAGE_AND_CHARGES,
     SET_PRICE_SUMMARY,
     SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT,
+    TOGGLE_IS_ADD_PM_MODAL_SHOWN,
 } = PAYMENTS_MUTATIONS;
 
 const {
@@ -87,6 +89,7 @@ export class PaymentsState {
     public priceSummaryForSelectedProject: number = 0;
     public startDate: Date = new Date();
     public endDate: Date = new Date();
+    public isAddPMModalShown: boolean = false;
 }
 
 /**
@@ -164,6 +167,9 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 }
 
                 state.priceSummaryForSelectedProject = usageAndChargesForSelectedProject.summary();
+            },
+            [TOGGLE_IS_ADD_PM_MODAL_SHOWN](state: PaymentsState): void {
+                state.isAddPMModalShown = !state.isAddPMModalShown;
             },
             [CLEAR](state: PaymentsState) {
                 state.balance = new AccountBalance();

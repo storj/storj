@@ -38,9 +38,7 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 		return ListSegmentsResult{}, ErrInvalidRequest.New("Invalid limit: %d", opts.Limit)
 	}
 
-	if opts.Limit == 0 || opts.Limit > MaxListLimit {
-		opts.Limit = MaxListLimit
-	}
+	ListLimit.Ensure(&opts.Limit)
 
 	err = withRows(db.db.Query(ctx, `
 		SELECT
@@ -144,9 +142,8 @@ func (db *DB) ListStreamPositions(ctx context.Context, opts ListStreamPositions)
 	if opts.Limit < 0 {
 		return ListStreamPositionsResult{}, ErrInvalidRequest.New("Invalid limit: %d", opts.Limit)
 	}
-	if opts.Limit == 0 || opts.Limit > MaxListLimit {
-		opts.Limit = MaxListLimit
-	}
+
+	ListLimit.Ensure(&opts.Limit)
 
 	if opts.Range != nil {
 		if opts.Range.PlainStart > opts.Range.PlainLimit {

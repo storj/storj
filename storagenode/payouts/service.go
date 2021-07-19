@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/private/date"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/satellites"
-	"storj.io/storj/storagenode/trust"
 )
 
 var (
@@ -39,28 +38,18 @@ var (
 type Service struct {
 	log *zap.Logger
 
-	stefanSatellite storj.NodeID
-
 	db           DB
 	reputationDB reputation.DB
 	satellitesDB satellites.DB
-	trust        *trust.Pool
 }
 
 // NewService creates new instance of service.
-func NewService(log *zap.Logger, db DB, reputationDB reputation.DB, satelliteDB satellites.DB, trust *trust.Pool) (_ *Service, err error) {
-	id, err := storj.NodeIDFromString("118UWpMCHzs6CvSgWd9BfFVjw5K9pZbJjkfZJexMtSkmKxvvAW")
-	if err != nil {
-		return &Service{}, err
-	}
-
+func NewService(log *zap.Logger, db DB, reputationDB reputation.DB, satelliteDB satellites.DB) (_ *Service, err error) {
 	return &Service{
-		log:             log,
-		stefanSatellite: id,
-		db:              db,
-		reputationDB:    reputationDB,
-		satellitesDB:    satelliteDB,
-		trust:           trust,
+		log:          log,
+		db:           db,
+		reputationDB: reputationDB,
+		satellitesDB: satelliteDB,
 	}, nil
 }
 
@@ -173,13 +162,14 @@ func (service *Service) AllPeriods(ctx context.Context) (_ []string, err error) 
 // AllHeldbackHistory retrieves heldback history for all satellites from storagenode database.
 func (service *Service) AllHeldbackHistory(ctx context.Context) (result []SatelliteHeldHistory, err error) {
 	defer mon.Task()(&ctx)(&err)
-	satellitesIDs := service.trust.GetSatellites(ctx)
-
-	satellitesIDs = append(satellitesIDs, service.stefanSatellite)
-	for i := 0; i < len(satellitesIDs); i++ {
+	satellitesURLs, err := service.satellitesDB.GetSatellitesURLs(ctx)
+	if err != nil {
+		return nil, ErrPayoutService.Wrap(err)
+	}
+	for _, satelliteURL := range satellitesURLs {
 		var history SatelliteHeldHistory
 
-		helds, err := service.db.SatellitesHeldbackHistory(ctx, satellitesIDs[i])
+		helds, err := service.db.SatellitesHeldbackHistory(ctx, satelliteURL.ID)
 		if err != nil {
 			return nil, ErrPayoutService.Wrap(err)
 		}
@@ -188,7 +178,7 @@ func (service *Service) AllHeldbackHistory(ctx context.Context) (result []Satell
 			continue
 		}
 
-		disposed, err := service.db.SatellitesDisposedHistory(ctx, satellitesIDs[i])
+		disposed, err := service.db.SatellitesDisposedHistory(ctx, satelliteURL.ID)
 		if err != nil {
 			return nil, ErrPayoutService.Wrap(err)
 		}
@@ -209,18 +199,14 @@ func (service *Service) AllHeldbackHistory(ctx context.Context) (result []Satell
 		}
 
 		history.TotalDisposed = disposed
-		history.SatelliteID = satellitesIDs[i]
-		history.SatelliteName = "stefan-benten"
+		history.SatelliteID = satelliteURL.ID
+		history.SatelliteName = satelliteURL.Address
 
-		if satellitesIDs[i] != service.stefanSatellite {
-			url, err := service.trust.GetNodeURL(ctx, satellitesIDs[i])
-			if err != nil {
-				return nil, ErrPayoutService.Wrap(err)
-			}
-			history.SatelliteName = url.Address
+		if satelliteURL.Address == "" {
+			history.SatelliteName = satelliteURL.ID.String()
 		}
 
-		stats, err := service.reputationDB.Get(ctx, satellitesIDs[i])
+		stats, err := service.reputationDB.Get(ctx, satelliteURL.ID)
 		if err != nil {
 			return nil, ErrPayoutService.Wrap(err)
 		}
@@ -236,12 +222,14 @@ func (service *Service) AllHeldbackHistory(ctx context.Context) (result []Satell
 func (service *Service) AllSatellitesPayoutPeriod(ctx context.Context, period string) (result []SatellitePayoutForPeriod, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	satelliteIDs := service.trust.GetSatellites(ctx)
-
-	satelliteIDs = append(satelliteIDs, service.stefanSatellite)
-	for i := 0; i < len(satelliteIDs); i++ {
+	satelliteURLs, err := service.satellitesDB.GetSatellitesURLs(ctx)
+	if err != nil {
+		return nil, ErrPayoutService.Wrap(err)
+	}
+	for _, satelliteURL := range satelliteURLs {
 		var payoutForPeriod SatellitePayoutForPeriod
-		paystub, err := service.db.GetPayStub(ctx, satelliteIDs[i], period)
+		paystub, err := service.db.GetPayStub(ctx, satelliteURL.ID, period)
+
 		if err != nil {
 			if ErrNoPayStubForPeriod.Has(err) {
 				continue
@@ -249,34 +237,25 @@ func (service *Service) AllSatellitesPayoutPeriod(ctx context.Context, period st
 			return nil, ErrPayoutService.Wrap(err)
 		}
 
-		receipt, err := service.db.GetReceipt(ctx, satelliteIDs[i], period)
+		receipt, err := service.db.GetReceipt(ctx, satelliteURL.ID, period)
 		if err != nil {
 			if !ErrNoPayStubForPeriod.Has(err) {
 				return nil, ErrPayoutService.Wrap(err)
 			}
 		}
 
-		stats, err := service.reputationDB.Get(ctx, satelliteIDs[i])
+		stats, err := service.reputationDB.Get(ctx, satelliteURL.ID)
 		if err != nil {
 			return nil, ErrPayoutService.Wrap(err)
 		}
 
-		satellite, err := service.satellitesDB.GetSatellite(ctx, satelliteIDs[i])
+		satellite, err := service.satellitesDB.GetSatellite(ctx, satelliteURL.ID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				payoutForPeriod.IsExitComplete = false
 			}
 
 			return nil, ErrPayoutService.Wrap(err)
-		}
-
-		if satelliteIDs[i] != service.stefanSatellite {
-			url, err := service.trust.GetNodeURL(ctx, satelliteIDs[i])
-			if err != nil {
-				return nil, ErrPayoutService.Wrap(err)
-			}
-
-			payoutForPeriod.SatelliteURL = url.Address
 		}
 
 		if satellite.Status == satellites.ExitSucceeded {
@@ -304,11 +283,16 @@ func (service *Service) AllSatellitesPayoutPeriod(ctx context.Context, period st
 		payoutForPeriod.Age = int64(date.MonthsCountSince(stats.JoinedAt))
 		payoutForPeriod.Disposed = paystub.Disposed
 		payoutForPeriod.Earned = earned
-		payoutForPeriod.SatelliteID = satelliteIDs[i].String()
+		payoutForPeriod.SatelliteID = satelliteURL.ID.String()
+		payoutForPeriod.SatelliteURL = satelliteURL.Address
 		payoutForPeriod.SurgePercent = paystub.SurgePercent
 		payoutForPeriod.Paid = paystub.Paid
 		payoutForPeriod.HeldPercent = heldPercent
 		payoutForPeriod.Distributed = paystub.Distributed
+
+		if satelliteURL.Address == "" {
+			payoutForPeriod.SatelliteURL = satelliteURL.ID.String()
+		}
 
 		result = append(result, payoutForPeriod)
 	}
@@ -325,20 +309,22 @@ func (service *Service) HeldAmountHistory(ctx context.Context) (_ []HeldAmountHi
 		return nil, ErrPayoutService.Wrap(err)
 	}
 
-	trustedSatellites := service.trust.GetSatellites(ctx)
-
-	for _, trustedSatellite := range trustedSatellites {
+	satelliteURLs, err := service.satellitesDB.GetSatellitesURLs(ctx)
+	if err != nil {
+		return nil, ErrPayoutService.Wrap(err)
+	}
+	for _, satelliteURL := range satelliteURLs {
 		var found bool
 
 		for _, satelliteHeldHistory := range heldHistory {
-			if trustedSatellite.Compare(satelliteHeldHistory.SatelliteID) == 0 {
+			if satelliteURL.ID.Compare(satelliteHeldHistory.SatelliteID) == 0 {
 				found = true
 				break
 			}
 		}
 		if !found {
 			heldHistory = append(heldHistory, HeldAmountHistory{
-				SatelliteID: trustedSatellite,
+				SatelliteID: satelliteURL.ID,
 			})
 		}
 	}

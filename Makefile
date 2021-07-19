@@ -162,6 +162,24 @@ storagenode-console:
 	/usr/bin/env echo -e '\nfunc init() { FileSystem = AssetFile() }' >> storagenode/console/consoleassets/bindata.resource.go
 	gofmt -w -s storagenode/console/consoleassets/bindata.resource.go
 
+.PHONY: multinode-console
+multinode-console:
+	# build web assets
+	rm -rf web/multinode/dist
+	# install npm dependencies and build the binaries
+	docker run --rm -i \
+		--mount type=bind,src="${PWD}",dst=/go/src/storj.io/storj \
+		-w /go/src/storj.io/storj/web/multinode \
+		-e HOME=/tmp \
+		-u $(shell id -u):$(shell id -g) \
+		node:14.15.3 \
+	  /bin/bash -c "npm ci && npm run build"
+	# embed web assets into go
+	go-bindata -prefix web/multinode/ -fs -o multinode/console/consoleassets/bindata.resource.go -pkg consoleassets web/multinode/dist/... web/multinode/static/...
+	# configure existing go code to know about the new assets
+	/usr/bin/env echo -e '\nfunc init() { FileSystem = AssetFile() }' >> multinode/console/consoleassets/bindata.resource.go
+	gofmt -w -s multinode/console/consoleassets/bindata.resource.go
+
 .PHONY: satellite-wasm
 satellite-wasm:
 	docker run --rm -i -v "${PWD}":/go/src/storj.io/storj -e GO111MODULE=on \
@@ -288,13 +306,16 @@ uplink_%:
 .PHONY: versioncontrol_%
 versioncontrol_%:
 	$(MAKE) binary-check COMPONENT=versioncontrol GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
+.PHONY: multinode_%
+multinode_%: multinode-console
+	$(MAKE) binary-check COMPONENT=multinode GOARCH=$(word 3, $(subst _, ,$@)) GOOS=$(word 2, $(subst _, ,$@))
 
 
-COMPONENTLIST := certificates identity inspector satellite storagenode storagenode-updater uplink versioncontrol
+COMPONENTLIST := certificates identity inspector satellite storagenode storagenode-updater uplink versioncontrol multinode
 OSARCHLIST    := darwin_amd64 linux_amd64 linux_arm linux_arm64 windows_amd64 freebsd_amd64
 BINARIES      := $(foreach C,$(COMPONENTLIST),$(foreach O,$(OSARCHLIST),$C_$O))
 .PHONY: binaries
-binaries: ${BINARIES} ## Build certificates, identity, inspector, satellite, storagenode, uplink, and versioncontrol binaries (jenkins)
+binaries: ${BINARIES} ## Build certificates, identity, inspector, satellite, storagenode, uplink, versioncontrol and multinode binaries (jenkins)
 
 .PHONY: sign-windows-installer
 sign-windows-installer:

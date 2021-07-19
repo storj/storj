@@ -6,23 +6,31 @@ package main
 import (
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/cmd/uplinkng/ulext"
 )
 
 type cmdAccessUse struct {
+	ex ulext.External
+
 	name string
 }
 
-func (c *cmdAccessUse) Setup(a clingy.Arguments, f clingy.Flags) {
-	c.name = a.New("name", "Access to use").(string)
+func newCmdAccessUse(ex ulext.External) *cmdAccessUse {
+	return &cmdAccessUse{ex: ex}
+}
+
+func (c *cmdAccessUse) Setup(params clingy.Parameters) {
+	c.name = params.Arg("name", "Access to use").(string)
 }
 
 func (c *cmdAccessUse) Execute(ctx clingy.Context) error {
-	_, accesses, err := gf.GetAccessInfo(true)
+	_, accesses, err := c.ex.GetAccessInfo(true)
 	if err != nil {
 		return err
 	}
 	if _, ok := accesses[c.name]; !ok {
 		return errs.New("unknown access: %q", c.name)
 	}
-	return gf.SaveAccessInfo(c.name, accesses)
+	return c.ex.SaveAccessInfo(c.name, accesses)
 }

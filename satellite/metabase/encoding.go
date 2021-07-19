@@ -12,10 +12,6 @@ import (
 	"storj.io/common/storj"
 )
 
-// !!!! NB !!!!
-//
-// Should we use protobuf here?
-
 type encryptionParameters struct {
 	*storj.EncryptionParameters
 }

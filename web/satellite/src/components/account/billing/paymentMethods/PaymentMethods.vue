@@ -430,6 +430,6 @@ export default class PaymentMethods extends Vue {
     }
 
     .pm-loader {
-        margin-top: 40px;
+        margin-top: 60px;
     }
 </style>

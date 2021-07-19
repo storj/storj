@@ -7,13 +7,16 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/macaroon"
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
 )
 
@@ -210,4 +213,68 @@ func TestService(t *testing.T) {
 				require.Nil(t, info)
 			})
 		})
+}
+
+func TestPaidTier(t *testing.T) {
+	usageConfig := console.UsageLimitsConfig{
+		Storage: console.StorageLimitConfig{
+			Free: memory.GB,
+			Paid: memory.TB,
+		},
+		Bandwidth: console.BandwidthLimitConfig{
+			Free: 2 * memory.GB,
+			Paid: 2 * memory.TB,
+		},
+	}
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.UsageLimits = usageConfig
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		// project should have free tier usage limits
+		proj1, err := sat.API.DB.Console().Projects().Get(ctx, planet.Uplinks[0].Projects[0].ID)
+		require.NoError(t, err)
+		require.Equal(t, usageConfig.Storage.Free, *proj1.StorageLimit)
+		require.Equal(t, usageConfig.Bandwidth.Free, *proj1.BandwidthLimit)
+
+		// user should be in free tier
+		user, err := service.GetUser(ctx, proj1.OwnerID)
+		require.NoError(t, err)
+		require.False(t, user.PaidTier)
+
+		authCtx, err := sat.AuthenticatedContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		// add a credit card to the user
+		err = service.Payments().AddCreditCard(authCtx, "test-cc-token")
+		require.NoError(t, err)
+
+		// expect user to be in paid tier
+		user, err = service.GetUser(ctx, user.ID)
+		require.NoError(t, err)
+		require.True(t, user.PaidTier)
+
+		// update auth ctx
+		authCtx, err = sat.AuthenticatedContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		// expect project to be migrated to paid tier usage limits
+		proj1, err = service.GetProject(authCtx, proj1.ID)
+		require.NoError(t, err)
+		require.Equal(t, usageConfig.Storage.Paid, *proj1.StorageLimit)
+		require.Equal(t, usageConfig.Bandwidth.Paid, *proj1.BandwidthLimit)
+
+		// expect new project to be created with paid tier usage limits
+		proj2, err := service.CreateProject(authCtx, console.ProjectInfo{Name: "Project 2"})
+		require.NoError(t, err)
+		require.Equal(t, usageConfig.Storage.Paid, *proj2.StorageLimit)
+		require.Equal(t, usageConfig.Bandwidth.Paid, *proj2.BandwidthLimit)
+	})
 }
