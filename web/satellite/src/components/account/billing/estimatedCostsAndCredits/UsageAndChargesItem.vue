@@ -42,11 +42,6 @@
                     <p class="price">{{ item.objectPrice | centsToDollars }}</p>
                 </div>
             </div>
-            <div class="usage-charges-item-container__detailed-info-container__link-container">
-                <span class="usage-charges-item-container__detailed-info-container__link-container__link" @click="onReportClick">
-                    Advanced Report ->
-                </span>
-            </div>
         </div>
     </div>
 </template>
@@ -62,7 +57,6 @@ import { Project } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { MetaUtils } from '@/utils/meta';
-import { Time } from '@/utils/time';
 
 // @vue/component
 @Component({
@@ -162,24 +156,6 @@ export default class UsageAndChargesItem extends Vue {
      */
     public toggleDetailedInfo(): void {
         this.isDetailedInfoShown = !this.isDetailedInfoShown;
-    }
-
-    /**
-     * Opens new tab with advanced report table.
-     */
-    public onReportClick(): void {
-        const projectID = this.$store.getters.selectedProject.id;
-        const startDate = this.$store.state.paymentsModule.startDate;
-        const endDate = this.$store.state.paymentsModule.endDate;
-
-        const url = new URL(location.origin);
-
-        url.pathname = 'usage-report';
-        url.searchParams.append('projectID', projectID);
-        url.searchParams.append('since', Time.toUnixTimestamp(startDate).toString());
-        url.searchParams.append('before', Time.toUnixTimestamp(endDate).toString());
-
-        window.open(url.href, '_blank');
     }
 
     /**
