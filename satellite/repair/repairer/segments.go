@@ -315,6 +315,9 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		return false, repairPutError.Wrap(err)
 	}
 
+	pieceSize := eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy)
+	var bytesRepaired int64
+
 	// Add the successfully uploaded pieces to repairedPieces
 	var repairedPieces metabase.Pieces
 	repairedMap := make(map[uint16]bool)
@@ -322,6 +325,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		if node == nil {
 			continue
 		}
+		bytesRepaired += pieceSize
 		piece := metabase.Piece{
 			Number:      uint16(i),
 			StorageNode: node.Id,
@@ -329,6 +333,8 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		repairedPieces = append(repairedPieces, piece)
 		repairedMap[uint16(i)] = true
 	}
+
+	mon.Meter("repair_bytes_uploaded").Mark64(bytesRepaired) //mon:locked
 
 	healthyAfterRepair := len(healthyPieces) + len(repairedPieces)
 	switch {

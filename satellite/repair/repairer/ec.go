@@ -228,6 +228,8 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 		pieceReadCloser = tempfile
 	}
 
+	mon.Meter("repair_bytes_downloaded").Mark64(downloadedPieceSize) //mon:locked
+
 	if downloadedPieceSize != pieceSize {
 		return nil, Error.New("didn't download the correct amount of data, want %d, got %d", pieceSize, downloadedPieceSize)
 	}
