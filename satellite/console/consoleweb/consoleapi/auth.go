@@ -274,6 +274,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		EmployeeCount    string    `json:"employeeCount"`
 		HaveSalesContact bool      `json:"haveSalesContact"`
 		PaidTier         bool      `json:"paidTier"`
+		MFAEnabled       bool      `json:"isMFAEnabled"`
 	}
 
 	auth, err := console.GetAuth(ctx)
@@ -294,6 +295,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.EmployeeCount = auth.User.EmployeeCount
 	user.HaveSalesContact = auth.User.HaveSalesContact
 	user.PaidTier = auth.User.PaidTier
+	user.MFAEnabled = auth.User.MFAEnabled
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(&user)
@@ -470,14 +472,16 @@ func (a *Auth) EnableUserMFA(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	var passcode string
-	err = json.NewDecoder(r.Body).Decode(&passcode)
+	var data struct {
+		Passcode string `json:"passcode"`
+	}
+	err = json.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
 	}
 
-	err = a.service.EnableUserMFA(ctx, passcode, time.Now())
+	err = a.service.EnableUserMFA(ctx, data.Passcode, time.Now())
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
@@ -490,14 +494,16 @@ func (a *Auth) DisableUserMFA(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	var passcode string
-	err = json.NewDecoder(r.Body).Decode(&passcode)
+	var data struct {
+		Passcode string `json:"passcode"`
+	}
+	err = json.NewDecoder(r.Body).Decode(&data)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
 	}
 
-	err = a.service.DisableUserMFA(ctx, passcode, time.Now())
+	err = a.service.DisableUserMFA(ctx, data.Passcode, time.Now())
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
@@ -562,7 +568,7 @@ func (a *Auth) getStatusCode(err error) int {
 	case errors.Is(err, errNotImplemented):
 		return http.StatusNotImplemented
 	case console.ErrMFAPasscodeRequired.Has(err):
-		return http.StatusContinue
+		return http.StatusOK
 	default:
 		return http.StatusInternalServerError
 	}

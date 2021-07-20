@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { StoreModule } from '@/store';
-import { EnableUserMFARequest, UpdatedUser, User, UsersApi } from '@/types/users';
+import { UpdatedUser, User, UsersApi } from '@/types/users';
 import { MetaUtils } from '@/utils/meta';
 
 export const USER_ACTIONS = {
@@ -98,17 +98,14 @@ export function makeUsersModule(api: UsersApi): StoreModule<UsersState> {
 
                 return user;
             },
-            [DISABLE_USER_MFA]: async function (_, code: string): Promise<void> {
-                await api.disableUserMFA(code);
+            [DISABLE_USER_MFA]: async function (_, passcode: string): Promise<void> {
+                await api.disableUserMFA(passcode);
             },
-            [ENABLE_USER_MFA]: async function (_, request: EnableUserMFARequest): Promise<void> {
-                await api.enableUserMFA(request);
+            [ENABLE_USER_MFA]: async function (_, passcode: string): Promise<void> {
+                await api.enableUserMFA(passcode);
             },
-            [GENERATE_USER_MFA_SECRET]: function ({commit}: any): void {
-                // TODO: use this when backend is ready
-                // const secret = await api.generateUserMFASecret();
-
-                const secret = 'AAAAAAAAAAAA';
+            [GENERATE_USER_MFA_SECRET]: async function ({commit}: any): Promise<void> {
+                const secret = await api.generateUserMFASecret();
 
                 commit(SET_USER_MFA_SECRET, secret);
             },

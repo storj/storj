@@ -256,17 +256,23 @@ func TestMFAEndpoints(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, token)
 
-		doRequest := func(urlSuffix string, body interface{}) *http.Response {
-			url := "http://" + sat.API.Console.Listener.Addr().String() + "/api/v0/auth/mfa" + urlSuffix
+		type data struct {
+			Passcode string `json:"passcode"`
+		}
+
+		doRequest := func(urlSuffix string, passcode string) *http.Response {
+			urlLink := "http://" + sat.API.Console.Listener.Addr().String() + "/api/v0/auth/mfa" + urlSuffix
 			var buf io.Reader
 
-			if body != nil {
-				bodyBytes, err := json.Marshal(body)
-				require.NoError(t, err)
-				buf = bytes.NewBuffer(bodyBytes)
+			body := &data{
+				Passcode: passcode,
 			}
 
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, buf)
+			bodyBytes, err := json.Marshal(body)
+			require.NoError(t, err)
+			buf = bytes.NewBuffer(bodyBytes)
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, urlLink, buf)
 			require.NoError(t, err)
 
 			req.AddCookie(&http.Cookie{
@@ -276,9 +282,7 @@ func TestMFAEndpoints(t *testing.T) {
 				Expires: time.Now().AddDate(0, 0, 1),
 			})
 
-			if body != nil {
-				req.Header.Set("Content-Type", "application/json")
-			}
+			req.Header.Set("Content-Type", "application/json")
 
 			result, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)

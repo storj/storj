@@ -8,7 +8,7 @@
     "test": "vue-cli-service test:unit",
     "build": "vue-cli-service build",
     "wasm": "chmod +x ./scripts/build-wasm.sh && ./scripts/build-wasm.sh",
-    "dev": "vue-cli-service build --mode development"
+    "dev": "vue-cli-service build --mode development --watch"
   },
   "dependencies": {
     "apollo-cache-inmemory": "1.6.6",

@@ -32,7 +32,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="login-area__input-wrapper">
+                    <div class="login-area__input-wrapper" v-if="!isMFARequired">
                         <HeaderlessInput
                             class="full-input"
                             label="Email Address"
@@ -43,7 +43,7 @@
                             width="calc(100% - 2px)"
                         />
                     </div>
-                    <div class="login-area__input-wrapper">
+                    <div class="login-area__input-wrapper" v-if="!isMFARequired">
                         <HeaderlessInput
                             class="full-input"
                             label="Password"
@@ -55,16 +55,36 @@
                             is-password="true"
                         />
                     </div>
-                    <p class="login-area__content-area__container__button" @click.prevent="onLogin">Sign In</p>
+                    <div class="login-area__content-area__container__mfa" v-if="isMFARequired">
+                        <div class="login-area__content-area__container__mfa__info">
+                            <div class="login-area__content-area__container__mfa__info__title-area">
+                                <WarningIcon/>
+                                <h2 class="login-area__content-area__container__mfa__info__title-area__txt">
+                                    Two-Factor Authentication Required
+                                </h2>
+                            </div>
+                            <p class="login-area__content-area__container__mfa__info__msg">
+                                You'll need the six-digit code from your authenticator app to continue.
+                            </p>
+                        </div>
+                        <ConfirmMFAInput ref="mfaInput" :on-input="onConfirmInput" :is-error="isMFAError" :is-recovery="isRecoveryCodeState"/>
+                        <span v-if="!isRecoveryCodeState" class="login-area__content-area__container__mfa__recovery" @click="setRecoveryCodeState">
+                            Or use recovery code
+                        </span>
+                    </div>
+                    <p class="login-area__content-area__container__button" :class="{ 'disabled-button': isLoading }" @click.prevent="onLogin">Sign In</p>
+                    <span v-if="isMFARequired" class="login-area__content-area__container__cancel" :class="{ disabled: isLoading }" @click.prevent="onMFACancelClick">
+                        Cancel
+                    </span>
                 </div>
-                <div class="login-area__content-area__forgot-container">
-                    <p class="login-area__content-area__forgot-container__reset-msg">Forgot your sign in details?<router-link :to="forgotPasswordPath" class="login-area__content-area__forgot-container__link">
+                <p class="login-area__content-area__reset-msg">Forgot your sign in details?
+                    <router-link :to="forgotPasswordPath" class="login-area__content-area__reset-msg__link">
                         Reset Password
-                    </router-link></p>
-                    <router-link :to="registerPath" class="login-area__content-area__forgot-container__link register-link">
-                        Need to create an account?
                     </router-link>
-                </div>
+                </p>
+                <router-link :to="registerPath" class="login-area__content-area__register-link">
+                    Need to create an account?
+                </router-link>
             </div>
         </div>
     </div>
@@ -73,19 +93,26 @@
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';
 
+import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 
 import AuthIcon from '@/../static/images/AuthImage.svg';
+import WarningIcon from '@/../static/images/common/greyWarning.svg';
 import BottomArrowIcon from '@/../static/images/common/lightBottomArrow.svg';
 import SelectedCheckIcon from '@/../static/images/common/selectedCheck.svg';
 import LogoIcon from '@/../static/images/dcs-logo.svg';
 
 import { AuthHttpApi } from '@/api/auth';
+import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { RouteConfig } from '@/router';
 import { PartneredSatellite } from '@/types/common';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
 import { Validator } from '@/utils/validation';
+
+interface ClearInput {
+    clearInput(): void;
+}
 
 @Component({
     components: {
@@ -94,12 +121,15 @@ import { Validator } from '@/utils/validation';
         BottomArrowIcon,
         SelectedCheckIcon,
         LogoIcon,
+        WarningIcon,
+        ConfirmMFAInput,
     },
 })
 export default class Login extends Vue {
     private email: string = '';
     private password: string = '';
-    private authToken: string = '';
+    private passcode: string = '';
+    private recoveryCode: string = '';
     private isLoading: boolean = false;
     private emailError: string = '';
     private passwordError: string = '';
@@ -109,11 +139,25 @@ export default class Login extends Vue {
     public readonly forgotPasswordPath: string = RouteConfig.ForgotPassword.path;
     public isActivatedBannerShown: boolean = false;
     public isActivatedError: boolean = false;
+    public isMFARequired = false;
+    public isMFAError = false;
+    public isRecoveryCodeState = false;
 
     // Tardigrade logic
     public isDropdownShown: boolean = false;
 
     public readonly registerPath: string = RouteConfig.Register.path;
+
+    public $refs!: {
+        mfaInput: ConfirmMFAInput & ClearInput;
+    };
+
+    /**
+     * Clears confirm MFA input.
+     */
+    public clearConfirmMFAInput() {
+        this.$refs.mfaInput.clearInput();
+    }
 
     /**
      * Lifecycle hook after initial render.
@@ -129,6 +173,36 @@ export default class Login extends Vue {
      */
     public onLogoClick(): void {
         location.reload();
+    }
+
+    /**
+     * Sets page to recovery code state.
+     */
+    public setRecoveryCodeState(): void {
+        this.isMFAError = false;
+        this.passcode = '';
+        this.clearConfirmMFAInput();
+        this.isRecoveryCodeState = true;
+    }
+
+    /**
+     * Cancels MFA passcode input state.
+     */
+    public onMFACancelClick(): void {
+        this.isMFARequired = false;
+        this.isRecoveryCodeState = false;
+        this.isMFAError = false;
+        this.passcode = '';
+        this.recoveryCode = '';
+    }
+
+    /**
+     * Sets confirmation passcode value from input.
+     */
+    public onConfirmInput(value: string): void {
+        this.isMFAError = false;
+
+        this.isRecoveryCodeState ? this.recoveryCode = value : this.passcode = value;
     }
 
     /**
@@ -193,9 +267,23 @@ export default class Login extends Vue {
         }
 
         try {
-            this.authToken = await this.auth.token(this.email, this.password);
+            await this.auth.token(this.email, this.password, this.passcode, this.recoveryCode);
         } catch (error) {
-            await this.$notify.error(error.message);
+            if (error instanceof ErrorMFARequired) {
+                if (this.isMFARequired) this.isMFAError = true;
+
+                this.isMFARequired = true;
+                this.isLoading = false;
+
+                return;
+            }
+
+            if (this.isMFARequired) {
+                this.isMFAError = true;
+            } else {
+                await this.$notify.error(error.message);
+            }
+
             this.isLoading = false;
 
             return;
@@ -364,7 +452,6 @@ export default class Login extends Vue {
                 padding: 60px 80px;
                 background-color: #fff;
                 min-width: 450px;
-                min-height: 345px;
                 border-radius: 20px;
 
                 &__title-area {
@@ -406,14 +493,66 @@ export default class Login extends Vue {
                         background-color: #0059d0;
                     }
                 }
+
+                &__cancel {
+                    align-self: center;
+                    font-size: 16px;
+                    line-height: 21px;
+                    color: #0068dc;
+                    text-align: center;
+                    margin-top: 30px;
+                    cursor: pointer;
+                }
+
+                &__mfa {
+                    margin-top: 25px;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+
+                    &__info {
+                        background: #f7f8fb;
+                        border-radius: 6px;
+                        padding: 20px;
+                        margin-bottom: 20px;
+
+                        &__title-area {
+                            display: flex;
+                            align-items: center;
+
+                            &__txt {
+                                font-family: 'font_Bold', sans-serif;
+                                font-size: 16px;
+                                line-height: 19px;
+                                color: #1b2533;
+                                margin-left: 15px;
+                            }
+                        }
+
+                        &__msg {
+                            font-size: 16px;
+                            line-height: 19px;
+                            color: #1b2533;
+                            margin-top: 10px;
+                            max-width: 410px;
+                        }
+                    }
+
+                    &__recovery {
+                        font-size: 16px;
+                        line-height: 19px;
+                        color: #0068dc;
+                        cursor: pointer;
+                        margin-top: 20px;
+                        text-align: center;
+                    }
+                }
             }
 
-            &__forgot-container {
-                width: 100%;
-                align-items: center;
-                justify-content: center;
+            &__reset-msg {
+                font-size: 14px;
+                line-height: 18px;
                 margin-top: 50px;
-                display: block;
                 text-align: center;
 
                 &__link {
@@ -423,16 +562,15 @@ export default class Login extends Vue {
                     line-height: 18px;
                     color: #376fff;
                 }
+            }
 
-                &__link.register-link {
-                    top: 20px;
-                    position: relative;
-                }
-
-                &__reset-msg {
-                    font-size: 14px;
-                    line-height: 18px;
-                }
+            &__register-link {
+                font-family: 'font_medium', sans-serif;
+                font-size: 14px;
+                line-height: 18px;
+                color: #376fff;
+                margin-top: 30px;
+                padding-bottom: 30px;
             }
 
             &__footer {
@@ -466,6 +604,17 @@ export default class Login extends Vue {
 
     .input-wrap.full-input {
         width: calc(100% - 2px);
+    }
+
+    .disabled,
+    .disabled-button {
+        pointer-events: none;
+        color: #acb0bc;
+    }
+
+    .disabled-button {
+        background-color: #dadde5;
+        border-color: #dadde5;
     }
 
     @media screen and (max-width: 750px) {
