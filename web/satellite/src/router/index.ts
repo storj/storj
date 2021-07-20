@@ -41,8 +41,8 @@ import { NavigationLink } from '@/types/navigation';
 
 const DashboardArea = () => import('@/views/DashboardArea.vue');
 const ForgotPassword = () => import('@/views/forgotPassword/ForgotPassword.vue');
-const LoginArea = () => import('@/views/login/LoginArea.vue');
-const RegisterArea = () => import('@/views/register/RegisterArea.vue');
+const LoginArea = () => import('@/views/LoginArea.vue');
+const RegisterArea = () => import('@/views/RegisterArea.vue');
 
 Vue.use(Router);
 
