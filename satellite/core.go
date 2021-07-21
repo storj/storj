@@ -32,7 +32,6 @@ import (
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metaloop"
 	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
@@ -79,7 +78,6 @@ type Core struct {
 	Metainfo struct {
 		Metabase    *metabase.DB
 		Service     *metainfo.Service
-		Loop        *metaloop.Service
 		SegmentLoop *segmentloop.Service
 	}
 
@@ -248,15 +246,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Buckets(),
 			peer.Metainfo.Metabase,
 		)
-		peer.Metainfo.Loop = metaloop.New(
-			config.Metainfo.Loop,
-			peer.Metainfo.Metabase,
-		)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "metainfo:loop",
-			Run:   peer.Metainfo.Loop.Run,
-			Close: peer.Metainfo.Loop.Close,
-		})
 		peer.Metainfo.SegmentLoop = segmentloop.New(
 			config.Metainfo.SegmentLoop,
 			peer.Metainfo.Metabase,

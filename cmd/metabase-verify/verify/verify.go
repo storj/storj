@@ -5,14 +5,12 @@ package verify
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/common/errs2"
-	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metaloop"
+	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
 // Error is the default error class for the package.
@@ -24,17 +22,17 @@ type Chore struct {
 
 	Config Config
 
-	DB metaloop.MetabaseDB
+	DB segmentloop.MetabaseDB
 }
 
 // Config contains configuration for all the services.
 type Config struct {
 	ProgressPrintFrequency int64
-	Loop                   metaloop.Config
+	Loop                   segmentloop.Config
 }
 
 // New creates new verification.
-func New(log *zap.Logger, mdb metaloop.MetabaseDB, config Config) *Chore {
+func New(log *zap.Logger, mdb segmentloop.MetabaseDB, config Config) *Chore {
 	return &Chore{
 		Log:    log,
 		Config: config,
@@ -42,9 +40,9 @@ func New(log *zap.Logger, mdb metaloop.MetabaseDB, config Config) *Chore {
 	}
 }
 
-// RunOnce creates a new metaloop and runs the verifications.
+// RunOnce creates a new segmentloop and runs the verifications.
 func (chore *Chore) RunOnce(ctx context.Context) error {
-	loop := metaloop.New(chore.Config.Loop, chore.DB)
+	loop := segmentloop.New(chore.Config.Loop, chore.DB)
 
 	var group errs2.Group
 	group.Go(func() error {
@@ -68,8 +66,4 @@ func (chore *Chore) RunOnce(ctx context.Context) error {
 		return Error.Wrap(loop.RunOnce(ctx))
 	})
 	return Error.Wrap(errs.Combine(group.Wait()...))
-}
-
-func formatObject(obj metabase.ObjectStream) string {
-	return fmt.Sprintf("project:%q bucket:%q key:%q stream:\"%x\"", obj.ProjectID, obj.BucketName, obj.ObjectKey, obj.StreamID[:])
 }
