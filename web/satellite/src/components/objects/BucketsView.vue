@@ -130,12 +130,16 @@ export default class BucketsView extends Vue {
         const cleanAPIKey: AccessGrant = await this.$store.dispatch(ACCESS_GRANTS_ACTIONS.CREATE, this.FILE_BROWSER_AG_NAME);
         await this.$store.dispatch(OBJECTS_ACTIONS.SET_API_KEY, cleanAPIKey.secret);
 
+        const now = new Date();
+        const inThreeDays = new Date(now.setDate(now.getDate() + 3));
+
         await this.worker.postMessage({
             'type': 'SetPermission',
             'isDownload': true,
             'isUpload': true,
             'isList': true,
             'isDelete': true,
+            'notAfter': inThreeDays.toISOString(),
             'buckets': [],
             'apiKey': cleanAPIKey.secret,
         });
