@@ -11,11 +11,11 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
-	"storj.io/storj/satellite/metabase/metaloop"
+	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/uplink/private/eestream"
 )
 
-var _ metaloop.Observer = (*PathCollector)(nil)
+var _ segmentloop.Observer = (*PathCollector)(nil)
 
 // PathCollector uses the metainfo loop to add paths to node reservoirs.
 //
@@ -50,7 +50,7 @@ func NewPathCollector(db DB, nodeIDs storj.NodeIDList, log *zap.Logger, batchSiz
 }
 
 // LoopStarted is called at each start of a loop.
-func (collector *PathCollector) LoopStarted(context.Context, metaloop.LoopInfo) (err error) {
+func (collector *PathCollector) LoopStarted(context.Context, segmentloop.LoopInfo) (err error) {
 	return nil
 }
 
@@ -61,7 +61,7 @@ func (collector *PathCollector) Flush(ctx context.Context) (err error) {
 }
 
 // RemoteSegment takes a remote segment found in metainfo and creates a graceful exit transfer queue item if it doesn't exist already.
-func (collector *PathCollector) RemoteSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
+func (collector *PathCollector) RemoteSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(collector.nodeIDStorage) == 0 {
@@ -72,7 +72,6 @@ func (collector *PathCollector) RemoteSegment(ctx context.Context, segment *meta
 	defer collector.nodeIDMutex.Unlock()
 
 	numPieces := len(segment.Pieces)
-	key := segment.Location.Encode()
 	for _, piece := range segment.Pieces {
 		if _, ok := collector.nodeIDStorage[piece.StorageNode]; !ok {
 			continue
@@ -94,7 +93,8 @@ func (collector *PathCollector) RemoteSegment(ctx context.Context, segment *meta
 		}
 
 		collector.log.Debug("adding piece to transfer queue.", zap.Stringer("Node ID", piece.StorageNode),
-			zap.ByteString("key", key), zap.Uint16("piece num", piece.Number),
+			zap.String("stream_id", segment.StreamID.String()), zap.Int32("part", int32(segment.Position.Part)),
+			zap.Int32("index", int32(segment.Position.Index)), zap.Uint16("piece num", piece.Number),
 			zap.Int("num pieces", numPieces), zap.Int16("total possible pieces", segment.Redundancy.TotalShares))
 
 		collector.buffer = append(collector.buffer, item)
@@ -107,13 +107,8 @@ func (collector *PathCollector) RemoteSegment(ctx context.Context, segment *meta
 	return nil
 }
 
-// Object returns nil because the audit service does not interact with objects.
-func (collector *PathCollector) Object(ctx context.Context, object *metaloop.Object) (err error) {
-	return nil
-}
-
 // InlineSegment returns nil because we're only auditing for storage nodes for now.
-func (collector *PathCollector) InlineSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
+func (collector *PathCollector) InlineSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
 	return nil
 }
 

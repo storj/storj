@@ -463,7 +463,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup graceful exit
 		if config.GracefulExit.Enabled {
-			peer.GracefulExit.Chore = gracefulexit.NewChore(peer.Log.Named("gracefulexit"), peer.DB.GracefulExit(), peer.Overlay.DB, peer.Metainfo.Loop, config.GracefulExit)
+			peer.GracefulExit.Chore = gracefulexit.NewChore(peer.Log.Named("gracefulexit"), peer.DB.GracefulExit(), peer.Overlay.DB, peer.Metainfo.SegmentLoop, config.GracefulExit)
 			peer.Services.Add(lifecycle.Item{
 				Name:  "gracefulexit",
 				Run:   peer.GracefulExit.Chore.Run,
