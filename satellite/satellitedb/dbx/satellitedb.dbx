@@ -19,24 +19,6 @@ read one (
 )
 
 //--- containment ---//
-// TODO drop it later
-model pending_audits (
-	key node_id
-
-	field node_id             blob
-	field piece_id            blob
-	field stripe_index        int64
-	field share_size          int64
-	field expected_share_hash blob
-	field reverify_count      int64 ( updatable )
-	field path                blob
-)
-
-delete pending_audits ( where pending_audits.node_id = ? )
-read one (
-	select pending_audits
-	where  pending_audits.node_id = ?
-)
 
 model segment_pending_audits (
 	key node_id
@@ -55,36 +37,6 @@ delete segment_pending_audits ( where segment_pending_audits.node_id = ? )
 read one (
 	select segment_pending_audits
 	where  segment_pending_audits.node_id = ?
-)
-
-//--- irreparableDB ---//
-
-model irreparabledb (
-	key segmentpath
-
-	field segmentpath          blob
-	field segmentdetail        blob  ( updatable )
-	field pieces_lost_count    int64 ( updatable )
-	field seg_damaged_unix_sec int64 ( updatable )
-	field repair_attempt_count int64 ( updatable )
-)
-
-create irreparabledb ( noreturn )
-update irreparabledb (
-	where irreparabledb.segmentpath = ?
-	noreturn
-)
-delete irreparabledb ( where irreparabledb.segmentpath = ? )
-
-read one (
-	select irreparabledb
-	where  irreparabledb.segmentpath = ?
-)
-
-read limitoffset (
-	select irreparabledb
-	where irreparabledb.segmentpath > ?
-	orderby asc irreparabledb.segmentpath
 )
 
 //--- accounting ---//
@@ -306,35 +258,6 @@ read one (
 )
 
 //--- repairqueue ---//
-// TODO drop it later
-model injuredsegment (
-	key path
-
-	field path blob
-	field data blob
-	field attempted timestamp (updatable, nullable)
-	field updated_at timestamp ( updatable, default current_timestamp )
-	field segment_health float64 (default 1)
-
-	index (
-		fields attempted
-	)
-
-	index (
-		fields segment_health
-	)
-
-	index (
-		fields updated_at
-	)
-
-	index (
-		name injuredsegments_num_healthy_pieces_attempted_index
-		fields segment_health attempted
-	)
-)
-
-delete injuredsegment ( where injuredsegment.updated_at < ? )
 
 model repair_queue (
 	table repair_queue
