@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/sync2"
-	"storj.io/storj/satellite/metabase/metaloop"
+	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
 var (
@@ -29,21 +29,21 @@ type Config struct {
 //
 // architecture: Chore
 type Chore struct {
-	log          *zap.Logger
-	config       Config
-	Loop         *sync2.Cycle
-	metainfoLoop *metaloop.Service
-	Counter      *Counter
+	log         *zap.Logger
+	config      Config
+	Loop        *sync2.Cycle
+	segmentLoop *segmentloop.Service
+	Counter     *Counter
 }
 
 // NewChore creates a new instance of the metrics chore.
-func NewChore(log *zap.Logger, config Config, loop *metaloop.Service) *Chore {
+func NewChore(log *zap.Logger, config Config, loop *segmentloop.Service) *Chore {
 	return &Chore{
 		log:    log,
 		config: config,
 		// This chore monitors metainfo loop, so it's fine to use very small cycle time.
-		Loop:         sync2.NewCycle(time.Nanosecond),
-		metainfoLoop: loop,
+		Loop:        sync2.NewCycle(time.Nanosecond),
+		segmentLoop: loop,
 	}
 }
 
@@ -56,14 +56,17 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 		chore.Counter = NewCounter()
 
-		err = chore.metainfoLoop.Monitor(ctx, chore.Counter)
+		err = chore.segmentLoop.Monitor(ctx, chore.Counter)
 		if err != nil {
-			chore.log.Error("error joining metainfoloop", zap.Error(err))
+			chore.log.Error("error joining segment loop", zap.Error(err))
 			return nil
 		}
-		mon.IntVal("remote_dependent_object_count").Observe(chore.Counter.RemoteDependent)
-		mon.IntVal("inline_object_count").Observe(chore.Counter.InlineObjectCount())
-		mon.IntVal("total_object_count").Observe(chore.Counter.ObjectCount)
+		mon.IntVal("remote_dependent_object_count").Observe(chore.Counter.RemoteObjects)
+		mon.IntVal("inline_object_count").Observe(chore.Counter.InlineObjects)
+
+		// TODO move this metric to a place where objects are iterated e.g. tally
+		// or drop it completely as we can easily get this value with redash
+		// mon.IntVal("total_object_count").Observe(chore.Counter.ObjectCount)
 
 		return nil
 	})

@@ -1,0 +1,326 @@
+// Copyright (C) 2021 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+<template>
+    <div class="enable-mfa">
+        <div class="enable-mfa__container">
+            <h1 class="enable-mfa__container__title">Two-Factor Authentication</h1>
+            <p class="enable-mfa__container__subtitle" v-if="isScan">
+                Scan this QR code in your favorite TOTP app to get get started.
+            </p>
+            <p class="enable-mfa__container__subtitle max-width" v-if="isEnable">
+                Enter the authentication code generated in your TOTP app to confirm your account is connected.
+            </p>
+            <p class="enable-mfa__container__subtitle" v-if="isCodes">
+                Save recovery codes.
+            </p>
+            <div class="enable-mfa__container__scan" v-if="isScan">
+                <h2 class="enable-mfa__container__scan__title">Scan this QR Code</h2>
+                <p class="enable-mfa__container__scan__subtitle">Scan the following QR code in your OTP app.</p>
+                <div class="enable-mfa__container__scan__qr">
+                    <canvas class="enable-mfa__container__scan__qr__canvas" ref="canvas"/>
+                </div>
+                <p class="enable-mfa__container__scan__subtitle">Unable to scan? Use the following code instead:</p>
+                <p class="enable-mfa__container__scan__secret">{{userMFASecret}}</p>
+            </div>
+            <div class="enable-mfa__container__confirm" v-if="isEnable">
+                <h2 class="enable-mfa__container__confirm__title">Confirm Authentication Code</h2>
+                <ConfirmMFAInput :on-input="onConfirmInput" :is-error="isError"/>
+            </div>
+            <div class="enable-mfa__container__codes" v-if="isCodes">
+                <h2 class="enable-mfa__container__codes__title max-width">
+                    Please save these codes somewhere to be able to recover access to your account.
+                </h2>
+                <p
+                    class="enable-mfa__container__codes__value"
+                    v-for="(code, index) in recoveryCodes"
+                    :key="index"
+                >
+                    {{code}}
+                </p>
+            </div>
+            <div class="enable-mfa__container__buttons">
+                <VButton
+                    class="cancel-button"
+                    label="Cancel"
+                    width="50%"
+                    height="44px"
+                    is-white="true"
+                    :on-press="toggleModal"
+                />
+                <VButton
+                    v-if="isScan"
+                    label="Continue"
+                    width="50%"
+                    height="44px"
+                    :on-press="showEnable"
+                />
+                <VButton
+                    v-if="isEnable"
+                    label="Enable"
+                    width="50%"
+                    height="44px"
+                    :on-press="enable"
+                    :is-disabled="!confirmPasscode || isLoading"
+                />
+                <VButton
+                    v-if="isCodes"
+                    label="Done"
+                    width="50%"
+                    height="44px"
+                    :on-press="toggleModal"
+                />
+            </div>
+            <div class="enable-mfa__container__close-container" @click="toggleModal">
+                <CloseCrossIcon />
+            </div>
+        </div>
+    </div>
+</template>
+
+<script lang="ts">
+import QRCode from 'qrcode';
+import { Component, Prop, Vue } from 'vue-property-decorator';
+
+import ConfirmMFAInput from '@/components/account/mfa/ConfirmMFAInput.vue';
+import VButton from '@/components/common/VButton.vue';
+
+import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
+
+@Component({
+    components: {
+        ConfirmMFAInput,
+        CloseCrossIcon,
+        VButton,
+    },
+})
+export default class EnableMFAPopup extends Vue {
+    @Prop({default: () => false})
+    public readonly toggleModal: () => void;
+
+    public readonly qrLink =
+        `otpauth://totp/${encodeURIComponent(this.$store.getters.user.email)}?secret=${this.userMFASecret}&issuer=${encodeURIComponent('STORJ DCS')}&algorithm=SHA1&digits=6&period=30`;
+    public isScan = true;
+    public isEnable = false;
+    public isCodes = false;
+    public isError = false;
+    public recoveryCodes: string[] = ['test', 'test', 'test', 'test', 'test', 'test', 'test', 'test', 'test', 'test'];
+    public isLoading = false;
+    public confirmPasscode = '';
+
+    public $refs!: {
+        canvas: HTMLCanvasElement;
+    };
+
+    /**
+     * Mounted lifecycle hook after initial render.
+     * Renders QR code.
+     */
+    public async mounted(): Promise<void> {
+        await QRCode.toCanvas(this.$refs.canvas, this.qrLink);
+    }
+
+    /**
+     * Toggles view to Enable MFA state.
+     */
+    public showEnable(): void {
+        this.isScan = false;
+        this.isEnable = true;
+    }
+
+    /**
+     * Toggles view to MFA Recovery Codes state.
+     */
+    public showCodes(): void {
+        this.isEnable = false;
+        this.isCodes = true;
+    }
+
+    /**
+     * Sets confirmation passcode value from input.
+     */
+    public onConfirmInput(value: string): void {
+        this.isError = false;
+        this.confirmPasscode = value;
+    }
+
+    /**
+     * Enables user MFA and sets view to Recovery Codes state.
+     */
+    public async enable(): Promise<void> {
+        if (!this.confirmPasscode || this.isLoading || this.isError) return;
+
+        this.isLoading = true;
+
+        try {
+            // TODO: enable when backend is ready
+            // await this.$store.dispatch(USER_ACTIONS.ENABLE_USER_MFA, {secret: this.secret, passcode: this.confirmPasscode})
+
+            await this.$notify.success('MFA was enabled successfully');
+
+            this.showCodes();
+        } catch (error) {
+            await this.$notify.error(error.message);
+            this.isError = true;
+        }
+
+        this.isLoading = false;
+    }
+
+    /**
+     * Returns pre-generated MFA secret from store.
+     */
+    private get userMFASecret(): string {
+        return this.$store.state.usersModule.userMFASecret;
+    }
+}
+</script>
+
+<style scoped lang="scss">
+    .enable-mfa {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        right: 0;
+        left: 0;
+        display: flex;
+        justify-content: center;
+        z-index: 1000;
+        background: rgba(27, 37, 51, 0.75);
+
+        &__container {
+            padding: 60px;
+            height: fit-content;
+            margin-top: 100px;
+            position: relative;
+            background: #fff;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'font_regular', sans-serif;
+
+            &__title {
+                font-family: 'font_bold', sans-serif;
+                font-size: 28px;
+                line-height: 34px;
+                text-align: center;
+                color: #000;
+                margin: 0 0 30px 0;
+            }
+
+            &__subtitle {
+                font-size: 16px;
+                line-height: 21px;
+                text-align: center;
+                color: #000;
+                margin: 0 0 45px 0;
+            }
+
+            &__scan {
+                padding: 25px;
+                background: #f5f6fa;
+                border-radius: 6px;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                width: calc(100% - 50px);
+
+                &__title {
+                    font-family: 'font_bold', sans-serif;
+                    font-size: 16px;
+                    line-height: 19px;
+                    text-align: center;
+                    color: #000;
+                    margin: 0 0 30px 0;
+                }
+
+                &__subtitle {
+                    font-size: 14px;
+                    line-height: 25px;
+                    text-align: center;
+                    color: #000;
+                }
+
+                &__qr {
+                    margin: 30px 0;
+                    background: #fff;
+                    border-radius: 6px;
+                    padding: 10px;
+
+                    &__canvas {
+                        height: 200px !important;
+                        width: 200px !important;
+                    }
+                }
+
+                &__secret {
+                    margin: 5px 0 0 0;
+                    font-family: 'font_medium', sans-serif;
+                    font-size: 14px;
+                    line-height: 25px;
+                    text-align: center;
+                    color: #000;
+                }
+            }
+
+            &__confirm,
+            &__codes {
+                padding: 25px;
+                background: #f5f6fa;
+                border-radius: 6px;
+                width: calc(100% - 50px);
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+
+                &__title {
+                    font-size: 16px;
+                    line-height: 19px;
+                    text-align: center;
+                    color: #000;
+                    margin-bottom: 20px;
+                }
+            }
+
+            &__buttons {
+                display: flex;
+                align-items: center;
+                width: 100%;
+                margin-top: 30px;
+            }
+
+            &__close-container {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                position: absolute;
+                right: 30px;
+                top: 30px;
+                height: 24px;
+                width: 24px;
+                cursor: pointer;
+
+                &:hover .close-cross-svg-path {
+                    fill: #2683ff;
+                }
+            }
+        }
+    }
+
+    .cancel-button {
+        margin-right: 15px;
+    }
+
+    .max-width {
+        max-width: 485px;
+    }
+
+    @media screen and (max-height: 900px) {
+
+        .enable-mfa {
+            padding-bottom: 20px;
+            overflow-y: scroll;
+        }
+    }
+</style>

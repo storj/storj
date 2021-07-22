@@ -42,6 +42,8 @@ type ObjectsIterator interface {
 }
 
 // IterateCursor is a cursor used during iteration through objects.
+//
+// The cursor is exclusive.
 type IterateCursor struct {
 	Key     ObjectKey
 	Version Version

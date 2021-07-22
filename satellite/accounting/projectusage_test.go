@@ -38,8 +38,8 @@ func TestProjectUsageStorage(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.UsageLimits.DefaultStorageLimit = 1 * memory.MB
-				config.Console.UsageLimits.DefaultBandwidthLimit = 1 * memory.MB
+				config.Console.UsageLimits.Storage.Free = 1 * memory.MB
+				config.Console.UsageLimits.Bandwidth.Free = 1 * memory.MB
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -467,20 +467,16 @@ func TestUsageRollups(t *testing.T) {
 				tally1 := &accounting.BucketTally{
 					BucketLocation: bucketLoc1,
 					ObjectCount:    value1,
-					InlineSegments: value1,
-					RemoteSegments: value1,
-					InlineBytes:    value1,
-					RemoteBytes:    value1,
+					TotalSegments:  value1 + value1,
+					TotalBytes:     value1 + value1,
 					MetadataSize:   value1,
 				}
 
 				tally2 := &accounting.BucketTally{
 					BucketLocation: bucketLoc2,
 					ObjectCount:    value2,
-					InlineSegments: value2,
-					RemoteSegments: value2,
-					InlineBytes:    value2,
-					RemoteBytes:    value2,
+					TotalSegments:  value2 + value2,
+					TotalBytes:     value2 + value2,
 					MetadataSize:   value2,
 				}
 
@@ -632,8 +628,8 @@ func TestProjectUsageBandwidthResetAfter3days(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.UsageLimits.DefaultStorageLimit = 1 * memory.MB
-				config.Console.UsageLimits.DefaultBandwidthLimit = 1 * memory.MB
+				config.Console.UsageLimits.Storage.Free = 1 * memory.MB
+				config.Console.UsageLimits.Bandwidth.Free = 1 * memory.MB
 				config.LiveAccounting.AsOfSystemInterval = -time.Millisecond
 			},
 		},

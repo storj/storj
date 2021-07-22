@@ -611,6 +611,11 @@ func Schema() map[string]*dbschema.Schema {
 							Type:       "TIMESTAMP",
 							IsNullable: false,
 						},
+						&dbschema.Column{
+							Name:       "vetted_at",
+							Type:       "TIMESTAMP",
+							IsNullable: true,
+						},
 					},
 				},
 			},
@@ -661,6 +666,11 @@ func Schema() map[string]*dbschema.Schema {
 							Name:       "added_at",
 							Type:       "TIMESTAMP",
 							IsNullable: false,
+						},
+						&dbschema.Column{
+							Name:       "address",
+							Type:       "TEXT",
+							IsNullable: true,
 						},
 						&dbschema.Column{
 							Name:       "node_id",
@@ -724,3 +734,4 @@ func Schema() map[string]*dbschema.Schema {
 		"used_serial": &dbschema.Schema{},
 	}
 }
+

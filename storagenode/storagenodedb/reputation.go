@@ -46,9 +46,10 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 			suspended_at,
 			offline_suspended_at,
 			offline_under_review_at,
+			vetted_at,
 			updated_at,
 			joined_at
-		) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+		) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
 
 	// ensure we insert utc
 	if stats.DisqualifiedAt != nil {
@@ -92,6 +93,7 @@ func (db *reputationDB) Store(ctx context.Context, stats reputation.Stats) (err 
 		stats.SuspendedAt,
 		stats.OfflineSuspendedAt,
 		stats.OfflineUnderReviewAt,
+		stats.VettedAt,
 		stats.UpdatedAt.UTC(),
 		stats.JoinedAt.UTC(),
 	)
@@ -122,6 +124,7 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 			suspended_at,
 			offline_suspended_at,
 			offline_under_review_at,
+			vetted_at,
 			updated_at,
 			joined_at
 		FROM reputation WHERE satellite_id = ?`,
@@ -144,6 +147,7 @@ func (db *reputationDB) Get(ctx context.Context, satelliteID storj.NodeID) (_ *r
 		&stats.SuspendedAt,
 		&stats.OfflineSuspendedAt,
 		&stats.OfflineUnderReviewAt,
+		&stats.VettedAt,
 		&stats.UpdatedAt,
 		&stats.JoinedAt,
 	)
@@ -181,6 +185,7 @@ func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err erro
 			suspended_at,
 			offline_suspended_at,
 			offline_under_review_at,
+			vetted_at,
 			updated_at,
 			joined_at
 		FROM reputation`
@@ -210,6 +215,7 @@ func (db *reputationDB) All(ctx context.Context) (_ []reputation.Stats, err erro
 			&stats.SuspendedAt,
 			&stats.OfflineSuspendedAt,
 			&stats.OfflineUnderReviewAt,
+			&stats.VettedAt,
 			&stats.UpdatedAt,
 			&stats.JoinedAt,
 		)

@@ -41,8 +41,8 @@ import { NavigationLink } from '@/types/navigation';
 
 const DashboardArea = () => import('@/views/DashboardArea.vue');
 const ForgotPassword = () => import('@/views/forgotPassword/ForgotPassword.vue');
-const LoginArea = () => import('@/views/login/LoginArea.vue');
-const RegisterArea = () => import('@/views/register/RegisterArea.vue');
+const LoginArea = () => import('@/views/LoginArea.vue');
+const RegisterArea = () => import('@/views/RegisterArea.vue');
 
 Vue.use(Router);
 
@@ -137,6 +137,11 @@ export const router = new Router({
             },
             component: DashboardArea,
             children: [
+                {
+                    path: RouteConfig.Root.path,
+                    name: 'default',
+                    component: ProjectDashboard,
+                },
                 {
                     path: RouteConfig.Account.path,
                     name: RouteConfig.Account.name,
@@ -392,6 +397,12 @@ router.beforeEach(async (to, from, next) => {
 
     if (navigateToDefaultSubTab(to.matched, RouteConfig.Objects)) {
         next(RouteConfig.Objects.with(RouteConfig.Warning).path);
+
+        return;
+    }
+
+    if (to.name === 'default') {
+        next(RouteConfig.ProjectDashboard.path);
 
         return;
     }

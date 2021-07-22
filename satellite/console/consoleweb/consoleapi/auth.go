@@ -14,6 +14,7 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/private/post"
+	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
@@ -112,19 +113,20 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	var registerData struct {
-		FullName         string `json:"fullName"`
-		ShortName        string `json:"shortName"`
-		Email            string `json:"email"`
-		Partner          string `json:"partner"`
-		PartnerID        string `json:"partnerId"`
-		Password         string `json:"password"`
-		SecretInput      string `json:"secret"`
-		ReferrerUserID   string `json:"referrerUserId"`
-		IsProfessional   bool   `json:"isProfessional"`
-		Position         string `json:"position"`
-		CompanyName      string `json:"companyName"`
-		EmployeeCount    string `json:"employeeCount"`
-		HaveSalesContact bool   `json:"haveSalesContact"`
+		FullName          string `json:"fullName"`
+		ShortName         string `json:"shortName"`
+		Email             string `json:"email"`
+		Partner           string `json:"partner"`
+		PartnerID         string `json:"partnerId"`
+		Password          string `json:"password"`
+		SecretInput       string `json:"secret"`
+		ReferrerUserID    string `json:"referrerUserId"`
+		IsProfessional    bool   `json:"isProfessional"`
+		Position          string `json:"position"`
+		CompanyName       string `json:"companyName"`
+		EmployeeCount     string `json:"employeeCount"`
+		HaveSalesContact  bool   `json:"haveSalesContact"`
+		RecaptchaResponse string `json:"recaptchaResponse"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&registerData)
@@ -148,18 +150,26 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
 	user, err := a.service.CreateUser(ctx,
 		console.CreateUser{
-			FullName:         registerData.FullName,
-			ShortName:        registerData.ShortName,
-			Email:            registerData.Email,
-			PartnerID:        registerData.PartnerID,
-			Password:         registerData.Password,
-			IsProfessional:   registerData.IsProfessional,
-			Position:         registerData.Position,
-			CompanyName:      registerData.CompanyName,
-			EmployeeCount:    registerData.EmployeeCount,
-			HaveSalesContact: registerData.HaveSalesContact,
+			FullName:          registerData.FullName,
+			ShortName:         registerData.ShortName,
+			Email:             registerData.Email,
+			PartnerID:         registerData.PartnerID,
+			Password:          registerData.Password,
+			IsProfessional:    registerData.IsProfessional,
+			Position:          registerData.Position,
+			CompanyName:       registerData.CompanyName,
+			EmployeeCount:     registerData.EmployeeCount,
+			HaveSalesContact:  registerData.HaveSalesContact,
+			RecaptchaResponse: registerData.RecaptchaResponse,
+			IP:                ip,
 		},
 		secret,
 	)

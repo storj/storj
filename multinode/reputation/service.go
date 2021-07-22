@@ -59,6 +59,11 @@ func (service *Service) Stats(ctx context.Context, satelliteID storj.NodeID) (_ 
 			if ErrorNoStats.Has(err) {
 				continue
 			}
+
+			if nodes.ErrNodeNotReachable.Has(err) {
+				continue
+			}
+
 			return nil, Error.Wrap(err)
 		}
 
@@ -77,7 +82,7 @@ func (service *Service) dialStats(ctx context.Context, node nodes.Node, satellit
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return Stats{}, Error.Wrap(err)
+		return Stats{}, nodes.ErrNodeNotReachable.Wrap(err)
 	}
 	defer func() {
 		err = errs.Combine(err, conn.Close())
@@ -127,6 +132,7 @@ func (service *Service) dialStats(ctx context.Context, node nodes.Node, satellit
 		SuspendedAt:          resp.SuspendedAt,
 		OfflineSuspendedAt:   resp.OfflineSuspendedAt,
 		OfflineUnderReviewAt: resp.OfflineUnderReviewAt,
+		VettedAt:             resp.VettedAt,
 		UpdatedAt:            resp.UpdatedAt,
 		JoinedAt:             resp.JoinedAt,
 	}, nil

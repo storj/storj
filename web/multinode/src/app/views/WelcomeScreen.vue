@@ -11,7 +11,7 @@
             </svg>
             <h1 class="welcome-container__left-area__title">Welcome to Multinode Dashboard</h1>
             <p class="welcome-container__left-area__info">This App allow Storage Node Operators to add one or multiple nodes that are under their control to a single dashboard to easily monitor combined data about storage&bandwidth usage, payouts across multiple nodes and satellites, interact with nodes config, etc.</p>
-            <v-button class="welcome-container__left-area__button" label="Get Started" width="155px"></v-button>
+            <v-button class="welcome-container__left-area__button" label="Get Started" width="155px" :on-press="redirectToAddFirstNode"></v-button>
         </div>
         <div class="welcome-container__right-area">
             <img src="@/../static/images/Illustration.png" alt="Storj Logo Illustration">
@@ -24,10 +24,16 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import VButton from '@/app/components/common/VButton.vue';
 
+import { Config as RouterConfig } from '@/app/router';
+
 @Component({
     components: { VButton },
 })
-export default class WelcomeScreen extends Vue {}
+export default class WelcomeScreen extends Vue {
+    public async redirectToAddFirstNode(): Promise<void> {
+        await this.$router.push(RouterConfig.AddFirstNode.path);
+    }
+}
 </script>
 
 <style lang="scss" scoped>

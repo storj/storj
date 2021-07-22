@@ -67,9 +67,16 @@ func (controller *Nodes) Add(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err = controller.service.Add(ctx, id, apiSecret[:], payload.PublicAddress); err != nil {
-		// TODO: add more error checks in future, like bad payload if address is invalid or unauthorized if secret invalid.
-		controller.log.Error("add node internal error", zap.Error(err))
-		controller.serveError(w, http.StatusInternalServerError, ErrNodes.Wrap(err))
+		switch {
+		case nodes.ErrNodeNotReachable.Has(err):
+			controller.serveError(w, http.StatusNotFound, ErrNodes.Wrap(err))
+		case nodes.ErrNodeAPIKeyInvalid.Has(err):
+			controller.serveError(w, http.StatusUnauthorized, ErrNodes.Wrap(err))
+		case nodes.Error.Has(err):
+		default:
+			controller.log.Error("could not add node", zap.Error(err))
+			controller.serveError(w, http.StatusInternalServerError, ErrNodes.Wrap(err))
+		}
 		return
 	}
 }

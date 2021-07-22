@@ -13,7 +13,7 @@ require (
 	github.com/go-redis/redis/v8 v8.7.1
 	github.com/go-rod/rod v0.100.0
 	github.com/gogo/protobuf v1.3.2
-	github.com/google/go-cmp v0.5.4
+	github.com/google/go-cmp v0.5.5
 	github.com/google/pprof v0.0.0-20200229191704-1ebb73c60ed3 // indirect
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/schema v1.2.0
@@ -40,7 +40,7 @@ require (
 	github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
 	github.com/zeebo/assert v1.3.0
-	github.com/zeebo/clingy v0.0.0-20210406153335-0504f579bda1
+	github.com/zeebo/clingy v0.0.0-20210622223751-00a909f86ea9
 	github.com/zeebo/errs v1.2.2
 	github.com/zeebo/ini v0.0.0-20210331155437-86af75b4f524
 	go.etcd.io/bbolt v1.3.5
@@ -54,8 +54,8 @@ require (
 	google.golang.org/api v0.20.0 // indirect
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
-	storj.io/common v0.0.0-20210504141454-bcb03a80052f
-	storj.io/drpc v0.0.20
+	storj.io/common v0.0.0-20210708125041-4882a3ae3eda
+	storj.io/drpc v0.0.23
 	storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7
 	storj.io/private v0.0.0-20210625132526-af46b647eda5
 	storj.io/uplink v1.5.0-rc.1.0.20210512164354-e2e5889614a9

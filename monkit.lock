@@ -1,18 +1,10 @@
 storj.io/storj/private/lifecycle."slow_shutdown" Event
 storj.io/storj/private/lifecycle."unexpected_shutdown" Event
 storj.io/storj/satellite/accounting."bucket_bytes" IntVal
-storj.io/storj/satellite/accounting."bucket_inline_bytes" IntVal
-storj.io/storj/satellite/accounting."bucket_inline_segments" IntVal
 storj.io/storj/satellite/accounting."bucket_objects" IntVal
-storj.io/storj/satellite/accounting."bucket_remote_bytes" IntVal
-storj.io/storj/satellite/accounting."bucket_remote_segments" IntVal
 storj.io/storj/satellite/accounting."bucket_segments" IntVal
 storj.io/storj/satellite/accounting."total_bytes" IntVal
-storj.io/storj/satellite/accounting."total_inline_bytes" IntVal
-storj.io/storj/satellite/accounting."total_inline_segments" IntVal
 storj.io/storj/satellite/accounting."total_objects" IntVal
-storj.io/storj/satellite/accounting."total_remote_bytes" IntVal
-storj.io/storj/satellite/accounting."total_remote_segments" IntVal
 storj.io/storj/satellite/accounting."total_segments" IntVal
 storj.io/storj/satellite/accounting/tally."nodetallies.totalsum" IntVal
 storj.io/storj/satellite/audit."audit_contained_nodes" IntVal
@@ -98,6 +90,8 @@ storj.io/storj/satellite/repair/repairer."download_failed_not_enough_pieces_repa
 storj.io/storj/satellite/repair/repairer."healthy_ratio_after_repair" FloatVal
 storj.io/storj/satellite/repair/repairer."healthy_ratio_before_repair" FloatVal
 storj.io/storj/satellite/repair/repairer."repair_attempts" Meter
+storj.io/storj/satellite/repair/repairer."repair_bytes_downloaded" Meter
+storj.io/storj/satellite/repair/repairer."repair_bytes_uploaded" Meter
 storj.io/storj/satellite/repair/repairer."repair_failed" Meter
 storj.io/storj/satellite/repair/repairer."repair_nodes_unavailable" Meter
 storj.io/storj/satellite/repair/repairer."repair_partial" Meter

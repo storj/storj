@@ -18,3 +18,16 @@ func withRows(rows tagsql.Rows, err error) func(func(tagsql.Rows) error) error {
 		return errs.Combine(rows.Err(), rows.Close(), err)
 	}
 }
+
+// intLimitRange defines a valid range (1,limit].
+type intLimitRange int
+
+// Ensure clamps v to a value between [1,limit].
+func (limit intLimitRange) Ensure(v *int) {
+	if *v <= 0 || *v > int(limit) {
+		*v = int(limit)
+	}
+}
+
+// Max returns maximum value for the given range.
+func (limit intLimitRange) Max() int { return int(limit) }

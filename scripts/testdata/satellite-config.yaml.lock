@@ -124,6 +124,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link for linksharing requests
 # console.linksharing-url: https://link.us1.storjshare.io
 
+# indicates if MFA is enabled
+# console.mfa-enabled: false
+
 # enable open registration
 # console.open-registration-enabled: false
 
@@ -148,6 +151,15 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # number of IPs whose rate limits we store
 # console.rate-limit.num-limits: 1000
 
+# whether or not reCAPTCHA is enabled for user registration
+# console.recaptcha.enabled: false
+
+# reCAPTCHA secret key
+# console.recaptcha.secret-key: ""
+
+# reCAPTCHA site key
+# console.recaptcha.site-key: ""
+
 # used to display at web satellite console
 # console.satellite-name: Storj
 
@@ -163,11 +175,17 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to terms and conditions page
 # console.terms-and-conditions-url: https://storj.io/storage-sla/
 
-# the default bandwidth usage limit
-# console.usage-limits.default-bandwidth-limit: 50.00 GB
+# the default free-tier bandwidth usage limit
+# console.usage-limits.bandwidth.free: 50.00 GB
 
-# the default storage usage limit
-# console.usage-limits.default-storage-limit: 50.00 GB
+# the default paid-tier bandwidth usage limit
+# console.usage-limits.bandwidth.paid: 100.00 TB
+
+# the default free-tier storage usage limit
+# console.usage-limits.storage.free: 50.00 GB
+
+# the default paid-tier storage usage limit
+# console.usage-limits.storage.paid: 25.00 TB
 
 # the public address of the node, useful for nodes behind NAT
 contact.external-address: ""
@@ -700,8 +718,14 @@ server.private-address: 127.0.0.1:7778
 # length of time a node can go without contacting satellite before being disqualified
 # stray-nodes.max-duration-without-contact: 720h0m0s
 
+# as of system interval
+# tally.as-of-system-interval: -5m0s
+
 # how frequently the tally service should run
 # tally.interval: 1h0m0s
+
+# how many objects to query in a batch
+# tally.list-limit: 2500
 
 # how large of batches GetBandwidthSince should process at a time
 # tally.read-rollup-batch-size: 10000

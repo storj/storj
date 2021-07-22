@@ -139,6 +139,12 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 		Description: dbx.Project_Description(project.Description),
 		RateLimit:   dbx.Project_RateLimit_Raw(project.RateLimit),
 	}
+	if project.StorageLimit != nil {
+		updateFields.UsageLimit = dbx.Project_UsageLimit(project.StorageLimit.Int64())
+	}
+	if project.BandwidthLimit != nil {
+		updateFields.BandwidthLimit = dbx.Project_BandwidthLimit(project.BandwidthLimit.Int64())
+	}
 
 	_, err = projects.db.Update_Project_By_Id(ctx,
 		dbx.Project_Id(project.ID[:]),

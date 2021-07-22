@@ -70,7 +70,7 @@ func (rl *IPRateLimiter) cleanupLimiters() {
 // Limit applies a per IP rate limiting as an HTTP Handler.
 func (rl *IPRateLimiter) Limit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip, err := getRequestIP(r)
+		ip, err := GetRequestIP(r)
 		if err != nil {
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 			return
@@ -84,8 +84,8 @@ func (rl *IPRateLimiter) Limit(next http.Handler) http.Handler {
 	})
 }
 
-// getRequestIP gets the original IP address of the request by handling the request headers.
-func getRequestIP(r *http.Request) (ip string, err error) {
+// GetRequestIP gets the original IP address of the request by handling the request headers.
+func GetRequestIP(r *http.Request) (ip string, err error) {
 	realIP := r.Header.Get("X-REAL-IP")
 	if realIP != "" {
 		return realIP, nil

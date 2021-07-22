@@ -4,14 +4,14 @@
 import { ActionContext, ActionTree, GetterTree, Module, MutationTree } from 'vuex';
 
 import { RootState } from '@/app/store/index';
-import { DiskSpace, Stamp } from '@/storage';
+import { DiskSpace, DiskSpaceUsage, Stamp } from '@/storage';
 import { StorageService } from '@/storage/service';
 
 /**
  * StorageState is a representation of by day and total storage usage.
  */
 export class StorageState {
-    public usage: Stamp[] = [];
+    public usage: DiskSpaceUsage = new DiskSpaceUsage();
     public diskSpace: DiskSpace = new DiskSpace();
 }
 
@@ -47,7 +47,7 @@ export class StorageModule implements Module<StorageState, RootState> {
      * @param state - state of the module.
      * @param usage
      */
-    public setUsage(state: StorageState, usage: Stamp[]): void {
+    public setUsage(state: StorageState, usage: DiskSpaceUsage): void {
         state.usage = usage;
     }
 

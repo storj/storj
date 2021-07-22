@@ -62,7 +62,7 @@ func (ec *ECRepairer) dialPiecestore(ctx context.Context, n storj.NodeURL) (*pie
 // After downloading a piece, the ECRepairer will verify the hash and original order limit for that piece.
 // If verification fails, another piece will be downloaded until we reach the minimum required or run out of order limits.
 // If piece hash verification fails, it will return all failed node IDs.
-func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, dataSize int64) (_ io.ReadCloser, failedPieces []*pb.RemotePiece, err error) {
+func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit, cachedIPsAndPorts map[storj.NodeID]string, privateKey storj.PiecePrivateKey, es eestream.ErasureScheme, dataSize int64) (_ io.ReadCloser, failedPieces []*pb.RemotePiece, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(limits) != es.TotalCount() {
@@ -116,7 +116,20 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 				inProgress++
 				cond.L.Unlock()
 
-				pieceReadCloser, err := ec.downloadAndVerifyPiece(ctx, limit, privateKey, pieceSize)
+				lastIPPort := cachedIPsAndPorts[limit.GetLimit().StorageNodeId]
+				address := limit.GetStorageNodeAddress().GetAddress()
+				var triedLastIPPort bool
+				if lastIPPort != "" && lastIPPort != address {
+					address = lastIPPort
+					triedLastIPPort = true
+				}
+
+				pieceReadCloser, err := ec.downloadAndVerifyPiece(ctx, limit, address, privateKey, pieceSize)
+
+				// if piecestore dial with last ip:port failed try again with node address
+				if triedLastIPPort && piecestore.Error.Has(err) {
+					pieceReadCloser, err = ec.downloadAndVerifyPiece(ctx, limit, limit.GetStorageNodeAddress().GetAddress(), privateKey, pieceSize)
+				}
 				cond.L.Lock()
 				inProgress--
 				if err != nil {
@@ -170,7 +183,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 // downloadAndVerifyPiece downloads a piece from a storagenode,
 // expects the original order limit to have the correct piece public key,
 // and expects the hash of the data to match the signed hash provided by the storagenode.
-func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.AddressedOrderLimit, privateKey storj.PiecePrivateKey, pieceSize int64) (pieceReadCloser io.ReadCloser, err error) {
+func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.AddressedOrderLimit, address string, privateKey storj.PiecePrivateKey, pieceSize int64) (pieceReadCloser io.ReadCloser, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// contact node
@@ -179,7 +192,7 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 
 	ps, err := ec.dialPiecestore(downloadCtx, storj.NodeURL{
 		ID:      limit.GetLimit().StorageNodeId,
-		Address: limit.GetStorageNodeAddress().Address,
+		Address: address,
 	})
 	if err != nil {
 		return nil, err
@@ -227,6 +240,8 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 		}
 		pieceReadCloser = tempfile
 	}
+
+	mon.Meter("repair_bytes_downloaded").Mark64(downloadedPieceSize) //mon:locked
 
 	if downloadedPieceSize != pieceSize {
 		return nil, Error.New("didn't download the correct amount of data, want %d, got %d", pieceSize, downloadedPieceSize)

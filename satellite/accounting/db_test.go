@@ -231,12 +231,10 @@ func createBucketStorageTallies(projectID uuid.UUID) (map[metabase.BucketLocatio
 				ProjectID:  projectID,
 				BucketName: bucketName,
 			},
-			ObjectCount:    int64(1),
-			InlineSegments: int64(1),
-			RemoteSegments: int64(1),
-			InlineBytes:    int64(1),
-			RemoteBytes:    int64(1),
-			MetadataSize:   int64(1),
+			ObjectCount:   int64(1),
+			TotalSegments: int64(2),
+			TotalBytes:    int64(2),
+			MetadataSize:  int64(1),
 		}
 		bucketTallies[bucketLocation] = &tally
 		expectedTallies = append(expectedTallies, tally)
