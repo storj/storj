@@ -23,7 +23,7 @@ var (
 	exitcode = 0
 )
 
-// This function gets all endpoints and compairs them to a known list of possible endpoints
+// This function gets all endpoints and compairs them to a known list of possible endpoints.
 func Endpoints() int {
 	// sets the path up for the environment.
 	fname = filepath.FromSlash(fname)

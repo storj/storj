@@ -194,6 +194,20 @@ pipeline {
                     }
                 }
 
+                stage('GraphQL Endpoints') {
+                    environment {
+                        // use different hostname to avoid port conflicts
+                        STORJ_NETWORK_HOST4 = '127.0.0.2'
+                        STORJ_NETWORK_HOST6 = '127.0.0.2'
+                        SATELLITE_0_ADDR='127.0.0.2:10002'
+                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj2?sslmode=disable'
+                        }
+                    steps {
+                        sh 'psql -U postgres -c \'create database teststorj2;\''
+                        sh 'make test-sim-api'
+                    }
+                }
+
                 stage('Cockroach Integration') {
                     environment {
                         STORJ_NETWORK_HOST4 = '127.0.0.4'
