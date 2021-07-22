@@ -32,7 +32,6 @@ import (
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metaloop"
 	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
@@ -79,7 +78,6 @@ type Core struct {
 	Metainfo struct {
 		Metabase    *metabase.DB
 		Service     *metainfo.Service
-		Loop        *metaloop.Service
 		SegmentLoop *segmentloop.Service
 	}
 
@@ -248,15 +246,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Buckets(),
 			peer.Metainfo.Metabase,
 		)
-		peer.Metainfo.Loop = metaloop.New(
-			config.Metainfo.Loop,
-			peer.Metainfo.Metabase,
-		)
-		peer.Services.Add(lifecycle.Item{
-			Name:  "metainfo:loop",
-			Run:   peer.Metainfo.Loop.Run,
-			Close: peer.Metainfo.Loop.Close,
-		})
 		peer.Metainfo.SegmentLoop = segmentloop.New(
 			config.Metainfo.SegmentLoop,
 			peer.Metainfo.Metabase,
@@ -357,7 +346,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup accounting
-		peer.Accounting.Tally = tally.New(peer.Log.Named("accounting:tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Cache, peer.Metainfo.Loop, config.Tally.Interval)
+		peer.Accounting.Tally = tally.New(peer.Log.Named("accounting:tally"), peer.DB.StoragenodeAccounting(), peer.DB.ProjectAccounting(), peer.LiveAccounting.Cache, peer.Metainfo.Metabase, config.Tally)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "accounting:tally",
 			Run:   peer.Accounting.Tally.Run,
@@ -463,7 +452,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{ // setup graceful exit
 		if config.GracefulExit.Enabled {
-			peer.GracefulExit.Chore = gracefulexit.NewChore(peer.Log.Named("gracefulexit"), peer.DB.GracefulExit(), peer.Overlay.DB, peer.Metainfo.Loop, config.GracefulExit)
+			peer.GracefulExit.Chore = gracefulexit.NewChore(peer.Log.Named("gracefulexit"), peer.DB.GracefulExit(), peer.Overlay.DB, peer.Metainfo.SegmentLoop, config.GracefulExit)
 			peer.Services.Add(lifecycle.Item{
 				Name:  "gracefulexit",
 				Run:   peer.GracefulExit.Chore.Run,

@@ -57,6 +57,10 @@ const (
 	StatusOffline Status = "offline"
 	// StatusNotReachable indicates that we could not reach storagenode via drpc request.
 	StatusNotReachable Status = "not reachable"
+	// StatusUnauthorized indicates that api key is wrong.
+	StatusUnauthorized Status = "unauthorized"
+	// StatusStorageNodeInternalError indicates storagenode internal error.
+	StatusStorageNodeInternalError Status = "storagenode internal error"
 )
 
 // NodeInfo contains basic node internal state.

@@ -8,22 +8,26 @@ import (
 	"time"
 
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 )
 
 // Progress represents the persisted graceful exit progress record.
 type Progress struct {
-	NodeID            storj.NodeID
-	BytesTransferred  int64
-	PiecesTransferred int64
-	PiecesFailed      int64
-	UpdatedAt         time.Time
+	NodeID                   storj.NodeID
+	BytesTransferred         int64
+	PiecesTransferred        int64
+	PiecesFailed             int64
+	UpdatedAt                time.Time
+	UsesSegmentTransferQueue bool
 }
 
 // TransferQueueItem represents the persisted graceful exit queue record.
 type TransferQueueItem struct {
 	NodeID              storj.NodeID
 	Key                 metabase.SegmentKey
+	StreamID            uuid.UUID
+	Position            metabase.SegmentPosition
 	PieceNum            int32
 	RootPieceID         storj.PieceID
 	DurabilityRatio     float64
@@ -46,15 +50,15 @@ type DB interface {
 	GetProgress(ctx context.Context, nodeID storj.NodeID) (*Progress, error)
 
 	// Enqueue batch inserts graceful exit transfer queue entries it does not exist.
-	Enqueue(ctx context.Context, items []TransferQueueItem, batchSize int) error
+	Enqueue(ctx context.Context, items []TransferQueueItem, batchSize int, usesSegmentTransferQueue bool) error
 	// UpdateTransferQueueItem creates a graceful exit transfer queue entry.
-	UpdateTransferQueueItem(ctx context.Context, item TransferQueueItem) error
+	UpdateTransferQueueItem(ctx context.Context, item TransferQueueItem, usesSegmentTransferQueue bool) error
 	// DeleteTransferQueueItem deletes a graceful exit transfer queue entry.
-	DeleteTransferQueueItem(ctx context.Context, nodeID storj.NodeID, key metabase.SegmentKey, pieceNum int32) error
+	DeleteTransferQueueItem(ctx context.Context, nodeID storj.NodeID, key metabase.SegmentKey, StreamID uuid.UUID, Position metabase.SegmentPosition, pieceNum int32) error
 	// DeleteTransferQueueItem deletes a graceful exit transfer queue entries by nodeID.
-	DeleteTransferQueueItems(ctx context.Context, nodeID storj.NodeID) error
+	DeleteTransferQueueItems(ctx context.Context, nodeID storj.NodeID, usesSegmentTransferQueue bool) error
 	// DeleteFinishedTransferQueueItem deletes finished graceful exit transfer queue entries.
-	DeleteFinishedTransferQueueItems(ctx context.Context, nodeID storj.NodeID) error
+	DeleteFinishedTransferQueueItems(ctx context.Context, nodeID storj.NodeID, usesSegmentTransferQueue bool) error
 	// DeleteAllFinishedTransferQueueItems deletes all graceful exit transfer
 	// queue items whose nodes have finished the exit before the indicated time
 	// returning the total number of deleted items.
@@ -65,15 +69,15 @@ type DB interface {
 	// GetFinishedExitNodes gets nodes that are marked having finished graceful exit before a given time.
 	GetFinishedExitNodes(ctx context.Context, before time.Time, asOfSystemTimeInterval time.Duration) (finishedNodes []storj.NodeID, err error)
 	// GetTransferQueueItem gets a graceful exit transfer queue entry.
-	GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, key metabase.SegmentKey, pieceNum int32) (*TransferQueueItem, error)
+	GetTransferQueueItem(ctx context.Context, nodeID storj.NodeID, key metabase.SegmentKey, StreamID uuid.UUID, Position metabase.SegmentPosition, pieceNum int32) (*TransferQueueItem, error)
 	// GetIncomplete gets incomplete graceful exit transfer queue entries ordered by durability ratio and queued date ascending.
-	GetIncomplete(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) ([]*TransferQueueItem, error)
+	GetIncomplete(ctx context.Context, nodeID storj.NodeID, limit int, offset int64, usesSegmentTransferQueue bool) ([]*TransferQueueItem, error)
 	// GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries in the database ordered by durability ratio and queued date ascending.
-	GetIncompleteNotFailed(ctx context.Context, nodeID storj.NodeID, limit int, offset int64) ([]*TransferQueueItem, error)
+	GetIncompleteNotFailed(ctx context.Context, nodeID storj.NodeID, limit int, offset int64, usesSegmentTransferQueue bool) ([]*TransferQueueItem, error)
 	// GetIncompleteNotFailed gets incomplete graceful exit transfer queue entries that have failed <= maxFailures times, ordered by durability ratio and queued date ascending.
-	GetIncompleteFailed(ctx context.Context, nodeID storj.NodeID, maxFailures int, limit int, offset int64) ([]*TransferQueueItem, error)
+	GetIncompleteFailed(ctx context.Context, nodeID storj.NodeID, maxFailures int, limit int, offset int64, usesSegmentTransferQueue bool) ([]*TransferQueueItem, error)
 	// IncrementOrderLimitSendCount increments the number of times a node has been sent an order limit for transferring.
-	IncrementOrderLimitSendCount(ctx context.Context, nodeID storj.NodeID, key metabase.SegmentKey, pieceNum int32) error
+	IncrementOrderLimitSendCount(ctx context.Context, nodeID storj.NodeID, key metabase.SegmentKey, StreamID uuid.UUID, Position metabase.SegmentPosition, pieceNum int32) error
 	// CountFinishedTransferQueueItemsByNode return a map of the nodes which has
 	// finished the exit before the indicated time but there are at least one item
 	// left in the transfer queue.
