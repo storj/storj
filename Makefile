@@ -110,7 +110,7 @@ test-sim: ## Test source with storj-sim (jenkins)
 	@./scripts/test-sim.sh
 
 .PHONY: test-sim-api
-test-sim: ## Test api source with storj-sim (jenkins)
+test-sim-api: ## Test api source with storj-sim (jenkins)
 	@echo "Running ${@}"
 	@./scripts/test-sim-api.sh
 
