@@ -92,7 +92,6 @@ pipeline {
                     }
                 }
             }
-        }
         stage('API Test'){
             environment {
                 // use different hostname to avoid port conflicts
