@@ -15,7 +15,6 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metaloop"
 )
 
 // Error is a standard error class for this package.
@@ -29,16 +28,20 @@ type Config struct {
 	Interval            time.Duration `help:"how frequently the tally service should run" releaseDefault:"1h" devDefault:"30s" testDefault:"$TESTINTERVAL"`
 	SaveRollupBatchSize int           `help:"how large of batches SaveRollup should process at a time" default:"1000"`
 	ReadRollupBatchSize int           `help:"how large of batches GetBandwidthSince should process at a time" default:"10000"`
+
+	ListLimit          int           `help:"how many objects to query in a batch" default:"2500"`
+	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
 }
 
 // Service is the tally service for data stored on each storage node.
 //
 // architecture: Chore
 type Service struct {
-	log  *zap.Logger
-	Loop *sync2.Cycle
+	log    *zap.Logger
+	config Config
+	Loop   *sync2.Cycle
 
-	metainfoLoop            *metaloop.Service
+	metabase                *metabase.DB
 	liveAccounting          accounting.Cache
 	storagenodeAccountingDB accounting.StoragenodeAccounting
 	projectAccountingDB     accounting.ProjectAccounting
@@ -46,12 +49,13 @@ type Service struct {
 }
 
 // New creates a new tally Service.
-func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting accounting.Cache, metainfoLoop *metaloop.Service, interval time.Duration) *Service {
+func New(log *zap.Logger, sdb accounting.StoragenodeAccounting, pdb accounting.ProjectAccounting, liveAccounting accounting.Cache, metabase *metabase.DB, config Config) *Service {
 	return &Service{
-		log:  log,
-		Loop: sync2.NewCycle(interval),
+		log:    log,
+		config: config,
+		Loop:   sync2.NewCycle(config.Interval),
 
-		metainfoLoop:            metainfoLoop,
+		metabase:                metabase,
 		liveAccounting:          liveAccounting,
 		storagenodeAccountingDB: sdb,
 		projectAccountingDB:     pdb,
@@ -164,9 +168,9 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 		}
 	}
 
-	// add up all nodes and buckets
-	observer := NewObserver(service.log.Named("observer"), service.nowFn())
-	err = service.metainfoLoop.Join(ctx, observer)
+	// add up all buckets
+	collector := NewBucketTallyCollector(service.log.Named("observer"), service.nowFn(), service.metabase, service.config)
+	err = collector.Run(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -174,66 +178,97 @@ func (service *Service) Tally(ctx context.Context) (err error) {
 
 	// save the new results
 	var errAtRest error
-	if len(observer.Bucket) > 0 {
+	if len(collector.Bucket) > 0 {
 		// record bucket tallies to DB
-		err = service.projectAccountingDB.SaveTallies(ctx, finishTime, observer.Bucket)
+		err = service.projectAccountingDB.SaveTallies(ctx, finishTime, collector.Bucket)
 		if err != nil {
 			errAtRest = Error.New("ProjectAccounting.SaveTallies failed: %v", err)
 		}
 
-		updateLiveAccountingTotals(projectTotalsFromBuckets(observer.Bucket))
+		updateLiveAccountingTotals(projectTotalsFromBuckets(collector.Bucket))
 	}
 
+	// TODO move commented metrics in a different place or wait until metabase
+	// object will contains such informations
 	// report bucket metrics
-	if len(observer.Bucket) > 0 {
+	if len(collector.Bucket) > 0 {
 		var total accounting.BucketTally
-		for _, bucket := range observer.Bucket {
-			monAccounting.IntVal("bucket_objects").Observe(bucket.ObjectCount)            //mon:locked
-			monAccounting.IntVal("bucket_segments").Observe(bucket.Segments())            //mon:locked
-			monAccounting.IntVal("bucket_inline_segments").Observe(bucket.InlineSegments) //mon:locked
-			monAccounting.IntVal("bucket_remote_segments").Observe(bucket.RemoteSegments) //mon:locked
+		for _, bucket := range collector.Bucket {
+			monAccounting.IntVal("bucket_objects").Observe(bucket.ObjectCount) //mon:locked
+			monAccounting.IntVal("bucket_segments").Observe(bucket.Segments()) //mon:locked
+			// monAccounting.IntVal("bucket_inline_segments").Observe(bucket.InlineSegments) //mon:locked
+			// monAccounting.IntVal("bucket_remote_segments").Observe(bucket.RemoteSegments) //mon:locked
 
-			monAccounting.IntVal("bucket_bytes").Observe(bucket.Bytes())            //mon:locked
-			monAccounting.IntVal("bucket_inline_bytes").Observe(bucket.InlineBytes) //mon:locked
-			monAccounting.IntVal("bucket_remote_bytes").Observe(bucket.RemoteBytes) //mon:locked
+			monAccounting.IntVal("bucket_bytes").Observe(bucket.Bytes()) //mon:locked
+			// monAccounting.IntVal("bucket_inline_bytes").Observe(bucket.InlineBytes) //mon:locked
+			// monAccounting.IntVal("bucket_remote_bytes").Observe(bucket.RemoteBytes) //mon:locked
 			total.Combine(bucket)
 		}
 		monAccounting.IntVal("total_objects").Observe(total.ObjectCount) //mon:locked
 
-		monAccounting.IntVal("total_segments").Observe(total.Segments())            //mon:locked
-		monAccounting.IntVal("total_inline_segments").Observe(total.InlineSegments) //mon:locked
-		monAccounting.IntVal("total_remote_segments").Observe(total.RemoteSegments) //mon:locked
+		monAccounting.IntVal("total_segments").Observe(total.Segments()) //mon:locked
+		// monAccounting.IntVal("total_inline_segments").Observe(total.InlineSegments) //mon:locked
+		// monAccounting.IntVal("total_remote_segments").Observe(total.RemoteSegments) //mon:locked
 
-		monAccounting.IntVal("total_bytes").Observe(total.Bytes())            //mon:locked
-		monAccounting.IntVal("total_inline_bytes").Observe(total.InlineBytes) //mon:locked
-		monAccounting.IntVal("total_remote_bytes").Observe(total.RemoteBytes) //mon:locked
+		monAccounting.IntVal("total_bytes").Observe(total.Bytes()) //mon:locked
+		// monAccounting.IntVal("total_inline_bytes").Observe(total.InlineBytes) //mon:locked
+		// monAccounting.IntVal("total_remote_bytes").Observe(total.RemoteBytes) //mon:locked
 	}
 
 	// return errors if something went wrong.
 	return errAtRest
 }
 
-var _ metaloop.Observer = (*Observer)(nil)
-
-// Observer observes metainfo and adds up tallies for nodes and buckets.
-type Observer struct {
+// BucketTallyCollector collects and adds up tallies for buckets.
+type BucketTallyCollector struct {
 	Now    time.Time
 	Log    *zap.Logger
 	Bucket map[metabase.BucketLocation]*accounting.BucketTally
+
+	metabase *metabase.DB
+	config   Config
 }
 
-// NewObserver returns an metainfo loop observer that adds up totals for buckets and nodes.
-// The now argument controls when the observer considers pointers to be expired.
-func NewObserver(log *zap.Logger, now time.Time) *Observer {
-	return &Observer{
+// NewBucketTallyCollector returns an collector that adds up totals for buckets.
+// The now argument controls when the collector considers objects to be expired.
+func NewBucketTallyCollector(log *zap.Logger, now time.Time, db *metabase.DB, config Config) *BucketTallyCollector {
+	return &BucketTallyCollector{
 		Now:    now,
 		Log:    log,
 		Bucket: make(map[metabase.BucketLocation]*accounting.BucketTally),
+
+		metabase: db,
+		config:   config,
 	}
 }
 
+// Run runs collecting bucket tallies.
+func (observer *BucketTallyCollector) Run(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	startingTime, err := observer.metabase.Now(ctx)
+	if err != nil {
+		return err
+	}
+
+	return observer.metabase.IterateLoopObjects(ctx, metabase.IterateLoopObjects{
+		BatchSize:          observer.config.ListLimit,
+		AsOfSystemTime:     startingTime,
+		AsOfSystemInterval: observer.config.AsOfSystemInterval,
+	}, func(ctx context.Context, it metabase.LoopObjectsIterator) (err error) {
+		var entry metabase.LoopObjectEntry
+		for it.Next(ctx, &entry) {
+			err = observer.object(ctx, entry)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 // ensureBucket returns bucket corresponding to the passed in path.
-func (observer *Observer) ensureBucket(ctx context.Context, location metabase.ObjectLocation) *accounting.BucketTally {
+func (observer *BucketTallyCollector) ensureBucket(ctx context.Context, location metabase.ObjectLocation) *accounting.BucketTally {
 	bucketLocation := location.Bucket()
 	bucket, exists := observer.Bucket[bucketLocation]
 	if !exists {
@@ -245,13 +280,8 @@ func (observer *Observer) ensureBucket(ctx context.Context, location metabase.Ob
 	return bucket
 }
 
-// LoopStarted is called at each start of a loop.
-func (observer *Observer) LoopStarted(context.Context, metaloop.LoopInfo) (err error) {
-	return nil
-}
-
 // Object is called for each object once.
-func (observer *Observer) Object(ctx context.Context, object *metaloop.Object) (err error) {
+func (observer *BucketTallyCollector) object(ctx context.Context, object metabase.LoopObjectEntry) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if object.Expired(observer.Now) {
@@ -259,38 +289,10 @@ func (observer *Observer) Object(ctx context.Context, object *metaloop.Object) (
 	}
 
 	bucket := observer.ensureBucket(ctx, object.ObjectStream.Location())
+	bucket.TotalSegments += int64(object.SegmentCount)
+	bucket.TotalBytes += object.TotalEncryptedSize
 	bucket.MetadataSize += int64(object.EncryptedMetadataSize)
 	bucket.ObjectCount++
-
-	return nil
-}
-
-// InlineSegment is called for each inline segment.
-func (observer *Observer) InlineSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if segment.Expired(observer.Now) {
-		return nil
-	}
-
-	bucket := observer.ensureBucket(ctx, segment.Location.Object())
-	bucket.InlineSegments++
-	bucket.InlineBytes += int64(segment.EncryptedSize)
-
-	return nil
-}
-
-// RemoteSegment is called for each remote segment.
-func (observer *Observer) RemoteSegment(ctx context.Context, segment *metaloop.Segment) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if segment.Expired(observer.Now) {
-		return nil
-	}
-
-	bucket := observer.ensureBucket(ctx, segment.Location.Object())
-	bucket.RemoteSegments++
-	bucket.RemoteBytes += int64(segment.EncryptedSize)
 
 	return nil
 }
@@ -298,7 +300,7 @@ func (observer *Observer) RemoteSegment(ctx context.Context, segment *metaloop.S
 func projectTotalsFromBuckets(buckets map[metabase.BucketLocation]*accounting.BucketTally) map[uuid.UUID]int64 {
 	projectTallyTotals := make(map[uuid.UUID]int64)
 	for _, bucket := range buckets {
-		projectTallyTotals[bucket.ProjectID] += (bucket.InlineBytes + bucket.RemoteBytes)
+		projectTallyTotals[bucket.ProjectID] += bucket.TotalBytes
 	}
 	return projectTallyTotals
 }

@@ -515,6 +515,73 @@ func TestVerifierMissingPiece(t *testing.T) {
 	})
 }
 
+func TestVerifierNotEnoughPieces(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			StorageNodeDB: func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error) {
+				return testblobs.NewBadDB(log.Named("baddb"), db), nil
+			},
+			Satellite: testplanet.ReconfigureRS(2, 2, 4, 4),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		audits := satellite.Audit
+
+		audits.Worker.Loop.Pause()
+		audits.Chore.Loop.Pause()
+
+		ul := planet.Uplinks[0]
+		testData := testrand.Bytes(8 * memory.KiB)
+
+		err := ul.Upload(ctx, satellite, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		audits.Chore.Loop.TriggerWait()
+		queue := audits.Queues.Fetch()
+		queueSegment, err := queue.Next()
+		require.NoError(t, err)
+
+		segment, err := satellite.Metainfo.Metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+			StreamID: queueSegment.StreamID,
+			Position: queueSegment.Position,
+		})
+		require.NoError(t, err)
+
+		// out of 4 nodes, leave one intact
+		// make one to be offline.
+		// make one to return `unknown error` when respond to `GET_AUDIT/GET` request.
+		// delete the piece from one node which would cause audit failure
+		unknownErrorNode := planet.FindNode(segment.Pieces[0].StorageNode)
+		offlineNode := planet.FindNode(segment.Pieces[1].StorageNode)
+		deletedPieceNode := planet.FindNode(segment.Pieces[2].StorageNode)
+		deletedPieceNum := int32(segment.Pieces[2].Number)
+
+		// return an error when the verifier attempts to download from this node
+		unknownErrorDB := unknownErrorNode.DB.(*testblobs.BadDB)
+		unknownErrorDB.SetError(errs.New("unknown error"))
+
+		// stop the offline node
+		err = planet.StopNodeAndUpdate(ctx, offlineNode)
+		require.NoError(t, err)
+
+		// delete piece from deletedPieceNode
+		pieceID := segment.RootPieceID.Derive(deletedPieceNode.ID(), deletedPieceNum)
+		err = deletedPieceNode.Storage2.Store.Delete(ctx, satellite.ID(), pieceID)
+		require.NoError(t, err)
+
+		report, err := audits.Verifier.Verify(ctx, queueSegment, nil)
+		require.True(t, audit.ErrNotEnoughShares.Has(err))
+
+		// without enough pieces to complete the audit,
+		// offlines and unknowns should be marked, but
+		// failures should not
+		assert.Len(t, report.Fails, 0)
+		assert.Len(t, report.Offlines, 1)
+		assert.Len(t, report.Unknown, 1)
+	})
+}
+
 func TestVerifierDialTimeout(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,

@@ -46,7 +46,6 @@ import (
 	"storj.io/storj/satellite/inspector"
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/metaloop"
 	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
@@ -96,7 +95,6 @@ type Satellite struct {
 		Metabase    *metabase.DB
 		Service     *metainfo.Service
 		Endpoint    *metainfo.Endpoint
-		Loop        *metaloop.Service
 		SegmentLoop *segmentloop.Service
 	}
 
@@ -545,7 +543,6 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Metainfo.Metabase = api.Metainfo.Metabase
 	system.Metainfo.Service = peer.Metainfo.Service
 	system.Metainfo.Endpoint = api.Metainfo.Endpoint
-	system.Metainfo.Loop = peer.Metainfo.Loop
 	system.Metainfo.SegmentLoop = peer.Metainfo.SegmentLoop
 
 	system.Inspector.Endpoint = api.Inspector.Endpoint

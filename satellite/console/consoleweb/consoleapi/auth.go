@@ -468,13 +468,13 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 // serveJSONError writes JSON error to response output stream.
 func (a *Auth) serveJSONError(w http.ResponseWriter, err error) {
 	status := a.getStatusCode(err)
-	serveJSONError(a.log, w, status, err)
+	serveCustomJSONError(a.log, w, status, err, a.getUserErrorMessage(err))
 }
 
 // getStatusCode returns http.StatusCode depends on console error class.
 func (a *Auth) getStatusCode(err error) int {
 	switch {
-	case console.ErrValidation.Has(err):
+	case console.ErrValidation.Has(err), console.ErrRecaptcha.Has(err):
 		return http.StatusBadRequest
 	case console.ErrUnauthorized.Has(err):
 		return http.StatusUnauthorized
@@ -484,5 +484,21 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusNotImplemented
 	default:
 		return http.StatusInternalServerError
+	}
+}
+
+// getUserErrorMessage returns a user-friendly representation of the error.
+func (a *Auth) getUserErrorMessage(err error) string {
+	switch {
+	case console.ErrRecaptcha.Has(err):
+		return "Validation of reCAPTCHA was unsuccessful"
+	case console.ErrRegToken.Has(err):
+		return "We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation"
+	case console.ErrEmailUsed.Has(err):
+		return "This email is already in use; try another"
+	case errors.Is(err, errNotImplemented):
+		return "The server is incapable of fulfilling the request"
+	default:
+		return "There was an error processing your request"
 	}
 }

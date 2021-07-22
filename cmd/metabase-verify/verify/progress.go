@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/memory"
-	"storj.io/storj/satellite/metabase/metaloop"
+	"storj.io/storj/satellite/metabase/segmentloop"
 )
 
 // ProgressObserver counts and prints progress of metabase loop.
@@ -19,7 +19,6 @@ type ProgressObserver struct {
 
 	ProgressPrintFrequency int64
 
-	ObjectCount        int64
 	RemoteSegmentCount int64
 	InlineSegmentCount int64
 }
@@ -27,7 +26,6 @@ type ProgressObserver struct {
 // Report reports the current progress.
 func (progress *ProgressObserver) Report() {
 	progress.Log.Debug("progress",
-		zap.Int64("objects", progress.ObjectCount),
 		zap.Int64("remote segments", progress.RemoteSegmentCount),
 		zap.Int64("inline segments", progress.InlineSegmentCount),
 	)
@@ -42,28 +40,25 @@ func (progress *ProgressObserver) Report() {
 	)
 }
 
-// Object implements the Observer interface.
-func (progress *ProgressObserver) Object(context.Context, *metaloop.Object) error {
-	progress.ObjectCount++
-	if progress.ObjectCount%progress.ProgressPrintFrequency == 0 {
+// RemoteSegment implements the Observer interface.
+func (progress *ProgressObserver) RemoteSegment(context.Context, *segmentloop.Segment) error {
+	progress.RemoteSegmentCount++
+	if (progress.RemoteSegmentCount+progress.InlineSegmentCount)%progress.ProgressPrintFrequency == 0 {
 		progress.Report()
 	}
 	return nil
 }
 
-// RemoteSegment implements the Observer interface.
-func (progress *ProgressObserver) RemoteSegment(context.Context, *metaloop.Segment) error {
-	progress.RemoteSegmentCount++
-	return nil
-}
-
 // InlineSegment implements the Observer interface.
-func (progress *ProgressObserver) InlineSegment(context.Context, *metaloop.Segment) error {
+func (progress *ProgressObserver) InlineSegment(context.Context, *segmentloop.Segment) error {
 	progress.InlineSegmentCount++
+	if (progress.RemoteSegmentCount+progress.InlineSegmentCount)%progress.ProgressPrintFrequency == 0 {
+		progress.Report()
+	}
 	return nil
 }
 
 // LoopStarted is called at each start of a loop.
-func (progress *ProgressObserver) LoopStarted(ctx context.Context, info metaloop.LoopInfo) (err error) {
+func (progress *ProgressObserver) LoopStarted(ctx context.Context, info segmentloop.LoopInfo) (err error) {
 	return nil
 }

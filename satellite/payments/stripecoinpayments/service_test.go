@@ -148,7 +148,7 @@ func TestService_InvoiceUserWithManyProjects(t *testing.T) {
 					ProjectID:  projects[i].ID,
 					BucketName: "testbucket",
 				},
-				RemoteBytes: projectsStorage[i],
+				TotalBytes:  projectsStorage[i],
 				ObjectCount: int64(i + 1),
 			}
 			tallies := map[metabase.BucketLocation]*accounting.BucketTally{
@@ -259,7 +259,7 @@ func TestService_InvoiceUserWithManyCoupons(t *testing.T) {
 					ProjectID:  project.ID,
 					BucketName: "testbucket",
 				},
-				RemoteBytes: memory.TiB.Int64(),
+				TotalBytes:  memory.TiB.Int64(),
 				ObjectCount: 45,
 			}
 			tallies := map[metabase.BucketLocation]*accounting.BucketTally{

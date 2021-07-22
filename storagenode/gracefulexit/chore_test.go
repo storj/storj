@@ -100,7 +100,7 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	require.Len(t, exitingNodes, 1)
 	require.Equal(t, exitingNode.ID(), exitingNodes[0].NodeID)
 
-	queueItems, err := satellite1.DB.GracefulExit().GetIncomplete(ctx, exitStatus.NodeID, 10, 0)
+	queueItems, err := satellite1.DB.GracefulExit().GetIncomplete(ctx, exitStatus.NodeID, 10, 0, true)
 	require.NoError(t, err)
 	require.Len(t, queueItems, 1)
 
@@ -110,7 +110,7 @@ func exitSatellite(ctx context.Context, t *testing.T, planet *testplanet.Planet,
 	exitingNode.GracefulExit.Chore.TestWaitForWorkers()
 
 	// check that there are no more items to process
-	queueItems, err = satellite1.DB.GracefulExit().GetIncomplete(ctx, exitStatus.NodeID, 10, 0)
+	queueItems, err = satellite1.DB.GracefulExit().GetIncomplete(ctx, exitStatus.NodeID, 10, 0, true)
 	require.NoError(t, err)
 	require.Len(t, queueItems, 0)
 
