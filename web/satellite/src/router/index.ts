@@ -43,6 +43,7 @@ const DashboardArea = () => import('@/views/DashboardArea.vue');
 const ForgotPassword = () => import('@/views/ForgotPassword.vue');
 const LoginArea = () => import('@/views/LoginArea.vue');
 const RegisterArea = () => import('@/views/RegisterArea.vue');
+const ResetPassword = () => import('@/views/ResetPassword.vue');
 
 Vue.use(Router);
 
@@ -55,6 +56,7 @@ export abstract class RouteConfig {
     public static Login = new NavigationLink('/login', 'Login');
     public static Register = new NavigationLink('/signup', 'Register');
     public static ForgotPassword = new NavigationLink('/forgot-password', 'Forgot Password');
+    public static ResetPassword = new NavigationLink('/password-recovery', 'Reset Password');
     public static Account = new NavigationLink('/account', 'Account');
     public static ProjectDashboard = new NavigationLink('/project-dashboard', 'Dashboard');
     public static Users = new NavigationLink('/project-members', 'Users');
@@ -105,6 +107,7 @@ export const notProjectRelatedRoutes = [
     RouteConfig.Login.name,
     RouteConfig.Register.name,
     RouteConfig.ForgotPassword.name,
+    RouteConfig.ResetPassword.name,
     RouteConfig.Billing.name,
     RouteConfig.BillingHistory.name,
     RouteConfig.DepositHistory.name,
@@ -129,6 +132,11 @@ export const router = new Router({
             path: RouteConfig.ForgotPassword.path,
             name: RouteConfig.ForgotPassword.name,
             component: ForgotPassword,
+        },
+        {
+            path: RouteConfig.ResetPassword.path,
+            name: RouteConfig.ResetPassword.name,
+            component: ResetPassword,
         },
         {
             path: RouteConfig.Root.path,

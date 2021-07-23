@@ -27,6 +27,7 @@ class ViewsState {
         public isChangePasswordPopupShown = false,
         public isPaymentSelectionShown = false,
         public isUploadCancelPopupVisible = false,
+        public isSuccessfulPasswordResetShown = false,
 
         public setDefaultPaymentMethodID: string = "",
         public deletePaymentMethodID: string = "",
@@ -99,6 +100,10 @@ export const appStateModule = {
         // Mutation changing 'successful registration' area visibility.
         [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_REGISTRATION](state: State): void {
             state.appState.isSuccessfulRegistrationShown = !state.appState.isSuccessfulRegistrationShown;
+        },
+        // Mutation changing 'successful password reset' area visibility.
+        [APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET](state: State): void {
+            state.appState.isSuccessfulPasswordResetShown = !state.appState.isSuccessfulPasswordResetShown;
         },
         [APP_STATE_MUTATIONS.TOGGLE_CHANGE_PASSWORD_POPUP](state: State): void {
             state.appState.isChangePasswordPopupShown = !state.appState.isChangePasswordPopupShown;
@@ -242,6 +247,13 @@ export const appStateModule = {
             }
 
             commit(APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_REGISTRATION);
+        },
+        [APP_STATE_ACTIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET]: function ({commit, state}: AppContext): void {
+            if (!state.appState.isSuccessfulPasswordResetShown) {
+                commit(APP_STATE_MUTATIONS.CLOSE_ALL);
+            }
+
+            commit(APP_STATE_MUTATIONS.TOGGLE_SUCCESSFUL_PASSWORD_RESET);
         },
         [APP_STATE_ACTIONS.TOGGLE_CHANGE_PASSWORD_POPUP]: function ({commit}: AppContext): void {
             commit(APP_STATE_MUTATIONS.TOGGLE_CHANGE_PASSWORD_POPUP);

@@ -36,8 +36,11 @@ var mon = monkit.Package()
 
 const (
 	// maxLimit specifies the limit for all paged queries.
-	maxLimit            = 50
-	tokenExpirationTime = 24 * time.Hour
+	maxLimit = 50
+
+	// TokenExpirationTime specifies the expiration time for
+	// auth tokens, account recovery tokens, and activation tokens.
+	TokenExpirationTime = 24 * time.Hour
 
 	// TestPasswordCost is the hashing complexity to use for testing.
 	TestPasswordCost = bcrypt.MinCost
@@ -87,6 +90,9 @@ var (
 
 	// ErrRecaptcha describes reCAPTCHA validation errors.
 	ErrRecaptcha = errs.Class("recaptcha validation")
+
+	// ErrRecoveryToken describes account recovery token errors.
+	ErrRecoveryToken = errs.Class("recovery token")
 )
 
 // Service is handling accounts related logic.
@@ -746,7 +752,7 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 
 	now := time.Now()
 
-	if now.After(user.CreatedAt.Add(tokenExpirationTime)) {
+	if now.After(user.CreatedAt.Add(TokenExpirationTime)) {
 		return ErrTokenExpiration.Wrap(err)
 	}
 
@@ -763,16 +769,16 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 }
 
 // ResetPassword - is a method for resetting user password.
-func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, password string) (err error) {
+func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, password string, t time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	secret, err := ResetPasswordSecretFromBase64(resetPasswordToken)
 	if err != nil {
-		return Error.Wrap(err)
+		return ErrRecoveryToken.Wrap(err)
 	}
 	token, err := s.store.ResetPasswordTokens().GetBySecret(ctx, secret)
 	if err != nil {
-		return Error.Wrap(err)
+		return ErrRecoveryToken.Wrap(err)
 	}
 
 	user, err := s.store.Users().Get(ctx, *token.OwnerID)
@@ -784,8 +790,8 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return Error.Wrap(err)
 	}
 
-	if time.Since(token.CreatedAt) > tokenExpirationTime {
-		return ErrTokenExpiration.New(passwordRecoveryTokenIsExpiredErrMsg)
+	if t.Sub(token.CreatedAt) > TokenExpirationTime {
+		return ErrRecoveryToken.Wrap(ErrTokenExpiration.New(passwordRecoveryTokenIsExpiredErrMsg))
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), s.config.PasswordCost)
@@ -870,7 +876,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (token string, er
 
 	claims := consoleauth.Claims{
 		ID:         user.ID,
-		Expiration: time.Now().Add(tokenExpirationTime),
+		Expiration: time.Now().Add(TokenExpirationTime),
 	}
 
 	token, err = s.createToken(ctx, &claims)

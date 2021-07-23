@@ -492,7 +492,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				ServerAddress: mailConfig.SMTPServerAddress,
 			}
 		default:
-			sender = &simulate.LinkClicker{}
+			sender = simulate.NewDefaultLinkClicker()
 		}
 
 		peer.Mail.Service, err = mailservice.New(

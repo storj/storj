@@ -396,3 +396,47 @@ func TestMFAEndpoints(t *testing.T) {
 		require.NoError(t, result.Body.Close())
 	})
 }
+
+func TestResetPasswordEndpoint(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		newPass := "123a123"
+		sat := planet.Satellites[0]
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		token, err := sat.DB.Console().ResetPasswordTokens().Create(ctx, user.ID)
+		require.NoError(t, err)
+		require.NotNil(t, token)
+		tokenStr := token.Secret.String()
+
+		tryReset := func(token, password string) int {
+			url := "http://" + sat.API.Console.Listener.Addr().String() + "/api/v0/auth/reset-password"
+
+			bodyBytes, err := json.Marshal(map[string]string{
+				"password": password,
+				"token":    token,
+			})
+			require.NoError(t, err)
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(bodyBytes))
+			require.NoError(t, err)
+
+			req.Header.Set("Content-Type", "application/json")
+
+			result, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.NoError(t, result.Body.Close())
+			return result.StatusCode
+		}
+
+		require.Equal(t, http.StatusUnauthorized, tryReset("badToken", newPass))
+		require.Equal(t, http.StatusBadRequest, tryReset(tokenStr, "bad"))
+		require.Equal(t, http.StatusOK, tryReset(tokenStr, newPass))
+	})
+}

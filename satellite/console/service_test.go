@@ -461,3 +461,40 @@ func TestHasCouponApplied(t *testing.T) {
 		require.True(t, hasCoupon)
 	})
 }
+
+func TestResetPassword(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		newPass := "123a123"
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		token, err := sat.DB.Console().ResetPasswordTokens().Create(ctx, user.ID)
+		require.NoError(t, err)
+		require.NotNil(t, token)
+		tokenStr := token.Secret.String()
+
+		// Expect error when providing bad token.
+		err = service.ResetPassword(ctx, "badToken", newPass, token.CreatedAt)
+		require.True(t, console.ErrRecoveryToken.Has(err))
+
+		// Expect error when providing good but expired token.
+		err = service.ResetPassword(ctx, tokenStr, newPass, token.CreatedAt.Add(console.TokenExpirationTime).Add(time.Second))
+		require.True(t, console.ErrTokenExpiration.Has(err))
+
+		// Expect error when providing good token with bad (too short) password.
+		err = service.ResetPassword(ctx, tokenStr, "bad", token.CreatedAt)
+		require.True(t, console.ErrValidation.Has(err))
+
+		// Expect success when providing good token and good password.
+		err = service.ResetPassword(ctx, tokenStr, newPass, token.CreatedAt)
+		require.NoError(t, err)
+	})
+}

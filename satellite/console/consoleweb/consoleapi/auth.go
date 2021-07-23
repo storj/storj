@@ -550,6 +550,28 @@ func (a *Auth) GenerateMFARecoveryCodes(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
+// ResetPassword resets user's password using recovery token.
+func (a *Auth) ResetPassword(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var resetPassword struct {
+		RecoveryToken string `json:"token"`
+		NewPassword   string `json:"password"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&resetPassword)
+	if err != nil {
+		a.serveJSONError(w, err)
+	}
+
+	err = a.service.ResetPassword(ctx, resetPassword.RecoveryToken, resetPassword.NewPassword, time.Now())
+	if err != nil {
+		a.serveJSONError(w, err)
+	}
+}
+
 // serveJSONError writes JSON error to response output stream.
 func (a *Auth) serveJSONError(w http.ResponseWriter, err error) {
 	status := a.getStatusCode(err)
@@ -561,7 +583,7 @@ func (a *Auth) getStatusCode(err error) int {
 	switch {
 	case console.ErrValidation.Has(err), console.ErrRecaptcha.Has(err):
 		return http.StatusBadRequest
-	case console.ErrUnauthorized.Has(err):
+	case console.ErrUnauthorized.Has(err), console.ErrRecoveryToken.Has(err):
 		return http.StatusUnauthorized
 	case console.ErrEmailUsed.Has(err):
 		return http.StatusConflict
@@ -583,6 +605,11 @@ func (a *Auth) getUserErrorMessage(err error) string {
 		return "We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation"
 	case console.ErrEmailUsed.Has(err):
 		return "This email is already in use; try another"
+	case console.ErrRecoveryToken.Has(err):
+		if console.ErrTokenExpiration.Has(err) {
+			return "The recovery token has expired"
+		}
+		return "The recovery token is invalid"
 	case errors.Is(err, errNotImplemented):
 		return "The server is incapable of fulfilling the request"
 	default:
