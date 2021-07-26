@@ -8,8 +8,11 @@
         </div>
         <div class="login-area__content-area">
             <div class="login-area__content-area">
-                <div class="login-area__content-area__activation-banner" v-if="isActivatedBannerShown">
-                    <p class="login-area__content-area__activation-banner__message"><b>Success!</b> Account Verified.</p>
+                <div class="login-area__content-area__activation-banner" :class="{'error': isActivatedError}" v-if="isActivatedBannerShown">
+                    <p class="login-area__content-area__activation-banner__message">
+                        <template v-if="!isActivatedError"><b>Success!</b> Account verified.</template>
+                        <template v-else><b>Oops!</b> This account has already been verified.</template>
+                    </p>
                 </div>
                 <div class="login-area__content-area__container">
                     <div class="login-area__content-area__container__title-area">
@@ -105,6 +108,7 @@ export default class Login extends Vue {
 
     public readonly forgotPasswordPath: string = RouteConfig.ForgotPassword.path;
     public isActivatedBannerShown: boolean = false;
+    public isActivatedError: boolean = false;
 
     // Tardigrade logic
     public isDropdownShown: boolean = false;
@@ -116,9 +120,8 @@ export default class Login extends Vue {
      * Makes activated banner visible on successful account activation.
      */
     public mounted(): void {
-        if (this.$route.query.activated === 'true') {
-            this.isActivatedBannerShown = true;
-        }
+        this.isActivatedBannerShown = !!this.$route.query.activated;
+        this.isActivatedError = this.$route.query.activated === 'false';
     }
 
     /**
@@ -337,14 +340,20 @@ export default class Login extends Vue {
                 padding: 20px;
                 background-color: rgba(39, 174, 96, 0.1);
                 border: 1px solid #27ae60;
+                color: #27ae60;
                 border-radius: 6px;
                 width: 570px;
                 margin-bottom: 30px;
 
+                &.error {
+                    background-color: #fff3f2;
+                    border: 1px solid #e30011;
+                    color: #e30011;
+                }
+
                 &__message {
                     font-size: 16px;
                     line-height: 21px;
-                    color: #27ae60;
                     margin: 0;
                 }
             }

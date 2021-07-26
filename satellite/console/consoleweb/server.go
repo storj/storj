@@ -160,7 +160,6 @@ type Server struct {
 		usageReport         *template.Template
 		resetPassword       *template.Template
 		success             *template.Template
-		activated           *template.Template
 	}
 }
 
@@ -559,7 +558,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 			zap.Error(err))
 
 		if console.ErrEmailUsed.Has(err) {
-			server.serveError(w, http.StatusConflict)
+			http.Redirect(w, r, server.config.ExternalAddress+"login?activated=false", http.StatusTemporaryRedirect)
 			return
 		}
 
@@ -767,11 +766,6 @@ func (server *Server) serveError(w http.ResponseWriter, status int) {
 		if err != nil {
 			server.log.Error("cannot parse pageNotFound template", zap.Error(Error.Wrap(err)))
 		}
-	case http.StatusConflict:
-		err := server.templates.activated.Execute(w, nil)
-		if err != nil {
-			server.log.Error("cannot parse already activated template", zap.Error(Error.Wrap(err)))
-		}
 	}
 }
 
@@ -825,11 +819,6 @@ func (server *Server) initializeTemplates() (err error) {
 	server.templates.index, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "dist", "index.html"))
 	if err != nil {
 		server.log.Error("dist folder is not generated. use 'npm run build' command", zap.Error(err))
-	}
-
-	server.templates.activated, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "activation", "activated.html"))
-	if err != nil {
-		return Error.Wrap(err)
 	}
 
 	server.templates.success, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "resetPassword", "success.html"))
