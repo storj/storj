@@ -418,7 +418,11 @@ func (service *Service) CreatePutRepairOrderLimits(ctx context.Context, bucket m
 
 	limits := make([]*pb.AddressedOrderLimit, totalPieces)
 
-	expirationDate := time.Time{} // TODO previously 'pointer.ExpirationDate'
+	expirationDate := time.Time{}
+	if segment.ExpiresAt != nil {
+		expirationDate = *segment.ExpiresAt
+	}
+
 	signer, err := NewSignerRepairPut(service, segment.RootPieceID, expirationDate, time.Now(), pieceSize, bucket)
 	if err != nil {
 		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
