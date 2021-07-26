@@ -33,8 +33,10 @@ type DB interface {
 	UpdateName(ctx context.Context, id storj.NodeID, name string) error
 }
 
-// ErrNoNode is a special error type that indicates about absence of node in NodesDB.
-var ErrNoNode = errs.Class("no such node")
+var (
+	// ErrNoNode is a special error type that indicates about absence of node in NodesDB.
+	ErrNoNode = errs.Class("no such node")
+)
 
 // Node is a representation of storagenode, that SNO could add to the Multinode Dashboard.
 type Node struct {
@@ -55,6 +57,10 @@ const (
 	StatusOffline Status = "offline"
 	// StatusNotReachable indicates that we could not reach storagenode via drpc request.
 	StatusNotReachable Status = "not reachable"
+	// StatusUnauthorized indicates that api key is wrong.
+	StatusUnauthorized Status = "unauthorized"
+	// StatusStorageNodeInternalError indicates storagenode internal error.
+	StatusStorageNodeInternalError Status = "storagenode internal error"
 )
 
 // NodeInfo contains basic node internal state.

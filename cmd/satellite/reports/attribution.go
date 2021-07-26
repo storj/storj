@@ -24,8 +24,7 @@ import (
 var headers = []string{
 	"projectID",
 	"bucketName",
-	"byte-hours:Remote",
-	"byte-hours:Inline",
+	"byte-hours:Total",
 	"bytes:BWEgress",
 }
 
@@ -81,14 +80,12 @@ func csvRowToStringSlice(p *attribution.CSVRow) ([]string, error) {
 	if err != nil {
 		return nil, errs.New("Invalid Project ID")
 	}
-	remoteGBPerHour := memory.Size(p.RemoteBytesPerHour).GB()
-	inlineGBPerHour := memory.Size(p.InlineBytesPerHour).GB()
+	totalGBPerHour := memory.Size(p.TotalBytesPerHour).GB()
 	egressGBData := memory.Size(p.EgressData).GB()
 	record := []string{
 		projectID.String(),
 		string(p.BucketName),
-		strconv.FormatFloat(remoteGBPerHour, 'f', 4, 64),
-		strconv.FormatFloat(inlineGBPerHour, 'f', 4, 64),
+		strconv.FormatFloat(totalGBPerHour, 'f', 4, 64),
 		strconv.FormatFloat(egressGBData, 'f', 4, 64),
 	}
 	return record, nil

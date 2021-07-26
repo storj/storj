@@ -413,7 +413,7 @@ func TestTrashAndRestore(t *testing.T) {
 		for _, satelliteURL := range satelliteURLs {
 			poolConfig.Sources = append(poolConfig.Sources, &trust.StaticURLSource{URL: satelliteURL})
 		}
-		trust, err := trust.NewPool(zaptest.NewLogger(t), trust.Dialer(rpc.Dialer{}), poolConfig)
+		trust, err := trust.NewPool(zaptest.NewLogger(t), trust.Dialer(rpc.Dialer{}), poolConfig, db.Satellites())
 		require.NoError(t, err)
 		require.NoError(t, trust.Refresh(ctx))
 

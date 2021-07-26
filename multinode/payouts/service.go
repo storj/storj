@@ -53,8 +53,11 @@ func (service *Service) Earned(ctx context.Context) (earned int64, err error) {
 	for _, node := range storageNodes {
 		amount, err := service.earned(ctx, node)
 		if err != nil {
-			service.log.Error("failed to getAmount", zap.Error(err))
-			continue
+			if nodes.ErrNodeNotReachable.Has(err) {
+				continue
+			}
+
+			return 0, Error.Wrap(err)
 		}
 
 		earned += amount
@@ -78,8 +81,11 @@ func (service *Service) EarnedSatellite(ctx context.Context) (earned []Satellite
 	for _, node := range storageNodes {
 		earnedPerSatellite, err := service.earnedSatellite(ctx, node)
 		if err != nil {
-			service.log.Error("failed to getEarnedFromSatellite", zap.Error(err))
-			continue
+			if nodes.ErrNodeNotReachable.Has(err) {
+				continue
+			}
+
+			return nil, Error.Wrap(err)
 		}
 
 		listNodesEarnedPerSatellite = append(listNodesEarnedPerSatellite, earnedPerSatellite)
@@ -119,14 +125,18 @@ func (service *Service) Summary(ctx context.Context) (_ Summary, err error) {
 
 	var summary Summary
 
-	list, err := service.nodes.List(ctx)
+	listNodes, err := service.nodes.List(ctx)
 	if err != nil {
 		return Summary{}, Error.Wrap(err)
 	}
 
-	for _, node := range list {
+	for _, node := range listNodes {
 		info, err := service.summary(ctx, node)
 		if err != nil {
+			if nodes.ErrNodeNotReachable.Has(err) {
+				continue
+			}
+
 			return Summary{}, Error.Wrap(err)
 		}
 
@@ -142,14 +152,18 @@ func (service *Service) SummaryPeriod(ctx context.Context, period string) (_ Sum
 
 	var summary Summary
 
-	list, err := service.nodes.List(ctx)
+	listNodes, err := service.nodes.List(ctx)
 	if err != nil {
 		return Summary{}, Error.Wrap(err)
 	}
 
-	for _, node := range list {
+	for _, node := range listNodes {
 		info, err := service.summaryPeriod(ctx, node, period)
 		if err != nil {
+			if nodes.ErrNodeNotReachable.Has(err) {
+				continue
+			}
+
 			return Summary{}, Error.Wrap(err)
 		}
 
@@ -164,14 +178,18 @@ func (service *Service) SummarySatellite(ctx context.Context, satelliteID storj.
 	defer mon.Task()(&ctx)(&err)
 	var summary Summary
 
-	list, err := service.nodes.List(ctx)
+	listNodes, err := service.nodes.List(ctx)
 	if err != nil {
 		return Summary{}, Error.Wrap(err)
 	}
 
-	for _, node := range list {
+	for _, node := range listNodes {
 		info, err := service.summarySatellite(ctx, node, satelliteID)
 		if err != nil {
+			if nodes.ErrNodeNotReachable.Has(err) {
+				continue
+			}
+
 			return Summary{}, Error.Wrap(err)
 		}
 
@@ -186,14 +204,18 @@ func (service *Service) SummarySatellitePeriod(ctx context.Context, satelliteID 
 	defer mon.Task()(&ctx)(&err)
 	var summary Summary
 
-	list, err := service.nodes.List(ctx)
+	listNodes, err := service.nodes.List(ctx)
 	if err != nil {
 		return Summary{}, Error.Wrap(err)
 	}
 
-	for _, node := range list {
+	for _, node := range listNodes {
 		info, err := service.summarySatellitePeriod(ctx, node, satelliteID, period)
 		if err != nil {
+			if nodes.ErrNodeNotReachable.Has(err) {
+				continue
+			}
+
 			return Summary{}, Error.Wrap(err)
 		}
 
@@ -210,7 +232,7 @@ func (service *Service) summarySatellite(ctx context.Context, node nodes.Node, s
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return &multinodepb.PayoutInfo{}, Error.Wrap(err)
+		return &multinodepb.PayoutInfo{}, nodes.ErrNodeNotReachable.Wrap(err)
 	}
 
 	defer func() {
@@ -237,7 +259,7 @@ func (service *Service) summarySatellitePeriod(ctx context.Context, node nodes.N
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return &multinodepb.PayoutInfo{}, Error.Wrap(err)
+		return &multinodepb.PayoutInfo{}, nodes.ErrNodeNotReachable.Wrap(err)
 	}
 
 	defer func() {
@@ -264,7 +286,7 @@ func (service *Service) summaryPeriod(ctx context.Context, node nodes.Node, peri
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return &multinodepb.PayoutInfo{}, Error.Wrap(err)
+		return &multinodepb.PayoutInfo{}, nodes.ErrNodeNotReachable.Wrap(err)
 	}
 
 	defer func() {
@@ -291,7 +313,7 @@ func (service *Service) summary(ctx context.Context, node nodes.Node) (info *mul
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return &multinodepb.PayoutInfo{}, Error.Wrap(err)
+		return &multinodepb.PayoutInfo{}, nodes.ErrNodeNotReachable.Wrap(err)
 	}
 
 	defer func() {
@@ -334,14 +356,18 @@ func (service *Service) Expectations(ctx context.Context) (_ Expectations, err e
 
 	var expectations Expectations
 
-	list, err := service.nodes.List(ctx)
+	listNodes, err := service.nodes.List(ctx)
 	if err != nil {
 		return Expectations{}, Error.Wrap(err)
 	}
 
-	for _, node := range list {
+	for _, node := range listNodes {
 		expectation, err := service.nodeExpectations(ctx, node)
 		if err != nil {
+			if nodes.ErrNodeNotReachable.Has(err) {
+				continue
+			}
+
 			return Expectations{}, Error.Wrap(err)
 		}
 
@@ -366,7 +392,7 @@ func (service *Service) HeldAmountSummary(ctx context.Context, nodeID storj.Node
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, nodes.ErrNodeNotReachable.Wrap(err)
 	}
 	defer func() {
 		err = errs.Combine(err, conn.Close())
@@ -469,7 +495,7 @@ func (service *Service) nodeExpectations(ctx context.Context, node nodes.Node) (
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return Expectations{}, Error.Wrap(err)
+		return Expectations{}, nodes.ErrNodeNotReachable.Wrap(err)
 	}
 
 	defer func() {
@@ -501,7 +527,7 @@ func (service *Service) earned(ctx context.Context, node nodes.Node) (_ int64, e
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return 0, Error.Wrap(err)
+		return 0, nodes.ErrNodeNotReachable.Wrap(err)
 	}
 
 	defer func() {
@@ -528,7 +554,7 @@ func (service *Service) earnedSatellite(ctx context.Context, node nodes.Node) (_
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return multinodepb.EarnedPerSatelliteResponse{}, Error.Wrap(err)
+		return multinodepb.EarnedPerSatelliteResponse{}, nodes.ErrNodeNotReachable.Wrap(err)
 	}
 
 	defer func() {
@@ -562,7 +588,7 @@ func (service *Service) PaystubSatellitePeriod(ctx context.Context, period strin
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return Paystub{}, Error.Wrap(err)
+		return Paystub{}, nodes.ErrNodeNotReachable.Wrap(err)
 	}
 
 	defer func() {
@@ -613,7 +639,7 @@ func (service *Service) PaystubPeriod(ctx context.Context, period string, nodeID
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return Paystub{}, Error.Wrap(err)
+		return Paystub{}, nodes.ErrNodeNotReachable.Wrap(err)
 	}
 
 	defer func() {
@@ -663,7 +689,7 @@ func (service *Service) PaystubSatellite(ctx context.Context, nodeID, satelliteI
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return Paystub{}, Error.Wrap(err)
+		return Paystub{}, nodes.ErrNodeNotReachable.Wrap(err)
 	}
 
 	defer func() {
@@ -713,7 +739,7 @@ func (service *Service) Paystub(ctx context.Context, nodeID storj.NodeID) (_ Pay
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return Paystub{}, Error.Wrap(err)
+		return Paystub{}, nodes.ErrNodeNotReachable.Wrap(err)
 	}
 
 	defer func() {

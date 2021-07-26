@@ -8,11 +8,11 @@
             <div class="pm-area__add-modal__header">
                 <h2 class="pm-area__add-modal__header__sub-title">Payment Method</h2>
                 <div class="pm-area__add-modal__header__choices">
-                    <p class="pm-area__add-modal__header__choices__var" :class="{active: !isAddCard}" @click.stop="setIsAddToken">
-                        STORJ Token
-                    </p>
-                    <p class="pm-area__add-modal__header__choices__var left-margin" :class="{active: isAddCard}" @click.stop="setIsAddCard">
+                    <p class="pm-area__add-modal__header__choices__var" :class="{active: isAddCard}" @click.stop="setIsAddCard">
                         Card
+                    </p>
+                    <p class="pm-area__add-modal__header__choices__var left-margin" :class="{active: !isAddCard}" @click.stop="setIsAddToken">
+                        STORJ Token
                     </p>
                 </div>
             </div>
@@ -28,7 +28,7 @@
                     label="Add Credit Card"
                     :on-press="onAddCardClick"
                 />
-                <p class="pm-area__add-modal__card__info">Get more storage and bandwidth by adding your credit card.</p>
+                <p class="pm-area__add-modal__card__info">Upgrade to Pro Account by adding a credit card.</p>
                 <div class="pm-area__add-modal__card__info-bullet">
                     <CheckMarkIcon/>
                     <p class="pm-area__add-modal__card__info-bullet__label">3 projects</p>
@@ -69,11 +69,11 @@
                 </div>
                 <p class="pm-area__add-modal__tokens__note">
                     <b class="pm-area__add-modal__tokens__note__bold">Please Note:</b>
-                    Your first deposit of $50 or more in STORJ Token is applied to your account after Coin Payments
-                    verifies payment
+                    Your deposit in STORJ Tokens is applied to your account after Coin Payments verifies payment.
                 </p>
                 <p class="pm-area__add-modal__tokens__info">
-                    After depositing STORJ Tokens, please contact
+                    The amount of STORJ Tokens has to cover 3 months worth of usage to get higher limits. After
+                    depositing, please contact
                     <a
                         class="pm-area__add-modal__tokens__info__link"
                         :href="limitsIncreaseRequestURL"
@@ -214,10 +214,8 @@ export default class AddPaymentMethodModal extends Vue {
 
             // We fetch User one more time to update their Paid Tier status.
             await this.$store.dispatch(USER_ACTIONS.GET);
-
-            if (this.$route.name === RouteConfig.Billing.name) {
-                await this.$store.dispatch(PAYMENTS_ACTIONS.GET_CREDIT_CARDS);
-            }
+            // We fetch Cards one more time to hide Paid Tier banner.
+            await this.$store.dispatch(PAYMENTS_ACTIONS.GET_CREDIT_CARDS);
 
             if (this.$route.name === RouteConfig.ProjectDashboard.name) {
                 await this.$store.dispatch(PROJECTS_ACTIONS.GET_LIMITS, this.$store.getters.selectedProject.id);

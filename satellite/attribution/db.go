@@ -26,12 +26,11 @@ type Info struct {
 
 // CSVRow represents data from QueryAttribution without exposing dbx.
 type CSVRow struct {
-	PartnerID          []byte
-	ProjectID          []byte
-	BucketName         []byte
-	RemoteBytesPerHour float64
-	InlineBytesPerHour float64
-	EgressData         int64
+	PartnerID         []byte
+	ProjectID         []byte
+	BucketName        []byte
+	TotalBytesPerHour float64
+	EgressData        int64
 }
 
 // DB implements the database for value attribution table.

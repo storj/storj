@@ -25,6 +25,21 @@ type satellitesDB struct {
 	dbContainerImpl
 }
 
+// SetAddress inserts into satellite's db id, address, added time.
+func (db *satellitesDB) SetAddress(ctx context.Context, satelliteID storj.NodeID, address string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = db.ExecContext(ctx,
+		`INSERT INTO satellites (node_id, address, added_at, status) VALUES(?,?,?,?) ON CONFLICT (node_id) DO UPDATE SET address = EXCLUDED.address`,
+		satelliteID,
+		address,
+		time.Now().UTC(),
+		satellites.Normal,
+	)
+
+	return ErrSatellitesDB.Wrap(err)
+}
+
 // GetSatellite retrieves that satellite by ID.
 func (db *satellitesDB) GetSatellite(ctx context.Context, satelliteID storj.NodeID) (satellite satellites.Satellite, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -42,6 +57,40 @@ func (db *satellitesDB) GetSatellite(ctx context.Context, satelliteID storj.Node
 		}
 	}
 	return satellite, rows.Err()
+}
+
+// GetSatellitesURLs retrieves all satellite's id and urls.
+func (db *satellitesDB) GetSatellitesURLs(ctx context.Context) (satelliteURLs []storj.NodeURL, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := `SELECT
+			node_id,
+			address
+		FROM satellites`
+
+	rows, err := db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var urls []storj.NodeURL
+	for rows.Next() {
+		var url storj.NodeURL
+
+		err := rows.Scan(&url.ID, &url.Address)
+		if err != nil {
+			return nil, ErrPayout.Wrap(err)
+		}
+
+		urls = append(urls, url)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, ErrPayout.Wrap(err)
+	}
+
+	return urls, nil
 }
 
 // InitiateGracefulExit updates the database to reflect the beginning of a graceful exit.

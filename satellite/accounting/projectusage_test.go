@@ -467,20 +467,16 @@ func TestUsageRollups(t *testing.T) {
 				tally1 := &accounting.BucketTally{
 					BucketLocation: bucketLoc1,
 					ObjectCount:    value1,
-					InlineSegments: value1,
-					RemoteSegments: value1,
-					InlineBytes:    value1,
-					RemoteBytes:    value1,
+					TotalSegments:  value1 + value1,
+					TotalBytes:     value1 + value1,
 					MetadataSize:   value1,
 				}
 
 				tally2 := &accounting.BucketTally{
 					BucketLocation: bucketLoc2,
 					ObjectCount:    value2,
-					InlineSegments: value2,
-					RemoteSegments: value2,
-					InlineBytes:    value2,
-					RemoteBytes:    value2,
+					TotalSegments:  value2 + value2,
+					TotalBytes:     value2 + value2,
 					MetadataSize:   value2,
 				}
 

@@ -39,6 +39,7 @@ type Stats struct {
 	SuspendedAt          *time.Time   `json:"suspendedAt"`
 	OfflineSuspendedAt   *time.Time   `json:"offlineSuspendedAt"`
 	OfflineUnderReviewAt *time.Time   `json:"offlineUnderReviewAt"`
+	VettedAt             *time.Time   `json:"vettedAt"`
 	UpdatedAt            time.Time    `json:"updatedAt"`
 	JoinedAt             time.Time    `json:"joinedAt"`
 }

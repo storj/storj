@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { APIClient } from '@/api/index';
-import { DiskSpace, Stamp } from '@/storage';
+import { DiskSpace, DiskSpaceUsage, Stamp } from '@/storage';
 
 /**
  * Client for storage controller of MND api.
@@ -22,7 +22,7 @@ export class StorageClient extends APIClient {
      * @throws {@link InternalError}
      * Thrown if something goes wrong on server side.
      */
-    public async usage(satelliteId: string | null, nodeId: string | null): Promise<Stamp[]> {
+    public async usage(satelliteId: string | null, nodeId: string | null): Promise<DiskSpaceUsage> {
         let path = `${this.ROOT_PATH}/usage`;
 
         if (satelliteId) {
@@ -46,11 +46,15 @@ export class StorageClient extends APIClient {
             await this.handleError(response);
         }
 
-        const usage = await response.json() || [];
+        const data = await response.json();
+        const usage = data.stamps || [];
 
-        return usage.map(stamp => {
-            return new Stamp(stamp.atRestTotal, new Date(stamp.intervalStart));
-        });
+        return new DiskSpaceUsage(
+            usage.map(stamp => {
+                return new Stamp(stamp.atRestTotal, new Date(stamp.intervalStart));
+            }),
+            data.summary,
+        );
     }
 
     /**

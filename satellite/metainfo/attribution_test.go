@@ -245,7 +245,7 @@ func TestQueryAttribution(t *testing.T) {
 
 			rows, err := planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, before, after)
 			require.NoError(t, err)
-			require.NotZero(t, rows[0].RemoteBytesPerHour)
+			require.NotZero(t, rows[0].TotalBytesPerHour)
 			require.Equal(t, rows[0].EgressData, usage.Egress)
 		}
 	})
@@ -316,7 +316,7 @@ func TestAttributionReport(t *testing.T) {
 
 			rows, err := planet.Satellites[0].DB.Attribution().QueryAttribution(ctx, partner.UUID, before, after)
 			require.NoError(t, err)
-			require.NotZero(t, rows[0].RemoteBytesPerHour)
+			require.NotZero(t, rows[0].TotalBytesPerHour)
 			require.Equal(t, rows[0].EgressData, usage.Egress)
 
 			// Minio should have no attribution because bucket was created by Zenko

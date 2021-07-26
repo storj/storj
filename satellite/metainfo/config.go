@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"storj.io/common/memory"
-	"storj.io/storj/satellite/metabase/metaloop"
 	"storj.io/storj/satellite/metabase/segmentloop"
 	"storj.io/storj/satellite/metainfo/piecedeletion"
 )
@@ -114,7 +113,6 @@ type Config struct {
 	MaxCommitInterval    time.Duration        `default:"48h" testDefault:"1h" help:"maximum time allowed to pass between creating and committing a segment"`
 	Overlay              bool                 `default:"true" help:"toggle flag if overlay is enabled"`
 	RS                   RSConfig             `releaseDefault:"29/35/80/110-256B" devDefault:"4/6/8/10-256B" help:"redundancy scheme configuration in the format k/m/o/n-sharesize"`
-	Loop                 metaloop.Config      `help:"loop configuration"`
 	SegmentLoop          segmentloop.Config   `help:"segment loop configuration"`
 	RateLimiter          RateLimiterConfig    `help:"rate limiter configuration"`
 	ProjectLimits        ProjectLimitConfig   `help:"project limit configuration"`

@@ -25,6 +25,8 @@ type Flags struct {
 	StorageNodeCount int
 	Identities       int
 
+	NoGateways bool
+
 	IsDev    bool
 	FailFast bool
 
@@ -63,6 +65,8 @@ func main() {
 	rootCmd.PersistentFlags().IntVarP(&flags.SatelliteCount, "satellites", "", 1, "number of satellites to start")
 	rootCmd.PersistentFlags().IntVarP(&flags.StorageNodeCount, "storage-nodes", "", 10, "number of storage nodes to start")
 	rootCmd.PersistentFlags().IntVarP(&flags.Identities, "identities", "", 10, "number of identities to create")
+
+	rootCmd.PersistentFlags().BoolVarP(&flags.NoGateways, "no-gateways", "", false, "whether to disable gateway creation for each satellite")
 
 	rootCmd.PersistentFlags().BoolVarP(&printCommands, "print-commands", "x", false, "print commands as they are run")
 	rootCmd.PersistentFlags().BoolVarP(&flags.IsDev, "dev", "", true, "use configuration values tuned for development")

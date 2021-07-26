@@ -14,6 +14,7 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/private/post"
+	"storj.io/storj/private/web"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleql"
@@ -112,19 +113,20 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	defer mon.Task()(&ctx)(&err)
 
 	var registerData struct {
-		FullName         string `json:"fullName"`
-		ShortName        string `json:"shortName"`
-		Email            string `json:"email"`
-		Partner          string `json:"partner"`
-		PartnerID        string `json:"partnerId"`
-		Password         string `json:"password"`
-		SecretInput      string `json:"secret"`
-		ReferrerUserID   string `json:"referrerUserId"`
-		IsProfessional   bool   `json:"isProfessional"`
-		Position         string `json:"position"`
-		CompanyName      string `json:"companyName"`
-		EmployeeCount    string `json:"employeeCount"`
-		HaveSalesContact bool   `json:"haveSalesContact"`
+		FullName          string `json:"fullName"`
+		ShortName         string `json:"shortName"`
+		Email             string `json:"email"`
+		Partner           string `json:"partner"`
+		PartnerID         string `json:"partnerId"`
+		Password          string `json:"password"`
+		SecretInput       string `json:"secret"`
+		ReferrerUserID    string `json:"referrerUserId"`
+		IsProfessional    bool   `json:"isProfessional"`
+		Position          string `json:"position"`
+		CompanyName       string `json:"companyName"`
+		EmployeeCount     string `json:"employeeCount"`
+		HaveSalesContact  bool   `json:"haveSalesContact"`
+		RecaptchaResponse string `json:"recaptchaResponse"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&registerData)
@@ -148,18 +150,26 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	ip, err := web.GetRequestIP(r)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
 	user, err := a.service.CreateUser(ctx,
 		console.CreateUser{
-			FullName:         registerData.FullName,
-			ShortName:        registerData.ShortName,
-			Email:            registerData.Email,
-			PartnerID:        registerData.PartnerID,
-			Password:         registerData.Password,
-			IsProfessional:   registerData.IsProfessional,
-			Position:         registerData.Position,
-			CompanyName:      registerData.CompanyName,
-			EmployeeCount:    registerData.EmployeeCount,
-			HaveSalesContact: registerData.HaveSalesContact,
+			FullName:          registerData.FullName,
+			ShortName:         registerData.ShortName,
+			Email:             registerData.Email,
+			PartnerID:         registerData.PartnerID,
+			Password:          registerData.Password,
+			IsProfessional:    registerData.IsProfessional,
+			Position:          registerData.Position,
+			CompanyName:       registerData.CompanyName,
+			EmployeeCount:     registerData.EmployeeCount,
+			HaveSalesContact:  registerData.HaveSalesContact,
+			RecaptchaResponse: registerData.RecaptchaResponse,
+			IP:                ip,
 		},
 		secret,
 	)
@@ -458,13 +468,13 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 // serveJSONError writes JSON error to response output stream.
 func (a *Auth) serveJSONError(w http.ResponseWriter, err error) {
 	status := a.getStatusCode(err)
-	serveJSONError(a.log, w, status, err)
+	serveCustomJSONError(a.log, w, status, err, a.getUserErrorMessage(err))
 }
 
 // getStatusCode returns http.StatusCode depends on console error class.
 func (a *Auth) getStatusCode(err error) int {
 	switch {
-	case console.ErrValidation.Has(err):
+	case console.ErrValidation.Has(err), console.ErrRecaptcha.Has(err):
 		return http.StatusBadRequest
 	case console.ErrUnauthorized.Has(err):
 		return http.StatusUnauthorized
@@ -474,5 +484,21 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusNotImplemented
 	default:
 		return http.StatusInternalServerError
+	}
+}
+
+// getUserErrorMessage returns a user-friendly representation of the error.
+func (a *Auth) getUserErrorMessage(err error) string {
+	switch {
+	case console.ErrRecaptcha.Has(err):
+		return "Validation of reCAPTCHA was unsuccessful"
+	case console.ErrRegToken.Has(err):
+		return "We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation"
+	case console.ErrEmailUsed.Has(err):
+		return "This email is already in use; try another"
+	case errors.Is(err, errNotImplemented):
+		return "The server is incapable of fulfilling the request"
+	default:
+		return "There was an error processing your request"
 	}
 }

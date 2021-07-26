@@ -151,7 +151,7 @@ func TestSegmentsLoopObserverCancel(t *testing.T) {
 		UplinkCount:      1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.Loop.CoalesceDuration = 1 * time.Second
+				config.Metainfo.SegmentLoop.CoalesceDuration = 1 * time.Second
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

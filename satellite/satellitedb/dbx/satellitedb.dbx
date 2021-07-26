@@ -383,6 +383,10 @@ model user (
     field is_professional    bool      ( updatable, default false )
     field employee_count     text      ( updatable, nullable )
     field have_sales_contact bool      ( updatable, default false )
+
+    field mfa_enabled        bool      ( updatable, default false )
+    field mfa_secret_key     text      ( updatable, nullable )
+    field mfa_recovery_codes text      ( updatable, nullable )
 )
 
 create user ( )
