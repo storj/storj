@@ -174,6 +174,11 @@ func findOrphanedSegments(ctx context.Context, log *zap.Logger, config Config) (
 	}, func(ctx context.Context, it metabase.LoopSegmentsIterator) error {
 		var entry metabase.LoopSegmentEntry
 		for it.Next(ctx, &entry) {
+			// avoid segments created after starting processing
+			if entry.CreatedAt != nil && entry.CreatedAt.After(startingTime) {
+				continue
+			}
+
 			streamIDs[entry.StreamID] = struct{}{}
 
 			if numberOfElements%100000 == 0 {
@@ -195,6 +200,11 @@ func findOrphanedSegments(ctx context.Context, log *zap.Logger, config Config) (
 	}, func(ctx context.Context, it metabase.LoopObjectsIterator) error {
 		var entry metabase.LoopObjectEntry
 		for it.Next(ctx, &entry) {
+			// avoid objects created after starting processing
+			if entry.CreatedAt.After(startingTime) {
+				continue
+			}
+
 			delete(streamIDs, entry.StreamID)
 
 			if numberOfElements%100000 == 0 {
