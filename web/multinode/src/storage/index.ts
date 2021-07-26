@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 /**
- * Stamp is storage usage stamp for satellite at some point in time
+ * Stamp is storage usage stamp for satellite at some point in time.
  */
 export class Stamp {
     public atRestTotal: number;
@@ -14,7 +14,7 @@ export class Stamp {
     }
 
     /**
-     * Creates new empty instance of stamp with defined date
+     * Creates new empty instance of stamp with defined date.
      * @param date - holds specific date of the month
      * @returns Stamp - new empty instance of stamp with defined date
      */
@@ -28,7 +28,7 @@ export class Stamp {
 }
 
 /**
- * DiskSpace is total storage usage for node if any selected
+ * DiskSpace is total storage usage for node if any selected.
  */
 export class DiskSpace {
     public constructor(
@@ -38,5 +38,15 @@ export class DiskSpace {
         public free: number = 0,
         public available: number = 0,
         public overused: number = 0,
+    ) {}
+}
+
+/**
+ * DiskSpaceUsage contains daily and total disk space usage.
+ */
+export class DiskSpaceUsage {
+    public constructor(
+        public diskSpaceDaily: Stamp[] = [],
+        public diskSpaceSummary: number = 0,
     ) {}
 }

@@ -1,10 +1,11 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { ErrorEmailUsed } from '@/api/errors/ErrorEmailUsed';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { UpdatedUser, User } from '@/types/users';
+import { EnableUserMFARequest, UpdatedUser, User } from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
 
 /**
@@ -203,10 +204,11 @@ export class AuthHttpApi {
      *
      * @param user - stores user information
      * @param secret - registration token used in Vanguard release
+     * @param recaptchaResponse - recaptcha response
      * @returns id of created user
      * @throws Error
      */
-    public async register(user: {fullName: string; shortName: string; email: string; partner: string; partnerId: string; password: string; isProfessional: boolean; position: string; companyName: string; employeeCount: string; haveSalesContact: boolean }, secret: string): Promise<string> {
+    public async register(user: {fullName: string; shortName: string; email: string; partner: string; partnerId: string; password: string; isProfessional: boolean; position: string; companyName: string; employeeCount: string; haveSalesContact: boolean }, secret: string, recaptchaResponse: string): Promise<string> {
         const path = `${this.ROOT_PATH}/register`;
         const body = {
             secret: secret,
@@ -221,21 +223,111 @@ export class AuthHttpApi {
             companyName: user.companyName,
             employeeCount: user.employeeCount,
             haveSalesContact: user.haveSalesContact,
+            recaptchaResponse: recaptchaResponse,
         };
         const response = await this.http.post(path, JSON.stringify(body));
+        const result = await response.json();
         if (!response.ok) {
+            const errMsg = result.error || 'Cannot register user';
             switch (response.status) {
+                case 400:
+                    throw new ErrorBadRequest(errMsg);
                 case 401:
-                    throw new ErrorUnauthorized('We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation');
+                    throw new ErrorUnauthorized(errMsg);
                 case 409:
-                    throw new ErrorEmailUsed('This email is already in use, try another');
+                    throw new ErrorEmailUsed(errMsg);
                 case 429:
                     throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
                 default:
-                    throw new Error('Can not register user');
+                    throw new Error(errMsg);
             }
         }
 
-        return await response.json();
+        return result;
+    }
+
+    /**
+     * Used to enable user's MFA.
+     *
+     * @throws Error
+     */
+    public async generateUserMFASecret(): Promise<string> {
+        const path = `${this.ROOT_PATH}/mfa/generate-secret-key`;
+        const response = await this.http.post(path, null);
+
+        if (response.ok) {
+            return await response.json();
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('Can not generate MFA secret. Please try again later');
+    }
+
+    /**
+     * Used to enable user's MFA.
+     *
+     * @throws Error
+     */
+    public async enableUserMFA(body: EnableUserMFARequest): Promise<void> {
+        const path = `${this.ROOT_PATH}/mfa/enable`;
+        const response = await this.http.post(path, JSON.stringify(body));
+
+        if (response.ok) {
+            return;
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('Can not enable MFA. Please try again later');
+    }
+
+    /**
+     * Used to disable user's MFA.
+     *
+     * @throws Error
+     */
+    public async disableUserMFA(code: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/mfa/disable`;
+
+        const body = {
+            passcode: code,
+        };
+
+        const response = await this.http.post(path, JSON.stringify(body));
+
+        if (response.ok) {
+            return;
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('Can not disable MFA. Please try again later');
+    }
+
+    /**
+     * Used to generate user's MFA recovery codes.
+     *
+     * @throws Error
+     */
+    public async generateUserMFARecoveryCodes(): Promise<string[]> {
+        const path = `${this.ROOT_PATH}/mfa/generate-recovery-codes`;
+        const response = await this.http.post(path, null);
+
+        if (response.ok) {
+            return await response.json();
+        }
+
+        if (response.status === 401) {
+            throw new ErrorUnauthorized();
+        }
+
+        throw new Error('Can not generate MFA recovery codes. Please try again later');
     }
 }

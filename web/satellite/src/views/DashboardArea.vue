@@ -15,7 +15,7 @@
             </p>
         </div>
         <div v-if="!isLoading" class="dashboard__wrap">
-            <PaidTierBar v-if="!isPaidTierStatus && !isOnboardingTour" :open-add-p-m-modal="togglePMModal"/>
+            <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal"/>
             <DashboardHeader/>
             <div class="dashboard__wrap__main-area">
                 <NavigationArea class="regular-navigation"/>
@@ -44,6 +44,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
 import { PAYMENTS_ACTIONS, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
 import { PROJECTS_ACTIONS } from '@/store/modules/projects';
 import { USER_ACTIONS } from '@/store/modules/users';
+import { CreditCard } from '@/types/payments';
 import { Project } from '@/types/projects';
 import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 import { AppState } from '@/utils/constants/appStateEnum';
@@ -53,6 +54,7 @@ import { MetaUtils } from '@/utils/meta';
 const {
     SETUP_ACCOUNT,
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
+    GET_CREDIT_CARDS,
 } = PAYMENTS_ACTIONS;
 
 @Component({
@@ -102,6 +104,12 @@ export default class DashboardArea extends Vue {
             await this.$notify.error(`Unable to setup account. ${error.message}`);
         }
 
+        try {
+            await this.$store.dispatch(GET_CREDIT_CARDS);
+        } catch (error) {
+            await this.$notify.error(`Unable to get credit cards. ${error.message}`);
+        }
+
         let projects: Project[] = [];
 
         try {
@@ -144,10 +152,10 @@ export default class DashboardArea extends Vue {
     }
 
     /**
-     * Returns user's paid tier status from store.
+     * Returns credit cards from store.
      */
-    public get isPaidTierStatus(): boolean {
-        return this.$store.state.usersModule.paidTier;
+    public get creditCards(): CreditCard[] {
+        return this.$store.state.paymentsModule.creditCards;
     }
 
     /**

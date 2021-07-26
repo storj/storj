@@ -216,6 +216,8 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *segmentl
 	if obs.lastStreamID.Compare(segment.StreamID) != 0 {
 		obs.lastStreamID = segment.StreamID
 		stats.iterationAggregates.objectsChecked++
+
+		obs.monStats.objectsChecked++
 	}
 
 	obs.monStats.remoteSegmentsChecked++
@@ -350,5 +352,10 @@ func (obs *checkerObserver) RemoteSegment(ctx context.Context, segment *segmentl
 }
 
 func (obs *checkerObserver) InlineSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
+	// inline segments are not repaired but we would like to count as checked also
+	// objects that have only inline segments
+	if obs.lastStreamID.Compare(segment.StreamID) != 0 {
+		obs.monStats.objectsChecked++
+	}
 	return nil
 }

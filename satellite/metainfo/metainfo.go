@@ -1217,9 +1217,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	if limit < 0 {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "limit is negative")
 	}
-	if limit == 0 {
-		limit = metabase.MaxListLimit
-	}
+	metabase.ListLimit.Ensure(&limit)
 
 	var prefix metabase.ObjectKey
 	if len(req.EncryptedPrefix) != 0 {
@@ -1330,10 +1328,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 	if limit < 0 {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "limit is negative")
 	}
-
-	if limit == 0 {
-		limit = metabase.MaxListLimit
-	}
+	metabase.ListLimit.Ensure(&limit)
 
 	resp = &pb.ObjectListPendingStreamsResponse{}
 	resp.Items = []*pb.ObjectListItem{}
@@ -1554,6 +1549,63 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		ReliablePieceCount: reliablePieceCount,
 		PieceCount:         pieceCount,
 	}, nil
+}
+
+// UpdateObjectMetadata replaces object metadata.
+func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.ObjectUpdateMetadataRequest) (resp *pb.ObjectUpdateMetadataResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
+	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:            macaroon.ActionWrite,
+		Bucket:        req.Bucket,
+		EncryptedPath: req.EncryptedObjectKey,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	err = endpoint.validateBucket(ctx, req.Bucket)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	id, err := uuid.FromBytes(streamID.StreamId)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	err = endpoint.metainfo.metabaseDB.UpdateObjectMetadata(ctx, metabase.UpdateObjectMetadata{
+		ObjectStream: metabase.ObjectStream{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: string(req.Bucket),
+			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
+			Version:    metabase.Version(req.Version),
+			StreamID:   id,
+		},
+		EncryptedMetadata:             req.EncryptedMetadata,
+		EncryptedMetadataNonce:        req.EncryptedMetadataNonce[:],
+		EncryptedMetadataEncryptedKey: req.EncryptedMetadataEncryptedKey,
+	})
+	if err != nil {
+		if storj.ErrObjectNotFound.Has(err) {
+			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
+		}
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	return &pb.ObjectUpdateMetadataResponse{}, nil
 }
 
 // BeginSegment begins segment uploading.

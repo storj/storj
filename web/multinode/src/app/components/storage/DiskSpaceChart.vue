@@ -42,11 +42,11 @@ class StampTooltip {
 export default class DiskSpaceChart extends BaseChart {
 
     private get allStamps(): Stamp[] {
-        return ChartUtils.populateEmptyStamps(this.$store.state.storage.usage);
+        return ChartUtils.populateEmptyStamps(this.$store.state.storage.usage.diskSpaceDaily);
     }
 
     public get chartDataDimension(): string {
-        if (!this.$store.state.storage.usage.length) {
+        if (!this.$store.state.storage.usage.diskSpaceDaily.length) {
             return 'Bytes';
         }
 

@@ -80,6 +80,10 @@ func DefaultPartners() PartnerList {
 			ID:   "3e1b911a-c778-47ea-878c-9f3f264f8bc1",
 			UUID: parseUUID("3e1b911a-c778-47ea-878c-9f3f264f8bc1"),
 		}, {
+			Name: "GroundX",
+			ID:   "e56c6a65-d5bf-457a-a414-e55c36624f73",
+			UUID: parseUUID("e56c6a65-d5bf-457a-a414-e55c36624f73"),
+		}, {
 			Name: "Heroku",
 			ID:   "706011f3-400e-45eb-a796-90cce2a7d67e",
 			UUID: parseUUID("706011f3-400e-45eb-a796-90cce2a7d67e"),
@@ -96,9 +100,13 @@ func DefaultPartners() PartnerList {
 			ID:   "bc1276a5-4ba8-4761-a164-e5a4a9f8593c",
 			UUID: parseUUID("bc1276a5-4ba8-4761-a164-e5a4a9f8593c"),
 		}, {
-			Name: "GroundX",
-			ID:   "e56c6a65-d5bf-457a-a414-e55c36624f73",
-			UUID: parseUUID("e56c6a65-d5bf-457a-a414-e55c36624f73"),
+			Name: "Jaxcom",
+			ID:   "efb7b35a-9765-4e74-855f-5004336dc951",
+			UUID: parseUUID("efb7b35a-9765-4e74-855f-5004336dc951"),
+		}, {
+			Name: "key4web",
+			ID:   "9af99cf8-d68b-48c8-95ab-ef39641b8b06",
+			UUID: parseUUID("9af99cf8-d68b-48c8-95ab-ef39641b8b06"),
 		}, {
 			Name: "MariaDB",
 			ID:   "8ee019ef-2aae-4867-9c18-41c65ea318c4",
@@ -182,6 +190,10 @@ func DefaultPartners() PartnerList {
 			Name: "Status Messenger",
 			ID:   "b6114126-c06d-49f9-8d23-3e0dd2e350ab",
 			UUID: parseUUID("b6114126-c06d-49f9-8d23-3e0dd2e350ab"),
+		}, {
+			Name: "Solutico",
+			ID:   "64dad10a-afad-454e-a045-fbae043469e7",
+			UUID: parseUUID("64dad10a-afad-454e-a045-fbae043469e7"),
 		}, {
 			Name: "Taloflow",
 			ID:   "72ef94a4-c8ab-49fa-b5f1-4824532c4205",

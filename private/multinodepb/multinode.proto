@@ -45,6 +45,7 @@ message StorageUsageRequest {
 
 message StorageUsageResponse {
   repeated StorageUsage storage_usage = 1;
+  double summary = 2;
 }
 
 message StorageUsageSatelliteRequest {
@@ -56,6 +57,7 @@ message StorageUsageSatelliteRequest {
 
 message StorageUsageSatelliteResponse {
   repeated StorageUsage storage_usage = 1;
+  double summary = 2;
 }
 
 service Bandwidth {
@@ -221,6 +223,7 @@ message ReputationResponse {
   google.protobuf.Timestamp suspended_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
   google.protobuf.Timestamp offline_suspended_at = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
   google.protobuf.Timestamp offline_under_review_at = 6 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  google.protobuf.Timestamp vetted_at = 9 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
   google.protobuf.Timestamp updated_at = 7 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
   google.protobuf.Timestamp joined_at = 8 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
 }

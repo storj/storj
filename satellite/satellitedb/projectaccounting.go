@@ -40,17 +40,13 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 		return nil
 	}
 	var bucketNames, projectIDs [][]byte
-	var totalBytes, inlineBytes, remoteBytes, metadataSizes []int64
-	var totalSegments, remoteSegments, inlineSegments, objectCounts []int64
+	var totalBytes, metadataSizes []int64
+	var totalSegments, objectCounts []int64
 	for _, info := range bucketTallies {
 		bucketNames = append(bucketNames, []byte(info.BucketName))
 		projectIDs = append(projectIDs, info.ProjectID[:])
 		totalBytes = append(totalBytes, info.TotalBytes)
-		inlineBytes = append(inlineBytes, info.InlineBytes)
-		remoteBytes = append(remoteBytes, info.RemoteBytes)
 		totalSegments = append(totalSegments, info.TotalSegments)
-		remoteSegments = append(remoteSegments, info.RemoteSegments)
-		inlineSegments = append(inlineSegments, info.InlineSegments)
 		objectCounts = append(objectCounts, info.ObjectCount)
 		metadataSizes = append(metadataSizes, info.MetadataSize)
 	}
@@ -64,13 +60,13 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 		SELECT
 			$1,
 			unnest($2::bytea[]), unnest($3::bytea[]),
-			unnest($4::int8[]), unnest($5::int8[]), unnest($6::int8[]),
-			unnest($7::int8[]), unnest($8::int8[]), unnest($9::int8[]),
+			unnest($4::int8[]), $5, $6,
+			unnest($7::int8[]), $8, $9,
 			unnest($10::int8[]), unnest($11::int8[])`),
 		intervalStart,
 		pgutil.ByteaArray(bucketNames), pgutil.ByteaArray(projectIDs),
-		pgutil.Int8Array(totalBytes), pgutil.Int8Array(inlineBytes), pgutil.Int8Array(remoteBytes),
-		pgutil.Int8Array(totalSegments), pgutil.Int8Array(remoteSegments), pgutil.Int8Array(inlineSegments),
+		pgutil.Int8Array(totalBytes), 0, 0,
+		pgutil.Int8Array(totalSegments), 0, 0,
 		pgutil.Int8Array(objectCounts), pgutil.Int8Array(metadataSizes))
 
 	return Error.Wrap(err)
@@ -91,19 +87,25 @@ func (db *ProjectAccounting) GetTallies(ctx context.Context) (tallies []accounti
 			return nil, Error.Wrap(err)
 		}
 
+		totalBytes := dbxTally.TotalBytes
+		if totalBytes == 0 {
+			totalBytes = dbxTally.Inline + dbxTally.Remote
+		}
+
+		totalSegments := dbxTally.TotalSegmentsCount
+		if totalSegments == 0 {
+			totalSegments = dbxTally.InlineSegmentsCount + dbxTally.RemoteSegmentsCount
+		}
+
 		tallies = append(tallies, accounting.BucketTally{
 			BucketLocation: metabase.BucketLocation{
 				ProjectID:  projectID,
 				BucketName: string(dbxTally.BucketName),
 			},
-			ObjectCount:    int64(dbxTally.ObjectCount),
-			TotalSegments:  int64(dbxTally.TotalSegmentsCount),
-			InlineSegments: int64(dbxTally.InlineSegmentsCount),
-			RemoteSegments: int64(dbxTally.RemoteSegmentsCount),
-			TotalBytes:     int64(dbxTally.TotalBytes),
-			InlineBytes:    int64(dbxTally.Inline),
-			RemoteBytes:    int64(dbxTally.Remote),
-			MetadataSize:   int64(dbxTally.MetadataSize),
+			ObjectCount:   int64(dbxTally.ObjectCount),
+			TotalSegments: int64(totalSegments),
+			TotalBytes:    int64(totalBytes),
+			MetadataSize:  int64(dbxTally.MetadataSize),
 		})
 	}
 
@@ -129,8 +131,8 @@ func (db *ProjectAccounting) CreateStorageTally(ctx context.Context, tally accou
 			?, ?
 		)`), tally.IntervalStart,
 		[]byte(tally.BucketName), tally.ProjectID,
-		tally.TotalBytes, tally.InlineBytes, tally.RemoteBytes,
-		tally.TotalSegmentCount, tally.RemoteSegmentCount, tally.InlineSegmentCount,
+		tally.TotalBytes, 0, 0,
+		tally.TotalSegmentCount, 0, 0,
 		tally.ObjectCount, tally.MetadataSize,
 	)
 
@@ -301,10 +303,15 @@ func (db *ProjectAccounting) GetProjectTotal(ctx context.Context, projectID uuid
 		for storageTalliesRows.Next() {
 			tally := accounting.BucketStorageTally{}
 
-			err = storageTalliesRows.Scan(&tally.IntervalStart, &tally.TotalBytes, &tally.InlineBytes, &tally.RemoteBytes, &tally.ObjectCount)
+			var inline, remote int64
+			err = storageTalliesRows.Scan(&tally.IntervalStart, &tally.TotalBytes, &inline, &remote, &tally.ObjectCount)
 			if err != nil {
 				return nil, errs.Combine(err, storageTalliesRows.Close())
 			}
+			if tally.TotalBytes == 0 {
+				tally.TotalBytes = inline + remote
+			}
+
 			tally.BucketName = bucket
 			storageTallies = append(storageTallies, &tally)
 		}
@@ -638,11 +645,16 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		storageRow := db.db.QueryRowContext(ctx, storageQuery, projectID[:], []byte(bucket), since, before)
 
 		var tally accounting.BucketStorageTally
-		err = storageRow.Scan(&tally.TotalBytes, &tally.InlineBytes, &tally.RemoteBytes, &tally.ObjectCount)
+		var inline, remote int64
+		err = storageRow.Scan(&tally.TotalBytes, &inline, &remote, &tally.ObjectCount)
 		if err != nil {
 			if !errors.Is(err, sql.ErrNoRows) {
 				return nil, err
 			}
+		}
+
+		if tally.TotalBytes == 0 {
+			tally.TotalBytes = inline + remote
 		}
 
 		// fill storage and object count

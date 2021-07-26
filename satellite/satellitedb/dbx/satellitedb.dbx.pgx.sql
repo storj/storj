@@ -439,6 +439,9 @@ CREATE TABLE users (
 	is_professional boolean NOT NULL DEFAULT false,
 	employee_count text,
 	have_sales_contact boolean NOT NULL DEFAULT false,
+	mfa_enabled boolean NOT NULL DEFAULT false,
+	mfa_secret_key text,
+	mfa_recovery_codes text,
 	PRIMARY KEY ( id )
 );
 CREATE TABLE value_attributions (

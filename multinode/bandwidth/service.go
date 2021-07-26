@@ -46,16 +46,20 @@ func (service *Service) Monthly(ctx context.Context) (_ Monthly, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var totalMonthly Monthly
 
-	nodes, err := service.nodes.List(ctx)
+	listNodes, err := service.nodes.List(ctx)
 	if err != nil {
 		return Monthly{}, Error.Wrap(err)
 	}
 
 	cache := make(UsageRollupDailyCache)
 
-	for _, node := range nodes {
+	for _, node := range listNodes {
 		monthly, err := service.getMonthly(ctx, node)
 		if err != nil {
+			if nodes.ErrNodeNotReachable.Has(err) {
+				continue
+			}
+
 			return Monthly{}, Error.Wrap(err)
 		}
 		totalMonthly.IngressSummary += monthly.IngressSummary
@@ -93,16 +97,20 @@ func (service *Service) MonthlySatellite(ctx context.Context, satelliteID storj.
 	defer mon.Task()(&ctx)(&err)
 	var totalMonthly Monthly
 
-	nodes, err := service.nodes.List(ctx)
+	listNodes, err := service.nodes.List(ctx)
 	if err != nil {
 		return Monthly{}, Error.Wrap(err)
 	}
 
 	cache := make(UsageRollupDailyCache)
 
-	for _, node := range nodes {
+	for _, node := range listNodes {
 		monthly, err := service.getMonthlySatellite(ctx, node, satelliteID)
 		if err != nil {
+			if nodes.ErrNodeNotReachable.Has(err) {
+				continue
+			}
+
 			return Monthly{}, Error.Wrap(err)
 		}
 
@@ -145,7 +153,7 @@ func (service *Service) getMonthlySatellite(ctx context.Context, node nodes.Node
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return Monthly{}, Error.Wrap(err)
+		return Monthly{}, nodes.ErrNodeNotReachable.Wrap(err)
 	}
 
 	defer func() {
@@ -223,7 +231,7 @@ func (service *Service) getMonthly(ctx context.Context, node nodes.Node) (_ Mont
 		Address: node.PublicAddress,
 	})
 	if err != nil {
-		return Monthly{}, Error.Wrap(err)
+		return Monthly{}, nodes.ErrNodeNotReachable.Wrap(err)
 	}
 
 	defer func() {

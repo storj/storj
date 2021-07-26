@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { StorageClient } from '@/api/storage';
-import { DiskSpace, Stamp } from '@/storage';
+import { DiskSpace, DiskSpaceUsage } from '@/storage';
 
 /**
  * Exposes all bandwidth related logic
@@ -26,7 +26,7 @@ export class StorageService {
      * @throws {@link InternalError}
      * Thrown if something goes wrong on server side.
      */
-    public async usage(satelliteId: string | null, nodeId: string | null): Promise<Stamp[]> {
+    public async usage(satelliteId: string | null, nodeId: string | null): Promise<DiskSpaceUsage> {
         return await this.storage.usage(satelliteId, nodeId);
     }
 

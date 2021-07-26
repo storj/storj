@@ -13,9 +13,10 @@ import (
 	"storj.io/private/tagsql"
 )
 
-const deleteBatchSizeLimit = 100
-
-const deletePieceBatchLimit = 1000
+const (
+	deleteBatchSizeLimit  = intLimitRange(100)
+	deletePieceBatchLimit = intLimitRange(1000)
+)
 
 // DeleteBucketObjects contains arguments for deleting a whole bucket.
 type DeleteBucketObjects struct {
@@ -38,15 +39,8 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 		return 0, err
 	}
 
-	batchSize := opts.BatchSize
-	if batchSize <= 0 || batchSize > deleteBatchSizeLimit {
-		batchSize = deleteBatchSizeLimit
-	}
-
-	deletePiecesBatchSize := opts.DeletePiecesBatchSize
-	if deletePiecesBatchSize <= 0 || deletePiecesBatchSize > deletePieceBatchLimit {
-		deletePiecesBatchSize = deletePieceBatchLimit
-	}
+	deleteBatchSizeLimit.Ensure(&opts.BatchSize)
+	deletePieceBatchLimit.Ensure(&opts.DeletePiecesBatchSize)
 
 	var query string
 	switch db.impl {
@@ -81,13 +75,13 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 	}
 
 	// TODO: fix the count for objects without segments
-	deletedSegmentsBatch := make([]DeletedSegmentInfo, 0, deletePiecesBatchSize)
+	deletedSegmentsBatch := make([]DeletedSegmentInfo, 0, opts.DeletePiecesBatchSize)
 	for {
 		deletedSegmentsBatch = deletedSegmentsBatch[:0]
 		batchDeletedObjects := 0
 		deletedSegments := 0
 		err = withRows(db.db.Query(ctx, query,
-			opts.Bucket.ProjectID, []byte(opts.Bucket.BucketName), batchSize))(func(rows tagsql.Rows) error {
+			opts.Bucket.ProjectID, []byte(opts.Bucket.BucketName), opts.BatchSize))(func(rows tagsql.Rows) error {
 			ids := map[uuid.UUID]struct{}{} // TODO: avoid map here
 			for rows.Next() {
 				var streamID uuid.UUID
@@ -105,7 +99,7 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 				ids[streamID] = struct{}{}
 				deletedSegmentsBatch = append(deletedSegmentsBatch, segment)
 
-				if len(deletedSegmentsBatch) == deletePiecesBatchSize {
+				if len(deletedSegmentsBatch) >= opts.DeletePiecesBatchSize {
 					if opts.DeletePieces != nil {
 						err = opts.DeletePieces(ctx, deletedSegmentsBatch)
 						if err != nil {

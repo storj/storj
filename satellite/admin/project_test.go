@@ -326,28 +326,24 @@ func TestCheckUsageWithUsage(t *testing.T) {
 		now := time.Now().UTC()
 		// use fixed intervals to avoid issues at the beginning of the month
 		tally := accounting.BucketStorageTally{
-			BucketName:         "test",
-			ProjectID:          projectID,
-			IntervalStart:      time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 1, time.UTC),
-			ObjectCount:        1,
-			InlineSegmentCount: 1,
-			RemoteSegmentCount: 1,
-			InlineBytes:        10,
-			RemoteBytes:        640000,
-			MetadataSize:       2,
+			BucketName:        "test",
+			ProjectID:         projectID,
+			IntervalStart:     time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 1, time.UTC),
+			ObjectCount:       1,
+			TotalSegmentCount: 2,
+			TotalBytes:        640000,
+			MetadataSize:      2,
 		}
 		err = planet.Satellites[0].DB.ProjectAccounting().CreateStorageTally(ctx, tally)
 		require.NoError(t, err)
 		tally = accounting.BucketStorageTally{
-			BucketName:         "test",
-			ProjectID:          projectID,
-			IntervalStart:      time.Date(now.Year(), now.Month(), 1, 0, 1, 0, 1, time.UTC),
-			ObjectCount:        1,
-			InlineSegmentCount: 1,
-			RemoteSegmentCount: 1,
-			InlineBytes:        10,
-			RemoteBytes:        640000,
-			MetadataSize:       2,
+			BucketName:        "test",
+			ProjectID:         projectID,
+			IntervalStart:     time.Date(now.Year(), now.Month(), 1, 0, 1, 0, 1, time.UTC),
+			ObjectCount:       1,
+			TotalSegmentCount: 2,
+			TotalBytes:        640000,
+			MetadataSize:      2,
 		}
 		err = planet.Satellites[0].DB.ProjectAccounting().CreateStorageTally(ctx, tally)
 		require.NoError(t, err)
@@ -400,28 +396,24 @@ func TestCheckUsageLastMonthUnappliedInvoice(t *testing.T) {
 
 		// use fixed intervals to avoid issues at the beginning of the month
 		tally := accounting.BucketStorageTally{
-			BucketName:         "test",
-			ProjectID:          projectID,
-			IntervalStart:      time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 1, time.UTC),
-			ObjectCount:        1,
-			InlineSegmentCount: 1,
-			RemoteSegmentCount: 1,
-			InlineBytes:        10,
-			RemoteBytes:        640000,
-			MetadataSize:       2,
+			BucketName:        "test",
+			ProjectID:         projectID,
+			IntervalStart:     time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 1, time.UTC),
+			ObjectCount:       1,
+			TotalSegmentCount: 2,
+			TotalBytes:        640000,
+			MetadataSize:      2,
 		}
 		err = planet.Satellites[0].DB.ProjectAccounting().CreateStorageTally(ctx, tally)
 		require.NoError(t, err)
 		tally = accounting.BucketStorageTally{
-			BucketName:         "test",
-			ProjectID:          projectID,
-			IntervalStart:      time.Date(now.Year(), now.Month(), 1, 0, 1, 0, 1, time.UTC),
-			ObjectCount:        1,
-			InlineSegmentCount: 1,
-			RemoteSegmentCount: 1,
-			InlineBytes:        10,
-			RemoteBytes:        640000,
-			MetadataSize:       2,
+			BucketName:        "test",
+			ProjectID:         projectID,
+			IntervalStart:     time.Date(now.Year(), now.Month(), 1, 0, 1, 0, 1, time.UTC),
+			ObjectCount:       1,
+			TotalSegmentCount: 2,
+			TotalBytes:        640000,
+			MetadataSize:      2,
 		}
 		err = planet.Satellites[0].DB.ProjectAccounting().CreateStorageTally(ctx, tally)
 		require.NoError(t, err)
@@ -474,28 +466,24 @@ func TestDeleteProjectWithUsageCurrentMonth(t *testing.T) {
 		now := time.Now().UTC()
 		// use fixed intervals to avoid issues at the beginning of the month
 		tally := accounting.BucketStorageTally{
-			BucketName:         "test",
-			ProjectID:          projectID,
-			IntervalStart:      time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 1, time.UTC),
-			ObjectCount:        1,
-			InlineSegmentCount: 1,
-			RemoteSegmentCount: 1,
-			InlineBytes:        10,
-			RemoteBytes:        640000,
-			MetadataSize:       2,
+			BucketName:        "test",
+			ProjectID:         projectID,
+			IntervalStart:     time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 1, time.UTC),
+			ObjectCount:       1,
+			TotalSegmentCount: 2,
+			TotalBytes:        640000,
+			MetadataSize:      2,
 		}
 		err = planet.Satellites[0].DB.ProjectAccounting().CreateStorageTally(ctx, tally)
 		require.NoError(t, err)
 		tally = accounting.BucketStorageTally{
-			BucketName:         "test",
-			ProjectID:          projectID,
-			IntervalStart:      time.Date(now.Year(), now.Month(), 1, 0, 1, 0, 1, time.UTC),
-			ObjectCount:        1,
-			InlineSegmentCount: 1,
-			RemoteSegmentCount: 1,
-			InlineBytes:        10,
-			RemoteBytes:        640000,
-			MetadataSize:       2,
+			BucketName:        "test",
+			ProjectID:         projectID,
+			IntervalStart:     time.Date(now.Year(), now.Month(), 1, 0, 1, 0, 1, time.UTC),
+			ObjectCount:       1,
+			TotalSegmentCount: 2,
+			TotalBytes:        640000,
+			MetadataSize:      2,
 		}
 		err = planet.Satellites[0].DB.ProjectAccounting().CreateStorageTally(ctx, tally)
 		require.NoError(t, err)
@@ -544,28 +532,24 @@ func TestDeleteProjectWithUsagePreviousMonth(t *testing.T) {
 		// set fixed day to avoid failures at the end of the month
 		accTime := time.Date(now.Year(), now.Month()-1, 15, now.Hour(), now.Minute(), now.Second(), now.Nanosecond(), time.UTC)
 		tally := accounting.BucketStorageTally{
-			BucketName:         "test",
-			ProjectID:          projectID,
-			IntervalStart:      accTime,
-			ObjectCount:        1,
-			InlineSegmentCount: 1,
-			RemoteSegmentCount: 1,
-			InlineBytes:        10,
-			RemoteBytes:        640000,
-			MetadataSize:       2,
+			BucketName:        "test",
+			ProjectID:         projectID,
+			IntervalStart:     accTime,
+			ObjectCount:       1,
+			TotalSegmentCount: 2,
+			TotalBytes:        640000,
+			MetadataSize:      2,
 		}
 		err = planet.Satellites[0].DB.ProjectAccounting().CreateStorageTally(ctx, tally)
 		require.NoError(t, err)
 		tally = accounting.BucketStorageTally{
-			BucketName:         "test",
-			ProjectID:          projectID,
-			IntervalStart:      accTime.AddDate(0, 0, 1),
-			ObjectCount:        1,
-			InlineSegmentCount: 1,
-			RemoteSegmentCount: 1,
-			InlineBytes:        10,
-			RemoteBytes:        640000,
-			MetadataSize:       2,
+			BucketName:        "test",
+			ProjectID:         projectID,
+			IntervalStart:     accTime.AddDate(0, 0, 1),
+			ObjectCount:       1,
+			TotalSegmentCount: 2,
+			TotalBytes:        640000,
+			MetadataSize:      2,
 		}
 		err = planet.Satellites[0].DB.ProjectAccounting().CreateStorageTally(ctx, tally)
 		require.NoError(t, err)

@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	deleteBatchsizeLimit = 1000
+	deleteBatchsizeLimit = intLimitRange(1000)
 )
 
 // DeleteExpiredObjects contains all the information necessary to delete expired objects and segments.
@@ -151,13 +151,11 @@ func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects)
 func (db *DB) deleteObjectsAndSegmentsBatch(ctx context.Context, batchsize int, deleteBatch func(startAfter ObjectStream, batchsize int) (last ObjectStream, err error)) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	bs := batchsize
-	if batchsize == 0 || batchsize > deleteBatchsizeLimit {
-		bs = deleteBatchsizeLimit
-	}
+	deleteBatchsizeLimit.Ensure(&batchsize)
+
 	var startAfter ObjectStream
 	for {
-		lastDeleted, err := deleteBatch(startAfter, bs)
+		lastDeleted, err := deleteBatch(startAfter, batchsize)
 		if err != nil {
 			return err
 		}

@@ -26,19 +26,19 @@ describe('mutations', () => {
 
         store.commit(USER_MUTATIONS.SET_USER, user);
 
-        expect(store.state.id).toBe(user.id);
-        expect(store.state.email).toBe(user.email);
-        expect(store.state.fullName).toBe(user.fullName);
-        expect(store.state.shortName).toBe(user.shortName);
+        expect(store.state.user.id).toBe(user.id);
+        expect(store.state.user.email).toBe(user.email);
+        expect(store.state.user.fullName).toBe(user.fullName);
+        expect(store.state.user.shortName).toBe(user.shortName);
     });
 
     it('clear user', () => {
         store.commit(USER_MUTATIONS.CLEAR);
 
-        expect(store.state.id).toBe('');
-        expect(store.state.email).toBe('');
-        expect(store.state.fullName).toBe('');
-        expect(store.state.shortName).toBe('');
+        expect(store.state.user.id).toBe('');
+        expect(store.state.user.email).toBe('');
+        expect(store.state.user.fullName).toBe('');
+        expect(store.state.user.shortName).toBe('');
     });
 
     it('Update user', () => {
@@ -46,8 +46,8 @@ describe('mutations', () => {
 
         store.commit(USER_MUTATIONS.UPDATE_USER, user);
 
-        expect(store.state.fullName).toBe(user.fullName);
-        expect(store.state.shortName).toBe(user.shortName);
+        expect(store.state.user.fullName).toBe(user.fullName);
+        expect(store.state.user.shortName).toBe(user.shortName);
     });
 });
 
@@ -64,8 +64,8 @@ describe('actions', () => {
 
         await store.dispatch(UPDATE, user);
 
-        expect(store.state.fullName).toBe('fullName1');
-        expect(store.state.shortName).toBe('shortName2');
+        expect(store.state.user.fullName).toBe('fullName1');
+        expect(store.state.user.shortName).toBe('shortName2');
     });
 
     it('update throws an error when api call fails', async () => {
@@ -77,19 +77,19 @@ describe('actions', () => {
             await store.dispatch(UPDATE, newUser);
             expect(true).toBe(false);
         } catch (error) {
-            expect(store.state.fullName).toBe(oldUser.fullName);
-            expect(store.state.shortName).toBe(oldUser.shortName);
+            expect(store.state.user.fullName).toBe(oldUser.fullName);
+            expect(store.state.user.shortName).toBe(oldUser.shortName);
         }
     });
 
     it('clears state', async () => {
         await store.dispatch(CLEAR);
 
-        expect(store.state.fullName).toBe('');
-        expect(store.state.shortName).toBe('');
-        expect(store.state.email).toBe('');
-        expect(store.state.partnerId).toBe('');
-        expect(store.state.id).toBe('');
+        expect(store.state.user.fullName).toBe('');
+        expect(store.state.user.shortName).toBe('');
+        expect(store.state.user.email).toBe('');
+        expect(store.state.user.partnerId).toBe('');
+        expect(store.state.user.id).toBe('');
     });
 
     it('success get user', async () => {
@@ -101,10 +101,10 @@ describe('actions', () => {
 
         await store.dispatch(GET);
 
-        expect(store.state.id).toBe(user.id);
-        expect(store.state.shortName).toBe(user.shortName);
-        expect(store.state.fullName).toBe(user.fullName);
-        expect(store.state.email).toBe(user.email);
+        expect(store.state.user.id).toBe(user.id);
+        expect(store.state.user.shortName).toBe(user.shortName);
+        expect(store.state.user.fullName).toBe(user.fullName);
+        expect(store.state.user.email).toBe(user.email);
     });
 
     it('get throws an error when api call fails', async () => {
@@ -115,8 +115,8 @@ describe('actions', () => {
             await store.dispatch(GET);
             expect(true).toBe(false);
         } catch (error) {
-            expect(store.state.fullName).toBe(user.fullName);
-            expect(store.state.shortName).toBe(user.shortName);
+            expect(store.state.user.fullName).toBe(user.fullName);
+            expect(store.state.user.shortName).toBe(user.shortName);
         }
     });
 });
@@ -125,15 +125,15 @@ describe('getters', () => {
     it('user model', function () {
         const retrievedUser = store.getters.user;
 
-        expect(retrievedUser.id).toBe(store.state.id);
-        expect(retrievedUser.fullName).toBe(store.state.fullName);
-        expect(retrievedUser.shortName).toBe(store.state.shortName);
-        expect(retrievedUser.email).toBe(store.state.email);
+        expect(retrievedUser.id).toBe(store.state.user.id);
+        expect(retrievedUser.fullName).toBe(store.state.user.fullName);
+        expect(retrievedUser.shortName).toBe(store.state.user.shortName);
+        expect(retrievedUser.email).toBe(store.state.user.email);
     });
 
     it('user name', function () {
         const retrievedUserName = store.getters.userName;
 
-        expect(retrievedUserName).toBe(store.state.getFullName());
+        expect(retrievedUserName).toBe(store.state.user.getFullName());
     });
 });

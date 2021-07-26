@@ -5,6 +5,7 @@ package gracefulexit
 
 import (
 	"context"
+	"database/sql"
 	"io"
 	"sort"
 	"sync"
@@ -21,6 +22,7 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
@@ -130,7 +132,17 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 		endpoint.connections.delete(nodeID)
 	}()
 
-	isDisqualified, err := endpoint.handleDisqualifiedNode(ctx, nodeID)
+	//TODO: remove this call when we remove graceful_exit_transfer_queue is removed
+	usesSegmentTransferQueue := true
+	progress, err := endpoint.db.GetProgress(ctx, nodeID)
+	if err != nil && !errs.Is(err, sql.ErrNoRows) {
+		return rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+	if progress != nil {
+		usesSegmentTransferQueue = progress.UsesSegmentTransferQueue
+	}
+
+	isDisqualified, err := endpoint.handleDisqualifiedNode(ctx, nodeID, usesSegmentTransferQueue)
 	if err != nil {
 		return rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
@@ -176,14 +188,14 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 
 		loopErr := incompleteLoop.Run(ctx, func(ctx context.Context) error {
 			if pending.Length() == 0 {
-				incomplete, err := endpoint.db.GetIncompleteNotFailed(ctx, nodeID, endpoint.config.EndpointBatchSize, 0)
+				incomplete, err := endpoint.db.GetIncompleteNotFailed(ctx, nodeID, endpoint.config.EndpointBatchSize, 0, usesSegmentTransferQueue)
 				if err != nil {
 					cancel()
 					return pending.DoneSending(err)
 				}
 
 				if len(incomplete) == 0 {
-					incomplete, err = endpoint.db.GetIncompleteFailed(ctx, nodeID, endpoint.config.MaxFailuresPerPiece, endpoint.config.EndpointBatchSize, 0)
+					incomplete, err = endpoint.db.GetIncompleteFailed(ctx, nodeID, endpoint.config.MaxFailuresPerPiece, endpoint.config.EndpointBatchSize, 0, usesSegmentTransferQueue)
 					if err != nil {
 						cancel()
 						return pending.DoneSending(err)
@@ -219,7 +231,7 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 
 		// if there is no more work to receive send complete
 		if finished {
-			isDisqualified, err := endpoint.handleDisqualifiedNode(ctx, nodeID)
+			isDisqualified, err := endpoint.handleDisqualifiedNode(ctx, nodeID, usesSegmentTransferQueue)
 			if err != nil {
 				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
@@ -233,7 +245,7 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 
-			err = endpoint.handleFinished(ctx, stream, exitStatusRequest, exitFailedReason)
+			err = endpoint.handleFinished(ctx, stream, exitStatusRequest, exitFailedReason, usesSegmentTransferQueue)
 			if err != nil {
 				return rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
@@ -296,7 +308,7 @@ func (endpoint *Endpoint) Process(stream pb.DRPCSatelliteGracefulExit_ProcessStr
 						ExitSuccess:    false,
 					}
 
-					err := endpoint.handleFinished(ctx, stream, exitStatusRequest, pb.ExitFailed_VERIFICATION_FAILED)
+					err := endpoint.handleFinished(ctx, stream, exitStatusRequest, pb.ExitFailed_VERIFICATION_FAILED, usesSegmentTransferQueue)
 					if err != nil {
 						return rpcstatus.Error(rpcstatus.Internal, err.Error())
 					}
@@ -325,7 +337,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream pb.DRPCS
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Key, incomplete.PieceNum)
+		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Key, incomplete.StreamID, incomplete.Position, incomplete.PieceNum)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -333,10 +345,10 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream pb.DRPCS
 		return nil
 	}
 
-	segment, err := endpoint.getValidSegment(ctx, incomplete.Key, incomplete.RootPieceID)
+	segment, err := endpoint.getValidSegment(ctx, incomplete.Key, incomplete.StreamID, incomplete.Position, incomplete.RootPieceID)
 	if err != nil {
 		endpoint.log.Warn("invalid segment", zap.Error(err))
-		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Key, incomplete.PieceNum)
+		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Key, incomplete.StreamID, incomplete.Position, incomplete.PieceNum)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -346,7 +358,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream pb.DRPCS
 
 	nodePiece, err := endpoint.getNodePiece(ctx, segment, incomplete)
 	if err != nil {
-		deleteErr := endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Key, incomplete.PieceNum)
+		deleteErr := endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Key, incomplete.StreamID, incomplete.Position, incomplete.PieceNum)
 		if deleteErr != nil {
 			return Error.Wrap(deleteErr)
 		}
@@ -360,7 +372,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream pb.DRPCS
 			return Error.Wrap(err)
 		}
 
-		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Key, incomplete.PieceNum)
+		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, incomplete.Key, incomplete.StreamID, incomplete.Position, incomplete.PieceNum)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -394,16 +406,13 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream pb.DRPCS
 
 	newNode := newNodes[0]
 	endpoint.log.Debug("found new node for piece transfer", zap.Stringer("original node ID", nodeID), zap.Stringer("replacement node ID", newNode.ID),
-		zap.ByteString("key", incomplete.Key), zap.Int32("piece num", incomplete.PieceNum))
+		zap.ByteString("key", incomplete.Key),
+		zap.ByteString("streamID", incomplete.StreamID[:]), zap.Uint32("Part", incomplete.Position.Part), zap.Uint32("Index", incomplete.Position.Index),
+		zap.Int32("piece num", incomplete.PieceNum))
 
 	pieceID := segment.RootPieceID.Derive(nodeID, incomplete.PieceNum)
 
-	segmentLocation, err := metabase.ParseSegmentKey(incomplete.Key)
-	if err != nil {
-		return Error.New("invalid key for node ID %v, piece ID %v: %w", incomplete.NodeID, pieceID, err)
-	}
-
-	limit, privateKey, err := endpoint.orders.CreateGracefulExitPutOrderLimit(ctx, segmentLocation.Bucket(), newNode.ID, incomplete.PieceNum, segment.RootPieceID, int32(pieceSize))
+	limit, privateKey, err := endpoint.orders.CreateGracefulExitPutOrderLimit(ctx, metabase.BucketLocation{}, newNode.ID, incomplete.PieceNum, segment.RootPieceID, int32(pieceSize))
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -422,7 +431,7 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream pb.DRPCS
 		return Error.Wrap(err)
 	}
 
-	err = endpoint.db.IncrementOrderLimitSendCount(ctx, nodeID, incomplete.Key, incomplete.PieceNum)
+	err = endpoint.db.IncrementOrderLimitSendCount(ctx, nodeID, incomplete.Key, incomplete.StreamID, incomplete.Position, incomplete.PieceNum)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -430,6 +439,8 @@ func (endpoint *Endpoint) processIncomplete(ctx context.Context, stream pb.DRPCS
 	// update pending queue with the transfer item
 	err = pending.Put(pieceID, &PendingTransfer{
 		Key:                 incomplete.Key,
+		StreamID:            incomplete.StreamID,
+		Position:            incomplete.Position,
 		PieceSize:           pieceSize,
 		SatelliteMessage:    transferMsg,
 		OriginalRootPieceID: segment.RootPieceID,
@@ -466,12 +477,12 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream pb.DRPCSat
 	if err != nil {
 		return Error.Wrap(err)
 	}
-	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, exitingNodeID, transfer.Key, int32(transfer.PieceNum))
+	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, exitingNodeID, transfer.Key, transfer.StreamID, transfer.Position, int32(transfer.PieceNum))
 	if err != nil {
 		return Error.Wrap(err)
 	}
 
-	err = endpoint.updateSegment(ctx, exitingNodeID, receivingNodeID, transfer.Key, transfer.PieceNum, transferQueueItem.RootPieceID)
+	err = endpoint.updateSegment(ctx, exitingNodeID, receivingNodeID, transfer.Key, transfer.StreamID, transfer.Position, transfer.PieceNum, transferQueueItem.RootPieceID)
 	if err != nil {
 		// remove the piece from the pending queue so it gets retried
 		deleteErr := pending.Delete(originalPieceID)
@@ -489,7 +500,7 @@ func (endpoint *Endpoint) handleSucceeded(ctx context.Context, stream pb.DRPCSat
 		return Error.Wrap(err)
 	}
 
-	err = endpoint.db.DeleteTransferQueueItem(ctx, exitingNodeID, transfer.Key, int32(transfer.PieceNum))
+	err = endpoint.db.DeleteTransferQueueItem(ctx, exitingNodeID, transfer.Key, transfer.StreamID, transfer.Position, int32(transfer.PieceNum))
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -535,7 +546,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 		return nil
 	}
 
-	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, nodeID, transfer.Key, int32(transfer.PieceNum))
+	transferQueueItem, err := endpoint.db.GetTransferQueueItem(ctx, nodeID, transfer.Key, transfer.StreamID, transfer.Position, int32(transfer.PieceNum))
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -551,9 +562,11 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 	// Remove the queue item and remove the node from the pointer.
 	// If the pointer is not piece hash verified, do not count this as a failure.
 	if pb.TransferFailed_Error(errorCode) == pb.TransferFailed_NOT_FOUND {
-		endpoint.log.Debug("piece not found on node", zap.Stringer("node ID", nodeID), zap.ByteString("key", transfer.Key), zap.Uint16("piece num", transfer.PieceNum))
+		endpoint.log.Debug("piece not found on node", zap.Stringer("node ID", nodeID), zap.ByteString("key", transfer.Key),
+			zap.ByteString("streamID", transfer.StreamID[:]), zap.Uint32("Part", transfer.Position.Part), zap.Uint32("Index", transfer.Position.Index),
+			zap.Uint16("piece num", transfer.PieceNum))
 
-		segment, err := endpoint.getValidSegment(ctx, transfer.Key, storj.PieceID{})
+		segment, err := endpoint.getValidSegment(ctx, transfer.Key, transfer.StreamID, transfer.Position, storj.PieceID{})
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -566,7 +579,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 			}
 		}
 		if nodePiece == (metabase.Piece{}) {
-			err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.Key, int32(transfer.PieceNum))
+			err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.Key, transfer.StreamID, transfer.Position, int32(transfer.PieceNum))
 			if err != nil {
 				return Error.Wrap(err)
 			}
@@ -583,7 +596,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 			return Error.Wrap(err)
 		}
 
-		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.Key, int32(transfer.PieceNum))
+		err = endpoint.db.DeleteTransferQueueItem(ctx, nodeID, transfer.Key, transfer.StreamID, transfer.Position, int32(transfer.PieceNum))
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -593,7 +606,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 	transferQueueItem.LastFailedAt = &now
 	transferQueueItem.FailedCount = &failedCount
 	transferQueueItem.LastFailedCode = &errorCode
-	err = endpoint.db.UpdateTransferQueueItem(ctx, *transferQueueItem)
+	err = endpoint.db.UpdateTransferQueueItem(ctx, *transferQueueItem, transfer.Key == nil)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -609,7 +622,7 @@ func (endpoint *Endpoint) handleFailed(ctx context.Context, pending *PendingMap,
 	return pending.Delete(pieceID)
 }
 
-func (endpoint *Endpoint) handleDisqualifiedNode(ctx context.Context, nodeID storj.NodeID) (isDisqualified bool, err error) {
+func (endpoint *Endpoint) handleDisqualifiedNode(ctx context.Context, nodeID storj.NodeID, usesSegmentTransferQueue bool) (isDisqualified bool, err error) {
 	// check if node is disqualified
 	nodeInfo, err := endpoint.overlay.Get(ctx, nodeID)
 	if err != nil {
@@ -630,7 +643,7 @@ func (endpoint *Endpoint) handleDisqualifiedNode(ctx context.Context, nodeID sto
 		}
 
 		// remove remaining items from the queue
-		err = endpoint.db.DeleteTransferQueueItems(ctx, nodeID)
+		err = endpoint.db.DeleteTransferQueueItems(ctx, nodeID, usesSegmentTransferQueue)
 		if err != nil {
 			return true, Error.Wrap(err)
 		}
@@ -641,7 +654,7 @@ func (endpoint *Endpoint) handleDisqualifiedNode(ctx context.Context, nodeID sto
 	return false, nil
 }
 
-func (endpoint *Endpoint) handleFinished(ctx context.Context, stream pb.DRPCSatelliteGracefulExit_ProcessStream, exitStatusRequest *overlay.ExitStatusRequest, failedReason pb.ExitFailed_Reason) error {
+func (endpoint *Endpoint) handleFinished(ctx context.Context, stream pb.DRPCSatelliteGracefulExit_ProcessStream, exitStatusRequest *overlay.ExitStatusRequest, failedReason pb.ExitFailed_Reason, usesSegmentTransferQueue bool) error {
 	finishedMsg, err := endpoint.getFinishedMessage(ctx, exitStatusRequest.NodeID, exitStatusRequest.ExitFinishedAt, exitStatusRequest.ExitSuccess, failedReason)
 	if err != nil {
 		return Error.Wrap(err)
@@ -658,7 +671,7 @@ func (endpoint *Endpoint) handleFinished(ctx context.Context, stream pb.DRPCSate
 	}
 
 	// remove remaining items from the queue after notifying nodes about their exit status
-	err = endpoint.db.DeleteTransferQueueItems(ctx, exitStatusRequest.NodeID)
+	err = endpoint.db.DeleteTransferQueueItems(ctx, exitStatusRequest.NodeID, usesSegmentTransferQueue)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -705,11 +718,11 @@ func (endpoint *Endpoint) getFinishedMessage(ctx context.Context, nodeID storj.N
 	return message, nil
 }
 
-func (endpoint *Endpoint) updateSegment(ctx context.Context, exitingNodeID storj.NodeID, receivingNodeID storj.NodeID, key metabase.SegmentKey, pieceNumber uint16, originalRootPieceID storj.PieceID) (err error) {
+func (endpoint *Endpoint) updateSegment(ctx context.Context, exitingNodeID storj.NodeID, receivingNodeID storj.NodeID, key metabase.SegmentKey, streamID uuid.UUID, position metabase.SegmentPosition, pieceNumber uint16, originalRootPieceID storj.PieceID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// remove the node from the segment
-	segment, err := endpoint.getValidSegment(ctx, key, originalRootPieceID)
+	segment, err := endpoint.getValidSegment(ctx, key, streamID, position, originalRootPieceID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -855,17 +868,30 @@ func (endpoint *Endpoint) calculatePieceSize(ctx context.Context, segment metaba
 	return eestream.CalcPieceSize(int64(segment.EncryptedSize), redundancy), nil
 }
 
-func (endpoint *Endpoint) getValidSegment(ctx context.Context, key metabase.SegmentKey, originalRootPieceID storj.PieceID) (metabase.Segment, error) {
-	location, err := metabase.ParseSegmentKey(key)
-	if err != nil {
-		return metabase.Segment{}, Error.Wrap(err)
+func (endpoint *Endpoint) getValidSegment(ctx context.Context, key metabase.SegmentKey, streamID uuid.UUID, position metabase.SegmentPosition, originalRootPieceID storj.PieceID) (metabase.Segment, error) {
+	// TODO: remove when table graceful_exit_transfer_queue is dropped
+	if key != nil {
+		location, err := metabase.ParseSegmentKey(key)
+		if err != nil {
+			return metabase.Segment{}, Error.Wrap(err)
+		}
+
+		segment, err := endpoint.metabase.GetSegmentByLocation(ctx, metabase.GetSegmentByLocation{
+			SegmentLocation: location,
+		})
+		if err != nil {
+			return metabase.Segment{}, Error.Wrap(err)
+		}
+
+		if !originalRootPieceID.IsZero() && originalRootPieceID != segment.RootPieceID {
+			return metabase.Segment{}, Error.New("segment has changed")
+		}
+		return segment, nil
 	}
 
-	// TODO refactor PendingTransfer and TransferQueueItem to provide StreamID/Position to be able
-	// to get segment from object with specific version, this will work only until we won't have
-	// multiple object versions
-	segment, err := endpoint.metabase.GetSegmentByLocation(ctx, metabase.GetSegmentByLocation{
-		SegmentLocation: location,
+	segment, err := endpoint.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		StreamID: streamID,
+		Position: position,
 	})
 	if err != nil {
 		return metabase.Segment{}, Error.Wrap(err)

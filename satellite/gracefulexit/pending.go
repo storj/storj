@@ -9,6 +9,7 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -51,6 +52,8 @@ func (promise *PendingFinishedPromise) finishCalled(err error) {
 // It contains information about a transfer request that has been sent to a storagenode by the satellite.
 type PendingTransfer struct {
 	Key                 metabase.SegmentKey
+	StreamID            uuid.UUID
+	Position            metabase.SegmentPosition
 	PieceSize           int64
 	SatelliteMessage    *pb.SatelliteMessage
 	OriginalRootPieceID storj.PieceID
