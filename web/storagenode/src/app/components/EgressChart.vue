@@ -146,6 +146,7 @@ export default class EgressChart extends BaseChart {
         min-width: 50px;
         min-height: 30px;
         pointer-events: none;
+        z-index: 9999;
     }
 
     .egress-tooltip-body {
