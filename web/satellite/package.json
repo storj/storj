@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "serve": "vue-cli-service serve",
-    "lint": "vue-cli-service lint && stylelint --max-warnings 100 \"**/*.{vue,css,sss,less,scss,sass}\" --fix",
+    "lint": "vue-cli-service lint --fix && stylelint --max-warnings 100 \"**/*.{vue,css,sss,less,scss,sass}\" --fix",
     "build": "vue-cli-service build",
     "wasm": "chmod +x ./scripts/build-wasm.sh && ./scripts/build-wasm.sh",
     "dev": "vue-cli-service build --mode development --watch",

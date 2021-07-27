@@ -8,6 +8,7 @@ export class LocalData {
     private static userId = 'userId';
     private static selectedProjectId = 'selectedProjectId';
     private static userIdPassSalt = 'userIdPassSalt';
+    private static serverSideEncryptionAcknowledge = 'serverSideEncryptionAcknowledge';
 
     public static getUserId(): string | null {
         return localStorage.getItem(LocalData.userId);
@@ -48,6 +49,14 @@ export class LocalData {
         const data = new UserIDPassSalt(id, passwordHash, salt);
 
         localStorage.setItem(LocalData.userIdPassSalt, JSON.stringify(data));
+    }
+
+    public static getServerSideEncryptionAcknowledge(): boolean {
+        return Boolean(localStorage.getItem(LocalData.serverSideEncryptionAcknowledge));
+    }
+
+    public static setServerSideEncryptionAcknowledge(): void {
+        localStorage.setItem(LocalData.serverSideEncryptionAcknowledge, 'true');
     }
 }
 

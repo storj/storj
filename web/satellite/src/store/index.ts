@@ -19,7 +19,7 @@ import { makeNotificationsModule, NotificationsState } from '@/store/modules/not
 import { makeObjectsModule, ObjectsState } from '@/store/modules/objects';
 import { makePaymentsModule, PaymentsState } from '@/store/modules/payments';
 import { makeProjectMembersModule, ProjectMembersState } from '@/store/modules/projectMembers';
-import { makeProjectsModule, ProjectsState, PROJECTS_MUTATIONS } from '@/store/modules/projects';
+import { makeProjectsModule, PROJECTS_MUTATIONS, ProjectsState } from '@/store/modules/projects';
 import { makeUsersModule } from '@/store/modules/users';
 import { User } from '@/types/users';
 
