@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"io"
-	"sort"
 	"sync"
 	"time"
 
@@ -969,18 +968,14 @@ func (endpoint *Endpoint) GracefulExitFeasibility(ctx context.Context, req *pb.G
 func (endpoint *Endpoint) UpdatePiecesCheckDuplicates(ctx context.Context, segment metabase.Segment, toAdd, toRemove metabase.Pieces, checkDuplicates bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// put all existing pieces to a map
-	pieceMap := make(map[uint16]metabase.Piece)
-	nodePieceMap := make(map[storj.NodeID]struct{})
-	for _, piece := range segment.Pieces {
-		pieceMap[piece.Number] = piece
-		if checkDuplicates {
-			nodePieceMap[piece.StorageNode] = struct{}{}
-		}
-	}
-
 	// Return an error if the segment already has a piece for this node
 	if checkDuplicates {
+		// put all existing pieces to a map
+		nodePieceMap := make(map[storj.NodeID]struct{})
+		for _, piece := range segment.Pieces {
+			nodePieceMap[piece.StorageNode] = struct{}{}
+		}
+
 		for _, piece := range toAdd {
 			_, ok := nodePieceMap[piece.StorageNode]
 			if ok {
@@ -989,36 +984,11 @@ func (endpoint *Endpoint) UpdatePiecesCheckDuplicates(ctx context.Context, segme
 			nodePieceMap[piece.StorageNode] = struct{}{}
 		}
 	}
-	// remove the toRemove pieces from the map
-	// only if all piece number, node id
-	for _, piece := range toRemove {
-		if piece == (metabase.Piece{}) {
-			continue
-		}
-		existing := pieceMap[piece.Number]
-		if existing != (metabase.Piece{}) && existing.StorageNode == piece.StorageNode {
-			delete(pieceMap, piece.Number)
-		}
-	}
 
-	// add the toAdd pieces to the map
-	for _, piece := range toAdd {
-		if piece == (metabase.Piece{}) {
-			continue
-		}
-		_, exists := pieceMap[piece.Number]
-		if exists {
-			return Error.New("piece to add already exists (piece no: %d)", piece.Number)
-		}
-		pieceMap[piece.Number] = piece
+	pieces, err := segment.Pieces.Update(toAdd, toRemove)
+	if err != nil {
+		return Error.Wrap(err)
 	}
-
-	// copy the pieces from the map back to the segment, sorted by piece number
-	pieces := make(metabase.Pieces, 0, len(pieceMap))
-	for _, piece := range pieceMap {
-		pieces = append(pieces, piece)
-	}
-	sort.Sort(pieces)
 
 	err = endpoint.metabase.UpdateSegmentPieces(ctx, metabase.UpdateSegmentPieces{
 		StreamID: segment.StreamID,
