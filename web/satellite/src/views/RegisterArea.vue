@@ -693,7 +693,7 @@ export default class RegisterArea extends Vue {
                 position: relative;
 
                 &__value {
-                    font-family: 'font_normal', sans-serif;
+                    font-family: 'font_regular', sans-serif;
                     font-weight: 700;
                     font-size: 16px;
                     line-height: 21px;
@@ -793,7 +793,7 @@ export default class RegisterArea extends Vue {
                         line-height: 49px;
                         letter-spacing: -0.100741px;
                         color: #252525;
-                        font-family: 'font_normal', sans-serif;
+                        font-family: 'font_regular', sans-serif;
                         font-weight: 800;
                         white-space: nowrap;
                     }
@@ -865,7 +865,7 @@ export default class RegisterArea extends Vue {
                 }
 
                 &__button {
-                    font-family: 'font_normal', sans-serif;
+                    font-family: 'font_regular', sans-serif;
                     font-weight: 700;
                     margin-top: 30px;
                     display: flex;

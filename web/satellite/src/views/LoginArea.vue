@@ -357,7 +357,7 @@ export default class Login extends Vue {
                 line-height: 21px;
                 color: #acbace;
                 margin-right: 10px;
-                font-family: 'font_normal', sans-serif;
+                font-family: 'font_regular', sans-serif;
                 font-weight: 700;
             }
 
@@ -465,7 +465,7 @@ export default class Login extends Vue {
                         line-height: 49px;
                         letter-spacing: -0.100741px;
                         color: #252525;
-                        font-family: 'font_normal', sans-serif;
+                        font-family: 'font_regular', sans-serif;
                         font-weight: 800;
                     }
 
@@ -477,7 +477,7 @@ export default class Login extends Vue {
                 }
 
                 &__button {
-                    font-family: 'font_normal', sans-serif;
+                    font-family: 'font_regular', sans-serif;
                     font-weight: 700;
                     margin-top: 40px;
                     display: flex;

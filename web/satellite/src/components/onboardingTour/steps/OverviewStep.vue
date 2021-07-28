@@ -257,7 +257,7 @@ export default class OverviewStep extends Vue {
         }
 
         &__label {
-            font-family: 'font_normal', sans-serif;
+            font-family: 'font_regular', sans-serif;
             font-weight: 600;
             font-size: 16px;
             background: transparent;
@@ -382,7 +382,7 @@ export default class OverviewStep extends Vue {
         }
 
         &__integrations-button {
-            font-family: 'font_normal', sans-serif;
+            font-family: 'font_regular', sans-serif;
             font-size: 16px;
             color: #fff;
             border-radius: 10px;
