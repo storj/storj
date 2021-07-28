@@ -10,9 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/internalpb"
 )
 
 func TestAuditHistoryBasic(t *testing.T) {
@@ -28,20 +30,23 @@ func TestAuditHistoryBasic(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		node := planet.StorageNodes[0]
-		service := planet.Satellites[0].Reputation.Service
+		db := planet.Satellites[0].DB.Reputation()
 
 		startingWindow := time.Now().Truncate(time.Hour)
 		windowsInTrackingPeriod := int(trackingPeriod.Seconds() / windowSize.Seconds())
 		currentWindow := startingWindow
 
+		config := planet.Satellites[0].Config.Reputation.AuditHistory
+		newHistory := &internalpb.AuditHistory{}
+		historyBytes, err := pb.Marshal(newHistory)
+		require.NoError(t, err)
 		// online score should be 1 until the first window is finished
-		res, err := service.UpdateAuditHistory(ctx, node.ID(), currentWindow.Add(2*time.Minute), false)
+		res, err := db.UpdateAuditHistory(ctx, historyBytes, currentWindow.Add(2*time.Minute), false, config)
 		require.NoError(t, err)
 		require.EqualValues(t, 1, res.NewScore)
 		require.False(t, res.TrackingPeriodFull)
 
-		res, err = service.UpdateAuditHistory(ctx, node.ID(), currentWindow.Add(20*time.Minute), true)
+		res, err = db.UpdateAuditHistory(ctx, res.History, currentWindow.Add(20*time.Minute), true, config)
 		require.NoError(t, err)
 		require.EqualValues(t, 1, res.NewScore)
 		require.False(t, res.TrackingPeriodFull)
@@ -50,12 +55,12 @@ func TestAuditHistoryBasic(t *testing.T) {
 		currentWindow = currentWindow.Add(time.Hour)
 
 		// online score should be now be 0.5 since the first window is complete with one online audit and one offline audit
-		res, err = service.UpdateAuditHistory(ctx, node.ID(), currentWindow.Add(2*time.Minute), false)
+		res, err = db.UpdateAuditHistory(ctx, res.History, currentWindow.Add(2*time.Minute), false, config)
 		require.NoError(t, err)
 		require.EqualValues(t, 0.5, res.NewScore)
 		require.False(t, res.TrackingPeriodFull)
 
-		res, err = service.UpdateAuditHistory(ctx, node.ID(), currentWindow.Add(20*time.Minute), true)
+		res, err = db.UpdateAuditHistory(ctx, res.History, currentWindow.Add(20*time.Minute), true, config)
 		require.NoError(t, err)
 		require.EqualValues(t, 0.5, res.NewScore)
 		require.False(t, res.TrackingPeriodFull)
@@ -64,17 +69,17 @@ func TestAuditHistoryBasic(t *testing.T) {
 		currentWindow = currentWindow.Add(time.Hour)
 
 		// try to add an audit for an old window, expect error
-		_, err = service.UpdateAuditHistory(ctx, node.ID(), startingWindow, true)
+		_, err = db.UpdateAuditHistory(ctx, res.History, startingWindow, true, config)
 		require.Error(t, err)
 
 		// add another online audit for the latest window; score should still be 0.5
-		res, err = service.UpdateAuditHistory(ctx, node.ID(), currentWindow, true)
+		res, err = db.UpdateAuditHistory(ctx, res.History, currentWindow, true, config)
 		require.NoError(t, err)
 		require.EqualValues(t, 0.5, res.NewScore)
 		// now that we have two full windows other than the current one, tracking period should be considered full.
 		require.True(t, res.TrackingPeriodFull)
 		// add another online audit for the latest window; score should still be 0.5
-		res, err = service.UpdateAuditHistory(ctx, node.ID(), currentWindow.Add(45*time.Minute), true)
+		res, err = db.UpdateAuditHistory(ctx, res.History, currentWindow.Add(45*time.Minute), true, config)
 		require.NoError(t, err)
 		require.EqualValues(t, 0.5, res.NewScore)
 		require.True(t, res.TrackingPeriodFull)
@@ -85,7 +90,7 @@ func TestAuditHistoryBasic(t *testing.T) {
 		// window gets included in the tracking period, and the earliest 0.5 window gets dropped.
 		expectedScore := (0.5*float64(windowsInTrackingPeriod-1) + 1) / float64(windowsInTrackingPeriod)
 		// add online audit for next window; score should now be expectedScore
-		res, err = service.UpdateAuditHistory(ctx, node.ID(), currentWindow.Add(time.Minute), true)
+		res, err = db.UpdateAuditHistory(ctx, res.History, currentWindow.Add(time.Minute), true, config)
 		require.NoError(t, err)
 		require.EqualValues(t, expectedScore, res.NewScore)
 		require.True(t, res.TrackingPeriodFull)

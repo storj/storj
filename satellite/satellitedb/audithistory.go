@@ -77,26 +77,7 @@ func addAudit(a *internalpb.AuditHistory, auditTime time.Time, online bool, conf
 	return nil
 }
 
-// UpdateAuditHistory updates a node's audit history with an online or offline audit.
-func (reputations *reputations) UpdateAuditHistory(ctx context.Context, nodeID storj.NodeID, auditTime time.Time, online bool, config reputation.AuditHistoryConfig) (res *reputation.UpdateAuditHistoryResponse, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	err = reputations.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
-		_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
-		if err != nil {
-			return err
-		}
-
-		res, err = reputations.updateAuditHistoryWithTx(ctx, tx, nodeID, auditTime, online, config)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	return res, err
-}
-
-func (reputations *reputations) updateAuditHistoryWithTx(ctx context.Context, tx *dbx.Tx, nodeID storj.NodeID, auditTime time.Time, online bool, config reputation.AuditHistoryConfig) (res *reputation.UpdateAuditHistoryResponse, err error) {
+func (reputations *reputations) UpdateAuditHistory(ctx context.Context, oldHistory []byte, auditTime time.Time, online bool, config reputation.AuditHistoryConfig) (res *reputation.UpdateAuditHistoryResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	res = &reputation.UpdateAuditHistoryResponse{
@@ -104,24 +85,9 @@ func (reputations *reputations) updateAuditHistoryWithTx(ctx context.Context, tx
 		TrackingPeriodFull: false,
 	}
 
-	// get and deserialize node audit history
-	historyBytes := []byte{}
-	newEntry := false
-	dbAuditHistory, err := tx.Get_AuditHistory_By_NodeId(
-		ctx,
-		dbx.AuditHistory_NodeId(nodeID.Bytes()),
-	)
-	if errs.Is(err, sql.ErrNoRows) {
-		// set flag to true so we know to create rather than update later
-		newEntry = true
-	} else if err != nil {
-		return res, Error.Wrap(err)
-	} else {
-		historyBytes = dbAuditHistory.History
-	}
-
+	// deserialize node audit history
 	history := &internalpb.AuditHistory{}
-	err = pb.Unmarshal(historyBytes, history)
+	err = pb.Unmarshal(oldHistory, history)
 	if err != nil {
 		return res, err
 	}
@@ -131,28 +97,10 @@ func (reputations *reputations) updateAuditHistoryWithTx(ctx context.Context, tx
 		return res, err
 	}
 
-	historyBytes, err = pb.Marshal(history)
+	res.History, err = pb.Marshal(history)
 	if err != nil {
 		return res, err
 	}
-
-	// if the entry did not exist at the beginning, create a new one. Otherwise update
-	if newEntry {
-		_, err = tx.Create_AuditHistory(
-			ctx,
-			dbx.AuditHistory_NodeId(nodeID.Bytes()),
-			dbx.AuditHistory_History(historyBytes),
-		)
-		return res, Error.Wrap(err)
-	}
-
-	_, err = tx.Update_AuditHistory_By_NodeId(
-		ctx,
-		dbx.AuditHistory_NodeId(nodeID.Bytes()),
-		dbx.AuditHistory_Update_Fields{
-			History: dbx.AuditHistory_History(historyBytes),
-		},
-	)
 
 	windowsPerTrackingPeriod := int(config.TrackingPeriod.Seconds() / config.WindowSize.Seconds())
 	res.TrackingPeriodFull = len(history.Windows)-1 >= windowsPerTrackingPeriod

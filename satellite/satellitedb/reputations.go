@@ -76,7 +76,7 @@ func (reputations *reputations) Update(ctx context.Context, updateReq reputation
 		}
 
 		isUp := updateReq.AuditOutcome != reputation.AuditOffline
-		auditHistoryResponse, err := reputations.updateAuditHistoryWithTx(ctx, tx, nodeID, now, isUp, updateReq.AuditHistory)
+		auditHistoryResponse, err := reputations.UpdateAuditHistory(ctx, dbNode.AuditHistory, now, isUp, updateReq.AuditHistory)
 		if err != nil {
 			return err
 		}
@@ -283,7 +283,10 @@ func (reputations *reputations) Init(ctx context.Context, nodeID storj.NodeID) e
 func (reputations *reputations) populateUpdateFields(dbNode *dbx.Reputation, updateReq reputation.UpdateRequest, auditHistoryResponse *reputation.UpdateAuditHistoryResponse, now time.Time) dbx.Reputation_Update_Fields {
 
 	update := reputations.populateUpdateNodeStats(dbNode, updateReq, auditHistoryResponse, now)
-	updateFields := dbx.Reputation_Update_Fields{}
+
+	updateFields := dbx.Reputation_Update_Fields{
+		AuditHistory: dbx.Reputation_AuditHistory(auditHistoryResponse.History),
+	}
 	if update.VettedAt.set {
 		updateFields.VettedAt = dbx.Reputation_VettedAt(update.VettedAt.value)
 	}

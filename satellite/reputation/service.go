@@ -29,8 +29,8 @@ type DB interface {
 	DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error)
 	// SuspendNodeUnknownAudit suspends a storage node for unknown audits.
 	SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
-
-	AuditHistoryDB
+	// UpdateAuditHistory updates a node's audit history
+	UpdateAuditHistory(ctx context.Context, oldHistory []byte, auditTime time.Time, online bool, config AuditHistoryConfig) (res *UpdateAuditHistoryResponse, err error)
 }
 
 // Info contains all reputation data to be stored in DB.
