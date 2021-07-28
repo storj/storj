@@ -64,10 +64,14 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 	}
 	reputationInfo, err := e.reputation.Get(ctx, peer.ID)
 	if err != nil {
-		// if there is no audit history for the node, that's fine and we can
-		// continue with a nil reputation.Info struct.
+		// if there is no audit reputation for the node, that's fine and we
+		// return default reputation values
 		if reputation.ErrNodeNotFound.Has(err) {
-			reputationInfo = &reputation.Info{}
+			reputationInfo = &reputation.Info{
+				UnknownAuditReputationAlpha: 1,
+				AuditReputationAlpha:        1,
+				OnlineScore:                 1,
+			}
 		} else {
 			e.log.Error("reputation.Get failed", zap.Error(err))
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
