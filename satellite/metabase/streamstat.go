@@ -28,7 +28,7 @@ func (db *DB) GetStreamPieceCountByNodeID(ctx context.Context, opts GetStreamPie
 
 	countByAlias := map[NodeAlias]int64{}
 	result = map[storj.NodeID]int64{}
-	err = withRows(db.db.Query(ctx, `
+	err = withRows(db.db.QueryContext(ctx, `
 		SELECT remote_alias_pieces
 		FROM   segments
 		WHERE  stream_id = $1 AND remote_alias_pieces IS NOT null
