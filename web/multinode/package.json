@@ -32,7 +32,7 @@
     "compression-webpack-plugin": "6.0.0",
     "core-js": "3.6.5",
     "jest-fetch-mock": "3.0.0",
-    "node-sass": "4.14.1",
+    "node-sass": "^6.0.1",
     "sass-loader": "8.0.0",
     "sinon": "7.5.0",
     "stylelint": "13.7.1",
@@ -48,7 +48,7 @@
     "vue-template-compiler": "2.6.11",
     "vue-tslint": "0.3.2",
     "vue-tslint-loader": "3.5.6",
-    "webpack": "4.41.5"
+    "webpack": "^5.47.0"
   },
   "jest": {
     "automock": false,
