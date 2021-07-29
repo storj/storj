@@ -10,13 +10,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/stripe/stripe-go"
-	"github.com/stripe/stripe-go/charge"
-	"github.com/stripe/stripe-go/customerbalancetransaction"
-	"github.com/stripe/stripe-go/form"
-	"github.com/stripe/stripe-go/invoice"
-	"github.com/stripe/stripe-go/invoiceitem"
-	"github.com/stripe/stripe-go/paymentmethod"
+	"github.com/stripe/stripe-go/v72"
+	"github.com/stripe/stripe-go/v72/charge"
+	"github.com/stripe/stripe-go/v72/customerbalancetransaction"
+	"github.com/stripe/stripe-go/v72/form"
+	"github.com/stripe/stripe-go/v72/invoice"
+	"github.com/stripe/stripe-go/v72/invoiceitem"
+	"github.com/stripe/stripe-go/v72/paymentmethod"
+	"github.com/stripe/stripe-go/v72/promotioncode"
 
 	"storj.io/common/storj"
 	"storj.io/common/testrand"
@@ -48,6 +49,7 @@ type mockStripeState struct {
 	invoiceItems                *mockInvoiceItems
 	customerBalanceTransactions *mockCustomerBalanceTransactions
 	charges                     *mockCharges
+	promoCodes                  *mockPromoCodes
 }
 
 type mockStripeClient struct {
@@ -55,6 +57,11 @@ type mockStripeClient struct {
 	usersDB     console.Users
 	*mockStripeState
 }
+
+// mockEmptyQuery is a query with no results.
+var mockEmptyQuery = stripe.Query(func(*stripe.Params, *form.Values) ([]interface{}, stripe.ListContainer, error) {
+	return nil, newListContainer(&stripe.ListMeta{}), nil
+})
 
 // NewStripeMock creates new Stripe client mock.
 //
@@ -78,6 +85,7 @@ func NewStripeMock(id storj.NodeID, customersDB CustomersDB, usersDB console.Use
 			invoiceItems:                &mockInvoiceItems{},
 			customerBalanceTransactions: newMockCustomerBalanceTransactions(),
 			charges:                     &mockCharges{},
+			promoCodes:                  &mockPromoCodes{},
 		}
 		mocks.m[id] = state
 	}
@@ -118,6 +126,10 @@ func (m *mockStripeClient) CustomerBalanceTransactions() StripeCustomerBalanceTr
 
 func (m *mockStripeClient) Charges() StripeCharges {
 	return m.charges
+}
+
+func (m *mockStripeClient) PromoCodes() StripePromoCodes {
+	return m.promoCodes
 }
 
 type mockCustomers struct {
@@ -261,12 +273,27 @@ func newMockPaymentMethods() *mockPaymentMethods {
 	}
 }
 
+// listContainer implements Stripe's ListContainer interface.
+type listContainer struct {
+	listMeta *stripe.ListMeta
+}
+
+func newListContainer(meta *stripe.ListMeta) *listContainer {
+	return &listContainer{listMeta: meta}
+}
+
+func (c *listContainer) GetListMeta() *stripe.ListMeta {
+	return c.listMeta
+}
+
 func (m *mockPaymentMethods) List(listParams *stripe.PaymentMethodListParams) *paymentmethod.Iter {
-	listMeta := stripe.ListMeta{
+	listMeta := &stripe.ListMeta{
 		HasMore:    false,
 		TotalCount: uint32(len(m.attached)),
 	}
-	return &paymentmethod.Iter{Iter: stripe.GetIter(nil, func(*stripe.Params, *form.Values) ([]interface{}, stripe.ListMeta, error) {
+	lc := newListContainer(listMeta)
+
+	query := stripe.Query(func(*stripe.Params, *form.Values) ([]interface{}, stripe.ListContainer, error) {
 		mocks.Lock()
 		defer mocks.Unlock()
 
@@ -280,8 +307,9 @@ func (m *mockPaymentMethods) List(listParams *stripe.PaymentMethodListParams) *p
 			ret[i] = v
 		}
 
-		return ret, listMeta, nil
-	})}
+		return ret, lc, nil
+	})
+	return &paymentmethod.Iter{Iter: stripe.GetIter(nil, query)}
 }
 
 func (m *mockPaymentMethods) New(params *stripe.PaymentMethodParams) (*stripe.PaymentMethod, error) {
@@ -355,7 +383,7 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 }
 
 func (m *mockInvoices) List(listParams *stripe.InvoiceListParams) *invoice.Iter {
-	return &invoice.Iter{Iter: &stripe.Iter{}}
+	return &invoice.Iter{Iter: stripe.GetIter(listParams, mockEmptyQuery)}
 }
 
 func (m *mockInvoices) FinalizeInvoice(id string, params *stripe.InvoiceFinalizeParams) (*stripe.Invoice, error) {
@@ -370,7 +398,7 @@ func (m *mockInvoiceItems) New(params *stripe.InvoiceItemParams) (*stripe.Invoic
 }
 
 func (m *mockInvoiceItems) List(listParams *stripe.InvoiceItemListParams) *invoiceitem.Iter {
-	return &invoiceitem.Iter{Iter: &stripe.Iter{}}
+	return &invoiceitem.Iter{Iter: stripe.GetIter(listParams, mockEmptyQuery)}
 }
 
 type mockCustomerBalanceTransactions struct {
@@ -404,7 +432,7 @@ func (m *mockCustomerBalanceTransactions) List(listParams *stripe.CustomerBalanc
 	mocks.Lock()
 	defer mocks.Unlock()
 
-	return &customerbalancetransaction.Iter{Iter: stripe.GetIter(listParams, func(p *stripe.Params, b *form.Values) ([]interface{}, stripe.ListMeta, error) {
+	query := stripe.Query(func(p *stripe.Params, b *form.Values) ([]interface{}, stripe.ListContainer, error) {
 		txs := m.transactions[*listParams.Customer]
 		ret := make([]interface{}, len(txs))
 
@@ -412,17 +440,49 @@ func (m *mockCustomerBalanceTransactions) List(listParams *stripe.CustomerBalanc
 			ret[i] = v
 		}
 
-		listMeta := stripe.ListMeta{
+		listMeta := &stripe.ListMeta{
 			TotalCount: uint32(len(txs)),
 		}
 
-		return ret, listMeta, nil
-	})}
+		lc := newListContainer(listMeta)
+
+		return ret, lc, nil
+	})
+
+	return &customerbalancetransaction.Iter{Iter: stripe.GetIter(listParams, query)}
 }
 
 type mockCharges struct {
 }
 
 func (m *mockCharges) List(listParams *stripe.ChargeListParams) *charge.Iter {
-	return &charge.Iter{Iter: &stripe.Iter{}}
+	return &charge.Iter{Iter: stripe.GetIter(listParams, mockEmptyQuery)}
+}
+
+type mockPromoCodes struct {
+	promoCodes map[string][]*stripe.PromotionCode
+}
+
+func (m *mockPromoCodes) List(params *stripe.PromotionCodeListParams) *promotioncode.Iter {
+	mocks.Lock()
+	defer mocks.Unlock()
+
+	query := stripe.Query(func(p *stripe.Params, b *form.Values) ([]interface{}, stripe.ListContainer, error) {
+		promoCodes := m.promoCodes[*params.Code]
+		ret := make([]interface{}, len(promoCodes))
+
+		for i, v := range promoCodes {
+			ret[i] = v
+		}
+
+		listMeta := &stripe.ListMeta{
+			TotalCount: uint32(len(promoCodes)),
+		}
+
+		lc := newListContainer(listMeta)
+
+		return ret, lc, nil
+	})
+
+	return &promotioncode.Iter{Iter: stripe.GetIter(params, query)}
 }

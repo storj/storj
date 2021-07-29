@@ -150,7 +150,7 @@ func TestGraphqlMutation(t *testing.T) {
 		err = service.ActivateAccount(ctx, activationToken)
 		require.NoError(t, err)
 
-		token, err := service.Token(ctx, createUser.Email, createUser.Password)
+		token, err := service.Token(ctx, console.AuthUser{Email: createUser.Email, Password: createUser.Password})
 		require.NoError(t, err)
 
 		sauth, err := service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))
@@ -176,7 +176,7 @@ func TestGraphqlMutation(t *testing.T) {
 			return result.Data, nil
 		}
 
-		token, err = service.Token(ctx, rootUser.Email, createUser.Password)
+		token, err = service.Token(ctx, console.AuthUser{Email: rootUser.Email, Password: createUser.Password})
 		require.NoError(t, err)
 
 		sauth, err = service.Authorize(consoleauth.WithAPIKey(ctx, []byte(token)))

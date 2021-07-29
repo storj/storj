@@ -29,11 +29,11 @@ func (db *DB) GetTableStats(ctx context.Context, opts GetTableStats) (result Tab
 
 	var group errs2.Group
 	group.Go(func() error {
-		row := db.db.QueryRow(ctx, `SELECT count(*) FROM objects `+db.impl.AsOfSystemInterval(opts.AsOfSystemInterval))
+		row := db.db.QueryRowContext(ctx, `SELECT count(*) FROM objects `+db.impl.AsOfSystemInterval(opts.AsOfSystemInterval))
 		return Error.Wrap(row.Scan(&result.ObjectCount))
 	})
 	group.Go(func() error {
-		row := db.db.QueryRow(ctx, `SELECT count(*) FROM segments `+db.impl.AsOfSystemInterval(opts.AsOfSystemInterval))
+		row := db.db.QueryRowContext(ctx, `SELECT count(*) FROM segments `+db.impl.AsOfSystemInterval(opts.AsOfSystemInterval))
 		return Error.Wrap(row.Scan(&result.SegmentCount))
 	})
 	err = errs.Combine(group.Wait()...)

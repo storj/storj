@@ -15,7 +15,7 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/spf13/pflag"
-	"github.com/stripe/stripe-go"
+	"github.com/stripe/stripe-go/v72"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/crypto/bcrypt"
@@ -81,6 +81,12 @@ var (
 
 	// ErrNoAPIKey is error type that occurs when there is no api key found.
 	ErrNoAPIKey = errs.Class("no api key found")
+
+	// ErrRegToken describes registration token errors.
+	ErrRegToken = errs.Class("registration token")
+
+	// ErrRecaptcha describes reCAPTCHA validation errors.
+	ErrRecaptcha = errs.Class("recaptcha validation")
 )
 
 // Service is handling accounts related logic.
@@ -523,6 +529,17 @@ func (paymentService PaymentsService) checkProjectInvoicingStatus(ctx context.Co
 	return paymentService.service.accounts.CheckProjectInvoicingStatus(ctx, projectID)
 }
 
+// ApplyCouponCode applies a coupon code to a Stripe customer.
+func (paymentService PaymentsService) ApplyCouponCode(ctx context.Context, couponCode string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "apply coupon code")
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	return paymentService.service.accounts.Coupons().ApplyCouponCode(ctx, auth.User.ID, couponCode)
+}
+
 // AddPromotionalCoupon creates new coupon for specified user.
 func (paymentService PaymentsService) AddPromotionalCoupon(ctx context.Context, userID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx, userID)(&err)
@@ -560,10 +577,10 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		valid, err := s.recaptchaHandler.Verify(ctx, user.RecaptchaResponse, user.IP)
 		if err != nil {
 			s.log.Error("reCAPTCHA authorization failed", zap.Error(err))
-			return nil, ErrValidation.Wrap(err)
+			return nil, ErrRecaptcha.Wrap(err)
 		}
 		if !valid {
-			return nil, ErrValidation.New("reCAPTCHA validation unsuccessful")
+			return nil, ErrRecaptcha.New("reCAPTCHA validation unsuccessful")
 		}
 	}
 
@@ -573,7 +590,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	registrationToken, err := s.checkRegistrationSecret(ctx, tokenSecret)
 	if err != nil {
-		return nil, err
+		return nil, ErrRegToken.Wrap(err)
 	}
 
 	u, err = s.store.Users().GetByEmail(ctx, user.Email)
@@ -792,17 +809,51 @@ func (s *Service) RevokeResetPasswordToken(ctx context.Context, resetPasswordTok
 }
 
 // Token authenticates User by credentials and returns auth token.
-func (s *Service) Token(ctx context.Context, email, password string) (token string, err error) {
+func (s *Service) Token(ctx context.Context, request AuthUser) (token string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.store.Users().GetByEmail(ctx, email)
+	user, err := s.store.Users().GetByEmail(ctx, request.Email)
 	if err != nil {
 		return "", ErrUnauthorized.New(credentialsErrMsg)
 	}
 
-	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(password))
+	err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(request.Password))
 	if err != nil {
 		return "", ErrUnauthorized.New(credentialsErrMsg)
+	}
+
+	if user.MFAEnabled {
+		if request.MFARecoveryCode != "" {
+			found := false
+			codeIndex := -1
+			for i, code := range user.MFARecoveryCodes {
+				if code == request.MFARecoveryCode {
+					found = true
+					codeIndex = i
+					break
+				}
+			}
+			if !found {
+				return "", ErrUnauthorized.New(mfaRecoveryInvalidErrMsg)
+			}
+
+			user.MFARecoveryCodes = append(user.MFARecoveryCodes[:codeIndex], user.MFARecoveryCodes[codeIndex+1:]...)
+
+			err = s.store.Users().Update(ctx, user)
+			if err != nil {
+				return "", err
+			}
+		} else if request.MFAPasscode != "" {
+			valid, err := ValidateMFAPasscode(request.MFAPasscode, user.MFASecretKey, time.Now())
+			if err != nil {
+				return "", ErrUnauthorized.Wrap(err)
+			}
+			if !valid {
+				return "", ErrUnauthorized.New(mfaPasscodeInvalidErrMsg)
+			}
+		} else {
+			return "", ErrMFAPasscodeRequired.New(mfaPasscodeRequiredErrMsg)
+		}
 	}
 
 	claims := consoleauth.Claims{

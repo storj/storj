@@ -291,6 +291,8 @@ model reputation (
 	field unknown_audit_reputation_beta   float64 ( updatable, default 0 )
 )
 
+create reputation ()
+
 update reputation ( where reputation.id = ? )
 update reputation (
 	where reputation.id = ?

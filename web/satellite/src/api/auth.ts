@@ -226,25 +226,24 @@ export class AuthHttpApi {
             recaptchaResponse: recaptchaResponse,
         };
         const response = await this.http.post(path, JSON.stringify(body));
+        const result = await response.json();
         if (!response.ok) {
+            const errMsg = result.error || 'Cannot register user';
             switch (response.status) {
                 case 400:
-                    // TODO: eventually we will want to return the server's error message in every case
-                    // but for now, we just need to be able to distinguish between different 400 errors.
-                    const errResponse = await response.json();
-                    throw new ErrorBadRequest(errResponse.error);
+                    throw new ErrorBadRequest(errMsg);
                 case 401:
-                    throw new ErrorUnauthorized('We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation');
+                    throw new ErrorUnauthorized(errMsg);
                 case 409:
-                    throw new ErrorEmailUsed('This email is already in use, try another');
+                    throw new ErrorEmailUsed(errMsg);
                 case 429:
                     throw new ErrorTooManyRequests('You\'ve exceeded limit of attempts, try again in 5 minutes');
                 default:
-                    throw new Error('Can not register user');
+                    throw new Error(errMsg);
             }
         }
 
-        return await response.json();
+        return result;
     }
 
     /**

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
@@ -68,20 +69,18 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	var tokenRequest struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
-
+	tokenRequest := console.AuthUser{}
 	err = json.NewDecoder(r.Body).Decode(&tokenRequest)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
 	}
 
-	token, err := a.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
+	token, err := a.service.Token(ctx, tokenRequest)
 	if err != nil {
-		a.log.Info("Error authenticating token request", zap.String("email", tokenRequest.Email), zap.Error(ErrAuthAPI.Wrap(err)))
+		if !console.ErrMFAPasscodeRequired.Has(err) {
+			a.log.Info("Error authenticating token request", zap.String("email", tokenRequest.Email), zap.Error(ErrAuthAPI.Wrap(err)))
+		}
 		a.serveJSONError(w, err)
 		return
 	}
@@ -465,16 +464,96 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
+// EnableUserMFA enables multi-factor authentication for the user.
+func (a *Auth) EnableUserMFA(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var passcode string
+	err = json.NewDecoder(r.Body).Decode(&passcode)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = a.service.EnableUserMFA(ctx, passcode, time.Now())
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+}
+
+// DisableUserMFA disables multi-factor authentication for the user.
+func (a *Auth) DisableUserMFA(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var passcode string
+	err = json.NewDecoder(r.Body).Decode(&passcode)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = a.service.DisableUserMFA(ctx, passcode, time.Now())
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+}
+
+// GenerateMFASecretKey creates a new TOTP secret key for the user.
+func (a *Auth) GenerateMFASecretKey(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	key, err := a.service.ResetMFASecretKey(ctx)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(key)
+	if err != nil {
+		a.log.Error("could not encode MFA secret key", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+}
+
+// GenerateMFARecoveryCodes creates a new set of MFA recovery codes for the user.
+func (a *Auth) GenerateMFARecoveryCodes(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	codes, err := a.service.ResetMFARecoveryCodes(ctx)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(codes)
+	if err != nil {
+		a.log.Error("could not encode MFA recovery codes", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+}
+
 // serveJSONError writes JSON error to response output stream.
 func (a *Auth) serveJSONError(w http.ResponseWriter, err error) {
 	status := a.getStatusCode(err)
-	serveJSONError(a.log, w, status, err)
+	serveCustomJSONError(a.log, w, status, err, a.getUserErrorMessage(err))
 }
 
 // getStatusCode returns http.StatusCode depends on console error class.
 func (a *Auth) getStatusCode(err error) int {
 	switch {
-	case console.ErrValidation.Has(err):
+	case console.ErrValidation.Has(err), console.ErrRecaptcha.Has(err):
 		return http.StatusBadRequest
 	case console.ErrUnauthorized.Has(err):
 		return http.StatusUnauthorized
@@ -482,7 +561,25 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusConflict
 	case errors.Is(err, errNotImplemented):
 		return http.StatusNotImplemented
+	case console.ErrMFAPasscodeRequired.Has(err):
+		return http.StatusContinue
 	default:
 		return http.StatusInternalServerError
+	}
+}
+
+// getUserErrorMessage returns a user-friendly representation of the error.
+func (a *Auth) getUserErrorMessage(err error) string {
+	switch {
+	case console.ErrRecaptcha.Has(err):
+		return "Validation of reCAPTCHA was unsuccessful"
+	case console.ErrRegToken.Has(err):
+		return "We are unable to create your account. This is an invite-only alpha, please join our waitlist to receive an invitation"
+	case console.ErrEmailUsed.Has(err):
+		return "This email is already in use; try another"
+	case errors.Is(err, errNotImplemented):
+		return "The server is incapable of fulfilling the request"
+	default:
+		return "There was an error processing your request"
 	}
 }

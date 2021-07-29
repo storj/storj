@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/reputation"
 	"storj.io/uplink/private/eestream"
 )
 
@@ -50,6 +51,7 @@ type Endpoint struct {
 	db             DB
 	overlaydb      overlay.DB
 	overlay        *overlay.Service
+	reputation     *reputation.Service
 	metabase       *metabase.DB
 	orders         *orders.Service
 	connections    *connectionsTracker
@@ -93,7 +95,7 @@ func (pm *connectionsTracker) delete(nodeID storj.NodeID) {
 }
 
 // NewEndpoint creates a new graceful exit endpoint.
-func NewEndpoint(log *zap.Logger, signer signing.Signer, db DB, overlaydb overlay.DB, overlay *overlay.Service, metabase *metabase.DB, orders *orders.Service,
+func NewEndpoint(log *zap.Logger, signer signing.Signer, db DB, overlaydb overlay.DB, overlay *overlay.Service, reputation *reputation.Service, metabase *metabase.DB, orders *orders.Service,
 	peerIdentities overlay.PeerIdentities, config Config) *Endpoint {
 	return &Endpoint{
 		log:            log,
@@ -102,6 +104,7 @@ func NewEndpoint(log *zap.Logger, signer signing.Signer, db DB, overlaydb overla
 		db:             db,
 		overlaydb:      overlaydb,
 		overlay:        overlay,
+		reputation:     reputation,
 		metabase:       metabase,
 		orders:         orders,
 		connections:    newConnectionsTracker(),
@@ -796,12 +799,17 @@ func (endpoint *Endpoint) checkExitStatus(ctx context.Context, nodeID storj.Node
 			return nil, Error.Wrap(err)
 		}
 
+		reputationInfo, err := endpoint.reputation.Get(ctx, nodeID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
 		// graceful exit initiation metrics
 		age := time.Now().UTC().Sub(node.CreatedAt.UTC())
-		mon.FloatVal("graceful_exit_init_node_age_seconds").Observe(age.Seconds())                           //mon:locked
-		mon.IntVal("graceful_exit_init_node_audit_success_count").Observe(node.Reputation.AuditSuccessCount) //mon:locked
-		mon.IntVal("graceful_exit_init_node_audit_total_count").Observe(node.Reputation.AuditCount)          //mon:locked
-		mon.IntVal("graceful_exit_init_node_piece_count").Observe(node.PieceCount)                           //mon:locked
+		mon.FloatVal("graceful_exit_init_node_age_seconds").Observe(age.Seconds())                          //mon:locked
+		mon.IntVal("graceful_exit_init_node_audit_success_count").Observe(reputationInfo.AuditSuccessCount) //mon:locked
+		mon.IntVal("graceful_exit_init_node_audit_total_count").Observe(reputationInfo.TotalAuditCount)     //mon:locked
+		mon.IntVal("graceful_exit_init_node_piece_count").Observe(node.PieceCount)                          //mon:locked
 
 		return &pb.SatelliteMessage{Message: &pb.SatelliteMessage_NotReady{NotReady: &pb.NotReady{}}}, nil
 	}

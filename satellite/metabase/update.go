@@ -75,7 +75,7 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 	}
 
 	var resultPieces AliasPieces
-	err = db.db.QueryRow(ctx, `
+	err = db.db.QueryRowContext(ctx, `
 		UPDATE segments SET
 			remote_alias_pieces = CASE
 				WHEN remote_alias_pieces = $3 THEN $4

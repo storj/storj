@@ -48,6 +48,7 @@ func init() {
 	rootCmd.AddCommand(deleteCmd)
 
 	config.BindFlags(reportCmd.Flags())
+	config.BindFlags(deleteCmd.Flags())
 }
 
 // Config defines configuration for cleanup.
@@ -109,9 +110,10 @@ func Report(ctx context.Context, log *zap.Logger, config Config) (err error) {
 	if err != nil {
 		return err
 	}
-	log.Info("orphaned segments", zap.Int("count", len(ids)))
+	log.Info("orphaned segments stream ids (number of existing segments can be bigger)",
+		zap.Int("count", len(ids)))
 	for _, id := range ids {
-		log.Info("segment", zap.String("id", id.String()))
+		log.Info("StreamID", zap.String("id", id.String()))
 	}
 	return nil
 }
@@ -131,7 +133,7 @@ func Delete(ctx context.Context, log *zap.Logger, config Config) (err error) {
 	}
 	defer func() { err = errs.Combine(err, rawMetabaseDB.Close(ctx)) }()
 
-	log.Info("orphaned segments", zap.Int("count", len(ids)))
+	log.Info("orphaned segments stream ids (number of existing segments can be bigger)", zap.Int("count", len(ids)))
 	log.Info("starting deletion")
 
 	for len(ids) > 0 {
@@ -172,6 +174,11 @@ func findOrphanedSegments(ctx context.Context, log *zap.Logger, config Config) (
 	}, func(ctx context.Context, it metabase.LoopSegmentsIterator) error {
 		var entry metabase.LoopSegmentEntry
 		for it.Next(ctx, &entry) {
+			// avoid segments created after starting processing
+			if entry.CreatedAt != nil && entry.CreatedAt.After(startingTime) {
+				continue
+			}
+
 			streamIDs[entry.StreamID] = struct{}{}
 
 			if numberOfElements%100000 == 0 {
@@ -193,6 +200,11 @@ func findOrphanedSegments(ctx context.Context, log *zap.Logger, config Config) (
 	}, func(ctx context.Context, it metabase.LoopObjectsIterator) error {
 		var entry metabase.LoopObjectEntry
 		for it.Next(ctx, &entry) {
+			// avoid objects created after starting processing
+			if entry.CreatedAt.After(startingTime) {
+				continue
+			}
+
 			delete(streamIDs, entry.StreamID)
 
 			if numberOfElements%100000 == 0 {

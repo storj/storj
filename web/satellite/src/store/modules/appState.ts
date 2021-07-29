@@ -32,7 +32,8 @@ export const appStateModule = {
         satelliteName: '',
         partneredSatellites: new Array<PartneredSatellite>(),
         isBetaSatellite: false,
-        couponCodeUIEnabled: false,
+        couponCodeBillingUIEnabled: false,
+        couponCodeSignupUIEnabled: false,
     },
     mutations: {
         // Mutation changing add projectMembers members popup visibility
@@ -126,8 +127,11 @@ export const appStateModule = {
         [APP_STATE_MUTATIONS.SET_SATELLITE_STATUS](state: any, isBetaSatellite: boolean): void {
             state.isBetaSatellite = isBetaSatellite;
         },
-        [APP_STATE_MUTATIONS.SET_COUPON_CODE_UI_STATUS](state: any, couponCodeUIEnabled: boolean): void {
-            state.couponCodeUIEnabled = couponCodeUIEnabled;
+        [APP_STATE_MUTATIONS.SET_COUPON_CODE_BILLING_UI_STATUS](state: any, couponCodeBillingUIEnabled: boolean): void {
+            state.couponCodeBillingUIEnabled = couponCodeBillingUIEnabled;
+        },
+        [APP_STATE_MUTATIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS](state: any, couponCodeSignupUIEnabled: boolean): void {
+            state.couponCodeSignupUIEnabled = couponCodeSignupUIEnabled;
         },
     },
     actions: {
@@ -261,8 +265,11 @@ export const appStateModule = {
         [APP_STATE_ACTIONS.SET_SATELLITE_STATUS]: function ({commit}: any, isBetaSatellite: boolean): void {
             commit(APP_STATE_MUTATIONS.SET_SATELLITE_STATUS, isBetaSatellite);
         },
-        [APP_STATE_ACTIONS.SET_COUPON_CODE_UI_STATUS]: function ({commit}: any, couponCodeUIEnabled: boolean): void {
-            commit(APP_STATE_MUTATIONS.SET_COUPON_CODE_UI_STATUS, couponCodeUIEnabled);
+        [APP_STATE_ACTIONS.SET_COUPON_CODE_BILLING_UI_STATUS]: function ({commit}: any, couponCodeBillingUIEnabled: boolean): void {
+            commit(APP_STATE_MUTATIONS.SET_COUPON_CODE_BILLING_UI_STATUS, couponCodeBillingUIEnabled);
+        },
+        [APP_STATE_ACTIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS]: function ({commit}: any, couponCodeSignupUIEnabled: boolean): void {
+            commit(APP_STATE_MUTATIONS.SET_COUPON_CODE_SIGNUP_UI_STATUS, couponCodeSignupUIEnabled);
         },
     },
 };

@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
+	"storj.io/storj/satellite/reputation"
 )
 
 // Repairer is the repairer process.
@@ -53,9 +54,10 @@ type Repairer struct {
 		Server   *debug.Server
 	}
 
-	Metainfo *metainfo.Service
-	Overlay  *overlay.Service
-	Orders   struct {
+	Metainfo   *metainfo.Service
+	Overlay    *overlay.Service
+	Reputation *reputation.Service
+	Orders     struct {
 		DB      orders.DB
 		Service *orders.Service
 		Chore   *orders.Chore
@@ -69,7 +71,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	metabaseDB *metabase.DB,
 	revocationDB extensions.RevocationDB, repairQueue queue.RepairQueue,
 	bucketsDB metainfo.BucketsDB, overlayCache overlay.DB,
-	rollupsWriteCache *orders.RollupsWriteCache,
+	reputationdb reputation.DB, rollupsWriteCache *orders.RollupsWriteCache,
 	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*Repairer, error) {
 	peer := &Repairer{
 		Log:      log,
@@ -141,6 +143,19 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		})
 	}
 
+	{ // setup reputation
+		peer.Reputation = reputation.NewService(log.Named("reputation:service"),
+			overlayCache,
+			reputationdb,
+			config.Reputation,
+		)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "reputation",
+			Close: peer.Reputation.Close,
+		})
+	}
+
 	{ // setup orders
 		peer.Orders.DB = rollupsWriteCache
 		peer.Orders.Chore = orders.NewChore(log.Named("orders:chore"), rollupsWriteCache, config.Orders)
@@ -172,6 +187,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			metabaseDB,
 			peer.Orders.Service,
 			peer.Overlay,
+			peer.Reputation,
 			peer.Dialer,
 			config.Repairer.Timeout,
 			config.Repairer.MaxExcessRateOptimalThreshold,

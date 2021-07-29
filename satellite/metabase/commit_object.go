@@ -87,7 +87,7 @@ func (db *DB) CommitObjectWithSegments(ctx context.Context, opts CommitObjectWit
 			totalEncryptedSize += int64(seg.EncryptedSize)
 		}
 
-		err = tx.QueryRow(ctx, `
+		err = tx.QueryRowContext(ctx, `
 			UPDATE objects SET
 				status =`+committedStatus+`,
 				segment_count = $6,
@@ -183,7 +183,7 @@ type segmentInfoForCommit struct {
 func fetchSegmentsForCommit(ctx context.Context, tx tagsql.Tx, streamID uuid.UUID) (segments []segmentInfoForCommit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = withRows(tx.Query(ctx, `
+	err = withRows(tx.QueryContext(ctx, `
 		SELECT position, encrypted_size, plain_offset, plain_size
 		FROM segments
 		WHERE stream_id = $1
@@ -289,7 +289,7 @@ func updateSegmentOffsets(ctx context.Context, tx tagsql.Tx, streamID uuid.UUID,
 		return nil
 	}
 
-	updateResult, err := tx.Exec(ctx, `
+	updateResult, err := tx.ExecContext(ctx, `
 		UPDATE segments
 		SET plain_offset = P.plain_offset
 		FROM (SELECT unnest($2::INT8[]), unnest($3::INT8[])) as P(position, plain_offset)
@@ -323,7 +323,7 @@ func (db *DB) deleteSegmentsNotInCommit(ctx context.Context, tx tagsql.Tx, strea
 	}
 
 	// This potentially could be done together with the previous database call.
-	err = withRows(tx.Query(ctx, `
+	err = withRows(tx.QueryContext(ctx, `
 			DELETE FROM segments
 			WHERE stream_id = $1 AND position = ANY($2)
 			RETURNING root_piece_id, remote_alias_pieces

@@ -252,7 +252,7 @@ func doNextQueryAllVersionsWithoutStatus(ctx context.Context, it *objectsIterato
 	}
 
 	if it.prefixLimit == "" {
-		return it.db.db.Query(ctx, `
+		return it.db.db.QueryContext(ctx, `
 			SELECT
 				object_key, stream_id, version, status,
 				created_at, expires_at,
@@ -274,7 +274,7 @@ func doNextQueryAllVersionsWithoutStatus(ctx context.Context, it *objectsIterato
 
 	// TODO this query should use SUBSTRING(object_key from $8) but there is a problem how it
 	// works with CRDB.
-	return it.db.db.Query(ctx, `
+	return it.db.db.QueryContext(ctx, `
 		SELECT
 			object_key, stream_id, version, status,
 			created_at, expires_at,
@@ -307,7 +307,7 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 	}
 
 	if it.prefixLimit == "" {
-		return it.db.db.Query(ctx, `
+		return it.db.db.QueryContext(ctx, `
 			SELECT
 				object_key, stream_id, version, status,
 				created_at, expires_at,
@@ -332,7 +332,7 @@ func doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) 
 
 	// TODO this query should use SUBSTRING(object_key from $8) but there is a problem how it
 	// works with CRDB.
-	return it.db.db.Query(ctx, `
+	return it.db.db.QueryContext(ctx, `
 		SELECT
 			object_key, stream_id, version, status,
 			created_at, expires_at,
@@ -367,7 +367,7 @@ func nextBucket(b []byte) []byte {
 func doNextQueryStreamsByKey(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return it.db.db.Query(ctx, `
+	return it.db.db.QueryContext(ctx, `
 			SELECT
 				object_key, stream_id, version, status,
 				created_at, expires_at,

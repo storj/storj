@@ -19,6 +19,7 @@ import (
 	"strings"
 	"testing"
 	"testing/quick"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -27,6 +28,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 )
 
@@ -197,7 +199,7 @@ func TestDeleteAccount(t *testing.T) {
 	}
 
 	expectedHandler := func(_ *http.Request) (status int, body []byte) {
-		return http.StatusNotImplemented, []byte("{\"error\":\"not implemented\"}\n")
+		return http.StatusNotImplemented, []byte("{\"error\":\"The server is incapable of fulfilling the request\"}\n")
 	}
 
 	actualHandler := func(r *http.Request) (status int, body []byte) {
@@ -236,4 +238,157 @@ returned response:
 	response body: %s
 `, cerr.Count, cerr.In, cerr.Out1[0], cerr.Out1[1], cerr.Out2[0], cerr.Out2[1])
 	}
+}
+
+func TestMFAEndpoints(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "MFA Test User",
+			Email:    "mfauser@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		token, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+		require.NoError(t, err)
+		require.NotEmpty(t, token)
+
+		doRequest := func(urlSuffix string, body interface{}) *http.Response {
+			url := "http://" + sat.API.Console.Listener.Addr().String() + "/api/v0/auth/mfa" + urlSuffix
+			var buf io.Reader
+
+			if body != nil {
+				bodyBytes, err := json.Marshal(body)
+				require.NoError(t, err)
+				buf = bytes.NewBuffer(bodyBytes)
+			}
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, buf)
+			require.NoError(t, err)
+
+			req.AddCookie(&http.Cookie{
+				Name:    "_tokenKey",
+				Path:    "/",
+				Value:   token,
+				Expires: time.Now().AddDate(0, 0, 1),
+			})
+
+			if body != nil {
+				req.Header.Set("Content-Type", "application/json")
+			}
+
+			result, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+
+			return result
+		}
+
+		// Expect failure because MFA is not enabled.
+		result := doRequest("/generate-recovery-codes", "")
+		require.Equal(t, http.StatusUnauthorized, result.StatusCode)
+		require.NoError(t, result.Body.Close())
+
+		// Expect failure due to not having generated a secret key.
+		result = doRequest("/enable", "123456")
+		require.Equal(t, http.StatusBadRequest, result.StatusCode)
+		require.NoError(t, result.Body.Close())
+
+		// Expect success when generating a secret key.
+		result = doRequest("/generate-secret-key", "")
+		require.Equal(t, http.StatusOK, result.StatusCode)
+
+		var key string
+		err = json.NewDecoder(result.Body).Decode(&key)
+		require.NoError(t, err)
+
+		require.NoError(t, result.Body.Close())
+
+		// Expect failure due to prodiving empty passcode.
+		result = doRequest("/enable", "")
+		require.Equal(t, http.StatusBadRequest, result.StatusCode)
+		require.NoError(t, result.Body.Close())
+
+		// Expect failure due to providing invalid passcode.
+		badCode, err := console.NewMFAPasscode(key, time.Now().Add(time.Hour))
+		require.NoError(t, err)
+		result = doRequest("/enable", badCode)
+		require.Equal(t, http.StatusBadRequest, result.StatusCode)
+		require.NoError(t, result.Body.Close())
+
+		// Expect success when providing valid passcode.
+		goodCode, err := console.NewMFAPasscode(key, time.Now())
+		require.NoError(t, err)
+		result = doRequest("/enable", goodCode)
+		require.Equal(t, http.StatusOK, result.StatusCode)
+		require.NoError(t, result.Body.Close())
+
+		// Expect 10 recovery codes to be generated.
+		result = doRequest("/generate-recovery-codes", "")
+		require.Equal(t, http.StatusOK, result.StatusCode)
+
+		var codes []string
+		err = json.NewDecoder(result.Body).Decode(&codes)
+		require.NoError(t, err)
+		require.Len(t, codes, console.MFARecoveryCodeCount)
+		require.NoError(t, result.Body.Close())
+
+		// Expect no token due to missing passcode.
+		newToken, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
+		require.True(t, console.ErrMFAPasscodeRequired.Has(err))
+		require.Empty(t, newToken)
+
+		// Expect token when providing valid passcode.
+		newToken, err = sat.API.Console.Service.Token(ctx, console.AuthUser{
+			Email:       user.Email,
+			Password:    user.FullName,
+			MFAPasscode: goodCode,
+		})
+		require.NoError(t, err)
+		require.NotEmpty(t, newToken)
+
+		// Expect no token when providing invalid recovery code.
+		newToken, err = sat.API.Console.Service.Token(ctx, console.AuthUser{
+			Email:           user.Email,
+			Password:        user.FullName,
+			MFARecoveryCode: "BADCODE",
+		})
+		require.True(t, console.ErrUnauthorized.Has(err))
+		require.Empty(t, newToken)
+
+		for _, code := range codes {
+			opts := console.AuthUser{
+				Email:           user.Email,
+				Password:        user.FullName,
+				MFARecoveryCode: code,
+			}
+
+			// Expect token when providing valid recovery code.
+			newToken, err = sat.API.Console.Service.Token(ctx, opts)
+			require.NoError(t, err)
+			require.NotEmpty(t, newToken)
+
+			// Expect error when providing expired recovery code.
+			newToken, err = sat.API.Console.Service.Token(ctx, opts)
+			require.True(t, console.ErrUnauthorized.Has(err))
+			require.Empty(t, newToken)
+		}
+
+		// Expect failure due to disabling MFA with no passcode.
+		result = doRequest("/disable", "")
+		require.Equal(t, http.StatusBadRequest, result.StatusCode)
+		require.NoError(t, result.Body.Close())
+
+		// Expect failure due to disabling MFA with invalid passcode.
+		result = doRequest("/disable", badCode)
+		require.Equal(t, http.StatusBadRequest, result.StatusCode)
+		require.NoError(t, result.Body.Close())
+
+		// Expect success when disabling MFA with valid passcode.
+		result = doRequest("/disable", goodCode)
+		require.Equal(t, http.StatusOK, result.StatusCode)
+		require.NoError(t, result.Body.Close())
+	})
 }
