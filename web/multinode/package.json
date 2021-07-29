@@ -1,6 +1,7 @@
 {
   "name": "multinode",
   "version": "0.0.1",
+  "private": true,
   "scripts": {
     "serve": "vue-cli-service serve",
     "lint": "vue-cli-service lint && stylelint '**/*.{vue,scss}' --fix",
