@@ -654,6 +654,11 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		return nil, rpcstatus.Error(rpcstatus.NotFound, "bucket not found: non-existing-bucket")
 	}
 
+	objectKeyLength := len(req.EncryptedPath)
+	if objectKeyLength > endpoint.config.MaxEncryptedObjectKeyLength {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, fmt.Sprintf("key length is too big, got %v, maximum allowed is %v", objectKeyLength, endpoint.config.MaxEncryptedObjectKeyLength))
+	}
+
 	if canDelete {
 		_, err = endpoint.DeleteObjectAnyStatus(ctx, metabase.ObjectLocation{
 			ProjectID:  keyInfo.ProjectID,
