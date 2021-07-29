@@ -252,6 +252,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Metainfo.Metabase,
 		)
 		peer.Metainfo.SegmentLoop = segmentloop.New(
+			peer.Log.Named("metainfo:segmentloop"),
 			config.Metainfo.SegmentLoop,
 			peer.Metainfo.Metabase,
 		)
