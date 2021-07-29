@@ -241,7 +241,7 @@ pipeline {
                         sh 'go mod download'
                         sh 'service postgresql start'
                         dir(".build") {
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26256 --http-addr=localhost:8086 --cache 512MiB --max-sql-memory 512MiB --background'
+                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=127.0.0.7:26256 --http-addr=127.0.0.7:8086 --cache 512MiB --max-sql-memory 512MiB --background'
                         }
                         sh 'cockroach sql --insecure --host=127.0.0.7:26256 -e \'create database testui;\''
                         sh 'psql -U postgres -c \'create database testui;\''
