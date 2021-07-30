@@ -4,14 +4,15 @@
 <template>
     <div class="confirm-mfa">
         <label for="confirm-mfa" class="confirm-mfa__label">
-            <span class="confirm-mfa__label__info">2FA Code</span>
+            <span class="confirm-mfa__label__info">{{isRecovery ? 'Recovery Code' : '2FA Code'}}</span>
             <span class="confirm-mfa__label__error" v-if="isError">Invalid code. Please re-enter.</span>
         </label>
         <input
             id="confirm-mfa"
             class="confirm-mfa__input"
-            placeholder="000000"
-            type="number"
+            v-model="code"
+            :placeholder="isRecovery ? 'Code' : '000000'"
+            :type="isRecovery ? 'text' : 'number'"
             @input="event => onInput(event.target.value)"
         >
     </div>
@@ -25,7 +26,19 @@ export default class ConfirmMFAInput extends Vue {
     @Prop({default: () => false})
     public readonly onInput: (value: string) => void;
     @Prop({default: false})
+    public readonly isRecovery: boolean;
+    @Prop({default: false})
     public readonly isError: boolean;
+
+    public code = '';
+
+    /**
+     * Clears input.
+     * Is used outside of this component.
+     */
+    public clearInput(): void {
+        this.code = '';
+    }
 }
 </script>
 
