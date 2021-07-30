@@ -4,7 +4,6 @@
 package admin_test
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -566,23 +565,4 @@ func TestDeleteProjectWithUsagePreviousMonth(t *testing.T) {
 		require.NoError(t, response.Body.Close())
 		require.Equal(t, http.StatusConflict, response.StatusCode)
 	})
-}
-
-func assertGet(ctx context.Context, t *testing.T, link string, expected string, authToken string) {
-	t.Helper()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, link, nil)
-	require.NoError(t, err)
-
-	req.Header.Set("Authorization", authToken)
-
-	response, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-
-	data, err := ioutil.ReadAll(response.Body)
-	require.NoError(t, err)
-	require.NoError(t, response.Body.Close())
-
-	require.Equal(t, http.StatusOK, response.StatusCode, string(data))
-	require.Equal(t, expected, string(data))
 }
