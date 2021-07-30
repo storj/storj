@@ -181,3 +181,61 @@ func (server *Server) deleteAPIKeyByName(w http.ResponseWriter, r *http.Request)
 		return
 	}
 }
+
+func (server *Server) listAPIKeys(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	vars := mux.Vars(r)
+	projectUUIDString, ok := vars["project"]
+	if !ok {
+		httpJSONError(w, "project-uuid missing",
+			"", http.StatusBadRequest)
+		return
+	}
+
+	projectUUID, err := uuid.FromString(projectUUIDString)
+	if err != nil {
+		httpJSONError(w, "invalid project-uuid",
+			err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	const apiKeysPerPage = 50 // This is the current maximum API Keys per page.
+	var apiKeys []console.APIKeyInfo
+	for i := uint(1); true; i++ {
+		page, err := server.db.Console().APIKeys().GetPagedByProjectID(
+			ctx, projectUUID, console.APIKeyCursor{
+				Limit:          apiKeysPerPage,
+				Page:           i,
+				Order:          console.KeyName,
+				OrderDirection: console.Ascending,
+			},
+		)
+		if err != nil {
+			httpJSONError(w, "failed retrieving a cursor page of API Keys list",
+				err.Error(), http.StatusInternalServerError,
+			)
+			return
+		}
+
+		apiKeys = append(apiKeys, page.APIKeys...)
+		if len(page.APIKeys) < apiKeysPerPage {
+			break
+		}
+	}
+
+	var data []byte
+	if len(apiKeys) == 0 {
+		data = []byte("[]")
+	} else {
+		data, err = json.Marshal(apiKeys)
+		if err != nil {
+			httpJSONError(w, "json encoding failed",
+				err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(data)
+}
