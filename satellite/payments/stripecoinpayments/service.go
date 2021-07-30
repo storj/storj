@@ -10,6 +10,7 @@ import (
 	"math"
 	"math/big"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -699,6 +700,59 @@ func (service *Service) InvoiceItemsFromProjectRecord(projName string, record Pr
 	result = append(result, projectItem)
 
 	return result
+}
+
+// ApplyFreeTierCoupons iterates through all customers in Stripe. For each customer,
+// if that customer does not currently have a Stripe coupon, the free tier Stripe coupon
+// is applied.
+func (service *Service) ApplyFreeTierCoupons(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	customers := service.db.Customers()
+
+	appliedCoupons := 0
+	failedUsers := []string{}
+	morePages := true
+	nextOffset := int64(0)
+	listingLimit := 100
+	end := time.Now()
+	for morePages {
+		customersPage, err := customers.List(ctx, nextOffset, listingLimit, end)
+		if err != nil {
+			return err
+		}
+		morePages = customersPage.Next
+		nextOffset = customersPage.NextOffset
+
+		for _, c := range customersPage.Customers {
+			stripeCust, err := service.stripeClient.Customers().Get(c.ID, nil)
+			if err != nil {
+				service.log.Error("Failed to get customer", zap.Error(err))
+				failedUsers = append(failedUsers, c.ID)
+				continue
+			}
+			// if customer does not have a coupon, apply the free tier coupon
+			if stripeCust.Discount == nil || stripeCust.Discount.Coupon == nil {
+				params := &stripe.CustomerParams{
+					Coupon: stripe.String(service.StripeFreeTierCouponID),
+				}
+				_, err := service.stripeClient.Customers().Update(c.ID, params)
+				if err != nil {
+					service.log.Error("Failed to update customer with free tier coupon", zap.Error(err))
+					failedUsers = append(failedUsers, c.ID)
+					continue
+				}
+				appliedCoupons++
+			}
+		}
+	}
+
+	if len(failedUsers) > 0 {
+		service.log.Warn("Failed to get or apply free tier coupon to some customers:", zap.String("idlist", strings.Join(failedUsers, ", ")))
+	}
+	service.log.Info("Finished", zap.Int("number of coupons applied", appliedCoupons))
+
+	return nil
 }
 
 // InvoiceApplyCoupons iterates through unapplied project coupons and creates invoice line items
