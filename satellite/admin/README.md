@@ -21,6 +21,7 @@ Requires setting `Authorization` header for requests.
         * [GET /api/project/{project-id}](#get-apiprojectproject-id)
         * [PUT /api/project/{project-id}](#put-apiprojectproject-id)
         * [DELETE /api/project/{project-id}](#delete-apiprojectproject-id)
+        * [GET /api/project/{project}/apikeys](#get-apiprojectprojectapikeys)
         * [POST /api/project/{project}/apikey](#post-apiprojectprojectapikey)
         * [DELETE /api/project/{project}/apikey/{name}](#delete-apiprojectprojectapikeyname)
         * [GET /api/project/{project-id}/usage](#get-apiprojectproject-idusage)
@@ -222,6 +223,31 @@ Updates project name or description.
 ### DELETE /api/project/{project-id}
 
 Deletes the project.
+
+### GET /api/project/{project}/apikeys
+
+Get the list of the API keys of a specific project.
+
+A successful response body:
+
+```json
+[
+    {
+        "id": "b6988bd2-8d21-4bee-91ac-a3445bf38180",
+        "ownerId": "ca7aa0fb-442a-4d4e-aa36-a49abddae837",
+        "name": "mine",
+        "partnerID": "a9d3b7ee-17da-4848-bb0e-1f64cf45af18",
+        "createdAt": "2020-05-19T00:34:13.265761+02:00"
+    },
+    {
+        "id": "f9f887c1-b178-4eb8-b669-14379c5a97ca",
+        "ownerId": "3eb45ae9-822a-470e-a51a-9144dedda63e",
+        "name": "family",
+        "partnerID": "",
+        "createdAt": "2020-02-20T15:34:24.265761+02:00"
+    }
+]
+```
 
 ### POST /api/project/{project}/apikey
 

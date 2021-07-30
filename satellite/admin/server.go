@@ -91,6 +91,7 @@ func NewServer(log *zap.Logger, listener net.Listener, db DB, accounts payments.
 	server.mux.HandleFunc("/api/project/{project}", server.getProject).Methods("GET")
 	server.mux.HandleFunc("/api/project/{project}", server.renameProject).Methods("PUT")
 	server.mux.HandleFunc("/api/project/{project}", server.deleteProject).Methods("DELETE")
+	server.mux.HandleFunc("/api/project/{project}/apikeys", server.listAPIKeys).Methods("GET")
 	server.mux.HandleFunc("/api/project/{project}/apikey", server.addAPIKey).Methods("POST")
 	server.mux.HandleFunc("/api/project/{project}/apikey/{name}", server.deleteAPIKeyByName).Methods("DELETE")
 	server.mux.HandleFunc("/api/apikey/{apikey}", server.deleteAPIKey).Methods("DELETE")
