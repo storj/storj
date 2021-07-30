@@ -129,7 +129,7 @@ test-sim-backwards-compatible: ## Test uploading a file with lastest release (je
 check-monitoring: ## Check for locked monkit calls that have changed
 	@echo "Running ${@}"
 	@check-monitoring ./... | diff -U0 ./monkit.lock - \
-	|| (echo "Locked monkit metrics have been changed. Notify #data-science and run \`go run github.com/storj/ci/check-monitoring -out monkit.lock ./...\` to update monkit.lock file." \
+	|| (echo "Locked monkit metrics have been changed. **Notify #team-data** and run \`go run github.com/storj/ci/check-monitoring -out monkit.lock ./...\` to update monkit.lock file." \
 	&& exit 1)
 
 .PHONY: test-wasm-size
