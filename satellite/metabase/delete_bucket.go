@@ -125,7 +125,7 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 			}
 			return deletedObjectCount, Error.Wrap(err)
 		}
-		if len(deletedSegmentsBatch) == 0 {
+		if deletedSegments == 0 {
 			return deletedObjectCount, nil
 		}
 
