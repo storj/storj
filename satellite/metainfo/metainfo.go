@@ -1247,6 +1247,11 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		cursor = string(prefix) + cursor
 	}
 
+	includeMetadata := true
+	if req.UseObjectIncludes {
+		includeMetadata = req.ObjectIncludes.Metadata
+	}
+
 	resp = &pb.ObjectListResponse{}
 	// TODO: Replace with IterateObjectsLatestVersion when ready
 	err = endpoint.metainfo.metabaseDB.IterateObjectsAllVersionsWithStatus(ctx,
@@ -1264,7 +1269,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 			entry := metabase.ObjectEntry{}
 			for len(resp.Items) < limit && it.Next(ctx, &entry) {
-				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix)
+				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeMetadata)
 				if err != nil {
 					return err
 				}
@@ -1354,7 +1359,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 			entry := metabase.ObjectEntry{}
 			for len(resp.Items) < limit && it.Next(ctx, &entry) {
-				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, "")
+				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, "", true)
 				if err != nil {
 					return err
 				}
@@ -2588,57 +2593,60 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 	return result, nil
 }
 
-func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket []byte, entry metabase.ObjectEntry, prefixToPrependInSatStreamID metabase.ObjectKey) (item *pb.ObjectListItem, err error) {
+func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket []byte, entry metabase.ObjectEntry, prefixToPrependInSatStreamID metabase.ObjectKey, includeMetadata bool) (item *pb.ObjectListItem, err error) {
 	expires := time.Time{}
 	if entry.ExpiresAt != nil {
 		expires = *entry.ExpiresAt
 	}
 
-	var nonce storj.Nonce
-	if len(entry.EncryptedMetadataNonce) > 0 {
-		nonce, err = storj.NonceFromBytes(entry.EncryptedMetadataNonce)
+	item = &pb.ObjectListItem{
+		EncryptedPath: []byte(entry.ObjectKey),
+		Version:       int32(entry.Version), // TODO incompatible types
+		Status:        pb.Object_Status(entry.Status),
+		ExpiresAt:     expires,
+		CreatedAt:     entry.CreatedAt,
+		PlainSize:     entry.TotalPlainSize,
+	}
+
+	if includeMetadata {
+		var nonce storj.Nonce
+		if len(entry.EncryptedMetadataNonce) > 0 {
+			nonce, err = storj.NonceFromBytes(entry.EncryptedMetadataNonce)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		streamMeta := &pb.StreamMeta{}
+		err = pb.Unmarshal(entry.EncryptedMetadata, streamMeta)
 		if err != nil {
 			return nil, err
 		}
-	}
 
-	streamMeta := &pb.StreamMeta{}
-	err = pb.Unmarshal(entry.EncryptedMetadata, streamMeta)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO is this enough to handle old uplinks
-	if streamMeta.EncryptionBlockSize == 0 {
-		streamMeta.EncryptionBlockSize = entry.Encryption.BlockSize
-	}
-	if streamMeta.EncryptionType == 0 {
-		streamMeta.EncryptionType = int32(entry.Encryption.CipherSuite)
-	}
-	if streamMeta.NumberOfSegments == 0 {
-		streamMeta.NumberOfSegments = int64(entry.SegmentCount)
-	}
-	if streamMeta.LastSegmentMeta == nil {
-		streamMeta.LastSegmentMeta = &pb.SegmentMeta{
-			EncryptedKey: entry.EncryptedMetadataEncryptedKey,
-			KeyNonce:     entry.EncryptedMetadataNonce,
+		// TODO is this enough to handle old uplinks
+		if streamMeta.EncryptionBlockSize == 0 {
+			streamMeta.EncryptionBlockSize = entry.Encryption.BlockSize
 		}
-	}
+		if streamMeta.EncryptionType == 0 {
+			streamMeta.EncryptionType = int32(entry.Encryption.CipherSuite)
+		}
+		if streamMeta.NumberOfSegments == 0 {
+			streamMeta.NumberOfSegments = int64(entry.SegmentCount)
+		}
+		if streamMeta.LastSegmentMeta == nil {
+			streamMeta.LastSegmentMeta = &pb.SegmentMeta{
+				EncryptedKey: entry.EncryptedMetadataEncryptedKey,
+				KeyNonce:     entry.EncryptedMetadataNonce,
+			}
+		}
 
-	metadataBytes, err := pb.Marshal(streamMeta)
-	if err != nil {
-		return nil, err
-	}
+		metadataBytes, err := pb.Marshal(streamMeta)
+		if err != nil {
+			return nil, err
+		}
 
-	item = &pb.ObjectListItem{
-		EncryptedPath:          []byte(entry.ObjectKey),
-		Version:                int32(entry.Version), // TODO incomatible types
-		Status:                 pb.Object_Status(entry.Status),
-		ExpiresAt:              expires,
-		CreatedAt:              entry.CreatedAt,
-		PlainSize:              entry.TotalPlainSize,
-		EncryptedMetadata:      metadataBytes,
-		EncryptedMetadataNonce: nonce,
+		item.EncryptedMetadata = metadataBytes
+		item.EncryptedMetadataNonce = nonce
 	}
 
 	// Add Stream ID to list items if listing is for pending objects.

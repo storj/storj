@@ -55,8 +55,8 @@ require (
 	google.golang.org/api v0.20.0 // indirect
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
-	storj.io/common v0.0.0-20210708125041-4882a3ae3eda
-	storj.io/drpc v0.0.23
+	storj.io/common v0.0.0-20210802130738-7506a469842e
+	storj.io/drpc v0.0.24
 	storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7
 	storj.io/private v0.0.0-20210625132526-af46b647eda5
 	storj.io/uplink v1.5.0-rc.1.0.20210512164354-e2e5889614a9
