@@ -26,6 +26,7 @@ type External interface {
 	RequestAccess(ctx context.Context, token, passphrase string) (*uplink.Access, error)
 
 	PromptInput(ctx clingy.Context, prompt string) (input string, err error)
+	PromptSecret(ctx clingy.Context, prompt string) (secret string, err error)
 }
 
 // Options contains all of the possible options for opening a filesystem or project.

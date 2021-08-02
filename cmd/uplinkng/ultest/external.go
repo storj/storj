@@ -51,3 +51,7 @@ func (ex *external) SaveAccessInfo(accessDefault string, accesses map[string]str
 func (ex *external) PromptInput(ctx clingy.Context, prompt string) (input string, err error) {
 	return "", errs.New("not implemented")
 }
+
+func (ex *external) PromptSecret(ctx clingy.Context, prompt string) (secret string, err error) {
+	return "", errs.New("not implemented")
+}

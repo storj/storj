@@ -39,10 +39,12 @@ func (c *cmdAccessCreate) Execute(ctx clingy.Context) (err error) {
 	}
 
 	if c.passphrase == "" {
-		// TODO: secret prompt
-		c.passphrase, err = c.ex.PromptInput(ctx, "Passphrase:")
+		c.passphrase, err = c.ex.PromptSecret(ctx, "Passphrase:")
 		if err != nil {
 			return errs.Wrap(err)
+		}
+		if c.passphrase == "" {
+			return errs.New("Encryption passphrase must be non-empty")
 		}
 	}
 

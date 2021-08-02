@@ -13,6 +13,7 @@ import (
 
 	"github.com/zeebo/clingy"
 	"github.com/zeebo/errs"
+	"golang.org/x/term"
 )
 
 type external struct {
@@ -118,6 +119,47 @@ func (ex *external) PromptInput(ctx clingy.Context, prompt string) (input string
 	fmt.Fprint(ctx.Stdout(), prompt, " ")
 	_, err = fmt.Fscanln(ctx.Stdin(), &input)
 	return input, err
+}
+
+// PromptInput gets a line of secret input from the user twice to ensure that
+// it is the same value, and returns an error if interactive mode is disabled
+// or if the prompt cannot be put into a mode where the typing is not echoed.
+func (ex *external) PromptSecret(ctx clingy.Context, prompt string) (secret string, err error) {
+	if !ex.interactive {
+		return "", errs.New("required secret input in non-interactive setting")
+	}
+
+	fh, ok := ctx.Stdin().(interface{ Fd() uintptr })
+	if !ok {
+		return "", errs.New("unable to request secret from stdin")
+	}
+	fd := int(fh.Fd())
+
+	for {
+		fmt.Fprint(ctx.Stdout(), prompt, " ")
+
+		first, err := term.ReadPassword(fd)
+		if err != nil {
+			return "", errs.New("unable to request secret from stdin: %w", err)
+		}
+		fmt.Fprintln(ctx.Stdout())
+
+		fmt.Fprint(ctx.Stdout(), "Again: ")
+
+		second, err := term.ReadPassword(fd)
+		if err != nil {
+			return "", errs.New("unable to request secret from stdin: %w", err)
+		}
+		fmt.Fprintln(ctx.Stdout())
+
+		if string(first) != string(second) {
+			fmt.Fprintln(ctx.Stdout(), "Values did not match. Try again.")
+			fmt.Fprintln(ctx.Stdout())
+			continue
+		}
+
+		return string(first), nil
+	}
 }
 
 // appDir returns best base directory for the currently running operating system. It
