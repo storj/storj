@@ -82,10 +82,11 @@ type Project struct {
 
 // ProjectInfo holds data needed to create/update Project.
 type ProjectInfo struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-
-	CreatedAt time.Time `json:"createdAt"`
+	Name           string      `json:"name"`
+	Description    string      `json:"description"`
+	StorageLimit   memory.Size `json:"project specific storage limit"`
+	BandwidthLimit memory.Size `json:"project specific bandwidth limit"`
+	CreatedAt      time.Time   `json:"createdAt"`
 }
 
 // ProjectsCursor holds info for project

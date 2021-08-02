@@ -59,15 +59,51 @@ func TestService(t *testing.T) {
 			})
 
 			t.Run("TestUpdateProject", func(t *testing.T) {
-				// Updating own project should work
-				updatedPro, err := service.UpdateProject(authCtx1, up1Pro1.ID, "newName", "TestUpdate")
+				updatedName := "newName"
+				updatedDescription := "newDescription"
+				updatedStorageLimit := memory.Size(100)
+				updatedBandwidthLimit := memory.Size(100)
+
+				// user should be in free tier
+				user, err := service.GetUser(ctx, up1Pro1.OwnerID)
 				require.NoError(t, err)
-				require.NotEqual(t, up1Pro1.Name, updatedPro.Name)
+				require.False(t, user.PaidTier)
+				// get context
+				authCtx1, err := sat.AuthenticatedContext(ctx, user.ID)
+				require.NoError(t, err)
+				// add a credit card to put the user in the paid tier
+				err = service.Payments().AddCreditCard(authCtx1, "test-cc-token")
+				require.NoError(t, err)
+				// update auth ctx
+				authCtx1, err = sat.AuthenticatedContext(ctx, user.ID)
+				require.NoError(t, err)
+
+				// Updating own project should work
+				updatedProject, err := service.UpdateProject(authCtx1, up1Pro1.ID, console.ProjectInfo{
+					Name:           updatedName,
+					Description:    updatedDescription,
+					StorageLimit:   updatedStorageLimit,
+					BandwidthLimit: updatedBandwidthLimit,
+				})
+				require.NoError(t, err)
+				require.NotEqual(t, up1Pro1.Name, updatedProject.Name)
+				require.Equal(t, updatedName, updatedProject.Name)
+				require.NotEqual(t, up1Pro1.Description, updatedProject.Description)
+				require.Equal(t, updatedDescription, updatedProject.Description)
+				require.NotEqual(t, *up1Pro1.StorageLimit, *updatedProject.StorageLimit)
+				require.Equal(t, updatedStorageLimit, *updatedProject.StorageLimit)
+				require.NotEqual(t, *up1Pro1.BandwidthLimit, *updatedProject.BandwidthLimit)
+				require.Equal(t, updatedBandwidthLimit, *updatedProject.BandwidthLimit)
 
 				// Updating someone else project details should not work
-				updatedPro, err = service.UpdateProject(authCtx1, up2Pro1.ID, "newName", "TestUpdate")
+				updatedProject, err = service.UpdateProject(authCtx1, up2Pro1.ID, console.ProjectInfo{
+					Name:           "newName",
+					Description:    "TestUpdate",
+					StorageLimit:   memory.Size(100),
+					BandwidthLimit: memory.Size(100),
+				})
 				require.Error(t, err)
-				require.Nil(t, updatedPro)
+				require.Nil(t, updatedProject)
 			})
 
 			t.Run("TestAddProjectMembers", func(t *testing.T) {

@@ -35,7 +35,7 @@ export class ProjectsApiMock implements ProjectsApi {
         return Promise.resolve(this.mockProjectsPage);
     }
 
-    update(_projectId: string, _name: string, _description: string): Promise<void> {
+    update(_projectId: string, _projectFields: ProjectFields, _projectLimits: ProjectLimits): Promise<void> {
         return Promise.resolve();
     }
 

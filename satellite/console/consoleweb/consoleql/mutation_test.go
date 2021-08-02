@@ -366,13 +366,17 @@ func TestGraphqlMutation(t *testing.T) {
 
 		const testName = "testName"
 		const testDescription = "test description"
+		const StorageLimit = "100"
+		const BandwidthLimit = "100"
 
 		t.Run("Update project mutation", func(t *testing.T) {
 			query := fmt.Sprintf(
-				"mutation {updateProject(id:\"%s\",name:\"%s\",description:\"%s\"){id,name,description}}",
+				"mutation {updateProject(id:\"%s\",projectFields:{name:\"%s\",description:\"%s\"},projectLimits:{storageLimit:\"%s\",bandwidthLimit:\"%s\"}){id,name,description}}",
 				project.ID.String(),
 				testName,
 				testDescription,
+				StorageLimit,
+				BandwidthLimit,
 			)
 
 			result, err := testQuery(t, query)

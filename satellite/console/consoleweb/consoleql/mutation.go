@@ -43,6 +43,10 @@ const (
 
 	// InputArg is argument name for all input types.
 	InputArg = "input"
+	// ProjectFields is a field name for project specific fields.
+	ProjectFields = "projectFields"
+	// ProjectLimits is a field name for project specific limits.
+	ProjectLimits = "projectLimits"
 	// FieldProjectID is field name for projectID.
 	FieldProjectID = "projectID"
 	// FieldNewPassword is a field name for new password.
@@ -96,16 +100,15 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 					FieldID: &graphql.ArgumentConfig{
 						Type: graphql.NewNonNull(graphql.String),
 					},
-					FieldName: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
+					ProjectFields: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(types.projectInput),
 					},
-					FieldDescription: &graphql.ArgumentConfig{
-						Type: graphql.NewNonNull(graphql.String),
+					ProjectLimits: &graphql.ArgumentConfig{
+						Type: graphql.NewNonNull(types.projectLimit),
 					},
 				},
 				Resolve: func(p graphql.ResolveParams) (interface{}, error) {
-					name := p.Args[FieldName].(string)
-					description := p.Args[FieldDescription].(string)
+					var projectInput = fromMapProjectInfoProjectLimits(p.Args[ProjectFields].(map[string]interface{}), p.Args[ProjectLimits].(map[string]interface{}))
 
 					inputID := p.Args[FieldID].(string)
 					projectID, err := uuid.FromString(inputID)
@@ -113,7 +116,7 @@ func rootMutation(log *zap.Logger, service *console.Service, mailService *mailse
 						return nil, err
 					}
 
-					project, err := service.UpdateProject(p.Context, projectID, name, description)
+					project, err := service.UpdateProject(p.Context, projectID, projectInput)
 					if err != nil {
 						return nil, err
 					}

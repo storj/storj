@@ -19,6 +19,8 @@ export const PROJECTS_ACTIONS = {
     SELECT: 'selectProject',
     UPDATE_NAME: 'updateProjectName',
     UPDATE_DESCRIPTION: 'updateProjectDescription',
+    UPDATE_STORAGE_LIMIT: 'updateProjectStorageLimit',
+    UPDATE_BANDWIDTH_LIMIT: 'updateProjectBandwidthLimit',
     DELETE: 'deleteProject',
     CLEAR: 'clearProjects',
     GET_LIMITS: 'getProjectLimits',
@@ -30,6 +32,8 @@ export const PROJECTS_MUTATIONS = {
     REMOVE: 'DELETE_PROJECT',
     UPDATE_PROJECT_NAME: 'UPDATE_PROJECT_NAME',
     UPDATE_PROJECT_DESCRIPTION: 'UPDATE_PROJECT_DESCRIPTION',
+    UPDATE_PROJECT_STORAGE_LIMIT: 'UPDATE_STORAGE_LIMIT',
+    UPDATE_PROJECT_BANDWIDTH_LIMIT: 'UPDATE_BANDWIDTH_LIMIT',
     SET_PROJECTS: 'SET_PROJECTS',
     SELECT_PROJECT: 'SELECT_PROJECT',
     CLEAR_PROJECTS: 'CLEAR_PROJECTS',
@@ -64,6 +68,8 @@ const {
     SELECT,
     UPDATE_NAME,
     UPDATE_DESCRIPTION,
+    UPDATE_STORAGE_LIMIT,
+    UPDATE_BANDWIDTH_LIMIT,
     DELETE,
     CLEAR,
     GET_LIMITS,
@@ -76,6 +82,8 @@ const {
     REMOVE,
     UPDATE_PROJECT_NAME,
     UPDATE_PROJECT_DESCRIPTION,
+    UPDATE_PROJECT_STORAGE_LIMIT,
+    UPDATE_PROJECT_BANDWIDTH_LIMIT,
     SET_PROJECTS,
     SELECT_PROJECT,
     CLEAR_PROJECTS,
@@ -130,6 +138,12 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
             },
             [UPDATE_PROJECT_DESCRIPTION](state: ProjectsState, fieldsToUpdate: ProjectFields): void {
                 state.selectedProject.description = fieldsToUpdate.description;
+            },
+            [UPDATE_PROJECT_STORAGE_LIMIT](state: ProjectsState, limitsToUpdate: ProjectLimits): void {
+                state.currentLimits.storageLimit = limitsToUpdate.storageLimit;
+            },
+            [UPDATE_PROJECT_BANDWIDTH_LIMIT](state: ProjectsState, limitsToUpdate: ProjectLimits): void {
+                state.currentLimits.bandwidthLimit = limitsToUpdate.bandwidthLimit;
             },
             [REMOVE](state: ProjectsState, projectID: string): void {
                 state.projects = state.projects.filter(project => project.id !== projectID);
@@ -196,16 +210,70 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
                 commit(SELECT_PROJECT, projectID);
             },
             [UPDATE_NAME]: async function ({commit, state}: ProjectsContext, fieldsToUpdate: ProjectFields): Promise<void> {
-                await api.update(state.selectedProject.id, fieldsToUpdate.name, state.selectedProject.description);
+                const project = new ProjectFields(
+                    fieldsToUpdate.name,
+                    state.selectedProject.description,
+                    state.selectedProject.id,
+                );
+                const limit = new ProjectLimits(
+                    state.currentLimits.bandwidthLimit,
+                    state.currentLimits.bandwidthUsed,
+                    state.currentLimits.storageLimit,
+                    state.currentLimits.storageUsed,
+                );
+                await api.update(state.selectedProject.id, project, limit);
 
                 commit(UPDATE_PROJECT_NAME, fieldsToUpdate);
             },
             [UPDATE_DESCRIPTION]: async function ({commit, state}: ProjectsContext, fieldsToUpdate: ProjectFields): Promise<void> {
-                await api.update(state.selectedProject.id, state.selectedProject.name, fieldsToUpdate.description);
+                const project = new ProjectFields(
+                    state.selectedProject.name,
+                    fieldsToUpdate.description,
+                    state.selectedProject.id,
+                );
+                const limit = new ProjectLimits(
+                    state.currentLimits.bandwidthLimit,
+                    state.currentLimits.bandwidthUsed,
+                    state.currentLimits.storageLimit,
+                    state.currentLimits.storageUsed,
+                );
+                await api.update(state.selectedProject.id, project, limit);
 
                 commit(UPDATE_PROJECT_DESCRIPTION, fieldsToUpdate);
             },
-            [DELETE]: async function ({commit}: ProjectsContext, projectID: string): Promise<void> {
+            [UPDATE_STORAGE_LIMIT]: async function ({commit, state}: any, limitsToUpdate: ProjectLimits): Promise<void> {
+                const project = new ProjectFields(
+                    state.selectedProject.name,
+                    state.selectedProject.description,
+                    state.selectedProject.id,
+                );
+                const limit = new ProjectLimits(
+                    state.currentLimits.bandwidthLimit,
+                    state.currentLimits.bandwidthUsed,
+                    limitsToUpdate.storageLimit,
+                    state.currentLimits.storageUsed,
+                );
+                await api.update(state.selectedProject.id, project, limit);
+
+                commit(UPDATE_PROJECT_STORAGE_LIMIT, limitsToUpdate);
+            },
+            [UPDATE_BANDWIDTH_LIMIT]: async function ({commit, state}: any, limitsToUpdate: ProjectLimits): Promise<void> {
+                const project = new ProjectFields(
+                    state.selectedProject.name,
+                    state.selectedProject.description,
+                    state.selectedProject.id,
+                );
+                const limit = new ProjectLimits(
+                    limitsToUpdate.bandwidthLimit,
+                    state.currentLimits.bandwidthUsed,
+                    state.currentLimits.storageLimit,
+                    state.currentLimits.storageUsed,
+                );
+                await api.update(state.selectedProject.id, project, limit);
+
+                commit(UPDATE_PROJECT_BANDWIDTH_LIMIT, limitsToUpdate);
+            },
+            [DELETE]: async function ({commit}: any, projectID: string): Promise<void> {
                 await api.delete(projectID);
 
                 commit(REMOVE, projectID);

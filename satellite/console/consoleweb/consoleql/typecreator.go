@@ -31,6 +31,7 @@ type TypeCreator struct {
 
 	userInput            *graphql.InputObject
 	projectInput         *graphql.InputObject
+	projectLimit         *graphql.InputObject
 	projectsCursor       *graphql.InputObject
 	bucketUsageCursor    *graphql.InputObject
 	projectMembersCursor *graphql.InputObject
@@ -47,6 +48,11 @@ func (c *TypeCreator) Create(log *zap.Logger, service *console.Service, mailServ
 
 	c.projectInput = graphqlProjectInput()
 	if err := c.projectInput.Error(); err != nil {
+		return err
+	}
+
+	c.projectLimit = graphqlProjectLimit()
+	if err := c.projectLimit.Error(); err != nil {
 		return err
 	}
 

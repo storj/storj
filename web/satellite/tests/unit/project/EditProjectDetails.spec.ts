@@ -6,7 +6,7 @@ import Vuex from 'vuex';
 import EditProjectDetails from '@/components/project/EditProjectDetails.vue';
 
 import { makeProjectsModule, PROJECTS_MUTATIONS } from '@/store/modules/projects';
-import { Project } from '@/types/projects';
+import { Project, ProjectLimits } from '@/types/projects';
 import { NotificatorPlugin } from '@/utils/plugins/notificator';
 import { createLocalVue, mount } from '@vue/test-utils';
 
@@ -18,7 +18,9 @@ const localVue = createLocalVue();
 localVue.use(Vuex);
 localVue.use(notificationPlugin);
 
+const projectLimits = new ProjectLimits(1000, 100, 1000, 100);
 const projectsApi = new ProjectsApiMock();
+projectsApi.setMockLimits(projectLimits);
 const projectsModule = makeProjectsModule(projectsApi);
 
 const store = new Vuex.Store({ modules: { projectsModule }});
@@ -28,6 +30,7 @@ describe('EditProjectDetails.vue', () => {
     it('renders correctly', (): void => {
         store.commit(PROJECTS_MUTATIONS.ADD, project);
         store.commit(PROJECTS_MUTATIONS.SELECT_PROJECT, project.id);
+        store.commit(PROJECTS_MUTATIONS.SET_LIMITS, projectLimits);
 
         const wrapper = mount(EditProjectDetails, {
             store,

@@ -83,20 +83,28 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
      * @returns Project[]
      * @throws Error
      */
-    public async update(projectId: string, name: string, description: string): Promise<void> {
+    public async update(projectId: string, projectFields: ProjectFields, projectLimits: ProjectLimits): Promise<void> {
         const query =
-            `mutation($projectId: String!, $name: String!, $description: String!) {
+            `mutation($projectId: String!, $name: String!, $description: String!, $storageLimit: String!, $bandwidthLimit: String!) {
                 updateProject(
                     id: $projectId,
-                    name: $name,
-                    description: $description
+                    projectFields: {
+                        name: $name,
+                        description: $description,
+                    },
+                    projectLimits: {
+                        storageLimit: $storageLimit,
+                        bandwidthLimit: $bandwidthLimit,
+                    }
                 ) {name}
             }`;
 
         const variables = {
             projectId: projectId,
-            name: name,
-            description: description,
+            name: projectFields.name,
+            description: projectFields.description,
+            storageLimit: projectLimits.storageLimit.toString(),
+            bandwidthLimit: projectLimits.bandwidthLimit.toString(),
         };
 
         await this.mutate(query, variables);
