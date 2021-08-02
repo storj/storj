@@ -45,6 +45,13 @@ func TestCounterInlineAndRemote(t *testing.T) {
 		metricsChore.Loop.TriggerWait()
 		require.EqualValues(t, 2, metricsChore.Counter.InlineObjects)
 		require.EqualValues(t, 2, metricsChore.Counter.RemoteObjects)
+
+		require.EqualValues(t, 2, metricsChore.Counter.TotalInlineSegments)
+		require.EqualValues(t, 2, metricsChore.Counter.TotalRemoteSegments)
+		// 2 inline segments * (1024 + encryption overhead)
+		require.EqualValues(t, 2080, metricsChore.Counter.TotalInlineBytes)
+		// 2 remote segments * (8192 + encryption overhead)
+		require.EqualValues(t, 29696, metricsChore.Counter.TotalRemoteBytes)
 	})
 }
 

@@ -3,9 +3,10 @@
 
 import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { ErrorEmailUsed } from '@/api/errors/ErrorEmailUsed';
+import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
-import { EnableUserMFARequest, UpdatedUser, User } from '@/types/users';
+import { UpdatedUser, User } from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
 
 /**
@@ -37,17 +38,27 @@ export class AuthHttpApi {
      *
      * @param email - email of the user
      * @param password - password of the user
+     * @param mfaPasscode - MFA passcode
+     * @param mfaRecoveryCode - MFA recovery code
      * @throws Error
      */
-    public async token(email: string, password: string): Promise<string> {
+    public async token(email: string, password: string, mfaPasscode: string, mfaRecoveryCode: string): Promise<string> {
         const path = `${this.ROOT_PATH}/token`;
         const body = {
-            email: email,
-            password: password,
+            email,
+            password,
+            mfaPasscode: mfaPasscode ? mfaPasscode : null,
+            mfaRecoveryCode: mfaRecoveryCode ? mfaRecoveryCode : null,
         };
+
         const response = await this.http.post(path, JSON.stringify(body));
         if (response.ok) {
-            return await response.json();
+            const result = await response.json();
+            if (typeof result !== 'string') {
+                throw new ErrorMFARequired();
+            }
+
+            return result;
         }
 
         switch (response.status) {
@@ -137,6 +148,7 @@ export class AuthHttpApi {
                 userResponse.password,
                 userResponse.projectLimit,
                 userResponse.paidTier,
+                userResponse.isMFAEnabled,
             );
         }
 
@@ -271,8 +283,12 @@ export class AuthHttpApi {
      *
      * @throws Error
      */
-    public async enableUserMFA(body: EnableUserMFARequest): Promise<void> {
+    public async enableUserMFA(passcode: string): Promise<void> {
         const path = `${this.ROOT_PATH}/mfa/enable`;
+        const body = {
+            passcode: passcode,
+        };
+
         const response = await this.http.post(path, JSON.stringify(body));
 
         if (response.ok) {
@@ -291,11 +307,10 @@ export class AuthHttpApi {
      *
      * @throws Error
      */
-    public async disableUserMFA(code: string): Promise<void> {
+    public async disableUserMFA(passcode: string): Promise<void> {
         const path = `${this.ROOT_PATH}/mfa/disable`;
-
         const body = {
-            passcode: code,
+            passcode: passcode,
         };
 
         const response = await this.http.post(path, JSON.stringify(body));

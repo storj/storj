@@ -58,10 +58,6 @@ type DB interface {
 	KnownReliable(ctx context.Context, onlineWindow time.Duration, nodeIDs storj.NodeIDList) ([]*pb.Node, error)
 	// Reliable returns all nodes that are reliable
 	Reliable(context.Context, *NodeCriteria) (storj.NodeIDList, error)
-	// BatchUpdateStats updates multiple storagenode's stats in one transaction.
-	BatchUpdateStats(ctx context.Context, updateRequests []*UpdateRequest, batchSize int, now time.Time) (failed storj.NodeIDList, err error)
-	// UpdateStats all parts of single storagenode's stats.
-	UpdateStats(ctx context.Context, request *UpdateRequest, now time.Time) (stats *NodeStats, err error)
 	// UpdateReputation updates the DB columns for all reputation fields in ReputationStatus.
 	UpdateReputation(ctx context.Context, id storj.NodeID, request *ReputationStatus) error
 	// UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.
@@ -90,22 +86,22 @@ type DB interface {
 
 	// DisqualifyNode disqualifies a storage node.
 	DisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error)
+
 	// DQNodesLastSeenBefore disqualifies a limited number of nodes where last_contact_success < cutoff except those already disqualified
 	// or gracefully exited or where last_contact_success = '0001-01-01 00:00:00+00'.
 	DQNodesLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (count int, err error)
 
-	// SuspendNodeUnknownAudit suspends a storage node for unknown audits.
-	SuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
-	// UnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
-	UnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error)
+	// TestSuspendNodeUnknownAudit suspends a storage node for unknown audits.
+	TestSuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
+	// TestUnsuspendNodeUnknownAudit unsuspends a storage node for unknown audits.
+	TestUnsuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID) (err error)
 
 	// TestVetNode directly sets a node's vetted_at timestamp to make testing easier
 	TestVetNode(ctx context.Context, nodeID storj.NodeID) (vettedTime *time.Time, err error)
 	// TestUnvetNode directly sets a node's vetted_at timestamp to null to make testing easier
 	TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error)
-
-	// AuditHistoryDB includes operations for interfacing with the audit history table.
-	AuditHistoryDB
+	// TestVetNode directly sets a node's offline_suspended timestamp to make testing easier
+	TestSuspendNodeOffline(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error)
 
 	// IterateAllNodes will call cb on all known nodes (used in restore trash contexts).
 	IterateAllNodes(context.Context, func(context.Context, *SelectedNode) error) error
@@ -152,22 +148,6 @@ type NodeCriteria struct {
 	AsOfSystemInterval time.Duration // only used for CRDB queries
 }
 
-// AuditType is an enum representing the outcome of a particular audit reported to the overlay.
-//
-// TODO: remove after migrating to using reputation package for auditing.
-type AuditType int
-
-const (
-	// AuditSuccess represents a successful audit.
-	AuditSuccess AuditType = iota
-	// AuditFailure represents a failed audit.
-	AuditFailure
-	// AuditUnknown represents an audit that resulted in an unknown error from the node.
-	AuditUnknown
-	// AuditOffline represents an audit where a node was offline.
-	AuditOffline
-)
-
 // ReputationStatus indicates current reputation status for a node.
 type ReputationStatus struct {
 	Contained             bool // TODO: check to see if this column is still used.
@@ -177,22 +157,45 @@ type ReputationStatus struct {
 	VettedAt              *time.Time
 }
 
-// UpdateRequest is used to update a node status.
-//
-// TODO: remove after migrating to using reputation package for auditing.
-type UpdateRequest struct {
-	NodeID       storj.NodeID
-	AuditOutcome AuditType
-	// n.b. these are set values from the satellite.
-	// They are part of the UpdateRequest struct in order to be
-	// more easily accessible in satellite/satellitedb/overlaycache.go.
-	AuditLambda              float64
-	AuditWeight              float64
-	AuditDQ                  float64
-	SuspensionGracePeriod    time.Duration
-	SuspensionDQEnabled      bool
-	AuditsRequiredForVetting int64
-	AuditHistory             AuditHistoryConfig
+// Equal checks if two ReputationStatus contains the same value.
+func (status ReputationStatus) Equal(value ReputationStatus) bool {
+	if status.Contained != value.Contained {
+		return false
+	}
+
+	if status.Disqualified != nil && value.Disqualified != nil {
+		if !status.Disqualified.Equal(*value.Disqualified) {
+			return false
+		}
+	} else if !(status.Disqualified == nil && value.Disqualified == nil) {
+		return false
+	}
+
+	if status.UnknownAuditSuspended != nil && value.UnknownAuditSuspended != nil {
+		if !status.UnknownAuditSuspended.Equal(*value.UnknownAuditSuspended) {
+			return false
+		}
+	} else if !(status.UnknownAuditSuspended == nil && value.UnknownAuditSuspended == nil) {
+		return false
+	}
+
+	if status.OfflineSuspended != nil && value.OfflineSuspended != nil {
+		if !status.OfflineSuspended.Equal(*value.OfflineSuspended) {
+			return false
+		}
+	} else if !(status.OfflineSuspended == nil && value.OfflineSuspended == nil) {
+		return false
+	}
+
+	if status.VettedAt != nil && value.VettedAt != nil {
+		if !status.VettedAt.Equal(*value.VettedAt) {
+			return false
+		}
+	} else if !(status.VettedAt == nil && value.VettedAt == nil) {
+		return false
+	}
+
+	return true
 }
 
 // ExitStatus is used for reading graceful exit status.
@@ -235,21 +238,14 @@ type NodeDossier struct {
 
 // NodeStats contains statistics about a node.
 type NodeStats struct {
-	Latency90                   int64
-	VettedAt                    *time.Time
-	AuditSuccessCount           int64
-	AuditCount                  int64
-	LastContactSuccess          time.Time
-	LastContactFailure          time.Time
-	AuditReputationAlpha        float64
-	AuditReputationBeta         float64
-	Disqualified                *time.Time
-	UnknownAuditReputationAlpha float64
-	UnknownAuditReputationBeta  float64
-	UnknownAuditSuspended       *time.Time
-	OfflineUnderReview          *time.Time
-	OfflineSuspended            *time.Time
-	OnlineScore                 float64
+	Latency90             int64
+	LastContactSuccess    time.Time
+	LastContactFailure    time.Time
+	VettedAt              *time.Time
+	Disqualified          *time.Time
+	UnknownAuditSuspended *time.Time
+	OfflineUnderReview    *time.Time
+	OfflineSuspended      *time.Time
 }
 
 // NodeLastContact contains the ID, address, and timestamp.
@@ -462,41 +458,10 @@ func (service *Service) Reliable(ctx context.Context) (nodes storj.NodeIDList, e
 	return service.db.Reliable(ctx, criteria)
 }
 
-// BatchUpdateStats updates multiple storagenode's stats in one transaction.
-func (service *Service) BatchUpdateStats(ctx context.Context, requests []*UpdateRequest) (failed storj.NodeIDList, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	for _, request := range requests {
-		request.AuditLambda = service.config.Node.AuditReputationLambda
-		request.AuditWeight = service.config.Node.AuditReputationWeight
-		request.AuditDQ = service.config.Node.AuditReputationDQ
-		request.SuspensionGracePeriod = service.config.Node.SuspensionGracePeriod
-		request.SuspensionDQEnabled = service.config.Node.SuspensionDQEnabled
-		request.AuditsRequiredForVetting = service.config.Node.AuditCount
-		request.AuditHistory = service.config.AuditHistory
-	}
-	return service.db.BatchUpdateStats(ctx, requests, service.config.UpdateStatsBatchSize, time.Now())
-}
-
 // UpdateReputation updates the DB columns for any of the reputation fields.
 func (service *Service) UpdateReputation(ctx context.Context, id storj.NodeID, request *ReputationStatus) (err error) {
 	mon.Task()(&ctx)(&err)
 	return service.db.UpdateReputation(ctx, id, request)
-}
-
-// UpdateStats all parts of single storagenode's stats.
-func (service *Service) UpdateStats(ctx context.Context, request *UpdateRequest) (stats *NodeStats, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	request.AuditLambda = service.config.Node.AuditReputationLambda
-	request.AuditWeight = service.config.Node.AuditReputationWeight
-	request.AuditDQ = service.config.Node.AuditReputationDQ
-	request.SuspensionGracePeriod = service.config.Node.SuspensionGracePeriod
-	request.SuspensionDQEnabled = service.config.Node.SuspensionDQEnabled
-	request.AuditsRequiredForVetting = service.config.Node.AuditCount
-	request.AuditHistory = service.config.AuditHistory
-
-	return service.db.UpdateStats(ctx, request, time.Now())
 }
 
 // UpdateNodeInfo updates node dossier with info requested from the node itself like node type, email, wallet, capacity, and version.

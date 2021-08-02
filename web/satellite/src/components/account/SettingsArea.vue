@@ -44,11 +44,15 @@
         </div>
         <div class="settings__mfa" v-if="isMFAEnabled">
             <h2 class="profile-bold-text">Two-Factor Authentication</h2>
-            <p class="profile-regular-text">
+            <p v-if="!user.isMFAEnabled" class="profile-regular-text">
                 To increase your account security, we strongly recommend enabling 2FA on your account.
+            </p>
+            <p v-else class="profile-regular-text">
+                2FA is enabled.
             </p>
             <div class="settings__mfa__buttons">
                 <VButton
+                    v-if="!user.isMFAEnabled"
                     label="Enable 2FA"
                     width="173px"
                     height="44px"
@@ -56,6 +60,7 @@
                     :is-disabled="isLoading"
                 />
                 <VButton
+                    v-else
                     label="Disable 2FA"
                     width="173px"
                     height="44px"

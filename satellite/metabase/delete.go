@@ -98,7 +98,7 @@ func (db *DB) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExa
 	if err := opts.Verify(); err != nil {
 		return DeleteObjectResult{}, err
 	}
-	err = withRows(db.db.Query(ctx, `
+	err = withRows(db.db.QueryContext(ctx, `
 			WITH deleted_objects AS (
 				DELETE FROM objects
 				WHERE
@@ -168,7 +168,7 @@ func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject)
 		return DeleteObjectResult{}, err
 	}
 
-	err = withRows(db.db.Query(ctx, `
+	err = withRows(db.db.QueryContext(ctx, `
 			WITH deleted_objects AS (
 				DELETE FROM objects
 				WHERE
@@ -307,7 +307,7 @@ func (db *DB) DeleteObjectLatestVersion(ctx context.Context, opts DeleteObjectLa
 	default:
 		return DeleteObjectResult{}, Error.New("unhandled database: %v", db.impl)
 	}
-	err = withRows(db.db.Query(ctx, query, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey)))(func(rows tagsql.Rows) error {
+	err = withRows(db.db.QueryContext(ctx, query, opts.ProjectID, []byte(opts.BucketName), []byte(opts.ObjectKey)))(func(rows tagsql.Rows) error {
 		result.Objects, result.Segments, err = db.scanObjectDeletion(ctx, opts.ObjectLocation, rows)
 		return err
 	})
@@ -334,7 +334,7 @@ func (db *DB) DeleteObjectAnyStatusAllVersions(ctx context.Context, opts DeleteO
 		return DeleteObjectResult{}, err
 	}
 
-	err = withRows(db.db.Query(ctx, `
+	err = withRows(db.db.QueryContext(ctx, `
 			WITH deleted_objects AS (
 				DELETE FROM objects
 				WHERE
@@ -409,7 +409,7 @@ func (db *DB) DeleteObjectsAllVersions(ctx context.Context, opts DeleteObjectsAl
 	sort.Slice(objectKeys, func(i, j int) bool {
 		return bytes.Compare(objectKeys[i], objectKeys[j]) < 0
 	})
-	err = withRows(db.db.Query(ctx, `
+	err = withRows(db.db.QueryContext(ctx, `
 				WITH deleted_objects AS (
 					DELETE FROM objects
 					WHERE

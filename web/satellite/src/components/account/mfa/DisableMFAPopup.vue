@@ -47,6 +47,8 @@ import VButton from '@/components/common/VButton.vue';
 
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
+import { USER_ACTIONS } from '@/store/modules/users';
+
 @Component({
     components: {
         ConfirmMFAInput,
@@ -79,18 +81,18 @@ export default class DisableMFAPopup extends Vue {
         this.isLoading = true;
 
         try {
-            // TODO: enable when backend is ready
-            // await this.$store.dispatch(USER_ACTIONS.DISABLE_USER_MFA, this.confirmPasscode)
+            await this.$store.dispatch(USER_ACTIONS.DISABLE_USER_MFA, this.confirmPasscode);
+            await this.$store.dispatch(USER_ACTIONS.GET);
 
             await this.$notify.success('MFA was disabled successfully');
-            this.isLoading = false;
 
             this.toggleModal();
         } catch (error) {
             await this.$notify.error(error.message);
             this.isError = true;
-            this.isLoading = false;
         }
+
+        this.isLoading = false;
     }
 }
 </script>

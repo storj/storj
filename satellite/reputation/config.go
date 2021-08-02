@@ -6,8 +6,13 @@ package reputation
 import (
 	"time"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/storj"
 )
+
+// ErrNodeNotFound is returned if a node does not exist in database.
+var ErrNodeNotFound = errs.Class("node not found")
 
 // Config contains all config values for the reputation service.
 type Config struct {
@@ -63,16 +68,3 @@ const (
 	// AuditOffline represents an audit where a node was offline.
 	AuditOffline
 )
-
-// AuditHistory represents a node's audit history for the most recent tracking period.
-type AuditHistory struct {
-	Score   float64
-	Windows []*AuditWindow
-}
-
-// AuditWindow represents the number of online and total audits a node received for a specific time period.
-type AuditWindow struct {
-	WindowStart time.Time
-	TotalCount  int32
-	OnlineCount int32
-}

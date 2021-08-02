@@ -58,6 +58,7 @@ import (
 	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/repairer"
+	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -122,6 +123,10 @@ type Satellite struct {
 		Chore    *audit.Chore
 		Verifier *audit.Verifier
 		Reporter *audit.Reporter
+	}
+
+	Reputation struct {
+		Service *reputation.Service
 	}
 
 	GarbageCollection struct {
@@ -403,7 +408,7 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	// cfgstruct devDefaults. we need to make sure it's safe to remove
 	// these lines and then remove them.
 	config.Debug.Control = false
-	config.Overlay.AuditHistory.OfflineDQEnabled = false
+	config.Reputation.AuditHistory.OfflineDQEnabled = false
 	config.Server.Config.Extensions.Revocation = false
 	config.Orders.OrdersSemaphoreSize = 0
 	config.Checker.NodeFailureRate = 0
@@ -550,6 +555,8 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.Overlay.Service = api.Overlay.Service
 	system.Overlay.DQStrayNodes = peer.Overlay.DQStrayNodes
 
+	system.Reputation.Service = peer.Reputation.Service
+
 	system.Metainfo.Metabase = api.Metainfo.Metabase
 	system.Metainfo.Service = peer.Metainfo.Service
 	system.Metainfo.Endpoint = api.Metainfo.Endpoint
@@ -637,7 +644,7 @@ func (planet *Planet) newRepairer(ctx context.Context, index int, identity *iden
 	rollupsWriteCache := orders.NewRollupsWriteCache(log.Named("orders-write-cache"), db.Orders(), config.Orders.FlushBatchSize)
 	planet.databases = append(planet.databases, rollupsWriteCacheCloser{rollupsWriteCache})
 
-	return satellite.NewRepairer(log, identity, metabaseDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), rollupsWriteCache, versionInfo, &config, nil)
+	return satellite.NewRepairer(log, identity, metabaseDB, revocationDB, db.RepairQueue(), db.Buckets(), db.OverlayCache(), db.Reputation(), rollupsWriteCache, versionInfo, &config, nil)
 }
 
 type rollupsWriteCacheCloser struct {

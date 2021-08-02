@@ -28,6 +28,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
 	"storj.io/storj/satellite/repair/queue"
+	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/satellite/snopayouts"
@@ -183,6 +184,11 @@ func (dbc *satelliteDBCollection) Attribution() attribution.DB {
 // OverlayCache is a getter for overlay cache repository.
 func (dbc *satelliteDBCollection) OverlayCache() overlay.DB {
 	return &overlaycache{db: dbc.getByName("overlaycache")}
+}
+
+// Reputation is a getter for overlay cache repository.
+func (dbc *satelliteDBCollection) Reputation() reputation.DB {
+	return &reputations{db: dbc.getByName("reputations")}
 }
 
 // RepairQueue is a getter for RepairQueue repository.
