@@ -49,7 +49,7 @@ export class HttpClient {
      * @param body serialized JSON
      * @param auth indicates if authentication is needed
      */
-    public async put(path: string, body: string | null, auth: boolean = true): Promise<Response> {
+    public async put(path: string, body: string | null, auth = true): Promise<Response> {
         return this.sendJSON('PUT', path, body);
     }
 
@@ -58,7 +58,7 @@ export class HttpClient {
      * @param path
      * @param auth indicates if authentication is needed
      */
-    public async get(path: string, auth: boolean = true): Promise<Response> {
+    public async get(path: string, auth = true): Promise<Response> {
         return this.sendJSON('GET', path, null);
     }
 
@@ -67,7 +67,7 @@ export class HttpClient {
      * @param path
      * @param auth indicates if authentication is needed
      */
-    public async delete(path: string, auth: boolean = true): Promise<Response> {
+    public async delete(path: string, auth = true): Promise<Response> {
         return this.sendJSON('DELETE', path, null);
     }
 }

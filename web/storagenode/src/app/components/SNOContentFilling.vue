@@ -199,10 +199,10 @@ import { Dashboard, SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno
 })
 export default class SNOContentFilling extends Vue {
     public readonly PAYOUT_PATH: string = RouteConfig.Payout.path;
-    public chartWidth: number = 0;
-    public chartHeight: number = 0;
-    public diskSpaceChartWidth: number = 0;
-    public diskSpaceChartHeight: number = 0;
+    public chartWidth = 0;
+    public chartHeight = 0;
+    public diskSpaceChartWidth = 0;
+    public diskSpaceChartHeight = 0;
 
     public $refs: {
         chart: HTMLElement;

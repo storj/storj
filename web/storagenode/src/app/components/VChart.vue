@@ -41,7 +41,7 @@ export default class VChart extends Vue {
     private readonly chartData: ChartData;
 
     @Watch('chartData')
-    private onDataChange(news: object, old: object) {
+    private onDataChange(news: Record<string, unknown>, old: Record<string, unknown>) {
         /**
          * renderChart method is inherited from BaseChart which is extended by VChart.Line
          */
@@ -55,7 +55,7 @@ export default class VChart extends Vue {
         (this as any).renderChart(this.chartData, this.chartOptions);
     }
 
-    public get chartOptions(): object {
+    public get chartOptions(): Record<string, unknown> {
         const filterCallback = this.filterDaysDisplayed;
 
         return {

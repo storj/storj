@@ -42,7 +42,7 @@ export interface PayoutApi {
 /**
  * Divider to convert payout amounts to cents.
  */
-const PRICE_DIVIDER: number = 10000;
+const PRICE_DIVIDER = 10000;
 
 /**
  * Represents payout period month and year.
@@ -118,26 +118,26 @@ export class Paystub {
  * Payout amounts converted to cents.
  */
 export class TotalPaystubForPeriod {
-    public usageAtRest: number = 0;
-    public usageGet: number = 0;
-    public usagePut: number = 0;
-    public usageGetRepair: number = 0;
-    public usagePutRepair: number = 0;
-    public usageGetAudit: number = 0;
-    public compAtRest: number = 0;
-    public compGet: number = 0;
-    public compPut: number = 0;
-    public compGetRepair: number = 0;
-    public compPutRepair: number = 0;
-    public compGetAudit: number = 0;
-    public surgePercent: number = 0;
-    public held: number = 0;
-    public owed: number = 0;
-    public disposed: number = 0;
-    public paid: number = 0;
-    public paidWithoutSurge: number = 0;
-    public grossWithSurge: number = 0;
-    public distributed: number = 0;
+    public usageAtRest = 0;
+    public usageGet = 0;
+    public usagePut = 0;
+    public usageGetRepair = 0;
+    public usagePutRepair = 0;
+    public usageGetAudit = 0;
+    public compAtRest = 0;
+    public compGet = 0;
+    public compPut = 0;
+    public compGetRepair = 0;
+    public compPutRepair = 0;
+    public compGetAudit = 0;
+    public surgePercent = 0;
+    public held = 0;
+    public owed = 0;
+    public disposed = 0;
+    public paid = 0;
+    public paidWithoutSurge = 0;
+    public grossWithSurge = 0;
+    public distributed = 0;
 
     public constructor(
         paystubs: Paystub[] = [],
@@ -175,12 +175,12 @@ export class TotalPaystubForPeriod {
  * Holds accumulated held and earned payouts.
  */
 export class TotalPayments {
-    public held: number = 0;
-    public paid: number = 0;
-    public disposed: number = 0;
+    public held = 0;
+    public paid = 0;
+    public disposed = 0;
     // TODO: remove
-    public currentMonthEarnings: number = 0;
-    public balance: number = 0;
+    public currentMonthEarnings = 0;
+    public balance = 0;
 
     public constructor(
         paystubs: Paystub[] = [],

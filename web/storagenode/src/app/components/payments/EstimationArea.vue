@@ -407,7 +407,7 @@ export default class EstimationArea extends Vue {
     /**
      * Indicates if tooltip needs to be shown.
      */
-    public isTooltipVisible: boolean = false;
+    public isTooltipVisible = false;
 
     /**
      * Toggles tooltip visibility.

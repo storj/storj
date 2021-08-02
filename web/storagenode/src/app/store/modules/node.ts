@@ -37,7 +37,7 @@ const {
     SET_DAILY_DATA,
 } = NODE_MUTATIONS;
 
-const STATUS_TRESHHOLD_MINUTES: number = 120;
+const STATUS_TRESHHOLD_MINUTES = 120;
 
 export function newNodeModule(service: StorageNodeService): StoreModule<StorageNodeState> {
     return {

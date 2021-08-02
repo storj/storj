@@ -85,7 +85,7 @@ export default class SatelliteSelectionDropdownItem extends Vue {
     /**
      * Indicates if name or id should be shown.
      */
-    public isNameShown: boolean = true;
+    public isNameShown = true;
 
     /**
      * Toggles between name and id view.
