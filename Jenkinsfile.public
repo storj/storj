@@ -238,7 +238,6 @@ pipeline {
                         DISPLAY = ':99'
                     }
                     steps {
-                        sh 'service postgresql start'
                         sh 'cockroach sql --insecure --host=localhost:26270 -e \'create database testui;\''
                         sh 'psql -U postgres -c \'create database testui;\''
 
