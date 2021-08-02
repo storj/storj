@@ -32,10 +32,12 @@ export class StorageModule implements Module<StorageState, RootState> {
 
         this.namespaced = true;
         this.state = new StorageState();
+
         this.mutations = {
             setUsage: this.setUsage,
             setDiskSpace: this.setDiskSpace,
         };
+
         this.actions = {
             usage: this.usage.bind(this),
             diskSpace: this.diskSpace.bind(this),

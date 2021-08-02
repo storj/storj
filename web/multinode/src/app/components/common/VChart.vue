@@ -33,15 +33,15 @@ class DayShowingConditions {
     extends: VueChart.Line,
 })
 export default class VChart extends Vue {
-    @Prop({default: '$'})
+    @Prop({ default: '$' })
     private readonly currency: string;
-    @Prop({default: () => { console.error('Tooltip constructor is undefined'); } })
+    @Prop({ default: () => { console.error('Tooltip constructor is undefined'); } })
     private tooltipConstructor: (tooltipModel) => void;
-    @Prop({default: {}})
+    @Prop({ default: {} })
     private readonly chartData: ChartData;
 
     @Watch('chartData')
-    private onDataChange(news: object, old: object) {
+    private onDataChange(news: Record<string, unknown>, old: Record<string, unknown>) {
         /**
          * renderChart method is inherited from BaseChart which is extended by VChart.Line
          */
@@ -55,7 +55,7 @@ export default class VChart extends Vue {
         (this as any).renderChart(this.chartData, this.chartOptions);
     }
 
-    public get chartOptions(): object {
+    public get chartOptions(): Record<string, unknown> {
         const filterCallback = this.filterDaysDisplayed;
 
         return {
@@ -105,9 +105,9 @@ export default class VChart extends Vue {
             tooltips: {
                 enabled: false,
 
-                custom: ((tooltipModel) => {
+                custom: (tooltipModel) => {
                     this.tooltipConstructor(tooltipModel);
-                }),
+                },
 
                 labels: {
                     enabled: true,
@@ -132,8 +132,8 @@ export default class VChart extends Vue {
         const isDateValueInMiddleInEvenAmount = dayShowingConditions.day ===
             dayShowingConditions.daysArray[dayShowingConditions.countMiddleDateValue() - 1];
 
-        return dayShowingConditions.isDayFirstOrLast() || (isDaysAmountEven
-            && dayShowingConditions.isDayAfterEighthDayOfTheMonth() && isDateValueInMiddleInEvenAmount);
+        return dayShowingConditions.isDayFirstOrLast() || isDaysAmountEven
+            && dayShowingConditions.isDayAfterEighthDayOfTheMonth() && isDateValueInMiddleInEvenAmount;
     }
 
     private areDaysShownOnNotEvenDaysAmount(dayShowingConditions: DayShowingConditions): boolean {
@@ -141,8 +141,8 @@ export default class VChart extends Vue {
         const isDateValueInMiddleInNotEvenAmount = dayShowingConditions.day
             === dayShowingConditions.daysArray[Math.floor(dayShowingConditions.countMiddleDateValue())];
 
-        return dayShowingConditions.isDayFirstOrLast() || (isDaysAmountNotEven
-            && dayShowingConditions.isDayAfterEighthDayOfTheMonth() && isDateValueInMiddleInNotEvenAmount);
+        return dayShowingConditions.isDayFirstOrLast() || isDaysAmountNotEven
+            && dayShowingConditions.isDayAfterEighthDayOfTheMonth() && isDateValueInMiddleInNotEvenAmount;
     }
 }
 </script>

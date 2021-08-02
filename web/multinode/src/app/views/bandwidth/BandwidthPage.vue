@@ -90,14 +90,15 @@ import { BandwidthTraffic } from '@/bandwidth';
     },
 })
 export default class BandwidthPage extends Vue {
-    public chartWidth: number = 0;
-    public chartHeight: number = 0;
-    public diskSpaceChartWidth: number = 0;
-    public diskSpaceChartHeight: number = 0;
-    public isEgressChartShown: boolean = false;
-    public isIngressChartShown: boolean = false;
+    public chartWidth = 0;
+    public chartHeight = 0;
+    public diskSpaceChartWidth = 0;
+    public diskSpaceChartHeight = 0;
+    public isEgressChartShown = false;
+    public isIngressChartShown = false;
     public $refs: {
         chart: HTMLElement;
+        diskSpaceChart: HTMLElement;
     };
 
     public get bandwidth(): BandwidthTraffic {
@@ -112,10 +113,10 @@ export default class BandwidthPage extends Vue {
      * Used container size recalculation for charts resizing.
      */
     public recalculateChartDimensions(): void {
-        this.chartWidth = this.$refs['chart'].clientWidth;
-        this.chartHeight = this.$refs['chart'].clientHeight;
-        this.diskSpaceChartWidth = this.$refs['diskSpaceChart'].clientWidth;
-        this.diskSpaceChartHeight = this.$refs['diskSpaceChart'].clientHeight;
+        this.chartWidth = this.$refs.chart.clientWidth;
+        this.chartHeight = this.$refs.chart.clientHeight;
+        this.diskSpaceChartWidth = this.$refs.diskSpaceChart.clientWidth;
+        this.diskSpaceChartHeight = this.$refs.diskSpaceChart.clientHeight;
     }
 
     /**
@@ -138,8 +139,8 @@ export default class BandwidthPage extends Vue {
         await this.fetchTraffic();
 
         // Subscribes on period or satellite change
-        this.$store.subscribe(async (mutation) => {
-            const watchedMutations = [ 'nodes/setSelectedNode', 'nodes/setSelectedSatellite' ];
+        this.$store.subscribe(async(mutation) => {
+            const watchedMutations = ['nodes/setSelectedNode', 'nodes/setSelectedSatellite'];
 
             if (watchedMutations.includes(mutation.type)) {
                 await this.fetchTraffic();

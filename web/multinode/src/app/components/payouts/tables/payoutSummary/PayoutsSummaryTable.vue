@@ -32,7 +32,7 @@ import { NodePayoutsSummary } from '@/payouts';
     },
 })
 export default class PayoutsSummaryTable extends Vue {
-    @Prop({default: () => []})
+    @Prop({ default: () => [] })
     public nodePayoutsSummary: NodePayoutsSummary[];
 }
 </script>

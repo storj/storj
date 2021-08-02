@@ -23,17 +23,17 @@ import PayoutPeriodCalendar from './PayoutPeriodCalendar.vue';
     components: { PayoutPeriodCalendar },
 })
 export default class PayoutPeriodCalendarButton extends Vue {
-    @Prop({default: ''})
+    @Prop({ default: '' })
     public period: string;
 
-    public isCalendarShown: boolean = false;
+    public isCalendarShown = false;
 
     public toggleCalendar(): void {
         this.isCalendarShown = !this.isCalendarShown;
     }
 
     public closeCalendar(): void {
-        if (!this.isCalendarShown) return;
+        if (!this.isCalendarShown) { return; }
 
         setTimeout(() => {
             this.isCalendarShown = false;

@@ -37,10 +37,12 @@ export class OperatorsModule implements Module<OperatorsState, RootState> {
 
         this.namespaced = true;
         this.state = new OperatorsState();
+
         this.mutations = {
             populate: this.populate,
             updateCurrentPage: this.updateCurrentPage,
         };
+
         this.actions = {
             listPaginated: this.listPaginated.bind(this),
         };
@@ -76,6 +78,7 @@ export class OperatorsModule implements Module<OperatorsState, RootState> {
     public async listPaginated(ctx: ActionContext<OperatorsState, RootState>, pageNumber: number): Promise<void> {
         const cursor: Cursor = new Cursor(ctx.state.limit, pageNumber);
         const page = await this.operators.listPaginated(cursor);
+
         ctx.commit('updateCurrentPage', pageNumber);
         ctx.commit('populate', page);
     }

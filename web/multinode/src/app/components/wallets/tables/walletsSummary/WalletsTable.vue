@@ -61,7 +61,7 @@ import { Operator } from '@/operators';
     },
 })
 export default class WalletsTable extends Vue {
-    @Prop({default: () => []})
+    @Prop({ default: () => [] })
     private readonly operators: Operator[];
 
     public redirectToWalletDetailsPage(walletAddress: string): void {

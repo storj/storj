@@ -53,9 +53,7 @@ export default class EgressChart extends BaseChart {
             return 'Bytes';
         }
 
-        return ChartUtils.getChartDataDimension(this.allBandwidth.map((elem) => {
-            return elem.egress.audit + elem.egress.repair + elem.egress.usage;
-        }));
+        return ChartUtils.getChartDataDimension(this.allBandwidth.map((elem) => elem.egress.audit + elem.egress.repair + elem.egress.usage));
     }
 
     public get chartData(): ChartData {
@@ -75,7 +73,7 @@ export default class EgressChart extends BaseChart {
     public egressTooltip(tooltipModel): void {
         const tooltipParams = new TooltipParams(tooltipModel, 'egress-chart', 'egress-tooltip',
             'egress-tooltip-point', this.tooltipMarkUp(tooltipModel),
-            235, 94,  6, 4, `#48a77f`);
+            235, 94, 6, 4, '#48a77f');
 
         Tooltip.custom(tooltipParams);
     }

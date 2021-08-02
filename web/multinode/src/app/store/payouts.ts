@@ -36,6 +36,7 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
 
         this.namespaced = true;
         this.state = new PayoutsState();
+
         this.mutations = {
             setSummary: this.setSummary,
             setPayoutPeriod: this.setPayoutPeriod,
@@ -45,6 +46,7 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
             setNodeHeldHistory: this.setNodeHeldHistory,
             setCurrentNodeExpectations: this.setCurrentNodeExpectations,
         };
+
         this.actions = {
             summary: this.summary.bind(this),
             expectations: this.expectations.bind(this),
@@ -52,6 +54,7 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
             nodeTotals: this.nodeTotals.bind(this),
             heldHistory: this.heldHistory.bind(this),
         };
+
         this.getters = {
             periodString: this.periodString,
         };
@@ -185,7 +188,7 @@ export class PayoutsModule implements Module<PayoutsState, RootState> {
      * periodString is full name month and year representation of selected payout period.
      */
     public periodString(state: PayoutsState): string {
-        if (!state.selectedPayoutPeriod) return 'All time';
+        if (!state.selectedPayoutPeriod) { return 'All time'; }
 
         const splittedPeriod = state.selectedPayoutPeriod.split('-');
         const monthIndex = parseInt(splittedPeriod[1]) - 1;

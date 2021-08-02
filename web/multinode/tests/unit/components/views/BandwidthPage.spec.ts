@@ -11,12 +11,13 @@ import { createLocalVue, shallowMount } from '@vue/test-utils';
 import store from '../../mock/store';
 
 const localVue = createLocalVue();
+
 localVue.use(Vuex);
-localVue.filter('bytesToBase10String', (amountInBytes: number): string => {
-    return Size.toBase10String(amountInBytes);
-});
+
+localVue.filter('bytesToBase10String', (amountInBytes: number): string => Size.toBase10String(amountInBytes));
 
 const traffic = new BandwidthTraffic();
+
 traffic.bandwidthSummary = 700000000;
 traffic.egressSummary = 577700000000;
 traffic.ingressSummary = 5000000;
@@ -33,7 +34,7 @@ describe('BandwidthPage', (): void => {
         expect(wrapper).toMatchSnapshot();
     });
 
-    it('renders correctly with egress chart', async (): Promise<void> => {
+    it('renders correctly with egress chart', async(): Promise<void> => {
         const wrapper = shallowMount(BandwidthPage, {
             store,
             localVue,
@@ -44,7 +45,7 @@ describe('BandwidthPage', (): void => {
         expect(wrapper).toMatchSnapshot();
     });
 
-    it('renders correctly with ingress chart', async (): Promise<void> => {
+    it('renders correctly with ingress chart', async(): Promise<void> => {
         const wrapper = shallowMount(BandwidthPage, {
             store,
             localVue,

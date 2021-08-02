@@ -57,10 +57,8 @@ export default class BandwidthChart extends BaseChart {
             return 'Bytes';
         }
 
-        return ChartUtils.getChartDataDimension(this.allBandwidth.map((elem) => {
-            return elem.egress.usage + elem.egress.repair + elem.egress.audit
-                + elem.ingress.repair + elem.ingress.usage;
-        }));
+        return ChartUtils.getChartDataDimension(this.allBandwidth.map((elem) => elem.egress.usage + elem.egress.repair + elem.egress.audit
+                + elem.ingress.repair + elem.ingress.usage));
     }
 
     public get chartData(): ChartData {
@@ -71,10 +69,8 @@ export default class BandwidthChart extends BaseChart {
         const chartBorderWidth = 1;
 
         if (this.allBandwidth.length) {
-            data = ChartUtils.normalizeChartData(this.allBandwidth.map(elem => {
-                return elem.egress.usage + elem.egress.repair + elem.egress.audit
-                    + elem.ingress.repair + elem.ingress.usage;
-            }));
+            data = ChartUtils.normalizeChartData(this.allBandwidth.map(elem => elem.egress.usage + elem.egress.repair + elem.egress.audit
+                    + elem.ingress.repair + elem.ingress.usage));
         }
 
         return new ChartData(daysCount, chartBackgroundColor, chartBorderColor, chartBorderWidth, data);
@@ -83,7 +79,7 @@ export default class BandwidthChart extends BaseChart {
     public bandwidthTooltip(tooltipModel: any): void {
         const tooltipParams = new TooltipParams(tooltipModel, 'bandwidth-chart', 'bandwidth-tooltip',
             'bandwidth-tooltip-point', this.tooltipMarkUp(tooltipModel),
-            285, 125, 6, 4, `#1f49a3`);
+            285, 125, 6, 4, '#1f49a3');
 
         Tooltip.custom(tooltipParams);
     }

@@ -26,7 +26,7 @@ import { NodePayoutsSummary } from '@/payouts';
     },
 })
 export default class PayoutsSummaryItem extends Vue {
-    @Prop({default: () => new NodePayoutsSummary()})
+    @Prop({ default: () => new NodePayoutsSummary() })
     public payoutsSummary: NodePayoutsSummary;
 
     public redirectToByNodePayoutsPage(): void {

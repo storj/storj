@@ -6,17 +6,17 @@ import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
 
 import VChart from '@/app/components/common/VChart.vue';
 
-@Component ({
+@Component({
     components: {
         VChart,
     },
 })
 export default class BaseChart extends Vue {
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     public width: number;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     public height: number;
-    @Prop({default: false})
+    @Prop({ default: false })
     public isDarkMode: boolean;
 
     public chartWidth: number = this.width;
@@ -24,7 +24,7 @@ export default class BaseChart extends Vue {
     /**
      * Used for chart re rendering.
      */
-    public chartKey: number = 0;
+    public chartKey = 0;
 
     public $refs: {
         chartContainer: HTMLElement;

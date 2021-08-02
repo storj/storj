@@ -67,7 +67,7 @@ import { Paystub } from '@/payouts';
     },
 })
 export default class PayoutsByNodeTable extends Vue {
-    @Prop({default: () => new Paystub()})
+    @Prop({ default: () => new Paystub() })
     public paystub: Paystub;
 }
 </script>

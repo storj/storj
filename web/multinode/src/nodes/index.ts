@@ -4,7 +4,7 @@
 /**
  * Divider to convert payout amounts to cents.
  */
-const PRICE_DIVIDER: number = 10000;
+const PRICE_DIVIDER = 10000;
 
 /**
  * Describes node online statuses.
@@ -51,7 +51,6 @@ export class Node {
     public get statusText(): string {
         return NodeStatus[this.status];
     }
-
 }
 
 /**
