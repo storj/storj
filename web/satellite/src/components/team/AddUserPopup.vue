@@ -108,8 +108,8 @@ export default class AddUserPopup extends Vue {
      * Initial empty inputs set.
      */
     private inputs: EmailInput[] = [new EmailInput(), new EmailInput(), new EmailInput()];
-    private formError: string = '';
-    private isLoading: boolean = false;
+    private formError = '';
+    private isLoading = false;
 
     private FIRST_PAGE = 1;
 

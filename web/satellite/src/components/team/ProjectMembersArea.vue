@@ -81,7 +81,7 @@ declare interface ResetPagination {
 export default class ProjectMembersArea extends Vue {
     private FIRST_PAGE = 1;
 
-    public areMembersFetching: boolean = true;
+    public areMembersFetching = true;
 
     public $refs!: {
         pagination: HTMLElement & ResetPagination;

@@ -29,7 +29,7 @@ export default class ProjectMemberListItem extends Vue {
     @Prop({default: new ProjectMember('', '', '', new Date(), '')})
     public itemData: ProjectMember;
 
-    public get avatarData(): object {
+    public get avatarData(): Record<string, unknown> {
         const fullName: string = this.itemData.user.getFullName();
 
         const letter = fullName.slice(0, 1).toLocaleUpperCase();

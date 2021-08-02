@@ -1,4 +1,5 @@
 /* Copyright (C) 2021 Storj Labs, Inc. */
+
 /* See LICENSE for copying information. */
 
 body {
@@ -10,7 +11,8 @@ body {
     font-style: normal;
     font-weight: 400;
     font-display: swap;
-    src: local(''),
+    src:
+        local(''),
         url('/static/static/fonts/inter-v3-latin-regular.woff2') format('woff2'),
         url('/static/static/fonts/inter-v3-latin-regular.woff') format('woff'),
         url('/static/static/fonts/inter-v3-latin-regular.ttf') format('truetype');
@@ -53,7 +55,7 @@ a {
 }
 
 .title {
-     font-family: 'font_regular', sans-serif;
-     margin-bottom: 60px;
-     font-size: 32px;
+    font-family: 'font_regular', sans-serif;
+    margin-bottom: 60px;
+    font-size: 32px;
 }

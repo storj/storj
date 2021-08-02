@@ -238,7 +238,7 @@ export function makeProjectsModule(api: ProjectsApi): StoreModule<ProjectsState>
             },
             selectedProject: (state: ProjectsState): Project => state.selectedProject,
             projectsCount: (state: ProjectsState, getters: any): number => {
-                let projectsCount: number = 0;
+                let projectsCount = 0;
 
                 state.projects.forEach((project: Project) => {
                     if (project.ownerId === getters.user.id) {

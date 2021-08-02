@@ -115,7 +115,7 @@ import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
     },
 })
 export default class OverviewStep extends Vue {
-    public isLoading: boolean = false;
+    public isLoading = false;
 
     private readonly analytics: AnalyticsHttpApi = new AnalyticsHttpApi();
 

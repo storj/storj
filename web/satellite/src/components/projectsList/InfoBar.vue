@@ -42,7 +42,7 @@ import { MetaUtils } from '@/utils/meta';
     },
 })
 export default class InfoBar extends Vue {
-    public isDataFetching: boolean = true;
+    public isDataFetching = true;
 
     /**
      * Lifecycle hook after initial render.

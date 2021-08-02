@@ -72,13 +72,13 @@ import { Validator } from '@/utils/validation';
     },
 })
 export default class ForgotPassword extends Vue {
-    private email: string = '';
-    private emailError: string = '';
+    private email = '';
+    private emailError = '';
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
     // tardigrade logic
-    public isDropdownShown: boolean = false;
+    public isDropdownShown = false;
 
     public readonly loginPath: string = RouteConfig.Login.path;
 
@@ -122,9 +122,7 @@ export default class ForgotPassword extends Vue {
      * Sends recovery password email.
      */
     public async onSendConfigurations(): Promise<void> {
-        const self = this;
-
-        if (!self.validateFields()) {
+        if (!this.validateFields()) {
             return;
         }
 

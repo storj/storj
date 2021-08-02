@@ -38,7 +38,7 @@ import InputCaret from '@/../static/images/common/caret.svg';
 })
 export default class SelectInput extends Vue {
 
-    protected value: string = '';
+    protected value = '';
 
     @Prop({default: ''})
     protected readonly label: string;
@@ -69,7 +69,7 @@ export default class SelectInput extends Vue {
     /**
      * Returns style objects depends on props.
      */
-    protected get style(): object {
+    protected get style(): Record<string, unknown> {
         return {
             inputStyle: {
                 width: this.width,

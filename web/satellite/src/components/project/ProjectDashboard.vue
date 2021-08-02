@@ -44,8 +44,8 @@ import { MetaUtils } from '@/utils/meta';
     },
 })
 export default class ProjectDashboard extends Vue {
-    public areBucketsFetching: boolean = true;
-    public isSummaryDataFetching: boolean = true;
+    public areBucketsFetching = true;
+    public isSummaryDataFetching = true;
 
     /**
      * Lifecycle hook after initial render.

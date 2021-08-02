@@ -4,8 +4,8 @@
 /**
  * ErrorBadRequest is a custom error type for performing invalid operations.
  */
- export class ErrorBadRequest extends Error {
-    public constructor(message: string = 'bad request') {
+export class ErrorBadRequest extends Error {
+    public constructor(message = 'bad request') {
         super(message);
     }
 }

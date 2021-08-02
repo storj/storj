@@ -5,9 +5,9 @@
  * LocalData exposes methods to manage local storage.
  */
 export class LocalData {
-    private static userId: string = 'userId';
-    private static selectedProjectId: string = 'selectedProjectId';
-    private static userIdPassSalt: string = 'userIdPassSalt';
+    private static userId = 'userId';
+    private static selectedProjectId = 'selectedProjectId';
+    private static userIdPassSalt = 'userIdPassSalt';
 
     public static getUserId(): string | null {
         return localStorage.getItem(LocalData.userId);

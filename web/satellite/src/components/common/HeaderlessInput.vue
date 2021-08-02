@@ -75,9 +75,9 @@ export default class HeaderlessInput extends Vue {
     private readonly passwordType: string = 'password';
 
     private type: string = this.textType;
-    private isPasswordShown: boolean = false;
+    private isPasswordShown = false;
 
-    protected value: string = '';
+    protected value = '';
 
     @Prop({default: ''})
     protected readonly label: string;
@@ -193,7 +193,7 @@ export default class HeaderlessInput extends Vue {
     /**
      * Returns style objects depends on props.
      */
-    protected get style(): object {
+    protected get style(): Record<string, unknown> {
         return {
             inputStyle: {
                 width: this.width,

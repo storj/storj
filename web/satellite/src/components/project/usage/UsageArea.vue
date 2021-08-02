@@ -75,11 +75,11 @@ export default class UsageArea extends Vue {
      */
     private formattedValue(value: Size): string {
         switch (value.label) {
-            case Dimensions.Bytes:
-            case Dimensions.KB:
-                return '0';
-            default:
-                return `${value.formattedBytes.replace(/\\.0+$/, '')}${value.label}`;
+        case Dimensions.Bytes:
+        case Dimensions.KB:
+            return '0';
+        default:
+            return `${value.formattedBytes.replace(/\\.0+$/, '')}${value.label}`;
         }
     }
 }

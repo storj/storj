@@ -64,7 +64,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
     },
 })
 export default class EditProfilePopup extends Vue {
-    private fullNameError: string = '';
+    private fullNameError = '';
 
     private readonly userInfo: UpdatedUser =
         new UpdatedUser(this.$store.getters.user.fullName, this.$store.getters.user.shortName);

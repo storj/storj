@@ -26,7 +26,7 @@ export default class VList extends Vue {
     private readonly itemComponent: string;
     @Prop({default: () => new Promise(() => false)})
     private readonly onItemClick: listItemClickCallback;
-    @Prop({default: Array()})
+    @Prop({default: []})
     private readonly dataSet: any[];
 }
 </script>

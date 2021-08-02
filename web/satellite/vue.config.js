@@ -21,7 +21,7 @@ module.exports = {
                 minRatio: 0.8
             }),
             new StyleLintPlugin({
-                files: ['**/*.{vue,sss,less,scss,sass}'],
+                files: ['**/*.{vue,css,sss,less,scss,sass}'],
                 ignoreFiles: ["./node_modules/**"],
                 emitWarning: true,
             }),

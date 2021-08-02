@@ -25,7 +25,7 @@ export const USER_MUTATIONS = {
 
 export class UsersState {
     public user: User = new User();
-    public userMFASecret: string = '';
+    public userMFASecret = '';
     public userMFARecoveryCodes: string[] = [];
 }
 

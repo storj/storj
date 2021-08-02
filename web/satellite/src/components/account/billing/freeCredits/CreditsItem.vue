@@ -46,7 +46,7 @@ export default class CreditsItem extends Vue {
      * Returns memory amount depending on item's money amount.
      */
     public get memoryAmount(): number {
-        const gbPrice: number = 5.5; // in cents.
+        const gbPrice = 5.5; // in cents.
 
         return Math.floor(this.creditsItem.amount / gbPrice);
     }

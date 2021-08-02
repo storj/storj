@@ -86,17 +86,17 @@ import { Validator } from '@/utils/validation';
 export default class BucketsView extends Vue {
     private readonly FILE_BROWSER_AG_NAME: string = 'Web file browser API key';
     private worker: Worker;
-    private grantWithPermissions: string = '';
-    private accessGrant: string = '';
-    private createBucketName: string = '';
-    private deleteBucketName: string = '';
+    private grantWithPermissions = '';
+    private accessGrant = '';
+    private createBucketName = '';
+    private deleteBucketName = '';
 
-    public isLoading: boolean = true;
-    public isCreatePopupVisible: boolean = false;
-    public isDeletePopupVisible: boolean = false;
-    public isRequestProcessing: boolean = false;
-    public errorMessage: string = '';
-    public activeDropdown: number = -1;
+    public isLoading = true;
+    public isCreatePopupVisible = false;
+    public isDeletePopupVisible = false;
+    public isRequestProcessing = false;
+    public errorMessage = '';
+    public activeDropdown = -1;
 
     /**
      * Lifecycle hook after initial render.
@@ -345,20 +345,20 @@ export default class BucketsView extends Vue {
      */
     private isBucketNameValid(name: string): boolean {
         switch (true) {
-            case name.length < 3 || name.length > 63:
-                this.errorMessage = 'Name must be not less than 3 and not more than 63 characters length';
+        case name.length < 3 || name.length > 63:
+            this.errorMessage = 'Name must be not less than 3 and not more than 63 characters length';
 
-                return false;
-            case !Validator.bucketName(name):
-                this.errorMessage = 'Name must include only lowercase latin characters';
+            return false;
+        case !Validator.bucketName(name):
+            this.errorMessage = 'Name must include only lowercase latin characters';
 
-                return false;
-            case !Validator.oneWordString(name):
-                this.errorMessage = 'Name must be 1-word string';
+            return false;
+        case !Validator.oneWordString(name):
+            this.errorMessage = 'Name must be 1-word string';
 
-                return false;
-            default:
-                return true;
+            return false;
+        default:
+            return true;
         }
     }
 }

@@ -1,6 +1,8 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+/* eslint-disable */
+
 importScripts('/static/static/wasm/wasm_exec.js')
 
 if (!WebAssembly.instantiate) {

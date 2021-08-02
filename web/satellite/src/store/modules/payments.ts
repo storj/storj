@@ -87,11 +87,11 @@ export class PaymentsState {
     public creditCards: CreditCard[] = [];
     public paymentsHistory: PaymentsHistoryItem[] = [];
     public usageAndCharges: ProjectUsageAndCharges[] = [];
-    public priceSummary: number = 0;
-    public priceSummaryForSelectedProject: number = 0;
+    public priceSummary = 0;
+    public priceSummaryForSelectedProject = 0;
     public startDate: Date = new Date();
     public endDate: Date = new Date();
-    public isAddPMModalShown: boolean = false;
+    public isAddPMModalShown = false;
 }
 
 /**

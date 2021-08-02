@@ -126,25 +126,25 @@ interface ClearInput {
     },
 })
 export default class Login extends Vue {
-    private email: string = '';
-    private password: string = '';
-    private passcode: string = '';
-    private recoveryCode: string = '';
-    private isLoading: boolean = false;
-    private emailError: string = '';
-    private passwordError: string = '';
+    private email = '';
+    private password = '';
+    private passcode = '';
+    private recoveryCode = '';
+    private isLoading = false;
+    private emailError = '';
+    private passwordError = '';
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
     public readonly forgotPasswordPath: string = RouteConfig.ForgotPassword.path;
-    public isActivatedBannerShown: boolean = false;
-    public isActivatedError: boolean = false;
+    public isActivatedBannerShown = false;
+    public isActivatedError = false;
     public isMFARequired = false;
     public isMFAError = false;
     public isRecoveryCodeState = false;
 
     // Tardigrade logic
-    public isDropdownShown: boolean = false;
+    public isDropdownShown = false;
 
     public readonly registerPath: string = RouteConfig.Register.path;
 
