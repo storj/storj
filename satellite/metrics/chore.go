@@ -41,7 +41,7 @@ func NewChore(log *zap.Logger, config Config, loop *segmentloop.Service) *Chore 
 	return &Chore{
 		log:    log,
 		config: config,
-		// This chore monitors metainfo loop, so it's fine to use very small cycle time.
+		// This chore monitors segment loop, so it's fine to use very small cycle time.
 		Loop:        sync2.NewCycle(time.Nanosecond),
 		segmentLoop: loop,
 	}
@@ -63,6 +63,12 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 		}
 		mon.IntVal("remote_dependent_object_count").Observe(chore.Counter.RemoteObjects)
 		mon.IntVal("inline_object_count").Observe(chore.Counter.InlineObjects)
+
+		mon.IntVal("total_inline_bytes").Observe(chore.Counter.TotalInlineBytes) //mon:locked
+		mon.IntVal("total_remote_bytes").Observe(chore.Counter.TotalRemoteBytes) //mon:locked
+
+		mon.IntVal("total_inline_segments").Observe(chore.Counter.TotalInlineSegments) //mon:locked
+		mon.IntVal("total_remote_segments").Observe(chore.Counter.TotalRemoteSegments) //mon:locked
 
 		// TODO move this metric to a place where objects are iterated e.g. tally
 		// or drop it completely as we can easily get this value with redash
