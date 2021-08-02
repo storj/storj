@@ -213,19 +213,7 @@ func (planet *Planet) Start(ctx context.Context) {
 			})
 		})
 	}
-	if !planet.config.Reconfigure.DisableInitReputationDB {
-		for _, peer := range planet.StorageNodes {
-			peer := peer
-			for _, sat := range planet.Satellites {
-				sat := sat
-				pprof.Do(ctx, pprof.Labels("peer", peer.Label(), "startup", "reputation"), func(ctx context.Context) {
-					group.Go(func() error {
-						return sat.DB.Reputation().Init(ctx, peer.ID())
-					})
-				})
-			}
-		}
-	}
+
 	_ = group.Wait()
 
 	planet.started = true
@@ -253,7 +241,7 @@ func (planet *Planet) StopNodeAndUpdate(ctx context.Context, node *StorageNode) 
 	}
 
 	for _, satellite := range planet.Satellites {
-		err := satellite.Overlay.Service.UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
+		err := satellite.DB.OverlayCache().UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
 			NodeID:  node.ID(),
 			Address: &pb.NodeAddress{Address: node.Addr()},
 			IsUp:    true,
@@ -263,7 +251,7 @@ func (planet *Planet) StopNodeAndUpdate(ctx context.Context, node *StorageNode) 
 				Timestamp:  time.Time{},
 				Release:    false,
 			},
-		}, time.Now().Add(-4*time.Hour))
+		}, time.Now().Add(-4*time.Hour), satellite.Config.Overlay.Node)
 		if err != nil {
 			return err
 		}

@@ -30,13 +30,13 @@ type Endpoint struct {
 
 	log        *zap.Logger
 	overlay    overlay.DB
-	reputation reputation.DB
+	reputation *reputation.Service
 	accounting accounting.StoragenodeAccounting
 	config     paymentsconfig.Config
 }
 
 // NewEndpoint creates new endpoint.
-func NewEndpoint(log *zap.Logger, overlay overlay.DB, reputation reputation.DB, accounting accounting.StoragenodeAccounting, config paymentsconfig.Config) *Endpoint {
+func NewEndpoint(log *zap.Logger, overlay overlay.DB, reputation *reputation.Service, accounting accounting.StoragenodeAccounting, config paymentsconfig.Config) *Endpoint {
 	return &Endpoint{
 		log:        log,
 		overlay:    overlay,
@@ -64,18 +64,8 @@ func (e *Endpoint) GetStats(ctx context.Context, req *pb.GetStatsRequest) (_ *pb
 	}
 	reputationInfo, err := e.reputation.Get(ctx, peer.ID)
 	if err != nil {
-		// if there is no audit reputation for the node, that's fine and we
-		// return default reputation values
-		if reputation.ErrNodeNotFound.Has(err) {
-			reputationInfo = &reputation.Info{
-				UnknownAuditReputationAlpha: 1,
-				AuditReputationAlpha:        1,
-				OnlineScore:                 1,
-			}
-		} else {
-			e.log.Error("reputation.Get failed", zap.Error(err))
-			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
-		}
+		e.log.Error("reputation.Get failed", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	auditScore := calculateReputationScore(

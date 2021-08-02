@@ -98,3 +98,30 @@ func TestApplyAudit(t *testing.T) {
 
 	})
 }
+
+func TestGet(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		nodeID := planet.StorageNodes[0].ID()
+		service := planet.Satellites[0].Reputation.Service
+
+		// existing node has not been audited yet should have default reputation
+		// score
+		node, err := service.Get(ctx, nodeID)
+		require.NoError(t, err)
+		require.Zero(t, node.TotalAuditCount)
+		require.EqualValues(t, 1, node.AuditReputationAlpha)
+		require.EqualValues(t, 1, node.UnknownAuditReputationAlpha)
+		require.EqualValues(t, 1, node.OnlineScore)
+
+		// if a node has no entry in reputation store, it should have default
+		// reputation score
+		newNode, err := service.Get(ctx, testrand.NodeID())
+		require.NoError(t, err)
+		require.Zero(t, newNode.TotalAuditCount)
+		require.EqualValues(t, 1, newNode.AuditReputationAlpha)
+		require.EqualValues(t, 1, newNode.UnknownAuditReputationAlpha)
+		require.EqualValues(t, 1, newNode.OnlineScore)
+	})
+}

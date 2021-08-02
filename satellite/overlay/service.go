@@ -470,7 +470,15 @@ func (service *Service) UpdateNodeInfo(ctx context.Context, node storj.NodeID, n
 	return service.db.UpdateNodeInfo(ctx, node, nodeInfo)
 }
 
-// UpdateCheckIn updates a single storagenode's check-in info.
+// UpdateCheckIn updates a single storagenode's check-in info if needed.
+// The check-in info is updated in the database if:
+// (1) there is no previous entry;
+// (2) it has been too long since the last known entry; or
+// (3) the node hostname, IP address, port, wallet, sw version, or disk capacity
+// has changed.
+// Note that there can be a race between acquiring the previous entry and
+// performing the update, so if two updates happen at about the same time it is
+// not defined which one will end up in the database.
 func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	oldInfo, err := service.Get(ctx, node.NodeID)
@@ -507,9 +515,12 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 		oldInfo.LastNet != node.LastNet || oldInfo.LastIPPort != node.LastIPPort {
 		return service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
 	}
+
 	service.log.Debug("ignoring unnecessary check-in",
 		zap.String("node address", node.Address.Address),
 		zap.Stringer("Node ID", node.NodeID))
+	mon.Event("unnecessary_node_check_in")
+
 	return nil
 }
 

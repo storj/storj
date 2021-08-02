@@ -616,7 +616,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.NodeStats.Endpoint = nodestats.NewEndpoint(
 			peer.Log.Named("nodestats:endpoint"),
 			peer.Overlay.DB,
-			peer.DB.Reputation(),
+			peer.Reputation.Service,
 			peer.DB.StoragenodeAccounting(),
 			config.Payments,
 		)
