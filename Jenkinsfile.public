@@ -240,7 +240,10 @@ pipeline {
                         sh 'psql -U postgres -c \'create database testui;\''
 
                         sh 'Xvfb -ac :99 -screen 0 1280x1024x16 &'
-                        sh 'go test -vet=off -race -json ./integration/ui/... 2>&1 | tee .build/ui-tests.json | xunit -out .build/ui-tests.xml'
+                        // ORIGINAL: sh 'go test -vet=off -race -json ./integration/ui/... 2>&1 | tee .build/ui-tests.json | xunit -out .build/ui-tests.xml'
+                        // FROM TESTS STAGE: sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+
+                        sh 'go test -parallel 1 -p 1 -vet=off $COVERFLAGS -timeout 20m -json -race ./integration/ui/... 2>&1 | tee .build/ui-tests.json | xunit -out .build/ui-tests.xml'
                     }
                     post {
                         always {
