@@ -125,6 +125,7 @@ pipeline {
                         STORJ_TEST_COCKROACH_ALT = 'cockroach://root@localhost:26260/testcockroach?sslmode=disable'
                         STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
                         COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
+                        STORJ_TEST_SATELLITE_WEB = "built npm"
                     }
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
@@ -137,32 +138,11 @@ pipeline {
 
                         sh 'psql -U postgres -c \'create database teststorj;\''
                         sh 'psql -U postgres -c \'create database testmetabase;\''
-                        sh 'use-ports -from 1024 -to 10000 &'
+                        // sh 'use-ports -from 1024 -to 10000 &'
 
-                        sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+                        // sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
 
                         // sh 'check-clean-directory'
-                    }
-
-                    post {
-                        always {
-                            sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
-                            archiveArtifacts artifacts: '.build/tests.json'
-                            junit '.build/tests.xml'
-
-                            script {
-                                if(fileExists(".build/coverprofile")){
-                                    sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
-                                    sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
-                                    sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
-                                    cobertura coberturaReportFile: '.build/cobertura.xml',
-                                        lineCoverageTargets: '70, 60, 50',
-                                        autoUpdateHealth: false,
-                                        autoUpdateStability: false,
-                                        failUnhealthy: true
-                                }
-                            }
-                        }
                     }
                 }
 
@@ -238,7 +218,7 @@ pipeline {
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26270 -e \'create database testui;\''
                         sh 'psql -U postgres -c \'create database testui;\''
-
+                        sh 'use-ports -from 1024 -to 10000 &'
                         sh 'Xvfb -ac :99 -screen 0 1280x1024x16 &'
                         sh 'go test -vet=off -race -json ./integration/ui/... 2>&1 | tee .build/ui-tests.json | xunit -out .build/ui-tests.xml'
                     }
