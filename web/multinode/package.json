@@ -21,7 +21,7 @@
     "vuex": "3.6.0"
   },
   "devDependencies": {
-    "@babel/core": "7.8.4",
+    "@babel/core": "7.14.8",
     "@babel/plugin-proposal-object-rest-spread": "7.8.3",
     "@vue/cli-plugin-babel": "4.1.1",
     "@vue/cli-plugin-typescript": "4.5.13",
@@ -32,7 +32,7 @@
     "compression-webpack-plugin": "6.0.0",
     "core-js": "3.6.5",
     "jest-fetch-mock": "3.0.0",
-    "node-sass": "^6.0.1",
+    "sass": "1.37.0",
     "sass-loader": "8.0.0",
     "sinon": "7.5.0",
     "stylelint": "13.7.1",
@@ -47,8 +47,7 @@
     "vue-svg-loader": "0.16.0",
     "vue-template-compiler": "2.6.11",
     "vue-tslint": "0.3.2",
-    "vue-tslint-loader": "3.5.6",
-    "webpack": "^5.47.0"
+    "vue-tslint-loader": "3.5.6"
   },
   "jest": {
     "automock": false,
