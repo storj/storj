@@ -59,20 +59,31 @@
                     :on-press="enableMFA"
                     :is-disabled="isLoading"
                 />
-                <VButton
-                    v-else
-                    label="Disable 2FA"
-                    width="173px"
-                    height="44px"
-                    :on-press="toggleDisableMFAPopup"
-                    is-deletion="true"
-                />
+                <div v-else class="settings__mfa__buttons__row">
+                    <VButton
+                        class="margin-right"
+                        label="Disable 2FA"
+                        width="173px"
+                        height="44px"
+                        :on-press="toggleDisableMFAPopup"
+                        is-deletion="true"
+                    />
+                    <VButton
+                        label="Regenerate Recovery Codes"
+                        width="240px"
+                        height="44px"
+                        :on-press="generateNewMFARecoveryCodes"
+                        is-blue-white="true"
+                        :is-disabled="isLoading"
+                    />
+                </div>
             </div>
         </div>
         <ChangePasswordPopup v-if="isChangePasswordPopupShown"/>
         <EditProfilePopup v-if="isEditProfilePopupShown"/>
         <EnableMFAPopup v-if="isEnableMFAPopup" :toggle-modal="toggleEnableMFAPopup"/>
         <DisableMFAPopup v-if="isDisableMFAPopup" :toggle-modal="toggleDisableMFAPopup"/>
+        <MFARecoveryCodesPopup v-if="isMFACodesPopup" :toggle-modal="toggleMFACodesPopup"/>
     </div>
 </template>
 
@@ -84,6 +95,7 @@ import DeleteAccountPopup from '@/components/account/DeleteAccountPopup.vue';
 import EditProfilePopup from '@/components/account/EditProfilePopup.vue';
 import DisableMFAPopup from '@/components/account/mfa/DisableMFAPopup.vue';
 import EnableMFAPopup from '@/components/account/mfa/EnableMFAPopup.vue';
+import MFARecoveryCodesPopup from '@/components/account/mfa/MFARecoveryCodesPopup.vue';
 import VButton from '@/components/common/VButton.vue';
 
 import ChangePasswordIcon from '@/../static/images/account/profile/changePassword.svg';
@@ -106,6 +118,7 @@ import { MetaUtils } from '@/utils/meta';
         EditProfilePopup,
         EnableMFAPopup,
         DisableMFAPopup,
+        MFARecoveryCodesPopup,
     },
 })
 export default class SettingsArea extends Vue {
@@ -113,6 +126,7 @@ export default class SettingsArea extends Vue {
     public isLoading = false;
     public isEnableMFAPopup = false;
     public isDisableMFAPopup = false;
+    public isMFACodesPopup = false;
 
     /**
      * Lifecycle hook after initial render where user info is fetching.
@@ -140,6 +154,24 @@ export default class SettingsArea extends Vue {
     }
 
     /**
+     * Toggles generate new MFA recovery codes popup visibility.
+     */
+    public async generateNewMFARecoveryCodes(): Promise<void> {
+        if (this.isLoading) return;
+
+        this.isLoading = true;
+
+        try {
+            await this.$store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
+            this.toggleMFACodesPopup();
+        } catch (error) {
+            await this.$notify.error(error.message);
+        }
+
+        this.isLoading = false;
+    }
+
+    /**
      * Toggles enable MFA popup visibility.
      */
     public toggleEnableMFAPopup(): void {
@@ -151,6 +183,13 @@ export default class SettingsArea extends Vue {
      */
     public toggleDisableMFAPopup(): void {
         this.isDisableMFAPopup = !this.isDisableMFAPopup;
+    }
+
+    /**
+     * Toggles MFA recovery codes popup visibility.
+     */
+    public toggleMFACodesPopup(): void {
+        this.isMFACodesPopup = !this.isMFACodesPopup;
     }
 
     /**
@@ -303,8 +342,17 @@ export default class SettingsArea extends Vue {
 
             &__buttons {
                 margin-top: 20px;
+
+                &__row {
+                    display: flex;
+                    align-items: center;
+                }
             }
         }
+    }
+
+    .margin-right {
+        margin-right: 15px;
     }
 
     .edit-svg {

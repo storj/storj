@@ -32,7 +32,6 @@
                     Please save these codes somewhere to be able to recover access to your account.
                 </h2>
                 <p
-                    class="enable-mfa__container__codes__value"
                     v-for="(code, index) in userMFARecoveryCodes"
                     :key="index"
                 >
