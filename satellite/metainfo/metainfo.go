@@ -1263,9 +1263,10 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 				Key:     metabase.ObjectKey(cursor),
 				Version: 1, // TODO: set to a the version from the protobuf request when it supports this
 			},
-			Recursive: req.Recursive,
-			BatchSize: limit + 1,
-			Status:    status,
+			Recursive:       req.Recursive,
+			BatchSize:       limit + 1,
+			Status:          status,
+			IncludeMetadata: includeMetadata,
 		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 			entry := metabase.ObjectEntry{}
 			for len(resp.Items) < limit && it.Next(ctx, &entry) {
