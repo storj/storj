@@ -14,15 +14,13 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/pb"
-	"storj.io/common/rpc"
-	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
-	"storj.io/storj/satellite/reputation"
 	"storj.io/uplink/private/eestream"
 )
 
@@ -34,6 +32,12 @@ var (
 	orderLimitFailureError = errs.Class("order limits failure")
 	repairReconstructError = errs.Class("repair reconstruction failure")
 	repairPutError         = errs.Class("repair could not store repaired pieces")
+	// segmentVerificationError is the errs class when the repaired segment can not be verified during repair.
+	segmentVerificationError = errs.Class("segment verification failed")
+	// segmentDeletedError is the errs class when the repaired segment was deleted during the repair.
+	segmentDeletedError = errs.Class("segment deleted during repair")
+	// segmentModifiedError is the errs class used when a segment has been changed in any way.
+	segmentModifiedError = errs.Class("segment has been modified")
 )
 
 // irreparableError identifies situations where a segment could not be repaired due to reasons
@@ -56,9 +60,9 @@ type SegmentRepairer struct {
 	metabase       *metabase.DB
 	orders         *orders.Service
 	overlay        *overlay.Service
-	reputation     *reputation.Service
 	ec             *ECRepairer
 	timeout        time.Duration
+	reporter       *audit.Reporter
 
 	// multiplierOptimalThreshold is the value that multiplied by the optimal
 	// threshold results in the maximum limit of number of nodes to upload
@@ -68,7 +72,8 @@ type SegmentRepairer struct {
 	// repairOverrides is the set of values configured by the checker to override the repair threshold for various RS schemes.
 	repairOverrides checker.RepairOverridesMap
 
-	nowFn func() time.Time
+	nowFn                            func() time.Time
+	OnTestingCheckSegmentAlteredHook func()
 }
 
 // NewSegmentRepairer creates a new instance of SegmentRepairer.
@@ -77,11 +82,14 @@ type SegmentRepairer struct {
 // threshould to determine the maximum limit of nodes to upload repaired pieces,
 // when negative, 0 is applied.
 func NewSegmentRepairer(
-	log *zap.Logger, metabase *metabase.DB, orders *orders.Service,
-	overlay *overlay.Service, reputation *reputation.Service, dialer rpc.Dialer,
+	log *zap.Logger,
+	metabase *metabase.DB,
+	orders *orders.Service,
+	overlay *overlay.Service,
+	reporter *audit.Reporter,
+	ecRepairer *ECRepairer,
+	repairOverrides checker.RepairOverrides,
 	timeout time.Duration, excessOptimalThreshold float64,
-	repairOverrides checker.RepairOverrides, downloadTimeout time.Duration,
-	inMemoryRepair bool, satelliteSignee signing.Signee,
 ) *SegmentRepairer {
 
 	if excessOptimalThreshold < 0 {
@@ -94,11 +102,11 @@ func NewSegmentRepairer(
 		metabase:                   metabase,
 		orders:                     orders,
 		overlay:                    overlay,
-		reputation:                 reputation,
-		ec:                         NewECRepairer(log.Named("ec repairer"), dialer, satelliteSignee, downloadTimeout, inMemoryRepair),
+		ec:                         ecRepairer,
 		timeout:                    timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
 		repairOverrides:            repairOverrides.GetMap(),
+		reporter:                   reporter,
 
 		nowFn: time.Now,
 	}
@@ -273,33 +281,50 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	}
 
 	// Download the segment using just the healthy pieces
-	segmentReader, pbFailedPieces, err := repairer.ec.Get(ctx, getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize))
-
-	// Populate node IDs that failed piece hashes verification
-	var failedNodeIDs storj.NodeIDList
-	for _, piece := range pbFailedPieces {
-		failedNodeIDs = append(failedNodeIDs, piece.NodeId)
-	}
-
-	// TODO refactor repairer.ec.Get?
-	failedPieces := make(metabase.Pieces, len(pbFailedPieces))
-	for i, piece := range pbFailedPieces {
-		failedPieces[i] = metabase.Piece{
-			Number:      uint16(piece.PieceNum),
-			StorageNode: piece.NodeId,
-		}
-	}
+	segmentReader, piecesReport, err := repairer.ec.Get(ctx, getOrderLimits, cachedIPsAndPorts, getPrivateKey, redundancy, int64(segment.EncryptedSize))
 
 	// ensure we get values, even if only zero values, so that redash can have an alert based on this
 	mon.Meter("repair_too_many_nodes_failed").Mark(0) //mon:locked
 	stats.repairTooManyNodesFailed.Mark(0)
 
-	// update audit status for nodes that failed piece hash verification during downloading
-	failedNum, updateErr := repairer.updateAuditFailStatus(ctx, failedNodeIDs)
-	if updateErr != nil || failedNum > 0 {
-		// failed updates should not affect repair, therefore we will not return the error
-		repairer.log.Debug("failed to update audit fail status", zap.Int("Failed Update Number", failedNum), zap.Error(updateErr))
+	// Check if segment has been altered
+	checkSegmentError := repairer.checkIfSegmentAltered(ctx, segment)
+	if checkSegmentError != nil {
+		if segmentDeletedError.Has(checkSegmentError) {
+			// mon.Meter("segment_deleted_during_repair").Mark(1) //mon:locked
+			repairer.log.Debug("segment deleted during Repair")
+			return true, nil
+		}
+		if segmentModifiedError.Has(checkSegmentError) {
+			// mon.Meter("segment_modified_during_repair").Mark(1) //mon:locked
+			repairer.log.Debug("segment modified during Repair")
+			return true, nil
+		}
+		return false, segmentVerificationError.Wrap(checkSegmentError)
 	}
+
+	if len(piecesReport.Contained) > 0 {
+		repairer.log.Debug("unexpected contained pieces during repair", zap.Int("count", len(piecesReport.Contained)))
+	}
+	var report audit.Report
+	for _, piece := range piecesReport.Successful {
+		report.Successes = append(report.Successes, piece.StorageNode)
+	}
+	for _, piece := range piecesReport.Failed {
+		report.Fails = append(report.Fails, piece.StorageNode)
+	}
+	for _, piece := range piecesReport.Offline {
+		report.Offlines = append(report.Offlines, piece.StorageNode)
+	}
+	for _, piece := range piecesReport.Unknown {
+		report.Unknown = append(report.Unknown, piece.StorageNode)
+	}
+	_, reportErr := repairer.reporter.RecordAudits(ctx, report)
+	if reportErr != nil {
+		// failed updates should not affect repair, therefore we will not return the error
+		repairer.log.Debug("failed to record audit", zap.Error(reportErr))
+	}
+
 	if err != nil {
 		// If the context was closed during the Get phase, it will appear here as though
 		// we just failed to download enough pieces to reconstruct the segment. Check for
@@ -398,7 +423,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	}
 
 	// add pieces that failed piece hashes verification to the removal list
-	toRemove = append(toRemove, failedPieces...)
+	toRemove = append(toRemove, piecesReport.Failed...)
 
 	newPieces, err := segment.Pieces.Update(repairedPieces, toRemove)
 	if err != nil {
@@ -443,6 +468,31 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	return true, nil
 }
 
+// checkIfSegmentAltered checks if oldSegment has been altered since it was selected for audit.
+func (repairer *SegmentRepairer) checkIfSegmentAltered(ctx context.Context, oldSegment metabase.Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if repairer.OnTestingCheckSegmentAlteredHook != nil {
+		repairer.OnTestingCheckSegmentAlteredHook()
+	}
+
+	newSegment, err := repairer.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+		StreamID: oldSegment.StreamID,
+		Position: oldSegment.Position,
+	})
+	if err != nil {
+		if metabase.ErrSegmentNotFound.Has(err) {
+			return segmentDeletedError.New("StreamID: %q Position: %d", oldSegment.StreamID.String(), oldSegment.Position.Encode())
+		}
+		return err
+	}
+
+	if !oldSegment.Pieces.Equal(newSegment.Pieces) {
+		return segmentModifiedError.New("StreamID: %q Position: %d", oldSegment.StreamID.String(), oldSegment.Position.Encode())
+	}
+	return nil
+}
+
 func (repairer *SegmentRepairer) getStatsByRS(redundancy *pb.RedundancyScheme) *stats {
 	rsString := getRSString(repairer.loadRedundancy(redundancy))
 	return repairer.statsCollector.getStatsByRS(rsString)
@@ -455,22 +505,6 @@ func (repairer *SegmentRepairer) loadRedundancy(redundancy *pb.RedundancyScheme)
 		repair = int(overrideValue)
 	}
 	return int(redundancy.MinReq), repair, int(redundancy.SuccessThreshold), int(redundancy.Total)
-}
-
-func (repairer *SegmentRepairer) updateAuditFailStatus(ctx context.Context, failedAuditNodeIDs storj.NodeIDList) (failedNum int, err error) {
-	var errGroup errs.Group
-	for _, nodeID := range failedAuditNodeIDs {
-		err := repairer.reputation.ApplyAudit(ctx, nodeID, reputation.AuditFailure)
-		if err != nil {
-			failedNum++
-			errGroup.Add(err)
-			continue
-		}
-	}
-	if failedNum > 0 {
-		return failedNum, errs.Combine(Error.New("failed to update some audit fail statuses in overlay"), errGroup.Err())
-	}
-	return 0, nil
 }
 
 // SetNow allows tests to have the server act as if the current time is whatever they want.

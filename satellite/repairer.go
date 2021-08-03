@@ -23,6 +23,7 @@ import (
 	"storj.io/private/version"
 	"storj.io/storj/private/lifecycle"
 	version_checker "storj.io/storj/private/version/checker"
+	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
@@ -61,6 +62,12 @@ type Repairer struct {
 		Service *orders.Service
 		Chore   *orders.Chore
 	}
+
+	Audit struct {
+		Reporter *audit.Reporter
+	}
+
+	EcRepairer      *repairer.ECRepairer
 	SegmentRepairer *repairer.SegmentRepairer
 	Repairer        *repairer.Service
 }
@@ -68,10 +75,15 @@ type Repairer struct {
 // NewRepairer creates a new repairer peer.
 func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 	metabaseDB *metabase.DB,
-	revocationDB extensions.RevocationDB, repairQueue queue.RepairQueue,
-	bucketsDB metainfo.BucketsDB, overlayCache overlay.DB,
-	reputationdb reputation.DB, rollupsWriteCache *orders.RollupsWriteCache,
-	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*Repairer, error) {
+	revocationDB extensions.RevocationDB,
+	repairQueue queue.RepairQueue,
+	bucketsDB metainfo.BucketsDB,
+	overlayCache overlay.DB,
+	reputationdb reputation.DB,
+	containmentDB audit.Containment,
+	rollupsWriteCache *orders.RollupsWriteCache,
+	versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel,
+) (*Repairer, error) {
 	peer := &Repairer{
 		Log:      log,
 		Identity: full,
@@ -176,20 +188,33 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		}
 	}
 
+	{ // setup audit
+		peer.Audit.Reporter = audit.NewReporter(
+			log.Named("reporter"),
+			peer.Reputation,
+			containmentDB,
+			config.Audit.MaxRetriesStatDB,
+			int32(config.Audit.MaxReverifyCount))
+	}
+
 	{ // setup repairer
+		peer.EcRepairer = repairer.NewECRepairer(
+			log.Named("ec-repair"),
+			peer.Dialer,
+			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
+			config.Repairer.DownloadTimeout,
+			config.Repairer.InMemoryRepair)
+
 		peer.SegmentRepairer = repairer.NewSegmentRepairer(
 			log.Named("segment-repair"),
 			metabaseDB,
 			peer.Orders.Service,
 			peer.Overlay,
-			peer.Reputation,
-			peer.Dialer,
+			peer.Audit.Reporter,
+			peer.EcRepairer,
+			config.Checker.RepairOverrides,
 			config.Repairer.Timeout,
 			config.Repairer.MaxExcessRateOptimalThreshold,
-			config.Checker.RepairOverrides,
-			config.Repairer.DownloadTimeout,
-			config.Repairer.InMemoryRepair,
-			signing.SigneeFromPeerIdentity(peer.Identity.PeerIdentity()),
 		)
 		peer.Repairer = repairer.NewService(log.Named("repairer"), repairQueue, &config.Repairer, peer.SegmentRepairer)
 
