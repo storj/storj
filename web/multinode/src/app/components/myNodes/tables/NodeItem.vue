@@ -36,7 +36,7 @@ import { Node } from '@/nodes';
     },
 })
 export default class NodeItem extends Vue {
-    @Prop({default: () => new Node()})
+    @Prop({ default: () => new Node() })
     public node: Node;
 
     public get isSatelliteSelected(): boolean {

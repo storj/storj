@@ -57,7 +57,7 @@ func (db *DB) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVe
 		opts.ZombieDeletionDeadline = &deadline
 	}
 
-	row := db.db.QueryRow(ctx, `
+	row := db.db.QueryRowContext(ctx, `
 		INSERT INTO objects (
 			project_id, bucket_name, object_key, version, stream_id,
 			expires_at, encryption,
@@ -128,7 +128,7 @@ func (db *DB) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExact
 		ZombieDeletionDeadline: opts.ZombieDeletionDeadline,
 	}
 
-	err = db.db.QueryRow(ctx, `
+	err = db.db.QueryRowContext(ctx, `
 		INSERT INTO objects (
 			project_id, bucket_name, object_key, version, stream_id,
 			expires_at, encryption,
@@ -190,7 +190,7 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 	err = txutil.WithTx(ctx, db.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
 		// Verify that object exists and is partial.
 		var value int
-		err = tx.QueryRow(ctx, `
+		err = tx.QueryRowContext(ctx, `
 			SELECT 1
 			FROM objects WHERE
 				project_id   = $1 AND
@@ -208,7 +208,7 @@ func (db *DB) BeginSegment(ctx context.Context, opts BeginSegment) (err error) {
 		}
 
 		// Verify that the segment does not exist.
-		err = tx.QueryRow(ctx, `
+		err = tx.QueryRowContext(ctx, `
 			SELECT 1
 			FROM segments WHERE
 				stream_id = $1 AND
@@ -475,7 +475,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			totalEncryptedSize += int64(seg.EncryptedSize)
 		}
 
-		err = tx.QueryRow(ctx, `
+		err = tx.QueryRowContext(ctx, `
 			UPDATE objects SET
 				status =`+committedStatus+`,
 				segment_count = $6,

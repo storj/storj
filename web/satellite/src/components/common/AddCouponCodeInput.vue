@@ -22,19 +22,11 @@
                 class="add-coupon__check"
                 v-if="isCodeValid"
             />
-            <VButton
-                label="Validate"
-                class="add-coupon__claim-button"
-                width="120px"
-                height="32px"
-                v-if="!isCodeValid"
-                :on-press="onValidationCheckClick"
-            />
         </div>
         <ValidationMessage
             class="add-coupon__valid-message"
-            successMessage="Get 50GB free and start using Storj DCS today."
-            errorMessage="Invalid code. Please Try again"
+            successMessage="Successfully applied coupon code."
+            :errorMessage="errorMessage"
             :isValid="isCodeValid"
             :showMessage="showValidationMessage"
         />
@@ -44,6 +36,7 @@
             width="85%"
             height="44px"
             v-if="!isSignupView"
+            :on-press="onApplyClick"
         />
     </div>
 </template>
@@ -59,6 +52,11 @@ import CloseIcon from '@/../static/images/common/closeCross.svg';
 import CheckIcon from '@/../static/images/common/validCheck.svg';
 
 import { RouteConfig } from '@/router';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
+
+const {
+    APPLY_COUPON_CODE,
+} = PAYMENTS_ACTIONS;
 
 @Component({
     components: {
@@ -70,11 +68,12 @@ import { RouteConfig } from '@/router';
     },
 })
 export default class AddCouponCodeInput extends Vue {
+    @Prop({default: false})
+    private showValidationMessage = false;
+    private errorMessage = '';
+    private isCodeValid = false;
 
-    @Prop({default: false})
-    protected readonly isCodeValid: boolean;
-    @Prop({default: false})
-    protected readonly showValidationMessage: boolean;
+    private couponCode = '';
 
     /**
      * Signup view requires some unque styling and element text.
@@ -91,13 +90,27 @@ export default class AddCouponCodeInput extends Vue {
         return this.isSignupView ? 'Add Coupon' : '';
     }
 
-    /**
-    * Check if coupon code is valid
-    */
-    public onValidationCheckClick(): boolean {
-        return true;
+    public setCouponCode(value: string): void {
+        this.couponCode = value;
     }
 
+    /**
+     * Check if coupon code is valid
+     */
+    public async onApplyClick() {
+        try {
+            await this.$store.dispatch(APPLY_COUPON_CODE, this.couponCode);
+        } catch (error) {
+
+            this.errorMessage = error.message;
+            this.isCodeValid = false;
+            this.showValidationMessage = true;
+
+            return;
+        }
+        this.isCodeValid = true;
+        this.showValidationMessage = true;
+    }
 }
 </script>
 
@@ -118,15 +131,6 @@ export default class AddCouponCodeInput extends Vue {
             position: relative;
         }
 
-        &__claim-button {
-            position: absolute;
-            right: 12px;
-            bottom: 8px;
-            font-size: 14px;
-            padding: 2px 0;
-            z-index: 23;
-        }
-
         &__valid-message {
             position: relative;
             top: 15px;
@@ -138,10 +142,10 @@ export default class AddCouponCodeInput extends Vue {
             right: 0;
             margin: 0 auto;
             bottom: 40px;
-            background: #93a1af;
+            background: #2683ff;
 
             &:hover {
-                background: darken(#93a1af, 10%);
+                background: #0059d0;
             }
         }
 

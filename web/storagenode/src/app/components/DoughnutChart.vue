@@ -15,7 +15,7 @@ export default class DoughnutChart extends Vue {
     private readonly chartData: DiskStatChartData;
 
     @Watch('chartData')
-    private onDataChange(news: object, old: object): void {
+    private onDataChange(news: Record<string, unknown>, old: Record<string, unknown>): void {
         (this as any).renderChart(this.chartData, {
             hover: false,
             tooltips: {

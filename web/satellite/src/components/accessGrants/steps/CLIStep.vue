@@ -67,8 +67,8 @@ import { MetaUtils } from '@/utils/meta';
     },
 })
 export default class CLIStep extends Vue {
-    public key: string = '';
-    public restrictedKey: string = '';
+    public key = '';
+    public restrictedKey = '';
     public satelliteAddress: string = MetaUtils.getMetaContent('satellite-nodeurl');
 
     public $refs!: {

@@ -133,6 +133,7 @@ func NewGarbageCollection(log *zap.Logger, full *identity.FullIdentity, db DB,
 		// As long as garbage collection is the only observer joining the loop, then by default
 		// the loop will only run when the garbage collection joins (which happens every GarbageCollection.Interval)
 		peer.Metainfo.SegmentLoop = segmentloop.New(
+			log.Named("segmentloop"),
 			config.Metainfo.SegmentLoop,
 			metabaseDB,
 		)

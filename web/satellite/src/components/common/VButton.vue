@@ -36,9 +36,9 @@ export default class VButton extends Vue {
     @Prop({default: false})
     private isDisabled: boolean;
     @Prop({default: () => { return; }})
-    private readonly onPress: Function;
+    private readonly onPress: () => any;
 
-    public get style(): Object {
+    public get style(): Record<string, unknown> {
         return { width: this.width, height: this.height };
     }
 

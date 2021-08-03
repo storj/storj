@@ -123,7 +123,7 @@ func (checker *Checker) IdentifyInjuredSegments(ctx context.Context) (err error)
 		if !errs2.IsCanceled(err) {
 			checker.logger.Error("IdentifyInjuredSegments error", zap.Error(err))
 		}
-		return err
+		return nil
 	}
 
 	// remove all segments which were not seen as unhealthy by this checker iteration

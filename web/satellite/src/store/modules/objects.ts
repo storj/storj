@@ -46,14 +46,14 @@ const {
 } = OBJECTS_MUTATIONS;
 
 export class ObjectsState {
-    public apiKey: string = '';
-    public accessGrant: string = '';
+    public apiKey = '';
+    public accessGrant = '';
     public gatewayCredentials: GatewayCredentials = new GatewayCredentials();
     public s3Client: S3 = new S3({});
     public bucketsList: Bucket[] = [];
-    public passphrase: string = '';
-    public fileComponentBucketName: string = '';
-    public leaveRoute: string = '';
+    public passphrase = '';
+    public fileComponentBucketName = '';
+    public leaveRoute = '';
 }
 
 /**

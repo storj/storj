@@ -5,7 +5,6 @@
  * Percentage class contains percentage related functionality.
  */
 export class Percentage {
-
     /**
      * dollarsFromCents converts cents to dollars with prefix.
      * @param number float

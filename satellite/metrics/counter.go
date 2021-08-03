@@ -19,6 +19,14 @@ type Counter struct {
 	// number of objects that has all inline segments
 	InlineObjects int64
 
+	// encrypted size
+	TotalInlineBytes int64
+	// encrypted size
+	TotalRemoteBytes int64
+
+	TotalInlineSegments int64
+	TotalRemoteSegments int64
+
 	lastStreamID uuid.UUID
 	onlyInline   bool
 }
@@ -41,6 +49,9 @@ func (counter *Counter) RemoteSegment(ctx context.Context, segment *segmentloop.
 
 	counter.onlyInline = false
 
+	counter.TotalRemoteBytes += int64(segment.EncryptedSize)
+	counter.TotalRemoteSegments++
+
 	if counter.lastStreamID.Compare(segment.StreamID) != 0 {
 		counter.RemoteObjects++
 
@@ -52,6 +63,11 @@ func (counter *Counter) RemoteSegment(ctx context.Context, segment *segmentloop.
 
 // InlineSegment increments the count for inline objects.
 func (counter *Counter) InlineSegment(ctx context.Context, segment *segmentloop.Segment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	counter.TotalInlineBytes += int64(segment.EncryptedSize)
+	counter.TotalInlineSegments++
+
 	if counter.lastStreamID.Compare(segment.StreamID) != 0 {
 		if counter.onlyInline {
 			counter.InlineObjects++

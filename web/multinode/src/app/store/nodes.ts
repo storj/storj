@@ -34,12 +34,14 @@ export class NodesModule implements Module<NodesState, RootState> {
 
         this.namespaced = true;
         this.state = new NodesState();
+
         this.mutations = {
             populate: this.populate,
             saveTrustedSatellites: this.saveTrustedSatellites,
             setSelectedSatellite: this.setSelectedSatellite,
             setSelectedNode: this.setSelectedNode,
         };
+
         this.actions = {
             fetch: this.fetch.bind(this),
             add: this.add.bind(this),
@@ -93,6 +95,7 @@ export class NodesModule implements Module<NodesState, RootState> {
      */
     public async fetch(ctx: ActionContext<NodesState, RootState>): Promise<void> {
         const nodes = ctx.state.selectedSatellite ? await this.nodes.listBySatellite(ctx.state.selectedSatellite.id) : await this.nodes.list();
+
         ctx.commit('populate', nodes);
     }
 

@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
@@ -250,7 +251,7 @@ func TestSegmentsLoopCancel(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		loop := segmentloop.New(segmentloop.Config{
+		loop := segmentloop.New(zaptest.NewLogger(t), segmentloop.Config{
 			CoalesceDuration: 1 * time.Second,
 			ListLimit:        10000,
 		}, satellite.Metainfo.Metabase)
@@ -322,7 +323,7 @@ func TestSegmentsLoop_MonitorCancel(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 
-		loop := segmentloop.New(segmentloop.Config{
+		loop := segmentloop.New(zaptest.NewLogger(t), segmentloop.Config{
 			CoalesceDuration: time.Nanosecond,
 			ListLimit:        10000,
 		}, satellite.Metainfo.Metabase)

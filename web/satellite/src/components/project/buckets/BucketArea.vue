@@ -218,7 +218,7 @@ export default class BucketArea extends Vue {
         padding-top: 20px;
     }
 
-    /deep/ .pagination-container {
+    ::v-deep .pagination-container {
         padding-left: 0;
     }
 </style>

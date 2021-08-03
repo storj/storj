@@ -25,35 +25,35 @@ export class Size {
     public readonly formattedBytes: string;
     public readonly label: Dimensions;
 
-    public constructor(bytes: number, precision: number = 0) {
+    public constructor(bytes: number, precision = 0) {
         const _bytes = Math.ceil(bytes);
         this.bytes = bytes;
         this.precision = precision;
 
         switch (true) {
-            case _bytes === 0:
-                this.formattedBytes = (bytes / Memory.Bytes).toFixed(this.precision);
-                this.label = Dimensions.Bytes;
-                break;
-            case _bytes < Memory.MB:
-                this.formattedBytes = (bytes / Memory.KB).toFixed(this.precision);
-                this.label = Dimensions.KB;
-                break;
-            case _bytes < Memory.GB:
-                this.formattedBytes = (bytes / Memory.MB).toFixed(this.precision);
-                this.label = Dimensions.MB;
-                break;
-            case _bytes < Memory.TB:
-                this.formattedBytes = (bytes / Memory.GB).toFixed(this.precision);
-                this.label = Dimensions.GB;
-                break;
-            case _bytes < Memory.PB:
-                this.formattedBytes = (bytes / Memory.TB).toFixed(this.precision);
-                this.label = Dimensions.TB;
-                break;
-            default:
-                this.formattedBytes = (bytes / Memory.PB).toFixed(this.precision);
-                this.label = Dimensions.PB;
+        case _bytes === 0:
+            this.formattedBytes = (bytes / Memory.Bytes).toFixed(this.precision);
+            this.label = Dimensions.Bytes;
+            break;
+        case _bytes < Memory.MB:
+            this.formattedBytes = (bytes / Memory.KB).toFixed(this.precision);
+            this.label = Dimensions.KB;
+            break;
+        case _bytes < Memory.GB:
+            this.formattedBytes = (bytes / Memory.MB).toFixed(this.precision);
+            this.label = Dimensions.MB;
+            break;
+        case _bytes < Memory.TB:
+            this.formattedBytes = (bytes / Memory.GB).toFixed(this.precision);
+            this.label = Dimensions.GB;
+            break;
+        case _bytes < Memory.PB:
+            this.formattedBytes = (bytes / Memory.TB).toFixed(this.precision);
+            this.label = Dimensions.TB;
+            break;
+        default:
+            this.formattedBytes = (bytes / Memory.PB).toFixed(this.precision);
+            this.label = Dimensions.PB;
         }
     }
 }

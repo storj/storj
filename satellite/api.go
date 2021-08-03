@@ -50,6 +50,7 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/stripecoinpayments"
+	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/rewards"
 	"storj.io/storj/satellite/snopayouts"
 )
@@ -87,6 +88,10 @@ type API struct {
 	Overlay struct {
 		DB      overlay.DB
 		Service *overlay.Service
+	}
+
+	Reputation struct {
+		Service *reputation.Service
 	}
 
 	Orders struct {
@@ -255,6 +260,15 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
 			Close: peer.Overlay.Service.Close,
+		})
+	}
+
+	{ // setup reputation
+		peer.Reputation.Service = reputation.NewService(peer.Log.Named("reputation"), peer.Overlay.DB, peer.DB.Reputation(), config.Reputation)
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "reputation",
+			Close: peer.Reputation.Service.Close,
 		})
 	}
 
@@ -602,6 +616,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.NodeStats.Endpoint = nodestats.NewEndpoint(
 			peer.Log.Named("nodestats:endpoint"),
 			peer.Overlay.DB,
+			peer.DB.Reputation(),
 			peer.DB.StoragenodeAccounting(),
 			config.Payments,
 		)
@@ -633,6 +648,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.DB.GracefulExit(),
 				peer.Overlay.DB,
 				peer.Overlay.Service,
+				peer.Reputation.Service,
 				peer.Metainfo.Metabase,
 				peer.Orders.Service,
 				peer.DB.PeerIdentities(),

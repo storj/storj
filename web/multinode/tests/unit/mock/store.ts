@@ -25,23 +25,33 @@ const Vue = createLocalVue();
 Vue.use(Vuex);
 
 const nodesClient: NodesClient = new NodesClient();
+
 export const nodesService: Nodes = new Nodes(nodesClient);
+
 const nodesModule: NodesModule = new NodesModule(nodesService);
 
 const payoutsClient: PayoutsClient = new PayoutsClient();
+
 export const payoutsService: Payouts = new Payouts(payoutsClient);
+
 const payoutsModule: PayoutsModule = new PayoutsModule(payoutsService);
 
 const bandwidthClient = new BandwidthClient();
+
 export const bandwidthService = new Bandwidth(bandwidthClient);
+
 const bandwidthModule: BandwidthModule = new BandwidthModule(bandwidthService);
 
 const operatorsClient: OperatorsClient = new OperatorsClient();
+
 export const operatorsService: Operators = new Operators(operatorsClient);
+
 const operatorsModule: OperatorsModule = new OperatorsModule(operatorsService);
 
 const storageClient = new StorageClient();
+
 export const storageService = new StorageService(storageClient);
+
 const storageModule: StorageModule = new StorageModule(storageService);
 
 const store = new Vuex.Store({ modules: {
@@ -50,6 +60,6 @@ const store = new Vuex.Store({ modules: {
     operators: operatorsModule,
     bandwidth: bandwidthModule,
     storage: storageModule,
-}});
+} });
 
 export default store;

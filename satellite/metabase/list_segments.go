@@ -40,7 +40,7 @@ func (db *DB) ListSegments(ctx context.Context, opts ListSegments) (result ListS
 
 	ListLimit.Ensure(&opts.Limit)
 
-	err = withRows(db.db.Query(ctx, `
+	err = withRows(db.db.QueryContext(ctx, `
 		SELECT
 			position,
 			created_at,
@@ -154,7 +154,7 @@ func (db *DB) ListStreamPositions(ctx context.Context, opts ListStreamPositions)
 	var rows tagsql.Rows
 	var rowsErr error
 	if opts.Range == nil {
-		rows, rowsErr = db.db.Query(ctx, `
+		rows, rowsErr = db.db.QueryContext(ctx, `
 			SELECT
 				position, plain_size, plain_offset, created_at,
 				encrypted_etag, encrypted_key_nonce, encrypted_key
@@ -166,7 +166,7 @@ func (db *DB) ListStreamPositions(ctx context.Context, opts ListStreamPositions)
 			LIMIT $3
 		`, opts.StreamID, opts.Cursor, opts.Limit+1)
 	} else {
-		rows, rowsErr = db.db.Query(ctx, `
+		rows, rowsErr = db.db.QueryContext(ctx, `
 			SELECT
 				position, plain_size, plain_offset, created_at,
 				encrypted_etag, encrypted_key_nonce, encrypted_key

@@ -72,7 +72,7 @@ func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVers
 	}
 
 	object := Object{}
-	err = db.db.QueryRow(ctx, `
+	err = db.db.QueryRowContext(ctx, `
 		SELECT
 			stream_id,
 			created_at, expires_at,
@@ -128,7 +128,7 @@ func (db *DB) GetObjectLatestVersion(ctx context.Context, opts GetObjectLatestVe
 	}
 
 	object := Object{}
-	err = db.db.QueryRow(ctx, `
+	err = db.db.QueryRowContext(ctx, `
 		SELECT
 			stream_id, version,
 			created_at, expires_at,
@@ -183,7 +183,7 @@ func (db *DB) GetSegmentByLocation(ctx context.Context, opts GetSegmentByLocatio
 	}
 
 	var aliasPieces AliasPieces
-	err = db.db.QueryRow(ctx, `
+	err = db.db.QueryRowContext(ctx, `
 			SELECT
 				stream_id,
 				created_at, expires_at, repaired_at,
@@ -251,7 +251,7 @@ func (db *DB) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPositio
 	}
 
 	var aliasPieces AliasPieces
-	err = db.db.QueryRow(ctx, `
+	err = db.db.QueryRowContext(ctx, `
 		SELECT
 			created_at, expires_at, repaired_at,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
@@ -304,7 +304,7 @@ func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObje
 	}
 
 	var aliasPieces AliasPieces
-	err = db.db.QueryRow(ctx, `
+	err = db.db.QueryRowContext(ctx, `
 		SELECT
 			stream_id, position,
 			created_at, repaired_at,
@@ -369,7 +369,7 @@ func (db *DB) GetSegmentByOffset(ctx context.Context, opts GetSegmentByOffset) (
 	}
 
 	var aliasPieces AliasPieces
-	err = db.db.QueryRow(ctx, `
+	err = db.db.QueryRowContext(ctx, `
 		SELECT
 			stream_id, position,
 			created_at, expires_at, repaired_at,
@@ -436,7 +436,7 @@ func (db *DB) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, er
 	}
 
 	var value int
-	err = db.db.QueryRow(ctx, `
+	err = db.db.QueryRowContext(ctx, `
 		SELECT
 			1
 		FROM objects

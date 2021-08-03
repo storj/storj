@@ -87,8 +87,8 @@ const {
     },
 })
 export default class SNOHeader extends Vue {
-    public isNotificationPopupShown: boolean = false;
-    public isOptionsShown: boolean = false;
+    public isNotificationPopupShown = false;
+    public isOptionsShown = false;
     private readonly FIRST_PAGE: number = 1;
 
     /**

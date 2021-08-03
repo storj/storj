@@ -51,7 +51,7 @@ describe('actions', () => {
         store.commit('bandwidth/populate', new BandwidthTraffic());
     });
 
-    it('throws error on failed bandwidth fetch', async () => {
+    it('throws error on failed bandwidth fetch', async() => {
         jest.spyOn(bandwidthService, 'fetch').mockImplementation(() => { throw new Error(); });
 
         try {
@@ -62,7 +62,7 @@ describe('actions', () => {
         }
     });
 
-    it('success fetches payouts summary', async () => {
+    it('success fetches payouts summary', async() => {
         jest.spyOn(bandwidthService, 'fetch').mockReturnValue(
             Promise.resolve(traffic),
         );

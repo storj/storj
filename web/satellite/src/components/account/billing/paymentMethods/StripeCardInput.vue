@@ -23,7 +23,7 @@ export default class StripeCardInput extends Vue {
     @Prop({default: () => console.error('onStripeResponse is not reinitialized')})
     private readonly onStripeResponseCallback: (result: any) => void;
 
-    private isLoading: boolean = false;
+    private isLoading = false;
 
     /**
      * Stripe elements is using to create 'Add Card' form.

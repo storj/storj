@@ -100,9 +100,9 @@ export default class AccessGrants extends Vue {
     /**
      * Indicates if delete confirmation state should appear.
      */
-    private isDeleteClicked: boolean = false;
+    private isDeleteClicked = false;
 
-    public areGrantsFetching: boolean = true;
+    public areGrantsFetching = true;
 
     public $refs!: {
         pagination: HTMLElement & ResetPagination;

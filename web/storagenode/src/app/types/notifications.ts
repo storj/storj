@@ -44,16 +44,16 @@ export class UINotification {
         const differenceInSeconds = (Math.trunc(new Date().getTime()) - Math.trunc(new Date(this.createdAt).getTime())) / 1000;
 
         switch (true) {
-            case differenceInSeconds < 60:
-                return 'Just now';
-            case differenceInSeconds < 3600:
-                return `${(differenceInSeconds / 60).toFixed(0)} minute(s) ago`;
-            case differenceInSeconds < 86400:
-                return `${(differenceInSeconds / 3600).toFixed(0)} hour(s) ago`;
-            case differenceInSeconds < 86400 * 2:
-                return `Yesterday`;
-            default:
-                return new Date(this.createdAt).toDateString();
+        case differenceInSeconds < 60:
+            return 'Just now';
+        case differenceInSeconds < 3600:
+            return `${(differenceInSeconds / 60).toFixed(0)} minute(s) ago`;
+        case differenceInSeconds < 86400:
+            return `${(differenceInSeconds / 3600).toFixed(0)} hour(s) ago`;
+        case differenceInSeconds < 86400 * 2:
+            return `Yesterday`;
+        default:
+            return new Date(this.createdAt).toDateString();
         }
     }
 
@@ -69,17 +69,17 @@ export class UINotification {
      */
     private setIcon(): void {
         switch (this.type) {
-            case NotificationTypes.AuditCheckFailure:
-                this.icon = NotificationIcon.FAIL;
-                break;
-            case NotificationTypes.Disqualification:
-                this.icon = NotificationIcon.SOFTWARE_UPDATE;
-                break;
-            case NotificationTypes.Suspension:
-                this.icon = NotificationIcon.SUSPENDED;
-                break;
-            default:
-                this.icon = NotificationIcon.INFO;
+        case NotificationTypes.AuditCheckFailure:
+            this.icon = NotificationIcon.FAIL;
+            break;
+        case NotificationTypes.Disqualification:
+            this.icon = NotificationIcon.SOFTWARE_UPDATE;
+            break;
+        case NotificationTypes.Suspension:
+            this.icon = NotificationIcon.SUSPENDED;
+            break;
+        default:
+            this.icon = NotificationIcon.INFO;
         }
     }
 }

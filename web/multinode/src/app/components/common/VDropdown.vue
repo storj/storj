@@ -36,19 +36,19 @@ export type OptionClick = (id?: string) => Promise<void>;
 export class Option {
     public constructor(
         public label: string = 'no options',
-        public onClick: OptionClick = async (id) => Promise.resolve(),
+        public onClick: OptionClick = async(id) => Promise.resolve(),
     ) {}
 }
 
 @Component
 export default class VDropdown extends Vue {
-    @Prop({default: []})
+    @Prop({ default: [] })
     private readonly options: Option[];
 
-    @Prop({default: null})
+    @Prop({ default: null })
     private readonly preselectedOption: Option;
 
-    public areOptionsShown: boolean = false;
+    public areOptionsShown = false;
 
     public selectedOption: Option;
 
@@ -61,7 +61,7 @@ export default class VDropdown extends Vue {
     }
 
     public closeOptions(): void {
-        if (!this.areOptionsShown) return;
+        if (!this.areOptionsShown) { return; }
 
         this.areOptionsShown = false;
     }

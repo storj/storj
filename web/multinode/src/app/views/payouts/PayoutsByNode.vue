@@ -127,11 +127,9 @@ export default class PayoutsPage extends Vue {
      * payoutsSummary contains payouts summary from store.
      */
     public get nodeTitle(): string {
-        const selectedNodeSummary = this.$store.state.payouts.summary.nodeSummary.find(summary => {
-            return summary.nodeId === this.$route.params.id;
-        });
+        const selectedNodeSummary = this.$store.state.payouts.summary.nodeSummary.find(summary => summary.nodeId === this.$route.params.id);
 
-        if (!selectedNodeSummary) return this.nodeId;
+        if (!selectedNodeSummary) { return this.nodeId; }
 
         return selectedNodeSummary.title;
     }
@@ -164,7 +162,7 @@ export default class PayoutsPage extends Vue {
         await this.fetchNodePayouts();
 
         // Subscribes on period or satellite change
-        this.$store.subscribe(async (mutation) => {
+        this.$store.subscribe(async(mutation) => {
             const watchedMutations = ['payouts/setPayoutPeriod', 'nodes/setSelectedSatellite'];
 
             if (watchedMutations.includes(mutation.type)) {

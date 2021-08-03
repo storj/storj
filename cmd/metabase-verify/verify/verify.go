@@ -42,7 +42,7 @@ func New(log *zap.Logger, mdb segmentloop.MetabaseDB, config Config) *Chore {
 
 // RunOnce creates a new segmentloop and runs the verifications.
 func (chore *Chore) RunOnce(ctx context.Context) error {
-	loop := segmentloop.New(chore.Config.Loop, chore.DB)
+	loop := segmentloop.New(chore.Log, chore.Config.Loop, chore.DB)
 
 	var group errs2.Group
 	group.Go(func() error {

@@ -8,7 +8,7 @@ export class Stamp {
     public atRestTotal: number;
     public intervalStart: Date;
 
-    public constructor(atRestTotal: number = 0, intervalStart: Date = new Date()) {
+    public constructor(atRestTotal = 0, intervalStart: Date = new Date()) {
         this.atRestTotal = atRestTotal;
         this.intervalStart = intervalStart;
     }
@@ -20,6 +20,7 @@ export class Stamp {
      */
     public static emptyWithDate(date: number): Stamp {
         const now = new Date();
+
         now.setUTCDate(date);
         now.setUTCHours(0, 0, 0, 0);
 

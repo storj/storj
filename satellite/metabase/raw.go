@@ -106,7 +106,7 @@ func (db *DB) TestingDeleteAll(ctx context.Context) (err error) {
 func (db *DB) testingGetAllObjects(ctx context.Context) (_ []RawObject, err error) {
 	objs := []RawObject{}
 
-	rows, err := db.db.Query(ctx, `
+	rows, err := db.db.QueryContext(ctx, `
 		SELECT
 			project_id, bucket_name, object_key, version, stream_id,
 			created_at, expires_at,
@@ -167,7 +167,7 @@ func (db *DB) testingGetAllObjects(ctx context.Context) (_ []RawObject, err erro
 func (db *DB) testingGetAllSegments(ctx context.Context) (_ []RawSegment, err error) {
 	segs := []RawSegment{}
 
-	rows, err := db.db.Query(ctx, `
+	rows, err := db.db.QueryContext(ctx, `
 		SELECT
 			stream_id, position,
 			created_at, repaired_at, expires_at,

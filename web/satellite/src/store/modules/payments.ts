@@ -45,6 +45,7 @@ export const PAYMENTS_ACTIONS = {
     GET_PROJECT_USAGE_AND_CHARGES: 'getProjectUsageAndCharges',
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP: 'getProjectUsageAndChargesCurrentRollup',
     GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP: 'getProjectUsageAndChargesPreviousRollup',
+    APPLY_COUPON_CODE: 'applyCouponCode',
 };
 
 const {
@@ -75,6 +76,7 @@ const {
     MAKE_TOKEN_DEPOSIT,
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
     GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP,
+    APPLY_COUPON_CODE,
 } = PAYMENTS_ACTIONS;
 
 export class PaymentsState {
@@ -85,11 +87,11 @@ export class PaymentsState {
     public creditCards: CreditCard[] = [];
     public paymentsHistory: PaymentsHistoryItem[] = [];
     public usageAndCharges: ProjectUsageAndCharges[] = [];
-    public priceSummary: number = 0;
-    public priceSummaryForSelectedProject: number = 0;
+    public priceSummary = 0;
+    public priceSummaryForSelectedProject = 0;
     public startDate: Date = new Date();
     public endDate: Date = new Date();
-    public isAddPMModalShown: boolean = false;
+    public isAddPMModalShown = false;
 }
 
 /**
@@ -251,6 +253,9 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 commit(SET_DATE, new DateRange(startUTC, endUTC));
                 commit(SET_PROJECT_USAGE_AND_CHARGES, usageAndCharges);
                 commit(SET_PRICE_SUMMARY, usageAndCharges);
+            },
+            [APPLY_COUPON_CODE]: async function({commit}: any, code: string): Promise<void> {
+                await api.applyCouponCode(code);
             },
         },
         getters: {

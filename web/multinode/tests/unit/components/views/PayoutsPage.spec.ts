@@ -9,6 +9,7 @@ import { createLocalVue, shallowMount } from '@vue/test-utils';
 import store from '../../mock/store';
 
 const localVue = createLocalVue();
+
 localVue.use(Vuex);
 
 describe('PayoutsPage', (): void => {

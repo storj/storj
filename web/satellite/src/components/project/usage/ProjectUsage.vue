@@ -33,7 +33,7 @@ import { PROJECTS_ACTIONS } from '@/store/modules/projects';
     },
 })
 export default class ProjectUsage extends Vue {
-    public isDataFetching: boolean = true;
+    public isDataFetching = true;
 
     /**
      * Lifecycle hook after initial render.

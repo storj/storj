@@ -74,7 +74,7 @@ export default class HeaderArea extends Vue {
     /**
      * Indicates if navigation toggling button is visible depending on screen width.
      */
-    public isNavigationVisible: boolean = false;
+    public isNavigationVisible = false;
 
     /**
      * Toggle navigation visibility.
@@ -235,7 +235,7 @@ export default class HeaderArea extends Vue {
             display: none;
         }
 
-        /deep/ .edit-project {
+        ::v-deep .edit-project {
             margin-left: 0;
         }
     }

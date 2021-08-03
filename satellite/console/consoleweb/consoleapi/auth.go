@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/zeebo/errs"
@@ -68,20 +69,18 @@ func (a *Auth) Token(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	var tokenRequest struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
-	}
-
+	tokenRequest := console.AuthUser{}
 	err = json.NewDecoder(r.Body).Decode(&tokenRequest)
 	if err != nil {
 		a.serveJSONError(w, err)
 		return
 	}
 
-	token, err := a.service.Token(ctx, tokenRequest.Email, tokenRequest.Password)
+	token, err := a.service.Token(ctx, tokenRequest)
 	if err != nil {
-		a.log.Info("Error authenticating token request", zap.String("email", tokenRequest.Email), zap.Error(ErrAuthAPI.Wrap(err)))
+		if !console.ErrMFAPasscodeRequired.Has(err) {
+			a.log.Info("Error authenticating token request", zap.String("email", tokenRequest.Email), zap.Error(ErrAuthAPI.Wrap(err)))
+		}
 		a.serveJSONError(w, err)
 		return
 	}
@@ -275,6 +274,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		EmployeeCount    string    `json:"employeeCount"`
 		HaveSalesContact bool      `json:"haveSalesContact"`
 		PaidTier         bool      `json:"paidTier"`
+		MFAEnabled       bool      `json:"isMFAEnabled"`
 	}
 
 	auth, err := console.GetAuth(ctx)
@@ -295,6 +295,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.EmployeeCount = auth.User.EmployeeCount
 	user.HaveSalesContact = auth.User.HaveSalesContact
 	user.PaidTier = auth.User.PaidTier
+	user.MFAEnabled = auth.User.MFAEnabled
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(&user)
@@ -465,6 +466,90 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 	)
 }
 
+// EnableUserMFA enables multi-factor authentication for the user.
+func (a *Auth) EnableUserMFA(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var data struct {
+		Passcode string `json:"passcode"`
+	}
+	err = json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = a.service.EnableUserMFA(ctx, data.Passcode, time.Now())
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+}
+
+// DisableUserMFA disables multi-factor authentication for the user.
+func (a *Auth) DisableUserMFA(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var data struct {
+		Passcode string `json:"passcode"`
+	}
+	err = json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	err = a.service.DisableUserMFA(ctx, data.Passcode, time.Now())
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+}
+
+// GenerateMFASecretKey creates a new TOTP secret key for the user.
+func (a *Auth) GenerateMFASecretKey(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	key, err := a.service.ResetMFASecretKey(ctx)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(key)
+	if err != nil {
+		a.log.Error("could not encode MFA secret key", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+}
+
+// GenerateMFARecoveryCodes creates a new set of MFA recovery codes for the user.
+func (a *Auth) GenerateMFARecoveryCodes(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	codes, err := a.service.ResetMFARecoveryCodes(ctx)
+	if err != nil {
+		a.serveJSONError(w, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	err = json.NewEncoder(w).Encode(codes)
+	if err != nil {
+		a.log.Error("could not encode MFA recovery codes", zap.Error(ErrAuthAPI.Wrap(err)))
+		return
+	}
+}
+
 // serveJSONError writes JSON error to response output stream.
 func (a *Auth) serveJSONError(w http.ResponseWriter, err error) {
 	status := a.getStatusCode(err)
@@ -482,6 +567,8 @@ func (a *Auth) getStatusCode(err error) int {
 		return http.StatusConflict
 	case errors.Is(err, errNotImplemented):
 		return http.StatusNotImplemented
+	case console.ErrMFAPasscodeRequired.Has(err):
+		return http.StatusOK
 	default:
 		return http.StatusInternalServerError
 	}

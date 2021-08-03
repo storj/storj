@@ -4,7 +4,7 @@
 <template>
     <div class="project-details">
         <div class="project-details__wrapper">
-            <p class="project-details__wrapper__back" @click.stop.prevent="onBackClick"><- Back</p>
+            <p class="project-details__wrapper__back" @click.stop.prevent="onBackClick">&lt;- Back</p>
             <div class="project-details__wrapper__container">
                 <h1 class="project-details__wrapper__container__title">Project Details</h1>
                 <p class="project-details__wrapper__container__label">Name</p>
@@ -84,10 +84,10 @@ import { MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, Project, ProjectFields } from 
     },
 })
 export default class EditProjectDetails extends Vue {
-    public isNameEditing: boolean = false;
-    public isDescriptionEditing: boolean = false;
-    public nameValue: string = '';
-    public descriptionValue: string = '';
+    public isNameEditing = false;
+    public isDescriptionEditing = false;
+    public nameValue = '';
+    public descriptionValue = '';
     public nameLength: number = MAX_NAME_LENGTH;
     public descriptionLength: number = MAX_DESCRIPTION_LENGTH;
 

@@ -23,9 +23,10 @@ type Reconfigure struct {
 	SatelliteMetabaseDB func(log *zap.Logger, index int, db *metabase.DB) (*metabase.DB, error)
 	Satellite           func(log *zap.Logger, index int, config *satellite.Config)
 
-	StorageNodeDB func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error)
-	StorageNode   func(index int, config *storagenode.Config)
-	UniqueIPCount int
+	StorageNodeDB           func(index int, db storagenode.DB, log *zap.Logger) (storagenode.DB, error)
+	StorageNode             func(index int, config *storagenode.Config)
+	UniqueIPCount           int
+	DisableInitReputationDB bool
 
 	VersionControl func(config *versioncontrol.Config)
 

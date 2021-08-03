@@ -11,8 +11,10 @@ import (
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 
+	"storj.io/common/errs2"
 	"storj.io/storj/satellite/metabase"
 )
 
@@ -160,6 +162,7 @@ type MetabaseDB interface {
 //
 // architecture: Service
 type Service struct {
+	log        *zap.Logger
 	config     Config
 	metabaseDB MetabaseDB
 	join       chan *observerContext
@@ -167,8 +170,9 @@ type Service struct {
 }
 
 // New creates a new segments loop service.
-func New(config Config, metabaseDB MetabaseDB) *Service {
+func New(log *zap.Logger, config Config, metabaseDB MetabaseDB) *Service {
 	return &Service{
+		log:        log,
 		metabaseDB: metabaseDB,
 		config:     config,
 		join:       make(chan *observerContext),
@@ -223,7 +227,13 @@ func (loop *Service) Run(ctx context.Context) (err error) {
 	for {
 		err := loop.RunOnce(ctx)
 		if err != nil {
-			return err
+			loop.log.Error("segment loop failure", zap.Error(err))
+
+			if errs2.IsCanceled(err) {
+				return err
+			}
+
+			mon.Event("segmentloop_error") //mon:locked
 		}
 	}
 }

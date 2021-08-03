@@ -11,7 +11,7 @@
                 <InfoIcon class="team-header-container__title-area__info-button__image"/>
             </VInfo>
         </div>
-	    <div class="team-header-container__wrapper">
+        <div class="team-header-container__wrapper">
             <VHeader
                 ref="headerComponent"
                 placeholder="Team Members"
@@ -67,7 +67,7 @@
             </VHeader>
             <div class="blur-content" v-if="isDeleteClicked"></div>
             <div class="blur-search" v-if="isDeleteClicked"></div>
-	    </div>
+        </div>
         <AddUserPopup v-if="isAddTeamMembersPopupShown"/>
     </div>
 </template>
@@ -114,7 +114,7 @@ export default class HeaderArea extends Vue {
     /**
      * Indicates if state after first delete click is active.
      */
-    public isDeleteClicked: boolean = false;
+    public isDeleteClicked = false;
 
     public $refs!: {
         headerComponent: VHeader & ClearSearch;
@@ -344,7 +344,7 @@ export default class HeaderArea extends Vue {
         }
     }
 
-    /deep/ .info__message-box {
+    ::v-deep .info__message-box {
         background-image: url('../../../static/images/team/MessageBox.png');
         background-repeat: no-repeat;
         min-height: 80px;

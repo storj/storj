@@ -166,7 +166,7 @@ func (it *loopIterator) Next(ctx context.Context, item *LoopObjectEntry) bool {
 func (it *loopIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return it.db.db.Query(ctx, `
+	return it.db.db.QueryContext(ctx, `
 		SELECT
 			project_id, bucket_name,
 			object_key, stream_id, version,
@@ -250,7 +250,7 @@ func (db *DB) IterateLoopStreams(ctx context.Context, opts IterateLoopStreams, h
 		bytesIDs[i] = id[:]
 	}
 
-	rows, err := db.db.Query(ctx, `
+	rows, err := db.db.QueryContext(ctx, `
 		SELECT
 			stream_id, position,
 			created_at, expires_at, repaired_at,
@@ -463,7 +463,7 @@ func (it *loopSegmentIterator) Next(ctx context.Context, item *LoopSegmentEntry)
 func (it *loopSegmentIterator) doNextQuery(ctx context.Context) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return it.db.db.Query(ctx, `
+	return it.db.db.QueryContext(ctx, `
 		SELECT
 			stream_id, position,
 			created_at, expires_at, repaired_at,

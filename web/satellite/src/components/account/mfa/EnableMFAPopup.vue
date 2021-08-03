@@ -32,8 +32,7 @@
                     Please save these codes somewhere to be able to recover access to your account.
                 </h2>
                 <p
-                    class="enable-mfa__container__codes__value"
-                    v-for="(code, index) in recoveryCodes"
+                    v-for="(code, index) in userMFARecoveryCodes"
                     :key="index"
                 >
                     {{code}}
@@ -87,6 +86,8 @@ import VButton from '@/components/common/VButton.vue';
 
 import CloseCrossIcon from '@/../static/images/common/closeCross.svg';
 
+import { USER_ACTIONS } from '@/store/modules/users';
+
 @Component({
     components: {
         ConfirmMFAInput,
@@ -104,7 +105,6 @@ export default class EnableMFAPopup extends Vue {
     public isEnable = false;
     public isCodes = false;
     public isError = false;
-    public recoveryCodes: string[] = ['test', 'test', 'test', 'test', 'test', 'test', 'test', 'test', 'test', 'test'];
     public isLoading = false;
     public confirmPasscode = '';
 
@@ -131,7 +131,9 @@ export default class EnableMFAPopup extends Vue {
     /**
      * Toggles view to MFA Recovery Codes state.
      */
-    public showCodes(): void {
+    public async showCodes(): Promise<void> {
+        await this.$store.dispatch(USER_ACTIONS.GENERATE_USER_MFA_RECOVERY_CODES);
+
         this.isEnable = false;
         this.isCodes = true;
     }
@@ -153,12 +155,10 @@ export default class EnableMFAPopup extends Vue {
         this.isLoading = true;
 
         try {
-            // TODO: enable when backend is ready
-            // await this.$store.dispatch(USER_ACTIONS.ENABLE_USER_MFA, {secret: this.secret, passcode: this.confirmPasscode})
-
+            await this.$store.dispatch(USER_ACTIONS.ENABLE_USER_MFA, this.confirmPasscode);
+            await this.$store.dispatch(USER_ACTIONS.GET);
+            await this.showCodes();
             await this.$notify.success('MFA was enabled successfully');
-
-            this.showCodes();
         } catch (error) {
             await this.$notify.error(error.message);
             this.isError = true;
@@ -172,6 +172,13 @@ export default class EnableMFAPopup extends Vue {
      */
     private get userMFASecret(): string {
         return this.$store.state.usersModule.userMFASecret;
+    }
+
+    /**
+     * Returns user MFA recovery codes from store.
+     */
+    private get userMFARecoveryCodes(): string[] {
+        return this.$store.state.usersModule.userMFARecoveryCodes;
     }
 }
 </script>

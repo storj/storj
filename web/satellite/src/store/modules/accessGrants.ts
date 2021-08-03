@@ -72,7 +72,7 @@ export class AccessGrantsState {
     public permissionNotAfter: Date | null = null;
     public gatewayCredentials: GatewayCredentials = new GatewayCredentials();
     public accessGrantsWebWorker: Worker | null = null;
-    public isAccessGrantsWebWorkerReady: boolean = false;
+    public isAccessGrantsWebWorkerReady = false;
 }
 
 /**
