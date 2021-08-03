@@ -26,6 +26,8 @@ export default class VButton extends Vue {
     private readonly width: string;
     @Prop({default: 'inherit'})
     private readonly height: string;
+    @Prop({default: '6px'})
+    private readonly borderRadius: string;
     @Prop({default: false})
     private readonly isWhite: boolean;
     @Prop({default: false})
@@ -40,7 +42,7 @@ export default class VButton extends Vue {
     private readonly onPress: () => any;
 
     public get style(): Record<string, unknown> {
-        return { width: this.width, height: this.height };
+        return { width: this.width, height: this.height, borderRadius: this.borderRadius };
     }
 
     public get containerClassName(): string {
@@ -111,7 +113,6 @@ export default class VButton extends Vue {
         align-items: center;
         justify-content: center;
         background-color: #2683ff;
-        border-radius: 6px;
         cursor: pointer;
 
         .label {
