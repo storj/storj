@@ -42,7 +42,7 @@ func TestAddApiKey(t *testing.T) {
 		require.Len(t, keys.APIKeys, 1)
 
 		body := strings.NewReader(`{"name":"Default"}`)
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://"+address.String()+"/api/project/%s/apikey", projectID.String()), body)
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, fmt.Sprintf("http://"+address.String()+"/api/projects/%s/apikeys", projectID.String()), body)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -93,7 +93,7 @@ func TestDeleteApiKey(t *testing.T) {
 		require.Len(t, keys.APIKeys, 1)
 
 		apikey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].Serialize()
-		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/apikey/%s", apikey), nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/apikeys/%s", apikey), nil)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -129,7 +129,7 @@ func TestDeleteApiKeyByName(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, keys.APIKeys, 1)
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/project/%s/apikey/%s", projectID.String(), keys.APIKeys[0].Name), nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, fmt.Sprintf("http://"+address.String()+"/api/projects/%s/apikeys/%s", projectID.String(), keys.APIKeys[0].Name), nil)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
 
@@ -167,8 +167,7 @@ func TestListAPIKeys(t *testing.T) {
 		project, err := sat.DB.Console().Projects().Get(ctx, planet.Uplinks[0].Projects[0].ID)
 		require.NoError(t, err)
 
-		linkAPIKey := "http://" + address.String() + "/api/project/" + project.ID.String() + "/apikey"
-		linkAPIKeys := "http://" + address.String() + "/api/project/" + project.ID.String() + "/apikeys"
+		link := "http://" + address.String() + "/api/projects/" + project.ID.String() + "/apikeys"
 
 		{ // Delete initial API Keys to run this test
 
@@ -188,17 +187,17 @@ func TestListAPIKeys(t *testing.T) {
 		}
 
 		// Check get initial list of API keys.
-		assertGet(ctx, t, linkAPIKeys, "[]", authToken)
+		assertGet(ctx, t, link, "[]", authToken)
 
 		{ // Create 2 new API Key.
-			body := assertReq(ctx, t, linkAPIKey, http.MethodPost, `{"name": "first"}`, http.StatusOK, "", authToken)
+			body := assertReq(ctx, t, link, http.MethodPost, `{"name": "first"}`, http.StatusOK, "", authToken)
 			apiKey := struct {
 				Apikey string `json:"apikey"`
 			}{}
 			require.NoError(t, json.Unmarshal(body, &apiKey))
 			require.NotEmpty(t, apiKey.Apikey)
 
-			body = assertReq(ctx, t, linkAPIKey, http.MethodPost, `{"name": "second"}`, http.StatusOK, "", authToken)
+			body = assertReq(ctx, t, link, http.MethodPost, `{"name": "second"}`, http.StatusOK, "", authToken)
 			require.NoError(t, json.Unmarshal(body, &apiKey))
 			require.NotEmpty(t, apiKey.Apikey)
 
@@ -207,7 +206,7 @@ func TestListAPIKeys(t *testing.T) {
 		}
 
 		// Check get list of API keys.
-		body := assertReq(ctx, t, linkAPIKeys, http.MethodGet, "", http.StatusOK, "", authToken)
+		body := assertReq(ctx, t, link, http.MethodGet, "", http.StatusOK, "", authToken)
 
 		var apiKeys []struct {
 			ID        string `json:"id"`
@@ -240,7 +239,7 @@ func TestListAPIKeys(t *testing.T) {
 			require.NoError(t, sat.DB.Console().APIKeys().Delete(ctx, id))
 		}
 
-		body = assertReq(ctx, t, linkAPIKeys, http.MethodGet, "", http.StatusOK, "", authToken)
+		body = assertReq(ctx, t, link, http.MethodGet, "", http.StatusOK, "", authToken)
 		require.NoError(t, json.Unmarshal(body, &apiKeys))
 		require.Len(t, apiKeys, 1)
 		{ // Assert API keys info.
@@ -259,6 +258,6 @@ func TestListAPIKeys(t *testing.T) {
 		}
 
 		// Check get initial list of API keys.
-		assertGet(ctx, t, linkAPIKeys, "[]", authToken)
+		assertGet(ctx, t, link, "[]", authToken)
 	})
 }
