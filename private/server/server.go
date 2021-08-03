@@ -20,12 +20,12 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/quic"
 	"storj.io/common/rpc/rpctracing"
 	"storj.io/drpc/drpcmigrate"
 	"storj.io/drpc/drpcmux"
 	"storj.io/drpc/drpcserver"
 	jaeger "storj.io/monkit-jaeger"
-	"storj.io/storj/private/quic"
 )
 
 // Config holds server specific configuration parameters.
@@ -169,7 +169,7 @@ func (p *Server) Run(ctx context.Context) (err error) {
 	}
 
 	if p.public.udpConn != nil {
-		p.public.quicListener, err = quic.NewListener(p.public.udpConn, p.tlsOptions.ServerTLSConfig(), defaultQUICConfig())
+		p.public.quicListener, err = quic.NewListener(p.public.udpConn, p.tlsOptions.ServerTLSConfig(), nil)
 		if err != nil {
 			return err
 		}

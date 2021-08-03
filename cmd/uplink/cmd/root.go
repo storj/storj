@@ -21,10 +21,10 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"storj.io/common/fpath"
+	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/private/cfgstruct"
 	"storj.io/private/process"
-	"storj.io/storj/private/server"
 	"storj.io/storj/private/version/checker"
 	"storj.io/uplink"
 	privateAccess "storj.io/uplink/private/access"
@@ -95,7 +95,7 @@ func (cliCfg *UplinkFlags) getProject(ctx context.Context, encryptionBypass bool
 	uplinkCfg.UserAgent = cliCfg.Client.UserAgent
 	uplinkCfg.DialTimeout = cliCfg.Client.DialTimeout
 	if cliCfg.Client.EnableQUIC {
-		transport.SetConnector(&uplinkCfg, server.NewDefaultHybridConnector(nil, nil))
+		transport.SetConnector(&uplinkCfg, rpc.NewHybridConnector())
 	}
 
 	if encryptionBypass {

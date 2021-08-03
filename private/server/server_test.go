@@ -10,9 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/peertls/tlsopts"
+	"storj.io/common/rpc"
+	_ "storj.io/common/rpc/quic"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/server"
 	"storj.io/storj/private/testplanet"
 )
 
@@ -25,7 +26,7 @@ func TestHybridConnector_Basic(t *testing.T) {
 		sat := planet.Satellites[0]
 		dialer := planet.Uplinks[0].Dialer
 
-		dialer.Connector = server.NewDefaultHybridConnector(nil, nil)
+		dialer.Connector = rpc.NewHybridConnector()
 
 		conn, err := dialer.Connector.DialContext(ctx, dialer.TLSOptions.ClientTLSConfig(sat.ID()), sat.Addr())
 		require.NoError(t, err)
@@ -49,7 +50,7 @@ func TestHybridConnector_QUICOnly(t *testing.T) {
 		}, nil)
 		require.NoError(t, err)
 
-		connector := server.NewDefaultHybridConnector(nil, nil)
+		connector := rpc.NewHybridConnector()
 
 		conn, err := connector.DialContext(ctx, tlsOptions.ClientTLSConfig(sat.ID()), sat.Addr())
 		require.NoError(t, err)
@@ -74,7 +75,7 @@ func TestHybridConnector_TCPOnly(t *testing.T) {
 		}, nil)
 		require.NoError(t, err)
 
-		connector := server.NewDefaultHybridConnector(nil, nil)
+		connector := rpc.NewHybridConnector()
 
 		conn, err := connector.DialContext(ctx, tlsOptions.ClientTLSConfig(sat.ID()), sat.Addr())
 		require.NoError(t, err)
