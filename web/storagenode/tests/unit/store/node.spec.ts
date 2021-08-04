@@ -71,7 +71,7 @@ describe('mutations', () => {
     it('selects single satellite', () => {
         const satelliteInfo = new Satellite(
             '3',
-           [new Stamp()],
+            [new Stamp()],
             [],
             [],
             [],

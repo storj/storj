@@ -25,9 +25,9 @@ let clickOutsideEvent: EventListener;
  * Binds closing action to outside popups area.
  */
 Vue.directive('click-outside', {
-    bind: function (el: HTMLElement, binding: DirectiveBinding, vnode: VNode) {
+    bind: function(el: HTMLElement, binding: DirectiveBinding, vnode: VNode) {
         clickOutsideEvent = function(event: Event): void {
-            if (el === event.target || el.contains((event.target as Node))) {
+            if (el === event.target || el.contains(event.target as Node)) {
                 return;
             }
 
@@ -46,23 +46,17 @@ Vue.directive('click-outside', {
 /**
  * centsToDollars is a Vue filter that converts amount of cents in dollars string.
  */
-Vue.filter('centsToDollars', (cents: number): string => {
-    return Currency.dollarsFromCents(cents);
-});
+Vue.filter('centsToDollars', (cents: number): string => Currency.dollarsFromCents(cents));
 
 /**
  * Converts bytes to base-10 size.
  */
-Vue.filter('bytesToBase10String', (amountInBytes: number): string => {
-    return Size.toBase10String(amountInBytes);
-});
+Vue.filter('bytesToBase10String', (amountInBytes: number): string => Size.toBase10String(amountInBytes));
 
 /**
  * Converts float number to percents.
  */
-Vue.filter('floatToPercentage', (number: number): string => {
-    return Percentage.fromFloat(number);
-});
+Vue.filter('floatToPercentage', (number: number): string => Percentage.fromFloat(number));
 
 const app = new Vue({
     router,

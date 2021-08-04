@@ -61,7 +61,7 @@ export default class PayoutPeriodCalendar extends Vue {
      */
     public currentDisplayedMonths: MonthButton[] = [];
     public displayedYear: number = this.now.getUTCFullYear();
-    public period: string = '';
+    public period = '';
 
     private displayedMonths: StoredMonthsByYear = {};
     private firstSelectedMonth: MonthButton | null = null;

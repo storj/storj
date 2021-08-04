@@ -68,6 +68,7 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		db.RepairQueue(),
 		db.Buckets(),
 		db.OverlayCache(),
+		db.Reputation(),
 		rollupsWriteCache,
 		version.Build,
 		&runCfg.Config,

@@ -20,18 +20,18 @@ export class ChartUtils {
 
         let divider: number = SizeBreakpoints.PB;
         switch (true) {
-            case maxBytes < SizeBreakpoints.MB:
-                divider = SizeBreakpoints.KB;
-                break;
-            case maxBytes < SizeBreakpoints.GB:
-                divider = SizeBreakpoints.MB;
-                break;
-            case maxBytes < SizeBreakpoints.TB:
-                divider = SizeBreakpoints.GB;
-                break;
-            case maxBytes < SizeBreakpoints.PB:
-                divider = SizeBreakpoints.TB;
-                break;
+        case maxBytes < SizeBreakpoints.MB:
+            divider = SizeBreakpoints.KB;
+            break;
+        case maxBytes < SizeBreakpoints.GB:
+            divider = SizeBreakpoints.MB;
+            break;
+        case maxBytes < SizeBreakpoints.TB:
+            divider = SizeBreakpoints.GB;
+            break;
+        case maxBytes < SizeBreakpoints.PB:
+            divider = SizeBreakpoints.TB;
+            break;
         }
 
         return data.map(elem => elem / divider);
@@ -47,20 +47,20 @@ export class ChartUtils {
 
         let dataDimension: string;
         switch (true) {
-            case maxBytes < SizeBreakpoints.MB:
-                dataDimension = 'KB';
-                break;
-            case maxBytes < SizeBreakpoints.GB:
-                dataDimension = 'MB';
-                break;
-            case maxBytes < SizeBreakpoints.TB:
-                dataDimension = 'GB';
-                break;
-            case maxBytes < SizeBreakpoints.PB:
-                dataDimension = 'TB';
-                break;
-            default:
-                dataDimension = 'PB';
+        case maxBytes < SizeBreakpoints.MB:
+            dataDimension = 'KB';
+            break;
+        case maxBytes < SizeBreakpoints.GB:
+            dataDimension = 'MB';
+            break;
+        case maxBytes < SizeBreakpoints.TB:
+            dataDimension = 'GB';
+            break;
+        case maxBytes < SizeBreakpoints.PB:
+            dataDimension = 'TB';
+            break;
+        default:
+            dataDimension = 'PB';
         }
 
         return dataDimension;

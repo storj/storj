@@ -73,10 +73,10 @@ func TestRecordAuditsAtLeastOnce(t *testing.T) {
 		require.NoError(t, err)
 		require.Zero(t, failed)
 
-		overlay := satellite.Overlay.Service
-		node, err := overlay.Get(ctx, nodeID)
+		service := satellite.Reputation.Service
+		node, err := service.Get(ctx, nodeID)
 		require.NoError(t, err)
-		require.EqualValues(t, 1, node.Reputation.AuditCount)
+		require.EqualValues(t, 1, node.TotalAuditCount)
 	})
 }
 
@@ -189,6 +189,7 @@ func TestGracefullyExitedNotUpdated(t *testing.T) {
 		audits := satellite.Audit
 		audits.Worker.Loop.Pause()
 		cache := satellite.Overlay.DB
+		reputationDB := satellite.DB.Reputation()
 
 		successNode := planet.StorageNodes[0]
 		failedNode := planet.StorageNodes[1]
@@ -196,6 +197,13 @@ func TestGracefullyExitedNotUpdated(t *testing.T) {
 		unknownNode := planet.StorageNodes[3]
 		offlineNode := planet.StorageNodes[4]
 		nodeList := []*testplanet.StorageNode{successNode, failedNode, containedNode, unknownNode, offlineNode}
+
+		report := audit.Report{
+			Successes: storj.NodeIDList{successNode.ID(), failedNode.ID(), containedNode.ID(), unknownNode.ID(), offlineNode.ID()},
+		}
+		failed, err := audits.Reporter.RecordAudits(ctx, report)
+		require.NoError(t, err)
+		assert.Zero(t, failed)
 
 		// mark each node as having gracefully exited
 		for _, node := range nodeList {
@@ -216,27 +224,24 @@ func TestGracefullyExitedNotUpdated(t *testing.T) {
 			ShareSize:         1 * memory.KiB.Int32(),
 			ExpectedShareHash: pkcrypto.SHA256Hash([]byte("test")),
 		}
-		report := audit.Report{
+		report = audit.Report{
 			Successes:     storj.NodeIDList{successNode.ID()},
 			Fails:         storj.NodeIDList{failedNode.ID()},
 			Offlines:      storj.NodeIDList{offlineNode.ID()},
 			PendingAudits: []*audit.PendingAudit{&pending},
 			Unknown:       storj.NodeIDList{unknownNode.ID()},
 		}
-		failed, err := audits.Reporter.RecordAudits(ctx, report)
+		failed, err = audits.Reporter.RecordAudits(ctx, report)
 		require.NoError(t, err)
 		assert.Zero(t, failed)
 
 		// since every node has gracefully exit, reputation, dq, and suspension should remain at default values
 		for _, node := range nodeList {
-			nodeCacheInfo, err := cache.Get(ctx, node.ID())
+			nodeCacheInfo, err := reputationDB.Get(ctx, node.ID())
 			require.NoError(t, err)
 
-			require.EqualValues(t, 1, nodeCacheInfo.Reputation.AuditReputationAlpha)
-			require.EqualValues(t, 0, nodeCacheInfo.Reputation.AuditReputationBeta)
-			require.EqualValues(t, 1, nodeCacheInfo.Reputation.UnknownAuditReputationAlpha)
-			require.EqualValues(t, 0, nodeCacheInfo.Reputation.UnknownAuditReputationBeta)
 			require.Nil(t, nodeCacheInfo.UnknownAuditSuspended)
+			require.False(t, nodeCacheInfo.Contained)
 			require.Nil(t, nodeCacheInfo.Disqualified)
 		}
 	})
@@ -250,20 +255,20 @@ func TestReportOfflineAudits(t *testing.T) {
 		node := planet.StorageNodes[0]
 		audits := satellite.Audit
 		audits.Worker.Loop.Pause()
-		cache := satellite.Overlay.DB
+		reputationDB := satellite.DB.Reputation()
 
 		_, err := audits.Reporter.RecordAudits(ctx, audit.Report{Offlines: storj.NodeIDList{node.ID()}})
 		require.NoError(t, err)
 
-		d, err := cache.Get(ctx, node.ID())
+		info, err := reputationDB.Get(ctx, node.ID())
 		require.NoError(t, err)
-		require.Equal(t, int64(1), d.Reputation.AuditCount)
+		require.Equal(t, int64(1), info.TotalAuditCount)
 
 		// check that other reputation stats were not incorrectly updated by offline audit
-		require.EqualValues(t, 0, d.Reputation.AuditSuccessCount)
-		require.EqualValues(t, 1, d.Reputation.AuditReputationAlpha)
-		require.EqualValues(t, 0, d.Reputation.AuditReputationBeta)
-		require.EqualValues(t, 1, d.Reputation.UnknownAuditReputationAlpha)
-		require.EqualValues(t, 0, d.Reputation.UnknownAuditReputationBeta)
+		require.EqualValues(t, 0, info.AuditSuccessCount)
+		require.EqualValues(t, 1, info.AuditReputationAlpha)
+		require.EqualValues(t, 0, info.AuditReputationBeta)
+		require.EqualValues(t, 1, info.UnknownAuditReputationAlpha)
+		require.EqualValues(t, 0, info.UnknownAuditReputationBeta)
 	})
 }

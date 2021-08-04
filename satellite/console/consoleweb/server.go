@@ -84,7 +84,8 @@ type Config struct {
 	BetaSatelliteFeedbackURL        string  `help:"url link for for beta satellite feedback" default:""`
 	BetaSatelliteSupportURL         string  `help:"url link for for beta satellite support" default:""`
 	DocumentationURL                string  `help:"url link to documentation" default:"https://docs.storj.io/"`
-	CouponCodeUIEnabled             bool    `help:"indicates if user is allowed to add coupon codes to account" default:"false"`
+	CouponCodeBillingUIEnabled      bool    `help:"indicates if user is allowed to add coupon codes to account from billing" default:"false"`
+	CouponCodeSignupUIEnabled       bool    `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
 	FileBrowserFlowDisabled         bool    `help:"indicates if file browser flow is disabled" default:"false"`
 	CSPEnabled                      bool    `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
 	LinksharingURL                  string  `help:"url link for linksharing requests" default:"https://link.us1.storjshare.io"`
@@ -159,7 +160,6 @@ type Server struct {
 		usageReport         *template.Template
 		resetPassword       *template.Template
 		success             *template.Template
-		activated           *template.Template
 	}
 }
 
@@ -223,6 +223,10 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	authRouter.Handle("/account/change-email", server.withAuth(http.HandlerFunc(authController.ChangeEmail))).Methods(http.MethodPost)
 	authRouter.Handle("/account/change-password", server.withAuth(http.HandlerFunc(authController.ChangePassword))).Methods(http.MethodPost)
 	authRouter.Handle("/account/delete", server.withAuth(http.HandlerFunc(authController.DeleteAccount))).Methods(http.MethodPost)
+	authRouter.Handle("/mfa/enable", server.withAuth(http.HandlerFunc(authController.EnableUserMFA))).Methods(http.MethodPost)
+	authRouter.Handle("/mfa/disable", server.withAuth(http.HandlerFunc(authController.DisableUserMFA))).Methods(http.MethodPost)
+	authRouter.Handle("/mfa/generate-secret-key", server.withAuth(http.HandlerFunc(authController.GenerateMFASecretKey))).Methods(http.MethodPost)
+	authRouter.Handle("/mfa/generate-recovery-codes", server.withAuth(http.HandlerFunc(authController.GenerateMFARecoveryCodes))).Methods(http.MethodPost)
 	authRouter.HandleFunc("/logout", authController.Logout).Methods(http.MethodPost)
 	authRouter.Handle("/token", server.rateLimiter.Limit(http.HandlerFunc(authController.Token))).Methods(http.MethodPost)
 	authRouter.Handle("/register", server.rateLimiter.Limit(http.HandlerFunc(authController.Register))).Methods(http.MethodPost)
@@ -241,6 +245,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost)
 	paymentsRouter.HandleFunc("/billing-history", paymentController.BillingHistory).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/tokens/deposit", paymentController.TokenDeposit).Methods(http.MethodPost)
+	paymentsRouter.HandleFunc("/couponcodes/apply", paymentController.ApplyCouponCode).Methods(http.MethodPatch)
 
 	bucketsController := consoleapi.NewBuckets(logger, service)
 	bucketsRouter := router.PathPrefix("/api/v0/buckets").Subrouter()
@@ -352,7 +357,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		BetaSatelliteFeedbackURL        string
 		BetaSatelliteSupportURL         string
 		DocumentationURL                string
-		CouponCodeUIEnabled             bool
+		CouponCodeBillingUIEnabled      bool
+		CouponCodeSignupUIEnabled       bool
 		FileBrowserFlowDisabled         bool
 		LinksharingURL                  string
 		PathwayOverviewEnabled          bool
@@ -377,7 +383,8 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.BetaSatelliteFeedbackURL = server.config.BetaSatelliteFeedbackURL
 	data.BetaSatelliteSupportURL = server.config.BetaSatelliteSupportURL
 	data.DocumentationURL = server.config.DocumentationURL
-	data.CouponCodeUIEnabled = server.config.CouponCodeUIEnabled
+	data.CouponCodeBillingUIEnabled = server.config.CouponCodeBillingUIEnabled
+	data.CouponCodeSignupUIEnabled = server.config.CouponCodeSignupUIEnabled
 	data.FileBrowserFlowDisabled = server.config.FileBrowserFlowDisabled
 	data.LinksharingURL = server.config.LinksharingURL
 	data.PathwayOverviewEnabled = server.config.PathwayOverviewEnabled
@@ -551,7 +558,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 			zap.Error(err))
 
 		if console.ErrEmailUsed.Has(err) {
-			server.serveError(w, http.StatusConflict)
+			http.Redirect(w, r, server.config.ExternalAddress+"login?activated=false", http.StatusTemporaryRedirect)
 			return
 		}
 
@@ -759,11 +766,6 @@ func (server *Server) serveError(w http.ResponseWriter, status int) {
 		if err != nil {
 			server.log.Error("cannot parse pageNotFound template", zap.Error(Error.Wrap(err)))
 		}
-	case http.StatusConflict:
-		err := server.templates.activated.Execute(w, nil)
-		if err != nil {
-			server.log.Error("cannot parse already activated template", zap.Error(Error.Wrap(err)))
-		}
 	}
 }
 
@@ -817,11 +819,6 @@ func (server *Server) initializeTemplates() (err error) {
 	server.templates.index, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "dist", "index.html"))
 	if err != nil {
 		server.log.Error("dist folder is not generated. use 'npm run build' command", zap.Error(err))
-	}
-
-	server.templates.activated, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "activation", "activated.html"))
-	if err != nil {
-		return Error.Wrap(err)
 	}
 
 	server.templates.success, err = template.ParseFiles(filepath.Join(server.config.StaticDir, "static", "resetPassword", "success.html"))

@@ -51,9 +51,7 @@ export default class IngressChart extends BaseChart {
             return 'Bytes';
         }
 
-        return ChartUtils.getChartDataDimension(this.allBandwidth.map((elem) => {
-            return elem.ingress.repair + elem.ingress.usage;
-        }));
+        return ChartUtils.getChartDataDimension(this.allBandwidth.map((elem) => elem.ingress.repair + elem.ingress.usage));
     }
 
     public get chartData(): ChartData {
@@ -72,8 +70,8 @@ export default class IngressChart extends BaseChart {
 
     public ingressTooltip(tooltipModel): void {
         const tooltipParams = new TooltipParams(tooltipModel, 'ingress-chart', 'ingress-tooltip',
-             'ingress-tooltip-point', this.tooltipMarkUp(tooltipModel),
-            185, 94, 6, 4, `#e1a128`);
+            'ingress-tooltip-point', this.tooltipMarkUp(tooltipModel),
+            185, 94, 6, 4, '#e1a128');
 
         Tooltip.custom(tooltipParams);
     }

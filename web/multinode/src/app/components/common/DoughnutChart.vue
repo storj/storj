@@ -11,11 +11,11 @@ import { DiskStatChartData } from '@/app/types/chart';
     extends: VueChart.Doughnut,
 })
 export default class DoughnutChart extends Vue {
-    @Prop({default: () => new DiskStatChartData()})
+    @Prop({ default: () => new DiskStatChartData() })
     private readonly chartData: DiskStatChartData;
 
     @Watch('chartData')
-    private onDataChange(news: object, old: object): void {
+    private onDataChange(news: Record<string, unknown>, old: Record<string, unknown>): void {
         (this as any).renderChart(this.chartData, {
             hover: false,
             tooltips: {

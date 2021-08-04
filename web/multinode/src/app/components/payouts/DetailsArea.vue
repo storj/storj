@@ -35,13 +35,13 @@ import InfoBlock from '../common/InfoBlock.vue';
     components: { InfoBlock },
 })
 export default class DetailsArea extends Vue {
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     public totalEarned: number;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     public totalHeld: number;
-    @Prop({default: 0})
+    @Prop({ default: 0 })
     public totalPaid: number;
-    @Prop({default: ''})
+    @Prop({ default: '' })
     public period: string;
 }
 </script>

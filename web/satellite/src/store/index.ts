@@ -72,14 +72,14 @@ store.subscribe((mutation, state) => {
     const satelliteName = state.appStateModule.satelliteName;
 
     switch (mutation.type) {
-        case PROJECTS_MUTATIONS.REMOVE:
-            document.title = `${router.currentRoute.name} | ${satelliteName}`;
+    case PROJECTS_MUTATIONS.REMOVE:
+        document.title = `${router.currentRoute.name} | ${satelliteName}`;
 
-            break;
-        case PROJECTS_MUTATIONS.SELECT_PROJECT:
-            if (currentRouteName && !notProjectRelatedRoutes.includes(currentRouteName)) {
-                document.title = `${state.projectsModule.selectedProject.name} | ${currentRouteName} | ${satelliteName}`;
-            }
+        break;
+    case PROJECTS_MUTATIONS.SELECT_PROJECT:
+        if (currentRouteName && !notProjectRelatedRoutes.includes(currentRouteName)) {
+            document.title = `${state.projectsModule.selectedProject.name} | ${currentRouteName} | ${satelliteName}`;
+        }
     }
 });
 

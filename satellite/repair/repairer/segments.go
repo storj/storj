@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"sort"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -23,6 +22,7 @@ import (
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
+	"storj.io/storj/satellite/reputation"
 	"storj.io/uplink/private/eestream"
 )
 
@@ -55,6 +55,7 @@ type SegmentRepairer struct {
 	metabase       *metabase.DB
 	orders         *orders.Service
 	overlay        *overlay.Service
+	reputation     *reputation.Service
 	ec             *ECRepairer
 	timeout        time.Duration
 
@@ -76,10 +77,10 @@ type SegmentRepairer struct {
 // when negative, 0 is applied.
 func NewSegmentRepairer(
 	log *zap.Logger, metabase *metabase.DB, orders *orders.Service,
-	overlay *overlay.Service, dialer rpc.Dialer, timeout time.Duration,
-	excessOptimalThreshold float64, repairOverrides checker.RepairOverrides,
-	downloadTimeout time.Duration, inMemoryRepair bool,
-	satelliteSignee signing.Signee,
+	overlay *overlay.Service, reputation *reputation.Service, dialer rpc.Dialer,
+	timeout time.Duration, excessOptimalThreshold float64,
+	repairOverrides checker.RepairOverrides, downloadTimeout time.Duration,
+	inMemoryRepair bool, satelliteSignee signing.Signee,
 ) *SegmentRepairer {
 
 	if excessOptimalThreshold < 0 {
@@ -92,6 +93,7 @@ func NewSegmentRepairer(
 		metabase:                   metabase,
 		orders:                     orders,
 		overlay:                    overlay,
+		reputation:                 reputation,
 		ec:                         NewECRepairer(log.Named("ec repairer"), dialer, satelliteSignee, downloadTimeout, inMemoryRepair),
 		timeout:                    timeout,
 		multiplierOptimalThreshold: 1 + excessOptimalThreshold,
@@ -380,7 +382,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	// add pieces that failed piece hashes verification to the removal list
 	toRemove = append(toRemove, failedPieces...)
 
-	newPieces, err := updatePieces(segment.Pieces, repairedPieces, toRemove)
+	newPieces, err := segment.Pieces.Update(repairedPieces, toRemove)
 	if err != nil {
 		return false, repairPutError.Wrap(err)
 	}
@@ -427,45 +429,6 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	return true, nil
 }
 
-func updatePieces(orignalPieces, toAddPieces, toRemovePieces metabase.Pieces) (metabase.Pieces, error) {
-	pieceMap := make(map[uint16]metabase.Piece)
-	for _, piece := range orignalPieces {
-		pieceMap[piece.Number] = piece
-	}
-
-	// remove the toRemove pieces from the map
-	// only if all piece number, node id match
-	for _, piece := range toRemovePieces {
-		if piece == (metabase.Piece{}) {
-			continue
-		}
-		existing := pieceMap[piece.Number]
-		if existing != (metabase.Piece{}) && existing.StorageNode == piece.StorageNode {
-			delete(pieceMap, piece.Number)
-		}
-	}
-
-	// add the pieces to the map
-	for _, piece := range toAddPieces {
-		if piece == (metabase.Piece{}) {
-			continue
-		}
-		_, exists := pieceMap[piece.Number]
-		if exists {
-			return metabase.Pieces{}, Error.New("piece to add already exists (piece no: %d)", piece.Number)
-		}
-		pieceMap[piece.Number] = piece
-	}
-
-	newPieces := make(metabase.Pieces, 0, len(pieceMap))
-	for _, piece := range pieceMap {
-		newPieces = append(newPieces, piece)
-	}
-	sort.Sort(newPieces)
-
-	return newPieces, nil
-}
-
 func (repairer *SegmentRepairer) getStatsByRS(redundancy *pb.RedundancyScheme) *stats {
 	rsString := getRSString(repairer.loadRedundancy(redundancy))
 	return repairer.statsCollector.getStatsByRS(rsString)
@@ -481,18 +444,17 @@ func (repairer *SegmentRepairer) loadRedundancy(redundancy *pb.RedundancyScheme)
 }
 
 func (repairer *SegmentRepairer) updateAuditFailStatus(ctx context.Context, failedAuditNodeIDs storj.NodeIDList) (failedNum int, err error) {
-	updateRequests := make([]*overlay.UpdateRequest, len(failedAuditNodeIDs))
-	for i, nodeID := range failedAuditNodeIDs {
-		updateRequests[i] = &overlay.UpdateRequest{
-			NodeID:       nodeID,
-			AuditOutcome: overlay.AuditFailure,
+	var errGroup errs.Group
+	for _, nodeID := range failedAuditNodeIDs {
+		err := repairer.reputation.ApplyAudit(ctx, nodeID, reputation.AuditFailure)
+		if err != nil {
+			failedNum++
+			errGroup.Add(err)
+			continue
 		}
 	}
-	if len(updateRequests) > 0 {
-		failed, err := repairer.overlay.BatchUpdateStats(ctx, updateRequests)
-		if err != nil || len(failed) > 0 {
-			return len(failed), errs.Combine(Error.New("failed to update some audit fail statuses in overlay"), err)
-		}
+	if failedNum > 0 {
+		return failedNum, errs.Combine(Error.New("failed to update some audit fail statuses in overlay"), errGroup.Err())
 	}
 	return 0, nil
 }

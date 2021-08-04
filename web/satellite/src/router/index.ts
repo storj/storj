@@ -40,7 +40,7 @@ import { OBJECTS_ACTIONS } from '@/store/modules/objects';
 import { NavigationLink } from '@/types/navigation';
 
 const DashboardArea = () => import('@/views/DashboardArea.vue');
-const ForgotPassword = () => import('@/views/forgotPassword/ForgotPassword.vue');
+const ForgotPassword = () => import('@/views/ForgotPassword.vue');
 const LoginArea = () => import('@/views/LoginArea.vue');
 const RegisterArea = () => import('@/views/RegisterArea.vue');
 

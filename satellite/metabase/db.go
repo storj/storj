@@ -133,11 +133,11 @@ func (db *DB) MigrateToLatest(ctx context.Context) error {
 
 	case dbutil.Cockroach:
 		var dbName string
-		if err := db.db.QueryRow(ctx, `SELECT current_database();`).Scan(&dbName); err != nil {
+		if err := db.db.QueryRowContext(ctx, `SELECT current_database();`).Scan(&dbName); err != nil {
 			return errs.New("error querying current database: %+v", err)
 		}
 
-		_, err := db.db.Exec(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`,
+		_, err := db.db.ExecContext(ctx, fmt.Sprintf(`CREATE DATABASE IF NOT EXISTS %s;`,
 			pgutil.QuoteIdentifier(dbName)))
 		if err != nil {
 			return errs.Wrap(err)

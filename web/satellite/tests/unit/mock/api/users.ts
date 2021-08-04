@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { EnableUserMFARequest, UpdatedUser, User, UsersApi } from '@/types/users';
+import { UpdatedUser, User, UsersApi } from '@/types/users';
 
 /**
  * Mock for UsersApi
@@ -21,7 +21,7 @@ export class UsersApiMock implements UsersApi {
         throw new Error('not implemented');
     }
 
-    public enableUserMFA(_: EnableUserMFARequest): Promise<void> {
+    public enableUserMFA(_: string): Promise<void> {
         return Promise.resolve();
     }
 

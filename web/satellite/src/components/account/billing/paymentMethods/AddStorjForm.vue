@@ -121,18 +121,18 @@ export default class AddStorjForm extends Vue {
      */
     private get isDepositValueValid(): boolean {
         switch (true) {
-            case (this.tokenDepositValue < this.DEFAULT_TOKEN_DEPOSIT_VALUE || this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT) && !this.userHasOwnProject:
-                this.$notify.error('First deposit amount must be more than $10 and less than $1000000');
-                this.setDefault();
+        case (this.tokenDepositValue < this.DEFAULT_TOKEN_DEPOSIT_VALUE || this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT) && !this.userHasOwnProject:
+            this.$notify.error('First deposit amount must be more than $10 and less than $1000000');
+            this.setDefault();
 
-                return false;
-            case this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT || this.tokenDepositValue === 0:
-                this.$notify.error('Deposit amount must be more than $0 and less than $1000000');
-                this.setDefault();
+            return false;
+        case this.tokenDepositValue >= this.MAX_TOKEN_AMOUNT || this.tokenDepositValue === 0:
+            this.$notify.error('Deposit amount must be more than $0 and less than $1000000');
+            this.setDefault();
 
-                return false;
-            default:
-                return true;
+            return false;
+        default:
+            return true;
         }
     }
 

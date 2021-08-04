@@ -67,7 +67,7 @@ func Test_TotalUsageLimits(t *testing.T) {
 		require.NoError(t, err)
 
 		// we are using full name as a password
-		token, err := sat.API.Console.Service.Token(ctx, user.Email, user.FullName)
+		token, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: user.Email, Password: user.FullName})
 		require.NoError(t, err)
 
 		client := http.Client{}

@@ -213,6 +213,19 @@ func (planet *Planet) Start(ctx context.Context) {
 			})
 		})
 	}
+	if !planet.config.Reconfigure.DisableInitReputationDB {
+		for _, peer := range planet.StorageNodes {
+			peer := peer
+			for _, sat := range planet.Satellites {
+				sat := sat
+				pprof.Do(ctx, pprof.Labels("peer", peer.Label(), "startup", "reputation"), func(ctx context.Context) {
+					group.Go(func() error {
+						return sat.DB.Reputation().Init(ctx, peer.ID())
+					})
+				})
+			}
+		}
+	}
 	_ = group.Wait()
 
 	planet.started = true

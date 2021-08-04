@@ -56,10 +56,10 @@ import { PM_ACTIONS } from '@/utils/constants/actionNames';
     },
 })
 export default class NameStep extends Vue {
-    private name: string = '';
-    private errorMessage: string = '';
-    private isLoading: boolean = false;
-    private key: string = '';
+    private name = '';
+    private errorMessage = '';
+    private isLoading = false;
+    private key = '';
 
     private readonly FIRST_PAGE = 1;
 

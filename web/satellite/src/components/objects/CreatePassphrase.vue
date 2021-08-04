@@ -30,10 +30,10 @@ import { LocalData, UserIDPassSalt } from '@/utils/localData';
     },
 })
 export default class CreatePassphrase extends Vue {
-    private isLoading: boolean = false;
-    private keyToBeStored: string = '';
+    private isLoading = false;
+    private keyToBeStored = '';
 
-    public passphrase: string = '';
+    public passphrase = '';
 
     /**
      * Lifecycle hook after initial render.

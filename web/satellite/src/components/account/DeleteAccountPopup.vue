@@ -65,9 +65,9 @@ import { Validator } from '@/utils/validation';
     },
 })
 export default class DeleteAccountPopup extends Vue {
-    public passwordError: string = '';
-    private password: string = '';
-    private isLoading: boolean = false;
+    public passwordError = '';
+    private password = '';
+    private isLoading = false;
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 

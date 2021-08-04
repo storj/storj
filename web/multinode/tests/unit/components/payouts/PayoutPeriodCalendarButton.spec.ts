@@ -8,6 +8,7 @@ import PayoutPeriodCalendarButton from '@/app/components/payouts/PayoutPeriodCal
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
+
 localVue.use(Vuex);
 
 describe('PayoutPeriodCalendarButton', (): void => {
@@ -22,7 +23,7 @@ describe('PayoutPeriodCalendarButton', (): void => {
         expect(wrapper).toMatchSnapshot();
     });
 
-    it('triggers open calendar correctly', async (): Promise<void> => {
+    it('triggers open calendar correctly', async(): Promise<void> => {
         const wrapper = shallowMount(PayoutPeriodCalendarButton, {
             localVue,
             propsData: {

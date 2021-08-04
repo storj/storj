@@ -434,10 +434,10 @@ func testCorruptDataRepairFailed(t *testing.T, inMemoryRepair bool) {
 		corruptedNode := planet.FindNode(corruptedNodeID)
 		require.NotNil(t, corruptedNode)
 
-		overlay := planet.Satellites[0].Overlay.Service
-		node, err := overlay.Get(ctx, corruptedNodeID)
+		reputationService := planet.Satellites[0].Reputation.Service
+		reputationInfo, err := reputationService.Get(ctx, corruptedNodeID)
 		require.NoError(t, err)
-		corruptedNodeReputation := node.Reputation
+		corruptedNodeReputation := reputationInfo
 
 		corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
 
@@ -450,11 +450,11 @@ func testCorruptDataRepairFailed(t *testing.T, inMemoryRepair bool) {
 		satellite.Repair.Repairer.WaitForPendingRepairs()
 
 		// repair should update audit status as fail
-		node, err = overlay.Get(ctx, corruptedNodeID)
+		reputationInfo, err = reputationService.Get(ctx, corruptedNodeID)
 		require.NoError(t, err)
-		require.Equal(t, corruptedNodeReputation.AuditCount+1, node.Reputation.AuditCount)
-		require.True(t, corruptedNodeReputation.AuditReputationBeta < node.Reputation.AuditReputationBeta)
-		require.True(t, corruptedNodeReputation.AuditReputationAlpha >= node.Reputation.AuditReputationAlpha)
+		require.Equal(t, corruptedNodeReputation.TotalAuditCount+1, reputationInfo.TotalAuditCount)
+		require.True(t, corruptedNodeReputation.AuditReputationBeta < reputationInfo.AuditReputationBeta)
+		require.True(t, corruptedNodeReputation.AuditReputationAlpha >= reputationInfo.AuditReputationAlpha)
 
 		// repair should fail, so segment should contain all the original nodes
 		segmentAfter, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
@@ -551,10 +551,10 @@ func testCorruptDataRepairSucceed(t *testing.T, inMemoryRepair bool) {
 
 		corruptPieceData(ctx, t, planet, corruptedNode, corruptedPieceID)
 
-		overlay := planet.Satellites[0].Overlay.Service
-		node, err := overlay.Get(ctx, corruptedNodeID)
+		reputationService := planet.Satellites[0].Reputation.Service
+		reputationInfo, err := reputationService.Get(ctx, corruptedNodeID)
 		require.NoError(t, err)
-		corruptedNodeReputation := node.Reputation
+		corruptedNodeReputation := reputationInfo
 
 		satellite.Repair.Checker.Loop.Restart()
 		satellite.Repair.Checker.Loop.TriggerWait()
@@ -565,11 +565,11 @@ func testCorruptDataRepairSucceed(t *testing.T, inMemoryRepair bool) {
 		satellite.Repair.Repairer.WaitForPendingRepairs()
 
 		// repair should update audit status as fail
-		node, err = overlay.Get(ctx, corruptedNodeID)
+		reputationInfo, err = reputationService.Get(ctx, corruptedNodeID)
 		require.NoError(t, err)
-		require.Equal(t, corruptedNodeReputation.AuditCount+1, node.Reputation.AuditCount)
-		require.True(t, corruptedNodeReputation.AuditReputationBeta < node.Reputation.AuditReputationBeta)
-		require.True(t, corruptedNodeReputation.AuditReputationAlpha >= node.Reputation.AuditReputationAlpha)
+		require.Equal(t, corruptedNodeReputation.TotalAuditCount+1, reputationInfo.TotalAuditCount)
+		require.True(t, corruptedNodeReputation.AuditReputationBeta < reputationInfo.AuditReputationBeta)
+		require.True(t, corruptedNodeReputation.AuditReputationAlpha >= reputationInfo.AuditReputationAlpha)
 
 		// get the new segment
 		segmentAfter, _ := getRemoteSegment(ctx, t, satellite, planet.Uplinks[0].Projects[0].ID, "testbucket")
@@ -989,7 +989,7 @@ func testRepairMultipleDisqualifiedAndSuspended(t *testing.T, inMemoryRepair boo
 		}
 		for i := toDisqualify; i < toDisqualify+toSuspend; i++ {
 			nodesToSuspend[remotePieces[i].StorageNode] = true
-			err := satellite.DB.OverlayCache().SuspendNodeUnknownAudit(ctx, remotePieces[i].StorageNode, time.Now())
+			err := satellite.DB.OverlayCache().TestSuspendNodeUnknownAudit(ctx, remotePieces[i].StorageNode, time.Now())
 			require.NoError(t, err)
 		}
 		for i := toDisqualify + toSuspend; i < len(remotePieces); i++ {

@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
@@ -249,5 +251,70 @@ func TestDeleteBucketObjects(t *testing.T) {
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
+
+		t.Run("multiple objects", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			root := metabasetest.RandObjectStream()
+			for i := 0; i < 5; i++ {
+				obj := metabasetest.RandObjectStream()
+				obj.ProjectID = root.ProjectID
+				obj.BucketName = root.BucketName
+				metabasetest.CreateObject(ctx, t, db, obj, 5)
+			}
+
+			segmentsDeleted := 0
+			metabasetest.DeleteBucketObjects{
+				Opts: metabase.DeleteBucketObjects{
+					Bucket:                root.Location().Bucket(),
+					BatchSize:             1,
+					DeletePiecesBatchSize: 1,
+					DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
+						segmentsDeleted += len(segments)
+						return nil
+					},
+				},
+				Deleted: 5,
+			}.Check(ctx, t, db)
+
+			require.Equal(t, 25, segmentsDeleted)
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+	})
+}
+
+func TestDeleteBucketObjectsParallel(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+		root := metabasetest.RandObjectStream()
+		for i := 0; i < 5; i++ {
+			obj := metabasetest.RandObjectStream()
+			obj.ProjectID = root.ProjectID
+			obj.BucketName = root.BucketName
+			metabasetest.CreateObject(ctx, t, db, obj, 50)
+		}
+
+		objects, err := db.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Equal(t, 5, len(objects))
+
+		for i := 0; i < 3; i++ {
+			ctx.Go(func() error {
+				_, err := db.DeleteBucketObjects(ctx, metabase.DeleteBucketObjects{
+					Bucket:                root.Location().Bucket(),
+					BatchSize:             2,
+					DeletePiecesBatchSize: 10,
+					DeletePieces: func(ctx context.Context, segments []metabase.DeletedSegmentInfo) error {
+						return nil
+					},
+				})
+				return err
+			})
+		}
+
+		ctx.Wait()
+
+		metabasetest.Verify{}.Check(ctx, t, db)
 	})
 }

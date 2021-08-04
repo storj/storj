@@ -24,7 +24,7 @@ export default class BaseChart extends Vue {
     /**
      * Used for chart re rendering.
      */
-    public chartKey: number = 0;
+    public chartKey = 0;
 
     public $refs: {
         chartContainer: HTMLElement;

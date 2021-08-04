@@ -28,7 +28,7 @@ export default class VLoader extends Vue {
     /**
      * Returns loader's width and height from props.
      */
-    public get style(): Object {
+    public get style(): Record<string, unknown> {
         return { width: this.width, height: this.height };
     }
 }

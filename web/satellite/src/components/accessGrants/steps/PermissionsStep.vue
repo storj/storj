@@ -93,16 +93,16 @@ import { DurationPermission } from '@/types/accessGrants';
     },
 })
 export default class PermissionsStep extends Vue {
-    private key: string = '';
-    private restrictedKey: string = '';
+    private key = '';
+    private restrictedKey = '';
     private worker: Worker;
 
-    public isLoading: boolean = true;
-    public isDownload: boolean = true;
-    public isUpload: boolean = true;
-    public isList: boolean = true;
-    public isDelete: boolean = true;
-    public areBucketNamesFetching: boolean = true;
+    public isLoading = true;
+    public isDownload = true;
+    public isUpload = true;
+    public isList = true;
+    public isDelete = true;
+    public areBucketNamesFetching = true;
 
     /**
      * Lifecycle hook after initial render.

@@ -57,7 +57,7 @@ import { ACCESS_GRANTS_ACTIONS } from '@/store/modules/accessGrants';
     },
 })
 export default class BucketsDropdown extends Vue {
-    public bucketSearch: string = '';
+    public bucketSearch = '';
 
     /**
      * Clears selection of specific buckets and closes dropdown.

@@ -69,7 +69,7 @@ export default class SatelliteSelection extends Vue {
     /**
      * Indicates if name or id should be shown.
      */
-    public isNameShown: boolean = true;
+    public isNameShown = true;
 
     /**
      * Returns label depends on which satellite is selected.

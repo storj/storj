@@ -19,9 +19,9 @@ import { CheckSelected, Page } from '@/app/types/pagination';
 
 @Component
 export default class PagesBlock extends Vue {
-    @Prop({default: () => []})
+    @Prop({ default: () => [] })
     public readonly pages: Page[];
-    @Prop({default: () => false})
+    @Prop({ default: () => false })
     public readonly isSelected: CheckSelected;
 }
 </script>

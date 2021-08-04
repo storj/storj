@@ -50,7 +50,7 @@ export default class HeldHistoryArea extends Vue {
     /**
      * Indicates if All Stats state is active.
      */
-    public isAllStatsShown: boolean = true;
+    public isAllStatsShown = true;
 
     /**
      * Sets held history table state to All Stats.

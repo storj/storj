@@ -42,7 +42,7 @@ export default class SingleInfo extends Vue {
     /**
      * Indicates if tooltip needs to be shown.
      */
-    public isTooltipVisible: boolean = false;
+    public isTooltipVisible = false;
 
     /**
      * Toggles tooltip visibility.

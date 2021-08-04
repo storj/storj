@@ -29,6 +29,7 @@ require (
 	github.com/nsf/jsondiff v0.0.0-20200515183724-f29ed568f4ce
 	github.com/nsf/termbox-go v0.0.0-20200418040025-38ba6e5628f1
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pquerna/otp v1.3.0
 	github.com/segmentio/backo-go v0.0.0-20200129164019-23eae7c10bd3 // indirect
 	github.com/shopspring/decimal v1.2.0
 	github.com/spacemonkeygo/monkit/v3 v3.0.14
@@ -36,7 +37,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
-	github.com/stripe/stripe-go v70.15.0+incompatible
+	github.com/stripe/stripe-go/v72 v72.51.0
 	github.com/vivint/infectious v0.0.0-20200605153912-25a574ae18a3
 	github.com/xtgo/uuid v0.0.0-20140804021211-a0b114877d4c // indirect
 	github.com/zeebo/assert v1.3.0
@@ -54,8 +55,8 @@ require (
 	google.golang.org/api v0.20.0 // indirect
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0
 	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
-	storj.io/common v0.0.0-20210708125041-4882a3ae3eda
-	storj.io/drpc v0.0.23
+	storj.io/common v0.0.0-20210802130738-7506a469842e
+	storj.io/drpc v0.0.24
 	storj.io/monkit-jaeger v0.0.0-20210426161729-debb1cbcbbd7
 	storj.io/private v0.0.0-20210625132526-af46b647eda5
 	storj.io/uplink v1.5.0-rc.1.0.20210512164354-e2e5889614a9

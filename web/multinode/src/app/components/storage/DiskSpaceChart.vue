@@ -40,7 +40,6 @@ class StampTooltip {
 
 @Component
 export default class DiskSpaceChart extends BaseChart {
-
     private get allStamps(): Stamp[] {
         return ChartUtils.populateEmptyStamps(this.$store.state.storage.usage.diskSpaceDaily);
     }
@@ -50,9 +49,7 @@ export default class DiskSpaceChart extends BaseChart {
             return 'Bytes';
         }
 
-        return ChartUtils.getChartDataDimension(this.allStamps.map((elem) => {
-            return elem.atRestTotal;
-        }));
+        return ChartUtils.getChartDataDimension(this.allStamps.map((elem) => elem.atRestTotal));
     }
 
     public get chartData(): ChartData {
@@ -71,7 +68,7 @@ export default class DiskSpaceChart extends BaseChart {
 
     public diskSpaceTooltip(tooltipModel): void {
         const tooltipParams = new TooltipParams(tooltipModel, 'disk-space-chart', 'disk-space-tooltip', 'disk-space-tooltip-point', this.tooltipMarkUp(tooltipModel),
-            125, 89, 6, 4, `#1f49a3`);
+            125, 89, 6, 4, '#1f49a3');
 
         Tooltip.custom(tooltipParams);
     }

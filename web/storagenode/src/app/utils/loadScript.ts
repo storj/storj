@@ -45,4 +45,4 @@ export type LoadScriptOnSuccessCallback = () => void;
  * LoadScriptOnErrorCallback describes signature of onError callback.
  * @param err - error occurred during script loading.
  */
-export type LoadScriptOnErrorCallback = (err: Error) => { };
+export type LoadScriptOnErrorCallback = (err: Error) => any;

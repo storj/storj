@@ -80,7 +80,7 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 		deletedSegmentsBatch = deletedSegmentsBatch[:0]
 		batchDeletedObjects := 0
 		deletedSegments := 0
-		err = withRows(db.db.Query(ctx, query,
+		err = withRows(db.db.QueryContext(ctx, query,
 			opts.Bucket.ProjectID, []byte(opts.Bucket.BucketName), opts.BatchSize))(func(rows tagsql.Rows) error {
 			ids := map[uuid.UUID]struct{}{} // TODO: avoid map here
 			for rows.Next() {
@@ -125,7 +125,7 @@ func (db *DB) DeleteBucketObjects(ctx context.Context, opts DeleteBucketObjects)
 			}
 			return deletedObjectCount, Error.Wrap(err)
 		}
-		if len(deletedSegmentsBatch) == 0 {
+		if deletedSegments == 0 {
 			return deletedObjectCount, nil
 		}
 

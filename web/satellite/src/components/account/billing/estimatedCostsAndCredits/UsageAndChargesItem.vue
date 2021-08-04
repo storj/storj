@@ -101,8 +101,8 @@ export default class UsageAndChargesItem extends Vue {
      * Returns string of date range.
      */
     public get period(): string {
-        const since: string = `${SHORT_MONTHS_NAMES[this.item.since.getUTCMonth()]} ${this.item.since.getUTCDate()}`;
-        const before: string = `${SHORT_MONTHS_NAMES[this.item.before.getUTCMonth()]} ${this.item.before.getUTCDate()}`;
+        const since = `${SHORT_MONTHS_NAMES[this.item.since.getUTCMonth()]} ${this.item.since.getUTCDate()}`;
+        const before = `${SHORT_MONTHS_NAMES[this.item.before.getUTCMonth()]} ${this.item.before.getUTCDate()}`;
 
         return `${since} - ${before}`;
     }
@@ -118,7 +118,7 @@ export default class UsageAndChargesItem extends Vue {
      * Returns formatted storage used in GB x month dimension.
      */
     public get storageFormatted(): string {
-        const bytesInGB: number = 1000000000;
+        const bytesInGB = 1000000000;
 
         return (this.item.storage / this.HOURS_IN_MONTH / bytesInGB).toFixed(2);
     }
@@ -154,7 +154,7 @@ export default class UsageAndChargesItem extends Vue {
     /**
      * isDetailedInfoShown indicates if area with detailed information about project charges is expanded.
      */
-    public isDetailedInfoShown: boolean = false;
+    public isDetailedInfoShown = false;
 
     /**
      * toggleDetailedInfo expands an area with detailed information about project charges.

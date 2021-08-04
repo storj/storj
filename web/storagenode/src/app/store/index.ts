@@ -36,12 +36,12 @@ export class StoreModule<S> {
  * storage node store (vuex)
  */
 export const store = new Vuex.Store({
-   modules: {
-       node: newNodeModule(nodeService),
-       appStateModule,
-       notificationsModule: newNotificationsModule(notificationsService),
-       payoutModule: newPayoutModule(payoutService),
-   },
+    modules: {
+        node: newNodeModule(nodeService),
+        appStateModule,
+        notificationsModule: newNotificationsModule(notificationsService),
+        payoutModule: newPayoutModule(payoutService),
+    },
 });
 
 export default store;

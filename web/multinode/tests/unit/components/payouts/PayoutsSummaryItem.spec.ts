@@ -10,11 +10,10 @@ import { NodePayoutsSummary } from '@/payouts';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();
+
 localVue.use(Vuex);
 
-localVue.filter('centsToDollars', (cents: number): string => {
-    return Currency.dollarsFromCents(cents);
-});
+localVue.filter('centsToDollars', (cents: number): string => Currency.dollarsFromCents(cents));
 
 describe('PayoutsSummaryItem', (): void => {
     it('renders correctly', (): void => {

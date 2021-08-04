@@ -93,7 +93,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
 })
 export default class BillingArea extends Vue {
     public readonly balanceHistoryRoute: string = RouteConfig.Account.with(RouteConfig.DepositHistory).path;
-    public isBalanceFetching: boolean = true;
+    public isBalanceFetching = true;
 
     /**
      * Mounted lifecycle hook after initial render.

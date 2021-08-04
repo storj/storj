@@ -31,6 +31,7 @@ export class BandwidthRollup {
      */
     public static emptyWithDate(date: number): BandwidthRollup {
         const now = new Date();
+
         now.setUTCDate(date);
         now.setUTCHours(0, 0, 0, 0);
 

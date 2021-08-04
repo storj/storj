@@ -80,22 +80,22 @@ export default class CardComponent extends Vue {
      */
     public get cardIcon() {
         switch (this.creditCard.brand) {
-            case 'jcb':
-                return JCBIcon;
-            case 'diners':
-                return DinersIcon;
-            case 'mastercard':
-                return MastercardIcon;
-            case 'amex':
-                return AmericanExpressIcon;
-            case 'discover':
-                return DiscoverIcon;
-            case 'unionpay':
-                return UnionPayIcon;
-            case 'visa':
-                return VisaIcon;
-            default:
-                return DefaultIcon;
+        case 'jcb':
+            return JCBIcon;
+        case 'diners':
+            return DinersIcon;
+        case 'mastercard':
+            return MastercardIcon;
+        case 'amex':
+            return AmericanExpressIcon;
+        case 'discover':
+            return DiscoverIcon;
+        case 'unionpay':
+            return UnionPayIcon;
+        case 'visa':
+            return VisaIcon;
+        default:
+            return DefaultIcon;
         }
     }
 

@@ -569,6 +569,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.DB.Payout(),
 			peer.DB.Reputation(),
 			peer.DB.Satellites(),
+			peer.Storage2.Trust,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

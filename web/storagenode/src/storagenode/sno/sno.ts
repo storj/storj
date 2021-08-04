@@ -46,8 +46,8 @@ export class Traffic {
  * Holds audit and suspension checks.
  */
 export class Checks {
-    public audit: number = 0;
-    public suspension: number = 0;
+    public audit = 0;
+    public suspension = 0;
 
     public constructor(
         audit: Metric = new Metric(),
@@ -115,7 +115,7 @@ export class Stamp {
     public atRestTotal: number;
     public intervalStart: Date;
 
-    public constructor(atRestTotal: number = 0, intervalStart: Date = new Date()) {
+    public constructor(atRestTotal = 0, intervalStart: Date = new Date()) {
         this.atRestTotal = atRestTotal;
         this.intervalStart = intervalStart;
     }
@@ -291,16 +291,16 @@ export class SatelliteScores {
     public auditScore: Score;
     public suspensionScore: Score;
     public onlineScore: Score;
-    public iconClassName: string = '';
+    public iconClassName = '';
 
     private readonly WARNING_CLASSNAME: string = 'warning';
     private readonly DISQUALIFICATION_CLASSNAME: string = 'disqualification';
 
     public constructor(
         public satelliteName: string = 'satellite-name',
-        auditScore: number = 0,
-        unknownScore: number = 0,
-        onlineScore: number = 0,
+        auditScore = 0,
+        unknownScore = 0,
+        onlineScore = 0,
     ) {
         this.auditScore = new Score(auditScore);
         this.suspensionScore = new Score(unknownScore);
@@ -332,21 +332,21 @@ export class Score {
     private readonly DISQUALIFICATION_CLASSNAME: string = 'disqualification';
 
     public constructor(
-        score: number = 0,
+        score = 0,
     ) {
         this.label = `${parseFloat((score * 100).toFixed(2))} %`;
 
         switch (true) {
-            case (score < this.DISQUALIFICATION_MINIMUM_SCORE):
-                this.statusClassName = this.DISQUALIFICATION_CLASSNAME;
+        case (score < this.DISQUALIFICATION_MINIMUM_SCORE):
+            this.statusClassName = this.DISQUALIFICATION_CLASSNAME;
 
-                break;
-            case (score < this.WARNING_MINIMUM_SCORE):
-                this.statusClassName = this.WARNING_CLASSNAME;
+            break;
+        case (score < this.WARNING_MINIMUM_SCORE):
+            this.statusClassName = this.WARNING_CLASSNAME;
 
-                break;
-            default:
-                this.statusClassName = '';
+            break;
+        default:
+            this.statusClassName = '';
         }
     }
 }

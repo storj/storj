@@ -31,7 +31,7 @@ export default class OptionsDropdown extends Vue {
     /**
      * Uses for switching mode.
      */
-    public isDarkMode: boolean = false;
+    public isDarkMode = false;
 
     /**
      * Lifecycle hook after initial render.

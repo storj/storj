@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/reputation"
 )
 
 // TestDisqualificationTooManyFailedAudits does the following:
@@ -35,9 +36,9 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.Node.AuditReputationLambda = 1
-				config.Overlay.Node.AuditReputationWeight = 1
-				config.Overlay.Node.AuditReputationDQ = auditDQCutOff
+				config.Reputation.AuditLambda = 1
+				config.Reputation.AuditWeight = 1
+				config.Reputation.AuditDQ = auditDQCutOff
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -53,10 +54,17 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 		dossier, err := satellitePeer.Overlay.Service.Get(ctx, nodeID)
 		require.NoError(t, err)
 
-		require.Equal(t, float64(1), dossier.Reputation.AuditReputationAlpha)
-		require.Equal(t, float64(0), dossier.Reputation.AuditReputationBeta)
+		require.Nil(t, dossier.Disqualified)
 
-		prevReputation := calcReputation(dossier)
+		_, err = satellitePeer.Audit.Reporter.RecordAudits(ctx, audit.Report{
+			Successes: storj.NodeIDList{nodeID},
+		})
+		require.NoError(t, err)
+
+		reputationInfo, err := satellitePeer.Reputation.Service.Get(ctx, nodeID)
+		require.NoError(t, err)
+
+		prevReputation := calcReputation(reputationInfo)
 
 		// Report the audit failure until the node gets disqualified due to many
 		// failed audits.
@@ -65,29 +73,29 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 			_, err := satellitePeer.Audit.Reporter.RecordAudits(ctx, report)
 			require.NoError(t, err)
 
-			dossier, err := satellitePeer.Overlay.Service.Get(ctx, nodeID)
+			reputationInfo, err := satellitePeer.Reputation.Service.Get(ctx, nodeID)
 			require.NoError(t, err)
 
-			reputation := calcReputation(dossier)
+			reputation := calcReputation(reputationInfo)
 			require.Truef(t, prevReputation >= reputation,
 				"(%d) expected reputation to remain or decrease (previous >= current): %f >= %f",
 				iterations, prevReputation, reputation,
 			)
 
 			if reputation <= auditDQCutOff || reputation == prevReputation {
-				require.NotNilf(t, dossier.Disqualified,
+				require.NotNilf(t, reputationInfo.Disqualified,
 					"Disqualified (%d) - cut-off: %f, prev. reputation: %f, current reputation: %f",
 					iterations, auditDQCutOff, prevReputation, reputation,
 				)
 
-				require.True(t, time.Since(*dossier.Disqualified) >= 0,
+				require.True(t, time.Since(*reputationInfo.Disqualified) >= 0,
 					"Disqualified should be in the past",
 				)
 
 				break
 			}
 
-			require.Nil(t, dossier.Disqualified, "Disqualified")
+			require.Nil(t, reputationInfo.Disqualified, "Disqualified")
 			prevReputation = reputation
 		}
 
@@ -95,12 +103,11 @@ func TestDisqualificationTooManyFailedAudits(t *testing.T) {
 	})
 }
 
-func calcReputation(dossier *overlay.NodeDossier) float64 {
+func calcReputation(dossier *reputation.Info) float64 {
 	var (
-		alpha = dossier.Reputation.AuditReputationAlpha
-		beta  = dossier.Reputation.AuditReputationBeta
+		alpha = dossier.AuditReputationAlpha
+		beta  = dossier.AuditReputationBeta
 	)
-
 	return alpha / (alpha + beta)
 }
 
@@ -130,7 +137,7 @@ func TestDisqualifiedNodesGetNoDownload(t *testing.T) {
 		segment := segments[0]
 		disqualifiedNode := segment.Pieces[0].StorageNode
 
-		err = satellitePeer.DB.OverlayCache().DisqualifyNode(ctx, disqualifiedNode)
+		err = satellitePeer.Reputation.Service.TestDisqualifyNode(ctx, disqualifiedNode)
 		require.NoError(t, err)
 
 		limits, _, err := satellitePeer.Orders.Service.CreateGetOrderLimits(ctx, bucket, segment, 0)
@@ -156,7 +163,7 @@ func TestDisqualifiedNodesGetNoUpload(t *testing.T) {
 		disqualifiedNode := planet.StorageNodes[0]
 		satellitePeer.Audit.Worker.Loop.Pause()
 
-		err := satellitePeer.DB.OverlayCache().DisqualifyNode(ctx, disqualifiedNode.ID())
+		err := satellitePeer.Reputation.Service.TestDisqualifyNode(ctx, disqualifiedNode.ID())
 		require.NoError(t, err)
 
 		request := overlay.FindStorageNodesRequest{
@@ -184,12 +191,22 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Overlay.Node.MinimumDiskSpace = 10 * memory.MB
+				config.Reputation.AuditLambda = 0 // forget about history
+				config.Reputation.AuditWeight = 1
+				config.Reputation.AuditDQ = 0 // make sure new reputation scores are larger than the DQ thresholds
+				config.Reputation.SuspensionGracePeriod = time.Hour
+				config.Reputation.SuspensionDQEnabled = true
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellitePeer := planet.Satellites[0]
 		satellitePeer.Audit.Worker.Loop.Pause()
 
 		disqualifiedNode := planet.StorageNodes[0]
-		err := satellitePeer.DB.OverlayCache().DisqualifyNode(ctx, disqualifiedNode.ID())
+		err := satellitePeer.Reputation.Service.TestDisqualifyNode(ctx, disqualifiedNode.ID())
 		require.NoError(t, err)
 
 		info := overlay.NodeCheckInInfo{
@@ -209,16 +226,7 @@ func TestDisqualifiedNodeRemainsDisqualified(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
-
-		_, err = satellitePeer.Overlay.Service.BatchUpdateStats(ctx, []*overlay.UpdateRequest{{
-			NodeID:                disqualifiedNode.ID(),
-			AuditOutcome:          overlay.AuditSuccess,
-			AuditLambda:           0, // forget about history
-			AuditWeight:           1,
-			AuditDQ:               0, // make sure new reputation scores are larger than the DQ thresholds
-			SuspensionGracePeriod: time.Hour,
-			SuspensionDQEnabled:   true,
-		}})
+		err = satellitePeer.Reputation.Service.ApplyAudit(ctx, disqualifiedNode.ID(), reputation.AuditSuccess)
 		require.NoError(t, err)
 		assert.True(t, isDisqualified(t, ctx, satellitePeer, disqualifiedNode.ID()))
 	})

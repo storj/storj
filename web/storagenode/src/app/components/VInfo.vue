@@ -27,8 +27,8 @@ declare interface MessageBoxStyle {
 
 @Component
 export default class VInfo extends Vue {
-    private isVisible: boolean = false;
-    private height: string = '5px';
+    private isVisible = false;
+    private height = '5px';
 
     @Prop({default: ''})
     private readonly text: string;

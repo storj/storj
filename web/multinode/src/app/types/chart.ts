@@ -102,6 +102,7 @@ export class TooltipParams {
 export class Tooltip {
     public static custom(params: TooltipParams): void {
         const chart = document.getElementById(params.chartId);
+
         if (!chart) {
             return;
         }
@@ -122,9 +123,11 @@ export class Tooltip {
         const position = chart.getBoundingClientRect();
 
         const tooltipStyling = new Styling(params.tooltipModel, tooltip, params.tooltipTop, params.tooltipLeft, position);
+
         Tooltip.elemStyling(tooltipStyling);
 
         const pointStyling = new Styling(params.tooltipModel, point, params.pointTop, params.pointLeft, position);
+
         Tooltip.elemStyling(pointStyling);
 
         Tooltip.pointStyling(point, params.color);
@@ -132,6 +135,7 @@ export class Tooltip {
 
     private static createTooltip(id: string): HTMLElement {
         let tooltipEl = document.getElementById(id);
+
         if (!tooltipEl) {
             tooltipEl = document.createElement('div');
             tooltipEl.id = id;
@@ -143,6 +147,7 @@ export class Tooltip {
 
     private static createPoint(id: string): HTMLElement {
         let tooltipPoint = document.getElementById(id);
+
         if (!tooltipPoint) {
             tooltipPoint = document.createElement('div');
             tooltipPoint.id = id;

@@ -4,7 +4,9 @@
 package console_test
 
 import (
+	"context"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -276,5 +278,155 @@ func TestPaidTier(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, usageConfig.Storage.Paid, *proj2.StorageLimit)
 		require.Equal(t, usageConfig.Bandwidth.Paid, *proj2.BandwidthLimit)
+	})
+}
+
+func TestMFA(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "MFA Test User",
+			Email:    "mfauser@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		var auth console.Authorization
+		var authCtx context.Context
+		updateAuth := func() {
+			authCtx, err = sat.AuthenticatedContext(ctx, user.ID)
+			require.NoError(t, err)
+			auth, err = console.GetAuth(authCtx)
+			require.NoError(t, err)
+		}
+		updateAuth()
+
+		var key string
+		t.Run("TestResetMFASecretKey", func(t *testing.T) {
+			key, err = service.ResetMFASecretKey(authCtx)
+			require.NoError(t, err)
+
+			updateAuth()
+			require.NotEmpty(t, auth.User.MFASecretKey)
+		})
+
+		t.Run("TestEnableUserMFABadPasscode", func(t *testing.T) {
+			// Expect MFA-enabling attempt to be rejected when providing stale passcode.
+			badCode, err := console.NewMFAPasscode(key, time.Time{}.Add(time.Hour))
+			require.NoError(t, err)
+
+			err = service.EnableUserMFA(authCtx, badCode, time.Time{})
+			require.True(t, console.ErrValidation.Has(err))
+
+			updateAuth()
+			_, err = service.ResetMFARecoveryCodes(authCtx)
+			require.True(t, console.ErrUnauthorized.Has(err))
+
+			updateAuth()
+			require.False(t, auth.User.MFAEnabled)
+		})
+
+		t.Run("TestEnableUserMFAGoodPasscode", func(t *testing.T) {
+			// Expect MFA-enabling attempt to succeed when providing valid passcode.
+			goodCode, err := console.NewMFAPasscode(key, time.Time{})
+			require.NoError(t, err)
+
+			updateAuth()
+			err = service.EnableUserMFA(authCtx, goodCode, time.Time{})
+			require.NoError(t, err)
+
+			updateAuth()
+			require.True(t, auth.User.MFAEnabled)
+			require.Equal(t, auth.User.MFASecretKey, key)
+		})
+
+		t.Run("TestMFAGetToken", func(t *testing.T) {
+			request := console.AuthUser{Email: user.Email, Password: user.FullName}
+
+			// Expect no token due to lack of MFA passcode.
+			token, err := service.Token(ctx, request)
+			require.True(t, console.ErrMFAPasscodeRequired.Has(err))
+			require.Empty(t, token)
+
+			// Expect no token due to bad MFA passcode.
+			wrongCode, err := console.NewMFAPasscode(key, time.Now().Add(time.Minute))
+			require.NoError(t, err)
+
+			request.MFAPasscode = wrongCode
+			token, err = service.Token(ctx, request)
+			require.True(t, console.ErrUnauthorized.Has(err))
+			require.Empty(t, token)
+
+			// Expect token when providing valid passcode.
+			goodCode, err := console.NewMFAPasscode(key, time.Now())
+			require.NoError(t, err)
+
+			request.MFAPasscode = goodCode
+			token, err = service.Token(ctx, request)
+			require.NoError(t, err)
+			require.NotEmpty(t, token)
+		})
+
+		t.Run("TestMFARecoveryCodes", func(t *testing.T) {
+			_, err = service.ResetMFARecoveryCodes(authCtx)
+			require.NoError(t, err)
+
+			updateAuth()
+			require.Len(t, auth.User.MFARecoveryCodes, console.MFARecoveryCodeCount)
+
+			for _, code := range auth.User.MFARecoveryCodes {
+				// Ensure code is of the form XXXX-XXXX-XXXX where X is A-Z or 0-9.
+				require.Regexp(t, "^([A-Z0-9]{4})((-[A-Z0-9]{4})){2}$", code)
+
+				// Expect token when providing valid recovery code.
+				request := console.AuthUser{Email: user.Email, Password: user.FullName, MFARecoveryCode: code}
+				token, err := service.Token(ctx, request)
+				require.NoError(t, err)
+				require.NotEmpty(t, token)
+
+				// Expect no token due to providing previously-used recovery code.
+				token, err = service.Token(ctx, request)
+				require.True(t, console.ErrUnauthorized.Has(err))
+				require.Empty(t, token)
+
+				updateAuth()
+			}
+
+			_, err = service.ResetMFARecoveryCodes(authCtx)
+			require.NoError(t, err)
+		})
+
+		t.Run("TestDisableUserMFABadPasscode", func(t *testing.T) {
+			// Expect MFA-disabling attempt to fail when providing valid passcode.
+			badCode, err := console.NewMFAPasscode(key, time.Time{}.Add(time.Hour))
+			require.NoError(t, err)
+
+			updateAuth()
+			err = service.DisableUserMFA(authCtx, badCode, time.Time{})
+			require.True(t, console.ErrValidation.Has(err))
+
+			updateAuth()
+			require.True(t, auth.User.MFAEnabled)
+			require.NotEmpty(t, auth.User.MFASecretKey)
+			require.NotEmpty(t, auth.User.MFARecoveryCodes)
+		})
+
+		t.Run("TestDisableUserMFAGoodPasscode", func(t *testing.T) {
+			// Expect MFA-disabling attempt to succeed when providing valid passcode.
+			goodCode, err := console.NewMFAPasscode(key, time.Time{})
+			require.NoError(t, err)
+
+			updateAuth()
+			err = service.DisableUserMFA(authCtx, goodCode, time.Time{})
+			require.NoError(t, err)
+
+			updateAuth()
+			require.False(t, auth.User.MFAEnabled)
+			require.Empty(t, auth.User.MFASecretKey)
+			require.Empty(t, auth.User.MFARecoveryCodes)
+		})
 	})
 }

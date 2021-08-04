@@ -189,6 +189,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 		if storj.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.NotFound, err.Error())
 		}
+		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
@@ -229,6 +230,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	// checks if bucket exists before updates it or makes a new entry
 	exists, err := endpoint.metainfo.HasBucket(ctx, req.GetName(), keyInfo.ProjectID)
 	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	} else if exists {
 		// When the bucket exists, try to set the attribution.
@@ -364,6 +366,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		if storj.ErrBucketNotFound.Has(err) {
 			return &pb.BucketDeleteResponse{Bucket: convBucket}, nil
 		}
+		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
@@ -375,6 +378,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uuid.UUID, bucketName []byte) ([]byte, int64, error) {
 	deletedCount, err := endpoint.deleteBucketObjects(ctx, projectID, bucketName)
 	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
 		return nil, 0, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
@@ -386,6 +390,7 @@ func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectID uu
 		if storj.ErrBucketNotFound.Has(err) {
 			return bucketName, 0, nil
 		}
+		endpoint.log.Error("internal", zap.Error(err))
 		return nil, deletedCount, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
@@ -631,6 +636,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 	pbRS := endpoint.defaultRS
 	streamID, err := uuid.New()
 	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
@@ -676,6 +682,7 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 		EncryptionParameters: req.EncryptionParameters,
 	})
 	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
@@ -959,6 +966,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		if segment.Inline() {
 			err := endpoint.orders.UpdateGetInlineOrder(ctx, object.Location().Bucket(), downloadSizes.plainSize)
 			if err != nil {
+				endpoint.log.Error("internal", zap.Error(err))
 				return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 			}
 			endpoint.log.Info("Inline Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "inline"))
@@ -989,6 +997,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 					zap.Error(err),
 				)
 			}
+			endpoint.log.Error("internal", zap.Error(err))
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 
@@ -1238,6 +1247,11 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		cursor = string(prefix) + cursor
 	}
 
+	includeMetadata := true
+	if req.UseObjectIncludes {
+		includeMetadata = req.ObjectIncludes.Metadata
+	}
+
 	resp = &pb.ObjectListResponse{}
 	// TODO: Replace with IterateObjectsLatestVersion when ready
 	err = endpoint.metainfo.metabaseDB.IterateObjectsAllVersionsWithStatus(ctx,
@@ -1255,7 +1269,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 			entry := metabase.ObjectEntry{}
 			for len(resp.Items) < limit && it.Next(ctx, &entry) {
-				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix)
+				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, prefix, includeMetadata)
 				if err != nil {
 					return err
 				}
@@ -1320,6 +1334,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 		}
 		cursor.StreamID, err = uuid.FromBytes(streamID.StreamId)
 		if err != nil {
+			endpoint.log.Error("internal", zap.Error(err))
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 	}
@@ -1344,7 +1359,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 		}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 			entry := metabase.ObjectEntry{}
 			for len(resp.Items) < limit && it.Next(ctx, &entry) {
-				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, "")
+				item, err := endpoint.objectEntryToProtoListItem(ctx, req.Bucket, entry, "", true)
 				if err != nil {
 					return err
 				}
@@ -1526,6 +1541,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 
 	nodeIPMap, err := endpoint.overlay.GetNodeIPs(ctx, nodeIDs)
 	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
@@ -1582,6 +1598,7 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 
 	id, err := uuid.FromBytes(streamID.StreamId)
 	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
@@ -1654,17 +1671,20 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 	}
 	nodes, err := endpoint.overlay.FindStorageNodesForUpload(ctx, request)
 	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
 	rootPieceID, addressedLimits, piecePrivateKey, err := endpoint.orders.CreatePutOrderLimits(ctx, bucket, nodes, streamID.ExpirationDate, maxPieceSize)
 	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
 	id, err := uuid.FromBytes(streamID.StreamId)
 	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
@@ -1824,6 +1844,7 @@ func (endpoint *Endpoint) commitSegment(ctx context.Context, req *pb.SegmentComm
 
 	id, err := uuid.FromBytes(streamID.StreamId)
 	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
 		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
@@ -1965,6 +1986,7 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 
 	id, err := uuid.FromBytes(streamID.StreamId)
 	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
 		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
@@ -2006,6 +2028,7 @@ func (endpoint *Endpoint) makeInlineSegment(ctx context.Context, req *pb.Segment
 	bucket := metabase.BucketLocation{ProjectID: keyInfo.ProjectID, BucketName: string(streamID.Bucket)}
 	err = endpoint.orders.UpdatePutInlineOrder(ctx, bucket, inlineUsed)
 	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
 		return nil, nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
@@ -2136,6 +2159,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 
 	id, err := uuid.FromBytes(streamID.StreamId)
 	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
@@ -2162,6 +2186,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		})
 	}
 	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
@@ -2186,6 +2211,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	if segment.Inline() {
 		err := endpoint.orders.UpdateGetInlineOrder(ctx, bucket, int64(len(segment.InlineData)))
 		if err != nil {
+			endpoint.log.Error("internal", zap.Error(err))
 			return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 		}
 		endpoint.log.Info("Inline Segment Download", zap.Stringer("Project ID", keyInfo.ProjectID), zap.String("operation", "get"), zap.String("type", "inline"))
@@ -2216,6 +2242,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 				zap.Error(err),
 			)
 		}
+		endpoint.log.Error("internal", zap.Error(err))
 		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
 	}
 
@@ -2566,57 +2593,60 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 	return result, nil
 }
 
-func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket []byte, entry metabase.ObjectEntry, prefixToPrependInSatStreamID metabase.ObjectKey) (item *pb.ObjectListItem, err error) {
+func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket []byte, entry metabase.ObjectEntry, prefixToPrependInSatStreamID metabase.ObjectKey, includeMetadata bool) (item *pb.ObjectListItem, err error) {
 	expires := time.Time{}
 	if entry.ExpiresAt != nil {
 		expires = *entry.ExpiresAt
 	}
 
-	var nonce storj.Nonce
-	if len(entry.EncryptedMetadataNonce) > 0 {
-		nonce, err = storj.NonceFromBytes(entry.EncryptedMetadataNonce)
+	item = &pb.ObjectListItem{
+		EncryptedPath: []byte(entry.ObjectKey),
+		Version:       int32(entry.Version), // TODO incompatible types
+		Status:        pb.Object_Status(entry.Status),
+		ExpiresAt:     expires,
+		CreatedAt:     entry.CreatedAt,
+		PlainSize:     entry.TotalPlainSize,
+	}
+
+	if includeMetadata {
+		var nonce storj.Nonce
+		if len(entry.EncryptedMetadataNonce) > 0 {
+			nonce, err = storj.NonceFromBytes(entry.EncryptedMetadataNonce)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		streamMeta := &pb.StreamMeta{}
+		err = pb.Unmarshal(entry.EncryptedMetadata, streamMeta)
 		if err != nil {
 			return nil, err
 		}
-	}
 
-	streamMeta := &pb.StreamMeta{}
-	err = pb.Unmarshal(entry.EncryptedMetadata, streamMeta)
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO is this enough to handle old uplinks
-	if streamMeta.EncryptionBlockSize == 0 {
-		streamMeta.EncryptionBlockSize = entry.Encryption.BlockSize
-	}
-	if streamMeta.EncryptionType == 0 {
-		streamMeta.EncryptionType = int32(entry.Encryption.CipherSuite)
-	}
-	if streamMeta.NumberOfSegments == 0 {
-		streamMeta.NumberOfSegments = int64(entry.SegmentCount)
-	}
-	if streamMeta.LastSegmentMeta == nil {
-		streamMeta.LastSegmentMeta = &pb.SegmentMeta{
-			EncryptedKey: entry.EncryptedMetadataEncryptedKey,
-			KeyNonce:     entry.EncryptedMetadataNonce,
+		// TODO is this enough to handle old uplinks
+		if streamMeta.EncryptionBlockSize == 0 {
+			streamMeta.EncryptionBlockSize = entry.Encryption.BlockSize
 		}
-	}
+		if streamMeta.EncryptionType == 0 {
+			streamMeta.EncryptionType = int32(entry.Encryption.CipherSuite)
+		}
+		if streamMeta.NumberOfSegments == 0 {
+			streamMeta.NumberOfSegments = int64(entry.SegmentCount)
+		}
+		if streamMeta.LastSegmentMeta == nil {
+			streamMeta.LastSegmentMeta = &pb.SegmentMeta{
+				EncryptedKey: entry.EncryptedMetadataEncryptedKey,
+				KeyNonce:     entry.EncryptedMetadataNonce,
+			}
+		}
 
-	metadataBytes, err := pb.Marshal(streamMeta)
-	if err != nil {
-		return nil, err
-	}
+		metadataBytes, err := pb.Marshal(streamMeta)
+		if err != nil {
+			return nil, err
+		}
 
-	item = &pb.ObjectListItem{
-		EncryptedPath:          []byte(entry.ObjectKey),
-		Version:                int32(entry.Version), // TODO incomatible types
-		Status:                 pb.Object_Status(entry.Status),
-		ExpiresAt:              expires,
-		CreatedAt:              entry.CreatedAt,
-		PlainSize:              entry.TotalPlainSize,
-		EncryptedMetadata:      metadataBytes,
-		EncryptedMetadataNonce: nonce,
+		item.EncryptedMetadata = metadataBytes
+		item.EncryptedMetadataNonce = nonce
 	}
 
 	// Add Stream ID to list items if listing is for pending objects.

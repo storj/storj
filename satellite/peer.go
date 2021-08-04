@@ -42,6 +42,7 @@ import (
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
+	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/snopayouts"
 )
@@ -70,6 +71,8 @@ type DB interface {
 	PeerIdentities() overlay.PeerIdentities
 	// OverlayCache returns database for caching overlay information
 	OverlayCache() overlay.DB
+	// Reputation returns database for audit reputation information
+	Reputation() reputation.DB
 	// Attribution returns database for partner keys information
 	Attribution() attribution.DB
 	// StoragenodeAccounting returns database for storing information about storagenode use
@@ -114,6 +117,8 @@ type Config struct {
 
 	Metainfo metainfo.Config
 	Orders   orders.Config
+
+	Reputation reputation.Config
 
 	Checker  checker.Config
 	Repairer repairer.Config

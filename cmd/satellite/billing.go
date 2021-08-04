@@ -191,7 +191,8 @@ func checkPaidTier(ctx context.Context) (err error) {
 			for _, c := range customersPage.Customers {
 				user, err := users.Get(ctx, c.UserID)
 				if err != nil {
-					return err
+					fmt.Printf("Couldn't find user in DB; skipping: %v\n", err)
+					continue
 				}
 				if user.PaidTier {
 					// already in paid tier; go to next customer
@@ -199,7 +200,8 @@ func checkPaidTier(ctx context.Context) (err error) {
 				}
 				cards, err := creditCards.List(ctx, user.ID)
 				if err != nil {
-					return err
+					fmt.Printf("Couldn't list user's credit cards in Stripe; skipping: %v\n", err)
+					continue
 				}
 				if len(cards) == 0 {
 					// no card added, so no paid tier; go to next customer

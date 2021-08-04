@@ -31,8 +31,8 @@ export default class VSearch extends Vue {
     @Prop({default: () => ''})
     private readonly search: searchCallback;
 
-    private inputWidth: string = '56px';
-    private searchQuery: string = '';
+    private inputWidth = '56px';
+    private searchQuery = '';
 
     public $refs!: {
         input: HTMLElement;

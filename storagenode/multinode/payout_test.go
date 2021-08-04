@@ -66,7 +66,7 @@ func TestPayoutsEndpointSummary(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, trustPool.Refresh(ctx))
 
-		payoutsService, err := payouts.NewService(log, db.Payout(), db.Reputation(), db.Satellites())
+		payoutsService, err := payouts.NewService(log, db.Payout(), db.Reputation(), db.Satellites(), nil)
 		require.NoError(t, err)
 		estimatedPayoutsService := estimatedpayouts.NewService(db.Bandwidth(), db.Reputation(), db.StorageUsage(), db.Pricing(), db.Satellites(), trustPool)
 		endpoint := multinode.NewPayoutEndpoint(log, service, db.Payout(), estimatedPayoutsService, payoutsService)
@@ -159,7 +159,7 @@ func TestPayoutsEndpointEstimations(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, trustPool.Refresh(ctx))
 
-		payoutsService, err := payouts.NewService(log, db.Payout(), db.Reputation(), db.Satellites())
+		payoutsService, err := payouts.NewService(log, db.Payout(), db.Reputation(), db.Satellites(), nil)
 		require.NoError(t, err)
 		estimatedPayoutsService := estimatedpayouts.NewService(db.Bandwidth(), db.Reputation(), db.StorageUsage(), db.Pricing(), db.Satellites(), trustPool)
 		endpoint := multinode.NewPayoutEndpoint(log, service, db.Payout(), estimatedPayoutsService, payoutsService)
@@ -230,7 +230,7 @@ func TestPayoutsUndistributedEndpoint(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, trustPool.Refresh(ctx))
 
-		payoutsService, err := payouts.NewService(log, db.Payout(), db.Reputation(), db.Satellites())
+		payoutsService, err := payouts.NewService(log, db.Payout(), db.Reputation(), db.Satellites(), nil)
 		require.NoError(t, err)
 		estimatedPayoutsService := estimatedpayouts.NewService(db.Bandwidth(), db.Reputation(), db.StorageUsage(), db.Pricing(), db.Satellites(), trustPool)
 		endpoint := multinode.NewPayoutEndpoint(log, service, db.Payout(), estimatedPayoutsService, payoutsService)

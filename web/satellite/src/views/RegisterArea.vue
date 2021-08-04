@@ -151,7 +151,7 @@
                             is-password="true"
                         />
                     </div>
-                    <AddCouponCodeInput v-if="couponCodeUIEnabled" />
+                    <AddCouponCodeInput v-if="couponCodeSignupUIEnabled" />
                     <div v-if="isBetaSatellite" class="register-area__input-area__container__warning">
                         <div class="register-area__input-area__container__warning__header">
                             <label class="container">
@@ -271,41 +271,41 @@ export default class RegisterArea extends Vue {
     private readonly user = new User();
 
     // tardigrade logic
-    private secret: string = '';
+    private secret = '';
 
-    private userId: string = '';
-    private isTermsAccepted: boolean = false;
-    private password: string = '';
-    private repeatedPassword: string = '';
+    private userId = '';
+    private isTermsAccepted = false;
+    private password = '';
+    private repeatedPassword = '';
 
     // Only for beta sats (like US2).
-    private areBetaTermsAccepted: boolean = false;
-    private areBetaTermsAcceptedError: boolean = false;
+    private areBetaTermsAccepted = false;
+    private areBetaTermsAcceptedError = false;
 
-    private fullNameError: string = '';
-    private emailError: string = '';
-    private passwordError: string = '';
-    private repeatedPasswordError: string = '';
-    private companyNameError: string = '';
-    private employeeCountError: string = '';
-    private positionError: string = '';
-    private isTermsAcceptedError: boolean = false;
-    private isLoading: boolean = false;
-    private isProfessional: boolean = false;
-    private haveSalesContact: boolean = false;
+    private fullNameError = '';
+    private emailError = '';
+    private passwordError = '';
+    private repeatedPasswordError = '';
+    private companyNameError = '';
+    private employeeCountError = '';
+    private positionError = '';
+    private isTermsAcceptedError = false;
+    private isLoading = false;
+    private isProfessional = false;
+    private haveSalesContact = false;
 
-    private recaptchaError: boolean = false;
-    private recaptchaResponseToken: string = '';
+    private recaptchaError = false;
+    private recaptchaResponseToken = '';
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 
     private readonly recaptchaEnabled: boolean = MetaUtils.getMetaContent('recaptcha-enabled') === 'true';
     private readonly recaptchaSiteKey: string = MetaUtils.getMetaContent('recaptcha-site-key');
 
-    public isPasswordStrengthShown: boolean = false;
+    public isPasswordStrengthShown = false;
 
     // tardigrade logic
-    public isDropdownShown: boolean = false;
+    public isDropdownShown = false;
 
     // Employee Count dropdown options
     public employeeCountOptions = ['1-50', '51-1000', '1001+'];
@@ -463,8 +463,8 @@ export default class RegisterArea extends Vue {
     /**
      * Indicates if coupon code ui is enabled
      */
-    public get couponCodeUIEnabled(): boolean {
-        return this.$store.state.appStateModule.couponCodeUIEnabled;
+    public get couponCodeSignupUIEnabled(): boolean {
+        return this.$store.state.appStateModule.couponCodeSigunpUIEnabled;
     }
 
     /**

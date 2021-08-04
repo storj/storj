@@ -57,8 +57,8 @@ import { LocalData } from '@/utils/localData';
     },
 })
 export default class RegistrationSuccess extends Vue {
-    private isResendEmailButtonDisabled: boolean = true;
-    private timeToEnableResendEmailButton: string = '00:30';
+    private isResendEmailButtonDisabled = true;
+    private timeToEnableResendEmailButton = '00:30';
     private intervalID: any = null;
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
@@ -218,7 +218,7 @@ export default class RegistrationSuccess extends Vue {
             }
         }
 
-        /deep/ .container {
+        ::v-deep .container {
             width: 100% !important;
         }
     }

@@ -7,7 +7,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/stripe/stripe-go"
+	"github.com/stripe/stripe-go/v72"
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
@@ -209,4 +209,33 @@ func (coupons *coupons) AddPromotionalCoupon(ctx context.Context, userID uuid.UU
 	}
 
 	return Error.Wrap(coupons.service.db.Coupons().PopulatePromotionalCoupons(ctx, []uuid.UUID{userID}, couponDuration, coupons.service.CouponValue, coupons.service.CouponProjectLimit))
+}
+
+// ApplyCouponCode attempts to apply a coupon code to the user via Stripe.
+func (coupons *coupons) ApplyCouponCode(ctx context.Context, userID uuid.UUID, couponCode string) (err error) {
+	defer mon.Task()(&ctx, userID, couponCode)(&err)
+
+	promoCodeIter := coupons.service.stripeClient.PromoCodes().List(&stripe.PromotionCodeListParams{
+		Code: stripe.String(couponCode),
+	})
+	if !promoCodeIter.Next() {
+		return Error.New("Invalid coupon code")
+	}
+	promoCode := promoCodeIter.PromotionCode()
+
+	customerID, err := coupons.service.db.Customers().GetCustomerID(ctx, userID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	params := &stripe.CustomerParams{
+		PromotionCode: stripe.String(promoCode.ID),
+	}
+
+	_, err = coupons.service.stripeClient.Customers().Update(customerID, params)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
 }
