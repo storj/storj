@@ -498,39 +498,14 @@ func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeC
 func (cache *overlaycache) UpdateReputation(ctx context.Context, id storj.NodeID, request *overlay.ReputationStatus) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = cache.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
-		_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")
-		if err != nil {
-			return err
-		}
-		dbNode, err := tx.Get_Node_By_Id(ctx, dbx.Node_Id(id.Bytes()))
-		if err != nil {
-			return err
-		}
+	updateFields := dbx.Node_Update_Fields{}
+	updateFields.Contained = dbx.Node_Contained(request.Contained)
+	updateFields.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended_Raw(request.UnknownAuditSuspended)
+	updateFields.Disqualified = dbx.Node_Disqualified_Raw(request.Disqualified)
+	updateFields.OfflineSuspended = dbx.Node_OfflineSuspended_Raw(request.OfflineSuspended)
+	updateFields.VettedAt = dbx.Node_VettedAt_Raw(request.VettedAt)
 
-		// do not update reputation if node has been disqualified already
-		if dbNode.Disqualified != nil {
-			return nil
-		}
-
-		// do not update reputation if node has gracefully exited
-		if dbNode.ExitFinishedAt != nil {
-			return nil
-		}
-
-		updateFields := dbx.Node_Update_Fields{}
-		updateFields.Contained = dbx.Node_Contained(request.Contained)
-		updateFields.UnknownAuditSuspended = dbx.Node_UnknownAuditSuspended_Raw(request.UnknownAuditSuspended)
-		updateFields.Disqualified = dbx.Node_Disqualified_Raw(request.Disqualified)
-		updateFields.OfflineSuspended = dbx.Node_OfflineSuspended_Raw(request.OfflineSuspended)
-		updateFields.VettedAt = dbx.Node_VettedAt_Raw(request.VettedAt)
-
-		_, err = cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(id.Bytes()), updateFields)
-		if err != nil {
-			return err
-		}
-		return nil
-	})
+	err = cache.db.UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitFinishedAt_Is_Null(ctx, dbx.Node_Id(id.Bytes()), updateFields)
 	return Error.Wrap(err)
 }
 

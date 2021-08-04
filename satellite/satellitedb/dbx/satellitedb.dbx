@@ -175,6 +175,13 @@ update node (
 	noreturn
 )
 
+update node (
+	where node.id = ?
+	where node.disqualified = null
+	where node.exit_finished_at = null
+	noreturn
+)
+
 // "Get" query; fails if node not found
 read one (
 	select node
