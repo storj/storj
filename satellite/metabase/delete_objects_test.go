@@ -134,7 +134,7 @@ func TestDeleteExpiredObjects(t *testing.T) {
 			expectedObj1Segment := metabase.Segment{
 				StreamID:          obj1.StreamID,
 				RootPieceID:       storj.PieceID{1},
-				CreatedAt:         &now,
+				CreatedAt:         now,
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
@@ -333,7 +333,7 @@ func TestDeleteZombieObjects(t *testing.T) {
 			expectedObj1Segment := metabase.Segment{
 				StreamID:          obj1.StreamID,
 				RootPieceID:       storj.PieceID{1},
-				CreatedAt:         &now,
+				CreatedAt:         now,
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},

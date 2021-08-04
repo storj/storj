@@ -401,20 +401,16 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 		return false, metainfoPutError.Wrap(err)
 	}
 
-	createdAt := time.Time{}
-	if segment.CreatedAt != nil {
-		createdAt = *segment.CreatedAt
-	}
 	repairedAt := time.Time{}
 	if segment.RepairedAt != nil {
 		repairedAt = *segment.RepairedAt
 	}
 
 	var segmentAge time.Duration
-	if createdAt.Before(repairedAt) {
+	if segment.CreatedAt.Before(repairedAt) {
 		segmentAge = time.Since(repairedAt)
 	} else {
-		segmentAge = time.Since(createdAt)
+		segmentAge = time.Since(segment.CreatedAt)
 	}
 
 	// TODO what to do with RepairCount
@@ -422,7 +418,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 	// pointer.RepairCount++
 
 	mon.IntVal("segment_time_until_repair").Observe(int64(segmentAge.Seconds())) //mon:locked
-	stats.segmentTimeUntilRepair.Observe((int64(segmentAge.Seconds())))
+	stats.segmentTimeUntilRepair.Observe(int64(segmentAge.Seconds()))
 	mon.IntVal("segment_repair_count").Observe(repairCount) //mon:locked
 	stats.segmentRepairCount.Observe(repairCount)
 

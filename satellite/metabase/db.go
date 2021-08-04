@@ -302,6 +302,14 @@ func (db *DB) PostgresMigration() *migrate.Migration {
 					`ALTER TABLE segments ADD COLUMN expires_at TIMESTAMPTZ`,
 				},
 			},
+			{
+				DB:          &db.db,
+				Description: "add NOT NULL constraint to created_at column in segments table",
+				Version:     13,
+				Action: migrate.SQL{
+					`ALTER TABLE segments ALTER COLUMN created_at SET NOT NULL`,
+				},
+			},
 		},
 	}
 }

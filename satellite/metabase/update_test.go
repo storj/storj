@@ -271,7 +271,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 					{
 						StreamID:          obj.StreamID,
 						RootPieceID:       storj.PieceID{1},
-						CreatedAt:         &now,
+						CreatedAt:         now,
 						EncryptedKey:      []byte{3},
 						EncryptedKeyNonce: []byte{4},
 						EncryptedETag:     []byte{5},
