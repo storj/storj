@@ -36,7 +36,7 @@ export type OptionClick = (id?: string) => Promise<void>;
 export class Option {
     public constructor(
         public label: string = 'no options',
-        public onClick: OptionClick = async(id) => Promise.resolve(),
+        public onClick: OptionClick = async(_id) => Promise.resolve(),
     ) {}
 }
 

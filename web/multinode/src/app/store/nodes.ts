@@ -67,7 +67,7 @@ export class NodesModule implements Module<NodesState, RootState> {
      * @param state
      * @param trustedSatellites
      */
-    public saveTrustedSatellites(state: NodesState, trustedSatellites: NodeURL[]) {
+    public saveTrustedSatellites(state: NodesState, trustedSatellites: NodeURL[]): void {
         state.trustedSatellites = trustedSatellites;
     }
 
@@ -76,7 +76,7 @@ export class NodesModule implements Module<NodesState, RootState> {
      * @param state
      * @param satelliteId - id of the satellite to select.
      */
-    public setSelectedSatellite(state: NodesState, satelliteId: string) {
+    public setSelectedSatellite(state: NodesState, satelliteId: string): void {
         state.selectedSatellite = state.trustedSatellites.find((satellite: NodeURL) => satellite.id === satelliteId) || null;
     }
 
@@ -85,7 +85,7 @@ export class NodesModule implements Module<NodesState, RootState> {
      * @param state
      * @param nodeId - node id to select.
      */
-    public setSelectedNode(state: NodesState, nodeId: string | null) {
+    public setSelectedNode(state: NodesState, nodeId: string | null): void {
         state.selectedNode = state.nodes.find((node: Node) => node.id === nodeId) || null;
     }
 

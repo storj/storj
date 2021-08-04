@@ -289,7 +289,7 @@ pipeline {
                 stage('web/multinode') {
                     steps {
                         dir("web/multinode") {
-                            sh 'npm run lint'
+                            sh 'npm run lint-ci'
                             sh script: 'npm audit', returnStatus: true
                             sh 'npm run test'
                         }

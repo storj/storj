@@ -37,8 +37,9 @@ describe('mutations', () => {
     it('saves selected satellite', () => {
         store.commit('nodes/setSelectedSatellite', satellite.id);
 
-        // @ts-ignore
-        expect(state.nodes.selectedSatellite.address).toBe(satellite.address);
+        const selectedSatellite = state.nodes.selectedSatellite;
+        expect(selectedSatellite).toBeDefined();
+        if(selectedSatellite) expect(selectedSatellite.address).toBe(satellite.address);
     });
 
     it('saves selected node', () => {
@@ -46,8 +47,9 @@ describe('mutations', () => {
 
         store.commit('nodes/setSelectedNode', node.id);
 
-        // @ts-ignore
-        expect(state.nodes.selectedNode.id).toBe(node.id);
+        const selectedNode = state.nodes.selectedNode;
+        expect(selectedNode).toBeDefined();
+        if(selectedNode) expect(selectedNode.id).toBe(node.id);
     });
 });
 
@@ -184,8 +186,10 @@ describe('actions', () => {
 
         await store.dispatch('nodes/selectSatellite', satellite.id);
 
-        // @ts-ignore
-        expect(state.nodes.selectedSatellite.address).toBe(satellite.address);
+        const selectedSatellite = state.nodes.selectedSatellite;
+        expect(selectedSatellite).toBeDefined();
+        if(selectedSatellite) expect(selectedSatellite.address).toBe(satellite.address);
+
         expect(state.nodes.nodes.length).toBe(1);
     });
 
@@ -194,7 +198,8 @@ describe('actions', () => {
 
         await store.dispatch('nodes/selectNode', node.id);
 
-        // @ts-ignore
-        expect(state.nodes.selectedNode.id).toBe(node.id);
+        const selectedNode = state.nodes.selectedNode;
+        expect(selectedNode).toBeDefined();
+        if(selectedNode) expect(selectedNode.id).toBe(node.id);
     });
 });

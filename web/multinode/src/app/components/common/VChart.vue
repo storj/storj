@@ -5,7 +5,7 @@
 import * as VueChart from 'vue-chartjs';
 import { Component, Prop, Vue, Watch } from 'vue-property-decorator';
 
-import { ChartData } from '@/app/types/chart';
+import { ChartData, RenderChart } from '@/app/types/chart';
 
 class DayShowingConditions {
     public readonly day: string;
@@ -41,18 +41,18 @@ export default class VChart extends Vue {
     private readonly chartData: ChartData;
 
     @Watch('chartData')
-    private onDataChange(news: Record<string, unknown>, old: Record<string, unknown>) {
+    private onDataChange(_news: Record<string, unknown>, _old: Record<string, unknown>) {
         /**
          * renderChart method is inherited from BaseChart which is extended by VChart.Line
          */
-        (this as any).renderChart(this.chartData, this.chartOptions);
+        (this as unknown as RenderChart).renderChart(this.chartData, this.chartOptions);
     }
 
     public mounted(): void {
         /**
          * renderChart method is inherited from BaseChart which is extended by VChart.Line
          */
-        (this as any).renderChart(this.chartData, this.chartOptions);
+        (this as unknown as RenderChart).renderChart(this.chartData, this.chartOptions);
     }
 
     public get chartOptions(): Record<string, unknown> {
@@ -116,7 +116,7 @@ export default class VChart extends Vue {
         };
     }
 
-    private filterDaysDisplayed(day: string, dayIndex: string, labelArray: string[]): string | undefined {
+    private filterDaysDisplayed(day: string, _dayIndex: string, labelArray: string[]): string | undefined {
         const eighthDayOfTheMonth = 8;
         const isBeforeEighthDayOfTheMonth = labelArray.length <= eighthDayOfTheMonth;
         const dayShowingConditions = new DayShowingConditions(day, labelArray);

@@ -45,8 +45,8 @@ export default class VButton extends Vue {
     private withPlus: boolean;
     @Prop({ default: false })
     private inactive: boolean;
-    @Prop({ default: () => { } })
-    private readonly onPress: () => any;
+    @Prop({ default: () => {} })
+    private readonly onPress: () => void;
 
     public get style(): Record<string, unknown> {
         return { width: this.width, height: this.height };

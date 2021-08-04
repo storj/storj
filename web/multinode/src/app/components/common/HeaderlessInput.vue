@@ -121,8 +121,9 @@ export default class HeaderlessInput extends Vue {
     /**
      * triggers on input.
      */
-    // @ts-ignore
-    public onInput({ target }): void {
+    public onInput(event: Event): void {
+        if(!event.target) { return; }
+        const target = event.target as HTMLInputElement;
         if (!target || !target.value) { return; }
 
         if (target.value.length > this.maxSymbols) {
@@ -134,7 +135,8 @@ export default class HeaderlessInput extends Vue {
         this.$emit('setData', this.value);
     }
 
-    public onPaste(event): void {
+    public onPaste(event: ClipboardEvent): void {
+        if(!event || !event.clipboardData) { return; }
         const clipped: string = event.clipboardData.getData('text');
 
         if (clipped.length > this.maxSymbols) {

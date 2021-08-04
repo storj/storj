@@ -33,7 +33,7 @@ import HeaderedInput from '@/app/components/common/HeaderedInput.vue';
 import VButton from '@/app/components/common/VButton.vue';
 import VModal from '@/app/components/common/VModal.vue';
 
-import { CreateNodeFields, UpdateNodeModel } from '@/nodes';
+import { UpdateNodeModel } from '@/nodes';
 
 @Component({
     components: {

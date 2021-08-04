@@ -136,7 +136,7 @@ const allowedRoutesNames = [Config.AddFirstNode.name, Config.Welcome.name];
  * Checks if redirect to some of internal routes and no nodes added so far.
  * Redirect to Add first node screen if so.
  */
-router.beforeEach(async(to, from, next) => {
+router.beforeEach(async(to, _from, next) => {
     if (store.state.nodes.nodes.length) {
         next();
     }

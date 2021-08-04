@@ -4,7 +4,7 @@
 import { ActionContext, ActionTree, GetterTree, Module, MutationTree } from 'vuex';
 
 import { RootState } from '@/app/store/index';
-import { DiskSpace, DiskSpaceUsage, Stamp } from '@/storage';
+import { DiskSpace, DiskSpaceUsage } from '@/storage';
 import { StorageService } from '@/storage/service';
 
 /**
