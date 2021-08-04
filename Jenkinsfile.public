@@ -138,11 +138,11 @@ pipeline {
 
                         sh 'psql -U postgres -c \'create database teststorj;\''
                         sh 'psql -U postgres -c \'create database testmetabase;\''
-                        // sh 'use-ports -from 1024 -to 10000 &'
+                        sh 'use-ports -from 1024 -to 10000 &'
 
-                        // sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+                        sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
 
-                        // sh 'check-clean-directory'
+                        sh 'check-clean-directory'
                     }
                 }
 
@@ -220,7 +220,8 @@ pipeline {
                         sh 'psql -U postgres -c \'create database testui;\''
                         // sh 'use-ports -from 1024 -to 10000 &'
                         sh 'Xvfb -ac :99 -screen 0 1280x1024x16 &'
-                        sh 'go test -vet=off -race -json ./testsuite/... 2>&1 | tee .build/ui-tests.json | xunit -out .build/ui-tests.xml'
+                        sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -race -json ./testsuite/... 2>&1 | tee .build/ui-tests.json | xunit -out .build/ui-tests.xml'
+                        // go test -parallel 1 -p 1 -vet=off -timeout 20m
                     }
                     post {
                         always {
