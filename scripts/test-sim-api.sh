@@ -14,6 +14,7 @@ cleanup(){
 trap cleanup EXIT
 
 echo "Running test-sim-api"
+echo $TESTDIR
 make -C "$SCRIPTDIR"/.. install-sim
 
 # use modified version of uplink
