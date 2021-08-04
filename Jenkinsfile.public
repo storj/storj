@@ -221,18 +221,15 @@ pipeline {
                         // sh 'use-ports -from 1024 -to 10000 &'
                         dir('testsuite'){
                             sh 'Xvfb -ac :99 -screen 0 1280x1024x16 &'
-                            sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -race -json ... 2>&1 | tee .build/ui-tests.json | xunit -out .build/ui-tests.xml'
+                            sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -race -json ... 2>&1 | tee .build/testsuite/ui-tests.json | xunit -out .build/testsuite/ui-tests.xml'
                             // go test -parallel 1 -p 1 -vet=off -timeout 20m 
                         }
-                        sh 'Xvfb -ac :99 -screen 0 1280x1024x16 &'
-                        sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -race -json ./testsuite/... 2>&1 | tee .build/ui-tests.json | xunit -out .build/ui-tests.xml'
-                        // go test -parallel 1 -p 1 -vet=off -timeout 20m
                     }
                     post {
                         always {
                             sh script: 'cat .build/ui-tests.json | tparse -all -top -slow 100', returnStatus: true
-                            archiveArtifacts artifacts: '.build/ui-tests.json'
-                            junit '.build/ui-tests.xml'
+                            archiveArtifacts artifacts: '.build/testsuite/ui-tests.json'
+                            junit '.build/testsuite/ui-tests.xml'
                         }
                     }
                 }
