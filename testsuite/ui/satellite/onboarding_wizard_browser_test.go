@@ -12,6 +12,7 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/testsuite/ui/uitest"
 )
 
 func TestOnboardingWizardBrowser(t *testing.T) {

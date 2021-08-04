@@ -11,7 +11,6 @@ require (
 	github.com/cheggaaa/pb/v3 v3.0.5
 	github.com/fatih/color v1.9.0
 	github.com/go-redis/redis/v8 v8.7.1
-	github.com/go-rod/rod v0.101.4 // indirect
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/go-cmp v0.5.5
 	github.com/google/pprof v0.0.0-20200229191704-1ebb73c60ed3 // indirect
