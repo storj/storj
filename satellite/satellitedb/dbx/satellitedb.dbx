@@ -255,6 +255,10 @@ create reputation ()
 update reputation ( where reputation.id = ? )
 update reputation (
 	where reputation.id = ?
+	where reputation.audit_history = ?
+)
+update reputation (
+	where reputation.id = ?
 	noreturn
 )
 
