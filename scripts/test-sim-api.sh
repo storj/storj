@@ -2,29 +2,18 @@
 set -ueo pipefail
 set +x
 
-function onExit {
-    rm -rf "$TMP"
-    if [ "$?" != "0" ]; then
-        echo "Tests failed"
-        # build failed, don't deploy
-        exit 1;
-    else
-        echo "Tests passed"
-        # deploy build
-		exit 0
-    fi
-}
-
-trap onExit EXIT
-
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 REPOROOT="$( cd "../$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-TESTDIR="$REPOROOT/web/satellite/tests/graphql/"
+TESTDIR="$REPOROOT/web/satellite/tests/graphql"
 
 # setup tmpdir for testfiles and cleanup
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
+cleanup(){
+	rm -rf "$TMP"
+}
+trap cleanup EXIT
 
-echo "Running test-sim"
+echo "Running test-sim-api"
 make -C "$SCRIPTDIR"/.. install-sim
 
 # use modified version of uplink

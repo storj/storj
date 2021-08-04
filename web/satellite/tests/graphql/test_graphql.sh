@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 
 # Stop on first error
-set -e;
+set -ueo pipefail
+set +x
+
 function onExit {
     if [ "$?" != "0" ]; then
         echo "Tests failed";
@@ -14,8 +16,8 @@ function onExit {
     fi
 }
 
-trap onExit EXIT;
+trap onExit EXIT
 
 go run web/satellite/tests/graphql/main.go
-docker pull postman/newman:alpine;
+docker pull postman/newman:alpine
 docker run --network="host" -v ${PWD}/web/satellite/tests/graphql/:/etc/newman -t postman/newman:alpine run GraphQL.postman_collection.json -e GraphQLEndoints.postman_environment.json;
