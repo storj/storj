@@ -194,6 +194,20 @@ pipeline {
                     }
                 }
 
+                stage('GraphQL Endpoints') {
+                    environment {
+                        // use different hostname to avoid port conflicts
+                        STORJ_NETWORK_HOST4 = '127.0.0.7'
+                        STORJ_NETWORK_HOST6 = '127.0.0.7'
+                        SATELLITE_0_ADDR='127.0.0.7:10002'
+                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj7?sslmode=disable'
+                        }
+                    steps {
+                        sh 'psql -U postgres -c \'create database teststorj7;\''
+                        sh 'make test-sim-api'
+                    }
+                }
+
                 stage('Cockroach Integration') {
                     environment {
                         STORJ_NETWORK_HOST4 = '127.0.0.4'
@@ -289,7 +303,7 @@ pipeline {
                 stage('web/multinode') {
                     steps {
                         dir("web/multinode") {
-                            sh 'npm run lint-ci'
+                            sh 'npm run lint'
                             sh script: 'npm audit', returnStatus: true
                             sh 'npm run test'
                         }
