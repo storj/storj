@@ -360,9 +360,10 @@ export class SatelliteByDayInfo {
     public egressDaily: EgressUsed[];
     public ingressDaily: IngressUsed[];
 
-    public constructor(json) {
-        const storageDailyJson = json.storageDaily || [];
-        const bandwidthDailyJson = json.bandwidthDaily || [];
+    public constructor(json: unknown) {
+        const data = json as any;
+        const storageDailyJson = data.storageDaily || [];
+        const bandwidthDailyJson = data.bandwidthDaily || [];
 
         this.storageDaily = storageDailyJson.map((stamp: any) => {
             return new Stamp(stamp.atRestTotal, new Date(stamp.intervalStart));

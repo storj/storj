@@ -12,7 +12,7 @@ import { StorageNodeApi } from '@/storagenode/api/storagenode';
 import { Paystub, TotalPayments } from '@/storagenode/payouts/payouts';
 import { PayoutService } from '@/storagenode/payouts/service';
 import { StorageNodeService } from '@/storagenode/sno/service';
-import { Metric, Satellite, SatelliteScores, Stamp } from '@/storagenode/sno/sno';
+import { Satellite, SatelliteScores, Stamp } from '@/storagenode/sno/sno';
 import { createLocalVue, shallowMount } from '@vue/test-utils';
 
 const localVue = createLocalVue();

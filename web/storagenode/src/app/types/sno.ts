@@ -3,7 +3,6 @@
 
 import {
     BandwidthUsed,
-    Checks,
     EgressUsed,
     IngressUsed,
     Node,

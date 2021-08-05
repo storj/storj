@@ -12,7 +12,6 @@ import { StorageNodeApi } from '@/storagenode/api/storagenode';
 import { StorageNodeService } from '@/storagenode/sno/service';
 import {
     Dashboard,
-    Metric,
     Satellite,
     SatelliteInfo, SatelliteScores,
     Stamp,

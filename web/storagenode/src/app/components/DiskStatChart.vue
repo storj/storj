@@ -44,10 +44,7 @@ import { Component, Vue } from 'vue-property-decorator';
 
 import DoughnutChart from '@/app/components/DoughnutChart.vue';
 
-import {
-    DiskStatChartData,
-    DiskStatDataSet,
-} from '@/app/types/chartData';
+import {DiskStatChartData, DiskStatDataSet} from '@/app/types/chart';
 import { Traffic } from '@/storagenode/sno/sno';
 
 @Component({

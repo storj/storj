@@ -34,9 +34,11 @@ const nodeModule = newNodeModule(nodeService);
 
 Vue.use(Vuex);
 
-const store = new Vuex.Store({ modules: { payoutModule, node: nodeModule } });
-
-const state = store.state as any;
+const store = new Vuex.Store<{
+    payoutModule: typeof payoutModule.state,
+    node: typeof nodeModule.state,
+}>({ modules: { payoutModule, node: nodeModule } });
+const state = store.state;
 
 describe('mutations', (): void => {
     beforeEach(() => {

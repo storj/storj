@@ -24,9 +24,8 @@ const notificationsModule = newNotificationsModule(notificationsService);
 
 Vue.use(Vuex);
 
-const store = new Vuex.Store({ modules: { notificationsModule } });
-
-const state = store.state as any;
+const store = new Vuex.Store<{notificationsModule: typeof notificationsModule.state}>({ modules: { notificationsModule } });
+const state = store.state;
 
 let notifications;
 

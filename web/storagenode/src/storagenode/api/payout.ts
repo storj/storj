@@ -105,7 +105,7 @@ export class PayoutHttpApi implements PayoutApi {
      * @returns payout information
      * @throws Error
      */
-    public async getPayoutHistory(period): Promise<SatellitePayoutForPeriod[]> {
+    public async getPayoutHistory(period: string): Promise<SatellitePayoutForPeriod[]> {
         const path = `${this.ROOT_PATH}/payout-history/${period}`;
 
         const response = await this.client.get(path);

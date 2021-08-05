@@ -279,7 +279,7 @@ pipeline {
                 stage('web/storagenode') {
                     steps {
                         dir("web/storagenode") {
-                            sh 'npm run lint'
+                            sh 'npm run lint-ci'
                             sh script: 'npm audit', returnStatus: true
                             sh 'npm run test'
                         }
