@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 set -ueo pipefail
-set +x
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 REPOROOT="$( cd "../$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
@@ -32,4 +31,4 @@ export STORJ_NETWORK_DIR=$TMP
 echo "setting network host 4 only when its unset."
 STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.7}
 
-storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$REPOROOT"/web/satellite/tests/graphql/test_graphql.sh
+storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network && "$REPOROOT"/web/satellite/tests/graphql/test_graphql.sh
