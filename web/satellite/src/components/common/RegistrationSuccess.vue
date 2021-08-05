@@ -59,7 +59,7 @@ import { LocalData } from '@/utils/localData';
 export default class RegistrationSuccess extends Vue {
     private isResendEmailButtonDisabled = true;
     private timeToEnableResendEmailButton = '00:30';
-    private intervalID: any = null;
+    private intervalID: ReturnType<typeof setInterval>;
 
     private readonly auth: AuthHttpApi = new AuthHttpApi();
 

@@ -18,7 +18,7 @@ export class DelayedNotification {
 
     public readonly type: string;
     public readonly message: string;
-    public readonly style: any;
+    public readonly style: { backgroundColor: string };
     public readonly imgSource: string;
 
     constructor(callback: () => void, type: string, message: string) {

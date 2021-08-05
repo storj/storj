@@ -56,6 +56,13 @@ export class ObjectsState {
     public leaveRoute = '';
 }
 
+interface ObjectsContext {
+    state: ObjectsState
+    commit: any
+    dispatch: any
+    rootState: any
+}
+
 /**
  * Creates objects module with all dependencies.
  */
@@ -104,22 +111,22 @@ export function makeObjectsModule(): StoreModule<ObjectsState> {
             },
         },
         actions: {
-            setApiKey: function({commit}: any, apiKey: string): void {
+            setApiKey: function({commit}: ObjectsContext, apiKey: string): void {
                 commit(SET_API_KEY, apiKey);
             },
-            setAccessGrant: function({commit}: any, accessGrant: string): void {
+            setAccessGrant: function({commit}: ObjectsContext, accessGrant: string): void {
                 commit(SET_ACCESS_GRANT, accessGrant);
             },
-            setGatewayCredentials: function({commit}: any, credentials: GatewayCredentials): void {
+            setGatewayCredentials: function({commit}: ObjectsContext, credentials: GatewayCredentials): void {
                 commit(SET_GATEWAY_CREDENTIALS, credentials);
             },
-            setS3Client: function({commit}: any): void {
+            setS3Client: function({commit}: ObjectsContext): void {
                 commit(SET_S3_CLIENT);
             },
-            setPassphrase: function({commit}: any, passphrase: string): void {
+            setPassphrase: function({commit}: ObjectsContext, passphrase: string): void {
                 commit(SET_PASSPHRASE, passphrase);
             },
-            setFileComponentBucketName: function({commit}: any, bucketName: string): void {
+            setFileComponentBucketName: function({commit}: ObjectsContext, bucketName: string): void {
                 commit(SET_FILE_COMPONENT_BUCKET_NAME, bucketName);
             },
             fetchBuckets: async function(ctx): Promise<void> {
@@ -137,10 +144,10 @@ export function makeObjectsModule(): StoreModule<ObjectsState> {
                     Bucket: name,
                 }).promise();
             },
-            clearObjects: function({commit}: any): void {
+            clearObjects: function({commit}: ObjectsContext): void {
                 commit(CLEAR);
             },
-            checkOngoingUploads: function({commit, dispatch, rootState}: any, leaveRoute: string): boolean {
+            checkOngoingUploads: function({commit, dispatch, rootState}: ObjectsContext, leaveRoute: string): boolean {
                 if (!rootState.files.uploading.length) {
                     return false;
                 }

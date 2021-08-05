@@ -6,7 +6,7 @@ module.exports = {
     env: {
         node: true
     },
-    'extends': [
+    extends: [
         'plugin:vue/essential',
         'eslint:recommended',
         '@vue/typescript/recommended',
@@ -17,11 +17,19 @@ module.exports = {
     rules: {
         'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
         'no-debugger': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
-        "@typescript-eslint/ban-ts-comment": "off",
-        "@typescript-eslint/no-empty-function": "off",
-        '@typescript-eslint/no-var-requires': 0,
-        "vue/require-v-for-key": "off",
 
-        "indent": ["error", 4],
+        "indent": ["warn", 4],
+
+        "@typescript-eslint/no-unused-vars": [
+            "warn", {
+                "vars": "all",
+                "args": "all",
+                "argsIgnorePattern": "^_"
+            }],
+
+        '@typescript-eslint/no-empty-function': "off",
+        '@typescript-eslint/no-var-requires': "off",
+
+        '@typescript-eslint/no-explicit-any': "off" // TODO: not everything has been fixed yet
     },
 }

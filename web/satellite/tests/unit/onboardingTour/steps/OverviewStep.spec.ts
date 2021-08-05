@@ -7,7 +7,7 @@ import OverviewStep from '@/components/onboardingTour/steps/OverviewStep.vue';
 
 import { PaymentsHttpApi } from '@/api/payments';
 import { router } from '@/router';
-import { makePaymentsModule, PAYMENTS_MUTATIONS } from '@/store/modules/payments';
+import { makePaymentsModule } from '@/store/modules/payments';
 import { makeProjectsModule } from '@/store/modules/projects';
 import { createLocalVue, mount } from '@vue/test-utils';
 

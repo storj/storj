@@ -37,9 +37,11 @@ projectsModule.state.selectedProject = selectedProject;
 
 Vue.use(Vuex);
 
-const store = new Vuex.Store({ modules: { projectsModule } });
+const store = new Vuex.Store<{
+    projectsModule: typeof projectsModule.state,
+}>({ modules: { projectsModule } });
 
-const state = (store.state as any).projectsModule;
+const state = store.state.projectsModule;
 
 const projects = [
     new Project(
@@ -102,7 +104,9 @@ describe('mutations', () => {
 
         store.commit(UPDATE_PROJECT_NAME, { id: '11', name: newName });
 
-        expect(state.projects.find((pr: Project) => pr.id === '11').name).toBe(newName);
+        const project = state.projects.find((pr: Project) => pr.id === '11');
+        expect(project).toBeDefined();
+        if(project) expect(project.name).toBe(newName);
     });
 
     it('update project description', () => {
@@ -112,7 +116,9 @@ describe('mutations', () => {
 
         store.commit(UPDATE_PROJECT_DESCRIPTION, { id: '11', description: newDescription });
 
-        expect(state.projects.find((pr: Project) => pr.id === '11').description).toBe(newDescription);
+        const project = state.projects.find((pr: Project) => pr.id === '11');
+        expect(project).toBeDefined();
+        if(project) expect(project.description).toBe(newDescription);
     });
 
     it('remove project', () => {
@@ -241,7 +247,9 @@ describe('actions', () => {
 
         await store.dispatch(UPDATE_NAME, fieldsToUpdate);
 
-        expect(state.projects.find((pr: Project) => pr.id === '1').name).toBe(newName);
+        const project = state.projects.find((pr: Project) => pr.id === '1');
+        expect(project).toBeDefined();
+        if(project) expect(project.name).toBe(newName);
     });
 
     it('success update project description', async () => {
@@ -255,7 +263,9 @@ describe('actions', () => {
 
         await store.dispatch(UPDATE_DESCRIPTION, fieldsToUpdate);
 
-        expect(state.projects.find((pr: Project) => pr.id === '1').description).toBe(newDescription);
+        const project = state.projects.find((pr: Project) => pr.id === '1');
+        expect(project).toBeDefined();
+        if(project) expect(project.description).toBe(newDescription);
     });
 
     it('update throws an error when api call fails', async () => {
@@ -269,7 +279,9 @@ describe('actions', () => {
             await store.dispatch(UPDATE_DESCRIPTION, fieldsToUpdate);
             expect(true).toBe(false);
         } catch (error) {
-            expect(state.projects.find((pr: Project) => pr.id === '1').description).toBe('newDescription1');
+            const project = state.projects.find((pr: Project) => pr.id === '1');
+            expect(project).toBeDefined();
+            if(project) expect(project.description).toBe('newDescription1');
         }
     });
 

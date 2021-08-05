@@ -62,7 +62,8 @@ export default class SelectInput extends Vue {
     /**
      * triggers on input.
      */
-    public onInput({ target }): void {
+    public onInput(event: Event): void {
+        const target = event.target as HTMLSelectElement;
         this.$emit('setData', target.value);
     }
 

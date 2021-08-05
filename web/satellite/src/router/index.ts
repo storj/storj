@@ -410,7 +410,7 @@ router.beforeEach(async (to, from, next) => {
     next();
 });
 
-router.afterEach(({ name }, from) => {
+router.afterEach(({ name }, _from) => {
     if (!name) {
         return;
     }

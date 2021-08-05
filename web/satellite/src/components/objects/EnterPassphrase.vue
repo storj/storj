@@ -98,8 +98,9 @@ export default class EnterPassphrase extends Vue {
      * Changes passphrase data from input value.
      * @param event
      */
-    public onChangePassphrase(event): void {
-        this.passphrase = event.target.value.trim();
+    public onChangePassphrase(event: Event): void {
+        const target = event.target as HTMLTextAreaElement;
+        this.passphrase = target.value.trim();
         this.resetErrors();
     }
 

@@ -53,7 +53,6 @@ import { MetaUtils } from '@/utils/meta';
 
 const {
     SETUP_ACCOUNT,
-    GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
     GET_CREDIT_CARDS,
 } = PAYMENTS_ACTIONS;
 

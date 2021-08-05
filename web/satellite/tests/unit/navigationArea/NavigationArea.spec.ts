@@ -94,11 +94,11 @@ describe('NavigationArea', () => {
             router,
         });
 
-        const navigationLinks = (wrapper.vm as any).navigation;
+        const navigationLinks = wrapper.vm.navigation;
 
         expect(navigationLinks.length).toBe(expectedLinks.length);
 
-        expectedLinks.forEach((link, i) => {
+        expectedLinks.forEach((_link: NavigationLink, i: number) => {
             expect(navigationLinks[i].name).toBe(expectedLinks[i].name);
             expect(navigationLinks[i].path).toBe(expectedLinks[i].path);
         });

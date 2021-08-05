@@ -17,11 +17,21 @@ import { Component, Prop, Vue } from 'vue-property-decorator';
 
 import { MetaUtils } from '@/utils/meta';
 
+interface StripeResponse {
+    error: string
+    token: {
+        id: unknown
+        card: {
+            funding : string
+        }
+    }
+}
+
 // StripeCardInput encapsulates Stripe add card addition logic
 @Component
 export default class StripeCardInput extends Vue {
     @Prop({default: () => console.error('onStripeResponse is not reinitialized')})
-    private readonly onStripeResponseCallback: (result: any) => void;
+    private readonly onStripeResponseCallback: (tokenId: unknown) => void;
 
     private isLoading = false;
 
@@ -88,7 +98,7 @@ export default class StripeCardInput extends Vue {
      *
      * @param result stripe response
      */
-    public async onStripeResponse(result: any): Promise<void> {
+    public async onStripeResponse(result: StripeResponse): Promise<void> {
         if (result.error) {
             return;
         }
@@ -106,7 +116,7 @@ export default class StripeCardInput extends Vue {
     /**
      * Clears listeners.
      */
-    public beforeDestroy() {
+    public beforeDestroy(): void {
         this.cardElement.removeEventListener('change');
     }
 

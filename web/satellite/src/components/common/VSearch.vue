@@ -68,13 +68,13 @@ export default class VSearch extends Vue {
     /**
      * Clears search query and collapses input.
      */
-    public clearSearch() {
+    public clearSearch(): void {
         this.searchQuery = '';
         this.processSearchQuery();
         this.inputWidth = '56px';
     }
 
-    public async processSearchQuery() {
+    public async processSearchQuery(): Promise<void> {
         await this.search(this.searchQuery);
     }
 }

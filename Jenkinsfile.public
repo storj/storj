@@ -269,7 +269,7 @@ pipeline {
                 stage('web/satellite') {
                     steps {
                         dir("web/satellite") {
-                            sh 'npm run lint'
+                            sh 'npm run lint-ci'
                             sh script: 'npm audit', returnStatus: true
                             sh 'npm run test'
                         }

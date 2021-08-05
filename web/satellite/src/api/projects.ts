@@ -129,7 +129,7 @@ export class ProjectsApiGql extends BaseGql implements ProjectsApi {
      * @param projectId- project ID
      * throws Error
      */
-    public async getLimits(projectId): Promise<ProjectLimits> {
+    public async getLimits(projectId: string): Promise<ProjectLimits> {
         const path = `${this.ROOT_PATH}/${projectId}/usage-limits`;
         const response = await this.http.get(path);
 

@@ -17,7 +17,7 @@ export class UsersApiMock implements UsersApi {
         return Promise.resolve(this.mockUser);
     }
 
-    public update(user: UpdatedUser): Promise<void> {
+    public update(_user: UpdatedUser): Promise<void> {
         throw new Error('not implemented');
     }
 

@@ -26,11 +26,11 @@ export class PaymentsMock implements PaymentsApi {
         return Promise.resolve([]);
     }
 
-    addCreditCard(token: string): Promise<void> {
+    addCreditCard(_token: string): Promise<void> {
         throw new Error('Method not implemented');
     }
 
-    removeCreditCard(cardId: string): Promise<void> {
+    removeCreditCard(_cardId: string): Promise<void> {
         throw new Error('Method not implemented');
     }
 
@@ -38,7 +38,7 @@ export class PaymentsMock implements PaymentsApi {
         return Promise.resolve([]);
     }
 
-    makeCreditCardDefault(cardId: string): Promise<void> {
+    makeCreditCardDefault(_cardId: string): Promise<void> {
         throw new Error('Method not implemented');
     }
 
@@ -50,7 +50,7 @@ export class PaymentsMock implements PaymentsApi {
         return Promise.resolve(new TokenDeposit(amount, 'testAddress', 'testLink'));
     }
 
-    applyCouponCode(code: string): Promise<void> {
+    applyCouponCode(_code: string): Promise<void> {
         throw new Error('Method not implemented');
     }
 }

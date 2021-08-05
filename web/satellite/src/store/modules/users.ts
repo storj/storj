@@ -46,6 +46,11 @@ const {
     CLEAR,
 } = USER_MUTATIONS;
 
+interface UsersContext {
+    state: UsersState
+    commit: any
+}
+
 /**
  * creates users module with all dependencies
  *
@@ -86,12 +91,12 @@ export function makeUsersModule(api: UsersApi): StoreModule<UsersState> {
         },
 
         actions: {
-            [UPDATE]: async function ({commit}: any, userInfo: UpdatedUser): Promise<void> {
+            [UPDATE]: async function ({commit}: UsersContext, userInfo: UpdatedUser): Promise<void> {
                 await api.update(userInfo);
 
                 commit(UPDATE_USER, userInfo);
             },
-            [GET]: async function ({commit}: any): Promise<User> {
+            [GET]: async function ({commit}: UsersContext): Promise<User> {
                 const user = await api.get();
 
                 commit(SET_USER, user);
@@ -104,17 +109,17 @@ export function makeUsersModule(api: UsersApi): StoreModule<UsersState> {
             [ENABLE_USER_MFA]: async function (_, passcode: string): Promise<void> {
                 await api.enableUserMFA(passcode);
             },
-            [GENERATE_USER_MFA_SECRET]: async function ({commit}: any): Promise<void> {
+            [GENERATE_USER_MFA_SECRET]: async function ({commit}: UsersContext): Promise<void> {
                 const secret = await api.generateUserMFASecret();
 
                 commit(SET_USER_MFA_SECRET, secret);
             },
-            [GENERATE_USER_MFA_RECOVERY_CODES]: async function ({commit}: any): Promise<void> {
+            [GENERATE_USER_MFA_RECOVERY_CODES]: async function ({commit}: UsersContext): Promise<void> {
                 const codes = await api.generateUserMFARecoveryCodes();
 
                 commit(SET_USER_MFA_RECOVERY_CODES, codes);
             },
-            [CLEAR]: function({commit}: any) {
+            [CLEAR]: function({commit}: UsersContext) {
                 commit(CLEAR);
             },
         },
