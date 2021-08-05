@@ -496,7 +496,7 @@ func (cache *overlaycache) reliable(ctx context.Context, criteria *overlay.NodeC
 
 // UpdateReputation updates the DB columns for any of the reputation fields in UpdateReputationRequest.
 func (cache *overlaycache) UpdateReputation(ctx context.Context, id storj.NodeID, request *overlay.ReputationStatus) (err error) {
-	mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 
 	err = cache.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
 		_, err = tx.Tx.ExecContext(ctx, "SET TRANSACTION ISOLATION LEVEL SERIALIZABLE")

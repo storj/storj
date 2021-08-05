@@ -460,7 +460,7 @@ func (service *Service) Reliable(ctx context.Context) (nodes storj.NodeIDList, e
 
 // UpdateReputation updates the DB columns for any of the reputation fields.
 func (service *Service) UpdateReputation(ctx context.Context, id storj.NodeID, request *ReputationStatus) (err error) {
-	mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 	return service.db.UpdateReputation(ctx, id, request)
 }
 
