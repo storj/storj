@@ -42,7 +42,7 @@
                 </div>
             </div>
         </div>
-        <div class="settings__mfa" v-if="isMFAEnabled">
+        <div class="settings__mfa">
             <h2 class="profile-bold-text">Two-Factor Authentication</h2>
             <p v-if="!user.isMFAEnabled" class="profile-regular-text">
                 To increase your account security, we strongly recommend enabling 2FA on your account.
@@ -122,7 +122,6 @@ import { MetaUtils } from '@/utils/meta';
     },
 })
 export default class SettingsArea extends Vue {
-    public isMFAEnabled: boolean = MetaUtils.getMetaContent('mfa-enabled') === 'true';
     public isLoading = false;
     public isEnableMFAPopup = false;
     public isDisableMFAPopup = false;
