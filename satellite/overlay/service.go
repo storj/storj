@@ -471,14 +471,16 @@ func (service *Service) UpdateNodeInfo(ctx context.Context, node storj.NodeID, n
 }
 
 // UpdateCheckIn updates a single storagenode's check-in info if needed.
-// The check-in info is updated in the database if:
-// (1) there is no previous entry;
-// (2) it has been too long since the last known entry; or
-// (3) the node hostname, IP address, port, wallet, sw version, or disk capacity
-// has changed.
-// Note that there can be a race between acquiring the previous entry and
-// performing the update, so if two updates happen at about the same time it is
-// not defined which one will end up in the database.
+/*
+The check-in info is updated in the database if:
+	(1) there is no previous entry;
+	(2) it has been too long since the last known entry; or
+	(3) the node hostname, IP address, port, wallet, sw version, or disk capacity
+	has changed.
+Note that there can be a race between acquiring the previous entry and
+performing the update, so if two updates happen at about the same time it is
+not defined which one will end up in the database.
+*/
 func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo, timestamp time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	oldInfo, err := service.Get(ctx, node.NodeID)
