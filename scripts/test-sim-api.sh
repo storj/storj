@@ -2,8 +2,13 @@
 #set -ueo pipefail
 
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-REPOROOT= "$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && cd.. && pwd )"
+REPOROOT= "$( cd "$( dirname "$" )" >/dev/null 2>&1 && cd.. && pwd )"
+
+pushd $SCRIPTDIR
+cd ..
+REPOROOT= pwd
 TESTDIR="$REPOROOT/web/satellite/tests/graphql"
+popd
 
 # setup tmpdir for testfiles and cleanup
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
@@ -31,4 +36,4 @@ export STORJ_NETWORK_DIR=$TMP
 echo "setting network host 4 only when its unset."
 STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.7}
 
-storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network && test bash "$TESTDIR"/test_graphql.sh
+storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$TESTDIR"/test_graphql.sh
