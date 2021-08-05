@@ -2283,6 +2283,53 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	}, nil
 }
 
+// DeletePart deletes a single part from satellite db and from storage nodes.
+func (endpoint *Endpoint) DeletePart(ctx context.Context, req *pb.PartDeleteRequest) (resp *pb.PartDeleteResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+	if err != nil {
+		endpoint.log.Warn("unable to collect uplink version", zap.Error(err))
+	}
+
+	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
+	if err != nil {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, err.Error())
+	}
+
+	_, err = endpoint.validateAuth(ctx, req.Header, macaroon.Action{
+		Op:            macaroon.ActionDelete,
+		Bucket:        streamID.Bucket,
+		EncryptedPath: streamID.EncryptedPath,
+		Time:          time.Now(),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	id, err := uuid.FromBytes(streamID.StreamId)
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	err = endpoint.metainfo.metabaseDB.DeletePart(ctx, metabase.DeletePart{
+		StreamID:   id,
+		PartNumber: uint32(req.PartNumber),
+
+		DeletePieces: func(ctx context.Context, segment metabase.DeletedSegmentInfo) error {
+			endpoint.deleteSegmentPieces(ctx, []metabase.DeletedSegmentInfo{segment})
+			return nil
+		},
+	})
+	if err != nil {
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Error(rpcstatus.Internal, err.Error())
+	}
+
+	return &pb.PartDeleteResponse{}, nil
+}
+
 // sortLimits sorts order limits and fill missing ones with nil values.
 func sortLimits(limits []*pb.AddressedOrderLimit, segment metabase.Segment) []*pb.AddressedOrderLimit {
 	sorted := make([]*pb.AddressedOrderLimit, segment.Redundancy.TotalShares)
