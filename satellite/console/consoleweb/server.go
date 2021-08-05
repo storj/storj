@@ -90,7 +90,6 @@ type Config struct {
 	CSPEnabled                      bool    `help:"indicates if Content Security Policy is enabled" devDefault:"false" releaseDefault:"true"`
 	LinksharingURL                  string  `help:"url link for linksharing requests" default:"https://link.us1.storjshare.io"`
 	PathwayOverviewEnabled          bool    `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
-	MFAEnabled                      bool    `help:"indicates if MFA is enabled" default:"false"`
 
 	RateLimit web.IPRateLimiterConfig
 
@@ -367,7 +366,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 		ObjectPrice                     string
 		RecaptchaEnabled                bool
 		RecaptchaSiteKey                string
-		MFAEnabled                      bool
 	}
 
 	data.ExternalAddress = server.config.ExternalAddress
@@ -393,7 +391,6 @@ func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
 	data.ObjectPrice = server.pricing.ObjectPrice
 	data.RecaptchaEnabled = server.config.Recaptcha.Enabled
 	data.RecaptchaSiteKey = server.config.Recaptcha.SiteKey
-	data.MFAEnabled = server.config.MFAEnabled
 
 	if server.templates.index == nil {
 		server.log.Error("index template is not set")
