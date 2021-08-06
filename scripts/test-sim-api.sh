@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-#set -ueo pipefail
-
+set -ueo pipefail
+set +x
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-REPOROOT="$( cd "$( dirname "${BASH_SOURCE[0]}"/.. )" >/dev/null 2>&1 && pwd )"
-TESTDIR="$REPOROOT"/web/satellite/tests/graphql
+REPOROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. >/dev/null 2>&1 && pwd )"
+TESTDIR="${REPOROOT}/web/satellite/tests/graphql"
 
 # setup tmpdir for testfiles and cleanup
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
