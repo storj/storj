@@ -21,10 +21,13 @@ echo "TESTDIR: ${TESTDIR}"
 echo "Make install-sim"
 make -C "$SCRIPTDIR"/.. install-sim
 
-echo "setting storj network directory to create tmp directory."
+echo "putting tmp in path and setting storj network directory to tmp directory."
+export PATH=$TMP:$PATH
 export STORJ_NETWORK_DIR=$TMP
 
 echo "setting network host 4 only when its unset."
 STORJ_NETWORK_HOST4=${STORJ_NETWORK_HOST4:-127.0.0.7}
+
+storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
 
 storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$TESTDIR"/test_graphql.sh
