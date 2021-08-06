@@ -221,7 +221,7 @@ pipeline {
                         dir('testsuite'){
                             sh 'Xvfb -ac :99 -screen 0 1280x1024x16 &'
                             // sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -race -json ... 2>&1 | tee ui-tests.json | xunit -out ui-tests.xml'
-                            sh 'go test -vet=off -race -json ui/... 2>&1 | tee .build/ui-tests.json | xunit -out .build/ui-tests.xml'
+                            sh 'go test -vet=off -race -json ... 2>&1 | tee .build/ui-tests.json | xunit -out .build/ui-tests.xml'
                         }
                     }
                     post {
