@@ -18,7 +18,7 @@ var (
 	req      []byte
 	treq     []byte
 	satenv   string
-	saturl   = "/api/v0/graphql"
+	saturl   = ":10002/api/v0/graphql"
 	uutname  = "web/satellite/tests/graphql/endpoints/uut.txt"
 	exitcode = 0
 )
