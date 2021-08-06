@@ -1458,7 +1458,11 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 			// No error info is returned if neither Read, nor List permission is granted
 			return &pb.ObjectBeginDeleteResponse{}, nil
 		}
-		return nil, err
+		if storj.ErrObjectNotFound.Has(err) {
+			return nil, rpcstatus.Wrap(rpcstatus.NotFound, err)
+		}
+		endpoint.log.Error("internal", zap.Error(err))
+		return nil, rpcstatus.Wrap(rpcstatus.Internal, err)
 	}
 
 	var object *pb.Object

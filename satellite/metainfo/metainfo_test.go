@@ -1964,3 +1964,41 @@ func TestObjectSegmentExpiresAt(t *testing.T) {
 		}
 	})
 }
+
+func TestDeleteNonExistentObject(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+
+		expectedBucketName := "delete-objects-bucket"
+		metainfoClient, err := planet.Uplinks[0].DialMetainfo(ctx, planet.Satellites[0], apiKey)
+		require.NoError(t, err)
+		defer ctx.Check(metainfoClient.Close)
+
+		// non-pending non-existent objects return no error
+		_, err = metainfoClient.BeginDeleteObject(ctx, metaclient.BeginDeleteObjectParams{
+			Bucket:        []byte(expectedBucketName),
+			EncryptedPath: []byte("bad path"),
+		})
+		require.NoError(t, err)
+
+		// pending non-existent objects return an RPC error
+		signer := signing.SignerFromFullIdentity(planet.Satellites[0].Identity)
+		streamUUID := testrand.UUID()
+		satStreamID := &internalpb.StreamID{CreationDate: time.Now(), StreamId: streamUUID[:]}
+		signedStreamID, err := metainfo.SignStreamID(ctx, signer, satStreamID)
+		require.NoError(t, err)
+		encodedStreamID, err := pb.Marshal(signedStreamID)
+		require.NoError(t, err)
+		streamID, err := storj.StreamIDFromBytes(encodedStreamID)
+		require.NoError(t, err)
+		_, err = metainfoClient.BeginDeleteObject(ctx, metaclient.BeginDeleteObjectParams{
+			Bucket:        []byte(expectedBucketName),
+			EncryptedPath: []byte("bad path"),
+			Status:        int32(metabase.Pending),
+			StreamID:      streamID,
+		})
+		require.True(t, errs2.IsRPC(err, rpcstatus.NotFound))
+	})
+}
