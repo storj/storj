@@ -42,6 +42,7 @@ var (
 type irreparableError struct {
 	piecesAvailable int32
 	piecesRequired  int32
+	errlist         []error
 }
 
 func (ie *irreparableError) Error() string {
@@ -303,6 +304,7 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment *queue
 				zap.Uint64("Position", queueSegment.Position.Encode()),
 				zap.Int32("piecesAvailable", irreparableErr.piecesAvailable),
 				zap.Int32("piecesRequired", irreparableErr.piecesRequired),
+				zap.Error(errs.Combine(irreparableErr.errlist...)),
 			)
 			return false, nil
 		}

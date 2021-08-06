@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"sort"
@@ -83,6 +84,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 
 	limiter := sync2.NewLimiter(es.RequiredCount())
 	cond := sync.NewCond(&sync.Mutex{})
+	errChan := make(chan error, len(limits))
 
 	for currentLimitIndex, limit := range limits {
 		if limit == nil {
@@ -145,6 +147,7 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 						ec.log.Debug("Failed to download pieces for repair",
 							zap.Error(err))
 					}
+					errChan <- fmt.Errorf("node id: %s, error: %w", limit.GetLimit().StorageNodeId.String(), err)
 					return
 				}
 
@@ -157,12 +160,20 @@ func (ec *ECRepairer) Get(ctx context.Context, limits []*pb.AddressedOrderLimit,
 	}
 
 	limiter.Wait()
+	close(errChan)
 
+	var errlist errs.Group
 	if successfulPieces < es.RequiredCount() {
 		mon.Meter("download_failed_not_enough_pieces_repair").Mark(1) //mon:locked
+		for err := range errChan {
+			if err != nil {
+				errlist.Add(err)
+			}
+		}
 		return nil, failedPieces, &irreparableError{
 			piecesAvailable: int32(successfulPieces),
 			piecesRequired:  int32(es.RequiredCount()),
+			errlist:         errlist,
 		}
 	}
 
