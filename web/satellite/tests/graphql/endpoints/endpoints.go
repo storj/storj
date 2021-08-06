@@ -31,7 +31,7 @@ func Endpoints() int {
 
 	// build the satellite url from the environment variable.
 	satenv = os.Getenv("SATELLITE_0_ADDR")
-	saturl = "http:// " + satenv + saturl
+	saturl = "http://" + satenv + saturl
 
 	isfile := checkfile(fname) // check if file exists if yes then open else create one.
 	if !isfile {               // this is control file.
