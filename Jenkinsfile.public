@@ -218,6 +218,7 @@ pipeline {
                         STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj7?sslmode=disable'
                         }
                     steps {
+                        sh 'docker pull postman/newman:alpine'
                         sh 'psql -U postgres -c \'create database teststorj7;\''
                         sh 'make test-sim-api'
                     }
