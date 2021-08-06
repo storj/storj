@@ -234,7 +234,7 @@ func TestService_InvoiceUserWithManyCoupons(t *testing.T) {
 		duration := 2
 		sumOfCoupons := int64(0)
 		for i := 0; i < 5; i++ {
-			coupon, err := satellite.API.Payments.Accounts.Coupons().Create(ctx, payments.Coupon{
+			coupon, err := satellite.API.Payments.Accounts.Coupons().Create(ctx, payments.CouponOld{
 				ID:       testrand.UUID(),
 				UserID:   user.ID,
 				Amount:   int64(i + 4),
@@ -348,7 +348,7 @@ func TestService_ApplyCouponsInTheOrder(t *testing.T) {
 		// we will have coupons with duration 5, 4, 3 and 2 from coupon create with AddUser
 		for i := 0; i < additionalCoupons; i++ {
 			duration := additionalCoupons - i + 2
-			_, err = satellite.API.Payments.Accounts.Coupons().Create(ctx, payments.Coupon{
+			_, err = satellite.API.Payments.Accounts.Coupons().Create(ctx, payments.CouponOld{
 				ID:       testrand.UUID(),
 				UserID:   user.ID,
 				Amount:   24,
@@ -485,7 +485,7 @@ func TestService_CouponStatus(t *testing.T) {
 			}
 
 			// create a new coupon
-			_, err = satellite.API.Payments.Accounts.Coupons().Create(ctx, payments.Coupon{
+			_, err = satellite.API.Payments.Accounts.Coupons().Create(ctx, payments.CouponOld{
 				ID:       testrand.UUID(),
 				UserID:   user.ID,
 				Amount:   tt.amount,

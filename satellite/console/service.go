@@ -535,34 +535,39 @@ func (paymentService PaymentsService) checkProjectInvoicingStatus(ctx context.Co
 	return paymentService.service.accounts.CheckProjectInvoicingStatus(ctx, projectID)
 }
 
-// ApplyCouponCode applies a coupon code to a Stripe customer.
-func (paymentService PaymentsService) ApplyCouponCode(ctx context.Context, couponCode string) (err error) {
+// ApplyCouponCode applies a coupon code to a Stripe customer
+// and returns the coupon corresponding to the code.
+func (paymentService PaymentsService) ApplyCouponCode(ctx context.Context, couponCode string) (coupon *payments.Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "apply coupon code")
 	if err != nil {
-		return Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
-	return paymentService.service.accounts.Coupons().ApplyCouponCode(ctx, auth.User.ID, couponCode)
+
+	coupon, err = paymentService.service.accounts.Coupons().ApplyCouponCode(ctx, auth.User.ID, couponCode)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	return coupon, nil
 }
 
-// HasCouponApplied checks if a user as a coupon applied to their Stripe account.
-func (paymentService PaymentsService) HasCouponApplied(ctx context.Context) (_ bool, err error) {
+// GetCoupon returns the coupon applied to the user's account.
+func (paymentService PaymentsService) GetCoupon(ctx context.Context) (coupon *payments.Coupon, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "list coupon codes")
+	auth, err := paymentService.service.getAuthAndAuditLog(ctx, "get coupon")
 	if err != nil {
-		return false, Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
-	return paymentService.service.accounts.Coupons().HasCouponApplied(ctx, auth.User.ID)
-}
+	coupon, err = paymentService.service.accounts.Coupons().GetByUserID(ctx, auth.User.ID)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
-// AddPromotionalCoupon creates new coupon for specified user.
-func (paymentService PaymentsService) AddPromotionalCoupon(ctx context.Context, userID uuid.UUID) (err error) {
-	defer mon.Task()(&ctx, userID)(&err)
-
-	return paymentService.service.accounts.Coupons().AddPromotionalCoupon(ctx, userID)
+	return coupon, nil
 }
 
 // checkRegistrationSecret returns a RegistrationToken if applicable (nil if not), and an error

@@ -19,19 +19,19 @@ import (
 // architecture: Database
 type CouponsDB interface {
 	// Insert inserts a coupon into the database.
-	Insert(ctx context.Context, coupon payments.Coupon) (payments.Coupon, error)
+	Insert(ctx context.Context, coupon payments.CouponOld) (payments.CouponOld, error)
 	// Update updates coupon in database.
-	Update(ctx context.Context, couponID uuid.UUID, status payments.CouponStatus) (payments.Coupon, error)
+	Update(ctx context.Context, couponID uuid.UUID, status payments.CouponStatus) (payments.CouponOld, error)
 	// Get returns coupon by ID.
-	Get(ctx context.Context, couponID uuid.UUID) (payments.Coupon, error)
+	Get(ctx context.Context, couponID uuid.UUID) (payments.CouponOld, error)
 	// Delete removes a coupon from the database
 	Delete(ctx context.Context, couponID uuid.UUID) error
 	// List returns all coupons with specified status.
-	List(ctx context.Context, status payments.CouponStatus) ([]payments.Coupon, error)
+	List(ctx context.Context, status payments.CouponStatus) ([]payments.CouponOld, error)
 	// ListByUserID returns all coupons of specified user.
-	ListByUserID(ctx context.Context, userID uuid.UUID) ([]payments.Coupon, error)
+	ListByUserID(ctx context.Context, userID uuid.UUID) ([]payments.CouponOld, error)
 	// ListByUserIDAndStatus returns all coupons of specified user and status. Results are ordered (asc) by expiration date.
-	ListByUserIDAndStatus(ctx context.Context, userID uuid.UUID, status payments.CouponStatus) ([]payments.Coupon, error)
+	ListByUserIDAndStatus(ctx context.Context, userID uuid.UUID, status payments.CouponStatus) ([]payments.CouponOld, error)
 	// ListPending returns paginated list of coupons with specified status.
 	ListPaged(ctx context.Context, offset int64, limit int, before time.Time, status payments.CouponStatus) (payments.CouponsPage, error)
 
@@ -89,7 +89,7 @@ type coupons struct {
 }
 
 // Create attaches a coupon for payment account.
-func (coupons *coupons) Create(ctx context.Context, coupon payments.Coupon) (coup payments.Coupon, err error) {
+func (coupons *coupons) Create(ctx context.Context, coupon payments.CouponOld) (coup payments.CouponOld, err error) {
 	defer mon.Task()(&ctx, coupon)(&err)
 
 	coup, err = coupons.service.db.Coupons().Insert(ctx, coupon)
@@ -98,7 +98,7 @@ func (coupons *coupons) Create(ctx context.Context, coupon payments.Coupon) (cou
 }
 
 // ListByUserID return list of all coupons of specified payment account.
-func (coupons *coupons) ListByUserID(ctx context.Context, userID uuid.UUID) (_ []payments.Coupon, err error) {
+func (coupons *coupons) ListByUserID(ctx context.Context, userID uuid.UUID) (_ []payments.CouponOld, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
 	couponList, err := coupons.service.db.Coupons().ListByUserID(ctx, userID)
@@ -212,53 +212,87 @@ func (coupons *coupons) AddPromotionalCoupon(ctx context.Context, userID uuid.UU
 }
 
 // ApplyCouponCode attempts to apply a coupon code to the user via Stripe.
-func (coupons *coupons) ApplyCouponCode(ctx context.Context, userID uuid.UUID, couponCode string) (err error) {
+func (coupons *coupons) ApplyCouponCode(ctx context.Context, userID uuid.UUID, couponCode string) (_ *payments.Coupon, err error) {
 	defer mon.Task()(&ctx, userID, couponCode)(&err)
 
 	promoCodeIter := coupons.service.stripeClient.PromoCodes().List(&stripe.PromotionCodeListParams{
 		Code: stripe.String(couponCode),
 	})
 	if !promoCodeIter.Next() {
-		return Error.New("Invalid coupon code")
+		return nil, Error.New("Invalid coupon code")
 	}
 	promoCode := promoCodeIter.PromotionCode()
 
 	customerID, err := coupons.service.db.Customers().GetCustomerID(ctx, userID)
 	if err != nil {
-		return Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	params := &stripe.CustomerParams{
 		PromotionCode: stripe.String(promoCode.ID),
 	}
+	params.AddExpand("discount.promotion_code")
 
-	_, err = coupons.service.stripeClient.Customers().Update(customerID, params)
+	customer, err := coupons.service.stripeClient.Customers().Update(customerID, params)
 	if err != nil {
-		return Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
-	return nil
+	if customer.Discount == nil || customer.Discount.Coupon == nil {
+		return nil, Error.New("invalid discount after coupon code application; user ID:%s, customer ID:%s", userID, customerID)
+	}
+
+	return stripeDiscountToPaymentsCoupon(customer.Discount)
 }
 
-// HasCouponApplied checks if a user has a coupon applied to their account.
-func (coupons *coupons) HasCouponApplied(ctx context.Context, userID uuid.UUID) (_ bool, err error) {
+// GetByUserID returns the coupon applied to the user.
+func (coupons *coupons) GetByUserID(ctx context.Context, userID uuid.UUID) (_ *payments.Coupon, err error) {
 	defer mon.Task()(&ctx, userID)(&err)
 
 	customerID, err := coupons.service.db.Customers().GetCustomerID(ctx, userID)
 
 	if err != nil {
-		return false, Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
-	customer, err := coupons.service.stripeClient.Customers().Get(customerID, nil)
+	params := &stripe.CustomerParams{}
+	params.AddExpand("discount.promotion_code")
 
+	customer, err := coupons.service.stripeClient.Customers().Get(customerID, params)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
 	if customer.Discount == nil || customer.Discount.Coupon == nil {
-		return false, nil
+		return nil, nil
 	}
 
-	return true, nil
+	return stripeDiscountToPaymentsCoupon(customer.Discount)
+}
+
+// stripeDiscountToPaymentsCoupon converts a Stripe discount to a payments.Coupon.
+func stripeDiscountToPaymentsCoupon(dc *stripe.Discount) (coupon *payments.Coupon, err error) {
+	if dc == nil {
+		return nil, Error.New("discount is nil")
+	}
+
+	if dc.Coupon == nil {
+		return nil, Error.New("discount.Coupon is nil")
+	}
+
+	coupon = &payments.Coupon{
+		ID:         dc.ID,
+		Name:       dc.Coupon.Name,
+		AmountOff:  dc.Coupon.AmountOff,
+		PercentOff: dc.Coupon.PercentOff,
+		AddedAt:    time.Unix(dc.Start, 0),
+		ExpiresAt:  time.Unix(dc.End, 0),
+		Duration:   payments.CouponDuration(dc.Coupon.Duration),
+	}
+
+	if dc.PromotionCode != nil {
+		coupon.PromoCode = dc.PromotionCode.Code
+	}
+
+	return coupon, nil
 }

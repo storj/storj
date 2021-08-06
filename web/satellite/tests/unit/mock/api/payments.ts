@@ -3,6 +3,7 @@
 
 import {
     AccountBalance,
+    Coupon,
     CreditCard,
     PaymentsApi,
     PaymentsHistoryItem,
@@ -14,6 +15,12 @@ import {
  * Mock for PaymentsApi
  */
 export class PaymentsMock implements PaymentsApi {
+    private mockCoupon: Coupon | null = null;
+
+    public setMockCoupon(coupon: Coupon | null): void {
+        this.mockCoupon = coupon;
+    }
+
     setupAccount(): Promise<void> {
         throw new Error('Method not implemented');
     }
@@ -50,7 +57,11 @@ export class PaymentsMock implements PaymentsApi {
         return Promise.resolve(new TokenDeposit(amount, 'testAddress', 'testLink'));
     }
 
-    applyCouponCode(_code: string): Promise<void> {
+    applyCouponCode(_: string): Promise<Coupon> {
         throw new Error('Method not implemented');
+    }
+
+    getCoupon(): Promise<Coupon | null> {
+        return Promise.resolve(this.mockCoupon);
     }
 }

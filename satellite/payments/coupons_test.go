@@ -32,7 +32,7 @@ func TestCoupon_ExpirationDate(t *testing.T) {
 			expires:  time.Date(2020, 5, 0, 0, 0, 0, 0, time.UTC), // 2020-04-30 00:00:00 +0000 UTC
 		},
 	} {
-		coupon := Coupon{
+		coupon := CouponOld{
 			Duration: &tt.duration,
 			Created:  tt.created,
 		}

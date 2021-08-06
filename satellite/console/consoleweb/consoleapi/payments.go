@@ -323,22 +323,26 @@ func (p *Payments) ApplyCouponCode(w http.ResponseWriter, r *http.Request) {
 	}
 	couponCode := string(bodyBytes)
 
-	err = p.service.Payments().ApplyCouponCode(ctx, couponCode)
+	coupon, err := p.service.Payments().ApplyCouponCode(ctx, couponCode)
 	if err != nil {
 		p.serveJSONError(w, http.StatusInternalServerError, err)
 		return
 	}
+
+	if err = json.NewEncoder(w).Encode(coupon); err != nil {
+		p.log.Error("failed to encode coupon", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	}
 }
 
-// HasCouponApplied checks if user has coupon applied to account.
-func (p *Payments) HasCouponApplied(w http.ResponseWriter, r *http.Request) {
+// GetCoupon returns the coupon applied to the user's account.
+func (p *Payments) GetCoupon(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
 	w.Header().Set("Content-Type", "application/json")
 
-	hasCoupon, err := p.service.Payments().HasCouponApplied(ctx)
+	coupon, err := p.service.Payments().GetCoupon(ctx)
 	if err != nil {
 		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(w, http.StatusUnauthorized, err)
@@ -349,10 +353,8 @@ func (p *Payments) HasCouponApplied(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = json.NewEncoder(w).Encode(&hasCoupon)
-
-	if err != nil {
-		p.log.Error("failed to return coupon check", zap.Error(ErrPaymentsAPI.Wrap(err)))
+	if err = json.NewEncoder(w).Encode(coupon); err != nil {
+		p.log.Error("failed to encode coupon", zap.Error(ErrPaymentsAPI.Wrap(err)))
 	}
 }
 

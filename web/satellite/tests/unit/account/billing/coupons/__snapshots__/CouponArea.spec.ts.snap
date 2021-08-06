@@ -1,0 +1,26 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`CouponArea renders correctly 1`] = `
+<div class="coupon-area">
+  <div class="coupon-area__top-container">
+    <h1 class="coupon-area__top-container__title">Coupon</h1>
+    <vbutton-stub label="Add Coupon Code" width="inherit" height="inherit" borderradius="6px" onpress="function () { [native code] }" class="coupon-area__top-container__add-button"></vbutton-stub>
+  </div>
+  <div class="coupon-area__container">
+    <couponicon-stub class="coupon-area__container__coupon-icon"></couponicon-stub>
+    <div class="coupon-area__container__text-container">
+      <div class="coupon-area__container__text-container__row">
+        <p class="coupon-area__container__text-container__row__name">Coupon Name</p>
+        <p class="coupon-area__container__text-container__row__promo">PROMO_CODE</p>
+      </div>
+      <div class="coupon-area__container__text-container__row">
+        <p class="coupon-area__container__text-container__row__description">$1.23 off for 2 months</p>
+      </div>
+      <div class="coupon-area__container__text-container__row">
+        <p class="coupon-area__container__text-container__row__expiration">
+          Active from <b>October 1, 2021</b> to <b>December 1, 2021</b></p>
+      </div>
+    </div>
+  </div>
+</div>
+`;

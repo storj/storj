@@ -48,7 +48,7 @@
         <EstimatedCostsAndCredits v-if="isSummaryVisible" />
         <PaymentMethods />
         <SmallDepositHistory />
-        <CreditsHistory />
+        <CouponArea />
         <router-view />
     </div>
 </template>
@@ -59,7 +59,7 @@ import { Component, Vue } from 'vue-property-decorator';
 import PeriodSelection from '@/components/account/billing/depositAndBillingHistory/PeriodSelection.vue';
 import SmallDepositHistory from '@/components/account/billing/depositAndBillingHistory/SmallDepositHistory.vue';
 import EstimatedCostsAndCredits from '@/components/account/billing/estimatedCostsAndCredits/EstimatedCostsAndCredits.vue';
-import CreditsHistory from '@/components/account/billing/freeCredits/CreditsHistory.vue';
+import CouponArea from '@/components/account/billing/coupons/CouponArea.vue';
 import HistoryDropdown from '@/components/account/billing/HistoryDropdown.vue';
 import PaymentMethods from '@/components/account/billing/paymentMethods/PaymentMethods.vue';
 import VLoader from '@/components/common/VLoader.vue';
@@ -87,7 +87,7 @@ import { APP_STATE_ACTIONS } from '@/utils/constants/actionNames';
         HistoryDropdown,
         ExpandIcon,
         HideIcon,
-        CreditsHistory,
+        CouponArea,
         VLoader,
     },
 })

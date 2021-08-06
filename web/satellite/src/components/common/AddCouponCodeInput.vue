@@ -67,7 +67,7 @@
 </template>
 
 <script lang="ts">
-import { Component, Prop, Vue } from 'vue-property-decorator';
+import { Component, Vue } from 'vue-property-decorator';
 
 import HeaderlessInput from '@/components/common/HeaderlessInput.vue';
 import ValidationMessage from '@/components/common/ValidationMessage.vue';
@@ -78,6 +78,7 @@ import CheckIcon from '@/../static/images/common/validCheck.svg';
 
 import { PaymentsHttpApi } from '@/api/payments';
 import { RouteConfig } from '@/router';
+import { PAYMENTS_ACTIONS } from '@/store/modules/payments';
 
 @Component({
     components: {
@@ -89,8 +90,6 @@ import { RouteConfig } from '@/router';
     },
 })
 export default class AddCouponCodeInput extends Vue {
-
-    @Prop({default: false})
     private showValidationMessage = false;
     private errorMessage = '';
     private isCodeValid = false;
@@ -132,7 +131,7 @@ export default class AddCouponCodeInput extends Vue {
      */
     public async applyCouponCode(): Promise<void> {
         try {
-            await this.payments.applyCouponCode(this.couponCode);
+            await this.$store.dispatch(PAYMENTS_ACTIONS.APPLY_COUPON_CODE, this.couponCode);
         }
         catch (error) {
             if (this.showConfirmMessage) {
@@ -156,8 +155,7 @@ export default class AddCouponCodeInput extends Vue {
      */
     public async couponCheck(): Promise<void> {
         try {
-            const userCouponCodes = await this.payments.hasCouponApplied();
-            if (userCouponCodes) {
+            if (this.$store.state.paymentsModule.coupon) {
                 this.toggleConfirmMessage();
             } else {
                 this.applyCouponCode();

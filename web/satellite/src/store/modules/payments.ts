@@ -4,6 +4,7 @@
 import { StoreModule } from '@/store';
 import {
     AccountBalance,
+    Coupon,
     CreditCard,
     DateRange,
     PaymentsApi,
@@ -28,6 +29,7 @@ export const PAYMENTS_MUTATIONS = {
     SET_PRICE_SUMMARY: 'SET_PRICE_SUMMARY',
     SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT: 'SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT',
     TOGGLE_IS_ADD_PM_MODAL_SHOWN: 'TOGGLE_IS_ADD_PM_MODAL_SHOWN',
+    SET_COUPON: 'SET_COUPON',
 };
 
 export const PAYMENTS_ACTIONS = {
@@ -46,6 +48,7 @@ export const PAYMENTS_ACTIONS = {
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP: 'getProjectUsageAndChargesCurrentRollup',
     GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP: 'getProjectUsageAndChargesPreviousRollup',
     APPLY_COUPON_CODE: 'applyCouponCode',
+    GET_COUPON: `getCoupon`,
 };
 
 const {
@@ -60,6 +63,7 @@ const {
     SET_PRICE_SUMMARY,
     SET_PRICE_SUMMARY_FOR_SELECTED_PROJECT,
     TOGGLE_IS_ADD_PM_MODAL_SHOWN,
+    SET_COUPON,
 } = PAYMENTS_MUTATIONS;
 
 const {
@@ -77,6 +81,7 @@ const {
     GET_PROJECT_USAGE_AND_CHARGES_CURRENT_ROLLUP,
     GET_PROJECT_USAGE_AND_CHARGES_PREVIOUS_ROLLUP,
     APPLY_COUPON_CODE,
+    GET_COUPON,
 } = PAYMENTS_ACTIONS;
 
 export class PaymentsState {
@@ -92,6 +97,7 @@ export class PaymentsState {
     public startDate: Date = new Date();
     public endDate: Date = new Date();
     public isAddPMModalShown = false;
+    public coupon: Coupon | null = null;
 }
 
 interface PaymentsContext {
@@ -179,6 +185,9 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
             [TOGGLE_IS_ADD_PM_MODAL_SHOWN](state: PaymentsState): void {
                 state.isAddPMModalShown = !state.isAddPMModalShown;
             },
+            [SET_COUPON](state: PaymentsState, coupon: Coupon): void {
+                state.coupon = coupon;
+            },
             [CLEAR](state: PaymentsState) {
                 state.balance = new AccountBalance();
                 state.paymentsHistory = [];
@@ -260,9 +269,16 @@ export function makePaymentsModule(api: PaymentsApi): StoreModule<PaymentsState>
                 commit(SET_PROJECT_USAGE_AND_CHARGES, usageAndCharges);
                 commit(SET_PRICE_SUMMARY, usageAndCharges);
             },
-            [APPLY_COUPON_CODE]: async function(_context: PaymentsContext, code: string): Promise<void> {
-                await api.applyCouponCode(code);
+            [APPLY_COUPON_CODE]: async function({commit}: any, code: string): Promise<void> {
+                const coupon = await api.applyCouponCode(code);
+                
+                commit(SET_COUPON, coupon);
             },
+            [GET_COUPON]: async function({commit}: any): Promise<void> {
+                const coupon = await api.getCoupon();
+                
+                commit(SET_COUPON, coupon);
+            }
         },
         getters: {
             canUserCreateFirstProject: (state: PaymentsState): boolean => {

@@ -181,9 +181,9 @@ func (server *Server) userInfo(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var output struct {
-		User     User              `json:"user"`
-		Projects []Project         `json:"projects"`
-		Coupons  []payments.Coupon `json:"coupons"`
+		User     User                 `json:"user"`
+		Projects []Project            `json:"projects"`
+		Coupons  []payments.CouponOld `json:"coupons"`
 	}
 
 	output.User = User{

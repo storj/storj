@@ -4,6 +4,7 @@
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import {
     AccountBalance,
+    Coupon,
     CreditCard,
     PaymentsApi,
     PaymentsHistoryItem,
@@ -260,36 +261,67 @@ export class PaymentsHttpApi implements PaymentsApi {
      * @param couponCode
      * @throws Error
      */
-    public async applyCouponCode(couponCode: string): Promise<void> {
-        const path = `${this.ROOT_PATH}/couponcodes/apply`;
+    public async applyCouponCode(couponCode: string): Promise<Coupon> {
+        const path = `${this.ROOT_PATH}/coupon/apply`;
         const response = await this.client.patch(path, couponCode);
+        const errMsg = `Could not apply coupon code "${couponCode}"`;
 
         if (response.ok) {
-            return;
+            const coupon = await response.json();
+
+            if (!coupon) {
+                throw new Error(errMsg);
+            }
+
+            return new Coupon(
+                coupon.id,
+                coupon.promoCode,
+                coupon.name,
+                coupon.amountOff,
+                coupon.percentOff,
+                new Date(coupon.addedAt),
+                coupon.expiresAt ? new Date(coupon.expiresAt) : null,
+                coupon.duration
+            );
         }
 
         if (response.status === 401) {
             throw new ErrorUnauthorized();
         }
-        throw new Error(`Can not apply coupon code "${couponCode}"`);
+        throw new Error(errMsg);
     }
 
     /**
-     * hasCouponApplied checks if a user has a coupon applied in Stripe
+     * getCoupon returns the coupon applied to the user.
      *
      * @throws Error
      */
-    public async hasCouponApplied(): Promise<PaymentsHistoryItem[]> {
-        const path = `${this.ROOT_PATH}/couponcodes/coupon`;
+    public async getCoupon(): Promise<Coupon | null> {
+        const path = `${this.ROOT_PATH}/coupon`;
         const response = await this.client.get(path);
         if (!response.ok) {
             if (response.status === 401) {
                 throw new ErrorUnauthorized();
             }
 
-            throw new Error('cannot list coupons');
+            throw new Error('cannot retrieve coupon');
         }
 
-        return await response.json();
+        const coupon = await response.json();
+
+        if (!coupon) {
+            return null;
+        }
+
+        return new Coupon(
+            coupon.id,
+            coupon.promoCode,
+            coupon.name,
+            coupon.amountOff,
+            coupon.percentOff,
+            new Date(coupon.addedAt),
+            coupon.expiresAt ? new Date(coupon.expiresAt) : null,
+            coupon.duration
+        );
     }
 }

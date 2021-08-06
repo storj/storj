@@ -243,8 +243,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, mail
 	paymentsRouter.HandleFunc("/account", paymentController.SetupAccount).Methods(http.MethodPost)
 	paymentsRouter.HandleFunc("/billing-history", paymentController.BillingHistory).Methods(http.MethodGet)
 	paymentsRouter.HandleFunc("/tokens/deposit", paymentController.TokenDeposit).Methods(http.MethodPost)
-	paymentsRouter.HandleFunc("/couponcodes/apply", paymentController.ApplyCouponCode).Methods(http.MethodPatch)
-	paymentsRouter.HandleFunc("/couponcodes/coupon", paymentController.HasCouponApplied).Methods(http.MethodGet)
+	paymentsRouter.HandleFunc("/coupon/apply", paymentController.ApplyCouponCode).Methods(http.MethodPatch)
+	paymentsRouter.HandleFunc("/coupon", paymentController.GetCoupon).Methods(http.MethodGet)
 
 	bucketsController := consoleapi.NewBuckets(logger, service)
 	bucketsRouter := router.PathPrefix("/api/v0/buckets").Subrouter()

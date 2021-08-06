@@ -784,7 +784,7 @@ func (service *Service) applyCoupons(ctx context.Context, usages []CouponUsage) 
 }
 
 // createInvoiceCouponItems consumes invoice project record and creates invoice line items for stripe customer.
-func (service *Service) createInvoiceCouponItems(ctx context.Context, coupon payments.Coupon, usage CouponUsage, customerID string) (err error) {
+func (service *Service) createInvoiceCouponItems(ctx context.Context, coupon payments.CouponOld, usage CouponUsage, customerID string) (err error) {
 	defer mon.Task()(&ctx, customerID, coupon)(&err)
 
 	err = service.db.Coupons().ApplyUsage(ctx, usage.CouponID, usage.Period)

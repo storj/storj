@@ -59,7 +59,7 @@ func (server *Server) addCoupon(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	coupon, err := server.db.StripeCoinPayments().Coupons().Insert(ctx, payments.Coupon{
+	coupon, err := server.db.StripeCoinPayments().Coupons().Insert(ctx, payments.CouponOld{
 		UserID:      input.UserID,
 		Amount:      input.Amount,
 		Duration:    &input.Duration,
