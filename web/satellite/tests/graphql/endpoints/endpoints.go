@@ -30,14 +30,15 @@ func Endpoints() int {
 	uutname = filepath.FromSlash(uutname)
 
 	// build the satellite url from the environment variable.
-	satenv = os.Getenv("SATELLITE_0_ADDR")
+	satenv = os.Getenv("STORJ_NETWORK_HOST4")
 	saturl = "http://" + satenv + saturl
+	fmt.Println(saturl)
 
 	isfile := checkfile(fname) // check if file exists if yes then open else create one.
 	if !isfile {               // this is control file.
 		req = introspect(saturl) // call introspect from handler.go.
 		fcontrol = newtestfile(fname, req)
-		fmt.Println(fname, "not is file - new test file")
+		fmt.Println(fname, "new test file created")
 	}
 	fcontrol = openfile(fname)
 	fmt.Println(fname, "file either existed or was just recently created - open test file")

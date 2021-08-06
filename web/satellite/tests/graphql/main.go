@@ -13,5 +13,6 @@ import (
 func main() {
 	exitcode := endpoints.Endpoints()
 	fmt.Println(exitcode)
+	fmt.Println("Introspection Test: Exiting")
 	os.Exit(exitcode)
 }
