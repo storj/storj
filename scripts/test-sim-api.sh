@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -ueo pipefail
-set +x
+
 SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-REPOROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. >/dev/null 2>&1 && pwd )"
+export REPOROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. >/dev/null 2>&1 && pwd )"
 TESTDIR="${REPOROOT}/web/satellite/tests/graphql"
 
 # setup tmpdir for testfiles and cleanup
@@ -14,16 +14,12 @@ trap cleanup EXIT
 
 echo "Running test-sim-api"
 echo "Directory Variables:"
-echo "$SCRIPTDIR"
-echo "$REPOROOT"
-echo "$TESTDIR"
+echo "SCRIPTDIR: ${SCRIPTDIR}"
+echo "REPOROOT: ${REPOROOT}"
+echo "TESTDIR: ${TESTDIR}"
 
 echo "Make install-sim"
 make -C "$SCRIPTDIR"/.. install-sim
-
-# use modified version of uplink
-echo "setting path"
-export PATH=$TMP:$PATH
 
 echo "setting storj network directory to create tmp directory."
 export STORJ_NETWORK_DIR=$TMP
