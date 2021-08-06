@@ -15,4 +15,4 @@ function onExit {
 
 trap onExit EXIT
 go run "$REPOROOT"/web/satellite/tests/graphql/main.go
-newman run "$REPOROOT"/web/satellite/tests/graphql/GraphQL.postman_collection.json -e "$REPOROOT"/web/satellite/tests/graphql/GraphQLEndoints.postman_environment.json --suppress-exit-code 1
+newman run "$REPOROOT"/web/satellite/tests/graphql/GraphQL.postman_collection.json -e "$REPOROOT"/web/satellite/tests/graphql/GraphQLEndoints_Dev.postman_environment.json --suppress-exit-code 1

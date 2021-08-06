@@ -214,7 +214,6 @@ pipeline {
                         // use different hostname to avoid port conflicts
                         STORJ_NETWORK_HOST4 = '127.0.0.7'
                         STORJ_NETWORK_HOST6 = '127.0.0.7'
-                        SATELLITE_0_ADDR='127.0.0.7:10002'
                         STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj7?sslmode=disable'
                         }
                     steps {
