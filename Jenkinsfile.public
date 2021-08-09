@@ -63,7 +63,6 @@ pipeline {
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26258 --http-addr=localhost:8088 --cache 512MiB --max-sql-memory 512MiB --background'
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26259 --http-addr=localhost:8089 --cache 512MiB --max-sql-memory 512MiB --background'
                             sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26260 --http-addr=localhost:8090 --cache 256MiB --max-sql-memory 256MiB --background'
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=2GiB --listen-addr=localhost:26270 --http-addr=localhost:8091 --cache 256MiB --max-sql-memory 256MiB --background'
                         }
                     }
                 }
@@ -125,7 +124,6 @@ pipeline {
                         STORJ_TEST_COCKROACH_ALT = 'cockroach://root@localhost:26260/testcockroach?sslmode=disable'
                         STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
                         COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=storj.io/storj/private/...,storj.io/storj/satellite/...,storj.io/storj/storage/...,storj.io/storj/storagenode/...,storj.io/storj/versioncontrol/...' : ''}"
-                        STORJ_TEST_SATELLITE_WEB = "built npm"
                     }
                     steps {
                         sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database testcockroach;\''
@@ -143,6 +141,27 @@ pipeline {
                         sh 'go test -parallel 4 -p 6 -vet=off $COVERFLAGS -timeout 32m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
 
                         sh 'check-clean-directory'
+                    }
+
+                    post {
+                        always {
+                            sh script: 'cat .build/tests.json | tparse -all -top -slow 100', returnStatus: true
+                            archiveArtifacts artifacts: '.build/tests.json'
+                            junit '.build/tests.xml'
+
+                            script {
+                                if(fileExists(".build/coverprofile")){
+                                    sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
+                                    sh script: 'gocov convert .build/clean.coverprofile > .build/cover.json', returnStatus: true
+                                    sh script: 'gocov-xml  < .build/cover.json > .build/cobertura.xml', returnStatus: true
+                                    cobertura coberturaReportFile: '.build/cobertura.xml',
+                                        lineCoverageTargets: '70, 60, 50',
+                                        autoUpdateHealth: false,
+                                        autoUpdateStability: false,
+                                        failUnhealthy: true
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -203,34 +222,6 @@ pipeline {
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj6;\''
                         sh 'make test-sim-redis-unavailability'
-                    }
-                }
-
-                stage('UI') {
-                    environment {
-                        STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26270/testui?sslmode=disable'
-                        STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/testui?sslmode=disable'
-                        STORJ_TEST_BROWSER  = '/usr/bin/chromium'
-                        STORJ_TEST_SATELLITE_WEB = "built npm"
-
-                        DISPLAY = ':99'
-                    }
-                    steps {
-                        sh 'cockroach sql --insecure --host=localhost:26270 -e \'create database testui;\''
-                        sh 'psql -U postgres -c \'create database testui;\''
-                        dir('testsuite'){
-                            sh 'go mod download'
-                            sh 'Xvfb -ac :99 -screen 0 1280x1024x16 &'
-                            //sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -race -json ... 2>&1 | tee ui-tests.json | xunit -out ui-tests.xml'
-                            sh 'go test -vet=off -race -json ./ui/... 2>&1 | tee ../.build/ui-tests.json | xunit -out ../.build/ui-tests.xml'
-                        }
-                    }
-                    post {
-                        always {
-                            sh script: 'cat .build/ui-tests.json | tparse -all -top -slow 100', returnStatus: true
-                            archiveArtifacts artifacts: '.build/ui-tests.json'
-                            junit '.build/ui-tests.xml'
-                        }
                     }
                 }
 
@@ -301,6 +292,31 @@ pipeline {
                             sh 'npm run lint'
                             sh script: 'npm audit', returnStatus: true
                             sh 'npm run test'
+                        }
+                    }
+                }
+
+                stage('UI') {
+                    environment {
+                        STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/testcockroach?sslmode=disable;' +
+                            'cockroach://root@localhost:26257/testcockroach?sslmode=disable;' +
+                            'cockroach://root@localhost:26258/testcockroach?sslmode=disable;' +
+                            'cockroach://root@localhost:26259/testcockroach?sslmode=disable'
+                        STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
+                        STORJ_TEST_BROWSER  = '/usr/bin/chromium'
+                        STORJ_TEST_SATELLITE_WEB = "${pwd()}/.build/satellite-web"
+                    }
+                    steps {
+                        sh 'cp -r ./web/satellite/ ${STORJ_TEST_SATELLITE_WEB}/'
+                        sh 'cd .build/satellite-web && npm ci'
+                        sh 'Xvfb -ac :99 -screen 0 1280x1024x16 & export DISPLAY=:99'
+                        sh 'go test -race ./integration/ui/... 2>&1 | tee .build/ui-tests.json | xunit -out .build/ui-tests.xml'
+                    }
+                    post {
+                        always {
+                            sh script: 'cat .build/ui-tests.json | tparse -all -top -slow 100', returnStatus: true
+                            archiveArtifacts artifacts: '.build/ui-tests.json'
+                            junit '.build/ui-tests.xml'
                         }
                     }
                 }
