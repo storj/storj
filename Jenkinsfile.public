@@ -220,8 +220,6 @@ pipeline {
                         sh 'psql -U postgres -c \'create database testui;\''
                         dir('testsuite'){
                             sh 'go mod download'
-                            sh 'pwd'
-                            sh 'go test -vet=off -race -json ...' //debug to see what go test is doing since the typical execution short circuits printing to stdout etc.
                             sh 'Xvfb -ac :99 -screen 0 1280x1024x16 &'
                             //sh 'go test -parallel 1 -p 1 -vet=off -timeout 20m -race -json ... 2>&1 | tee ui-tests.json | xunit -out ui-tests.xml'
                             sh 'go test -vet=off -race -json ... 2>&1 | tee .build/ui-tests.json | xunit -out .build/ui-tests.xml'
