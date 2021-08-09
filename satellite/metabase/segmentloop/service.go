@@ -424,6 +424,11 @@ func (loop *Service) iterateSegments(ctx context.Context, observers []*observerC
 	defer mon.Task()(&ctx)(&err)
 
 	rateLimiter := rate.NewLimiter(rate.Limit(loop.config.RateLimit), 1)
+
+	if loop.config.RateLimit == 0 {
+		rateLimiter = rate.NewLimiter(rate.Inf, 1)
+	}
+
 	limit := loop.config.ListLimit
 	if limit <= 0 || limit > batchsizeLimit {
 		limit = batchsizeLimit
