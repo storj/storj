@@ -336,11 +336,6 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
-CREATE TABLE audit_histories (
-	node_id bytea NOT NULL,
-	history bytea NOT NULL,
-	PRIMARY KEY ( node_id )
-);
 CREATE TABLE bucket_bandwidth_rollups (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -492,11 +487,6 @@ CREATE TABLE nodes (
 	unknown_audit_suspended timestamp with time zone,
 	offline_suspended timestamp with time zone,
 	under_review timestamp with time zone,
-	online_score double precision NOT NULL DEFAULT 1,
-	audit_reputation_alpha double precision NOT NULL DEFAULT 1,
-	audit_reputation_beta double precision NOT NULL DEFAULT 0,
-	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
-	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
 	exit_initiated_at timestamp with time zone,
 	exit_loop_completed_at timestamp with time zone,
 	exit_finished_at timestamp with time zone,
@@ -936,11 +926,6 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
-CREATE TABLE audit_histories (
-	node_id bytea NOT NULL,
-	history bytea NOT NULL,
-	PRIMARY KEY ( node_id )
-);
 CREATE TABLE bucket_bandwidth_rollups (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -1092,11 +1077,6 @@ CREATE TABLE nodes (
 	unknown_audit_suspended timestamp with time zone,
 	offline_suspended timestamp with time zone,
 	under_review timestamp with time zone,
-	online_score double precision NOT NULL DEFAULT 1,
-	audit_reputation_alpha double precision NOT NULL DEFAULT 1,
-	audit_reputation_beta double precision NOT NULL DEFAULT 0,
-	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
-	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
 	exit_initiated_at timestamp with time zone,
 	exit_loop_completed_at timestamp with time zone,
 	exit_finished_at timestamp with time zone,
@@ -1700,55 +1680,6 @@ func (f AccountingTimestamps_Value_Field) value() interface{} {
 }
 
 func (AccountingTimestamps_Value_Field) _Column() string { return "value" }
-
-type AuditHistory struct {
-	NodeId  []byte
-	History []byte
-}
-
-func (AuditHistory) _Table() string { return "audit_histories" }
-
-type AuditHistory_Update_Fields struct {
-	History AuditHistory_History_Field
-}
-
-type AuditHistory_NodeId_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func AuditHistory_NodeId(v []byte) AuditHistory_NodeId_Field {
-	return AuditHistory_NodeId_Field{_set: true, _value: v}
-}
-
-func (f AuditHistory_NodeId_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (AuditHistory_NodeId_Field) _Column() string { return "node_id" }
-
-type AuditHistory_History_Field struct {
-	_set   bool
-	_null  bool
-	_value []byte
-}
-
-func AuditHistory_History(v []byte) AuditHistory_History_Field {
-	return AuditHistory_History_Field{_set: true, _value: v}
-}
-
-func (f AuditHistory_History_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (AuditHistory_History_Field) _Column() string { return "history" }
 
 type BucketBandwidthRollup struct {
 	BucketName      []byte
@@ -3882,124 +3813,109 @@ func (GracefulExitTransferQueue_OrderLimitSendCount_Field) _Column() string {
 }
 
 type Node struct {
-	Id                          []byte
-	Address                     string
-	LastNet                     string
-	LastIpPort                  *string
-	Protocol                    int
-	Type                        int
-	Email                       string
-	Wallet                      string
-	WalletFeatures              string
-	FreeDisk                    int64
-	PieceCount                  int64
-	Major                       int64
-	Minor                       int64
-	Patch                       int64
-	Hash                        string
-	Timestamp                   time.Time
-	Release                     bool
-	Latency90                   int64
-	AuditSuccessCount           int64
-	TotalAuditCount             int64
-	VettedAt                    *time.Time
-	CreatedAt                   time.Time
-	UpdatedAt                   time.Time
-	LastContactSuccess          time.Time
-	LastContactFailure          time.Time
-	Contained                   bool
-	Disqualified                *time.Time
-	Suspended                   *time.Time
-	UnknownAuditSuspended       *time.Time
-	OfflineSuspended            *time.Time
-	UnderReview                 *time.Time
-	OnlineScore                 float64
-	AuditReputationAlpha        float64
-	AuditReputationBeta         float64
-	UnknownAuditReputationAlpha float64
-	UnknownAuditReputationBeta  float64
-	ExitInitiatedAt             *time.Time
-	ExitLoopCompletedAt         *time.Time
-	ExitFinishedAt              *time.Time
-	ExitSuccess                 bool
+	Id                    []byte
+	Address               string
+	LastNet               string
+	LastIpPort            *string
+	Protocol              int
+	Type                  int
+	Email                 string
+	Wallet                string
+	WalletFeatures        string
+	FreeDisk              int64
+	PieceCount            int64
+	Major                 int64
+	Minor                 int64
+	Patch                 int64
+	Hash                  string
+	Timestamp             time.Time
+	Release               bool
+	Latency90             int64
+	AuditSuccessCount     int64
+	TotalAuditCount       int64
+	VettedAt              *time.Time
+	CreatedAt             time.Time
+	UpdatedAt             time.Time
+	LastContactSuccess    time.Time
+	LastContactFailure    time.Time
+	Contained             bool
+	Disqualified          *time.Time
+	Suspended             *time.Time
+	UnknownAuditSuspended *time.Time
+	OfflineSuspended      *time.Time
+	UnderReview           *time.Time
+	ExitInitiatedAt       *time.Time
+	ExitLoopCompletedAt   *time.Time
+	ExitFinishedAt        *time.Time
+	ExitSuccess           bool
 }
 
 func (Node) _Table() string { return "nodes" }
 
 type Node_Create_Fields struct {
-	Address                     Node_Address_Field
-	LastIpPort                  Node_LastIpPort_Field
-	Protocol                    Node_Protocol_Field
-	Type                        Node_Type_Field
-	WalletFeatures              Node_WalletFeatures_Field
-	FreeDisk                    Node_FreeDisk_Field
-	Major                       Node_Major_Field
-	Minor                       Node_Minor_Field
-	Patch                       Node_Patch_Field
-	Hash                        Node_Hash_Field
-	Timestamp                   Node_Timestamp_Field
-	Release                     Node_Release_Field
-	Latency90                   Node_Latency90_Field
-	AuditSuccessCount           Node_AuditSuccessCount_Field
-	TotalAuditCount             Node_TotalAuditCount_Field
-	VettedAt                    Node_VettedAt_Field
-	LastContactSuccess          Node_LastContactSuccess_Field
-	LastContactFailure          Node_LastContactFailure_Field
-	Contained                   Node_Contained_Field
-	Disqualified                Node_Disqualified_Field
-	Suspended                   Node_Suspended_Field
-	UnknownAuditSuspended       Node_UnknownAuditSuspended_Field
-	OfflineSuspended            Node_OfflineSuspended_Field
-	UnderReview                 Node_UnderReview_Field
-	OnlineScore                 Node_OnlineScore_Field
-	AuditReputationAlpha        Node_AuditReputationAlpha_Field
-	AuditReputationBeta         Node_AuditReputationBeta_Field
-	UnknownAuditReputationAlpha Node_UnknownAuditReputationAlpha_Field
-	UnknownAuditReputationBeta  Node_UnknownAuditReputationBeta_Field
-	ExitInitiatedAt             Node_ExitInitiatedAt_Field
-	ExitLoopCompletedAt         Node_ExitLoopCompletedAt_Field
-	ExitFinishedAt              Node_ExitFinishedAt_Field
-	ExitSuccess                 Node_ExitSuccess_Field
+	Address               Node_Address_Field
+	LastIpPort            Node_LastIpPort_Field
+	Protocol              Node_Protocol_Field
+	Type                  Node_Type_Field
+	WalletFeatures        Node_WalletFeatures_Field
+	FreeDisk              Node_FreeDisk_Field
+	Major                 Node_Major_Field
+	Minor                 Node_Minor_Field
+	Patch                 Node_Patch_Field
+	Hash                  Node_Hash_Field
+	Timestamp             Node_Timestamp_Field
+	Release               Node_Release_Field
+	Latency90             Node_Latency90_Field
+	AuditSuccessCount     Node_AuditSuccessCount_Field
+	TotalAuditCount       Node_TotalAuditCount_Field
+	VettedAt              Node_VettedAt_Field
+	LastContactSuccess    Node_LastContactSuccess_Field
+	LastContactFailure    Node_LastContactFailure_Field
+	Contained             Node_Contained_Field
+	Disqualified          Node_Disqualified_Field
+	Suspended             Node_Suspended_Field
+	UnknownAuditSuspended Node_UnknownAuditSuspended_Field
+	OfflineSuspended      Node_OfflineSuspended_Field
+	UnderReview           Node_UnderReview_Field
+	ExitInitiatedAt       Node_ExitInitiatedAt_Field
+	ExitLoopCompletedAt   Node_ExitLoopCompletedAt_Field
+	ExitFinishedAt        Node_ExitFinishedAt_Field
+	ExitSuccess           Node_ExitSuccess_Field
 }
 
 type Node_Update_Fields struct {
-	Address                     Node_Address_Field
-	LastNet                     Node_LastNet_Field
-	LastIpPort                  Node_LastIpPort_Field
-	Protocol                    Node_Protocol_Field
-	Type                        Node_Type_Field
-	Email                       Node_Email_Field
-	Wallet                      Node_Wallet_Field
-	WalletFeatures              Node_WalletFeatures_Field
-	FreeDisk                    Node_FreeDisk_Field
-	PieceCount                  Node_PieceCount_Field
-	Major                       Node_Major_Field
-	Minor                       Node_Minor_Field
-	Patch                       Node_Patch_Field
-	Hash                        Node_Hash_Field
-	Timestamp                   Node_Timestamp_Field
-	Release                     Node_Release_Field
-	Latency90                   Node_Latency90_Field
-	AuditSuccessCount           Node_AuditSuccessCount_Field
-	TotalAuditCount             Node_TotalAuditCount_Field
-	VettedAt                    Node_VettedAt_Field
-	LastContactSuccess          Node_LastContactSuccess_Field
-	LastContactFailure          Node_LastContactFailure_Field
-	Contained                   Node_Contained_Field
-	Disqualified                Node_Disqualified_Field
-	Suspended                   Node_Suspended_Field
-	UnknownAuditSuspended       Node_UnknownAuditSuspended_Field
-	OfflineSuspended            Node_OfflineSuspended_Field
-	UnderReview                 Node_UnderReview_Field
-	OnlineScore                 Node_OnlineScore_Field
-	AuditReputationAlpha        Node_AuditReputationAlpha_Field
-	AuditReputationBeta         Node_AuditReputationBeta_Field
-	UnknownAuditReputationAlpha Node_UnknownAuditReputationAlpha_Field
-	UnknownAuditReputationBeta  Node_UnknownAuditReputationBeta_Field
-	ExitInitiatedAt             Node_ExitInitiatedAt_Field
-	ExitLoopCompletedAt         Node_ExitLoopCompletedAt_Field
-	ExitFinishedAt              Node_ExitFinishedAt_Field
-	ExitSuccess                 Node_ExitSuccess_Field
+	Address               Node_Address_Field
+	LastNet               Node_LastNet_Field
+	LastIpPort            Node_LastIpPort_Field
+	Protocol              Node_Protocol_Field
+	Type                  Node_Type_Field
+	Email                 Node_Email_Field
+	Wallet                Node_Wallet_Field
+	WalletFeatures        Node_WalletFeatures_Field
+	FreeDisk              Node_FreeDisk_Field
+	PieceCount            Node_PieceCount_Field
+	Major                 Node_Major_Field
+	Minor                 Node_Minor_Field
+	Patch                 Node_Patch_Field
+	Hash                  Node_Hash_Field
+	Timestamp             Node_Timestamp_Field
+	Release               Node_Release_Field
+	Latency90             Node_Latency90_Field
+	AuditSuccessCount     Node_AuditSuccessCount_Field
+	TotalAuditCount       Node_TotalAuditCount_Field
+	VettedAt              Node_VettedAt_Field
+	LastContactSuccess    Node_LastContactSuccess_Field
+	LastContactFailure    Node_LastContactFailure_Field
+	Contained             Node_Contained_Field
+	Disqualified          Node_Disqualified_Field
+	Suspended             Node_Suspended_Field
+	UnknownAuditSuspended Node_UnknownAuditSuspended_Field
+	OfflineSuspended      Node_OfflineSuspended_Field
+	UnderReview           Node_UnderReview_Field
+	ExitInitiatedAt       Node_ExitInitiatedAt_Field
+	ExitLoopCompletedAt   Node_ExitLoopCompletedAt_Field
+	ExitFinishedAt        Node_ExitFinishedAt_Field
+	ExitSuccess           Node_ExitSuccess_Field
 }
 
 type Node_Id_Field struct {
@@ -4681,103 +4597,6 @@ func (f Node_UnderReview_Field) value() interface{} {
 }
 
 func (Node_UnderReview_Field) _Column() string { return "under_review" }
-
-type Node_OnlineScore_Field struct {
-	_set   bool
-	_null  bool
-	_value float64
-}
-
-func Node_OnlineScore(v float64) Node_OnlineScore_Field {
-	return Node_OnlineScore_Field{_set: true, _value: v}
-}
-
-func (f Node_OnlineScore_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Node_OnlineScore_Field) _Column() string { return "online_score" }
-
-type Node_AuditReputationAlpha_Field struct {
-	_set   bool
-	_null  bool
-	_value float64
-}
-
-func Node_AuditReputationAlpha(v float64) Node_AuditReputationAlpha_Field {
-	return Node_AuditReputationAlpha_Field{_set: true, _value: v}
-}
-
-func (f Node_AuditReputationAlpha_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Node_AuditReputationAlpha_Field) _Column() string { return "audit_reputation_alpha" }
-
-type Node_AuditReputationBeta_Field struct {
-	_set   bool
-	_null  bool
-	_value float64
-}
-
-func Node_AuditReputationBeta(v float64) Node_AuditReputationBeta_Field {
-	return Node_AuditReputationBeta_Field{_set: true, _value: v}
-}
-
-func (f Node_AuditReputationBeta_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Node_AuditReputationBeta_Field) _Column() string { return "audit_reputation_beta" }
-
-type Node_UnknownAuditReputationAlpha_Field struct {
-	_set   bool
-	_null  bool
-	_value float64
-}
-
-func Node_UnknownAuditReputationAlpha(v float64) Node_UnknownAuditReputationAlpha_Field {
-	return Node_UnknownAuditReputationAlpha_Field{_set: true, _value: v}
-}
-
-func (f Node_UnknownAuditReputationAlpha_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Node_UnknownAuditReputationAlpha_Field) _Column() string {
-	return "unknown_audit_reputation_alpha"
-}
-
-type Node_UnknownAuditReputationBeta_Field struct {
-	_set   bool
-	_null  bool
-	_value float64
-}
-
-func Node_UnknownAuditReputationBeta(v float64) Node_UnknownAuditReputationBeta_Field {
-	return Node_UnknownAuditReputationBeta_Field{_set: true, _value: v}
-}
-
-func (f Node_UnknownAuditReputationBeta_Field) value() interface{} {
-	if !f._set || f._null {
-		return nil
-	}
-	return f._value
-}
-
-func (Node_UnknownAuditReputationBeta_Field) _Column() string { return "unknown_audit_reputation_beta" }
 
 type Node_ExitInitiatedAt_Field struct {
 	_set   bool
@@ -10464,31 +10283,6 @@ func (obj *pgxImpl) CreateNoReturn_AccountingTimestamps(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Create_AuditHistory(ctx context.Context,
-	audit_history_node_id AuditHistory_NodeId_Field,
-	audit_history_history AuditHistory_History_Field) (
-	audit_history *AuditHistory, err error) {
-	defer mon.Task()(&ctx)(&err)
-	__node_id_val := audit_history_node_id.value()
-	__history_val := audit_history_history.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO audit_histories ( node_id, history ) VALUES ( ?, ? ) RETURNING audit_histories.node_id, audit_histories.history")
-
-	var __values []interface{}
-	__values = append(__values, __node_id_val, __history_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	audit_history = &AuditHistory{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return audit_history, nil
-
-}
-
 func (obj *pgxImpl) Create_Reputation(ctx context.Context,
 	reputation_id Reputation_Id_Field,
 	reputation_audit_history Reputation_AuditHistory_Field,
@@ -11434,7 +11228,7 @@ func (obj *pgxImpl) Get_Node_By_Id(ctx context.Context,
 	node *Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.online_score, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -11443,7 +11237,7 @@ func (obj *pgxImpl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.OnlineScore, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err != nil {
 		return (*Node)(nil), obj.makeErr(err)
 	}
@@ -11499,9 +11293,9 @@ func (obj *pgxImpl) Paged_Node(ctx context.Context,
 	rows []*Node, next *Paged_Node_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.online_score, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.id FROM nodes WHERE (nodes.id) > ? ORDER BY nodes.id LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.id FROM nodes WHERE (nodes.id) > ? ORDER BY nodes.id LIMIT ?")
 
-	var __embed_first_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.online_score, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.id FROM nodes ORDER BY nodes.id LIMIT ?")
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.id FROM nodes ORDER BY nodes.id LIMIT ?")
 
 	var __values []interface{}
 
@@ -11528,7 +11322,7 @@ func (obj *pgxImpl) Paged_Node(ctx context.Context,
 
 			for __rows.Next() {
 				node := &Node{}
-				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.OnlineScore, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &__continuation._value_id)
+				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &__continuation._value_id)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -11593,28 +11387,6 @@ func (obj *pgxImpl) All_Node_Id_Node_PieceCount_By_PieceCount_Not_Number(ctx con
 		}
 		return rows, nil
 	}
-
-}
-
-func (obj *pgxImpl) Get_AuditHistory_By_NodeId(ctx context.Context,
-	audit_history_node_id AuditHistory_NodeId_Field) (
-	audit_history *AuditHistory, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT audit_histories.node_id, audit_histories.history FROM audit_histories WHERE audit_histories.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, audit_history_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	audit_history = &AuditHistory{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
-	if err != nil {
-		return (*AuditHistory)(nil), obj.makeErr(err)
-	}
-	return audit_history, nil
 
 }
 
@@ -13949,7 +13721,7 @@ func (obj *pgxImpl) Update_Node_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.online_score, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -14095,31 +13867,6 @@ func (obj *pgxImpl) Update_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
 	}
 
-	if update.OnlineScore._set {
-		__values = append(__values, update.OnlineScore.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
-	}
-
-	if update.AuditReputationAlpha._set {
-		__values = append(__values, update.AuditReputationAlpha.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
-	}
-
-	if update.AuditReputationBeta._set {
-		__values = append(__values, update.AuditReputationBeta.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
-	}
-
-	if update.UnknownAuditReputationAlpha._set {
-		__values = append(__values, update.UnknownAuditReputationAlpha.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
-	}
-
-	if update.UnknownAuditReputationBeta._set {
-		__values = append(__values, update.UnknownAuditReputationBeta.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
-	}
-
 	if update.ExitInitiatedAt._set {
 		__values = append(__values, update.ExitInitiatedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
@@ -14154,7 +13901,7 @@ func (obj *pgxImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.OnlineScore, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -14315,31 +14062,6 @@ func (obj *pgxImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	if update.UnderReview._set {
 		__values = append(__values, update.UnderReview.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
-	}
-
-	if update.OnlineScore._set {
-		__values = append(__values, update.OnlineScore.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
-	}
-
-	if update.AuditReputationAlpha._set {
-		__values = append(__values, update.AuditReputationAlpha.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
-	}
-
-	if update.AuditReputationBeta._set {
-		__values = append(__values, update.AuditReputationBeta.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
-	}
-
-	if update.UnknownAuditReputationAlpha._set {
-		__values = append(__values, update.UnknownAuditReputationAlpha.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
-	}
-
-	if update.UnknownAuditReputationBeta._set {
-		__values = append(__values, update.UnknownAuditReputationBeta.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
 	}
 
 	if update.ExitInitiatedAt._set {
@@ -14535,31 +14257,6 @@ func (obj *pgxImpl) UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitF
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
 	}
 
-	if update.OnlineScore._set {
-		__values = append(__values, update.OnlineScore.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
-	}
-
-	if update.AuditReputationAlpha._set {
-		__values = append(__values, update.AuditReputationAlpha.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
-	}
-
-	if update.AuditReputationBeta._set {
-		__values = append(__values, update.AuditReputationBeta.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
-	}
-
-	if update.UnknownAuditReputationAlpha._set {
-		__values = append(__values, update.UnknownAuditReputationAlpha.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
-	}
-
-	if update.UnknownAuditReputationBeta._set {
-		__values = append(__values, update.UnknownAuditReputationBeta.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
-	}
-
 	if update.ExitInitiatedAt._set {
 		__values = append(__values, update.ExitInitiatedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
@@ -14598,47 +14295,6 @@ func (obj *pgxImpl) UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_And_ExitF
 		return obj.makeErr(err)
 	}
 	return nil
-}
-
-func (obj *pgxImpl) Update_AuditHistory_By_NodeId(ctx context.Context,
-	audit_history_node_id AuditHistory_NodeId_Field,
-	update AuditHistory_Update_Fields) (
-	audit_history *AuditHistory, err error) {
-	defer mon.Task()(&ctx)(&err)
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE audit_histories SET "), __sets, __sqlbundle_Literal(" WHERE audit_histories.node_id = ? RETURNING audit_histories.node_id, audit_histories.history")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.History._set {
-		__values = append(__values, update.History.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("history = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, audit_history_node_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	audit_history = &AuditHistory{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return audit_history, nil
 }
 
 func (obj *pgxImpl) Update_Reputation_By_Id(ctx context.Context,
@@ -16565,16 +16221,6 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM audit_histories;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM accounting_timestamps;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -16651,31 +16297,6 @@ func (obj *pgxcockroachImpl) CreateNoReturn_AccountingTimestamps(ctx context.Con
 		return obj.makeErr(err)
 	}
 	return nil
-
-}
-
-func (obj *pgxcockroachImpl) Create_AuditHistory(ctx context.Context,
-	audit_history_node_id AuditHistory_NodeId_Field,
-	audit_history_history AuditHistory_History_Field) (
-	audit_history *AuditHistory, err error) {
-	defer mon.Task()(&ctx)(&err)
-	__node_id_val := audit_history_node_id.value()
-	__history_val := audit_history_history.value()
-
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO audit_histories ( node_id, history ) VALUES ( ?, ? ) RETURNING audit_histories.node_id, audit_histories.history")
-
-	var __values []interface{}
-	__values = append(__values, __node_id_val, __history_val)
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	audit_history = &AuditHistory{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return audit_history, nil
 
 }
 
@@ -17624,7 +17245,7 @@ func (obj *pgxcockroachImpl) Get_Node_By_Id(ctx context.Context,
 	node *Node, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.online_score, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success FROM nodes WHERE nodes.id = ?")
 
 	var __values []interface{}
 	__values = append(__values, node_id.value())
@@ -17633,7 +17254,7 @@ func (obj *pgxcockroachImpl) Get_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.OnlineScore, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err != nil {
 		return (*Node)(nil), obj.makeErr(err)
 	}
@@ -17689,9 +17310,9 @@ func (obj *pgxcockroachImpl) Paged_Node(ctx context.Context,
 	rows []*Node, next *Paged_Node_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.online_score, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.id FROM nodes WHERE (nodes.id) > ? ORDER BY nodes.id LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.id FROM nodes WHERE (nodes.id) > ? ORDER BY nodes.id LIMIT ?")
 
-	var __embed_first_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.online_score, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.id FROM nodes ORDER BY nodes.id LIMIT ?")
+	var __embed_first_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success, nodes.id FROM nodes ORDER BY nodes.id LIMIT ?")
 
 	var __values []interface{}
 
@@ -17718,7 +17339,7 @@ func (obj *pgxcockroachImpl) Paged_Node(ctx context.Context,
 
 			for __rows.Next() {
 				node := &Node{}
-				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.OnlineScore, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &__continuation._value_id)
+				err = __rows.Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess, &__continuation._value_id)
 				if err != nil {
 					return nil, nil, err
 				}
@@ -17783,28 +17404,6 @@ func (obj *pgxcockroachImpl) All_Node_Id_Node_PieceCount_By_PieceCount_Not_Numbe
 		}
 		return rows, nil
 	}
-
-}
-
-func (obj *pgxcockroachImpl) Get_AuditHistory_By_NodeId(ctx context.Context,
-	audit_history_node_id AuditHistory_NodeId_Field) (
-	audit_history *AuditHistory, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var __embed_stmt = __sqlbundle_Literal("SELECT audit_histories.node_id, audit_histories.history FROM audit_histories WHERE audit_histories.node_id = ?")
-
-	var __values []interface{}
-	__values = append(__values, audit_history_node_id.value())
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	audit_history = &AuditHistory{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
-	if err != nil {
-		return (*AuditHistory)(nil), obj.makeErr(err)
-	}
-	return audit_history, nil
 
 }
 
@@ -20139,7 +19738,7 @@ func (obj *pgxcockroachImpl) Update_Node_By_Id(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.online_score, nodes.audit_reputation_alpha, nodes.audit_reputation_beta, nodes.unknown_audit_reputation_alpha, nodes.unknown_audit_reputation_beta, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE nodes SET "), __sets, __sqlbundle_Literal(" WHERE nodes.id = ? RETURNING nodes.id, nodes.address, nodes.last_net, nodes.last_ip_port, nodes.protocol, nodes.type, nodes.email, nodes.wallet, nodes.wallet_features, nodes.free_disk, nodes.piece_count, nodes.major, nodes.minor, nodes.patch, nodes.hash, nodes.timestamp, nodes.release, nodes.latency_90, nodes.audit_success_count, nodes.total_audit_count, nodes.vetted_at, nodes.created_at, nodes.updated_at, nodes.last_contact_success, nodes.last_contact_failure, nodes.contained, nodes.disqualified, nodes.suspended, nodes.unknown_audit_suspended, nodes.offline_suspended, nodes.under_review, nodes.exit_initiated_at, nodes.exit_loop_completed_at, nodes.exit_finished_at, nodes.exit_success")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []interface{}
@@ -20285,31 +19884,6 @@ func (obj *pgxcockroachImpl) Update_Node_By_Id(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
 	}
 
-	if update.OnlineScore._set {
-		__values = append(__values, update.OnlineScore.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
-	}
-
-	if update.AuditReputationAlpha._set {
-		__values = append(__values, update.AuditReputationAlpha.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
-	}
-
-	if update.AuditReputationBeta._set {
-		__values = append(__values, update.AuditReputationBeta.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
-	}
-
-	if update.UnknownAuditReputationAlpha._set {
-		__values = append(__values, update.UnknownAuditReputationAlpha.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
-	}
-
-	if update.UnknownAuditReputationBeta._set {
-		__values = append(__values, update.UnknownAuditReputationBeta.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
-	}
-
 	if update.ExitInitiatedAt._set {
 		__values = append(__values, update.ExitInitiatedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
@@ -20344,7 +19918,7 @@ func (obj *pgxcockroachImpl) Update_Node_By_Id(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	node = &Node{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.OnlineScore, &node.AuditReputationAlpha, &node.AuditReputationBeta, &node.UnknownAuditReputationAlpha, &node.UnknownAuditReputationBeta, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&node.Id, &node.Address, &node.LastNet, &node.LastIpPort, &node.Protocol, &node.Type, &node.Email, &node.Wallet, &node.WalletFeatures, &node.FreeDisk, &node.PieceCount, &node.Major, &node.Minor, &node.Patch, &node.Hash, &node.Timestamp, &node.Release, &node.Latency90, &node.AuditSuccessCount, &node.TotalAuditCount, &node.VettedAt, &node.CreatedAt, &node.UpdatedAt, &node.LastContactSuccess, &node.LastContactFailure, &node.Contained, &node.Disqualified, &node.Suspended, &node.UnknownAuditSuspended, &node.OfflineSuspended, &node.UnderReview, &node.ExitInitiatedAt, &node.ExitLoopCompletedAt, &node.ExitFinishedAt, &node.ExitSuccess)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -20505,31 +20079,6 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_Node_By_Id(ctx context.Context,
 	if update.UnderReview._set {
 		__values = append(__values, update.UnderReview.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
-	}
-
-	if update.OnlineScore._set {
-		__values = append(__values, update.OnlineScore.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
-	}
-
-	if update.AuditReputationAlpha._set {
-		__values = append(__values, update.AuditReputationAlpha.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
-	}
-
-	if update.AuditReputationBeta._set {
-		__values = append(__values, update.AuditReputationBeta.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
-	}
-
-	if update.UnknownAuditReputationAlpha._set {
-		__values = append(__values, update.UnknownAuditReputationAlpha.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
-	}
-
-	if update.UnknownAuditReputationBeta._set {
-		__values = append(__values, update.UnknownAuditReputationBeta.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
 	}
 
 	if update.ExitInitiatedAt._set {
@@ -20725,31 +20274,6 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("under_review = ?"))
 	}
 
-	if update.OnlineScore._set {
-		__values = append(__values, update.OnlineScore.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("online_score = ?"))
-	}
-
-	if update.AuditReputationAlpha._set {
-		__values = append(__values, update.AuditReputationAlpha.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_alpha = ?"))
-	}
-
-	if update.AuditReputationBeta._set {
-		__values = append(__values, update.AuditReputationBeta.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("audit_reputation_beta = ?"))
-	}
-
-	if update.UnknownAuditReputationAlpha._set {
-		__values = append(__values, update.UnknownAuditReputationAlpha.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_alpha = ?"))
-	}
-
-	if update.UnknownAuditReputationBeta._set {
-		__values = append(__values, update.UnknownAuditReputationBeta.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("unknown_audit_reputation_beta = ?"))
-	}
-
 	if update.ExitInitiatedAt._set {
 		__values = append(__values, update.ExitInitiatedAt.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("exit_initiated_at = ?"))
@@ -20788,47 +20312,6 @@ func (obj *pgxcockroachImpl) UpdateNoReturn_Node_By_Id_And_Disqualified_Is_Null_
 		return obj.makeErr(err)
 	}
 	return nil
-}
-
-func (obj *pgxcockroachImpl) Update_AuditHistory_By_NodeId(ctx context.Context,
-	audit_history_node_id AuditHistory_NodeId_Field,
-	update AuditHistory_Update_Fields) (
-	audit_history *AuditHistory, err error) {
-	defer mon.Task()(&ctx)(&err)
-	var __sets = &__sqlbundle_Hole{}
-
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE audit_histories SET "), __sets, __sqlbundle_Literal(" WHERE audit_histories.node_id = ? RETURNING audit_histories.node_id, audit_histories.history")}}
-
-	__sets_sql := __sqlbundle_Literals{Join: ", "}
-	var __values []interface{}
-	var __args []interface{}
-
-	if update.History._set {
-		__values = append(__values, update.History.value())
-		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("history = ?"))
-	}
-
-	if len(__sets_sql.SQLs) == 0 {
-		return nil, emptyUpdate()
-	}
-
-	__args = append(__args, audit_history_node_id.value())
-
-	__values = append(__values, __args...)
-	__sets.SQL = __sets_sql
-
-	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
-	obj.logStmt(__stmt, __values...)
-
-	audit_history = &AuditHistory{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&audit_history.NodeId, &audit_history.History)
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, obj.makeErr(err)
-	}
-	return audit_history, nil
 }
 
 func (obj *pgxcockroachImpl) Update_Reputation_By_Id(ctx context.Context,
@@ -22755,16 +22238,6 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
-	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM audit_histories;")
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-
-	__count, err = __res.RowsAffected()
-	if err != nil {
-		return 0, obj.makeErr(err)
-	}
-	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM accounting_timestamps;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -23097,18 +22570,6 @@ func (rx *Rx) Create_ApiKey(ctx context.Context,
 		return
 	}
 	return tx.Create_ApiKey(ctx, api_key_id, api_key_project_id, api_key_head, api_key_name, api_key_secret, optional)
-
-}
-
-func (rx *Rx) Create_AuditHistory(ctx context.Context,
-	audit_history_node_id AuditHistory_NodeId_Field,
-	audit_history_history AuditHistory_History_Field) (
-	audit_history *AuditHistory, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Create_AuditHistory(ctx, audit_history_node_id, audit_history_history)
 
 }
 
@@ -23565,16 +23026,6 @@ func (rx *Rx) Get_ApiKey_By_Name_And_ProjectId(ctx context.Context,
 		return
 	}
 	return tx.Get_ApiKey_By_Name_And_ProjectId(ctx, api_key_name, api_key_project_id)
-}
-
-func (rx *Rx) Get_AuditHistory_By_NodeId(ctx context.Context,
-	audit_history_node_id AuditHistory_NodeId_Field) (
-	audit_history *AuditHistory, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Get_AuditHistory_By_NodeId(ctx, audit_history_node_id)
 }
 
 func (rx *Rx) Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
@@ -24220,17 +23671,6 @@ func (rx *Rx) UpdateNoReturn_Reputation_By_Id(ctx context.Context,
 	return tx.UpdateNoReturn_Reputation_By_Id(ctx, reputation_id, update)
 }
 
-func (rx *Rx) Update_AuditHistory_By_NodeId(ctx context.Context,
-	audit_history_node_id AuditHistory_NodeId_Field,
-	update AuditHistory_Update_Fields) (
-	audit_history *AuditHistory, err error) {
-	var tx *Tx
-	if tx, err = rx.getTx(ctx); err != nil {
-		return
-	}
-	return tx.Update_AuditHistory_By_NodeId(ctx, audit_history_node_id, update)
-}
-
 func (rx *Rx) Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field,
@@ -24469,11 +23909,6 @@ type Methods interface {
 		optional ApiKey_Create_Fields) (
 		api_key *ApiKey, err error)
 
-	Create_AuditHistory(ctx context.Context,
-		audit_history_node_id AuditHistory_NodeId_Field,
-		audit_history_history AuditHistory_History_Field) (
-		audit_history *AuditHistory, err error)
-
 	Create_BucketMetainfo(ctx context.Context,
 		bucket_metainfo_id BucketMetainfo_Id_Field,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
@@ -24691,10 +24126,6 @@ type Methods interface {
 		api_key_name ApiKey_Name_Field,
 		api_key_project_id ApiKey_ProjectId_Field) (
 		api_key *ApiKey, err error)
-
-	Get_AuditHistory_By_NodeId(ctx context.Context,
-		audit_history_node_id AuditHistory_NodeId_Field) (
-		audit_history *AuditHistory, err error)
 
 	Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
@@ -24994,11 +24425,6 @@ type Methods interface {
 		reputation_id Reputation_Id_Field,
 		update Reputation_Update_Fields) (
 		err error)
-
-	Update_AuditHistory_By_NodeId(ctx context.Context,
-		audit_history_node_id AuditHistory_NodeId_Field,
-		update AuditHistory_Update_Fields) (
-		audit_history *AuditHistory, err error)
 
 	Update_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,

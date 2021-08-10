@@ -16,11 +16,6 @@ CREATE TABLE accounting_timestamps (
 	value timestamp with time zone NOT NULL,
 	PRIMARY KEY ( name )
 );
-CREATE TABLE audit_histories (
-	node_id bytea NOT NULL,
-	history bytea NOT NULL,
-	PRIMARY KEY ( node_id )
-);
 CREATE TABLE bucket_bandwidth_rollups (
 	bucket_name bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -172,11 +167,6 @@ CREATE TABLE nodes (
 	unknown_audit_suspended timestamp with time zone,
 	offline_suspended timestamp with time zone,
 	under_review timestamp with time zone,
-	online_score double precision NOT NULL DEFAULT 1,
-	audit_reputation_alpha double precision NOT NULL DEFAULT 1,
-	audit_reputation_beta double precision NOT NULL DEFAULT 0,
-	unknown_audit_reputation_alpha double precision NOT NULL DEFAULT 1,
-	unknown_audit_reputation_beta double precision NOT NULL DEFAULT 0,
 	exit_initiated_at timestamp with time zone,
 	exit_loop_completed_at timestamp with time zone,
 	exit_finished_at timestamp with time zone,

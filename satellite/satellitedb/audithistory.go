@@ -5,16 +5,11 @@ package satellitedb
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
-	"github.com/zeebo/errs"
-
 	"storj.io/common/pb"
-	"storj.io/common/storj"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/reputation"
-	"storj.io/storj/satellite/satellitedb/dbx"
 )
 
 func addAudit(a *internalpb.AuditHistory, auditTime time.Time, online bool, config reputation.AuditHistoryConfig) error {
@@ -110,27 +105,6 @@ func (reputations *reputations) UpdateAuditHistory(ctx context.Context, oldHisto
 	res.TrackingPeriodFull = len(history.Windows)-1 >= windowsPerTrackingPeriod
 	res.NewScore = history.Score
 	return res, nil
-}
-
-// GetAuditHistory gets a node's audit history.
-func (reputations *reputations) GetAuditHistory(ctx context.Context, nodeID storj.NodeID) (auditHistory *reputation.AuditHistory, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	dbAuditHistory, err := reputations.db.Get_AuditHistory_By_NodeId(
-		ctx,
-		dbx.AuditHistory_NodeId(nodeID.Bytes()),
-	)
-	if err != nil {
-		if errs.Is(err, sql.ErrNoRows) {
-			return nil, reputation.ErrNodeNotFound.New("no audit history for node")
-		}
-		return nil, err
-	}
-	history, err := auditHistoryFromPB(dbAuditHistory.History)
-	if err != nil {
-		return nil, err
-	}
-	return history, nil
 }
 
 func auditHistoryFromPB(historyBytes []byte) (auditHistory *reputation.AuditHistory, err error) {

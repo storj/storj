@@ -1129,8 +1129,6 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				email, wallet, free_disk,
 				last_contact_success,
 				last_contact_failure,
-				audit_reputation_alpha, audit_reputation_beta,
-				unknown_audit_reputation_alpha, unknown_audit_reputation_beta,
 				major, minor, patch, hash, timestamp, release,
 				last_ip_port,
 				wallet_features
@@ -1138,17 +1136,15 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 			VALUES (
 				$1, $2, $3, $4, $5,
 				$6, $7, $8,
-				CASE WHEN $9::bool IS TRUE THEN $18::timestamptz
+				CASE WHEN $9::bool IS TRUE THEN $16::timestamptz
 					ELSE '0001-01-01 00:00:00+00'::timestamptz
 				END,
-				CASE WHEN $9::bool IS FALSE THEN $18::timestamptz
+				CASE WHEN $9::bool IS FALSE THEN $16::timestamptz
 					ELSE '0001-01-01 00:00:00+00'::timestamptz
 				END,
-				$10, $11,
-				$10, $11,
-				$12, $13, $14, $15, $16, $17,
-				$19,
-				$20
+				$10, $11, $12, $13, $14, $15,
+				$17,
+				$18
 			)
 			ON CONFLICT (id)
 			DO UPDATE
@@ -1159,17 +1155,17 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 				email=$6,
 				wallet=$7,
 				free_disk=$8,
-				major=$12, minor=$13, patch=$14, hash=$15, timestamp=$16, release=$17,
+				major=$10, minor=$11, patch=$12, hash=$13, timestamp=$14, release=$15,
 				last_contact_success = CASE WHEN $9::bool IS TRUE
-					THEN $18::timestamptz
+					THEN $16::timestamptz
 					ELSE nodes.last_contact_success
 				END,
 				last_contact_failure = CASE WHEN $9::bool IS FALSE
-					THEN $18::timestamptz
+					THEN $16::timestamptz
 					ELSE nodes.last_contact_failure
 				END,
-				last_ip_port=$19,
-				wallet_features=$20;
+				last_ip_port=$17,
+				wallet_features=$18;
 			`,
 		// args $1 - $5
 		node.NodeID.Bytes(), node.Address.GetAddress(), node.LastNet, node.Address.GetTransport(), int(pb.NodeType_STORAGE),
@@ -1177,15 +1173,13 @@ func (cache *overlaycache) UpdateCheckIn(ctx context.Context, node overlay.NodeC
 		node.Operator.GetEmail(), node.Operator.GetWallet(), node.Capacity.GetFreeDisk(),
 		// args $9
 		node.IsUp,
-		// args $10 - $11
-		1, 0,
-		// args $12 - $17
+		// args $10 - $15
 		semVer.Major, semVer.Minor, semVer.Patch, node.Version.GetCommitHash(), node.Version.Timestamp, node.Version.GetRelease(),
-		// args $18
+		// args $16
 		timestamp,
-		// args $19
+		// args $17
 		node.LastIPPort,
-		// args $20,
+		// args $18,
 		walletFeatures,
 	)
 	if err != nil {

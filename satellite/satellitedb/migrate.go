@@ -1605,6 +1605,14 @@ func (db *satelliteDB) PostgresMigration() *migrate.Migration {
 					`DROP TABLE injuredsegments`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "drop audit_history table",
+				Version:     170,
+				Action: migrate.SQL{
+					`DROP TABLE audit_histories`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
