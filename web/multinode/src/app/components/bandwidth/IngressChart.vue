@@ -6,11 +6,11 @@
         <p class="ingress-chart__data-dimension">{{ chartDataDimension }}</p>
         <VChart
             id="ingress-chart"
+            :key="chartKey"
             :chart-data="chartData"
             :width="chartWidth"
             :height="chartHeight"
             :tooltip-constructor="ingressTooltip"
-            :key="chartKey"
         />
     </div>
 </template>

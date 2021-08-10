@@ -4,57 +4,57 @@
 <template>
     <div class="input-wrap">
         <div class="label-container">
-            <div class="icon" v-if="error">
+            <div v-if="error" class="icon">
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect width="20" height="20" rx="10" fill="#EB5757"/>
-                    <path d="M10.0012 11.7364C10.612 11.7364 11.1117 11.204 11.1117 10.5532V5.81218C11.1117 5.75302 11.108 5.68991 11.1006 5.63074C11.0192 5.06672 10.5565 4.62891 10.0012 4.62891C9.39037 4.62891 8.89062 5.16138 8.89062 5.81218V10.5492C8.89062 11.204 9.39037 11.7364 10.0012 11.7364Z" fill="white"/>
-                    <path d="M10.0001 12.8906C9.13977 12.8906 8.44531 13.5851 8.44531 14.4454C8.44531 15.3057 9.13977 16.0002 10.0001 16.0002C10.8604 16.0002 11.5548 15.3057 11.5548 14.4454C11.5583 13.5851 10.8638 12.8906 10.0001 12.8906Z" fill="white"/>
+                    <rect width="20" height="20" rx="10" fill="#EB5757" />
+                    <path d="M10.0012 11.7364C10.612 11.7364 11.1117 11.204 11.1117 10.5532V5.81218C11.1117 5.75302 11.108 5.68991 11.1006 5.63074C11.0192 5.06672 10.5565 4.62891 10.0012 4.62891C9.39037 4.62891 8.89062 5.16138 8.89062 5.81218V10.5492C8.89062 11.204 9.39037 11.7364 10.0012 11.7364Z" fill="white" />
+                    <path d="M10.0001 12.8906C9.13977 12.8906 8.44531 13.5851 8.44531 14.4454C8.44531 15.3057 9.13977 16.0002 10.0001 16.0002C10.8604 16.0002 11.5548 15.3057 11.5548 14.4454C11.5583 13.5851 10.8638 12.8906 10.0001 12.8906Z" fill="white" />
                 </svg>
             </div>
-            <p class="label-container__label" v-if="isLabelShown" :style="style.labelStyle">{{label}}</p>
-            <p class="label-container__error" v-if="error" :style="style.errorStyle">{{error}}</p>
+            <p v-if="isLabelShown" class="label-container__label" :style="style.labelStyle">{{ label }}</p>
+            <p v-if="error" class="label-container__error" :style="style.errorStyle">{{ error }}</p>
         </div>
         <div
             class="headerless-input-container"
             :style="style.inputStyle"
         >
             <input
+                v-model="value"
                 class="headerless-input"
                 :class="{'inputError' : error, 'password': isPassword}"
+                :placeholder="placeholder"
+                :type="type"
                 @input="onInput"
                 @change="onInput"
                 @paste.prevent="onPaste"
-                v-model="value"
-                :placeholder="placeholder"
-                :type="type"
                 @focus="showPasswordStrength"
                 @blur="hidePasswordStrength"
-            />
+            >
             <!--2 conditions of eye image (crossed or not) -->
             <div
-                class="input-wrap__image icon"
                 v-if="isPasswordHiddenState"
+                class="input-wrap__image icon"
                 @click="changeVision"
             >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path class="input-wrap__image__path" d="M10 4C4.70642 4 1 10 1 10C1 10 3.6999 16 10 16C16.3527 16 19 10 19 10C19 10 15.3472 4 10 4ZM10 13.8176C7.93537 13.8176 6.2946 12.1271 6.2946 10C6.2946 7.87285 7.93537 6.18239 10 6.18239C12.0646 6.18239 13.7054 7.87285 13.7054 10C13.7054 12.1271 12.0646 13.8176 10 13.8176Z" fill="#AFB7C1"/>
-                    <path d="M11.6116 9.96328C11.6116 10.8473 10.8956 11.5633 10.0116 11.5633C9.12763 11.5633 8.41162 10.8473 8.41162 9.96328C8.41162 9.07929 9.12763 8.36328 10.0116 8.36328C10.8956 8.36328 11.6116 9.07929 11.6116 9.96328Z" fill="#AFB7C1"/>
+                    <path class="input-wrap__image__path" d="M10 4C4.70642 4 1 10 1 10C1 10 3.6999 16 10 16C16.3527 16 19 10 19 10C19 10 15.3472 4 10 4ZM10 13.8176C7.93537 13.8176 6.2946 12.1271 6.2946 10C6.2946 7.87285 7.93537 6.18239 10 6.18239C12.0646 6.18239 13.7054 7.87285 13.7054 10C13.7054 12.1271 12.0646 13.8176 10 13.8176Z" fill="#AFB7C1" />
+                    <path d="M11.6116 9.96328C11.6116 10.8473 10.8956 11.5633 10.0116 11.5633C9.12763 11.5633 8.41162 10.8473 8.41162 9.96328C8.41162 9.07929 9.12763 8.36328 10.0116 8.36328C10.8956 8.36328 11.6116 9.07929 11.6116 9.96328Z" fill="#AFB7C1" />
                 </svg>
             </div>
             <div
-                class="input-wrap__image icon"
                 v-if="isPasswordShownState"
+                class="input-wrap__image icon"
                 @click="changeVision"
             >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path class="input-wrap__image__path" d="M10 4C4.70642 4 1 10 1 10C1 10 3.6999 16 10 16C16.3527 16 19 10 19 10C19 10 15.3472 4 10 4ZM10 13.8176C7.93537 13.8176 6.2946 12.1271 6.2946 10C6.2946 7.87285 7.93537 6.18239 10 6.18239C12.0646 6.18239 13.7054 7.87285 13.7054 10C13.7054 12.1271 12.0646 13.8176 10 13.8176Z" fill="#AFB7C1"/>
-                    <path d="M11.6121 9.96328C11.6121 10.8473 10.8961 11.5633 10.0121 11.5633C9.12812 11.5633 8.41211 10.8473 8.41211 9.96328C8.41211 9.07929 9.12812 8.36328 10.0121 8.36328C10.8961 8.36328 11.6121 9.07929 11.6121 9.96328Z" fill="#AFB7C1"/>
+                    <path class="input-wrap__image__path" d="M10 4C4.70642 4 1 10 1 10C1 10 3.6999 16 10 16C16.3527 16 19 10 19 10C19 10 15.3472 4 10 4ZM10 13.8176C7.93537 13.8176 6.2946 12.1271 6.2946 10C6.2946 7.87285 7.93537 6.18239 10 6.18239C12.0646 6.18239 13.7054 7.87285 13.7054 10C13.7054 12.1271 12.0646 13.8176 10 13.8176Z" fill="#AFB7C1" />
+                    <path d="M11.6121 9.96328C11.6121 10.8473 10.8961 11.5633 10.0121 11.5633C9.12812 11.5633 8.41211 10.8473 8.41211 9.96328C8.41211 9.07929 9.12812 8.36328 10.0121 8.36328C10.8961 8.36328 11.6121 9.07929 11.6121 9.96328Z" fill="#AFB7C1" />
                     <mask id="path-3-inside-1" fill="white">
-                        <path fill-rule="evenodd" clip-rule="evenodd" d="M5 16.5L16 1L16.8155 1.57875L5.81551 17.0787L5 16.5Z"/>
+                        <path fill-rule="evenodd" clip-rule="evenodd" d="M5 16.5L16 1L16.8155 1.57875L5.81551 17.0787L5 16.5Z" />
                     </mask>
-                    <path class="input-wrap__image__path" fill-rule="evenodd" clip-rule="evenodd" d="M5 16.5L16 1L16.8155 1.57875L5.81551 17.0787L5 16.5Z" fill="white"/>
-                    <path class="input-wrap__image__path" d="M16 1L16.5787 0.184493L15.7632 -0.394254L15.1845 0.421253L16 1ZM5 16.5L4.18449 15.9213L3.60575 16.7368L4.42125 17.3155L5 16.5ZM16.8155 1.57875L17.631 2.15749L18.2098 1.34199L17.3943 0.76324L16.8155 1.57875ZM5.81551 17.0787L5.23676 17.8943L6.05227 18.473L6.63101 17.6575L5.81551 17.0787ZM15.1845 0.421253L4.18449 15.9213L5.81551 17.0787L16.8155 1.57875L15.1845 0.421253ZM17.3943 0.76324L16.5787 0.184493L15.4213 1.81551L16.2368 2.39425L17.3943 0.76324ZM6.63101 17.6575L17.631 2.15749L16 1L5 16.5L6.63101 17.6575ZM4.42125 17.3155L5.23676 17.8943L6.39425 16.2632L5.57875 15.6845L4.42125 17.3155Z" fill="white" mask="url(#path-3-inside-1)"/>
-                    <path fill-rule="evenodd" clip-rule="evenodd" d="M5 17.5L16 2L16.8155 2.57875L5.81551 18.0787L5 17.5Z" fill="#AFB7C1"/>
+                    <path class="input-wrap__image__path" fill-rule="evenodd" clip-rule="evenodd" d="M5 16.5L16 1L16.8155 1.57875L5.81551 17.0787L5 16.5Z" fill="white" />
+                    <path class="input-wrap__image__path" d="M16 1L16.5787 0.184493L15.7632 -0.394254L15.1845 0.421253L16 1ZM5 16.5L4.18449 15.9213L3.60575 16.7368L4.42125 17.3155L5 16.5ZM16.8155 1.57875L17.631 2.15749L18.2098 1.34199L17.3943 0.76324L16.8155 1.57875ZM5.81551 17.0787L5.23676 17.8943L6.05227 18.473L6.63101 17.6575L5.81551 17.0787ZM15.1845 0.421253L4.18449 15.9213L5.81551 17.0787L16.8155 1.57875L15.1845 0.421253ZM17.3943 0.76324L16.5787 0.184493L15.4213 1.81551L16.2368 2.39425L17.3943 0.76324ZM6.63101 17.6575L17.631 2.15749L16 1L5 16.5L6.63101 17.6575ZM4.42125 17.3155L5.23676 17.8943L6.39425 16.2632L5.57875 15.6845L4.42125 17.3155Z" fill="white" mask="url(#path-3-inside-1)" />
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M5 17.5L16 2L16.8155 2.57875L5.81551 18.0787L5 17.5Z" fill="#AFB7C1" />
                 </svg>
             </div>
             <!-- end of image-->

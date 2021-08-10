@@ -3,7 +3,7 @@
 
 <template>
     <info-block>
-        <div class="details-area" slot="body">
+        <div slot="body" class="details-area">
             <header class="details-area__header">
                 <h3 class="details-area__header__title">Details</h3>
                 <p class="details-area__header__period">{{ period }}</p>

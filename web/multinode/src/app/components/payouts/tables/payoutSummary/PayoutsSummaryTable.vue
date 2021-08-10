@@ -8,11 +8,11 @@
                 <th class="align-left">NODE</th>
                 <th>HELD</th>
                 <th>PAID</th>
-                <th class="options"></th>
+                <th class="options" />
             </tr>
         </thead>
         <tbody slot="body">
-            <payouts-summary-item v-for="payoutSummary in nodePayoutsSummary" :key="payoutSummary.nodeId" :payouts-summary="payoutSummary"/>
+            <payouts-summary-item v-for="payoutSummary in nodePayoutsSummary" :key="payoutSummary.nodeId" :payouts-summary="payoutSummary" />
         </tbody>
     </base-table>
 </template>

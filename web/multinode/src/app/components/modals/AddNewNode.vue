@@ -6,7 +6,7 @@
         <v-button :with-plus="true" label="New Node" :on-press="openModal" width="152px" />
         <v-modal v-if="isAddNewNodeModalShown" @onClose="closeModal">
             <h2 slot="header">Add New Node</h2>
-            <div class="add-new-node__body" slot="body">
+            <div slot="body" class="add-new-node__body">
                 <headered-input
                     class="add-new-node__body__input"
                     label="Node ID"
@@ -29,13 +29,12 @@
                     @setData="setApiKey"
                 />
             </div>
-            <div class="add-new-node__footer" slot="footer">
+            <div slot="footer" class="add-new-node__footer">
                 <v-button label="Cancel" :is-white="true" width="205px" :on-press="closeModal" />
-                <v-button label="Create" width="205px" :on-press="onCreate"/>
+                <v-button label="Create" width="205px" :on-press="onCreate" />
             </div>
         </v-modal>
     </div>
-
 </template>
 
 <script lang="ts">

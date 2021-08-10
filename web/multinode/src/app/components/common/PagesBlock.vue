@@ -4,11 +4,12 @@
 <template>
     <div class="pages-container">
         <span
-            class="pages-container__pages"
             v-for="page in pages"
+            :key="page.index"
+            class="pages-container__pages"
             :class="{ 'selected': isSelected(page.index) }"
             @click="page.select()"
-            :key="page.index">{{ page.index }}</span>
+        >{{ page.index }}</span>
     </div>
 </template>
 

@@ -3,7 +3,7 @@
 
 <template>
     <div id="wallets-root">
-        <router-view/>
+        <router-view />
     </div>
 </template>
 

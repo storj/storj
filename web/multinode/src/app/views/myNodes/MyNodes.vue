@@ -5,7 +5,7 @@
     <div class="my-nodes">
         <h1 class="my-nodes__title">My Nodes</h1>
         <satellite-selection-dropdown />
-        <nodes-table class="table"/>
+        <nodes-table class="table" />
     </div>
 </template>
 

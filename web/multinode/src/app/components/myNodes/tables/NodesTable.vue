@@ -19,7 +19,7 @@
                 <th>EARNED</th>
                 <th>VERSION</th>
                 <th>STATUS</th>
-                <th></th>
+                <th />
             </tr>
         </thead>
         <tbody slot="body">

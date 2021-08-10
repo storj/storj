@@ -3,7 +3,7 @@
 
 <template>
     <info-block>
-        <div class="balance-area" slot="body">
+        <div slot="body" class="balance-area">
             <header class="balance-area__header">
                 <h3 class="balance-area__header__title">Balance</h3>
             </header>
