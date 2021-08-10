@@ -6,12 +6,12 @@
         <div class="checks-area-container__header">
             <p class="checks-area-container__header__title">{{ label }}</p>
             <div class="checks-area-container__header__info-area">
-                <ChecksInfoIcon class="checks-area-image" alt="Blue info icon with question mark" @mouseenter="toggleTooltipVisibility" @mouseleave="toggleTooltipVisibility"/>
-                <div class="tooltip" v-show="isTooltipVisible">
+                <ChecksInfoIcon class="checks-area-image" alt="Blue info icon with question mark" @mouseenter="toggleTooltipVisibility" @mouseleave="toggleTooltipVisibility" />
+                <div v-show="isTooltipVisible" class="tooltip">
                     <div class="tooltip__text-area">
                         <p class="tooltip__text-area__text">{{ infoText }}</p>
                     </div>
-                    <div class="tooltip__footer"></div>
+                    <div class="tooltip__footer" />
                 </div>
             </div>
         </div>

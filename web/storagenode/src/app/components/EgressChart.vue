@@ -6,11 +6,11 @@
         <p class="egress-chart__data-dimension">{{ chartDataDimension }}</p>
         <VChart
             id="egress-chart"
+            :key="chartKey"
             :chart-data="chartData"
             :width="chartWidth"
             :height="chartHeight"
             :tooltip-constructor="egressTooltip"
-            :key="chartKey"
         />
     </div>
 </template>

@@ -19,15 +19,15 @@
                 <p class="notifications-container__header__button__label">Mark all as read</p>
             </button>
         </div>
-        <div class="notifications-container__content-area" v-if="notifications.length">
+        <div v-if="notifications.length" class="notifications-container__content-area">
             <SNONotification
-                class="notification"
                 v-for="notification in notifications"
                 :key="notification.id"
+                class="notification"
                 :notification="notification"
             />
         </div>
-        <div class="notifications-container__empty-state" v-else>
+        <div v-else class="notifications-container__empty-state">
             <img
                 class="notifications-container__empty-state__image"
                 src="@/../static/images/notifications/EmptyStateLarge.png"
@@ -37,8 +37,8 @@
         </div>
         <VPagination
             v-if="totalPageCount > 1"
-            class="pagination-area"
             ref="pagination"
+            class="pagination-area"
             :total-page-count="totalPageCount"
             :on-page-click-callback="onPageClick"
         />

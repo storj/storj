@@ -6,11 +6,11 @@
         <p class="disk-space-chart__data-dimension">{{ chartDataDimension }}*h</p>
         <VChart
             id="disk-space-chart"
+            :key="chartKey"
             :chart-data="chartData"
             :width="chartWidth"
             :height="chartHeight"
             :tooltip-constructor="diskSpaceTooltip"
-            :key="chartKey"
         />
     </div>
 </template>

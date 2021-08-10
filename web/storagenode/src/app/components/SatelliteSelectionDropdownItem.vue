@@ -8,13 +8,13 @@
         @click.stop="onSatelliteClick"
     >
         <DisqualificationIcon
-            class="satellite-choice__image"
             v-if="satellite.disqualified"
+            class="satellite-choice__image"
             alt="disqualified image"
         />
         <SuspensionIcon
-            class="satellite-choice__image"
             v-if="satellite.suspended && !satellite.disqualified"
+            class="satellite-choice__image"
             alt="suspended image"
         />
         <p
@@ -30,20 +30,20 @@
         </p>
         <div class="satellite-choice__right-area">
             <button
+                v-if="isNameShown"
                 name="Show Satellite ID"
                 class="satellite-choice__right-area__button"
                 @click.stop.prevent="toggleSatelliteView"
-                v-if="isNameShown"
             >
                 <EyeIcon />
                 <p class="satellite-choice__right-area__button__text">ID</p>
             </button>
-            <div class="row" v-else >
+            <div v-else class="row">
                 <button
+                    v-clipboard:copy="satellite.id"
                     name="Copy Satellite ID"
                     class="satellite-choice__right-area__button copy-button"
                     @click.stop="() => {}"
-                    v-clipboard:copy="satellite.id"
                 >
                     <CopyIcon />
                 </button>

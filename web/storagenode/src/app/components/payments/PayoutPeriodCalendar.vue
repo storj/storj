@@ -17,11 +17,11 @@
         </div>
         <div class="payout-period-calendar__months-area">
             <button
+                v-for="item in currentDisplayedMonths"
+                :key="item.name"
                 :name="`Select year ${item.year} month ${item.name}`"
                 class="month-item"
                 :class="{ selected: item.selected, disabled: !item.active }"
-                v-for="item in currentDisplayedMonths"
-                :key="item.name"
                 @click.prevent="checkMonth(item)"
             >
                 <p class="month-item__label">{{ item.name }}</p>

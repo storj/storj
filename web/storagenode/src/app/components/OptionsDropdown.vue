@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="options-dropdown" v-click-outside="close">
-        <input id="theme-switch" type="checkbox" v-model="isDarkMode" @change="close" />
+    <div v-click-outside="close" class="options-dropdown">
+        <input id="theme-switch" v-model="isDarkMode" type="checkbox" @change="close">
         <label class="options-dropdown__mode" for="theme-switch">
-            <SunIcon class="icon" v-if="isDarkMode" />
-            <MoonIcon class="icon" v-else />
+            <SunIcon v-if="isDarkMode" class="icon" />
+            <MoonIcon v-else class="icon" />
             {{ isDarkMode ? 'Light Mode' : 'Dark Mode' }}
         </label>
     </div>

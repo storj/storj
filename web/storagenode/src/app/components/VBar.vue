@@ -3,7 +3,7 @@
 
 <template>
     <div class="bar-container">
-        <div class="bar-container__fill" :style="barFillStyle"></div>
+        <div class="bar-container__fill" :style="barFillStyle" />
     </div>
 </template>
 

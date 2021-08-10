@@ -18,7 +18,7 @@
                     <p class="held-history-table-container--large__labels-area__text">Held Returned</p>
                 </div>
             </div>
-            <div v-for="item in allSatellitesHeldHistory" class="held-history-table-container--large__info-area" :key="item.satelliteID">
+            <div v-for="item in allSatellitesHeldHistory" :key="item.satelliteID" class="held-history-table-container--large__info-area">
                 <div class="justify-start column-1">
                     <p class="held-history-table-container--large__info-area__text">{{ item.satelliteName }}</p>
                     <p class="held-history-table-container--large__info-area__months">{{ item.monthsWithNode }} month</p>
@@ -37,8 +37,8 @@
         <div class="held-history-table-container--small">
             <HeldHistoryAllStatsTableItemSmall
                 v-for="item in allSatellitesHeldHistory"
-                :held-history-item="item"
                 :key="item.satelliteID"
+                :held-history-item="item"
             />
         </div>
     </div>

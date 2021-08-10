@@ -16,35 +16,35 @@
                     class="header__content-holder__logo--small"
                 />
                 <button name="Refresh" class="header__content-holder__logo-area__refresh-button" @click.prevent="onRefresh">
-                    <RefreshIcon alt="refresh image"/>
+                    <RefreshIcon alt="refresh image" />
                 </button>
             </div>
             <div class="header__content-holder__right-area">
-                <div role="button" tabindex="0" class="header__content-holder__right-area__node-id-container" v-clipboard="this.nodeId">
+                <div v-clipboard="nodeId" role="button" tabindex="0" class="header__content-holder__right-area__node-id-container">
                     <b class="header__content-holder__right-area__node-id-container__title">Node ID:</b>
-                    <p class="header__content-holder__right-area__node-id-container__id">{{ this.nodeId }}</p>
+                    <p class="header__content-holder__right-area__node-id-container__id">{{ nodeId }}</p>
                     <CopyIcon />
                 </div>
                 <button name="Settings" aria-pressed="false" class="options-button" @click.prevent.stop="openOptionsDropdown">
                     <SettingsIcon />
                 </button>
                 <OptionsDropdown
-                    class="options-dropdown"
                     v-show="isOptionsShown"
+                    class="options-dropdown"
                     @closeDropdown="closeOptionsDropdown"
                 />
                 <button name="Notifications" aria-pressed="false" class="header__content-holder__right-area__bell-area" @click.stop.prevent="toggleNotificationsPopup">
                     <BellIcon />
                     <span
-                        class="header__content-holder__right-area__bell-area__new-circle"
                         v-if="hasNewNotifications"
+                        class="header__content-holder__right-area__bell-area__new-circle"
                     />
                 </button>
             </div>
             <NotificationsPopup
                 v-if="isNotificationPopupShown"
-                class="header__content-holder__right-area__bell-area__popup"
                 v-click-outside.stop="closeNotificationPopup"
+                class="header__content-holder__right-area__bell-area__popup"
             />
         </div>
     </div>

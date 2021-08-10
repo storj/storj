@@ -4,7 +4,7 @@
 <template>
     <transition name="fade" mode="in-out">
         <div class="loading-screen">
-            <StorjLogo class="logo"/>
+            <StorjLogo class="logo" />
             <svg height="100" width="100" class="loader">
                 <circle cx="50" cy="50" r="40" class="background" />
                 <circle cx="50" cy="50" r="40" class="circle" />

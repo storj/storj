@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "serve": "vue-cli-service serve",
-    "lint": "vue-cli-service lint --max-warnings 0 && stylelint --max-warnings 0 \"**/*.{vue,css,sss,less,scss,sass}\" --fix",
+    "lint": "vue-cli-service lint --max-warnings 0 --fix && stylelint --max-warnings 0 \"**/*.{vue,css,sss,less,scss,sass}\" --fix",
     "lint-ci": "vue-cli-service lint --max-warnings 0 --no-fix && stylelint --max-warnings 0 --no-fix \"**/*.{vue,css,sss,less,scss,sass}\"",
     "build": "vue-cli-service build",
     "dev": "vue-cli-service build --mode development --watch",

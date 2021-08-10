@@ -28,9 +28,9 @@
                 </button>
             </div>
         </div>
-        <div class="held-history-container__divider"></div>
-        <HeldHistoryAllStatsTable v-if="isAllStatsShown"/>
-        <HeldHistoryMonthlyBreakdownTable v-else/>
+        <div class="held-history-container__divider" />
+        <HeldHistoryAllStatsTable v-if="isAllStatsShown" />
+        <HeldHistoryMonthlyBreakdownTable v-else />
     </section>
 </template>
 

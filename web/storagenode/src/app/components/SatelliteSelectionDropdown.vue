@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="satellite-selection-choice-container" v-click-outside="closePopup">
+    <div v-click-outside="closePopup" class="satellite-selection-choice-container">
         <div class="satellite-selection-overflow-container">
             <div class="satellite-selection-choice-container__all-satellites">
                 <button name="Choose All satellite" class="satellite-selection-overflow-container__satellite-choice" @click.stop="onAllSatellitesClick">
@@ -12,8 +12,8 @@
             <!-- loop for rendering satellites -->
             <SatelliteSelectionDropdownItem
                 v-for="satellite in satellites"
-                :satellite="satellite"
                 :key="satellite.id"
+                :satellite="satellite"
                 @onSatelliteClick="onSatelliteClick"
             />
         </div>
