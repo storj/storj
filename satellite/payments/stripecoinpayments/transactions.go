@@ -24,7 +24,7 @@ var ErrTransactionConsumed = errs.New("error transaction already consumed")
 // architecture: Database
 type TransactionsDB interface {
 	// Insert inserts new coinpayments transaction into DB.
-	Insert(ctx context.Context, tx Transaction) (*Transaction, error)
+	Insert(ctx context.Context, tx Transaction) (time.Time, error)
 	// Update updates status and received for set of transactions.
 	Update(ctx context.Context, updates []TransactionUpdate, applies coinpayments.TransactionIDList) error
 	// Consume marks transaction as consumed, so it won't participate in apply account balance loop.

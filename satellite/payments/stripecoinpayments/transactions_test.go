@@ -4,6 +4,7 @@
 package stripecoinpayments_test
 
 import (
+	"context"
 	"encoding/base64"
 	"errors"
 	"sync"
@@ -51,9 +52,9 @@ func TestTransactionsDB(t *testing.T) {
 		}
 
 		t.Run("insert", func(t *testing.T) {
-			tx, err := transactions.Insert(ctx, createTx)
+			createdAt, err := transactions.Insert(ctx, createTx)
 			require.NoError(t, err)
-			requireSaneTimestamp(t, tx.CreatedAt)
+			requireSaneTimestamp(t, createdAt)
 			txs, err := transactions.ListAccount(ctx, userID)
 			require.NoError(t, err)
 			require.Len(t, txs, 1)
@@ -139,7 +140,7 @@ func TestConcurrentConsume(t *testing.T) {
 		userID := testrand.UUID()
 		txID := coinpayments.TransactionID("testID")
 
-		tx, err := transactions.Insert(ctx,
+		_, err = transactions.Insert(ctx,
 			stripecoinpayments.Transaction{
 				ID:        txID,
 				AccountID: userID,
@@ -155,12 +156,12 @@ func TestConcurrentConsume(t *testing.T) {
 
 		err = transactions.Update(ctx,
 			[]stripecoinpayments.TransactionUpdate{{
-				TransactionID: tx.ID,
+				TransactionID: txID,
 				Status:        coinpayments.StatusCompleted,
 				Received:      received,
 			}},
 			coinpayments.TransactionIDList{
-				tx.ID,
+				txID,
 			},
 		)
 		require.NoError(t, err)
@@ -178,7 +179,7 @@ func TestConcurrentConsume(t *testing.T) {
 		var group errs2.Group
 		for i := 0; i < concurrentTries; i++ {
 			group.Go(func() error {
-				err := transactions.Consume(ctx, tx.ID)
+				err := transactions.Consume(ctx, txID)
 
 				if err == nil {
 					return nil
@@ -420,5 +421,217 @@ func TestTransactions_ApplyTransactionBalance(t *testing.T) {
 		require.EqualValues(t, txID, cbt.Metadata["txID"])
 		require.EqualValues(t, "100", cbt.Metadata["storj_amount"])
 		require.EqualValues(t, "0.2", cbt.Metadata["storj_usd_rate"])
+	})
+}
+
+func TestDatabaseBigFloatTransition(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		transactions := db.StripeCoinPayments().Transactions()
+
+		accountID := testrand.UUID()
+		amount, err := monetary.AmountFromString("100000000.00000001", monetary.StorjToken)
+		require.NoError(t, err)
+		received, err := monetary.AmountFromString("0.00000002", monetary.StorjToken)
+		require.NoError(t, err)
+		rate1, err := decimal.NewFromString("1001.23456789")
+		require.NoError(t, err)
+		rate2, err := decimal.NewFromString("3.14159265")
+		require.NoError(t, err)
+
+		tx1 := stripecoinpayments.Transaction{
+			ID:        "abcdefg",
+			AccountID: accountID,
+			Address:   "0xbeedeebeedeebeedeebeedeebeedeebeedeebeed",
+			Amount:    amount,
+			Received:  received,
+			Status:    coinpayments.StatusPending,
+			Key:       "beep beep im a sheep",
+			Timeout:   time.Hour * 48,
+		}
+		tx2 := stripecoinpayments.Transaction{
+			ID:        "hijklmn",
+			AccountID: accountID,
+			Address:   "0x77687927642075206576656e20626f746865723f",
+			Amount:    amount,
+			Received:  received,
+			Status:    coinpayments.StatusPending,
+			Key:       "how now im a cow",
+			Timeout:   0,
+		}
+
+		// perform an Insert on old schema
+		{
+			createdAt, err := transactions.Insert(ctx, tx1)
+			require.NoError(t, err)
+			requireSaneTimestamp(t, createdAt)
+			tx1.CreatedAt = createdAt
+		}
+
+		// perform an Update on old schema
+		{
+			newReceived, err := monetary.AmountFromString("0.12345678", monetary.StorjToken)
+			require.NoError(t, err)
+			upd := stripecoinpayments.TransactionUpdate{
+				TransactionID: tx1.ID,
+				Status:        coinpayments.StatusReceived,
+				Received:      newReceived,
+			}
+			err = transactions.Update(ctx, []stripecoinpayments.TransactionUpdate{upd}, coinpayments.TransactionIDList{tx1.ID})
+			require.NoError(t, err)
+			tx1.Status = coinpayments.StatusReceived
+			tx1.Received = newReceived
+		}
+
+		// perform a ListAccount on old schema
+		{
+			accountTxs, err := transactions.ListAccount(ctx, accountID)
+			require.NoError(t, err)
+			require.Len(t, accountTxs, 1)
+			require.Equal(t, tx1, accountTxs[0])
+		}
+
+		// perform a ListPending on old schema
+		{
+			pendingTxs, err := transactions.ListPending(ctx, 0, 10, time.Now().UTC())
+			require.NoError(t, err)
+			require.Len(t, pendingTxs.Transactions, 1)
+			// ListPending doesn't get the timeout column, so set it manually in order to check equality of other fields
+			pendingTxs.Transactions[0].Timeout = tx1.Timeout
+			require.Equal(t, tx1, pendingTxs.Transactions[0])
+			require.False(t, pendingTxs.Next)
+			require.Equal(t, int64(0), pendingTxs.NextOffset)
+		}
+
+		// perform a ListUnapplied on old schema
+		{
+			unappliedTxs, err := transactions.ListUnapplied(ctx, 0, 10, time.Now().UTC())
+			require.NoError(t, err)
+			require.Len(t, unappliedTxs.Transactions, 1)
+			// ListUnapplied doesn't get the timeout column, so set it manually in order to check equality of other fields
+			unappliedTxs.Transactions[0].Timeout = tx1.Timeout
+			require.Equal(t, tx1, unappliedTxs.Transactions[0])
+			require.False(t, unappliedTxs.Next)
+			require.Equal(t, int64(0), unappliedTxs.NextOffset)
+		}
+
+		// perform a LockRate on old schema
+		{
+			err = transactions.LockRate(ctx, tx1.ID, rate1)
+			require.NoError(t, err)
+		}
+
+		// perform a GetLockedRate on old schema
+		{
+			gotRate, err := transactions.GetLockedRate(ctx, tx1.ID)
+			require.NoError(t, err)
+			require.Equal(t, rate1, gotRate)
+		}
+
+		// do schema update
+		{
+			transitionDB := transactions.(interface {
+				DebugPerformBigFloatTransition(ctx context.Context) error
+			})
+			err = transitionDB.DebugPerformBigFloatTransition(ctx)
+			require.NoError(t, err)
+		}
+
+		// perform an Insert on new schema
+		{
+			createdAt, err := transactions.Insert(ctx, tx2)
+			require.NoError(t, err)
+			requireSaneTimestamp(t, createdAt)
+			tx2.CreatedAt = createdAt
+		}
+
+		// perform a ListAccount on new schema, while tx1 has a received_gob
+		{
+			accountTxs, err := transactions.ListAccount(ctx, accountID)
+			require.NoError(t, err)
+			require.Len(t, accountTxs, 2)
+			// results should be ordered in reverse order of creation
+			require.Equal(t, tx2, accountTxs[0])
+			require.Equal(t, tx1, accountTxs[1])
+		}
+
+		// perform an Update on new schema, on a row with a received_gob
+		{
+			newReceived, err := monetary.AmountFromString("1.11111111", monetary.StorjToken)
+			require.NoError(t, err)
+			upd := stripecoinpayments.TransactionUpdate{
+				TransactionID: tx1.ID,
+				Status:        coinpayments.StatusPending,
+				Received:      newReceived,
+			}
+			err = transactions.Update(ctx, []stripecoinpayments.TransactionUpdate{upd}, nil)
+			require.NoError(t, err)
+			tx1.Status = coinpayments.StatusPending
+			tx1.Received = newReceived
+		}
+
+		// perform an Update on new schema, on a row with a received_numeric
+		{
+			newReceived, err := monetary.AmountFromString("2.12121212", monetary.StorjToken)
+			require.NoError(t, err)
+			upd := stripecoinpayments.TransactionUpdate{
+				TransactionID: tx2.ID,
+				Status:        coinpayments.StatusCompleted,
+				Received:      newReceived,
+			}
+			err = transactions.Update(ctx, []stripecoinpayments.TransactionUpdate{upd}, coinpayments.TransactionIDList{tx2.ID})
+			require.NoError(t, err)
+			tx2.Status = coinpayments.StatusCompleted
+			tx2.Received = newReceived
+		}
+
+		// perform a ListAccount on new schema, after the above changes
+		{
+			accountTxs, err := transactions.ListAccount(ctx, accountID)
+			require.NoError(t, err)
+			require.Len(t, accountTxs, 2)
+			// results should be ordered in reverse order of creation
+			require.Equal(t, tx2, accountTxs[0])
+			require.Equal(t, tx1, accountTxs[1])
+		}
+
+		// perform a ListPending on new schema
+		{
+			pendingTxs, err := transactions.ListPending(ctx, 0, 10, time.Now().UTC())
+			require.NoError(t, err)
+			require.Len(t, pendingTxs.Transactions, 1)
+			// ListPending doesn't get the timeout column, so set it manually in order to check equality of other fields
+			pendingTxs.Transactions[0].Timeout = tx1.Timeout
+			require.Equal(t, tx1, pendingTxs.Transactions[0])
+			require.False(t, pendingTxs.Next)
+			require.Equal(t, int64(0), pendingTxs.NextOffset)
+		}
+
+		// perform a ListUnapplied on new schema
+		{
+			unappliedTxs, err := transactions.ListUnapplied(ctx, 0, 10, time.Now().UTC())
+			require.NoError(t, err)
+			require.Len(t, unappliedTxs.Transactions, 1)
+			// ListUnapplied doesn't get the timeout column, so set it manually in order to check equality of other fields
+			unappliedTxs.Transactions[0].Timeout = tx2.Timeout
+			require.Equal(t, tx2, unappliedTxs.Transactions[0])
+			require.False(t, unappliedTxs.Next)
+			require.Equal(t, int64(0), unappliedTxs.NextOffset)
+		}
+
+		// perform a LockRate on new schema
+		{
+			err = transactions.LockRate(ctx, tx2.ID, rate2)
+			require.NoError(t, err)
+		}
+
+		// perform a GetLockedRate on new schema
+		{
+			gotRate, err := transactions.GetLockedRate(ctx, tx1.ID)
+			require.NoError(t, err)
+			require.Equal(t, rate1, gotRate)
+			gotRate, err = transactions.GetLockedRate(ctx, tx2.ID)
+			require.NoError(t, err)
+			require.Equal(t, rate2, gotRate)
+		}
 	})
 }

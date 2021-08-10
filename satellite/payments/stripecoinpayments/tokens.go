@@ -89,7 +89,7 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 		return nil, Error.Wrap(err)
 	}
 
-	cpTX, err := tokens.service.db.Transactions().Insert(ctx,
+	createTime, err := tokens.service.db.Transactions().Insert(ctx,
 		Transaction{
 			ID:        tx.ID,
 			AccountID: userID,
@@ -112,7 +112,7 @@ func (tokens *storjTokens) Deposit(ctx context.Context, userID uuid.UUID, amount
 		Status:    payments.TransactionStatusPending,
 		Timeout:   tx.Timeout,
 		Link:      tx.CheckoutURL,
-		CreatedAt: cpTX.CreatedAt,
+		CreatedAt: createTime,
 	}, nil
 }
 
