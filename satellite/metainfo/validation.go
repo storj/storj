@@ -122,7 +122,7 @@ func (endpoint *Endpoint) checkRate(ctx context.Context, projectID uuid.UUID) (e
 		if err != nil {
 			return false, err
 		}
-		if project.RateLimit != nil && *project.RateLimit > 0 {
+		if project.RateLimit != nil {
 			limit = rate.Limit(*project.RateLimit)
 		}
 
