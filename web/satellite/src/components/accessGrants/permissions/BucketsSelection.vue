@@ -16,8 +16,8 @@
         </div>
         <BucketsDropdown
             v-if="isDropdownShown"
-            @close="closeDropdown"
             v-click-outside="closeDropdown"
+            @close="closeDropdown"
         />
     </div>
 </template>

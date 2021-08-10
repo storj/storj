@@ -8,7 +8,7 @@
             <div class="project-details__wrapper__container">
                 <h1 class="project-details__wrapper__container__title">Project Details</h1>
                 <p class="project-details__wrapper__container__label">Name</p>
-                <div class="project-details__wrapper__container__name-area" v-if="!isNameEditing">
+                <div v-if="!isNameEditing" class="project-details__wrapper__container__name-area">
                     <p class="project-details__wrapper__container__name-area__name">{{ storedProject.name }}</p>
                     <VButton
                         label="Edit"
@@ -18,14 +18,14 @@
                         is-white="true"
                     />
                 </div>
-                <div class="project-details__wrapper__container__name-editing" v-if="isNameEditing">
+                <div v-if="isNameEditing" class="project-details__wrapper__container__name-editing">
                     <input
+                        v-model="nameValue"
                         class="project-details__wrapper__container__name-editing__input"
                         placeholder="Enter a name for your project"
                         @input="onNameInput"
                         @change="onNameInput"
-                        v-model="nameValue"
-                    />
+                    >
                     <span class="project-details__wrapper__container__name-editing__limit">{{ nameValue.length }}/{{ nameLength }}</span>
                     <VButton
                         class="project-details__wrapper__container__name-editing__save-button"
@@ -36,7 +36,7 @@
                     />
                 </div>
                 <p class="project-details__wrapper__container__label">Description</p>
-                <div class="project-details__wrapper__container__description-area" v-if="!isDescriptionEditing">
+                <div v-if="!isDescriptionEditing" class="project-details__wrapper__container__description-area">
                     <p class="project-details__wrapper__container__description-area__description">{{ displayedDescription }}</p>
                     <VButton
                         label="Edit"
@@ -46,14 +46,14 @@
                         is-white="true"
                     />
                 </div>
-                <div class="project-details__wrapper__container__description-editing" v-if="isDescriptionEditing">
+                <div v-if="isDescriptionEditing" class="project-details__wrapper__container__description-editing">
                     <input
+                        v-model="descriptionValue"
                         class="project-details__wrapper__container__description-editing__input"
                         placeholder="Enter a description for your project"
                         @input="onDescriptionInput"
                         @change="onDescriptionInput"
-                        v-model="descriptionValue"
-                    />
+                    >
                     <span class="project-details__wrapper__container__description-editing__limit">{{ descriptionValue.length }}/{{ descriptionLength }}</span>
                     <VButton
                         class="project-details__wrapper__container__description-editing__save-button"

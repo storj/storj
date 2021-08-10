@@ -4,10 +4,10 @@
 <template>
     <div class="settings">
         <h1 class="settings__title">Account Settings</h1>
-        <div class="settings__edit-profile" >
+        <div class="settings__edit-profile">
             <div class="settings__edit-profile__row">
                 <div class="settings__edit-profile__avatar">
-                    <h1 class="settings__edit-profile__avatar__letter">{{avatarLetter}}</h1>
+                    <h1 class="settings__edit-profile__avatar__letter">{{ avatarLetter }}</h1>
                 </div>
                 <div class="settings__edit-profile__text">
                     <h2 class="profile-bold-text">Edit Profile</h2>
@@ -22,7 +22,7 @@
         <div class="settings__secondary-container">
             <div class="settings__secondary-container__change-password">
                 <div class="settings__edit-profile__row">
-                    <ChangePasswordIcon class="settings__secondary-container__img"/>
+                    <ChangePasswordIcon class="settings__secondary-container__img" />
                     <div class="settings__secondary-container__change-password__text-container">
                         <h2 class="profile-bold-text">Change Password</h2>
                         <h3 class="profile-regular-text">6 or more characters</h3>
@@ -35,9 +35,9 @@
             </div>
             <div class="settings__secondary-container__email-container">
                 <div class="settings__edit-profile__row">
-                    <EmailIcon class="settings__secondary-container__img"/>
+                    <EmailIcon class="settings__secondary-container__img" />
                     <div class="settings__secondary-container__email-container__text-container">
-                        <h2 class="profile-bold-text email">{{user.email}}</h2>
+                        <h2 class="profile-bold-text email">{{ user.email }}</h2>
                     </div>
                 </div>
             </div>
@@ -79,11 +79,11 @@
                 </div>
             </div>
         </div>
-        <ChangePasswordPopup v-if="isChangePasswordPopupShown"/>
-        <EditProfilePopup v-if="isEditProfilePopupShown"/>
-        <EnableMFAPopup v-if="isEnableMFAPopup" :toggle-modal="toggleEnableMFAPopup"/>
-        <DisableMFAPopup v-if="isDisableMFAPopup" :toggle-modal="toggleDisableMFAPopup"/>
-        <MFARecoveryCodesPopup v-if="isMFACodesPopup" :toggle-modal="toggleMFACodesPopup"/>
+        <ChangePasswordPopup v-if="isChangePasswordPopupShown" />
+        <EditProfilePopup v-if="isEditProfilePopupShown" />
+        <EnableMFAPopup v-if="isEnableMFAPopup" :toggle-modal="toggleEnableMFAPopup" />
+        <DisableMFAPopup v-if="isDisableMFAPopup" :toggle-modal="toggleDisableMFAPopup" />
+        <MFARecoveryCodesPopup v-if="isMFACodesPopup" :toggle-modal="toggleMFACodesPopup" />
     </div>
 </template>
 

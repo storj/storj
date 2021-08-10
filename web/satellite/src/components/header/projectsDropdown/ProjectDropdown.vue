@@ -3,13 +3,13 @@
 
 <template>
     <div class="project-dropdown">
-        <div class="project-dropdown__loader-container" v-if="isLoading">
+        <div v-if="isLoading" class="project-dropdown__loader-container">
             <VLoader
                 width="30px"
                 height="30px"
             />
         </div>
-        <div class="project-dropdown__wrap" v-else>
+        <div v-else class="project-dropdown__wrap">
             <div class="project-dropdown__wrap__choice" @click.prevent.stop="closeDropdown">
                 <div class="project-dropdown__wrap__choice__mark-container">
                     <SelectionIcon
@@ -21,16 +21,16 @@
                 </p>
             </div>
             <div
-                class="project-dropdown__wrap__choice"
-                @click.prevent.stop="onProjectSelected(project.id)"
                 v-for="project in projects"
                 :key="project.id"
+                class="project-dropdown__wrap__choice"
+                @click.prevent.stop="onProjectSelected(project.id)"
             >
                 <p class="project-dropdown__wrap__choice__unselected">{{ project.name }}</p>
             </div>
         </div>
         <div class="project-dropdown__create-project" @click.stop="onProjectsLinkClick">
-            <div class="project-dropdown__create-project__border"/>
+            <div class="project-dropdown__create-project__border" />
             <div class="project-dropdown__create-project__button-area">
                 <p class="project-dropdown__create-project__button-area__text">Manage Projects</p>
                 <p class="project-dropdown__create-project__button-area__arrow">-></p>

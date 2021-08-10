@@ -3,7 +3,7 @@
 
 <template>
     <div class="loader">
-        <LoaderImage :class="{ white: isWhite }" :style="style"/>
+        <LoaderImage :class="{ white: isWhite }" :style="style" />
     </div>
 </template>
 

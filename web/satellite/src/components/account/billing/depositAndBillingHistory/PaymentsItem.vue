@@ -26,7 +26,7 @@
                 of <b>{{ billingItem.quantity.total.toFixed(2) }}</b>
             </span>
         </p>
-        <p class="container__item download" v-html="billingItem.downloadLinkHtml()"></p>
+        <p class="container__item download" v-html="billingItem.downloadLinkHtml()" />
     </div>
 </template>
 

@@ -4,7 +4,7 @@
 <template>
     <div class="register-area" @keyup.enter="onCreateClick">
         <div class="register-area__logo-wrapper">
-            <LogoIcon class="logo" @click="onLogoClick"/>
+            <LogoIcon class="logo" @click="onLogoClick" />
         </div>
         <div
             class="register-area__container"
@@ -23,9 +23,9 @@
             </div>
             <div class="register-area__input-area">
                 <div
+                    v-if="!isRegistrationSuccessful"
                     class="register-area__input-area__container"
                     :class="{ 'professional-container': isProfessional }"
-                    v-if="!isRegistrationSuccessful"
                 >
                     <div class="register-area__input-area__container__title-area">
                         <div class="register-area__input-area__container__title-container">
@@ -34,7 +34,7 @@
                         <div class="register-area__input-area__expand" @click.stop="toggleDropdown">
                             <span class="register-area__input-area__expand__value">{{ satelliteName }}</span>
                             <BottomArrowIcon />
-                            <div class="register-area__input-area__expand__dropdown" v-if="isDropdownShown" v-click-outside="closeDropdown">
+                            <div v-if="isDropdownShown" v-click-outside="closeDropdown" class="register-area__input-area__expand__dropdown">
                                 <div class="register-area__input-area__expand__dropdown__item" @click.stop="closeDropdown">
                                     <SelectedCheckIcon />
                                     <span class="register-area__input-area__expand__dropdown__item__name">{{ satelliteName }}</span>
@@ -69,9 +69,9 @@
                             label="Full Name"
                             placeholder="Enter Full Name"
                             :error="fullNameError"
-                            @setData="setFullName"
                             width="calc(100% - 2px)"
                             height="46px"
+                            @setData="setFullName"
                         />
                     </div>
                     <div class="register-area__input-wrapper">
@@ -80,9 +80,9 @@
                             label="Email Address"
                             placeholder="example@email.com"
                             :error="emailError"
-                            @setData="setEmail"
                             width="calc(100% - 2px)"
                             height="46px"
+                            @setData="setEmail"
                         />
                     </div>
                     <div v-if="isProfessional">
@@ -92,9 +92,9 @@
                                 label="Company Name"
                                 placeholder="Acme Corp."
                                 :error="companyNameError"
-                                @setData="setCompanyName"
                                 width="calc(100% - 2px)"
                                 height="46px"
+                                @setData="setCompanyName"
                             />
                         </div>
                         <div class="register-area__input-wrapper">
@@ -103,19 +103,19 @@
                                 label="Position"
                                 placeholder="Position Title"
                                 :error="positionError"
-                                @setData="setPosition"
                                 width="calc(100% - 2px)"
                                 height="46px"
+                                @setData="setPosition"
                             />
                         </div>
                         <div class="register-area__input-wrapper">
                             <SelectInput
                                 class="full-input"
                                 label="Employees"
-                                @setData="setEmployeeCount"
                                 width="calc(100% - 2px)"
                                 height="46px"
-                                :optionsList="employeeCountOptions"
+                                :options-list="employeeCountOptions"
+                                @setData="setEmployeeCount"
                             />
                         </div>
                     </div>
@@ -126,10 +126,10 @@
                                 label="Password"
                                 placeholder="Enter Password"
                                 :error="passwordError"
-                                @setData="setPassword"
                                 width="calc(100% - 2px)"
                                 height="46px"
                                 is-password="true"
+                                @setData="setPassword"
                                 @showPasswordStrength="showPasswordStrength"
                                 @hidePasswordStrength="hidePasswordStrength"
                             />
@@ -145,18 +145,18 @@
                             label="Retype Password"
                             placeholder="Retype Password"
                             :error="repeatedPasswordError"
-                            @setData="setRepeatedPassword"
                             width="calc(100% - 2px)"
                             height="46px"
                             is-password="true"
+                            @setData="setRepeatedPassword"
                         />
                     </div>
                     <AddCouponCodeInput v-if="couponCodeSignupUIEnabled" />
                     <div v-if="isBetaSatellite" class="register-area__input-area__container__warning">
                         <div class="register-area__input-area__container__warning__header">
                             <label class="container">
-                                <input type="checkbox" v-model="areBetaTermsAccepted">
-                                <span class="checkmark" :class="{'error': areBetaTermsAcceptedError}"></span>
+                                <input v-model="areBetaTermsAccepted" type="checkbox">
+                                <span class="checkmark" :class="{'error': areBetaTermsAcceptedError}" />
                             </label>
                             <h2 class="register-area__input-area__container__warning__header__label">
                                 This is a BETA satellite
@@ -172,8 +172,8 @@
                     </div>
                     <div v-if="isProfessional" class="register-area__input-area__container__checkbox-area">
                         <label class="container">
-                            <input id="sales" type="checkbox" v-model="haveSalesContact">
-                            <span class="checkmark"></span>
+                            <input id="sales" v-model="haveSalesContact" type="checkbox">
+                            <span class="checkmark" />
                         </label>
                         <label class="register-area__input-area__container__checkbox-area__msg-box" for="sales">
                             <p class="register-area__input-area__container__checkbox-area__msg-box__msg">
@@ -183,8 +183,8 @@
                     </div>
                     <div class="register-area__input-area__container__checkbox-area">
                         <label class="container">
-                            <input id="terms" type="checkbox" v-model="isTermsAccepted">
-                            <span class="checkmark" :class="{'error': isTermsAcceptedError}"></span>
+                            <input id="terms" v-model="isTermsAccepted" type="checkbox">
+                            <span class="checkmark" :class="{'error': isTermsAcceptedError}" />
                         </label>
                         <label class="register-area__input-area__container__checkbox-area__msg-box" for="terms">
                             <p class="register-area__input-area__container__checkbox-area__msg-box__msg">
@@ -195,24 +195,24 @@
                             </p>
                         </label>
                     </div>
-                    <div class="register-area__input-area__container__recaptcha-wrapper" v-if="recaptchaEnabled">
-                        <div class="register-area__input-area__container__recaptcha-wrapper__label-container" v-if="recaptchaError">
-                            <ErrorIcon/>
+                    <div v-if="recaptchaEnabled" class="register-area__input-area__container__recaptcha-wrapper">
+                        <div v-if="recaptchaError" class="register-area__input-area__container__recaptcha-wrapper__label-container">
+                            <ErrorIcon />
                             <p class="register-area__input-area__container__recaptcha-wrapper__label-container__error">reCAPTCHA is required</p>
                         </div>
                         <vue-recaptcha
+                            ref="recaptcha"
                             :sitekey="recaptchaSiteKey"
-                            loadRecaptchaScript="true"
+                            load-recaptcha-script="true"
                             @verify="onRecaptchaVerified"
                             @expired="onRecaptchaError"
                             @error="onRecaptchaError"
-                            ref="recaptcha">
-                        </vue-recaptcha>
+                        />
                     </div>
                     <p class="register-area__input-area__container__button" @click.prevent="onCreateClick">Sign Up</p>
                 </div>
 
-                <RegistrationSuccess v-if="isRegistrationSuccessful"/>
+                <RegistrationSuccess v-if="isRegistrationSuccessful" />
             </div>
         </div>
         <div class="register-area__input-area__login-container">

@@ -7,7 +7,7 @@
             <h1 class="uc-area__popup__title">Upload in progress</h1>
             <div class="uc-area__popup__container">
                 <div class="uc-area__popup__container__header">
-                    <WarningIcon/>
+                    <WarningIcon />
                     <h2 class="uc-area__popup__container__header__question">Are you sure you want to leave?</h2>
                 </div>
                 <p class="uc-area__popup__container__msg">

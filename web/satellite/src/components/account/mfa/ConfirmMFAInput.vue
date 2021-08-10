@@ -4,13 +4,13 @@
 <template>
     <div class="confirm-mfa">
         <label for="confirm-mfa" class="confirm-mfa__label">
-            <span class="confirm-mfa__label__info">{{isRecovery ? 'Recovery Code' : '2FA Code'}}</span>
-            <span class="confirm-mfa__label__error" v-if="isError">Invalid code. Please re-enter.</span>
+            <span class="confirm-mfa__label__info">{{ isRecovery ? 'Recovery Code' : '2FA Code' }}</span>
+            <span v-if="isError" class="confirm-mfa__label__error">Invalid code. Please re-enter.</span>
         </label>
         <input
             id="confirm-mfa"
-            class="confirm-mfa__input"
             v-model="code"
+            class="confirm-mfa__input"
             :placeholder="isRecovery ? 'Code' : '000000'"
             :type="isRecovery ? 'text' : 'number'"
             @input="event => onInput(event.target.value)"

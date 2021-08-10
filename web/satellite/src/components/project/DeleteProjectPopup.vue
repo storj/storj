@@ -3,26 +3,26 @@
 
 <template>
     <div class="delete-project-popup-container">
-        <div class="delete-project-popup" id="deleteProjectPopup">
+        <div id="deleteProjectPopup" class="delete-project-popup">
             <div class="delete-project-popup__info-panel-container">
                 <h2 class="delete-project-popup__info-panel-container__main-label-text">Delete Project</h2>
-                <DeleteProjectIcon/>
+                <DeleteProjectIcon />
             </div>
             <div class="delete-project-popup__form-container">
                 <p class="delete-project-popup__form-container__confirmation-text">Are you sure that you want to delete your project? You will lose all your buckets and files that linked to this project.</p>
                 <div>
-                    <p class="text" v-if="!nameError">To confirm, enter the project name</p>
+                    <p v-if="!nameError" class="text">To confirm, enter the project name</p>
                     <div v-if="nameError" class="delete-project-popup__form-container__label">
-                        <ErrorIcon alt="Red error icon with explanation mark"/>
-                        <p class="text">{{nameError}}</p>
+                        <ErrorIcon alt="Red error icon with explanation mark" />
+                        <p class="text">{{ nameError }}</p>
                     </div>
                     <input
+                        v-model="projectName"
                         class="delete-project-input"
                         type="text"
                         placeholder="Enter Project Name"
-                        v-model="projectName"
                         @keyup="resetError"
-                    />
+                    >
                 </div>
                 <div class="delete-project-popup__form-container__button-container">
                     <VButton
@@ -43,7 +43,7 @@
                 </div>
             </div>
             <div class="delete-project-popup__close-cross-container" @click="onCloseClick">
-                <CloseCrossIcon/>
+                <CloseCrossIcon />
             </div>
         </div>
     </div>

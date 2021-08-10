@@ -5,42 +5,42 @@
     <div class="input-container">
         <div v-if="!isOptional" class="label-container">
             <div class="label-container__main">
-                <ErrorIcon class="label-container__error-icon" v-if="error"/>
-                <h3 v-if="!error" class="label-container__main__label">{{label}}</h3>
-                <h3 v-if="!error" class="label-container__main__label add-label">{{additionalLabel}}</h3>
-                <h3 class="label-container__main__error" v-if="error">{{error}}</h3>
-                <div v-if="isLoading" class="loader"/>
+                <ErrorIcon v-if="error" class="label-container__error-icon" />
+                <h3 v-if="!error" class="label-container__main__label">{{ label }}</h3>
+                <h3 v-if="!error" class="label-container__main__label add-label">{{ additionalLabel }}</h3>
+                <h3 v-if="error" class="label-container__main__error">{{ error }}</h3>
+                <div v-if="isLoading" class="loader" />
             </div>
-            <h3 v-if="isLimitShown" class="label-container__limit">{{currentLimit}}/{{maxSymbols}}</h3>
+            <h3 v-if="isLimitShown" class="label-container__limit">{{ currentLimit }}/{{ maxSymbols }}</h3>
         </div>
         <div v-if="isOptional" class="optional-label-container">
-            <h3 class="label-container__label">{{label}}</h3>
+            <h3 class="label-container__label">{{ label }}</h3>
             <h4 class="optional-label-container__optional">Optional</h4>
         </div>
         <textarea
-            class="headered-textarea"
             v-if="isMultiline"
-            :id="this.label"
-            :placeholder="this.placeholder"
+            :id="label"
+            v-model="value"
+            class="headered-textarea"
+            :placeholder="placeholder"
             :style="style.inputStyle"
             :rows="5"
             :cols="40"
             wrap="hard"
             @input="onInput"
             @change="onInput"
-            v-model="value">
-        </textarea>
+        />
         <input
-            class="headered-input"
             v-if="!isMultiline"
-            :id="this.label"
-            :placeholder="this.placeholder"
+            :id="label"
+            v-model="value"
+            class="headered-input"
+            :placeholder="placeholder"
             :type="[isPassword ? 'password': 'text']"
+            :style="style.inputStyle"
             @input="onInput"
             @change="onInput"
-            v-model="value"
-            :style="style.inputStyle"
-        />
+        >
     </div>
 </template>
 

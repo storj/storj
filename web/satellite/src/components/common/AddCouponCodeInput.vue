@@ -9,33 +9,33 @@
                 :class="{'signup-view': isSignupView}"
                 src="@/../static/images/account/billing/coupon.png"
                 alt="Coupon"
-            />
+            >
             <HeaderlessInput
                 :label="inputLabel"
                 placeholder="Enter Coupon Code"
                 class="add-coupon__input"
                 height="52px"
-                :withIcon="true"
+                :with-icon="true"
                 @setData="setCouponCode"
             />
             <CheckIcon
-                class="add-coupon__check"
                 v-if="isCodeValid"
+                class="add-coupon__check"
             />
         </div>
         <ValidationMessage
             class="add-coupon__valid-message"
-            successMessage="Successfully applied coupon code."
-            :errorMessage="errorMessage"
-            :isValid="isCodeValid"
-            :showMessage="showValidationMessage"
+            success-message="Successfully applied coupon code."
+            :error-message="errorMessage"
+            :is-valid="isCodeValid"
+            :show-message="showValidationMessage"
         />
         <VButton
+            v-if="!isSignupView"
             class="add-coupon__apply-button"
             label="Apply Coupon Code"
             width="85%"
             height="44px"
-            v-if="!isSignupView"
             :on-press="onApplyClick"
         />
     </div>

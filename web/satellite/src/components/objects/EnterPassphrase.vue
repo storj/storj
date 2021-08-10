@@ -8,7 +8,7 @@
             <h1 class="enter-pass__container__title">Access Data in Browser</h1>
             <div class="enter-pass__container__warning">
                 <div class="enter-pass__container__warning__header">
-                    <WarningIcon/>
+                    <WarningIcon />
                     <p class="enter-pass__container__warning__header__label">Would you like to access files in your browser?</p>
                 </div>
                 <p class="enter-pass__container__warning__message">
@@ -18,15 +18,15 @@
             <label class="enter-pass__container__textarea" for="enter-pass-textarea">
                 <p class="enter-pass__container__textarea__label">Encryption Passphrase</p>
                 <textarea
+                    id="enter-pass-textarea"
                     class="enter-pass__container__textarea__input"
                     :class="{ error: isError }"
-                    id="enter-pass-textarea"
                     placeholder="Enter encryption passphrase here"
                     rows="2"
                     @input="onChangePassphrase"
                 />
             </label>
-            <div class="enter-pass__container__error" v-if="isError">
+            <div v-if="isError" class="enter-pass__container__error">
                 <h2 class="enter-pass__container__error__title">Encryption Passphrase Does not Match</h2>
                 <p class="enter-pass__container__error__message">
                     A previous fingerprint of a passphrase-based-key-derivation-function created in this browser doesn't
@@ -35,10 +35,10 @@
                 </p>
                 <label class="enter-pass__container__error__check-area" :class="{ error: isCheckboxError }" for="error-checkbox">
                     <input
-                        class="enter-pass__container__error__check-area__checkbox"
                         id="error-checkbox"
-                        type="checkbox"
                         v-model="isCheckboxChecked"
+                        class="enter-pass__container__error__check-area__checkbox"
+                        type="checkbox"
                         @change="isCheckboxError = false"
                     >
                     I acknowledge this passphrase has not been used in this browser before.

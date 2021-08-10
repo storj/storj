@@ -3,8 +3,8 @@
 
 <template>
     <div class="container">
-        <TopArrowIcon :class="{ active: isActive && isTop }"/>
-        <BottomArrowIcon :class="{ active: isActive && isBottom }"/>
+        <TopArrowIcon :class="{ active: isActive && isTop }" />
+        <BottomArrowIcon :class="{ active: isActive && isBottom }" />
     </div>
 </template>
 

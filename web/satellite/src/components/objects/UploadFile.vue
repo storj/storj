@@ -3,11 +3,11 @@
 
 <template>
     <div>
-        <p @click="goToBuckets" class="back">&lt;- Back to Buckets</p>
+        <p class="back" @click="goToBuckets">&lt;- Back to Buckets</p>
         <div class="file-browser">
-            <FileBrowser></FileBrowser>
+            <FileBrowser />
         </div>
-        <UploadCancelPopup v-if="isCancelUploadPopupVisible"/>
+        <UploadCancelPopup v-if="isCancelUploadPopupVisible" />
     </div>
 </template>
 

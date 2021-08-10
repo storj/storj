@@ -3,8 +3,8 @@
 
 <template>
     <div class="countdown-container">
-        <div v-if="isExpired">{{date}}</div>
-        <div class="row" v-else>
+        <div v-if="isExpired">{{ date }}</div>
+        <div v-else class="row">
             <p>Expires in </p>
             <p class="digit margin">{{ hours | leadingZero }}</p>
             <p>:</p>

@@ -6,8 +6,9 @@
     <div
         :class="containerClassName"
         :style="style"
-        @click="onPress">
-        <span class="label">{{label}}</span>
+        @click="onPress"
+    >
+        <span class="label">{{ label }}</span>
     </div>
 </template>
 

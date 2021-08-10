@@ -3,7 +3,7 @@
 
 <template>
     <div class="objects-area">
-        <router-view/>
+        <router-view />
     </div>
 </template>
 

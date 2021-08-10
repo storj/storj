@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-<template src="./page40X.html"></template>
+<template src="./page40X.html" />
 
 <script lang="ts">
 import { Component, Vue } from 'vue-property-decorator';

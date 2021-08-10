@@ -5,14 +5,14 @@
     <div class="duration-picker">
         <div class="duration-picker__list">
             <ul class="duration-picker__list__column">
-                <li @click="onForeverClick" class="duration-picker__list__column-item">Forever</li>
-                <li @click="onOneDayClick" class="duration-picker__list__column-item">24 Hours</li>
-                <li @click="onOneWeekClick" class="duration-picker__list__column-item">1 Week</li>
+                <li class="duration-picker__list__column-item" @click="onForeverClick">Forever</li>
+                <li class="duration-picker__list__column-item" @click="onOneDayClick">24 Hours</li>
+                <li class="duration-picker__list__column-item" @click="onOneWeekClick">1 Week</li>
             </ul>
             <ul class="duration-picker__list__column">
-                <li @click="onOneMonthClick" class="duration-picker__list__column-item">1 month</li>
-                <li @click="onSixMonthsClick" class="duration-picker__list__column-item">6 Months</li>
-                <li @click="onOneYearClick" class="duration-picker__list__column-item">1 Year</li>
+                <li class="duration-picker__list__column-item" @click="onOneMonthClick">1 month</li>
+                <li class="duration-picker__list__column-item" @click="onSixMonthsClick">6 Months</li>
+                <li class="duration-picker__list__column-item" @click="onOneYearClick">1 Year</li>
             </ul>
         </div>
         <hr class="duration-picker__break">

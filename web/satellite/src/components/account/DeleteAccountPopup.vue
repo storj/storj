@@ -2,41 +2,41 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class='delete-account-container'>
-        <div class='delete-account' id="deleteAccountPopup">
-            <div class='delete-account__info-panel-container'>
-                <h2 class='delete-account__info-panel-container__main-label-text'>Delete account</h2>
-                <DeleteAccountIcon/>
+    <div class="delete-account-container">
+        <div id="deleteAccountPopup" class="delete-account">
+            <div class="delete-account__info-panel-container">
+                <h2 class="delete-account__info-panel-container__main-label-text">Delete account</h2>
+                <DeleteAccountIcon />
             </div>
-            <div class='delete-account__form-container'>
-                <p class='delete-account__form-container__confirmation-text'>Are you sure you want to delete your account? If you do so, all your information, projects and API Keys will be deleted forever (drop from the satellite).</p>
+            <div class="delete-account__form-container">
+                <p class="delete-account__form-container__confirmation-text">Are you sure you want to delete your account? If you do so, all your information, projects and API Keys will be deleted forever (drop from the satellite).</p>
                 <HeaderedInput
-                    label='Enter your password'
-                    placeholder='Your Password'
-                    class='full-input'
-                    width='100%'
+                    label="Enter your password"
+                    placeholder="Your Password"
+                    class="full-input"
+                    width="100%"
                     is-password="true"
-                    :error='passwordError'
-                    @setData='setPassword'
+                    :error="passwordError"
+                    @setData="setPassword"
                 />
-                <div class='delete-account__form-container__button-container'>
+                <div class="delete-account__form-container__button-container">
                     <VButton
-                        label='Cancel'
-                        width='205px' height='48px'
-                        :on-press='onCloseClick'
+                        label="Cancel"
+                        width="205px" height="48px"
+                        :on-press="onCloseClick"
                         is-transparent="true"
                     />
                     <VButton
-                        label='Delete'
-                        width='205px'
-                        height='48px'
-                        class='red'
-                        :on-press='onDeleteAccountClick'
+                        label="Delete"
+                        width="205px"
+                        height="48px"
+                        class="red"
+                        :on-press="onDeleteAccountClick"
                     />
                 </div>
             </div>
-            <div class='delete-account__close-cross-container' @click='onCloseClick'>
-                <CloseCrossIcon/>
+            <div class="delete-account__close-cross-container" @click="onCloseClick">
+                <CloseCrossIcon />
             </div>
         </div>
     </div>

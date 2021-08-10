@@ -4,7 +4,7 @@
 <template>
     <section class="project-summary">
         <h1 class="project-summary__title">Details</h1>
-        <VLoader v-if="isDataFetching"/>
+        <VLoader v-if="isDataFetching" />
         <div v-else class="project-summary__items">
             <SummaryItem
                 class="right-indent"

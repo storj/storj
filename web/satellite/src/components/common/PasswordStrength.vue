@@ -2,31 +2,31 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="password-strength-container" v-if="isShown">
+    <div v-if="isShown" class="password-strength-container">
         <div class="password-strength-container__header">
             <p class="password-strength-container__header__title">Password strength</p>
-            <p class="password-strength-container__header__strength-status" :style="strengthLabelColor">{{passwordStrength}}</p>
+            <p class="password-strength-container__header__strength-status" :style="strengthLabelColor">{{ passwordStrength }}</p>
         </div>
         <div class="password-strength-container__bar">
-            <div class="password-strength-container__bar__fill" :style="barFillStyle"></div>
+            <div class="password-strength-container__bar__fill" :style="barFillStyle" />
         </div>
         <p class="password-strength-container__subtitle">Your password should contain:</p>
         <div class="password-strength-container__rule-area">
             <div class="password-strength-container__rule-area__checkbox" :class="{ checked: isPasswordLongEnough }">
-                <VectorIcon/>
+                <VectorIcon />
             </div>
             <p class="password-strength-container__rule-area__rule">6 or more Latin characters</p>
         </div>
         <p class="password-strength-container__subtitle">Its nice to have: </p>
         <div class="password-strength-container__rule-area">
             <div class="password-strength-container__rule-area__checkbox" :class="{ checked: hasLowerAndUpperCaseLetters }">
-                <VectorIcon/>
+                <VectorIcon />
             </div>
             <p class="password-strength-container__rule-area__rule">Upper & lowercase letters</p>
         </div>
         <div class="password-strength-container__rule-area">
             <div class="password-strength-container__rule-area__checkbox" :class="{ checked: hasSpecialCharacter }">
-                <VectorIcon/>
+                <VectorIcon />
             </div>
             <p class="password-strength-container__rule-area__rule">At least one special character</p>
         </div>

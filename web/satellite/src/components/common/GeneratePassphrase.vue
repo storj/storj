@@ -23,9 +23,9 @@
                 </p>
             </div>
         </div>
-        <div class="generate-container__enter-passphrase-box" v-if="isEnterState">
+        <div v-if="isEnterState" class="generate-container__enter-passphrase-box">
             <div class="generate-container__enter-passphrase-box__header">
-                <GreenWarningIcon/>
+                <GreenWarningIcon />
                 <h2 class="generate-container__enter-passphrase-box__header__label">Enter an Existing Passphrase</h2>
             </div>
             <p class="generate-container__enter-passphrase-box__message">
@@ -33,7 +33,7 @@
             </p>
         </div>
         <div class="generate-container__value-area">
-            <div class="generate-container__value-area__mnemonic" v-if="isGenerateState">
+            <div v-if="isGenerateState" class="generate-container__value-area__mnemonic">
                 <p class="generate-container__value-area__mnemonic__value">{{ passphrase }}</p>
                 <VButton
                     class="generate-container__value-area__mnemonic__button"
@@ -43,16 +43,16 @@
                     :on-press="onCopyClick"
                 />
             </div>
-            <div class="generate-container__value-area__password" v-else>
+            <div v-else class="generate-container__value-area__password">
                 <HeaderedInput
                     class="generate-container__value-area__password__input"
                     placeholder="Enter encryption passphrase here"
-                    @setData="onChangePassphrase"
                     :error="errorMessage"
+                    @setData="onChangePassphrase"
                 />
             </div>
         </div>
-        <div class="generate-container__warning" v-if="isGenerateState">
+        <div v-if="isGenerateState" class="generate-container__warning">
             <h2 class="generate-container__warning__title">Save Your Encryption Passphrase</h2>
             <p class="generate-container__warning__message">
                 You’ll need this passphrase to access data in the future. This is the only time it will be displayed.
@@ -60,10 +60,10 @@
             </p>
             <label class="generate-container__warning__check-area" :class="{ error: isError }" for="pass-checkbox">
                 <input
-                    class="generate-container__warning__check-area__checkbox"
                     id="pass-checkbox"
-                    type="checkbox"
                     v-model="isChecked"
+                    class="generate-container__warning__check-area__checkbox"
+                    type="checkbox"
                     @change="isError = false"
                 >
                 Yes, I wrote this down or saved it somewhere.

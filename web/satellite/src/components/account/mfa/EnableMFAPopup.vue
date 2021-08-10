@@ -5,29 +5,29 @@
     <div class="enable-mfa">
         <div class="enable-mfa__container">
             <h1 class="enable-mfa__container__title">Two-Factor Authentication</h1>
-            <p class="enable-mfa__container__subtitle" v-if="isScan">
+            <p v-if="isScan" class="enable-mfa__container__subtitle">
                 Scan this QR code in your favorite TOTP app to get get started.
             </p>
-            <p class="enable-mfa__container__subtitle max-width" v-if="isEnable">
+            <p v-if="isEnable" class="enable-mfa__container__subtitle max-width">
                 Enter the authentication code generated in your TOTP app to confirm your account is connected.
             </p>
-            <p class="enable-mfa__container__subtitle" v-if="isCodes">
+            <p v-if="isCodes" class="enable-mfa__container__subtitle">
                 Save recovery codes.
             </p>
-            <div class="enable-mfa__container__scan" v-if="isScan">
+            <div v-if="isScan" class="enable-mfa__container__scan">
                 <h2 class="enable-mfa__container__scan__title">Scan this QR Code</h2>
                 <p class="enable-mfa__container__scan__subtitle">Scan the following QR code in your OTP app.</p>
                 <div class="enable-mfa__container__scan__qr">
-                    <canvas class="enable-mfa__container__scan__qr__canvas" ref="canvas"/>
+                    <canvas ref="canvas" class="enable-mfa__container__scan__qr__canvas" />
                 </div>
                 <p class="enable-mfa__container__scan__subtitle">Unable to scan? Use the following code instead:</p>
-                <p class="enable-mfa__container__scan__secret">{{userMFASecret}}</p>
+                <p class="enable-mfa__container__scan__secret">{{ userMFASecret }}</p>
             </div>
-            <div class="enable-mfa__container__confirm" v-if="isEnable">
+            <div v-if="isEnable" class="enable-mfa__container__confirm">
                 <h2 class="enable-mfa__container__confirm__title">Confirm Authentication Code</h2>
-                <ConfirmMFAInput :on-input="onConfirmInput" :is-error="isError"/>
+                <ConfirmMFAInput :on-input="onConfirmInput" :is-error="isError" />
             </div>
-            <div class="enable-mfa__container__codes" v-if="isCodes">
+            <div v-if="isCodes" class="enable-mfa__container__codes">
                 <h2 class="enable-mfa__container__codes__title max-width">
                     Please save these codes somewhere to be able to recover access to your account.
                 </h2>
@@ -35,7 +35,7 @@
                     v-for="(code, index) in userMFARecoveryCodes"
                     :key="index"
                 >
-                    {{code}}
+                    {{ code }}
                 </p>
             </div>
             <div class="enable-mfa__container__buttons">

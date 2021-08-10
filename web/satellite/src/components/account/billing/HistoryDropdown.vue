@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 <template>
-    <div class="history-dropdown" v-click-outside="closeDropdown">
-        <div @click="redirect" class="history-dropdown__link-container">
+    <div v-click-outside="closeDropdown" class="history-dropdown">
+        <div class="history-dropdown__link-container" @click="redirect">
             <span class="history-dropdown__link-container__link">{{ label }}</span>
         </div>
     </div>

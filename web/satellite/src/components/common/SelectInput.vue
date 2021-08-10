@@ -4,22 +4,22 @@
 <template>
     <div class="input-wrap">
         <div class="label-container">
-            <p class="label-container__label" v-if="label" :style="style.labelStyle">{{label}}</p>
+            <p v-if="label" class="label-container__label" :style="style.labelStyle">{{ label }}</p>
         </div>
         <InputCaret v-if="optionsList.length > 0" class="select-input__caret" />
         <select
+            v-model="value"
             :style="style.inputStyle"
             class="select-input"
-            v-model="value"
             @change="onInput"
         >
             <option
-                class="select-input__option"
                 v-for="(option, index) in optionsList"
                 :key="index"
+                class="select-input__option"
                 :value="option"
             >
-                {{option}}
+                {{ option }}
             </option>
         </select>
     </div>

@@ -3,8 +3,8 @@
 
 <template>
     <div class="buckets-area">
-        <NoBucketArea v-if="isNoBucketAreaShown"/>
-        <div class="buckets-overflow" v-else>
+        <NoBucketArea v-if="isNoBucketAreaShown" />
+        <div v-else class="buckets-overflow">
             <div class="buckets-header">
                 <p class="buckets-header__title">Buckets</p>
                 <VHeader
@@ -14,7 +14,7 @@
                 />
             </div>
             <div v-if="buckets.length" class="buckets-container">
-                <SortingHeader/>
+                <SortingHeader />
                 <VList
                     class="buckets-list"
                     :data-set="buckets"
@@ -22,11 +22,11 @@
                     :on-item-click="doNothing"
                 />
             </div>
-            <div class="empty-search-result-area" v-if="isEmptySearchResultShown">
+            <div v-if="isEmptySearchResultShown" class="empty-search-result-area">
                 <h1 class="empty-search-result-area__title">No results found</h1>
             </div>
         </div>
-        <div class="buckets-area__pagination-area" v-if="isPaginationShown">
+        <div v-if="isPaginationShown" class="buckets-area__pagination-area">
             <VPagination
                 :total-page-count="totalPageCount"
                 :on-page-click-callback="onPageClick"

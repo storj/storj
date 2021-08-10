@@ -3,17 +3,17 @@
 
 <template>
     <input
-        class="common-search-input"
         ref="input"
-        @mouseenter="onMouseEnter"
-        @mouseleave="onMouseLeave"
-        @input="processSearchQuery"
         v-model="searchQuery"
+        class="common-search-input"
         :placeholder="`Search ${placeholder}`"
         :style="style"
         type="text"
         autocomplete="off"
-    />
+        @mouseenter="onMouseEnter"
+        @mouseleave="onMouseLeave"
+        @input="processSearchQuery"
+    >
 </template>
 
 <script lang="ts">

@@ -3,11 +3,11 @@
 
 <template>
     <div class="generate-grant" :class="{ 'border-radius': isOnboardingTour }">
-        <BackIcon class="generate-grant__back-icon" @click="onBackClick"/>
+        <BackIcon class="generate-grant__back-icon" @click="onBackClick" />
         <h1 class="generate-grant__title">Generate Access Grant</h1>
         <div class="generate-grant__warning">
             <div class="generate-grant__warning__header">
-                <WarningIcon/>
+                <WarningIcon />
                 <h2 class="generate-grant__warning__header__label">This Information is Only Displayed Once</h2>
             </div>
             <p class="generate-grant__warning__message">
@@ -41,7 +41,7 @@
             height="48px"
             :on-press="onDoneClick"
         />
-        <p class="generate-grant__gateway-link" v-if="isGatewayLinkVisible" @click="navigateToGatewayStep">
+        <p v-if="isGatewayLinkVisible" class="generate-grant__gateway-link" @click="navigateToGatewayStep">
             Generate S3 Gateway Credentials
         </p>
     </div>

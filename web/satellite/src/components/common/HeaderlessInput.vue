@@ -4,49 +4,49 @@
 <template>
     <div class="input-wrap">
         <div class="label-container">
-            <ErrorIcon v-if="error"/>
-            <p class="label-container__label" v-if="isLabelShown" :style="style.labelStyle">{{label}}</p>
-            <p class="label-container__error" v-if="error" :style="style.errorStyle">{{error}}</p>
+            <ErrorIcon v-if="error" />
+            <p v-if="isLabelShown" class="label-container__label" :style="style.labelStyle">{{ label }}</p>
+            <p v-if="error" class="label-container__error" :style="style.errorStyle">{{ error }}</p>
         </div>
         <input
+            v-model="value"
             class="headerless-input"
             :class="{'inputError' : error, 'password': isPassword}"
-            @input="onInput"
-            @change="onInput"
-            v-model="value"
             :placeholder="placeholder"
             :type="type"
             :style="style.inputStyle"
+            :optionsShown="optionsShown"
+            @input="onInput"
+            @change="onInput"
             @focus="showPasswordStrength"
             @blur="hidePasswordStrength"
             @click="showOptions"
-            :optionsShown="optionsShown"
             @optionsList="optionsList"
-        />
+        >
 
         <!-- Shown if there are input choice options  -->
         <InputCaret v-if="optionsList.length > 0" class="headerless-input__caret" />
-        <ul v-click-outside="hideOptions" class="headerless-input__options-wrapper" v-if="optionsShown">
+        <ul v-if="optionsShown" v-click-outside="hideOptions" class="headerless-input__options-wrapper">
             <li
-                class="headerless-input__option"
-                @click="chooseOption(option)"
                 v-for="(option, index) in optionsList"
                 :key="index"
+                class="headerless-input__option"
+                @click="chooseOption(option)"
             >
-                {{option}}
+                {{ option }}
             </li>
         </ul>
         <!-- end of option render logic-->
 
         <!--2 conditions of eye image (crossed or not) -->
         <PasswordHiddenIcon
-            class="input-wrap__image"
             v-if="isPasswordHiddenState"
+            class="input-wrap__image"
             @click="changeVision"
         />
         <PasswordShownIcon
-            class="input-wrap__image"
             v-if="isPasswordShownState"
+            class="input-wrap__image"
             @click="changeVision"
         />
         <!-- end of image-->

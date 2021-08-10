@@ -5,7 +5,7 @@
     <div class="access-grants">
         <div class="access-grants__title-area">
             <h2 class="access-grants__title-area__title">Access Grants</h2>
-            <div class="access-grants__title-area__right" v-if="accessGrantsList.length">
+            <div v-if="accessGrantsList.length" class="access-grants__title-area__right">
                 <VButton
                     v-if="selectedAccessGrantsAmount"
                     :label="deleteButtonLabel"
@@ -24,9 +24,9 @@
                 />
             </div>
         </div>
-        <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader"/>
+        <VLoader v-if="areGrantsFetching" width="100px" height="100px" class="grants-loader" />
         <div v-if="accessGrantsList.length && !areGrantsFetching" class="access-grants-items">
-            <SortAccessGrantsHeader :on-header-click-callback="onHeaderSectionClickCallback"/>
+            <SortAccessGrantsHeader :on-header-click-callback="onHeaderSectionClickCallback" />
             <div class="access-grants-items__content">
                 <VList
                     :data-set="accessGrantsList"
@@ -36,8 +36,8 @@
             </div>
             <VPagination
                 v-if="totalPageCount > 1"
-                class="pagination-area"
                 ref="pagination"
+                class="pagination-area"
                 :total-page-count="totalPageCount"
                 :on-page-click-callback="onPageClick"
             />
@@ -48,7 +48,7 @@
             @close="onClearSelection"
             @reset-pagination="resetPagination"
         />
-        <router-view/>
+        <router-view />
     </div>
 </template>
 

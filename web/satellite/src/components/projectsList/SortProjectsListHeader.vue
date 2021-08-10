@@ -6,7 +6,7 @@
         <div class="sort-header-container__name-item">
             <p class="sort-header-container__name-item__title">NAME</p>
         </div>
-        <div class="sort-header-container__users-item" >
+        <div class="sort-header-container__users-item">
             <p class="sort-header-container__users-item__title"># USERS</p>
         </div>
         <div class="sort-header-container__date-item">

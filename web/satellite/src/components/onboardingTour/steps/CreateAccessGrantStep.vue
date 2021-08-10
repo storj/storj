@@ -16,8 +16,8 @@
                 'cli-margin': isCLIStep,
             }"
         >
-            <ProgressBar v-if="!isCLIStep"/>
-            <router-view/>
+            <ProgressBar v-if="!isCLIStep" />
+            <router-view />
         </div>
     </div>
 </template>

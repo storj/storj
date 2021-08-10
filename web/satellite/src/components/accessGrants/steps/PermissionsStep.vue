@@ -3,7 +3,7 @@
 
 <template>
     <div class="permissions" :class="{ 'border-radius': isOnboardingTour }">
-        <BackIcon class="permissions__back-icon" @click="onBackClick"/>
+        <BackIcon class="permissions__back-icon" @click="onBackClick" />
         <h1 class="permissions__title">Access Permissions</h1>
         <p class="permissions__sub-title">
             Assign permissions to this Access Grant.
@@ -11,19 +11,19 @@
         <div class="permissions__content">
             <div class="permissions__content__left">
                 <div class="permissions__content__left__item">
-                    <input type="checkbox" id="download" name="download" v-model="isDownload" :checked="isDownload">
+                    <input id="download" v-model="isDownload" type="checkbox" name="download" :checked="isDownload">
                     <label class="permissions__content__left__item__label" for="download">Download</label>
                 </div>
                 <div class="permissions__content__left__item">
-                    <input type="checkbox" id="upload" name="upload" v-model="isUpload" :checked="isUpload">
+                    <input id="upload" v-model="isUpload" type="checkbox" name="upload" :checked="isUpload">
                     <label class="permissions__content__left__item__label" for="upload">Upload</label>
                 </div>
                 <div class="permissions__content__left__item">
-                    <input type="checkbox" id="list" name="list" v-model="isList" :checked="isList">
+                    <input id="list" v-model="isList" type="checkbox" name="list" :checked="isList">
                     <label class="permissions__content__left__item__label" for="list">List</label>
                 </div>
                 <div class="permissions__content__left__item">
-                    <input type="checkbox" id="delete" name="delete" v-model="isDelete" :checked="isDelete">
+                    <input id="delete" v-model="isDelete" type="checkbox" name="delete" :checked="isDelete">
                     <label class="permissions__content__left__item__label" for="delete">Delete</label>
                 </div>
             </div>
@@ -34,16 +34,16 @@
                 </div>
                 <div class="permissions__content__right__buckets-select">
                     <p class="permissions__content__right__buckets-select__label">Buckets</p>
-                    <VLoader v-if="areBucketNamesFetching" width="50px" height="50px"/>
-                    <BucketsSelection v-else/>
+                    <VLoader v-if="areBucketNamesFetching" width="50px" height="50px" />
+                    <BucketsSelection v-else />
                 </div>
                 <div class="permissions__content__right__bucket-bullets">
                     <div
-                        class="permissions__content__right__bucket-bullets__container"
                         v-for="(name, index) in selectedBucketNames"
                         :key="index"
+                        class="permissions__content__right__bucket-bullets__container"
                     >
-                        <BucketNameBullet :name="name"/>
+                        <BucketNameBullet :name="name" />
                     </div>
                 </div>
             </div>

@@ -3,7 +3,7 @@
 
 <template>
     <div class="account-area-container">
-        <router-view/>
+        <router-view />
     </div>
 </template>
 

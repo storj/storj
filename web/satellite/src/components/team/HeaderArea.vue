@@ -7,16 +7,18 @@
             <h1 class="team-header-container__title-area__title">Project Members</h1>
             <VInfo
                 class="team-header-container__title-area__info-button"
-                bold-text="The only project role currently available is Admin, which gives full access to the project.">
-                <InfoIcon class="team-header-container__title-area__info-button__image"/>
+                bold-text="The only project role currently available is Admin, which gives full access to the project."
+            >
+                <InfoIcon class="team-header-container__title-area__info-button__image" />
             </VInfo>
         </div>
         <div class="team-header-container__wrapper">
             <VHeader
                 ref="headerComponent"
                 placeholder="Team Members"
-                :search="processSearchQuery">
-                <div class="header-default-state" v-if="isDefaultState">
+                :search="processSearchQuery"
+            >
+                <div v-if="isDefaultState" class="header-default-state">
                     <VButton
                         class="button"
                         label="+ Add"
@@ -26,7 +28,7 @@
                         :is-disabled="isAddButtonDisabled"
                     />
                 </div>
-                <div class="header-selected-members" v-if="areProjectMembersSelected">
+                <div v-if="areProjectMembersSelected" class="header-selected-members">
                     <VButton
                         class="button deletion"
                         label="Delete"
@@ -42,10 +44,10 @@
                         is-transparent="true"
                         :on-press="onClearSelection"
                     />
-                    <span class="header-selected-members__info-text"><b>{{selectedProjectMembersCount}}</b> users selected</span>
+                    <span class="header-selected-members__info-text"><b>{{ selectedProjectMembersCount }}</b> users selected</span>
                 </div>
-                <div class="header-after-delete-click" v-if="areSelectedProjectMembersBeingDeleted">
-                    <span class="header-after-delete-click__delete-confirmation">Are you sure you want to delete <b>{{selectedProjectMembersCount}}</b> {{userCountTitle}}?</span>
+                <div v-if="areSelectedProjectMembersBeingDeleted" class="header-after-delete-click">
+                    <span class="header-after-delete-click__delete-confirmation">Are you sure you want to delete <b>{{ selectedProjectMembersCount }}</b> {{ userCountTitle }}?</span>
                     <div class="header-after-delete-click__button-area">
                         <VButton
                             class="button deletion"
@@ -65,10 +67,10 @@
                     </div>
                 </div>
             </VHeader>
-            <div class="blur-content" v-if="isDeleteClicked"></div>
-            <div class="blur-search" v-if="isDeleteClicked"></div>
+            <div v-if="isDeleteClicked" class="blur-content" />
+            <div v-if="isDeleteClicked" class="blur-search" />
         </div>
-        <AddUserPopup v-if="isAddTeamMembersPopupShown"/>
+        <AddUserPopup v-if="isAddTeamMembersPopupShown" />
     </div>
 </template>
 

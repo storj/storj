@@ -3,11 +3,11 @@
 
 <template>
     <div class="info" @mouseenter="toggleVisibility" @mouseleave="toggleVisibility">
-        <slot></slot>
-        <div class="info__message-box" v-if="isVisible">
+        <slot />
+        <div v-if="isVisible" class="info__message-box">
             <div class="info__message-box__text">
-                <p class="info__message-box__text__regular-text">{{text}}</p>
-                <p class="info__message-box__text__bold-text">{{boldText}}</p>
+                <p class="info__message-box__text__regular-text">{{ text }}</p>
+                <p class="info__message-box__text__bold-text">{{ boldText }}</p>
             </div>
         </div>
     </div>

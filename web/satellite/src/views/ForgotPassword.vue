@@ -4,7 +4,7 @@
 <template>
     <div class="forgot-area" @keyup.enter="onSendConfigurations">
         <div class="forgot-area__logo-wrapper">
-            <LogoIcon class="forgot-area__logo-wrapper__logo" @click="onLogoClick"/>
+            <LogoIcon class="forgot-area__logo-wrapper__logo" @click="onLogoClick" />
         </div>
         <div class="forgot-area__content-area">
             <div class="forgot-area__content-area__container">
@@ -13,7 +13,7 @@
                     <div class="forgot-area__expand" @click.stop="toggleDropdown">
                         <span class="forgot-area__expand__value">{{ satelliteName }}</span>
                         <BottomArrowIcon />
-                        <div class="forgot-area__expand__dropdown" v-if="isDropdownShown" v-click-outside="closeDropdown">
+                        <div v-if="isDropdownShown" v-click-outside="closeDropdown" class="forgot-area__expand__dropdown">
                             <div class="forgot-area__expand__dropdown__item" @click.stop="closeDropdown">
                                 <SelectedCheckIcon />
                                 <span class="forgot-area__expand__dropdown__item__name">{{ satelliteName }}</span>
@@ -31,9 +31,9 @@
                         label="Email Address"
                         placeholder="example@email.com"
                         :error="emailError"
-                        @setData="setEmail"
                         width="calc(100% - 2px)"
                         height="46px"
+                        @setData="setEmail"
                     />
                 </div>
                 <p class="forgot-area__content-area__container__button" @click.prevent="onSendConfigurations">Reset Password</p>

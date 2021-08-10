@@ -6,12 +6,12 @@
         <div class="header-container__left-area">
             <div class="header-container__left-area__logo-area">
                 <NavigationMenuIcon
-                    class="header-container__left-area__logo-area__menu-button"
                     v-if="!isNavigationVisible && !isOnboardingTour"
+                    class="header-container__left-area__logo-area__menu-button"
                     @click.stop="toggleNavigationVisibility"
                 />
-                <div class="header-container__left-area__logo-area__close-button" v-if="isNavigationVisible" @click.stop="toggleNavigationVisibility">
-                    <NavigationCloseIcon/>
+                <div v-if="isNavigationVisible" class="header-container__left-area__logo-area__close-button" @click.stop="toggleNavigationVisibility">
+                    <NavigationCloseIcon />
                     <p class="header-container__left-area__logo-area__close-button__title">Close</p>
                 </div>
                 <LogoIcon
@@ -19,24 +19,24 @@
                     @click.stop="onLogoClick"
                 />
             </div>
-            <ProjectSelection class="project-selection"/>
-            <ResourcesSelection class="resources-selection"/>
-            <SettingsSelection class="settings-selection"/>
+            <ProjectSelection class="project-selection" />
+            <ResourcesSelection class="resources-selection" />
+            <SettingsSelection class="settings-selection" />
         </div>
         <div class="header-container__right-area">
             <div class="header-container__right-area__satellite-area">
                 <div class="header-container__right-area__satellite-area__checkmark">
-                    <CheckmarkIcon/>
+                    <CheckmarkIcon />
                 </div>
                 <p class="header-container__right-area__satellite-area__name">{{ satelliteName }}</p>
             </div>
-            <AccountButton class="header-container__right-area__account-button"/>
+            <AccountButton class="header-container__right-area__account-button" />
         </div>
         <NavigationArea
-            class="adapted-navigation"
             v-if="isNavigationVisible"
+            class="adapted-navigation"
         />
-        <div class="navigation-blur" v-if="isNavigationVisible" @click.self.stop="toggleNavigationVisibility"/>
+        <div v-if="isNavigationVisible" class="navigation-blur" @click.self.stop="toggleNavigationVisibility" />
     </div>
 </template>
 

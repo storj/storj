@@ -3,7 +3,7 @@
 
 <template>
     <div class="cli-container" :class="{ 'border-radius': isOnboardingTour }">
-        <BackIcon class="cli-container__back-icon" @click="onBackClick"/>
+        <BackIcon class="cli-container__back-icon" @click="onBackClick" />
         <h1 class="cli-container__title">Create Access Grant in CLI</h1>
         <p class="cli-container__sub-title">
             Run the 'setup' command in the uplink CLI and input the satellite address and token below when prompted to generate your access grant.

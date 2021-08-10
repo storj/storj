@@ -18,8 +18,8 @@
             </div>
             <div v-if="isAddCard" class="pm-area__add-modal__card">
                 <StripeCardInput
-                    class="pm-area__add-modal__card__stripe"
                     ref="stripeCardInput"
+                    class="pm-area__add-modal__card__stripe"
                     :on-stripe-response-callback="addCardToDB"
                 />
                 <VButton
@@ -30,15 +30,15 @@
                 />
                 <p class="pm-area__add-modal__card__info">Upgrade to Pro Account by adding a credit card.</p>
                 <div class="pm-area__add-modal__card__info-bullet">
-                    <CheckMarkIcon/>
+                    <CheckMarkIcon />
                     <p class="pm-area__add-modal__card__info-bullet__label">3 projects</p>
                 </div>
                 <div class="pm-area__add-modal__card__info-bullet">
-                    <CheckMarkIcon/>
+                    <CheckMarkIcon />
                     <p class="pm-area__add-modal__card__info-bullet__label">25TB storage per project.</p>
                 </div>
                 <div class="pm-area__add-modal__card__info-bullet">
-                    <CheckMarkIcon/>
+                    <CheckMarkIcon />
                     <p class="pm-area__add-modal__card__info-bullet__label">100TB egress bandwidth per project.</p>
                 </div>
             </div>
@@ -48,8 +48,8 @@
                 </p>
                 <TokenDepositSelection
                     class="pm-area__add-modal__tokens__selection"
-                    @onChangeTokenValue="onChangeTokenValue"
                     :payment-options="paymentOptions"
+                    @onChangeTokenValue="onChangeTokenValue"
                 />
                 <VButton
                     width="100%"
@@ -86,7 +86,7 @@
                 </p>
             </div>
             <div class="pm-area__add-modal__security">
-                <LockImage/>
+                <LockImage />
                 <p class="pm-area__add-modal__security__info">
                     Your information is secured with 128-bit SSL & AES-256 encryption.
                 </p>
@@ -103,7 +103,7 @@
             </div>
         </div>
         <div v-else class="pm-area__success-modal">
-            <BigCheckMarkIcon class="pm-area__success-modal__icon"/>
+            <BigCheckMarkIcon class="pm-area__success-modal__icon" />
             <h2 class="pm-area__success-modal__title">Congratulations!</h2>
             <h2 class="pm-area__success-modal__title">You’ve just upgraded your account.</h2>
             <p class="pm-area__success-modal__info">

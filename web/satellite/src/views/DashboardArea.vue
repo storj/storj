@@ -4,27 +4,27 @@
 <template>
     <div class="dashboard">
         <div v-if="isLoading" class="loading-overlay active">
-            <LoaderImage class="loading-icon"/>
+            <LoaderImage class="loading-icon" />
         </div>
         <div v-if="isBetaSatellite" class="dashboard__beta-banner">
             <p class="dashboard__beta-banner__message">
-                Thanks for testing the {{satelliteName}} Beta satellite | Data may be deleted during this beta | Submit testing feedback
+                Thanks for testing the {{ satelliteName }} Beta satellite | Data may be deleted during this beta | Submit testing feedback
                 <a class="dashboard__beta-banner__message__link" :href="betaFeedbackURL" target="_blank" rel="noopener noreferrer">here</a>
                 | Request support
                 <a class="dashboard__beta-banner__message__link" :href="betaSupportURL" target="_blank" rel="noopener noreferrer">here</a>
             </p>
         </div>
         <div v-if="!isLoading" class="dashboard__wrap">
-            <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal"/>
-            <DashboardHeader/>
+            <PaidTierBar v-if="!creditCards.length && !isOnboardingTour" :open-add-p-m-modal="togglePMModal" />
+            <DashboardHeader />
             <div class="dashboard__wrap__main-area">
-                <NavigationArea class="regular-navigation"/>
+                <NavigationArea class="regular-navigation" />
                 <div class="dashboard__wrap__main-area__content">
-                    <router-view/>
+                    <router-view />
                 </div>
             </div>
         </div>
-        <AddPaymentMethodModal v-if="isAddPMModal" :on-close="togglePMModal"/>
+        <AddPaymentMethodModal v-if="isAddPMModal" :on-close="togglePMModal" />
     </div>
 </template>
 

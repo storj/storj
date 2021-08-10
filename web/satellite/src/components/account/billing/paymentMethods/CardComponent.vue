@@ -5,26 +5,26 @@
     <div class="payment-methods-container__card-container">
         <div class="payment-methods-container__card-container__info-area">
             <div class="payment-methods-container__card-container__info-area__card-logo">
-                <component :is="cardIcon"></component>
+                <component :is="cardIcon" />
             </div>
             <div class="payment-methods-container__card-container__info-area__info-container">
                 <img src="@/../static/images/payments/cardStars.png" alt="Hidden card digits stars image">
-                <h1 class="bold">{{creditCard.last4}}</h1>
+                <h1 class="bold">{{ creditCard.last4 }}</h1>
             </div>
             <div class="payment-methods-container__card-container__info-area__expire-container">
                 <h2 class="medium">Expires</h2>
-                <h1 class="bold">{{creditCard.expMonth}}/{{creditCard.expYear}}</h1>
+                <h1 class="bold">{{ creditCard.expMonth }}/{{ creditCard.expYear }}</h1>
             </div>
         </div>
         <div class="payment-methods-container__card-container__button-area">
-            <div class="payment-methods-container__card-container__default-button" v-if="creditCard.isDefault">
+            <div v-if="creditCard.isDefault" class="payment-methods-container__card-container__default-button">
                 <p class="payment-methods-container__card-container__default-button__label">Default</p>
             </div>
-            <div class="payment-methods-container__card-container__dots-container" v-else>
+            <div v-else class="payment-methods-container__card-container__dots-container">
                 <div @click.stop="toggleSelection">
                     <svg width="12" height="4" viewBox="0 0 12 4" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <rect width="4" height="4" rx="2" fill="#354049"/>
-                        <rect x="8" width="4" height="4" rx="2" fill="#354049"/>
+                        <rect width="4" height="4" rx="2" fill="#354049" />
+                        <rect x="8" width="4" height="4" rx="2" fill="#354049" />
                     </svg>
                 </div>
                 <CardDialog

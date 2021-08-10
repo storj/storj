@@ -6,7 +6,7 @@
         <p class="container__item">{{ startDate }}</p>
         <p class="container__item coupon">{{ creditType }}</p>
         <p :class="{'expired' : expirationCheck}" class="container__item">{{ expiration }}</p>
-        <p class="container__item">{{  creditsItem.amount | centsToDollars }}</p>
+        <p class="container__item">{{ creditsItem.amount | centsToDollars }}</p>
         <p class="container__item">{{ amountUsed | centsToDollars }}</p>
         <p class="container__item available">{{ creditsItem.remaining | centsToDollars }}</p>
     </div>

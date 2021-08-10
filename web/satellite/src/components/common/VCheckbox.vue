@@ -3,8 +3,8 @@
 
 <template>
     <label class="container">
-        <input class="checkmark-input" type="checkbox" v-model="checked" @change="onChange">
-        <span class="checkmark" :class="{'error': isCheckboxError}"></span>
+        <input v-model="checked" class="checkmark-input" type="checkbox" @change="onChange">
+        <span class="checkmark" :class="{'error': isCheckboxError}" />
     </label>
 </template>
 

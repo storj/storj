@@ -4,7 +4,7 @@
 <template>
     <div class="bucket-bullet">
         <p class="bucket-bullet__label">{{ name }}</p>
-        <UnselectIcon class="bucket-bullet__icon" @click.stop="toggleBucketSelection(name)"/>
+        <UnselectIcon class="bucket-bullet__icon" @click.stop="toggleBucketSelection(name)" />
     </div>
 </template>
 

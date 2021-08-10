@@ -15,8 +15,8 @@
             />
             <ResourcesDropdown
                 v-show="isDropdownShown"
-                @close="closeDropdown"
                 v-click-outside="closeDropdown"
+                @close="closeDropdown"
             />
         </div>
     </div>

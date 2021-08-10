@@ -3,15 +3,15 @@
 
 <template>
     <div class="enter-passphrase" :class="{ 'border-radius': isOnboardingTour }">
-        <BackIcon class="enter-passphrase__back-icon" @click="onBackClick"/>
+        <BackIcon class="enter-passphrase__back-icon" @click="onBackClick" />
         <h1 class="enter-passphrase__title">Enter Encryption Passphrase</h1>
         <p class="enter-passphrase__sub-title">Enter the passphrase you most recently generated for Access Grants</p>
         <HeaderedInput
             class="enter-passphrase__input"
             label="Encryption Passphrase"
             placeholder="Enter your passphrase here"
-            @setData="onChangePassphrase"
             :error="errorMessage"
+            @setData="onChangePassphrase"
         />
         <VButton
             class="enter-passphrase__next-button"

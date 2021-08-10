@@ -4,11 +4,11 @@
 <template>
     <div class="login-area" @keyup.enter="onLogin">
         <div class="login-area__logo-wrapper">
-            <LogoIcon class="logo" @click="onLogoClick"/>
+            <LogoIcon class="logo" @click="onLogoClick" />
         </div>
         <div class="login-area__content-area">
             <div class="login-area__content-area">
-                <div class="login-area__content-area__activation-banner" :class="{'error': isActivatedError}" v-if="isActivatedBannerShown">
+                <div v-if="isActivatedBannerShown" class="login-area__content-area__activation-banner" :class="{'error': isActivatedError}">
                     <p class="login-area__content-area__activation-banner__message">
                         <template v-if="!isActivatedError"><b>Success!</b> Account verified.</template>
                         <template v-else><b>Oops!</b> This account has already been verified.</template>
@@ -21,7 +21,7 @@
                         <div class="login-area__expand" @click.stop="toggleDropdown">
                             <span class="login-area__expand__value">{{ satelliteName }}</span>
                             <BottomArrowIcon />
-                            <div class="login-area__expand__dropdown" v-if="isDropdownShown" v-click-outside="closeDropdown">
+                            <div v-if="isDropdownShown" v-click-outside="closeDropdown" class="login-area__expand__dropdown">
                                 <div class="login-area__expand__dropdown__item" @click.stop="closeDropdown">
                                     <SelectedCheckIcon />
                                     <span class="login-area__expand__dropdown__item__name">{{ satelliteName }}</span>
@@ -32,33 +32,33 @@
                             </div>
                         </div>
                     </div>
-                    <div class="login-area__input-wrapper" v-if="!isMFARequired">
+                    <div v-if="!isMFARequired" class="login-area__input-wrapper">
                         <HeaderlessInput
                             class="full-input"
                             label="Email Address"
                             placeholder="example@email.com"
                             :error="emailError"
-                            @setData="setEmail"
                             height="46px"
                             width="calc(100% - 2px)"
+                            @setData="setEmail"
                         />
                     </div>
-                    <div class="login-area__input-wrapper" v-if="!isMFARequired">
+                    <div v-if="!isMFARequired" class="login-area__input-wrapper">
                         <HeaderlessInput
                             class="full-input"
                             label="Password"
                             placeholder="Password"
                             :error="passwordError"
-                            @setData="setPassword"
                             width="calc(100% - 2px)"
                             height="46px"
                             is-password="true"
+                            @setData="setPassword"
                         />
                     </div>
-                    <div class="login-area__content-area__container__mfa" v-if="isMFARequired">
+                    <div v-if="isMFARequired" class="login-area__content-area__container__mfa">
                         <div class="login-area__content-area__container__mfa__info">
                             <div class="login-area__content-area__container__mfa__info__title-area">
-                                <WarningIcon/>
+                                <WarningIcon />
                                 <h2 class="login-area__content-area__container__mfa__info__title-area__txt">
                                     Two-Factor Authentication Required
                                 </h2>
@@ -67,7 +67,7 @@
                                 You'll need the six-digit code from your authenticator app to continue.
                             </p>
                         </div>
-                        <ConfirmMFAInput ref="mfaInput" :on-input="onConfirmInput" :is-error="isMFAError" :is-recovery="isRecoveryCodeState"/>
+                        <ConfirmMFAInput ref="mfaInput" :on-input="onConfirmInput" :is-error="isMFAError" :is-recovery="isRecoveryCodeState" />
                         <span v-if="!isRecoveryCodeState" class="login-area__content-area__container__mfa__recovery" @click="setRecoveryCodeState">
                             Or use recovery code
                         </span>
@@ -77,7 +77,8 @@
                         Cancel
                     </span>
                 </div>
-                <p class="login-area__content-area__reset-msg">Forgot your sign in details?
+                <p class="login-area__content-area__reset-msg">
+                    Forgot your sign in details?
                     <router-link :to="forgotPasswordPath" class="login-area__content-area__reset-msg__link">
                         Reset Password
                     </router-link>
